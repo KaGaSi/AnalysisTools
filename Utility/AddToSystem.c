@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 // TODO: split into two utilities - adding existing (vtf) configuration and
 //       generating addition from FIELD?
 // TODO: -offset for -vtf option
@@ -217,7 +218,7 @@ int main(int argc, char *argv[]) {
             }
             break;
           } else { // missing vcf file name
-            ErrorPrintError();
+            ErrorPrintError_old();
             YellowText(STDERR_FILENO);
             fprintf(stderr, "-vtf");
             RedText(STDERR_FILENO);
@@ -237,7 +238,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   if (count != 3) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     YellowText(STDERR_FILENO);
     fprintf(stderr, "-offset");
     RedText(STDERR_FILENO);
@@ -282,7 +283,7 @@ int main(int argc, char *argv[]) {
   if (highest_dist != -1 || lowest_dist != -1) {
     // 1)
     if (strcmp(argv[1],"--") == 0) {
-      ErrorPrintError();
+      ErrorPrintError_old();
       RedText(STDERR_FILENO);
       fprintf(stderr, "if new system is generated,");
       fprintf(stderr, "there cannot be -ld/-hd/-bt options present\n\n");
@@ -297,7 +298,7 @@ int main(int argc, char *argv[]) {
       }
     }
     if (!bt) {
-      ErrorPrintError();
+      ErrorPrintError_old();
       RedText(STDERR_FILENO);
       fprintf(stderr, "if '-ld' and/or '-hd' is used,");
       fprintf(stderr, "'-bt' must be specified as well\n\n");
@@ -314,7 +315,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   if (test != 2) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     YellowText(STDERR_FILENO);
     fprintf(stderr, "-cx");
     RedText(STDERR_FILENO);
@@ -337,7 +338,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   if (test != 2) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     YellowText(STDERR_FILENO);
     fprintf(stderr, "-cy");
     RedText(STDERR_FILENO);
@@ -359,7 +360,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   if (test != 2) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     YellowText(STDERR_FILENO);
     fprintf(stderr, "-cz");
     RedText(STDERR_FILENO);
@@ -388,7 +389,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   if (count != 3) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     YellowText(STDERR_FILENO);
     fprintf(stderr, "-b");
     RedText(STDERR_FILENO);
@@ -439,7 +440,7 @@ int main(int argc, char *argv[]) {
   bool sw = BoolOption(argc, argv, "-xb"); // is -xb present?
   // error - if -xb is used, 
   if (sw && strlen(input_coor) == 0) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     YellowText(STDERR_FILENO);
     fprintf(stderr, "-xb");
     RedText(STDERR_FILENO);
@@ -663,7 +664,7 @@ int main(int argc, char *argv[]) {
 
   // error - no box size //{{{
   if (Box_new.Length.x == 0 || Box_new.Length.y == 0 || Box_new.Length.z == 0) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     RedText(STDERR_FILENO);
     fprintf(stderr, "zero box size for the new system\n\n");
     ResetColour(STDERR_FILENO);
@@ -681,7 +682,7 @@ int main(int argc, char *argv[]) {
   }
   // count beads to be added
   if (sw && Counts_add.Beads > can_be_exchanged) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     RedText(STDERR_FILENO);
     fprintf(stderr, "insufficient beads to exchange for new ones\n");
     fprintf(stderr, "     Exchangeable beads in the original system: ");

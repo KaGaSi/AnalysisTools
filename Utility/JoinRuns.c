@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -185,7 +186,7 @@ int main(int argc, char *argv[]) {
   // error if ending step is lower than starging step //{{{
   // TODO colours
   if (end_1 != -1 && start_1 > end_1) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     fprintf(stderr, "\033[1;31m");
     fprintf(stderr, "For the first run, starting step (%d) is higher than ending step (%d)\n", start_1, end_1);
     fprintf(stderr, "\033[0m");
@@ -193,7 +194,7 @@ int main(int argc, char *argv[]) {
   }
   // TODO colours
   if (end_2 != -1 && start_2 > end_2) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     fprintf(stderr, "\033[1;31m");
     fprintf(stderr, "For the first run, starting step (%d) is higher than ending step (%d)\n", start_2, end_2);
     fprintf(stderr, "\033[0m");
@@ -250,7 +251,7 @@ int main(int argc, char *argv[]) {
     int type = FindBeadType(argv[count], Counts, BeadType1);
     // TODO colours
     if (type == -1) {
-      ErrorPrintError();
+      ErrorPrintError_old();
       fprintf(stderr, "\033[1;31m");
       fprintf(stderr, "non-existent bead name \033[1;33m%s\033[1;31m\n", argv[count]);
       fprintf(stderr, "\033[0m");
@@ -308,7 +309,7 @@ int main(int argc, char *argv[]) {
   if (BoxLength.x != BoxLength_2.x ||
       BoxLength.y != BoxLength_2.y ||
       BoxLength.z != BoxLength_2.z) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     fprintf(stderr, "\033[1;31m");
     fprintf(stderr, "- different box sizes in provided coordinate files\n");
     fprintf(stderr, "        %s: %lf %lf %lf\n", input_coor_1, BoxLength.x, BoxLength.y, BoxLength.z);

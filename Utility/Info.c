@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 
 // TODO: if -c is used, don't just find out the box, but what beads are present
 

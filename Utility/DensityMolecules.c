@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 
 // TODO: change double rho arrays into (long) int?
 
@@ -145,7 +146,7 @@ int main(int argc, char *argv[]) {
       int type = FindMoleculeType(argv[count], Counts, MoleculeType);
       // error - nonexistent molecule  //{{{
       if (type == -1) {
-        ErrorPrintError();
+        ErrorPrintError_old();
         YellowText(STDERR_FILENO);
         fprintf(stderr, "%s", input_coor);
         RedText(STDERR_FILENO);

@@ -16,6 +16,8 @@
 #include "Structs.h"
 #include "AnalysisTools.h"
 
+extern char ERROR_MSG[LINE];
+
 // ErrorCoorRead() //{{{
 /**
  * \brief Incorrect reading of vcf file
@@ -130,15 +132,26 @@ void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file); //}}}
  */
 void ErrorStartEnd(int start, int end); //}}}
 
-// PrintError() //{{{
+// ErrorPrintError_old() //{{{
+void ErrorPrintError_old(); //}}}
+
+// ErrorPrintError() //{{{
 void ErrorPrintError(); //}}}
 
-// PrintWarning() //{{{
+// WarnPrintWarning() //{{{
 void WarnPrintWarning(); //}}}
 
-// ErrorPrintFile() //{{{
-void ErrorPrintFile(char *file); //}}}
+// WarnPrintFile(char *file) //{{{
+void WarnPrintFile(char *file); //}}}
+
+// PrintFile() //{{{
+void PrintFile(char *file); //}}}
 
 // PrintFileLine() //{{{
-void ErrorPrintFileLine(char *file, int line); //}}}
+void PrintFileLine(char *file, int line,
+                   char split[SPL_STR][SPL_LEN], int words); //}}}
+
+// PrintFull() //{{{
+void ErrorPrintFull(char *file, int line,
+                    char split[SPL_STR][SPL_LEN], int words); //}}}
 #endif

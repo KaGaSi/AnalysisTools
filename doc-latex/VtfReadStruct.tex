@@ -1,0 +1,59 @@
+\subsection[VtfReadStruct]{Read structure file}\label{ssec:VtfReadStruct}
+
+This function reads an input \vsf file line by line, identifying all beads and
+molecules present there.
+
+\TODO requires splitting into more functions---I guess\ldots
+
+\CallInit{void}{VtfReadStruct}
+\begin{longtable}{L{0.36\textwidth}Mp{0.51\textwidth}}
+  \toprule
+  variable           & in/out & explanation \\
+  \midrule
+  \ttb{(char) struct_file[]}         & in  & name of the input \vsf file\\
+  \ttb{(bool) detailed}              & in  & should the bead/molecule type
+                                             determination be based on more than
+                                             just name?\\
+  \ttb{(COUNTS) Counts}              & out & basic system information \TODO add
+                                             ref\\
+  \ttb{(BEADTYPE) BeadType[]}        & out & information about bead types \TODO
+                                             add ref\\
+  \ttb{(BEAD) Bead[]}                & out & information about individual beads
+                                             \TODO add ref\\
+  \ttb{(int) Index[]}                & out & array connecting internal and  \vtf
+                                             bead indices\\
+  \ttb{(MOLECULETYPE) MoleculeType[]}& out & information about molecule types
+                                             \TODO add ref\\
+  \ttb{(MOLECULE) Molecule[]}       & out & information about individual
+                                            molecules \TODO add ref\\
+  \bottomrule
+\end{longtable}
+\vspace{-1em}
+\begin{algorithmic}[1]
+  \St initialize empty \ttb{Counts}
+  \St $struct\_vtf\gets$ \hltt{true} if \ttb{struct_file} is full \vtf file,
+    \hltt{false} if jus \vsf
+  \St open \ttb{struct_file}
+% \St $file\_line\_count \gets 0$\Comment{count lines; line number printed in
+%   case of an error}
+% \While{$line\gets$ get a line from \ttb{input_vcf}}
+%   \St $file\_line\_count\gets file\_line\_count+1$
+%   \If{$line$ is \hltt{pbc} line}
+%     \St \ttb{Box.Length}$\gets$ 1st to 3rd string from $line$ as box
+%       dimensions
+%     \St \ttb{Box}$\gets 90^\circ$ as all three angles\Comment{assume
+%       orthogonal box}
+%     \If{\hltt{pbc} line contains angles}
+%       \St \ttb{Box} $\gets$ 4th to 6th string from $line$ as
+%         angles\Comment{possibly triclinic box}
+%     \EndIf
+%     \Break\Comment{box dimensions found, so there's nothing more to do}
+%   \ElsIf{$line$ is a coordinate line}
+%     \Error missing box dimensions in \ttb{input_vcf}
+%   \ElsIf{$line$ is unrecognised}
+%     \Error invalid line in \ttb{input_vcf}
+%   \EndIf
+% \EndWhile
+% \St close \ttb{input_vcf}
+\end{algorithmic}
+\algbottomrule

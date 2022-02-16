@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -136,7 +137,7 @@ int main ( int argc, char** argv ) {
       // error - insufficient number of columns
       // TODO: colours
       if (words < column) {
-        ErrorPrintError();
+        ErrorPrintError_old();
         fprintf(stderr, "\033[1;31m");
         fprintf(stderr, "\033[1;33m%s\033[1;31m - too few columns", input);
         fprintf(stderr, "\033[0m");
@@ -158,7 +159,7 @@ int main ( int argc, char** argv ) {
   // error - <discard> is too large //{{{
   // TODO colours
   if (discard >= lines) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     fprintf(stderr, "\033[1;31m");
     fprintf(stderr, "\033[1;31m<discard>\033[1;31m - \033[1;33m%d\033[1;31m is too high\n\n", discard);
     fprintf(stderr, "\033[0m");

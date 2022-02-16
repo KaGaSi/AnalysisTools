@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 
 // TODO: add reasonable output formatting such as - "type" <ids> "params" for
 //       FIELD; <number> "type" <ids> for lammps data file

@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -140,7 +141,7 @@ int main(int argc, char *argv[]) {
     if (strcmp(argv[i], "-a") == 0) {
       // Error - missing argument //{{{
       if ((i+1) >= argc) {
-        ErrorPrintError();
+        ErrorPrintError_old();
         YellowText(STDERR_FILENO);
         fprintf(stderr, "-a");
         RedText(STDERR_FILENO);
@@ -171,7 +172,7 @@ int main(int argc, char *argv[]) {
       normal.z = 1;
       break;
     default:
-      ErrorPrintError();
+      ErrorPrintError_old();
       YellowText(STDERR_FILENO);
       fprintf(stderr, "-a");
       RedText(STDERR_FILENO);
@@ -207,7 +208,7 @@ int main(int argc, char *argv[]) {
       int mtype = FindMoleculeType(argv[count], Counts, MoleculeType);
       // error - nonexistent molecule  //{{{
       if (mtype == -1) {
-        ErrorPrintError();
+        ErrorPrintError_old();
         YellowText(STDERR_FILENO);
         fprintf(stderr, "%s", input_coor);
         RedText(STDERR_FILENO);
@@ -243,7 +244,7 @@ int main(int argc, char *argv[]) {
   // errors & warnings //{{{
   // Error: wrong number of integers
   if (number_of_beads == 0 || (number_of_beads%beads_per_set) != 0) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     YellowText(STDERR_FILENO);
     fprintf(stderr, "-n");
     RedText(STDERR_FILENO);

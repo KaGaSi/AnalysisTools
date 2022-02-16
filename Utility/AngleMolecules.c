@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -142,7 +143,7 @@ int main(int argc, char *argv[]) {
     while (++count < argc && argv[count][0] != '-') {
       int mol_type = FindMoleculeType(argv[count], Counts, MoleculeType);
       if (mol_type == -1) {
-        ErrorPrintError();
+        ErrorPrintError_old();
         YellowText(STDERR_FILENO);
         fprintf(stderr, "%s", input_coor);
         RedText(STDERR_FILENO);
@@ -177,7 +178,7 @@ int main(int argc, char *argv[]) {
   }
   // Error: wrong number of integers //{{{
   if ((number_of_beads%beads_per_set) != 0) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     YellowText(STDERR_FILENO);
     fprintf(stderr, "-n");
     RedText(STDERR_FILENO);
@@ -191,7 +192,7 @@ int main(int argc, char *argv[]) {
     // Error - too high id for specific molecule //{{{
     for (int j = 0; j < Counts.TypesOfMolecules; j++) {
       if (MoleculeType[j].Use && bead[i] >= MoleculeType[j].nBeads) {
-        ErrorPrintError();
+        ErrorPrintError_old();
         YellowText(STDERR_FILENO);
         fprintf(stderr, "-n");
         RedText(STDERR_FILENO);

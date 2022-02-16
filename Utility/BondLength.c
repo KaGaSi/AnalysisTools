@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -144,7 +145,7 @@ int main(int argc, char *argv[]) {
       int type = FindMoleculeType(argv[count], Counts, MoleculeType);
       // error - nonexistent molecule  //{{{
       if (type == -1) {
-        ErrorPrintError();
+        ErrorPrintError_old();
         YellowText(STDERR_FILENO);
         fprintf(stderr, "%s", input_coor);
         RedText(STDERR_FILENO);
@@ -181,7 +182,7 @@ int main(int argc, char *argv[]) {
   }
   // Error: wrong number of integers //{{{
   if (output_d[0] != '\0' && (number_of_beads%beads_per_set) != 0) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     YellowText(STDERR_FILENO);
     fprintf(stderr, "-d");
     RedText(STDERR_FILENO);
@@ -192,7 +193,7 @@ int main(int argc, char *argv[]) {
   // Error: same bead ids //{{{
   for (int i = 0; i < number_of_beads; i += 2) {
     if (bead[i] == bead[i+1] || bead[i] == 0 || bead[i+1] == 0) {
-      ErrorPrintError();
+      ErrorPrintError_old();
       YellowText(STDERR_FILENO);
       fprintf(stderr, "-d");
       RedText(STDERR_FILENO);

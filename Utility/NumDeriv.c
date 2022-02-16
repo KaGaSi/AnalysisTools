@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -118,7 +119,7 @@ int main ( int argc, char** argv ) {
         split[0][0] != '\n') {
       // error - insufficient number of columns //{{{
       if (words < x || words < f_x) {
-        ErrorPrintError();
+        ErrorPrintError_old();
         YellowText(STDERR_FILENO);
         fprintf(stderr, "%s", input);
         RedText(STDERR_FILENO);

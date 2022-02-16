@@ -35,7 +35,7 @@ void TriclinicCellData(BOX *Box) {
            s_g = sin((*Box).gamma * PI / 180);
     double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
     if (sqr < 0) {
-      ErrorPrintError();
+      ErrorPrintError_old();
       //TODO coloured output
       fprintf(stderr, "Error - wrong dimensions");
       exit(1);
@@ -68,7 +68,7 @@ void TriclinicCellData(BOX *Box) {
     (*Box).TriTilt[1] = c * c_b; // xz
     sqr = SQR(b) - SQR((*Box).TriTilt[0]);
     if (sqr < 0) {
-      ErrorPrintError();
+      ErrorPrintError_old();
       //TODO coloured output
       fprintf(stderr, "Error - wrong dimensions");
       exit(1);
@@ -78,7 +78,7 @@ void TriclinicCellData(BOX *Box) {
                         (*Box).TriLength.y;
     sqr = SQR(c) - SQR((*Box).TriTilt[1]) - SQR((*Box).TriTilt[2]);
     if (sqr < 0) {
-      ErrorPrintError();
+      ErrorPrintError_old();
       //TODO coloured output
       fprintf(stderr, "Error - wrong dimensions");
       exit(1);
@@ -1808,7 +1808,7 @@ void CopyBead(int number_of_beads, BEAD **b_out, BEAD *b_in, int mode) {
       *b_out = realloc(*b_out, sizeof (BEAD) * number_of_beads);
       break;
     default:
-      ErrorPrintError();
+      ErrorPrintError_old();
       YellowText(STDERR_FILENO);
       fprintf(stderr, "CopyBeadType()");
       RedText(STDERR_FILENO);
@@ -1845,7 +1845,7 @@ void CopyBeadType(int number_of_types, BEADTYPE **bt_out,
       *bt_out = realloc(*bt_out, sizeof (BEADTYPE) * number_of_types);
       break;
     default:
-      ErrorPrintError();
+      ErrorPrintError_old();
       YellowText(STDERR_FILENO);
       fprintf(stderr, "CopyBeadType()");
       RedText(STDERR_FILENO);
@@ -1884,7 +1884,7 @@ void CopyMoleculeType(int number_of_types, MOLECULETYPE **mt_out,
       *mt_out = realloc(*mt_out, sizeof (MOLECULETYPE) * number_of_types);
       break;
     default:
-      ErrorPrintError();
+      ErrorPrintError_old();
       YellowText(STDERR_FILENO);
       fprintf(stderr, "CopyMoleculeType()");
       RedText(STDERR_FILENO);
@@ -1958,7 +1958,7 @@ void CopyMolecule(int number_of_molecules, MOLECULETYPE *mt,
       *m_out = realloc(*m_out, sizeof (MOLECULE) * number_of_molecules);
       break;
     default:
-      ErrorPrintError();
+      ErrorPrintError_old();
       YellowText(STDERR_FILENO);
       fprintf(stderr, "CopyMolecule()");
       RedText(STDERR_FILENO);

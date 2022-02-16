@@ -1,5 +1,6 @@
 #include "../AnalysisTools.h"
 #include "Aggregates.h"
+char ERROR_MSG[LINE];
 
 // TODO: <distance> & <contacts> as options
 // TODO: do -x/-xm options make sense?
@@ -555,7 +556,7 @@ int main(int argc, char *argv[]) {
   while (++count < argc && argv[count][0] != '-') {
     int type = FindBeadType(argv[count], Counts, BeadType);
     if (type == -1) {
-      ErrorPrintError();
+      ErrorPrintError_old();
       YellowText(STDERR_FILENO);
       fprintf(stderr, "%s", input_coor);
       RedText(STDERR_FILENO);
@@ -731,7 +732,7 @@ int main(int argc, char *argv[]) {
     // are all molecules accounted for? //{{{
   // TODO: change to Warning + colours
     if (test_count != Counts.Molecules) {
-      ErrorPrintError();
+      ErrorPrintError_old();
       fprintf(stderr, "not all molecules were assigned to aggregates\n");
       fprintf(stderr, "       Counts.Molecules = \033[1;33m%d\033[1;31m;", Counts.Molecules);
       fprintf(stderr, " Molecules in aggregates: \033[1;33m%d\033[1;31m\n\n", test_count);

@@ -128,7 +128,7 @@
 } %}}}
 % number subsubsection
 \setcounter{secnumdepth}{2}
-% add subsubesctions to toc
+% add subsubsections to toc
 \setcounter{tocdepth}{2}
 % more reasonable figure placing %{{{
 \setcounter{topnumber}{2}
@@ -138,13 +138,13 @@
 \renewcommand{\bottomfraction}{0.8}
 \renewcommand{\textfraction}{0.07}
 \renewcommand{\floatpagefraction}{0.7} %}}}
-% some keywords %{{{
+% some keywords
 \let\tt\useless
 \newcommand{\tt}{\texttt}
-\newcommand{\vcf}{\texttt{vcf}}
-\newcommand{\vsf}{\texttt{vsf}}
-\newcommand{\vscf}{\texttt{vsf/vcf}}
-\newcommand{\vtf}{\texttt{vtf}}
+\newcommand{\vcf}{\texttt{vcf} }
+\newcommand{\vsf}{\texttt{vsf} }
+\newcommand{\vscf}{\texttt{vsf/vcf} }
+\newcommand{\vtf}{\texttt{vtf} }
 \newcommand{\field}{\texttt{FIELD}}
 \newcommand{\data}{\texttt{data}}
 \newcommand{\ttb}[1]{\textcolor{blue}{\texttt{#1}}}
@@ -152,7 +152,6 @@
 \newcommand{\TODO}{\colorbox{yellow}{TODO:}}
 \newcommand{\hltt}[1]{\tt{\hl{#1}}} % \hl - soul package
 \newcommand{\algbottomrule}{\vspace{-0.7em}\rule{\textwidth}{1.0pt}}
-%}}}
 % listings setup %{{{
 \definecolor{codebackground}{rgb}{0.95, 0.9, 0.95}
 \lstset{
@@ -183,6 +182,9 @@
 \newcommand{\Real}{$\mathcal{R}$}
 \newcommand{\RealP}{$\mathcal{R}^+$}
 \newcommand{\Int}{$\mathcal{I}$}
+% new column type
+\newcolumntype{L}[1]{p{#1}@{\hspace{-20pt}}}
+\newcolumntype{M}{>{\centering}p{0.2\textwidth}@{\hspace{-10pt}}}
 
 \begin{document}
 

@@ -95,6 +95,9 @@ bool IsPosReal(char *a); //}}}
  */
 bool IsInteger(char *a); //}}}
 
+// IsNatural()  //{{{
+bool IsNatural(char *a); //}}}
+
 // Min3() //{{{
 /**
  * \brief Function returning the lowest number from three floats.

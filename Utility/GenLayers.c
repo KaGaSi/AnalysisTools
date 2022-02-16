@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 
 // TODO: add that it's only for cuboid simulation box
 // TODO add --silent option
@@ -116,7 +117,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   if (test != 2) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     YellowText(STDERR_FILENO);
     fprintf(stderr, "-s");
     RedText(STDERR_FILENO);

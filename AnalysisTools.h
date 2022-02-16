@@ -101,7 +101,8 @@ void PrintBeadType2(int number, BEADTYPE *BeadType);
  * \param [in] MoleculeType  information about molecule types
  */
 void PrintMoleculeType(COUNTS Counts, BEADTYPE *BeadType, MOLECULETYPE *MoleculeType); //}}}
-void PrintMoleculeType2(int number_of_types, BEADTYPE *BeadType, MOLECULETYPE *MoleculeType);
+void PrintMoleculeType2(int number_of_types, BEADTYPE *BeadType,
+                        MOLECULETYPE *MoleculeType);
 
 // PrintBead() //{{{
 /**

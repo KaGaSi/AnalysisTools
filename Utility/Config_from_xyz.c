@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 
 // TODO: write function ReadXyzCoordinates()
 
@@ -107,7 +108,7 @@ int main(int argc, char *argv[]) {
   int beads;
   if (fscanf(xyz, "%d", &beads) != 1) {
     // TODO: correct colours etc.
-    ErrorPrintError();
+    ErrorPrintError_old();
     fprintf(stderr, "\033[1;31m");
     fprintf(stderr, "cannot read number of beads from \033[1;33m%s\033[1;31m\n\n", input_xyz);
     fprintf(stderr, "\033[0m");
@@ -186,7 +187,7 @@ int main(int argc, char *argv[]) {
 
     // error - less then four whitespace-separated strings //{{{
     if (words < 4) {
-      ErrorPrintError();
+      ErrorPrintError_old();
       YellowText(STDERR_FILENO);
       fprintf(stderr, "%s", input_xyz);
       RedText(STDERR_FILENO);
@@ -200,7 +201,7 @@ int main(int argc, char *argv[]) {
     for (int j = 1; j < 4; j++) {
       if (!IsReal(split[j])) {
         // TODO colours
-        ErrorPrintError();
+        ErrorPrintError_old();
         fprintf(stderr, "\033[1;31m");
         fprintf(stderr, "\033[1;33m%s\033[1;31m", input_xyz);
         fprintf(stderr, " - non-numeric coordinate in %d. timestep\n\n", count);

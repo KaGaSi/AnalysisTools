@@ -291,7 +291,7 @@ void WriteField(char *field, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
     fprintf(fw, "nummols %d\n", MoleculeType[i].Number);
     // error - no beads //{{{
     if (MoleculeType[i].nBeads < 1) {
-      ErrorPrintError();
+      ErrorPrintError_old();
       YellowText(STDERR_FILENO);
       fprintf(stderr, "%s", field);
       RedText(STDERR_FILENO);
@@ -313,7 +313,7 @@ void WriteField(char *field, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
     }
     // error - no molecule of given type //{{{
     if (MoleculeType[i].Number < 1 || mol == -1) {
-      ErrorPrintError();
+      ErrorPrintError_old();
       YellowText(STDERR_FILENO);
       fprintf(stderr, "%s", field);
       RedText(STDERR_FILENO);

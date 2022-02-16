@@ -5,7 +5,7 @@
  * Error when insufficient number of arguments
  */
 void ErrorArgNumber(int count, int need) {
-  ErrorPrintError();
+  ErrorPrintError_old();
   RedText(STDERR_FILENO);
   fprintf(stderr, "too few mandatory arguments (");
   YellowText(STDERR_FILENO);
@@ -28,7 +28,7 @@ bool ErrorDiscard(int start, int step, char *file, FILE *coor) {
   int test;
   if ((test = getc(coor)) == EOF) {
     fflush(stdout);
-    ErrorPrintError();
+    ErrorPrintError_old();
     YellowText(STDERR_FILENO);
     fprintf(stderr, "%s", file);
     RedText(STDERR_FILENO);
@@ -60,7 +60,7 @@ int ErrorExtension(char *file, int number, char extension[][5]) {
       return i;
     }
   }
-  ErrorPrintError();
+  ErrorPrintError_old();
   YellowText(STDERR_FILENO);
   fprintf(stderr, "%s", file);
   RedText(STDERR_FILENO);
@@ -82,7 +82,7 @@ int ErrorExtension(char *file, int number, char extension[][5]) {
  * Error when open file
  */
 void ErrorFileOpen(char *file, char mode) {
-  ErrorPrintError();
+  ErrorPrintError_old();
   YellowText(STDERR_FILENO);
   fprintf(stderr, "%s", file);
   RedText(STDERR_FILENO);
@@ -109,7 +109,7 @@ void ErrorFileOpen(char *file, char mode) {
  * Error when non-numeric argument is present instead of a number
  */
 void ErrorNaN(char *option) {
-  ErrorPrintError();
+  ErrorPrintError_old();
   YellowText(STDERR_FILENO);
   fprintf(stderr, "%s", option);
   RedText(STDERR_FILENO);
@@ -122,7 +122,7 @@ void ErrorNaN(char *option) {
  * Error when unknown option specified as argument
  */
 void ErrorOption(char *option) {
-  ErrorPrintError();
+  ErrorPrintError_old();
   RedText(STDERR_FILENO);
   fprintf(stderr, "non-existent option ");
   YellowText(STDERR_FILENO);
@@ -164,9 +164,9 @@ void ErrorMoleculeType(COUNTS Counts, MOLECULETYPE *MoleculeType) {
 void ErrorPrintLine(char split[SPL_STR][SPL_LEN], int words) {
   RedText(STDERR_FILENO);
   if (words == 0) {
-    fprintf(stderr, "       Blank line encountered");
+    fprintf(stderr, "   Blank line encountered");
   } else {
-    fprintf(stderr, "      Wrong line:\n");
+    fprintf(stderr, "   Wrong line:\n");
     YellowText(STDERR_FILENO);
     for (int i = 0; i < words; i++) {
       if (i != 0) {
@@ -193,17 +193,14 @@ void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file) {
     charge += BeadType[i].Charge * BeadType[i].Number;
   }
   if (fabs(charge) > 0.00001) {
+    strcpy(ERROR_MSG, "system with net electric charge");
     WarnPrintWarning();
+    WarnPrintFile(file);
     CyanText(STDERR_FILENO);
-    fprintf(stderr, " system in ");
+    fputs(", ", stderr);
     YellowText(STDERR_FILENO);
-    fprintf(stderr, "%s", file);
+    fprintf(stderr, "q = %lf\n", charge);
     CyanText(STDERR_FILENO);
-    fprintf(stderr, " has net electric charge (");
-    YellowText(STDERR_FILENO);
-    fprintf(stderr, "q = %lf", charge);
-    CyanText(STDERR_FILENO);
-    fprintf(stderr, ")\n\n");
     ResetColour(STDERR_FILENO);
   }
 } //}}}
@@ -214,7 +211,7 @@ void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file) {
  */
 void ErrorStartEnd(int start, int end) {
   if (end != -1 && start > end) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     YellowText(STDERR_FILENO);
     fprintf(stderr, "-st");
     RedText(STDERR_FILENO);
@@ -236,13 +233,23 @@ void ErrorStartEnd(int start, int end) {
   }
 } //}}}
 
+// ErrorPrintError_old() //{{{
+/*
+ * Function to print print error keyword in red
+ */
+void ErrorPrintError_old() {
+  RedText(STDERR_FILENO);
+  fprintf(stderr, "\nError: ");
+  ResetColour(STDERR_FILENO);
+} //}}}
+
 // ErrorPrintError() //{{{
 /*
  * Function to print print error keyword in red
  */
 void ErrorPrintError() {
   RedText(STDERR_FILENO);
-  fprintf(stderr, "\nError: ");
+  fprintf(stderr, "\n  Error - %s\n", ERROR_MSG);
   ResetColour(STDERR_FILENO);
 } //}}}
 
@@ -252,15 +259,27 @@ void ErrorPrintError() {
  */
 void WarnPrintWarning() {
   CyanText(STDERR_FILENO);
-  fprintf(stderr, "\nWarning: ");
+  fprintf(stderr, "\n  Warning - %s\n", ERROR_MSG);
   ResetColour(STDERR_FILENO);
 } //}}}
 
-// ErrorPrintFile() //{{{
+// WarnPrintFile() //{{{
 /*
  * Function to print file name and the line number in colour.
  */
-void ErrorPrintFile(char *file) {
+void WarnPrintFile(char *file) {
+  CyanText(STDERR_FILENO);
+  fputs("File ", stderr);
+  YellowText(STDERR_FILENO);
+  fprintf(stderr, "%s", file);
+  ResetColour(STDERR_FILENO);
+} //}}}
+
+// PrintFile() //{{{
+/*
+ * Function to print file name and the line number in colour.
+ */
+void PrintFile(char *file) {
   YellowText(STDERR_FILENO);
   fprintf(stderr, "%s", file);
   ResetColour(STDERR_FILENO);
@@ -270,13 +289,32 @@ void ErrorPrintFile(char *file) {
 /*
  * Function to print file name and the line number in colour.
  */
-void ErrorPrintFileLine(char *file, int line) {
-  ErrorPrintFile(file);
+void PrintFileLine(char *file, int line,
+                   char split[SPL_STR][SPL_LEN], int words) {
   RedText(STDERR_FILENO);
-  fprintf(stderr, " (line ");
+  fputs("File ", stderr);
+  PrintFile(file);
+  RedText(STDERR_FILENO);
+  fputs(", line ", stderr);
   YellowText(STDERR_FILENO);
   fprintf(stderr, "%d", line);
   RedText(STDERR_FILENO);
-  fprintf(stderr, ")");
+  fputs(":\n", stderr);
+  YellowText(STDERR_FILENO);
+  for (int i = 0; i < words; i++) {
+    if (i != 0) {
+      putc(' ', stderr);
+    }
+    fputs(split[i], stderr);
+  }
+  fputs("\n\n", stderr);
   ResetColour(STDERR_FILENO);
+} //}}}
+
+// ErrorPrintFull() //{{{
+void ErrorPrintFull(char *file, int line,
+                    char split[SPL_STR][SPL_LEN], int words) {
+  ErrorPrintError();
+  ResetColour(STDERR_FILENO);
+  PrintFileLine(file, line, split, words);
 } //}}}

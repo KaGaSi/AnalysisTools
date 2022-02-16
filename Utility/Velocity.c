@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 
 // TODO: what exactly does it do?
 // TODO: --all option?
@@ -142,7 +143,7 @@ orthogonal box.\n", argv[0]);
   while (++count < argc && argv[count][0] != '-') {
     int type = FindBeadType(argv[count], Counts, BeadType);
     if (type == -1) {
-      ErrorPrintError();
+      ErrorPrintError_old();
       YellowText(STDERR_FILENO);
       fprintf(stderr, "%s", input_coor);
       RedText(STDERR_FILENO);

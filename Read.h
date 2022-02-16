@@ -17,7 +17,8 @@
 #define COOR_LINE_O 5
 #define ATOM_LINE 6
 #define BOND_LINE 7
-#define TIME_LINE 8
+#define TIME_LINE_I 8
+#define TIME_LINE_O 9
 
 // GetPBC_old() //{{{
 /*
@@ -51,8 +52,6 @@ void ReadAggCommand(BEADTYPE *BeadType, COUNTS Counts,
                     char *input_coor, char *input_agg,
                     double *distance, int *contacts); //}}}
 
-void SkipVtfStructure(FILE *vcf, int struct_lines);
-int VtfCountStructLines(bool vtf, char *input);
 bool CheckVtfTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
                       BEADTYPE **BeadType, BEAD **Bead, int **Index,
                       MOLECULETYPE **MoleculeType, MOLECULE **Molecule);
@@ -223,20 +222,66 @@ int SkipCoorSteps(FILE *vcf, char *input_coor, COUNTS Counts, int start, bool si
 // SkipCoorAggSteps() { //{{{
 int SkipCoorAggSteps(FILE *vcf, char *input_coor, FILE *agg, char *input_agg, COUNTS Counts, int start, bool silent); //}}}
 
-bool CheckVtfTimestepLine(int words, char split[SPL_STR][SPL_LEN]);
+bool CheckVtfTimestepLine_old(int words, char split[SPL_STR][SPL_LEN]);
+int CheckVtfTimestepLine(int words, char split[SPL_STR][SPL_LEN]);
 
 int CheckVtfPbcLine(int words, char split[SPL_STR][SPL_LEN], char *file,
                     int line_count);
 
 bool CheckVtfAtomLine_old(int words, char split[SPL_STR][SPL_LEN], char *error);
-bool CheckVtfAtomLine(int words, char split[SPL_STR][SPL_LEN]);
+bool CheckVtfAtomLine(int words, char split[SPL_STR][SPL_LEN],
+                      char *file, int file_line_count);
 
 bool CheckVtfBondLine_old(int words, char split[SPL_STR][SPL_LEN], char *error);
 bool CheckVtfBondLine(int words, char split[SPL_STR][SPL_LEN]);
 
 bool CheckVtfCoordinateLine_old(int words, char split[SPL_STR][SPL_LEN],
-                            char *error, bool indexed);
+                                bool indexed);
 int CheckVtfCoordinateLine(int words, char split[SPL_STR][SPL_LEN]);
-int CheckVtLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
-                    char *file, int line_count);
+int CheckVtfLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
+                     char *file, int line_count);
+
+// NewBeadType() //{{{
+/*
+ * Function to add a new bead type to a BEADTYPE struct
+ * (and increment the number of bead types).
+ */
+void NewBeadType(BEADTYPE **BeadType, int *number_of_types, char *name,
+                 double charge, double mass, double radius); //}}}
+
+// NewMolType() //{{{
+/*
+ * Function to create a new molecule type in a MOLECULETYPE struct.
+ * TODO: not used anywhere
+ */
+void NewMolType(char *name, int *number_of_types,
+                MOLECULETYPE **MoleculeType, char *vsf_file); //}}}
+
+// FillMolMass //{{{
+/*
+ * Function to calculate mass of all molecules. If at least one bead has
+ * undefined mass, the mass of the molecule is also undefined.
+ */
+void FillMolMass(int number_of_types,
+                 BEADTYPE *BeadType, MOLECULETYPE **MoleculeType); //}}}
+
+// FillMolCharge //{{{
+/*
+ * Function to calculate charge of all molecules. If at least one bead has
+ * undefined charge, the charge of the molecule is also undefined.
+ */
+void FillMolCharge(int number_of_types, BEADTYPE *BeadType,
+                   MOLECULETYPE **MoleculeType); //}}}
+
+// FillMolType //{{{
+/*
+ * Function to fill BType array and mass and charge for each molecule type.
+ */
+void FillMolType(int number_of_types, BEADTYPE *BeadType,
+                 MOLECULETYPE **MoleculeType); //}}}
+
+// TODO not used
+int VtfCountStructLines(bool vtf, char *input);
+// TODO not to be used
+void SkipVtfStructure(FILE *vcf, int struct_lines);
 #endif

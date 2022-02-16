@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -160,7 +161,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   if (test != 2) {
-    ErrorPrintError();
+    ErrorPrintError_old();
     YellowText(STDERR_FILENO);
     fprintf(stderr, "-n");
     RedText(STDERR_FILENO);

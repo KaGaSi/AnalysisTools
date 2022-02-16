@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -111,7 +112,7 @@ int main(int argc, char *argv[]) {
     axis = argv[count][0];
     // Error - not x/y/z
     if (axis != 'x' && axis != 'y' && axis != 'z') {
-      ErrorPrintError();
+      ErrorPrintError_old();
       YellowText(STDERR_FILENO);
       fprintf(stderr, "<axis>");
       RedText(STDERR_FILENO);

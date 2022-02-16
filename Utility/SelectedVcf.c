@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 
 void Help(char cmd[50], bool error) {
   FILE *ptr;
@@ -166,7 +167,7 @@ int main(int argc, char *argv[]) {
   while (++count < argc && argv[count][0] != '-') {
     int type = FindBeadType(argv[count], Counts, BeadType);
     if (type == -1) {
-      ErrorPrintError();
+      ErrorPrintError_old();
       YellowText(STDERR_FILENO);
       fprintf(stderr, "%s", input_coor);
       RedText(STDERR_FILENO);
@@ -222,7 +223,7 @@ int main(int argc, char *argv[]) {
     ErrorFileOpen(input_coor, 'r');
     exit(1);
   }
-  SkipVtfStructure(vcf, struct_lines); //}}}
+//SkipVtfStructure(vcf, struct_lines); //}}}
 
   // print information - verbose output //{{{
   if (verbose) {

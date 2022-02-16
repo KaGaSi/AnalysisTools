@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+char ERROR_MSG[LINE];
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -132,7 +133,7 @@ int main(int argc, char *argv[]) {
       int mtype = FindMoleculeType(argv[count], Counts, MoleculeType);
       // error - nonexistent molecule  //{{{
       if (mtype == -1) {
-        ErrorPrintError();
+        ErrorPrintError_old();
         YellowText(STDERR_FILENO);
         fprintf(stderr, "%s", input_coor);
         RedText(STDERR_FILENO);
