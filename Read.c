@@ -14,6 +14,35 @@
  * of beads and insert white space accordingly
 */
 
+// VtfAtomLineValues() //{{{
+/*
+ * Function to go through a confirmed atom line and pick where are which
+ * keywords (or its value, more precisely).
+ * values array: 0..name, 1..mass, 2..charge, 3..radius, 4..resame, 5..resid
+ * If not present, the corresponding element has -1;
+ */
+void VtfAtomLineValues(int words, char split[SPL_STR][SPL_LEN], int value[6]) {
+  for (int i = 0; i < 6; i++) {
+    value[i] = -1;
+  }
+  for (int i = 2; i < words; i += 2) {
+    if (split[i][0] == 'n') {
+      value[0] = i + 1;
+    } else if (split[i][0] == 'm') {
+      value[1] = i + 1;
+    } else if (split[i][0] == 'q' || strcmp(split[i], "charge") == 0) {
+      value[2] = i + 1;
+    } else if (split[i][0] == 'r' && strncmp(split[i], "res", 3) != 0) {
+      value[3] = i + 1;
+    } else if (strncmp(split[i], "resname", 3) == 0 &&
+               strcmp(split[i], "resid") != 0) {
+      value[4] = i + 1;
+    } else if (strcmp(split[i], "resid") == 0) {
+      value[5] = i + 1;
+    }
+  }
+} //}}}
+
 // VtfReadPBC() //{{{
 /*
  * Function to get box dimensions from the provided coordinate file, that
@@ -33,7 +62,7 @@ void VtfReadPBC(char *input_vcf, BOX *Box) {
   // read input_vcf line by line
   while (ReadAndSplitLine(coor, &words, split)) {
     file_line_count++;
-    int pbc = CheckVtfLineType(words, split, false, input_vcf, file_line_count);
+    int pbc = VtfCheckLineType(words, split, false, input_vcf, file_line_count);
     // pbc line //{{{
     if (pbc == PBC_LINE || pbc == PBC_LINE_ANGLES) {
       (*Box).Length.x = atof(split[1]);
@@ -77,16 +106,11 @@ void VtfReadPBC(char *input_vcf, BOX *Box) {
  * TODO: split into more functions and incorporate possible extra information
  * from lammps data/dl_meso FIELD files.
  */
-void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
+// TODO: missing check if bead index in bond line is in a molecule in atom line
+void xVtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
                    BEADTYPE **BeadType, BEAD **Bead, int **Index,
                    MOLECULETYPE **MoleculeType, MOLECULE **Molecule) {
   (*Counts) = InitCounts; // zeroize
-  // test if struct_file is a full vtf or just vsf //{{{
-  bool struct_vtf = false;
-  char *dot = strrchr(struct_file, '.');
-  if (strcmp(dot, ".vtf") == 0) {
-    struct_vtf = true;
-  } //}}}
   // open struct_file //{{{
   FILE *vsf;
   if ((vsf = fopen(struct_file, "r")) == NULL) {
@@ -103,25 +127,25 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
       count_atom_lines = 0, // number of atom lines
       default_atom_line = -1, // line number of the first 'atom default' line
       count_bond_lines = 0, // number of bond lines
-      count_comment_lines = 0, // number of comments (#) or blank lines
       atom_names = 0, res_names = 0, // number of unieque bead & molecule names
-      last_struct = 0,  // number of the last structure line (i.e., bond or atom)
+      last_struct_line = 0, // number of the last bond or atom line
       words;
+  bool warned = false;
   char split[SPL_STR][SPL_LEN],
        (*atom_name)[BEAD_NAME+1] = malloc(sizeof *atom_name * 1),
        (*res_name)[MOL_NAME+1] = malloc(sizeof *res_name * 1);
-  // i)
   while (ReadAndSplitLine(vsf, &words, split)) {
     file_line_count++;
-    int ltype = CheckVtfLineType(words, split, false,
-                                struct_file, count_atom_lines);
-    if (ltype == ATOM_LINE) { //{{{
+    int ltype = VtfCheckLineType(words, split, false,
+                                 struct_file, file_line_count);
+    if (ltype == ATOM_LINE) {
       count_atom_lines++;
-      last_struct = count_atom_lines + count_bond_lines + count_comment_lines;
+      last_struct_line = file_line_count;
       // check if default line, otherwise count the number of beads //{{{
       if (strcmp(split[1], "default") == 0) {
-        // warning - more than one 'default line'
-        if (default_atom_line != -1) {
+        // warning - multiple 'atom default' lines (warn only once)
+        if (default_atom_line != -1 && !warned) {
+          warned = true;
           strcpy(ERROR_MSG, "multiple 'a[tom] default' lines");
           WarnPrintWarning();
           WarnPrintFile(struct_file);
@@ -130,12 +154,10 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
           YellowText(STDERR_FILENO);
           fprintf(stderr, "%d", default_atom_line+1);
           CyanText(STDERR_FILENO);
-          fprintf(stderr, " as default\n");
+          fprintf(stderr, " as the default line\n");
           ResetColour(STDERR_FILENO);
-        } else { // save line number of the default line
-          default_atom_line = count_atom_lines +
-                              count_comment_lines +
-                              count_bond_lines - 1; // 1st line should be 0th
+        } else { // save line number of the first 'atom default' line
+          default_atom_line = file_line_count - 1; // -1 as arrays ids go from 0
         }
       } else {
         // check for highest index (i.e., the number of beads in vsf)
@@ -144,62 +166,53 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
           (*Counts).BeadsInVsf = atoi(split[1]) + 1;
         }
       } //}}}
-      // save unique bead and molecule names & count molecules //{{{
-      for (int i = 0; i < words; i+= 2) {
-        if (split[i][0] == 'n') { // atom name
-          bool new = true; // assume the name is yet unknown
-          for (int j = 0; j < atom_names; j++) {
-            if (strncmp(split[i+1], atom_name[j], BEAD_NAME) == 0) {
-              new = false;
-              break;
-            }
-          }
-          if (new) { // unknown (i.e., new) name
-            atom_name = realloc(atom_name, sizeof *atom_name *
-                                (atom_names + 1));
-            strncpy(atom_name[atom_names], split[i+1], BEAD_NAME);
-            atom_names++;
-          }
-        } else if (strcmp(split[i], "resid") == 0) { // molecule index
-          // check for highest index (i.e., the number of molecules)
-          if (atoi(split[i+1]) >= (*Counts).Molecules) {
-            // vtf resid indices start at 1, so don't add 1
-            (*Counts).Molecules = atoi(split[i+1]);
-          }
-        } else if (strncmp(split[i], "res", 3) == 0) { // molecule name
-          bool new = true; // assume the name is yet unknown
-          for (int j = 0; j < res_names; j++) {
-            if (strncmp(split[i+1], res_name[j], MOL_NAME) == 0) {
-              new = false;
-              break;
-            }
-          }
-          if (new) { // unknown (i.e., new) name
-            res_name = realloc(res_name, sizeof *res_name * (res_names + 1));
-            strncpy(res_name[res_names], split[i+1], MOL_NAME);
-            res_names++;
+      int values[6];
+      VtfAtomLineValues(words, split, values);
+      // save unique bead names
+      bool new = true; // assume the name is yet unknown
+      for (int i = 0; i < atom_names; i++) {
+        if (strncmp(split[values[0]], atom_name[i], BEAD_NAME) == 0) {
+          new = false;
+          break;
+        }
+      }
+      if (new) { // unknown (i.e., new) bead name
+        atom_name = realloc(atom_name, sizeof *atom_name * (atom_names + 1));
+        strncpy(atom_name[atom_names], split[values[0]], BEAD_NAME);
+        atom_names++;
+      }
+      // save unique molecule names
+      if (values[4] != -1) {
+        new = true; // assume the name is yet unknown
+        for (int i = 0; i < res_names; i++) {
+          if (strncmp(split[values[4]], res_name[i], MOL_NAME) == 0) {
+            new = false;
+            break;
           }
         }
-      } //}}}
-      //}}}
-    } else if (ltype == BOND_LINE) { // bond line //{{{
+        if (new) { // unknown (i.e., new) molecule name
+          res_name = realloc(res_name, sizeof *res_name * (res_names + 1));
+          strncpy(res_name[res_names], split[values[4]], MOL_NAME);
+          res_names++;
+        }
+      }
+      // TODO discontinuous molecule ids should be allowed
+      // count molecules (i.e., find highes id molecule)
+      if (values[5] != -1 && atoi(split[values[5]]) >= (*Counts).Molecules) {
+        // vtf resid indices start at 1, so don't add 1
+        // TODO not necessarily starting at 1...
+        (*Counts).Molecules = atoi(split[values[5]]);
+      }
+    } else if (ltype == BOND_LINE) { // bond line
       count_bond_lines++;
-      last_struct = count_atom_lines + count_bond_lines + count_comment_lines;
-    } else if (ltype == COMMENT_LINE || ltype == BLANK_LINE ||
-               ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) {
-      count_comment_lines++;
+      last_struct_line = file_line_count;
     } else if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) { // timestep line
       break;
-    } else { // unrecognised structure line //{{{
-        ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
-        fprintf(stderr, "%s", struct_file);
-        RedText(STDERR_FILENO);
-        fprintf(stderr, " - unrecognised line\n");
-        ResetColour(STDERR_FILENO);
-        ErrorPrintLine(split, words);
-        exit(1);
-    } //}}}
+    } else if (ltype == ERROR_LINE) { // unrecognised line //{{{
+      // ERROR_MSG already holds message from the VtfCheckLineType
+      ErrorPrintFull(struct_file, file_line_count, split, words);
+      exit(1);
+    }
     //}}}
   } //}}}
   // error - no default line and too few atom lines //{{{
@@ -220,10 +233,8 @@ there must be a line for each atom)\n");
    * corresponds to the last atom/bond lines; for a separate vsf file, the
    * number corresponds to the total number of lines in the file.
    */
-  int total_lines = last_struct;
-  if (!struct_vtf) {
-    total_lines = count_atom_lines + count_bond_lines + count_comment_lines;
-  } //}}}
+  int total_lines = last_struct_line;
+  //}}}
   // structures and arrays to hold all vsf info //{{{
   // info from atom lines
   struct atom {
@@ -1199,6 +1210,1136 @@ there must be a line for each atom)\n");
   free(count_in_mol); //}}}
 } //}}}
 
+// ReadVtfStructure() //{{{
+/*
+ * Function to read vtf structure file. It can recognize bead and molecule
+ * types either according to name only (taking everything with the same name
+ * for the first bead/molecule with that name) or according to all information
+ * (name, mass, charge, and radius for bead types; bead order, bonds, angles,
+ * and dihedrals for molecule types).
+ */
+/*
+ * TODO: split into more functions and incorporate possible extra information
+ * from lammps data/dl_meso FIELD files.
+ */
+// TODO: missing check if bead index in bond line is in a molecule in atom line
+// TODO: ditch atom_id; save to atom[i].index the vtf index under i as the vtf
+//       line number (atom line number? possibly excluding default lines?)
+void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
+                   BEADTYPE **BeadType, BEAD **Bead, int **Index,
+                   MOLECULETYPE **MoleculeType, MOLECULE **Molecule) {
+  (*Counts) = InitCounts; // zeroize
+  // open struct_file //{{{
+  FILE *vsf;
+  if ((vsf = fopen(struct_file, "r")) == NULL) {
+    ErrorFileOpen(struct_file, 'r');
+    exit(1);
+  } //}}}
+  // structures and arrays to hold all vsf info //{{{
+  // info from atom lines
+  struct atom {
+    int index, name, resid, resname;
+    double charge, mass, radius;
+  } atom_def, *atom = calloc(1, sizeof *atom);
+  // info from bond lines
+  struct bond {
+    int index1, index2; // indices from vsf file
+  } *bond = calloc(1, sizeof *bond);
+  bool *mols = calloc(1, sizeof *mols); // array for vtf resid indices
+  mols[0] = false; // at first, assume index 0 isn't used
+  //}}}
+  // 1) read through the structure part, saving all data //{{{
+  int file_line_count = 0, // total number of lines
+      count_atoms = 0, // number of atom lines
+      default_atom_line = -1, // line number of the first 'atom default' line
+      atom_names = 0, res_names = 0, // number of unieque bead & molecule names
+      count_bonds = 0, // number of bond lines
+      words;
+  bool warned = false;
+  char split[SPL_STR][SPL_LEN],
+       (*atom_name)[BEAD_NAME+1] = malloc(sizeof *atom_name * 1),
+       (*res_name)[MOL_NAME+1] = malloc(sizeof *res_name * 1);
+  while (ReadAndSplitLine(vsf, &words, split)) {
+    file_line_count++;
+    int ltype = VtfCheckLineType(words, split, false,
+                                 struct_file, file_line_count);
+    if (ltype == ATOM_LINE) { //{{{
+      if (strcmp(split[1], "default") == 0) { // 'a[tom] default' line //{{{
+        // warning - multiple 'atom default' lines (warn only once)
+        if (default_atom_line != -1 && !warned) {
+          warned = true;
+          strcpy(ERROR_MSG, "multiple 'a[tom] default' lines");
+          WarnPrintWarning();
+          WarnPrintFile(struct_file);
+          CyanText(STDERR_FILENO);
+          fprintf(stderr, ", using line ");
+          YellowText(STDERR_FILENO);
+          fprintf(stderr, "%d", default_atom_line+1);
+          CyanText(STDERR_FILENO);
+          fprintf(stderr, " as the default line\n");
+          ResetColour(STDERR_FILENO);
+        } else {
+          default_atom_line = file_line_count - 1; // -1 as arrays ids go from 0
+          int values[6];
+          VtfAtomLineValues(words, split, values);
+          // save bead name if unique //{{{
+          bool new = true; // assume the name is yet unknown
+          for (int i = 0; i < atom_names; i++) {
+            if (strncmp(split[values[0]], atom_name[i], BEAD_NAME) == 0) {
+              new = false;
+              break;
+            }
+          }
+          if (new) { // unknown (i.e., new) bead name
+            atom_name = realloc(atom_name, sizeof *atom_name * (atom_names + 1));
+            strncpy(atom_name[atom_names], split[values[0]], BEAD_NAME);
+            atom_names++;
+          } //}}}
+          // values from the atom line //{{{
+          // bead name (link to atom_name arrary)
+          for (int i = 0; i < atom_names; i++) {
+            if (strcmp(split[values[0]], atom_name[i]) == 0) {
+              atom_def.name = i;
+              break;
+            }
+          }
+          // mass
+          if (values[1] == -1) {
+            atom_def.mass = MASS;
+          } else {
+            atom_def.mass = atof(split[values[1]]);
+          }
+          // charge
+          if (values[2] == -1) {
+            atom_def.charge = CHARGE;
+          } else {
+            atom_def.charge = atof(split[values[2]]);
+          }
+          // radius
+          if (values[3] == -1) {
+            atom_def.radius = RADIUS;
+          } else {
+            atom_def.radius = atof(split[values[3]]);
+          } //}}}
+        }
+        //}}}
+      } else { // 'a[tom] <id>' line //{{{
+        // check for highest index (i.e., the number of beads in vsf)
+        int id = atoi(split[1]);
+        if (id >= (*Counts).BeadsInVsf) {
+          atom = realloc(atom, (id + 1) * sizeof *atom);
+          for (int i = (*Counts).BeadsInVsf; i <= id; i++) {
+            atom[i].index = -1;
+          }
+          (*Counts).BeadsInVsf = id + 1; // +1 as vtf atom indices start from 0
+        }
+        atom[id].index = atoi(split[1]);
+        int values[6];
+        VtfAtomLineValues(words, split, values);
+        // save unique bead names //{{{
+        bool new = true; // assume the name is yet unknown
+        for (int i = 0; i < atom_names; i++) {
+          if (strncmp(split[values[0]], atom_name[i], BEAD_NAME) == 0) {
+            new = false;
+            break;
+          }
+        }
+        if (new) { // unknown (i.e., new) bead name
+          atom_name = realloc(atom_name, sizeof *atom_name * (atom_names + 1));
+          strncpy(atom_name[atom_names], split[values[0]], BEAD_NAME);
+          atom_names++;
+        } //}}}
+        // save unique molecule names //{{{
+        if (values[4] != -1) {
+          new = true; // assume the name is yet unknown
+          for (int i = 0; i < res_names; i++) {
+            if (strncmp(split[values[4]], res_name[i], MOL_NAME) == 0) {
+              new = false;
+              break;
+            }
+          }
+          if (new) { // unknown (i.e., new) molecule name
+            res_name = realloc(res_name, sizeof *res_name * (res_names + 1));
+            strncpy(res_name[res_names], split[values[4]], MOL_NAME);
+            res_names++;
+          }
+        } //}}}
+        // save resid id to later count molecules //{{{
+        if (values[5] != -1) {
+          int resid = atoi(split[values[5]]);
+          if (resid >= (*Counts).Molecules) {
+            mols = realloc(mols, sizeof *mols * (resid + 1));
+            // assume all ids between old and new numbers of molecules aren't used
+            for (int i = (*Counts).Molecules; i < resid; i++) {
+              mols[i] = false;
+            }
+            // vtf resid indices can start from 0, so add 1
+            (*Counts).Molecules = resid + 1;
+          }
+          mols[resid] = true;
+        } //}}}
+        // values from the atom line //{{{
+        // bead name (link to atom_name arrary)
+        for (int i = 0; i < atom_names; i++) {
+          if (strcmp(split[values[0]], atom_name[i]) == 0) {
+            atom[count_atoms].name = i;
+            break;
+          }
+        }
+        // mass
+        if (values[1] == -1) {
+          atom[count_atoms].mass = MASS;
+        } else {
+          atom[count_atoms].mass = atof(split[values[1]]);
+        }
+        // charge
+        if (values[2] == -1) {
+          atom[count_atoms].charge = CHARGE;
+        } else {
+          atom[count_atoms].charge = atof(split[values[2]]);
+        }
+        // radius
+        if (values[3] == -1) {
+          atom[count_atoms].radius = RADIUS;
+        } else {
+          atom[count_atoms].radius = atof(split[values[3]]);
+        }
+        // resname & resid
+        if (values[4] != -1) { // bead is in a molecule
+          atom[count_atoms].resid = atoi(split[values[5]]);
+          for (int i = 0; i < atom_names; i++) {
+            if (strcmp(split[values[4]], res_name[i]) == 0) {
+              atom[count_atoms].resname = i;
+              break;
+            }
+          }
+        } else { // bead isn't in a molecule
+          atom[count_atoms].resid = -1;
+          atom[count_atoms].resname = -1;
+        } //}}}
+      } //}}}
+      count_atoms++; //}}}
+    } else if (ltype == BOND_LINE) { //{{{
+      bond = realloc(bond, (count_bonds + 1) * sizeof *bond);
+      if (words == 2) { // case 'bond <id>:<id>'
+        char index[SPL_STR][SPL_LEN];
+        SplitLine(index, split[1], ":");
+        bond[count_bonds].index1 = atoi(index[0]);
+        bond[count_bonds].index2 = atoi(index[1]);
+      } else { // case 'bond <id>: <id>'
+        split[1][strlen(split[1])-1] = '\0';
+        bond[count_bonds].index1 = atoi(split[1]);
+        bond[count_bonds].index2 = atoi(split[2]);
+      }
+      count_bonds++; //}}}
+    } else if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) { // timestep line
+      break;
+    } else if (ltype == ERROR_LINE) { // unrecognised line //{{{
+      // ERROR_MSG already holds message from the VtfCheckLineType
+      ErrorPrintFull(struct_file, file_line_count, split, words);
+      exit(1);
+    }
+    //}}}
+  } //}}}
+  // error - no default line and too few atom lines //{{{
+  // TODO what about if there are multiple atom lines with the same id?
+  if (default_atom_line == -1 && count_atoms < (*Counts).BeadsInVsf) {
+    strcpy(ERROR_MSG, "missing atom line(s); when 'atom default' is omitted, \
+there must be a line for each atom");
+    ErrorPrintError();
+    RedText(STDERR_FILENO);
+    fputs("File ", stderr);
+    PrintFile(struct_file);
+    RedText(STDERR_FILENO);
+    fputs("; highest bead index: ", stderr);
+    YellowText(STDERR_FILENO);
+    fprintf(stderr, "%d", (*Counts).BeadsInVsf);
+    RedText(STDERR_FILENO);
+    fputs(", number of 'a[tom]' lines: ", stderr);
+    YellowText(STDERR_FILENO);
+    fprintf(stderr, "%d\n", count_atoms);
+    ResetColour(STDERR_FILENO);
+    exit(1);
+  } //}}}
+  fclose(vsf); // everything is in memory now
+  // error - bond with bead id higher than the number of beads //{{{
+  for (int i = 0; i < count_bonds; i++) {
+    if (bond[i].index1 >= (*Counts).BeadsInVsf ||
+        bond[i].index2 >= (*Counts).BeadsInVsf) {
+      strcpy(ERROR_MSG, "bead index in a bond is too high");
+      ErrorPrintError();
+      RedText(STDERR_FILENO);
+      fputs("File ", stderr);
+      PrintFile(struct_file);
+      RedText(STDERR_FILENO);
+      fputs(", bond ", stderr);
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "%d", bond[i].index1);
+      RedText(STDERR_FILENO);
+      fputs(":", stderr);
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "%d\n", bond[i].index2);
+      ResetColour(STDERR_FILENO);
+      exit(1);
+    }
+  } //}}}
+  // 3) identify bead types & fill BEADTYPE struct //{{{
+  BEADTYPE *bt = malloc(sizeof (BEADTYPE) * 1);
+  // save default type - if there is one
+  if (default_atom_line != -1) {
+    (*Counts).TypesOfBeads = 1;
+    strcpy(bt[0].Name, atom_name[atom_def.name]);
+    bt[0].Number = 0;
+    bt[0].Charge = atom_def.charge;
+    bt[0].Mass = atom_def.mass;
+    bt[0].Radius = atom_def.radius;
+  }
+  if (detailed && false) { // check other stuff besides name //{{{
+    /*
+     * First, identify bead types based on name, charge, masse, and radius,
+     * e.g., lines
+     *   atom 0 n x q 1 m 1
+     *   atom 1 n x q 2 m 1
+     * will be of two different types. This can create an excess of bead
+     * types, so some may have to be merged.
+     *
+     * What is to be merged:
+     * i) If a keyword is missing in one line but present in another, that
+     *    does not count as a different type, e.g., lines
+     *       atom 0 n x q 1 m 1
+     *       atom 1 n x     m 1
+     *    are of the same type (both with charge +1);
+     * ii) however, there can be ambiguities, so e.g., lines
+     *        atom 0 n x q 1 m 1
+     *        atom 1 n x     m 1
+     *        atom 2 n x q 0 m 1
+     *     remain three distinct types (atom 1 has undefined charge);
+     * iii) but only some lines can be ambiguous, e.g., lines
+     *        atom 0 n x q 1 m 1
+     *        atom 1 n x     m 1
+     *        atom 2 n x q 0 m 1
+     *        atom 3 n x q 0
+     *      are still three different types (the last two should be
+     *      considered the same because there is no ambiguity because all
+     *      beads have the same mass)
+     * iv) note that sometimes the charge/mass/radius can remain undefined
+     *     even though there's only one well defined value; e.g., lines
+     *       atom 0 n x q 1 m 1
+     *       atom 1 n x     m 1
+     *       atom 2 n x q 0 m 1
+     *       atom 3 n x q 0
+     *       atom 4 n x q 0 m 1 r 1
+     *     will make radius well defined (with value 1) only for beads
+     *     sharing the type with atom 4 (i.e., atoms 2, 3, and 4), while
+     *     the first two atoms will still have undefined radius. What
+     *     should the radius of atoms 0 and 1 be when the mass/charge are
+     *     different to that of the last atom?
+     *
+     * Merging procedure:
+     * 1) identify unique names that will never merge
+     * 2) for each unique name, find values of charge/mass/radius, noting
+     *    ambiguities (i.e., when more than one well defined value exists)
+     * 3) create 2D boolean array of size <unique names>*<unique names> to
+     *    see what should be merged based on points 1) and 2):
+     *    i) pick two bead types sharing a name (or the same bead type twice
+     *       if it does not share a name with any other), say 'i' and 'k'.
+     *    ii) check every bead type (say 'j') against i and k; if i and
+     *        j should be merged (i.e., share a name), check k's value of
+     *        diff_q/m/r - if it is a proper value, merge i and j; if not,
+     *        merge i and j only if they have the same diff_q/m/r value.
+     * 4) merge the types and count the number of unique types
+     *    i) create a new type when a diagonal element of the array is true
+     *    ii) check the remaining types against and merge those that should
+     *        be merge with that new type, making the diagonal element for
+     *        that merged type false so that no new type is created when
+     *        its time comes in i)
+     * 5) reorder the types so that types sharing the name are next to each
+     *    other
+     */
+    // create (possibly too many) bead types according to bead properties //{{{
+    for (int i = 0; i < count_atoms; i++) {
+      int btype = -1;
+      for (int j = 0; j < (*Counts).TypesOfBeads; j++) {
+        if (strcmp(bt[j].Name, atom_name[atom[i].name]) == 0 &&
+            bt[j].Charge == atom[i].charge &&
+            bt[j].Mass == atom[i].mass &&
+            bt[j].Radius == atom[i].radius) {
+          btype = j;
+        }
+      }
+      if (btype == -1) { // new bead type?
+        NewBeadType(&bt, &(*Counts).TypesOfBeads, atom_name[atom[i].name],
+                    atom[i].charge, atom[i].mass, atom[i].radius);
+        btype = (*Counts).TypesOfBeads - 1;
+      }
+      bt[btype].Number++;
+    } //}}}
+//PrintBeadType2((*Counts).TypesOfBeads, bt);
+    // count number of beads of default type if 'atom default' is present //{{{
+    if (default_atom_line != -1) {
+      bt[0].Number = (*Counts).BeadsInVsf;
+      for (int i = 1; i < (*Counts).TypesOfBeads; i++) {
+        bt[0].Number -= bt[i].Number;
+      }
+    } //}}}
+//PrintBeadType2((*Counts).TypesOfBeads, bt);
+    // Merging //{{{
+    // 1) count and save unigue names //{{{
+    int number_of_names = 0;
+    char name[(*Counts).TypesOfBeads][BEAD_NAME+1];
+    for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
+      bool exists = false;
+      for (int j = 0; j < i; j++) {
+        if (strcmp(bt[i].Name, bt[j].Name) == 0) {
+          exists = true;
+          break;
+        }
+      }
+      if (!exists) {
+        strcpy(name[number_of_names], bt[i].Name);
+        number_of_names++;
+      }
+    } //}}}
+    // 2) //{{{
+    // arrays for holding the value of charge/mass/radius for each bead type //{{{
+    double diff_q[number_of_names],
+           diff_m[number_of_names],
+           diff_r[number_of_names]; //}}}
+    // initialize arrays: assign values from the last type with each name //{{{
+    for (int i = 0; i < number_of_names; i++) {
+      for (int j = 0; j < (*Counts).TypesOfBeads; j++) {
+        if (strcmp(name[i], bt[j].Name) == 0) {
+          diff_q[i] = bt[j].Charge;
+          diff_m[i] = bt[j].Mass;
+          diff_r[i] = bt[j].Radius;
+        }
+      }
+    } //}}}
+    // find the proper values for charge/mass/radius for each type //{{{
+    /*
+     * diff_q/m/r = high ... more than one value for beads with that name
+     * diff_q/m/r = <value> ... exactly that one value;
+     *                          if both proper and undefined values exist
+     *                          (i.e., when there's really one value, but it's
+     *                          not written in each atom line), the proper
+     *                          value is assigned
+     */
+    // high, impossible number to indicate multiple values of charge/mass/radius
+    int high = 1000000;
+    // go through all bead type pairs (including self-pairs)
+    for (int i = 0; i < number_of_names; i++) {
+      for (int j = 0; j < (*Counts).TypesOfBeads; j++) {
+        // only consider type pairs with the same name
+        if (strcmp(name[i], bt[j].Name) == 0) {
+          // charge
+          if (diff_q[i] != bt[j].Charge) {
+            if (diff_q[i] != CHARGE && bt[j].Charge != CHARGE) {
+              diff_q[i] = high;
+            } else if (diff_q[i] == CHARGE) {
+              diff_q[i] = bt[j].Charge;
+            }
+          }
+          // mass
+          if (diff_m[i] != bt[j].Mass) {
+            if (diff_m[i] != MASS && bt[j].Mass != MASS) {
+              diff_m[i] = high;
+            } else if (diff_m[i] == MASS) {
+              diff_m[i] = bt[j].Mass;
+            }
+          }
+          // radius
+          if (diff_r[i] != bt[j].Radius) {
+            if (diff_r[i] != RADIUS && bt[j].Radius != RADIUS) {
+              diff_r[i] = high;
+            } else if (diff_r[i] == RADIUS) {
+              diff_r[i] = bt[j].Radius;
+            }
+          }
+        }
+      }
+    } //}}}
+    //}}}
+    /* test print diff_q/m/r //{{{
+    for (int i = 0; i < number_of_names; i++) {
+      printf("%s: q=%10.1f; m=%10.1f; r=%10.1f\n", name[i], diff_q[i], diff_m[i], diff_r[i]);
+    }
+    */ //}}}
+    // 3) //{{{
+    // initialize merge array by assuming nothing will be merged //{{{
+    bool merge[(*Counts).TypesOfBeads][(*Counts).TypesOfBeads];
+    for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
+      for (int j = 0; j < (*Counts).TypesOfBeads; j++) {
+        merge[i][j] = false; // 'i' and 'j' aren't to be merged
+        merge[i][i] = true; // 'i' and 'i' is to be merged/copied
+      }
+    } //}}}
+    // assume same-name bead types are to be merged //{{{
+    for (int i = 0; i < ((*Counts).TypesOfBeads-1); i++) {
+      for (int j = (i+1); j < (*Counts).TypesOfBeads; j++) {
+        if (strcmp(bt[i].Name, bt[j].Name) == 0) {
+          merge[i][j] = true;
+        }
+      }
+    } //}}}
+    // go through each bead type and compare it to two others //{{{
+    for (int i = 0; i < ((*Counts).TypesOfBeads-1); i++) {
+      // i)
+      int k = 0;
+      for (; k < (*Counts).TypesOfBeads; k++) {
+        if (strcmp(name[k], bt[i].Name) == 0) {
+          break;
+        }
+      }
+      // ii)
+      for (int j = (i+1); j < (*Counts).TypesOfBeads; j++) {
+        // check charge
+        if (merge[i][j]) {
+          if (diff_q[k] == high) {
+            if (bt[i].Charge == bt[j].Charge) {
+              merge[i][j] = true;
+            } else {
+              merge[i][j] = false;
+            }
+          } else {
+            merge[i][j] = true;
+          }
+        }
+        // check mass
+        if (merge[i][j]) {
+          if (diff_m[k] == high) {
+            if (bt[i].Mass == bt[j].Mass) {
+              merge[i][j] = true;
+            } else {
+              merge[i][j] = false;
+            }
+          } else {
+            merge[i][j] = true;
+          }
+        }
+        // check radius
+        if (merge[i][j]) {
+          if (diff_r[k] == high) {
+            if (bt[i].Radius == bt[j].Radius) {
+              merge[i][j] = true;
+            } else {
+              merge[i][j] = false;
+            }
+          } else {
+            merge[i][j] = true;
+          }
+        }
+      }
+    } //}}}
+    //}}}
+    /* test print merge matrix //{{{
+    printf("   ");
+    for (int i = 0; i < 5; i++) {
+      printf("%s ", bt[i].Name);
+    }
+    putchar('\n');
+    for (int i = 0; i < 5; i++) {
+      printf("%s ", bt[i].Name);
+      for (int j = 0; j < 5; j++) {
+        printf(" %d", merge[i][j]);
+      }
+      putchar('\n');
+    }
+    */ //}}}
+    // 4) //{{{
+    BEADTYPE *temp = calloc((*Counts).TypesOfBeads, sizeof (BEADTYPE));
+    int count = 0;
+    for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
+      if (merge[i][i]) { // i)
+        temp[count] = bt[i];
+        for (int j = (i+1); j < (*Counts).TypesOfBeads; j++) {
+          if (merge[i][j]) { // ii)
+            temp[count].Number += bt[j].Number;
+            if (temp[count].Charge == CHARGE) {
+              temp[count].Charge = bt[j].Charge;
+            }
+            if (temp[count].Mass == MASS) {
+              temp[count].Mass = bt[j].Mass;
+            }
+            if (temp[count].Radius == RADIUS) {
+              temp[count].Radius = bt[j].Radius;
+            }
+            merge[j][j] = false;
+          }
+        }
+        count++;
+      }
+    }
+    (*Counts).TypesOfBeads = count; //}}}
+    //}}}
+    // 5) //{{{
+    // copy all bead types temporarily to bt struct
+    for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
+      bt[i] = temp[i];
+      bt[i].Use = false; // will indicate that it wasn't copied yet
+    }
+    // copy the bead types back to temp array in a proper order
+    count = 0;
+    for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
+      if (!bt[i].Use) {
+        temp[count++] = bt[i];
+        bt[i].Use = true;
+        for (int j = (i+1); j < (*Counts).TypesOfBeads; j++) {
+          if (strcmp(bt[i].Name, bt[j].Name) == 0 && !bt[j].Use) {
+            temp[count++] = bt[j];
+            bt[j].Use = true;
+          }
+        }
+      }
+    }
+    // finally, copy the types from the temporary array back to bt array
+    for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
+      bt[i] = temp[i];
+    }
+    free(temp); //}}}
+    //}}}
+  } else { // check only bead type name //{{{
+    /*
+     * charge/mass/radius is taken from the first bead with the given name
+     * (even if undefined)
+     */
+    // go through all non-default atoms
+    for (int i = 0; i < count_atoms; i++) {
+      if (atom[i].index != -1) {
+        int btype = -1; // assume bead i is of new type
+        for (int j = 0; j < (*Counts).TypesOfBeads; j++) {
+          if (strcmp(bt[j].Name, atom_name[atom[i].name]) == 0) {
+            btype = j; // nope, not a new type
+            break;
+          }
+        }
+        if (btype == -1) { // new bead type
+          NewBeadType(&bt, &(*Counts).TypesOfBeads, atom_name[atom[i].name],
+                      atom[i].charge, atom[i].mass, atom[i].radius);
+          btype = (*Counts).TypesOfBeads - 1;
+        }
+        bt[btype].Number++;
+      }
+    }
+    // count number of beads of default type if atom default present
+    if (default_atom_line != -1) {
+      bt[0].Number = (*Counts).BeadsInVsf;
+      for (int i = 1; i < (*Counts).TypesOfBeads; i++) {
+        bt[0].Number -= bt[i].Number;
+      }
+      // TODO: add counting atom[].index == -1 for comparison
+    }
+  } //}}}
+  //}}}
+  // 4) fill BEAD struct, putting unbonded beads first //{{{
+  BEAD *bead_all = calloc((*Counts).BeadsInVsf, sizeof (BEAD));
+  // connect to internal indexing (atom_id)
+  int *index_all = malloc(sizeof *index_all * (*Counts).BeadsInVsf);
+  // unbonded beads //{{{
+  for (int i = 0; i < (*Counts).BeadsInVsf; i++) {
+    int internal_id = atom_id[i];
+    if (atom[internal_id].resid == -1) {
+      int id = (*Counts).Unbonded++;
+      bead_all[id].Molecule = -1;
+      index_all[id] = internal_id;
+      if (detailed) { // find bead type based on all information //{{{
+        bead_all[id].Type = -1;
+        // 1) if a bead shares all values with a bead type, it is of that type
+        for (int j = 0; j < (*Counts).TypesOfBeads; j++) {
+          if (strcmp(bt[j].Name, atom_name[atom[internal_id].name]) == 0 &&
+              bt[j].Charge == atom[internal_id].charge &&
+              bt[j].Mass == atom[internal_id].mass &&
+              bt[j].Radius == atom[internal_id].radius) {
+            bead_all[id].Type = j;
+            break;
+          }
+        }
+        /*
+         * 2) if no type was assigned, check for undefined values of the bead's
+         *    charge/mass/radius
+         */
+        if (bead_all[id].Type == -1) {
+          for (int j = 0; j < (*Counts).TypesOfBeads; j++) {
+            // only check if the bead type and bead share name
+            if (strcmp(bt[j].Name, atom_name[atom[internal_id].name]) == 0) {
+              // check charge
+              if (bt[j].Charge != atom[internal_id].charge &&
+                  atom[internal_id].charge != CHARGE) {
+                continue;
+              }
+              // check mass
+              if (bt[j].Mass != atom[internal_id].mass &&
+                  atom[internal_id].mass != MASS) {
+                continue;
+              }
+              // check radius
+              if (bt[j].Radius != atom[internal_id].radius &&
+                  atom[internal_id].radius != RADIUS) {
+                continue;
+              }
+              // assign bead type if all checks passed
+              bead_all[id].Type = j;
+              break;
+            }
+          }
+        } //}}}
+      } else { // find bead based only on name //{{{
+        bead_all[id].Type = FindBeadType2(atom_name[atom[internal_id].name],
+                                          (*Counts).TypesOfBeads, bt);
+      } //}}}
+      if (internal_id == (count_atoms-1)) { // default bead
+        bead_all[id].Index = -1; // to be filled later
+      } else {
+        bead_all[id].Index = atom[internal_id].index;
+      }
+    }
+  } //}}}
+  // bonded beads //{{{
+  for (int i = 0; i < (*Counts).BeadsInVsf; i++) {
+    int internal_id = atom_id[i];
+    if (atom[internal_id].resid != -1) {
+      int id = (*Counts).Unbonded + (*Counts).Bonded; // place after unbonded
+      (*Counts).Bonded++;
+      bead_all[id].Molecule = atom[internal_id].resid;
+      if (detailed) { // find bead type based on all information //{{{
+        bead_all[id].Type = -1;
+        // 1) if a bead shares all values with a bead type, it is of that type
+        for (int j = 0; j < (*Counts).TypesOfBeads; j++) {
+          if (strcmp(bt[j].Name, atom_name[atom[internal_id].name]) == 0 &&
+              bt[j].Charge == atom[internal_id].charge &&
+              bt[j].Mass == atom[internal_id].mass &&
+              bt[j].Radius == atom[internal_id].radius) {
+            bead_all[id].Type = j;
+            break;
+          }
+        }
+        /*
+         * 2) if no type was assigned, check for undefined values of the bead's
+         *    charge/mass/radius
+         */
+        if (bead_all[id].Type == -1) {
+          for (int j = 0; j < (*Counts).TypesOfBeads; j++) {
+            // only check if the bead type and bead share name
+            if (strcmp(bt[j].Name, atom_name[atom[internal_id].name]) == 0) {
+              // check charge
+              if (bt[j].Charge != atom[internal_id].charge &&
+                  atom[internal_id].charge != CHARGE) {
+                continue;
+              }
+              // check mass
+              if (bt[j].Mass != atom[internal_id].mass &&
+                  atom[internal_id].mass != MASS) {
+                continue;
+              }
+              // check radius
+              if (bt[j].Radius != atom[internal_id].radius &&
+                  atom[internal_id].radius != RADIUS) {
+                continue;
+              }
+              // assign bead type if all checks passed
+              bead_all[id].Type = j;
+              break;
+            }
+          }
+        } //}}}
+      } else { // find bead based only on name //{{{
+        bead_all[id].Type = FindBeadType2(atom_name[atom[internal_id].name],
+                                          (*Counts).TypesOfBeads, bt);
+      } //}}}
+      bead_all[id].Index = atom[internal_id].index;
+      index_all[id] = internal_id;
+    }
+  } //}}}
+  // fill BEAD[].Index array for default beads //{{{
+  // i) identify used indices (i.e., those explicitly written in the vsf file)
+  bool *filled = calloc((*Counts).BeadsInVsf, sizeof *filled);
+  for (int i = 0; i < (*Counts).BeadsInVsf; i++) {
+    if (bead_all[i].Index != -1) {
+      filled[bead_all[i].Index] = true;
+    }
+  }
+  // ii) assign unused indices to beads of default type
+  int count = 0;
+  for (int i = 0; i < (*Counts).BeadsInVsf; i++) {
+    if (bead_all[i].Index == -1) {
+      for (; count < (*Counts).BeadsInVsf; count++) {
+        if (!filled[count]) {
+          bead_all[i].Index = count;
+          count++;
+          break;
+        }
+      }
+    }
+  }
+  free(filled); //}}}
+  //}}}
+  // construct 'proper' Index array //{{{
+  /*
+   * until now, index_all was connected to atom struct, but from now on it will
+   * be connected to the BEAD bead_all struct, because atom struct is no longer
+   * used anywhere
+   */
+  for (int i = 0; i < (*Counts).BeadsInVsf; i++) {
+    index_all[bead_all[i].Index] = i;
+  } //}}}
+  // if detailed, rename the bead types with the same name //{{{
+  if (detailed) {
+    for (int i = 0; i < ((*Counts).TypesOfBeads-1); i++) {
+      count = 0;
+      for (int j = (i+1); j < (*Counts).TypesOfBeads; j++) {
+        if (strcmp(bt[i].Name, bt[j].Name) == 0) {
+          count++;
+          char name[BEAD_NAME+1];
+          // shorten name if necessary
+          if (count < 10) {
+            strncpy(name, bt[j].Name, BEAD_NAME-2);
+          } else if (count < 100) {
+            strncpy(name, bt[j].Name, BEAD_NAME-3);
+          }
+//        P_IGNORE(-Wformat-truncation);
+          // BEAD_NAME is max string length, i.e., array is longer
+          snprintf(bt[j].Name, BEAD_NAME+1, "%s_%d", name, count);
+//        P_POP;
+        }
+      }
+    }
+  } //}}}
+  // 5) identify molecule types based on all data //{{{
+  /*
+   * Molecules of one type must share:
+   * i) molecule name
+   * ii) number of beads and bonds
+   * iii) order of bead types
+   * iv) connectivity
+   */
+  // count beads in each molecule for ii) //{{{
+  int *atoms_per_mol = calloc((*Counts).Molecules, sizeof *atoms_per_mol);
+  for (int i = (*Counts).Unbonded; i < (*Counts).BeadsInVsf; i++) {
+    atoms_per_mol[bead_all[i].Molecule]++;
+  } //}}}
+  // error - resid numbering in vsf must be continuous //{{{
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+    if (atoms_per_mol[i] == 0) {
+      ErrorPrintError_old();
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "%s", struct_file);
+      RedText(STDERR_FILENO);
+      fprintf(stderr, " - 'resid' numbering is not continuous\n");
+      fprintf(stderr, "       Molecule ");
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "%d", i);
+      RedText(STDERR_FILENO);
+      fprintf(stderr, " is missing\n");
+      ResetColour(STDERR_FILENO);
+      exit(1);
+    }
+  } //}}}
+  /*
+  // test print number of beads in each molecule //{{{
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+    printf("%d: %d\n", i, atoms_per_mol[i]);
+  }
+  putchar('\n'); //}}}
+  */
+  // allocate MOLECULE struct & and fill with indices for iv) //{{{
+  MOLECULE *mol = calloc((*Counts).Molecules, sizeof (MOLECULE));
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+    mol[i].Bead = calloc(atoms_per_mol[i], sizeof *mol[i].Bead);
+    mol[i].Aggregate = -1; // in no aggregate
+  }
+  // fill to Molecule[].Bead array with bead indices
+  int *count_in_mol = calloc((*Counts).Molecules, sizeof *count_in_mol);
+  for (int i = (*Counts).Unbonded; i < (*Counts).BeadsInVsf; i++) {
+    int m_id = bead_all[i].Molecule;
+    mol[m_id].Bead[count_in_mol[m_id]] = i;
+    count_in_mol[m_id]++;
+  }
+  // pro-forma: test that the two bead counts in individual molecules agree
+  // unless things are somehow weirdly bad, the error is never triggered
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+    if (count_in_mol[i] != atoms_per_mol[i]) {
+      ErrorPrintError_old();
+      RedText(STDERR_FILENO);
+      fprintf(stderr, "something wrong with bead count in molecule");
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "%d", i);
+      RedText(STDERR_FILENO);
+      fprintf(stderr, " - ");
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "%d!=%d\n", count_in_mol[i], atoms_per_mol[i]);
+      ResetColour(STDERR_FILENO);
+      exit(1);
+    }
+  } //}}}
+  /*
+  // test print beads in molecules //{{{
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+    printf("%d:", i);
+    for (int j = 0; j < atoms_per_mol[i]; j++) {
+      printf(" %d", mol[i].Bead[j]);
+    }
+    putchar('\n');
+  }
+  putchar('\n'); //}}}
+  */
+  // count bonds in all molecules for ii) //{{{
+//P_IGNORE(-Walloc-size-larger-than=);
+  int *bonds_per_mol = calloc((*Counts).Molecules, sizeof *bonds_per_mol);
+//P_POP
+  for (int i = 0; i < count_bonds; i++) {
+    int m_id1 = bead_all[index_all[bond[i].index1]].Molecule;
+    int m_id2 = bead_all[index_all[bond[i].index2]].Molecule;
+    // error - beads from one bond are in different molecules
+    if (m_id1 != m_id2) {
+      ErrorPrintError_old();
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "%s", struct_file);
+      RedText(STDERR_FILENO);
+      fprintf(stderr, " - bonded beads in different molecules (bead ");
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "%d", bond[i].index1);
+      RedText(STDERR_FILENO);
+      fprintf(stderr, " in molecule ");
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "%d", m_id1+1); // resid start at 1 in vsf
+      RedText(STDERR_FILENO);
+      fprintf(stderr, " and bead ");
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "%d", bond[i].index2);
+      RedText(STDERR_FILENO);
+      fprintf(stderr, " in molecule ");
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "%d", m_id2+1); // resid start at 1 in vsf
+      RedText(STDERR_FILENO);
+      fprintf(stderr, ")\n");
+      ResetColour(STDERR_FILENO);
+      exit(1);
+    }
+    bonds_per_mol[m_id1]++;
+  } //}}}
+  // save connectivity for each molecule for iv) //{{{
+  // allocate connectivity array //{{{
+  /*
+   * in molec[i].connect[j][k]:
+   *   i ... molecule id
+   *   j ... bond id
+   *   k ... 0 and 1: connected bead indices; 2: bond type (not used now)
+   */
+  struct connectivity {
+    int (*connect)[3];
+  } *molec = malloc(sizeof *molec * (*Counts).Molecules);
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+    count_in_mol[i] = 0;
+    molec[i].connect = malloc(sizeof *molec[i].connect * bonds_per_mol[i]);
+    for (int j = 0; j < bonds_per_mol[i]; j++) {
+      molec[i].connect[j][0] = -1;
+      molec[i].connect[j][1] = -1;
+    }
+  } //}}}
+  // save ids of bonded beads
+  for (int i = 0; i < count_bonds; i++) {
+    int id1 = index_all[bond[i].index1],
+        id2 = index_all[bond[i].index2];
+    int m_id = bead_all[id1].Molecule;
+    bool done[2] = {false}; // so as not to go through the whole molecule
+    for (int j = 0; j < atoms_per_mol[m_id]; j++) {
+      if (mol[m_id].Bead[j] == id1) {
+        molec[m_id].connect[count_in_mol[m_id]][0] = j;
+        done[0] = true;
+      }
+      if (mol[m_id].Bead[j] == id2) {
+        molec[m_id].connect[count_in_mol[m_id]][1] = j;
+        done[1] = true;
+      }
+      if (done[0] && done[1]) {
+        break;
+      }
+    }
+    count_in_mol[m_id]++;
+  }
+  // sort bonds -- pro forma as bead ids in atom struct are sorted
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+    SortBonds(molec[i].connect, bonds_per_mol[i]);
+  }
+  //}}}
+  /*
+  // test print bonds in molecules //{{{
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+    printf("%d:", i);
+    for (int j = 0; j < bonds_per_mol[i]; j++) {
+      printf(" %d-%d", connectivity[i][j][0]+1, connectivity[i][j][1]+1);
+    }
+    putchar('\n');
+  }
+  putchar('\n'); //}}}
+  */
+  // count molecule types based //{{{
+  /*
+   * a) if detailed, check i) through iv)
+   * b) if !detailed, check only i) and exit if a molecule contains too few or
+   *    too many beads
+   */
+  MOLECULETYPE *mt = calloc(1, sizeof (MOLECULETYPE));
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+    // atom struct is necessary because the name is not recorded anywhere else
+    int id = bead_all[mol[i].Bead[0]].Index; // id of the molecule's first bead
+    int name = atom[atom_id[id]].resname; // name index in res_name array
+    bool add = false; // assume no type exists that i can be added to
+    // go through all molecule types to find a match for molecule i //{{{
+    for (int j = 0; j < (*Counts).TypesOfMolecules; j++) {
+      if (detailed) { // a)
+        if (strcmp(res_name[name], mt[j].Name) == 0 && // check name,
+            atoms_per_mol[i] == mt[j].nBeads && // number of beads, and
+            bonds_per_mol[i] == mt[j].nBonds) { // number of bonds
+          bool same_beads = true; // assume molecule i has j type's bead order
+          for (int k = 0; k < mt[j].nBeads; k++) {
+            if (bead_all[mol[i].Bead[k]].Type != mt[j].Bead[k]) {
+              same_beads = false; // nope, it doesn't; is not type j
+              break;
+            }
+          }
+          bool same_bonds = true; // assume molecule i has j type's connectivity
+          for (int k = 0; k < mt[j].nBonds; k++) {
+            if (molec[i].connect[k][0] != mt[j].Bond[k][0] ||
+                molec[i].connect[k][1] != mt[j].Bond[k][1]) {
+              same_bonds = false; // nope, it doesn't; i is not type j
+              break;
+            }
+          }
+          if (same_beads && same_bonds) {
+            add = true; // add to existing molecule type
+          }
+        }
+      } else { // b)
+        if (strcmp(res_name[name], mt[j].Name) == 0) {
+          add = true;
+          // error - too few/too many beads in a molecule
+          if (atoms_per_mol[i] != mt[j].nBeads) {
+            ErrorPrintError_old();
+            YellowText(STDERR_FILENO);
+            fprintf(stderr, "%s", struct_file);
+            RedText(STDERR_FILENO);
+            fprintf(stderr, " - molecule ");
+            YellowText(STDERR_FILENO);
+            fprintf(stderr, "resid %d", i);
+            RedText(STDERR_FILENO);
+            fprintf(stderr, " contains too ");
+            if (atoms_per_mol[i] > mt[j].nBeads) {
+              fprintf(stderr, "many ");
+            } else {
+              fprintf(stderr, "few ");
+            }
+            fprintf(stderr, "beads (%d instead of %d)\n", atoms_per_mol[i], mt[j].nBeads);
+            ResetColour(STDERR_FILENO);
+            exit(1);
+          }
+        }
+      }
+      if (add) { // found matching molecule type
+        mt[j].Number++;
+        mol[i].Type = j;
+        break;
+      }
+    } //}}}
+    // new molecule type if no match found for i or no type exists yet //{{{
+    if (!add || (*Counts).TypesOfMolecules == 0) {
+      int type = (*Counts).TypesOfMolecules++;
+      mol[i].Type = type;
+      mt = realloc(mt, sizeof (MOLECULETYPE) * (*Counts).TypesOfMolecules);
+      strcpy(mt[type].Name, res_name[name]);
+      mt[type].Number = 1;
+      mt[type].nBeads = atoms_per_mol[i];
+      mt[type].Bead = malloc(sizeof *mt[type].Bead * mt[type].nBeads);
+      for (int j = 0; j < mt[type].nBeads; j++) {
+        int bead = mol[i].Bead[j];
+        int id = bead;
+        mt[type].Bead[j] = bead_all[id].Type;
+      }
+      mt[type].nBonds = bonds_per_mol[i];
+      if (bonds_per_mol[i] > 0) {
+        mt[type].Bond = malloc(sizeof *mt[type].Bond * bonds_per_mol[i]);
+        for (int j = 0; j < bonds_per_mol[i]; j++) {
+          mt[type].Bond[j][0] = molec[i].connect[j][0];
+          mt[type].Bond[j][1] = molec[i].connect[j][1];
+          mt[type].Bond[j][2] = -1; // no bond types
+        }
+      }
+      mt[type].nAngles = 0;
+      mt[type].nDihedrals = 0;
+    } //}}}
+  } //}}}
+  // if detailed, rename the molecule types with the same name //{{{
+  if (detailed) {
+    for (int i = 0; i < ((*Counts).TypesOfMolecules-1); i++) {
+      count = 0; // number of types sharing the name with type i
+      for (int j = (i+1); j < (*Counts).TypesOfMolecules; j++) {
+        if (strcmp(mt[i].Name, mt[j].Name) == 0) {
+          count++;
+          // shorten name if necessary to append '_<int>'
+          char name[MOL_NAME+1];
+          strcpy(name, mt[j].Name);
+          if (count < 10) {
+            name[MOL_NAME-2] = '\0';
+          } else if (count < 100) {
+            name[MOL_NAME-3] = '\0';
+          } else if (count < 1000) {
+            name[MOL_NAME-4] = '\0';
+          }
+//        P_IGNORE(-Wformat-truncation);
+          snprintf(mt[j].Name, MOL_NAME+1, "%s_%d", name, count);
+//        P_POP;
+        }
+      }
+    }
+  } //}}}
+  // calculate molecules' mass and charge and fill their BType array
+  FillMolType((*Counts).TypesOfMolecules, bt, &mt); //}}}
+  // 6) copy everything back to their 'proper' arrays and structures //{{{
+  (*Counts).Beads = (*Counts).BeadsInVsf;
+  *Index = malloc(sizeof **Index * (*Counts).Beads);
+  for (int i = 0; i < (*Counts).Beads; i++) {
+    (*Index)[i] = index_all[i];
+  }
+  *BeadType = malloc(sizeof (BEADTYPE) * (*Counts).TypesOfBeads);
+  for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
+    (*BeadType)[i] = bt[i];
+  }
+  *Bead = malloc(sizeof (BEAD) * (*Counts).Beads);
+  for (int i = 0; i < (*Counts).Beads; i++) {
+    (*Bead)[i] = bead_all[i];
+  }
+  // molecule types
+  CopyMoleculeType((*Counts).TypesOfMolecules, MoleculeType, mt, 2);
+  CopyMolecule((*Counts).Molecules, *MoleculeType, Molecule, mol, 2); //}}}
+  // free memory //{{{
+  free(bt);
+  free(index_all);
+  FreeBead((*Counts).BeadsInVsf, &bead_all);
+  FreeMolecule((*Counts).Molecules, &mol);
+  FreeMoleculeType((*Counts).TypesOfMolecules, &mt);
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+//  for (int j = 0; j < bonds_per_mol[i]; j++) {
+//    free(connectivity[i][j]);
+//  }
+    free(molec[i].connect);
+  }
+  free(molec);
+//free(connectivity);
+//for (int i = 0; i < atom_names; i++) {
+//  free(atom_name[i]);
+//}
+  free(atom_name);
+  free(atom_id);
+//for (int i = 0; i < res_names; i++) {
+//  free(res_name[i]);
+//}
+  free(res_name);
+  free(atom);
+  free(bond);
+  free(atoms_per_mol);
+  free(bonds_per_mol);
+  free(count_in_mol); //}}}
+} //}}}
+
 // CheckVtfTimestep() //{{{
 /*
  * Function to find what beads and molecules are in a timestep. For now, the
@@ -1794,7 +2935,7 @@ int ReadVtfTimestepPreamble(bool *indexed, char *input_coor, FILE *vcf_file,
     }
     strcpy(line2, line); // save 'unsplit' line
     words = SplitLine(split, line, " \t");
-    int ltype = CheckVtfLineType(words, split, false, input_coor, count_lines);
+    int ltype = VtfCheckLineType(words, split, false, input_coor, count_lines);
     // pbc line - get box dimensions //{{{
     if (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) {
       (*Box).Length.x = atof(split[1]);
@@ -4423,13 +5564,13 @@ positive real number ");
   }
   // error - missing the mandatory n[ame] keyword or //{{{
   if (!name) {
-    strcpy(ERROR_MSG, "atom line - missing 'n[ame]' keyword ");
+    strcpy(ERROR_MSG, "atom line: missing 'n[ame]' keyword ");
     ErrorPrintFull(file, file_line_count, split, words);
     return false;
   } //}}}
   // error - if res[name] is present, there must be resid as well //{{{
   if ((!resid && resname) || (resid && !resname)) {
-    strcpy(ERROR_MSG, "atom line - if 'res[name]' is present, \
+    strcpy(ERROR_MSG, "atom line: if 'res[name]' is present, \
 'resid' must be too ");
     ErrorPrintFull(file, file_line_count, split, words);
     return false;
@@ -4609,8 +5750,8 @@ int CheckVtfCoordinateLine(int words, char split[SPL_STR][SPL_LEN]) {
 /*
  * Function to check what line from a vtf file is passed to it.
  */
-int CheckVtfLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
-                    char *file, int line_count) {
+int VtfCheckLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
+                     char *file, int line) {
   // blank line
   if (words == 0) {
     return BLANK_LINE;
@@ -4620,7 +5761,7 @@ int CheckVtfLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
     return COMMENT_LINE;
   }
   // pbc line
-  int test = CheckVtfPbcLine(words, split, file, line_count);
+  int test = CheckVtfPbcLine(words, split, file, line);
   if (test != ERROR_LINE) {
     return test;
   }
@@ -4630,7 +5771,7 @@ int CheckVtfLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
     return test;
   }
   // atom line (vsf)
-  if (CheckVtfAtomLine(words, split, file, line_count)) {
+  if (CheckVtfAtomLine(words, split, file, line)) {
     return ATOM_LINE;
   }
   // bond line (vsf)
@@ -4872,7 +6013,7 @@ int VtfCountStructLines(bool vtf, char *input) {
     char split[SPL_STR][SPL_LEN];
     int words;
     while (ReadAndSplitLine(vtf, &words, split)) {
-      int ltype = CheckVtfLineType(words, split, false, input, file_line_count);
+      int ltype = VtfCheckLineType(words, split, false, input, file_line_count);
       if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) {
         break;
       }

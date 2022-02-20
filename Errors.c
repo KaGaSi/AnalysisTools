@@ -249,7 +249,7 @@ void ErrorPrintError_old() {
  */
 void ErrorPrintError() {
   RedText(STDERR_FILENO);
-  fprintf(stderr, "\n  Error - %s\n", ERROR_MSG);
+  fprintf(stderr, "\n  ERROR - %s\n", ERROR_MSG);
   ResetColour(STDERR_FILENO);
 } //}}}
 
@@ -259,7 +259,7 @@ void ErrorPrintError() {
  */
 void WarnPrintWarning() {
   CyanText(STDERR_FILENO);
-  fprintf(stderr, "\n  Warning - %s\n", ERROR_MSG);
+  fprintf(stderr, "\n  WARNING - %s\n", ERROR_MSG);
   ResetColour(STDERR_FILENO);
 } //}}}
 

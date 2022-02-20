@@ -222,24 +222,19 @@ int SkipCoorSteps(FILE *vcf, char *input_coor, COUNTS Counts, int start, bool si
 // SkipCoorAggSteps() { //{{{
 int SkipCoorAggSteps(FILE *vcf, char *input_coor, FILE *agg, char *input_agg, COUNTS Counts, int start, bool silent); //}}}
 
-bool CheckVtfTimestepLine_old(int words, char split[SPL_STR][SPL_LEN]);
-int CheckVtfTimestepLine(int words, char split[SPL_STR][SPL_LEN]);
+int VtfCheckTimestepLine(int words, char split[SPL_STR][SPL_LEN]);
 
-int CheckVtfPbcLine(int words, char split[SPL_STR][SPL_LEN], char *file,
+int VtfCheckPbcLine(int words, char split[SPL_STR][SPL_LEN], char *file,
                     int line_count);
 
-bool CheckVtfAtomLine_old(int words, char split[SPL_STR][SPL_LEN], char *error);
-bool CheckVtfAtomLine(int words, char split[SPL_STR][SPL_LEN],
+bool VtfCheckAtomLine(int words, char split[SPL_STR][SPL_LEN],
                       char *file, int file_line_count);
 
-bool CheckVtfBondLine_old(int words, char split[SPL_STR][SPL_LEN], char *error);
-bool CheckVtfBondLine(int words, char split[SPL_STR][SPL_LEN]);
+bool VtfCheckBondLine(int words, char split[SPL_STR][SPL_LEN]);
 
-bool CheckVtfCoordinateLine_old(int words, char split[SPL_STR][SPL_LEN],
-                                bool indexed);
-int CheckVtfCoordinateLine(int words, char split[SPL_STR][SPL_LEN]);
-int CheckVtfLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
-                     char *file, int line_count);
+int VtfCheckCoordinateLine(int words, char split[SPL_STR][SPL_LEN]);
+int VtfCheckLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
+                     char *file, int line);
 
 // NewBeadType() //{{{
 /*
@@ -284,4 +279,9 @@ void FillMolType(int number_of_types, BEADTYPE *BeadType,
 int VtfCountStructLines(bool vtf, char *input);
 // TODO not to be used
 void SkipVtfStructure(FILE *vcf, int struct_lines);
+bool CheckVtfTimestepLine_old(int words, char split[SPL_STR][SPL_LEN]);
+bool CheckVtfAtomLine_old(int words, char split[SPL_STR][SPL_LEN], char *error);
+bool CheckVtfBondLine_old(int words, char split[SPL_STR][SPL_LEN], char *error);
+bool CheckVtfCoordinateLine_old(int words, char split[SPL_STR][SPL_LEN],
+                                bool indexed);
 #endif
