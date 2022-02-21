@@ -136,5 +136,7 @@ int main(int argc, char *argv[]) {
   // free memory - to make valgrind happy
   FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);
 
+  VtfReadStruct(input_vsf, false, &Counts, &BeadType, &Bead, &Index, &MoleculeType, &Molecule);
+
   return 0;
 }
