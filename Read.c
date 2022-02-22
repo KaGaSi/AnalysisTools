@@ -1231,10 +1231,15 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
   } //}}}
   // define variables and structures and arrays //{{{
   int file_line_count = 0, // total number of lines
+      count_atom_lines = 0, // number of 'a[tom] <id>'
       default_atom_line = -1, // line number of the first 'atom default' line
       atom_names = 0, res_names = 0, // number of unieque bead & molecule names
+      highest_resid = 0, // highest resid to then count molecules
+      count_bonds = 0, // number of bonds
       words;
   bool warned = false; // has 'a[tom] default' line warning already been issued?
+  int *mol_id = calloc(1, sizeof *mol_id); // to not which resids are used
+  mol_id[0] = -1; // initialize by assuming 'resid 0' isn't in struct_file
   char split[SPL_STR][SPL_LEN],
        (*atom_name)[BEAD_NAME+1] = calloc(1, sizeof *atom_name),
        (*res_name)[MOL_NAME+1] = calloc(1, sizeof *res_name);
@@ -1242,13 +1247,16 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
   struct atom {
     int name, index, resid, resname;
     double charge, mass, radius;
-  } atom_def, *atom = calloc(1, sizeof *atom); //}}}
+  } atom_def, *atom = calloc(1, sizeof *atom);
+  struct bond {
+    int index1, index2; // indices from vsf file
+  } *bond = calloc(1, sizeof *bond); //}}}
   // 1) read struct_file line by line, saving all atom and bond lines //{{{
   while (ReadAndSplitLine(vsf, &words, split)) {
     file_line_count++;
     int ltype = VtfCheckLineType(words, split, false,
                                  struct_file, file_line_count);
-    if (ltype == ATOM_LINE) {
+    if (ltype == ATOM_LINE) { // save 'a[tom]' line info //{{{
       if (strcmp(split[1], "default") == 0) { // 'a[tom] default' line
         // warning - multiple 'atom default' lines (warn only once)
         if (default_atom_line != -1 && !warned) { //{{{
@@ -1268,19 +1276,21 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
           // save values for the default bead type
           int *values = VtfAtomLineValues(words, split);
           // save name if unique //{{{
-          bool new = true; // assume the name is yet unknown
+          int type = -1; // assume the name is yet unknown
           for (int i = 0; i < atom_names; i++) {
             if (strncmp(split[values[0]], atom_name[i], BEAD_NAME) == 0) {
-              new = false;
+              type = i;
               break;
             }
           }
-          if (new) { // unknown (i.e., new) bead name
+          if (type == -1) { // unknown (i.e., new) bead name
             atom_name = realloc(atom_name, sizeof *atom_name *
                                            (atom_names + 1));
             strncpy(atom_name[atom_names], split[values[0]], BEAD_NAME);
+            type = atom_names;
             atom_names++;
-          } //}}}
+          }
+          atom_def.name = type; //}}}
           // save mass //{{{
           if (values[1] != -1) {
             atom_def.mass = atof(split[values[1]]);
@@ -1301,13 +1311,14 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
           } //}}}
         } //}}}
       } else { // 'a[tom] <id>' line
+        count_atom_lines++;
         int id = atoi(split[1]);
         // highest bead index? (corresponds to the number of beads in vsf) //{{{
         if (id >= (*Counts).BeadsInVsf) {
           atom = realloc(atom, sizeof *atom * (id + 1));
           // assign 'possible default bead' to all ids between old and new
           for (int i = (*Counts).BeadsInVsf; i < id; i++) {
-            atom[i].index = -1;
+            atom[i].name = -1;
           }
           (*Counts).BeadsInVsf = id + 1; // +1 as bead ids start from 0 in vsf
         } //}}}
@@ -1370,20 +1381,210 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
             atom[id].resname = type;
           }
           // highest molecule id? (corresponds to the number of molecules)
-          if (atom[id].resid >= (*Counts).Molecules) {
-            (*Counts).Molecules = atom[id].resid + 1; //+1 as vsf ids start from 0
+          // TODO does not correspond...
+          if (atom[id].resid > highest_resid) {
+            mol_id = realloc(mol_id, sizeof *mol_id * (atom[id].resid + 1));
+            for (int i = (highest_resid+1); i <= atom[id].resid; i++) {
+              mol_id[i] = -1;
+            }
+            highest_resid = atom[id].resid;
+          }
+          if (mol_id[atom[id].resid] == -1) {
+            mol_id[atom[id].resid] = (*Counts).Molecules;
+            (*Counts).Molecules++;
           }
         } else {
           atom[id].resid = -1;
         } //}}}
       }
+      //}}}
+    } else if (ltype == BOND_LINE) { // save 'b[ond]' line info //{{{
+      bond = realloc(bond, sizeof *atom * (count_bonds + 1));
+      if (words == 2) { // case 'bond <id>:<id>'
+        char index[SPL_STR][SPL_LEN];
+        SplitLine(index, split[1], ":");
+        bond[count_bonds].index1 = atoi(index[0]);
+        bond[count_bonds].index2 = atoi(index[1]);
+      } else { // case 'bond <id>: <id>'
+        split[1][strlen(split[1])-1] = '\0';
+        bond[count_bonds].index1 = atoi(split[1]);
+        bond[count_bonds].index2 = atoi(split[2]);
+      }
+      count_bonds++; //}}}
+    } else if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) { // timestep line
+      break;
+    } else if (ltype == ERROR_LINE) { // invalid line //{{{
+      // error message already printed by VtfCheckLineType()
+      exit(1);
+    }
+    //}}}
+  }
+  fclose(vsf); //}}}
+  // error - no default line and too few atom lines //{{{
+  if (default_atom_line == -1 && count_atom_lines != (*Counts).BeadsInVsf) {
+    strcpy(ERROR_MSG, "not all beads defined ('atom default' line is omitted)");
+    ErrorPrintError();
+    RedText(STDERR_FILENO);
+    fputs("File ", stderr);
+    PrintFile(struct_file);
+    RedText(STDERR_FILENO);
+    fputs(", ", stderr);
+    YellowText(STDERR_FILENO);
+    fprintf(stderr, "%d", (*Counts).BeadsInVsf-count_atom_lines);
+    RedText(STDERR_FILENO);
+    fputs(" bead(s) undefined\n", stderr);
+    ResetColour(STDERR_FILENO);
+    exit(1);
+  } //}}}
+  // assign values to any 'atom default' beads //{{{
+  if (default_atom_line != -1) {
+    for (int i = 0; i < (*Counts).BeadsInVsf; i++) {
+      if (atom[i].name == -1) {
+        atom[i].index = i; // TODO will it remain?
+        atom[i].name = atom_def.name;
+        atom[i].charge = atom_def.charge;
+        atom[i].mass = atom_def.mass;
+        atom[i].radius = atom_def.radius;
+        atom[i].resid = -1;
+        atom[i].resname = -1;
+      }
     }
   } //}}}
+  // create array linking internal and vsf resids //{{{
+  /*
+   * mol_id[vsf resid] = internal resid
+   * mol_id_internal[internal resid] = vsf resid
+   * therefore, mol_id_internal[mol_id[vsf resid]] = vsf resid
+   */
+  int *mol_id_internal = calloc((*Counts).Molecules, sizeof *mol_id_internal);
+  int count = 0;
+  for (int i = 0; i <= highest_resid; i++) {
+    if (mol_id[i] != -1) {
+      count++;
+      mol_id_internal[mol_id[i]] = i;
+    }
+  }
+  // check the number of molecules; it shouldn't ever be wrong
+  if ((*Counts).Molecules != count) {
+    strcpy(ERROR_MSG, "something went wrong with per bead type bead counting; \
+contact developper\n");
+    ErrorPrintError();
+    exit(1);
+  } //}}}
+  // count bonded and unbonded beads //{{{
+  for (int i = 0; i < (*Counts).BeadsInVsf; i++) {
+    if (atom[i].resid == -1) {
+      (*Counts).Unbonded++;
+    } else {
+      (*Counts).Bonded++;
+    }
+  }
+  // just check that it counts the beads correctly
+  if ((*Counts).BeadsInVsf != ((*Counts).Unbonded + (*Counts).Bonded)) {
+    strcpy(ERROR_MSG, "something went wrong with bead counting; \
+contact developper\n");
+    ErrorPrintError();
+    exit(1);
+  } //}}}
+  // 2) identify bead types //{{{
+  BEADTYPE *bt_tmp = calloc(1, sizeof (BEADTYPE));
+  if (detailed) { // based on name, charge, mass, and radius //{{{
+    fprintf(stderr, "NOT YET IMPLEMENTED!\n");
+    exit(1);
+  //}}}
+  } else { // based on name only  //{{{
+    // create new bead type from each unique atom_name
+    for (int i = 0; i < atom_names; i++) {
+      // if this is a 'atom default' name, use its charge, mass & radius
+      if (default_atom_line != -1 && atom_def.name == i) {
+        NewBeadType(&bt_tmp, &(*Counts).TypesOfBeads, atom_name[i],
+                    atom_def.charge, atom_def.mass, atom_def.radius);
+      } else { // otherwise, use 'undefined' values
+        NewBeadType(&bt_tmp, &(*Counts).TypesOfBeads, atom_name[i],
+                    CHARGE, MASS, RADIUS);
+      }
+    }
+    // go through all beads to count them & assign stuff to bead types
+    for (int i = 0; i < (*Counts).BeadsInVsf; i++) {
+      int name = atom[i].name;
+      int btype = FindBeadType2(atom_name[name],
+                                (*Counts).TypesOfBeads, bt_tmp);
+      // take the first defined values of charge, mass, and radius
+      if (btype != -1) {
+        bt_tmp[btype].Number++;
+        if (bt_tmp[btype].Mass == MASS && atom[i].mass != MASS) {
+          bt_tmp[btype].Mass = atom[i].mass;
+        }
+        if (bt_tmp[btype].Charge == CHARGE && atom[i].charge != CHARGE) {
+          bt_tmp[btype].Charge = atom[i].charge;
+        }
+        if (bt_tmp[btype].Radius == RADIUS && atom[i].radius != RADIUS) {
+          bt_tmp[btype].Radius = atom[i].radius;
+        }
+      } else { // weird error that should never happen //{{{
+        strcpy(ERROR_MSG, "something went with recognizing bead types; \
+    contact developper\n");
+        ErrorPrintError();
+        exit(1);
+      } //}}}
+    }
+  } //}}}
+  // check that the total number of beads; it shouldn't ever be wrong //{{{
+  count = 0;
+  for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
+    count += bt_tmp[i].Number;
+  }
+  if ((*Counts).BeadsInVsf != count) {
+    strcpy(ERROR_MSG, "something went wrong with per bead type bead counting; \
+contact developper\n");
+    ErrorPrintError();
+    exit(1);
+  } //}}}
+  //}}}
+  // 3) fill BEAD struct, putting unbonded beads first //{{{
+  BEAD *b_tmp = calloc((*Counts).BeadsInVsf, sizeof (BEAD));
+  int *id_tmp = calloc((*Counts).BeadsInVsf, sizeof *id_tmp),
+      c_bonded = 0, c_unbonded = 0; // count placed bonded/unbonded beads
+  for (int i = 0; i < (*Counts).BeadsInVsf; i++) {
+    int id;
+    if (atom[i].resid == -1) {
+      id = c_unbonded;
+      b_tmp[id].Molecule = -1;
+      c_unbonded++;
+    } else {
+      id = (*Counts).Unbonded + c_bonded;
+      b_tmp[id].Molecule = mol_id[atom[i].resid];
+      c_bonded++;
+    }
+    b_tmp[id].Type = atom[i].name;
+    b_tmp[id].nAggregates = 1; // TODO will be removed
+    b_tmp[id].Aggregate = calloc(1, sizeof *b_tmp[id].Aggregate);
+    b_tmp[id].Index = atom[i].index;
+    id_tmp[b_tmp[id].Index] = id;
+  } //}}}
+  // 4) identify molecule types based on all data //{{{
+  /*
+   * Molecules of one type must share:
+   * i) molecule name
+   * ii) number of beads and bonds
+   * iii) order of bead types
+   * iv) connectivity
+   */
+  // count beads in each molecule for ii) //{{{
+  int *atoms_per_mol = calloc((*Counts).Molecules, sizeof *atoms_per_mol);
+  for (int i = (*Counts).Unbonded; i < (*Counts).BeadsInVsf; i++) {
+    atoms_per_mol[b_tmp[i].Molecule]++;
+  } //}}}
+  //}}}
+
+  // test print //{{{
   printf("=================================================================\n");
-  printf("Default bead type:");
-  printf(" mass=%lf, ", atom_def.mass);
-  printf(" charge=%lf, ", atom_def.charge);
-  printf(" radius=%lf\n", atom_def.radius);
+  if (default_atom_line != -1) {
+    printf("Default bead type:");
+    printf(" mass=%lf, ", atom_def.mass);
+    printf(" charge=%lf, ", atom_def.charge);
+    printf(" radius=%lf\n", atom_def.radius);
+  }
   printf("Bead names (%d): ", atom_names);
   for (int i = 0; i < atom_names; i++) {
     printf(" %s", atom_name[i]);
@@ -1394,22 +1595,41 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
     printf(" %s", res_name[i]);
   }
   putchar('\n');
-  PrintCounts(*Counts);
-//for (int i = 0; i < (*Counts).BeadsInVsf; i++) {
-//  printf("atom %d name %s mass %lf charge %lf", i,
-//                                                atom_name[atom[i].name],
-//                                                atom[i].mass,
-//                                                atom[i].charge);
-//  if (atom[i].resid != -1) {
-//    printf(" resname %s resid %d", res_name[atom[i].resname],
-//                                   atom[i].resid);
-//  }
-//  putchar('\n');
+//for (int i = 0; i < (*Counts).Molecules; i++) {
+//  printf("%3d (%3d): %d\n", i, mol_id_internal[i], atoms_per_mol[i]);
 //}
+  PrintCounts(*Counts);
+  PrintBeadType2((*Counts).TypesOfBeads, bt_tmp);
+//PrintBead2((*Counts).BeadsInVsf, id_tmp, bt_tmp, b_tmp); //}}}
+
+  // X) copy everything back to their 'proper' arrays and structures //{{{
+  (*Counts).Beads = (*Counts).BeadsInVsf;
+  *Index = malloc(sizeof **Index * (*Counts).Beads);
+  for (int i = 0; i < (*Counts).Beads; i++) {
+    (*Index)[i] = id_tmp[i];
+  }
+  *BeadType = malloc(sizeof (BEADTYPE) * (*Counts).TypesOfBeads);
+  for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
+    (*BeadType)[i] = bt_tmp[i];
+  }
+  *Bead = malloc(sizeof (BEAD) * (*Counts).Beads);
+  for (int i = 0; i < (*Counts).Beads; i++) {
+    (*Bead)[i] = b_tmp[i];
+    (*Bead)[i].Aggregate = calloc(1, sizeof *(*Bead)[i].Aggregate);
+  }
+  // molecule types
+//CopyMoleculeType((*Counts).TypesOfMolecules, MoleculeType, mt_tmp, 2);
+//CopyMolecule((*Counts).Molecules, *MoleculeType, Molecule, mol_tmp, 2); //}}}
+  FreeBead((*Counts).BeadsInVsf, &b_tmp);
+  free(bt_tmp);
+  free(id_tmp);
   free(atom);
   free(atom_name);
   free(res_name);
-  fclose(vsf);
+  free(mol_id);
+  free(mol_id_internal);
+  free(bond);
+  free(atoms_per_mol);
 } //}}}
 
 // CheckVtfTimestep() //{{{
@@ -4824,6 +5044,7 @@ int CheckVtfCoordinateLine(int words, char split[SPL_STR][SPL_LEN]) {
  */
 int VtfCheckLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
                      char *file, int line) {
+  ERROR_MSG[0] = '\0'; // clear error message array
   // blank line
   if (words == 0) {
     return BLANK_LINE;
@@ -4854,6 +5075,10 @@ int VtfCheckLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
   test = CheckVtfTimestepLine(words, split);
   if (test != ERROR_LINE) {
     return test;
+  }
+  if (ERROR_MSG[0] == '\0') {
+    strcpy(ERROR_MSG, "unrecognised line");
+    ErrorPrintFull(file, line, split, words);
   }
   return ERROR_LINE;
 } //}}}

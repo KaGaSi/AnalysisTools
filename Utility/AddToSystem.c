@@ -1421,10 +1421,8 @@ int main(int argc, char *argv[]) {
   // free memory - to make valgrind happy //{{{
   FreeSystemInfo(Counts_orig, &mt_orig, &mol_orig,
                  &bt_orig, &bead_orig, &Index_orig);
-printf("ok\n");
   FreeSystemInfo(Counts_add, &mt_add, &mol_add,
                  &bt_add, &bead_add, &Index_add);
-printf("ok\n");
   FreeSystemInfo(Counts_new, &mt_new, &mol_new,
                  &bt_new, &bead_new, &Index_new);
   free(stuff);

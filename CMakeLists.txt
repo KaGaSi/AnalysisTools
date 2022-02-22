@@ -45,6 +45,7 @@ set(UTILS AddToSystem
           GyrationAggregates
           GyrationMolecules
           Info
+          Test
           JoinAggregates
 #         JoinRuns
           lmp_data

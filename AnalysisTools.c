@@ -626,7 +626,7 @@ void PrintBead2(int number_of_beads, int *Index,
     if (Bead[i].Molecule == -1) {
       fprintf(stdout, "None\n");
     } else {
-      fprintf(stdout, "%6d\n", Bead[i].Molecule+1);
+      fprintf(stdout, "%6d\n", Bead[i].Molecule);
     }
   }
 } //}}}

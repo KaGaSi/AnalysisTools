@@ -104,6 +104,7 @@ int main(int argc, char *argv[]) {
       vtf = true;
     }
   } //}}}
+  if (vtf);
   bool verbose = BoolOption(argc, argv, "-v");
   bool detailed = BoolOption(argc, argv, "--detailed");
   //}}}
@@ -115,26 +116,32 @@ int main(int argc, char *argv[]) {
   int *Index; // link between indices (i.e., Index[Bead[i].Index]=i)
   MOLECULE *Molecule; // structure with info about every molecule
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
-  BOX Box = InitBox; // triclinic box dimensions and angles
-  bool indexed; // indexed timestep?
-  int struct_lines; // number of structure lines (relevant for vtf)
-  FullVtfRead(input_vsf, input_coor, detailed, vtf, &indexed, &struct_lines,
-              &Box, &Counts, &BeadType, &Bead, &Index,
-              &MoleculeType, &Molecule); //}}}
+//BOX Box = InitBox; // triclinic box dimensions and angles
+//bool indexed; // indexed timestep?
+//int struct_lines; // number of structure lines (relevant for vtf)
+//FullVtfRead(input_vsf, input_coor, detailed, vtf, &indexed, &struct_lines,
+//            &Box, &Counts, &BeadType, &Bead, &Index,
+//            &MoleculeType, &Molecule); //}}}
 
-  // print information
-  VerboseOutput(input_coor, Counts, Box, BeadType, Bead,
-                MoleculeType, Molecule);
-  // TODO: if beads in vsf != beads in vcf, write out vcf
+//// print information
+//VerboseOutput(input_coor, Counts, Box, BeadType, Bead,
+//              MoleculeType, Molecule);
+//// TODO: if beads in vsf != beads in vcf, write out vcf
   if (verbose) { //{{{
-    fprintf(stdout, "\nInformation about every bead:\n");
-    PrintBead2(Counts.BeadsInVsf, Index, BeadType, Bead);
-    fprintf(stdout, "\nInformation about every molecule:\n");
-    PrintMolecule(Counts.Molecules, MoleculeType, Molecule, BeadType, Bead);
+//  fprintf(stdout, "\nInformation about every bead:\n");
+//  PrintBead2(Counts.BeadsInVsf, Index, BeadType, Bead);
+//  fprintf(stdout, "\nInformation about every molecule:\n");
+//  PrintMolecule(Counts.Molecules, MoleculeType, Molecule, BeadType, Bead);
   } //}}}
 
+  VtfReadStruct(input_vsf, detailed, &Counts, &BeadType, &Bead, &Index,
+                &MoleculeType, &Molecule);
+  FreeBead(Counts.Beads, &Bead);
+  free(Index);
+  free(BeadType);
+
   // free memory - to make valgrind happy
-  FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);
+//FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);
 
   return 0;
 }

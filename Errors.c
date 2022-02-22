@@ -44,7 +44,7 @@ bool ErrorDiscard(int start, int step, char *file, FILE *coor) {
     ResetColour(STDERR_FILENO);
     return true;
   } else {
-    ungetc(test,coor);
+    ungetc(test, coor);
     return false;
   }
 } //}}}
@@ -315,6 +315,5 @@ void PrintFileLine(char *file, int line,
 void ErrorPrintFull(char *file, int line,
                     char split[SPL_STR][SPL_LEN], int words) {
   ErrorPrintError();
-  ResetColour(STDERR_FILENO);
   PrintFileLine(file, line, split, words);
 } //}}}
