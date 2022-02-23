@@ -1529,7 +1529,7 @@ contact developper\n");
       } //}}}
     }
   } //}}}
-  // check that the total number of beads; it shouldn't ever be wrong //{{{
+  // recheck the total number of beads; it shouldn't ever be wrong //{{{
   count = 0;
   for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
     count += bt_tmp[i].Number;
@@ -1575,32 +1575,245 @@ contact developper\n");
   for (int i = (*Counts).Unbonded; i < (*Counts).BeadsInVsf; i++) {
     atoms_per_mol[b_tmp[i].Molecule]++;
   } //}}}
+  // allocate MOLECULE struct & and fill with indices for iv) //{{{
+  MOLECULE *mol_tmp = calloc((*Counts).Molecules, sizeof (MOLECULE));
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+    mol_tmp[i].Bead = calloc(atoms_per_mol[i], sizeof *mol_tmp[i].Bead);
+    mol_tmp[i].Aggregate = -1; // in no aggregate // TODO: will probably disappear
+    mol_tmp[i].Index = mol_id_internal[i];
+  }
+  // fill to Molecule[].Bead array with bead indices
+  int *count_in_mol = calloc((*Counts).Molecules, sizeof *count_in_mol);
+  for (int i = (*Counts).Unbonded; i < (*Counts).BeadsInVsf; i++) {
+    int m_id = b_tmp[i].Molecule;
+    mol_tmp[m_id].Bead[count_in_mol[m_id]] = i;
+    count_in_mol[m_id]++;
+  }
+  // recheck bead numbers in molecules; this should never trigger
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+    if (count_in_mol[i] != atoms_per_mol[i]) {
+      strcpy(ERROR_MSG, "something went wrong with per molecule bead numbers; \
+  contact developper\n");
+      ErrorPrintError();
+    }
+  } //}}}
+  // count bonds in all molecules for ii) //{{{
+  int *bonds_per_mol = calloc((*Counts).Molecules, sizeof *bonds_per_mol);
+  for (int i = 0; i < count_bonds; i++) {
+    int id1 = id_tmp[bond[i].index1]; // vsf bead id
+    int id2 = id_tmp[bond[i].index2]; // vsf bead id
+    int m_id1 = b_tmp[id1].Molecule; // internal molecule id
+    int m_id2 = b_tmp[id2].Molecule; // internal molecule id
+    // error - beads from one bond are in different molecules
+    if (m_id1 != m_id2) {
+      strcpy(ERROR_MSG, "bonded beads in different molecules");
+      ErrorPrintError();
+      RedText(STDERR_FILENO);
+      fputs("File ", stderr);
+      PrintFile(struct_file);
+      RedText(STDERR_FILENO);
+      fputs(", beads ", stderr);
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "%d", bond[i].index1);
+      RedText(STDERR_FILENO);
+      fputs(" and ", stderr);
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "%d", bond[i].index2);
+      RedText(STDERR_FILENO);
+      fputs(" in molecules ", stderr);
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "%d", mol_id_internal[m_id2]);
+      RedText(STDERR_FILENO);
+      fputs(" and ", stderr);
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "%d\n", mol_id_internal[m_id1]);
+      ResetColour(STDERR_FILENO);
+      exit(1);
+    }
+    bonds_per_mol[m_id1]++;
+  }
+  //}}}
+  // save connectivity for each molecule for iv) //{{{
+  // allocate connectivity array //{{{
+  /*
+   * in molec[i].connect[j][k]:
+   *   i ... molecule id
+   *   j ... bond id
+   *   k ... 0 and 1: connected bead indices; 2: bond type (not used now)
+   */
+  struct connectivity {
+    int (*connect)[3];
+  } *molec = malloc(sizeof *molec * (*Counts).Molecules);
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+    count_in_mol[i] = 0;
+    molec[i].connect = malloc(sizeof *molec[i].connect * bonds_per_mol[i]);
+    for (int j = 0; j < bonds_per_mol[i]; j++) {
+      molec[i].connect[j][0] = -1;
+      molec[i].connect[j][1] = -1;
+    }
+  } //}}}
+  // save ids of bonded beads
+  for (int i = 0; i < count_bonds; i++) { // go through all bonds
+    int id1 = id_tmp[bond[i].index1], // internal bead id
+        id2 = id_tmp[bond[i].index2]; // internal bead id
+    int m_id = b_tmp[id1].Molecule; // internal molecule id
+    bool done[2] = {false}; // so as not to go through the whole molecule
+    for (int j = 0; j < atoms_per_mol[m_id]; j++) { // go through all m_id beads
+      if (mol_tmp[m_id].Bead[j] == id1) {
+        molec[m_id].connect[count_in_mol[m_id]][0] = j;
+        done[0] = true;
+      }
+      if (mol_tmp[m_id].Bead[j] == id2) {
+        molec[m_id].connect[count_in_mol[m_id]][1] = j;
+        done[1] = true;
+      }
+      if (done[0] && done[1]) {
+        break;
+      }
+    }
+    count_in_mol[m_id]++;
+  }
+  // sort bonds from lowest id to the highest
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+    SortBonds(molec[i].connect, bonds_per_mol[i]);
+  }
+  //}}}
+  // count molecule types based on i) through iv) //{{{
+  MOLECULETYPE *mt_tmp = calloc(1, sizeof (MOLECULETYPE));
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+    int id = b_tmp[mol_tmp[i].Bead[0]].Index; // vsf id of the first bead of 'i'
+    int name = atom[id].resname; // index in res_name array
+    bool add = false; // assume no type exists that 'i' can be added to
+    // go through all molecule types to find a match for molecule 'i' //{{{
+    for (int j = 0; j < (*Counts).TypesOfMolecules; j++) {
+      /* check that molecule 'i' shares with molecule type 'j':
+       *   a) resname
+       *   b) number of beads
+       *   c) number of bonds
+       *   d) bead order
+       *   e) connectivity
+       */
+      if (strcmp(res_name[name], mt_tmp[j].Name) == 0 && // a)
+          atoms_per_mol[i] == mt_tmp[j].nBeads && // b)
+          bonds_per_mol[i] == mt_tmp[j].nBonds) { // c)
+        // d)
+        bool same_beads = true; // assume molecule 'i' has 'j' type's bead order
+        for (int k = 0; k < mt_tmp[j].nBeads; k++) {
+          if (b_tmp[mol_tmp[i].Bead[k]].Type != mt_tmp[j].Bead[k]) {
+            same_beads = false; // nope, it doesn't; is not type j
+            break;
+          }
+        }
+        // e)
+        bool same_bonds = true; // assume molecule i has j type's connectivity
+        for (int k = 0; k < mt_tmp[j].nBonds; k++) {
+          if (molec[i].connect[k][0] != mt_tmp[j].Bond[k][0] ||
+              molec[i].connect[k][1] != mt_tmp[j].Bond[k][1]) {
+            same_bonds = false; // nope, it doesn't; i is not type j
+            break;
+          }
+        }
+        if (same_beads && same_bonds) {
+          add = true; // add to existing molecule type
+        }
+      }
+      if (add) { // found matching molecule type
+        mt_tmp[j].Number++;
+        mol_tmp[i].Type = j;
+        break;
+      }
+    } //}}}
+    // create new type if no match found for 'i' or no type exists yet //{{{
+    if (!add || (*Counts).TypesOfMolecules == 0) {
+      // TODO rewrite and use NewMolType as ..(name, number, nbeads, beads[],
+      //                                       nbonds, bonds[][3],
+      //                                       nangles, angles[][4],
+      //                                       ndihedrals, dihedrals[][5])
+      int type = (*Counts).TypesOfMolecules++;
+      mol_tmp[i].Type = type;
+      mt_tmp = realloc(mt_tmp, sizeof (MOLECULETYPE) *
+                               (*Counts).TypesOfMolecules);
+      strcpy(mt_tmp[type].Name, res_name[name]);
+      mt_tmp[type].Number = 1;
+      mt_tmp[type].nBeads = atoms_per_mol[i];
+      mt_tmp[type].Bead = malloc(sizeof *mt_tmp[type].Bead *
+                                 mt_tmp[type].nBeads);
+      for (int j = 0; j < mt_tmp[type].nBeads; j++) {
+        int id = mol_tmp[i].Bead[j];
+        mt_tmp[type].Bead[j] = b_tmp[id].Type;
+      }
+      mt_tmp[type].nBonds = bonds_per_mol[i];
+      if (bonds_per_mol[i] > 0) {
+        mt_tmp[type].Bond = malloc(sizeof *mt_tmp[type].Bond * bonds_per_mol[i]);
+        for (int j = 0; j < bonds_per_mol[i]; j++) {
+          mt_tmp[type].Bond[j][0] = molec[i].connect[j][0];
+          mt_tmp[type].Bond[j][1] = molec[i].connect[j][1];
+          mt_tmp[type].Bond[j][2] = -1; // no bond types
+        }
+      }
+      mt_tmp[type].nAngles = 0;
+      mt_tmp[type].nDihedrals = 0;
+    } //}}}
+  } //}}}
+  // rename molecule types with the same name //{{{
+  for (int i = 0; i < ((*Counts).TypesOfMolecules-1); i++) {
+    count = 0; // number of types sharing the name with type i
+    for (int j = (i+1); j < (*Counts).TypesOfMolecules; j++) {
+      if (strcmp(mt_tmp[i].Name, mt_tmp[j].Name) == 0) {
+        count++;
+        // shorten name if necessary to append '_<int>'
+        char name[MOL_NAME+1];
+        strcpy(name, mt_tmp[j].Name);
+        if (count < 10) {
+          name[MOL_NAME-2] = '\0';
+        } else if (count < 100) {
+          name[MOL_NAME-3] = '\0';
+        } else if (count < 1000) {
+          name[MOL_NAME-4] = '\0';
+        }
+        snprintf(mt_tmp[j].Name, MOL_NAME+1, "%s_%d", name, count);
+      }
+    }
+  } //}}}
+  FillMolType((*Counts).TypesOfMolecules, bt_tmp, &mt_tmp); //}}}
   //}}}
 
   // test print //{{{
   printf("=================================================================\n");
-  if (default_atom_line != -1) {
-    printf("Default bead type:");
-    printf(" mass=%lf, ", atom_def.mass);
-    printf(" charge=%lf, ", atom_def.charge);
-    printf(" radius=%lf\n", atom_def.radius);
-  }
-  printf("Bead names (%d): ", atom_names);
-  for (int i = 0; i < atom_names; i++) {
-    printf(" %s", atom_name[i]);
-  }
-  putchar('\n');
-  printf("Molecule names (%d): ", res_names);
-  for (int i = 0; i < res_names; i++) {
-    printf(" %s", res_name[i]);
-  }
-  putchar('\n');
+//for (int i = 0; i < (*Counts).Molecules; i++) {
+//  printf("%3d (%3d):", i, mol_tmp[i].Index);
+//  printf("%d bonds\n", bonds_per_mol[i]);
+//  for (int j = 0; j < bonds_per_mol[i]; j++) {
+//    printf(" %d-%d", molec[i].connect[j][0]+1, molec[i].connect[j][1]+1);
+//  }
+//  for (int j = 0; j < atoms_per_mol[i]; j++) {
+//    printf(" %d (%d)", mol_tmp[i].Bead[j], b_tmp[mol_tmp[i].Bead[j]].Index);
+//  }
+//  putchar('\n');
+//}
+//if (default_atom_line != -1) {
+//  printf("Default bead type:");
+//  printf(" mass=%lf, ", atom_def.mass);
+//  printf(" charge=%lf, ", atom_def.charge);
+//  printf(" radius=%lf\n", atom_def.radius);
+//}
+//printf("Bead names (%d): ", atom_names);
+//for (int i = 0; i < atom_names; i++) {
+//  printf(" %s", atom_name[i]);
+//}
+//putchar('\n');
+//printf("Molecule names (%d): ", res_names);
+//for (int i = 0; i < res_names; i++) {
+//  printf(" %s", res_name[i]);
+//}
+//putchar('\n');
 //for (int i = 0; i < (*Counts).Molecules; i++) {
 //  printf("%3d (%3d): %d\n", i, mol_id_internal[i], atoms_per_mol[i]);
 //}
   PrintCounts(*Counts);
   PrintBeadType2((*Counts).TypesOfBeads, bt_tmp);
 //PrintBead2((*Counts).BeadsInVsf, id_tmp, bt_tmp, b_tmp); //}}}
+  PrintMoleculeType2((*Counts).TypesOfMolecules, bt_tmp, mt_tmp);
 
   // X) copy everything back to their 'proper' arrays and structures //{{{
   (*Counts).Beads = (*Counts).BeadsInVsf;
@@ -1620,9 +1833,7 @@ contact developper\n");
   // molecule types
 //CopyMoleculeType((*Counts).TypesOfMolecules, MoleculeType, mt_tmp, 2);
 //CopyMolecule((*Counts).Molecules, *MoleculeType, Molecule, mol_tmp, 2); //}}}
-  FreeBead((*Counts).BeadsInVsf, &b_tmp);
-  free(bt_tmp);
-  free(id_tmp);
+  // free memory //{{{
   free(atom);
   free(atom_name);
   free(res_name);
@@ -1630,6 +1841,18 @@ contact developper\n");
   free(mol_id_internal);
   free(bond);
   free(atoms_per_mol);
+  free(bonds_per_mol);
+  free(count_in_mol);
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+    free(molec[i].connect);
+  }
+  free(molec);
+  FreeBead((*Counts).BeadsInVsf, &b_tmp);
+  free(bt_tmp);
+  free(id_tmp);
+  FreeMolecule((*Counts).Molecules, &mol_tmp);
+  FreeMoleculeType((*Counts).TypesOfMolecules, &mt_tmp);
+  //}}}
 } //}}}
 
 // CheckVtfTimestep() //{{{

@@ -160,7 +160,8 @@ typedef struct MoleculeType {
 typedef struct Molecule {
   int Type, // type of molecule corresponding to index in MoleculeType struct
       *Bead, // ids of beads in the molecule
-      Aggregate; // id of aggregate molecule is in (corresponding to index in Aggregate struct)
+      Aggregate, // id of aggregate molecule is in (corresponding to index in Aggregate struct)
+      Index; // resid according to .vsf file
 } MOLECULE; //}}}
 
 // struct Aggregate //{{{
