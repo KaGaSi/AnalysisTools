@@ -641,17 +641,22 @@ void PrintMolecule(int number_of_molecules,
   fprintf(stdout, "Molecules\n");
   for (int i = 0; i < number_of_molecules; i++) {
     int type = Molecule[i].Type;
-    fprintf(stdout, "Molecule %3d (%s):\n", i+1, MoleculeType[type].Name);
-    fprintf(stdout, " BEAD INDICES (%d): intramolecular; internal; input file\n", MoleculeType[type].nBeads);
+    fprintf(stdout, "Molecule %3d (%d, %s):\n", i+1, Molecule[i].Index,
+                                                MoleculeType[type].Name);
+    fprintf(stdout, " BEAD INDICES (%d): ", MoleculeType[type].nBeads);
+    fputs("intramolecular; internal; input file\n", stdout);
     for (int j = 0; j < MoleculeType[type].nBeads; j++) {
-      fprintf(stdout, "   %3d; %5d; %5d\n", j+1, Molecule[i].Bead[j], Bead[Molecule[i].Bead[j]].Index);
+      int id = Molecule[i].Bead[j];
+      fprintf(stdout, "   %3d; %5d; %5d\n", j+1, id, Bead[id].Index);
     }
-    fprintf(stdout, " BONDS (%d): intramolecular bead indices\n", MoleculeType[type].nBonds);
-    for (int j = 0; j < MoleculeType[type].nBonds; j++) {
-      int bead1 = MoleculeType[type].Bond[j][0];
-      int bead2 = MoleculeType[type].Bond[j][1];
-      fprintf(stdout, "   %3d %3d\n", bead1+1, bead2+1);
-    }
+    // TODO useless as all molecule of given type have the same connectivity
+//  fprintf(stdout, " BONDS (%d): ", MoleculeType[type].nBonds);
+//  fputs("intramolecular bead indices\n", stdout);
+//  for (int j = 0; j < MoleculeType[type].nBonds; j++) {
+//    int bead1 = MoleculeType[type].Bond[j][0];
+//    int bead2 = MoleculeType[type].Bond[j][1];
+//    fprintf(stdout, "   %3d %3d\n", bead1+1, bead2+1);
+//  }
   }
   fprintf(stdout, "\n");
 } //}}}
@@ -2044,15 +2049,9 @@ void FreeMoleculeType(int number_of_types, MOLECULETYPE **MoleculeType) {
       free(*(*MoleculeType)[i].Bond);
     }
     if ((*MoleculeType)[i].nAngles > 0) {
-//    for (int j = 0; j < (*MoleculeType)[i].nAngles; j++) {
-//      free((*MoleculeType)[i].Angle[j]);
-//    }
       free(*(*MoleculeType)[i].Angle);
     }
     if ((*MoleculeType)[i].nDihedrals > 0) {
-//    for (int j = 0; j < (*MoleculeType)[i].nDihedrals; j++) {
-//      free((*MoleculeType)[i].Dihedral[j]);
-//    }
       free(*(*MoleculeType)[i].Dihedral);
     }
     free((*MoleculeType)[i].BType);

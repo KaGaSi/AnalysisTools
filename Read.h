@@ -65,6 +65,10 @@ void FullVtfRead(char *struct_file, char *vcf_file, bool detailed, bool vtf,
                  bool *indexed, int *struct_lines, BOX *Box, COUNTS *Counts,
                  BEADTYPE **BeadType, BEAD **Bead, int **Index,
                  MOLECULETYPE **MoleculeType, MOLECULE **Molecule);
+void FullVtfRead_new(char *struct_file, char *vcf_file, bool detailed,
+                 bool *indexed, BOX *Box, COUNTS *Counts,
+                 BEADTYPE **BeadType, BEAD **Bead, int **Index,
+                 MOLECULETYPE **MoleculeType, MOLECULE **Molecule);
 
 // ReadStructure() //{{{
 /**
@@ -250,10 +254,9 @@ void NewBeadType(BEADTYPE **BeadType, int *number_of_types, char *name,
 // NewMolType() //{{{
 /*
  * Function to create a new molecule type in a MOLECULETYPE struct.
- * TODO: not used anywhere
  */
-void NewMolType(char *name, int *number_of_types,
-                MOLECULETYPE **MoleculeType, char *vsf_file); //}}}
+void NewMolType(MOLECULETYPE **MoleculeType, int *n_types, char *name,
+                int n_beads, int n_bonds, int n_angles, int n_dihedrals);
 
 // FillMolMass //{{{
 /*
