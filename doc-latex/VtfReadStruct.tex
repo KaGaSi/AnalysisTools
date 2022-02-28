@@ -34,56 +34,47 @@ molecules present there.
   \St open \ttb{struct_file}
   \St $file\_line\_count\gets0$\Comment{total number of lines in
     \ttb{struct_file}}
-  \Stx $count\_atom\_lines\gets0$\Comment{number of \hltt{a[tom]} lines in
+  \Stx $count\_atom\gets0$\Comment{number of \hltt{a[tom]} lines in
     \ttb{struct_file}}
-  \Stx $count\_bond\_lines\gets0$\Comment{number of \hltt{b[ond]} lines in
-    \ttb{struct_file}}
-  \Stx $default\_atom\_line\gets-1$\Comment{line number of the first
+  \Stx $default\_atom\gets-1$\Comment{line number of the first
     \hltt{a[tom] default} line}
-  \Stx $last\_struct\_line\gets0$\Comment{line number of the last
-    \hltt{a[tom]}/\hltt{b[ond]} line}
+  \Stx $count\_bonds\gets0$\Comment{number of \hltt{b[ond]} lines in
+    \ttb{struct_file}}
   \Stx $atom\_names\gets0$\Comment{number of unique bead names in
     \ttb{struct_file}}
   \Stx $res\_names\gets0$\Comment{number of unique molecule names in
     \ttb{struct_file}}
   \Stx $atom\_name[]$ and $resn\_name[]$\Comment{arrays for the unique
     names (memory allocated as needed)}
+  \Stx $atom[]$, $atom\_def$, and $bond[]$\Comment{structures with information
+    from \hltt{a[tom]} and \hltt{b[ond]} lines}
   \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
-  \Stx i) count lines and save bead and molecule names from \ttb{struct_file}
+  \Stx i) save all \hltt{a[tom]} and \hltt{b[ond]} lines from \ttb{struct_file}
+    and count beads and molecules
   \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
   \While{$line\gets$ get a line from \ttb{input_vcf}}
     \St $file\_line\_count\gets file\_line\_count+1$
     \If{$line$ is \hltt{a[tom]} line}
-      \St $count\_atom\_lines\gets count\_atom\_lines+1$
-      \St $last\_struct\_line\gets file\_line\_count$
       \If{$line$ is \hltt{a[tom] default} line}
         \If{not the first \hltt{a[tom] default} line}
           \St warn that this line is not used as the \hltt{default} line
         \Else
-          \St $default\_atom\_line\gets file\_line\_count-1$\Comment{$-1$ as
+          \St $default\_atom\gets file\_line\_count-1$\Comment{$-1$ as
             array indices start from 0}
+          \If{bead name not in $atom\_name[]$}
+            \St $atom\_name[atom\_names]\gets$ bead name
+            \St $atom\_names\gets atom\_names+1$
+          \EndIf
+          \St $atom\_def\gets$ mass, charge, and radius from the \hltt{a[tom]}
+            line
         \EndIf
       \ElsIf{bead index $>$ \ttb{Counts.BeadsInVsf}}
+        \St $count\_atom\gets count\_atom+1$
         \St \ttb{Counts.BeadsInVsf} $\gets$ the bead index$+1$\Comment{$+1$ as
         \vtf bead indices start from 0}
       \EndIf
-      \If{bead name is not in $atom\_name[]$}\Comment{tested via a \tt{for}
-        loop}
-        \St $atom\_names\gets atom\_names+1$
-        \St reallocate memory for $atom\_name[]$ and save the name
-      \EndIf
-      \If{molecule name is not in $res\_name[]$}\Comment{tested via a \tt{for}
-        loop}
-        \St $res\_names\gets res\_names+1$
-        \St reallocate memory for $res\_name[]$ and save the name
-      \EndIf
-      \If{molecule index $>$ \ttb{Counts.Molecules}}\Comment{count molecules;
-        \TODO still assumes continuous numbering starting from 1}
-        \St \ttb{Counts.Molecules} $\gets$ the molecule index
-      \EndIf
     \ElsIf{$line$ is \hltt{b[ond]} line}
-      \St $count\_bond\_lines\gets count\_bond\_lines+1$
-      \St $last\_struct\_line\gets file\_line\_count$
+      \St $count\_bonds\gets count\_bonds+1$
     \ElsIf{$line$ is a \hltt{t[imestep]} line}
       \Break
     \ElsIf{$line$ is not recognised}

@@ -638,7 +638,6 @@ void PrintBead2(int number_of_beads, int *Index,
 void PrintMolecule(int number_of_molecules,
                    MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
                    BEADTYPE *BeadType, BEAD *Bead) {
-  fprintf(stdout, "Molecules\n");
   for (int i = 0; i < number_of_molecules; i++) {
     int type = Molecule[i].Type;
     fprintf(stdout, "Molecule %3d (%d, %s):\n", i+1, Molecule[i].Index,
@@ -649,14 +648,6 @@ void PrintMolecule(int number_of_molecules,
       int id = Molecule[i].Bead[j];
       fprintf(stdout, "   %3d; %5d; %5d\n", j+1, id, Bead[id].Index);
     }
-    // TODO useless as all molecule of given type have the same connectivity
-//  fprintf(stdout, " BONDS (%d): ", MoleculeType[type].nBonds);
-//  fputs("intramolecular bead indices\n", stdout);
-//  for (int j = 0; j < MoleculeType[type].nBonds; j++) {
-//    int bead1 = MoleculeType[type].Bond[j][0];
-//    int bead2 = MoleculeType[type].Bond[j][1];
-//    fprintf(stdout, "   %3d %3d\n", bead1+1, bead2+1);
-//  }
   }
   fprintf(stdout, "\n");
 } //}}}

@@ -92,7 +92,6 @@ int main(int argc, char *argv[]) {
   if (FileOption(argc, argv, "-c", input_coor, LINE)) {
     exit(1);
   }
-  bool vtf = false;
   strcpy(extension[0], ".vcf");
   strcpy(extension[1], ".vtf");
   if (input_coor[0] != '\0') {
@@ -100,8 +99,6 @@ int main(int argc, char *argv[]) {
     if ((test=ErrorExtension(input_coor, ext, extension)) == -1) {
       Help(argv[0], true);
       exit(1);
-    } else if (test == 1) {
-      vtf = true;
     }
   } //}}}
   bool verbose = BoolOption(argc, argv, "-v");
@@ -117,18 +114,21 @@ int main(int argc, char *argv[]) {
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
   BOX Box = InitBox; // triclinic box dimensions and angles
   bool indexed; // indexed timestep?
-  int struct_lines; // number of structure lines (relevant for vtf)
-  FullVtfRead(input_vsf, input_coor, detailed, vtf, &indexed, &struct_lines,
-              &Box, &Counts, &BeadType, &Bead, &Index,
-              &MoleculeType, &Molecule); //}}}
+  FullVtfRead_new(input_vsf, input_coor, detailed, &indexed,
+                  &Box, &Counts, &BeadType, &Bead, &Index,
+                  &MoleculeType, &Molecule); //}}}
 
   // print information
+  if (Counts.BeadsInVsf != Counts.Beads) {
+    fprintf(stdout, "%d beads missing in the %s file\n",
+            Counts.BeadsInVsf-Counts.Beads, input_coor);
+  }
   VerboseOutput(input_coor, Counts, Box, BeadType, Bead,
                 MoleculeType, Molecule);
   // TODO: if beads in vsf != beads in vcf, write out vcf
   if (verbose) { //{{{
     fprintf(stdout, "\nInformation about every bead:\n");
-    PrintBead2(Counts.BeadsInVsf, Index, BeadType, Bead);
+    PrintBead2(Counts.Beads, Index, BeadType, Bead);
     fprintf(stdout, "\nInformation about every molecule:\n");
     PrintMolecule(Counts.Molecules, MoleculeType, Molecule, BeadType, Bead);
   } //}}}
