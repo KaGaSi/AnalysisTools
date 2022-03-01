@@ -1231,14 +1231,14 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
   } //}}}
   // define variables and structures and arrays //{{{
   int file_line_count = 0, // total number of lines
-      count_atoms = 0, // number of 'a[tom] <id>'
-      default_atom = -1, // line number of the first 'atom default' line
+      count_atoms = 0, // number of 'atom <id>'
+      default_atom = 0, // line number of the first 'atom default' line
       atom_names = 0, res_names = 0, // number of unieque bead & molecule names
-      highest_resid = 0, // highest resid to then count molecules
+      highest_resid = -1, // highest 'resid <id>'
       count_bonds = 0, // number of bonds
       words;
   bool warned = false; // has 'a[tom] default' line warning already been issued?
-  int *mol_id = calloc(1, sizeof *mol_id); // to not which resids are used
+  int *mol_id = calloc(1, sizeof *mol_id); // to know which resids are used
   mol_id[0] = -1; // initialize by assuming 'resid 0' isn't in struct_file
   char split[SPL_STR][SPL_LEN],
        (*atom_name)[BEAD_NAME+1] = calloc(1, sizeof *atom_name),
@@ -1258,7 +1258,7 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
     if (ltype == ATOM_LINE) { // save 'a[tom]' line info //{{{
       if (strcmp(split[1], "default") == 0) { // 'a[tom] default' line
         // warning - multiple 'atom default' lines (warn only once)
-        if (default_atom != -1 && !warned) { //{{{
+        if (default_atom != 0 && !warned) { //{{{
           warned = true;
           strcpy(ERROR_MSG, "multiple 'a[tom] default' lines");
           WarnPrintWarning();
@@ -1266,12 +1266,12 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
           CyanText(STDERR_FILENO);
           fprintf(stderr, ", using line ");
           YellowText(STDERR_FILENO);
-          fprintf(stderr, "%d", default_atom+1);
+          fprintf(stderr, "%d", default_atom);
           CyanText(STDERR_FILENO);
           fprintf(stderr, " as the default line\n");
           ResetColour(STDERR_FILENO); //}}}
         } else { // save line number of the first 'atom default' line //{{{
-          default_atom = file_line_count - 1; // -1 as arrays ids go from 0
+          default_atom = file_line_count;
           // save values for the default bead type
           int *values = VtfAtomLineValues(words, split);
           // save name if unique //{{{
@@ -1308,6 +1308,8 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
           } else {
             atom_def.radius = RADIUS;
           } //}}}
+          atom_def.resname = -1;
+          atom_def.resid = -1;
         } //}}}
       } else { // 'a[tom] <id>' line
         count_atoms++;
@@ -1409,15 +1411,18 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
       count_bonds++; //}}}
     } else if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) { // timestep line
       break;
-    } else if (ltype == ERROR_LINE) { // invalid line //{{{
+    } else if (ltype == ERROR_LINE) { // error - invalid/coordinate line //{{{
       // error message already printed by VtfCheckLineType()
       exit(1);
-    }
-    //}}}
+    } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
+      strcpy(ERROR_MSG, "encountered coordinate inside structure block ");
+      ErrorPrintFull(struct_file, file_line_count, split, words);
+      exit(1);
+    } //}}}
   }
   fclose(vsf); //}}}
   // error - no default line and too few atom lines //{{{
-  if (default_atom == -1 && count_atoms != (*Counts).BeadsInVsf) {
+  if (default_atom == 0 && count_atoms != (*Counts).BeadsInVsf) {
     strcpy(ERROR_MSG, "not all beads defined ('atom default' line is omitted)");
     ErrorPrintError();
     RedText(STDERR_FILENO);
@@ -1431,19 +1436,6 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
     fputs(" bead(s) undefined\n", stderr);
     ResetColour(STDERR_FILENO);
     exit(1);
-  } //}}}
-  // assign values to any 'atom default' beads //{{{
-  if (default_atom != -1) {
-    for (int i = 0; i < (*Counts).BeadsInVsf; i++) {
-      if (atom[i].name == -1) {
-        atom[i].name = atom_def.name;
-        atom[i].charge = atom_def.charge;
-        atom[i].mass = atom_def.mass;
-        atom[i].radius = atom_def.radius;
-        atom[i].resid = -1;
-        atom[i].resname = -1;
-      }
-    }
   } //}}}
   // create array linking internal and vsf resids //{{{
   /*
@@ -1468,10 +1460,13 @@ contact developper\n");
   } //}}}
   // count bonded and unbonded beads //{{{
   for (int i = 0; i < (*Counts).BeadsInVsf; i++) {
-    if (atom[i].resid == -1) {
+    if (atom[i].name == -1) { // default bead?
+      atom[i] = atom_def;
+    }
+    if (atom[i].resid == -1) { // unbonded bead?
       (*Counts).Unbonded++;
     } else {
-      (*Counts).Bonded++;
+      (*Counts).Bonded++; // bonded bead?
     }
   }
   // just check that it counts the beads correctly
@@ -1546,7 +1541,7 @@ contact developper\n");
      *    other
      */
     // create (possibly too many) bead types according to bead properties //{{{
-    if (default_atom != -1) { // create 'atom default' bead type first
+    if (default_atom != 0) { // create 'atom default' bead type first
       NewBeadType(&bt_tmp, &(*Counts).TypesOfBeads, atom_name[atom_def.name],
                   atom_def.charge, atom_def.mass, atom_def.radius);
     }
@@ -1569,7 +1564,7 @@ contact developper\n");
     } //}}}
 //PrintBeadType2((*Counts).TypesOfBeads, bt);
     // count number of beads of default type if 'atom default' is present //{{{
-    if (default_atom != -1) {
+    if (default_atom != 0) {
       bt_tmp[0].Number = (*Counts).BeadsInVsf;
       for (int i = 1; i < (*Counts).TypesOfBeads; i++) {
         bt_tmp[0].Number -= bt_tmp[i].Number;
@@ -1794,7 +1789,7 @@ contact developper\n");
     // create new bead type from each unique atom_name
     for (int i = 0; i < atom_names; i++) {
       // if this is a 'atom default' name, use its charge, mass & radius
-      if (default_atom != -1 && atom_def.name == i) {
+      if (default_atom != 0 && atom_def.name == i) {
         NewBeadType(&bt_tmp, &(*Counts).TypesOfBeads, atom_name[i],
                     atom_def.charge, atom_def.mass, atom_def.radius);
       } else { // otherwise, use 'undefined' values
@@ -2147,7 +2142,7 @@ contact developper\n");
 //  }
 //  putchar('\n');
 //}
-//if (default_atom_line != -1) {
+//if (default_atom != 0) {
 //  printf("Default bead type:");
 //  printf(" mass=%lf, ", atom_def.mass);
 //  printf(" charge=%lf, ", atom_def.charge);

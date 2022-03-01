@@ -997,13 +997,15 @@ void RemovePBCMolecules(COUNTS Counts, BOX Box,
                         BEADTYPE *BeadType, BEAD **Bead,
                         MOLECULETYPE *MoleculeType, MOLECULE *Molecule) {
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    YellowText(STDERR_FILENO);
-    fprintf(stderr, "\nWarning: molecule type ");
-    CyanText(STDERR_FILENO);
-    fprintf(stderr, "%s", MoleculeType[i].Name);
-    YellowText(STDERR_FILENO);
-    fprintf(stderr, " has no bonds, so it cannot be 'joined'\n");
-    ResetColour(STDERR_FILENO);
+    if (MoleculeType[i].nBonds == 0) {
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "\nWarning: molecule type ");
+      CyanText(STDERR_FILENO);
+      fprintf(stderr, "%s", MoleculeType[i].Name);
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, " has no bonds, so it cannot be 'joined'\n");
+      ResetColour(STDERR_FILENO);
+    }
   }
   // go through all molecules
   for (int i = 0; i < Counts.Molecules; i++) {

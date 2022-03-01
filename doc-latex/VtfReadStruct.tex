@@ -34,57 +34,174 @@ molecules present there.
   \St open \ttb{struct_file}
   \St $file\_line\_count\gets0$\Comment{total number of lines in
     \ttb{struct_file}}
-  \Stx $count\_atom\gets0$\Comment{number of \hltt{a[tom]} lines in
+  \Stx $count\_atoms\gets0$\Comment{number of \hltt{atom} lines in
     \ttb{struct_file}}
-  \Stx $default\_atom\gets-1$\Comment{line number of the first
-    \hltt{a[tom] default} line}
-  \Stx $count\_bonds\gets0$\Comment{number of \hltt{b[ond]} lines in
+  \Stx $default\_atom\gets0$\Comment{line number of the first
+    \hltt{atom default} line (0 if no \hltt{atom default})}
+  \Stx $count\_bonds\gets0$\Comment{number of \hltt{bond} lines in
     \ttb{struct_file}}
   \Stx $atom\_names\gets0$\Comment{number of unique bead names in
     \ttb{struct_file}}
   \Stx $res\_names\gets0$\Comment{number of unique molecule names in
     \ttb{struct_file}}
+  \Stx $highest\_resid\gets-1$\Comment{highest molecule index (\hltt{resid
+    <id>}) in the \ttb{struct_file}}
   \Stx $atom\_name[]$ and $resn\_name[]$\Comment{arrays for the unique
     names (memory allocated as needed)}
   \Stx $atom[]$, $atom\_def$, and $bond[]$\Comment{structures with information
-    from \hltt{a[tom]} and \hltt{b[ond]} lines}
-  \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
-  \Stx i) save all \hltt{a[tom]} and \hltt{b[ond]} lines from \ttb{struct_file}
-    and count beads and molecules
-  \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
+    from \hltt{atom} and \hltt{bond} lines}
+  \Stx $mol\_id[]$\Comment{array for \hltt{resid} numbers in \ttb{struct_file}
+    (memory allocated as needed)}
+
+  \Stx\vspace{-0.6em}\hspace{-17pt}\rule{\textwidth}{0.3pt}
+  \Stx i) get all \hltt{atom} and \hltt{bond} information from
+    \ttb{struct_file}
+  \Stx\vspace{-0.6em}\hspace{-17pt}\rule{\textwidth}{0.3pt}
   \While{$line\gets$ get a line from \ttb{input_vcf}}
     \St $file\_line\_count\gets file\_line\_count+1$
-    \If{$line$ is \hltt{a[tom]} line}
-      \If{$line$ is \hltt{a[tom] default} line}
-        \If{not the first \hltt{a[tom] default} line}
-          \St warn that this line is not used as the \hltt{default} line
+
+    \Stx\vspace{-0.6em}\hspace{7pt}\rule{0.927\textwidth}{0.3pt}
+    \Stx\hspace{6pt} reading \hltt{atom} line
+    \Stx\vspace{-0.6em}\hspace{7pt}\rule{0.927\textwidth}{0.3pt}
+    \If{$line$ is \hltt{atom} line}
+
+      \Stx\vspace{-0.6em}\hspace{14pt}\rule{0.927\textwidth}{0.3pt}
+      \Stx\hspace{12pt} detecting \hltt{atom default} bead
+      \Stx\vspace{-0.6em}\hspace{14pt}\rule{0.927\textwidth}{0.3pt}
+      \If{$line$ is \hltt{atom default} line}
+        \If{not the first \hltt{atom default} line}
+          \St warn that this \hltt{atom default} line is ignored
         \Else
-          \St $default\_atom\gets file\_line\_count-1$\Comment{$-1$ as
-            array indices start from 0}
+          \St $default\_atom\gets file\_line\_count$
           \If{bead name not in $atom\_name[]$}
             \St $atom\_name[atom\_names]\gets$ bead name
             \St $atom\_names\gets atom\_names+1$
           \EndIf
-          \St $atom\_def\gets$ mass, charge, and radius from the \hltt{a[tom]}
+          \St $atom\_def\gets$ mass, charge, and radius from the \hltt{atom}
             line
         \EndIf
-      \ElsIf{bead index $>$ \ttb{Counts.BeadsInVsf}}
-        \St $count\_atom\gets count\_atom+1$
-        \St \ttb{Counts.BeadsInVsf} $\gets$ the bead index$+1$\Comment{$+1$ as
-        \vtf bead indices start from 0}
+
+      \Stx\vspace{-0.6em}\hspace{14pt}\rule{0.927\textwidth}{0.3pt}
+      \Stx\hspace{12pt} reading \hltt{atom <id>} line and counting beads and
+        molecules
+      \Stx\vspace{-0.6em}\hspace{14pt}\rule{0.927\textwidth}{0.3pt}
+      \Else
+        \St $count\_atoms\gets count\_atoms+1$
+        \St $id\gets$ bead index from the \hltt{atom} line
+        \If{$id>$ \ttb{Counts.BeadsInVsf}}
+          \For{$i=$ \ttb{Counts.BeadsInVsf}..$id-1$}
+            \St $atom[i]\gets$ \hltt{default} bead\Comment{i.e., assume $i$ has
+              no \hltt{atom} line; may change later}
+          \EndFor
+          \St \ttb{Counts.BeadsInVsf} $\gets$ $id+1$\Comment{$+1$ as
+            \vtf bead indices start from 0}
+        \EndIf
+        \If{bead name not in $atom\_name[]$}
+          \St $atom\_name[atom\_names]\gets$ bead name
+          \St $atom\_names\gets atom\_names+1$
+        \EndIf
+        \St $atom[id]\gets$ mass, charge, and radius from the \hltt{atom} line
+        \If{bead $id$ is in a molecule}
+          \St $resid\gets$ molecule index
+          \St $atom[id]\gets resid$
+          \If{molecule name not in $res\_name[]$}
+            \St $res\_name[res\_names]\gets$ molecule name
+            \St $res\_names\gets res\_names+1$
+          \EndIf
+          \If{$resid > highest\_resid$}
+            \For{$i=highest\_resid+1$..$resid$}
+              \St $mol\_id[i]\gets-1$\Comment{marks index $i$ as not yet
+                detected (discontinuous \hltt{resid} indices)}
+            \EndFor
+            \St $highest\_resid\gets resid$
+          \EndIf
+          \If{$mol\_id[resid]=-1$}\Comment{molecule index $resid$ detected for
+            the first time}
+            \St $mol\_id[resid]\gets$
+              \ttb{Counts.Molecules}
+            \St \ttb{Counts.Molecules} $\gets$ \ttb{Counts.Molecules}$+1$
+          \EndIf
+        \Else\Comment{bead $id$ is not in a molecule}
+          \St $atom[id]\gets$ not in a molecule
+        \EndIf
       \EndIf
-    \ElsIf{$line$ is \hltt{b[ond]} line}
+
+    \Stx\vspace{-0.6em}\hspace{7pt}\rule{0.943\textwidth}{0.3pt}
+    \Stx\hspace{6pt} reading \hltt{bond} line
+    \Stx\vspace{-0.6em}\hspace{7pt}\rule{0.943\textwidth}{0.3pt}
+    \ElsIf{$line$ is \hltt{bond} line}
+      \St $bond[count\_bonds]\gets$ bead indices from the \hltt{bond} file
       \St $count\_bonds\gets count\_bonds+1$
-    \ElsIf{$line$ is a \hltt{t[imestep]} line}
+
+    \Stx\vspace{-0.6em}\hspace{7pt}\rule{0.943\textwidth}{0.3pt}
+    \Stx\hspace{6pt} \hltt{timestep} line constitutes end of \vsf part of
+      \ttb{struct_file} (for full \vtf file)
+    \Stx\vspace{-0.6em}\hspace{7pt}\rule{0.943\textwidth}{0.3pt}
+    \ElsIf{$line$ is a \hltt{timestep} line}
       \Break
+
+    \Stx\vspace{-0.6em}\hspace{7pt}\rule{0.943\textwidth}{0.3pt}
+    \Stx\hspace{6pt} exit program with error when unrecognised or coordinate
+      line is encountered
+    \Stx\vspace{-0.6em}\hspace{7pt}\rule{0.943\textwidth}{0.3pt}
     \ElsIf{$line$ is not recognised}
       \Error unrecognised line
+    \ElsIf{$line$ is coordinate line}
+      \Error coordinate line encountered inside \vsf file block
     \EndIf
   \EndWhile
+  \St close \ttb{struct_file}
 
   \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
-  \Stx ii) read all structural information from \ttb{struct_file}
+  \Stx check all beads are defined in \ttb{struct_file}
   \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
+  \If{$default\_atom=0$ \And $count\_atoms \neq$ \ttb{Counts.BeadsInVsf}}
+    \Error \hltt{atom default} line is omitted, but not every bead is defined
+      in an \hltt{atom <id>} line
+  \EndIf
+
+  \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
+  \Stx create and fill array connecting \ttb{struct_file} molecule indices
+    (\hltt{resid <id>}) with internal ones
+  \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
+  \St allocate memory for $mol\_id\_internal[]$
+  \For{$i=0$..$highest\_resid-1$}
+    \If{$mol\_id[i]\neq-1$}\Comment{is index $i$ defined in \ttb{struct_file}?}
+      \St $mol\_id\_internal[mol\_id[i]]\gets i$
+    \EndIf
+  \EndFor
+
+  \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
+  \Stx assign default values to \hltt{default} beads and count bonded/unbonded
+    beads
+  \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
+  \For{$i=0$..\ttb{Counts.BeadsInVsf}$-1$}
+    \If{$atom[i]$ is \hltt{default} bead}
+      \St $atom[i]\gets atom\_def$
+    \EndIf
+    \St count bead $i$ towards \ttb{Counts.Unbonded} or \ttb{Counts.Bonded}
+  \EndFor
+
+  \Stx\vspace{-0.6em}\hspace{-17pt}\rule{\textwidth}{0.3pt}
+  \Stx ii) identify bead types
+  \Stx\vspace{-0.6em}\hspace{-17pt}\rule{\textwidth}{0.3pt}
+  \St allocate memory for $bt\_tmp$\Comment{BEADTYPE structure \TODO add ref}
+
+  \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
+  \Stx identify bead types by name, mass, charge, and radius
+  \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
+  \If{\ttb{detailed}}
+
+  \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
+  \Stx identify bead types only by name
+  \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
+  \Else\Comment{identify bead types by name only}
+    \St $bt\_tmp[]\gets$ new bead type for each name in $atom\_name[]$
+    \For{$i=0$..\ttb{Counts.BeadsInVsf}$-1$}
+      \St \TODO get bead type
+      \St \TODO assign mass/charge/radius to bead type if not already assigned
+    \EndFor
+  \EndIf
 
 % \St $file\_line\_count \gets 0$\Comment{count lines; line number printed in
 %   case of an error}
