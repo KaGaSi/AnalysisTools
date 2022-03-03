@@ -391,6 +391,9 @@ void PrintBeadType2(int number, BEADTYPE *BeadType) {
       for (int j = 0; j < (max_q_neg-3); j++) {
         putchar(' ');
       }
+      if (negative) {
+        putchar(' ');
+      }
       fprintf(stdout, "n/a, ");
     }
     // print mass

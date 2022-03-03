@@ -185,21 +185,91 @@ molecules present there.
   \Stx\vspace{-0.6em}\hspace{-17pt}\rule{\textwidth}{0.3pt}
   \Stx ii) identify bead types
   \Stx\vspace{-0.6em}\hspace{-17pt}\rule{\textwidth}{0.3pt}
-  \St allocate memory for $bt\_tmp$\Comment{BEADTYPE structure \TODO add ref}
+  \St define BEADTYPE (\TODO add ref) array $bt\_tmp[]$\Comment{memory allocated
+    as needed}
 
   \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
   \Stx identify bead types by name, mass, charge, and radius
   \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
   \If{\ttb{detailed}}
 
+    \Stx\vspace{-0.6em}\hspace{7pt}\rule{0.943\textwidth}{0.3pt}
+    \Stx\hspace{6pt} create a bead type for each \hltt{atom} line with unique
+      name, mass, charge, and radius
+    \Stx\vspace{-0.6em}\hspace{7pt}\rule{0.943\textwidth}{0.3pt}
+    \If{$default\_atom\neq0$}
+      \St $bt\_tmp[0]\gets$ new bead type with \hltt{default} mass, charge, and
+        radius
+      \St \ttb{Counts.TypesOfBeads} $\gets$
+        \ttb{Counts.TypesOfBeads}$+1$\Comment{in a function creating
+        $bt\_tmp[0]$}
+    \EndIf
+    \For{$i=0$..$count\_atoms-1$}
+      \If{$atom[i]$'s name, charge, mass, and radius do not match an existing
+        bead type}
+        \St $bt\_tmp[$\ttb{Counts.TypesOfBeads}$]\gets$ new bead type with
+          $atom[i]$'s mass, charge, and radius
+        \St \ttb{Counts.TypesOfBeads} $\gets$ \ttb{Counts.TypesOfBeads}$+1$
+          \Comment{in a function creating $bt\_tmp[]$}
+      \EndIf
+      \St $bt\_tmp[atom[i]$'s type$]\gets bt\_tmp[atom[i]$'s
+        type$]+1$\Comment{count beads of each type}
+    \EndFor
+    \If{$default\_atom\neq0$}
+      \St $bt\_tmp[0].Number=$ \ttb{Counts.BeadsInVsf}
+      \For{$i=0$..\ttb{Counts.TypesOfBeads}$-1$}
+        \St $bt\_tmp[0].Number\gets bt\_tmp[0]-bt\_tmp[i].Number$
+      \EndFor
+    \EndIf
+
+    \Stx\vspace{-0.6em}\hspace{7pt}\rule{0.943\textwidth}{0.3pt}
+    \Stx\hspace{6pt} merge some of the created bead types (see above for
+      details)
+    \Stx\vspace{-0.6em}\hspace{7pt}\rule{0.943\textwidth}{0.3pt}
+    \St $diff\_q[]\gets bt\_tmp[].Charge$\Comment{copy charge for all bead
+      types}
+    \St $diff\_m[]\gets bt\_tmp[].Mass$\Comment{copy mass for all bead types}
+    \St $diff\_r[]\gets bt\_tmp[].Radius$\Comment{copy radius for all bead
+      types}
+
+    \Stx\vspace{-0.6em}\hspace{14pt}\rule{0.927\textwidth}{0.3pt}
+    \Stx\hspace{12pt} find which bead types with unique names have ambiguous
+      charge, mass, and radius
+    \Stx\vspace{-0.6em}\hspace{14pt}\rule{0.927\textwidth}{0.3pt}
+    \For{$i=0$..$atom\_names-1$}
+      \For{$j=0$..\ttb{Counts.TypesOfBeads}$-1$}
+        \If{$atom\_name[i]=bt\_tmp[j].Name$}
+          \If{$diff\_q[i]\neq bt\_tmp[j].Charge$}
+            \If{both $diff\_q[i]$ and $bt\_tmp[j].Charge$ are well defined}
+              \St $diff\_q[i]\gets$1e6\Comment{more than one well defined value
+                of charge exists}
+            \ElsIf{$diff\_q[i]$ undefined}
+              \St $diff\_q[i]\gets bt\_tmp[j].Charge$
+            \EndIf
+          \EndIf
+          \St similarly for $diff\_m$ and $diff\_r$
+        \EndIf
+      \EndFor
+    \EndFor
+
   \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
   \Stx identify bead types only by name
   \Stx\vspace{-0.6em}\rule{0.96\textwidth}{0.3pt}
   \Else\Comment{identify bead types by name only}
     \St $bt\_tmp[]\gets$ new bead type for each name in $atom\_name[]$
+    \For{$i=0$..$atom\_names-1$}
+      \St $bt\_tmp[i]\gets$ new bead type with \hltt{default}/undefined
+        mass, charge, and radius
+      \St \ttb{Counts.TypesOfBeads} $\gets$
+        \ttb{Counts.TypesOfBeads}$+1$\Comment{in a function creating $bt\_tmp[i]$}
+    \EndFor
     \For{$i=0$..\ttb{Counts.BeadsInVsf}$-1$}
-      \St \TODO get bead type
-      \St \TODO assign mass/charge/radius to bead type if not already assigned
+      \St $btype\gets$ bead type based on $i$'s name\Comment{error when
+        $btype=-1$ (should be impossible)}
+      \If{$bt\_tmp[btype].Mass$ is undefined \And $atom[i]$'s mass is defined}
+        \St $bt\_tmp[btype].Mass\gets atom[i]$'s mass
+      \EndIf
+      \St similarly for charge and radius
     \EndFor
   \EndIf
 

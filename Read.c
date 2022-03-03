@@ -1458,7 +1458,7 @@ contact developper\n");
     ErrorPrintError();
     exit(1);
   } //}}}
-  // count bonded and unbonded beads //{{{
+  // assign atom default to default beads and count bonded/unbonded beads //{{{
   for (int i = 0; i < (*Counts).BeadsInVsf; i++) {
     if (atom[i].name == -1) { // default bead?
       atom[i] = atom_def;
@@ -1520,10 +1520,9 @@ contact developper\n");
      *     different to that of the last atom?
      *
      * Merging procedure:
-     * 1) identify unique names that will never merge
-     * 2) for each unique name, find values of charge/mass/radius, noting
+     * 1) for each unique name, find values of charge/mass/radius, noting
      *    ambiguities (i.e., when more than one well defined value exists)
-     * 3) create 2D boolean array of size <unique names>*<unique names> to
+     * 2) create 2D boolean array of size <unique names>*<unique names> to
      *    see what should be merged based on points 1) and 2):
      *    i) pick two bead types sharing a name (or the same bead type twice
      *       if it does not share a name with any other), say 'i' and 'k'.
@@ -1531,13 +1530,13 @@ contact developper\n");
      *        j should be merged (i.e., share a name), check k's value of
      *        diff_q/m/r - if it is a proper value, merge i and j; if not,
      *        merge i and j only if they have the same diff_q/m/r value.
-     * 4) merge the types and count the number of unique types
+     * 3) merge the types and count the number of unique types
      *    i) create a new type when a diagonal element of the array is true
      *    ii) check the remaining types against and merge those that should
      *        be merge with that new type, making the diagonal element for
      *        that merged type false so that no new type is created when
      *        its time comes in i)
-     * 5) reorder the types so that types sharing the name are next to each
+     * 4) reorder the types so that types sharing the name are next to each
      *    other
      */
     // create (possibly too many) bead types according to bead properties //{{{
@@ -1545,7 +1544,7 @@ contact developper\n");
       NewBeadType(&bt_tmp, &(*Counts).TypesOfBeads, atom_name[atom_def.name],
                   atom_def.charge, atom_def.mass, atom_def.radius);
     }
-    for (int i = 0; i < count_atoms; i++) {
+    for (int i = 0; i < (*Counts).BeadsInVsf; i++) {
       int btype = -1;
       for (int j = 0; j < (*Counts).TypesOfBeads; j++) {
         if (strcmp(bt_tmp[j].Name, atom_name[atom[i].name]) == 0 &&
@@ -1561,45 +1560,29 @@ contact developper\n");
         btype = (*Counts).TypesOfBeads - 1;
       }
       bt_tmp[btype].Number++;
-    } //}}}
-//PrintBeadType2((*Counts).TypesOfBeads, bt);
-    // count number of beads of default type if 'atom default' is present //{{{
+    }
+    // count number of beads of default type if 'atom default' is present
     if (default_atom != 0) {
       bt_tmp[0].Number = (*Counts).BeadsInVsf;
       for (int i = 1; i < (*Counts).TypesOfBeads; i++) {
         bt_tmp[0].Number -= bt_tmp[i].Number;
       }
     } //}}}
-//PrintBeadType2((*Counts).TypesOfBeads, bt);
+//PrintBeadType2((*Counts).TypesOfBeads, bt_tmp);
     // Merging //{{{
-    // 1) count and save unigue names //{{{
-    int number_of_names = 0;
-    char name[(*Counts).TypesOfBeads][BEAD_NAME+1];
-    for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
-      bool exists = false;
-      for (int j = 0; j < i; j++) {
-        if (strcmp(bt_tmp[i].Name, bt_tmp[j].Name) == 0) {
-          exists = true;
-          break;
-        }
-      }
-      if (!exists) {
-        strcpy(name[number_of_names], bt_tmp[i].Name);
-        number_of_names++;
-      }
-    } //}}}
-    // 2) //{{{
-    // arrays for holding the value of charge/mass/radius for each bead type //{{{
-    double diff_q[number_of_names],
-           diff_m[number_of_names],
-           diff_r[number_of_names]; //}}}
+    // 1) //{{{
+    // arrays values of charge, mass, and radius for each bead type //{{{
+    double diff_q[atom_names],
+           diff_m[atom_names],
+           diff_r[atom_names]; //}}}
     // initialize arrays: assign values from the last type with each name //{{{
-    for (int i = 0; i < number_of_names; i++) {
+    for (int i = 0; i < atom_names; i++) {
       for (int j = 0; j < (*Counts).TypesOfBeads; j++) {
-        if (strcmp(name[i], bt_tmp[j].Name) == 0) {
+        if (strcmp(atom_name[i], bt_tmp[j].Name) == 0) {
           diff_q[i] = bt_tmp[j].Charge;
           diff_m[i] = bt_tmp[j].Mass;
           diff_r[i] = bt_tmp[j].Radius;
+          break;
         }
       }
     } //}}}
@@ -1615,10 +1598,10 @@ contact developper\n");
     // high, impossible number to indicate multiple values of charge/mass/radius
     int high = 1000000;
     // go through all bead type pairs (including self-pairs)
-    for (int i = 0; i < number_of_names; i++) {
+    for (int i = 0; i < atom_names; i++) {
       for (int j = 0; j < (*Counts).TypesOfBeads; j++) {
         // only consider type pairs with the same name
-        if (strcmp(name[i], bt_tmp[j].Name) == 0) {
+        if (strcmp(atom_name[i], bt_tmp[j].Name) == 0) {
           // charge
           if (diff_q[i] != bt_tmp[j].Charge) {
             if (diff_q[i] != CHARGE && bt_tmp[j].Charge != CHARGE) {
@@ -1648,11 +1631,11 @@ contact developper\n");
     } //}}}
     //}}}
     /* test print diff_q/m/r //{{{
-    for (int i = 0; i < number_of_names; i++) {
-      printf("%s: q=%10.1f; m=%10.1f; r=%10.1f\n", name[i], diff_q[i], diff_m[i], diff_r[i]);
+    for (int i = 0; i < atom_names; i++) {
+      printf("%s: q=%10.1f; m=%10.1f; r=%10.1f\n", atom_name[i], diff_q[i], diff_m[i], diff_r[i]);
     }
     */ //}}}
-    // 3) //{{{
+    // 2) //{{{
     // initialize merge array by assuming nothing will be merged //{{{
     bool merge[(*Counts).TypesOfBeads][(*Counts).TypesOfBeads];
     for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
@@ -1674,7 +1657,7 @@ contact developper\n");
       // i)
       int k = 0;
       for (; k < (*Counts).TypesOfBeads; k++) {
-        if (strcmp(name[k], bt_tmp[i].Name) == 0) {
+        if (strcmp(atom_name[k], bt_tmp[i].Name) == 0) {
           break;
         }
       }
@@ -1721,19 +1704,19 @@ contact developper\n");
     //}}}
     /* test print merge matrix //{{{
     printf("   ");
-    for (int i = 0; i < 5; i++) {
-      printf("%s ", bt[i].Name);
+    for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
+      printf("%s ", bt_tmp[i].Name);
     }
     putchar('\n');
-    for (int i = 0; i < 5; i++) {
-      printf("%s ", bt[i].Name);
-      for (int j = 0; j < 5; j++) {
+    for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
+      printf("%s ", bt_tmp[i].Name);
+      for (int j = 0; j < (*Counts).TypesOfBeads; j++) {
         printf(" %d", merge[i][j]);
       }
       putchar('\n');
     }
     */ //}}}
-    // 4) //{{{
+    // 3) //{{{
     BEADTYPE *temp = calloc((*Counts).TypesOfBeads, sizeof (BEADTYPE));
     int count = 0;
     for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
@@ -1759,7 +1742,7 @@ contact developper\n");
     }
     (*Counts).TypesOfBeads = count; //}}}
     //}}}
-    // 5) //{{{
+    // 4) //{{{
     // copy all bead types temporarily to bt struct
     for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
       bt_tmp[i] = temp[i];
