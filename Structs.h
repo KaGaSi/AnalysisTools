@@ -21,30 +21,30 @@
 typedef struct Counts {
   int TypesOfBeads, /// number of bead types
       TypesOfMolecules, /// number of molecule types
+      TypesOfBonds, /// number of bond types; -1 if not read from anywhere
+      TypesOfAngles, /// number of bond types; -1 if not read from anywhere
+      TypesOfDihedrals, /// number of dihedral types; -1 if not read from anywhere
       Beads, /// total number of beads in all molecules
       Bonded, /// total number of beads in all molecules
       Unbonded, /// total number of monomeric beads
       BeadsInVsf, /// total number of all beads in .vsf file (not necessarily in .vcf)
       Molecules, /// total number of molecules
-      Aggregates, /// total number of aggregates
-      TypesOfBonds, /// number of bond types; -1 if not read from anywhere
-      TypesOfAngles, /// number of bond types; -1 if not read from anywhere
-      TypesOfDihedrals; /// number of dihedral types; -1 if not read from anywhere
+      Aggregates; /// total number of aggregates
 } COUNTS;
 
 // Initialize Counts
 static const COUNTS InitCounts = {
   .TypesOfBeads = 0,
   .TypesOfMolecules = 0,
+  .TypesOfBonds = -1,
+  .TypesOfAngles = -1,
+  .TypesOfDihedrals = -1,
   .Beads = 0,
   .Bonded = 0,
   .Unbonded = 0,
   .BeadsInVsf = 0,
   .Molecules = 0,
   .Aggregates = 0,
-  .TypesOfBonds = -1,
-  .TypesOfAngles = -1,
-  .TypesOfDihedrals = -1,
 }; //}}}
 
 // struct Box //{{{
