@@ -1,7 +1,37 @@
 \section{Commonly used structures} \label{sec:Struct}
 
+% Box %{{{
+\subsubsection{Simulation box size}\label{ssub:Box}
+\ttb{typedef struct Box \{<members>\} BOX;}\\
+\vspace{-1.75em}
+\begin{longtable}{L{0.43\textwidth}p{0.615\textwidth}}
+  \toprule
+  member                         & explanation \\
+  \midrule
+  \ttb{(VECTOR)Length}           & simulation box length$^\star$\\
+  \ttb{(VECTOR)TriLength}        & box length for triclinic box$^\dag$\\
+  \ttb{(double)alpha}            & $\alpha$ in a triclinic cell (or 90$^\circ$
+                                   for orthogonal cell)\\
+  \ttb{(double)beta}             & $\beta$ in a triclinic cell (or 90$^\circ$
+                                   for orthogonal cell)\\
+  \ttb{(double)gamma}            & $\gamma$ in a triclinic cell (or 90$^\circ$
+                                   for orthogonal cell)\\
+  \ttb{(double [3][3])Transform} & transformation matrix to transform between
+                                   \enquote{real} and \enquote{triclinic}
+                                   coordinates$^\ddag$\\
+  \ttb{(double [3][3])inverse}   & inverse of the transformation matrix\\
+  \bottomrule
+\end{longtable}
+\note{$^\star$for triclinic cells, it corresponds to $a$, $b$, and $c$ (see
+  \url{https://docs.lammps.org/Howto_triclinic.html})\\
+$^\dag$$lx$, $ly$, and $lz$ in
+  \url{https://docs.lammps.org/Howto_triclinic.html}
+$^\ddag$see \url{https://www.ruppweb.org/Xray/tutorial/Coordinate system
+transformation.htm}}
+  %}}}
+
 % Counts %{{{
-\subsubsection{Basic system information}
+\subsubsection{Basic system information}\label{ssub:Counts}
 \TODO update when I know how things are with file types other than \vtf\\
 \ttb{typedef struct Counts \{<members>\} COUNTS;}\\
 \vspace{-1.75em}
@@ -31,7 +61,7 @@ file), this has a value of \tt{-1}\TODO why not just say 0?}
   %}}}
 
 % BeadType %{{{
-\subsubsection{Information about bead types}
+\subsubsection{Information about bead types}\label{ssub:BeadType}
 \ttb{typedef struct BeadType \{<members>\} BEADTYPE;} \\
 \vspace{-1.75em}
 \begin{longtable}{L{0.24\textwidth}p{0.805\textwidth}}
@@ -40,9 +70,9 @@ file), this has a value of \tt{-1}\TODO why not just say 0?}
   \midrule
   \ttb{(char[17])Name}  & bead type name (at most 16 characters)\\
   \ttb{(int)Number}     & number of beads of the given type\\
-  \ttb{(bool)Use}$^*$   & \tt{true}/\tt{false} value whether these beads
+  \ttb{(bool)Use}$^\P$  & \tt{true}/\tt{false} value whether these beads
                           should be used in a calculation\\
-  \ttb{(bool)Write}$^*$ & \tt{true}/\tt{false} value whether these beads
+  \ttb{(bool)Write}$^\P$& \tt{true}/\tt{false} value whether these beads
                           should be written to an output coordinate file\\
   \ttb{(double)Charge}  & electric charge of the bead type (\tt{1000} if
                           undefined)\\
@@ -50,33 +80,33 @@ file), this has a value of \tt{-1}\TODO why not just say 0?}
   \ttb{(double)Radius}  & radius of the spherical bead (\tt{0} if undefined)\\
   \bottomrule
 \end{longtable}
-\note{$^*$\TODO will be removed}
+\note{$^\P$\TODO will be removed}
 \begin{itemize}
   \item array size: \tt{Counts.TypesOfBeads}
 \end{itemize} %}}}
 
 % Bead %{{{
-\subsubsection{Information about individual beads}
+\subsubsection{Information about individual beads}\label{ssub:Bead}
 \ttb{typedef struct Bead \{<members>\} BEAD;} \\
-\vspace{-2em}
+\vspace{-1.75em}
 \begin{longtable}{L{0.35\textwidth}p{0.695\textwidth}}
   \toprule
   member                & explanation \\
   \midrule
-  \ttb{(int)Type}               & bead type index corresponding to
+  \ttb{(int)Type}               & bead type index corresponding to a
                                   \ttb{struct BeadType} array index\\
-  \ttb{(int)Molecule}           & molecule index corresponding to \ttb{struct
+  \ttb{(int)Molecule}           & molecule index corresponding to a \ttb{struct
                                   Molecule} array index or $-1$ for an unbonded
                                   bead\\
-  \ttb{(int)nAggregates}$^*$    & number of aggregates the bead is in\\
-  \ttb{(int *)Aggregate}$^*$    & 1D array with aggregate indices\\
+  \ttb{(int)nAggregates}$^\P$   & number of aggregates the bead is in\\
+  \ttb{(int *)Aggregate}$^\P$   & 1D array with aggregate indices\\
   \ttb{(int)Index}              & index corresponding to an input file (e.g,
                                   \vsf file)\\
   \ttb{(struct Vector)Position}$^\dagger$ & Cartesian coordinates\\
   \ttb{(struct Vector)Velocity}$^\dagger$ & velocity of the bead\\
   \bottomrule
 \end{longtable}
-\note{$^*$\TODO will be removed\\
+\note{$^\P$\TODO will be removed\\
 $^\dagger$ \ttb{struct Vector} contains members
 \ttb{(double)x}, \ttb{(double)y}, and \ttb{(double)z}}
 \begin{itemize}
@@ -95,108 +125,115 @@ $^\dagger$ \ttb{struct Vector} contains members
 \end{itemize} %}}}
 
 % MoleculeType %{{{
-\subsubsection{Information about molecule types}
+\subsubsection{Information about molecule types}\label{ssec:MoleculeType}
 \ttb{typedef struct MoleculeType \{<members>\} MOLECULETYPE;} \\
-\vspace{-2em}
-\begin{longtable}{p{26mm}p{114mm}}
+\vspace{-1.75em}
+\begin{longtable}{L{0.27\textwidth}p{0.775\textwidth}}
   \toprule
-  member             & explanation \\
+  member                      & explanation \\
   \midrule
-  \ttb{(char[17])Name}$^*$       & bead type name (at most 16 characters) \\
-  \ttb{(int)Number}              & number of molecules of the given type \\
-  \ttb{(int)nBeads}              & number of beads in these molecules \\
-  \ttb{(int *)Bead}              & 1D array with bead in-code indices (i.e.,
-                                   corresponding to the \ttb{struct Bead}
-                                   array indices) \\
-  \ttb{(int)nBonds}              & number of bonds in these molecules \\
-  \ttb{(int **)Bond}             & 2D array with two bead indices of the
-                                   connected beads and a bond type  \\
-                                 & size of \ttb{nBonds}\tt{$\times$3}:
-                                   \ttb{Bond[i][0]} and 1 hold in-code bead
-                                   indices for bond $i$ and \ttb{Bond[i][2]}
-                                   holds bond type (or \tt{-1} if bond type
-                                   undefined) \\
-  \ttb{(int)nAngles}             &  number of angles in these molecules \\
-  \ttb{(int **)Angle}            &  2D array with three bead indices of the
-                                    beads in the angle and an angle type  \\
-                                 &  size of \ttb{nAngles}\tt{$\times$4}:
-                                    \ttb{Angle[i][0]}, 1, and 2 hold in-code bead
-                                    indices and \ttb{Angle[i][3]} holds angle
-                                    type (or \tt{-1} if angle type undefined) \\
-  \ttb{(int)nBTypes}             & number of bead types in these molecules \\
-  \ttb{(int *)BType}             & 1D array with bead type indices (i.e.,
-                                   corresponding to a \ttb{struct
-                                   BeadType} array index) \\
-  \ttb{(bool)InVcf}$^\dagger$    & \tt{true}/\tt{false} value whether these
-                                   molecules are present in the \vcf file \\
-  \ttb{(bool)Use}$^\dagger$      & \tt{true}/\tt{false} value whether these
-                                   molecules should be used in a calculation \\
-  \ttb{(bool)Write}$^\dagger$    & \tt{true}/\tt{false} value whether these molecules
-                                   should be written to an output coordinate file \\
-  \ttb{(double)Charge}$^\ddag$   & total electric charge of the molecule type \\
-  \ttb{(double)Mass}$^\ddag$     & total mass of the molecule type \\
+  \ttb{(char[9])Name}         & bead type name (at most 8 characters)\\
+  \ttb{(int)Number}           & number of molecules of the given type\\
+  \ttb{(int)nBeads}           & number of beads in these molecules\\
+  \ttb{(int *)Bead}           & array with bead in-code indices (i.e.,
+                                corresponding to \ttb{struct Bead} array
+                                indices)\\
+  \ttb{(int)nBonds}           & number of bonds in these molecules\\
+  \ttb{(int **)Bond}$^\star$  & 2D array with two bead indices of the connected
+                                beads and a bond type\\
+  \ttb{(int)nAngles}          & number of angles in these molecules\\
+  \ttb{(int **)Angle}$^\dag$  & 2D array with three bead indices of the beads in
+                                the angle and an angle type\\
+  \ttb{(int)nDihedrals}       & number of dihedral angles in these molecules\\
+  \ttb{(int **)Dihedral}$^\S$ & 2D array with three bead indices of the beads in
+                                the dihedral and a diheral type\\
+  \ttb{(int)nBTypes}          & number of bead types in these molecules\\
+  \ttb{(int *)BType}          & array with bead type indices (i.e.,
+                                corresponding to a \ttb{struct BeadType} array
+                                index)\\
+  \ttb{(bool)InVcf}$^\P$      & \tt{true}/\tt{false} value whether these
+                                molecules are present in the \vcf file\\
+  \ttb{(bool)Use}$^\P$        & \tt{true}/\tt{false} value whether these
+                                molecules should be used in a calculation\\
+  \ttb{(bool)Write}$^\P$      & \tt{true}/\tt{false} value whether these
+                                molecules should be written to an output
+                                coordinate file\\
+  \ttb{(double)Charge}$^\ddag$& total electric charge of the molecule type\\
+  \ttb{(double)Mass}$^\ddag$  & total mass of the molecule type\\
   \bottomrule
 \end{longtable}
-\note{$^*$\TODO change to \tt{char(9)} as per \vtf specification\\
-$^\dagger$\TODO think about usefulness of multiple \tt{bool}s \\
-$^\ddag$ undefined if any of the included bead types have undefined
-charge/mass}
+\note{$^\star$size of \ttb{nBonds}\tt{$\times$3}: \ttb{Bond[i][0} and \ttb{1]}
+  hold in-molecule bead indices (i.e., indices corresponding to
+  \ttb{MoleculeType[].Bead} array) for bond $i$ and \ttb{Bond[i][2]} holds bond
+  type (or \tt{-1} if bond type is undefined); bond types are defined in a
+  \ttb{struct Params} array \\
+$^\dag$size of \ttb{nAngles}\tt{$\times$4}: \ttb{Angle[i][0} to \ttb{2]} hold
+  in-molecule bead indices (i.e., indices corresponding to
+  \ttb{MoleculeType[].Bead} array) and \ttb{Angle[i][3]} holds angle type (or
+  \tt{-1} if angle type is undefined); angle types are defined in a \ttb{struct
+  Params} array\\
+$^\S$size of \ttb{nDihedrals}\tt{$\times$5}: \ttb{Dihedral[i][0} to \ttb{3]}
+  hold in-molecule bead indices (i.e., indices corresponding to
+  \ttb{MoleculeType[].Bead} array) and \ttb{Dihedral[i][4]} holds dihedral type
+  (or \tt{-1} if dihedral type is undefined); dihedral types are defined in a
+  \ttb{struct Params} array\\
+$^\P$\TODO will be removed\\
+$^\ddag$undefined if any of the included bead types have undefined charge/mass}
 \begin{itemize}
   \item array size: \tt{Counts.TypesOfMolecules}
 \end{itemize} %}}}
 
 % Molecule %{{{
-\subsubsection{Information about individual molecules}
+\subsubsection{Information about individual molecules}\label{ssec:Molecule}
 \ttb{typedef struct Molecule \{<members>\} MOLECULE;} \\
-\vspace{-2em}
-\begin{longtable}{p{26mm}p{114mm}}
+\vspace{-1.75em}
+\begin{longtable}{L{0.27\textwidth}p{0.775\textwidth}}
   \toprule
-  member               & explanation \\
+  member                    & explanation\\
   \midrule
-  \ttb{(int)Type}      & index of molecule type corresponding to a
-                         \ttb{struct MoleculeType} array index \\
-  \ttb{(int *)Bead}    & 1D array with in-code bead indices (i.e.,
-                         corresponding to \ttb{struct Bead} array indices) \\
-                       & size: \ttb{(int)nBeads} member of a \ttb{struct
-                         MoleculeType} array element \\
-  \ttb{(int)Aggregate} & index of an aggregate the molecule is in
-                         corresponding to a \ttb{struct Aggregate} array
-                         index \\
+  \ttb{(int)Type}           & index of molecule type corresponding to a
+                              \ttb{struct MoleculeType} array index\\
+  \ttb{(int *)Bead}         & array with in-code bead indices (i.e.,
+                              corresponding to \ttb{struct Bead} array indices);
+                              size: \ttb{MoleculeType[].nBeads}\\
+  \ttb{(int)Aggregate}$^\P$ & index of an aggregate the molecule is in
+                              corresponding to a \ttb{struct Aggregate} array
+                              index\\
+  \ttb{(int)Index}          & index corresponding to an input file (e.g,
+                              \tt{resid <id>} in \vsf file)\\
   \bottomrule
 \end{longtable}
+\note{$^\P$\TODO will be removed}
 \begin{itemize}
   \item array size: \tt{Counts.Molecules}
-  \item array indices correspond to \tt{<resid>-1} values in a \vsf file
-    (because in \vsf, residue numbering starts at 1)
 \end{itemize} %}}}
 
 % Aggregate %{{{
-\subsubsection{Information about individual aggregates}
+\subsubsection{Information about individual aggregates}\label{ssub:Aggregates}
+\TODO this will be changed (I guess)
 \ttb{typedef struct Aggregate \{<members>\} AGGREGATE;} \\
-\vspace{-2em}
-\begin{longtable}{p{35mm}p{105mm}}
+\vspace{-1.75em}
+\begin{longtable}{L{0.27\textwidth}p{0.775\textwidth}}
   \toprule
   member             & explanation \\
   \midrule
-  \ttb{(int)nMolecules} & number of molecules in an aggregate \\
-  \ttb{(int *)Molecule} & 1D array with molecule indices (i.e.,
-                          corresponding to \ttb{struct Molecule} array
-                          indices and to \tt{<resid>-1} values in a \vsf
-                          file) \\
-  \ttb{(int)nBeads}     & number of bonded beads in an aggregate \\
-  \ttb{(int *)Bead}     & 1D array with in-code bead indices (i.e.,
-                          corresponding to \ttb{struct Bead} array indices)
-                          of bonded beads in an aggregate \\
-  \ttb{(int)nMonomers}  & number of monomeric beads in an aggregate \\
-  \ttb{(int *)Monomer}  & 1D array with in-code bead indices (i.e.,
-                          corresponding to \ttb{struct Bead} array indices)
-                          of monomeric beads in an aggregate \\
+  \ttb{(int)nMolecules} & number of molecules in an aggregate\\
+  \ttb{(int *)Molecule} & array with in-code molecule indices (i.e.,
+                          corresponding to \ttb{struct Molecule} array indices\\
+  \ttb{(int)nBeads}     & number of bonded beads in an aggregate\\
+  \ttb{(int *)Bead}     & array with in-code indices of the bonded beads (i.e.,
+                          corresponding to \ttb{struct Bead} array indices)\\
+  \ttb{(int)nMonomers}  & number of monomeric beads in an aggregate\\
+  \ttb{(int *)Monomer}  & array with in-code indices of the monomeric beads
+                          (i.e., corresponding to \ttb{struct Bead} array
+                          indices)\\
   \ttb{(double)Mass}    & total mass of an aggregate (undefined if any of
-                          the molecules have undefined mass) \\
-  \ttb{(bool)Use}$^*$   & \tt{true}/\tt{false} value whether this aggregate
-                          should be used in a calculation \\
+                          the molecules have undefined mass)\\
+  \ttb{(bool)Use}$^\P$  & \tt{true}/\tt{false} value whether this aggregate
+                          should be used in a calculation\\
   \bottomrule
 \end{longtable}
+\note{$^\P$\TODO will be removed}
 \begin{itemize}
   \item array size: \tt{Counts.Aggregates}
 \end{itemize} %}}}
