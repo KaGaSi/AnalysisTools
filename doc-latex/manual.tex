@@ -42,7 +42,7 @@
 % compress citations into [a-z]
 \usepackage{cite}
 % list customization
-\usepackage{enumitem}
+\usepackage[shortlabels]{enumitem}
 % easy quotation marks
 \usepackage[style=british]{csquotes}
 % multi-line comments
@@ -189,6 +189,13 @@
 % new column type
 \newcolumntype{L}[1]{p{#1}@{\hspace{-20pt}}}
 \newcolumntype{M}{>{\centering}p{0.2\textwidth}@{\hspace{-10pt}}}
+% enumerate settings (enumitem package)
+\setenumerate[1]{label={\arabic*)}}
+\setenumerate[2]{label={\alph*)}, leftmargin=14pt}
+\setenumerate[3]{label={\roman*)}, leftmargin=12pt}
+\setenumerate{leftmargin=*, nosep}
+\setitemize[3]{label=$\circ$}
+\setitemize{leftmargin=*, nosep}
 
 \begin{document}
 

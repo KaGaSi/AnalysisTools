@@ -1,7 +1,7 @@
 \section{Commonly used structures} \label{sec:Struct}
 
 % Box %{{{
-\subsubsection{Simulation box size}\label{ssub:Box}
+\subsection[Box]{Simulation box size}\label{ssec:Box}
 \ttb{typedef struct Box \{<members>\} BOX;}\\
 \vspace{-1.75em}
 \begin{longtable}{L{0.43\textwidth}p{0.615\textwidth}}
@@ -31,7 +31,7 @@ transformation.htm}}
   %}}}
 
 % Counts %{{{
-\subsubsection{Basic system information}\label{ssub:Counts}
+\subsection[Counts]{Basic system information}\label{ssec:Counts}
 \TODO update when I know how things are with file types other than \vtf\\
 \ttb{typedef struct Counts \{<members>\} COUNTS;}\\
 \vspace{-1.75em}
@@ -61,7 +61,7 @@ file), this has a value of \tt{-1}\TODO why not just say 0?}
   %}}}
 
 % BeadType %{{{
-\subsubsection{Information about bead types}\label{ssub:BeadType}
+\subsection[BeadType]{Information about bead types}\label{ssec:BeadType}
 \ttb{typedef struct BeadType \{<members>\} BEADTYPE;} \\
 \vspace{-1.75em}
 \begin{longtable}{L{0.24\textwidth}p{0.805\textwidth}}
@@ -86,7 +86,7 @@ file), this has a value of \tt{-1}\TODO why not just say 0?}
 \end{itemize} %}}}
 
 % Bead %{{{
-\subsubsection{Information about individual beads}\label{ssub:Bead}
+\subsection[Bead]{Information about individual beads}\label{ssec:Bead}
 \ttb{typedef struct Bead \{<members>\} BEAD;} \\
 \vspace{-1.75em}
 \begin{longtable}{L{0.35\textwidth}p{0.695\textwidth}}
@@ -125,7 +125,8 @@ $^\dagger$ \ttb{struct Vector} contains members
 \end{itemize} %}}}
 
 % MoleculeType %{{{
-\subsubsection{Information about molecule types}\label{ssec:MoleculeType}
+\subsection[MoleculeType]{Information about molecule
+  types}\label{ssec:MoleculeType}
 \ttb{typedef struct MoleculeType \{<members>\} MOLECULETYPE;} \\
 \vspace{-1.75em}
 \begin{longtable}{L{0.27\textwidth}p{0.775\textwidth}}
@@ -184,7 +185,8 @@ $^\ddag$undefined if any of the included bead types have undefined charge/mass}
 \end{itemize} %}}}
 
 % Molecule %{{{
-\subsubsection{Information about individual molecules}\label{ssec:Molecule}
+\subsection[Molecule]{Information about individual
+  molecules}\label{ssec:Molecule}
 \ttb{typedef struct Molecule \{<members>\} MOLECULE;} \\
 \vspace{-1.75em}
 \begin{longtable}{L{0.27\textwidth}p{0.775\textwidth}}
@@ -209,7 +211,8 @@ $^\ddag$undefined if any of the included bead types have undefined charge/mass}
 \end{itemize} %}}}
 
 % Aggregate %{{{
-\subsubsection{Information about individual aggregates}\label{ssub:Aggregates}
+\subsection[Aggregate]{Information about individual
+  aggregates}\label{ssec:Aggregates}
 \TODO this will be changed (I guess)
 \ttb{typedef struct Aggregate \{<members>\} AGGREGATE;} \\
 \vspace{-1.75em}

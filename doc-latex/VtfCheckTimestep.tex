@@ -1,0 +1,41 @@
+\subsection[VtfCheckTimestep]{Find what beads are in a \vtf
+timeste}\label{ssec:VtfCheckTimestep}
+
+This functions identifies what beads and molecules are in a single \vtf
+timestep. \TODO make it check every timestep; but that will seriously slow down
+the utilities, won't it?
+
+\CallInit{bool}{VtfCheckTimestep}
+\begin{longtable}{L{0.36\textwidth}Mp{0.51\textwidth}}
+  \toprule
+  variable           & in/out & explanation \\
+  \midrule
+  \ttb{(char) vcf_file[]}            & in  & name of the input \vcf file\\
+  \ttb{(COUNTS) Counts}              & out & basic system information
+                                             (section \ref{ssec:Counts})\\
+  \ttb{(BEADTYPE) BeadType[]}        & out & information about bead types
+                                             (section \ref{ssec:BeadType})\\
+  \ttb{(BEAD) Bead[]}                & out & information about individual beads
+                                             (section \ref{ssec:Bead})\\
+  \ttb{(int) Index[]}                & out & array connecting internal and  \vtf
+                                             bead indices\\
+  \ttb{(MOLECULETYPE) MoleculeType[]}& out & information about molecule types
+                                             (section \ref{ssec:MoleculeType})\\
+  \ttb{(MOLECULE) Molecule[]}        & out & information about individual
+                                             molecules (section
+                                             \ref{ssec:Molecule})\\
+  \multicolumn{3}{p{\textwidth}}{\Ret \tt{true} for indexed timestep, \tt{false}
+    for ordered one}\\
+  \bottomrule
+\end{longtable}
+\begin{itemize}
+  \item the \ttb{input_vcf} is read line by line until one of the following
+    happens:
+    \begin{itemize}
+      \item valid \tt{pbc} line is encountered
+      \item coordinate line is encountered; exit program with error
+      \item invalid line is encountered, i.e., anything beside \tt{atom},
+        \tt{bond}, comment (\tt{\#}-initiated line), or \tt{timestep} line; exit
+        program with error
+    \end{itemize}
+\end{itemize}

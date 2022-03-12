@@ -1,11 +1,36 @@
-\subsection[VtfReadPBC]{Get simulation box dimensions}\label{ssec:VtfReadPBC}
+\subsection[VtfReadPBC]{Get simulation box dimensions from \vtf
+  file}\label{ssec:VtfReadPBC}
 
-This function reads an input \vcf file line by line, searching for a valid
-\tt{pbc} line that contains box dimensions and, optionally, angles (for
-triclinic cells). The function takes only the first valit \tt{pbc} line.
+This function reads an input \vcf file line by line, searching for a \tt{pbc}
+line containing box dimensions and, optionally, angles (for triclinic cells).
+The function takes only the first valid \tt{pbc} line.
 
-Valid line: \tt{pbc <x> <y> <x> [<alpha> <beta> <gamme>]}.
+Valid line: \tt{pbc <x> <y> <x> [<alpha> <beta> <gamme>] ... anything else}.
 
+\CallInit{void}{VtfReadPBC}
+\begin{longtable}{L{0.23\textwidth}Mp{0.64\textwidth}}
+  \toprule
+  variable           & in/out & explanation \\
+  \midrule
+  \ttb{(char) input_vcf[]} & in  & name of the input \vcf file \\
+  \ttb{(BOX) Box}          & out & information about simulation box dimensions
+    (section \ref{ssec:Box})\\
+  \bottomrule
+\end{longtable}
+\begin{itemize}
+  \item the \ttb{input_vcf} is read line by line until one of the following
+    happens:
+    \begin{itemize}
+      \item valid \tt{pbc} line is encountered
+      \item coordinate line is encountered; exit program with error
+      \item invalid line is encountered, i.e., anything beside \tt{atom},
+        \tt{bond}, comment (\tt{\#}-initiated line), or \tt{timestep} line; exit
+        program with error
+    \end{itemize}
+\end{itemize}
+
+% old stuff with full pseudocode %{{{
+\begin{comment}
 \CallInit{void}{VtfReadPBC}
 \begin{longtable}{p{0.23\textwidth}@{\hspace{-20pt}}
                   >{\centering}m{0.2\textwidth}@{\hspace{-10pt}}
@@ -44,3 +69,5 @@ Valid line: \tt{pbc <x> <y> <x> [<alpha> <beta> <gamme>]}.
   \St close \ttb{input_vcf}
 \end{algorithmic}
 \algbottomrule
+\end{comment}
+ %}}}

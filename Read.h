@@ -52,7 +52,7 @@ void ReadAggCommand(BEADTYPE *BeadType, COUNTS Counts,
                     char *input_coor, char *input_agg,
                     double *distance, int *contacts); //}}}
 
-bool CheckVtfTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
+bool VtfCheckTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
                       BEADTYPE **BeadType, BEAD **Bead, int **Index,
                       MOLECULETYPE **MoleculeType, MOLECULE **Molecule);
 void VtfReadStruct_old(char *vsf_file, bool detailed, COUNTS *Counts,

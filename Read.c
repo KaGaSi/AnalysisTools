@@ -1458,7 +1458,7 @@ contact developper\n");
     ErrorPrintError();
     exit(1);
   } //}}}
-  // assign atom default to default beads and count bonded/unbonded beads //{{{
+  // 2) assign atom default to default beads & count bonded/unbonded beads //{{{
   for (int i = 0; i < (*Counts).BeadsInVsf; i++) {
     if (atom[i].name == -1) { // default bead?
       atom[i] = atom_def;
@@ -1476,7 +1476,7 @@ contact developper\n");
     ErrorPrintError();
     exit(1);
   } //}}}
-  // 2) identify bead types //{{{
+  // 3) identify bead types //{{{
   BEADTYPE *bt_tmp = calloc(1, sizeof (BEADTYPE));
   if (detailed) { // check other stuff besides name //{{{
     /*
@@ -1817,7 +1817,7 @@ contact developper\n");
     exit(1);
   } //}}}
   //}}}
-  // 3) fill BEAD struct, putting unbonded beads first //{{{
+  // 4) fill BEAD struct, putting unbonded beads first //{{{
   BEAD *b_tmp = calloc((*Counts).BeadsInVsf, sizeof (BEAD));
   int *id_tmp = calloc((*Counts).BeadsInVsf, sizeof *id_tmp),
       c_bonded = 0, c_unbonded = 0; // count placed bonded/unbonded beads
@@ -1851,6 +1851,7 @@ contact developper\n");
       if (b_tmp[id].Type == -1) {
         for (int j = 0; j < (*Counts).TypesOfBeads; j++) {
           // only check if the bead type and the bead share name
+          // TODO make one bigger, negated if if?
           if (strcmp(bt_tmp[j].Name, atom_name[atom[i].name]) == 0) {
             // check charge
             if (bt_tmp[j].Charge != atom[i].charge &&
@@ -1880,7 +1881,7 @@ contact developper\n");
     b_tmp[id].Index = i;
     id_tmp[b_tmp[id].Index] = id;
   } //}}}
-  // if detailed, rename the bead types with the same name //{{{
+  // 5) if detailed, rename the bead types with the same name //{{{
   if (detailed) {
     for (int i = 0; i < ((*Counts).TypesOfBeads-1); i++) {
       count = 0;
@@ -1902,7 +1903,7 @@ contact developper\n");
       }
     }
   } //}}}
-  // 4) identify molecule types based on all data //{{{
+  // 6) identify molecule types based on all data //{{{
   /*
    * Molecules of one type must share:
    * i) molecule name
@@ -1934,7 +1935,7 @@ contact developper\n");
   for (int i = 0; i < (*Counts).Molecules; i++) {
     if (count_in_mol[i] != atoms_per_mol[i]) {
       strcpy(ERROR_MSG, "something went wrong with per molecule bead numbers; \
-  contact developper\n");
+contact developper\n");
       ErrorPrintError();
     }
   } //}}}
@@ -2149,7 +2150,7 @@ contact developper\n");
 //PrintBead2((*Counts).BeadsInVsf, id_tmp, bt_tmp, b_tmp);
 //PrintMoleculeType2((*Counts).TypesOfMolecules, bt_tmp, mt_tmp);
 ////}}}
-  // 5) copy everything back to their 'proper' arrays and structures //{{{
+  // 7) copy everything back to their 'proper' arrays and structures //{{{
   (*Counts).Beads = (*Counts).BeadsInVsf;
   *Index = malloc(sizeof **Index * (*Counts).Beads);
   for (int i = 0; i < (*Counts).Beads; i++) {
@@ -2187,14 +2188,14 @@ contact developper\n");
   //}}}
 } //}}}
 
-// CheckVtfTimestep() //{{{
+// VtfCheckTimestep() //{{{
 /*
  * Function to find what beads and molecules are in a timestep. For now, the
  * function is used only in FullVtfRead to determine these things only once for
  * all timesteps. Presumably, later something similar will be used to deremine
  * system composition of each step.
  */
-bool CheckVtfTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
+bool VtfCheckTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
                       BEADTYPE **BeadType, BEAD **Bead, int **Index,
                       MOLECULETYPE **MoleculeType, MOLECULE **Molecule) {
 
@@ -2204,13 +2205,15 @@ bool CheckVtfTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
   char *stuff = calloc(LINE, sizeof *stuff);
   // TODO: just added boxlength for variable box size
   BOX Box;
-  int lines = ReadVtfTimestepPreamble(&indexed, vcf_file, vcf, &stuff, &Box, true);
+  int lines = ReadVtfTimestepPreamble(&indexed, vcf_file, vcf, &stuff, &Box,
+                                      true);
   free(stuff);
   for (int i = 0; i < lines; i++) {
     while (getc(vcf) != '\n')
       ;
   } //}}}
   // assume no beads are present //{{{
+  // TODO: will be removed
   for (int i = 0; i < (*Counts).BeadsInVsf; i++) {
     (*Bead)[i].Flag = false;
   } //}}}
@@ -2633,7 +2636,7 @@ void FullVtfRead(char *struct_file, char *vcf_file, bool detailed, bool vtf,
       exit(1);
     }
 //  SkipVtfStructure(vcf, *struct_lines);
-    *indexed = CheckVtfTimestep(vcf, vcf_file, Counts, BeadType, Bead, Index,
+    *indexed = VtfCheckTimestep(vcf, vcf_file, Counts, BeadType, Bead, Index,
                                 MoleculeType, Molecule);
     fclose(vcf);
   } //}}}
@@ -2661,7 +2664,7 @@ void FullVtfRead_new(char *struct_file, char *vcf_file, bool detailed,
       ErrorFileOpen(vcf_file, 'r');
       exit(1);
     }
-    *indexed = CheckVtfTimestep(vcf, vcf_file, Counts, BeadType, Bead, Index,
+    *indexed = VtfCheckTimestep(vcf, vcf_file, Counts, BeadType, Bead, Index,
                                 MoleculeType, Molecule);
     fclose(vcf);
   } //}}}
@@ -2831,7 +2834,7 @@ int ReadVtfTimestepPreamble(bool *indexed, char *input_coor, FILE *vcf_file,
     //}}}
     // comment line - copy to stuff[] //{{{
     } else if (ltype == COMMENT_LINE) {
-      // TODO: thoroughly test & and add some stuff to suppress warnings
+      // TODO: thoroughly test & add some stuff to suppress warnings
       strncat(*stuff, line2, LINE-strlen(*stuff)-1); //}}}
     // error - only if we care \TODO why would we care? //{{{
     } else if (quit && ltype == ERROR_LINE) {
