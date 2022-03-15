@@ -1,14 +1,14 @@
 \subsection[VtfCheckTimestep]{Find what beads are in a \vtf
-timeste}\label{ssec:VtfCheckTimestep}
+timestep}\label{ssec:VtfCheckTimestep}
 
 This functions identifies what beads and molecules are in a single \vtf
 timestep. \TODO make it check every timestep; but that will seriously slow down
 the utilities, won't it?
 
-\CallInit{bool}{VtfCheckTimestep}
+\CallInit{bool VtfCheckTimestep}
 \begin{longtable}{L{0.36\textwidth}Mp{0.51\textwidth}}
   \toprule
-  variable           & in/out & explanation \\
+  parameter          & in/out & explanation \\
   \midrule
   \ttb{(char) vcf_file[]}            & in  & name of the input \vcf file\\
   \ttb{(COUNTS) Counts}              & out & basic system information

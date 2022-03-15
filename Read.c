@@ -1,4 +1,7 @@
 #include "Read.h"
+// TODO: coordinate lines: '4 1.0 2.0 3.0' should also count as ordered line
+//       (with the 3.0 as just some extra stuff)
+// TODO: VtfReadStruct - warn if an atom defined twice
 // TODO: since VtfCountStructLines is obsolete, we must somehow check for
 //       invalid atom/bond lines in purely vcf file; or do we? It may not
 //       actually matter to me; it will just be skipped - just write a note
@@ -83,12 +86,12 @@ void VtfReadPBC(char *input_vcf, BOX *Box) {
       break; //}}}
     // error - coordinate line //{{{
     } else if (pbc == COOR_LINE_I || pbc == COOR_LINE_O) {
-      strcpy(ERROR_MSG, "encountered coordinate line before pbc line ");
+      strcpy(ERROR_MSG, "encountered coordinate line before pbc line");
       ErrorPrintFull(input_vcf, file_line_count, split, words);
       exit(1); //}}}
     // error - unrecognised line //{{{
     } else if (pbc == ERROR_LINE) {
-      strcpy(ERROR_MSG, "invalid line ");
+      strcpy(ERROR_MSG, "invalid line");
       ErrorPrintFull(input_vcf, file_line_count, split, words);
       exit(1);
     } //}}}
@@ -1365,14 +1368,14 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
           // save molecule name if unique
           if (values[4] != -1) {
             type = -1; // assume the name is yet unknown
-            for (int i = 0; i < atom_names; i++) {
+            for (int i = 0; i < res_names; i++) {
               if (strncmp(split[values[4]], res_name[i], MOL_NAME) == 0) {
                 type = i;
                 break;
               }
             }
             if (type == -1) { // unknown (i.e., new) bead name
-              res_name = realloc(res_name, sizeof *res_name * (res_names + 1));
+              res_name = realloc(res_name, sizeof *res_name * (res_names + 2));
               strncpy(res_name[res_names], split[values[4]], MOL_NAME);
               type = res_names;
               res_names++;
@@ -2608,6 +2611,100 @@ bool VtfCheckTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
   return indexed;
 } //}}}
 
+// VtfReadTimestep() //{{{
+void VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
+                     BEADTYPE *BeadType, BEAD **Bead, int *Index,
+                     MOLECULETYPE *MoleculeType, MOLECULE *Molecule) {
+  char split[SPL_STR][SPL_LEN];
+  int words;
+  int timestep_line_count = -1;
+  int indexed = -1;
+  // read timestep preamble //{{{
+  while (ReadAndSplitLine(vcf, &words, split)) {
+    int ltype = VtfCheckLineType(words, split, false,
+                                 vcf_file, timestep_line_count);
+    // TODO go for switch(ltype)? Kind of doubles PBC_LINE & PBC_LINE_ANGLES
+    //      (etc.) entries, but that should be fine, no? If so, change to
+    //      do{}while(not coordinate line)
+    if (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) {
+      (*Box).Length.x = atof(split[1]);
+      (*Box).Length.y = atof(split[2]);
+      (*Box).Length.z = atof(split[3]);
+      // assume orthogonal box
+      (*Box).alpha = 90;
+      (*Box).beta = 90;
+      (*Box).gamma = 90;
+      // angles in pbc line; possibly triclinic cell
+      if (ltype == PBC_LINE_ANGLES) {
+        (*Box).alpha = atof(split[4]);
+        (*Box).beta = atof(split[5]);
+        (*Box).gamma = atof(split[6]);
+      }
+    } else if (ltype == TIME_LINE_I) {
+      indexed = 1;
+    } else if (ltype == TIME_LINE_O) {
+      indexed = 0;
+    } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
+      if (indexed == 1) {
+        if (ltype == COOR_LINE_I) {
+          int id = atoi(split[0]);
+          (*Bead)[id].Position.x = atof(split[1]);
+          (*Bead)[id].Position.y = atof(split[2]);
+          (*Bead)[id].Position.z = atof(split[3]);
+        } else {
+          strcpy(ERROR_MSG, "ordered coordinate line in 'timestep indexed'");
+          ErrorPrintFull(vcf_file, timestep_line_count, split, words);
+          exit(1);
+        }
+        break;
+      } else if (indexed == 0) {
+        (*Bead)[0].Position.x = atof(split[1]);
+        (*Bead)[0].Position.y = atof(split[2]);
+        (*Bead)[0].Position.z = atof(split[3]);
+        break;
+        goto exit_loop;
+      } else {
+        strcpy(ERROR_MSG, "encountered coordinate line before timestep line");
+        ErrorPrintFull(vcf_file, timestep_line_count, split, words);
+        exit(1);
+      }
+    } else if (ltype == ERROR_LINE) { // invalid line
+      // error message already printed by VtfCheckLineType()
+      exit(1);
+    }
+  } //}}}
+  exit_loop:;
+
+  // read timestep coordinates //{{{
+  int count_coor = 1; // first bead already saved
+  while (ReadAndSplitLine(vcf, &words, split)) {
+    int ltype = VtfCheckLineType(words, split, false,
+                                 vcf_file, timestep_line_count);
+    // stop reading file when non-coordinate line encountered
+    if (ltype != COOR_LINE_I && ltype != COOR_LINE_O) {
+      break;
+    }
+    if (indexed == 1) {
+      if (ltype == COOR_LINE_I) {
+        int id = atoi(split[0]);
+        (*Bead)[id].Position.x = atof(split[1]);
+        (*Bead)[id].Position.y = atof(split[2]);
+        (*Bead)[id].Position.z = atof(split[3]);
+      } else {
+        strcpy(ERROR_MSG, "ordered coordinate line in 'timestep indexed'");
+        ErrorPrintFull(vcf_file, timestep_line_count, split, words);
+        exit(1);
+      }
+    } else {
+      (*Bead)[count_coor].Position.x = atof(split[1]);
+      (*Bead)[count_coor].Position.y = atof(split[2]);
+      (*Bead)[count_coor].Position.z = atof(split[3]);
+    }
+    count_coor++;
+  } //}}}
+printf("count_coor: %d\n", count_coor);
+} //}}}
+
 // TODO: struct_lines no longer relevant
 // FullVtfRead() //{{{
 /*
@@ -2654,20 +2751,20 @@ void FullVtfRead_new(char *struct_file, char *vcf_file, bool detailed,
   // read the whole structure section
   VtfReadStruct(struct_file, detailed, Counts, BeadType, Bead, Index,
                 MoleculeType, Molecule);
-  // check coordinate file if provided //{{{
-  if (vcf_file[0] != '\0') {
-    VtfReadPBC(vcf_file, Box);
-    // number of structure lines (or -1 if coordinate file is not vtf)
-    // get timestep type & contained beads from the first timestep
-    FILE *vcf;
-    if ((vcf = fopen(vcf_file, "r")) == NULL) {
-      ErrorFileOpen(vcf_file, 'r');
-      exit(1);
-    }
-    *indexed = VtfCheckTimestep(vcf, vcf_file, Counts, BeadType, Bead, Index,
-                                MoleculeType, Molecule);
-    fclose(vcf);
-  } //}}}
+//// check coordinate file if provided //{{{
+//if (vcf_file[0] != '\0') {
+//  VtfReadPBC(vcf_file, Box);
+//  // number of structure lines (or -1 if coordinate file is not vtf)
+//  // get timestep type & contained beads from the first timestep
+//  FILE *vcf;
+//  if ((vcf = fopen(vcf_file, "r")) == NULL) {
+//    ErrorFileOpen(vcf_file, 'r');
+//    exit(1);
+//  }
+//  *indexed = VtfCheckTimestep(vcf, vcf_file, Counts, BeadType, Bead, Index,
+//                              MoleculeType, Molecule);
+//  fclose(vcf);
+//} //}}}
   WarnElNeutrality(*Counts, *BeadType, struct_file);
   FillMolMassCharge((*Counts).TypesOfMolecules, MoleculeType, *BeadType);
 
@@ -5612,17 +5709,17 @@ bool CheckVtfCoordinateLine_old(int words, char split[SPL_STR][SPL_LEN],
  */
 int CheckVtfCoordinateLine(int words, char split[SPL_STR][SPL_LEN]) {
   // valid line: [<id>] <x> <y> <z> ... with <id>, it is indexed timestep
-  // indexed timestep
+  // coordinate line in indexed timestep
   if (words >= 4 && IsInteger(split[0]) &&
       IsReal(split[1]) && IsReal(split[2]) && IsReal(split[3])) {
     return COOR_LINE_I;
   }
-  // ordered timestep
+  // coordinate line in ordered timestep
   if (words >= 3 && IsReal(split[0]) && IsReal(split[1]) && IsReal(split[2])) {
     return COOR_LINE_O;
   }
   // non-coordinate line
-  return -1;
+  return ERROR_LINE;
 } //}}}
 
 // CheckVtfLine() //{{{
@@ -5920,7 +6017,7 @@ int VtfCountStructLines(bool vtf, char *input) {
       if (ltype == ATOM_LINE || ltype == BOND_LINE) {
         last_line = file_line_count;
       } else if (ltype == ERROR_LINE) {
-        strcpy(ERROR_MSG, "invalid line ");
+        strcpy(ERROR_MSG, "invalid line");
         ErrorPrintFull(input, file_line_count, split, words);
         exit(1);
       }

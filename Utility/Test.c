@@ -123,14 +123,25 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "%d beads missing in the %s file\n",
             Counts.BeadsInVsf-Counts.Beads, input_coor);
   }
-  VerboseOutput(input_coor, Counts, Box, BeadType, Bead,
-                MoleculeType, Molecule);
   if (verbose) { //{{{
-    fputs("\nInformation about every bead:\n", stdout);
-    PrintBead2(Counts.Beads, Index, BeadType, Bead);
-    fputs("\nInformation about every molecule:\n", stdout);
-    PrintMolecule(Counts.Molecules, MoleculeType, Molecule, BeadType, Bead);
+    VerboseOutput(input_coor, Counts, Box, BeadType, Bead,
+                  MoleculeType, Molecule);
+//  fputs("\nInformation about every bead:\n", stdout);
+//  PrintBead2(Counts.Beads, Index, BeadType, Bead);
+//  fputs("\nInformation about every molecule:\n", stdout);
+//  PrintMolecule(Counts.Molecules, MoleculeType, Molecule, BeadType, Bead);
   } //}}}
+
+  FILE *coor;
+  if ((coor = fopen(input_coor, "r")) == NULL) {
+    ErrorFileOpen(input_coor, 'r');
+    exit(1);
+  }
+  VtfReadTimestep(coor, input_coor, &Box, &Counts,
+                  BeadType, &Bead, Index,
+                  MoleculeType, Molecule);
+  fclose(coor);
+
   // free memory - to make valgrind happy
   FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);
 

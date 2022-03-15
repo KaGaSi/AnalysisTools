@@ -51,8 +51,8 @@
 \usepackage{listings}
 % strike-out text without redefining \emph{}
 \usepackage[normalem]{ulem}
-% pseudocode - part of algorithmix
-\usepackage{algpseudocode}
+%% pseudocode - part of algorithmix
+%\usepackage{algpseudocode}
 % highlighting (\hl command)
 \usepackage{soul}
 % clickable links -- hyperref should be the last package listed
@@ -151,7 +151,8 @@
 \newcommand{\note}[1]{\vspace{-1em}\noindent\footnotesize{#1}}
 \newcommand{\TODO}{\colorbox{yellow}{TODO:}}
 \newcommand{\hltt}[1]{\tt{\hl{#1}}} % \hl - soul package
-\newcommand{\algbottomrule}{\vspace{-0.7em}\rule{\textwidth}{1.0pt}}
+\newcommand{\Ret}{\textbf{return }}
+\newcommand{\CallInit}[1]{\vspace{1em}\tt{#1}\tt{(parameters)}\vspace{-1em}}
 % listings setup %{{{
 \definecolor{codebackground}{rgb}{0.95, 0.9, 0.95}
 \lstset{
@@ -166,22 +167,20 @@
 } %}}}
 % remove spacing between table columns
 \renewcommand{\tabcolsep}{0pt}
-% pseudocode settings
-\newcommand{\St}{\State }
-\newcommand{\Stx}{\Statex }
-\renewcommand{\Return}{\St \textbf{return} }
-\newcommand{\Break}{\St \textbf{break} }
-\newcommand{\Error}{\St \textbf{error} }
-\newcommand{\True}{\hltt{true}}
-\newcommand{\False}{\hltt{false}}
-\newcommand{\Ret}{\textbf{return }}
-\newcommand{\SReturn}{\St \Ret}
-\newcommand{\CallInit}[2]{\vspace{1em}\tt{#1} \
-                          \Call{#2}{parameters}\vspace{-1em}}
-\newcommand{\CallRef}[1]{\Call{\nameref{#1}}{}}
-\newcommand{\Or}{\textbf{or} }
-\renewcommand{\And}{\textbf{and} }
-\renewcommand\algorithmicindent{8pt} % reduce indenting
+%% pseudocode settings - not used anymore
+%\newcommand{\St}{\State }
+%\newcommand{\Stx}{\Statex }
+%\renewcommand{\Return}{\St \textbf{return} }
+%\newcommand{\Break}{\St \textbf{break} }
+%\newcommand{\Error}{\St \textbf{error} }
+%\newcommand{\True}{\hltt{true}}
+%\newcommand{\False}{\hltt{false}}
+%\newcommand{\SReturn}{\St \Ret}
+%\newcommand{\algbottomrule}{\vspace{-0.7em}\rule{\textwidth}{1.0pt}}
+%\newcommand{\CallRef}[1]{\Call{\nameref{#1}}{}}
+%\newcommand{\Or}{\textbf{or} }
+%\renewcommand{\And}{\textbf{and} }
+%\renewcommand\algorithmicindent{8pt} % reduce indenting
 % keywords for number types
 \newcommand{\Real}{$\mathcal{R}$}
 \newcommand{\RealP}{$\mathcal{R}^+$}
