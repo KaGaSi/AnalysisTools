@@ -119,9 +119,9 @@ int main(int argc, char *argv[]) {
                   &MoleculeType, &Molecule); //}}}
 
   // print information
-  if (Counts.BeadsInVsf != Counts.Beads) {
+  if (Counts.BeadsTotal != Counts.BeadsCoor) {
     fprintf(stdout, "%d beads missing in the %s file\n",
-            Counts.BeadsInVsf-Counts.Beads, input_coor);
+            Counts.BeadsTotal-Counts.BeadsCoor, input_coor);
   }
   if (verbose) { //{{{
     VerboseOutput(input_coor, Counts, Box, BeadType, Bead,
@@ -137,9 +137,11 @@ int main(int argc, char *argv[]) {
     ErrorFileOpen(input_coor, 'r');
     exit(1);
   }
-  VtfReadTimestep(coor, input_coor, &Box, &Counts,
-                  BeadType, &Bead, Index,
-                  MoleculeType, Molecule);
+  int step_count = 0;
+  while (VtfReadTimestep(coor, input_coor, &Box, &Counts, BeadType, &Bead,
+                         Index, MoleculeType, Molecule, &step_count)) {
+    printf("count_coor: %d (step %d)\n", Counts.BeadsCoor, step_count);
+  }
   fclose(coor);
 
   // free memory - to make valgrind happy

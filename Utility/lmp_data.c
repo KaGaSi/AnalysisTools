@@ -211,7 +211,7 @@ int main(int argc, char *argv[]) {
 
   // warn if not all beads //{{{
   // TODO proper colours
-  if (Counts.Beads != Counts.BeadsInVsf) {
+  if (Counts.BeadsCoor != Counts.BeadsTotal) {
     fprintf(stderr, "\033[1;33m");
     fprintf(stdout, "\nWarning: '%s' does not contain all beads from '%s'\n\n", input_coor, input_vsf);
     fprintf(stderr, "\033[0m");
@@ -276,7 +276,7 @@ int main(int argc, char *argv[]) {
   // TODO describe
   BEADTYPE *bt_print = calloc(Counts.TypesOfBeads, sizeof (BEADTYPE));
   BEAD *b_print;
-  CopyBead(Counts.BeadsInVsf, &b_print, Bead, 2);
+  CopyBead(Counts.BeadsTotal, &b_print, Bead, 2);
   int count_types = 0;
   if (mass) {
     for (int i = 0; i < Counts.TypesOfBeads; i++) {
@@ -284,7 +284,7 @@ int main(int argc, char *argv[]) {
       for (int j = 0; j < count_types; j++) {
         if (BeadType[i].Mass == bt_print[j].Mass) {
           bt_print[j].Number += BeadType[i].Number; // not really needed
-          for (int k = 0; k < Counts.BeadsInVsf; k++) {
+          for (int k = 0; k < Counts.BeadsTotal; k++) {
             if (Bead[k].Type == i) {
               b_print[k].Type = j;
             }
@@ -295,7 +295,7 @@ int main(int argc, char *argv[]) {
       }
       if (!found) {
         bt_print[count_types] = BeadType[i];
-        for (int j = 0; j < Counts.BeadsInVsf; j++) {
+        for (int j = 0; j < Counts.BeadsTotal; j++) {
           if (Bead[j].Type == i) {
             b_print[j].Type = count_types;
           }
@@ -309,7 +309,7 @@ int main(int argc, char *argv[]) {
   }
 
   // print number of beads, bonds, etc. //{{{
-  fprintf(out, "%7d atoms\n", Counts.BeadsInVsf);
+  fprintf(out, "%7d atoms\n", Counts.BeadsTotal);
   fprintf(out, "%7d bonds\n", count_bonds);
   fprintf(out, "%7d angles\n", count_angles);
   fprintf(out, "%7d impropers\n", count_dihedrals);
@@ -385,7 +385,7 @@ int main(int argc, char *argv[]) {
 
   // print bead coordinates //{{{
   fprintf(out, "Atoms\n\n");
-  for (int i = 0; i < Counts.BeadsInVsf; i++) {
+  for (int i = 0; i < Counts.BeadsTotal; i++) {
     int btype = b_print[i].Type;
     int qtype = Bead[i].Type; // for charge (qtype != btype when --mass used)
     fprintf(out, "%7d", i+1);
@@ -472,7 +472,7 @@ int main(int argc, char *argv[]) {
   fclose(out); //}}}
 
   // free memory - to make valgrind happy //{{{
-  FreeBead(Counts.Beads, &b_print);
+  FreeBead(Counts.BeadsCoor, &b_print);
   free(bt_print);
   FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);
   FreeSystemInfo(Counts_new, &mt_new, &Molecule_new,

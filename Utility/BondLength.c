@@ -278,10 +278,10 @@ int main(int argc, char *argv[]) {
     // join molecules if un-joined coordinates provided
     if (!joined) {
       // transform coordinates into fractional ones for non-orthogonal box
-      ToFractionalCoor(Counts.Beads, &Bead, Box);
+      ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
       RemovePBCMolecules(Counts, Box, BeadType, &Bead, MoleculeType, Molecule);
       // transform back to 'normal' coordinates for non-orthogonal box
-      FromFractionalCoor(Counts.Beads, &Bead, Box);
+      FromFractionalCoor(Counts.BeadsCoor, &Bead, Box);
     } //}}}
     // calculate bond lengths //{{{
     // go through all molecules

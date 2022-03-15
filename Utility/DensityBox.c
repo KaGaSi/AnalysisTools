@@ -273,7 +273,7 @@ size is constant.\n", argv[0]);
 orthogonal box.\n", argv[0]);
       ResetColour(STDERR_FILENO);
     } //}}}
-    RestorePBC(Counts.Beads, Box, &Bead);
+    RestorePBC(Counts.BeadsCoor, Box, &Bead);
 
   // TODO: sizeof ...argh!
     // allocate memory for temporary density arrays //{{{
@@ -285,7 +285,7 @@ orthogonal box.\n", argv[0]);
     } //}}}
 
     // calculate densities //{{{
-    for (int i = 0; i < Counts.Beads; i++) {
+    for (int i = 0; i < Counts.BeadsCoor; i++) {
       bool use = true;
       int mol = Bead[i].Molecule;
       if (mol != -1) { // do not use excluded molecules (-x option)

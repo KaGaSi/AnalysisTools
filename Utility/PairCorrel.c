@@ -230,8 +230,8 @@ int main(int argc, char *argv[]) {
     // read coordinates & wrap box
     ReadVcfCoordinates(indexed, input_coor, vcf, &Box,
                        Counts, Index, &Bead, &stuff);
-    ToFractionalCoor(Counts.Beads, &Bead, Box);
-    RestorePBC(Counts.Beads, Box, &Bead);
+    ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
+    RestorePBC(Counts.BeadsCoor, Box, &Bead);
     // TODO: check + fractionals?
     // calculate pair correlation function //{{{
     for (int j = 0; j < (Counts.Bonded+Counts.Unbonded); j++) {

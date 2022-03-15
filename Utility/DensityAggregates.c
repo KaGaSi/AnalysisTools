@@ -296,7 +296,7 @@ int main(int argc, char *argv[]) {
     ReadVcfCoordinates(indexed, input_coor, vcf, &Box,
                        Counts, Index, &Bead, &stuff);
     // transform coordinates into fractional ones for non-orthogonal box
-    ToFractionalCoor(Counts.Beads, &Bead, Box);
+    ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
     if (!joined) {
       RemovePBCMolecules(Counts, Box, BeadType, &Bead,
                          MoleculeType, Molecule);

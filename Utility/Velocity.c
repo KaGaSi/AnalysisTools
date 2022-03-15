@@ -238,7 +238,7 @@ orthogonal box.\n", argv[0]);
 orthogonal box.\n", argv[0]);
       ResetColour(STDERR_FILENO);
     } //}}}
-    RestorePBC(Counts.Beads, Box, &Bead);
+    RestorePBC(Counts.BeadsCoor, Box, &Bead);
 
     double KE = 0;
     VECTOR temp_step = {0, 0, 0},
@@ -246,7 +246,7 @@ orthogonal box.\n", argv[0]);
            *velocity_y_step = calloc(bins.y, sizeof *velocity_y_step),
            *velocity_z_step = calloc(bins.z, sizeof *velocity_z_step);
     int *count_z_step = calloc(bins.z, sizeof *count_z_step);
-    for (int i = 0; i < Counts.Beads; i++) {
+    for (int i = 0; i < Counts.BeadsCoor; i++) {
       int btype = Bead[i].Type;
       temp_step.x += 0.5 * BeadType[btype].Mass * SQR(Bead[i].Velocity.x);
       temp_step.y += 0.5 * BeadType[btype].Mass * SQR(Bead[i].Velocity.y);
@@ -307,7 +307,7 @@ orthogonal box.\n", argv[0]);
 
     double KE_correct = 0;
     VECTOR temp_step_correct = {0, 0, 0};
-    for (int i = 0; i < Counts.Beads; i++) {
+    for (int i = 0; i < Counts.BeadsCoor; i++) {
       int j = Bead[i].Position.z / width;
 
       int btype = Bead[i].Type;

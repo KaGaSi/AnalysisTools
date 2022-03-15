@@ -323,13 +323,13 @@ three different beads (wrong trio: ");
     ReadVcfCoordinates(indexed, input_coor, vcf, &Box,
                        Counts, Index, &Bead, &stuff);
     // transform coordinates into fractional ones for non-orthogonal box
-    ToFractionalCoor(Counts.Beads, &Bead, Box);
+    ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
     // join molecules if un-joined coordinates provided
     if (!joined) {
       RemovePBCMolecules(Counts, Box, BeadType, &Bead, MoleculeType, Molecule);
     }
     // transform back to 'normal' coordinates for non-orthogonal box
-    FromFractionalCoor(Counts.Beads, &Bead, Box); //}}}
+    FromFractionalCoor(Counts.BeadsCoor, &Bead, Box); //}}}
 
     // calculate angles //{{{
     double angle[Counts.Molecules][number_of_angles];

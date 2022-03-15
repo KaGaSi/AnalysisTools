@@ -19,17 +19,17 @@
  * \brief Total numbers of various things.
  */
 typedef struct Counts {
-  int TypesOfBeads, /// number of bead types
-      TypesOfMolecules, /// number of molecule types
-      TypesOfBonds, /// number of bond types; -1 if not read from anywhere
-      TypesOfAngles, /// number of bond types; -1 if not read from anywhere
-      TypesOfDihedrals, /// number of dihedral types; -1 if not read from anywhere
-      Beads, /// total number of beads in all molecules
-      Bonded, /// total number of beads in all molecules
-      Unbonded, /// total number of monomeric beads
-      BeadsInVsf, /// total number of all beads in .vsf file (not necessarily in .vcf)
-      Molecules, /// total number of molecules
-      Aggregates; /// total number of aggregates
+  int TypesOfBeads, // number of bead types
+      TypesOfMolecules, // number of molecule types
+      TypesOfBonds, // number of bond types; -1 if not read from anywhere
+      TypesOfAngles, // number of bond types; -1 if not read from anywhere
+      TypesOfDihedrals, // number of dihedral types; -1 if not read from anywhere
+      Bonded, // total number of beads in all molecules
+      Unbonded, // total number of monomeric beads
+      BeadsCoor, // number of beads in the coordinate file (e.g., in vcf file)
+      BeadsTotal, // total number of beads in the system (e.g., in vsf file)
+      Molecules, // total number of molecules
+      Aggregates; // total number of aggregates
 } COUNTS;
 
 // Initialize Counts
@@ -39,10 +39,10 @@ static const COUNTS InitCounts = {
   .TypesOfBonds = -1,
   .TypesOfAngles = -1,
   .TypesOfDihedrals = -1,
-  .Beads = 0,
   .Bonded = 0,
   .Unbonded = 0,
-  .BeadsInVsf = 0,
+  .BeadsCoor = 0,
+  .BeadsTotal = 0,
   .Molecules = 0,
   .Aggregates = 0,
 }; //}}}

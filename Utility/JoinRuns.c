@@ -437,14 +437,14 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "\nWarning: depending on the number of beads in the system, connecting bead indices from the two runs may take a long time\n\n");
     fprintf(stderr, "\033[0m");
   }
-  bool used[Counts.Beads];
-  for (int i = 0; i < Counts.Beads; i++) {
+  bool used[Counts.BeadsCoor];
+  for (int i = 0; i < Counts.BeadsCoor; i++) {
     used[i] = false;
   }
 
-  for (int i = 0; i < Counts.Beads; i++) {
+  for (int i = 0; i < Counts.BeadsCoor; i++) {
     if (Bead1[i].Molecule == -1) { // monomer bead
-      for (int j = 0; j < Counts.Beads; j++) {
+      for (int j = 0; j < Counts.BeadsCoor; j++) {
         if (Bead2[i].Molecule == -1 &&
             strcmp(BeadType2[Bead2[j].Type].Name, BeadType1[Bead1[i].Type].Name) == 0 &&
             !used[j]) {
@@ -456,7 +456,7 @@ int main(int argc, char *argv[]) {
         }
       }
     } else { // molecular bead
-      for (int j = 0; j < Counts.Beads; j++) {
+      for (int j = 0; j < Counts.BeadsCoor; j++) {
         if (Bead2[j].Molecule != -1) {
           // mol from run 1
           int mol_id_1 = Bead1[i].Molecule;
@@ -543,7 +543,7 @@ int main(int argc, char *argv[]) {
       exit(1);
     } //}}}
 
-    for (int i = 0; i < Counts.Beads; i++) {
+    for (int i = 0; i < Counts.BeadsCoor; i++) {
         Bead1[i].Position.x = Bead2[Index1[Bead1[i].Index]].Position.x;
         Bead1[i].Position.y = Bead2[Index1[Bead1[i].Index]].Position.y;
         Bead1[i].Position.z = Bead2[Index1[Bead1[i].Index]].Position.z;

@@ -17,7 +17,7 @@ void WriteCoorIndexed_old(FILE *vcf_file, COUNTS Counts,
   // print 'indexed' on the next
   fprintf(vcf_file, "indexed\n");
 
-  for (int i = 0; i < Counts.Beads; i++) {
+  for (int i = 0; i < Counts.BeadsCoor; i++) {
     int btype = Bead[i].Type;
     if (BeadType[btype].Write) {
       if (Bead[i].Molecule != -1) { // bead in a molecule
@@ -58,7 +58,7 @@ void WriteCoorIndexed(FILE *vcf_file, COUNTS Counts,
   // print 'indexed' on the next
   fprintf(vcf_file, "indexed\n");
 
-  for (int i = 0; i < Counts.Beads; i++) {
+  for (int i = 0; i < Counts.BeadsCoor; i++) {
     int btype = Bead[i].Type;
     if (BeadType[btype].Write) {
       if (Bead[i].Molecule != -1) { // bead in a molecule
@@ -95,7 +95,7 @@ void WriteCoorXYZ(FILE *xyz_file, COUNTS Counts,
   fprintf(xyz_file, "%d\n\n", count);
 
   // print coordinates
-  for (int i = 0; i < Counts.Beads; i++) {
+  for (int i = 0; i < Counts.BeadsCoor; i++) {
     int type = Bead[i].Type;
     if (BeadType[type].Write) {
       fprintf(xyz_file, "%8s %7.3f %7.3f %7.3f\n", BeadType[type].Name, Bead[i].Position.x, Bead[i].Position.y, Bead[i].Position.z);
@@ -144,7 +144,7 @@ void WriteVsf(char *input_vsf, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
   } //}}}
 
   // print beads //{{{
-  for (int i = 0; i < Counts.Beads; i++) {
+  for (int i = 0; i < Counts.BeadsCoor; i++) {
     int btype = Bead[i].Type;
     int mol = Bead[i].Molecule;
     // don't print beads with type 'type_def'
@@ -175,7 +175,7 @@ void WriteVsf(char *input_vsf, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
       }
       putc('\n', fw);
     // print highest bead id even if it's default type
-    } else if (i == (Counts.BeadsInVsf-1)) {
+    } else if (i == (Counts.BeadsTotal-1)) {
       fprintf(fw, "atom %7d ", i);
       fprintf(fw, "name %8s ", BeadType[btype].Name);
       fprintf(fw, "mass %lf ", BeadType[btype].Mass);

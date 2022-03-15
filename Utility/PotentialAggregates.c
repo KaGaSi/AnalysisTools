@@ -244,8 +244,8 @@ int main(int argc, char *argv[]) {
                            input_agg, Counts, start, silent);
 
   // create array of bead indices //{{{
-  int *index = calloc(Counts.BeadsInVsf,sizeof(int));
-  for (int i = 0; i < Counts.Beads; i++) {
+  int *index = calloc(Counts.BeadsTotal,sizeof(int));
+  for (int i = 0; i < Counts.BeadsCoor; i++) {
     index[Bead[i].Index] = i;
   } //}}}
 
@@ -270,7 +270,7 @@ int main(int argc, char *argv[]) {
     ReadVcfCoordinates(indexed, input_coor, vcf, &Box,
                        Counts, Index, &Bead, &stuff);
     // transform coordinates into fractional ones for non-orthogonal box
-    ToFractionalCoor(Counts.Beads, &Bead, Box);
+    ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
     if (!joined) {
       RemovePBCMolecules(Counts, Box, BeadType, &Bead,
                          MoleculeType, Molecule);
@@ -304,7 +304,7 @@ int main(int argc, char *argv[]) {
         VECTOR com = CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead, Bead,
                                   BeadType);
         // move beads so that com is in the box's centre
-        for (int j = 0; j < Counts.Beads; j++) {
+        for (int j = 0; j < Counts.BeadsCoor; j++) {
           Bead[j].Position.x -= com.x;
           Bead[j].Position.y -= com.y;
           Bead[j].Position.z -= com.z;
@@ -344,7 +344,7 @@ int main(int argc, char *argv[]) {
                 // would it be, if an array of only charged beads was used? Not
                 // much, as the slow part is the calculation itself? Then
                 // again, this loop is inside other loops.
-                for (int l = 0; l < Counts.Beads; l++) {
+                for (int l = 0; l < Counts.BeadsCoor; l++) {
                   if (BeadType[Bead[l].Type].Charge != 0) {
                     VECTOR dist;
                     dist = Distance(Bead[l].Position, point, Box.Length);

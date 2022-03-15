@@ -363,13 +363,13 @@ int main(int argc, char *argv[]) {
                        Counts, Index, &Bead, &stuff);
     if (!joined) {
       // transform coordinates into fractional ones for non-orthogonal box
-      ToFractionalCoor(Counts.Beads, &Bead, Box);
+      ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
       RemovePBCMolecules(Counts, Box, BeadType, &Bead,
                          MoleculeType, Molecule);
       RemovePBCAggregates(distance, Aggregate, Counts, Box.Length,
                           BeadType, &Bead, MoleculeType, Molecule);
       // transform back to 'normal' coordinates for non-orthogonal box
-      FromFractionalCoor(Counts.Beads, &Bead, Box);
+      FromFractionalCoor(Counts.BeadsCoor, &Bead, Box);
     }
 
     // calculate orientation //{{{

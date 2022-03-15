@@ -119,16 +119,16 @@ int main(int argc, char *argv[]) {
                   &MoleculeType, &Molecule); //}}}
 
   // print information
-  if (Counts.BeadsInVsf != Counts.Beads) {
+  if (Counts.BeadsTotal != Counts.BeadsCoor) {
     fprintf(stdout, "%d beads missing in the %s file\n",
-            Counts.BeadsInVsf-Counts.Beads, input_coor);
+            Counts.BeadsTotal-Counts.BeadsCoor, input_coor);
   }
   VerboseOutput(input_coor, Counts, Box, BeadType, Bead,
                 MoleculeType, Molecule);
   // TODO: if beads in vsf != beads in vcf, write out vcf
   if (verbose) { //{{{
     fprintf(stdout, "\nInformation about every bead:\n");
-    PrintBead2(Counts.Beads, Index, BeadType, Bead);
+    PrintBead2(Counts.BeadsCoor, Index, BeadType, Bead);
     fprintf(stdout, "\nInformation about every molecule:\n");
     PrintMolecule(Counts.Molecules, MoleculeType, Molecule, BeadType, Bead);
   } //}}}

@@ -221,11 +221,11 @@ int main(int argc, char *argv[]) {
     ReadVcfCoordinates(indexed, input_coor, vcf, &Box,
                        Counts, Index, &Bead, &stuff);
     // transform coordinates into fractional ones for non-orthogonal box
-    ToFractionalCoor(Counts.Beads, &Bead, Box);
+    ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
     RemovePBCMolecules(Counts, Box, BeadType, &Bead, MoleculeType, Molecule);
     RemovePBCAggregates(distance, Aggregate, Counts, Box.Length,
                         BeadType, &Bead, MoleculeType, Molecule);
-    FromFractionalCoor(Counts.Beads, &Bead, Box); //}}}
+    FromFractionalCoor(Counts.BeadsCoor, &Bead, Box); //}}}
 
     // open output .vcf file for appending //{{{
     if ((out = fopen(output_vcf, "a")) == NULL) {

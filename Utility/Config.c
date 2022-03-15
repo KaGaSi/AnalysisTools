@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
 
   // warn if not all beads //{{{
   // TODO: what's gonna happen with Counts.Beads & Counts.BeadsInVsf
-  if (Counts.Beads != Counts.BeadsInVsf) {
+  if (Counts.BeadsCoor != Counts.BeadsTotal) {
     YellowText(STDOUT_FILENO);
     fprintf(stdout, "\nWarning: ");
     CyanText(STDOUT_FILENO);
@@ -187,7 +187,7 @@ int main(int argc, char *argv[]) {
   // bead coordinates
   // unbonded beads must be first (dl_meso requirement)
   // TODO: why -Box/2?
-  for (int i = 0; i < Counts.Beads; i++) {
+  for (int i = 0; i < Counts.BeadsCoor; i++) {
     fprintf(out, "%s %d\n", BeadType[Bead[i].Type].Name, i+1);
     fprintf(out, "%lf %lf %lf\n", Bead[i].Position.x-Box.Length.x/2,
                                   Bead[i].Position.y-Box.Length.y/2,

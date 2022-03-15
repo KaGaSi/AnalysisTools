@@ -268,9 +268,9 @@ void PrintCounts(COUNTS Counts) {
   fprintf(stdout, "  .TypesOfBeads     = %d,\n", Counts.TypesOfBeads);
   fprintf(stdout, "  .Bonded           = %d,\n", Counts.Bonded);
   fprintf(stdout, "  .Unbonded         = %d,\n", Counts.Unbonded);
-  fprintf(stdout, "  .Beads            = %d,\n", Counts.Beads);
-  if (Counts.BeadsInVsf != Counts.Beads) {
-    fprintf(stdout, "  .BeadsInVsf       = %d,\n", Counts.BeadsInVsf);
+  fprintf(stdout, "  .Beads            = %d,\n", Counts.BeadsCoor);
+  if (Counts.BeadsTotal != Counts.BeadsCoor) {
+    fprintf(stdout, "  .BeadsInVsf       = %d,\n", Counts.BeadsTotal);
   }
   fprintf(stdout, "  .TypesOfMolecules = %d,\n", Counts.TypesOfMolecules);
   fprintf(stdout, "  .Molecules        = %d", Counts.Molecules);
@@ -587,7 +587,7 @@ void PrintMoleculeType2(int number_of_types, BEADTYPE *BeadType, MOLECULETYPE *M
  */
 void PrintBead(COUNTS Counts, int *Index, BEADTYPE *BeadType, BEAD *Bead) {
   fprintf(stdout, "Beads - <i> (<Bead[i].Index>; <Index[i]>)\n");
-  for (int i = 0; i < Counts.Beads; i++) {
+  for (int i = 0; i < Counts.BeadsCoor; i++) {
     int type = Bead[i].Type;
     fprintf(stdout, "   %6d (%6d; %6d) %8s molecule: ", i, Bead[i].Index, Index[i], BeadType[type].Name);
     if (Bead[i].Molecule == -1) {
@@ -1274,7 +1274,7 @@ void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNTS Counts,
  */
 void RestorePBC_old(COUNTS Counts, VECTOR BoxLength, BEAD **Bead) {
 
-  for (int i = 0; i < Counts.Beads; i++) {
+  for (int i = 0; i < Counts.BeadsCoor; i++) {
     // x direction
     while ((*Bead)[i].Position.x >= BoxLength.x) {
       (*Bead)[i].Position.x -= BoxLength.x;
@@ -1646,13 +1646,13 @@ void LinkedList(VECTOR BoxLength, COUNTS Counts, BEAD *Bead,
 
   // allocate arrays
   *Head = malloc(sizeof **Head * (*n_cells).x * (*n_cells).y * (*n_cells).z);
-  *Link = malloc(sizeof **Link * Counts.Beads);
+  *Link = malloc(sizeof **Link * Counts.BeadsCoor);
   for (int i = 0; i < ((*n_cells).x*(*n_cells).y*(*n_cells).z); i++) {
     (*Head)[i] = -1;
   }
 
   // sort beads into cells //{{{
-  for (int i = 0; i < Counts.Beads; i++) {
+  for (int i = 0; i < Counts.BeadsCoor; i++) {
     int cell = (int)(Bead[i].Position.x / cell_size)
              + (int)(Bead[i].Position.y / cell_size) * (*n_cells).x
              + (int)(Bead[i].Position.z / cell_size) * (*n_cells).x * (*n_cells).y;
@@ -1995,9 +1995,9 @@ void CopySystem(COUNTS *Counts_out, COUNTS Counts_in,
   // BEADTYPE
   CopyBeadType((*Counts_out).TypesOfBeads, bt_out, bt_in, mode);
   // BEAD & Index
-  *bead_out = malloc(sizeof (BEAD) * (*Counts_out).Beads);
-  *index_out = malloc(sizeof *index_out * (*Counts_out).Beads);
-  for (int i = 0; i < (*Counts_out).Beads; i++) {
+  *bead_out = malloc(sizeof (BEAD) * (*Counts_out).BeadsCoor);
+  *index_out = malloc(sizeof *index_out * (*Counts_out).BeadsCoor);
+  for (int i = 0; i < (*Counts_out).BeadsCoor; i++) {
     (*bead_out)[i] = bead_in[i];
     (*bead_out)[i].Aggregate = malloc(sizeof *(*bead_out)[i].Aggregate *
                                    1); // just to free later
@@ -2076,7 +2076,7 @@ void FreeAggregate(COUNTS Counts, AGGREGATE **Aggregate) {
 void FreeSystemInfo(COUNTS Counts, MOLECULETYPE **MoleculeType, MOLECULE **Molecule,
                     BEADTYPE **BeadType, BEAD **Bead, int **Index) {
   free(*Index);
-  FreeBead(Counts.Beads, Bead);
+  FreeBead(Counts.BeadsTotal, Bead);
   free(*BeadType);
   FreeMolecule(Counts.Molecules, Molecule);
   FreeMoleculeType(Counts.TypesOfMolecules, MoleculeType);

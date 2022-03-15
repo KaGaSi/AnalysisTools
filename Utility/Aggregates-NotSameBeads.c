@@ -56,7 +56,7 @@ void CalculateAggregates(AGGREGATE **Aggregate, COUNTS *Counts, double sqdist,
     (*Aggregate)[i].nMonomers = 0;
   }
 
-  for (int i = 0; i < (*Counts).Beads; i++) {
+  for (int i = 0; i < (*Counts).BeadsCoor; i++) {
     (*Bead)[i].nAggregates = 0;
   } //}}}
 
@@ -682,9 +682,9 @@ int main(int argc, char *argv[]) {
     ReadVcfCoordinates(indexed, input_coor, vcf, &Box,
                        Counts, Index, &Bead, &stuff);
     // transform coordinates into fractional ones for non-orthogonal box
-    ToFractionalCoor(Counts.Beads, &Bead, Box);
+    ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
     // wrap box
-    RestorePBC(Counts.Beads, Box, &Bead);
+    RestorePBC(Counts.BeadsCoor, Box, &Bead);
     // TODO: fractionals!
     CalculateAggregates(&Aggregate, &Counts, SQR(distance), contacts,
                         xm_mols, &xm_use_mol, Box, BeadType, &Bead,
@@ -703,7 +703,7 @@ int main(int argc, char *argv[]) {
         ErrorFileOpen(joined_vcf, 'a');
         exit(1);
       }
-      FromFractionalCoor(Counts.Beads, &Bead, Box);
+      FromFractionalCoor(Counts.BeadsCoor, &Bead, Box);
       WriteCoorIndexed(joined, Counts, BeadType, Bead,
                        MoleculeType, Molecule, stuff, Box);
       fclose(joined);

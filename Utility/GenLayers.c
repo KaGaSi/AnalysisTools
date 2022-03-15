@@ -315,14 +315,14 @@ int main(int argc, char *argv[]) {
 
   // total number of beads //{{{
   Counts.Bonded = MoleculeType[0].Number * MoleculeType[0].nBeads;
-  Counts.BeadsInVsf = Counts.Bonded;
-  Counts.Beads = Counts.Bonded;
+  Counts.BeadsTotal = Counts.Bonded;
+  Counts.BeadsCoor = Counts.Bonded;
   Counts.Unbonded = 0; //}}}
 
   // allocate memory
   Molecule = calloc(Counts.Molecules, sizeof(MOLECULE));
-  Bead = calloc(Counts.Beads, sizeof(BEAD));
-  Index = calloc(Counts.Beads, sizeof(int));
+  Bead = calloc(Counts.BeadsCoor, sizeof(BEAD));
+  Index = calloc(Counts.BeadsCoor, sizeof(int));
 
   // fill MOLECULE struct //{{{
   for (int i = 0; i < Counts.Molecules; i++) {

@@ -256,17 +256,17 @@ int main(int argc, char *argv[]) {
       ReadVcfCoordinates(indexed, input_coor, vcf, &Box,
                          Counts, Index, &Bead, &stuff);
       // transform coordinates into fractional ones for non-orthogonal box
-      ToFractionalCoor(Counts.Beads, &Bead, Box);
+      ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
       // wrap and/or join molecules?
       if (wrap) {
-        RestorePBC(Counts.Beads, Box, &Bead);
+        RestorePBC(Counts.BeadsCoor, Box, &Bead);
       }
       if (join) {
         RemovePBCMolecules(Counts, Box, BeadType, &Bead,
                            MoleculeType, Molecule);
       }
       // transform back to 'normal' coordinates for non-orthogonal box
-      FromFractionalCoor(Counts.Beads, &Bead, Box); //}}}
+      FromFractionalCoor(Counts.BeadsCoor, &Bead, Box); //}}}
       if (count_n_opt < number_of_steps) { // if -n option is used
         if (save_step[count_n_opt] == count_vcf) {
           // write to output .vcf file //{{{
@@ -338,17 +338,17 @@ int main(int argc, char *argv[]) {
         ReadVcfCoordinates(indexed, input_coor, vcf, &Box,
                            Counts, Index, &Bead, &stuff);
         // transform coordinates into fractional ones for non-orthogonal box
-        ToFractionalCoor(Counts.Beads, &Bead, Box);
+        ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
         // wrap and/or join molecules?
         if (wrap) {
-          RestorePBC(Counts.Beads, Box, &Bead);
+          RestorePBC(Counts.BeadsCoor, Box, &Bead);
         }
         if (join) {
           RemovePBCMolecules(Counts, Box, BeadType, &Bead,
                              MoleculeType, Molecule);
         }
         // transform back to 'normal' coordinates for non-orthogonal box
-        FromFractionalCoor(Counts.Beads, &Bead, Box);
+        FromFractionalCoor(Counts.BeadsCoor, &Bead, Box);
         break;
       }
     } //}}}
