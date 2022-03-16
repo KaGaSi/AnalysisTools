@@ -1,8 +1,6 @@
 #include "../AnalysisTools.h"
 char ERROR_MSG[LINE];
 
-// TODO: if -c is used, don't just find out the box, but what beads are present
-
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
   if (error) {
@@ -19,7 +17,6 @@ well.\n\n");
   fprintf(ptr, "   %s <input> [options]\n\n", cmd);
   fprintf(ptr, "   <input>   vtf input structure file\n");
   fprintf(ptr, "   [options]\n");
-  fprintf(ptr, "      -c <in>      vtf coordinate file (default: none)\n");
   fprintf(ptr, "      --detailed   differentiate bead types not just \
 by names\n");
   fprintf(ptr, "      -v           verbose output\n");
@@ -56,7 +53,6 @@ int main(int argc, char *argv[]) {
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] == '-' &&
-        strcmp(argv[i], "-c") != 0 &&
         strcmp(argv[i], "--detailed") != 0 &&
         strcmp(argv[i], "-v") != 0 &&
         strcmp(argv[i], "--version") != 0 &&
@@ -87,20 +83,6 @@ int main(int argc, char *argv[]) {
   PrintCommand(stdout, argc, argv);
 
   // options before reading system data //{{{
-  // -c option - use a coordinate file //{{{
-  char input_coor[LINE] = "";
-  if (FileOption(argc, argv, "-c", input_coor, LINE)) {
-    exit(1);
-  }
-  strcpy(extension[0], ".vcf");
-  strcpy(extension[1], ".vtf");
-  if (input_coor[0] != '\0') {
-    int test;
-    if ((test=ErrorExtension(input_coor, ext, extension)) == -1) {
-      Help(argv[0], true);
-      exit(1);
-    }
-  } //}}}
   bool verbose = BoolOption(argc, argv, "-v");
   bool detailed = BoolOption(argc, argv, "--detailed");
   //}}}
@@ -112,19 +94,12 @@ int main(int argc, char *argv[]) {
   int *Index; // link between indices (i.e., Index[Bead[i].Index]=i)
   MOLECULE *Molecule; // structure with info about every molecule
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
-  BOX Box = InitBox; // triclinic box dimensions and angles
   bool indexed; // indexed timestep?
-  FullVtfRead_new(input_vsf, input_coor, detailed, &indexed,
-                  &Box, &Counts, &BeadType, &Bead, &Index,
-                  &MoleculeType, &Molecule); //}}}
+  FullVtfRead_new(input_vsf, detailed, &indexed, &Counts, &BeadType, &Bead,
+                  &Index, &MoleculeType, &Molecule); //}}}
 
   // print information
-  if (Counts.BeadsTotal != Counts.BeadsCoor) {
-    fprintf(stdout, "%d beads missing in the %s file\n",
-            Counts.BeadsTotal-Counts.BeadsCoor, input_coor);
-  }
-  VerboseOutput(input_coor, Counts, Box, BeadType, Bead,
-                MoleculeType, Molecule);
+  VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
   // TODO: if beads in vsf != beads in vcf, write out vcf
   if (verbose) { //{{{
     fprintf(stdout, "\nInformation about every bead:\n");

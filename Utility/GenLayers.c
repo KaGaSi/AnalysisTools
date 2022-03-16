@@ -442,8 +442,7 @@ int main(int argc, char *argv[]) {
       fprintf(stdout, "(%d molecules) ", number_of_mols);
     }
     fprintf(stdout, "molecules on each wall\n");
-    VerboseOutput("\0", Counts, Box, BeadType, Bead,
-                  MoleculeType, Molecule);
+    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
     PrintBondTypes2(Counts.TypesOfBonds, bond_type);
     PrintAngleTypes2(Counts.TypesOfAngles, angle_type);
     PrintDihedralTypes2(Counts.TypesOfDihedrals, dihedral_type);

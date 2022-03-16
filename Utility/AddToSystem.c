@@ -485,8 +485,7 @@ int main(int argc, char *argv[]) {
   // print original system (if present) //{{{
   if (verbose && strlen(input_coor) > 0) {
     fprintf(stdout, "\nORIGINAL SYSTEM\n");
-    VerboseOutput(input_coor, Counts_orig, Box_orig,
-                  bt_orig, bead_orig, mt_orig, mol_orig);
+    VerboseOutput(Counts_orig, bt_orig, bead_orig, mt_orig, mol_orig);
     if (start > 1) {
       fprintf(stdout, "\n   Using %d. timestep\n", start);
     }
@@ -725,8 +724,7 @@ int main(int argc, char *argv[]) {
   // print what is to be added //{{{
   if (verbose) {
     fprintf(stdout, "\nBEADS AND MOLECULES TO ADD\n");
-    VerboseOutput(input_coor, Counts_add, Box_add,
-                  bt_add, bead_add, mt_add, mol_add);
+    VerboseOutput(Counts_add, bt_add, bead_add, mt_add, mol_add);
   } //}}}
 
   /* decide which beads to exchange //{{{
@@ -1137,8 +1135,7 @@ int main(int argc, char *argv[]) {
   // print new system //{{{
   if (verbose) {
     fprintf(stdout, "\nNEW SYSTEM\n");
-    VerboseOutput(input_coor, Counts_new, Box_new,
-                  bt_new, bead_new, mt_new, mol_new);
+    VerboseOutput(Counts_new, bt_new, bead_new, mt_new, mol_new);
     PrintBondTypes2(Counts_new.TypesOfBonds, bond_type);
   } //}}}
 

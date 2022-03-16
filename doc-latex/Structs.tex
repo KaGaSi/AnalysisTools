@@ -91,23 +91,24 @@ file), this has a value of \tt{-1}\TODO why not just say 0?}
 \vspace{-1.75em}
 \begin{longtable}{L{0.35\textwidth}p{0.695\textwidth}}
   \toprule
-  member                & explanation \\
+  member                               & explanation \\
   \midrule
-  \ttb{(int)Type}               & bead type index corresponding to a
-                                  \ttb{struct BeadType} array index\\
-  \ttb{(int)Molecule}           & molecule index corresponding to a \ttb{struct
-                                  Molecule} array index or $-1$ for an unbonded
-                                  bead\\
-  \ttb{(int)nAggregates}$^\P$   & number of aggregates the bead is in\\
-  \ttb{(int *)Aggregate}$^\P$   & 1D array with aggregate indices\\
-  \ttb{(int)Index}              & index corresponding to an input file (e.g,
-                                  \vsf file)\\
-  \ttb{(struct Vector)Position}$^\dagger$ & Cartesian coordinates\\
-  \ttb{(struct Vector)Velocity}$^\dagger$ & velocity of the bead\\
+  \ttb{(int)Type}                      & bead type index corresponding to a
+                                         \ttb{struct BeadType} array index\\
+  \ttb{(int)Molecule}                  & molecule index corresponding to a
+                                         \ttb{struct Molecule} array index or
+                                         $-1$ for an unbonded bead\\
+  \ttb{(int)nAggregates}$^\P$          & number of aggregates the bead is in\\
+  \ttb{(int *)Aggregate}$^\P$          & 1D array with aggregate indices\\
+  \ttb{(int)Index}                     & index corresponding to an input file
+                                         (e.g, \vsf file)\\
+  \ttb{(struct Vector)Position}$^\dag$ & Cartesian coordinates\\
+  \ttb{(struct Vector)Velocity}$^\dag$ & velocity of the bead\\
+  \ttb{(bool) InTimestep}              & is the bead in the present timestep?\\
   \bottomrule
 \end{longtable}
 \note{$^\P$\TODO will be removed\\
-$^\dagger$ \ttb{struct Vector} contains members
+$^\dag$ \ttb{struct Vector} contains members
 \ttb{(double)x}, \ttb{(double)y}, and \ttb{(double)z}}
 \begin{itemize}
   \item array size: \tt{Counts.Beads}

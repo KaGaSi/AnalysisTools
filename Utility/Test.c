@@ -112,11 +112,8 @@ int main(int argc, char *argv[]) {
   int *Index; // link between indices (i.e., Index[Bead[i].Index]=i)
   MOLECULE *Molecule; // structure with info about every molecule
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
-  BOX Box = InitBox; // triclinic box dimensions and angles
-  bool indexed; // indexed timestep?
-  FullVtfRead_new(input_vsf, input_coor, detailed, &indexed,
-                  &Box, &Counts, &BeadType, &Bead, &Index,
-                  &MoleculeType, &Molecule); //}}}
+  VtfReadStruct(input_vsf, detailed, &Counts, &BeadType, &Bead, &Index,
+                &MoleculeType, &Molecule); //}}}
 
   // print information
   if (Counts.BeadsTotal != Counts.BeadsCoor) {
@@ -124,8 +121,7 @@ int main(int argc, char *argv[]) {
             Counts.BeadsTotal-Counts.BeadsCoor, input_coor);
   }
   if (verbose) { //{{{
-    VerboseOutput(input_coor, Counts, Box, BeadType, Bead,
-                  MoleculeType, Molecule);
+    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
 //  fputs("\nInformation about every bead:\n", stdout);
 //  PrintBead2(Counts.Beads, Index, BeadType, Bead);
 //  fputs("\nInformation about every molecule:\n", stdout);
@@ -138,6 +134,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   int step_count = 0;
+  BOX Box = InitBox;
   while (VtfReadTimestep(coor, input_coor, &Box, &Counts, BeadType, &Bead,
                          Index, MoleculeType, Molecule, &step_count)) {
     printf("count_coor: %d (step %d)\n", Counts.BeadsCoor, step_count);

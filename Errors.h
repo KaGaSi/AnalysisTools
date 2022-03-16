@@ -154,4 +154,10 @@ void PrintFileLine(char *file, int line,
 // PrintFull() //{{{
 void ErrorPrintFull(char *file, int line,
                     char split[SPL_STR][SPL_LEN], int words); //}}}
+
+// WarnStopReading() //{{{
+/*
+ * Warning when stopping file reading due to some error in the file
+ */
+void WarnStopReading(char *vcf_file, int line_count, int step_count);
 #endif

@@ -255,8 +255,7 @@ int main(int argc, char *argv[]) {
 
   // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput(input_coor, Counts, Box, BeadType, Bead,
-                  MoleculeType, Molecule);
+    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
     fprintf(stdout, "\nAngle-specifying bead trios:\n");
     for (int i = 0; i < number_of_beads; i += beads_per_set) {
       fprintf(stdout, "  %d-%d-%d\n", bead[i], bead[i+1], bead[i+2]);

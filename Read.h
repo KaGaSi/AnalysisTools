@@ -69,9 +69,8 @@ void FullVtfRead(char *struct_file, char *vcf_file, bool detailed, bool vtf,
                  bool *indexed, int *struct_lines, BOX *Box, COUNTS *Counts,
                  BEADTYPE **BeadType, BEAD **Bead, int **Index,
                  MOLECULETYPE **MoleculeType, MOLECULE **Molecule);
-void FullVtfRead_new(char *struct_file, char *vcf_file, bool detailed,
-                 bool *indexed, BOX *Box, COUNTS *Counts,
-                 BEADTYPE **BeadType, BEAD **Bead, int **Index,
+void FullVtfRead_new(char *struct_file, bool detailed, bool *indexed,
+                 COUNTS *Counts, BEADTYPE **BeadType, BEAD **Bead, int **Index,
                  MOLECULETYPE **MoleculeType, MOLECULE **Molecule);
 
 // ReadStructure() //{{{

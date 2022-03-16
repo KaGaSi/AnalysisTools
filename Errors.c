@@ -317,3 +317,23 @@ void ErrorPrintFull(char *file, int line,
   ErrorPrintError();
   PrintFileLine(file, line, split, words);
 } //}}}
+
+// WarnStopReading() //{{{
+/*
+ * Warning when stopping file reading due to some error in the file
+ */
+void WarnStopReading(char *vcf_file, int line_count, int step_count) {
+  WarnPrintWarning();
+  WarnPrintFile(vcf_file);
+  CyanText(STDERR_FILENO);
+  fputs(" (line ", stderr);
+  YellowText(STDERR_FILENO);
+  fprintf(stderr, "%d", line_count);
+  CyanText(STDERR_FILENO);
+  fputs("), step ", stderr);
+  YellowText(STDERR_FILENO);
+  fprintf(stderr, "%d", step_count);
+  CyanText(STDERR_FILENO);
+  fputs(" (finished reading)\n", stderr);
+  ResetColour(STDERR_FILENO);
+} //}}}

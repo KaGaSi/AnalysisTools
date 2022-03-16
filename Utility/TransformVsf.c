@@ -131,7 +131,7 @@ int main(int argc, char *argv[]) {
 
   // print information - verbose option
   if (verbose) {
-    VerboseOutput("\0", Counts, Box, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
   }
 
   // create & fill output vsf file

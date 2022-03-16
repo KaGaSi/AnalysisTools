@@ -240,20 +240,8 @@ void VerboseOutput_old(char *input_vcf, COUNTS Counts, VECTOR BoxLength,
  * Function providing standard verbose output (for cases when verbose
  * option is used). It prints most of the information about used system.
  */
-void VerboseOutput(char *input_vcf, COUNTS Counts, BOX Box,
-                   BEADTYPE *BeadType, BEAD *Bead,
+void VerboseOutput(COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
                    MOLECULETYPE *MoleculeType, MOLECULE *Molecule) {
-
-  putchar('\n');
-  if (Box.Length.x != -1) {
-    fprintf(stdout, "Box sidelengths: %lf x %lf x %lf\n", Box.Length.x,
-                                                          Box.Length.y,
-                                                          Box.Length.z);
-    if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
-      fprintf(stdout, "Box angles: %lf, %lf, %lf\n\n", Box.alpha, Box.beta,
-                                                       Box.gamma);
-    }
-  }
   PrintCounts(Counts);
   PrintBeadType2(Counts.TypesOfBeads, BeadType);
   PrintMoleculeType2(Counts.TypesOfMolecules, BeadType, MoleculeType);

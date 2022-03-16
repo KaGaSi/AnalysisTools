@@ -291,7 +291,7 @@ int main(int argc, char *argv[]) {
 
   // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput(input_coor, Counts, BoxLength, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_old(input_coor, Counts, BoxLength, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
   // number of bins

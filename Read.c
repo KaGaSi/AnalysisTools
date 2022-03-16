@@ -2189,6 +2189,11 @@ contact developper\n");
   FreeMolecule((*Counts).Molecules, &mol_tmp);
   FreeMoleculeType((*Counts).TypesOfMolecules, &mt_tmp);
   //}}}
+  // allocate memory for aggregates - TODO: that'll be scrapped at some time
+  for (int i = 0; i < (*Counts).BeadsCoor; i++) {
+    (*Bead)[i].Aggregate = calloc(1, sizeof *(*Bead)[i].Aggregate);
+  }
+  WarnElNeutrality(*Counts, *BeadType, struct_file);
 } //}}}
 
 // VtfCheckTimestep() //{{{
@@ -2611,22 +2616,6 @@ bool VtfCheckTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
   return indexed;
 } //}}}
 
-void WarnStopReading(char *vcf_file, int line_count, int step_count) {
-  WarnPrintWarning();
-  WarnPrintFile(vcf_file);
-  CyanText(STDERR_FILENO);
-  fputs(" (line ", stderr);
-  YellowText(STDERR_FILENO);
-  fprintf(stderr, "%d", line_count);
-  CyanText(STDERR_FILENO);
-  fputs("), step ", stderr);
-  YellowText(STDERR_FILENO);
-  fprintf(stderr, "%d", step_count);
-  CyanText(STDERR_FILENO);
-  fputs(" (finished reading)\n", stderr);
-  ResetColour(STDERR_FILENO);
-}
-
 // VtfReadTimestep() //{{{
 bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
                      BEADTYPE *BeadType, BEAD **Bead, int *Index,
@@ -2800,27 +2789,11 @@ void FullVtfRead(char *struct_file, char *vcf_file, bool detailed, bool vtf,
 } //}}}
 
 // FullVtfRead_new() //{{{
-void FullVtfRead_new(char *struct_file, char *vcf_file, bool detailed,
-                 bool *indexed, BOX *Box, COUNTS *Counts,
-                 BEADTYPE **BeadType, BEAD **Bead, int **Index,
+void FullVtfRead_new(char *struct_file, bool detailed, bool *indexed,
+                 COUNTS *Counts, BEADTYPE **BeadType, BEAD **Bead, int **Index,
                  MOLECULETYPE **MoleculeType, MOLECULE **Molecule) {
-  // read the whole structure section
   VtfReadStruct(struct_file, detailed, Counts, BeadType, Bead, Index,
                 MoleculeType, Molecule);
-//// check coordinate file if provided //{{{
-//if (vcf_file[0] != '\0') {
-//  VtfReadPBC(vcf_file, Box);
-//  // number of structure lines (or -1 if coordinate file is not vtf)
-//  // get timestep type & contained beads from the first timestep
-//  FILE *vcf;
-//  if ((vcf = fopen(vcf_file, "r")) == NULL) {
-//    ErrorFileOpen(vcf_file, 'r');
-//    exit(1);
-//  }
-//  *indexed = VtfCheckTimestep(vcf, vcf_file, Counts, BeadType, Bead, Index,
-//                              MoleculeType, Molecule);
-//  fclose(vcf);
-//} //}}}
   WarnElNeutrality(*Counts, *BeadType, struct_file);
   FillMolMassCharge((*Counts).TypesOfMolecules, MoleculeType, *BeadType);
 

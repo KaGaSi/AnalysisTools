@@ -276,8 +276,7 @@ three different beads (wrong trio: ");
 
   // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput(input_coor, Counts, Box, BeadType, Bead,
-                  MoleculeType, Molecule);
+    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
     fprintf(stdout, "\nPlanes for which to calculate angles:\n");
     for (int i = 0; i < number_of_beads; i += beads_per_angle) {
       fprintf(stdout, "  %d-%d-%d &", bead[i], bead[i+1], bead[i+2]);

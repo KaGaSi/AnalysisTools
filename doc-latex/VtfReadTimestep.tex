@@ -1,0 +1,157 @@
+\subsection[VtfReadTimestep]{Read single timestep from \vtf coordinate
+file}\label{ssec:VtfReadTimestep}
+
+This function reads a single timestep (its preamble and the coordinate block)
+from an input \vcf file, identifying what beads are present via
+\ttb{Bead[].InTimestep} flag.
+
+\CallInit{void VtfReadTimestep}
+\begin{longtable}{L{0.36\textwidth}Mp{0.51\textwidth}}
+  \toprule
+  parameter          & in/out & explanation \\
+  \midrule
+  \ttb{(FILE) vcf}                   & in  & pointer to open \vcf file\\
+  \ttb{(char) vcf_file[]}            & in  & name of the input \vcf file\\
+  \ttb{(BOX) Box}                    & out & box dimensions (section
+                                             \ref{ssec:Box})\\
+  \ttb{(COUNTS) Counts}              & out & basic system information
+                                             (section \ref{ssec:Counts})\\
+  \ttb{(BEADTYPE) BeadType[]}        & out & information about bead types
+                                             (section \ref{ssec:BeadType})\\
+  \ttb{(BEAD) Bead[]}                & out & information about individual beads
+                                             (section \ref{ssec:Bead})\\
+  \ttb{(int) Index[]}                & out & array connecting internal and  \vtf
+                                             bead indices\\
+  \ttb{(MOLECULETYPE) MoleculeType[]}& out & information about molecule types
+                                             (section \ref{ssec:MoleculeType})\\
+  \ttb{(MOLECULE) Molecule[]}        & out & information about individual
+                                             molecules (section
+                                             \ref{ssec:Molecule})\\
+  \ttb{(int) step_count}             & in \& out & counter of read timesteps\\
+  \bottomrule
+\end{longtable}
+\begin{enumerate}
+  \item read \ttb{struct_file} line by line
+    \begin{itemize}
+      \item save all information from \tt{atom} and \tt{bond} lines
+        \begin{itemize}
+          \item only the first \tt{atom default} line is saved
+        \end{itemize}
+      \item count
+        \begin{itemize}
+          \item beads (i.e., identify the highest index in \tt{atom <id>}
+            lines), saving into \ttb{Counts.BeadsInVsf}
+          \item molecules, saving into \ttb{Counts.Molecules}
+          \item unique bead and molecule names (and save those names)
+          \item \tt{atom} and \tt{bond} lines (\TODO necessary to mention here?)
+        \end{itemize}
+      \item stop reading when
+        \begin{itemize}
+          \item end of file or \tt{timestep} line encountered
+          \item unrecognised line or coordinate line encounted and exit program
+            with error
+        \end{itemize}
+        \begin{itemize}
+          \item end of file or \tt{timestep} line encountered
+          \item unrecognised line or coordinate line encounted and exit program
+            with error
+        \end{itemize}
+    \end{itemize}
+  \item save number of unbonded and bonded beads into \ttb{Counts.Unbonded} and
+    \ttb{Counts.Bonded}
+  \item identify bead types
+    \begin{itemize}
+      \item save the number of types to \ttb{Counts.TypesOfBeads}
+      \item fill a temporary \nameref{ssec:BeadType} array
+    \end{itemize}
+    \begin{enumerate}
+      \item if \ttb{detailed} is \tt{true}, identify the types based on names,
+        mass, charge, and radius
+        \begin{enumerate}
+          \item create a new bead type for every \tt{atom} line that has a
+            unique combination of name, mass, charge, and radius
+          \item merge some of the bead types, specifically:
+            \begin{itemize}[label=$-$]
+              \item if a keyword is missing in one \tt{atom} line but present
+                in another does not count as a different type; e.g. beads\\
+                \tt{atom 0 n x m 1 q 1}\\
+                \tt{atom 1 n x m 1}\\
+                are of the same type (with charge $+1$)
+              \item however, there can be ambiguities, so e.g., beads\\
+                \tt{atom 0 n x m 1 q 1}\\
+                \tt{atom 1 n x m 1}\\
+                \tt{atom 2 n x m 1 q 0}\\
+                remain as three distinct types (with charges 0, \tt{undefined},
+                and $+1$)
+              \item but only some \tt{atom} lines are ambiguous; e.g., beads\\
+                \tt{atom 0 n x m 1 q 1}\\
+                \tt{atom 1 n x m 1}\\
+                \tt{atom 2 n x m 1 q 0}\\
+                \tt{atom 3 n x q 0}\\
+                are still of three types with the same charges as above and
+                with mass 1 (there is no ambiguity as \tt{atom 3} is the same as
+                \tt{atom 2} except for the undefined mass)
+              \item note that sometimes the charge, mass, and/or radius can
+                remain undefined even though there is exactly one well defined
+                value; e.g., in case of \tt{atom} lines\\
+                \tt{atom 0 n x m 1 q 1}\\
+                \tt{atom 1 n x m 1}\\
+                \tt{atom 2 n x m 1 q 0}\\
+                \tt{atom 3 n x q 0}\\
+                \tt{atom 4 n x m 1 q 0 r 1}\\
+                beads sharing their type with \tt{atom 4} will have well
+                defined radius of 1 (i.e., \tt{atom 2}, \tt{3}, and \tt{4}),
+                while \tt{atom 0} and \tt{1} will have radius undefined as they
+                have different charge to \tt{atom 4}; three bead types are
+                recognized here:
+                  \begin{enumerate}
+                    \item type with $m=1$, $q=1$, and radius \tt{undefined}
+                      (\tt{atom 0})
+                    \item type with $m=1$ and charge and radius \tt{undefined}
+                      (\tt{atom 1})
+                    \item type with $m=1$, $q=0$, and $r=1$ (\tt{atom 2},
+                      \tt{3}, and \tt{4})
+                  \end{enumerate}
+            \end{itemize}
+        \end{enumerate}
+      \item if \ttb{detailed} is \tt{false}, identify the types by name only
+        \begin{itemize}
+          \item mass, charge, and radius for each bead type is taken from the
+            first \tt{atom} line of the given name where the respective
+            parameter is defined
+        \end{itemize}
+    \end{enumerate}
+  \item fill a temporary \nameref{ssec:Bead} array and a temporary associated
+    index (i.e., \ttb{Index}) array
+    \begin{itemize}
+      \item put unbonded beads first and the bonded beads after them
+      \item if \ttb{detailed} is \tt{false}, only bead name is checked to
+        determine its type, otherwise its name, mass, charge, and radius are all
+        checked
+    \end{itemize}
+  \item if \ttb{detailed} is \tt{true}, rename bead types with the same name
+    \begin{itemize}
+      \item when several bead types share a name, the name remains unchanged for
+        the first one, but \tt{_\#} is added to all subsequent ones (\tt{\#}
+        goes from 1 to $N$, where $N$ is the number of bead types with the same
+        name)
+      \item if the bead name would become too long (i.e., over 16 characters),
+        it is shortened before the \tt{_\#} is added
+    \end{itemize}
+  \item identify molecules and molecule types
+    \begin{itemize}
+      \item save the number of types to \ttb{Counts.TypesOfMolecules}
+      \item fill temporary \nameref{ssec:MoleculeType} and
+        \nameref{ssec:Molecule} arrays
+      \item molecules must share all information to be of the same type
+        \begin{itemize}
+          \item molecule name
+          \item numbers of beads and bonds
+          \item connectivity (i.e., the bonds must be identical)
+          \item order of bead types (i.e., the order of the beads' indices in
+            \ttb{struct_file})
+        \end{itemize}
+    \end{itemize}
+  \item copy data from temporary arrays to \ttb{Bead}, \ttb{BeadType},
+    \ttb{Index}, \ttb{Molecule}, and \ttb{MoleculeType}
+\end{enumerate}

@@ -111,8 +111,6 @@ int main(int argc, char *argv[]) {
   // some variables //{{{
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
   BEAD *Bead;
-
-
   BEADTYPE *BeadType;
   MOLECULE *Molecule;
   MOLECULETYPE *MoleculeType;
@@ -122,7 +120,7 @@ int main(int argc, char *argv[]) {
   int angles = 0; // total number of angles
   PARAMS *bond_type; // information about bond types
   PARAMS *angle_type; // information about angle types
-  int *Index; // link between indices (i.e., Index[Bead[i].Index]=i)
+  int *Index; // link between indices (i.e., Index[Bead[i].Index]=i) //}}}
 
   // TODO add dihedrals
   ReadLmpData(input, &bonds, &bond_type, &angles, &angle_type,
@@ -131,8 +129,7 @@ int main(int argc, char *argv[]) {
 
   // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput("\0", Counts, Box, BeadType, Bead,
-                  MoleculeType, Molecule);
+    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
     // TODO bond & angle & dihedral types into VerboseOutput
     PrintBondTypes2(Counts.TypesOfBonds, bond_type);
     PrintAngleTypes2(Counts.TypesOfAngles, angle_type);
