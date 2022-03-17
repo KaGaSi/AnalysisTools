@@ -5,79 +5,90 @@ AnalysisTools utilities. Output files for the utilities themselves are
 described in their respective sections in Chapter~\ref{chap:Utils}.
 
 Generally, the utilities work with
-\href{https://github.com/olenz/vtfplugin/wiki/VTF-format}{vtf files} which
-are convenient text files containing particle coordinates as well as
-particle definitions (name, mass, charge, etc.) and molecule connectivity
-(i.e., bonds between particles). Additional information (e.g., bond angles
-or dihedrals) can be added from other sources such as input files for
+\href{https://github.com/olenz/vtfplugin/wiki/VTF-format}{vtf files} which are
+convenient text files containing particle coordinates as well as particle
+definitions (name, mass, charge, etc.) and molecule connectivity (i.e., bonds
+between particles). \TODO Additional information (e.g., bond angles or
+dihedrals) can be added from other sources such as input files for
 \href{https://www.scd.stfc.ac.uk/Pages/DL_MESO.aspx}{DL\_MESO simulation
 package} or \href{https://lammps.sandia.gov/}{LAMMPS molecular dynamics
 simulator}.
+
+An \tt{agg} text file describes in an easy-to-read format the compositions of
+aggregates. It can be generated via the (\TODO make into refs) \tt{Aggregates}
+and \tt{Aggregates-NotSameBeads} utilities.
 
 \section{System description} %{{{
 Most of the utilities read system description from the \vtf files
 which can be complemented by a DL\_MESO \field or a LAMMPS \data files. Not
 all valid \vtf files will work with AnalysisTools; see the following
-sections for information their proper formatting
+sections for information on their proper formatting.
 
 The \vtf can either be split into a \vsf structure file
 (Section~\ref{ssec:StructureVsf}) and a \vcf coordinate file
 (Section~\ref{ssec:CoordinateVcf}), or presented in a single \vtf file
-containing both the structure and coordinate sections; note that when
-individual \vscf files are mentioned in the manual, they can usually be
-viewed as \vscf sections of the combined \vtf file. The advantage of using
-separate structure and coordinate files is that the same coordinate file
-can sometime be used with different structure files to get different
-results.
+containing both the structure and coordinate sections; note that when individual
+\vscf files are mentioned in the manual, they can usually be viewed as \vscf
+sections of the combined \vtf file.
 
-In general, the utilities consider only bead types that are present in a
-\vcf file (i.e., bead types present in a \vsf file but missing from a \vcf
-file are ignored).
-
-Some of the utilities work with orthogonal as well as other paralleloid
-boxes (i.e., triclinic cells).
+In general, the utilities consider only bead types that are present in a \vcf
+file, i.e., the beads defined in the \vsf file but missing from the \vcf file
+are ignored. The utilities work with orthogonal as well as other paralleloid
+boxes (i.e., tri- or monoclinic cells).
 
 \subsection{\vsf structure file} \label{ssec:StructureVsf} %{{{
 
-The structure file contains all information about all beads and bonds
-(except for their Cartesian coordinates) in two types of entries. The first
-type, an \enquote{atom line}, contains a bead definition, while the second
-one, a \enquote{bond line}, defines which beads are connected.
+The structure file contains all information about all beads and bonds (except
+for their Cartesian coordinates) in two types of entries. The first type, an
+\tt{atom} line, contains a bead definition, while the second one, a \tt{bond}
+line, defines which beads are connected.
 
 Each atom line describes a single bead (except for the \tt{atom default}
 line, see below) and must follow these rules:
 
-\begin{itemize}[topsep=0pt,itemsep=0pt]
+\begin{itemize}
   \item the line starts with \tt{a[tom]} (i.e., \tt{atom} or just \tt{a})
   \item the second string is either a bead index (starting at 0) or the
     \tt{default} keyword; every bead that is not explicitly written in the
     bead definition lines is of the \tt{default} type (in case of multiple
-    \tt{default} lines, the first one is used while the subsequent ones are
-    ignored)
+    \tt{default} lines, only the first one is used)
+    \begin{itemize}
+      \item \TODO allow \tt{atom 0:10 ...} and (possibly) \tt{0:10 ...} lines
+    \end{itemize}
   \item the line contains bead name as \tt{n[ame] <char(16)>}
   \item if the bead is in a molecule, the line contains both molecule name
-    (\tt{res[name] <char(8)>}) and molecule id (\tt{resid <int>}) starting
-    at 1
+    (\tt{res[name] <char(8)>}) and molecule id (\tt{resid <int>})
+    \begin{itemize}
+      \item \TODO \tt{res[name]} shouldn't be obligatory; just make up some name
+        (e.g., \tt{mol\_1}) if the keyword is missing
+    \end{itemize}
   \item \tt{m[ass]}, \tt{charge|q} (i.e., \tt{charge} or \tt{q}), and
     \tt{r[adius]} keywords are read if present
   \item other keywords are ignored
 \end{itemize}
 
-Each bond line starts with \tt{b[ond]} followed by two bead indexes
-(corresponding to their indexes from the atom lines) separated by a colon.
-Note that the colon must be right after the first index, i.e., no white
-space between the number and the colon is allowed.
+Each bond line starts with \tt{b[ond]} followed by two bead indices
+(corresponding to their indices from the atom lines) separated by a colon. Note
+that the colon must be right after the first index, i.e., no white space between
+the number and the colon is allowed.
 
-\tt{AnalysisTools} groups the same beads (and the same molecules) into bead
-(and molecule) types. Generally, types of beads are defined solely by their
-name, i.e., should two beads share a name but differ in other
-characteristics, they will be grouped into the same type with mass, charge,
-and radius each equal to that for the bead type's topmost atom line with
-the corresponding keyword. If the keyword is missing from all atom lines,
-that characteristic is undefined. Similarly, different molecule molecules
-are generally defined based on their names. If two molecules share a name,
-but differ in bead order and/or connectivity, the utility will exit with an
-error.
+\tt{AnalysisTools} groups the same beads (and the same molecules) into bead (and
+molecule) types. Generally, types of beads are defined solely by their name,
+i.e., should two beads share a name but differ in other characteristics, they
+will be grouped into the same type with mass, charge, and radius each equal to
+that for the bead type's topmost atom line with the corresponding keyword. If
+the keyword is missing from all atom lines, that characteristic is undefined.
+The \tt{--detailed} command line option can, however, force some utilities to
+distinguish bead types based on all bead's properties.
+
+Different molecule types, on the other hand, are always distinguished based on
+all its characteristics, i.e., name, connectivity, and order of beads (order of
+its \vsf indices).
+
+\begin{comment} %{{{
+Similarly, different molecule molecules are generally defined based on their
+names. If two molecules share a name, but differ in bead order and/or
+connectivity, the utility will exit with an error.
 
 However, some utilities can distinguish bead and molecule types based on
 other characteristics as well. For example, the \tt{--detailed} option
@@ -86,6 +97,11 @@ charge, and radius along with the name for defining bead types and bead
 order and connectivity along with the name for defining molecule types. As
 an example, consider the following \vsf file that contains 11 beads and
 two molecules:
+\end{comment}
+ %}}}
+
+As an example, consider the following \vsf file that contains 11 beads and two
+molecules:
 
 ...well, I wish it actually worked.
 

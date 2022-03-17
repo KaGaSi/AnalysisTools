@@ -300,7 +300,7 @@ void PrintBeadType2(int number, BEADTYPE *BeadType) {
   int precision = 3, // number of decimal digits
       longest_name = 0, // longest bead type name
       most_beads = 0, // maximum number of beads
-      max_q_neg = 0, max_q_pos = 0, // maximum charges
+      max_q = 0, // maximum charge
       max_mass = 0, // maximum mass
       max_r = 0; // maximum radius
   bool negative = false; // extra space for '-' if there's negative charge
@@ -315,12 +315,8 @@ void PrintBeadType2(int number, BEADTYPE *BeadType) {
     if (BeadType[i].Charge < 0) {
       negative = true;
     }
-    if (BeadType[i].Charge != CHARGE) {
-      if (BeadType[i].Charge < max_q_neg) {
-        max_q_neg = floor(fabs(BeadType[i].Charge));
-      } else if (BeadType[i].Charge > max_q_pos) {
-        max_q_pos = floor(BeadType[i].Charge);
-      }
+    if (BeadType[i].Charge != CHARGE && fabs(BeadType[i].Charge) > max_q) {
+      max_q = floor(fabs(BeadType[i].Charge));
     }
     if (BeadType[i].Mass != MASS && BeadType[i].Mass > max_mass) {
       max_mass = floor(BeadType[i].Mass);
@@ -332,20 +328,14 @@ void PrintBeadType2(int number, BEADTYPE *BeadType) {
   // number of digits of the highest_number
   most_beads = floor(log10(most_beads)) + 1;
   // number of digits of the charge
-  if (max_q_neg == 0) {
-    max_q_neg = 1;
+  if (max_q == 0) {
+    max_q = 1;
   } else {
-    max_q_neg = floor(log10(-max_q_neg)) + 1;
+    max_q = floor(log10(max_q)) + 1;
   }
-  if (max_q_pos == 0) {
-    max_q_pos = 1;
-  } else {
-    max_q_pos = floor(log10(-max_q_neg)) + 1;
-  }
-  max_q_neg += 1 + precision; // +1 for the decimal point
-  max_q_pos += 1 + precision;
-  if (negative && max_q_neg >= max_q_pos) {
-    max_q_pos = max_q_neg + 1; // +1 for the missing minus sign
+  max_q += 1 + precision; // +1 for the decimal point
+  if (negative) {
+    max_q++; // extra space for minus sign
   }
   // number of digits of the mass
   if (max_mass == 0) {
@@ -370,16 +360,9 @@ void PrintBeadType2(int number, BEADTYPE *BeadType) {
     // print charge
     fprintf(stdout, ".Charge = ");
     if (BeadType[i].Charge != CHARGE) {
-      if (BeadType[i].Charge < 0) {
-        fprintf(stdout, "%*.*f, ", max_q_neg, precision, BeadType[i].Charge);
-      } else {
-        fprintf(stdout, "%*.*f, ", max_q_pos, precision, BeadType[i].Charge);
-      }
+      fprintf(stdout, "%*.*f, ", max_q, precision, BeadType[i].Charge);
     } else {
-      for (int j = 0; j < (max_q_neg-3); j++) {
-        putchar(' ');
-      }
-      if (negative) {
+      for (int j = 0; j < (max_q-3); j++) {
         putchar(' ');
       }
       fprintf(stdout, "n/a, ");
@@ -397,7 +380,7 @@ void PrintBeadType2(int number, BEADTYPE *BeadType) {
     fprintf(stdout, ".Radius = ");
     // print radius
     if (BeadType[i].Radius != RADIUS) {
-      fprintf(stdout, ".Radius = %*.*f", max_r, precision, BeadType[i].Radius);
+      fprintf(stdout, "%*.*f", max_r, precision, BeadType[i].Radius);
     } else {
       for (int j = 0; j < (max_r-3); j++) {
         putchar(' ');

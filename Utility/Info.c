@@ -94,9 +94,8 @@ int main(int argc, char *argv[]) {
   int *Index; // link between indices (i.e., Index[Bead[i].Index]=i)
   MOLECULE *Molecule; // structure with info about every molecule
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
-  bool indexed; // indexed timestep?
-  FullVtfRead_new(input_vsf, detailed, &indexed, &Counts, &BeadType, &Bead,
-                  &Index, &MoleculeType, &Molecule); //}}}
+  VtfReadStruct(input_vsf, detailed, &Counts, &BeadType, &Bead, &Index,
+                &MoleculeType, &Molecule); //}}}
 
   // print information
   VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);

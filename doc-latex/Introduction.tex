@@ -19,16 +19,18 @@ simulation package} could be roughly divided into four types:
     and standard deviations of a data series
 \end{itemize}
 
+The \tt{Examples} directory contains examples showcasing capabilities of
+individual utilities as well as possible workflows chaining several utilities.
+
 \section{Installation}
 
-AnalysisTools requires \tt{C} and \tt{Fortran} compilers and \tt{cmake}.
-The compilation should be done in a separate directory, such as
-\tt{<root>/build} (where \tt{<root>} is the AnalysisTools root
-directory). The following generates a \tt{Makefile} within \tt{build}:
+AnalysisTools requires \tt{C} and \tt{Fortran} compilers and \tt{cmake}. The
+utilities should be compiled in a separate directory, typically
+\tt{<root>/build} (where \tt{<root>} is the AnalysisTools root directory). The
+following generates a \tt{Makefile} within \tt{<root>/build}:
 
 \tt{mkdir <root>/build; cd <root>/build; cmake ../}
 
-Then run \tt{make} to compile all utilities or \tt{make <utility name>} to
-compile a single utility.
-
-The binaries are located in the \tt{<root>/build/bin} directory.
+To then compile the utilities, simply run \tt{make} (to compile all utilities)
+or \tt{make <utilitiy name>} (to compile a single utility). The binaries are
+located in the \tt{<root>/build/bin} directory.

@@ -1,17 +1,6 @@
 #include "Read.h"
-// TODO: coordinate lines: '4 1.0 2.0 3.0' should also count as ordered line
-//       (with the 3.0 as just some extra stuff)
-// TODO: VtfReadStruct - warn if an atom defined twice
-// TODO: since VtfCountStructLines is obsolete, we must somehow check for
-//       invalid atom/bond lines in purely vcf file; or do we? It may not
-//       actually matter to me; it will just be skipped - just write a note
-//       into the manual
 // TODO: perror() for file openings
 // TODO test output of snprintf() to get rid of a warning; see https://stackoverflow.com/questions/51534284/how-to-circumvent-format-truncation-warning-in-gcc
-
-// TODO: what's gonna happen with Counts.Beads & Counts.BeadsInVsf; I guess it
-//       should stay and be used strictly - InVsf means in vsf, the other in
-//       vcf
 // TODO impropers vs dihedrals - add improper section to FIELD
 /* TODO: PrintBeadType() needs to find the longest name and the most number
  * of beads and insert white space accordingly
