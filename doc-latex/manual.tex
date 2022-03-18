@@ -53,6 +53,10 @@
 \usepackage[normalem]{ulem}
 %% pseudocode - part of algorithmix
 %\usepackage{algpseudocode}
+% adjust line spacing
+\usepackage{setspace}
+% frame aound text
+\usepackage{mdframed}
 % highlighting (\hl command)
 \usepackage{soul}
 % clickable links -- hyperref should be the last package listed
@@ -166,7 +170,7 @@
   rulecolor=\color{codebackground} % frame has the same colour as the block)
 } %}}}
 % remove spacing between table columns
-\renewcommand{\tabcolsep}{0pt}
+%\renewcommand{\tabcolsep}{0pt}
 %% pseudocode settings - not used anymore
 %\newcommand{\St}{\State }
 %\newcommand{\Stx}{\Statex }
@@ -186,7 +190,7 @@
 \newcommand{\RealP}{$\mathcal{R}^+$}
 \newcommand{\Int}{$\mathcal{I}$}
 % new column type
-\newcolumntype{L}[1]{p{#1}@{\hspace{-20pt}}}
+\newcolumntype{L}[1]{p{#1}@{\hspace{-23pt}}}
 \newcolumntype{M}{>{\centering}p{0.2\textwidth}@{\hspace{-10pt}}}
 % enumerate settings (enumitem package)
 \setenumerate[1]{label={\arabic*)}}

@@ -76,10 +76,10 @@ the number and the colon is allowed.
 molecule) types. Generally, types of beads are defined solely by their name,
 i.e., should two beads share a name but differ in other characteristics, they
 will be grouped into the same type with mass, charge, and radius each equal to
-that for the bead type's topmost atom line with the corresponding keyword. If
-the keyword is missing from all atom lines, that characteristic is undefined.
+that for the bead type's topmost atom line containing the corresponding keyword.
+If the keyword is missing from all atom lines, that characteristic is undefined.
 The \tt{--detailed} command line option can, however, force some utilities to
-distinguish bead types based on all bead's properties.
+distinguish bead types based on all their properties.
 
 Different molecule types, on the other hand, are always distinguished based on
 all its characteristics, i.e., name, connectivity, and order of beads (order of
@@ -100,79 +100,49 @@ two molecules:
 \end{comment}
  %}}}
 
-As an example, consider the following \vsf file that contains 11 beads and two
+As an example, consider the following \vsf file (the extra white space only
+aligns bead characteristics into columns) that contains 7 beads and 2
 molecules:
-
-...well, I wish it actually worked.
-
-\begin{lstlisting}
-atom default name A mass 1 charge 0
-atom 0 name B mass 2 radius 1
-atom 2 name B mass 1 charge -1
-atom 4 name B
-atom 5 name C resname Mol resid 1 mass 1
-atom 6 name A resname Mol resid 1 mass 1
-atom 7 name A resname Mol resid 1
-atom 8 name C resname Mol resid 2
-atom 9 name D resname Mol resid 2 radius 1.5
-atom 10 name D resname Mol resid 2 mass 2
-bond 5:6
-bond 6:7
-bond 8:9
-bond 9:10
-bond 8:10
-\end{lstlisting}
-
-Using \tt{Info <vsf>}, bead and molecule types are identified by their name
-only:
-
-\begin{lstlisting}
-Counts = {
-  .TypesOfBeads     = 4,
-  .Bonded           = 6,
-  .Unbonded         = 5,
-  .Beads            = 11,
-  .TypesOfMolecules = 1,
-  .Molecules        = 2
-}
-
-BeadType[0] = {.Name = A, .Number = 4, .Charge = 0.0,
-                                  .Mass = 1.0, .Radius = n/a}
-BeadType[1] = {.Name = B, .Number = 3, .Charge = n/a,
-                                  .Mass = 2.0, .Radius = 1.0}
-BeadType[2] = {.Name = C, .Number = 2, .Charge = n/a,
-                                  .Mass = 1.0, .Radius = n/a}
-BeadType[3] = {.Name = D, .Number = 2, .Charge = n/a,
-                                  .Mass = n/a, .Radius = 1.5}
-
-MoleculeType[ 0] = {
-  .Name       = Mol,
-  .Number     = 2,
-  .nBeads     = 3,
-  .Bead       = {C, A, A},
-  .nBonds     = 2,
-  .Bond       = {1-2, 2-3},
-  .nBTypes    = 2
-  .BType      = {C, A},
-  .Mass       = 3.0,
-  .Charge     = n/a
-}
-\end{lstlisting}
-
-Here, four bead types and a single molecule type are identified. Looking,
-for example, at the mass of the \tt{B} beads, its value is 2 according to
-the second line in the \vsf file (the first atom line containing the name
-\tt{B}) even though the mass of \tt{B} on the next atom line is 1. Looking
-at the single molecule type, it contains bead types \tt{C} and \tt{A}
-connected \tt{C-A-A}; these were taken from the first molecule (\vsf lines
-5-7). However, the second molecule is in the shape of a triangle (see \vsf
-lines 13-15).
+\begin{mdframed}
+  \begin{tabular}{l@{ }l@{ }l@{ }l@{ }l@{ }l@{ }l}
+    atom default & name A & mass 1 & charge 0 & radius 0.5 & &\\
+    atom 0       & name B & mass 2 & charge -1 & & resid 1 & resname Mol\\
+    atom 2       & name B & mass 1 & charge -1 & radius 1 & resid 2 & resname Mol\\
+    atom 4       & name B &        & charge 0.0 & radius 1.5 & &\\
+    atom 5       & name A & mass 1 & & & resid 1 & resname Mol\\
+    atom 6       & name A & mass 1 & & & resid 2 & resname Mol\\
+    bond 0:5&&&&&&\\
+    bond 2:6&&&&&&\\
+    \end{tabular}
+\end{mdframed}
+The following table shows how the \tt{--detailed} command line option affects
+the identification of bead types:
+\begin{center}
+\begin{tabular}{lcccccccc}
+  \toprule
+  \multirow{2}{*}{\parbox{1cm}{\setstretch{0.9}Bead type name}} &
+    \multicolumn{4}{c}{\tt{--detailed}} &
+    \multicolumn{4}{c}{default behaviour} \\
+  \cmidrule(lr){2-5} \cmidrule(lr){6-9}
+  & Number & Charge & Mass & Radius & Number & Charge & Mass & Radius\\
+  \midrule
+  A    & 4      & 0.0    & 1.0  & 0.5    & 4      & 0.0    & 1.0  & 0.5\\
+  B    & 1      & -1.0   & 2.0  & N/A    & 3      & -1.0   & 2.0  & 1.0\\
+  B\_1 & 1      & -1.0   & 1.0  & 1.0    & ---    & ---    & ---  & ---\\
+  B\_2 & 1      & 0.0    & N/A  & 1.5    & ---    & ---    & ---  & ---\\
+  \bottomrule
+\end{tabular}
+\end{center}
+Here, the \tt{--detailed} option will also affect identification of molecule
+types. Without the option, only one molecule type is detected, but as the
+\tt{--detailed} option splits the \tt{B} beads from diferrent molecules into
+distinct types, two molecule types are detected (called \tt{Mol} and \tt{Mol_1})
 
 The \vsf file can contain any number of blank lines and comments (lines
 beginning with \tt{\#}).
 
 See complete examples of the \vsf file (as well as of some errors) in the
-\tt{Examples} directory.
+\tt{Examples} directory (\TODO add that).
 
 \subsection{\vcf coordinate file} \label{ssec:CoordinateVcf}
 

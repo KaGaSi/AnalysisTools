@@ -6,7 +6,7 @@ from an input \vcf file, identifying what beads are present via
 \ttb{Bead[].InTimestep} flag.
 
 \CallInit{void VtfReadTimestep}
-\begin{longtable}{L{0.36\textwidth}Mp{0.51\textwidth}}
+\begin{longtable}{L{0.36\textwidth}Mp{0.49\textwidth}}
   \toprule
   parameter          & in/out & explanation \\
   \midrule
@@ -22,7 +22,7 @@ from an input \vcf file, identifying what beads are present via
                                              (section \ref{ssec:Bead})\\
   \ttb{(int) Index[]}                & out & array connecting internal and  \vtf
                                              bead indices\\
-  \ttb{(MOLECULETYPE) MoleculeType[]}& out & information about molecule types
+  \ttb{(MOLECULETYPE) MoleculeType[]}& in \& out & information about molecule types
                                              (section \ref{ssec:MoleculeType})\\
   \ttb{(MOLECULE) Molecule[]}        & out & information about individual
                                              molecules (section
