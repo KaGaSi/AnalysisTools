@@ -1,6 +1,6 @@
 #include "../AnalysisTools.h"
 #include "Aggregates.h"
-char ERROR_MSG[LINE];
+int *InFile;
 
 // TODO: <distance> & <contacts> as options
 // TODO: do -x/-xm options make sense?

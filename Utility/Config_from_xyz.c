@@ -1,5 +1,4 @@
 #include "../AnalysisTools.h"
-char ERROR_MSG[LINE];
 
 // TODO: write function ReadXyzCoordinates()
 

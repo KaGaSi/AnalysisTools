@@ -1,5 +1,6 @@
 #include "../AnalysisTools.h"
-char ERROR_MSG[LINE];
+int *InFile;
+int *InFile;
 
 void Help(char cmd[50], bool error) {
   FILE *ptr;
@@ -154,11 +155,10 @@ int main(int argc, char *argv[]) {
   MOLECULE *Molecule; // structure with info about every molecule
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
   BOX Box = InitBox; // triclinic box dimensions and angles
-  bool indexed; // indexed timestep?
-  int struct_lines; // number of structure lines (relevant for vtf)
-  FullVtfRead(input_vsf, input_coor, false, vtf, &indexed, &struct_lines,
-              &Box, &Counts, &BeadType, &Bead, &Index,
-              &MoleculeType, &Molecule); //}}}
+  bool indexed = false; // indexed timestep?
+  VtfReadStruct(input_vsf, false, &Counts, &BeadType, &Bead, &Index,
+                &MoleculeType, &Molecule);
+  InFile = calloc(Counts.BeadsTotal, sizeof *InFile); //}}}
 
   // <bead names> - names of bead types to save //{{{
   for (int i = 0; i < Counts.TypesOfBeads; i++) {
@@ -217,28 +217,33 @@ int main(int argc, char *argv[]) {
   PrintByline(out, argc, argv);
   fclose(out); //}}}
 
-  // open input coordinate file //{{{
-  FILE *vcf;
-  if ((vcf = fopen(input_coor, "r")) == NULL) {
-    ErrorFileOpen(input_coor, 'r');
-    exit(1);
-  }
-//SkipVtfStructure(vcf, struct_lines); //}}}
-
   // print information - verbose output //{{{
   if (verbose) {
     VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
-  if (!last) { // we don't want to see 'Starting step' message for --last option
-    count = SkipCoorSteps(vcf, input_coor, Counts, start, silent);
-  }
+  // open input coordinate file //{{{
+  FILE *vcf;
+  if ((vcf = fopen(input_coor, "r")) == NULL) {
+    ErrorFileOpen(input_coor, 'r');
+    exit(1);
+  } //}}}
+
+  do {
+    if (count >= start || last) {
+      break;
+    }
+    count++;
+  } while (VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
+                         Index, MoleculeType, Molecule, &count));
   // main loop //{{{
   int count_n_opt = 0; // count saved steps if -n option is used
   count = 0; // count timesteps in the main loop
   int count_vcf = start - 1; // count timesteps from the beginning
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
-  while (true) {
+  fpos_t position;
+  while (VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
+                         Index, MoleculeType, Molecule, &count)) {
     count++;
     count_vcf++;
     // print step? //{{{
@@ -250,13 +255,10 @@ int main(int argc, char *argv[]) {
         fprintf(stdout, "\rStep: %d", count_vcf);
       }
     } //}}}
-    if (!last) { // read and save coordinate only if --last isn't used //{{{
-      // read coordinates & wrap/join molecules //{{{
-      ReadVcfCoordinates(indexed, input_coor, vcf, &Box,
-                         Counts, Index, &Bead, &stuff);
+    if (!last) { // save coordinate only if --last isn't used //{{{
+      // wrap/join molecules //{{{
       // transform coordinates into fractional ones for non-orthogonal box
       ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
-      // wrap and/or join molecules?
       if (wrap) {
         RestorePBC(Counts.BeadsCoor, Box, &Bead);
       }
@@ -273,8 +275,7 @@ int main(int argc, char *argv[]) {
             ErrorFileOpen(output_vcf, 'a');
             exit(1);
           }
-          WriteCoorIndexed(out, Counts, BeadType, Bead,
-                           MoleculeType, Molecule, stuff, Box);
+          WriteCoorIndexed_new(out, Counts, Bead, stuff, Box);
           fclose(out); //}}}
           // write to xyz file? //{{{
           if (output_xyz[0] != '\0') {
@@ -297,8 +298,7 @@ int main(int argc, char *argv[]) {
           ErrorFileOpen(output_vcf, 'a');
           exit(1);
         }
-        WriteCoorIndexed(out, Counts, BeadType, Bead,
-                         MoleculeType, Molecule, stuff, Box);
+        WriteCoorIndexed_new(out, Counts, Bead, stuff, Box);
         fclose(out); //}}}
         // write to xyz file? //{{{
         if (output_xyz[0] != '\0') {
@@ -326,35 +326,28 @@ int main(int argc, char *argv[]) {
         } //}}}
       }
     //}}}
-    } else { // skip coordinates if --last is used //{{{
-      fpos_t position;
+    } else { // save file pointer position if --last is used //{{{
       fgetpos(vcf, &position); // get file pointer position
-      SkipVcfCoor(vcf, input_coor, Counts, &stuff);
-      // if this is the last step, restore file pointer and read the coordinates
-      if (LastStep(vcf, NULL)) {
-        fsetpos(vcf, &position); // restore pointer position
-        // read coordinates & wrap/join molecules
-        ReadVcfCoordinates(indexed, input_coor, vcf, &Box,
-                           Counts, Index, &Bead, &stuff);
-        // transform coordinates into fractional ones for non-orthogonal box
-        ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
-        // wrap and/or join molecules?
-        if (wrap) {
-          RestorePBC(Counts.BeadsCoor, Box, &Bead);
-        }
-        if (join) {
-          RemovePBCMolecules(Counts, Box, BeadType, &Bead,
-                             MoleculeType, Molecule);
-        }
-        // transform back to 'normal' coordinates for non-orthogonal box
-        FromFractionalCoor(Counts.BeadsCoor, &Bead, Box);
-        break;
-      }
     } //}}}
-    // -e option - exit main loop if last step is done
-    if (LastStep(vcf, NULL) || (end == count_vcf && !last)) {
-      break;
+  }
+  // if this is the last step, restore file pointer and read the coordinates
+  if (last) {
+    fsetpos(vcf, &position); // restore pointer position
+    // read coordinates & wrap/join molecules
+    ReadVcfCoordinates(indexed, input_coor, vcf, &Box,
+                       Counts, Index, &Bead, &stuff);
+    // transform coordinates into fractional ones for non-orthogonal box
+    ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
+    // wrap and/or join molecules?
+    if (wrap) {
+      RestorePBC(Counts.BeadsCoor, Box, &Bead);
     }
+    if (join) {
+      RemovePBCMolecules(Counts, Box, BeadType, &Bead,
+                         MoleculeType, Molecule);
+    }
+    // transform back to 'normal' coordinates for non-orthogonal box
+    FromFractionalCoor(Counts.BeadsCoor, &Bead, Box);
   }
   fclose(vcf);
   // print last step count?
@@ -372,8 +365,7 @@ int main(int argc, char *argv[]) {
       ErrorFileOpen(output_vcf, 'a');
       exit(1);
     }
-    WriteCoorIndexed(out, Counts, BeadType, Bead,
-                     MoleculeType, Molecule, stuff, Box);
+    WriteCoorIndexed_new(out, Counts, Bead, stuff, Box);
     fclose(out);
     // write to xyz file?
     if (output_xyz[0] != '\0') {
@@ -389,6 +381,7 @@ int main(int argc, char *argv[]) {
   // free memory
   FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);
   free(stuff);
+  free(InFile);
 
   return 0;
 }

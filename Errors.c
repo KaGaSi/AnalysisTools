@@ -1,4 +1,5 @@
 #include "Errors.h"
+char ERROR_MSG[LINE];
 
 // ErrorArgNumber() //{{{
 /**

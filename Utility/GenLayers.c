@@ -1,5 +1,5 @@
 #include "../AnalysisTools.h"
-char ERROR_MSG[LINE];
+int *InFile;
 
 // TODO: add that it's only for cuboid simulation box
 // TODO add --silent option

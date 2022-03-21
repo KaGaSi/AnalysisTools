@@ -47,6 +47,8 @@ static const COUNTS InitCounts = {
   .Aggregates = 0,
 }; //}}}
 
+extern int *InFile;
+
 // struct Box //{{{
 /**
  * \brief Total numbers of various things.
@@ -61,7 +63,7 @@ typedef struct Box {
 } BOX;
 
 // TODO: is that used at all?
-// Initialize Counts
+// Initialize Box
 static const BOX InitBox = {
   .Length.x = -1,
   .Length.y = -1,

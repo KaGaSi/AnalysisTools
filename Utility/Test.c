@@ -1,5 +1,5 @@
 #include "../AnalysisTools.h"
-char ERROR_MSG[LINE];
+int *InFile;
 
 // TODO: if -c is used, don't just find out the box, but what beads are present
 
@@ -113,7 +113,8 @@ int main(int argc, char *argv[]) {
   MOLECULE *Molecule; // structure with info about every molecule
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
   VtfReadStruct(input_vsf, detailed, &Counts, &BeadType, &Bead, &Index,
-                &MoleculeType, &Molecule); //}}}
+                &MoleculeType, &Molecule);
+  InFile = calloc(Counts.BeadsTotal, sizeof *InFile); //}}}
 
   // print information
   if (Counts.BeadsTotal != Counts.BeadsCoor) {
@@ -122,27 +123,34 @@ int main(int argc, char *argv[]) {
   }
   if (verbose) { //{{{
     VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
-//  fputs("\nInformation about every bead:\n", stdout);
-//  PrintBead2(Counts.Beads, Index, BeadType, Bead);
+    fputs("\nInformation about every bead:\n", stdout);
+    PrintBead2(Counts.BeadsTotal, Index, BeadType, Bead);
 //  fputs("\nInformation about every molecule:\n", stdout);
 //  PrintMolecule(Counts.Molecules, MoleculeType, Molecule, BeadType, Bead);
   } //}}}
 
-  FILE *coor;
+  FILE *coor, *out;
   if ((coor = fopen(input_coor, "r")) == NULL) {
     ErrorFileOpen(input_coor, 'r');
+    exit(1);
+  }
+  if ((out = fopen("out.vcf", "w")) == NULL) {
+    ErrorFileOpen(input_coor, 'w');
     exit(1);
   }
   int step_count = 0;
   BOX Box = InitBox;
   while (VtfReadTimestep(coor, input_coor, &Box, &Counts, BeadType, &Bead,
                          Index, MoleculeType, Molecule, &step_count)) {
-    printf("count_coor: %d (step %d)\n", Counts.BeadsCoor, step_count);
+//  printf("count_coor: %d (step %d)\n", Counts.BeadsCoor, step_count);
+    WriteCoorIndexed_new(out, Counts, Bead, "\0", Box);
   }
   fclose(coor);
+  fclose(out);
 
   // free memory - to make valgrind happy
   FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);
+  free(InFile);
 
   return 0;
 }

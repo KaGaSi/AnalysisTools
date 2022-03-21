@@ -1,5 +1,5 @@
 #include "../AnalysisTools.h"
-char ERROR_MSG[LINE];
+int *InFile;
 
 // TODO: what exactly does it do?
 // TODO: --all option?

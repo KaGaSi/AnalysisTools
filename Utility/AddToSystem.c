@@ -1,5 +1,5 @@
 #include "../AnalysisTools.h"
-char ERROR_MSG[LINE];
+int *InFile;
 // TODO: split into two utilities - adding existing (vtf) configuration and
 //       generating addition from FIELD?
 // TODO: -offset for -vtf option

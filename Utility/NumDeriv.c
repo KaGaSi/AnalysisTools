@@ -1,5 +1,4 @@
 #include "../AnalysisTools.h"
-char ERROR_MSG[LINE];
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;

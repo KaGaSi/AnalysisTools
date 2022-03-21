@@ -79,6 +79,37 @@ void WriteCoorIndexed(FILE *vcf_file, COUNTS Counts,
   }
 } //}}}
 
+// WriteCoorIndexed_new() //{{{
+/**
+ * Function writing coordinates to a `.vcf` file. According to the Write flag
+ * in BeadType and MoleculeType structures only certain bead types will be
+ * saved into the indexed timestep in .vcf file.
+ */
+void WriteCoorIndexed_new(FILE *vcf_file, COUNTS Counts, BEAD *Bead,
+                      char *stuff, BOX Box) {
+  // print comment at the beginning of a timestep if present in initial vcf file
+  fprintf(vcf_file, "%s\n", stuff);
+  // print box size
+  fprintf(vcf_file, "pbc %lf %lf %lf  ", Box.Length.x,
+                                         Box.Length.y,
+                                         Box.Length.z);
+  fprintf(vcf_file, "    %lf %lf %lf\n", Box.alpha, Box.beta, Box.gamma);
+  // print 'indexed' on the next
+  fprintf(vcf_file, "indexed\n");
+
+//for (int i = 0; i < Counts.BeadsTotal; i++) {
+//  int id = i;
+  for (int i = 0; i < Counts.BeadsCoor; i++) {
+    int id = InFile[i];
+    if (Bead[id].InTimestep) {
+      fprintf(vcf_file, "%8d %8.4f %8.4f %8.4f\n", Bead[id].Index,
+                                                   Bead[id].Position.x,
+                                                   Bead[id].Position.y,
+                                                   Bead[id].Position.z);
+    }
+  }
+} //}}}
+
 // WriteCoorXYZ() //{{{
 void WriteCoorXYZ(FILE *xyz_file, COUNTS Counts,
                   BEADTYPE *BeadType, BEAD *Bead) {

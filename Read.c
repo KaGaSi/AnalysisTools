@@ -2682,9 +2682,9 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
   fpos_t position; // to save file position
   // first coordinate line was already read
   while (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
-    if (indexed == 1) {
+    if (indexed == 1) { // 'timestep indexed' line
       if (ltype == COOR_LINE_I) {
-        int id = atoi(split[0]);
+        int id = Index[atoi(split[0])];
         // error - bead id was already found in the timestep //{{{
         if (id >= (*Counts).BeadsTotal) {
           strcpy(ERROR_MSG, "bead index too high");
@@ -2701,16 +2701,19 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
           return false;
         } //}}}
         (*Bead)[id].InTimestep = true;
+        InFile[(*Counts).BeadsCoor] = id;
       } else {
         strcpy(ERROR_MSG, "ordered coordinate line in indexed timestep");
         WarnStopReading(vcf_file, timestep_line_count, *step_count);
         return false;
       }
-    } else {
-      (*Bead)[(*Counts).BeadsCoor].Position.x = atof(split[1]);
-      (*Bead)[(*Counts).BeadsCoor].Position.y = atof(split[2]);
-      (*Bead)[(*Counts).BeadsCoor].Position.z = atof(split[3]);
-      (*Bead)[(*Counts).BeadsCoor].InTimestep = true;
+    } else { // 'timestep ordered' line
+      int id = Index[(*Counts).BeadsCoor];
+      (*Bead)[id].Position.x = atof(split[0]);
+      (*Bead)[id].Position.y = atof(split[1]);
+      (*Bead)[id].Position.z = atof(split[2]);
+      (*Bead)[id].InTimestep = true;
+      InFile[(*Counts).BeadsCoor] = id;
     }
     (*Counts).BeadsCoor++;
     // read next line (and return 'true' if it's the last one)
