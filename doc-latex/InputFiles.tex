@@ -141,58 +141,50 @@ distinct types, two molecule types are detected (called \tt{Mol} and \tt{Mol_1})
 The \vsf file can contain any number of blank lines and comments (lines
 beginning with \tt{\#}).
 
-See complete examples of the \vsf file (as well as of some errors) in the
-\tt{Examples} directory (\TODO add that).
-
 \subsection{\vcf coordinate file} \label{ssec:CoordinateVcf}
 
 The coordinate file contains Cartesian coordinates of the beads and the
 size of the paralleloid simulation box. Coordinates are read from a \vcf
-file containing either ordered timesteps or indexed timesteps; all
-timesteps must be of the same type and contain the same beads.
+file containing either ordered timesteps or indexed timesteps.
 
-An ordered \vcf file must contain all beads defined in the \vsf file, while
-an indexed \vcf file can contain only a subset of defined beads. Both
-indexed and ordered \vcf files contain a line before every timestep
-specifying the file type, \tt{t[imestep] o[rdered]/i[ndexed]}; the
-\tt{timestep} keyword can be omitted.
+An ordered \vcf timestep contains all beads defined in the \vsf file, while an
+indexed one can contain only a subset of defined beads. A coordinate line for an
+ordered timestep contains only the Cartesian coordinates (where the line order
+corresponds to \vsf bead indices), while the one for indexed timestep starts
+with a \vsf bead index. Velocities can also be appended to the coordinate lines.
+The block of bead coordinates must be continuous without any blank or comment
+lines.
 
-In both ordered and indexed \vcf files, the size of the simulation box is
-given by a line appearing before the first timestep:
-%
-\begin{lstlisting}
-pbc <x> <y> <z> # cuboid simulation box
-pbc <a> <b> <c> <alpha> <beta> <gamma> # triclinic box
-\end{lstlisting}
-%
-Should this line also prepend other timesteps, the box dimensions are
-adjusted accordingly.
+The timestep type is defined by a \tt{t[imestep] o[rdered]|i[ndexed]} line
+preceding the bead coordinates (i.e., in the timestep preamble). The preamble
+also contains simulation box dimensions (\tt{pbc} line); this line is mandatory
+for the first timestep in the \vcf file, but optional in the following timesteps
+(the box dimensions can be different for each timestep). The \tt{pbc} line can
+contain only dimensions (orthogonal box) or dimensions and angles (triclinic
+box). The preamble may also contain comment (\tt{\#}-initiated lines) and blank
+lines.
 
-The \vcf file may contain comment lines (beginning with
-\tt{\#}) and blank lines between timesteps, but the coordinate block
-must be continuous.
-
-The coordinate blocks in an ordered \vcf file contain only Cartesian
-coordinates -- every line has the \tt{<x> <y> <z>} format The beads are
-written in an ascending order of their indices as defined in the \vsf file.
-All beads defined in the \vsf file must be present in the ordered \vcf
-file.
-
-The coordinate blocks in an indexed \vcf file contain not only Cartesian
-coordinates but also bead indices -- every line has the \tt{<index> <x> <y>
-<z>} format. An indexed timestep does not have to contain all beads defined
-in the \vsf structure file; however, \tt{AnalysisTools} utilities work with
-whole sets of beads, that is, when one bead of a specific type is missing,
-all beads of that type (or with the same name) must be omitted as well.
-The beads do not have to be ordered in any specific way.
-
-Velocities can also be included following the Cartesian coordinates, i.e.,
-\begin{lstlisting}
-<index> <x> <y> <z> <vel(x)> <vel(y)> <vel(z)>
-\end{lstlisting}
+The following is a \tt{vcf} file example corresponding to the \vsf example
+above:
+\begin{mdframed}
+  timestep ordered\\
+  pbc 1 2 3 \# orthogonal box dimensions\\
+  0.0 0.1 0.2 \# ordered coordinate line\\
+  0.1 0.2 0.3 0.1 0.0 -0.1 \# coordinate line with velocities\\
+  0.2 0.3 0.4\\
+  0.3 0.4 0.5\\
+  0.4 0.5 0.6\\
+  0.5 0.6 0.7\\
+  0.6 0.7 0.8\\
+  \\
+  pbc 1 2 3 100 90 80 \# triclinic box dimensions and angles\\
+  timestep indexed\\
+  4 0.4 0.5 0.6 \# indexed coordinate line\\
+  2 0.2 0.3 0.4
+\end{mdframed}
  %}}}
 
-\subsection{DL\_MESO \field file} %{{{
+\subsection{DL\_MESO \field\ file} %{{{
 
 \begin{comment}
 This file can be used to get mass and/or charge of bead types (only if
@@ -273,7 +265,7 @@ directory, e.g., in \tt{Examples/AddToSystem}.
 \end{comment}
  %}}}
 
-\subsection{LAMMPS \data file} %{{{
+\subsection{LAMMPS \data\ file} %{{{
  %}}}
   %}}}
 
