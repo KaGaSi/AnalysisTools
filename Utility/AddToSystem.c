@@ -732,14 +732,14 @@ int main(int argc, char *argv[]) {
    */
   // zeroize Bead[].Flag //{{{
   for (int i = 0; i < Counts_orig.BeadsCoor; i++) {
-    bead_orig[i].Flag = false;
+    bead_orig[i].Use = false;
   } //}}}
   count = 0; // counts bead in the original Bead[] struct
   for (int i = 0; i < Counts_add.BeadsCoor; i++) {
     for (; count < Counts_orig.BeadsCoor; count++) {
       int type = bead_orig[count].Type;
       if (bt_orig[type].Write && bead_orig[count].Molecule == -1) {
-        bead_orig[count].Flag = true; // exchange bead 'count'
+        bead_orig[count].Use = true; // exchange bead 'count'
         break;
       }
     }
@@ -862,11 +862,11 @@ int main(int argc, char *argv[]) {
     count = 0; // counts copied beads
     for (int i = 0; i < Counts_orig.Unbonded; i++) {
       // first, copy only beads of the type that's not to be exchange
-      if (!bead_orig[i].Flag) {
+      if (!bead_orig[i].Use) {
         bead_new[count] = bead_orig[i];
         bead_new[count].Molecule = -1;
         bead_new[count].Index = count;
-        bead_new[count].Flag = false; // do not rewrite, obviously
+        bead_new[count].Use = false; // do not rewrite, obviously
         bead_new[count].Aggregate = malloc(sizeof *bead_new[count].Aggregate *
                                            1); // just to free later
         Index_new[count] = count;
@@ -883,7 +883,7 @@ int main(int argc, char *argv[]) {
       bead_new[count].Type = new_type;
       bead_new[count].Molecule = -1;
       bead_new[count].Index = count;
-      bead_new[count].Flag = true; // coordinates to be rewritten
+      bead_new[count].Use = true; // coordinates to be rewritten
       bead_new[count].Aggregate = malloc(sizeof *bead_new[count].Aggregate *
                                          1); // just to free later
       Index_new[count] = count;
@@ -894,7 +894,7 @@ int main(int argc, char *argv[]) {
     for (int i = Counts_orig.Unbonded; i < Counts_orig.BeadsCoor; i++) {
       bead_new[count] = bead_orig[i];
       bead_new[count].Index = count;
-      bead_new[count].Flag = false; // coordinates to be rewritten
+      bead_new[count].Use = false; // coordinates to be rewritten
       bead_new[count].Aggregate = malloc(sizeof *bead_new[count].Aggregate *
                                          1); // just to free later
       Index_new[count] = count;
@@ -909,7 +909,7 @@ int main(int argc, char *argv[]) {
       bead_new[count].Type = new_type;
       bead_new[count].Molecule = bead_add[i].Molecule + Counts_orig.Molecules;
       bead_new[count].Index = count;
-      bead_new[count].Flag = true; // coordinates to be rewritten
+      bead_new[count].Use = true; // coordinates to be rewritten
       bead_new[count].Aggregate = malloc(sizeof *bead_new[count].Aggregate *
                                          1); // just to free later
       Index_new[count] = count;
@@ -1061,7 +1061,7 @@ int main(int argc, char *argv[]) {
       bead_new[i] = bead_orig[i];
       bead_new[i].Molecule = -1;
       bead_new[i].Index = i;
-      bead_new[i].Flag = false; // do not rewrite, obviously
+      bead_new[i].Use = false; // do not rewrite, obviously
       bead_new[i].Aggregate = malloc(sizeof *bead_new[i].Aggregate * 1);
       Index_new[i] = i;
     } //}}}
@@ -1198,9 +1198,9 @@ int main(int argc, char *argv[]) {
         id = Counts_orig.Unbonded + i;
       } else { // switched beds (--switch option)
         for (int j = count; j < Counts_new.Unbonded; j++) {
-          if (bead_new[j].Flag) { // is this an original bead to be exchanged?
+          if (bead_new[j].Use) { // is this an original bead to be exchanged?
             id = j;
-            bead_new[j].Flag = false; // just exchanged (only pro forma)
+            bead_new[j].Use = false; // just exchanged (only pro forma)
             count = j + 1;
             break;
           }

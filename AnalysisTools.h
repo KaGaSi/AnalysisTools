@@ -195,8 +195,9 @@ VECTOR Distance(VECTOR id1, VECTOR id2, VECTOR BoxLength); //}}}
 void RemovePBCMolecules_old(COUNTS Counts, VECTOR BoxLength, BEADTYPE *BeadType,
                             BEAD **Bead, MOLECULETYPE *MoleculeType,
                             MOLECULE *Molecule); //}}}
-// TODO: somehow generalise triclinic stuff
 void RemovePBCMolecules(COUNTS Counts, BOX Box, BEADTYPE *BeadType, BEAD **Bead,
+                        MOLECULETYPE *MoleculeType, MOLECULE *Molecule);
+void RemovePBCMolecules_new(COUNTS Counts, BOX Box, BEADTYPE *BeadType, BEAD **Bead,
                         MOLECULETYPE *MoleculeType, MOLECULE *Molecule);
 
 // RemovePBCAggregates() //{{{

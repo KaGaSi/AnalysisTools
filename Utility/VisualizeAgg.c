@@ -56,7 +56,7 @@ int *InFile;
             // stop if the monomeric bead is confirmed close to the aggregate
             if (min_dist_2 <= distance) {
               break;
-            }
+            } //}}}
           } //}}}
           if (min_dist_2 > min_dist) {
             (*Bead)[id1].Position.x += BoxLength.x;
@@ -256,12 +256,9 @@ int *InFile;
                                                   (*Bead)[id1].Position.y,
                                                   (*Bead)[id1].Position.z);
         }
-      } //}}}
+      }
     }
   } //}}}
-printf("(%lf, %lf, %lf)\n", (*Bead)[10].Position.x,
-                            (*Bead)[10].Position.y,
-                            (*Bead)[10].Position.z);
 
   // test monomeric beads //{{{
   for (int i = 0; i < Counts.Aggregates; i++) {

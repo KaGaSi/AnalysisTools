@@ -122,8 +122,9 @@ typedef struct Bead {
   VECTOR Position; // cartesian coordinates of the bead
   VECTOR Velocity; // velocity of the bead
 
-  bool InTimestep; // is the bead in the present timestep?
-  bool Flag; // will be removed
+  bool InTimestep, // is the bead in the present timestep?
+       Use; // general-purpose flag
+  bool Flag; // general-purpose flag
 } BEAD; //}}}
 
 // struct MoleculeType //{{{

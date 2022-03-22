@@ -179,9 +179,8 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
     BeadType[type].Write = true;
-  } //}}}
-
-  // if '--reverse' is used, switch Write bools for all bead types //{{{
+  }
+  // if '--reverse' is used, switch Write bools for all bead types
   if (reverse) {
     for (int i = 0; i < Counts.TypesOfBeads; i++) {
       if (BeadType[i].Write) {
@@ -189,6 +188,12 @@ int main(int argc, char *argv[]) {
       } else {
         BeadType[i].Write = true;
       }
+    }
+  }
+  for (int i = 0; i < Counts.BeadsTotal; i++) {
+    int type = Bead[i].Type;
+    if (BeadType[type].Write) {
+      Bead[i].Use = true;
     }
   } //}}}
 
@@ -258,16 +263,20 @@ int main(int argc, char *argv[]) {
     if (!last) { // save coordinate only if --last isn't used //{{{
       // wrap/join molecules //{{{
       // transform coordinates into fractional ones for non-orthogonal box
-      ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
+      if (wrap || join) {
+        ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
+      }
       if (wrap) {
         RestorePBC(Counts.BeadsCoor, Box, &Bead);
       }
       if (join) {
-        RemovePBCMolecules(Counts, Box, BeadType, &Bead,
+        RemovePBCMolecules_new(Counts, Box, BeadType, &Bead,
                            MoleculeType, Molecule);
       }
       // transform back to 'normal' coordinates for non-orthogonal box
-      FromFractionalCoor(Counts.BeadsCoor, &Bead, Box); //}}}
+      if (wrap || join) {
+        FromFractionalCoor(Counts.BeadsCoor, &Bead, Box);
+      } //}}}
       if (count_n_opt < number_of_steps) { // if -n option is used
         if (save_step[count_n_opt] == count_vcf) {
           // write to output .vcf file //{{{
@@ -275,7 +284,7 @@ int main(int argc, char *argv[]) {
             ErrorFileOpen(output_vcf, 'a');
             exit(1);
           }
-          WriteCoorIndexed_new(out, Counts, Bead, stuff, Box);
+          VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
           fclose(out); //}}}
           // write to xyz file? //{{{
           if (output_xyz[0] != '\0') {
@@ -298,7 +307,7 @@ int main(int argc, char *argv[]) {
           ErrorFileOpen(output_vcf, 'a');
           exit(1);
         }
-        WriteCoorIndexed_new(out, Counts, Bead, stuff, Box);
+        VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
         fclose(out); //}}}
         // write to xyz file? //{{{
         if (output_xyz[0] != '\0') {
@@ -365,7 +374,7 @@ int main(int argc, char *argv[]) {
       ErrorFileOpen(output_vcf, 'a');
       exit(1);
     }
-    WriteCoorIndexed_new(out, Counts, Bead, stuff, Box);
+    VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
     fclose(out);
     // write to xyz file?
     if (output_xyz[0] != '\0') {

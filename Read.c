@@ -2212,7 +2212,7 @@ bool VtfCheckTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
   // assume no beads are present //{{{
   // TODO: will be removed
   for (int i = 0; i < (*Counts).BeadsTotal; i++) {
-    (*Bead)[i].Flag = false;
+    (*Bead)[i].Use = false;
   } //}}}
   // count beads & save their ids //{{{
   lines = 0;
@@ -2252,7 +2252,7 @@ bool VtfCheckTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
     } else { // ordered timestep => bead id is based on the line count
       id = lines;
     }
-    (*Bead)[id].Flag = true;
+    (*Bead)[id].Use = true;
     lines++;
   } //}}}
   // error - not all beads present for ordered timestep //{{{
@@ -2278,7 +2278,7 @@ bool VtfCheckTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
   BEAD *b_new = calloc(c_new.BeadsCoor, sizeof (BEAD));
   int *index_new = malloc(sizeof *index_new * (*Counts).BeadsTotal);
   for (int i = 0; i < (*Counts).BeadsTotal; i++) {
-    if ((*Bead)[i].Flag) {
+    if ((*Bead)[i].Use) {
       b_new[count] = (*Bead)[i];
       index_new[b_new[count].Index] = count;
       // count bonded & unbonded beads
@@ -2674,6 +2674,7 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
     }
   }
   exit_loop: ; //}}}
+  TriclinicCellData(Box);
   // return 'false' when no coordinates present //{{{
   if ((*Counts).BeadsCoor == -1) {
     return false;
@@ -2701,6 +2702,12 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
           return false;
         } //}}}
         (*Bead)[id].InTimestep = true;
+        if (words >= 7 && IsReal(split[4]) &&
+            IsReal(split[5]) && IsReal(split[6])) { // bead velocities, if present
+          (*Bead)[id].Velocity.x = atof(split[4]);
+          (*Bead)[id].Velocity.y = atof(split[5]);
+          (*Bead)[id].Velocity.z = atof(split[6]);
+        }
         InFile[(*Counts).BeadsCoor] = id;
       } else {
         strcpy(ERROR_MSG, "ordered coordinate line in indexed timestep");
@@ -2713,6 +2720,12 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
       (*Bead)[id].Position.y = atof(split[1]);
       (*Bead)[id].Position.z = atof(split[2]);
       (*Bead)[id].InTimestep = true;
+      if (words >= 6 && IsReal(split[3]) &&
+          IsReal(split[4]) && IsReal(split[5])) { // bead velocities, if present
+        (*Bead)[id].Velocity.x = atof(split[3]);
+        (*Bead)[id].Velocity.y = atof(split[4]);
+        (*Bead)[id].Velocity.z = atof(split[5]);
+      }
       InFile[(*Counts).BeadsCoor] = id;
     }
     (*Counts).BeadsCoor++;

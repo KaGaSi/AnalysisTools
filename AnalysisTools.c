@@ -90,6 +90,9 @@ void TriclinicCellData(BOX *Box) {
         (*Box).TriTilt[i] = 0;
       }
     }
+    printf("%lf %lf %lf\n", (*Box).Length.x, (*Box).Length.y, (*Box).Length.z);
+    printf("%lf %lf %lf\n", (*Box).TriLength.x, (*Box).TriLength.y, (*Box).TriLength.z);
+    printf("%lf %lf %lf\n", (*Box).TriTilt[0], (*Box).TriTilt[1], (*Box).TriTilt[2]);
   } else { // orthogonal box //{{{
     (*Box).transform[0][0] = (*Box).Length.x;
     (*Box).transform[1][0] = 0;
@@ -970,17 +973,18 @@ void RemovePBCMolecules_old(COUNTS Counts, VECTOR BoxLength,
 void RemovePBCMolecules(COUNTS Counts, BOX Box,
                         BEADTYPE *BeadType, BEAD **Bead,
                         MOLECULETYPE *MoleculeType, MOLECULE *Molecule) {
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    if (MoleculeType[i].nBonds == 0) {
-      YellowText(STDERR_FILENO);
-      fprintf(stderr, "\nWarning: molecule type ");
-      CyanText(STDERR_FILENO);
-      fprintf(stderr, "%s", MoleculeType[i].Name);
-      YellowText(STDERR_FILENO);
-      fprintf(stderr, " has no bonds, so it cannot be 'joined'\n");
-      ResetColour(STDERR_FILENO);
-    }
-  }
+  // TODO useless warning? //{{{
+//for (int i = 0; i < Counts.TypesOfMolecules; i++) {
+//  if (MoleculeType[i].nBonds == 0) {
+//    YellowText(STDERR_FILENO);
+//    fprintf(stderr, "\nWarning: molecule type ");
+//    CyanText(STDERR_FILENO);
+//    fprintf(stderr, "%s", MoleculeType[i].Name);
+//    YellowText(STDERR_FILENO);
+//    fprintf(stderr, " has no bonds, so it cannot be 'joined'\n");
+//    ResetColour(STDERR_FILENO);
+//  }
+//} //}}}
   // go through all molecules
   for (int i = 0; i < Counts.Molecules; i++) {
     int type = Molecule[i].Type;
@@ -1022,6 +1026,113 @@ void RemovePBCMolecules(COUNTS Counts, BOX Box,
       done = true;
       for (int j = 1; j < MoleculeType[type].nBeads; j++) {
         if (!(*Bead)[Molecule[i].Bead[j]].Flag) {
+          done = false;
+          break;
+        }
+      }
+      test++;
+    }
+    if (test == 1000) {
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, "\nWarning: unable to 'join' molecule");
+      CyanText(STDERR_FILENO);
+      fprintf(stderr, "%s", MoleculeType[type].Name);
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, " (resid ");
+      CyanText(STDERR_FILENO);
+      fprintf(stderr, "%d", i+1);
+      YellowText(STDERR_FILENO);
+      fprintf(stderr, " )\n");
+      fprintf(stderr, "           Maybe not all beads are connected?\n");
+      ResetColour(STDERR_FILENO);
+    }
+
+    // put molecule's centre of mass into the simulation box //{{{
+    VECTOR com = GeomCentre(MoleculeType[type].nBeads, Molecule[i].Bead, *Bead);
+    // by how many BoxLength's should com be moved?
+    // for distant molecules - it shouldn't happen, but better safe than sorry
+    INTVECTOR move;
+    move.x = com.x / Box.Length.x;
+    move.y = com.y / Box.Length.y;
+    move.z = com.z / Box.Length.z;
+    if (com.x < 0) {
+      move.x--;
+    }
+    if (com.y < 0) {
+      move.y--;
+    }
+    if (com.z < 0) {
+      move.z--;
+    }
+    for (int j = 0; j < MoleculeType[type].nBeads; j++) {
+      int bead = Molecule[i].Bead[j];
+      (*Bead)[bead].Position.x -= move.x * Box.Length.x;
+      (*Bead)[bead].Position.y -= move.y * Box.Length.y;
+      (*Bead)[bead].Position.z -= move.z * Box.Length.z;
+    } //}}}
+  }
+} //}}}
+
+// RemovePBCMolecules_new() //{{{
+/**
+ * Function to remove periodic boundary conditions from all individual
+ * molecules, thus joining them. The function requires orthogonal box, i.e.,
+ * for triclinic box, the supplied coordinates must first be transformed.
+ */
+void RemovePBCMolecules_new(COUNTS Counts, BOX Box,
+                        BEADTYPE *BeadType, BEAD **Bead,
+                        MOLECULETYPE *MoleculeType, MOLECULE *Molecule) {
+  // go through all molecules
+  for (int i = 0; i < Counts.Molecules; i++) {
+    int type = Molecule[i].Type;
+    // do nothing if the molecule has no bonds
+    if (MoleculeType[type].nBonds == 0) {
+      continue;
+    }
+    for (int j = 0; j < MoleculeType[type].nBeads; j++) {
+      (*Bead)[Molecule[i].Bead[j]].Flag = false; // no beads moved yet
+    }
+    // first bead in the first bond is considered moved
+    for (int j = 0; j < MoleculeType[type].nBonds; j++) {
+      int id1 = Molecule[i].Bead[MoleculeType[type].Bond[j][0]],
+          id2 = Molecule[i].Bead[MoleculeType[type].Bond[j][1]];
+      if ((*Bead)[id1].InTimestep && (*Bead)[id2].InTimestep) {
+        (*Bead)[id1].Flag = true;
+        break;
+      }
+    }
+    bool done = false;
+    int test = 0; // if too many loops, just leave the loop with error
+    while (!done && test < 1000) {
+      for (int j = 0; j < MoleculeType[type].nBonds; j++) {
+        int id1 = Molecule[i].Bead[MoleculeType[type].Bond[j][0]];
+        int id2 = Molecule[i].Bead[MoleculeType[type].Bond[j][1]];
+        if ((*Bead)[id1].InTimestep && (*Bead)[id2].InTimestep) {
+          // move id1, if id2 is moved already
+          if (!(*Bead)[id1].Flag && (*Bead)[id2].Flag) {
+            VECTOR dist = Distance((*Bead)[id2].Position, (*Bead)[id1].Position,
+                                   Box.Length);
+            (*Bead)[id1].Position.x = (*Bead)[id2].Position.x - dist.x;
+            (*Bead)[id1].Position.y = (*Bead)[id2].Position.y - dist.y;
+            (*Bead)[id1].Position.z = (*Bead)[id2].Position.z - dist.z;
+            (*Bead)[id1].Flag = true;
+          // move id2, if id1 was moved already
+          } else if ((*Bead)[id1].Flag && !(*Bead)[id2].Flag) {
+            VECTOR dist = Distance((*Bead)[id1].Position, (*Bead)[id2].Position,
+                                   Box.Length);
+            (*Bead)[id2].Position.x = (*Bead)[id1].Position.x - dist.x;
+            (*Bead)[id2].Position.y = (*Bead)[id1].Position.y - dist.y;
+            (*Bead)[id2].Position.z = (*Bead)[id1].Position.z - dist.z;
+            (*Bead)[id2].Flag = true;
+          }
+        }
+      }
+
+      // break while loop if all beads have moved
+      done = true;
+      for (int j = 1; j < MoleculeType[type].nBeads; j++) {
+        int id = Molecule[i].Bead[j];
+        if ((*Bead)[id].InTimestep && !(*Bead)[id].Flag) {
           done = false;
           break;
         }

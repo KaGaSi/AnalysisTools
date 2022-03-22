@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
   while (VtfReadTimestep(coor, input_coor, &Box, &Counts, BeadType, &Bead,
                          Index, MoleculeType, Molecule, &step_count)) {
 //  printf("count_coor: %d (step %d)\n", Counts.BeadsCoor, step_count);
-    WriteCoorIndexed_new(out, Counts, Bead, "\0", Box);
+    VtfWriteCoorIndexed(out, "\0", Counts, Bead, Box);
   }
   fclose(coor);
   fclose(out);
