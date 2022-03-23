@@ -323,7 +323,8 @@ void ErrorPrintFull(char *file, int line,
 /*
  * Warning when stopping file reading due to some error in the file
  */
-void WarnStopReading(char *vcf_file, int line_count, int step_count) {
+void WarnStopReading(char *vcf_file, int line_count,
+                     char split[SPL_STR][SPL_LEN], int words) {
   WarnPrintWarning();
   WarnPrintFile(vcf_file);
   CyanText(STDERR_FILENO);
@@ -331,10 +332,15 @@ void WarnStopReading(char *vcf_file, int line_count, int step_count) {
   YellowText(STDERR_FILENO);
   fprintf(stderr, "%d", line_count);
   CyanText(STDERR_FILENO);
-  fputs("), step ", stderr);
+  fputs("); finished reading\n", stderr);
   YellowText(STDERR_FILENO);
-  fprintf(stderr, "%d", step_count);
-  CyanText(STDERR_FILENO);
-  fputs(" (finished reading)\n", stderr);
+  for (int i = 0; i < words; i++) {
+    if (i != 0) {
+      putc(' ', stderr);
+    }
+    fputs(split[i], stderr);
+  }
+  fputs("\n\n", stderr);
+  ResetColour(STDERR_FILENO);
   ResetColour(STDERR_FILENO);
 } //}}}

@@ -24,7 +24,7 @@
 */ //}}}
 
 // TriclinicCellData() //{{{
-void TriclinicCellData(BOX *Box) {
+bool TriclinicCellData(BOX *Box) {
   if ((*Box).alpha != 90 || (*Box).beta != 90 || (*Box).gamma != 90 ) {
     double a = (*Box).Length.x,
            b = (*Box).Length.y,
@@ -35,10 +35,8 @@ void TriclinicCellData(BOX *Box) {
            s_g = sin((*Box).gamma * PI / 180);
     double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
     if (sqr < 0) {
-      ErrorPrintError_old();
-      //TODO coloured output
-      fprintf(stderr, "Error - wrong dimensions");
-      exit(1);
+      strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
+      return false;
     }
     double vol = a * b * c * sqrt(sqr);
 
@@ -62,16 +60,14 @@ void TriclinicCellData(BOX *Box) {
                            c_b * s_g / vol);
     (*Box).inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
     (*Box).inverse[2][2] = a * b * s_g / vol;
-    // tilt for triclinic axes (xy, xz, and yz) & lx, ly, and lz for lammps
+    // tilt for triclinic axes (xy, xz, and yz) & lx, ly, and lz (lammps labels)
     (*Box).TriLength.x = a;
     (*Box).TriTilt[0] = b * c_g; // xy
     (*Box).TriTilt[1] = c * c_b; // xz
     sqr = SQR(b) - SQR((*Box).TriTilt[0]);
     if (sqr < 0) {
-      ErrorPrintError_old();
-      //TODO coloured output
-      fprintf(stderr, "Error - wrong dimensions");
-      exit(1);
+      strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
+      return false;
     }
     (*Box).TriLength.y = sqrt(sqr);
     (*Box).TriTilt[2] = (b * c_a - (*Box).TriTilt[0] * (*Box).TriTilt[1]) /
@@ -90,9 +86,9 @@ void TriclinicCellData(BOX *Box) {
         (*Box).TriTilt[i] = 0;
       }
     }
-    printf("%lf %lf %lf\n", (*Box).Length.x, (*Box).Length.y, (*Box).Length.z);
-    printf("%lf %lf %lf\n", (*Box).TriLength.x, (*Box).TriLength.y, (*Box).TriLength.z);
-    printf("%lf %lf %lf\n", (*Box).TriTilt[0], (*Box).TriTilt[1], (*Box).TriTilt[2]);
+//  printf("\nLength:    %lf %lf %lf\n", (*Box).Length.x, (*Box).Length.y, (*Box).Length.z);
+//  printf("TirLength: %lf %lf %lf\n", (*Box).TriLength.x, (*Box).TriLength.y, (*Box).TriLength.z);
+//  printf("TriTilt:   %lf %lf %lf\n", (*Box).TriTilt[0], (*Box).TriTilt[1], (*Box).TriTilt[2]);
   } else { // orthogonal box //{{{
     (*Box).transform[0][0] = (*Box).Length.x;
     (*Box).transform[1][0] = 0;
@@ -129,6 +125,7 @@ void TriclinicCellData(BOX *Box) {
 //printf("   %lf %lf %lf\n", (*Box).inverse[0][0], (*Box).inverse[0][1], (*Box).inverse[0][2]);
 //printf("   %lf %lf %lf\n", (*Box).inverse[1][0], (*Box).inverse[1][1], (*Box).inverse[1][2]);
 //printf("   %lf %lf %lf\n", (*Box).inverse[2][0], (*Box).inverse[2][1], (*Box).inverse[2][2]);
+  return true;
 } //}}}
 
 // ToFractional() //{{{
@@ -1154,21 +1151,21 @@ void RemovePBCMolecules_new(COUNTS Counts, BOX Box,
       ResetColour(STDERR_FILENO);
     }
 
-    // put molecule's centre of mass into the simulation box //{{{
-    VECTOR com = GeomCentre(MoleculeType[type].nBeads, Molecule[i].Bead, *Bead);
-    // by how many BoxLength's should com be moved?
+    // put molecule's geometric centre into the simulation box //{{{
+    VECTOR cog = GeomCentre(MoleculeType[type].nBeads, Molecule[i].Bead, *Bead);
+    // by how many BoxLength's should cog be moved?
     // for distant molecules - it shouldn't happen, but better safe than sorry
     INTVECTOR move;
-    move.x = com.x / Box.Length.x;
-    move.y = com.y / Box.Length.y;
-    move.z = com.z / Box.Length.z;
-    if (com.x < 0) {
+    move.x = cog.x / Box.Length.x;
+    move.y = cog.y / Box.Length.y;
+    move.z = cog.z / Box.Length.z;
+    if (cog.x < 0) {
       move.x--;
     }
-    if (com.y < 0) {
+    if (cog.y < 0) {
       move.y--;
     }
-    if (com.z < 0) {
+    if (cog.z < 0) {
       move.z--;
     }
     for (int j = 0; j < MoleculeType[type].nBeads; j++) {
@@ -1442,15 +1439,19 @@ VECTOR CentreOfMass(int n, int *list, BEAD *Bead, BEADTYPE *BeadType) {
  */
 VECTOR GeomCentre(int n, int *list, BEAD *Bead) {
   VECTOR cog = {0, 0, 0};
+  int count = 0;
   for (int i = 0; i < n; i++) {
     int id = list[i];
-    cog.x += Bead[id].Position.x;
-    cog.y += Bead[id].Position.y;
-    cog.z += Bead[id].Position.z;
+    if (Bead[id].InTimestep) {
+      cog.x += Bead[id].Position.x;
+      cog.y += Bead[id].Position.y;
+      cog.z += Bead[id].Position.z;
+      count++;
+    }
   }
-  cog.x /= n;
-  cog.y /= n;
-  cog.z /= n;
+  cog.x /= count;
+  cog.y /= count;
+  cog.z /= count;
   return cog;
 } //}}}
 

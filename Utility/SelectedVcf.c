@@ -155,7 +155,6 @@ int main(int argc, char *argv[]) {
   MOLECULE *Molecule; // structure with info about every molecule
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
   BOX Box = InitBox; // triclinic box dimensions and angles
-  bool indexed = false; // indexed timestep?
   VtfReadStruct(input_vsf, false, &Counts, &BeadType, &Bead, &Index,
                 &MoleculeType, &Molecule);
   InFile = calloc(Counts.BeadsTotal, sizeof *InFile); //}}}
@@ -234,21 +233,23 @@ int main(int argc, char *argv[]) {
     exit(1);
   } //}}}
 
+  int file_line_count = 0;
   do {
     if (count >= start || last) {
       break;
     }
     count++;
   } while (VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
-                         Index, MoleculeType, Molecule, &count));
+                           Index, MoleculeType, Molecule, &file_line_count));
   // main loop //{{{
   int count_n_opt = 0; // count saved steps if -n option is used
   count = 0; // count timesteps in the main loop
   int count_vcf = start - 1; // count timesteps from the beginning
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
   fpos_t position;
+  fgetpos(vcf, &position); // get file pointer position
   while (VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
-                         Index, MoleculeType, Molecule, &count)) {
+                         Index, MoleculeType, Molecule, &file_line_count)) {
     count++;
     count_vcf++;
     // print step? //{{{
@@ -343,8 +344,8 @@ int main(int argc, char *argv[]) {
   if (last) {
     fsetpos(vcf, &position); // restore pointer position
     // read coordinates & wrap/join molecules
-    ReadVcfCoordinates(indexed, input_coor, vcf, &Box,
-                       Counts, Index, &Bead, &stuff);
+    VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
+                    Index, MoleculeType, Molecule, &file_line_count);
     // transform coordinates into fractional ones for non-orthogonal box
     ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
     // wrap and/or join molecules?

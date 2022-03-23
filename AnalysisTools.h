@@ -22,7 +22,7 @@
 #include <unistd.h>
 
 // TransformMatrices()
-void TriclinicCellData(BOX *Box);
+bool TriclinicCellData(BOX *Box);
 
 void ToFractional(VECTOR *coor, BOX Box);
 void ToFractionalCoor(int number_of_beads, BEAD **Bead, BOX Box);

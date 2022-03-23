@@ -58,7 +58,7 @@ bool VtfCheckTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
 bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
                      BEADTYPE *BeadType, BEAD **Bead, int *Index,
                      MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
-                     int *step_count);
+                     int *file_line_count);
 void VtfReadStruct_old(char *vsf_file, bool detailed, COUNTS *Counts,
                       BEADTYPE **BeadType, BEAD **Bead, int **Index,
                       MOLECULETYPE **MoleculeType, MOLECULE **Molecule);
@@ -234,8 +234,7 @@ int SkipCoorAggSteps(FILE *vcf, char *input_coor, FILE *agg, char *input_agg, CO
 
 int VtfCheckTimestepLine(int words, char split[SPL_STR][SPL_LEN]);
 
-int VtfCheckPbcLine(int words, char split[SPL_STR][SPL_LEN], char *file,
-                    int line_count);
+int VtfCheckPbcLine(int words, char split[SPL_STR][SPL_LEN], char *file);
 
 bool VtfCheckAtomLine(int words, char split[SPL_STR][SPL_LEN],
                       char *file, int file_line_count);
