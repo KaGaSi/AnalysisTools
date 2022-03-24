@@ -323,15 +323,15 @@ void WriteField(char *field, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
     // error - no beads //{{{
     if (MoleculeType[i].nBeads < 1) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", field);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - molecule ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", MoleculeType[i].Name);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " contains no beads\n\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
     } //}}}
     // find first molecule of the given type
@@ -345,15 +345,15 @@ void WriteField(char *field, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
     // error - no molecule of given type //{{{
     if (MoleculeType[i].Number < 1 || mol == -1) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", field);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - molecule ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", MoleculeType[i].Name);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " does not exist\n\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
     } //}}}
     /*

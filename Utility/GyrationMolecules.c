@@ -134,15 +134,15 @@ int main(int argc, char *argv[]) {
       // error - nonexistent molecule  //{{{
       if (mtype == -1) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - non-existent molecule type ");
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", argv[count]);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, "\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorMoleculeType(Counts, MoleculeType);
         exit(1);
       } //}}}
@@ -251,21 +251,21 @@ int main(int argc, char *argv[]) {
         eigen = FromFractional(eigen, Box);
         // warning - negative eigenvalues //{{{
         if (eigen.x < 0 || eigen.y < 0 || eigen.z < 0) {
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "\nWarning: negative eigenvalues (");
-          CyanText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, CYAN);
           fprintf(stderr, "%lf", eigen.x);
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, ", ");
-          CyanText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, CYAN);
           fprintf(stderr, "%lf", eigen.y);
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, ", ");
-          CyanText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, CYAN);
           fprintf(stderr, "%lf", eigen.z);
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, ")\n");
-          ResetColour(STDERR_FILENO);
+          ColourReset(STDERR_FILENO);
         } //}}}
         double Rgi = sqrt(eigen.x + eigen.y + eigen.z);
         // radius of gyration

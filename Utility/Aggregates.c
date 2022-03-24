@@ -560,25 +560,25 @@ int main(int argc, char *argv[]) {
     int type = FindBeadType(argv[count], Counts, BeadType);
     if (type == -1) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", input_coor);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - non-existent bead name ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s\n", argv[count]);
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       ErrorBeadType(Counts, BeadType);
       exit(1);
     }
     if (BeadType[type].Use) {
       WarnPrintWarning();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "bead name ");
-      CyanText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, CYAN);
       fprintf(stderr, "%s", argv[count]);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, " specified more than once\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
     }
     BeadType[type].Use = true;
   } //}}}

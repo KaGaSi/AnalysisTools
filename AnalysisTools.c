@@ -916,17 +916,17 @@ void RemovePBCMolecules_old(COUNTS Counts, VECTOR BoxLength,
       test++;
     }
     if (test == 1000) {
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "\nWarning: unable to 'join' molecule ");
-      CyanText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, CYAN);
       fprintf(stderr, "%s", MoleculeType[type].Name);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, " (resid ");
-      CyanText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, CYAN);
       fprintf(stderr, "%d", i+1);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, " )\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
     }
 
     // put molecule's centre of mass into the simulation box //{{{
@@ -973,13 +973,13 @@ void RemovePBCMolecules(COUNTS Counts, BOX Box,
   // TODO useless warning? //{{{
 //for (int i = 0; i < Counts.TypesOfMolecules; i++) {
 //  if (MoleculeType[i].nBonds == 0) {
-//    YellowText(STDERR_FILENO);
+//    ColourText(STDERR_FILENO, YELLOW);
 //    fprintf(stderr, "\nWarning: molecule type ");
-//    CyanText(STDERR_FILENO);
+//    ColourText(STDERR_FILENO, CYAN);
 //    fprintf(stderr, "%s", MoleculeType[i].Name);
-//    YellowText(STDERR_FILENO);
+//    ColourText(STDERR_FILENO, YELLOW);
 //    fprintf(stderr, " has no bonds, so it cannot be 'joined'\n");
-//    ResetColour(STDERR_FILENO);
+//    ColourReset(STDERR_FILENO);
 //  }
 //} //}}}
   // go through all molecules
@@ -1030,18 +1030,18 @@ void RemovePBCMolecules(COUNTS Counts, BOX Box,
       test++;
     }
     if (test == 1000) {
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "\nWarning: unable to 'join' molecule");
-      CyanText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, CYAN);
       fprintf(stderr, "%s", MoleculeType[type].Name);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, " (resid ");
-      CyanText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, CYAN);
       fprintf(stderr, "%d", i+1);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, " )\n");
       fprintf(stderr, "           Maybe not all beads are connected?\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
     }
 
     // put molecule's centre of mass into the simulation box //{{{
@@ -1137,18 +1137,18 @@ void RemovePBCMolecules_new(COUNTS Counts, BOX Box,
       test++;
     }
     if (test == 1000) {
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "\nWarning: unable to 'join' molecule");
-      CyanText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, CYAN);
       fprintf(stderr, "%s", MoleculeType[type].Name);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, " (resid ");
-      CyanText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, CYAN);
       fprintf(stderr, "%d", i+1);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, " )\n");
       fprintf(stderr, "           Maybe not all beads are connected?\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
     }
 
     // put molecule's geometric centre into the simulation box //{{{
@@ -1299,18 +1299,18 @@ void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNTS Counts,
       test++;
     }
     if (test == 1000) {
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "\nWarning: unable to 'join' aggregate with these ");
-      CyanText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, CYAN);
       fprintf(stderr, "%d", Aggregate[i].nMolecules);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, " molecules:\n");
       for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-        CyanText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, CYAN);
         fprintf(stderr, " %d", Aggregate[i].Molecule[j]);
       }
       fprintf(stderr, "\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
     }
   }
   free(moved); //}}}
@@ -1893,11 +1893,11 @@ void CopyBead(int number_of_beads, BEAD **b_out, BEAD *b_in, int mode) {
       break;
     default:
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "CopyBeadType()");
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " function requires mode=0, 1, 2, or 3\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
   } //}}}
   for (int i = 0; i < number_of_beads; i++) {
@@ -1930,11 +1930,11 @@ void CopyBeadType(int number_of_types, BEADTYPE **bt_out,
       break;
     default:
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "CopyBeadType()");
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " function requires mode=0, 1, 2, or 3\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
   } //}}}
   for (int i = 0; i < number_of_types; i++) {
@@ -1969,11 +1969,11 @@ void CopyMoleculeType(int number_of_types, MOLECULETYPE **mt_out,
       break;
     default:
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "CopyMoleculeType()");
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " function requires mode=0, 1, 2, or 3\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
   } //}}}
   for (int i = 0; i < number_of_types; i++) {
@@ -2043,11 +2043,11 @@ void CopyMolecule(int number_of_molecules, MOLECULETYPE *mt,
       break;
     default:
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "CopyMolecule()");
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " function requires mode=0, 1, 2, or 3\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
   } //}}}
   for (int i = 0; i < number_of_molecules; i++) {

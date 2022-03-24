@@ -146,15 +146,15 @@ int main(int argc, char *argv[]) {
       // error - nonexistent molecule  //{{{
       if (type == -1) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - non-existent molecule type ");
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", argv[count]);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, "\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorMoleculeType(Counts, MoleculeType);
         exit(1);
       } //}}}
@@ -183,22 +183,22 @@ int main(int argc, char *argv[]) {
   // Error: wrong number of integers //{{{
   if (output_d[0] != '\0' && (number_of_beads%beads_per_set) != 0) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-d");
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - number of bead ids must be even\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
   // Error: same bead ids //{{{
   for (int i = 0; i < number_of_beads; i += 2) {
     if (bead[i] == bead[i+1] || bead[i] == 0 || bead[i+1] == 0) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "-d");
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - the bead indices must be non-zero and different\n\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
     }
   } //}}}
@@ -304,41 +304,41 @@ int main(int argc, char *argv[]) {
 
           // warn if bond is too long //{{{
           if (warn > -1 && bond.x > warn) {
-            YellowText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, YELLOW);
             fprintf(stderr, "\nWarning (-w option): long bond (");
-            CyanText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, CYAN);
             fprintf(stderr, "%lf", bond.x);
-            YellowText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, YELLOW);
             fprintf(stderr, " )\n   Step: ");
-            CyanText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, CYAN);
             fprintf(stderr, "%d", count_vcf);
-            YellowText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, YELLOW);
             fprintf(stderr, "\n   Beads: ");
             // first bead
-            CyanText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, CYAN);
             fprintf(stderr, "%6d", Bead[id1].Index);
-            YellowText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, YELLOW);
             fprintf(stderr, " (");
-            CyanText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, CYAN);
             fprintf(stderr, "%s", BeadType[btype1].Name);
-            YellowText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, YELLOW);
             fprintf(stderr, "): ");
-            CyanText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, CYAN);
             fprintf(stderr, "%lf %lf %lf\n", Bead[id1].Position.x,
                                              Bead[id1].Position.y,
                                              Bead[id1].Position.z);
             // second bead
             fprintf(stderr, "          %6d", Bead[id1].Index);
             fprintf(stderr, " (");
-            CyanText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, CYAN);
             fprintf(stderr, "%s", BeadType[btype1].Name);
-            YellowText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, YELLOW);
             fprintf(stderr, "): ");
-            CyanText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, CYAN);
             fprintf(stderr, "%lf %lf %lf\n", Bead[id1].Position.x,
                                              Bead[id1].Position.y,
                                              Bead[id1].Position.z);
-            ResetColour(STDERR_FILENO);
+            ColourReset(STDERR_FILENO);
           } //}}}
 
           // btype1 must be lower then btype2

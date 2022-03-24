@@ -143,13 +143,13 @@ void VtfReadStruct_old(char *struct_file, bool detailed, COUNTS *Counts,
           strcpy(ERROR_MSG, "multiple 'a[tom] default' lines");
           WarnPrintWarning();
           WarnPrintFile(struct_file);
-          CyanText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, CYAN);
           fprintf(stderr, ", using line ");
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%d", default_atom_line+1);
-          CyanText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, CYAN);
           fprintf(stderr, " as the default line\n");
-          ResetColour(STDERR_FILENO);
+          ColourReset(STDERR_FILENO);
         } else { // save line number of the first 'atom default' line
           default_atom_line = file_line_count - 1; // -1 as arrays ids go from 0
         }
@@ -211,13 +211,13 @@ void VtfReadStruct_old(char *struct_file, bool detailed, COUNTS *Counts,
   // error - no default line and too few atom lines //{{{
   if (default_atom_line == -1 && count_atom_lines != (*Counts).BeadsTotal) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", struct_file);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - missing atom line(s)\n");
     fprintf(stderr, "       (i.e., when 'atom default' is omitted, \
 there must be a line for each atom)\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
   // total number of lines in the structure section //{{{
@@ -334,13 +334,13 @@ there must be a line for each atom)\n");
     if (bond[i].index1 >= (*Counts).BeadsTotal ||
         bond[i].index2 >= (*Counts).BeadsTotal) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", struct_file);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - bead index too high in ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "bond %d:%d\n", bond[i].index1, bond[i].index2);
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
     }
   } //}}}
@@ -883,16 +883,16 @@ there must be a line for each atom)\n");
   for (int i = 0; i < (*Counts).Molecules; i++) {
     if (atoms_per_mol[i] == 0) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", struct_file);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - 'resid' numbering is not continuous\n");
       fprintf(stderr, "       Molecule ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%d", i);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " is missing\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
     }
   } //}}}
@@ -921,15 +921,15 @@ there must be a line for each atom)\n");
   for (int i = 0; i < (*Counts).Molecules; i++) {
     if (count_in_mol[i] != atoms_per_mol[i]) {
       ErrorPrintError_old();
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, "something wrong with bead count in molecule");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%d", i);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%d!=%d\n", count_in_mol[i], atoms_per_mol[i]);
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
     }
   } //}}}
@@ -954,27 +954,27 @@ there must be a line for each atom)\n");
     // error - beads from one bond are in different molecules
     if (m_id1 != m_id2) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", struct_file);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - bonded beads in different molecules (bead ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%d", bond[i].index1);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " in molecule ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%d", m_id1+1); // resid start at 1 in vsf
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " and bead ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%d", bond[i].index2);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " in molecule ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%d", m_id2+1); // resid start at 1 in vsf
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, ")\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
     }
     bonds_per_mol[m_id1]++;
@@ -1078,13 +1078,13 @@ there must be a line for each atom)\n");
           // error - too few/too many beads in a molecule
           if (atoms_per_mol[i] != mt[j].nBeads) {
             ErrorPrintError_old();
-            YellowText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, YELLOW);
             fprintf(stderr, "%s", struct_file);
-            RedText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, RED);
             fprintf(stderr, " - molecule ");
-            YellowText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, YELLOW);
             fprintf(stderr, "resid %d", i);
-            RedText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, RED);
             fprintf(stderr, " contains too ");
             if (atoms_per_mol[i] > mt[j].nBeads) {
               fprintf(stderr, "many ");
@@ -1092,7 +1092,7 @@ there must be a line for each atom)\n");
               fprintf(stderr, "few ");
             }
             fprintf(stderr, "beads (%d instead of %d)\n", atoms_per_mol[i], mt[j].nBeads);
-            ResetColour(STDERR_FILENO);
+            ColourReset(STDERR_FILENO);
             exit(1);
           }
         }
@@ -1255,13 +1255,13 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
           strcpy(ERROR_MSG, "multiple 'a[tom] default' lines");
           WarnPrintWarning();
           WarnPrintFile(struct_file);
-          CyanText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, CYAN);
           fprintf(stderr, ", using line ");
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%d", default_atom);
-          CyanText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, CYAN);
           fprintf(stderr, " as the default line\n");
-          ResetColour(STDERR_FILENO); //}}}
+          ColourReset(STDERR_FILENO); //}}}
         } else { // save line number of the first 'atom default' line //{{{
           default_atom = file_line_count;
           // save values for the default bead type
@@ -1417,16 +1417,16 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
   if (default_atom == 0 && count_atoms != (*Counts).BeadsTotal) {
     strcpy(ERROR_MSG, "not all beads defined ('atom default' line is omitted)");
     ErrorPrintError();
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fputs("File ", stderr);
-    PrintFile(struct_file);
-    RedText(STDERR_FILENO);
+    PrintFile(struct_file, YELLOW);
+    ColourText(STDERR_FILENO, RED);
     fputs(", ", stderr);
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%d", (*Counts).BeadsTotal-count_atoms);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fputs(" bead(s) undefined\n", stderr);
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
   // create array linking internal and vsf resids //{{{
@@ -1944,26 +1944,26 @@ contact developper\n");
     if (m_id1 != m_id2) {
       strcpy(ERROR_MSG, "bonded beads in different molecules");
       ErrorPrintError();
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fputs("File ", stderr);
-      PrintFile(struct_file);
-      RedText(STDERR_FILENO);
+      PrintFile(struct_file, YELLOW);
+      ColourText(STDERR_FILENO, RED);
       fputs(", beads ", stderr);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%d", bond[i].index1);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fputs(" and ", stderr);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%d", bond[i].index2);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fputs(" in molecules ", stderr);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%d", mol_id_internal[m_id2]);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fputs(" and ", stderr);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%d\n", mol_id_internal[m_id1]);
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
     } //}}}
     bonds_per_mol[m_id1]++;
@@ -2237,11 +2237,11 @@ bool VtfCheckTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
         break;
       } else {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", vcf_file);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - %s\n", line);
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       }
@@ -2258,11 +2258,11 @@ bool VtfCheckTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
   // error - not all beads present for ordered timestep //{{{
   if (!indexed && lines != (*Counts).BeadsCoor) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", vcf_file);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - ordered timestep requires all beads in the vcf file\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
   // if all beads are in the coordinate file, nothing more to do
@@ -2302,15 +2302,15 @@ bool VtfCheckTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
     if (numbers[i] != 0 && numbers[i] != (*BeadType)[i].Number) {
       printf("%d %d\n", numbers[i], (*BeadType)[i].Number);
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", vcf_file);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - not all ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", (*BeadType)[i].Name);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " beads are in the coordinate file\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
     }
     if (numbers[i] > 0) {
@@ -2608,6 +2608,8 @@ bool VtfCheckTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
 // VtfReadTimestep() //{{{
 // TODO WarnStopReading -- does printing line make sense; i.e., do the
 //                         split[][] and words always contain the wrong line?
+//                         It seems to, but check for EOF & blank line before
+//                         printing!
 bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
                      BEADTYPE *BeadType, BEAD **Bead, int *Index,
                      MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
@@ -2664,7 +2666,7 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
       case COOR_LINE_O: // coordinate line in (definitely) ordered timestep
         if (indexed == 1) {
           strcpy(ERROR_MSG, "ordered coordinate line in 'timestep indexed'");
-          WarnPrintWarning();
+          WarnStopReading(vcf_file, *file_line_count, split, words);
           return false;
         } else if (indexed == -1){
           strcpy(ERROR_MSG, "found coordinate line before 'timestep' line");
@@ -2682,14 +2684,14 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
   exit_loop: ; //}}}
   // return 'false' when no coordinates present //{{{
   if ((*Counts).BeadsCoor == -1) {
-    strcpy(ERROR_MSG, "found no coordinates");
-    WarnStopReading(vcf_file, *file_line_count, split, words);
     return false;
   } //}}}
   // read timestep coordinates //{{{
   fpos_t position; // to save file position
   // first coordinate line was already read
+  (*file_line_count)--;
   while (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
+    (*file_line_count)++;
     if (indexed == 1) { // 'timestep indexed' line
       if (ltype == COOR_LINE_I) {
         int id = Index[atoi(split[0])];
@@ -2699,15 +2701,15 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
           WarnStopReading(vcf_file, *file_line_count, split, words);
           return false;
         } //}}}
-        (*Bead)[id].Position.x = atof(split[1]);
-        (*Bead)[id].Position.y = atof(split[2]);
-        (*Bead)[id].Position.z = atof(split[3]);
         // error - bead id was already found in the timestep //{{{
         if ((*Bead)[id].InTimestep) {
           strcpy(ERROR_MSG, "multiple bead entry with the same index");
           WarnStopReading(vcf_file, *file_line_count, split, words);
           return false;
         } //}}}
+        (*Bead)[id].Position.x = atof(split[1]);
+        (*Bead)[id].Position.y = atof(split[2]);
+        (*Bead)[id].Position.z = atof(split[3]);
         (*Bead)[id].InTimestep = true;
         if (words >= 7 && IsReal(split[4]) &&
             IsReal(split[5]) && IsReal(split[6])) { // bead velocities, if present
@@ -2747,7 +2749,6 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
       } //}}}
       return true;
     }
-    (*file_line_count)++;
     // find the type of line
     ltype = VtfCheckLineType(words, split, false,
                              vcf_file, *file_line_count);
@@ -2863,13 +2864,13 @@ int ReadVtfTimestepPreamble_old(bool *indexed, char *input_coor, FILE *vcf_file,
 //             split[0][0] != 'o' && //
 //             strcasecmp(split[0], "pbc") != 0 && // 3)
 //             !IsReal(split[0])) { // 4)
-//    RedText(STDERR_FILENO);
+//    ColourText(STDERR_FILENO, RED);
 //    fprintf(stderr, "\nError: ");
-//    YellowText(STDERR_FILENO);
+//    ColourText(STDERR_FILENO, YELLOW);
 //    fprintf(stderr, "%s", input_coor);
-//    RedText(STDERR_FILENO);
+//    ColourText(STDERR_FILENO, RED);
 //    fprintf(stderr, " - unrecognised line in the timestep preamble\n");
-//    ResetColour(STDERR_FILENO);
+//    ColourReset(STDERR_FILENO);
 //    ErrorPrintLine(split, words);
 //    exit(1);
 //  } //}}}
@@ -2909,17 +2910,17 @@ int ReadVtfTimestepPreamble_old(bool *indexed, char *input_coor, FILE *vcf_file,
 //count_lines--; // the last counted line contained the first coordinate line
 //// error (as long as we care) - missing timestep line //{{{
 //if (quit && !timestep) {
-//  RedText(STDERR_FILENO);
+//  ColourText(STDERR_FILENO, RED);
 //  fprintf(stderr, "\nError: ");
-//  YellowText(STDERR_FILENO);
+//  ColourText(STDERR_FILENO, YELLOW);
 //  fprintf(stderr, "%s", input_coor);
-//  RedText(STDERR_FILENO);
+//  ColourText(STDERR_FILENO, RED);
 //  fprintf(stderr, " - missing t(imestep) o(rdered)/i(indexed) line\n");
 //  if (indexed) {
 //    fprintf(stderr, "       or more indexed coordinate lines");
 //    fprintf(stderr, " than in the first timestep\n");
 //  }
-//  ResetColour(STDERR_FILENO);
+//  ColourReset(STDERR_FILENO);
 //  exit(1);
 //} //}}}
 //fsetpos(vcf_file, &position); // restore pointer position
@@ -2978,11 +2979,11 @@ int ReadVtfTimestepPreamble(bool *indexed, char *input_coor, FILE *vcf_file,
     // error - only if we care \TODO why would we care? //{{{
     } else if (quit && ltype == ERROR_LINE) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", input_coor);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - unrecognised line in a timestep preamble\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       ErrorPrintLine(split, words);
       exit(1);
     } //}}}
@@ -3002,15 +3003,15 @@ int ReadVtfTimestepPreamble(bool *indexed, char *input_coor, FILE *vcf_file,
   // error (as long as we care) - missing timestep line //{{{
   if (quit && !timestep) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", input_coor);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - missing t(imestep) o(rdered)/i(indexed) line\n");
     if (indexed) {
       fprintf(stderr, "       or more indexed coordinate lines");
       fprintf(stderr, " than in the first timestep\n");
     }
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
   fsetpos(vcf_file, &position); // restore pointer position
@@ -3071,15 +3072,15 @@ void ReadCoordinates_old(bool indexed, char *input_coor, FILE *vcf_file, COUNTS 
   // error - wrong type of step (indexed vs. ordered) //{{{
   if (test_indexed != indexed) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", input_coor);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     if (test_indexed) {
       fprintf(stderr, " - indexed timestep instead of an ordered one\n");
     } else {
       fprintf(stderr, " - ordered timestep instead of an indexed one\n");
     }
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
   // skip the preamble lines //{{{
@@ -3099,12 +3100,12 @@ void ReadCoordinates_old(bool indexed, char *input_coor, FILE *vcf_file, COUNTS 
       // error - end of file
       if (feof(vcf_file)) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - unexpected end of file\n");
         fprintf(stderr, "       possibly fewer beads in a timestep than in the first timestep\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         exit(1);
       }
       int words = SplitLine(split, line, " \t");
@@ -3112,11 +3113,11 @@ void ReadCoordinates_old(bool indexed, char *input_coor, FILE *vcf_file, COUNTS 
       if (words < 4 || !IsInteger(split[0]) || !IsReal(split[1]) ||
           !IsReal(split[2]) || !IsReal(split[3])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - cannot read a coordinate line\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       }
@@ -3140,11 +3141,11 @@ void ReadCoordinates_old(bool indexed, char *input_coor, FILE *vcf_file, COUNTS 
       if (words < 3 || !IsReal(split[0]) ||
           !IsReal(split[1]) || !IsReal(split[2])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - cannot read coordinates\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       }
@@ -3172,15 +3173,15 @@ void ReadVcfCoordinates_old(bool indexed, char *input_coor, FILE *vcf_file,
   // error - wrong type of step (indexed vs. ordered) //{{{
   if (test_indexed != indexed) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", input_coor);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     if (test_indexed) {
       fprintf(stderr, " - indexed timestep instead of an ordered one\n");
     } else {
       fprintf(stderr, " - ordered timestep instead of an indexed one\n");
     }
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
   // skip the preamble lines //{{{
@@ -3200,13 +3201,13 @@ void ReadVcfCoordinates_old(bool indexed, char *input_coor, FILE *vcf_file,
       // error - end of file //{{{
       if (feof(vcf_file)) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - unexpected end of file\n");
         fprintf(stderr, "       maybe fewer beads in a timestep");
         fprintf(stderr, " than in the first timestep\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         exit(1);
       } //}}}
       int words = SplitLine(split, line, " \t");
@@ -3214,11 +3215,11 @@ void ReadVcfCoordinates_old(bool indexed, char *input_coor, FILE *vcf_file,
       if (words < 4 || !IsInteger(split[0]) ||
           !IsReal(split[1]) || !IsReal(split[2]) || !IsReal(split[3])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - cannot read a coordinate line\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       } //}}}
@@ -3248,11 +3249,11 @@ void ReadVcfCoordinates_old(bool indexed, char *input_coor, FILE *vcf_file,
       if (words < 3 ||
           !IsReal(split[0]) || !IsReal(split[1]) || !IsReal(split[2])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - cannot read coordinates\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       } //}}}
@@ -3284,15 +3285,15 @@ void ReadVcfCoordinates(bool indexed, char *input_coor, FILE *vcf_file,
   // error - wrong type of step (indexed vs. ordered) //{{{
   if (test_indexed != indexed) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", input_coor);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     if (test_indexed) {
       fprintf(stderr, " - indexed timestep instead of an ordered one\n");
     } else {
       fprintf(stderr, " - ordered timestep instead of an indexed one\n");
     }
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
   // skip the preamble lines //{{{
@@ -3312,13 +3313,13 @@ void ReadVcfCoordinates(bool indexed, char *input_coor, FILE *vcf_file,
       // error - end of file //{{{
       if (feof(vcf_file)) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - unexpected end of file\n");
         fprintf(stderr, "       maybe fewer beads in a timestep");
         fprintf(stderr, " than in the first timestep\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         exit(1);
       } //}}}
       int words = SplitLine(split, line, " \t");
@@ -3326,11 +3327,11 @@ void ReadVcfCoordinates(bool indexed, char *input_coor, FILE *vcf_file,
       if (words < 4 || !IsInteger(split[0]) ||
           !IsReal(split[1]) || !IsReal(split[2]) || !IsReal(split[3])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - cannot read a coordinate line\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       } //}}}
@@ -3360,11 +3361,11 @@ void ReadVcfCoordinates(bool indexed, char *input_coor, FILE *vcf_file,
       if (words < 3 ||
           !IsReal(split[0]) || !IsReal(split[1]) || !IsReal(split[2])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - cannot read coordinates\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       } //}}}
@@ -3403,13 +3404,13 @@ void SkipVcfCoor(FILE *vcf_file, char *input_coor,
     // premature end of file?
     if (feof(vcf_file) == EOF) {
       ErrorPrintError_old();
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, "premature end of ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", input_coor);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " file\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
     }
   }
@@ -3433,22 +3434,22 @@ void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts,
   // error if the first line is 'L[ast Step]' or isn't 'Step: <int>'//{{{
   if (split[0][0] == 'L') {
     ErrorPrintError_old();
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, "premature end of ");
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", agg_file);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " file");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } else if (words < 2 || strcmp(split[0], "Step:") != 0 ||
              !IsInteger(split[1])) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", agg_file);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - wrong 'Step' line\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     ErrorPrintLine(split, words);
     exit(1);
   } //}}}
@@ -3462,11 +3463,11 @@ void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts,
   // error - the number of aggregates must be <int>
   if (words == 0 || !IsInteger(split[0])) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", agg_file);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - number of aggregates must be a whole number\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     ErrorPrintLine(split, words);
     exit(1);
   }
@@ -3476,11 +3477,11 @@ void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts,
   words = SplitLine(split, line, " \t");
   if (words > 0) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", agg_file);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - missing a blank line after number of aggregates\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     ErrorPrintLine(split, words);
     exit(1);
   } //}}}
@@ -3574,21 +3575,21 @@ void SkipAgg(FILE *agg, char *agg_file) {
   // error if the first line is 'L[ast Step]' or isn't 'Step: <int>'//{{{
   if (split[0][0] == 'L') {
     ErrorPrintError_old();
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, "premature end of ");
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", agg_file);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " file");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } else if (words < 2 || !IsInteger(split[1])) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", agg_file);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - wrong 'Step' line\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     ErrorPrintLine(split, words);
     exit(1);
   } //}}}
@@ -3598,11 +3599,11 @@ void SkipAgg(FILE *agg, char *agg_file) {
   // Error - number of aggregates must be <int> //{{{
   if (words != 0 && !IsInteger(split[0])) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", agg_file);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - number of aggregates must be a whole number\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     ErrorPrintLine(split, words);
     exit(1);
   } //}}}
@@ -3613,13 +3614,13 @@ void SkipAgg(FILE *agg, char *agg_file) {
     while ((test = getc(agg)) != '\n') {
       if (test == EOF) {
         ErrorPrintError_old();
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, "premature end of ");
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", agg_file);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " file");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         exit(1);
       }
     }
@@ -3629,13 +3630,13 @@ void SkipAgg(FILE *agg, char *agg_file) {
   words = SplitLine(split, line, " \t");
   if (feof(agg) == EOF) {
     ErrorPrintError_old();
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, "premature end of ");
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", agg_file);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " file");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   }
 } //}}}
@@ -3698,11 +3699,11 @@ void ReadFieldBeadType(char *field, COUNTS *Counts,
       // check if the next string is a number
       if (words < 2 || !IsInteger(split[1])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", field);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - missing number of species\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       }
@@ -3712,11 +3713,11 @@ void ReadFieldBeadType(char *field, COUNTS *Counts,
   }
   if (missing) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", field);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - missing 'species' keyword\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
   *BeadType = calloc((*Counts).TypesOfBeads, sizeof (BEADTYPE));
@@ -3738,22 +3739,22 @@ void ReadFieldBeadType(char *field, COUNTS *Counts,
      */
     if (words == 1 && split[0][0] == '\0') { // 1)
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", field);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - no blank lines permitted in the species section\n\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
     } else if (words < 4 ||                  // 2)
                !IsPosReal(split[1]) ||     // 3)
                !IsReal(split[2]) ||        // 4)
                !IsInteger(split[3])) {       // 5)
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", field);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - wrong species line\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       ErrorPrintLine(split, words);
       exit(1);
     } //}}}
@@ -3806,11 +3807,11 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
       // error - 'molecule' not followed by an integer
       if (!IsInteger(split[1])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", field);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - missing number of molecule types\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       }
@@ -3821,11 +3822,11 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
   // error - no molecule keyword
   if (missing) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", field);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - missing 'molecule' line\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
   // allocate molecule type struct
@@ -3844,11 +3845,11 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
   // error - fewer 'finish'es than molecule types
   if (count < (*Counts).TypesOfMolecules) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", field);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - missing 'finish' keyword\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   }
   // restore the file pointer position
@@ -3883,11 +3884,11 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
     SplitLine(split, line, " \t");
     if (split[0][0] == '\0') {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", field);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - expecting molecule name\n\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
     }
     // copy name to MOLECULETYPE
@@ -3901,11 +3902,11 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
     if (strncasecmp(split[0], "nummols", 6) != 0 ||
         words < 2 || !IsInteger(split[1])) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", field);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - expecting 'nummol[s] <number of molecules>'\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       ErrorPrintLine(split, words);
       exit(1);
     }
@@ -3918,11 +3919,11 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
     if (strncasecmp(split[0], "beads", 4) != 0 ||
         words < 2 || !IsInteger(split[1])) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", field);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - expecting 'bead[s] <number of beads>'\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       ErrorPrintLine(split, words);
       exit(1);
     } //}}}
@@ -3939,13 +3940,13 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
       if (words < 4 ||
           !IsReal(split[1]) || !IsReal(split[2]) || !IsReal(split[3])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", field);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - wrong bead line in molecule ");
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s\n", (*MoleculeType)[i].Name);
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       } //}}}
@@ -3953,17 +3954,17 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
       // error - unknown bead type //{{{
       if (type == -1) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", field);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - non-existent bead name ");
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", split[0]);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " in molecule ");
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s\n", (*MoleculeType)[i].Name);
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorBeadType(*Counts, *BeadType);
         exit(1);
       } //}}}
@@ -3980,11 +3981,11 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
       if (strncasecmp(split[0], "bonds", 4) != 0 ||
           words < 2 || !IsInteger(split[1])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", field);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - expecting 'bond[s] <number of bonds>'\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       } //}}}
@@ -4005,13 +4006,13 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
         if (words < 5 || !IsInteger(split[1]) || !IsInteger(split[2]) ||
             !IsPosReal(split[3]) || !IsPosReal(split[4])) {
           ErrorPrintError_old();
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", field);
-          RedText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, RED);
           fprintf(stderr, " - wrong bond line in molecule ");
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s\n", (*MoleculeType)[i].Name);
-          ResetColour(STDERR_FILENO);
+          ColourReset(STDERR_FILENO);
           ErrorPrintLine(split, words);
           exit(1);
         } //}}}
@@ -4019,13 +4020,13 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
         if (atoi(split[1]) > (*MoleculeType)[i].nBeads || atoi(split[1]) < 1 ||
             atoi(split[2]) > (*MoleculeType)[i].nBeads || atoi(split[2]) < 1) {
           ErrorPrintError_old();
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", field);
-          RedText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, RED);
           fprintf(stderr, " - wrong bead index in a bond in molecule ");
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s\n", (*MoleculeType)[i].Name);
-          ResetColour(STDERR_FILENO);
+          ColourReset(STDERR_FILENO);
           ErrorPrintLine(split, words);
           exit(1);
         } //}}}
@@ -4059,11 +4060,11 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
       // error - missing number of angles //{{{
       if (words < 2 || !IsInteger(split[1])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", field);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - expecting 'angle[s] <number of angles>'\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       } //}}}
@@ -4085,11 +4086,11 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
             !IsInteger(split[2]) || !IsInteger(split[3]) ||
             !IsPosReal(split[4]) || !IsPosReal(split[5])) {
           ErrorPrintError_old();
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", field);
-          RedText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, RED);
           fprintf(stderr, " - wrong angle line in molecule ");
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s\n", (*MoleculeType)[i].Name);
           ErrorPrintLine(split, words);
           exit(1);
@@ -4119,11 +4120,11 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
     // error - extra bonds (from previous section)
     } else if (strncasecmp(split[0], "harm", 4) == 0) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", field);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - extra bond line in molecule ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s\n", (*MoleculeType)[i].Name);
       ErrorPrintLine(split, words);
       exit(1);
@@ -4141,11 +4142,11 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
       // error - wrong number of dihedrals //{{{
       if (words < 2 || !IsInteger(split[1])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", field);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - expecting 'dihed[rals] <number of angles>'\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       } //}}}
@@ -4170,11 +4171,11 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
             !IsInteger(split[3]) || !IsInteger(split[4]) ||
             !IsReal(split[5]) || !IsReal(split[6])) {
           ErrorPrintError_old();
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", field);
-          RedText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, RED);
           fprintf(stderr, " - wrong dihedral line in molecule ");
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s\n", (*MoleculeType)[i].Name);
           ErrorPrintLine(split, words);
           exit(1);
@@ -4205,11 +4206,11 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
     // error - extra bonds or angles (from previous section)
     } else if (strncasecmp(split[0], "harm", 4) == 0) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", field);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - extra bond or angle line in molecule ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s\n", (*MoleculeType)[i].Name);
       ErrorPrintLine(split, words);
       exit(1);
@@ -4339,12 +4340,12 @@ void ReadField(char *field, VECTOR *BoxLength, COUNTS *Counts,
   // read pbc if required //{{{
   if (BoxLength != NULL && !ReadFieldPbc(field, BoxLength)) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", field);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - first line must start with box size, ");
     fprintf(stderr, "i.e., 'pbc <double> <double> <double>'\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
   ReadFieldBeadType(field, Counts, BeadType, Bead);
@@ -4421,11 +4422,11 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
     if (words > 1 && strcmp(split[1], "atoms") == 0) {
       if (!IsInteger(split[0])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", data_file);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - 'atoms' keyword must be preceded by integer\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       }
@@ -4436,11 +4437,11 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
     if (words > 1 && strcmp(split[1], "bonds") == 0) {
       if (!IsInteger(split[0])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", data_file);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - 'bonds' keyword must be preceded by integer\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       }
@@ -4450,11 +4451,11 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
     if (words > 1 && strcmp(split[1], "angles") == 0) {
       if (!IsInteger(split[0])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", data_file);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - 'angles' keyword must be preceded by integer\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       }
@@ -4464,11 +4465,11 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
     if (words > 2 && strcmp(split[1], "atom") == 0 && strcmp(split[2], "types") == 0) {
       if (!IsInteger(split[0])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", data_file);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - 'atom types' keyword must be preceded by integer\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       }
@@ -4478,11 +4479,11 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
     if (words > 2 && strcmp(split[1], "bond") == 0 && strcmp(split[2], "types") == 0) {
       if (!IsInteger(split[0])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", data_file);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - 'bond types' keyword must be preceded by integer\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       }
@@ -4492,11 +4493,11 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
     if (words > 2 && strcmp(split[1], "angle") == 0 && strcmp(split[2], "types") == 0) {
       if (!IsInteger(split[0])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", data_file);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - 'angle types' keyword must be preceded by integer\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       }
@@ -4506,11 +4507,11 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
     if (words > 3 && strcmp(split[2], "xlo") == 0 && strcmp(split[3], "xhi") == 0) {
       if (!IsReal(split[0]) || !IsReal(split[1])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", data_file);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - 'xlo xhi' keyword must be preceded by two floats\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       }
@@ -4521,11 +4522,11 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
     if (words > 3 && strcmp(split[2], "ylo") == 0 && strcmp(split[3], "yhi") == 0) {
       if (!IsReal(split[0]) || !IsReal(split[1])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", data_file);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - 'ylo yhi' keyword must be preceded by two floats\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       }
@@ -4536,11 +4537,11 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
     if (words > 3 && strcmp(split[2], "zlo") == 0 && strcmp(split[3], "zhi") == 0) {
       if (!IsReal(split[0]) || !IsReal(split[1])) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", data_file);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - 'zlo zhi' keyword must be preceded by two floats\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       }
@@ -4555,47 +4556,47 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
   // some error checking //{{{
   if ((*Counts).TypesOfBeads == 0) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", data_file);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - missing 'atom types' line (or is 0)\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   }
   if ((*Counts).BeadsTotal == 0) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", data_file);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - missing 'atoms' line (or is 0)\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   }
   if ((*BoxLength).x == 0) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", data_file);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - missing 'xlo xhi' line (or is 0)\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   }
   if ((*BoxLength).y == 0) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", data_file);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - missing 'ylo yhi' line (or is 0)\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   }
   if ((*BoxLength).z == 0) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", data_file);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - missing 'zlo zhi' line (or is 0)\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
 
@@ -4634,11 +4635,11 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
         // error if incorrect line //{{{
         if (words < 2 || !IsInteger(split[0]) || !IsPosReal(split[1])) {
           ErrorPrintError_old();
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", data_file);
-          RedText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, RED);
           fprintf(stderr, " - each line in 'Masses' section must start with '<int> <float>'\n");
-          ResetColour(STDERR_FILENO);
+          ColourReset(STDERR_FILENO);
           ErrorPrintLine(split, words);
           exit(1);
         } //}}}
@@ -4670,11 +4671,11 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
         // error if incorrect line //{{{
         if (words < 3 || !IsInteger(split[0]) || !IsPosReal(split[1]) || !IsPosReal(split[2])) {
           ErrorPrintError_old();
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", data_file);
-          RedText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, RED);
           fprintf(stderr, " - each line in 'Bond Coeffs' section must start with '<int> <float> <float>'\n");
-          ResetColour(STDERR_FILENO);
+          ColourReset(STDERR_FILENO);
           ErrorPrintLine(split, words);
           exit(1);
         } //}}}
@@ -4693,11 +4694,11 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
         // error if incorrect line //{{{
         if (words < 3 || !IsInteger(split[0]) || !IsPosReal(split[1]) || !IsPosReal(split[2])) {
           ErrorPrintError_old();
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", data_file);
-          RedText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, RED);
           fprintf(stderr, " - each line in 'Angle Coeffs' section must start with '<int> <float> <float>'\n");
-          ResetColour(STDERR_FILENO);
+          ColourReset(STDERR_FILENO);
           ErrorPrintLine(split, words);
           exit(1);
         } //}}}
@@ -4729,11 +4730,11 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
             !IsInteger(split[0]) || !IsInteger(split[1]) || !IsInteger(split[2]) ||
             !IsReal(split[3]) || !IsReal(split[4]) || !IsReal(split[5]) || !IsReal(split[6])) {
           ErrorPrintError_old();
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", data_file);
-          RedText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, RED);
           fprintf(stderr, " - each 'Atoms' line must be <id> <mol_id> <bead type> <charge> <x> <y> <z>\n");
-          ResetColour(STDERR_FILENO);
+          ColourReset(STDERR_FILENO);
           ErrorPrintLine(split, words);
           exit(1);
         } //}}}
@@ -4839,11 +4840,11 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
             !IsInteger(split[0]) || !IsInteger(split[1]) ||
             !IsInteger(split[2]) || !IsInteger(split[3])) {
           ErrorPrintError_old();
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", data_file);
-          RedText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, RED);
           fprintf(stderr, " - each 'Bonds' line must be <bond id> <bond type> <bead1d> <bead2>\n");
-          ResetColour(STDERR_FILENO);
+          ColourReset(STDERR_FILENO);
           ErrorPrintLine(split, words);
           exit(1);
         } //}}}
@@ -4855,15 +4856,15 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
         // error when the second bead is in different molecule //{{{
         if (mol != (*Bead)[bead2].Molecule) {
           ErrorPrintError_old();
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", data_file);
-          RedText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, RED);
           fprintf(stderr, " - beads in ");
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "bond %d", atoi(split[0]));
-          RedText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, RED);
           fprintf(stderr, "are in different molecules\n\n");
-          ResetColour(STDERR_FILENO);
+          ColourReset(STDERR_FILENO);
           exit(1);
         } //}}}
         // increment number of bonds in the molecule
@@ -5051,11 +5052,11 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
             !IsInteger(split[0]) || !IsInteger(split[1]) ||
             !IsInteger(split[2]) || !IsInteger(split[3]) || !IsInteger(split[4])) {
           ErrorPrintError_old();
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", data_file);
-          RedText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, RED);
           fprintf(stderr, " - each 'Angles' line must be <angle id> <angle type> <bead1d> <bead2> <bead3>\n");
-          ResetColour(STDERR_FILENO);
+          ColourReset(STDERR_FILENO);
           ErrorPrintLine(split, words);
           exit(1);
         } //}}}
@@ -5068,15 +5069,15 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
         // error when the second bead is in different molecule //{{{
         if (mol != (*Bead)[bead2].Molecule || mol != (*Bead)[bead3].Molecule) {
           ErrorPrintError_old();
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", data_file);
-          RedText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, RED);
           fprintf(stderr, " - atoms in ");
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "angle %d", atoi(split[0]));
-          RedText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, RED);
           fprintf(stderr, " are in different molecules\n\n");
-          ResetColour(STDERR_FILENO);
+          ColourReset(STDERR_FILENO);
           exit(1);
         } //}}}
         // increment number of bonds in the molecule
@@ -5288,19 +5289,19 @@ int SkipCoorSteps(FILE *vcf, char *input_coor, COUNTS Counts, int start, bool si
   if (LastStep(vcf, NULL)) {
     fflush(stdout);
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", input_coor);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - starting timestep (");
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%d", start);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, ") is higher than the total number of steps (");
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%d", count);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, ")\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
   return count;
@@ -5340,19 +5341,19 @@ int SkipCoorAggSteps(FILE *vcf, char *input_coor, FILE *agg, char *input_agg,
   if (LastStep(vcf, NULL)) {
     fflush(stdout);
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", input_coor);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - starting timestep (");
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%d", start);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, ") is higher than the total number of steps (");
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%d", count);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, ")\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
   return count;
@@ -5833,23 +5834,23 @@ void ReadAggCommand(BEADTYPE *BeadType, COUNTS Counts,
   // error - not enough strings for a proper Aggregate command //{{{
   if (words < 6) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", input_agg);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - first line must contain a valid Aggregates command\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     ErrorPrintLine(split, words);
     exit(1);
   } //}}}
   // read <distance> argument from Aggregates command //{{{
   if (!IsPosReal(split[2])) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", input_agg);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - <distance> in the Aggregate command \
 must be non-negative real number\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     ErrorPrintLine(split, words);
     exit(1);
   }
@@ -5857,31 +5858,31 @@ must be non-negative real number\n");
   // read <contacts> argument from Aggregates command //{{{
   if (!IsInteger(split[3])) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%s", input_agg);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - <contacts> in the Aggregate command \
 must be a non-negative integer\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     ErrorPrintLine(split, words);
     exit(1);
   }
   *contacts = atof(split[3]); //}}}
   // warning - differently named vcf file than the one in agg file //{{{
   if (strcmp(split[1], input_coor) != 0) {
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "\nWarning: coordinate file ");
-    CyanText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, CYAN);
     fprintf(stderr, "%s", input_coor);
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, " is different to the one in the aggregate file (");
-    CyanText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, CYAN);
     fprintf(stderr, "%s", split[1]);
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, ")\n");
     fprintf(stderr, "         Mismatch between beads present in both files \
 can lead to undefined behaviour.\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
   } //}}}
   // read <type names> from Aggregates command //{{{
   for (int i = 5; i < words && split[i][0] != '-'; i++) {
@@ -5889,15 +5890,15 @@ can lead to undefined behaviour.\n");
     // Error - specified bead type name not in vcf input file
     if (type == -1) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", input_agg);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - non-existent bead name (");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", split[i]);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, ") in Aggregate command\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       ErrorBeadType(Counts, BeadType);
       exit(1);
     }
@@ -5977,13 +5978,13 @@ void FillMolMass(int number_of_types,
       }
     }
     if ((*MoleculeType)[i].Mass == MASS) {
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "\nWarning: molecule type ");
-      CyanText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, CYAN);
       fprintf(stderr, "%s", (*MoleculeType)[i].Name);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, " has undefined mass\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
     }
   }
 } //}}}
@@ -6008,13 +6009,13 @@ void FillMolCharge(int number_of_types, BEADTYPE *BeadType,
       }
     }
     if ((*MoleculeType)[i].Charge == CHARGE) {
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "\nWarning: molecule type ");
-      CyanText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, CYAN);
       fprintf(stderr, "%s", (*MoleculeType)[i].Name);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, " has undefined charge\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
     }
   }
 } //}}}

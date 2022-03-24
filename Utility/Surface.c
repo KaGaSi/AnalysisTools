@@ -113,11 +113,11 @@ int main(int argc, char *argv[]) {
     // Error - not x/y/z
     if (axis != 'x' && axis != 'y' && axis != 'z') {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "<axis>");
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - use 'x', 'y', or 'z'\n\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       Help(argv[0], true);
       exit(1);
     }
@@ -155,14 +155,14 @@ int main(int argc, char *argv[]) {
   if (Box.alpha != 90 ||
       Box.beta != 90 ||
       Box.gamma != 90) {
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "\nWarning: non-orthogonal box; angles - ");
-    CyanText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, CYAN);
     fprintf(stderr, "%lf %lf %lf", Box.alpha, Box.beta, Box.gamma);
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, ".\n         %s works properly only for \
 orthogonal box.\n", argv[0]);
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
   } //}}}
 
   // '-x' option //{{{
@@ -278,31 +278,31 @@ orthogonal box.\n", argv[0]);
     if (Box.Length.x != test.Length.x ||
         Box.Length.y != test.Length.y ||
         Box.Length.z != test.Length.z) {
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "\nWarning: box side lengths changed from ");
-      CyanText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, CYAN);
       fprintf(stderr, "%lf %lf %lf", Box.Length.x, Box.Length.y, Box.Length.z);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, " to ");
-      CyanText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, CYAN);
       fprintf(stderr, "%lf %lf %lf", test.Length.x, test.Length.y,
                                      test.Length.z);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, ".\n         %s works properly only when the box \
 size is constant.\n", argv[0]);
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
     }
     if (Box.alpha != 90 ||
         Box.beta != 90 ||
         Box.gamma != 90) {
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "\nWarning: non-orthogonal box; angles - ");
-      CyanText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, CYAN);
       fprintf(stderr, "%lf %lf %lf", Box.alpha, Box.beta, Box.gamma);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, ".\n         %s works properly only for \
 orthogonal box.\n", argv[0]);
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
     } //}}}
     RestorePBC(Counts.BeadsCoor, Box, &Bead);
 

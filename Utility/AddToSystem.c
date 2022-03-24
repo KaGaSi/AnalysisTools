@@ -219,12 +219,12 @@ int main(int argc, char *argv[]) {
             break;
           } else { // missing vcf file name
             ErrorPrintError_old();
-            YellowText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, YELLOW);
             fprintf(stderr, "-vtf");
-            RedText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, RED);
             fprintf(stderr, " - missing second file (vcf format;");
             fprintf(stderr, " cannot be full vtf, because vsf is used)\n\n");
-            ResetColour(STDERR_FILENO);
+            ColourReset(STDERR_FILENO);
             exit(1);
           }
         }
@@ -239,23 +239,23 @@ int main(int argc, char *argv[]) {
   }
   if (count != 3) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-offset");
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - three numbers required\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     Help(argv[0], true);
     exit(1);
   }
   // Warning - missing -vtf option
   if (strlen(add_vsf) == 0 && offset[0] != 1000000) {
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "\nWarning: ");
-    CyanText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, CYAN);
     fprintf(stderr, "-offset");
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, " option has no effect if -vtf is not used\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
   } //}}}
 
   // starting timestep //{{{
@@ -284,10 +284,10 @@ int main(int argc, char *argv[]) {
     // 1)
     if (strcmp(argv[1],"--") == 0) {
       ErrorPrintError_old();
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, "if new system is generated,");
       fprintf(stderr, "there cannot be -ld/-hd/-bt options present\n\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
     }
     // 2)
@@ -299,10 +299,10 @@ int main(int argc, char *argv[]) {
     }
     if (!bt) {
       ErrorPrintError_old();
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, "if '-ld' and/or '-hd' is used,");
       fprintf(stderr, "'-bt' must be specified as well\n\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       exit(1);
     }
   } //}}}
@@ -316,11 +316,11 @@ int main(int argc, char *argv[]) {
   }
   if (test != 2) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-cx");
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - two non-negative numbers required");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     Help(argv[0], true);
     exit(1);
   }
@@ -339,11 +339,11 @@ int main(int argc, char *argv[]) {
   }
   if (test != 2) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-cy");
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - two non-negative numbers required");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     Help(argv[0], true);
     exit(1);
   }
@@ -361,11 +361,11 @@ int main(int argc, char *argv[]) {
   }
   if (test != 2) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-cz");
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - two non-negative numbers required");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     Help(argv[0], true);
     exit(1);
   }
@@ -390,11 +390,11 @@ int main(int argc, char *argv[]) {
   }
   if (count != 3) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-b");
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - three non-negative numbers required\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     Help(argv[0], true);
     exit(1);
   } //}}}
@@ -441,11 +441,11 @@ int main(int argc, char *argv[]) {
   // error - if -xb is used, 
   if (sw && strlen(input_coor) == 0) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-xb");
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - <input> file must be present\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     Help(argv[0], true);
     exit(1);
   }
@@ -664,9 +664,9 @@ int main(int argc, char *argv[]) {
   // error - no box size //{{{
   if (Box_new.Length.x == 0 || Box_new.Length.y == 0 || Box_new.Length.z == 0) {
     ErrorPrintError_old();
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, "zero box size for the new system\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     Help(argv[0], 1);
     exit(1);
   } //}}}
@@ -682,16 +682,16 @@ int main(int argc, char *argv[]) {
   // count beads to be added
   if (sw && Counts_add.BeadsCoor > can_be_exchanged) {
     ErrorPrintError_old();
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, "insufficient beads to exchange for new ones\n");
     fprintf(stderr, "     Exchangeable beads in the original system: ");
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%d\n", can_be_exchanged);
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, "     Beads to be added: ");
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%d\n\n", Counts_add.BeadsCoor);
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
 
@@ -1152,11 +1152,11 @@ int main(int argc, char *argv[]) {
         do {
           tries++;
           if (tries == 1000000) {
-            YellowText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, YELLOW);
             fprintf(stderr, "\nWarning: million attempts");
             fprintf(stderr, " to place a bead failed. Are the constraints");
             fprintf(stderr, " (-cx/-cy/-cz options) correct?\n");
-            ResetColour(STDERR_FILENO);
+            ColourReset(STDERR_FILENO);
           }
           double number = (double)rand() / ((double)RAND_MAX + 1);
           random.x = number * constraint_box.Length.x + constraint[0].x;
@@ -1207,10 +1207,10 @@ int main(int argc, char *argv[]) {
         }
       }
       if (id == -1) {
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, "!!!SOME ERROR!!!");
         fprintf(stderr, "...very useful.");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         exit(1);
       }
 
@@ -1301,11 +1301,11 @@ int main(int argc, char *argv[]) {
         do {
           tries++;
           if (tries == 1000000) {
-            YellowText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, YELLOW);
             fprintf(stderr, "\nWarning: million attempts");
             fprintf(stderr, " to place a bead failed. Are the constraints");
             fprintf(stderr, " (-cx/-cy/-cz options) correct?\n");
-            ResetColour(STDERR_FILENO);
+            ColourReset(STDERR_FILENO);
           }
           double number = (double)rand() / ((double)RAND_MAX + 1);
           random.x = number * constraint_box.Length.x + constraint[0].x;

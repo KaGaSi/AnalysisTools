@@ -118,11 +118,11 @@ int main(int argc, char *argv[]) {
   }
   if (test != 2) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-s");
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - two numeric arguments required\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
 

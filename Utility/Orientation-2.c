@@ -139,11 +139,11 @@ int main(int argc, char *argv[]) {
       // Error - missing argument //{{{
       if ((i+1) >= argc) {
         ErrorPrintError_old();
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, "missing numeric argument for ");
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "-a\n\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         Help(argv[0], true);
         exit(1);
       } //}}}
@@ -169,11 +169,11 @@ int main(int argc, char *argv[]) {
       break;
     default:
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "-a");
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - argument must be 'x', 'y', or 'z'\n\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       Help(argv[0], true);
       exit(1);
   } //}}}
@@ -204,15 +204,15 @@ int main(int argc, char *argv[]) {
     int mol_type = FindMoleculeType(argv[count], Counts, MoleculeType);
     if (mol_type == -1) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", input_coor);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - non-existent molecule");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", argv[count]);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, "\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       ErrorMoleculeType(Counts, MoleculeType);
       exit(1);
     } else {
@@ -239,11 +239,11 @@ int main(int argc, char *argv[]) {
   // Error: wrong number of integers //{{{
   if ((number_of_beads%beads_per_angle) != 0) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-n");
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - number of bead ids must be divisible by two\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
 
@@ -252,37 +252,37 @@ int main(int argc, char *argv[]) {
     for (int j = 0; j < Counts.TypesOfMolecules; j++) {
       if (MoleculeType[j].Use && bead[i] > MoleculeType[j].nBeads) {
         if ((i%2) == 1 || bead[i+1] <= MoleculeType[j].nBeads) { // warning if one is higher
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "\nWarning: ");
-          CyanText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, CYAN);
           fprintf(stderr, "-n");
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, " - index %d is larger than the number of beads in %s; using %d instead\n", bead[i], MoleculeType[j].Name, MoleculeType[j].nBeads);
-          ResetColour(STDERR_FILENO);
+          ColourReset(STDERR_FILENO);
         } else if ((i%2) == 0 && bead[i+1] > MoleculeType[j].nBeads) {
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "\nWarning: ");
-          CyanText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, CYAN);
           fprintf(stderr, "-n");
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, " - indices %d and %d are larger than the number of beads in %s; this pair is ignored\n", bead[i], bead[i+1], MoleculeType[j].Name);
-          ResetColour(STDERR_FILENO);
+          ColourReset(STDERR_FILENO);
         }
       }
     } //}}}
     // Error - two same beads //{{{
     if ((i%2) == 0 && bead[i] == bead[i+1]) {
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, "\nWarning: ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "-n");
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - two different bead id are required (invalid: ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%d %d", bead[i], bead[i+1]);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, ")\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       Help(argv[0], true);
       exit(1);
     } //}}}

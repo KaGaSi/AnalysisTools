@@ -194,28 +194,28 @@ int main(int argc, char *argv[]) {
   // Error: wrong number of integers
   if (number_of_beads == 0 || (number_of_beads%beads_per_set) != 0) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-n");
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - bead ids must be in pairs\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   }
   // check all provided ids
   for (int i = 0; i < number_of_beads; i += beads_per_set) {
     // Error - two same beads
     if (bead[i] == bead[i+1]) {
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, "\nWarning: ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "-n");
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - two different bead ids are required (invalid pair: ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%d %d", bead[i], bead[i+1]);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, ")\n");
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       Help(argv[0], true);
       exit(1);
     }
@@ -223,23 +223,23 @@ int main(int argc, char *argv[]) {
     for (int j = 0; j < Counts.TypesOfMolecules; j++) {
       if (MoleculeType[j].Use && (bead[i] >= MoleculeType[j].nBeads ||
                                   bead[i+1] >= MoleculeType[j].nBeads)) {
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "\nWarning: ");
-        CyanText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, CYAN);
         fprintf(stderr, "-n");
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, " - index in ");
-        CyanText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, CYAN);
         fprintf(stderr, "%d %d", bead[i], bead[i+1]);
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, " pair is larger than the number of beads in ");
-        CyanText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, CYAN);
         fprintf(stderr, "%s", MoleculeType[j].Name);
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, " molecule;");
     // TODO: does it really use the highest molecule's id
         fprintf(stderr, " using %d instead\n", MoleculeType[j].nBeads);
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
       }
     }
   } //}}}

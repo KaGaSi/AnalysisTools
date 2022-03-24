@@ -144,15 +144,15 @@ int main(int argc, char *argv[]) {
       int mol_type = FindMoleculeType(argv[count], Counts, MoleculeType);
       if (mol_type == -1) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - non-existent molecule");
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", argv[count]);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, "\n");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorMoleculeType(Counts, MoleculeType);
         exit(1);
       } else {
@@ -179,11 +179,11 @@ int main(int argc, char *argv[]) {
   // Error: wrong number of integers //{{{
   if ((number_of_beads%beads_per_set) != 0) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-n");
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " - number of bead ids must be divisible by three\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
 
@@ -193,17 +193,17 @@ int main(int argc, char *argv[]) {
     for (int j = 0; j < Counts.TypesOfMolecules; j++) {
       if (MoleculeType[j].Use && bead[i] >= MoleculeType[j].nBeads) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "-n");
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - index ");
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%d", bead[i]+1);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " is larger than the number of beads in molecule ");
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s\n\n", MoleculeType[j].Name);
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         Help(argv[0], true);
         exit(1);
       }
@@ -337,11 +337,11 @@ int main(int argc, char *argv[]) {
           if (k < bins) {
             distr[mol_type][count_angle][k]++;
           } else {
-            YellowText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, YELLOW);
             fprintf(stdout, "\nWarning - weird angle: ");
-            CyanText(STDERR_FILENO);
+            ColourText(STDERR_FILENO, CYAN);
             fprintf(stdout, "%lf degrees\n", angle[i][count_angle]);
-            ResetColour(STDERR_FILENO);
+            ColourReset(STDERR_FILENO);
           }
         }
       }

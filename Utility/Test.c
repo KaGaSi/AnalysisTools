@@ -129,15 +129,8 @@ int main(int argc, char *argv[]) {
 //  PrintMolecule(Counts.Molecules, MoleculeType, Molecule, BeadType, Bead);
   } //}}}
 
-  FILE *coor, *out;
-  if ((coor = fopen(input_coor, "r")) == NULL) {
-    ErrorFileOpen(input_coor, 'r');
-    exit(1);
-  }
-  if ((out = fopen("out.vcf", "w")) == NULL) {
-    ErrorFileOpen(input_coor, 'w');
-    exit(1);
-  }
+  FILE *coor = OpenFile(input_coor, "r"),
+       *out = OpenFile("out.vcf", "w");
   int step_count = 0;
   BOX Box = InitBox;
   while (VtfReadTimestep(coor, input_coor, &Box, &Counts, BeadType, &Bead,

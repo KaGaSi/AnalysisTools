@@ -22,6 +22,15 @@
 #define SQR(x) ((x)*(x)) // macro for algebraic square
 #define CUBE(x) ((x)*(x)*(x)) // macro for algebraic cube
 
+#define BLACK   30
+#define RED     31
+#define GREEN   32
+#define YELLOW  33
+#define BLUE    34
+#define MAGENTA 35
+#define CYAN    36
+#define WHITE   37
+
 
 // tell gcc to ignore certain warnings
 // helper macro
@@ -195,10 +204,10 @@ char* TrimLine(char *line); //}}}
 
 void PrintCommand(FILE *ptr, int argc, char *argv[]);
 
-void RedText(int a);
-void YellowText(int a);
-void CyanText(int a);
-void ResetColour(int a);
+void ColourText(int a, int colour);
+void ColourReset(int a);
 
 void SafeStrcat(char **out, char *in, int initial_size);
+
+FILE * OpenFile(char *file, char *mode);
 #endif

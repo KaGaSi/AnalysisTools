@@ -187,11 +187,11 @@ int main(int argc, char *argv[]) {
     // error - less then four whitespace-separated strings //{{{
     if (words < 4) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", input_xyz);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - not enough columns in timestep %d\n", count);
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       ErrorPrintLine(split, words);
       exit(1);
     } //}}}

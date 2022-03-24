@@ -1,4 +1,5 @@
 #include "General.h"
+#include "Errors.h"
 
 // IsReal() //{{{
 /**
@@ -237,7 +238,7 @@ void SortArray(int *array, int length, int mode) {
 bool ReadAndSplitLine(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]) {
   char line[LINE];
   if (!fgets(line, sizeof line, fr)) {
-    return false; // error
+    return false; // error/EOF
   }
   // if the line is too long, skip the rest of it
   if (strcspn(line, "\n") == (LINE-1)) {
@@ -329,51 +330,32 @@ void PrintCommand(FILE *ptr, int argc, char *argv[]) {
   fprintf(ptr, "\n");
 } //}}}
 
-// RedText() //{{{
-/**
- * Function to switch output tty colour to red either for stdout or stderr.
- */
-void RedText(int a) {
-  if (isatty(a) && a == STDOUT_FILENO) {
-    fprintf(stdout, "\033[1;31m");
-  } else if (isatty(a) && a == STDERR_FILENO) {
-    fprintf(stderr, "\033[1;31m");
+// ColourText() //{{{
+void ColourText(int a, int colour) {
+  if (isatty(a)) {
+    FILE *ptr;
+    if (a == STDOUT_FILENO) {
+      ptr = stdout;
+    } else if (a == STDERR_FILENO) {
+      ptr = stderr;
+    }
+    fprintf(ptr, "\033[1;%dm", colour);
   }
 } //}}}
 
-// YellowText() //{{{
-/**
- * Function to switch output tty colour to yellow either for stdout or stderr.
- */
-void YellowText(int a) {
-  if (isatty(a) && a == STDOUT_FILENO) {
-    fprintf(stdout, "\033[1;33m");
-  } else if (isatty(a) && a == STDERR_FILENO) {
-    fprintf(stderr, "\033[1;33m");
-  }
-} //}}}
-
-// CyanText() //{{{
-/**
- * Function to switch output tty colour to cyan either for stdout or stderr.
- */
-void CyanText(int a) {
-  if (isatty(a) && a == STDOUT_FILENO) {
-    fprintf(stdout, "\033[1;36m");
-  } else if (isatty(a) && a == STDERR_FILENO) {
-    fprintf(stderr, "\033[1;36m");
-  }
-} //}}}
-
-// ResetColour() //{{{
+// ColourReset() //{{{
 /**
  * Function to reset output tty colour either for stdout or stderr.
  */
-void ResetColour(int a) {
-  if (isatty(a) && a == STDOUT_FILENO) {
-    fprintf(stdout, "\033[0m");
-  } else if (isatty(a) && a == STDERR_FILENO) {
-    fprintf(stderr, "\033[0m");
+void ColourReset(int a) {
+  if (isatty(a)) {
+    FILE *ptr;
+    if (a == STDOUT_FILENO) {
+      ptr = stdout;
+    } else if (isatty(a) && a == STDERR_FILENO) {
+      ptr = stderr;
+    }
+    fprintf(ptr, "\033[0m");
   }
 } //}}}
 
@@ -406,4 +388,19 @@ void SafeStrcat(char **out, char *in, int initial_size) {
     *out = realloc(*out, sizeof **out * (out_times_initial + 1) * initial_size);
   }
   strcat(*out, in);
+} //}}}
+
+// OpenFile() //{{{
+FILE * OpenFile(char *file, char *mode) {
+  FILE *ptr = fopen(file, mode);
+  if (ptr == NULL) {
+    strcpy(ERROR_MSG, "cannot open file");
+    ErrorPrintError();
+    FilePrintFile(file, RED);
+    ColourText(STDERR_FILENO, RED);
+    perror(" ");
+    ColourReset(STDERR_FILENO);
+    exit(1);
+  }
+  return ptr;
 } //}}}

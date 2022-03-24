@@ -162,11 +162,11 @@ int main(int argc, char *argv[]) {
   }
   if (test != 2) {
     ErrorPrintError_old();
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-n");
-    RedText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, RED);
     fprintf(stderr, " option requires two numeric arguments\n\n");
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
     exit(1);
   }
   // make sure first number is larger
@@ -423,21 +423,21 @@ int main(int argc, char *argv[]) {
         double Rgi = sqrt(eigen.x + eigen.y + eigen.z);
 
         if (eigen.x < 0 || eigen.y < 0 || eigen.z < 0) {
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "Warning: negative eigenvalues (");
-          CyanText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, CYAN);
           fprintf(stderr, "%lf", eigen.x);
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, ", ");
-          CyanText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, CYAN);
           fprintf(stderr, "%lf", eigen.y);
-          CyanText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, CYAN);
           fprintf(stderr, ", ");
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%lf", eigen.z);
-          YellowText(STDERR_FILENO);
+          ColourText(STDERR_FILENO, YELLOW);
           fprintf(stderr, ")\n\n");
-          ResetColour(STDERR_FILENO);
+          ColourReset(STDERR_FILENO);
         }
         // agg masses
         mass_step[0] += agg_mass; // for this timestep

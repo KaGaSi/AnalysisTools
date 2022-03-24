@@ -126,14 +126,14 @@ int main(int argc, char *argv[]) {
   if (Box.alpha != 90 ||
       Box.beta != 90 ||
       Box.gamma != 90) {
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, "\nWarning: non-orthogonal box; angles - ");
-    CyanText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, CYAN);
     fprintf(stderr, "%lf %lf %lf", Box.alpha, Box.beta, Box.gamma);
-    YellowText(STDERR_FILENO);
+    ColourText(STDERR_FILENO, YELLOW);
     fprintf(stderr, ".\n         %s works properly only for \
 orthogonal box.\n", argv[0]);
-    ResetColour(STDERR_FILENO);
+    ColourReset(STDERR_FILENO);
   } //}}}
 
   // <bead names> - names of bead types to use //{{{
@@ -144,13 +144,13 @@ orthogonal box.\n", argv[0]);
     int type = FindBeadType(argv[count], Counts, BeadType);
     if (type == -1) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", input_coor);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - non-existent bead name ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s\n", argv[count]);
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       ErrorBeadType(Counts, BeadType);
       exit(1);
     }
@@ -228,14 +228,14 @@ orthogonal box.\n", argv[0]);
     if (Box.alpha != 90 ||
         Box.beta != 90 ||
         Box.gamma != 90) {
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "\nWarning: non-orthogonal box; angles - ");
-      CyanText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, CYAN);
       fprintf(stderr, "%lf %lf %lf", Box.alpha, Box.beta, Box.gamma);
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, ".\n         %s works properly only for \
 orthogonal box.\n", argv[0]);
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
     } //}}}
     RestorePBC(Counts.BeadsCoor, Box, &Bead);
 

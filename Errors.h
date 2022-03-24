@@ -145,7 +145,10 @@ void WarnPrintWarning(); //}}}
 void WarnPrintFile(char *file); //}}}
 
 // PrintFile() //{{{
-void PrintFile(char *file); //}}}
+void PrintFile(char *file, int colour); //}}}
+
+// FilePrintFile() //{{{
+void FilePrintFile(char *file, int colour); //}}}
 
 // PrintFileLine() //{{{
 void PrintFileLine(char *file, int line,
@@ -160,5 +163,8 @@ void ErrorPrintFull(char *file, int line,
  * Warning when stopping file reading due to some error in the file
  */
 void WarnStopReading(char *vcf_file, int line_count,
-                     char split[SPL_STR][SPL_LEN], int words);
+                     char split[SPL_STR][SPL_LEN], int words); //}}}
+
+void PrintLine(char split[SPL_STR][SPL_LEN], int words,
+               int col_line, int col_blank);
 #endif

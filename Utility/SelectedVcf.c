@@ -167,13 +167,13 @@ int main(int argc, char *argv[]) {
     int type = FindBeadType(argv[count], Counts, BeadType);
     if (type == -1) {
       ErrorPrintError_old();
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", input_coor);
-      RedText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, RED);
       fprintf(stderr, " - non-existent bead name ");
-      YellowText(STDERR_FILENO);
+      ColourText(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s\n", argv[count]);
-      ResetColour(STDERR_FILENO);
+      ColourReset(STDERR_FILENO);
       ErrorBeadType(Counts, BeadType);
       exit(1);
     }

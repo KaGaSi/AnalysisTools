@@ -119,11 +119,11 @@ int main ( int argc, char** argv ) {
       // error - insufficient number of columns //{{{
       if (words < x || words < f_x) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - too few columns");
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
         exit(1);
       } //}}}

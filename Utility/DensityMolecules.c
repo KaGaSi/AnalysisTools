@@ -147,13 +147,13 @@ int main(int argc, char *argv[]) {
       // error - nonexistent molecule  //{{{
       if (type == -1) {
         ErrorPrintError_old();
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        RedText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, RED);
         fprintf(stderr, " - non-existent molecule type ");
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s\n", argv[count]);
-        ResetColour(STDERR_FILENO);
+        ColourReset(STDERR_FILENO);
         ErrorMoleculeType(Counts, MoleculeType);
         exit(1);
       } //}}}
@@ -181,37 +181,37 @@ int main(int argc, char *argv[]) {
     if (mtype > -1) {
       if (!MoleculeType[mtype].Use) {
         // warning - this molecule not specified in <mol(s)> //{{{
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "\nWarning: ");
-        CyanText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, CYAN);
         fprintf(stderr, "-c");
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, " - molecule ");
-        CyanText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, CYAN);
         fprintf(stderr, "%s", MoleculeType[mtype].Name);
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, " not specified in <mol(s)>;");
         fprintf(stderr, " this option will be ignored\n");
-        ResetColour(STDERR_FILENO); //}}}
+        ColourReset(STDERR_FILENO); //}}}
       } else if (id >= MoleculeType[mtype].nBeads) {
         // warning - too high an id; using the last bead //{{{
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "\nWarning: ");
-        CyanText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, CYAN);
         fprintf(stderr, "-c");
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, " - index ");
-        CyanText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, CYAN);
         fprintf(stderr, "%d", id);
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, " is larger than the number of beads in molecule ");
-        CyanText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, CYAN);
         fprintf(stderr, "%s", MoleculeType[mtype].Name);
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, "; last bead will be used insted (i.e., index");
-        CyanText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, CYAN);
         fprintf(stderr, "%d", MoleculeType[mtype].nBeads-1);
-        YellowText(STDERR_FILENO);
+        ColourText(STDERR_FILENO, YELLOW);
         fprintf(stderr, ")\n");
         centre[mtype] = MoleculeType[i].nBeads - 1; //}}}
       } else {

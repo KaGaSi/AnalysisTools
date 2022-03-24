@@ -115,17 +115,17 @@ int main(int argc, char *argv[]) {
   // warn if not all beads //{{{
   // TODO: what's gonna happen with Counts.Beads & Counts.BeadsInVsf
   if (Counts.BeadsCoor != Counts.BeadsTotal) {
-    YellowText(STDOUT_FILENO);
+    ColourText(STDOUT_FILENO, YELLOW);
     fprintf(stdout, "\nWarning: ");
-    CyanText(STDOUT_FILENO);
+    ColourText(STDOUT_FILENO, CYAN);
     fprintf(stdout, "%s", input_coor);
-    YellowText(STDOUT_FILENO);
+    ColourText(STDOUT_FILENO, YELLOW);
     fprintf(stdout, " does not contain all beads from ");
-    CyanText(STDOUT_FILENO);
+    ColourText(STDOUT_FILENO, CYAN);
     fprintf(stdout, "%s", input_vsf);
-    YellowText(STDOUT_FILENO);
+    ColourText(STDOUT_FILENO, YELLOW);
     fprintf(stdout, "\n\n");
-    ResetColour(STDOUT_FILENO);
+    ColourReset(STDERR_FILENO);
   } //}}}
 
   // open input coordinate file //{{{
