@@ -112,11 +112,7 @@ int main(int argc, char *argv[]) {
 // TODO this will change with the change to agg file
 // TODO why open the file here? Later should be more than enough
   // open <in.agg> and skip the first two lines //{{{
-  FILE *agg;
-  if ((agg = fopen(input_agg, "r")) == NULL) {
-    ErrorFileOpen(input_agg, 'r');
-    exit(1);
-  }
+  FILE *agg = OpenFile(input_agg, "r");
   while (getc(agg) != '\n')
     ;
   while (getc(agg) != '\n')
@@ -376,11 +372,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // print the first two lines to output file with per-step averages //{{{
-  FILE *out;
-  if ((out = fopen(out_avg, "w")) == NULL) {
-    ErrorFileOpen(out_avg, 'w');
-    exit(1);
-  }
+  FILE *out = OpenFile(out_avg, "w");
   PrintByline(out, argc, argv);
   count = 1;
   fprintf(out, "# column: (%d) step, ", count++);
@@ -622,10 +614,7 @@ int main(int argc, char *argv[]) {
     }
 
     // print averages to output file //{{{
-    if ((out = fopen(out_avg, "a")) == NULL) {
-      ErrorFileOpen(out_avg, 'a');
-      exit(1);
-    }
+    out = OpenFile(out_avg, "a");
     fprintf(out, "%5d", count_step); // step
     if (aggs_step > 0) {
       fprintf(out, " %10.5f", avg_mass_n_step[0]/aggs_step); // <mass>_n
@@ -701,10 +690,7 @@ int main(int argc, char *argv[]) {
   //}}}
 
   // print the first two lines to output file with distributions //{{{
-  if ((out = fopen(out_distr, "w")) == NULL) {
-    ErrorFileOpen(out_distr, 'w');
-    exit(1);
-  }
+  out = OpenFile(out_distr, "w");
   PrintByline(out, argc, argv);
   count = 1;
   fprintf(out, "# column: ");
@@ -735,10 +721,7 @@ int main(int argc, char *argv[]) {
   fclose(out); //}}}
 
   // print distributions to output file //{{{
-  if ((out = fopen(out_distr, "a")) == NULL) {
-    ErrorFileOpen(out_distr, 'a');
-    exit(1);
-  }
+  out = OpenFile(out_distr, "a");
 
   if (end == -1) {
     count_step = count_step - start + 1;
@@ -799,18 +782,11 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // open output files //{{{
+  // open output files
   // distr file
-  if ((out = fopen(out_distr, "a")) == NULL) {
-    ErrorFileOpen(out_distr, 'a');
-    exit(1);
-  }
+  out = OpenFile(out_distr, "a");
   // avg file
-  FILE *out2;
-  if ((out2 = fopen(out_avg, "a")) == NULL) {
-    ErrorFileOpen(out_avg, 'a');
-    exit(1);
-  } //}}}
+  FILE *out2 = OpenFile(out_avg, "a");
 
   // print legend (with column numbers) //{{{
   putc('#', out);
@@ -957,11 +933,7 @@ int main(int argc, char *argv[]) {
 
   // print composition distribution //{{{
   if (comp_number_of_sizes > 0) {
-    // open file with composition distribution //{{{
-    if ((out = fopen(output_comp, "w")) == NULL) {
-      ErrorFileOpen(output_comp, 'w');
-      exit(1);
-    } //}}}
+    out = OpenFile(output_comp, "w");
 
     // print command
     putc('#', out);

@@ -136,11 +136,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // write out.vcf file //{{{
-  FILE *fw;
-  if ((fw = fopen(output_vcf, "w")) == NULL) {
-    ErrorFileOpen(output_vcf, 'w');
-    exit(1);
-  }
+  FILE *fw = OpenFile(output_vcf, "w");
   PrintByline(fw, argc, argv);
   WriteCoorIndexed(fw, Counts, BeadType, Bead,
                    MoleculeType, Molecule, "\0", Box);

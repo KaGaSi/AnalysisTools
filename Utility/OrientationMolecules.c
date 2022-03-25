@@ -142,9 +142,9 @@ int main(int argc, char *argv[]) {
       // Error - missing argument //{{{
       if ((i+1) >= argc) {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "-a");
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - missing an x/y/z argument\n\n");
         ColourReset(STDERR_FILENO);
         Help(argv[0], true);
@@ -173,9 +173,9 @@ int main(int argc, char *argv[]) {
       break;
     default:
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "-a");
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " - argument must be 'x', 'y', or 'z'\n\n");
       ColourReset(STDERR_FILENO);
       Help(argv[0], true);
@@ -209,13 +209,13 @@ int main(int argc, char *argv[]) {
       // error - nonexistent molecule  //{{{
       if (mtype == -1) {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - non-existent molecule type ");
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", argv[count]);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, "\n");
         ColourReset(STDERR_FILENO);
         ErrorMoleculeType(Counts, MoleculeType);
@@ -245,9 +245,9 @@ int main(int argc, char *argv[]) {
   // Error: wrong number of integers
   if (number_of_beads == 0 || (number_of_beads%beads_per_set) != 0) {
     ErrorPrintError_old();
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-n");
-    ColourText(STDERR_FILENO, RED);
+    ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, " - bead ids must be in pairs\n\n");
     ColourReset(STDERR_FILENO);
     exit(1);
@@ -256,15 +256,15 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < number_of_beads; i += beads_per_set) {
     // Error - two same beads
     if (bead[i] == bead[i+1]) {
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, "\nWarning: ");
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "-n");
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " - two different bead ids are required (invalid pair: ");
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%d %d", bead[i], bead[i+1]);
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, ")\n");
       ColourReset(STDERR_FILENO);
       Help(argv[0], true);
@@ -274,19 +274,19 @@ int main(int argc, char *argv[]) {
     for (int j = 0; j < Counts.TypesOfMolecules; j++) {
       if (MoleculeType[j].Use && (bead[i] >= MoleculeType[j].nBeads ||
                                   bead[i+1] >= MoleculeType[j].nBeads)) {
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "\nWarning: ");
-        ColourText(STDERR_FILENO, CYAN);
+        ColourChange(STDERR_FILENO, CYAN);
         fprintf(stderr, "-n");
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, " - index in ");
-        ColourText(STDERR_FILENO, CYAN);
+        ColourChange(STDERR_FILENO, CYAN);
         fprintf(stderr, "%d %d", bead[i], bead[i+1]);
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, " pair is larger than the number of beads in ");
-        ColourText(STDERR_FILENO, CYAN);
+        ColourChange(STDERR_FILENO, CYAN);
         fprintf(stderr, "%s", MoleculeType[j].Name);
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, " molecule;");
         fprintf(stderr, " using %d instead\n", MoleculeType[j].nBeads);
         ColourReset(STDERR_FILENO);
@@ -314,13 +314,9 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
 
-  // open input coordinate file //{{{
-  FILE *vcf;
-  if ((vcf = fopen(input_coor, "r")) == NULL) {
-    ErrorFileOpen(input_coor, 'r');
-    exit(1);
-  }
-  SkipVtfStructure(vcf, struct_lines); //}}}
+  // open input coordinate file
+  FILE *vcf = OpenFile(input_coor, "r");
+  SkipVtfStructure(vcf, struct_lines);
 
   count = SkipCoorSteps(vcf, input_coor, Counts, start, silent);
 
@@ -431,11 +427,7 @@ int main(int argc, char *argv[]) {
 
   // write distribution of orientation parameters //{{{
   // open output file for writing
-  FILE *out;
-  if ((out = fopen(output, "w")) == NULL) {
-    ErrorFileOpen(output, 'w');
-    exit(1);
-  }
+  FILE *out = OpenFile(output, "w");
   PrintByline(out, argc, argv);
   // print first lines of output file - molecule names and beadtype pairs //{{{
   fprintf(out, "# columns: (1) Orientation order parameter");

@@ -110,9 +110,9 @@ bool ExcludeOption(int argc, char **argv, COUNTS Counts,
       // wrong argument to -x option //{{{
       if ((i+1) >= argc || argv[i+1][0] == '-') {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "-x");
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - missing an argument (or molecule name beginning with a dash)\n\n");
         ColourReset(STDERR_FILENO);
         exit(1);
@@ -123,13 +123,13 @@ bool ExcludeOption(int argc, char **argv, COUNTS Counts,
         int type = FindMoleculeType(argv[i+1+j], Counts, *MoleculeType);
         if (type == -1) { // is it in vsf?
           ErrorPrintError_old();
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "-x");
-          ColourText(STDERR_FILENO, RED);
+          ColourChange(STDERR_FILENO, RED);
           fprintf(stderr, " - non-existent ");
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", argv[i+1+j]);
-          ColourText(STDERR_FILENO, RED);
+          ColourChange(STDERR_FILENO, RED);
           fprintf(stderr, " molecule\n\n");
           ColourReset(STDERR_FILENO);
           ErrorMoleculeType(Counts, *MoleculeType);
@@ -159,9 +159,9 @@ bool JoinCoorOption(int argc, char **argv, char *joined_vcf) {
       // wrong argument to -j option //{{{
       if ((i+1) >= argc || argv[i+1][0] == '-') {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "-j");
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - missing output file name");
         fprintf(stderr, " (or the file name begins with '-')\n\n");
         ColourReset(STDERR_FILENO);
@@ -172,13 +172,13 @@ bool JoinCoorOption(int argc, char **argv, char *joined_vcf) {
       char *dot = strrchr(joined_vcf, '.');
       if (!dot || (strcmp(dot, ".vcf") && strcmp(dot, ".vtf"))) {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "-j");
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - file ");
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", joined_vcf);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " must have .vcf ending\n\n");
         ColourReset(STDERR_FILENO);
         return(true);
@@ -207,13 +207,13 @@ bool BeadTypeOption(int argc, char **argv, char *opt, bool use,
         int type = FindBeadType(argv[types], Counts, *BeadType);
         if (type == -1) {
           ErrorPrintError_old();
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", opt);
-          ColourText(STDERR_FILENO, RED);
+          ColourChange(STDERR_FILENO, RED);
           fprintf(stderr, " - non-existent ");
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", argv[types]);
-          ColourText(STDERR_FILENO, RED);
+          ColourChange(STDERR_FILENO, RED);
           fprintf(stderr, " bead type\n\n");
           ColourReset(STDERR_FILENO);
           ErrorBeadType(Counts, *BeadType);
@@ -257,9 +257,9 @@ bool IntegerOption(int argc, char **argv, char *opt, int *value) {
       // Error - missing argument
       if ((i+1) >= argc) {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", opt);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - missing numeric argument\n\n");
         ColourReset(STDERR_FILENO);
         return(true);
@@ -267,9 +267,9 @@ bool IntegerOption(int argc, char **argv, char *opt, int *value) {
       // Error - non-numeric
       if (!IsInteger(argv[i+1])) {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", opt);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - argument must be non-negative whole number\n\n");
         ColourReset(STDERR_FILENO);
         return(true);
@@ -292,9 +292,9 @@ bool DoubleOption(int argc, char **argv, char *opt, double *value) {
       // Error - missing argument
       if ((i+1) >= argc) {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", opt);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - missing numeric argument\n\n");
         ColourReset(STDERR_FILENO);
         return(true);
@@ -302,9 +302,9 @@ bool DoubleOption(int argc, char **argv, char *opt, double *value) {
       // Error - non-numeric
       if (!IsPosReal(argv[i+1])) {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", opt);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - argument must be positive number\n\n");
         ColourReset(STDERR_FILENO);
         return(true);
@@ -333,9 +333,9 @@ bool MultiIntegerOption(int argc, char **argv, char *opt,
         // Error - non-numeric or missing argument
         if (!IsInteger(argv[arg])) {
           ErrorPrintError_old();
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", opt);
-          ColourText(STDERR_FILENO, RED);
+          ColourChange(STDERR_FILENO, RED);
           fprintf(stderr, " - all argument(s) must be");
           fprintf(stderr, " non-negative whole number(s)\n\n");
           ColourReset(STDERR_FILENO);
@@ -347,9 +347,9 @@ bool MultiIntegerOption(int argc, char **argv, char *opt,
         // warning - too many numeric arguments
         if (n == 100) {
           ErrorPrintError_old();
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", opt);
-          ColourText(STDERR_FILENO, RED);
+          ColourChange(STDERR_FILENO, RED);
           fprintf(stderr, " - too many arguments; only the first 100 used\n\n");
           ColourReset(STDERR_FILENO);
           *count = n;
@@ -403,9 +403,9 @@ bool MultiDoubleOption(int argc, char **argv, char *opt,
         // warning - too many numeric arguments
         if (n == 100) {
           ErrorPrintError_old();
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", opt);
-          ColourText(STDERR_FILENO, RED);
+          ColourChange(STDERR_FILENO, RED);
           fprintf(stderr, " - too many arguments; only the first 100 used\n\n");
           ColourReset(STDERR_FILENO);
           *count = n;
@@ -433,9 +433,9 @@ bool FileIntsOption(int argc, char **argv, char *opt, int *values,
       // Error - no output file name
       if ((i+1) >= argc || argv[i+1][0] == '-') {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", opt);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - missing output file name");
         fprintf(stderr, " (or the file name begins with '-')\n\n");
         ColourReset(STDERR_FILENO);
@@ -447,9 +447,9 @@ bool FileIntsOption(int argc, char **argv, char *opt, int *values,
         // Error - non-numeric or missing argument
         if (!IsInteger(argv[i+2+n])) {
           ErrorPrintError_old();
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", opt);
-          ColourText(STDERR_FILENO, RED);
+          ColourChange(STDERR_FILENO, RED);
           fprintf(stderr, " - argument must be non-negative whole number\n\n");
           ColourReset(STDERR_FILENO);
           return true;
@@ -459,9 +459,9 @@ bool FileIntsOption(int argc, char **argv, char *opt, int *values,
         // warning - too many numeric arguments
         if (n == 100) {
           ErrorPrintError_old();
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", opt);
-          ColourText(STDERR_FILENO, RED);
+          ColourChange(STDERR_FILENO, RED);
           fprintf(stderr, " - too many arguments; only the first 100 used\n\n");
           ColourReset(STDERR_FILENO);
           *count = n;
@@ -470,9 +470,9 @@ bool FileIntsOption(int argc, char **argv, char *opt, int *values,
       }
       if (n == 0) {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", opt);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - missing numeric argument(s)\n\n");
         ColourReset(STDERR_FILENO);
         return true;
@@ -496,9 +496,9 @@ bool FileOption(int argc, char **argv, char *opt,
       // wrong argument to the option
       if ((i+1) >= argc || argv[i+1][0] == '-') {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", opt);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - missing output file name");
         fprintf(stderr, " (or the file name begins with '-')\n\n");
         ColourReset(STDERR_FILENO);
@@ -524,9 +524,9 @@ bool MoleculeTypeOption(int argc, char **argv, char *opt, int *moltype,
       // Error - missing or wrong argument //{{{
       if ((i+1) >= argc || argv[i+1][0] == '-') {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", opt);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - missing output file name");
         fprintf(stderr, " (or the file name begins with '-')\n\n");
         ColourReset(STDERR_FILENO);
@@ -535,13 +535,13 @@ bool MoleculeTypeOption(int argc, char **argv, char *opt, int *moltype,
       *moltype = FindMoleculeType(argv[i+1], Counts, *MoleculeType);
       if (*moltype == -1) {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", opt);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - non-existent ");
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", argv[i+1]);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " molecule\n\n");
         ColourReset(STDERR_FILENO);
         ErrorMoleculeType(Counts, *MoleculeType);
@@ -573,9 +573,9 @@ bool MoleculeTypeOption2(int argc, char **argv, char *opt, int *moltype,
       // Error - missing or wrong argument //{{{
       if ((i+1) >= argc || argv[i+1][0] == '-') {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", opt);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - missing molecule name");
         fprintf(stderr, " (or the name begins with '-')\n\n");
         ColourReset(STDERR_FILENO);
@@ -588,13 +588,13 @@ bool MoleculeTypeOption2(int argc, char **argv, char *opt, int *moltype,
         int type = FindMoleculeType(argv[i+1+j], Counts, *MoleculeType);
         if (type == -1) { // is argv[i+1+j] in vsf?
           ErrorPrintError_old();
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", opt);
-          ColourText(STDERR_FILENO, RED);
+          ColourChange(STDERR_FILENO, RED);
           fprintf(stderr, " - non-existent ");
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", argv[i+1+j]);
-          ColourText(STDERR_FILENO, RED);
+          ColourChange(STDERR_FILENO, RED);
           fprintf(stderr, " molecule\n\n");
           ColourReset(STDERR_FILENO);
           ErrorMoleculeType(Counts, *MoleculeType);
@@ -622,9 +622,9 @@ bool MoleculeTypeIntOption(int argc, int i, char **argv, char *opt,
     // Error - missing or wrong arguments //{{{
     if ((i+2) >= argc || argv[i+1][0] == '-' || !IsInteger(argv[i+2])) {
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", opt);
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " - two arguments required (<mol name> <int>)");
       ColourReset(STDERR_FILENO);
       return true;
@@ -632,13 +632,13 @@ bool MoleculeTypeIntOption(int argc, int i, char **argv, char *opt,
     *moltype = FindMoleculeType(argv[i+1], Counts, MoleculeType);
     if (*moltype == -1) {
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", opt);
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " - non-existent ");
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", argv[i+1]);
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " molecule\n\n");
       ColourReset(STDERR_FILENO);
       ErrorMoleculeType(Counts, MoleculeType);

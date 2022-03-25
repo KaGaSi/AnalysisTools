@@ -110,11 +110,7 @@ int main ( int argc, char** argv ) {
   double *data = malloc(sizeof *data * 1);
 
   // read data from <input> file //{{{
-  FILE *fr;
-  if ((fr = fopen(input, "r")) == NULL) {
-    ErrorFileOpen(input, 'r');
-    exit(1);
-  }
+  FILE *fr = OpenFile(input, "r");
 
   int test, lines = 0, all_lines = 0;
   while ((test = getc(fr)) != EOF) {

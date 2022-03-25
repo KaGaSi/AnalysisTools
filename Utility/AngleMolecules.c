@@ -144,13 +144,13 @@ int main(int argc, char *argv[]) {
       int mol_type = FindMoleculeType(argv[count], Counts, MoleculeType);
       if (mol_type == -1) {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - non-existent molecule");
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", argv[count]);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, "\n");
         ColourReset(STDERR_FILENO);
         ErrorMoleculeType(Counts, MoleculeType);
@@ -179,9 +179,9 @@ int main(int argc, char *argv[]) {
   // Error: wrong number of integers //{{{
   if ((number_of_beads%beads_per_set) != 0) {
     ErrorPrintError_old();
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-n");
-    ColourText(STDERR_FILENO, RED);
+    ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, " - number of bead ids must be divisible by three\n\n");
     ColourReset(STDERR_FILENO);
     exit(1);
@@ -193,15 +193,15 @@ int main(int argc, char *argv[]) {
     for (int j = 0; j < Counts.TypesOfMolecules; j++) {
       if (MoleculeType[j].Use && bead[i] >= MoleculeType[j].nBeads) {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "-n");
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - index ");
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%d", bead[i]+1);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " is larger than the number of beads in molecule ");
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s\n\n", MoleculeType[j].Name);
         ColourReset(STDERR_FILENO);
         Help(argv[0], true);
@@ -219,12 +219,7 @@ int main(int argc, char *argv[]) {
   }
   // write initial stuff to output if '-a' is used
   if (output[0] != '\0') {
-    // open output //{{{
-    FILE *out;
-    if ((out = fopen(output, "w")) == NULL) {
-      ErrorFileOpen(output, 'w');
-      exit(1);
-    } //}}}
+    FILE *out = OpenFile(output, "w");
     PrintByline(out, argc, argv);
     // print molecule names & bead ids //{{{
     fprintf(out, "# angles between beads:");
@@ -262,13 +257,9 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
 
-  // open input coordinate file //{{{
-  FILE *vcf;
-  if ((vcf = fopen(input_coor, "r")) == NULL) {
-    ErrorFileOpen(input_coor, 'r');
-    exit(1);
-  }
-  SkipVtfStructure(vcf, struct_lines); //}}}
+  // open input coordinate file
+  FILE *vcf = OpenFile(input_coor, "r");
+  SkipVtfStructure(vcf, struct_lines);
 
   // allocate array for distribution of angles //{{{
   double avg_angle[Counts.TypesOfMolecules][number_of_angles];
@@ -337,9 +328,9 @@ int main(int argc, char *argv[]) {
           if (k < bins) {
             distr[mol_type][count_angle][k]++;
           } else {
-            ColourText(STDERR_FILENO, YELLOW);
+            ColourChange(STDERR_FILENO, YELLOW);
             fprintf(stdout, "\nWarning - weird angle: ");
-            ColourText(STDERR_FILENO, CYAN);
+            ColourChange(STDERR_FILENO, CYAN);
             fprintf(stdout, "%lf degrees\n", angle[i][count_angle]);
             ColourReset(STDERR_FILENO);
           }
@@ -349,11 +340,7 @@ int main(int argc, char *argv[]) {
 
     // write all angles to output if '-a' is used //{{{
     if (output[0] != '\0') {
-      FILE *out;
-      if ((out = fopen(output, "a")) == NULL) {
-        ErrorFileOpen(output, 'a');
-        exit(1);
-      }
+      FILE *out = OpenFile(output, "a");
       fprintf(out, "%6d", count_vcf);
       for (int i = 0; i < Counts.Molecules; i++) {
         int mol_type = Molecule[i].Type;
@@ -385,12 +372,7 @@ int main(int argc, char *argv[]) {
   //}}}
 
   // write distribution of angles //{{{
-  // open output file for appending //{{{
-  FILE *out;
-  if ((out = fopen(output_distr, "w")) == NULL) {
-    ErrorFileOpen(output_distr, 'w');
-    exit(1);
-  } //}}}
+  FILE *out = OpenFile(output_distr, "w");
   PrintByline(out, argc, argv);
   // print molecule names & bead ids //{{{
   fprintf(out, "# angles between beads:");

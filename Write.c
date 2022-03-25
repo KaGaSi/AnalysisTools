@@ -146,11 +146,7 @@ void WriteVsf(char *input_vsf, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
               MOLECULETYPE *MoleculeType, MOLECULE *Molecule, bool change) {
 
   // opten structure file //{{{
-  FILE *fw;
-  if ((fw = fopen(input_vsf, "w")) == NULL) {
-    ErrorFileOpen(input_vsf, 'w');
-    exit(1);
-  } //}}}
+  FILE *fw = OpenFile(input_vsf, "w");
   // find most common type of bead and make it default //{{{
   int type_def = -1, count = 0;
   for (int i = 0; i < Counts.TypesOfBeads; i++) {
@@ -250,12 +246,7 @@ void WriteAggregates(int step_count, char *agg_file, COUNTS Counts,
     }
   } //}}}
 
-  // open .agg file for appending //{{{
-  FILE *fw;
-  if ((fw = fopen(agg_file, "a")) == NULL) {
-    ErrorFileOpen(agg_file, 'a');
-    exit(1);
-  } //}}}
+  FILE *fw = OpenFile(agg_file, "a");
 
   // print number of aggregates to agg file //{{{
   fprintf(fw, "\nStep: %d\n%d\n\n", step_count, number_of_aggs);
@@ -301,12 +292,7 @@ void WriteField(char *field, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
     }
   }
 
-  // opten FIELD file //{{{
-  FILE *fw;
-  if ((fw = fopen(field, "w")) == NULL) {
-    ErrorFileOpen(field, 'w');
-    exit(1);
-  } //}}}
+  FILE *fw = OpenFile(field, "w");
   fprintf(fw, "Created by AnalysisTools version %s ", VERSION);
   fprintf(fw, "(https://github.com/KaGaSi/AnalysisTools/releases)\n");
   fprintf(fw, "\nspecies %d\n", Counts.TypesOfBeads);
@@ -323,13 +309,13 @@ void WriteField(char *field, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
     // error - no beads //{{{
     if (MoleculeType[i].nBeads < 1) {
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", field);
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " - molecule ");
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", MoleculeType[i].Name);
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " contains no beads\n\n");
       ColourReset(STDERR_FILENO);
       exit(1);
@@ -345,13 +331,13 @@ void WriteField(char *field, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
     // error - no molecule of given type //{{{
     if (MoleculeType[i].Number < 1 || mol == -1) {
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", field);
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " - molecule ");
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", MoleculeType[i].Name);
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " does not exist\n\n");
       ColourReset(STDERR_FILENO);
       exit(1);

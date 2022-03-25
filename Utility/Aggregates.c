@@ -560,11 +560,11 @@ int main(int argc, char *argv[]) {
     int type = FindBeadType(argv[count], Counts, BeadType);
     if (type == -1) {
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", input_coor);
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " - non-existent bead name ");
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s\n", argv[count]);
       ColourReset(STDERR_FILENO);
       ErrorBeadType(Counts, BeadType);
@@ -572,11 +572,11 @@ int main(int argc, char *argv[]) {
     }
     if (BeadType[type].Use) {
       WarnPrintWarning();
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "bead name ");
-      ColourText(STDERR_FILENO, CYAN);
+      ColourChange(STDERR_FILENO, CYAN);
       fprintf(stderr, "%s", argv[count]);
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, " specified more than once\n");
       ColourReset(STDERR_FILENO);
     }
@@ -612,23 +612,15 @@ int main(int argc, char *argv[]) {
 //} //}}}
 
   // print command to output .agg file //{{{
-  FILE *out;
-  if ((out = fopen(output_agg, "w")) == NULL) {
-    ErrorFileOpen(output_agg, 'w');
-    exit(1);
-  }
+  FILE *out = OpenFile(output_agg, "w");
   // TODO: print byline - requires change in reading agg file
 //PrintByline(out, argc, argv);
   PrintCommand(out, argc, argv);
   fclose(out); //}}}
 
-  // open input coordinate file //{{{
-  FILE *vcf;
-  if ((vcf = fopen(input_coor, "r")) == NULL) {
-    ErrorFileOpen(input_coor, 'r');
-    exit(1);
-  }
-  SkipVtfStructure(vcf, struct_lines); //}}}
+  // open input coordinate file
+  FILE *vcf = OpenFile(input_coor, "r");
+  SkipVtfStructure(vcf, struct_lines);
 
   // write bead type names and pbc to <joined.vcf> if '-j' option was used //{{{
   if (joined_vcf[0] != '\0') {
@@ -639,11 +631,7 @@ int main(int argc, char *argv[]) {
       BeadType[i].Write = true;
     }
     // open <joined.vcf>
-    FILE *joined;
-    if ((joined = fopen(joined_vcf, "w")) == NULL) {
-      ErrorFileOpen(joined_vcf, 'w');
-      exit(1);
-    }
+    FILE *joined = OpenFile(joined_vcf, "w");
     PrintByline(joined, argc, argv);
     fclose(joined);
   } //}}}
@@ -700,12 +688,7 @@ int main(int argc, char *argv[]) {
       // TODO: we're in fractionals, so maybe no need for anything new?
       RemovePBCAggregates(distance, Aggregate, Counts, Box.Length,
                           BeadType, &Bead, MoleculeType, Molecule);
-      // open <joined.vcf> file
-      FILE *joined;
-      if ((joined = fopen(joined_vcf, "a")) == NULL) {
-        ErrorFileOpen(joined_vcf, 'a');
-        exit(1);
-      }
+      FILE *joined = OpenFile(joined_vcf, "a");
       FromFractionalCoor(Counts.BeadsCoor, &Bead, Box);
       WriteCoorIndexed(joined, Counts, BeadType, Bead,
                        MoleculeType, Molecule, stuff, Box);
@@ -763,13 +746,8 @@ int main(int argc, char *argv[]) {
 
   // print last step number to <output.agg> //{{{
   // open output .agg file for appending
-  if ((out = fopen(output_agg, "a")) == NULL) {
-    ErrorFileOpen(output_agg, 'a');
-    exit(1);
-  }
-
+  out = OpenFile(output_agg, "a");
   fprintf(out, "\nLast Step: %d\n", count);
-
   fclose(out); //}}}
 
   // free memory - to make valgrind happy //{{{

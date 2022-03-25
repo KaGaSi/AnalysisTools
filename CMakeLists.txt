@@ -61,7 +61,7 @@ set(UTILS AddToSystem
           TransformVsf
           Velocity
           VisualizeAgg)
-        foreach(utility ${UTILS})
+foreach(utility ${UTILS})
   add_executable(${utility} Utility/${utility}.c)
   target_link_libraries(${utility} ${LIBRARIES} m)
 endforeach(utility)

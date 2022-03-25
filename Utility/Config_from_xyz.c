@@ -97,13 +97,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // get number of beads from xyz file //{{{
-  // open input coordinate file
-  FILE *xyz;
-  if ((xyz = fopen(input_xyz, "r")) == NULL) {
-    ErrorFileOpen(input_xyz, 'r');
-    exit(1);
-  }
-
+  FILE *xyz = OpenFile(input_xyz, "r");
   int beads;
   if (fscanf(xyz, "%d", &beads) != 1) {
     // TODO: correct colours etc.
@@ -116,11 +110,7 @@ int main(int argc, char *argv[]) {
   fclose(xyz); //}}}
 
   // main loop - read timesteps till the chosen one //{{{
-  // open input coordinate file //{{{
-  if ((xyz = fopen(input_xyz, "r")) == NULL) {
-    ErrorFileOpen(input_xyz, 'r');
-    exit(1);
-  } //}}}
+  xyz = OpenFile(input_xyz, "r");
 
   fpos_t pos; // for saving pointer position in xyz file
   int test;
@@ -165,11 +155,7 @@ int main(int argc, char *argv[]) {
   // read the coordinates from the chosen timestep and create CONFIG //{{{
   // restore pointer position in xyz file
   fsetpos(xyz, &pos);
-  FILE *config;
-  if ((config = fopen("CONFIG", "w")) == NULL) {
-    ErrorFileOpen("CONFIG", 'w');
-    exit(1);
-  }
+  FILE *config = OpenFile("CONFIG", "w");
 
   // print first stuff to CONFIG
   fprintf(config, "CONFIG from %s\n0 1\n", input_xyz);
@@ -187,9 +173,9 @@ int main(int argc, char *argv[]) {
     // error - less then four whitespace-separated strings //{{{
     if (words < 4) {
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", input_xyz);
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " - not enough columns in timestep %d\n", count);
       ColourReset(STDERR_FILENO);
       ErrorPrintLine(split, words);

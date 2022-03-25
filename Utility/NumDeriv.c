@@ -95,11 +95,7 @@ int main ( int argc, char** argv ) {
   int mode = atoi(argv[count]); //}}}
 
   // get number of data lines in <input> //{{{
-  FILE *fr;
-  if ((fr = fopen(input, "r")) == NULL) {
-    ErrorFileOpen(input, 'r');
-    exit(1);
-  }
+  FILE *fr = OpenFile(input, "r");
   int data_points = 0; // data lines only
   int lines = 0; // all lines
   while (true) {
@@ -119,9 +115,9 @@ int main ( int argc, char** argv ) {
       // error - insufficient number of columns //{{{
       if (words < x || words < f_x) {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - too few columns");
         ColourReset(STDERR_FILENO);
         ErrorPrintLine(split, words);
@@ -133,10 +129,7 @@ int main ( int argc, char** argv ) {
   fclose(fr); //}}}
 
   // read data from <input> file //{{{
-  if ((fr = fopen(input, "r")) == NULL) {
-    ErrorFileOpen(input, 'r');
-    exit(1);
-  }
+  fr = OpenFile(input, "r");
   count = 0;
   double **data = calloc(data_points, sizeof(double *));
   for (int i = 0; i < data_points; i++) {

@@ -61,15 +61,6 @@ bool ErrorDiscard(int start, int step, char *file, FILE *coor); //}}}
  */
 int ErrorExtension(char *file, int number, char extension[][5]); //}}}
 
-// ErrorFileOpen() //{{{
-/**
- * \brief Cannot open file
- *
- * \param [in] file  filename
- * \param [in] mode  open mode - r(ead), w(rite), a(ppend)
- */
-void ErrorFileOpen(char *file, char mode); //}}}
-
 // ErrorNaN() //{{{
 /**
  * \brief Non-numeric argument

@@ -115,26 +115,22 @@ int main(int argc, char *argv[]) {
   // warn if not all beads //{{{
   // TODO: what's gonna happen with Counts.Beads & Counts.BeadsInVsf
   if (Counts.BeadsCoor != Counts.BeadsTotal) {
-    ColourText(STDOUT_FILENO, YELLOW);
+    ColourChange(STDOUT_FILENO, YELLOW);
     fprintf(stdout, "\nWarning: ");
-    ColourText(STDOUT_FILENO, CYAN);
+    ColourChange(STDOUT_FILENO, CYAN);
     fprintf(stdout, "%s", input_coor);
-    ColourText(STDOUT_FILENO, YELLOW);
+    ColourChange(STDOUT_FILENO, YELLOW);
     fprintf(stdout, " does not contain all beads from ");
-    ColourText(STDOUT_FILENO, CYAN);
+    ColourChange(STDOUT_FILENO, CYAN);
     fprintf(stdout, "%s", input_vsf);
-    ColourText(STDOUT_FILENO, YELLOW);
+    ColourChange(STDOUT_FILENO, YELLOW);
     fprintf(stdout, "\n\n");
     ColourReset(STDERR_FILENO);
   } //}}}
 
-  // open input coordinate file //{{{
-  FILE *vcf;
-  if ((vcf = fopen(input_coor, "r")) == NULL) {
-    ErrorFileOpen(input_coor, 'r');
-    exit(1);
-  }
-  SkipVtfStructure(vcf, struct_lines); //}}}
+  // open input coordinate file
+  FILE *vcf = OpenFile(input_coor, "r");
+  SkipVtfStructure(vcf, struct_lines);
 
   // main loop //{{{
   fpos_t pos; // for saving pointer position in vcf file
@@ -169,13 +165,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // create CONFIG //{{{
-  // open output CONFIG file for writing
-  FILE *out;
-  if ((out = fopen("CONFIG", "w")) == NULL) {
-    ErrorFileOpen("CONFIG", 'w');
-    exit(1);
-  }
-
+  FILE *out = OpenFile("CONFIG", "w");
   // TODO: check triclinic box in dl_meso
   // print CONFIG file initial stuff
   fprintf(out, "NAME\n       0       1\n");

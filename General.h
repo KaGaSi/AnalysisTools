@@ -204,7 +204,7 @@ char* TrimLine(char *line); //}}}
 
 void PrintCommand(FILE *ptr, int argc, char *argv[]);
 
-void ColourText(int a, int colour);
+void ColourChange(int a, int colour);
 void ColourReset(int a);
 
 void SafeStrcat(char **out, char *in, int initial_size);

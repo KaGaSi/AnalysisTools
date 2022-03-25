@@ -146,13 +146,13 @@ int main(int argc, char *argv[]) {
       // error - nonexistent molecule  //{{{
       if (type == -1) {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - non-existent molecule type ");
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", argv[count]);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, "\n");
         ColourReset(STDERR_FILENO);
         ErrorMoleculeType(Counts, MoleculeType);
@@ -183,9 +183,9 @@ int main(int argc, char *argv[]) {
   // Error: wrong number of integers //{{{
   if (output_d[0] != '\0' && (number_of_beads%beads_per_set) != 0) {
     ErrorPrintError_old();
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-d");
-    ColourText(STDERR_FILENO, RED);
+    ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, " - number of bead ids must be even\n\n");
     ColourReset(STDERR_FILENO);
     exit(1);
@@ -194,9 +194,9 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < number_of_beads; i += 2) {
     if (bead[i] == bead[i+1] || bead[i] == 0 || bead[i+1] == 0) {
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "-d");
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " - the bead indices must be non-zero and different\n\n");
       ColourReset(STDERR_FILENO);
       exit(1);
@@ -249,13 +249,9 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
 
-  // open input coordinate file //{{{
-  FILE *vcf;
-  if ((vcf = fopen(input_coor, "r")) == NULL) {
-    ErrorFileOpen(input_coor, 'r');
-    exit(1);
-  }
-  SkipVtfStructure(vcf, struct_lines); //}}}
+  // open input coordinate file
+  FILE *vcf = OpenFile(input_coor, "r");
+  SkipVtfStructure(vcf, struct_lines);
 
   count = SkipCoorSteps(vcf, input_coor, Counts, start, silent);
 
@@ -304,37 +300,37 @@ int main(int argc, char *argv[]) {
 
           // warn if bond is too long //{{{
           if (warn > -1 && bond.x > warn) {
-            ColourText(STDERR_FILENO, YELLOW);
+            ColourChange(STDERR_FILENO, YELLOW);
             fprintf(stderr, "\nWarning (-w option): long bond (");
-            ColourText(STDERR_FILENO, CYAN);
+            ColourChange(STDERR_FILENO, CYAN);
             fprintf(stderr, "%lf", bond.x);
-            ColourText(STDERR_FILENO, YELLOW);
+            ColourChange(STDERR_FILENO, YELLOW);
             fprintf(stderr, " )\n   Step: ");
-            ColourText(STDERR_FILENO, CYAN);
+            ColourChange(STDERR_FILENO, CYAN);
             fprintf(stderr, "%d", count_vcf);
-            ColourText(STDERR_FILENO, YELLOW);
+            ColourChange(STDERR_FILENO, YELLOW);
             fprintf(stderr, "\n   Beads: ");
             // first bead
-            ColourText(STDERR_FILENO, CYAN);
+            ColourChange(STDERR_FILENO, CYAN);
             fprintf(stderr, "%6d", Bead[id1].Index);
-            ColourText(STDERR_FILENO, YELLOW);
+            ColourChange(STDERR_FILENO, YELLOW);
             fprintf(stderr, " (");
-            ColourText(STDERR_FILENO, CYAN);
+            ColourChange(STDERR_FILENO, CYAN);
             fprintf(stderr, "%s", BeadType[btype1].Name);
-            ColourText(STDERR_FILENO, YELLOW);
+            ColourChange(STDERR_FILENO, YELLOW);
             fprintf(stderr, "): ");
-            ColourText(STDERR_FILENO, CYAN);
+            ColourChange(STDERR_FILENO, CYAN);
             fprintf(stderr, "%lf %lf %lf\n", Bead[id1].Position.x,
                                              Bead[id1].Position.y,
                                              Bead[id1].Position.z);
             // second bead
             fprintf(stderr, "          %6d", Bead[id1].Index);
             fprintf(stderr, " (");
-            ColourText(STDERR_FILENO, CYAN);
+            ColourChange(STDERR_FILENO, CYAN);
             fprintf(stderr, "%s", BeadType[btype1].Name);
-            ColourText(STDERR_FILENO, YELLOW);
+            ColourChange(STDERR_FILENO, YELLOW);
             fprintf(stderr, "): ");
-            ColourText(STDERR_FILENO, CYAN);
+            ColourChange(STDERR_FILENO, CYAN);
             fprintf(stderr, "%lf %lf %lf\n", Bead[id1].Position.x,
                                              Bead[id1].Position.y,
                                              Bead[id1].Position.z);
@@ -449,12 +445,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // write distribution of bond lengths //{{{
-  // open output file for writing //{{{
-  FILE *out;
-  if ((out = fopen(output, "w")) == NULL) {
-    ErrorFileOpen(output, 'w');
-    exit(1);
-  } //}}}
+  FILE *out = OpenFile(output, "w");
   PrintByline(out, argc, argv);
   // print first line of output file - molecule names and beadtype pairs //{{{
   fprintf(out, "# (1) distance;");
@@ -553,11 +544,7 @@ int main(int argc, char *argv[]) {
 
   // write distribution of distances from '-d' option //{{{
   if (output_d[0] != '\0') {
-    // open output file for appending //{{{
-    if ((out = fopen(output_d, "w")) == NULL) {
-      ErrorFileOpen(output_d, 'w');
-      exit(1);
-    } //}}}
+    out = OpenFile(output_d, "w");
     // print command to output file
     putc('#', out);
     PrintCommand(out, argc, argv);

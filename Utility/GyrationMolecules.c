@@ -134,13 +134,13 @@ int main(int argc, char *argv[]) {
       // error - nonexistent molecule  //{{{
       if (mtype == -1) {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - non-existent molecule type ");
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", argv[count]);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, "\n");
         ColourReset(STDERR_FILENO);
         ErrorMoleculeType(Counts, MoleculeType);
@@ -162,13 +162,9 @@ int main(int argc, char *argv[]) {
   // write initial stuff to output file //{{{
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
     if (MoleculeType[i].Use) {
-      FILE *out;
       char str[LINE];
       sprintf(str, "%s%s.txt", output, MoleculeType[i].Name);
-      if ((out = fopen(str, "w")) == NULL) {
-        ErrorFileOpen(str, 'w');
-        exit(1);
-      }
+      FILE *out = OpenFile(str, "w");
       PrintByline(out, argc, argv);
       fprintf(out, "# (1) dt, (2) <Rg>, (3) <Rg^2>, ");
       fprintf(out, "(4) <Anis>, (5) <Acyl>, (6) <Aspher>");
@@ -192,13 +188,9 @@ int main(int argc, char *argv[]) {
   double *Aspher_sum = calloc(Counts.TypesOfMolecules, sizeof *Aspher_sum);
   VECTOR *eigen_sum = calloc(Counts.TypesOfMolecules, sizeof *eigen_sum); //}}}
 
-  // open input coordinate file //{{{
-  FILE *vcf;
-  if ((vcf = fopen(input_coor, "r")) == NULL) {
-    ErrorFileOpen(input_coor, 'r');
-    exit(1);
-  }
-  SkipVtfStructure(vcf, struct_lines); //}}}
+  // open input coordinate file
+  FILE *vcf = OpenFile(input_coor, "r");
+  SkipVtfStructure(vcf, struct_lines);
 
   // main loop //{{{
   int count_vcf = 0; // count all timesteps
@@ -251,19 +243,19 @@ int main(int argc, char *argv[]) {
         eigen = FromFractional(eigen, Box);
         // warning - negative eigenvalues //{{{
         if (eigen.x < 0 || eigen.y < 0 || eigen.z < 0) {
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "\nWarning: negative eigenvalues (");
-          ColourText(STDERR_FILENO, CYAN);
+          ColourChange(STDERR_FILENO, CYAN);
           fprintf(stderr, "%lf", eigen.x);
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, ", ");
-          ColourText(STDERR_FILENO, CYAN);
+          ColourChange(STDERR_FILENO, CYAN);
           fprintf(stderr, "%lf", eigen.y);
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, ", ");
-          ColourText(STDERR_FILENO, CYAN);
+          ColourChange(STDERR_FILENO, CYAN);
           fprintf(stderr, "%lf", eigen.z);
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, ")\n");
           ColourReset(STDERR_FILENO);
         } //}}}
@@ -306,11 +298,7 @@ int main(int argc, char *argv[]) {
       if (MoleculeType[i].Use) {
         char str[LINE];
         sprintf(str, "%s%s.txt", output, MoleculeType[i].Name);
-        FILE *out;
-        if ((out = fopen(str, "a")) == NULL) {
-          ErrorFileOpen(str, 'a');
-          exit(1);
-        }
+        FILE *out = OpenFile(str, "a");
         fprintf(out, "%5d", count_vcf);
         fprintf(out, " %8.5f", Rg_step[i]/MoleculeType[i].Number);
         fprintf(out, " %8.5f", sqrRg_step[i]/MoleculeType[i].Number);
@@ -351,13 +339,9 @@ int main(int argc, char *argv[]) {
   // write simple averages to <output> //{{{
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
     if (MoleculeType[i].Use) {
-      FILE *out;
       char str[LINE]; // file name <output><mol_name>.txt
       sprintf(str, "%s%s.txt", output, MoleculeType[i].Name);
-      if ((out = fopen(str, "a")) == NULL) {
-        ErrorFileOpen(str, 'a');
-        exit(1);
-      }
+      FILE *out = OpenFile(str, "a");
       // write legend line to output file //{{{
       fprintf(out, "# %s\n", MoleculeType[i].Name);
       fprintf(out, "# simple averages (steps %d to %d): ", start, count_vcf);

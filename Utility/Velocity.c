@@ -126,11 +126,11 @@ int main(int argc, char *argv[]) {
   if (Box.alpha != 90 ||
       Box.beta != 90 ||
       Box.gamma != 90) {
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "\nWarning: non-orthogonal box; angles - ");
-    ColourText(STDERR_FILENO, CYAN);
+    ColourChange(STDERR_FILENO, CYAN);
     fprintf(stderr, "%lf %lf %lf", Box.alpha, Box.beta, Box.gamma);
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, ".\n         %s works properly only for \
 orthogonal box.\n", argv[0]);
     ColourReset(STDERR_FILENO);
@@ -144,11 +144,11 @@ orthogonal box.\n", argv[0]);
     int type = FindBeadType(argv[count], Counts, BeadType);
     if (type == -1) {
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", input_coor);
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " - non-existent bead name ");
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s\n", argv[count]);
       ColourReset(STDERR_FILENO);
       ErrorBeadType(Counts, BeadType);
@@ -164,13 +164,9 @@ orthogonal box.\n", argv[0]);
     }
   }
 
-  // open input coordinate file //{{{
-  FILE *vcf;
-  if ((vcf = fopen(input_coor, "r")) == NULL) {
-    ErrorFileOpen(input_coor, 'r');
-    exit(1);
-  }
-  SkipVtfStructure(vcf, struct_lines); //}}}
+  // open input coordinate file
+  FILE *vcf = OpenFile(input_coor, "r");
+  SkipVtfStructure(vcf, struct_lines);
 
   // print information - verbose output //{{{
   if (verbose) {
@@ -195,16 +191,10 @@ orthogonal box.\n", argv[0]);
   count = SkipCoorSteps(vcf, input_coor, Counts, start, silent);
 
   FILE *out;
-  if ((out = fopen("temperature.txt", "w")) == NULL) {
-    ErrorFileOpen("temperature.txt", 'w');
-    exit(1);
-  }
+  out = OpenFile("temperature.txt", "w");
   fprintf(out, "# (1) step, (2) temperature\n");
   fclose(out);
-  if ((out = fopen("temperature_correct.txt", "w")) == NULL) {
-    ErrorFileOpen("temperature_correct.txt", 'w');
-    exit(1);
-  }
+  out = OpenFile("temperature_correct.txt", "w");
   fprintf(out, "# (1) step, (2) temperature\n");
   fclose(out);
 
@@ -228,11 +218,11 @@ orthogonal box.\n", argv[0]);
     if (Box.alpha != 90 ||
         Box.beta != 90 ||
         Box.gamma != 90) {
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "\nWarning: non-orthogonal box; angles - ");
-      ColourText(STDERR_FILENO, CYAN);
+      ColourChange(STDERR_FILENO, CYAN);
       fprintf(stderr, "%lf %lf %lf", Box.alpha, Box.beta, Box.gamma);
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, ".\n         %s works properly only for \
 orthogonal box.\n", argv[0]);
       ColourReset(STDERR_FILENO);
@@ -329,17 +319,10 @@ orthogonal box.\n", argv[0]);
     temp_step_correct.z = 2 * temp_step_correct.z / total_beads;
     double temperature = 2 * KE / (3 * total_beads);
     double temperature_correct = 2 * KE_correct / (3 * total_beads);
-    FILE *out;
-    if ((out = fopen("temperature.txt", "a")) == NULL) {
-      ErrorFileOpen("temperature.txt", 'a');
-      exit(1);
-    }
+    FILE *out = OpenFile("temperature.txt", "a");
     fprintf(out, "%d %lf %lf %lf %lf\n", count_vcf, temperature, temp_step.x, temp_step.y, temp_step.z);
     fclose(out);
-    if ((out = fopen("temperature_correct.txt", "a")) == NULL) {
-      ErrorFileOpen("temperature_correct.txt", 'a');
-      exit(1);
-    }
+    out = OpenFile("temperature_correct.txt", "a");
     fprintf(out, "%d %lf %lf %lf %lf\n", count_vcf, temperature_correct, temp_step_correct.x, temp_step_correct.y, temp_step_correct.z);
     fclose(out);
 
@@ -366,27 +349,15 @@ orthogonal box.\n", argv[0]);
   // write distributions to output files
   // open files //{{{
   // x-slicing distribution
-  FILE *out_x;
   char str[1050];
   sprintf(str, "%s-x.txt", output);
-  if ((out_x = fopen(str, "w")) == NULL) {
-    ErrorFileOpen(str, 'w');
-    exit(1);
-  }
+  FILE *out_x = OpenFile(str, "r");
   // y-slicing distribution
-  FILE *out_y;
   sprintf(str, "%s-y.txt", output);
-  if ((out_y = fopen(str, "w")) == NULL) {
-    ErrorFileOpen(str, 'w');
-    exit(1);
-  }
+  FILE *out_y = OpenFile(str, "r");
   // z-slicing distribution
-  FILE *out_z;
   sprintf(str, "%s-z.txt", output);
-  if ((out_z = fopen(str, "w")) == NULL) {
-    ErrorFileOpen(str, 'w');
-    exit(1);
-  } //}}}
+  FILE *out_z = OpenFile(str, "r"); //}}}
   fprintf(out_x, "# (1) x-coordinate; (2) <v(x)>; (3) <v(y)>; (4) <v(z)>\n");
   fprintf(out_y, "# (1) y-coordinate; (2) <v(x)>; (3) <v(y)>; (4) <v(z)>\n");
   fprintf(out_z, "# (1) z-coordinate; (2) <v(x)>; (3) <v(y)>; (4) <v(z)>\n");

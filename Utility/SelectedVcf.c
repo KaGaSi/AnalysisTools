@@ -167,11 +167,11 @@ int main(int argc, char *argv[]) {
     int type = FindBeadType(argv[count], Counts, BeadType);
     if (type == -1) {
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", input_coor);
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " - non-existent bead name ");
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s\n", argv[count]);
       ColourReset(STDERR_FILENO);
       ErrorBeadType(Counts, BeadType);
@@ -212,26 +212,18 @@ int main(int argc, char *argv[]) {
   }
   SortArray(save_step, number_of_steps, 0); //}}}
 
-  // print initial stuff to output vcf file //{{{
-  FILE *out;
-  if ((out = fopen(output_vcf, "w")) == NULL) {
-    ErrorFileOpen(output_vcf, 'w');
-    exit(1);
-  }
+  // print initial stuff to output vcf file
+  FILE *out = OpenFile(output_vcf, "w");
   PrintByline(out, argc, argv);
-  fclose(out); //}}}
+  fclose(out);
 
   // print information - verbose output //{{{
   if (verbose) {
     VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
-  // open input coordinate file //{{{
-  FILE *vcf;
-  if ((vcf = fopen(input_coor, "r")) == NULL) {
-    ErrorFileOpen(input_coor, 'r');
-    exit(1);
-  } //}}}
+  // open input coordinate file
+  FILE *vcf = OpenFile(input_coor, "r");
 
   int file_line_count = 0;
   do {
@@ -281,18 +273,12 @@ int main(int argc, char *argv[]) {
       if (count_n_opt < number_of_steps) { // if -n option is used
         if (save_step[count_n_opt] == count_vcf) {
           // write to output .vcf file //{{{
-          if ((out = fopen(output_vcf, "a")) == NULL) {
-            ErrorFileOpen(output_vcf, 'a');
-            exit(1);
-          }
+          out = OpenFile(output_vcf, "a");
           VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
           fclose(out); //}}}
           // write to xyz file? //{{{
           if (output_xyz[0] != '\0') {
-            if ((out = fopen(output_xyz, "a")) == NULL) {
-              ErrorFileOpen(output_xyz, 'a');
-              exit(1);
-            }
+            out = OpenFile(output_xyz, "a");
             WriteCoorXYZ(out, Counts, BeadType, Bead);
             fclose(out);
           } //}}}
@@ -304,18 +290,12 @@ int main(int argc, char *argv[]) {
         }
       } else { // if -n option is not used
         // write to output .vcf file //{{{
-        if ((out = fopen(output_vcf, "a")) == NULL) {
-          ErrorFileOpen(output_vcf, 'a');
-          exit(1);
-        }
+        out = OpenFile(output_vcf, "a");
         VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
         fclose(out); //}}}
         // write to xyz file? //{{{
         if (output_xyz[0] != '\0') {
-          if ((out = fopen(output_xyz, "a")) == NULL) {
-            ErrorFileOpen(output_xyz, 'a');
-            exit(1);
-          }
+          out = OpenFile(output_xyz, "a");
           WriteCoorXYZ(out, Counts, BeadType, Bead);
           fclose(out);
         } //}}}
@@ -371,19 +351,12 @@ int main(int argc, char *argv[]) {
   // save last step if --last is used //{{{
   if (last) {
     // write to output .vcf file
-    if ((out = fopen(output_vcf, "a")) == NULL) {
-      ErrorFileOpen(output_vcf, 'a');
-      exit(1);
-    }
+    out = OpenFile(output_vcf, "a");
     VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
     fclose(out);
     // write to xyz file?
     if (output_xyz[0] != '\0') {
-      // open output .xyz file for appending
-      if ((out = fopen(output_xyz, "a")) == NULL) {
-        ErrorFileOpen(output_xyz, 'a');
-        exit(1);
-      }
+      out = OpenFile(output_xyz, "a");
       WriteCoorXYZ(out, Counts, BeadType, Bead);
       fclose(out);
     }

@@ -916,15 +916,15 @@ void RemovePBCMolecules_old(COUNTS Counts, VECTOR BoxLength,
       test++;
     }
     if (test == 1000) {
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "\nWarning: unable to 'join' molecule ");
-      ColourText(STDERR_FILENO, CYAN);
+      ColourChange(STDERR_FILENO, CYAN);
       fprintf(stderr, "%s", MoleculeType[type].Name);
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, " (resid ");
-      ColourText(STDERR_FILENO, CYAN);
+      ColourChange(STDERR_FILENO, CYAN);
       fprintf(stderr, "%d", i+1);
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, " )\n");
       ColourReset(STDERR_FILENO);
     }
@@ -1030,15 +1030,15 @@ void RemovePBCMolecules(COUNTS Counts, BOX Box,
       test++;
     }
     if (test == 1000) {
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "\nWarning: unable to 'join' molecule");
-      ColourText(STDERR_FILENO, CYAN);
+      ColourChange(STDERR_FILENO, CYAN);
       fprintf(stderr, "%s", MoleculeType[type].Name);
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, " (resid ");
-      ColourText(STDERR_FILENO, CYAN);
+      ColourChange(STDERR_FILENO, CYAN);
       fprintf(stderr, "%d", i+1);
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, " )\n");
       fprintf(stderr, "           Maybe not all beads are connected?\n");
       ColourReset(STDERR_FILENO);
@@ -1137,15 +1137,15 @@ void RemovePBCMolecules_new(COUNTS Counts, BOX Box,
       test++;
     }
     if (test == 1000) {
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "\nWarning: unable to 'join' molecule");
-      ColourText(STDERR_FILENO, CYAN);
+      ColourChange(STDERR_FILENO, CYAN);
       fprintf(stderr, "%s", MoleculeType[type].Name);
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, " (resid ");
-      ColourText(STDERR_FILENO, CYAN);
+      ColourChange(STDERR_FILENO, CYAN);
       fprintf(stderr, "%d", i+1);
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, " )\n");
       fprintf(stderr, "           Maybe not all beads are connected?\n");
       ColourReset(STDERR_FILENO);
@@ -1299,14 +1299,14 @@ void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNTS Counts,
       test++;
     }
     if (test == 1000) {
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "\nWarning: unable to 'join' aggregate with these ");
-      ColourText(STDERR_FILENO, CYAN);
+      ColourChange(STDERR_FILENO, CYAN);
       fprintf(stderr, "%d", Aggregate[i].nMolecules);
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, " molecules:\n");
       for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-        ColourText(STDERR_FILENO, CYAN);
+        ColourChange(STDERR_FILENO, CYAN);
         fprintf(stderr, " %d", Aggregate[i].Molecule[j]);
       }
       fprintf(stderr, "\n");
@@ -1893,9 +1893,9 @@ void CopyBead(int number_of_beads, BEAD **b_out, BEAD *b_in, int mode) {
       break;
     default:
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "CopyBeadType()");
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " function requires mode=0, 1, 2, or 3\n");
       ColourReset(STDERR_FILENO);
       exit(1);
@@ -1930,9 +1930,9 @@ void CopyBeadType(int number_of_types, BEADTYPE **bt_out,
       break;
     default:
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "CopyBeadType()");
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " function requires mode=0, 1, 2, or 3\n");
       ColourReset(STDERR_FILENO);
       exit(1);
@@ -1969,9 +1969,9 @@ void CopyMoleculeType(int number_of_types, MOLECULETYPE **mt_out,
       break;
     default:
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "CopyMoleculeType()");
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " function requires mode=0, 1, 2, or 3\n");
       ColourReset(STDERR_FILENO);
       exit(1);
@@ -2043,9 +2043,9 @@ void CopyMolecule(int number_of_molecules, MOLECULETYPE *mt,
       break;
     default:
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "CopyMolecule()");
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " function requires mode=0, 1, 2, or 3\n");
       ColourReset(STDERR_FILENO);
       exit(1);

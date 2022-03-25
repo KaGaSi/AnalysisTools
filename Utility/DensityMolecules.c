@@ -147,11 +147,11 @@ int main(int argc, char *argv[]) {
       // error - nonexistent molecule  //{{{
       if (type == -1) {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - non-existent molecule type ");
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s\n", argv[count]);
         ColourReset(STDERR_FILENO);
         ErrorMoleculeType(Counts, MoleculeType);
@@ -181,37 +181,37 @@ int main(int argc, char *argv[]) {
     if (mtype > -1) {
       if (!MoleculeType[mtype].Use) {
         // warning - this molecule not specified in <mol(s)> //{{{
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "\nWarning: ");
-        ColourText(STDERR_FILENO, CYAN);
+        ColourChange(STDERR_FILENO, CYAN);
         fprintf(stderr, "-c");
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, " - molecule ");
-        ColourText(STDERR_FILENO, CYAN);
+        ColourChange(STDERR_FILENO, CYAN);
         fprintf(stderr, "%s", MoleculeType[mtype].Name);
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, " not specified in <mol(s)>;");
         fprintf(stderr, " this option will be ignored\n");
         ColourReset(STDERR_FILENO); //}}}
       } else if (id >= MoleculeType[mtype].nBeads) {
         // warning - too high an id; using the last bead //{{{
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "\nWarning: ");
-        ColourText(STDERR_FILENO, CYAN);
+        ColourChange(STDERR_FILENO, CYAN);
         fprintf(stderr, "-c");
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, " - index ");
-        ColourText(STDERR_FILENO, CYAN);
+        ColourChange(STDERR_FILENO, CYAN);
         fprintf(stderr, "%d", id);
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, " is larger than the number of beads in molecule ");
-        ColourText(STDERR_FILENO, CYAN);
+        ColourChange(STDERR_FILENO, CYAN);
         fprintf(stderr, "%s", MoleculeType[mtype].Name);
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "; last bead will be used insted (i.e., index");
-        ColourText(STDERR_FILENO, CYAN);
+        ColourChange(STDERR_FILENO, CYAN);
         fprintf(stderr, "%d", MoleculeType[mtype].nBeads-1);
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, ")\n");
         centre[mtype] = MoleculeType[i].nBeads - 1; //}}}
       } else {
@@ -249,13 +249,9 @@ int main(int argc, char *argv[]) {
     VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
-  // open input coordinate file //{{{
-  FILE *vcf;
-  if ((vcf = fopen(input_coor, "r")) == NULL) {
-    ErrorFileOpen(input_coor, 'r');
-    exit(1);
-  }
-  SkipVtfStructure(vcf, struct_lines); //}}}
+  // open input coordinate file
+  FILE *vcf = OpenFile(input_coor, "r");
+  SkipVtfStructure(vcf, struct_lines);
 
   count = SkipCoorSteps(vcf, input_coor, Counts, start, silent);
 
@@ -375,30 +371,12 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "Last Step: %d\n", count_vcf);
   } //}}}
 
-  // write initial stuff to output density file(s) //{{{
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    if (MoleculeType[i].Use) {
-      FILE *out;
-      char str[LINE];
-      sprintf(str, "%s%s.rho", output_rho, MoleculeType[i].Name);
-      if ((out = fopen(str, "w")) == NULL) {
-        ErrorFileOpen(str, 'w');
-        exit(1);
-      }
-      fclose(out);
-    }
-  } //}}}
-
   // write densities to output file(s) //{{{
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
     if (MoleculeType[i].Use) {
-      FILE *out;
       char str[LINE]; // file name <output_rho><mol_name>.rho
       sprintf(str, "%s%s.rho", output_rho, MoleculeType[i].Name);
-      if ((out = fopen(str, "a")) == NULL) {
-        ErrorFileOpen(str, 'a');
-        exit(1);
-      }
+      FILE *out = OpenFile(str, "w");
       // initial stuff to the file //{{{
       PrintByline(out, argc, argv);
       fprintf(out, "# for each bead type: ");

@@ -216,13 +216,9 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "\033[0m");
   } //}}}
 
-  // open input coordinate file //{{{
-  FILE *vcf;
-  if ((vcf = fopen(input_coor, "r")) == NULL) {
-    ErrorFileOpen(input_coor, 'r');
-    exit(1);
-  }
-  SkipVtfStructure(vcf, struct_lines); //}}}
+  // open input coordinate file
+  FILE *vcf = OpenFile(input_coor, "r");
+  SkipVtfStructure(vcf, struct_lines);
 
   // main loop //{{{
   count = 0;
@@ -263,11 +259,7 @@ int main(int argc, char *argv[]) {
 
   // create lammps data file //{{{
   // open output file for writing //{{{
-  FILE *out;
-  if ((out = fopen(output, "w")) == NULL) {
-    ErrorFileOpen(output, 'w');
-    exit(1);
-  } //}}}
+  FILE *out = OpenFile(output, "r");
 
   // print first line that's ignored by lammps
   fprintf(out, "LAMMPS data file via lmp_data (by KaGaSi - https://github.com/KaGaSi/AnalysisTools)\n\n");

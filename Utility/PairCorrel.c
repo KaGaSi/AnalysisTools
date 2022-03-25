@@ -136,11 +136,11 @@ int main(int argc, char *argv[]) {
       // error - nonexistent bead  //{{{
       if (type == -1) {
         ErrorPrintError_old();
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", input_coor);
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " - non-existent bead name ");
-        ColourText(STDERR_FILENO, YELLOW);
+        ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s\n", argv[count]);
         ColourReset(STDERR_FILENO);
         ErrorBeadType(Counts, BeadType);
@@ -155,11 +155,7 @@ int main(int argc, char *argv[]) {
   }
 
   // write initial stuff to output pcf file //{{{
-  FILE *out;
-  if ((out = fopen(output_pcf, "w")) == NULL) {
-    ErrorFileOpen(output_pcf, 'w');
-    exit(1);
-  }
+  FILE *out = OpenFile(output_pcf, "w");
   PrintByline(out, argc, argv);
   // print bead type names to output file //{{{
   fprintf(out, "# (1) distance;");
@@ -204,13 +200,9 @@ int main(int argc, char *argv[]) {
     VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
-  // open input coordinate file //{{{
-  FILE *vcf;
-  if ((vcf = fopen(input_coor, "r")) == NULL) {
-    ErrorFileOpen(input_coor, 'r');
-    exit(1);
-  }
-  SkipVtfStructure(vcf, struct_lines); //}}}
+  // open input coordinate file
+  FILE *vcf = OpenFile(input_coor, "r");
+  SkipVtfStructure(vcf, struct_lines);
 
   count = SkipCoorSteps(vcf, input_coor, Counts, start, silent);
 
@@ -290,10 +282,7 @@ int main(int argc, char *argv[]) {
 
 // TODO: check
   // write data to output file(s) //{{{
-  if ((out = fopen(output_pcf, "a")) == NULL) {
-    ErrorFileOpen(output_pcf, 'a');
-    exit(1);
-  }
+  out = OpenFile(output_pcf, "a");
   for (int i = 0; i < Counts.TypesOfBeads; i++) {
     counter[0] = 0;
   }

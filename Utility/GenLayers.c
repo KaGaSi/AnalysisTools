@@ -118,9 +118,9 @@ int main(int argc, char *argv[]) {
   }
   if (test != 2) {
     ErrorPrintError_old();
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-s");
-    ColourText(STDERR_FILENO, RED);
+    ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, " - two numeric arguments required\n");
     ColourReset(STDERR_FILENO);
     exit(1);
@@ -421,12 +421,8 @@ int main(int argc, char *argv[]) {
   // write output vsf file
   WriteVsf(output, Counts, BeadType, Bead, MoleculeType, Molecule, false);
 
-  // open output .vcf file for writing //{{{
-  FILE *out;
-  if ((out = fopen(output_vcf, "w")) == NULL) {
-    ErrorFileOpen(output_vcf, 'w');
-    exit(1);
-  } //}}}
+  // open output .vcf file for writing
+  FILE *out = OpenFile(output_vcf, "w");
   PrintByline(out, argc, argv);
   WriteCoorIndexed(out, Counts, BeadType, Bead,
                    MoleculeType, Molecule, "\0", Box);

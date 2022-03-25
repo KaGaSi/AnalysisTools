@@ -162,9 +162,9 @@ int main(int argc, char *argv[]) {
   }
   if (test != 2) {
     ErrorPrintError_old();
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-n");
-    ColourText(STDERR_FILENO, RED);
+    ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, " option requires two numeric arguments\n\n");
     ColourReset(STDERR_FILENO);
     exit(1);
@@ -226,11 +226,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // write initial stuff to output file //{{{
-  FILE *out;
-  if ((out = fopen(output, "w")) == NULL) {
-    ErrorFileOpen(output, 'w');
-    exit(1);
-  }
+  FILE *out = OpenFile(output, "w");
   PrintByline(out, argc, argv);
   // print legend line to output file
   count = 1;
@@ -256,12 +252,9 @@ int main(int argc, char *argv[]) {
   ReadAggCommand(BeadType, Counts, input_coor, input_agg, &distance, &contacts);
 
   // open input aggregate file and skip the first lines (Aggregate command & blank line) //{{{
-  FILE *agg;
-  if ((agg = fopen(input_agg, "r")) == NULL) {
-    ErrorFileOpen(input_agg, 'r');
-    exit(1);
-  }
+  FILE *agg = OpenFile(input_agg, "r");
   char line[LINE];
+  // TODO go for while(fgets()); treatment
   fgets(line, sizeof line, agg);
   fgets(line, sizeof line, agg); //}}}
 
@@ -305,13 +298,9 @@ int main(int argc, char *argv[]) {
     molecules_sum[i] = calloc(Counts.TypesOfMolecules,sizeof(int));
   } //}}}
 
-  // open input coordinate file //{{{
-  FILE *vcf;
-  if ((vcf = fopen(input_coor, "r")) == NULL) {
-    ErrorFileOpen(input_coor, 'r');
-    exit(1);
-  }
-  SkipVtfStructure(vcf, struct_lines); //}}}
+  // open input coordinate file
+  FILE *vcf= OpenFile(input_coor, "r");
+  SkipVtfStructure(vcf, struct_lines);
 
   // main loop //{{{
   count = 0; // count timesteps
@@ -423,19 +412,19 @@ int main(int argc, char *argv[]) {
         double Rgi = sqrt(eigen.x + eigen.y + eigen.z);
 
         if (eigen.x < 0 || eigen.y < 0 || eigen.z < 0) {
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "Warning: negative eigenvalues (");
-          ColourText(STDERR_FILENO, CYAN);
+          ColourChange(STDERR_FILENO, CYAN);
           fprintf(stderr, "%lf", eigen.x);
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, ", ");
-          ColourText(STDERR_FILENO, CYAN);
+          ColourChange(STDERR_FILENO, CYAN);
           fprintf(stderr, "%lf", eigen.y);
-          ColourText(STDERR_FILENO, CYAN);
+          ColourChange(STDERR_FILENO, CYAN);
           fprintf(stderr, ", ");
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%lf", eigen.z);
-          ColourText(STDERR_FILENO, YELLOW);
+          ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, ")\n\n");
           ColourReset(STDERR_FILENO);
         }
@@ -495,11 +484,8 @@ int main(int argc, char *argv[]) {
       }
     } //}}}
 
-    // print data to output file //{{{
-    if ((out = fopen(output, "a")) == NULL) { // out file opened fine? //{{{
-      ErrorFileOpen(output, 'a');
-      exit(1);
-    } //}}}
+    // print data to output file
+    out = OpenFile(output, "a");
 
     fprintf(out, "%5d", count); // timestep
     // sum up contributions from all aggregate sizes
@@ -563,11 +549,7 @@ int main(int argc, char *argv[]) {
 // TODO check
   // calculate per-size averages? //{{{
   if (per_size_file[0] != '\0') {
-    // open file //{{{
-    if ((out = fopen(per_size_file, "w")) == NULL) {
-      ErrorFileOpen(per_size_file, 'w');
-      exit(1);
-    } //}}}
+    out = OpenFile(per_size_file, "w");
     // print command to output file
     putc('#', out);
     PrintCommand(out, argc, argv);
@@ -634,10 +616,7 @@ int main(int argc, char *argv[]) {
   }
 
   // print to output file
-  if ((out = fopen(output, "a")) == NULL) { //{{{
-    ErrorFileOpen(output, 'a');
-    exit(1);
-  } //}}}
+  out = OpenFile(output, "a");
 
   fprintf(out, "# (1) <M>_n, (2) <M>_w ");
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {

@@ -192,12 +192,9 @@ int main(int argc, char *argv[]) {
   // TODO: will change when the agg format changes (at least when Byline is
   //       added to Aggregates*)
   // open input aggregate file and skip the first two lines
-  FILE *agg;
-  if ((agg = fopen(input_agg, "r")) == NULL) {
-    ErrorFileOpen(input_agg, 'r');
-    exit(1);
-  }
+  FILE *agg = OpenFile(input_agg, "r");
   char line[LINE];
+  // TODO go for while(gets()); approach
   fgets(line, sizeof line, agg);
   fgets(line, sizeof line, agg); //}}}
 
@@ -231,13 +228,9 @@ int main(int argc, char *argv[]) {
     VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
-  // open input coordinate file //{{{
-  FILE *vcf;
-  if ((vcf = fopen(input_coor, "r")) == NULL) {
-    ErrorFileOpen(input_coor, 'r');
-    exit(1);
-  }
-  SkipVtfStructure(vcf, struct_lines); //}}}
+  // open input coordinate file
+  FILE *vcf = OpenFile(input_coor, "r");
+  SkipVtfStructure(vcf, struct_lines);
 
   count = SkipCoorAggSteps(vcf, input_coor, agg,
                            input_agg, Counts, start, silent);
@@ -633,11 +626,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // write elstat to output file //{{{
-  FILE *out;
-  if ((out = fopen(output_elstat, "w")) == NULL) {
-    ErrorFileOpen(output_elstat, 'w');
-    exit(1);
-  }
+  FILE *out = OpenFile(output_elstat, "w");
   PrintByline(out, argc, argv);
   // print aggregate sizes //{{{
   fprintf(out, "# (1) distance;");

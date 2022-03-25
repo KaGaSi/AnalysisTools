@@ -330,8 +330,8 @@ void PrintCommand(FILE *ptr, int argc, char *argv[]) {
   fprintf(ptr, "\n");
 } //}}}
 
-// ColourText() //{{{
-void ColourText(int a, int colour) {
+// ColourChange() //{{{
+void ColourChange(int a, int colour) {
   if (isatty(a)) {
     FILE *ptr;
     if (a == STDOUT_FILENO) {
@@ -397,7 +397,7 @@ FILE * OpenFile(char *file, char *mode) {
     strcpy(ERROR_MSG, "cannot open file");
     ErrorPrintError();
     FilePrintFile(file, RED);
-    ColourText(STDERR_FILENO, RED);
+    ColourChange(STDERR_FILENO, RED);
     perror(" ");
     ColourReset(STDERR_FILENO);
     exit(1);

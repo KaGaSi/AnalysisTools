@@ -219,9 +219,9 @@ int main(int argc, char *argv[]) {
             break;
           } else { // missing vcf file name
             ErrorPrintError_old();
-            ColourText(STDERR_FILENO, YELLOW);
+            ColourChange(STDERR_FILENO, YELLOW);
             fprintf(stderr, "-vtf");
-            ColourText(STDERR_FILENO, RED);
+            ColourChange(STDERR_FILENO, RED);
             fprintf(stderr, " - missing second file (vcf format;");
             fprintf(stderr, " cannot be full vtf, because vsf is used)\n\n");
             ColourReset(STDERR_FILENO);
@@ -239,9 +239,9 @@ int main(int argc, char *argv[]) {
   }
   if (count != 3) {
     ErrorPrintError_old();
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-offset");
-    ColourText(STDERR_FILENO, RED);
+    ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, " - three numbers required\n\n");
     ColourReset(STDERR_FILENO);
     Help(argv[0], true);
@@ -249,11 +249,11 @@ int main(int argc, char *argv[]) {
   }
   // Warning - missing -vtf option
   if (strlen(add_vsf) == 0 && offset[0] != 1000000) {
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "\nWarning: ");
-    ColourText(STDERR_FILENO, CYAN);
+    ColourChange(STDERR_FILENO, CYAN);
     fprintf(stderr, "-offset");
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, " option has no effect if -vtf is not used\n");
     ColourReset(STDERR_FILENO);
   } //}}}
@@ -284,7 +284,7 @@ int main(int argc, char *argv[]) {
     // 1)
     if (strcmp(argv[1],"--") == 0) {
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, "if new system is generated,");
       fprintf(stderr, "there cannot be -ld/-hd/-bt options present\n\n");
       ColourReset(STDERR_FILENO);
@@ -299,7 +299,7 @@ int main(int argc, char *argv[]) {
     }
     if (!bt) {
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, "if '-ld' and/or '-hd' is used,");
       fprintf(stderr, "'-bt' must be specified as well\n\n");
       ColourReset(STDERR_FILENO);
@@ -316,9 +316,9 @@ int main(int argc, char *argv[]) {
   }
   if (test != 2) {
     ErrorPrintError_old();
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-cx");
-    ColourText(STDERR_FILENO, RED);
+    ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, " - two non-negative numbers required");
     ColourReset(STDERR_FILENO);
     Help(argv[0], true);
@@ -339,9 +339,9 @@ int main(int argc, char *argv[]) {
   }
   if (test != 2) {
     ErrorPrintError_old();
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-cy");
-    ColourText(STDERR_FILENO, RED);
+    ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, " - two non-negative numbers required");
     ColourReset(STDERR_FILENO);
     Help(argv[0], true);
@@ -361,9 +361,9 @@ int main(int argc, char *argv[]) {
   }
   if (test != 2) {
     ErrorPrintError_old();
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-cz");
-    ColourText(STDERR_FILENO, RED);
+    ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, " - two non-negative numbers required");
     ColourReset(STDERR_FILENO);
     Help(argv[0], true);
@@ -390,9 +390,9 @@ int main(int argc, char *argv[]) {
   }
   if (count != 3) {
     ErrorPrintError_old();
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-b");
-    ColourText(STDERR_FILENO, RED);
+    ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, " - three non-negative numbers required\n\n");
     ColourReset(STDERR_FILENO);
     Help(argv[0], true);
@@ -441,9 +441,9 @@ int main(int argc, char *argv[]) {
   // error - if -xb is used, 
   if (sw && strlen(input_coor) == 0) {
     ErrorPrintError_old();
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-xb");
-    ColourText(STDERR_FILENO, RED);
+    ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, " - <input> file must be present\n\n");
     ColourReset(STDERR_FILENO);
     Help(argv[0], true);
@@ -499,10 +499,7 @@ int main(int argc, char *argv[]) {
   // open input coordinate file //{{{
   FILE *vcf;
   if (strlen(input_coor) > 0) {
-    if ((vcf = fopen(input_coor, "r")) == NULL) {
-      ErrorFileOpen(input_coor, 'r');
-      exit(1);
-    }
+    vcf = OpenFile(input_coor, "r");
     SkipVtfStructure(vcf, struct_lines);
     count = SkipCoorSteps(vcf, input_coor, Counts_orig, start, silent);
     if (!silent) {
@@ -538,10 +535,7 @@ int main(int argc, char *argv[]) {
                 &struct_lines_add, &Box_add, &Counts_add,
                 &bt_add, &bead_add, &Index_add, &mt_add, &mol_add);
     // read coordinates
-    if ((vcf = fopen(input_coor_add, "r")) == NULL) {
-      ErrorFileOpen(input_coor_add, 'r');
-      exit(1);
-    }
+    vcf = OpenFile(input_coor_add, "r");
     SkipVtfStructure(vcf, struct_lines_add);
     ReadVcfCoordinates(indexed_add, input_coor_add, vcf, &Box, Counts_add,
                        Index_add, &bead_add, &stuff);
@@ -664,7 +658,7 @@ int main(int argc, char *argv[]) {
   // error - no box size //{{{
   if (Box_new.Length.x == 0 || Box_new.Length.y == 0 || Box_new.Length.z == 0) {
     ErrorPrintError_old();
-    ColourText(STDERR_FILENO, RED);
+    ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, "zero box size for the new system\n\n");
     ColourReset(STDERR_FILENO);
     Help(argv[0], 1);
@@ -682,14 +676,14 @@ int main(int argc, char *argv[]) {
   // count beads to be added
   if (sw && Counts_add.BeadsCoor > can_be_exchanged) {
     ErrorPrintError_old();
-    ColourText(STDERR_FILENO, RED);
+    ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, "insufficient beads to exchange for new ones\n");
     fprintf(stderr, "     Exchangeable beads in the original system: ");
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%d\n", can_be_exchanged);
-    ColourText(STDERR_FILENO, RED);
+    ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, "     Beads to be added: ");
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "%d\n\n", Counts_add.BeadsCoor);
     ColourReset(STDERR_FILENO);
     exit(1);
@@ -1152,7 +1146,7 @@ int main(int argc, char *argv[]) {
         do {
           tries++;
           if (tries == 1000000) {
-            ColourText(STDERR_FILENO, YELLOW);
+            ColourChange(STDERR_FILENO, YELLOW);
             fprintf(stderr, "\nWarning: million attempts");
             fprintf(stderr, " to place a bead failed. Are the constraints");
             fprintf(stderr, " (-cx/-cy/-cz options) correct?\n");
@@ -1207,7 +1201,7 @@ int main(int argc, char *argv[]) {
         }
       }
       if (id == -1) {
-        ColourText(STDERR_FILENO, RED);
+        ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, "!!!SOME ERROR!!!");
         fprintf(stderr, "...very useful.");
         ColourReset(STDERR_FILENO);
@@ -1301,7 +1295,7 @@ int main(int argc, char *argv[]) {
         do {
           tries++;
           if (tries == 1000000) {
-            ColourText(STDERR_FILENO, YELLOW);
+            ColourChange(STDERR_FILENO, YELLOW);
             fprintf(stderr, "\nWarning: million attempts");
             fprintf(stderr, " to place a bead failed. Are the constraints");
             fprintf(stderr, " (-cx/-cy/-cz options) correct?\n");
@@ -1366,13 +1360,8 @@ int main(int argc, char *argv[]) {
     } //}}}
   } //}}}
 
-  // open output .vcf file //{{{
-  FILE *out;
-  if ((out = fopen(output_vcf, "w")) == NULL) {
-    ErrorFileOpen(output_vcf, 'w');
-    exit(1);
-  } //}}}
-
+  // open output .vcf file
+  FILE *out = OpenFile(output_vcf, "w");
   // print command, bead type names & box size to output .vcf file //{{{
   fprintf(out, "# Generated by:");
   PrintCommand(out, argc, argv);
@@ -1393,22 +1382,13 @@ int main(int argc, char *argv[]) {
     mt_new[i].Write = true;
   }
   WriteCoorIndexed(out, Counts_new, bt_new, bead_new,
-                   mt_new, mol_new, stuff, Box_new); //}}}
+                   mt_new, mol_new, stuff, Box_new);
+  fclose(out); //}}}
 
   // print coordinates to xyz file (if -xyz option is present) //{{{
-  FILE *xyz = NULL;
   if (strlen(output_xyz) > 0) {
-    // open output .xyz file for reading
-    if ((xyz = fopen(output_xyz, "w")) == NULL) {
-      ErrorFileOpen(output_xyz, 'w');
-      exit(1);
-    }
+    FILE *xyz = OpenFile(output_xyz, "w");
     WriteCoorXYZ(xyz, Counts_new, bt_new, bead_new);
-  } //}}}
-
-  // close output files //{{{
-  fclose(out);
-  if (output_xyz[0] != '\0') {
     fclose(xyz);
   } //}}}
 

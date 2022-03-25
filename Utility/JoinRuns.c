@@ -276,11 +276,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // print selected bead type names to output .vcf file //{{{
-  FILE *out;
-  if ((out = fopen(output_vcf, "w")) == NULL) {
-    ErrorFileOpen(output_vcf, 'w');
-    exit(1);
-  }
+  FILE *out = OpenFile(output_vcf, "w");
 
   for (int i = 0; i < Counts.TypesOfBeads; i++) {
     if (BeadType1[i].Write) {
@@ -291,15 +287,8 @@ int main(int argc, char *argv[]) {
   fclose(out); //}}}
 
   // open input coordinate files //{{{
-  FILE *vcf_1, *vcf_2;
-  if ((vcf_1 = fopen(input_coor_1, "r")) == NULL) {
-    ErrorFileOpen(input_coor_1, 'r');
-    exit(1);
-  }
-  if ((vcf_2 = fopen(input_coor_2, "r")) == NULL) {
-    ErrorFileOpen(input_coor_2, 'r');
-    exit(1);
-  } //}}}
+  FILE *vcf_1 = OpenFile(input_coor_1, "r"),
+       *vcf_2 = OpenFile(input_coor_2, "r");
 
   // get to the pbc line in both input files //{{{
   VECTOR BoxLength = GetPBC(vcf_1, input_coor_1);
@@ -327,10 +316,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // print pbc to output .vcf file //{{{
-  if ((out = fopen(output_vcf, "a")) == NULL) {
-    ErrorFileOpen(output_vcf, 'a');
-    exit(1);
-  }
+  out = OpenFile(output_vcf, "a");
 
   fprintf(out, "\npbc %lf %lf %lf\n", BoxLength.x, BoxLength.y, BoxLength.z);
 
@@ -390,11 +376,8 @@ int main(int argc, char *argv[]) {
       RemovePBCMolecules(Counts, BoxLength, BeadType1, &Bead1, MoleculeType1, Molecule1);
     } //}}}
 
-    // open output .vcf file for appending //{{{
-    if ((out = fopen(output_vcf, "a")) == NULL) {
-      ErrorFileOpen(output_vcf, 'a');
-      exit(1);
-    } //}}}
+    // open output .vcf file for appending
+    out = OpenFile(output_vcf, "a");
 
     WriteCoorIndexed(out, Counts, BeadType1, Bead1, MoleculeType1, Molecule1, stuff);
 
@@ -537,11 +520,8 @@ int main(int argc, char *argv[]) {
       RemovePBCMolecules(Counts, BoxLength, BeadType2, &Bead2, MoleculeType2, Molecule2);
     } //}}}
 
-    // open output .vcf file for appending //{{{
-    if ((out = fopen(output_vcf, "a")) == NULL) {
-      ErrorFileOpen(output_vcf, 'a');
-      exit(1);
-    } //}}}
+    // open output .vcf file for appending
+    out = OpenFile(output_vcf, "a");
 
     for (int i = 0; i < Counts.BeadsCoor; i++) {
         Bead1[i].Position.x = Bead2[Index1[Bead1[i].Index]].Position.x;

@@ -113,9 +113,9 @@ int main(int argc, char *argv[]) {
     // Error - not x/y/z
     if (axis != 'x' && axis != 'y' && axis != 'z') {
       ErrorPrintError_old();
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "<axis>");
-      ColourText(STDERR_FILENO, RED);
+      ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " - use 'x', 'y', or 'z'\n\n");
       ColourReset(STDERR_FILENO);
       Help(argv[0], true);
@@ -155,11 +155,11 @@ int main(int argc, char *argv[]) {
   if (Box.alpha != 90 ||
       Box.beta != 90 ||
       Box.gamma != 90) {
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "\nWarning: non-orthogonal box; angles - ");
-    ColourText(STDERR_FILENO, CYAN);
+    ColourChange(STDERR_FILENO, CYAN);
     fprintf(stderr, "%lf %lf %lf", Box.alpha, Box.beta, Box.gamma);
-    ColourText(STDERR_FILENO, YELLOW);
+    ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, ".\n         %s works properly only for \
 orthogonal box.\n", argv[0]);
     ColourReset(STDERR_FILENO);
@@ -248,13 +248,9 @@ orthogonal box.\n", argv[0]);
     VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
-  // open input coordinate file //{{{
-  FILE *vcf;
-  if ((vcf = fopen(input_coor, "r")) == NULL) {
-    ErrorFileOpen(input_coor, 'r');
-    exit(1);
-  }
-  SkipVtfStructure(vcf, struct_lines); //}}}
+  // open input coordinate file
+  FILE *vcf = OpenFile(input_coor, "r");
+  SkipVtfStructure(vcf, struct_lines);
 
   count = SkipCoorSteps(vcf, input_coor, Counts, start, silent);
 
@@ -278,16 +274,16 @@ orthogonal box.\n", argv[0]);
     if (Box.Length.x != test.Length.x ||
         Box.Length.y != test.Length.y ||
         Box.Length.z != test.Length.z) {
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "\nWarning: box side lengths changed from ");
-      ColourText(STDERR_FILENO, CYAN);
+      ColourChange(STDERR_FILENO, CYAN);
       fprintf(stderr, "%lf %lf %lf", Box.Length.x, Box.Length.y, Box.Length.z);
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, " to ");
-      ColourText(STDERR_FILENO, CYAN);
+      ColourChange(STDERR_FILENO, CYAN);
       fprintf(stderr, "%lf %lf %lf", test.Length.x, test.Length.y,
                                      test.Length.z);
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, ".\n         %s works properly only when the box \
 size is constant.\n", argv[0]);
       ColourReset(STDERR_FILENO);
@@ -295,11 +291,11 @@ size is constant.\n", argv[0]);
     if (Box.alpha != 90 ||
         Box.beta != 90 ||
         Box.gamma != 90) {
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "\nWarning: non-orthogonal box; angles - ");
-      ColourText(STDERR_FILENO, CYAN);
+      ColourChange(STDERR_FILENO, CYAN);
       fprintf(stderr, "%lf %lf %lf", Box.alpha, Box.beta, Box.gamma);
-      ColourText(STDERR_FILENO, YELLOW);
+      ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, ".\n         %s works properly only for \
 orthogonal box.\n", argv[0]);
       ColourReset(STDERR_FILENO);
@@ -487,11 +483,7 @@ orthogonal box.\n", argv[0]);
 
   // write surface to output file //{{{
   // open output file //{{{
-  FILE *out;
-  if ((out = fopen(output, "w")) == NULL) {
-    ErrorFileOpen(output, 'w');
-    exit(1);
-  } //}}}
+  FILE *out = OpenFile(output, "w");
   PrintByline(out, argc, argv);
   // print legend
   switch(axis) {
