@@ -2,7 +2,7 @@
 int *InFile;
 int *InFile;
 
-void Help(char cmd[50], bool error) {
+void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
   if (error) {
     ptr = stderr;
@@ -39,7 +39,7 @@ the specified bead types (use all if no <bead names> are present)\n");
   fprintf(ptr, "      --last         use only the last step \
 (-st/-e/-n options are ignored)\n");
   CommonHelp(error);
-}
+} //}}}
 
 int main(int argc, char *argv[]) {
 
@@ -212,11 +212,6 @@ int main(int argc, char *argv[]) {
   }
   SortArray(save_step, number_of_steps, 0); //}}}
 
-  // print initial stuff to output vcf file
-  FILE *out = OpenFile(output_vcf, "w");
-  PrintByline(out, argc, argv);
-  fclose(out);
-
   // print information - verbose output //{{{
   if (verbose) {
     VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
@@ -224,24 +219,39 @@ int main(int argc, char *argv[]) {
 
   // open input coordinate file
   FILE *vcf = OpenFile(input_coor, "r");
-
-  int file_line_count = 0;
+  fpos_t position;
+  // get file pointer position in case there's only one valid timestep
+  fgetpos(vcf, &position);
+  int file_line_count = 0; // count lines in the vcf file
+  // test there is at least one valid timestep & skip 'start' steps //{{{
+  if (!VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead, Index,
+                        MoleculeType, Molecule, &file_line_count, count)) {
+    exit(1);
+  }
+  // skip 'start' steps
+  // TODO make into some 'simpler' while(++count && VtfReadTimestep());
+  count = 0;
   do {
-    if (count >= start || last) {
+    count++;
+    if (last || count >= start) {
       break;
     }
-    count++;
   } while (VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
-                           Index, MoleculeType, Molecule, &file_line_count));
+                           Index, MoleculeType, Molecule,
+                           &file_line_count, count)); //}}}
+
+  // print initial stuff to output vcf file
+  FILE *out = OpenFile(output_vcf, "w");
+  PrintByline(out, argc, argv);
+  fclose(out);
+
   // main loop //{{{
   int count_n_opt = 0; // count saved steps if -n option is used
-  count = 0; // count timesteps in the main loop
   int count_vcf = start - 1; // count timesteps from the beginning
+  count = 0;
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
-  fpos_t position;
-  fgetpos(vcf, &position); // get file pointer position
-  while (VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
-                         Index, MoleculeType, Molecule, &file_line_count)) {
+  bool test;
+  do {
     count++;
     count_vcf++;
     // print step? //{{{
@@ -250,7 +260,7 @@ int main(int argc, char *argv[]) {
       if (last) {
         fprintf(stdout, "\rDiscarding step: %d", count_vcf);
       } else {
-        fprintf(stdout, "\rStep: %d", count_vcf);
+        fprintf(stdout, "\rStep: %d %d", count_vcf, count);
       }
     } //}}}
     if (!last) { // save coordinate only if --last isn't used //{{{
@@ -315,17 +325,20 @@ int main(int argc, char *argv[]) {
           SkipVcfCoor(vcf, input_coor, Counts, &stuff);
         } //}}}
       }
-    //}}}
-    } else { // save file pointer position if --last is used //{{{
-      fgetpos(vcf, &position); // get file pointer position
     } //}}}
-  }
+    test = VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
+                           Index, MoleculeType, Molecule,
+                           &file_line_count, count_vcf);
+    // get file position it the next step is valid (for --last option)
+    if (test) {
+      fgetpos(vcf, &position);
+    }
+  } while (test);
   // if this is the last step, restore file pointer and read the coordinates
   if (last) {
     fsetpos(vcf, &position); // restore pointer position
-    // read coordinates & wrap/join molecules
-    VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
-                    Index, MoleculeType, Molecule, &file_line_count);
+    VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead, Index,
+                    MoleculeType, Molecule, &file_line_count, count_vcf);
     // transform coordinates into fractional ones for non-orthogonal box
     ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
     // wrap and/or join molecules?

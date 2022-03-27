@@ -153,7 +153,7 @@ void ErrorPrintFull(char *file, int line,
 /*
  * Warning when stopping file reading due to some error in the file
  */
-void WarnStopReading(char *vcf_file, int line_count,
+void WarnStopReading(char *vcf_file, int line_count, int step_count,
                      char split[SPL_STR][SPL_LEN], int words); //}}}
 
 void PrintLine(char split[SPL_STR][SPL_LEN], int words,

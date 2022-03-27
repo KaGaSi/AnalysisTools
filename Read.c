@@ -2597,7 +2597,7 @@ bool VtfCheckTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
 bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
                      BEADTYPE *BeadType, BEAD **Bead, int *Index,
                      MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
-                     int *file_line_count) {
+                     int *file_line_count, int step_count) {
   for (int i = 0; i < (*Counts).BeadsTotal; i++) {
     (*Bead)[i].InTimestep = false;
   }
@@ -2642,7 +2642,7 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
       case COOR_LINE_I: // coordinate line in indexed/ordered timestep
         if (indexed == -1) { // missing timestep line
           strcpy(ERROR_MSG, "found coordinate line before 'timestep' line");
-          WarnStopReading(vcf_file, *file_line_count, split, words);
+          WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
           return false;
         }
         (*Counts).BeadsCoor = 0;
@@ -2650,18 +2650,18 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
       case COOR_LINE_O: // coordinate line in (definitely) ordered timestep
         if (indexed == 1) {
           strcpy(ERROR_MSG, "ordered coordinate line in 'timestep indexed'");
-          WarnStopReading(vcf_file, *file_line_count, split, words);
+          WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
           return false;
         } else if (indexed == -1){
           strcpy(ERROR_MSG, "found coordinate line before 'timestep' line");
-          WarnStopReading(vcf_file, *file_line_count, split, words);
+          WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
           return false;
         }
         (*Counts).BeadsCoor = 0;
         goto exit_loop;
       case ERROR_LINE:
         // error message already printed by VtfCheckLineType()
-        WarnStopReading(vcf_file, *file_line_count, split, words);
+        WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
         return false;
     }
   }
@@ -2678,17 +2678,18 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
     (*file_line_count)++;
     if (indexed == 1) { // 'timestep indexed' line
       if (ltype == COOR_LINE_I) {
-        int id = Index[atoi(split[0])];
-        // error - bead id was already found in the timestep //{{{
+        int id = atoi(split[0]);
+        // error - bead index is too high //{{{
         if (id >= (*Counts).BeadsTotal) {
           strcpy(ERROR_MSG, "bead index too high");
-          WarnStopReading(vcf_file, *file_line_count, split, words);
+          WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
           return false;
         } //}}}
+        id = Index[id];
         // error - bead id was already found in the timestep //{{{
         if ((*Bead)[id].InTimestep) {
           strcpy(ERROR_MSG, "multiple bead entry with the same index");
-          WarnStopReading(vcf_file, *file_line_count, split, words);
+          WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
           return false;
         } //}}}
         (*Bead)[id].Position.x = atof(split[1]);
@@ -2696,7 +2697,7 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
         (*Bead)[id].Position.z = atof(split[3]);
         (*Bead)[id].InTimestep = true;
         if (words >= 7 && IsReal(split[4]) &&
-            IsReal(split[5]) && IsReal(split[6])) { // bead velocities, if present
+            IsReal(split[5]) && IsReal(split[6])) { // bead velocities, if there
           (*Bead)[id].Velocity.x = atof(split[4]);
           (*Bead)[id].Velocity.y = atof(split[5]);
           (*Bead)[id].Velocity.z = atof(split[6]);
@@ -2704,7 +2705,7 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
         InFile[(*Counts).BeadsCoor] = id;
       } else {
         strcpy(ERROR_MSG, "ordered coordinate line in indexed timestep");
-        WarnStopReading(vcf_file, *file_line_count, split, words);
+        WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
         return false;
       }
     } else { // 'timestep ordered' line
@@ -2728,7 +2729,8 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
       // error - ordered timestep, but not all beads are present //{{{
       if (!indexed && (*Counts).BeadsCoor < (*Counts).BeadsTotal) {
         strcpy(ERROR_MSG, "insufficient number of beads for ordered timestep");
-        WarnStopReading(vcf_file, (*file_line_count)+1, split, words);
+        WarnStopReading(vcf_file, (*file_line_count)+1,
+                        step_count, split, words);
         return false;
       } //}}}
       return true;
@@ -2742,7 +2744,7 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
   // error - ordered timestep, but not all beads are present //{{{
   if (!indexed && (*Counts).BeadsCoor < (*Counts).BeadsTotal) {
     strcpy(ERROR_MSG, "insufficient number of beads for ordered timestep");
-    WarnStopReading(vcf_file, *file_line_count, split, words);
+    WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
     return false;
   } //}}}
   return true; // coordinates read properly

@@ -326,14 +326,24 @@ void ErrorPrintFull(char *file, int line,
 /*
  * Warning when stopping file reading due to some error in the file.
  */
-void WarnStopReading(char *vcf_file, int line_count,
+void WarnStopReading(char *vcf_file, int line_count, int step_count,
                      char split[SPL_STR][SPL_LEN], int words) {
   WarnPrintWarning();
+  if (step_count-1 > 0) {
+    ColourChange(STDERR_FILENO, CYAN);
+    fputs("Last step read from file ", stderr);
+    PrintFile(vcf_file, YELLOW);
+    ColourChange(STDERR_FILENO, CYAN);
+    fputs(": ", stderr);
+    ColourChange(STDERR_FILENO, YELLOW);
+    fprintf(stderr, "%d", step_count);
+  } else {
+    ColourChange(STDERR_FILENO, CYAN);
+    fputs("No valid timestep in file ", stderr);
+    PrintFile(vcf_file, YELLOW);
+  }
   ColourChange(STDERR_FILENO, CYAN);
-  fputs("Stopped reading file ", stderr);
-  PrintFile(vcf_file, YELLOW);
-  ColourChange(STDERR_FILENO, CYAN);
-  fputs(" before line ", stderr);
+  fprintf(stderr, "; error at line ");
   ColourChange(STDERR_FILENO, YELLOW);
   fprintf(stderr, "%d", line_count);
   ColourChange(STDERR_FILENO, CYAN);

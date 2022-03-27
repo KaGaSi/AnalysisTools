@@ -58,7 +58,7 @@ bool VtfCheckTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
 bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
                      BEADTYPE *BeadType, BEAD **Bead, int *Index,
                      MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
-                     int *file_line_count);
+                     int *file_line_count, int step_count);
 void VtfReadStruct_old(char *vsf_file, bool detailed, COUNTS *Counts,
                       BEADTYPE **BeadType, BEAD **Bead, int **Index,
                       MOLECULETYPE **MoleculeType, MOLECULE **Molecule);
