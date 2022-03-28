@@ -234,7 +234,7 @@ void SortArray(int *array, int length, int mode) {
   }
 } //}}}
 
-// ReadAndSplitLine  //{{{
+// ReadAndSplitLine()  //{{{
 bool ReadAndSplitLine(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]) {
   char line[LINE];
   if (!fgets(line, sizeof line, fr)) {
@@ -248,6 +248,23 @@ bool ReadAndSplitLine(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]) {
     } while (test != '\n' && test != EOF);
   }
   *words = SplitLine(split, line, "\t ");
+  return true;
+} //}}}
+
+// ReadAndSplitLine2()  //{{{
+bool ReadAndSplitLine2(FILE *fr, int *words, char **split) {
+  char line[LINE];
+  if (!fgets(line, sizeof line, fr)) {
+    return false; // error/EOF
+  }
+  // if the line is too long, skip the rest of it
+  if (strcspn(line, "\n") == (LINE-1)) {
+    int test;
+    do {
+      test = getc(fr);
+    } while (test != '\n' && test != EOF);
+  }
+  *words = SplitLine2(split, line, "\t ");
   return true;
 } //}}}
 
@@ -273,6 +290,26 @@ int SplitLine(char out[SPL_STR][SPL_LEN], char *line, const char *delim) {
     for (int i = 0; i < words; i++) {
       snprintf(out[i], SPL_LEN, "%s", split[i]);
     }
+  }
+  return words;
+} //}}}
+
+// SplitLine2() //{{{
+/**
+ * Function that splits the provided line into individual strings.
+ */
+int SplitLine2(char *out[SPL_STR], char *line, const char *delim) {
+  // trim whitespaces at the beginning and end of line
+  strcpy(line, TrimLine(line));
+  // split into words separated by delimiters in delim array
+  int words = 0;
+  out[words] = strtok(line, delim); // first word
+  while (words < (SPL_STR-1) && out[words] != NULL) {
+    words++; // start from 1, as the first split is already done
+    out[words] = strtok(NULL, delim);
+  }
+  if (words == 0) {
+    out[0][0] = '\0';
   }
   return words;
 } //}}}

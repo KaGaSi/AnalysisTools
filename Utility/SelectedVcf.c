@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+int nanosleep(const struct timespec *req, struct timespec *rem);
 int *InFile;
 int *InFile;
 
@@ -42,7 +43,6 @@ the specified bead types (use all if no <bead names> are present)\n");
 } //}}}
 
 int main(int argc, char *argv[]) {
-
   // -h/--version options - print stuff and exit //{{{
   if (VersionOption(argc, argv)) {
     exit(0);
@@ -60,10 +60,8 @@ int main(int argc, char *argv[]) {
   while ((count+1) < argc && argv[count+1][0] != '-') {
     count++;
   }
-
   // reverse bead type selection? ...do now to check correct number of arguments
   bool reverse = BoolOption(argc, argv, "--reverse");
-
   // possible to omit <bead name(s)> if '--reverse' is used
   if (count < (req_args-1) || (count == (req_args-1) && !reverse)) {
     ErrorArgNumber(count, req_args);
@@ -220,25 +218,35 @@ int main(int argc, char *argv[]) {
   // open input coordinate file
   FILE *vcf = OpenFile(input_coor, "r");
   fpos_t position;
-  // get file pointer position in case there's only one valid timestep
-  fgetpos(vcf, &position);
-  int file_line_count = 0; // count lines in the vcf file
+
   // test there is at least one valid timestep & skip 'start' steps //{{{
-  if (!VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead, Index,
-                        MoleculeType, Molecule, &file_line_count, count)) {
+  fgetpos(vcf, &position);
+  int file_line_count; // count lines in the vcf file
+  printf("ok\n");
+//if (!VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead, Index,
+//                      MoleculeType, Molecule, &file_line_count, count)) {
+  if (!VtfSkipTimestep(vcf, input_coor, &file_line_count, count)) {
     exit(1);
   }
+  fsetpos(vcf, &position); // return to the file's beginning
+  file_line_count = 0; // count lines in the vcf file
+  printf("RESTART READING (%d)\n", file_line_count);
   // skip 'start' steps
-  // TODO make into some 'simpler' while(++count && VtfReadTimestep());
-  count = 0;
-  do {
-    count++;
-    if (last || count >= start) {
-      break;
-    }
-  } while (VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
-                           Index, MoleculeType, Molecule,
-                           &file_line_count, count)); //}}}
+  int count_vcf = 0; // first step already read
+  while (!last && count_vcf < (start-1) &&
+//       VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
+//                       Index, MoleculeType, Molecule,
+//                       &file_line_count, count)) {
+         VtfSkipTimestep(vcf, input_coor, &file_line_count, count)) {
+    count_vcf++;
+    // print step? //{{{
+    if (!silent && isatty(STDOUT_FILENO)) {
+      fflush(stdout);
+      fprintf(stdout, "\rDiscarding step: %d", count_vcf);
+    } //}}}
+//  struct timespec remaining, request = {0, 5e8};
+//  nanosleep(&request, &remaining);
+  } //}}}
 
   // print initial stuff to output vcf file
   FILE *out = OpenFile(output_vcf, "w");
@@ -247,11 +255,12 @@ int main(int argc, char *argv[]) {
 
   // main loop //{{{
   int count_n_opt = 0; // count saved steps if -n option is used
-  int count_vcf = start - 1; // count timesteps from the beginning
   count = 0;
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
   bool test;
-  do {
+  while ((test = VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
+                           Index, MoleculeType, Molecule,
+                           &file_line_count, count_vcf))) {
     count++;
     count_vcf++;
     // print step? //{{{
@@ -260,9 +269,11 @@ int main(int argc, char *argv[]) {
       if (last) {
         fprintf(stdout, "\rDiscarding step: %d", count_vcf);
       } else {
-        fprintf(stdout, "\rStep: %d %d", count_vcf, count);
+        fprintf(stdout, "\rStep: %d %d          ", count_vcf, count);
       }
     } //}}}
+//  struct timespec remaining, request = {0, 5e8};
+//  nanosleep(&request, &remaining);
     if (!last) { // save coordinate only if --last isn't used //{{{
       // wrap/join molecules //{{{
       // transform coordinates into fractional ones for non-orthogonal box
@@ -326,15 +337,13 @@ int main(int argc, char *argv[]) {
         } //}}}
       }
     } //}}}
-    test = VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
-                           Index, MoleculeType, Molecule,
-                           &file_line_count, count_vcf);
     // get file position it the next step is valid (for --last option)
     if (test) {
       fgetpos(vcf, &position);
     }
-  } while (test);
-  // if this is the last step, restore file pointer and read the coordinates
+  } //}}}
+
+  // if this is the last step, restore file pointer and read the coordinates //{{{
   if (last) {
     fsetpos(vcf, &position); // restore pointer position
     VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead, Index,
