@@ -259,7 +259,7 @@ int main(int argc, char *argv[]) {
 
   // create lammps data file //{{{
   // open output file for writing //{{{
-  FILE *out = OpenFile(output, "r");
+  FILE *out = OpenFile(output, "w");
 
   // print first line that's ignored by lammps
   fprintf(out, "LAMMPS data file via lmp_data (by KaGaSi - https://github.com/KaGaSi/AnalysisTools)\n\n");
