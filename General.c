@@ -45,6 +45,19 @@ bool IsReal(char *a) {
   return true;
 } //}}}
 
+// IsReal2() //{{{
+/**
+ * Function to test if provided string is a real number.
+ */
+bool IsReal2(char *str, double *val) {
+  char *endptr = NULL;
+  *val = strtod(str, &endptr);
+  if (endptr == str) {
+    return false;
+  }
+  return true;
+} //}}}
+
 // IsPosReal() //{{{
 /**
  * Function to test if provided string is a positive real number.
@@ -57,7 +70,8 @@ bool IsPosReal(char *a) {
   }
 } //}}}
 
-// TODO integer can be negative too! Maybe make into natural? https://cz.pinterest.com/pin/417216352965631563/
+// TODO integer can be negative too! Maybe make into natural?
+// https://cz.pinterest.com/pin/417216352965631563/
 // IsInteger() //{{{
 /**
  * Function to test if provided string is a non-negative whole number.
@@ -71,6 +85,15 @@ bool IsInteger(char *a) {
   }
   return true;
 } //}}}
+
+bool IsInteger2(char *str, long *val) {
+  char *endptr = NULL;
+  *val = strtol(str, &endptr, 0);
+  if (endptr == str) {
+    return false;
+  }
+  return true;
+}
 
 // IsNatural()  //{{{
 bool IsNatural(char *a) {
@@ -298,7 +321,7 @@ int SplitLine(char out[SPL_STR][SPL_LEN], char *line, const char *delim) {
 /**
  * Function that splits the provided line into individual strings.
  */
-int SplitLine2(char *out[SPL_STR], char *line, const char *delim) {
+int SplitLine2(char **out, char *line, const char *delim) {
   // trim whitespaces at the beginning and end of line
   strcpy(line, TrimLine(line));
   // split into words separated by delimiters in delim array

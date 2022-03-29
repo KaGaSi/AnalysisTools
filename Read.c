@@ -1,5 +1,4 @@
 #include "Read.h"
-// TODO: perror() for file openings
 // TODO test output of snprintf() to get rid of a warning; see https://stackoverflow.com/questions/51534284/how-to-circumvent-format-truncation-warning-in-gcc
 // TODO impropers vs dihedrals - add improper section to FIELD
 /* TODO: PrintBeadType() needs to find the longest name and the most number
@@ -6234,14 +6233,28 @@ bool CheckVtfBondLine2(int words, char **split) {
 int CheckVtfCoordinateLine2(int words, char **split) {
   // valid line: [<id>] <x> <y> <z> ... with <id>, it is indexed timestep
   // coordinate line in indexed timestep
-  if (words >= 4 && IsInteger(split[0]) &&
-      IsReal(split[1]) && IsReal(split[2]) && IsReal(split[3])) {
+  double val_d = 0;
+  long val_i = 0;
+  if (words >= 4 &&
+      IsInteger2(split[0], &val_i) > 0 &&
+      IsReal2(split[1], &val_d) &&
+      IsReal2(split[2], &val_d) &&
+      IsReal2(split[3], &val_d)) {
     return COOR_LINE_I;
   }
+//if (words >= 4 && IsInteger(split[0]) &&
+//    IsReal(split[1]) && IsReal(split[2]) && IsReal(split[3])) {
+//  return COOR_LINE_I;
+//}
   // coordinate line in ordered timestep
-  if (words >= 3 && IsReal(split[0]) && IsReal(split[1]) && IsReal(split[2])) {
+  if (words >= 3 && IsReal2(split[0], &val_d) &&
+                    IsReal2(split[1], &val_d) &&
+                    IsReal2(split[2], &val_d)) {
     return COOR_LINE_O;
   }
+//if (words >= 3 && IsReal(split[0]) && IsReal(split[1]) && IsReal(split[2])) {
+//  return COOR_LINE_O;
+//}
   // non-coordinate line
   return ERROR_LINE;
 } //}}}
@@ -6326,6 +6339,7 @@ bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
   fpos_t position; // to save file position
   // first coordinate line was already read
   (*file_line_count)--;
+//char **out = calloc(SPL_STR, sizeof (char *));
   while (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
     (*file_line_count)++;
     // read next line (and return 'true' if it's the last one)
@@ -6337,7 +6351,8 @@ bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
     char *first[SPL_STR];
     words = 0;
     first[words] = strtok(line, "\t "); // first word
-    if (!IsReal(first[words])) {
+    double val_d;
+    if (!IsReal2(first[words], &val_d)) {
       goto exit_loop;
     } else {
       ltype = COOR_LINE_I;
@@ -6345,20 +6360,19 @@ bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
     while (words < 3 && split[words] != NULL) {
       words++; // start from 1, as the first split is already done
       first[words] = strtok(NULL, "\t ");
-      if (!IsReal(first[words])) {
+      if (!IsReal2(first[words], &val_d)) {
         goto exit_loop;
       } else {
         ltype = COOR_LINE_I;
       }
     }
-//  char **out = calloc(SPL_STR, sizeof (char *)); // malloc it - maybe that'll work?
 //  if (!ReadAndSplitLine2(vcf, &words, out)) {
 //    return true;
 //  }
 //  // find the type of line
-//  ltype = VtfCheckLineType3(words, out, false,
-//                           vcf_file, *file_line_count);
+//  ltype = CheckVtfCoordinateLine2(words, out);
   } //}}}
+//free(out);
   exit_loop: ;
   // restore file pointer to before the first non-coordinate line
   fsetpos(vcf, &position);

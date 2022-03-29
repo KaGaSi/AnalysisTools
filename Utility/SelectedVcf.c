@@ -1,7 +1,6 @@
 #include "../AnalysisTools.h"
 int nanosleep(const struct timespec *req, struct timespec *rem);
 int *InFile;
-int *InFile;
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -253,6 +252,14 @@ int main(int argc, char *argv[]) {
   PrintByline(out, argc, argv);
   fclose(out);
 
+  // TODO something when -st <int> is higher than number of steps
+  // print starting step? //{{{
+  if (!silent && !last && isatty(STDOUT_FILENO)) {
+    fflush(stdout);
+    fprintf(stdout, "\r                          ");
+    fprintf(stdout, "\rStarting step: %d\n", start);
+  } //}}}
+
   // main loop //{{{
   int count_n_opt = 0; // count saved steps if -n option is used
   count = 0;
@@ -269,7 +276,7 @@ int main(int argc, char *argv[]) {
       if (last) {
         fprintf(stdout, "\rDiscarding step: %d", count_vcf);
       } else {
-        fprintf(stdout, "\rStep: %d %d          ", count_vcf, count);
+        fprintf(stdout, "\rStep: %d %d", count_vcf, count);
       }
     } //}}}
 //  struct timespec remaining, request = {0, 5e8};

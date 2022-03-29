@@ -86,6 +86,15 @@ double Length(VECTOR a); //}}}
  */
 bool IsReal(char *a); //}}}
 
+// IsReal2() //{{{
+/*
+ * \brief Function to test if a string is a real number.
+ *
+ * \param [in] a   string to test
+ * \return 'true' if a is double, 'false' otherwise
+ */
+bool IsReal2(char *str, double *val); //}}}
+
 // IsPosReal() //{{{
 /*
  * \brief Function to test if a string is a non-negative real number.
@@ -103,6 +112,8 @@ bool IsPosReal(char *a); //}}}
  * \return 'true' if a is integer, 'false' otherwise
  */
 bool IsInteger(char *a); //}}}
+
+bool IsInteger2(char *str, long *val);
 
 // IsNatural()  //{{{
 bool IsNatural(char *a); //}}}
@@ -193,7 +204,7 @@ bool ReadAndSplitLine2(FILE *fr, int *words, char **split);
  */
 int SplitLine(char out[SPL_STR][SPL_LEN], char *line, const char *delim); //}}}
 
-// SplitLine() //{{{
+// SplitLine2() //{{{
 /*
  * \brief Function to split provided line.
  *
@@ -201,7 +212,7 @@ int SplitLine(char out[SPL_STR][SPL_LEN], char *line, const char *delim); //}}}
  * \param [in]  line   string to split
  * \return number of strings in the line
  */
-int SplitLine2(char *out[SPL_STR], char *line, const char *delim); //}}}
+int SplitLine2(char **out, char *line, const char *delim); //}}}
 
 // TrimLine() //{{{
 /**
