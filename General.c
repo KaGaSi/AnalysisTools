@@ -275,7 +275,7 @@ bool ReadAndSplitLine(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]) {
 } //}}}
 
 // ReadAndSplitLine2()  //{{{
-bool ReadAndSplitLine2(FILE *fr, int *words, char **split) {
+bool ReadAndSplitLine2(FILE *fr, int *words, char *split[SPL_STR]) {
   char line[LINE];
   if (!fgets(line, sizeof line, fr)) {
     return false; // error/EOF
@@ -321,7 +321,7 @@ int SplitLine(char out[SPL_STR][SPL_LEN], char *line, const char *delim) {
 /**
  * Function that splits the provided line into individual strings.
  */
-int SplitLine2(char **out, char *line, const char *delim) {
+int SplitLine2(char *out[SPL_STR], char *line, const char *delim) {
   // trim whitespaces at the beginning and end of line
   strcpy(line, TrimLine(line));
   // split into words separated by delimiters in delim array

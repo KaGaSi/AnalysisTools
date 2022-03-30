@@ -221,7 +221,6 @@ int main(int argc, char *argv[]) {
   // test there is at least one valid timestep & skip 'start' steps //{{{
   fgetpos(vcf, &position);
   int file_line_count; // count lines in the vcf file
-  printf("ok\n");
 //if (!VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead, Index,
 //                      MoleculeType, Molecule, &file_line_count, count)) {
   if (!VtfSkipTimestep(vcf, input_coor, &file_line_count, count)) {
@@ -229,7 +228,6 @@ int main(int argc, char *argv[]) {
   }
   fsetpos(vcf, &position); // return to the file's beginning
   file_line_count = 0; // count lines in the vcf file
-  printf("RESTART READING (%d)\n", file_line_count);
   // skip 'start' steps
   int count_vcf = 0; // first step already read
   while (!last && count_vcf < (start-1) &&

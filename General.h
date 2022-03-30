@@ -192,7 +192,7 @@ void SortArray(int *array, int length, int mode); //}}}
 // ReadAndSplitLine  //{{{
 bool ReadAndSplitLine(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]); //}}}
 
-bool ReadAndSplitLine2(FILE *fr, int *words, char **split);
+bool ReadAndSplitLine2(FILE *fr, int *words, char *split[SPL_STR]);
 
 // SplitLine() //{{{
 /*
@@ -212,7 +212,7 @@ int SplitLine(char out[SPL_STR][SPL_LEN], char *line, const char *delim); //}}}
  * \param [in]  line   string to split
  * \return number of strings in the line
  */
-int SplitLine2(char **out, char *line, const char *delim); //}}}
+int SplitLine2(char *out[SPL_STR], char *line, const char *delim); //}}}
 
 // TrimLine() //{{{
 /**

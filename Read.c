@@ -6230,11 +6230,12 @@ bool CheckVtfBondLine2(int words, char **split) {
  * Function to check if the provided line is a proper vtf coordinate line. It
  * returns -1 if not and 0 or 1 if line for indexed or ordered timestep.
  */
-int CheckVtfCoordinateLine2(int words, char **split) {
+int CheckVtfCoordinateLine2(int words, char *split[SPL_STR]) {
   // valid line: [<id>] <x> <y> <z> ... with <id>, it is indexed timestep
   // coordinate line in indexed timestep
   double val_d = 0;
   long val_i = 0;
+//printf("%s %s %s\n", split[0], split[1], split[2]);
   if (words >= 4 &&
       IsInteger2(split[0], &val_i) > 0 &&
       IsReal2(split[1], &val_d) &&
@@ -6271,12 +6272,12 @@ int VtfCheckLineType3(int words, char **split, bool indexed,
     return BLANK_LINE;
   }
   // coordinate line
-  int test = CheckVtfCoordinateLine2(words, split);
-  if (test != ERROR_LINE) {
-    return test;
-  }
+//int test = CheckVtfCoordinateLine2(words, split);
+//if (test != ERROR_LINE) {
+//  return test;
+//}
   // timestep line (vcf)
-  test = CheckVtfTimestepLine2(words, split);
+  int test = CheckVtfTimestepLine2(words, split);
   if (test != ERROR_LINE) {
     return test;
   }
@@ -6339,41 +6340,47 @@ bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
   fpos_t position; // to save file position
   // first coordinate line was already read
   (*file_line_count)--;
-//char **out = calloc(SPL_STR, sizeof (char *));
+  char *out[SPL_STR];
   while (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
     (*file_line_count)++;
     // read next line (and return 'true' if it's the last one)
     fgetpos(vcf, &position); // get file pointer position
-    char line[LINE];
-    if (!fgets(line, sizeof line, vcf)) {
-      return false; // error/EOF
-    }
-    char *first[SPL_STR];
-    words = 0;
-    first[words] = strtok(line, "\t "); // first word
-    double val_d;
-    if (!IsReal2(first[words], &val_d)) {
-      goto exit_loop;
-    } else {
-      ltype = COOR_LINE_I;
-    }
-    while (words < 3 && split[words] != NULL) {
-      words++; // start from 1, as the first split is already done
-      first[words] = strtok(NULL, "\t ");
-      if (!IsReal2(first[words], &val_d)) {
-        goto exit_loop;
-      } else {
-        ltype = COOR_LINE_I;
-      }
-    }
-//  if (!ReadAndSplitLine2(vcf, &words, out)) {
-//    return true;
+    // works! //{{{
+//  char line[LINE];
+//  if (!fgets(line, sizeof line, vcf)) {
+//    return false; // error/EOF
 //  }
-//  // find the type of line
-//  ltype = CheckVtfCoordinateLine2(words, out);
+//  char *first[SPL_STR];
+//  words = 0;
+//  first[words] = strtok(line, "\t "); // first word
+//  double val_d;
+//  if (!IsReal2(first[words], &val_d)) {
+//    goto exit_loop;
+//  } else {
+//    ltype = COOR_LINE_I;
+//  }
+//  while (words < 3 && split[words] != NULL) {
+//    words++; // start from 1, as the first split is already done
+//    first[words] = strtok(NULL, "\t ");
+//    if (!IsReal2(first[words], &val_d)) {
+//      goto exit_loop;
+//    } else {
+//      ltype = COOR_LINE_I;
+//    }
+//  } //}}}
+
+    for (int i = 0; i < SPL_STR; i++) {
+      out[i] = calloc(SPL_LEN, sizeof *out[i]);
+    }
+    if (!ReadAndSplitLine2(vcf, &words, out)) {
+      return true;
+    }
+    ltype = CheckVtfCoordinateLine2(words, out);
+    for (int i = 0; i < SPL_STR; i++) {
+      free(out[i]);
+    }
   } //}}}
-//free(out);
-  exit_loop: ;
+//exit_loop: ;
   // restore file pointer to before the first non-coordinate line
   fsetpos(vcf, &position);
   return true; // coordinates read properly
