@@ -221,11 +221,11 @@ int main(int argc, char *argv[]) {
   // test there is at least one valid timestep & skip 'start' steps //{{{
   fgetpos(vcf, &position);
   int file_line_count = 0; // count lines in the vcf file
-  printf("START FIRST SKIP TIMESTEPS\n");
+  printf("START\n");
   if (!VtfSkipTimestep2(vcf, input_coor, &file_line_count, count)) {
     exit(1);
   }
-  printf("END FIRST SKIP TIMESTEPS\n");
+  printf("END\n");
   fsetpos(vcf, &position); // return to the file's beginning
   file_line_count = 0; // count lines in the vcf file
   // skip 'start' steps
@@ -239,12 +239,6 @@ int main(int argc, char *argv[]) {
       fprintf(stdout, "\rDiscarding step: %d", count_vcf);
     } //}}}
   } //}}}
-// TODO DON'T FORGET TO REMOVE!
-//FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);
-//free(InFile);
-//fclose(vcf);
-//return 0;
-// TODO REMOVE TILL HERE
 
   // print initial stuff to output vcf file
   FILE *out = OpenFile(output_vcf, "w");

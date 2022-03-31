@@ -331,22 +331,16 @@ int SplitLine(char out[SPL_STR][SPL_LEN], char *line, const char *delim) {
  * Function that splits the provided line into individual strings.
  */
 int SplitLine2(char *out[SPL_STR], int strings, char *line, const char *delim) {
-  if (strings > SPL_STR) {
-    strings = SPL_STR;
+  if (strings >= SPL_STR) {
+    strings = SPL_STR - 1;
   }
-  // trim whitespaces at the beginning and end of line
-  strcpy(line, TrimLine(line));
   // split into words separated by delimiters in delim array
   int words = 0;
   out[words] = strtok(line, delim); // first word
-//printf("splitting: %s", out[words]);
-  while (words < (strings-1) && out[words] != NULL) {
+  while (words < strings && out[words] != NULL) {
     words++; // start from 1, as the first split is already done
     out[words] = strtok(NULL, delim);
-//  printf(" %s", out[words]);
   }
-//putchar('\n');
-//putchar('\n');
   return words;
 } //}}}
 

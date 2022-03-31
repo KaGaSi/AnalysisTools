@@ -240,21 +240,17 @@ int SkipCoorSteps(FILE *vcf, char *input_coor, COUNTS Counts, int start, bool si
 // SkipCoorAggSteps() { //{{{
 int SkipCoorAggSteps(FILE *vcf, char *input_coor, FILE *agg, char *input_agg, COUNTS Counts, int start, bool silent); //}}}
 
-int VtfCheckTimestepLine(int words, char split[SPL_STR][SPL_LEN]);
-
-int VtfCheckPbcLine(int words, char split[SPL_STR][SPL_LEN], char *file);
-
-bool VtfCheckAtomLine(int words, char split[SPL_STR][SPL_LEN],
-                      char *file, int file_line_count);
-
-bool VtfCheckBondLine(int words, char split[SPL_STR][SPL_LEN]);
-
 bool VtfSkipCoorOrderedLine(FILE *fr);
 int VtfCheckCoorOrderedLine(int words, char *split[SPL_STR]);
 int VtfCheckCoorIndexedLine(int words, char *split[SPL_STR]);
 int VtfCheckCoordinateLine(int words, char *split[SPL_STR]);
+int VtfCheckTimestepLine(int words, char *split[SPL_STR]);
+int VtfCheckPbcLine(int words, char *split[SPL_STR]);
+bool VtfCheckAtomLine(int words, char *split[SPL_STR]);
+bool VtfCheckBondLine(int words, char *split[SPL_STR]);
 int VtfCheckLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
                      char *file, int line);
+int VtfCheckLineType2(int words, char *split[SPL_STR], char *file, int line);
 
 // NewBeadType() //{{{
 /*
