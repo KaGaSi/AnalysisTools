@@ -65,6 +65,8 @@ bool VtfReadTimestep2(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
                      int *file_line_count, int step_count);
 bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
                      int *file_line_count, int step_count);
+bool VtfSkipTimestep2(FILE *vcf, char *vcf_file,
+                     int *file_line_count, int step_count);
 void VtfReadStruct_old(char *vsf_file, bool detailed, COUNTS *Counts,
                       BEADTYPE **BeadType, BEAD **Bead, int **Index,
                       MOLECULETYPE **MoleculeType, MOLECULE **Molecule);
@@ -247,7 +249,10 @@ bool VtfCheckAtomLine(int words, char split[SPL_STR][SPL_LEN],
 
 bool VtfCheckBondLine(int words, char split[SPL_STR][SPL_LEN]);
 
-int VtfCheckCoordinateLine(int words, char split[SPL_STR][SPL_LEN]);
+bool VtfSkipCoorOrderedLine(FILE *fr);
+int VtfCheckCoorOrderedLine(int words, char *split[SPL_STR]);
+int VtfCheckCoorIndexedLine(int words, char *split[SPL_STR]);
+int VtfCheckCoordinateLine(int words, char *split[SPL_STR]);
 int VtfCheckLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
                      char *file, int line);
 
@@ -264,7 +269,7 @@ void NewBeadType(BEADTYPE **BeadType, int *number_of_types, char *name,
  * Function to create a new molecule type in a MOLECULETYPE struct.
  */
 void NewMolType(MOLECULETYPE **MoleculeType, int *n_types, char *name,
-                int n_beads, int n_bonds, int n_angles, int n_dihedrals);
+                int n_beads, int n_bonds, int n_angles, int n_dihedrals); //}}}
 
 // FillMolMass //{{{
 /*

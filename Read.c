@@ -6264,8 +6264,7 @@ int CheckVtfCoordinateLine2(int words, char *split[SPL_STR]) {
 /*
  * Function to check what line from a vtf file is passed to it.
  */
-int VtfCheckLineType3(int words, char **split, bool indexed,
-                     char *file, int line) {
+int VtfCheckLineType3(int words, char *split[SPL_STR], char *file, int line) {
   ERROR_MSG[0] = '\0'; // clear error message array
   // blank line
   if (words == 0) {
@@ -6305,10 +6304,6 @@ int VtfCheckLineType3(int words, char **split, bool indexed,
 } //}}}
 
 // VtfSkipTimestep() //{{{
-// TODO WarnStopReading -- does printing line make sense; i.e., do the
-//                         split[][] and words always contain the wrong line?
-//                         It seems to, but check for EOF & blank line before
-//                         printing!
 bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
                      int *file_line_count, int step_count) {
   char split[SPL_STR][SPL_LEN];
@@ -6340,48 +6335,128 @@ bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
   fpos_t position; // to save file position
   // first coordinate line was already read
   (*file_line_count)--;
-  char *out[SPL_STR];
   while (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
     (*file_line_count)++;
     // read next line (and return 'true' if it's the last one)
     fgetpos(vcf, &position); // get file pointer position
-    // works! //{{{
-//  char line[LINE];
-//  if (!fgets(line, sizeof line, vcf)) {
-//    return false; // error/EOF
-//  }
-//  char *first[SPL_STR];
-//  words = 0;
-//  first[words] = strtok(line, "\t "); // first word
-//  double val_d;
-//  if (!IsReal2(first[words], &val_d)) {
-//    goto exit_loop;
-//  } else {
-//    ltype = COOR_LINE_I;
-//  }
-//  while (words < 3 && split[words] != NULL) {
-//    words++; // start from 1, as the first split is already done
-//    first[words] = strtok(NULL, "\t ");
-//    if (!IsReal2(first[words], &val_d)) {
-//      goto exit_loop;
-//    } else {
-//      ltype = COOR_LINE_I;
-//    }
-//  } //}}}
-
-    for (int i = 0; i < SPL_STR; i++) {
-      out[i] = calloc(SPL_LEN, sizeof *out[i]);
+    char line[LINE];
+    if (!fgets(line, sizeof line, vcf)) {
+      return false; // error/EOF
     }
-    if (!ReadAndSplitLine2(vcf, &words, out)) {
-      return true;
+    char *first[SPL_STR];
+    words = 0;
+    first[words] = strtok(line, "\t "); // first word
+    double val_d;
+    if (!IsReal2(first[words], &val_d)) {
+      goto exit_loop;
+    } else {
+      ltype = COOR_LINE_I;
     }
-    ltype = CheckVtfCoordinateLine2(words, out);
-    for (int i = 0; i < SPL_STR; i++) {
-      free(out[i]);
+    while (words < 3 && split[words] != NULL) {
+      words++; // start from 1, as the first split is already done
+      first[words] = strtok(NULL, "\t ");
+      if (!IsReal2(first[words], &val_d)) {
+        goto exit_loop;
+      } else {
+        ltype = COOR_LINE_I;
+      }
     }
   } //}}}
-//exit_loop: ;
+  exit_loop: ;
   // restore file pointer to before the first non-coordinate line
   fsetpos(vcf, &position);
   return true; // coordinates read properly
+} //}}}
+
+// VtfSkipTimestep2() //{{{
+bool VtfSkipTimestep2(FILE *vcf, char *vcf_file,
+                     int *file_line_count, int step_count) {
+  int ltype;
+  // skip preamble - i.e., read until the first coordinate line
+  do {
+    char line[LINE];
+    if (!ReadLine(vcf, line)) {
+      return false;
+    }
+    (*file_line_count)++;
+    char *split[SPL_STR];
+    int words = SplitLine2(split, SPL_STR, line, "\t ");
+    ltype = VtfCheckCoorOrderedLine(words, split);
+  } while (ltype != COOR_LINE_O);
+
+  // skip coordinate lines - i.e., read until the first non-coordinate line
+  fpos_t position;
+//do {
+//  fgetpos(vcf, &position);
+//  char line[LINE];
+//  if (!ReadLine(vcf, line)) {
+//    return false;
+//  }
+//  (*file_line_count)++;
+//  char *split[SPL_STR];
+//  int words = SplitLine2(split, SPL_STR, line, "\t ");
+//  ltype = VtfCheckCoorOrderedLine(words, split);
+//} while (ltype == COOR_LINE_O);
+
+  do {
+    fgetpos(vcf, &position);
+    (*file_line_count)++;
+    printf("FILE_LINE_COUNT: %d\n", *file_line_count);
+  } while (VtfSkipCoorOrderedLine(vcf));
+  fsetpos(vcf, &position);
+
+  return true;
+} //}}}
+
+bool VtfSkipCoorOrderedLine(FILE *fr) {
+  char line[LINE];
+  if (!ReadLine(fr, line)) {
+    return false; // error/EOF
+  }
+  char *split[SPL_STR];
+  int words = SplitLine2(split, 3, line, "\t ");
+  printf("%s\n", split[0]);
+  if (VtfCheckCoorOrderedLine(words, split) == COOR_LINE_O) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+// VtfCheckCoorOrderedLine() //{{{
+int VtfCheckCoorOrderedLine(int words, char *split[SPL_STR]) {
+  double val_d;
+  if (words > 2 && IsReal2(split[0], &val_d) &&
+                   IsReal2(split[1], &val_d) &&
+                   IsReal2(split[2], &val_d)) {
+    return COOR_LINE_O;
+  }
+  return ERROR_LINE;
+} //}}}
+
+// VtfCheckCoorIndexedLine() //{{{
+int VtfCheckCoorIndexedLine(int words, char *split[SPL_STR]) {
+  long val_i;
+  double val_d;
+  // indexed line (may also be ordered)
+  if (words > 3 && IsInteger2(split[0], &val_i) &&
+                   IsReal2(split[1], &val_d) &&
+                   IsReal2(split[2], &val_d) &&
+                   IsReal2(split[3], &val_d)) {
+    return COOR_LINE_I;
+  }
+  return ERROR_LINE;
+} //}}}
+
+// VtfCheckCoordinateLine() //{{{
+int VtfCheckCoordinateLine(int words, char *split[SPL_STR]) {
+  // indexed line (may also be ordered)
+  if (VtfCheckCoorIndexedLine(words, split) == COOR_LINE_I) {
+    return COOR_LINE_I;
+  }
+  // definitely ordered line
+  if (VtfCheckCoorOrderedLine(words, split) == COOR_LINE_O) {
+    return COOR_LINE_O;
+  }
+  return ERROR_LINE;
 } //}}}

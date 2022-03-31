@@ -220,30 +220,31 @@ int main(int argc, char *argv[]) {
 
   // test there is at least one valid timestep & skip 'start' steps //{{{
   fgetpos(vcf, &position);
-  int file_line_count; // count lines in the vcf file
-//if (!VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead, Index,
-//                      MoleculeType, Molecule, &file_line_count, count)) {
-  if (!VtfSkipTimestep(vcf, input_coor, &file_line_count, count)) {
+  int file_line_count = 0; // count lines in the vcf file
+  printf("START FIRST SKIP TIMESTEPS\n");
+  if (!VtfSkipTimestep2(vcf, input_coor, &file_line_count, count)) {
     exit(1);
   }
+  printf("END FIRST SKIP TIMESTEPS\n");
   fsetpos(vcf, &position); // return to the file's beginning
   file_line_count = 0; // count lines in the vcf file
   // skip 'start' steps
   int count_vcf = 0; // first step already read
   while (!last && count_vcf < (start-1) &&
-//       VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
-//                       Index, MoleculeType, Molecule,
-//                       &file_line_count, count)) {
-         VtfSkipTimestep(vcf, input_coor, &file_line_count, count)) {
+         VtfSkipTimestep2(vcf, input_coor, &file_line_count, count)) {
     count_vcf++;
     // print step? //{{{
     if (!silent && isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\rDiscarding step: %d", count_vcf);
     } //}}}
-//  struct timespec remaining, request = {0, 5e8};
-//  nanosleep(&request, &remaining);
   } //}}}
+// TODO DON'T FORGET TO REMOVE!
+//FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);
+//free(InFile);
+//fclose(vcf);
+//return 0;
+// TODO REMOVE TILL HERE
 
   // print initial stuff to output vcf file
   FILE *out = OpenFile(output_vcf, "w");
