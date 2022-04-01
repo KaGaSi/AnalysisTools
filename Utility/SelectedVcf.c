@@ -216,27 +216,20 @@ int main(int argc, char *argv[]) {
 
   // open input coordinate file
   FILE *vcf = OpenFile(input_coor, "r");
-  fpos_t position;
+  fpos_t position, position_old;
 
-  // test there is at least one valid timestep & skip 'start' steps //{{{
+  // skip 'start' steps //{{{
   fgetpos(vcf, &position);
   int file_line_count = 0; // count lines in the vcf file
-  printf("START\n");
-  if (!VtfSkipTimestep2(vcf, input_coor, &file_line_count, count)) {
-    exit(1);
-  }
-  printf("END\n");
-  fsetpos(vcf, &position); // return to the file's beginning
-  file_line_count = 0; // count lines in the vcf file
   // skip 'start' steps
   int count_vcf = 0; // first step already read
   while (!last && count_vcf < (start-1) &&
-         VtfSkipTimestep2(vcf, input_coor, &file_line_count, count)) {
+         VtfSkipTimestep(vcf, input_coor, &file_line_count, count)) {
     count_vcf++;
     // print step? //{{{
     if (!silent && isatty(STDOUT_FILENO)) {
       fflush(stdout);
-      fprintf(stdout, "\rDiscarding step: %d", count_vcf);
+      fprintf(stdout, "\rDiscarded step: %d", count_vcf);
     } //}}}
   } //}}}
 
@@ -245,7 +238,18 @@ int main(int argc, char *argv[]) {
   PrintByline(out, argc, argv);
   fclose(out);
 
-  // TODO something when -st <int> is higher than number of steps
+  // test there's at least one more step //{{{
+  fgetpos(vcf, &position);
+  if (!VtfSkipTimestep(vcf, input_coor, &count, count)) {
+    fflush(stdout);
+    strcpy(ERROR_MSG, "not enough timesteps in the coordinate file");
+    ErrorPrintError();
+    FilePrintFile(input_coor, RED);
+    putc('\n', stderr);
+    exit(1);
+  }
+  fsetpos(vcf, &position); // return to the file's beginning //}}}
+
   // print starting step? //{{{
   if (!silent && !last && isatty(STDOUT_FILENO)) {
     fflush(stdout);
@@ -257,10 +261,15 @@ int main(int argc, char *argv[]) {
   int count_n_opt = 0; // count saved steps if -n option is used
   count = 0;
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
-  bool test;
-  while ((test = VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
+  bool test = true;
+  while (test) {
+    test = VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
                            Index, MoleculeType, Molecule,
-                           &file_line_count, count_vcf))) {
+                           &file_line_count, count_vcf);
+    if (!test) {
+      break;
+    }
+    // get file position it the next step is valid (for --last option)
     count++;
     count_vcf++;
     // print step? //{{{
@@ -269,11 +278,9 @@ int main(int argc, char *argv[]) {
       if (last) {
         fprintf(stdout, "\rDiscarding step: %d", count_vcf);
       } else {
-        fprintf(stdout, "\rStep: %d %d", count_vcf, count);
+        fprintf(stdout, "\rStep: %d", count_vcf);
       }
     } //}}}
-//  struct timespec remaining, request = {0, 5e8};
-//  nanosleep(&request, &remaining);
     if (!last) { // save coordinate only if --last isn't used //{{{
       // wrap/join molecules //{{{
       // transform coordinates into fractional ones for non-orthogonal box
@@ -337,10 +344,6 @@ int main(int argc, char *argv[]) {
         } //}}}
       }
     } //}}}
-    // get file position it the next step is valid (for --last option)
-    if (test) {
-      fgetpos(vcf, &position);
-    }
   } //}}}
 
   // if this is the last step, restore file pointer and read the coordinates //{{{
