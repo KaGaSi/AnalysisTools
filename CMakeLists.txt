@@ -7,7 +7,7 @@ enable_language (C Fortran)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 set(CMAKE_BUILD_TYPE "Debug")
-#message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 # c compiler flags
 #set(CMAKE_C_FLAGS "-std=c11 -Wall") # only show errors

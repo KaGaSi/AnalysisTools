@@ -337,6 +337,9 @@ int SplitLine2(char *out[SPL_STR], int strings, char *line, const char *delim) {
   // split into words separated by delimiters in delim array
   int words = 0;
   out[words] = strtok(line, delim); // first word
+  if (out[words][0] == '\n') {
+    out[words] = NULL;
+  }
   while (words < strings && out[words] != NULL) {
     words++; // start from 1, as the first split is already done
     out[words] = strtok(NULL, delim);

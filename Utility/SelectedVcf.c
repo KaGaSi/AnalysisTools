@@ -124,6 +124,7 @@ int main(int argc, char *argv[]) {
   if (IntegerOption(argc, argv, "-sk", &skip)) {
     exit(1);
   }
+  skip++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
   // should output coordinates be joined?
   bool join = BoolOption(argc, argv, "--join");
   // should output coordinates be wrapped?
@@ -203,11 +204,11 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // '-n' option - specify bead ids //{{{
-  int save_step[100] = {0}, number_of_steps = 0;
-  if (MultiIntegerOption(argc, argv, "-n", &number_of_steps, save_step)) {
+  int n_opt_save[100] = {0}, n_opt_number = -1;
+  if (MultiIntegerOption(argc, argv, "-n", &n_opt_number, n_opt_save)) {
     exit(1);
   }
-  SortArray(save_step, number_of_steps, 0); //}}}
+  SortArray(n_opt_save, n_opt_number, 0); //}}}
 
   // print information - verbose output //{{{
   if (verbose) {
@@ -218,145 +219,116 @@ int main(int argc, char *argv[]) {
   FILE *vcf = OpenFile(input_coor, "r");
   fpos_t position1, position2;
 
-  // skip 'start' steps //{{{
-  fgetpos(vcf, &position1);
-  int file_line_count = 0; // count lines in the vcf file
-  // skip 'start' steps
-  int count_vcf = 0; // first step already read
-  while (!last && count_vcf < (start-1) &&
-         VtfSkipTimestep(vcf, input_coor, &file_line_count, count)) {
-    count_vcf++;
-    // print step? //{{{
-    if (!silent && isatty(STDOUT_FILENO)) {
-      fflush(stdout);
-      fprintf(stdout, "\rDiscarded step: %d", count_vcf);
-    } //}}}
-  } //}}}
-
   // print initial stuff to output vcf file
   FILE *out = OpenFile(output_vcf, "w");
   PrintByline(out, argc, argv);
   fclose(out);
 
-  // test there's at least one more step //{{{
-  fgetpos(vcf, &position1);
-  if (!VtfSkipTimestep(vcf, input_coor, &count, count)) {
-    fflush(stdout);
-    strcpy(ERROR_MSG, "not enough timesteps in the coordinate file");
-    ErrorPrintError();
-    FilePrintFile(input_coor, RED);
-    putc('\n', stderr);
-    exit(1);
-  }
-  fsetpos(vcf, &position1); // return to the file's beginning //}}}
-
-  // print starting step? //{{{
-  if (!silent && !last && isatty(STDOUT_FILENO)) {
-    fflush(stdout);
-    fprintf(stdout, "\r                          ");
-    fprintf(stdout, "\rStarting step: %d\n", start);
-  } //}}}
-
   // main loop //{{{
-  int count_n_opt = 0; // count saved steps if -n option is used
-  count = 0;
+  int n_opt_count = 0, // count saved steps if -n option is used
+      count_vcf = 0, // count steps in the vcf file
+      file_line_count = 0; // count lines in the vcf file
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
   bool test = true;
   while (test) {
-    if (!last) { // save coordinate only if --last isn't used //{{{
+    count_vcf++;
+    // print step info? //{{{
+    if (!silent && isatty(STDOUT_FILENO)) {
+      fflush(stdout);
+      if (last) {
+        fprintf(stdout, "\rDiscarding step: %d", count_vcf);
+      } else if (count_vcf == start) {
+        fprintf(stdout, "\rStarting step: %d\n", start);
+      } else {
+        fprintf(stdout, "\rStep: %d", count_vcf);
+      }
+    } //}}}
+    // decide whether this timestep is to be saved //{{{
+    bool use = false;
+    /* no -n option - use if timestep
+     *    1) is between start (-st option) and end (-e option)
+     *    and
+     *    2) isn't skipped (-sk option); skipping starts counting with 'start'
+     */
+    if (n_opt_number == -1) {
+      if ((count_vcf >= start && (count_vcf <= end || end == -1)) && // 1)
+          ((count_vcf-start)%skip) == 0) { // 2)
+        use = true;
+      } else {
+        use = false;
+      }
+    // -n option is used - save the timestep if it's in the list
+    } else if (n_opt_count < n_opt_number &&
+               n_opt_save[n_opt_count] == count_vcf) {
+      use = true;
+      n_opt_count++;
+    }
+    // definitely not use, if --last option is used
+    if (last) {
+      use = false;
+    } //}}}
+    // read and write the timestep, if it should be saved //{{{
+    if (use) {
       if (!VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
-                             Index, MoleculeType, Molecule,
-                             &file_line_count, count_vcf)) {
+                           Index, MoleculeType, Molecule,
+                           &file_line_count, count_vcf)) {
+        count_vcf--;
         break;
       }
-      // wrap/join molecules //{{{
       // transform coordinates into fractional ones for non-orthogonal box
       if (wrap || join) {
         ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
       }
-      if (wrap) {
+      if (wrap) { // wrap coordinates into the simulation box
         RestorePBC(Counts.BeadsCoor, Box, &Bead);
       }
-      if (join) {
+      if (join) { // join molecules by removing periodic boundary conditions
         RemovePBCMolecules_new(Counts, Box, BeadType, &Bead,
                            MoleculeType, Molecule);
       }
       // transform back to 'normal' coordinates for non-orthogonal box
       if (wrap || join) {
         FromFractionalCoor(Counts.BeadsCoor, &Bead, Box);
-      } //}}}
-      if (count_n_opt < number_of_steps) { // if -n option is used
-        if (save_step[count_n_opt] == count_vcf) {
-          // write to output .vcf file //{{{
-          out = OpenFile(output_vcf, "a");
-          VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
-          fclose(out); //}}}
-          // write to xyz file? //{{{
-          if (output_xyz[0] != '\0') {
-            out = OpenFile(output_xyz, "a");
-            WriteCoorXYZ(out, Counts, BeadType, Bead);
-            fclose(out);
-          } //}}}
-          count_n_opt++;
-        }
-        // exit while loop if all timesteps from -n are processed
-        if (count_n_opt == number_of_steps) {
-          break;
-        }
-      } else { // if -n option is not used
-        // write to output .vcf file //{{{
-        out = OpenFile(output_vcf, "a");
-        VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
-        fclose(out); //}}}
-        // write to xyz file? //{{{
-        if (output_xyz[0] != '\0') {
-          out = OpenFile(output_xyz, "a");
-          WriteCoorXYZ(out, Counts, BeadType, Bead);
-          fclose(out);
-        } //}}}
-        // skip every 'skip' steps //{{{
-        for (int i = 0; i < skip; i++) {
-          count_vcf++;
-          count++;
-          // -e option
-          if (end == count_vcf || LastStep(vcf, NULL)) {
-            break;
-          }
-          // print step count?
-          if (!silent && isatty(STDOUT_FILENO)) {
-            fflush(stdout);
-            fprintf(stdout, "\rStep: %d", count_vcf);
-          }
-          SkipVcfCoor(vcf, input_coor, Counts, &stuff);
-        } //}}}
       }
+      // write to output .vcf file
+      out = OpenFile(output_vcf, "a");
+      VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
+      fclose(out);
+      // write to xyz file?
+      if (output_xyz[0] != '\0') {
+        out = OpenFile(output_xyz, "a");
+        WriteCoorXYZ(out, Counts, BeadType, Bead);
+        fclose(out);
+      }
+      //}}}
+    // skip the timestep, if it shouldn't be saved //{{{
     } else {
-      if (!VtfSkipTimestep(vcf, input_coor, &count, count)) {
+      if (!VtfSkipTimestep(vcf, input_coor, &file_line_count, count_vcf)) {
+        count_vcf--;
         break;
       }
     } //}}}
-    count++;
-    count_vcf++;
-    // print step? //{{{
-    if (!silent && isatty(STDOUT_FILENO)) {
-      fflush(stdout);
-      if (last) {
-        fprintf(stdout, "\rDiscarding step: %d", count_vcf);
-      } else {
-        fprintf(stdout, "\rStep: %d", count_vcf);
-      }
-    } //}}}
     // save file position (last two because of --last) //{{{
-    if ((count%2) == 0) {
+    if ((count_vcf%2) == 0) {
       fgetpos(vcf, &position1);
     } else {
       fgetpos(vcf, &position2);
     } //}}}
+    // decide whether to exit the main loop //{{{
+    /* break the loop if
+     *    1) all timesteps in the -n option are saved
+     *    or
+     *    2) end timeste was reached (-e option)
+     */
+    if (n_opt_count == n_opt_number || // 1)
+        count_vcf == end) {
+      break;
+    } //}}}
   } //}}}
 
-  // if this is the last step, restore file pointer and read the coordinates //{{{
+  // if --last option is used, read & save the last timestep //{{{
   if (last) {
-    if ((count%2) == 1) {
+    if ((count_vcf%2) == 0) {
       fsetpos(vcf, &position1);
     } else {
       fsetpos(vcf, &position2);
@@ -375,18 +347,6 @@ int main(int argc, char *argv[]) {
     }
     // transform back to 'normal' coordinates for non-orthogonal box
     FromFractionalCoor(Counts.BeadsCoor, &Bead, Box);
-  }
-  fclose(vcf);
-  // print last step count?
-  if (!silent) {
-    if (isatty(STDOUT_FILENO)) {
-      fflush(stdout);
-      fprintf(stdout, "\r                          \r");
-    }
-    fprintf(stdout, "Last Step: %d\n", count_vcf);
-  } //}}}
-  // save last step if --last is used //{{{
-  if (last) {
     // write to output .vcf file
     out = OpenFile(output_vcf, "a");
     VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
@@ -397,6 +357,15 @@ int main(int argc, char *argv[]) {
       WriteCoorXYZ(out, Counts, BeadType, Bead);
       fclose(out);
     }
+  }
+  fclose(vcf);
+  // print last step count?
+  if (!silent) {
+    if (isatty(STDOUT_FILENO)) {
+      fflush(stdout);
+      fprintf(stdout, "\r                          \r");
+    }
+    fprintf(stdout, "Last Step: %d\n", count_vcf);
   } //}}}
   // free memory
   FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);
