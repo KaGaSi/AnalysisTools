@@ -25,6 +25,7 @@
 
 // TriclinicCellData() //{{{
 bool TriclinicCellData(BOX *Box) {
+  // triclinic box //{{{
   if ((*Box).alpha != 90 || (*Box).beta != 90 || (*Box).gamma != 90 ) {
     double a = (*Box).Length.x,
            b = (*Box).Length.y,
@@ -39,6 +40,7 @@ bool TriclinicCellData(BOX *Box) {
       return false;
     }
     double vol = a * b * c * sqrt(sqr);
+    (*Box).Volume = vol;
 
     (*Box).transform[0][0] = a;
     (*Box).transform[1][0] = 0;
@@ -89,7 +91,10 @@ bool TriclinicCellData(BOX *Box) {
 //  printf("\nLength:    %lf %lf %lf\n", (*Box).Length.x, (*Box).Length.y, (*Box).Length.z);
 //  printf("TirLength: %lf %lf %lf\n", (*Box).TriLength.x, (*Box).TriLength.y, (*Box).TriLength.z);
 //  printf("TriTilt:   %lf %lf %lf\n", (*Box).TriTilt[0], (*Box).TriTilt[1], (*Box).TriTilt[2]);
+  //}}}
   } else { // orthogonal box //{{{
+    (*Box).Volume = (*Box).Length.x * (*Box).Length.y * (*Box).Length.z;
+
     (*Box).transform[0][0] = (*Box).Length.x;
     (*Box).transform[1][0] = 0;
     (*Box).transform[2][0] = 0;
@@ -116,7 +121,7 @@ bool TriclinicCellData(BOX *Box) {
     (*Box).TriTilt[1] = 0;
     (*Box).TriTilt[2] = 0;
   } //}}}
-  // test print the matrices
+  // test print the matrices //{{{
 //printf("Transformation matrix:\n");
 //printf("   %lf %lf %lf\n", (*Box).transform[0][0], (*Box).transform[0][1], (*Box).transform[0][2]);
 //printf("   %lf %lf %lf\n", (*Box).transform[1][0], (*Box).transform[1][1], (*Box).transform[1][2]);
@@ -124,7 +129,7 @@ bool TriclinicCellData(BOX *Box) {
 //printf("Inverse of transformation matrix:\n");
 //printf("   %lf %lf %lf\n", (*Box).inverse[0][0], (*Box).inverse[0][1], (*Box).inverse[0][2]);
 //printf("   %lf %lf %lf\n", (*Box).inverse[1][0], (*Box).inverse[1][1], (*Box).inverse[1][2]);
-//printf("   %lf %lf %lf\n", (*Box).inverse[2][0], (*Box).inverse[2][1], (*Box).inverse[2][2]);
+//printf("   %lf %lf %lf\n", (*Box).inverse[2][0], (*Box).inverse[2][1], (*Box).inverse[2][2]); //}}}
   return true;
 } //}}}
 
@@ -272,6 +277,45 @@ void PrintCounts(COUNTS Counts) {
     fprintf(stdout, ",\n  .TypesOfDihedrals = %d", Counts.TypesOfDihedrals);
   }
   fprintf(stdout, "\n}\n\n");
+} //}}}
+
+// PrintBox()  //{{{
+/**
+ * Function printing Counts structure.
+ */
+void PrintBox(BOX Box) {
+  fprintf(stdout, "Box = {\n");
+  fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x,
+                                                    Box.Length.y,
+                                                    Box.Length.z);
+  fprintf(stdout, "  .TriLength = (%lf, %lf, %lf),\n", Box.TriLength.x,
+                                                       Box.TriLength.y,
+                                                       Box.TriLength.z);
+  fprintf(stdout, "  .TriTilt = (%lf, %lf, %lf),\n", Box.TriTilt[0],
+                                                     Box.TriTilt[1],
+                                                     Box.TriTilt[2]);
+  fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
+  fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
+  fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);
+  fprintf(stdout, "  .transform = (%lf, %lf, %lf)\n", Box.transform[0][0],
+                                                      Box.transform[0][1],
+                                                      Box.transform[0][2]);
+  fprintf(stdout, "               (%lf, %lf, %lf)\n", Box.transform[1][0],
+                                                      Box.transform[1][1],
+                                                      Box.transform[1][2]);
+  fprintf(stdout, "               (%lf, %lf, %lf)\n", Box.transform[2][0],
+                                                    Box.transform[2][1],
+                                                    Box.transform[2][2]);
+  fprintf(stdout, "  .inverse = (%lf, %lf, %lf)\n", Box.inverse[0][0],
+                                                    Box.inverse[0][1],
+                                                    Box.inverse[0][2]);
+  fprintf(stdout, "             (%lf, %lf, %lf)\n", Box.inverse[1][0],
+                                                    Box.inverse[1][1],
+                                                    Box.inverse[1][2]);
+  fprintf(stdout, "             (%lf, %lf, %lf)\n", Box.inverse[2][0],
+                                                    Box.inverse[2][1],
+                                                    Box.inverse[2][2]);
+  fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
 } //}}}
 
 // PrintBeadType()  //{{{

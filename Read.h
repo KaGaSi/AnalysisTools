@@ -37,6 +37,8 @@ VECTOR GetPBC_old(char *coor_file); //}}}
  */
 void VtfGetPBC(char *coor_file, BOX *Box); //}}}
 
+void VtfReadPBC(char *input_vcf, BOX *Box);
+
 // ReadAggCommand() //{{{
 /**
  * \brief Function reading Aggregate command from agg file.

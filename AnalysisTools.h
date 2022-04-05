@@ -78,6 +78,7 @@ void VerboseOutput(COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
  */
 void PrintCounts(COUNTS Counts);
 //}}}
+void PrintBox(BOX Box);
 
 // PrintBeadType() //{{{
 /**

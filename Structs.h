@@ -60,6 +60,7 @@ typedef struct Box {
   double alpha, beta, gamma; // angles - all 90 for orthogonal box
   double transform[3][3], // transformation matrix
          inverse[3][3]; // inverse of the transformation matrix
+  double Volume;
 } BOX;
 
 // TODO: is that used at all?
@@ -75,6 +76,7 @@ static const BOX InitBox = {
   .alpha = 90,
   .beta = 90,
   .gamma = 90,
+  .Volume = -1,
 }; //}}}
 
 // struct Params //{{{

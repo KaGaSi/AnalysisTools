@@ -123,13 +123,14 @@ int main(int argc, char *argv[]) {
   MOLECULE *Molecule; // structure with info about every molecule
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
   BOX Box = InitBox; // triclinic box dimensions and angles
-  bool indexed; // indexed timestep?
-  int struct_lines; // number of structure lines (relevant for vtf)
-  FullVtfRead(input_vsf, input_coor, false, vtf, &indexed, &struct_lines,
-              &Box, &Counts, &BeadType, &Bead, &Index,
-              &MoleculeType, &Molecule); //}}}
+  VtfReadStruct(input_vsf, false, &Counts, &BeadType, &Bead, &Index,
+                &MoleculeType, &Molecule);
+  InFile = calloc(Counts.BeadsTotal, sizeof *InFile); //}}}
 
   // <bead(s)> - names of bead types to use //{{{
+  for (int i = 0; i < Counts.TypesOfBeads; i++) {
+    BeadType[i].Use = false;
+  }
   if (!all) { // --all option not used
     while (++count < argc && argv[count][0] != '-') {
       int type = FindBeadType(argv[count], Counts, BeadType);
@@ -153,6 +154,17 @@ int main(int argc, char *argv[]) {
       BeadType[i].Use = true;
     }
   }
+  for (int i = 0; i < Counts.BeadsTotal; i++) {
+    int type = Bead[i].Type;
+    if (BeadType[type].Use) {
+      Bead[i].Use = true;
+    } else {
+      Bead[i].Use = false;
+    }
+  }
+//for (int i = 0; i < Counts.BeadsTotal; i++) {
+//  printf("%s %d\n", BeadType[Bead[i].Type].Name, Bead[i].Use);
+//}
 
   // write initial stuff to output pcf file //{{{
   FILE *out = OpenFile(output_pcf, "w");
@@ -174,6 +186,12 @@ int main(int argc, char *argv[]) {
   putc('\n', out); //}}}
   fclose(out); //}}}
 
+  VtfReadPBC(input_coor, &Box);
+  if (!TriclinicCellData(&Box)) {
+//  ErrorPrintFull(vcf_file, *file_line_count, split, words);
+    fprintf(stderr, "ERROR WITH INITIAL BOX STUFF\n");
+    exit(1);
+  }
   // number of bins //{{{
   double max_dist = 0.5 * Min3(Box.Length.x, Box.Length.y, Box.Length.z);
   int bins = ceil(max_dist / width); //}}}
@@ -200,75 +218,125 @@ int main(int argc, char *argv[]) {
     VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
+PrintBox(Box);
   // open input coordinate file
   FILE *vcf = OpenFile(input_coor, "r");
-  SkipVtfStructure(vcf, struct_lines);
-
-  count = SkipCoorSteps(vcf, input_coor, Counts, start, silent);
 
   // main loop //{{{
-  int count_step = 0; // count calculated timesteps
-  int count_vcf = start - 1; // count timesteps from the beginning
+  int count_vcf = 0, // count timesteps from the beginning
+      count_used = 0, // count steps used for calculation
+      file_line_count = 0; // count lines in the vcf file
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
   while (true) {
-    count_step++;
     count_vcf++;
-    // print step? //{{{
+    // print step info? //{{{
     if (!silent && isatty(STDOUT_FILENO)) {
       fflush(stdout);
-      fprintf(stdout, "\rStep: %d", count_vcf);
+      if (count_vcf == start) {
+        fprintf(stdout, "\rStarting step: %d\n", start);
+      } else {
+        fprintf(stdout, "\rStep: %d", count_vcf);
+      }
     } //}}}
-    // read coordinates & wrap box
-    ReadVcfCoordinates(indexed, input_coor, vcf, &Box,
-                       Counts, Index, &Bead, &stuff);
-    ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
-    RestorePBC(Counts.BeadsCoor, Box, &Bead);
-    // TODO: check + fractionals?
-    // calculate pair correlation function //{{{
-    for (int j = 0; j < (Counts.Bonded+Counts.Unbonded); j++) {
-      if (BeadType[Bead[j].Type].Use) {
+    // decide whether this timestep is to be used //{{{
+    bool use = false;
+    /* use if timestep
+     *    1) is between start (-st option) and end (-e option)
+     *    and
+     *    TODO 2) isn't skipped (-sk option); skipping starts counting with 'start'
+     */
+    if (count_vcf >= start && (count_vcf <= end || end == -1)) {
+//  if ((count_vcf >= start && (count_vcf <= end || end == -1)) && // 1)
+//      ((count_vcf-start)%skip) == 0) { // 2)
+      use = true;
+    } else {
+      use = false;
+    } //}}}
+    // work with the timestep, if it's to be used //{{{
+    if (use) {
+      if (!VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
+                           Index, MoleculeType, Molecule,
+                           &file_line_count, count_vcf)) {
+        count_vcf--;
+        break;
+      }
+      count_used++;
+      ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
+//    FILE *out2 = OpenFile("fract.vcf", "w");
+//    VtfWriteCoorIndexed(out2, stuff, Counts, Bead, Box);
+//    fclose(out2);
+      VECTOR box = FromFractional(Box.Length, Box);
+      printf("xxx %lf %lf %lf xxx\n", box.x, box.y, box.z);
+      int test_id1 = Index[18433],
+          test_id2 = Index[17695];
+      VECTOR dist1 = Distance(Bead[test_id1].Position, Bead[test_id2].Position,
+                              Box.Length);
+      // TODO check some bead that's farther + some bead that spans pbc
+      printf("Fractional:\n");
+      printf("%lf %lf %lf\n", Bead[test_id1].Position.x,
+                              Bead[test_id1].Position.y,
+                              Bead[test_id1].Position.z);
+      printf("%lf %lf %lf\n", Bead[test_id2].Position.x,
+                              Bead[test_id2].Position.y,
+                              Bead[test_id2].Position.z);
+      printf("distance: (%lf, %lf, %lf) = %lf\n", dist1.x, dist1.y, dist1.z,
+                                                  Length(dist1));
 
-        for (int k = (j+1); k < (Counts.Bonded+Counts.Unbonded); k++) {
-          if (BeadType[Bead[k].Type].Use) {
+      printf("Normal:\n");
+      VECTOR coor1 = FromFractional(Bead[test_id1].Position, Box);
+      VECTOR coor2 = FromFractional(Bead[test_id2].Position, Box);
+      VECTOR dist2 = Distance(coor1, coor2, Box.Length);
+      printf("%lf %lf %lf\n", coor1.x, coor1.y, coor1.z);
+      printf("%lf %lf %lf\n", coor2.x, coor2.y, coor2.z);
+      printf("distance: (%lf, %lf, %lf) = %lf\n", dist2.x, dist2.y, dist2.z,
+                                                  Length(dist2));
 
-            int bead1 = j;
-            int bead2 = k;
+      printf("distance fractional -> normal:");
+      VECTOR dist3 = FromFractional(dist1, Box);
+      printf(" (%lf, %lf, %lf) = %lf\n", dist3.x, dist3.y, dist3.z,
+                                         Length(dist3));
 
-            int type1 = Bead[bead1].Type;
-            int type2 = Bead[bead2].Type;
-
-            // type1 shouldn't be larger then type2 //{{{
-            if (type1 > type2) {
-              int temp = type1;
-              type1 = type2;
-              type2 = temp;
-
-              temp = bead1;
-              bead1 = bead2;
-              bead2 = temp;
-            } //}}}
-
-            counter[type2]++;
-
-            // distance between bead1 and bead2
-            // TODO: fractional coordinates?
-            VECTOR rij = Distance(Bead[bead1].Position, Bead[bead2].Position, Box.Length);
-            rij.x = Length(rij);
-
-            // count only distances up to half of the shortest box length
-            if (rij.x < max_dist) {
-              int l = rij.x / width;
-              pcf[type1][type2][l]++;
+      for (int i = 0; i < (Counts.BeadsCoor-1); i++) {
+        int id1 = InFile[i];
+        if (Bead[id1].InTimestep && Bead[id1].Use) {
+          for (int j = (i+1); j < Counts.BeadsCoor; j++) {
+            int id2 = InFile[j];
+            if (Bead[id2].InTimestep && Bead[id2].Use) {
+              // bead types
+              int type1 = Bead[id1].Type;
+              int type2 = Bead[id2].Type;
+              // type1 shouldn't be larger then type2
+              // TODO why?
+              if (type1 > type2) {
+                SwapInt(&type1, &type2);
+              }
+              counter[type2]++;
+              VECTOR rij = Distance(Bead[id1].Position, Bead[id2].Position,
+                                    Box.Length);
+              rij = FromFractional(rij, Box);
+              rij.x = Length(rij);
+              // count only distances up to half of the shortest box length
+              if (rij.x < max_dist) {
+                int l = rij.x / width;
+                pcf[type1][type2][l]++;
+              }
             }
           }
         }
       }
+    //}}}
+    // skip the timestep, if it shouldn't be saved //{{{
+    } else {
+      if (!VtfSkipTimestep(vcf, input_coor, &file_line_count, count_vcf)) {
+        count_vcf--;
+        break;
+      }
     } //}}}
-
-    // exit the while loop if there's no more coordinates or -e step was reached
-    if (LastStep(vcf, NULL) || end == count_vcf) {
+    // decide whether to exit the main loop //{{{
+    // break the loop if end timeste was reached (-e option)
+    if (count_vcf == end) {
       break;
-    }
+    } //}}}
   }
   fclose(vcf);
   // print last step?
@@ -280,9 +348,10 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "Last Step: %d\n", count_vcf);
   } //}}}
 
-// TODO: check
+  // TODO: check
   // write data to output file(s) //{{{
   out = OpenFile(output_pcf, "a");
+  printf("%s\n", output_pcf);
   for (int i = 0; i < Counts.TypesOfBeads; i++) {
     counter[0] = 0;
   }
@@ -300,26 +369,20 @@ int main(int argc, char *argv[]) {
     shell = 4.0 / 3 * PI * CUBE(width) * (CUBE(j+1) - CUBE(j));
     fprintf(out, "%8.5f", width*(2*j+1)/2);
 
-    // TODO: volume of triclinic?
-    double volume = Box.Length.x * Box.Length.y * Box.Length.z;
+    // TODO: volume of triclinic? ...volume should be calculated per-step
     for (int k = 0; k < Counts.TypesOfBeads; k++) {
       for (int l = k; l < Counts.TypesOfBeads; l++) {
         if (BeadType[k].Use && BeadType[l].Use) {
-
-          // sum up pcfs from all shells to be averaged
-//        for (int m = 0; m < 1; m++) {
-            double pairs;
-            if (k == l) {
-              pairs = ((SQR(BeadType[k].Number) - BeadType[k].Number)) / 2;
-            } else {
-              pairs = BeadType[k].Number * BeadType[l].Number;
-            }
-            // for normalisation
-            double pair_den = volume / pairs;
-            double norm_factor = pair_den / shell / count_step;
-            double temp = pcf[k][l][j] * norm_factor;
-//        }
-
+          double pairs;
+          if (k == l) {
+            pairs = ((SQR(BeadType[k].Number) - BeadType[k].Number)) / 2;
+          } else {
+            pairs = BeadType[k].Number * BeadType[l].Number;
+          }
+          // for normalisation
+          double pair_den = Box.Volume / pairs;
+          double norm_factor = pair_den / shell / count_used;
+          double temp = pcf[k][l][j] * norm_factor;
           // print average value to output file
           fprintf(out, " %10f", temp);
         }

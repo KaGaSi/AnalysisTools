@@ -229,8 +229,7 @@ int main(int argc, char *argv[]) {
       count_vcf = 0, // count steps in the vcf file
       file_line_count = 0; // count lines in the vcf file
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
-  bool test = true;
-  while (test) {
+  while (true) {
     count_vcf++;
     // print step info? //{{{
     if (!silent && isatty(STDOUT_FILENO)) {
