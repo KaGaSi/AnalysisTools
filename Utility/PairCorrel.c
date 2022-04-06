@@ -218,7 +218,6 @@ int main(int argc, char *argv[]) {
     VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
-PrintBox(Box);
   // open input coordinate file
   FILE *vcf = OpenFile(input_coor, "r");
 
@@ -261,40 +260,6 @@ PrintBox(Box);
         break;
       }
       count_used++;
-      ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
-//    FILE *out2 = OpenFile("fract.vcf", "w");
-//    VtfWriteCoorIndexed(out2, stuff, Counts, Bead, Box);
-//    fclose(out2);
-      VECTOR box = FromFractional(Box.Length, Box);
-      printf("xxx %lf %lf %lf xxx\n", box.x, box.y, box.z);
-      int test_id1 = Index[18433],
-          test_id2 = Index[17695];
-      VECTOR dist1 = Distance(Bead[test_id1].Position, Bead[test_id2].Position,
-                              Box.Length);
-      // TODO check some bead that's farther + some bead that spans pbc
-      printf("Fractional:\n");
-      printf("%lf %lf %lf\n", Bead[test_id1].Position.x,
-                              Bead[test_id1].Position.y,
-                              Bead[test_id1].Position.z);
-      printf("%lf %lf %lf\n", Bead[test_id2].Position.x,
-                              Bead[test_id2].Position.y,
-                              Bead[test_id2].Position.z);
-      printf("distance: (%lf, %lf, %lf) = %lf\n", dist1.x, dist1.y, dist1.z,
-                                                  Length(dist1));
-
-      printf("Normal:\n");
-      VECTOR coor1 = FromFractional(Bead[test_id1].Position, Box);
-      VECTOR coor2 = FromFractional(Bead[test_id2].Position, Box);
-      VECTOR dist2 = Distance(coor1, coor2, Box.Length);
-      printf("%lf %lf %lf\n", coor1.x, coor1.y, coor1.z);
-      printf("%lf %lf %lf\n", coor2.x, coor2.y, coor2.z);
-      printf("distance: (%lf, %lf, %lf) = %lf\n", dist2.x, dist2.y, dist2.z,
-                                                  Length(dist2));
-
-      printf("distance fractional -> normal:");
-      VECTOR dist3 = FromFractional(dist1, Box);
-      printf(" (%lf, %lf, %lf) = %lf\n", dist3.x, dist3.y, dist3.z,
-                                         Length(dist3));
 
       for (int i = 0; i < (Counts.BeadsCoor-1); i++) {
         int id1 = InFile[i];
