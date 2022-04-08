@@ -145,9 +145,12 @@ void FilePrintFile(char *file, int colour); //}}}
 void PrintFileLine(char *file, int line,
                    char split[SPL_STR][SPL_LEN], int words); //}}}
 
-// PrintFull() //{{{
+// ErrorPrintFull() //{{{
 void ErrorPrintFull(char *file, int line,
                     char split[SPL_STR][SPL_LEN], int words); //}}}
+// ErrorPrintFull2() //{{{
+void ErrorPrintFull2(char *file, int line,
+                    char *split[SPL_STR], int words); //}}}
 
 // WarnStopReading() //{{{
 /*
@@ -155,6 +158,12 @@ void ErrorPrintFull(char *file, int line,
  */
 void WarnStopReading(char *vcf_file, int line_count, int step_count,
                      char split[SPL_STR][SPL_LEN], int words); //}}}
+// WarnStopReading2() //{{{
+/*
+ * Warning when stopping file reading due to some error in the file
+ */
+void WarnStopReading2(char *vcf_file, int line_count, int step_count,
+                     char *split[SPL_STR], int words); //}}}
 
 void PrintLine(char split[SPL_STR][SPL_LEN], int words,
                int col_line, int col_blank);

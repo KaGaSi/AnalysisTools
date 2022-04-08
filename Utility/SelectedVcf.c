@@ -233,13 +233,14 @@ int main(int argc, char *argv[]) {
     count_vcf++;
     // print step info? //{{{
     if (!silent && isatty(STDOUT_FILENO)) {
-      fflush(stdout);
       if (last) {
         fprintf(stdout, "\rDiscarding step: %d", count_vcf);
-      } else if (count_vcf == start) {
-        fprintf(stdout, "\rStarting step: %d\n", start);
       } else {
+        if (count_vcf == start) {
+          fprintf(stdout, "\rStarting step: %d\n", start);
+        }
         fprintf(stdout, "\rStep: %d", count_vcf);
+        fflush(stdout);
       }
     } //}}}
     // decide whether this timestep is to be saved //{{{

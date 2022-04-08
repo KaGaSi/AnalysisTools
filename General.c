@@ -86,6 +86,10 @@ bool IsInteger(char *a) {
   return true;
 } //}}}
 
+// IsInteger2() //{{{
+/**
+ * Function to test if provided string is a non-negative whole number.
+ */
 bool IsInteger2(char *str, long *val) {
   char *endptr = NULL;
   *val = strtol(str, &endptr, 0);
@@ -93,7 +97,7 @@ bool IsInteger2(char *str, long *val) {
     return false;
   }
   return true;
-}
+} //}}}
 
 // IsNatural()  //{{{
 bool IsNatural(char *a) {

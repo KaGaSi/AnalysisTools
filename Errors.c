@@ -288,13 +288,61 @@ void PrintLine(char split[SPL_STR][SPL_LEN], int words,
   }
   fputs("\n\n", stderr);
 } //}}}
+// PrintLine2() //{{{
+/*
+ * Print a single line from a file in a given colour (or 'blank line' in
+ * different colour).
+ */
+void PrintLine2(char *split[SPL_STR], int words,
+               int col_line, int col_blank) {
+  if (words == 0) {
+    ColourChange(STDERR_FILENO, col_blank);
+    fprintf(stderr, "Blank line");
+    ColourReset(STDERR_FILENO);
+  } else {
+    ColourChange(STDERR_FILENO, col_line);
+    for (int i = 0; i < words; i++) {
+      if (i != 0) {
+        putc(' ', stderr);
+      }
+      fputs(split[i], stderr);
+    }
+    ColourReset(STDERR_FILENO);
+  }
+  fputs("\n\n", stderr);
+} //}}}
 
-// ErrorPrintFileLine() //{{{
+// PrintFileLine() //{{{
 /*
  * Function to print file name and the line number in colour.
  */
 void PrintFileLine(char *file, int line,
                    char split[SPL_STR][SPL_LEN], int words) {
+  ColourChange(STDERR_FILENO, RED);
+  fputs("File ", stderr);
+  PrintFile(file, YELLOW);
+  ColourChange(STDERR_FILENO, RED);
+  fputs(", line ", stderr);
+  ColourChange(STDERR_FILENO, YELLOW);
+  fprintf(stderr, "%d", line);
+  ColourChange(STDERR_FILENO, RED);
+  fputs(":\n", stderr);
+  ColourChange(STDERR_FILENO, YELLOW);
+  for (int i = 0; i < words; i++) {
+    if (i != 0) {
+      putc(' ', stderr);
+    }
+    fputs(split[i], stderr);
+  }
+  fputs("\n\n", stderr);
+  ColourReset(STDERR_FILENO);
+} //}}}
+// PrintFileLine2() //{{{
+/*
+ * Function to print file name and the line number in colour.
+ */
+void PrintFileLine2(char *file, int line,
+                   char *split[SPL_STR], int words) {
   ColourChange(STDERR_FILENO, RED);
   fputs("File ", stderr);
   PrintFile(file, YELLOW);
@@ -320,6 +368,12 @@ void ErrorPrintFull(char *file, int line,
                     char split[SPL_STR][SPL_LEN], int words) {
   ErrorPrintError();
   PrintFileLine(file, line, split, words);
+} //}}}
+// ErrorPrintFull2() //{{{
+void ErrorPrintFull2(char *file, int line,
+                    char *split[SPL_STR], int words) {
+  ErrorPrintError();
+  PrintFileLine2(file, line, split, words);
 } //}}}
 
 // WarnStopReading() //{{{
@@ -349,4 +403,32 @@ void WarnStopReading(char *vcf_file, int line_count, int step_count,
   ColourChange(STDERR_FILENO, CYAN);
   fputs(":\n", stderr);
   PrintLine(split, words, YELLOW, CYAN);
+} //}}}
+// WarnStopReading2() //{{{
+/*
+ * Warning when stopping file reading due to some error in the file.
+ */
+void WarnStopReading2(char *vcf_file, int line_count, int step_count,
+                     char *split[SPL_STR], int words) {
+  WarnPrintWarning();
+  if (step_count-1 > 0) {
+    ColourChange(STDERR_FILENO, CYAN);
+    fputs("Last step read from file ", stderr);
+    PrintFile(vcf_file, YELLOW);
+    ColourChange(STDERR_FILENO, CYAN);
+    fputs(": ", stderr);
+    ColourChange(STDERR_FILENO, YELLOW);
+    fprintf(stderr, "%d", step_count);
+  } else {
+    ColourChange(STDERR_FILENO, CYAN);
+    fputs("No valid timestep in file ", stderr);
+    PrintFile(vcf_file, YELLOW);
+  }
+  ColourChange(STDERR_FILENO, CYAN);
+  fprintf(stderr, "; error at line ");
+  ColourChange(STDERR_FILENO, YELLOW);
+  fprintf(stderr, "%d", line_count);
+  ColourChange(STDERR_FILENO, CYAN);
+  fputs(":\n", stderr);
+  PrintLine2(split, words, YELLOW, CYAN);
 } //}}}

@@ -26,7 +26,7 @@ void WriteCoorIndexed(FILE *vcf_file, COUNTS Counts,
                       BEADTYPE *BeadType, BEAD *Bead,
                       MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
                       char *stuff, BOX Box);
-void VtfWriteCoorIndexed(FILE *vcf_file, char *stuff,
+void VtfWriteCoorIndexed(FILE *vcf, char *stuff,
                          COUNTS Counts, BEAD *Bead, BOX Box);
 
 // WriteCoorXYZ() //{{{

@@ -85,28 +85,34 @@ void WriteCoorIndexed(FILE *vcf_file, COUNTS Counts,
  * in BeadType and MoleculeType structures only certain bead types will be
  * saved into the indexed timestep in .vcf file.
  */
-void VtfWriteCoorIndexed(FILE *vcf_file, char *stuff,
+void VtfWriteCoorIndexed(FILE *vcf, char *stuff,
                          COUNTS Counts, BEAD *Bead, BOX Box) {
   // print comment at the beginning of a timestep if present in initial vcf file
-  fprintf(vcf_file, "%s\n", stuff);
+  fprintf(vcf, "%s\n", stuff);
   // print box size
-  fprintf(vcf_file, "pbc %lf %lf %lf  ", Box.Length.x,
+  fprintf(vcf, "pbc %lf %lf %lf  ", Box.Length.x,
                                          Box.Length.y,
                                          Box.Length.z);
-  fprintf(vcf_file, "    %lf %lf %lf\n", Box.alpha, Box.beta, Box.gamma);
+  fprintf(vcf, "    %lf %lf %lf\n", Box.alpha, Box.beta, Box.gamma);
   // print 'indexed' on the next
-  fprintf(vcf_file, "indexed\n");
+  fprintf(vcf, "indexed\n");
 
 //for (int i = 0; i < Counts.BeadsTotal; i++) {
 //  int id = i;
+  int none = true;
   for (int i = 0; i < Counts.BeadsCoor; i++) {
     int id = InFile[i];
     if (Bead[id].InTimestep && Bead[id].Use) {
-      fprintf(vcf_file, "%8d %8.4f %8.4f %8.4f\n", Bead[id].Index,
+      none = false;
+      fprintf(vcf, "%8d %8.4f %8.4f %8.4f\n", Bead[id].Index,
                                                    Bead[id].Position.x,
                                                    Bead[id].Position.y,
                                                    Bead[id].Position.z);
     }
+  }
+  if (none) {
+    strcpy(ERROR_MSG, "no beads to save");
+    WarnPrintWarning();
   }
 } //}}}
 

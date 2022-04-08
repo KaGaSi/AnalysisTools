@@ -251,6 +251,8 @@ bool VtfCheckBondLine(int words, char *split[SPL_STR]);
 int VtfCheckLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
                      char *file, int line);
 int VtfCheckLineType2(int words, char *split[SPL_STR], char *file, int line);
+int VtfCheckLineType3(int words, char split[SPL_STR][SPL_LEN],
+                      char *file, int line);
 
 // NewBeadType() //{{{
 /*

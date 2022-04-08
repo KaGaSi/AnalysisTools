@@ -1228,8 +1228,10 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
   // 1) read struct_file line by line, saving all atom and bond lines //{{{
   while (ReadAndSplitLine(vsf, &words, split)) {
     file_line_count++;
-    int ltype = VtfCheckLineType(words, split, false,
+    int ltype = VtfCheckLineType3(words, split,
                                  struct_file, file_line_count);
+    fprintf(stderr, "line %d (type %d):\n", file_line_count, ltype);
+    PrintLine(split, words, WHITE, WHITE);
     if (ltype == ATOM_LINE) { // save 'a[tom]' line info //{{{
       if (strcmp(split[1], "default") == 0) { // 'a[tom] default' line
         // warning - multiple 'atom default' lines (warn only once)
@@ -1373,27 +1375,32 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
       //}}}
     } else if (ltype == BOND_LINE) { // save 'b[ond]' line info //{{{
       bond = realloc(bond, sizeof *atom * (count_bonds + 1));
+      long val;
       if (words == 2) { // case 'bond <id>:<id>'
         char index[SPL_STR][SPL_LEN];
         SplitLine(index, split[1], ":");
-        bond[count_bonds].index1 = atoi(index[0]);
-        bond[count_bonds].index2 = atoi(index[1]);
+        IsInteger2(index[0], &val);
+        bond[count_bonds].index1 = val;
+        IsInteger2(index[1], &val);
+        bond[count_bonds].index2 = val;
       } else { // case 'bond <id>: <id>'
-        split[1][strlen(split[1])-1] = '\0';
-        bond[count_bonds].index1 = atoi(split[1]);
-        bond[count_bonds].index2 = atoi(split[2]);
+        IsInteger2(split[1], &val);
+        bond[count_bonds].index1 = val;
+        IsInteger2(split[2], &val);
+        bond[count_bonds].index2 = val;
       }
       count_bonds++; //}}}
     } else if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) { // timestep line
       break;
-    } else if (ltype == ERROR_LINE) { // error - invalid/coordinate line //{{{
-      // error message already printed by VtfCheckLineType()
-      exit(1);
     } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
       strcpy(ERROR_MSG, "encountered coordinate inside structure block ");
       ErrorPrintFull(struct_file, file_line_count, split, words);
       exit(1);
-    } //}}}
+    } else if (ltype != BLANK_LINE && ltype != COMMENT_LINE) { // error
+      // error message already printed by VtfCheckLineType()
+      ErrorPrintFull(struct_file, file_line_count, split, words);
+      exit(1);
+    }
   }
   fclose(vsf); //}}}
   // error - no default line and too few atom lines //{{{
@@ -2751,12 +2758,12 @@ bool VtfReadTimestep2(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
 } //}}}
 */
 
-// VtfReadTimestep() //{{{
+// VtfReadTimestep2() //{{{
 // TODO WarnStopReading -- does printing line make sense; i.e., do the
 //                         split[][] and words always contain the wrong line?
 //                         It seems to, but check for EOF & blank line before
 //                         printing!
-bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
+bool VtfReadTimestep2(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
                      BEADTYPE *BeadType, BEAD **Bead, int *Index,
                      MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
                      int *file_line_count, int step_count) {
@@ -2772,16 +2779,13 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
   while (true) {
     // save file pointer position for when it's the first coordinate line
     fgetpos(vcf, &position);
-    // read line
-    char line[LINE];
-    (*file_line_count)++;
-    if (!ReadLine(vcf, line)) {
+    // read line and split it into individual strings
+    char split[SPL_STR][SPL_LEN];
+    int words;
+    if (!ReadAndSplitLine(vcf, &words, split)) {
       return false;
     }
-    // split line into strings
-    char *split[SPL_STR];
-    int words = SplitLine2(split, SPL_STR, line, "\t ");
-    ltype = VtfCheckLineType2(words, split, vcf_file, *file_line_count);
+    ltype = VtfCheckLineType3(words, split, vcf_file, *file_line_count);
     // do something based on what line it is
     switch (ltype) {
       case PBC_LINE: // pbc line for orthogonal box
@@ -2843,6 +2847,177 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
     return false;
   } //}}}
 
+  // read coordinates  //{{{
+  // restore file pointer to before the first coordinate line
+  fsetpos(vcf, &position);
+  while (true) {
+    // save file pointer position for when it's the first coordinate line
+    fgetpos(vcf, &position);
+    (*file_line_count)++;
+    // read line and split it into individual strings
+    char split[SPL_STR][SPL_LEN];
+    int words;
+    if (!ReadAndSplitLine(vcf, &words, split)) {
+      return false;
+    }
+    ltype = VtfCheckLineType3(words, split, vcf_file, *file_line_count);
+    if (ltype != COOR_LINE_O && ltype != COOR_LINE_I) {
+      break;
+    }
+    if (timestep == TIME_LINE_I) { // 'timestep indexed' coordinate line
+      if (ltype == COOR_LINE_I) {
+        int id = atoi(split[0]);
+        // error - bead index is too high //{{{
+        if (id >= (*Counts).BeadsTotal) {
+          strcpy(ERROR_MSG, "bead index too high");
+//        WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
+          return false;
+        } //}}}
+        id = Index[id];
+        // error - bead id was already found in the timestep //{{{
+        if ((*Bead)[id].InTimestep) {
+          strcpy(ERROR_MSG, "multiple bead entry with the same index");
+//        WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
+          return false;
+        } //}}}
+        (*Bead)[id].Position.x = atof(split[1]);
+        (*Bead)[id].Position.y = atof(split[2]);
+        (*Bead)[id].Position.z = atof(split[3]);
+        (*Bead)[id].InTimestep = true;
+        VECTOR vel;
+        if (words >= 7 && IsReal2(split[4], &vel.x) &&
+                          IsReal2(split[5], &vel.y) &&
+                          IsReal2(split[6], &vel.z)) { // bead velocities, if there
+          (*Bead)[id].Velocity.x = vel.x;
+          (*Bead)[id].Velocity.y = vel.y;
+          (*Bead)[id].Velocity.z = vel.z;
+        }
+        InFile[(*Counts).BeadsCoor] = id;
+      } else {
+        strcpy(ERROR_MSG, "ordered coordinate line in indexed timestep");
+    printf("this is wrong...\n");
+//      WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
+        return false;
+      }
+    } else { // 'timestep ordered' coordinate line
+      // ERROR IF BeadsCoor + 1 > BeadsTotal, i.e., too many beads in ordered timestep
+      int id = Index[(*Counts).BeadsCoor];
+      (*Bead)[id].Position.x = atof(split[0]);
+      (*Bead)[id].Position.y = atof(split[1]);
+      (*Bead)[id].Position.z = atof(split[2]);
+      (*Bead)[id].InTimestep = true;
+      if (words >= 6 && IsReal(split[3]) &&
+          IsReal(split[4]) && IsReal(split[5])) { // bead velocities, if present
+        (*Bead)[id].Velocity.x = atof(split[3]);
+        (*Bead)[id].Velocity.y = atof(split[4]);
+        (*Bead)[id].Velocity.z = atof(split[5]);
+      }
+      InFile[(*Counts).BeadsCoor] = id;
+    }
+    (*Counts).BeadsCoor++;
+  }
+  // restore file pointer to before the first non-coordinate line
+  fsetpos(vcf, &position); //}}}
+
+  // error - ordered timestep, but not all beads are present //{{{
+  if (timestep == TIME_LINE_O && (*Counts).BeadsCoor < (*Counts).BeadsTotal) {
+    strcpy(ERROR_MSG, "insufficient number of beads for ordered timestep");
+//  WarnStopReading(vcf_file, (*file_line_count)+1, step_count, split, words);
+    return false;
+  } //}}}
+
+  return true; // coordinates read properly
+} //}}}
+
+// VtfReadTimestep() //{{{
+// TODO WarnStopReading -- does printing line make sense; i.e., do the
+//                         split[][] and words always contain the wrong line?
+//                         It seems to, but check for EOF & blank line before
+//                         printing!
+bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
+                     BEADTYPE *BeadType, BEAD **Bead, int *Index,
+                     MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
+                     int *file_line_count, int step_count) {
+  // set 'not in timestep' to all beads //{{{
+  for (int i = 0; i < (*Counts).BeadsTotal; i++) {
+    (*Bead)[i].InTimestep = false;
+  } //}}}
+  // read timestep preamble //{{{
+  (*Counts).BeadsCoor = -1; // no coordinate line found yet
+  int ltype, timestep = ERROR_LINE;
+  fpos_t position; // to save file position
+  while (true) {
+    // save file pointer position for when it's the first coordinate line
+    fgetpos(vcf, &position);
+    // read line
+    char line[LINE];
+    (*file_line_count)++;
+    if (!ReadLine(vcf, line)) {
+      return false;
+    }
+    // split line into strings
+    char *split[SPL_STR];
+    int words = SplitLine2(split, SPL_STR, line, "\t ");
+    ltype = VtfCheckLineType2(words, split, vcf_file, *file_line_count);
+    // do something based on what line it is
+    switch (ltype) {
+      case PBC_LINE: // pbc line for orthogonal box
+        (*Box).Length.x = atof(split[1]);
+        (*Box).Length.y = atof(split[2]);
+        (*Box).Length.z = atof(split[3]);
+        (*Box).alpha = 90;
+        (*Box).beta = 90;
+        (*Box).gamma = 90;
+        break;
+      case PBC_LINE_ANGLES: // pbc line for triclinic box
+        (*Box).Length.x = atof(split[1]);
+        (*Box).Length.y = atof(split[2]);
+        (*Box).Length.z = atof(split[3]);
+        (*Box).alpha = atof(split[4]);
+        (*Box).beta = atof(split[5]);
+        (*Box).gamma = atof(split[6]);
+        if (!TriclinicCellData(Box)) {
+          ErrorPrintFull2(vcf_file, *file_line_count, split, words);
+          exit(1);
+        }
+        break;
+      case TIME_LINE_I: // 'timestep indexed' line
+        timestep = TIME_LINE_I;
+        break;
+      case TIME_LINE_O: // 'timestep ordered' line
+        timestep = TIME_LINE_O;
+        break;
+      case COOR_LINE_I: // coordinate line in indexed/ordered timestep
+        if (timestep == ERROR_LINE) { // missing timestep line
+          strcpy(ERROR_MSG, "found coordinate line before 'timestep' line");
+          WarnStopReading2(vcf_file, *file_line_count, step_count, split, words);
+          return false;
+        }
+        (*Counts).BeadsCoor = 0;
+        goto exit_loop;
+      case COOR_LINE_O: // coordinate line in (definitely) ordered timestep
+        if (timestep == TIME_LINE_I) {
+          strcpy(ERROR_MSG, "ordered coordinate line in 'timestep indexed'");
+//        WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
+          return false;
+        } else if (timestep == ERROR_LINE){
+          strcpy(ERROR_MSG, "found coordinate line before 'timestep' line");
+//        WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
+          return false;
+        }
+        (*Counts).BeadsCoor = 0;
+        goto exit_loop;
+      case ERROR_LINE:
+        // error message already printed by VtfCheckLineType()
+//      WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
+        return false;
+    }
+  }
+  exit_loop: ; //}}}
+  // return 'false' if no coordinate line encountered //{{{
+  if ((*Counts).BeadsCoor == -1) {
+    return false;
+  } //}}}
   // read coordinates  //{{{
   // restore file pointer to before the first coordinate line
   fsetpos(vcf, &position);
@@ -2916,93 +3091,13 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
   }
   // restore file pointer to before the first non-coordinate line
   fsetpos(vcf, &position); //}}}
-
   // error - ordered timestep, but not all beads are present //{{{
   if (timestep == TIME_LINE_O && (*Counts).BeadsCoor < (*Counts).BeadsTotal) {
     strcpy(ERROR_MSG, "insufficient number of beads for ordered timestep");
 //  WarnStopReading(vcf_file, (*file_line_count)+1, step_count, split, words);
     return false;
   } //}}}
-
   return true; // coordinates read properly
-/*
-  // read timestep coordinates //{{{
-  // first coordinate line was already read
-  (*file_line_count)--;
-  while (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
-    (*file_line_count)++;
-    if (indexed == 1) { // 'timestep indexed' line
-      if (ltype == COOR_LINE_I) {
-        int id = atoi(split[0]);
-        // error - bead index is too high //{{{
-        if (id >= (*Counts).BeadsTotal) {
-          strcpy(ERROR_MSG, "bead index too high");
-          WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
-          return false;
-        } //}}}
-        id = Index[id];
-        // error - bead id was already found in the timestep //{{{
-        if ((*Bead)[id].InTimestep) {
-          strcpy(ERROR_MSG, "multiple bead entry with the same index");
-          WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
-          return false;
-        } //}}}
-        (*Bead)[id].Position.x = atof(split[1]);
-        (*Bead)[id].Position.y = atof(split[2]);
-        (*Bead)[id].Position.z = atof(split[3]);
-        (*Bead)[id].InTimestep = true;
-        if (words >= 7 && IsReal(split[4]) &&
-            IsReal(split[5]) && IsReal(split[6])) { // bead velocities, if there
-          (*Bead)[id].Velocity.x = atof(split[4]);
-          (*Bead)[id].Velocity.y = atof(split[5]);
-          (*Bead)[id].Velocity.z = atof(split[6]);
-        }
-        InFile[(*Counts).BeadsCoor] = id;
-      } else {
-        strcpy(ERROR_MSG, "ordered coordinate line in indexed timestep");
-        WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
-        return false;
-      }
-    } else { // 'timestep ordered' line
-      int id = Index[(*Counts).BeadsCoor];
-      (*Bead)[id].Position.x = atof(split[0]);
-      (*Bead)[id].Position.y = atof(split[1]);
-      (*Bead)[id].Position.z = atof(split[2]);
-      (*Bead)[id].InTimestep = true;
-      if (words >= 6 && IsReal(split[3]) &&
-          IsReal(split[4]) && IsReal(split[5])) { // bead velocities, if present
-        (*Bead)[id].Velocity.x = atof(split[3]);
-        (*Bead)[id].Velocity.y = atof(split[4]);
-        (*Bead)[id].Velocity.z = atof(split[5]);
-      }
-      InFile[(*Counts).BeadsCoor] = id;
-    }
-    (*Counts).BeadsCoor++;
-    // read next line (and return 'true' if it's the last one)
-    fgetpos(vcf, &position); // get file pointer position
-    if (!ReadAndSplitLine(vcf, &words, split)) {
-      // error - ordered timestep, but not all beads are present //{{{
-      if (!indexed && (*Counts).BeadsCoor < (*Counts).BeadsTotal) {
-        strcpy(ERROR_MSG, "insufficient number of beads for ordered timestep");
-        WarnStopReading(vcf_file, (*file_line_count)+1,
-                        step_count, split, words);
-        return false;
-      } //}}}
-      return true;
-    }
-    // find the type of line
-    ltype = VtfCheckLineType(words, split, false,
-                             vcf_file, *file_line_count);
-  } //}}}
-  // restore file pointer to before the first non-coordinate line
-  fsetpos(vcf, &position);
-  // error - ordered timestep, but not all beads are present //{{{
-  if (!indexed && (*Counts).BeadsCoor < (*Counts).BeadsTotal) {
-    strcpy(ERROR_MSG, "insufficient number of beads for ordered timestep");
-    WarnStopReading(vcf_file, *file_line_count, step_count, split, words);
-    return false;
-  } //}}}
-*/
 } //}}}
 
 // TODO: struct_lines no longer relevant
@@ -5893,6 +5988,7 @@ bool CheckVtfBondLine(int words, char split[SPL_STR][SPL_LEN]) {
     }
   }
   return true;
+ //{{{
 //    char index[SPL_STR][SPL_LEN], string[SPL_LEN];
 //    strcpy(string, split[1]);
 //    // split '<int>:<int>' into two strings and test those
@@ -5928,7 +6024,7 @@ bool CheckVtfBondLine(int words, char split[SPL_STR][SPL_LEN]) {
 //the format <int>:<int> is allowed; i.e., no comma separated list
 //or 'two-colon' string of bonds)");
 //    return false;
-//}
+//} //}}}
 } //}}}
 
 // CheckVtfCoordinateLine_old() //{{{
@@ -5979,50 +6075,6 @@ int CheckVtfCoordinateLine(int words, char split[SPL_STR][SPL_LEN]) {
     return COOR_LINE_O;
   }
   // non-coordinate line
-  return ERROR_LINE;
-} //}}}
-
-// VtfCheckLine() //{{{
-/*
- * Function to check what line from a vtf file is passed to it.
- */
-int VtfCheckLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
-                     char *file, int line) {
-  ERROR_MSG[0] = '\0'; // clear error message array
-  // blank line
-  if (words == 0) {
-    return BLANK_LINE;
-  }
-  // coordinate line
-  int test = CheckVtfCoordinateLine(words, split);
-  if (test != ERROR_LINE) {
-    return test;
-  }
-  // timestep line (vcf)
-  test = CheckVtfTimestepLine(words, split);
-  if (test != ERROR_LINE) {
-    return test;
-  }
-  // comment line
-  if (split[0][0] == '#') {
-    return COMMENT_LINE;
-  }
-  // pbc line
-  test = CheckVtfPbcLine(words, split, file);
-  if (test != ERROR_LINE) {
-    return test;
-  }
-  // atom line (vsf)
-  if (CheckVtfAtomLine(words, split, file, line)) {
-    return ATOM_LINE;
-  }
-  // bond line (vsf)
-  if (CheckVtfBondLine(words, split)) {
-    return BOND_LINE;
-  }
-  if (ERROR_MSG[0] == '\0') {
-    strcpy(ERROR_MSG, "unrecognised line");
-  }
   return ERROR_LINE;
 } //}}}
 
@@ -6520,7 +6572,7 @@ int CheckVtfCoordinateLine2(int words, char *split[SPL_STR]) {
 /*
  * Function to check what line from a vtf file is passed to it.
  */
-int VtfCheckLineType3(int words, char *split[SPL_STR], char *file, int line) {
+/*int VtfCheckLineType3(int words, char *split[SPL_STR], char *file, int line) {
   ERROR_MSG[0] = '\0'; // clear error message array
   // blank line
   if (words == 0) {
@@ -6557,7 +6609,7 @@ int VtfCheckLineType3(int words, char *split[SPL_STR], char *file, int line) {
     strcpy(ERROR_MSG, "unrecognised line");
   }
   return ERROR_LINE;
-} //}}}
+} */ //}}}
 
 // VtfSkipTimestep() //{{{
 bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
@@ -6623,9 +6675,32 @@ int VtfCheckCoorOrderedLine(int words, char *split[SPL_STR]) {
   }
   return ERROR_LINE;
 } //}}}
+// VtfCheckCoorOrderedLine2() //{{{
+int VtfCheckCoorOrderedLine2(int words, char split[SPL_STR][SPL_LEN]) {
+  double val_d;
+  if (words > 2 && IsReal2(split[0], &val_d) &&
+                   IsReal2(split[1], &val_d) &&
+                   IsReal2(split[2], &val_d)) {
+    return COOR_LINE_O;
+  }
+  return ERROR_LINE;
+} //}}}
 
 // VtfCheckCoorIndexedLine() //{{{
 int VtfCheckCoorIndexedLine(int words, char *split[SPL_STR]) {
+  long val_i;
+  double val_d;
+  // indexed line (may also be ordered)
+  if (words > 3 && IsInteger2(split[0], &val_i) &&
+                   IsReal2(split[1], &val_d) &&
+                   IsReal2(split[2], &val_d) &&
+                   IsReal2(split[3], &val_d)) {
+    return COOR_LINE_I;
+  }
+  return ERROR_LINE;
+} //}}}
+// VtfCheckCoorIndexedLine2() //{{{
+int VtfCheckCoorIndexedLine2(int words, char split[SPL_STR][SPL_LEN]) {
   long val_i;
   double val_d;
   // indexed line (may also be ordered)
@@ -6650,6 +6725,18 @@ int VtfCheckCoordinateLine(int words, char *split[SPL_STR]) {
   }
   return ERROR_LINE;
 } //}}}
+// VtfCheckCoordinateLine2() //{{{
+int VtfCheckCoordinateLine2(int words, char split[SPL_STR][SPL_LEN]) {
+  // indexed line (may also be ordered)
+  if (VtfCheckCoorIndexedLine2(words, split) == COOR_LINE_I) {
+    return COOR_LINE_I;
+  }
+  // definitely ordered line
+  if (VtfCheckCoorOrderedLine2(words, split) == COOR_LINE_O) {
+    return COOR_LINE_O;
+  }
+  return ERROR_LINE;
+} //}}}
 
 // VtfCheckTimestepLine() //{{{
 /*
@@ -6657,6 +6744,33 @@ int VtfCheckCoordinateLine(int words, char *split[SPL_STR]) {
  *
  */
 int VtfCheckTimestepLine(int words, char *split[SPL_STR]) {
+  // there are several possibilities how the timestep line can look
+  /* ordered timestep:
+   *   1) 't[imestep]'
+   *   2) 't[imestep] o[rdered] ...'
+   *   3) 'o[rdered] ...'
+   */
+  if ((words == 1 && split[0][0] == 't') || // 1)
+      (words > 1 && split[0][0] == 't' && split[1][0] == 'o') || // 2)
+       split[0][0] == 'o') { // 3)
+    return TIME_LINE_O;
+  }
+  /* indexed timestep:
+   *   1) 't[imestep] i[ndexed] ...'
+   *   2) 'i[ndexed] ...'
+   */
+  if ((words > 1 && split[0][0] == 't' && split[1][0] == 'i') || // 1)
+       split[0][0] == 'i') { // 2)
+    return TIME_LINE_I;
+  }
+  return ERROR_LINE; // not a timestep line
+} //}}}
+// VtfCheckTimestepLine2() //{{{
+/*
+ * Function to check if the provided line is a timestep line.
+ *
+ */
+int VtfCheckTimestepLine2(int words, char split[SPL_STR][SPL_LEN]) {
   // there are several possibilities how the timestep line can look
   /* ordered timestep:
    *   1) 't[imestep]'
@@ -6701,12 +6815,108 @@ int VtfCheckPbcLine(int words, char *split[SPL_STR]) {
     return PBC_LINE;
   }
 } //}}}
+// VtfCheckPbcLine2() //{{{
+/*
+ * Function to check if the provided line is a pbc line. It returns -1 if not
+ * and 0 or 1 if pbc line without or with angles, respectively.
+ */
+int VtfCheckPbcLine2(int words, char split[SPL_STR][SPL_LEN]) {
+  // valid line: pbc <x> <y> <z> [<alpha> <beta> <gamm>]
+  // invalid line
+  double val;
+  if (words < 4 || strcmp(split[0], "pbc") != 0 ||
+      !IsReal2(split[1], &val) || val <= 0 ||
+      !IsReal2(split[2], &val) || val <= 0 ||
+      !IsReal2(split[3], &val) || val <= 0) {
+    return ERROR_LINE;
+  } else if (words > 6 && IsReal2(split[4], &val) && val > 0 &&
+                          IsReal2(split[5], &val) && val > 0 &&
+                          IsReal2(split[6], &val) && val > 0) {
+    return PBC_LINE_ANGLES;
+  } else {
+    return PBC_LINE;
+  }
+} //}}}
 
 // VtfCheckAtomLine() //{{{
 /*
  * Function to check if the provided line is a proper vtf structure atom line.
  */
 bool VtfCheckAtomLine(int words, char *split[SPL_STR]) {
+  long val_i;
+  double val_d;
+  // error - line not starting with a[tom] default/<id> //{{{
+  if (split[0][0] != 'a' ||
+      (strcmp(split[1], "default") != 0 && !IsInteger2(split[1], &val_i))) {
+    return false;
+  } //}}}
+  // error - odd number of strings //{{{
+  if ((words%2) != 0) {
+    strcpy(ERROR_MSG, "atom line with odd number of strings ");
+    return false;
+  } //}}}
+  // check <keyword> <value> pairs
+  bool name = false, resid = false, resname = false;
+  for (int i = 2; i < words; i+=2) {
+    // is n[ame] keyword present?
+    if (split[i][0] == 'n') {
+      name = true;
+    }
+    int r_id = strcmp(split[i], "resid"); // resid cannot be shortened
+    int r_name = strncmp(split[i], "res", 3); // res[name] can be shortened
+    // is resid keyword present? //{{{
+    if (r_id == 0) {
+      resid = true;
+      // resid must be followed by non-negative integer
+      if (!IsInteger2(split[i+1], &val_i) && val_i >= 0) {
+        strcpy(ERROR_MSG, "atom line: 'resid' not followed by natural number");
+        return false;
+      }
+    } //}}}
+    // is res[name] keyword present? //{{{
+    if (r_id != 0 && r_name == 0) {
+      resname = true;
+    } //}}}
+    // error - charge|q //{{{
+    if ((strcmp(split[i], "charge") == 0 || split[i][0] == 'q') &&
+        !IsReal2(split[i+1], &val_d)) {
+      strcpy(ERROR_MSG, "atom line: 'charge|q' not followed by real number ");
+      return false; //}}}
+    // error - r[adius] not followed by positive number //{{{
+    } else if (split[i][0] == 'r' && r_name != 0 &&
+               (!IsReal2(split[i+1], &val_d) || val_d <= 0)) {
+      strcpy(ERROR_MSG, "atom line: 'r[adius]' not followed by \
+positive real number ");
+//    ErrorPrintFull(file, file_line_count, split, words);
+      return false; //}}}
+    // error - m[ass] not followed by positive number //{{{
+    } else if (split[i][0] == 'm' &&
+               (!IsReal2(split[i+1], &val_d) || val_d <= 0)) {
+      strcpy(ERROR_MSG, "atom line: 'm[ass]' not followed by \
+positive real number ");
+      return false;
+    } //}}}
+  }
+  // error - missing the mandatory n[ame] keyword or //{{{
+  if (!name) {
+    strcpy(ERROR_MSG, "atom line: missing 'n[ame]' keyword ");
+    return false;
+  } //}}}
+  // error - if res[name] is present, there must be resid as well //{{{
+  if ((!resid && resname) || (resid && !resname)) {
+    strcpy(ERROR_MSG, "atom line: if 'res[name]' is present, \
+'resid' must be too ");
+//  ErrorPrintFull(file, file_line_count, split, words);
+    return false;
+  } //}}}
+  // valid atom line
+  return true;
+} //}}}
+// VtfCheckAtomLine2() //{{{
+/*
+ * Function to check if the provided line is a proper vtf structure atom line.
+ */
+bool VtfCheckAtomLine2(int words, char split[SPL_STR][SPL_LEN]) {
   long val_i;
   double val_d;
   // error - line not starting with a[tom] default/<id> //{{{
@@ -6813,7 +7023,82 @@ bool VtfCheckBondLine(int words, char *split[SPL_STR]) {
   }
   return true;
 } //}}}
+// VtfCheckBondLine2() //{{{
+/*
+ * Function to check if the provided line is a proper vtf structure bond line.
+ */
+bool VtfCheckBondLine2(int words, char split[SPL_STR][SPL_LEN]) {
+  long val_i; // just rubbish
+  // valid line b[ond] '<id>:[  ]<id> anything'
 
+  // error - only one string or missing 'b[ond]' keyword
+  if (words < 2 || split[0][0] != 'b') {
+    return false;
+  } else if (words == 2) { // two strings - assume '<int>:<int>' and test it
+    // ':'-split the second string
+    char index[SPL_STR][SPL_LEN], string[SPL_LEN];
+    strcpy(string, split[1]);
+    int strings = SplitLine(index, string, ":");
+    if (strings != 2 || !IsInteger2(index[0], &val_i) || val_i < 0 ||
+                        !IsInteger2(index[1], &val_i) || val_i < 0) {
+      strcpy(ERROR_MSG, "bond line: only 'b[ond] <int>:<int>' or \
+'b[ond] <int>: <int>' are valid (for now)");
+      return false;
+    }
+  } else if (words > 2) { // more strings - assume '<int>: <int>' and test it
+    if (!IsInteger2(split[1], &val_i) || val_i < 0 ||
+        !IsInteger2(split[2], &val_i) || val_i < 0) {
+      strcpy(ERROR_MSG, "bond line: only 'b[ond] <int>:<int>' or \
+'b[ond] <int>: <int>' are valid (for now)");
+      return false;
+    }
+  }
+  return true;
+} //}}}
+
+// VtfCheckLineType() //{{{
+/*
+ * Function to check what line from a vtf file is passed to it.
+ */
+int VtfCheckLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
+                     char *file, int line) {
+  ERROR_MSG[0] = '\0'; // clear error message array
+  // blank line
+  if (words == 0) {
+    return BLANK_LINE;
+  }
+  // coordinate line
+  int test = CheckVtfCoordinateLine(words, split);
+  if (test != ERROR_LINE) {
+    return test;
+  }
+  // timestep line (vcf)
+  test = CheckVtfTimestepLine(words, split);
+  if (test != ERROR_LINE) {
+    return test;
+  }
+  // comment line
+  if (split[0][0] == '#') {
+    return COMMENT_LINE;
+  }
+  // pbc line
+  test = CheckVtfPbcLine(words, split, file);
+  if (test != ERROR_LINE) {
+    return test;
+  }
+  // atom line (vsf)
+  if (CheckVtfAtomLine(words, split, file, line)) {
+    return ATOM_LINE;
+  }
+  // bond line (vsf)
+  if (CheckVtfBondLine(words, split)) {
+    return BOND_LINE;
+  }
+  if (ERROR_MSG[0] == '\0') {
+    strcpy(ERROR_MSG, "unrecognised line");
+  }
+  return ERROR_LINE;
+} //}}}
 // VtfCheckLineType2() //{{{
 /*
  * Function to check what line from a vtf file is passed to it.
@@ -6849,6 +7134,48 @@ int VtfCheckLineType2(int words, char *split[SPL_STR], char *file, int line) {
   }
   // bond line (vsf)
   if (VtfCheckBondLine(words, split)) {
+    return BOND_LINE;
+  }
+  if (ERROR_MSG[0] == '\0') {
+    strcpy(ERROR_MSG, "unrecognised line");
+  }
+  return ERROR_LINE;
+} //}}}
+// VtfCheckLineType3() //{{{
+/*
+ * Function to check what line from a vtf file is passed to it.
+ */
+int VtfCheckLineType3(int words, char split[SPL_STR][SPL_LEN], char *file, int line) {
+  ERROR_MSG[0] = '\0'; // clear error message array
+  // blank line
+  if (words == 0) {
+    return BLANK_LINE;
+  }
+  // comment line
+  if (split[0][0] == '#') {
+    return COMMENT_LINE;
+  }
+  // coordinate line
+  int test = VtfCheckCoordinateLine2(words, split);
+  if (test != ERROR_LINE) {
+    return test;
+  }
+  // timestep line
+  test = VtfCheckTimestepLine2(words, split);
+  if (test != ERROR_LINE) {
+    return test;
+  }
+  // pbc line
+  test = VtfCheckPbcLine2(words, split);
+  if (test != ERROR_LINE) {
+    return test;
+  }
+  // atom line (vsf)
+  if (VtfCheckAtomLine2(words, split)) {
+    return ATOM_LINE;
+  }
+  // bond line (vsf)
+  if (VtfCheckBondLine2(words, split)) {
     return BOND_LINE;
   }
   if (ERROR_MSG[0] == '\0') {
