@@ -417,6 +417,22 @@ void ColourChange(int a, int colour) {
   }
 } //}}}
 
+// Colour() //{{{
+char string[12];
+char *Colour(int colour) {
+  snprintf(string, 12, "\033[1;%dm", colour);
+  return string;
+} //}}}
+char *Red() {
+  return "\033[1;31m";
+}
+char *Yellow() {
+  return "\033[1;33m";
+}
+char *Cyan() {
+  return "\033[1;36m";
+}
+
 // ColourReset() //{{{
 /**
  * Function to reset output tty colour either for stdout or stderr.

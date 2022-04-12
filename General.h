@@ -31,6 +31,16 @@
 #define CYAN    36
 #define WHITE   37
 
+// TODO leave colour definitions, but make C_ERR red and C_WARN cyan (but how do you use macro inside macro?)
+#define BLACK2   "\033[1;30m"
+#define RED2     "\033[1;31m"
+#define GREEN2   "\033[1;32m"
+#define YELLOW2  "\033[1;33m"
+#define BLUE2    "\033[1;34m"
+#define MAGENTA2 "\033[1;35m"
+#define CYAN2    "\033[1;36m"
+#define WHITE2   "\033[1;37m"
+#define C_RESET "\033[0m"
 
 // tell gcc to ignore certain warnings
 // helper macro
@@ -232,7 +242,11 @@ char* TrimLine(char *line); //}}}
 void PrintCommand(FILE *ptr, int argc, char *argv[]);
 
 void ColourChange(int a, int colour);
+char *Colour(int colour);
 void ColourReset(int a);
+char *Red();
+char *Yellow();
+char *Cyan();
 
 void SafeStrcat(char **out, char *in, int initial_size);
 

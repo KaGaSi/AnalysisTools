@@ -1226,13 +1226,22 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
     int index1, index2; // indices from vsf file
   } *bond = calloc(1, sizeof *bond); //}}}
   // 1) read struct_file line by line, saving all atom and bond lines //{{{
+  /* Do something based on to line type
+   *   a) atom line: save bead information
+   *   b) bond line: save bonded bead indices
+   *   c) timestep line: break the loop (end of structure part of vsf file)
+   *   d) coordinate line: exit program as coordinates cannot be inside
+   *      structure file
+   *   e) anything else besides pbc, blank, or comment line: exit program as
+   *      unrecognised line was encountered
+   */
   while (ReadAndSplitLine(vsf, &words, split)) {
     file_line_count++;
     int ltype = VtfCheckLineType3(words, split,
                                  struct_file, file_line_count);
-    fprintf(stderr, "line %d (type %d):\n", file_line_count, ltype);
-    PrintLine(split, words, WHITE, WHITE);
-    if (ltype == ATOM_LINE) { // save 'a[tom]' line info //{{{
+//  fprintf(stderr, "line %d (type %d):\n", file_line_count, ltype);
+//  PrintLine(split, words, WHITE, WHITE);
+    if (ltype == ATOM_LINE) { // a)
       if (strcmp(split[1], "default") == 0) { // 'a[tom] default' line
         // warning - multiple 'atom default' lines (warn only once)
         if (default_atom != 0 && !warned) { //{{{
@@ -1372,8 +1381,7 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
           atom[id].resid = -1;
         } //}}}
       }
-      //}}}
-    } else if (ltype == BOND_LINE) { // save 'b[ond]' line info //{{{
+    } else if (ltype == BOND_LINE) { // b)
       bond = realloc(bond, sizeof *atom * (count_bonds + 1));
       long val;
       if (words == 2) { // case 'bond <id>:<id>'
@@ -1389,15 +1397,18 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
         IsInteger2(split[2], &val);
         bond[count_bonds].index2 = val;
       }
-      count_bonds++; //}}}
-    } else if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) { // timestep line
+      count_bonds++;
+    } else if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) { // c)
       break;
-    } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
-      strcpy(ERROR_MSG, "encountered coordinate inside structure block ");
+    } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) { // d)
+      strcpy(ERROR_MSG, "encountered a coordinate-like line \
+inside the structure block ");
       ErrorPrintFull(struct_file, file_line_count, split, words);
       exit(1);
-    } else if (ltype != BLANK_LINE && ltype != COMMENT_LINE) { // error
+    } else if (ltype != BLANK_LINE && ltype != COMMENT_LINE &&
+               ltype != PBC_LINE && ltype != PBC_LINE_ANGLES) { // e)
       // error message already printed by VtfCheckLineType()
+      printf("ok\n");
       ErrorPrintFull(struct_file, file_line_count, split, words);
       exit(1);
     }
@@ -1932,28 +1943,26 @@ contact developper\n");
         m_id2 = b_tmp[id2].Molecule; // internal molecule id
     // error - beads from one bond are in different molecules //{{{
     if (m_id1 != m_id2) {
-      strcpy(ERROR_MSG, "bonded beads in different molecules");
+      printf("m_id: %d %d\n", m_id1, m_id2);
+      strcpy(ERROR_MSG, "bonded beads not in the same molecule");
       ErrorPrintError();
-      ColourChange(STDERR_FILENO, RED);
-      fputs("File ", stderr);
-      PrintFile(struct_file, YELLOW);
-      ColourChange(STDERR_FILENO, RED);
-      fputs(", beads ", stderr);
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "%d", bond[i].index1);
-      ColourChange(STDERR_FILENO, RED);
-      fputs(" and ", stderr);
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "%d", bond[i].index2);
-      ColourChange(STDERR_FILENO, RED);
-      fputs(" in molecules ", stderr);
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "%d", mol_id_internal[m_id2]);
-      ColourChange(STDERR_FILENO, RED);
-      fputs(" and ", stderr);
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "%d\n", mol_id_internal[m_id1]);
-      ColourReset(STDERR_FILENO);
+      FilePrintFile(struct_file, RED);
+      fprintf(stderr, "%s, atom id (resid): %s%d %s(%s", RED2, YELLOW2,
+                                                         bond[i].index1,
+                                                         RED2, YELLOW2);
+      if (m_id1 != -1) {
+        fprintf(stderr, "%d", mol_id_internal[m_id1]);
+      } else {
+        fprintf(stderr, "none");
+      }
+      fprintf(stderr, "%s); %s%d %s(%s", RED2, YELLOW2, bond[i].index2,
+                                         RED2, YELLOW2);
+      if (m_id2 != -1) {
+        fprintf(stderr, "%d", mol_id_internal[m_id2]);
+      } else {
+        fprintf(stderr, "none");
+      }
+      fprintf(stderr, "%s)\n", RED2);
       exit(1);
     } //}}}
     bonds_per_mol[m_id1]++;
@@ -6463,10 +6472,10 @@ positive real number ");
 //  ErrorPrintFull(file, file_line_count, split, words);
     return false;
   } //}}}
-  // error - if res[name] is present, there must be resid as well //{{{
+  // error - either both res[name] and resid must be present or none //{{{
   if ((!resid && resname) || (resid && !resname)) {
-    strcpy(ERROR_MSG, "atom line: if 'res[name]' is present, \
-'resid' must be too ");
+    strcpy(ERROR_MSG, "atom line: either both 'res[name]' and 'resid' \
+are present or neither is\n");
 //  ErrorPrintFull(file, file_line_count, split, words);
     return false;
   } //}}}
@@ -6977,9 +6986,15 @@ positive real number ");
     return false;
   } //}}}
   // error - if res[name] is present, there must be resid as well //{{{
-  if ((!resid && resname) || (resid && !resname)) {
+  if (resname && !resid) {
     strcpy(ERROR_MSG, "atom line: if 'res[name]' is present, \
 'resid' must be too ");
+//  ErrorPrintFull(file, file_line_count, split, words);
+    return false;
+  } //}}}
+  // error - if res[name] is present, there must be resid as well //{{{
+  if (!resname && resid) {
+    strcpy(ERROR_MSG, "atom line: for now, 'res[name]' must accompany 'resid'");
 //  ErrorPrintFull(file, file_line_count, split, words);
     return false;
   } //}}}
