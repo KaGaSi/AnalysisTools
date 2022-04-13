@@ -31,6 +31,7 @@ typedef struct Counts {
       BeadsCoor, // number of beads in the coordinate file (e.g., in vcf file)
       BeadsTotal, // total number of beads in the system (e.g., in vsf file)
       Molecules, // total number of molecules
+      HighestResid, // highest id in a file (discontinuous molecule counting)
       Aggregates; // total number of aggregates
 } COUNTS;
 
@@ -46,6 +47,7 @@ static const COUNTS InitCounts = {
   .BeadsCoor = 0,
   .BeadsTotal = 0,
   .Molecules = 0,
+  .HighestResid = -1,
   .Aggregates = 0,
 }; //}}}
 

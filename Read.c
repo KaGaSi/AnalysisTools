@@ -1201,7 +1201,8 @@ there must be a line for each atom)\n");
  */
 void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
                    BEADTYPE **BeadType, BEAD **Bead, int **Index,
-                   MOLECULETYPE **MoleculeType, MOLECULE **Molecule) {
+                   MOLECULETYPE **MoleculeType, MOLECULE **Molecule,
+                   int **Index_mol) {
   (*Counts) = InitCounts; // zeroize
   FILE *vsf = OpenFile(struct_file, "r");
   // define variables and structures and arrays //{{{
@@ -1209,7 +1210,6 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
       count_atoms = 0, // number of 'atom <id>'
       default_atom = 0, // line number of the first 'atom default' line
       atom_names = 0, res_names = 0, // number of unieque bead & molecule names
-      highest_resid = -1, // highest 'resid <id>'
       count_bonds = 0, // number of bonds
       words;
   bool warned = false; // has 'a[tom] default' line warning already been issued?
@@ -1366,12 +1366,12 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
             atom[id].resname = type;
           }
           // highest molecule id?
-          if (atom[id].resid > highest_resid) {
+          if (atom[id].resid > (*Counts).HighestResid) {
             mol_id = realloc(mol_id, sizeof *mol_id * (atom[id].resid + 1));
-            for (int i = (highest_resid+1); i <= atom[id].resid; i++) {
+            for (int i = ((*Counts).HighestResid+1); i <= atom[id].resid; i++) {
               mol_id[i] = -1;
             }
-            highest_resid = atom[id].resid;
+            (*Counts).HighestResid = atom[id].resid;
           }
           if (mol_id[atom[id].resid] == -1) {
             mol_id[atom[id].resid] = (*Counts).Molecules;
@@ -1438,10 +1438,11 @@ inside the structure block ");
    */
   int *mol_id_internal = calloc((*Counts).Molecules, sizeof *mol_id_internal);
   int count = 0;
-  for (int i = 0; i <= highest_resid; i++) {
-    if (mol_id[i] != -1) {
+  for (int i = 0; i <= (*Counts).HighestResid; i++) {
+    int id = mol_id[i];
+    if (id != -1) {
       count++;
-      mol_id_internal[mol_id[i]] = i;
+      mol_id_internal[id] = i;
     }
   }
   // check the number of molecules; it shouldn't ever be wrong
@@ -2154,9 +2155,22 @@ contact developper\n");
   *Bead = malloc(sizeof (BEAD) * (*Counts).BeadsCoor);
   for (int i = 0; i < (*Counts).BeadsCoor; i++) {
     (*Bead)[i] = b_tmp[i];
+    // somewhat pointless test
+    if ((*Index)[(*Bead)[i].Index] != i) {
+      strcpy(ERROR_MSG, "something weird is happening with bead indices; \
+contact developper");
+      ErrorPrintError();
+    }
   }
   CopyMoleculeType((*Counts).TypesOfMolecules, MoleculeType, mt_tmp, 2);
-  CopyMolecule((*Counts).Molecules, *MoleculeType, Molecule, mol_tmp, 2); //}}}
+  CopyMolecule((*Counts).Molecules, *MoleculeType, Molecule, mol_tmp, 2);
+  *Index_mol = malloc(sizeof **Index_mol * ((*Counts).HighestResid+1));
+  for (int i = 0; i <= (*Counts).HighestResid; i++) {
+    (*Index_mol)[i] = -1;
+  }
+  for (int i = 0; i < (*Counts).Molecules; i++) {
+    (*Index_mol)[(*Molecule)[i].Index] = i;
+  } //}}}
   // free memory //{{{
   free(atom);
   free(atom_name);
@@ -3147,8 +3161,9 @@ void FullVtfRead(char *struct_file, char *vcf_file, bool detailed, bool vtf,
 void FullVtfRead_new(char *struct_file, bool detailed, bool *indexed,
                  COUNTS *Counts, BEADTYPE **BeadType, BEAD **Bead, int **Index,
                  MOLECULETYPE **MoleculeType, MOLECULE **Molecule) {
+  int *array;
   VtfReadStruct(struct_file, detailed, Counts, BeadType, Bead, Index,
-                MoleculeType, Molecule);
+                MoleculeType, Molecule, &array);
   WarnElNeutrality(*Counts, *BeadType, struct_file);
   FillMolMassCharge((*Counts).TypesOfMolecules, MoleculeType, *BeadType);
 

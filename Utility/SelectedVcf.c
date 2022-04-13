@@ -358,8 +358,8 @@ int main(int argc, char *argv[]) {
       fclose(out);
     }
   }
-  fclose(vcf);
-  // print last step count?
+  fclose(vcf); //}}}
+  // print last step count? //{{{
   if (!silent) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);

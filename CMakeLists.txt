@@ -52,6 +52,7 @@ set(UTILS AddToSystem
           lmp_data
           lmp_vtf
           NumDeriv
+          Transform
           OrientationMolecules
 #         Orientation-2
           OrientationAggregates

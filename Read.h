@@ -72,7 +72,8 @@ void VtfReadStruct_old(char *vsf_file, bool detailed, COUNTS *Counts,
                       MOLECULETYPE **MoleculeType, MOLECULE **Molecule);
 void VtfReadStruct(char *vsf_file, bool detailed, COUNTS *Counts,
                    BEADTYPE **BeadType, BEAD **Bead, int **Index,
-                   MOLECULETYPE **MoleculeType, MOLECULE **Molecule);
+                   MOLECULETYPE **MoleculeType, MOLECULE **Molecule,
+                   int **Index_mol);
 void FullVtfRead(char *struct_file, char *vcf_file, bool detailed, bool vtf,
                  bool *indexed, int *struct_lines, BOX *Box, COUNTS *Counts,
                  BEADTYPE **BeadType, BEAD **Bead, int **Index,
