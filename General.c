@@ -404,48 +404,12 @@ void PrintCommand(FILE *ptr, int argc, char *argv[]) {
   fprintf(ptr, "\n");
 } //}}}
 
-// ColourChange() //{{{
-void ColourChange(int a, int colour) {
-  if (isatty(a)) {
-    FILE *ptr;
-    if (a == STDOUT_FILENO) {
-      ptr = stdout;
-    } else if (a == STDERR_FILENO) {
-      ptr = stderr;
-    }
-    fprintf(ptr, "\033[1;%dm", colour);
-  }
-} //}}}
-
 // Colour() //{{{
-char string[12];
-char *Colour(int colour) {
-  snprintf(string, 12, "\033[1;%dm", colour);
-  return string;
-} //}}}
-char *Red() {
-  return "\033[1;31m";
-}
-char *Yellow() {
-  return "\033[1;33m";
-}
-char *Cyan() {
-  return "\033[1;36m";
-}
-
-// ColourReset() //{{{
-/**
- * Function to reset output tty colour either for stdout or stderr.
- */
-void ColourReset(int a) {
-  if (isatty(a)) {
-    FILE *ptr;
-    if (a == STDOUT_FILENO) {
-      ptr = stdout;
-    } else if (isatty(a) && a == STDERR_FILENO) {
-      ptr = stderr;
-    }
-    fprintf(ptr, "\033[0m");
+char *Colour(FILE *f, char *colour) {
+  if (isatty(fileno(f))) {
+    return colour;
+  } else {
+    return "";
   }
 } //}}}
 
@@ -481,16 +445,111 @@ void SafeStrcat(char **out, char *in, int initial_size) {
 } //}}}
 
 // OpenFile() //{{{
-FILE * OpenFile(char *file, char *mode) {
+FILE *OpenFile(char *file, char *mode) {
   FILE *ptr = fopen(file, mode);
   if (ptr == NULL) {
     strcpy(ERROR_MSG, "cannot open file");
     ErrorPrintError();
     FilePrintFile(file, RED);
-    ColourChange(STDERR_FILENO, RED);
+    fputs(Colour(stderr, RED), stderr);
     perror(" ");
-    ColourReset(STDERR_FILENO);
+    fputs(Colour(stderr, C_RESET), stderr);
     exit(1);
   }
   return ptr;
 } //}}}
+
+// TODO: remove //{{{
+char *Black(int a) {
+  if (isatty(a)) {
+    return "\033[1;30m";
+  } else {
+    return "";
+  }
+}
+char *Red(int a) {
+  if (isatty(a)) {
+    return "\033[1;31m";
+  } else {
+    return "";
+  }
+}
+char *Green(int a) {
+  if (isatty(a)) {
+    return "\033[1;32m";
+  } else {
+    return "";
+  }
+}
+char *Yellow(int a) {
+  if (isatty(a)) {
+    return "\033[1;33m";
+  } else {
+    return "";
+  }
+}
+char *Blue(int a) {
+  if (isatty(a)) {
+    return "\033[1;34m";
+  } else {
+    return "";
+  }
+}
+char *Magenta(int a) {
+  if (isatty(a)) {
+    return "\033[1;35m";
+  } else {
+    return "";
+  }
+}
+char *Cyan(int a) {
+  if (isatty(a)) {
+    return "\033[1;36m";
+  } else {
+    return "";
+  }
+}
+char *White(int a) {
+  if (isatty(a)) {
+    return "\033[1;37m";
+  } else {
+    return "";
+  }
+}
+char *CReset(int a) {
+  if (isatty(a)) {
+    return "\033[0m";
+  } else {
+    return "";
+  }
+}
+
+// ColourReset() //{{{
+/**
+ * Function to reset output tty colour either for stdout or stderr.
+ */
+void ColourReset(int a) {
+  if (isatty(a)) {
+    FILE *ptr;
+    if (a == STDOUT_FILENO) {
+      ptr = stdout;
+    } else if (isatty(a) && a == STDERR_FILENO) {
+      ptr = stderr;
+    }
+    fprintf(ptr, "\033[0m");
+  }
+} //}}}
+
+// ColourChange() //{{{
+void ColourChange(int a, char *colour) {
+  if (isatty(a)) {
+    FILE *ptr;
+    if (a == STDOUT_FILENO) {
+      ptr = stdout;
+    } else if (a == STDERR_FILENO) {
+      ptr = stderr;
+    }
+    fputs(colour, ptr);
+  }
+} //}}}
+ //}}}

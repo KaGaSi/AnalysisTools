@@ -169,12 +169,10 @@ void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file) {
   if (fabs(charge) > 0.00001) {
     strcpy(ERROR_MSG, "system with net electric charge");
     WarnPrintWarning();
-    WarnPrintFile(file);
-    ColourChange(STDERR_FILENO, CYAN);
-    fputs(", ", stderr);
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "q = %lf\n", charge);
-    ColourReset(STDERR_FILENO);
+    WarnPrintFile(stderr, file);
+    fprintf(stderr, "%s, %sq = %lf%s\n", Colour(stderr, CYAN),
+                                         Colour(stderr, YELLOW), charge,
+                                         Colour(stderr, C_RESET));
   }
 } //}}}
 
@@ -226,43 +224,11 @@ void ErrorPrintError() {
   ColourReset(STDERR_FILENO);
 } //}}}
 
-// WarnPrintWarning() //{{{
-/*
- * Function to print print warning keyword in cyan
- */
-void WarnPrintWarning() {
-  ColourChange(STDERR_FILENO, CYAN);
-  fprintf(stderr, "\n  WARNING - %s\n", ERROR_MSG);
-  ColourReset(STDERR_FILENO);
-} //}}}
-
-// WarnPrintFile() //{{{
-/*
- * Function to print file name and the line number in colour.
- */
-void WarnPrintFile(char *file) {
-  ColourChange(STDERR_FILENO, CYAN);
-  fputs("File ", stderr);
-  ColourChange(STDERR_FILENO, YELLOW);
-  fprintf(stderr, "%s", file);
-  ColourReset(STDERR_FILENO);
-} //}}}
-
-// PrintFile() //{{{
-/*
- * Function to print file name and the line number in colour.
- */
-void PrintFile(char *file, int colour) {
-  ColourChange(STDERR_FILENO, colour);
-  fprintf(stderr, "%s", file);
-  ColourReset(STDERR_FILENO);
-} //}}}
-
 // FilePrintFile() //{{{
-void FilePrintFile(char *file, int colour) {
+void FilePrintFile(char *file, char *colour) {
   ColourChange(STDERR_FILENO, colour);
   fputs("File ", stderr);
-  PrintFile(file, YELLOW);
+  PrintFile(stderr, file, YELLOW);
 } //}}}
 
 // PrintLine() //{{{
@@ -273,11 +239,9 @@ void FilePrintFile(char *file, int colour) {
 void PrintLine(char split[SPL_STR][SPL_LEN], int words,
                int col_line, int col_blank) {
   if (words == 0) {
-    ColourChange(STDERR_FILENO, col_blank);
     fprintf(stderr, "Blank line");
     ColourReset(STDERR_FILENO);
   } else {
-    ColourChange(STDERR_FILENO, col_line);
     for (int i = 0; i < words; i++) {
       if (i != 0) {
         putc(' ', stderr);
@@ -296,11 +260,9 @@ void PrintLine(char split[SPL_STR][SPL_LEN], int words,
 void PrintLine2(char *split[SPL_STR], int words,
                int col_line, int col_blank) {
   if (words == 0) {
-    ColourChange(STDERR_FILENO, col_blank);
     fprintf(stderr, "Blank line");
     ColourReset(STDERR_FILENO);
   } else {
-    ColourChange(STDERR_FILENO, col_line);
     for (int i = 0; i < words; i++) {
       if (i != 0) {
         putc(' ', stderr);
@@ -320,7 +282,7 @@ void PrintFileLine(char *file, int line,
                    char split[SPL_STR][SPL_LEN], int words) {
   ColourChange(STDERR_FILENO, RED);
   fputs("File ", stderr);
-  PrintFile(file, YELLOW);
+  PrintFile(stderr, file, YELLOW);
   ColourChange(STDERR_FILENO, RED);
   fputs(", line ", stderr);
   ColourChange(STDERR_FILENO, YELLOW);
@@ -345,7 +307,7 @@ void PrintFileLine2(char *file, int line,
                    char *split[SPL_STR], int words) {
   ColourChange(STDERR_FILENO, RED);
   fputs("File ", stderr);
-  PrintFile(file, YELLOW);
+  PrintFile(stderr, file, YELLOW);
   ColourChange(STDERR_FILENO, RED);
   fputs(", line ", stderr);
   ColourChange(STDERR_FILENO, YELLOW);
@@ -386,7 +348,7 @@ void WarnStopReading(char *vcf_file, int line_count, int step_count,
   if (step_count-1 > 0) {
     ColourChange(STDERR_FILENO, CYAN);
     fputs("Last step read from file ", stderr);
-    PrintFile(vcf_file, YELLOW);
+    PrintFile(stderr, vcf_file, YELLOW);
     ColourChange(STDERR_FILENO, CYAN);
     fputs(": ", stderr);
     ColourChange(STDERR_FILENO, YELLOW);
@@ -394,7 +356,7 @@ void WarnStopReading(char *vcf_file, int line_count, int step_count,
   } else {
     ColourChange(STDERR_FILENO, CYAN);
     fputs("No valid timestep in file ", stderr);
-    PrintFile(vcf_file, YELLOW);
+    PrintFile(stderr, vcf_file, YELLOW);
   }
   ColourChange(STDERR_FILENO, CYAN);
   fprintf(stderr, "; error at line ");
@@ -402,7 +364,7 @@ void WarnStopReading(char *vcf_file, int line_count, int step_count,
   fprintf(stderr, "%d", line_count);
   ColourChange(STDERR_FILENO, CYAN);
   fputs(":\n", stderr);
-  PrintLine(split, words, YELLOW, CYAN);
+//PrintLine(split, words, YELLOW, CYAN);
 } //}}}
 // WarnStopReading2() //{{{
 /*
@@ -414,7 +376,7 @@ void WarnStopReading2(char *vcf_file, int line_count, int step_count,
   if (step_count-1 > 0) {
     ColourChange(STDERR_FILENO, CYAN);
     fputs("Last step read from file ", stderr);
-    PrintFile(vcf_file, YELLOW);
+//  PrintFile(vcf_file, YELLOW);
     ColourChange(STDERR_FILENO, CYAN);
     fputs(": ", stderr);
     ColourChange(STDERR_FILENO, YELLOW);
@@ -422,7 +384,7 @@ void WarnStopReading2(char *vcf_file, int line_count, int step_count,
   } else {
     ColourChange(STDERR_FILENO, CYAN);
     fputs("No valid timestep in file ", stderr);
-    PrintFile(vcf_file, YELLOW);
+//  PrintFile(vcf_file, YELLOW);
   }
   ColourChange(STDERR_FILENO, CYAN);
   fprintf(stderr, "; error at line ");
@@ -430,5 +392,34 @@ void WarnStopReading2(char *vcf_file, int line_count, int step_count,
   fprintf(stderr, "%d", line_count);
   ColourChange(STDERR_FILENO, CYAN);
   fputs(":\n", stderr);
-  PrintLine2(split, words, YELLOW, CYAN);
+//PrintLine2(split, words, YELLOW, CYAN);
 } //}}}
+
+// simple messages //{{{
+// 'FILE <name>' in colours //{{{
+void PrintFile(FILE *f, char *file, char *colour) {
+  fprintf(f, "%sFile %s%s%s", Colour(f, colour), file, Colour(f, YELLOW),
+                              Colour(f, C_RESET));
+}
+void WarnPrintFile(FILE *f, char *file) {
+  fprintf(f, "%sFile %s%s%s", Colour(f, CYAN), file, Colour(f, YELLOW),
+                              Colour(f, C_RESET));
+}
+void ErrorPrintFile(FILE *f, char *file) {
+  fprintf(f, "%sFile %s%s%s", Colour(f, RED), file, Colour(f, YELLOW),
+                              Colour(f, C_RESET));
+}
+ //}}}
+// print 'WARNING' in cyan //{{{
+void PrintWarning() {
+  ColourChange(STDERR_FILENO, CYAN);
+  fprintf(stderr, "\n  %sWARNING - %s%s\n", Colour(stderr, CYAN), ERROR_MSG,
+                                            Colour(stderr, C_RESET));
+} //}}}
+// print 'ERROR' in red //{{{
+void PrintError() {
+  ColourChange(STDERR_FILENO, CYAN);
+  fprintf(stderr, "\n  %sERROR - %s%s\n", Colour(stderr, RED), ERROR_MSG,
+                                          Colour(stderr, C_RESET));
+} //}}}
+ //}}}

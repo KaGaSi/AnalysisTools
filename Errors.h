@@ -6,6 +6,7 @@
 #ifndef _ERRORS_H_
 #define _ERRORS_H_
 
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -132,14 +133,8 @@ void ErrorPrintError(); //}}}
 // WarnPrintWarning() //{{{
 void WarnPrintWarning(); //}}}
 
-// WarnPrintFile(char *file) //{{{
-void WarnPrintFile(char *file); //}}}
-
-// PrintFile() //{{{
-void PrintFile(char *file, int colour); //}}}
-
 // FilePrintFile() //{{{
-void FilePrintFile(char *file, int colour); //}}}
+void FilePrintFile(char *file, char *colour); //}}}
 
 // PrintFileLine() //{{{
 void PrintFileLine(char *file, int line,
@@ -167,4 +162,15 @@ void WarnStopReading2(char *vcf_file, int line_count, int step_count,
 
 void PrintLine(char split[SPL_STR][SPL_LEN], int words,
                int col_line, int col_blank);
+
+// simple messages //{{{
+// print 'FILE <name>' in given colour
+void PrintFile(FILE *f, char *file, char *colour);
+void WarnPrintFile(FILE *f, char *file); // in cyan
+void ErrorPrintFile(FILE *f, char *file); // in red
+// print 'WARNING' in cyan
+void PrintWarning();
+// print 'ERROR' in red
+void PrintError();
+ //}}}
 #endif

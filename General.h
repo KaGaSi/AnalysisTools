@@ -6,6 +6,7 @@
 #ifndef _GENERAL_H_
 #define _GENERAL_H_
 
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,26 +23,17 @@
 #define SQR(x) ((x)*(x)) // macro for algebraic square
 #define CUBE(x) ((x)*(x)*(x)) // macro for algebraic cube
 
-#define BLACK   30
-#define RED     31
-#define GREEN   32
-#define YELLOW  33
-#define BLUE    34
-#define MAGENTA 35
-#define CYAN    36
-#define WHITE   37
-
-// TODO leave colour definitions, but make C_ERR red and C_WARN cyan (but how do you use macro inside macro?)
-#define BLACK2   "\033[1;30m"
-#define RED2     "\033[1;31m"
-#define GREEN2   "\033[1;32m"
-#define YELLOW2  "\033[1;33m"
-#define BLUE2    "\033[1;34m"
-#define MAGENTA2 "\033[1;35m"
-#define CYAN2    "\033[1;36m"
-#define WHITE2   "\033[1;37m"
+#define BLACK   "\033[1;30m"
+#define RED     "\033[1;31m"
+#define GREEN   "\033[1;32m"
+#define YELLOW  "\033[1;33m"
+#define BLUE    "\033[1;34m"
+#define MAGENTA "\033[1;35m"
+#define CYAN    "\033[1;36m"
+#define WHITE   "\033[1;37m"
 #define C_RESET "\033[0m"
 
+/*
 // tell gcc to ignore certain warnings
 // helper macro
 #define DO_PRAGMA(x) _Pragma(#x)
@@ -53,6 +45,9 @@
 
 // macro to pop back to the 'pushed' diagnostic state
 #define P_POP _Pragma("GCC diagnostic pop")
+*/
+
+int fileno(const FILE *stream); // needs to be here for some reason
 
 // struct Vector //{{{
 /**
@@ -241,14 +236,11 @@ char* TrimLine(char *line); //}}}
 
 void PrintCommand(FILE *ptr, int argc, char *argv[]);
 
-void ColourChange(int a, int colour);
-char *Colour(int colour);
+void ColourChange(int a, char *colour);
+char *Colour(FILE *f, char *colour);
 void ColourReset(int a);
-char *Red();
-char *Yellow();
-char *Cyan();
 
 void SafeStrcat(char **out, char *in, int initial_size);
 
-FILE * OpenFile(char *file, char *mode);
+FILE *OpenFile(char *file, char *mode);
 #endif
