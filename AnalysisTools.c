@@ -1,4 +1,7 @@
 #include "AnalysisTools.h"
+/* TODO: PrintBeadType() needs to find the longest name and the most number
+ * of beads and insert white space accordingly
+*/
 
 /* HOW TO CALCULATE DISTANCE IN TRICLINIC SYSTEM //{{{
 //VECTOR dist;

@@ -236,11 +236,27 @@ char* TrimLine(char *line); //}}}
 
 void PrintCommand(FILE *ptr, int argc, char *argv[]);
 
-void ColourChange(int a, char *colour);
+// changing colour of the text (only for cli output)
 char *Colour(FILE *f, char *colour);
-void ColourReset(int a);
+// colours for stderr
+char *ErrRed();
+char *ErrCyan();
+char *ErrYellow();
+char *ErrColourReset();
+// colours for stdout
+char *Red();
+char *Cyan();
+char *Yellow();
+char *Magenta();
+char *Green();
+char *ColourReset();
 
 void SafeStrcat(char **out, char *in, int initial_size);
 
 FILE *OpenFile(char *file, char *mode);
+
+// TODO remove //{{{
+void ColourChange(int a, char *colour);
+void ColourReset_old(int a);
+ //}}}
 #endif

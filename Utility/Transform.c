@@ -1,19 +1,46 @@
 #include "../AnalysisTools.h"
 int nanosleep(const struct timespec *req, struct timespec *rem);
 int *InFile;
+// TODO: option define reflecting plane by three series of bead indices (change
+//       <mode>)?
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
   if (error) {
     ptr = stderr;
+    fprintf(ptr, "<mode>:\n");
   } else {
     ptr = stdout;
+//bead indices defining the normal to the reflecting plane \n
     fprintf(ptr, "\
-<mode> == ref 3(or more)x<int> => reflect molecules; \
-first 2x<int>: beads (in structurre file ids) specifying normal to plane; \
-remaining <int>(s): beads specifying point on the plane (either the one bead \
-or arithmetic mean of provided beads' positions)\n\n");
+Transform utility transforms individual molecules by reflecting, inverting, or \
+rotating them. The different operations are defined by the <mode> argument \
+that contains indices corresponding to molecule's internal bead indices (as \
+given in the input structure file); these indices are, therefore, always \
+between 1 and the number of beads in target molecule. For each target \
+molecule, the coordinates of these beads then determine the transforming \
+elements; whenever more than one index is supplied to define a point, \
+an average coordinate is used.\n");
   }
+  fprintf(ptr, "\
+i) <mode> for reflection: 'ref A <int(s)> B <int(s)> C <int(s)>'\n\
+  A <int(s)> & B <int(s)> .. bead indices for two points defining the normal \
+to the reflecting plane\
+  C <int(s)> .. one or more indices defining a point on that plane\n\
+ii) <mode> for inversion: 'inv <int(s)>'\n\
+   <int(s)> .. bead indices defining the centre of inversion (if more than \
+than one index is given, an averaged coordinate is used)\n\
+iii) <mode> for rotation: 'rot A <int(s)> B <int(s)> [N <int(s)>] \
+C <int(s)> P <angle>'\n\
+    A <int(s)> & B <int(s)> .. bead indices for two points defining rotation \
+axis orientation\n\
+    [N <int(s)>] .. optional argument for the third point; if it is present, \
+the normal to the plane formed by points A, B, and N is used as \
+the rotation axis\n\
+    C <int(s)> .. one or more indices defining a point lying \
+on the rotation axis\n\
+    P <angle> .. the rotation angle in degrees\n\
+\n\n");
 
   fprintf(ptr, "Usage:\n");
   fprintf(ptr, "   %s <input> <output.vcf> <mode> [options]\n\n", cmd);
@@ -21,7 +48,7 @@ or arithmetic mean of provided beads' positions)\n\n");
   fprintf(ptr, "   <input>        input coordinate file (vcf or vtf format)\n");
   fprintf(ptr, "   <output.vcf>   output coordinate file (vcf format)\n");
   fprintf(ptr, "   <mode>         how to transform molecules (see the help \
-text or manual for details)");
+text or manual for details)\n");
   fprintf(ptr, "   [options]\n");
   fprintf(ptr, "      --joined       are provided coordinates joined?\n");
   fprintf(ptr, "      -n <int(s)>    use specified molecules (vsf indices)\n");
@@ -95,50 +122,233 @@ int main(int argc, char *argv[]) {
   // <mode> - how to transform molecules //{{{
   count++;
   int max_ids = 100,
-      transform_ids = 0; // number of values in index array
-  long index[max_ids];
+      mode = -1; // -1..error, 0..ref, 1..inv, 2..rot
+  double angle = 0;
+  long A[max_ids+1], B[max_ids+1], C[max_ids+1], N[max_ids+1];
   for (int i = 0; i < max_ids; i++) {
-    index[i] = -1;
+    A[i] = -1;
+    B[i] = -1;
+    C[i] = -1;
+    N[i] = -1;
   }
-  // <mode> 'ref[lect]' //{{{
-  /* the reflecting plane is specified by a normal vector constructed from two
-   * bead indices and a point taken as either the third provided bead index or
-   * average position from indices 3+ (when more than three are provided)
-   * TODO: what about normal perpendicular to a molecule or some such?
-   */
-  if (strncmp(argv[count],"reflect", 3) == 0) {
-    for (int i = 0; ++count < argc && argv[count][0] != '-' && i < 100; i++) {
-      // error - not a non-negative number
-      if (!IsInteger2(argv[count], &index[i]) || index[i] < 0) {
-        strcpy(ERROR_MSG, "<mode> 'reflect': at least three \
-non-negative whole numbers are required as arguments");
-        ErrorPrintError();
+  A[max_ids] = 0;
+  B[max_ids] = 0;
+  C[max_ids] = 0;
+  N[max_ids] = 0;
+  // find what mode to use //{{{
+  if (strncmp(argv[count],"reflection", 3) == 0) {
+    mode = 0;
+  } else if (strncmp(argv[count],"inversion", 3) == 0) {
+    mode = 1;
+  } else if (strncmp(argv[count],"rotation", 3) == 0) {
+    mode = 2;
+  } //}}}
+  int i = 0;
+  switch (mode) {
+    // <mode> 'ref[lection]' //{{{
+    /* the reflecting plane is specified by a normal vector constructed from two
+     * bead indices and a point taken as either the third provided bead index or
+     * average position from indices 3+ (when more than three are provided)
+     * TODO: what about a normal perpendicular to a molecule or some such?
+     */
+    case 0:
+      // first point (normal to the reflecting plane): 'A <int(s)>' //{{{
+      if (argv[++count][0] != 'A') {
+        strcpy(ERROR_MSG, "<mode> 'reflection': missing 'A' point\n");
+        PrintError();
+        Help(argv[0], true);
         exit(1);
       }
-    }
-    // error - less than three arguments
-    if (index[2] == -1) {
-      strcpy(ERROR_MSG, "<mode> 'reflect': at least three \
-non-negative whole numbers are required as arguments");
-      ErrorPrintError();
-      exit(1);
-    }
-    // error - the first the numbers are identical
-    if (index[0] == index[1]) {
-      strcpy(ERROR_MSG, "<mode> 'reflect': the first two numbers \
-must be different because they define a normal vector to the reflecting plane");
-      ErrorPrintError();
-      exit(1);
-    }
-    // count number of ids
-    for (int i = 0; i < max_ids; i++) {
-      if (index[i] == -1) {
-        break;
+      for (int i = 0;
+           ++count < argc && argv[count][0] != 'B' && i < max_ids; i++) {
+        // error - not a non-negative number
+        if (!IsInteger2(argv[count], &A[i]) || A[i] < 1) {
+          strcpy(ERROR_MSG, "<mode>: bead index must be positive integer \
+(or 'B' is missing)");
+          PrintError();
+          fprintf(stderr, "%swrong argument for %sA%s point:%s %s%s\n",
+                  Red(), Yellow(), Red(), Yellow(), argv[count], ColourReset());
+          Help(argv[0], true);
+          exit(1);
+        }
+        A[i]--;
+        A[max_ids]++; // counts the number of indices for A point
+      } //}}}
+      // second point (normal to the reflecting plane): 'B <int(s)>' //{{{
+      for (int i = 0;
+           ++count < argc && argv[count][0] != 'C' && i < max_ids; i++) {
+        // error - not a non-negative number
+        if (!IsInteger2(argv[count], &B[i]) || B[i] < 1) {
+          strcpy(ERROR_MSG, "<mode>: bead index must be positive integer \
+(or 'C' is missing)");
+          PrintError();
+          fprintf(stderr, "%swrong argument for %sB%s point:%s %s%s\n",
+                  Red(), Yellow(), Red(), Yellow(), argv[count], ColourReset());
+          Help(argv[0], true);
+          exit(1);
+        }
+        B[i]--;
+        B[max_ids]++; // counts the number of indices for B point
+      } //}}}
+      // third point (on reflecting plane): 'C <int(s)>' //{{{
+      for (int i = 0;
+           ++count < argc && argv[count][0] != '-' && i < max_ids; i++) {
+        // error - not a non-negative number
+        if (!IsInteger2(argv[count], &C[i]) || C[i] < 1) {
+          strcpy(ERROR_MSG, "<mode>: bead index must be positive integer");
+          PrintError();
+          fprintf(stderr, "%swrong argument for %sC%s point:%s %s%s\n",
+                  Red(), Yellow(), Red(), Yellow(), argv[count], ColourReset());
+          Help(argv[0], true);
+          exit(1);
+        }
+        C[i]--;
+        C[max_ids]++; // counts the number of indices for C point
+      } //}}}
+      if (A[max_ids] == 0 || B[max_ids] == 0 || C[max_ids] == 0) {
+        strcpy(ERROR_MSG, "<mode>: at least one index must be provided for \
+each of A, B, and C");
+        PrintError();
+        Help(argv[0], true);
+        exit(1);
       }
-      transform_ids++;
-    }
+      break; //}}}
+    // <mode> 'inv[ersion]' //{{{
+    /* the centre of inversion is defined as the averaged coordinates of all the
+     * given bead indices
+     */
+    case 1:
+      for (i = 0; ++count < argc && argv[count][0] != '-' && i < max_ids; i++) {
+        // error - not a non-negative number
+        if (!IsInteger2(argv[count], &A[i]) || A[i] < 0) {
+          strcpy(ERROR_MSG, "<mode> 'inversion': at least one \
+positive number is required as an argument");
+          PrintError();
+          Help(argv[0], true);
+          exit(1);
+        }
+        A[i]--;
+        A[max_ids]++;
+      }
+      break; //}}}
+    // <mode> 'rot[ation]' //{{{
+    /* the centre of inversion is defined as the averaged coordinates of all the
+     * given bead indices
+     */
+    case 2:
+      // first point: 'A <int(s)>' //{{{
+      if (argv[++count][0] != 'A') {
+        strcpy(ERROR_MSG, "<mode> 'rotation': missing 'A' point\n");
+        PrintError();
+        Help(argv[0], true);
+        exit(1);
+      }
+      for (int i = 0;
+           ++count < argc && argv[count][0] != 'B' && i < max_ids; i++) {
+        // error - not a non-negative number
+        if (!IsInteger2(argv[count], &A[i]) || A[i] < 1) {
+          strcpy(ERROR_MSG, "<mode>: bead index must be positive integer \
+(or 'B' is missing)");
+          PrintError();
+          fprintf(stderr, "%swrong argument for %sA%s point:%s %s%s\n",
+                  Red(), Yellow(), Red(), Yellow(), argv[count], ColourReset());
+          Help(argv[0], true);
+          exit(1);
+        }
+        A[i]--;
+        A[max_ids]++; // counts the number of indices for A point
+      } //}}}
+      // second point: 'B <int(s)>' //{{{
+      for (int i = 0; ++count < argc &&
+           argv[count][0] != 'N' && // optional 'N <int(s)>' or
+           argv[count][0] != 'C' && // mandatory 'C <int(s)>' follows
+           i < max_ids; i++) {
+        // error - not a non-negative number
+        if (!IsInteger2(argv[count], &B[i]) || B[i] < 1) {
+          strcpy(ERROR_MSG, "<mode>: bead index must be positive integer \
+(or 'P' is missing)");
+          PrintError();
+          fprintf(stderr, "%swrong argument for %sB%s point:%s %s%s\n",
+                  Red(), Yellow(), Red(), Yellow(), argv[count], ColourReset());
+          Help(argv[0], true);
+          exit(1);
+        }
+        B[i]--;
+        B[max_ids]++; // counts the number of indices for B point
+      } //}}}
+      // third point (optional for axis normal to plane): 'N <int(s)>' //{{{
+      if (argv[count][0] == 'N') {
+        for (int i = 0;
+             ++count < argc && argv[count][0] != 'C' && i < max_ids; i++) {
+          // error - not a non-negative number
+          if (!IsInteger2(argv[count], &N[i]) || N[i] < 1) {
+            strcpy(ERROR_MSG, "<mode>: bead index must be positive integer");
+            PrintError();
+            fprintf(stderr, "%swrong argument for %sN%s point:%s %s%s\n",
+                    Red(), Yellow(), Red(), Yellow(), argv[count], ColourReset());
+            Help(argv[0], true);
+            exit(1);
+          }
+          N[i]--;
+          N[max_ids]++; // counts the number of indices for N point
+        }
+        if (N[max_ids] == 0) {
+          strcpy(ERROR_MSG, "<mode>: at least one index must be provided for \
+the optional N");
+          PrintError();
+          Help(argv[0], true);
+          exit(1);
+        }
+      } //}}}
+      // point on the axis: 'C <int(s)>' //{{{
+      for (int i = 0;
+           ++count < argc && argv[count][0] != 'P' && i < max_ids; i++) {
+        // error - not a non-negative number
+        if (!IsInteger2(argv[count], &C[i]) || C[i] < 1) {
+          strcpy(ERROR_MSG, "<mode>: bead index must be positive integer \
+(or 'P' is missing)");
+          PrintError();
+          fprintf(stderr, "%swrong argument for %sC%s point:%s %s%s\n",
+                  Red(), Yellow(), Red(), Yellow(), argv[count], ColourReset());
+          Help(argv[0], true);
+          exit(1);
+        }
+        C[i]--;
+        C[max_ids]++; // counts the number of indices for C point
+      } //}}}
+      // angle: 'P <double>' //{{{
+      if (++count >= argc) {
+        strcpy(ERROR_MSG, "<mode>: missing rotation angle");
+        PrintError();
+        Help(argv[0], true);
+        exit(1);
+      }
+      if (!IsReal2(argv[count], &angle)) {
+        strcpy(ERROR_MSG, "<mode>: angle must be a real number");
+        PrintError();
+        fprintf(stderr, "%swrong argument:%s %s%s\n", Red(), Yellow(),
+                                                      argv[count],
+                                                      ColourReset());
+        Help(argv[0], true);
+        exit(1);
+      } //}}}
+      if (A[max_ids] == 0 || B[max_ids] == 0 || C[max_ids] == 0) {
+        strcpy(ERROR_MSG, "<mode>: at least one index must be provided for \
+each of A, B, and C");
+        PrintError();
+        Help(argv[0], true);
+        exit(1);
+      }
+      angle *= PI / 180; // transform degrees to radians
+      break; //}}}
+    // error - incorrect <mode> //{{{
+    case -1:
+      strcpy(ERROR_MSG, "<mode> must be 'ref[lection]', 'inv[ersion]', \
+or 'rot[ation]'");
+      PrintError();
+      Help(argv[0], true);
+      exit(1); //}}}
   } //}}}
-  //}}}
 
   // options before reading system data //{{{
   bool silent;
@@ -178,10 +388,11 @@ must be different because they define a normal vector to the reflecting plane");
   for (int i = 0; i < n_opt_number; i++) {
     int id = n_opt_id[i];
     if (id > Counts.HighestResid || Index_mol[id] == -1) {
-      strcpy(ERROR_MSG, "option '-n'");
-      ErrorPrintError();
-      fprintf(stderr, "%sMolecule %s%d%s does not exist%s\n", RED2, YELLOW2, id,
-                                                              RED2, C_RESET);
+      strcpy(ERROR_MSG, "non-existent molecule index");
+      PrintErrorOption("-n");
+      ErrorPrintFile(input_vsf);
+      fprintf(stderr, "%s, molecule %s%d%s\n", ErrRed(), ErrYellow(), id,
+                                               ErrColourReset());
       exit(1);
     }
   } //}}}
@@ -220,7 +431,7 @@ must be different because they define a normal vector to the reflecting plane");
     } //}}}
     // decide whether this timestep is to be saved
     bool use = true; // TODO maybe later there'll be something
-    // read and write the timestep, if it should be saved //{{{
+    // read timestep and calculate stuff, if the timestep should be used //{{{
     if (use) {
       if (!VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
                            Index, MoleculeType, Molecule,
@@ -236,7 +447,6 @@ must be different because they define a normal vector to the reflecting plane");
         FromFractionalCoor(Counts.BeadsCoor, &Bead, Box);
       }
 
-      // mirror the molecule
       for (int i = 0; i < Counts.Molecules; i++) {
         use = false;
         for (int j = 0; j < n_opt_number; j++) {
@@ -247,54 +457,204 @@ must be different because they define a normal vector to the reflecting plane");
         }
         if (use) {
           int mtype = Molecule[i].Type;
-          // normal to mirroring plane
-//        int id1 = Molecule[i].Bead[0],
-//            id2 = Molecule[i].Bead[1];
-          // TODO error when index[] is higher than i's number of beads
-          int id1 = Molecule[i].Bead[index[0]],
-              id2 = Molecule[i].Bead[index[1]];
-          VECTOR normal;
-          normal.x = Bead[id1].Position.x - Bead[id2].Position.x;
-          normal.y = Bead[id1].Position.y - Bead[id2].Position.y;
-          normal.z = Bead[id1].Position.z - Bead[id2].Position.z;
-          // point on the plane
-          VECTOR point = {0, 0, 0};
-          for (int j = 2; j < transform_ids; j++) {
-            int id = Molecule[i].Bead[index[j]];
-            point.x += Bead[id].Position.x;
-            point.y += Bead[id].Position.y;
-            point.z += Bead[id].Position.z;
-          }
-          point.x /= transform_ids - 2;
-          point.y /= transform_ids - 2;
-          point.z /= transform_ids - 2;
-          // d from ax+by+cz+d=0 - equation of reflecting plane
-          double d_plane = -(normal.x * point.x +
-                             normal.y * point.y +
-                             normal.z * point.z);
-  //      printf("plane: %lfx + %lfy + %lfz + %lf = 0\n", normal.x, normal.y,
-  //                                                      normal.z, d_plane);
-  //      printf("point on plane: (%lf, %lf, %lf)\n", point.x, point.y, point.z);
-          for (int j = 0; j < MoleculeType[mtype].nBeads; j++) {
-            int id = Molecule[i].Bead[j];
-            // intersection of the line containing bead id with the plane
-            double t = -(d_plane + normal.x * Bead[id].Position.x +
-                                   normal.y * Bead[id].Position.y +
-                                   normal.z * Bead[id].Position.z);
-            t = t / (SQR(normal.x) + SQR(normal.y) + SQR(normal.z));
-            VECTOR intersect;
-            intersect.x = Bead[id].Position.x + normal.x * t;
-            intersect.y = Bead[id].Position.y + normal.y * t;
-            intersect.z = Bead[id].Position.z + normal.z * t;
-  //        printf("line: x = %lf + %lft\n", Bead[id].Position.x, normal.x);
-  //        printf("      y = %lf + %lft\n", Bead[id].Position.y, normal.y);
-  //        printf("      z = %lf + %lft\n", Bead[id].Position.z, normal.z);
-  //        printf("intersection: (%lf, %lf, %lf)\n", intersect.x,
-  //                                                  intersect.y,
-  //                                                  intersect.z);
-            Bead[id].Position.x = 2 * intersect.x - Bead[id].Position.x;
-            Bead[id].Position.y = 2 * intersect.y - Bead[id].Position.y;
-            Bead[id].Position.z = 2 * intersect.z - Bead[id].Position.z;
+          VECTOR point[3] = {{0, 0, 0},{0, 0, 0},{0, 0, 0}}, normal;
+          switch (mode) {
+            // mirror the molecule //{{{
+            case 0:
+              // normal to mirroring plane
+              // TODO error when index[] is higher than i's number of beads
+              // point A (on the normal) - point[0] //{{{
+              for (int j = 0; j < A[max_ids]; j++) {
+                int id = Molecule[i].Bead[A[j]];
+                point[0].x += Bead[id].Position.x;
+                point[0].y += Bead[id].Position.y;
+                point[0].z += Bead[id].Position.z;
+              }
+              point[0].x /= A[max_ids];
+              point[0].y /= A[max_ids];
+              point[0].z /= A[max_ids]; //}}}
+              // point B (on the normal) - point[1] //{{{
+              for (int j = 0; j < B[max_ids]; j++) {
+                int id = Molecule[i].Bead[B[j]];
+                point[1].x += Bead[id].Position.x;
+                point[1].y += Bead[id].Position.y;
+                point[1].z += Bead[id].Position.z;
+              }
+              point[1].x /= B[max_ids];
+              point[1].y /= B[max_ids];
+              point[1].z /= B[max_ids]; //}}}
+              // point C (on the plane) - point[2] //{{{
+              for (int j = 0; j < C[max_ids]; j++) {
+                int id = Molecule[i].Bead[C[j]];
+                point[2].x += Bead[id].Position.x;
+                point[2].y += Bead[id].Position.y;
+                point[2].z += Bead[id].Position.z;
+              }
+              point[2].x /= C[max_ids];
+              point[2].y /= C[max_ids];
+              point[2].z /= C[max_ids]; //}}}
+              // equation of the reflecting plane //{{{
+              // normal vector
+              normal.x = point[0].x - point[1].x;
+              normal.y = point[0].y - point[1].y;
+              normal.z = point[0].z - point[1].z;
+              // d from ax+by+cz+d=0
+              double d_plane = -(normal.x * point[2].x +
+                                 normal.y * point[2].y +
+                                 normal.z * point[2].z); //}}}
+              // reflect the molecule
+              for (int j = 0; j < MoleculeType[mtype].nBeads; j++) {
+                int id = Molecule[i].Bead[j];
+                // intersection of the line containing bead id with the plane
+                double t = -(d_plane + normal.x * Bead[id].Position.x +
+                                       normal.y * Bead[id].Position.y +
+                                       normal.z * Bead[id].Position.z);
+                t = t / (SQR(normal.x) + SQR(normal.y) + SQR(normal.z));
+                VECTOR intersect;
+                intersect.x = Bead[id].Position.x + normal.x * t;
+                intersect.y = Bead[id].Position.y + normal.y * t;
+                intersect.z = Bead[id].Position.z + normal.z * t;
+                Bead[id].Position.x = 2 * intersect.x - Bead[id].Position.x;
+                Bead[id].Position.y = 2 * intersect.y - Bead[id].Position.y;
+                Bead[id].Position.z = 2 * intersect.z - Bead[id].Position.z;
+              }
+              break; //}}}
+            // invert the molcule  //{{{
+            case 1:
+              // centre of inversion //{{{
+              putchar('\n');
+              for (int j = 0; j < A[max_ids]; j++) {
+              // TODO error when index[] is higher than i's number of beads
+                int id = Molecule[i].Bead[A[j]];
+                point[0].x += Bead[id].Position.x;
+                point[0].y += Bead[id].Position.y;
+                point[0].z += Bead[id].Position.z;
+              }
+              point[0].x /= A[max_ids];
+              point[0].y /= A[max_ids];
+              point[0].z /= A[max_ids]; //}}}
+              // invert the molecule
+              for (int j = 0; j < MoleculeType[mtype].nBeads; j++) {
+                int id = Molecule[i].Bead[j];
+                Bead[id].Position.x += 2 * (point[0].x - Bead[id].Position.x);
+                Bead[id].Position.y += 2 * (point[0].y - Bead[id].Position.y);
+                Bead[id].Position.z += 2 * (point[0].z - Bead[id].Position.z);
+              }
+              break; //}}}
+            // rotate the molcule  //{{{
+            case 2:
+              // rotation axis //{{{
+              // first point
+              for (int j = 0; j < A[max_ids]; j++) {
+                int id = Molecule[i].Bead[A[j]];
+                point[0].x += Bead[id].Position.x;
+                point[0].y += Bead[id].Position.y;
+                point[0].z += Bead[id].Position.z;
+              }
+              point[0].x /= A[max_ids];
+              point[0].y /= A[max_ids];
+              point[0].z /= A[max_ids];
+              // secont point
+              for (int j = 0; j < B[max_ids]; j++) {
+                int id = Molecule[i].Bead[B[j]];
+                point[1].x += Bead[id].Position.x;
+                point[1].y += Bead[id].Position.y;
+                point[1].z += Bead[id].Position.z;
+              }
+              point[1].x /= B[max_ids];
+              point[1].y /= B[max_ids];
+              point[1].z /= B[max_ids];
+              if (N[max_ids] == 0) { // N not provided, use A and B as the axis
+                normal.x = point[1].x - point[0].x;
+                normal.y = point[1].y - point[0].y;
+                normal.z = point[1].z - point[0].z;
+              } else { // N provided, use normal to ABN plane as the axis
+                // third point
+                for (int j = 0; j < N[max_ids]; j++) {
+                  int id = Molecule[i].Bead[N[j]];
+                  point[2].x += Bead[id].Position.x;
+                  point[2].y += Bead[id].Position.y;
+                  point[2].z += Bead[id].Position.z;
+                }
+                point[2].x /= N[max_ids];
+                point[2].y /= N[max_ids];
+                point[2].z /= N[max_ids];
+                VECTOR u, v;
+                u.x = point[1].x - point[0].x;
+                u.y = point[1].y - point[0].y;
+                u.z = point[1].z - point[0].z;
+                v.x = point[2].x - point[0].x;
+                v.y = point[2].y - point[0].y;
+                v.z = point[2].z - point[0].z;
+                // normal to the ABN plane (u x v)
+                normal.x = u.y * v.z - u.z * v.y;
+                normal.y = u.z * v.x - u.x * v.z;
+                normal.z = u.x * v.y - u.y * v.x;
+              }
+              // create unit rotation vector
+              double dist = Length(normal);
+              normal.x /= dist;
+              normal.y /= dist;
+              normal.z /= dist; //}}}
+              // create rotation matrix //{{{
+              struct Tensor {
+                VECTOR x, y, z;
+              } rot;
+              double c = 1 - cos(angle);
+              rot.x.x = cos(angle) + SQR(normal.x) * c;
+              rot.x.y = normal.x * normal.y * c - normal.z * sin(angle);
+              rot.x.z = normal.x * normal.z * c + normal.y * sin(angle);
+
+              rot.y.x = normal.x * normal.y * c + normal.z * sin(angle);
+              rot.y.y = cos(angle) + SQR(normal.y) * c;
+              rot.y.z = normal.y * normal.z * c - normal.x * sin(angle);
+
+              rot.z.x = normal.x * normal.z * c - normal.y * sin(angle);
+              rot.z.y = normal.y * normal.z * c + normal.x * sin(angle);
+              rot.z.z = cos(angle) + SQR(normal.z) * c; //}}}
+              // rotate the molecule
+              // i) move the beginning to C
+              point[0].x = 0;
+              point[0].y = 0;
+              point[0].z = 0;
+              for (int j = 0; j < C[max_ids]; j++) {
+                int id = Molecule[i].Bead[C[j]];
+                point[0].x += Bead[id].Position.x;
+                point[0].y += Bead[id].Position.y;
+                point[0].z += Bead[id].Position.z;
+              }
+              point[0].x /= C[max_ids];
+              point[0].y /= C[max_ids];
+              point[0].z /= C[max_ids];
+              for (int j = 0; j < MoleculeType[mtype].nBeads; j++) {
+                int id = Molecule[i].Bead[j];
+                Bead[id].Position.x -= point[0].x;
+                Bead[id].Position.y -= point[0].y;
+                Bead[id].Position.z -= point[0].z;
+              }
+              // ii) actual rotation
+              for (int j = 0; j < MoleculeType[mtype].nBeads; j++) {
+                int id = Molecule[i].Bead[j];
+                VECTOR new;
+                new.x = rot.x.x * Bead[id].Position.x +
+                        rot.x.y * Bead[id].Position.y +
+                        rot.x.z * Bead[id].Position.z;
+                new.y = rot.y.x * Bead[id].Position.x +
+                        rot.y.y * Bead[id].Position.y +
+                        rot.y.z * Bead[id].Position.z;
+                new.z = rot.z.x * Bead[id].Position.x +
+                        rot.z.y * Bead[id].Position.y +
+                        rot.z.z * Bead[id].Position.z;
+                Bead[id].Position = new;
+              }
+              // iii) move the beginning back to where it was
+              for (int j = 0; j < MoleculeType[mtype].nBeads; j++) {
+                int id = Molecule[i].Bead[j];
+                Bead[id].Position.x += point[0].x;
+                Bead[id].Position.y += point[0].y;
+                Bead[id].Position.z += point[0].z;
+              }
+              break; //}}}
           }
         }
       }

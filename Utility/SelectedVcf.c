@@ -149,12 +149,13 @@ int main(int argc, char *argv[]) {
   BEADTYPE *BeadType; // structure with info about all bead types
   MOLECULETYPE *MoleculeType; // structure with info about all molecule types
   BEAD *Bead; // structure with info about every bead
-  int *Index; // link between indices (i.e., Index[Bead[i].Index]=i)
+  int *Index, // link between bead indices (i.e., Index[Bead[i].Index]=i)
+      *Index_mol; // same, but between molecule indices
   MOLECULE *Molecule; // structure with info about every molecule
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
   BOX Box = InitBox; // triclinic box dimensions and angles
   VtfReadStruct(input_vsf, false, &Counts, &BeadType, &Bead, &Index,
-                &MoleculeType, &Molecule);
+                &MoleculeType, &Molecule, &Index_mol);
   InFile = calloc(Counts.BeadsTotal, sizeof *InFile); //}}}
 
   // <bead names> - names of bead types to save //{{{

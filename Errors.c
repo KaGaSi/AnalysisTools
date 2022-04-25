@@ -6,48 +6,11 @@ char ERROR_MSG[LINE];
  * Error when insufficient number of arguments
  */
 void ErrorArgNumber(int count, int need) {
-  ErrorPrintError_old();
-  ColourChange(STDERR_FILENO, RED);
-  fprintf(stderr, "too few mandatory arguments (");
-  ColourChange(STDERR_FILENO, YELLOW);
-  fprintf(stderr, "%d", count);
-  ColourChange(STDERR_FILENO, RED);
-  fprintf(stderr, " instead of ");
-  ColourChange(STDERR_FILENO, YELLOW);
-  fprintf(stderr, "%d", need);
-  ColourChange(STDERR_FILENO, RED);
-  fprintf(stderr, ")\n\n");
-  ColourReset(STDERR_FILENO);
-} //}}}
-
-// ErrorDiscard()  //{{{
-/**
- * Error when number of starting step is higher then the total number of steps
- * in a coordinate file
- */
-bool ErrorDiscard(int start, int step, char *file, FILE *coor) {
-  int test;
-  if ((test = getc(coor)) == EOF) {
-    fflush(stdout);
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%s", file);
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - starting timestep (");
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%d", start);
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, ") is higher than the total number of steps (");
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%d", step);
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, ")\n\n");
-    ColourReset(STDERR_FILENO);
-    return true;
-  } else {
-    ungetc(test, coor);
-    return false;
-  }
+  strcpy(ERROR_MSG, "insufficient number of arguments");
+  PrintError();
+  fprintf(stderr, "%ssupplied: %d%s, needed: %s%d%s\n", ErrYellow(), count,
+                                                        ErrRed(), ErrYellow(),
+                                                        need, ErrColourReset());
 } //}}}
 
 // ErrorExtension() //{{{
@@ -61,20 +24,15 @@ int ErrorExtension(char *file, int number, char extension[][5]) {
       return i;
     }
   }
-  ErrorPrintError_old();
-  ColourChange(STDERR_FILENO, YELLOW);
-  fprintf(stderr, "%s", file);
-  ColourChange(STDERR_FILENO, RED);
-  fprintf(stderr, " does not have a correct extension (");
-  for (int i = 0; i < number; i++) {
-    fprintf(stderr, "'%s'", extension[i]);
-    if (i < (number-1)) {
-      fprintf(stderr, ", ");
-    } else {
-      fprintf(stderr, ")\n\n");
-    }
+  strcpy(ERROR_MSG, "incorrect file extension");
+  PrintError();
+  ErrorPrintFile(file);
+  fprintf(stderr, "%sAllowed extensions:", ErrRed());
+  for (int i = 0; i < (number-1); i++) {
+    fprintf(stderr, " %s.%s%s,", ErrYellow(), extension[i], ErrRed());
   }
-  ColourReset(STDERR_FILENO);
+  fprintf(stderr, " %s.%s%s\n", ErrYellow(), extension[number-1],
+                                ErrColourReset());
   return -1;
 } //}}}
 
@@ -83,12 +41,8 @@ int ErrorExtension(char *file, int number, char extension[][5]) {
  * Error when non-numeric argument is present instead of a number
  */
 void ErrorNaN(char *option) {
-  ErrorPrintError_old();
-  ColourChange(STDERR_FILENO, YELLOW);
-  fprintf(stderr, "%s", option);
-  ColourChange(STDERR_FILENO, RED);
-  fprintf(stderr, " - non-numeric argument\n\n");
-  ColourReset(STDERR_FILENO);
+  strcpy(ERROR_MSG, "non-numeric argument");
+  PrintErrorOption(option);
 } //}}}
 
 // ErrorOption() //{{{
@@ -96,14 +50,8 @@ void ErrorNaN(char *option) {
  * Error when unknown option specified as argument
  */
 void ErrorOption(char *option) {
-  ErrorPrintError_old();
-  ColourChange(STDERR_FILENO, RED);
-  fprintf(stderr, "non-existent option ");
-  ColourChange(STDERR_FILENO, YELLOW);
-  fprintf(stderr, "%s", option);
-  ColourChange(STDERR_FILENO, RED);
-  fprintf(stderr, "\n\n");
-  ColourReset(STDERR_FILENO);
+  strcpy(ERROR_MSG, "non-existent option");
+  PrintErrorOption(option);
 } //}}}
 
 // ErrorBeadType() //{{{
@@ -169,10 +117,9 @@ void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file) {
   if (fabs(charge) > 0.00001) {
     strcpy(ERROR_MSG, "system with net electric charge");
     WarnPrintWarning();
-    WarnPrintFile(stderr, file);
-    fprintf(stderr, "%s, %sq = %lf%s\n", Colour(stderr, CYAN),
-                                         Colour(stderr, YELLOW), charge,
-                                         Colour(stderr, C_RESET));
+    WarnPrintFile(file);
+    fprintf(stderr, "%s, %sq = %lf%s\n", ErrCyan(), ErrYellow(), charge,
+                                         ErrColourReset());
   }
 } //}}}
 
@@ -202,33 +149,6 @@ void ErrorStartEnd(int start, int end) {
     ColourReset(STDERR_FILENO);
     exit(1);
   }
-} //}}}
-
-// ErrorPrintError_old() //{{{
-/*
- * Function to print print error keyword in red
- */
-void ErrorPrintError_old() {
-  ColourChange(STDERR_FILENO, RED);
-  fprintf(stderr, "\nError: ");
-  ColourReset(STDERR_FILENO);
-} //}}}
-
-// ErrorPrintError() //{{{
-/*
- * Function to print print error keyword in red
- */
-void ErrorPrintError() {
-  ColourChange(STDERR_FILENO, RED);
-  fprintf(stderr, "\n  ERROR - %s\n", ERROR_MSG);
-  ColourReset(STDERR_FILENO);
-} //}}}
-
-// FilePrintFile() //{{{
-void FilePrintFile(char *file, char *colour) {
-  ColourChange(STDERR_FILENO, colour);
-  fputs("File ", stderr);
-  PrintFile(stderr, file, YELLOW);
 } //}}}
 
 // PrintLine() //{{{
@@ -401,25 +321,85 @@ void PrintFile(FILE *f, char *file, char *colour) {
   fprintf(f, "%sFile %s%s%s", Colour(f, colour), file, Colour(f, YELLOW),
                               Colour(f, C_RESET));
 }
-void WarnPrintFile(FILE *f, char *file) {
-  fprintf(f, "%sFile %s%s%s", Colour(f, CYAN), file, Colour(f, YELLOW),
-                              Colour(f, C_RESET));
+void WarnPrintFile(char *file) {
+  fprintf(stderr, "%sFile %s%s%s", ErrCyan(), ErrYellow(), file,
+                                   ErrColourReset());
 }
-void ErrorPrintFile(FILE *f, char *file) {
-  fprintf(f, "%sFile %s%s%s", Colour(f, RED), file, Colour(f, YELLOW),
-                              Colour(f, C_RESET));
+void ErrorPrintFile(char *file) {
+  fprintf(stderr, "%sFile %s%s%s", ErrRed(), ErrYellow(), file,
+                                   ErrColourReset());
 }
  //}}}
-// print 'WARNING' in cyan //{{{
+// print 'WARNING - <ERROR_MSG>' in cyan //{{{
 void PrintWarning() {
-  ColourChange(STDERR_FILENO, CYAN);
-  fprintf(stderr, "\n  %sWARNING - %s%s\n", Colour(stderr, CYAN), ERROR_MSG,
-                                            Colour(stderr, C_RESET));
+  fprintf(stderr, "\n  %sWARNING - %s%s\n", ErrCyan(), ERROR_MSG,
+                                            ErrColourReset());
 } //}}}
-// print 'ERROR' in red //{{{
+// print 'ERROR: <option> - <ERROR_MSG>' in red and yellow //{{{
+void PrintWarningOption(char *opt) {
+  fprintf(stderr, "\n  %sWARNING: %s%s%s - %s%s\n", ErrCyan(), ErrYellow(), opt,
+                                                    ErrCyan(), ERROR_MSG,
+                                                    ErrColourReset());
+} //}}}
+// print 'ERROR - <ERROR_MSG>' in red //{{{
 void PrintError() {
-  ColourChange(STDERR_FILENO, CYAN);
-  fprintf(stderr, "\n  %sERROR - %s%s\n", Colour(stderr, RED), ERROR_MSG,
-                                          Colour(stderr, C_RESET));
+  fprintf(stderr, "\n  %sERROR - %s%s\n", ErrRed(), ERROR_MSG,
+                                          ErrColourReset());
+} //}}}
+// print 'ERROR: <option> - <ERROR_MSG>' in red and yellow //{{{
+void PrintErrorOption(char *opt) {
+  fprintf(stderr, "\n  %sERROR: %s%s%s - %s%s\n", ErrRed(), ErrYellow(), opt,
+                                                  ErrRed(), ERROR_MSG,
+                                                  ErrColourReset());
 } //}}}
  //}}}
+
+// TODO remove
+// ErrorPrintError_old() //{{{
+/*
+ * Function to print print error keyword in red
+ */
+void ErrorPrintError_old() {
+  ColourChange(STDERR_FILENO, RED);
+  fprintf(stderr, "\nError: ");
+  ColourReset(STDERR_FILENO);
+} //}}}
+// ErrorPrintError() //{{{
+/*
+ * Function to print print error keyword in red
+ */
+void ErrorPrintError() {
+  ColourChange(STDERR_FILENO, RED);
+  fprintf(stderr, "\n  ERROR - %s\n", ERROR_MSG);
+  ColourReset(STDERR_FILENO);
+} //}}}
+// ErrorDiscard()  //{{{
+/**
+ * Error when number of starting step is higher then the total number of steps
+ * in a coordinate file
+ */
+bool ErrorDiscard(int start, int step, char *file, FILE *coor) {
+  int test;
+  if ((test = getc(coor)) == EOF) {
+    fflush(stdout);
+    strcpy(ERROR_MSG, "starting timestep is too high");
+    PrintError();
+    ErrorPrintFile(file);
+    fprintf(stderr, "%s, number of timesteps:%s%d%s\n", ErrRed(), ErrYellow(),
+                                                        step, ErrColourReset());
+    return true;
+  } else {
+    ungetc(test, coor);
+    return false;
+  }
+} //}}}
+// WarnPrintWarning() //{{{
+void WarnPrintWarning() {
+  fprintf(stderr, "%sWARNING - %s", ErrCyan(), ErrColourReset());
+} //}}}
+// FilePrintFile() //{{{
+void FilePrintFile(char *file, char *colour) {
+  ColourChange(STDERR_FILENO, colour);
+  fputs("File ", stderr);
+  PrintFile(stderr, file, YELLOW);
+} //}}}

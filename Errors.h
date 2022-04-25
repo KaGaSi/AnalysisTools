@@ -39,18 +39,6 @@ void ErrorCoorRead(char *input_vcf, int bead, int step, char *stuff); //}}}
  */
 void ErrorArgNumber(int count, int need); //}}}
 
-// ErrorDiscard() //{{{
-/**
- * \brief Starting timestep is higher than the number of steps
- *
- * \param [in] start  starting timestep
- * \param [in] step   number of steps read
- * \param [in] file   coordinate filename
- * \param [in] coor   pointer to the coordinate file
- * \return 'true' if the starting step is too high, 'false' otherwise
- */
-bool ErrorDiscard(int start, int step, char *file, FILE *coor); //}}}
-
 // ErrorExtension() //{{{
 /**
  * \brief Wrong file extension
@@ -124,15 +112,6 @@ void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file); //}}}
  */
 void ErrorStartEnd(int start, int end); //}}}
 
-// ErrorPrintError_old() //{{{
-void ErrorPrintError_old(); //}}}
-
-// ErrorPrintError() //{{{
-void ErrorPrintError(); //}}}
-
-// WarnPrintWarning() //{{{
-void WarnPrintWarning(); //}}}
-
 // FilePrintFile() //{{{
 void FilePrintFile(char *file, char *colour); //}}}
 
@@ -166,11 +145,34 @@ void PrintLine(char split[SPL_STR][SPL_LEN], int words,
 // simple messages //{{{
 // print 'FILE <name>' in given colour
 void PrintFile(FILE *f, char *file, char *colour);
-void WarnPrintFile(FILE *f, char *file); // in cyan
-void ErrorPrintFile(FILE *f, char *file); // in red
-// print 'WARNING' in cyan
+void WarnPrintFile(char *file); // in cyan
+void ErrorPrintFile(char *file); // in red
+// print 'WARNING - <ERROR_MSG>' in cyan
 void PrintWarning();
-// print 'ERROR' in red
+// print 'WARNING: <option> - <ERROR_MSG>' in cyan and yellow
+void PrintWarningOption(char *opt);
+// print 'ERROR - <ERROR_MSG>' in red
 void PrintError();
+// print 'ERROR: <option> - <ERROR_MSG>' in red and yellow
+void PrintErrorOption(char *opt);
  //}}}
+
+// TODO remove
+// ErrorPrintError_old() //{{{
+void ErrorPrintError_old(); //}}}
+// ErrorPrintError() //{{{
+void ErrorPrintError(); //}}}
+// ErrorDiscard() //{{{
+/**
+ * \brief Starting timestep is higher than the number of steps
+ *
+ * \param [in] start  starting timestep
+ * \param [in] step   number of steps read
+ * \param [in] file   coordinate filename
+ * \param [in] coor   pointer to the coordinate file
+ * \return 'true' if the starting step is too high, 'false' otherwise
+ */
+bool ErrorDiscard(int start, int step, char *file, FILE *coor); //}}}
+// WarnPrintWarning() //{{{
+void WarnPrintWarning(); //}}}
 #endif

@@ -405,13 +405,47 @@ void PrintCommand(FILE *ptr, int argc, char *argv[]) {
 } //}}}
 
 // Colour() //{{{
+// changing colour of the text (only for cli output)
 char *Colour(FILE *f, char *colour) {
   if (isatty(fileno(f))) {
     return colour;
   } else {
     return "";
   }
-} //}}}
+}
+// colours for stderr
+char *ErrRed() {
+  return Colour(stderr, RED);
+}
+char *ErrCyan() {
+  return Colour(stderr, CYAN);
+}
+char *ErrYellow() {
+  return Colour(stderr, YELLOW);
+}
+char *ErrColourReset() {
+  return Colour(stderr, C_RESET);
+}
+// colours for stdout
+char *Red() {
+  return Colour(stdout, RED);
+}
+char *Cyan() {
+  return Colour(stdout, CYAN);
+}
+char *Yellow() {
+  return Colour(stdout, YELLOW);
+}
+char *Magenta() {
+  return Colour(stdout, MAGENTA);
+}
+char *Green() {
+  return Colour(stdout, GREEN);
+}
+char *ColourReset() {
+  return Colour(stdout, C_RESET);
+}
+ //}}}
 
 // SafeStrcat() //{{{
 /**
@@ -460,86 +494,6 @@ FILE *OpenFile(char *file, char *mode) {
 } //}}}
 
 // TODO: remove //{{{
-char *Black(int a) {
-  if (isatty(a)) {
-    return "\033[1;30m";
-  } else {
-    return "";
-  }
-}
-char *Red(int a) {
-  if (isatty(a)) {
-    return "\033[1;31m";
-  } else {
-    return "";
-  }
-}
-char *Green(int a) {
-  if (isatty(a)) {
-    return "\033[1;32m";
-  } else {
-    return "";
-  }
-}
-char *Yellow(int a) {
-  if (isatty(a)) {
-    return "\033[1;33m";
-  } else {
-    return "";
-  }
-}
-char *Blue(int a) {
-  if (isatty(a)) {
-    return "\033[1;34m";
-  } else {
-    return "";
-  }
-}
-char *Magenta(int a) {
-  if (isatty(a)) {
-    return "\033[1;35m";
-  } else {
-    return "";
-  }
-}
-char *Cyan(int a) {
-  if (isatty(a)) {
-    return "\033[1;36m";
-  } else {
-    return "";
-  }
-}
-char *White(int a) {
-  if (isatty(a)) {
-    return "\033[1;37m";
-  } else {
-    return "";
-  }
-}
-char *CReset(int a) {
-  if (isatty(a)) {
-    return "\033[0m";
-  } else {
-    return "";
-  }
-}
-
-// ColourReset() //{{{
-/**
- * Function to reset output tty colour either for stdout or stderr.
- */
-void ColourReset(int a) {
-  if (isatty(a)) {
-    FILE *ptr;
-    if (a == STDOUT_FILENO) {
-      ptr = stdout;
-    } else if (isatty(a) && a == STDERR_FILENO) {
-      ptr = stderr;
-    }
-    fprintf(ptr, "\033[0m");
-  }
-} //}}}
-
 // ColourChange() //{{{
 void ColourChange(int a, char *colour) {
   if (isatty(a)) {
