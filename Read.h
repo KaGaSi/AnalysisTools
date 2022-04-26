@@ -63,6 +63,8 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
 
 bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
                      int *file_line_count, int step_count);
+bool VtfSkipTimestep2(FILE *vcf, char *vcf_file,
+                     int *file_line_count, int step_count);
 
 // VtfSkipCoorOrderedLine() //{{{
 /*
@@ -170,16 +172,18 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
 // TODO check which are actually used
 bool VtfSkipCoorOrderedLine(FILE *fr);
 int VtfCheckCoorOrderedLine(int words, char *split[SPL_STR]);
+int VtfCheckCoorOrderedLine2(int words, char split[SPL_STR][SPL_LEN]);
 int VtfCheckCoorIndexedLine(int words, char *split[SPL_STR]);
 int VtfCheckCoordinateLine(int words, char *split[SPL_STR]);
 int VtfCheckTimestepLine(int words, char *split[SPL_STR]);
+int VtfCheckTimestepLine2(int words, char split[SPL_STR][SPL_LEN]);
 int VtfCheckPbcLine(int words, char *split[SPL_STR]);
 bool VtfCheckAtomLine(int words, char *split[SPL_STR]);
 bool VtfCheckBondLine(int words, char *split[SPL_STR]);
-int VtfCheckLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
+int VtfCheckLineType3(int words, char split[SPL_STR][SPL_LEN], bool indexed,
                      char *file, int line);
 int VtfCheckLineType2(int words, char *split[SPL_STR], char *file, int line);
-int VtfCheckLineType3(int words, char split[SPL_STR][SPL_LEN],
+int VtfCheckLineType(int words, char split[SPL_STR][SPL_LEN],
                       char *file, int line);
 
 // TODO use(d)?

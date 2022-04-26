@@ -241,8 +241,8 @@ int main(int argc, char *argv[]) {
           fprintf(stdout, "\rStarting step: %d\n", start);
         }
         fprintf(stdout, "\rStep: %d", count_vcf);
-        fflush(stdout);
       }
+      fflush(stdout);
     } //}}}
     // decide whether this timestep is to be saved //{{{
     bool use = false;
@@ -292,9 +292,9 @@ int main(int argc, char *argv[]) {
         FromFractionalCoor(Counts.BeadsCoor, &Bead, Box);
       }
       // write to output .vcf file
-      out = OpenFile(output_vcf, "a");
-      VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
-      fclose(out);
+//    out = OpenFile(output_vcf, "a");
+//    VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
+//    fclose(out);
       // write to xyz file?
       if (output_xyz[0] != '\0') {
         out = OpenFile(output_xyz, "a");
@@ -304,7 +304,7 @@ int main(int argc, char *argv[]) {
       //}}}
     // skip the timestep, if it shouldn't be saved //{{{
     } else {
-      if (!VtfSkipTimestep(vcf, input_coor, &file_line_count, count_vcf)) {
+      if (!VtfSkipTimestep2(vcf, input_coor, &file_line_count, count_vcf)) {
         count_vcf--;
         break;
       }
@@ -369,7 +369,8 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "Last Step: %d\n", count_vcf);
   } //}}}
   // free memory
-  FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);
+  FreeSystemInfo2(Counts, &MoleculeType, &Molecule, &Index_mol,
+                  &BeadType, &Bead, &Index);
   free(stuff);
   free(InFile);
 

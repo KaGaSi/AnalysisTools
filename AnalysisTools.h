@@ -412,4 +412,7 @@ void FreeAggregate(COUNTS Counts, AGGREGATE **Aggregate); //}}}
 void FreeSystemInfo(COUNTS Counts, MOLECULETYPE **MoleculeType,
                     MOLECULE **Molecule, BEADTYPE **BeadType, BEAD **Bead,
                     int **Index); //}}}
+void FreeSystemInfo2(COUNTS Counts, MOLECULETYPE **MoleculeType,
+                    MOLECULE **Molecule, int **Index_mol,
+                    BEADTYPE **BeadType, BEAD **Bead, int **Index);
 #endif

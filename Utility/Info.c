@@ -92,10 +92,12 @@ int main(int argc, char *argv[]) {
   MOLECULETYPE *MoleculeType; // structure with info about all molecule types
   BEAD *Bead; // structure with info about every bead
   int *Index; // link between indices (i.e., Index[Bead[i].Index]=i)
+  int *Index_mol; // same as Index, but for molecules
   MOLECULE *Molecule; // structure with info about every molecule
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
   VtfReadStruct(input_vsf, detailed, &Counts, &BeadType, &Bead, &Index,
-                &MoleculeType, &Molecule); //}}}
+                &MoleculeType, &Molecule, &Index_mol);
+  InFile = calloc(Counts.BeadsTotal, sizeof *InFile); //}}}
 
   // print information
   VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);

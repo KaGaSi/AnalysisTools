@@ -1,7 +1,7 @@
 #include "Read.h"
 // TODO test output of snprintf() to get rid of a warning; see https://stackoverflow.com/questions/51534284/how-to-circumvent-format-truncation-warning-in-gcc
 // TODO impropers vs dihedrals - add improper section to FIELD
-// TODO final decision on reading stuff? Copy/not copy the splits? Etc.
+// TODO final decision on reading stuff? Copy/not copy the splits? Etc. NOT COPY!
 
 // VtfAtomLineValues() //{{{
 /*
@@ -49,7 +49,7 @@ void VtfReadPBC(char *input_vcf, BOX *Box) {
   // read input_vcf line by line
   while (ReadAndSplitLine(coor, &words, split)) {
     file_line_count++;
-    int pbc = VtfCheckLineType3(words, split, input_vcf, file_line_count);
+    int pbc = VtfCheckLineType(words, split, input_vcf, file_line_count);
     // pbc line //{{{
     if (pbc == PBC_LINE || pbc == PBC_LINE_ANGLES) {
       (*Box).Length.x = atof(split[1]);
@@ -127,7 +127,7 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
    */
   while (ReadAndSplitLine(vsf, &words, split)) {
     file_line_count++;
-    int ltype = VtfCheckLineType3(words, split,
+    int ltype = VtfCheckLineType(words, split,
                                  struct_file, file_line_count);
 //  fprintf(stderr, "line %d (type %d):\n", file_line_count, ltype);
 //  PrintLine(split, words, WHITE, WHITE);
@@ -1077,6 +1077,7 @@ contact developper");
   WarnElNeutrality(*Counts, *BeadType, struct_file);
 } //}}}
 
+// TODO add stuff[] for the preamble
 // VtfReadTimestep() //{{{
 // TODO WarnStopReading -- does printing line make sense; i.e., do the
 //                         split[][] and words always contain the wrong line?
@@ -1267,9 +1268,9 @@ bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
     if (!ReadLine(vcf, line)) {
       return false;
     }
-    char *split[SPL_STR];
-    int words = SplitLine2(split, SPL_STR, line, "\t ");
-    ltype = VtfCheckLineType2(words, split, vcf_file, *file_line_count);
+    char split[SPL_STR][SPL_LEN];
+    int words = SplitLine(split, line, "\t ");
+    ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
     if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) {
       timestep = true;
     }
@@ -1302,9 +1303,9 @@ bool VtfSkipCoorOrderedLine(FILE *fr) {
   if (!ReadLine(fr, line)) {
     return false; // error/EOF
   }
-  char *split[SPL_STR];
-  int words = SplitLine2(split, 3, line, "\t ");
-  if (VtfCheckCoorOrderedLine(words, split) == COOR_LINE_O) {
+  char split[SPL_STR][SPL_LEN];
+  int words = SplitLine(split, line, "\t ");
+  if (VtfCheckCoorOrderedLine2(words, split) == COOR_LINE_O) {
     return true;
   } else {
     return false;
@@ -3776,11 +3777,11 @@ int VtfCheckLineType2(int words, char *split[SPL_STR], char *file, int line) {
   }
   return ERROR_LINE;
 } //}}}
-// VtfCheckLineType3() //{{{
+// VtfCheckLineType() //{{{
 /*
  * Function to check what line from a vtf file is passed to it.
  */
-int VtfCheckLineType3(int words, char split[SPL_STR][SPL_LEN], char *file, int line) {
+int VtfCheckLineType(int words, char split[SPL_STR][SPL_LEN], char *file, int line) {
   ERROR_MSG[0] = '\0'; // clear error message array
   // blank line
   if (words == 0) {
@@ -6018,7 +6019,7 @@ bool VtfReadTimestep2(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
     if (!ReadAndSplitLine(vcf, &words, split)) {
       return false;
     }
-    ltype = VtfCheckLineType3(words, split, vcf_file, *file_line_count);
+    ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
     // do something based on what line it is
     switch (ltype) {
       case PBC_LINE: // pbc line for orthogonal box
@@ -6091,7 +6092,7 @@ bool VtfReadTimestep2(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
     if (!ReadAndSplitLine(vcf, &words, split)) {
       return false;
     }
-    ltype = VtfCheckLineType3(words, split, vcf_file, *file_line_count);
+    ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
     if (ltype != COOR_LINE_O && ltype != COOR_LINE_I) {
       break;
     }
@@ -6171,7 +6172,7 @@ int VtfCountStructLines(bool vtf, char *input) {
     char split[SPL_STR][SPL_LEN];
     int words;
     while (ReadAndSplitLine(vtf, &words, split)) {
-      int ltype = VtfCheckLineType(words, split, false, input, file_line_count);
+      int ltype = VtfCheckLineType3(words, split, false, input, file_line_count);
       if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) {
         break;
       }
@@ -6326,7 +6327,7 @@ int ReadVtfTimestepPreamble(bool *indexed, char *input_coor, FILE *vcf_file,
     }
     strcpy(line2, line); // save 'unsplit' line
     words = SplitLine(split, line, " \t");
-    int ltype = VtfCheckLineType(words, split, false, input_coor, count_lines);
+    int ltype = VtfCheckLineType3(words, split, false, input_coor, count_lines);
     // pbc line - get box dimensions //{{{
     if (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) {
       (*Box).Length.x = atof(split[1]);
@@ -7111,11 +7112,11 @@ int CheckVtfCoordinateLine2(int words, char *split[SPL_STR]) {
   // non-coordinate line
   return ERROR_LINE;
 } //}}}
-// VtfCheckLineType() //{{{
+// VtfCheckLineType3() //{{{
 /*
  * Function to check what line from a vtf file is passed to it.
  */
-int VtfCheckLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
+int VtfCheckLineType3(int words, char split[SPL_STR][SPL_LEN], bool indexed,
                      char *file, int line) {
   ERROR_MSG[0] = '\0'; // clear error message array
   // blank line
@@ -7153,5 +7154,43 @@ int VtfCheckLineType(int words, char split[SPL_STR][SPL_LEN], bool indexed,
     strcpy(ERROR_MSG, "unrecognised line");
   }
   return ERROR_LINE;
+} //}}}
+// VtfSkipTimestep2() //{{{
+bool VtfSkipTimestep2(FILE *vcf, char *vcf_file,
+                     int *file_line_count, int step_count) {
+  // skip preamble - i.e., read until the first coordinate line
+  fpos_t position;
+  int ltype;
+  bool timestep = false; // is timestep line present?
+  do {
+    char line[LINE];
+    fgetpos(vcf, &position);
+    (*file_line_count)++;
+    if (!ReadLine(vcf, line)) {
+      return false;
+    }
+    char *split[SPL_STR];
+    int words = SplitLine2(split, SPL_STR, line, "\t ");
+    ltype = VtfCheckLineType2(words, split, vcf_file, *file_line_count);
+    if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) {
+      timestep = true;
+    }
+  } while (ltype != COOR_LINE_O && ltype != COOR_LINE_I);
+
+  if (!timestep) {
+    return false;
+  }
+
+  // skip coordinate lines - i.e., read until the first non-coordinate line
+  do {
+    fgetpos(vcf, &position);
+    (*file_line_count)++;
+  } while (VtfSkipCoorOrderedLine(vcf));
+  (*file_line_count)--;
+
+  // return to before the first non-coordinate line
+  fsetpos(vcf, &position);
+
+  return true;
 } //}}}
  //}}}

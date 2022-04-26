@@ -123,18 +123,17 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // read information from vtf file(s) //{{{
-  BEADTYPE *BeadType;
-  MOLECULETYPE *MoleculeType;
-  BEAD *Bead;
+  BEADTYPE *BeadType; // structure with info about all bead types
+  MOLECULETYPE *MoleculeType; // structure with info about all molecule types
+  BEAD *Bead; // structure with info about every bead
   int *Index; // link between indices (i.e., Index[Bead[i].Index]=i)
-  MOLECULE *Molecule;
-  COUNTS Counts = InitCounts;
-  BOX Box;
-  bool indexed;
-  int struct_lines;
-  FullVtfRead(input_vsf, input_coor, false, vtf, &indexed, &struct_lines,
-              &Box, &Counts, &BeadType, &Bead, &Index,
-              &MoleculeType, &Molecule); //}}}
+  int *Index_mol; // same as Index, but for molecules
+  MOLECULE *Molecule; // structure with info about every molecule
+  COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
+  BOX Box = InitBox; // triclinic box dimensions and angles
+  VtfReadStruct(input_vsf, false, &Counts, &BeadType, &Bead, &Index,
+                &MoleculeType, &Molecule, &Index_mol);
+  InFile = calloc(Counts.BeadsTotal, sizeof *InFile); //}}}
 
   // read FIELD to get bond, angle, and dihedral information //{{{
   BEADTYPE *bt_new;
@@ -218,24 +217,38 @@ int main(int argc, char *argv[]) {
 
   // open input coordinate file
   FILE *vcf = OpenFile(input_coor, "r");
-  SkipVtfStructure(vcf, struct_lines);
 
   // main loop //{{{
   count = 0;
+  int count_vcf = 0, // count steps in the vcf file
+      file_line_count = 0; // count lines in the vcf file
   char *stuff = calloc(LINE, sizeof(char)); // timestep preamble
   while (true) {
-    count++;
+    count_vcf++;
     if (!silent && isatty(STDOUT_FILENO)) {
       fflush(stdout);
-      fprintf(stdout, "\rStep: %d", count);
+      fprintf(stdout, "\rStep: %d", count_vcf);
     }
 
-    ReadVcfCoordinates(indexed, input_coor, vcf, &Box,
-                       Counts, Index, &Bead, &stuff);
-    // if there's no additional timestep, exit the while loop
-    if (LastStep(vcf, NULL)) {
-      break;
-    }
+    bool use = true; // TODO maybe later there'll be something
+    // read timestep and calculate stuff, if the timestep should be used //{{{
+    if (use) {
+      if (!VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
+                           Index, MoleculeType, Molecule,
+                           &file_line_count, count_vcf)) {
+        count_vcf--;
+        break;
+      }
+      //}}}
+    // skip the timestep, if it shouldn't be saved //{{{
+    } else {
+      if (!VtfSkipTimestep(vcf, input_coor, &file_line_count, count_vcf)) {
+        count_vcf--;
+        break;
+      }
+    } //}}}
+    // definitely break the loop - later, there'll be something else
+    break;
   }
   fclose(vcf);
   // print last step count?
@@ -244,7 +257,7 @@ int main(int argc, char *argv[]) {
       fflush(stdout);
       fprintf(stdout, "\r                          \r");
     }
-    fprintf(stdout, "Last Step: %d\n", count);
+    fprintf(stdout, "Last Step: %d\n", count_vcf);
   } //}}}
 
   // count total number of bonds & angles //{{{

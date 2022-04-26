@@ -2211,3 +2211,18 @@ void FreeSystemInfo(COUNTS Counts, MOLECULETYPE **MoleculeType, MOLECULE **Molec
   FreeMolecule(Counts.Molecules, Molecule);
   FreeMoleculeType(Counts.TypesOfMolecules, MoleculeType);
 } //}}}
+
+// FreeSystemInfo2() //{{{
+/**
+ * Free memory for all standard arrays and structures of arrays.
+ */
+void FreeSystemInfo2(COUNTS Counts, MOLECULETYPE **MoleculeType,
+                    MOLECULE **Molecule, int **Index_mol,
+                    BEADTYPE **BeadType, BEAD **Bead, int **Index) {
+  free(*Index);
+  free(*Index_mol);
+  FreeBead(Counts.BeadsTotal, Bead);
+  free(*BeadType);
+  FreeMolecule(Counts.Molecules, Molecule);
+  FreeMoleculeType(Counts.TypesOfMolecules, MoleculeType);
+} //}}}
