@@ -44,12 +44,22 @@ void VtfReadPBC(char *input_vcf, BOX *Box) {
   // open the coordinate file
   FILE *coor = OpenFile(input_vcf, "r");
   int file_line_count = 0;
-  int words;
-  char split[SPL_STR][SPL_LEN];
   // read input_vcf line by line
-  while (ReadAndSplitLine(coor, &words, split)) {
+  while (true) {
+    // read line
+    char line[LINE];
     file_line_count++;
-    int pbc = VtfCheckLineType(words, split, input_vcf, file_line_count);
+    if (!ReadLine(coor, line)) {
+      strcpy(ERROR_MSG, "missing pbc line (and any coordinates)");
+      PrintError();
+      ErrorPrintFile(input_vcf);
+      putc('\n', stderr);
+      exit(1);
+    }
+    // split line into strings
+    char *split[SPL_STR];
+    int words = SplitLine2(split, SPL_STR, line, "\t ");
+    int pbc = VtfCheckLineType2(words, split, input_vcf, file_line_count);
     // pbc line //{{{
     if (pbc == PBC_LINE || pbc == PBC_LINE_ANGLES) {
       (*Box).Length.x = atof(split[1]);
@@ -69,12 +79,12 @@ void VtfReadPBC(char *input_vcf, BOX *Box) {
     // error - coordinate line //{{{
     } else if (pbc == COOR_LINE_I || pbc == COOR_LINE_O) {
       strcpy(ERROR_MSG, "encountered coordinate line before pbc line");
-      ErrorPrintFull(input_vcf, file_line_count, split, words);
+      PrintErrorFileLine(input_vcf, file_line_count, split, words);
       exit(1); //}}}
     // error - unrecognised line //{{{
     } else if (pbc == ERROR_LINE) {
       strcpy(ERROR_MSG, "invalid line");
-      ErrorPrintFull(input_vcf, file_line_count, split, words);
+      PrintErrorFileLine(input_vcf, file_line_count, split, words);
       exit(1);
     } //}}}
   };

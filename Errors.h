@@ -141,6 +141,14 @@ void WarnStopReading2(char *vcf_file, int line_count, int step_count,
 
 void PrintLine(char split[SPL_STR][SPL_LEN], int words,
                int col_line, int col_blank);
+void PrintLine2(FILE *f, char *split[SPL_STR], int words,
+                char *colour1, char *colour2);
+void ErrorPrintLine2(char *split[SPL_STR], int words);
+void WarnPrintLine(char *split[SPL_STR], int words);
+void PrintErrorFileLine(char *file,  int count,
+                        char *split[SPL_STR], int words);
+void PrintWarningFileLine(char *file, int count,
+                          char *split[SPL_STR], int words);
 
 // simple messages //{{{
 // print 'FILE <name>' in given colour

@@ -39,8 +39,7 @@ the normal to the plane formed by points A, B, and N is used as \
 the rotation axis\n\
     C <int(s)> .. one or more indices defining a point lying \
 on the rotation axis\n\
-    P <angle> .. the rotation angle in degrees\n\
-\n\n");
+    P <angle> .. the rotation angle in degrees\n\n");
 
   fprintf(ptr, "Usage:\n");
   fprintf(ptr, "   %s <input> <output.vcf> <mode> [options]\n\n", cmd);

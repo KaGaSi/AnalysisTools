@@ -156,7 +156,14 @@ int main(int argc, char *argv[]) {
   BOX Box = InitBox; // triclinic box dimensions and angles
   VtfReadStruct(input_vsf, false, &Counts, &BeadType, &Bead, &Index,
                 &MoleculeType, &Molecule, &Index_mol);
-  InFile = calloc(Counts.BeadsTotal, sizeof *InFile); //}}}
+  InFile = calloc(Counts.BeadsTotal, sizeof *InFile);
+  VtfReadPBC(input_coor, &Box);
+  if (!TriclinicCellData(&Box)) {
+    strcpy(ERROR_MSG, "wrong pbc data");
+    PrintError();
+    exit(1);
+  } //}}}
+  PrintBox(Box);
 
   // <bead names> - names of bead types to save //{{{
   for (int i = 0; i < Counts.TypesOfBeads; i++) {

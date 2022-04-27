@@ -91,8 +91,8 @@ int main(int argc, char *argv[]) {
   BEADTYPE *BeadType; // structure with info about all bead types
   MOLECULETYPE *MoleculeType; // structure with info about all molecule types
   BEAD *Bead; // structure with info about every bead
-  int *Index; // link between indices (i.e., Index[Bead[i].Index]=i)
-  int *Index_mol; // same as Index, but for molecules
+  int *Index, // link between indices (i.e., Index[Bead[i].Index]=i)
+      *Index_mol; // same as Index, but for molecules
   MOLECULE *Molecule; // structure with info about every molecule
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
   VtfReadStruct(input_vsf, detailed, &Counts, &BeadType, &Bead, &Index,
@@ -110,7 +110,9 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // free memory - to make valgrind happy
-  FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);
+  FreeSystemInfo2(Counts, &MoleculeType, &Molecule, &Index_mol,
+                  &BeadType, &Bead, &Index);
+  free(InFile);
 
   return 0;
 }

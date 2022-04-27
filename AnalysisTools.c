@@ -300,24 +300,18 @@ void PrintBox(BOX Box) {
   fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
   fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
   fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);
-  fprintf(stdout, "  .transform = (%lf, %lf, %lf)\n", Box.transform[0][0],
-                                                      Box.transform[0][1],
-                                                      Box.transform[0][2]);
-  fprintf(stdout, "               (%lf, %lf, %lf)\n", Box.transform[1][0],
-                                                      Box.transform[1][1],
-                                                      Box.transform[1][2]);
-  fprintf(stdout, "               (%lf, %lf, %lf)\n", Box.transform[2][0],
-                                                    Box.transform[2][1],
-                                                    Box.transform[2][2]);
-  fprintf(stdout, "  .inverse = (%lf, %lf, %lf)\n", Box.inverse[0][0],
-                                                    Box.inverse[0][1],
-                                                    Box.inverse[0][2]);
-  fprintf(stdout, "             (%lf, %lf, %lf)\n", Box.inverse[1][0],
-                                                    Box.inverse[1][1],
-                                                    Box.inverse[1][2]);
-  fprintf(stdout, "             (%lf, %lf, %lf)\n", Box.inverse[2][0],
-                                                    Box.inverse[2][1],
-                                                    Box.inverse[2][2]);
+  fprintf(stdout, "  .transform = (%9.5f, %9.5f, %9.5f)\n",
+          Box.transform[0][0], Box.transform[0][1], Box.transform[0][2]);
+  fprintf(stdout, "               (%9.5f, %9.5f, %9.5f)\n",
+          Box.transform[1][0], Box.transform[1][1], Box.transform[1][2]);
+  fprintf(stdout, "               (%9.5f, %9.5f, %9.5f)\n",
+          Box.transform[2][0], Box.transform[2][1], Box.transform[2][2]);
+  fprintf(stdout, "  .inverse = (%9.5f, %9.5f, %9.5f)\n",
+          Box.inverse[0][0], Box.inverse[0][1], Box.inverse[0][2]);
+  fprintf(stdout, "             (%9.5f, %9.5f, %9.5f)\n",
+          Box.inverse[1][0], Box.inverse[1][1], Box.inverse[1][2]);
+  fprintf(stdout, "             (%9.5f, %9.5f, %9.5f)\n",
+          Box.inverse[2][0], Box.inverse[2][1], Box.inverse[2][2]);
   fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
 } //}}}
 

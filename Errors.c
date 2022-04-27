@@ -116,7 +116,7 @@ void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file) {
   }
   if (fabs(charge) > 0.00001) {
     strcpy(ERROR_MSG, "system with net electric charge");
-    WarnPrintWarning();
+    PrintWarning();
     WarnPrintFile(file);
     fprintf(stderr, "%s, %sq = %lf%s\n", ErrCyan(), ErrYellow(), charge,
                                          ErrColourReset());
@@ -157,27 +157,6 @@ void ErrorStartEnd(int start, int end) {
  * different colour).
  */
 void PrintLine(char split[SPL_STR][SPL_LEN], int words,
-               int col_line, int col_blank) {
-  if (words == 0) {
-    fprintf(stderr, "Blank line");
-    ColourReset(STDERR_FILENO);
-  } else {
-    for (int i = 0; i < words; i++) {
-      if (i != 0) {
-        putc(' ', stderr);
-      }
-      fputs(split[i], stderr);
-    }
-    ColourReset(STDERR_FILENO);
-  }
-  fputs("\n\n", stderr);
-} //}}}
-// PrintLine2() //{{{
-/*
- * Print a single line from a file in a given colour (or 'blank line' in
- * different colour).
- */
-void PrintLine2(char *split[SPL_STR], int words,
                int col_line, int col_blank) {
   if (words == 0) {
     fprintf(stderr, "Blank line");
@@ -351,6 +330,50 @@ void PrintErrorOption(char *opt) {
   fprintf(stderr, "\n  %sERROR: %s%s%s - %s%s\n", ErrRed(), ErrYellow(), opt,
                                                   ErrRed(), ERROR_MSG,
                                                   ErrColourReset());
+} //}}}
+// print 'Line: <line>|(blank)' in given colours //{{{
+void PrintLine2(FILE *f, char *split[SPL_STR], int words,
+                char *colour1, char *colour2) {
+  if (words == 0) {
+    fprintf(f, "%s(blank)\n%s", Colour(f, colour1), ColourReset());
+  } else {
+    fputs(Colour(f, colour2), f);
+    for (int i = 0; i < words; i++) {
+      if (i != 0) {
+        putc(' ', f);
+      }
+      fprintf(f, "%s", split[i]);
+    }
+    fputs(Colour(f, C_RESET), f);
+    // print line break if the last split[] doesn't end with one
+    if (split[words-1][strlen(split[words-1])-1] != '\n') {
+      putc('\n', f);
+    }
+  }
+}
+void ErrorPrintLine2(char *split[SPL_STR], int words) {
+  PrintLine2(stderr, split, words, RED, YELLOW);
+}
+void WarnPrintLine(char *split[SPL_STR], int words) {
+  PrintLine2(stderr, split, words, CYAN, YELLOW);
+}
+//}}}
+// print 'ERROR: - <ERROR_MSG>\nFile <file>, line <count>:\n<line>' //{{{
+void PrintErrorFileLine(char *file, int count,
+                        char *split[SPL_STR], int words) {
+  PrintError();
+  ErrorPrintFile(file);
+  fprintf(stderr, "%s, line %s%d%s:\n", ErrRed(), ErrYellow(), count, ErrRed());
+  ErrorPrintLine2(split, words);
+} //}}}
+// print 'WARNING: - <ERROR_MSG>\nFile <file>, line <count>:\n<line>' //{{{
+void PrintWarningFileLine(char *file, int count,
+                          char *split[SPL_STR], int words) {
+  PrintWarning();
+  WarnPrintFile(file);
+  fprintf(stderr, "%s, line %s%d%s:\n", ErrCyan(), ErrYellow(),
+                                        count, ErrCyan());
+  WarnPrintLine(split, words);
 } //}}}
  //}}}
 

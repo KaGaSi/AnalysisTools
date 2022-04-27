@@ -90,9 +90,7 @@ void VtfWriteCoorIndexed(FILE *vcf, char *stuff,
   // print comment at the beginning of a timestep if present in initial vcf file
   fprintf(vcf, "%s\n", stuff);
   // print box size
-  fprintf(vcf, "pbc %lf %lf %lf  ", Box.Length.x,
-                                         Box.Length.y,
-                                         Box.Length.z);
+  fprintf(vcf, "pbc %lf %lf %lf  ", Box.Length.x, Box.Length.y, Box.Length.z);
   fprintf(vcf, "    %lf %lf %lf\n", Box.alpha, Box.beta, Box.gamma);
   // print 'indexed' on the next
   fprintf(vcf, "indexed\n");

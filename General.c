@@ -445,6 +445,17 @@ char *Green() {
 char *ColourReset() {
   return Colour(stdout, C_RESET);
 }
+void ColourChange(int a, char *colour) {
+  if (isatty(a)) {
+    FILE *ptr;
+    if (a == STDOUT_FILENO) {
+      ptr = stdout;
+    } else if (a == STDERR_FILENO) {
+      ptr = stderr;
+    }
+    fputs(colour, ptr);
+  }
+}
  //}}}
 
 // SafeStrcat() //{{{
@@ -494,16 +505,4 @@ FILE *OpenFile(char *file, char *mode) {
 } //}}}
 
 // TODO: remove //{{{
-// ColourChange() //{{{
-void ColourChange(int a, char *colour) {
-  if (isatty(a)) {
-    FILE *ptr;
-    if (a == STDOUT_FILENO) {
-      ptr = stdout;
-    } else if (a == STDERR_FILENO) {
-      ptr = stderr;
-    }
-    fputs(colour, ptr);
-  }
-} //}}}
  //}}}

@@ -180,7 +180,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   // 2) if vsf file exists, look for vcf
-  bool vtf_add = true; // if -vtf is present present, is the file a vtf format?
+//bool vtf_add = true; // if -vtf is present present, is the file a vtf format?
   if (strlen(add_vsf) > 0) {
     ext = 2;
     strcpy(extension[0], ".vsf");
@@ -213,8 +213,8 @@ int main(int argc, char *argv[]) {
             if (ext == -1) {
               Help(argv[0], true);
               exit(1);
-            } else {
-              vtf_add = false;
+//          } else {
+//            vtf_add = false;
             }
             break;
           } else { // missing vcf file name
@@ -415,19 +415,21 @@ int main(int argc, char *argv[]) {
   BEADTYPE *bt_orig;
   MOLECULETYPE *mt_orig;
   BEAD *bead_orig;
-  int *Index_orig;
+  int *Index_orig,
+      *Index_mol; // same, but between molecule indices
   MOLECULE *mol_orig;
   COUNTS Counts_orig = InitCounts; // structure with number of beads, molecules, etc.
   BOX Box_orig = InitBox; // triclinic box dimensions and angles
   Box_orig.Length.x = 0;
   Box_orig.Length.y = 0; // TODO: why?
   Box_orig.Length.z = 0;
-  bool indexed; // indexed timestep?
-  int struct_lines; // number of structure lines (relevant for vtf)
-  if (strlen(input_coor) != 0) { // is there an input coordinate file?
-    FullVtfRead(input_vsf, input_coor, false, vtf, &indexed, &struct_lines,
-                &Box_orig, &Counts_orig, &bt_orig, &bead_orig, &Index_orig,
-                &mt_orig, &mol_orig);
+  if (strlen(input_coor) > 0) { // is there an input coordinate file?
+//  FullVtfRead(input_vsf, input_coor, false, vtf, &indexed, &struct_lines,
+//              &Box_orig, &Counts_orig, &bt_orig, &bead_orig, &Index_orig,
+//              &mt_orig, &mol_orig);
+    VtfReadStruct(input_vsf, false, &Counts_orig, &bt_orig, &bead_orig,
+                  &Index_orig, &mt_orig, &mol_orig, &Index_mol);
+    InFile = calloc(Counts_orig.BeadsTotal, sizeof *InFile);
   } else { // if there's no input coordinate file, just allocate some memory
     bt_orig = calloc(1, sizeof (BEADTYPE));
     mt_orig = calloc(1, sizeof (MOLECULETYPE));
@@ -494,19 +496,20 @@ int main(int argc, char *argv[]) {
   // array for the timestep preamble
   char *stuff = calloc(LINE, sizeof *stuff);
 
-  // TODO: BoxLength jsut to add to reading coors
-  BOX Box;
   // open input coordinate file //{{{
   FILE *vcf;
   if (strlen(input_coor) > 0) {
     vcf = OpenFile(input_coor, "r");
-    SkipVtfStructure(vcf, struct_lines);
-    count = SkipCoorSteps(vcf, input_coor, Counts_orig, start, silent);
+//  count = SkipCoorSteps(vcf, input_coor, Counts_orig, start, silent);
     if (!silent) {
       fprintf(stdout, "Using step %6d\n", ++count);
     }
-    ReadVcfCoordinates(indexed, input_coor, vcf, &Box, Counts_orig,
-                       Index_orig, &bead_orig, &stuff);
+//  ReadVcfCoordinates(indexed, input_coor, vcf, &Box, Counts_orig,
+//                     Index_orig, &bead_orig, &stuff);
+    int file_line_count = 0, count_vcf = 0;
+    VtfReadTimestep(vcf, input_coor, &Box_orig, &Counts_orig, bt_orig, &bead_orig,
+                    Index_orig, mt_orig, mol_orig,
+                    &file_line_count, count_vcf);
     fclose(vcf);
   } //}}}
 
@@ -529,20 +532,22 @@ int main(int argc, char *argv[]) {
               &bond_type, &angle_type, &dihedral_type);
     Box_add.Length = Box_orig.Length; //}}}
   } else { // read stuff to add from vtf file(s) ('-vtf' option) //{{{
-    bool indexed_add;
-    int struct_lines_add;
-    FullVtfRead(add_vsf, input_coor_add, false, vtf_add, &indexed_add,
-                &struct_lines_add, &Box_add, &Counts_add,
-                &bt_add, &bead_add, &Index_add, &mt_add, &mol_add);
+//  FullVtfRead(add_vsf, input_coor_add, false, vtf_add, &indexed_add,
+//              &struct_lines_add, &Box_add, &Counts_add,
+//              &bt_add, &bead_add, &Index_add, &mt_add, &mol_add);
+    VtfReadStruct(add_vsf, false, &Counts_add, &bt_add, &bead_add, &Index_add,
+                  &mt_add, &mol_add, &Index_mol);
     // read coordinates
     vcf = OpenFile(input_coor_add, "r");
-    SkipVtfStructure(vcf, struct_lines_add);
-    ReadVcfCoordinates(indexed_add, input_coor_add, vcf, &Box, Counts_add,
-                       Index_add, &bead_add, &stuff);
+//  ReadVcfCoordinates(indexed_add, input_coor_add, vcf, &Box, Counts_add,
+//                     Index_add, &bead_add, &stuff);
+    int file_line_count = 0, count_vcf = 0;
+    VtfReadTimestep(vcf, input_coor_add, &Box_add, &Counts_add, bt_add, &bead_add,
+                    Index_add, mt_add, mol_add, &file_line_count, count_vcf);
     fclose(vcf);
     // TODO: !no_rot? ...shouldn't -vtf be this by default?
     VECTOR rotated[Counts_add.BeadsCoor];
-    if (!no_rot) {
+    if (!no_rot) { //{{{
       // random rotation axis
       VECTOR random = {0};
       random.x = (double)rand() / ((double)RAND_MAX) * 2 - 1; // a number <-1,1>
@@ -593,13 +598,16 @@ int main(int argc, char *argv[]) {
         bead_add[i].Position.y = rotated[i].y + offset[1] + Box_add.Length.y / 2;
         bead_add[i].Position.z = rotated[i].z + offset[2] + Box_add.Length.z / 2;
       }
-    } else { // don't rotate
+     //}}}
+    } else { // don't rotate //{{{
+      ToFractionalCoor(Counts_add.BeadsCoor, &bead_add, Box_add);
       for (int i = 0; i < Counts_add.BeadsCoor; i++) {
         bead_add[i].Position.x += offset[0];
         bead_add[i].Position.y += offset[1];
         bead_add[i].Position.z += offset[2];
       }
-    }
+      FromFractionalCoor(Counts_add.BeadsCoor, &bead_add, Box_add);
+    } //}}}
     // allocate memory only to free it later
     bond_type = calloc(1, sizeof (PARAMS));
     angle_type = calloc(1, sizeof (PARAMS));
@@ -632,6 +640,7 @@ int main(int argc, char *argv[]) {
       Box_new.Length.z = Box_orig.Length.z;
     }
   } else {
+    Box_new = Box_orig; // TODO just for now
     Box_new.Length.x = box_option[0];
     Box_new.Length.y = box_option[1];
     Box_new.Length.z = box_option[2];
@@ -1362,15 +1371,7 @@ int main(int argc, char *argv[]) {
 
   // open output .vcf file
   FILE *out = OpenFile(output_vcf, "w");
-  // print command, bead type names & box size to output .vcf file //{{{
-  fprintf(out, "# Generated by:");
-  PrintCommand(out, argc, argv);
-  fprintf(out, "# AnalysisTools version %s;", VERSION);
-  fprintf(out, " https://github.com/KaGaSi/AnalysisTools/releases\n");
-
-  fprintf(out, "\npbc %lf %lf %lf\n", Box_new.Length.x,
-                                      Box_new.Length.y,
-                                      Box_new.Length.z); //}}}
+  PrintByline(out, argc, argv);
 
   // print coordinates to output .vcf file //{{{
   // write all beads (Write flag was used with '-xb' option)
@@ -1406,6 +1407,7 @@ int main(int argc, char *argv[]) {
   free(bond_type);
   free(angle_type);
   free(dihedral_type);
+  free(InFile);
   //}}}
 
   return 0;
