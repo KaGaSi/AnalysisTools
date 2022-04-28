@@ -279,7 +279,7 @@ int main(int argc, char *argv[]) {
     if (use) {
       if (!VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
                            Index, MoleculeType, Molecule,
-                           &file_line_count, count_vcf)) {
+                           &file_line_count, count_vcf, stuff)) {
         count_vcf--;
         break;
       }
@@ -299,9 +299,9 @@ int main(int argc, char *argv[]) {
         FromFractionalCoor(Counts.BeadsCoor, &Bead, Box);
       }
       // write to output .vcf file
-//    out = OpenFile(output_vcf, "a");
-//    VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
-//    fclose(out);
+      out = OpenFile(output_vcf, "a");
+      VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
+      fclose(out);
       // write to xyz file?
       if (output_xyz[0] != '\0') {
         out = OpenFile(output_xyz, "a");
@@ -311,7 +311,7 @@ int main(int argc, char *argv[]) {
       //}}}
     // skip the timestep, if it shouldn't be saved //{{{
     } else {
-      if (!VtfSkipTimestep2(vcf, input_coor, &file_line_count, count_vcf)) {
+      if (!VtfSkipTimestep(vcf, input_coor, &file_line_count, count_vcf)) {
         count_vcf--;
         break;
       }
@@ -333,16 +333,15 @@ int main(int argc, char *argv[]) {
       break;
     } //}}}
   } //}}}
-
   // if --last option is used, read & save the last timestep //{{{
   if (last) {
-    if ((count_vcf%2) == 0) {
+    if ((count_vcf%2) == 1) {
       fsetpos(vcf, &position1);
     } else {
       fsetpos(vcf, &position2);
     }
     VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead, Index,
-                    MoleculeType, Molecule, &file_line_count, count_vcf);
+                    MoleculeType, Molecule, &file_line_count, count_vcf, stuff);
     // transform coordinates into fractional ones for non-orthogonal box
     ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
     // wrap and/or join molecules?
@@ -368,13 +367,21 @@ int main(int argc, char *argv[]) {
   }
   fclose(vcf); //}}}
   // print last step count? //{{{
-  if (!silent) {
+  // error - input coordinate file with no coordinates //{{{
+  if (count_vcf == 0) {
+    strcpy(ERROR_MSG, "no valid timestep found");
+    PrintError();
+    ErrorPrintFile(input_coor);
+    fputc('\n', stderr);
+  //}}}
+  } else if (!silent) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\r                          \r");
     }
     fprintf(stdout, "Last Step: %d\n", count_vcf);
   } //}}}
+
   // free memory
   FreeSystemInfo2(Counts, &MoleculeType, &Molecule, &Index_mol,
                   &BeadType, &Bead, &Index);

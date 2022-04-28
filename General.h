@@ -82,46 +82,20 @@ typedef struct IntVector {
  */
 double Length(VECTOR a); //}}}
 
-// IsReal() //{{{
+// convert string into number if possible //{{{
 /*
- * \brief Function to test if a string is a real number.
+ * Functions to test and convert strings into numbers
  *
- * \param [in] a   string to test
- * \return 'true' if a is double, 'false' otherwise
+ * Parameters for all of them:
+ * [in]  str .. string to test
+ * [out] val .. output number of the proper type
+ * return: true if the string is the proper number, false otherwise
  */
-bool IsReal(char *a); //}}}
-
-// IsReal2() //{{{
-/*
- * \brief Function to test if a string is a real number.
- *
- * \param [in] a   string to test
- * \return 'true' if a is double, 'false' otherwise
- */
-bool IsReal2(char *str, double *val); //}}}
-
-// IsPosReal() //{{{
-/*
- * \brief Function to test if a string is a non-negative real number.
- *
- * \param [in] a   string to test
- * \return 'true' if a is non-negative double, 'false' otherwise
- */
-bool IsPosReal(char *a); //}}}
-
-// IsInteger() //{{{
-/*
- * \brief Function to test if a string is a non-negative whole number.
- *
- * \param [in] a   string to test
- * \return 'true' if a is integer, 'false' otherwise
- */
-bool IsInteger(char *a); //}}}
-
-bool IsInteger2(char *str, long *val);
-
-// IsNatural()  //{{{
-bool IsNatural(char *a); //}}}
+bool IsReal(char *str, double *val);
+bool IsPosReal(char *str, double *val);
+bool IsInteger(char *str, long *val);
+bool IsNatural(char *str, long *val);
+ //}}}
 
 // Min3() //{{{
 /**
@@ -258,5 +232,30 @@ FILE *OpenFile(char *file, char *mode);
 // TODO remove //{{{
 void ColourChange(int a, char *colour);
 void ColourReset_old(int a);
- //}}}
+// IsReal_old() //{{{
+/*
+ * \brief Function to test if a string is a real number.
+ *
+ * \param [in] a   string to test
+ * \return 'true' if a is double, 'false' otherwise
+ */
+bool IsReal_old(char *a); //}}}
+// IsInteger_old() //{{{
+/*
+ * \brief Function to test if a string is a non-negative whole number.
+ *
+ * \param [in] a   string to test
+ * \return 'true' if a is integer, 'false' otherwise
+ */
+bool IsInteger_old(char *a); //}}}
+// IsPosReal_old() //{{{
+/*
+ * \brief Function to test if a string is a non-negative real number.
+ *
+ * \param [in] a   string to test
+ * \return 'true' if a is non-negative double, 'false' otherwise
+ */
+bool IsPosReal_old(char *a); //}}}
+// IsNatural()  //{{{
+bool IsNatural_old(char *a); //}}}
 #endif

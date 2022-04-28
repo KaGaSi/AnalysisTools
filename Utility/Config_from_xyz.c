@@ -184,7 +184,7 @@ int main(int argc, char *argv[]) {
 
     // test if split[1-3] are doubles //{{{
     for (int j = 1; j < 4; j++) {
-      if (!IsReal(split[j])) {
+      if (!IsReal_old(split[j])) {
         // TODO colours
         ErrorPrintError_old();
         fprintf(stderr, "\033[1;31m");

@@ -479,7 +479,7 @@ int main(int argc, char *argv[]) {
 
   // <distance> - number of starting timestep //{{{
   // Error - non-numeric argument
-  if (!IsPosReal(argv[++count])) {
+  if (!IsPosReal_old(argv[++count])) {
     ErrorNaN("<distance>");
     Help(argv[0], true);
     exit(1);
@@ -488,7 +488,7 @@ int main(int argc, char *argv[]) {
 
   // <contacts> - number of steps to skip per one used //{{{
   // Error - non-numeric argument
-  if (!IsInteger(argv[++count])) {
+  if (!IsInteger_old(argv[++count])) {
     ErrorNaN("<contacts>");
     Help(argv[0], true);
     exit(1);

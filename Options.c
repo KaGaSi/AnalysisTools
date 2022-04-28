@@ -265,7 +265,7 @@ bool IntegerOption(int argc, char **argv, char *opt, int *value) {
         return(true);
       }
       // Error - non-numeric
-      if (!IsInteger(argv[i+1])) {
+      if (!IsInteger_old(argv[i+1])) {
         ErrorPrintError_old();
         ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", opt);
@@ -300,7 +300,7 @@ bool DoubleOption(int argc, char **argv, char *opt, double *value) {
         return(true);
       }
       // Error - non-numeric
-      if (!IsPosReal(argv[i+1])) {
+      if (!IsPosReal_old(argv[i+1])) {
         ErrorPrintError_old();
         ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s", opt);
@@ -331,7 +331,7 @@ bool MultiIntegerOption(int argc, char **argv, char *opt,
       int arg = i+1+n;
       while ((arg) < argc && argv[arg][0] != '-') {
         // Error - non-numeric or missing argument
-        if (!IsInteger(argv[arg])) {
+        if (!IsInteger_old(argv[arg])) {
           ErrorPrintError_old();
           ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", opt);
@@ -385,7 +385,7 @@ bool MultiDoubleOption(int argc, char **argv, char *opt,
       // 0 0 0 | 0       | 0
       // 0 1 1 | 0       | 0
       // 0 1 0 | 0       | 0
-      while (arg < argc && IsReal(argv[arg])) { // see expression table up
+      while (arg < argc && IsReal_old(argv[arg])) { // see expression table up
         // Error - non-numeric argument
 //      if (!IsPosReal(argv[arg])) {
 //        ColourText(STDERR_FILENO, RED);
@@ -445,7 +445,7 @@ bool FileIntsOption(int argc, char **argv, char *opt, int *values,
       // read integers
       while ((i+2+n) < argc && argv[i+2+n][0] != '-') {
         // Error - non-numeric or missing argument
-        if (!IsInteger(argv[i+2+n])) {
+        if (!IsInteger_old(argv[i+2+n])) {
           ErrorPrintError_old();
           ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "%s", opt);
@@ -620,7 +620,7 @@ bool MoleculeTypeIntOption(int argc, int i, char **argv, char *opt,
   *moltype = -1;
   if (strcmp(argv[i], opt) == 0) {
     // Error - missing or wrong arguments //{{{
-    if ((i+2) >= argc || argv[i+1][0] == '-' || !IsInteger(argv[i+2])) {
+    if ((i+2) >= argc || argv[i+1][0] == '-' || !IsInteger_old(argv[i+2])) {
       ErrorPrintError_old();
       ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s", opt);

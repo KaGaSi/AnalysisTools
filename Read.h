@@ -27,7 +27,7 @@
  * values array: 0..name, 1..mass, 2..charge, 3..radius, 4..resame, 5..resid
  * If not present, the corresponding element has -1;
  */
-int * VtfAtomLineValues(int words, char split[SPL_STR][SPL_LEN]); //}}}
+int * VtfAtomLineValues(int words, char *split[SPL_STR]); //}}}
 
 // VtfReadPBC() //{{{
 /*
@@ -59,11 +59,11 @@ void VtfReadStruct(char *vsf_file, bool detailed, COUNTS *Counts,
 bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
                      BEADTYPE *BeadType, BEAD **Bead, int *Index,
                      MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
-                     int *file_line_count, int step_count); //}}}
+                     int *file_line_count, int step_count, char *stuff); //}}}
 
 bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
                      int *file_line_count, int step_count);
-bool VtfSkipTimestep2(FILE *vcf, char *vcf_file,
+bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
                      int *file_line_count, int step_count);
 
 // VtfSkipCoorOrderedLine() //{{{
@@ -169,22 +169,18 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
                  BEADTYPE **BeadType, BEAD **Bead, int **Index,
                  MOLECULETYPE **MoleculeType, MOLECULE **Molecule); //}}}
 
-// TODO check which are actually used
 bool VtfSkipCoorOrderedLine(FILE *fr);
+
+// functions to check validity of line types //{{{
+int VtfCheckLineType(int words, char *split[SPL_STR], char *file, int line);
 int VtfCheckCoorOrderedLine(int words, char *split[SPL_STR]);
-int VtfCheckCoorOrderedLine2(int words, char split[SPL_STR][SPL_LEN]);
 int VtfCheckCoorIndexedLine(int words, char *split[SPL_STR]);
 int VtfCheckCoordinateLine(int words, char *split[SPL_STR]);
 int VtfCheckTimestepLine(int words, char *split[SPL_STR]);
-int VtfCheckTimestepLine2(int words, char split[SPL_STR][SPL_LEN]);
 int VtfCheckPbcLine(int words, char *split[SPL_STR]);
 bool VtfCheckAtomLine(int words, char *split[SPL_STR]);
 bool VtfCheckBondLine(int words, char *split[SPL_STR]);
-int VtfCheckLineType3(int words, char split[SPL_STR][SPL_LEN], bool indexed,
-                     char *file, int line);
-int VtfCheckLineType2(int words, char *split[SPL_STR], char *file, int line);
-int VtfCheckLineType(int words, char split[SPL_STR][SPL_LEN],
-                      char *file, int line);
+ //}}}
 
 // TODO use(d)?
 // NewBeadType() //{{{
@@ -220,127 +216,4 @@ void FillMolCharge(int number_of_types, BEADTYPE *BeadType,
  */
 void FillMolType(int number_of_types, BEADTYPE *BeadType,
                  MOLECULETYPE **MoleculeType); //}}}
-
-// TODO remove //{{{
-void FullVtfRead(char *struct_file, char *vcf_file, bool detailed, bool vtf,
-                 bool *indexed, int *struct_lines, BOX *Box, COUNTS *Counts,
-                 BEADTYPE **BeadType, BEAD **Bead, int **Index,
-                 MOLECULETYPE **MoleculeType, MOLECULE **Molecule);
-void FullVtfRead_new(char *struct_file, bool detailed, bool *indexed,
-                 COUNTS *Counts, BEADTYPE **BeadType, BEAD **Bead, int **Index,
-                 MOLECULETYPE **MoleculeType, MOLECULE **Molecule);
-void VtfReadStruct_old(char *vsf_file, bool detailed, COUNTS *Counts,
-                      BEADTYPE **BeadType, BEAD **Bead, int **Index,
-                      MOLECULETYPE **MoleculeType, MOLECULE **Molecule);
-bool VtfCheckTimestep(FILE *vcf, char *vcf_file, COUNTS *Counts,
-                      BEADTYPE **BeadType, BEAD **Bead, int **Index,
-                      MOLECULETYPE **MoleculeType, MOLECULE **Molecule);
-void SkipVtfStructure(FILE *vcf, int struct_lines);
-bool CheckVtfTimestepLine_old(int words, char split[SPL_STR][SPL_LEN]);
-bool CheckVtfAtomLine_old(int words, char split[SPL_STR][SPL_LEN], char *error);
-bool CheckVtfBondLine_old(int words, char split[SPL_STR][SPL_LEN], char *error);
-bool CheckVtfCoordinateLine_old(int words, char split[SPL_STR][SPL_LEN],
-                                bool indexed);
-bool VtfReadTimestep2(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
-                     BEADTYPE *BeadType, BEAD **Bead, int *Index,
-                     MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
-                     int *file_line_count, int step_count);
-int VtfCountStructLines(bool vtf, char *input);
-// ReadStructure() //{{{
-/**
- * \brief Function reading information from dl_meso FIELD and vsf
- * structure files.
- *
- * \param [in]  vsf_file      .vsf structure file
- * \param [in]  vcf_file      .vcf coordinate file
- * \param [out] Counts        numbers of beads, molecules, etc.
- * \param [out] BeadType      information about bead types
- * \param [out] Bead          informationn about individual beads
- * \param [out] Index         bead indices between program and vsf (i.e., opposite of Bead[].Index)
- * \param [out] MoleculeType  information about molecule types
- * \param [out] Molecule      information about individual molecules
- * \return 'true' or 'false' for .vcf file with indexed or ordered
- * timesteps, respectively
- * */
-bool ReadStructure(char *vsf_file, char *vcf_file, COUNTS *Counts,
-                   BEADTYPE **BeadType, BEAD **Bead, int **Index,
-                   MOLECULETYPE **MoleculeType, MOLECULE **Molecule); //}}}
-int ReadVtfTimestepPreamble_old(bool *indexed, char *input_coor, FILE *vcf_file,
-                            char **stuff, VECTOR *BoxLength, bool quit);
-int ReadVtfTimestepPreamble(bool *indexed, char *input_coor, FILE *vcf_file,
-                            char **stuff, BOX *Box, bool quit);
-bool LastStep(FILE *vcf_file, FILE *agg_file);
-// ReadCoordinates() //{{{
-/**
- * \brief Function reading ordered coordinates from .vcf coordinate file.
- *
- * \param [in]  indexed    is the vcf indexed?
- * \param [in]  input_coor name of input coordinate file
- * \param [in]  vcf_file   pointer to the open coordinate file
- * \param [in]  Counts     numbers of beads, molecules, etc.
- * \param [in]  Index      bead indices between program and vsf
- * \param [out] Bead       coordinates of individual beads
- * \param [out] stuff      first line of a timestep
- */
-void ReadCoordinates_old(bool indexed, char *input_coor, FILE *vcf_file, COUNTS Counts, int *Index, BEAD **Bead, char **stuff); //}}}
-// ReadVcfCoordinates() //{{{
-/**
- * \brief Function reading ordered coordinates from .vcf coordinate file.
- *
- * \param [in]  indexed    is the vcf indexed?
- * \param [in]  input_coor name of input coordinate file
- * \param [in]  vcf_file   pointer to the open coordinate file
- * \param [in]  Counts     numbers of beads, molecules, etc.
- * \param [in]  Index      bead indices between program and vsf
- * \param [out] Bead       coordinates of individual beads
- * \param [out] stuff      first line of a timestep
- */
-void ReadVcfCoordinates_old(bool indexed, char *input_coor, FILE *vcf_file,
-                        VECTOR *BoxLength, COUNTS Counts,
-                        int *Index, BEAD **Bead, char **stuff); //}}}
-void ReadVcfCoordinates(bool indexed, char *input_coor, FILE *vcf_file,
-                        BOX *Box, COUNTS Counts,
-                        int *Index, BEAD **Bead, char **stuff);
-// SkipVcfCoor() //{{{
-/**
- * \brief Function to skip one timestep in coordinates file.
- *
- * \param [in]  vcf_file   file with vcf coordinates
- * \param [in]  input_coor name  of vcf_file
- * \param [in]  Counts     number of beads in vcf file
- * \param [out] stuff      first line of a timestep
- */
-void SkipVcfCoor(FILE *vcf_file, char *input_coor,
-                 COUNTS Counts, char **stuff); //}}}
-// SkipCoor() //{{{
-/**
- * \brief Function to skip one timestep in coordinates file.
- *
- * \param [in]  vcf_file   file with vcf coordinates
- * \param [in]  Counts     number of beads in vcf file
- * \param [out] stuff      first line of a timestep
- * \return 1 if premature end of file or 0 for no error
- */
-bool SkipCoor(FILE *vcf_file, COUNTS Counts, char **stuff); //}}}
-// GetPBC_old() //{{{
-/*
- * \brief Function to get box dimensions from a vtf coordinate file.
- *
- * \param [in] coor_file   name of the coordinate file
- * \return vector with box dimensions
- */
-VECTOR GetPBC_old(char *coor_file); //}}}
-// GetPBC() //{{{
-/*
- * \brief Function to get box dimensions from a vtf coordinate file.
- *
- * \param [in]  coor_file   name of the coordinate file
- * \param [out] Box         box dimensions and angles
- */
-void VtfGetPBC(char *coor_file, BOX *Box); //}}}
-// SkipCoorSteps() { //{{{
-int SkipCoorSteps(FILE *vcf, char *input_coor, COUNTS Counts, int start, bool silent); //}}}
-// SkipCoorAggSteps() { //{{{
-int SkipCoorAggSteps(FILE *vcf, char *input_coor, FILE *agg, char *input_agg, COUNTS Counts, int start, bool silent); //}}}
- //}}}
 #endif

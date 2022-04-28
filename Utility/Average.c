@@ -82,7 +82,7 @@ int main ( int argc, char** argv ) {
 
   // <column> - column number to analyze //{{{
   // Error - non-numeric argument
-  if (!IsInteger(argv[++count])) {
+  if (!IsInteger_old(argv[++count])) {
     ErrorNaN("<column>");
     Help(argv[0], true);
     exit(1);
@@ -91,7 +91,7 @@ int main ( int argc, char** argv ) {
 
   // <discard> - number of lines to discard from the file beginning //{{{
   // Error - non-numeric argument
-  if (!IsInteger(argv[++count])) {
+  if (!IsInteger_old(argv[++count])) {
     ErrorNaN("<discard>");
     Help(argv[0], true);
     exit(1);
@@ -100,7 +100,7 @@ int main ( int argc, char** argv ) {
 
   // <n_blocks> - number of blocks for binning //{{{
   // Error - non-numeric argument
-  if (!IsInteger(argv[++count])) {
+  if (!IsInteger_old(argv[++count])) {
     ErrorNaN("<n_blocks>");
     Help(argv[0], true);
     exit(1);

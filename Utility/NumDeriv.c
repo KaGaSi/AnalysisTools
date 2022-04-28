@@ -69,7 +69,7 @@ int main ( int argc, char** argv ) {
 
   // <x> //{{{
   // Error - non-numeric argument
-  if (!IsInteger(argv[++count])) {
+  if (!IsInteger_old(argv[++count])) {
     ErrorNaN("<x>");
     Help(argv[0], true);
     exit(1);
@@ -78,7 +78,7 @@ int main ( int argc, char** argv ) {
 
   // <f(x)> //{{{
   // Error - non-numeric argument
-  if (!IsInteger(argv[++count])) {
+  if (!IsInteger_old(argv[++count])) {
     ErrorNaN("<f(x)>");
     Help(argv[0], true);
     exit(1);
@@ -87,7 +87,7 @@ int main ( int argc, char** argv ) {
 
   // <mode> //{{{
   // Error - non-numeric argument
-  if (!IsInteger(argv[++count])) {
+  if (!IsInteger_old(argv[++count])) {
     ErrorNaN("<n_blocks>");
     Help(argv[0], true);
     exit(1);

@@ -452,7 +452,7 @@ int main(int argc, char *argv[]) {
   while (++count < argc && argv[count][0] != '-') {
 
     // Error - non-numeric argument //{{{
-    if (!IsInteger(argv[count]) || atoi(argv[count]) == 0) {
+    if (!IsInteger_old(argv[count]) || atoi(argv[count]) == 0) {
       ErrorNaN("<agg sizes>");
       exit(1);
     } //}}}

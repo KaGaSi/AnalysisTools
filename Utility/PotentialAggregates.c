@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
 
   // <width> - width of single bin //{{{
   // Error - non-numeric argument
-  if (!IsPosReal(argv[++count])) {
+  if (!IsPosReal_old(argv[++count])) {
     ErrorNaN("<width>");
     Help(argv[0], true);
     exit(1);
@@ -176,7 +176,7 @@ int main(int argc, char *argv[]) {
   while (++count < argc && argv[count][0] != '-') {
 
     // Error - non-numeric argument //{{{
-    if (!IsInteger(argv[count]) || atoi(argv[count]) == 0) {
+    if (!IsInteger_old(argv[count]) || atoi(argv[count]) == 0) {
       ErrorNaN("<agg sizes>");
       exit(1);
     } //}}}

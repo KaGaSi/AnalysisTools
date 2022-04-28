@@ -335,7 +335,7 @@ void PrintErrorOption(char *opt) {
 void PrintLine2(FILE *f, char *split[SPL_STR], int words,
                 char *colour1, char *colour2) {
   if (words == 0) {
-    fprintf(f, "%s(blank)\n%s", Colour(f, colour1), ColourReset());
+    fprintf(f, "%s(blank)\n%s", Colour(f, colour1), Colour(f, C_RESET));
   } else {
     fputs(Colour(f, colour2), f);
     for (int i = 0; i < words; i++) {

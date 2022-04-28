@@ -1,112 +1,44 @@
 #include "General.h"
 #include "Errors.h"
 
-// IsReal() //{{{
-/**
- * Function to test if provided string is a real number.
+// convert string into number if possible //{{{
+/* Functions to test provided string and convert it to a number type. Note that
+ * the conversion stops when it encounters an illegal character but is
+ * successful as long as some number was created, i.e, string 2.2x is converted
+ * into 2.2 by IsReal() and into 2 by IsInteger(), while string x2.2 isn't
+ * converted (i.e., the functions return 'false').
  */
-bool IsReal(char *a) {
-  // only one dot and scientific e can be present
-  bool dot = false,
-       sci_e = false;
-  // wrong first character - can be minus, dot, or number
-  if (a[0] != '-' && a[0] != '.' && (a[0] < '0' || a[0] > '9')) {
-    return false;
-  } else if (a[0] == '.') {
-    dot = true;
-  }
-  // test the remaining characters - either digit, or dot (but only 1 in total)
-  for (int i = 1; i < strlen(a); i++) {
-    if (a[i] == '.') {
-      if (dot) { // has there been a dot already?
-        return false;
-      } else {
-        dot = true;
-      }
-    } else if (a[i] == 'e' || a[i] == 'E') { // scientific notation?
-      // format must be: e/E[-/+]<int>
-      if (sci_e) {
-        return false;
-      } else {
-        sci_e = true;
-      }
-      if ((i+1) >= strlen(a)) {
-        return false;
-      } else if (a[i+1] == '-' || a[i+1] == '+') {
-        i++; // skip the '-' sign in the for loop
-        if ((i+1) >= strlen(a)) {
-          return false;
-        }
-      }
-    } else if (a[i] < '0' || a[i] > '9') {
-      return false;
-    }
-  }
-  return true;
-} //}}}
-
-// IsReal2() //{{{
-/**
- * Function to test if provided string is a real number.
- */
-bool IsReal2(char *str, double *val) {
+bool IsReal(char *str, double *val) {
   char *endptr = NULL;
   *val = strtod(str, &endptr);
   if (endptr == str) {
     return false;
   }
   return true;
-} //}}}
-
-// IsPosReal() //{{{
-/**
- * Function to test if provided string is a positive real number.
- */
-bool IsPosReal(char *a) {
-  if (IsReal(a) && atof(a) > 0) {
+}
+bool IsPosReal(char *str, double *val) {
+  if (IsReal(str, val) && *val > 0) {
     return true;
   } else {
     return false;
   }
-} //}}}
-
-// TODO integer can be negative too! Maybe make into natural?
-// https://cz.pinterest.com/pin/417216352965631563/
-// IsInteger() //{{{
-/**
- * Function to test if provided string is a non-negative whole number.
- */
-bool IsInteger(char *a) {
-  // test the remaining characters - either digit, or dot (but only 1 in total)
-  for (int i = 0; i < strlen(a); i++) {
-    if (a[i] < '0' || a[i] > '9') {
-      return false;
-    }
-  }
-  return true;
-} //}}}
-
-// IsInteger2() //{{{
-/**
- * Function to test if provided string is a non-negative whole number.
- */
-bool IsInteger2(char *str, long *val) {
+}
+bool IsInteger(char *str, long *val) {
   char *endptr = NULL;
   *val = strtol(str, &endptr, 0);
   if (endptr == str) {
     return false;
   }
   return true;
-} //}}}
-
-// IsNatural()  //{{{
-bool IsNatural(char *a) {
-  if (IsInteger(a) && atof(a) >= 0) {
+}
+bool IsNatural(char *str, long *val) {
+  if (IsInteger(str, val) && val >= 0) {
     return true;
   } else {
     return false;
   }
-} //}}}
+}
+ //}}}
 
 // Length() //{{{
 /**
@@ -504,5 +436,79 @@ FILE *OpenFile(char *file, char *mode) {
   return ptr;
 } //}}}
 
-// TODO: remove //{{{
- //}}}
+// TODO: remove
+// IsReal_old() //{{{
+/**
+ * Function to test if provided string is a real number.
+ */
+bool IsReal_old(char *a) {
+  // only one dot and scientific e can be present
+  bool dot = false,
+       sci_e = false;
+  // wrong first character - can be minus, dot, or number
+  if (a[0] != '-' && a[0] != '.' && (a[0] < '0' || a[0] > '9')) {
+    return false;
+  } else if (a[0] == '.') {
+    dot = true;
+  }
+  // test the remaining characters - either digit, or dot (but only 1 in total)
+  for (int i = 1; i < strlen(a); i++) {
+    if (a[i] == '.') {
+      if (dot) { // has there been a dot already?
+        return false;
+      } else {
+        dot = true;
+      }
+    } else if (a[i] == 'e' || a[i] == 'E') { // scientific notation?
+      // format must be: e/E[-/+]<int>
+      if (sci_e) {
+        return false;
+      } else {
+        sci_e = true;
+      }
+      if ((i+1) >= strlen(a)) {
+        return false;
+      } else if (a[i+1] == '-' || a[i+1] == '+') {
+        i++; // skip the '-' sign in the for loop
+        if ((i+1) >= strlen(a)) {
+          return false;
+        }
+      }
+    } else if (a[i] < '0' || a[i] > '9') {
+      return false;
+    }
+  }
+  return true;
+} //}}}
+// IsInteger_old() //{{{
+/**
+ * Function to test if provided string is a non-negative whole number.
+ */
+bool IsInteger_old(char *a) {
+  // test the remaining characters - either digit, or dot (but only 1 in total)
+  for (int i = 0; i < strlen(a); i++) {
+    if (a[i] < '0' || a[i] > '9') {
+      return false;
+    }
+  }
+  return true;
+} //}}}
+// IsPosReal() //{{{
+/**
+ * Function to test if provided string is a positive real number.
+ */
+bool IsPosReal_old(char *a) {
+  if (IsReal_old(a) && atof(a) > 0) {
+    return true;
+  } else {
+    return false;
+  }
+} //}}}
+// IsNatural()  //{{{
+bool IsNatural_old(char *a) {
+  if (IsInteger_old(a) && atof(a) >= 0) {
+    return true;
+  } else {
+    return false;
+  }
+} //}}}
