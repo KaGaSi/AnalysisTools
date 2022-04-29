@@ -33,52 +33,27 @@
 #define WHITE   "\033[1;37m"
 #define C_RESET "\033[0m"
 
-/*
-// tell gcc to ignore certain warnings
-// helper macro
-#define DO_PRAGMA(x) _Pragma(#x)
+// needs to be here so I can use fileno() from a standard library
+int fileno(const FILE *stream);
 
-// macro to ignore warning; x='-W...'
-#define P_IGNORE(x) \
-  _Pragma("GCC diagnostic push") \
-  DO_PRAGMA(GCC diagnostic ignored #x) \
-
-// macro to pop back to the 'pushed' diagnostic state
-#define P_POP _Pragma("GCC diagnostic pop")
-*/
-
-int fileno(const FILE *stream); // needs to be here for some reason
-
-// struct Vector //{{{
-/**
- * \brief 3D vector of floats.
- */
+// deffine vector structures //{{{
 typedef struct Vector {
   double x, y, z;
-} VECTOR; //}}}
-
-// struct LongVector //{{{
-/**
- * \brief 3D vector of floats.
- */
+} VECTOR;
 typedef struct LongVector {
   long double x, y, z;
-} LONGVECTOR; //}}}
-
-// struct IntVector //{{{
-/**
- * \brief 3D vector of integers.
- */
+} LONGVECTOR;
 typedef struct IntVector {
   int x, y, z;
-} INTVECTOR; //}}}
+} INTVECTOR;
+//}}}
 
 // Length() //{{{
 /*
- * \brief Function to calculate vector length.
+ * Function to calculate vector's Euclidian length.
  *
- * \param [in] a    vector
- * \return a's length
+ * [in] a .. vector
+ * return: length of the vector
  */
 double Length(VECTOR a); //}}}
 
@@ -89,128 +64,101 @@ double Length(VECTOR a); //}}}
  * Parameters for all of them:
  * [in]  str .. string to test
  * [out] val .. output number of the proper type
- * return: true if the string is the proper number, false otherwise
+ * return: 'true' if str start with the proper number, 'false' otherwise
  */
 bool IsReal(char *str, double *val);
 bool IsPosReal(char *str, double *val);
 bool IsInteger(char *str, long *val);
+bool IsPosInteger(char *str, long *val);
 bool IsNatural(char *str, long *val);
  //}}}
 
 // Min3() //{{{
 /**
- * \brief Function returning the lowest number from three floats.
+ * Function returning the lowest number from three floats.
  *
- * \param [in] x   first double precision number
- * \param [in] y   second double precision number
- * \param [in] z   third double precision number
- * \return lowest of the supplied numbers
+ * Parameters:
+ * [in] x .. first double precision number
+ * [in] y .. second double precision number
+ * [in] z .. third double precision number
+ * return: lowest of the supplied numbers
  */
 double Min3(double x, double y, double z); //}}}
 
 // Max3() //{{{
 /**
- * \brief Function returning the highest number from three floats.
+ * Function returning the highest number from three floats.
  *
- * \param [in] x   first double precision number
- * \param [in] y   second double precision number
- * \param [in] z   third double precision number
- * \return highest of the supplied numbers
+ * Parameters:
+ * [in] x .. first double precision number
+ * [in] y .. second double precision number
+ * [in] z .. third double precision number
+ * return: highest of the supplied numbers
  */
 double Max3(double x, double y, double z); //}}}
 
 // Sort3() //{{{
 /**
- * \brief Function returning sorted numbers x < y < z.
+ * Function returning sorted numbers x < y < z.
  *
- * \param [in] in   first double precision number
- * \return sorted vector
+ * Parameters:
+ * [in] in .. vector to sort
+ * return: sorted vector
  */
-VECTOR Sort3(VECTOR in); //}}}
+VECTOR SortVector(VECTOR in); //}}}
 
-// SwapInt() //{{{
+// swapping functions //{{{
 /**
- * \brief Function to swap two integers.
+ * Functions to swap two numbers of given type.
  *
- * \param [in] a   first integer to swap
- * \param [in] b   second integer to swap
+ * Parameters for all of them:
+ * [in & out] a .. first number to swap
+ * [in & out] b .. second number to swap
  */
 void SwapInt(int *a, int *b);
-// }}}
-
-// SwapDouble() //{{{
-/**
- * \brief Function to swap two doubles.
- *
- * \param [in] a   first integer to swap
- * \param [in] b   second integer to swap
- */
 void SwapDouble(double *a, double *b);
-// }}}
-
-// SwapBool() //{{{
-/**
- * \brief Function to swap two booleans.
- *
- * \param [in] a   first integer to swap
- * \param [in] b   second integer to swap
- */
 void SwapBool(bool *a, bool *b);
 // }}}
 
 // SortArray() //{{{
 /**
- * \brief Function to sort an integer array.
+ * Function to sort an integer array.
  *
- * \param [out] array   integer array to sort
- * \param [in]  length  array length
- * \param [in]  mode    0 for ascending order, 1 for descending order
+ * Parameters:
+ * [in & out] array .. integer array to sort
+ *       [in] length .. array length
+ *       [in] mode .. 0 for ascending order, 1 for descending order
  */
 void SortArray(int *array, int length, int mode); //}}}
-
-// ReadAndSplitLine  //{{{
-bool ReadAndSplitLine(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]); //}}}
 
 // ReadLine() //{{{
 bool ReadLine(FILE *fr, char line[LINE]); //}}}
 
-bool ReadAndSplitLine2(FILE *fr, int *words, char *split[SPL_STR]);
-
 // SplitLine() //{{{
 /*
- * \brief Function to split provided line.
+ * Function to split a string based on provided delimiters.
  *
- * \param [out] out    array of strings
- * \param [in]  line   string to split
- * \return number of strings in the line
+ * Parameters:
+ * [out] out .. array of strings
+ *  [in] line .. string to split
+ * return: number of created strings
  */
-int SplitLine(char out[SPL_STR][SPL_LEN], char *line, const char *delim); //}}}
-
-// SplitLine2() //{{{
-/*
- * \brief Function to split provided line.
- *
- * \param [out] out    array of strings
- * \param [in]  line   string to split
- * \return number of strings in the line
- */
-int SplitLine2(char *out[SPL_STR], int strings, char *line, const char *delim);
+int SplitLine(char *out[SPL_STR], int strings, char *line, const char *delim);
  //}}}
 
 // TrimLine() //{{{
 /**
- * \brief Function to trim whitespace from
- * the beginning and end of a string.
+ * Function to trim white space from the beginning and end of a string.
  *
- * \param line [in]   string to trim
- *
- * \return trimmed string
+ * Parameters:
+ * [in] line .. string to trim
+ * return: string without preceding or trailing white space
  */
 char* TrimLine(char *line); //}}}
 
 void PrintCommand(FILE *ptr, int argc, char *argv[]);
 
-// changing colour of the text (only for cli output)
+// changing colour the text for cli output //{{{
 char *Colour(FILE *f, char *colour);
 // colours for stderr
 char *ErrRed();
@@ -224,11 +172,12 @@ char *Yellow();
 char *Magenta();
 char *Green();
 char *ColourReset();
-
-void SafeStrcat(char **out, char *in, int initial_size);
+ //}}}
 
 FILE *OpenFile(char *file, char *mode);
 
+// TODO remove?
+void SafeStrcat(char **out, char *in, int initial_size);
 // TODO remove //{{{
 void ColourChange(int a, char *colour);
 void ColourReset_old(int a);
@@ -258,4 +207,17 @@ bool IsInteger_old(char *a); //}}}
 bool IsPosReal_old(char *a); //}}}
 // IsNatural()  //{{{
 bool IsNatural_old(char *a); //}}}
+bool ReadAndSplitLine2(FILE *fr, int *words, char *split[SPL_STR]);
+// ReadAndSplitLine  //{{{
+bool ReadAndSplitLine(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]); //}}}
+// SplitLine_old() //{{{
+/*
+ * \brief Function to split provided line.
+ *
+ * \param [out] out    array of strings
+ * \param [in]  line   string to split
+ * \return number of strings in the line
+ */
+int SplitLine_old(char out[SPL_STR][SPL_LEN], char *line, const char *delim); //}}}
+ //}}}
 #endif

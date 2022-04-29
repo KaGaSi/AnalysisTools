@@ -6,8 +6,8 @@
 /*
  * Function to go through a confirmed atom line and pick where are which
  * keywords (or its value, more precisely).
- * values array: 0..name, 1..mass, 2..charge, 3..radius, 4..resame, 5..resid
- * If not present, the corresponding element has -1;
+ * value array: 0..name, 1..mass, 2..charge, 3..radius, 4..resame, 5..resid
+ * If not present, the corresponding element has -1.
  */
 int * VtfAtomLineValues(int words, char *split[SPL_STR]) {
   static int value[6];
@@ -57,10 +57,10 @@ void VtfReadPBC(char *input_vcf, BOX *Box) {
     }
     // split line into strings
     char *split[SPL_STR];
-    int words = SplitLine2(split, SPL_STR, line, "\t ");
-    int pbc = VtfCheckLineType(words, split, input_vcf, file_line_count);
+    int words = SplitLine(split, SPL_STR, line, "\t ");
+    int ltype = VtfCheckLineType(words, split, input_vcf, file_line_count);
     // pbc line //{{{
-    if (pbc == PBC_LINE || pbc == PBC_LINE_ANGLES) {
+    if (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) {
       (*Box).Length.x = atof(split[1]);
       (*Box).Length.y = atof(split[2]);
       (*Box).Length.z = atof(split[3]);
@@ -69,19 +69,19 @@ void VtfReadPBC(char *input_vcf, BOX *Box) {
       (*Box).beta = 90;
       (*Box).gamma = 90;
       // angles in pbc line; possibly triclinic cell
-      if (pbc == PBC_LINE_ANGLES) {
+      if (ltype == PBC_LINE_ANGLES) {
         (*Box).alpha = atof(split[4]);
         (*Box).beta = atof(split[5]);
         (*Box).gamma = atof(split[6]);
       }
       break; //}}}
     // error - coordinate line //{{{
-    } else if (pbc == COOR_LINE_I || pbc == COOR_LINE_O) {
+    } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
       strcpy(ERROR_MSG, "encountered coordinate line before pbc line");
       PrintErrorFileLine(input_vcf, file_line_count, split, words);
       exit(1); //}}}
     // error - unrecognised line //{{{
-    } else if (pbc == ERROR_LINE) {
+    } else if (ltype == ERROR_LINE) {
       strcpy(ERROR_MSG, "ignoring unrecognised line while \
 searching for a pbc line");
       PrintWarningFileLine(input_vcf, file_line_count, split, words);
@@ -144,7 +144,7 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
 //  printf("%d%s: %s%s%s", *file_line_count, Magenta(), Green(), line, ColourReset());
     // split line into strings
     char *split[SPL_STR];
-    int words = SplitLine2(split, SPL_STR, line, "\t ");
+    int words = SplitLine(split, SPL_STR, line, "\t ");
     int ltype = VtfCheckLineType(words, split, struct_file, file_line_count);
 //  int ltype = VtfCheckLineType(words, split,
 //                               struct_file, file_line_count);
@@ -290,7 +290,7 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
       long val;
       if (words == 2) { // case 'bond <id>:<id>'
         char index[SPL_STR][SPL_LEN];
-        SplitLine(index, split[1], ":");
+        SplitLine_old(index, split[1], ":");
         IsInteger(index[0], &val);
         bond[count_bonds].index1 = val;
         IsInteger(index[1], &val);
@@ -1126,7 +1126,7 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
     strcpy(comment, line);
     // split line into strings
     char *split[SPL_STR];
-    int words = SplitLine2(split, SPL_STR, line, "\t ");
+    int words = SplitLine(split, SPL_STR, line, "\t ");
     ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
     // do something based on what line it is
     if (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) { //{{{
@@ -1201,7 +1201,7 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
     }
     // split line into strings
     char *split[SPL_STR];
-    int words = SplitLine2(split, SPL_STR, line, "\t ");
+    int words = SplitLine(split, SPL_STR, line, "\t ");
     ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
     if (ltype != COOR_LINE_O && ltype != COOR_LINE_I) {
       // warn: unrecognised line - read next timestep //{{{
@@ -1347,7 +1347,7 @@ bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
       return false;
     }
     char *split[SPL_STR];
-    int words = SplitLine2(split, SPL_STR, line, "\t ");
+    int words = SplitLine(split, SPL_STR, line, "\t ");
     ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
     if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) {
       timestep = true;
@@ -1382,7 +1382,7 @@ bool VtfSkipCoorOrderedLine(FILE *fr) {
     return false; // error/EOF
   }
   char *split[SPL_STR];
-  int words = SplitLine2(split, 3, line, "\t ");
+  int words = SplitLine(split, 3, line, "\t ");
   if (VtfCheckCoorOrderedLine(words, split) == COOR_LINE_O) {
     return true;
   } else {
@@ -1405,7 +1405,7 @@ void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts,
   char line[LINE], split[SPL_STR][SPL_LEN];
   // read 'Step|Last Step' line
   fgets(line, sizeof line, fr);
-  int words = SplitLine(split, line, " \t");
+  int words = SplitLine_old(split, line, " \t");
   // error if the first line is 'L[ast Step]' or isn't 'Step: <int>'//{{{
   if (split[0][0] == 'L') {
     ErrorPrintError_old();
@@ -1434,7 +1434,7 @@ void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts,
   } //}}}
   // get number of aggregates //{{{
   fgets(line, sizeof line, fr);
-  words = SplitLine(split, line, " \t");
+  words = SplitLine_old(split, line, " \t");
   // error - the number of aggregates must be <int>
   if (words == 0 || !IsInteger_old(split[0])) {
     ErrorPrintError_old();
@@ -1449,7 +1449,7 @@ void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts,
   (*Counts).Aggregates = atoi(split[0]); //}}}
   // skip blank line - error if not a blank line //{{{
   fgets(line, sizeof line, fr);
-  words = SplitLine(split, line, " \t");
+  words = SplitLine_old(split, line, " \t");
   if (words > 0) {
     ErrorPrintError_old();
     ColourChange(STDERR_FILENO, YELLOW);
@@ -1543,88 +1543,68 @@ void ReadAggCommand(BEADTYPE *BeadType, COUNTS Counts,
   // open input aggregate file
   FILE *agg = OpenFile(input_agg, "r");
   // read first line (Aggregate command)
-  char line[LINE], split[SPL_STR][SPL_LEN];
+  char line[LINE];
   fgets(line, sizeof line, agg);
-  // if the line is too long (which it should never be), skip the rest of it
-  if (strcspn(line, "\n") == (LINE-1)) {
-    while (getc(agg) != '\n')
-      ;
+  if (!ReadLine(agg, line)) {
+    strcpy(ERROR_MSG, "cannot read the first line from an aggregate file");
+    PrintError();
+    ErrorPrintFile(input_agg);
+    putc('\n', stderr);
+    exit(1);
   }
-  int words = SplitLine(split, line, " \t");
+  fclose(agg);
+  char *split[SPL_STR];
+  int words = SplitLine(split, SPL_STR, line, "\t ");
   // error - not enough strings for a proper Aggregate command //{{{
   if (words < 6) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%s", input_agg);
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - first line must contain a valid Aggregates command\n");
-    ColourReset(STDERR_FILENO);
-    ErrorPrintLine(split, words);
+    strcpy(ERROR_MSG, "first line must contain a valid Aggregates command");
+    PrintError();
+    ErrorPrintFile(input_agg);
+    putc('\n', stderr);
     exit(1);
   } //}}}
   // read <distance> argument from Aggregates command //{{{
-  if (!IsPosReal_old(split[2])) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%s", input_agg);
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - <distance> in the Aggregate command \
-must be non-negative real number\n");
-    ColourReset(STDERR_FILENO);
-    ErrorPrintLine(split, words);
+  if (!IsPosReal(split[2], distance)) {
+    strcpy(ERROR_MSG, "Aggregate command: <distance> must be \
+a non-negative number");
+    PrintError();
+    ErrorPrintFile(input_agg);
+    ErrorPrintLine2(split, words);
     exit(1);
-  }
-  *distance = atof(split[2]); //}}}
+  } //}}}
   // read <contacts> argument from Aggregates command //{{{
-  if (!IsInteger_old(split[3])) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%s", input_agg);
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - <contacts> in the Aggregate command \
-must be a non-negative integer\n");
-    ColourReset(STDERR_FILENO);
-    ErrorPrintLine(split, words);
+  long val;
+  if (!IsPosInteger(split[3], &val)) {
+    strcpy(ERROR_MSG, "Aggregate command: <contacts> must be \
+a positive integer");
+    PrintError();
+    ErrorPrintFile(input_agg);
+    ErrorPrintLine2(split, words);
     exit(1);
   }
-  *contacts = atof(split[3]); //}}}
+  *contacts = val; //}}}
   // warning - differently named vcf file than the one in agg file //{{{
   if (strcmp(split[1], input_coor) != 0) {
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "\nWarning: coordinate file ");
-    ColourChange(STDERR_FILENO, CYAN);
-    fprintf(stderr, "%s", input_coor);
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, " is different to the one in the aggregate file (");
-    ColourChange(STDERR_FILENO, CYAN);
-    fprintf(stderr, "%s", split[1]);
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, ")\n");
-    fprintf(stderr, "         Mismatch between beads present in both files \
-can lead to undefined behaviour.\n");
-    ColourReset(STDERR_FILENO);
+    strcpy(ERROR_MSG, "different coordinate file in the Aggregate command to \
+the one used here can lead to undefined behaviour in case of mismatch between \
+beads present in the two files");
+    PrintWarning();
   } //}}}
   // read <type names> from Aggregates command //{{{
   for (int i = 5; i < words && split[i][0] != '-'; i++) {
     int type = FindBeadType(split[i], Counts, BeadType);
     // Error - specified bead type name not in vcf input file
     if (type == -1) {
-      ErrorPrintError_old();
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "%s", input_agg);
-      ColourChange(STDERR_FILENO, RED);
-      fprintf(stderr, " - non-existent bead name (");
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "%s", split[i]);
-      ColourChange(STDERR_FILENO, RED);
-      fprintf(stderr, ") in Aggregate command\n");
-      ColourReset(STDERR_FILENO);
+      strcpy(ERROR_MSG, "non-existent bead name in the Aggregaates command");
+      PrintError();
+      ErrorPrintFile(input_agg);
+      fprintf(stderr, "%s, bead %s%s%s\n", Red(), Yellow(), split[i],
+                                           ColourReset());
       ErrorBeadType(Counts, BeadType);
       exit(1);
     }
     BeadType[type].Use = true;
   } //}}}
-  fclose(agg);
 } //}}}
 // SkipAgg() //{{{
 /*
@@ -1636,43 +1616,44 @@ can lead to undefined behaviour.\n");
  * what's happening now...
  */
 void SkipAgg(FILE *agg, char *agg_file) {
-  char line[LINE], split[SPL_STR][SPL_LEN];
-  // read (Last) Step line
+  int file_line_count = -1; // TODO line counting
+  char line[LINE];
   fgets(line, sizeof line, agg);
-  int words = SplitLine(split, line, " \t");
-  // error if the first line is 'L[ast Step]' or isn't 'Step: <int>'//{{{
-  if (split[0][0] == 'L') {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, "premature end of ");
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%s", agg_file);
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " file");
-    ColourReset(STDERR_FILENO);
+  if (!ReadLine(agg, line)) {
+    strcpy(ERROR_MSG, "cannot read a line from the aggregate file");
+    PrintError();
+    ErrorPrintFile(agg_file);
+    putc('\n', stderr);
     exit(1);
-  } else if (words < 2 || !IsInteger_old(split[1])) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%s", agg_file);
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - wrong 'Step' line\n");
-    ColourReset(STDERR_FILENO);
-    ErrorPrintLine(split, words);
+  }
+  char *split[SPL_STR];
+  int words = SplitLine(split, SPL_STR, line, "\t ");
+  // error if the first line is 'L[ast Step]' or isn't 'Step: <int>'//{{{
+  long val;
+  if (split[0][0] == 'L') {
+    strcpy(ERROR_MSG, "premature end of file");
+    ErrorPrintFile(agg_file);
+    putc('\n', stderr);
+    exit(1);
+  } else if (words < 2 || !IsNatural(split[1], &val)) {
+    strcpy(ERROR_MSG, "invalid 'Step' line");
+    PrintErrorFileLine(agg_file, file_line_count, split, words);
     exit(1);
   } //}}}
   // get number of aggregates
   fgets(line, sizeof line, agg);
-  words = SplitLine(split, line, " \t");
+  if (!ReadLine(agg, line)) {
+    strcpy(ERROR_MSG, "cannot read a line from the aggregate file");
+    PrintError();
+    ErrorPrintFile(agg_file);
+    putc('\n', stderr);
+    exit(1);
+  }
+  words = SplitLine(split, SPL_STR, line, "\t ");
   // Error - number of aggregates must be <int> //{{{
-  if (words != 0 && !IsInteger_old(split[0])) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%s", agg_file);
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - number of aggregates must be a whole number\n");
-    ColourReset(STDERR_FILENO);
-    ErrorPrintLine(split, words);
+  if (words != 0 && !IsPosInteger(split[0], &val)) {
+    strcpy(ERROR_MSG, "number of aggregates must be a natural number\n");
+    PrintErrorFileLine(agg_file, file_line_count, split, words);
     exit(1);
   } //}}}
   int aggs = atoi(split[0]);
@@ -1681,30 +1662,27 @@ void SkipAgg(FILE *agg, char *agg_file) {
     int test;
     while ((test = getc(agg)) != '\n') {
       if (test == EOF) {
-        ErrorPrintError_old();
-        ColourChange(STDERR_FILENO, RED);
-        fprintf(stderr, "premature end of ");
-        ColourChange(STDERR_FILENO, YELLOW);
-        fprintf(stderr, "%s", agg_file);
-        ColourChange(STDERR_FILENO, RED);
-        fprintf(stderr, " file");
-        ColourReset(STDERR_FILENO);
+        strcpy(ERROR_MSG, "premature end of file");
+        ErrorPrintFile(agg_file);
+        fprintf(stderr, "%s, line %s%d%s\n", ErrRed(), ErrYellow(),
+                                             file_line_count, ErrColourReset());
         exit(1);
       }
     }
   }
   // skip empty line at the end
   fgets(line, sizeof line, agg);
-  words = SplitLine(split, line, " \t");
+  if (!ReadLine(agg, line)) {
+    strcpy(ERROR_MSG, "cannot read a line from the aggregate file");
+    PrintError();
+    ErrorPrintFile(agg_file);
+    putc('\n', stderr);
+    exit(1);
+  }
+  words = SplitLine(split, SPL_STR, line, "\t ");
   if (feof(agg) == EOF) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, "premature end of ");
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%s", agg_file);
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " file");
-    ColourReset(STDERR_FILENO);
+    strcpy(ERROR_MSG, "premature end of file");
+    ErrorPrintFile(agg_file);
     exit(1);
   }
 } //}}}
@@ -1721,7 +1699,7 @@ bool ReadFieldPbc(char *field, VECTOR *BoxLength) {
   // read first line
   char line[LINE], split[SPL_STR][SPL_LEN];
   fgets(line, sizeof line, fr);
-  int words = SplitLine(split, line, " \t");
+  int words = SplitLine_old(split, line, " \t");
   /*
    * box size must be 'pbc <double> <double> <double>'; test
    * 1) number of strings
@@ -1753,7 +1731,7 @@ void ReadFieldBeadType(char *field, COUNTS *Counts,
   // read number of bead types //{{{
   bool missing = true; // assume species keyword is missing
   while(fgets(line, sizeof line, fr)) {
-    int words = SplitLine(split, line, " \t");
+    int words = SplitLine_old(split, line, " \t");
     if (strcasecmp(split[0], "species") == 0) {
       missing = false; // species keyword is present
       // check if the next string is a number
@@ -1786,7 +1764,7 @@ void ReadFieldBeadType(char *field, COUNTS *Counts,
   (*Counts).BeadsCoor = 0;
   for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
     fgets(line, sizeof line, fr);
-    int words = SplitLine(split, line, " \t");
+    int words = SplitLine_old(split, line, " \t");
     // Error on the line //{{{
     /*
      * species lines must be <name> <mass> <charge> <number> and cannot contain
@@ -1854,7 +1832,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
   // read number of molecule types //{{{
   bool missing = true; // assume molecule keyword is missing
   while(fgets(line, sizeof line, fr)) {
-    int words = SplitLine(split, line, " \t");
+    int words = SplitLine_old(split, line, " \t");
     if (strncasecmp(split[0], "molecule", 8) == 0) {
       missing = false; // molecule keyword is present
       // error - 'molecule' not followed by an integer
@@ -1890,7 +1868,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
   int count = 0;
   // count 'finish' keywords
   while(fgets(line, sizeof line, fr)) {
-    SplitLine(split, line, " \t");
+    SplitLine_old(split, line, " \t");
     if (strcmp(split[0], "finish") == 0) {
       count++;
     }
@@ -1934,7 +1912,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
   for (int i = 0; i < (*Counts).TypesOfMolecules; i++) {
     // 1) //{{{
     fgets(line, sizeof line, fr);
-    SplitLine(split, line, " \t");
+    SplitLine_old(split, line, " \t");
     if (split[0][0] == '\0') {
       ErrorPrintError_old();
       ColourChange(STDERR_FILENO, YELLOW);
@@ -1951,7 +1929,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
 //  P_POP; //}}}
     // 2) //{{{
     fgets(line, sizeof line, fr);
-    int words = SplitLine(split, line, " \t");
+    int words = SplitLine_old(split, line, " \t");
     if (strncasecmp(split[0], "nummols", 6) != 0 ||
         words < 2 || !IsInteger_old(split[1])) {
       ErrorPrintError_old();
@@ -1967,7 +1945,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
     // 3) //{{{
     // read number of beads
     fgets(line, sizeof line, fr);
-    words = SplitLine(split, line, " \t");
+    words = SplitLine_old(split, line, " \t");
     // error - wrong keyword line //{{{
     if (strncasecmp(split[0], "beads", 4) != 0 ||
         words < 2 || !IsInteger_old(split[1])) {
@@ -1988,7 +1966,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
     // read bead info
     for (int j = 0; j < (*MoleculeType)[i].nBeads; j++) {
       fgets(line, sizeof line, fr);
-      words = SplitLine(split, line, " \t");
+      words = SplitLine_old(split, line, " \t");
       // error - bead line must be '<name> <double> <double> <double>' //{{{
       if (words < 4 ||
           !IsReal_old(split[1]) || !IsReal_old(split[2]) || !IsReal_old(split[3])) {
@@ -2027,7 +2005,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
     // 4) //{{{
     // read number of bonds in the molecule
     fgets(line, sizeof line, fr);
-    words = SplitLine(split, line, " \t");
+    words = SplitLine_old(split, line, " \t");
     // are bonds present?
     if (strncasecmp(split[0], "bonds", 4) == 0) {
       // error - wrong keyword line //{{{
@@ -2054,7 +2032,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
       // read bond info
       for (int j = 0; j < (*MoleculeType)[i].nBonds; j++) {
         fgets(line, sizeof line, fr);
-        words = SplitLine(split, line, " \t");
+        words = SplitLine_old(split, line, " \t");
         // error - bead line must be '<name> <id1> <id2> <double> <double>' //{{{
         if (words < 5 || !IsInteger_old(split[1]) || !IsInteger_old(split[2]) ||
             !IsPosReal_old(split[3]) || !IsPosReal_old(split[4])) {
@@ -2107,7 +2085,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
     fpos_t position2;
     fgetpos(fr, &position2); // save file pointer
     fgets(line, sizeof line, fr);
-    words = SplitLine(split, line, " \t");
+    words = SplitLine_old(split, line, " \t");
     // are angles present?
     if (strncasecmp(split[0], "angles", 5) == 0) {
       // error - missing number of angles //{{{
@@ -2132,7 +2110,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
       // read info about angles
       for (int j = 0; j < (*MoleculeType)[i].nAngles; j++) {
         fgets(line, sizeof line, fr);
-        words = SplitLine(split, line, " \t");
+        words = SplitLine_old(split, line, " \t");
         // error - wrong angle line //{{{
         // '<type> 3x<id> <double> <double>'
         if (words < 6 || !IsInteger_old(split[1]) ||
@@ -2188,7 +2166,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
     // 6) //{{{
     fgetpos(fr, &position2);
     fgets(line, sizeof line, fr); // save file pointer
-    words = SplitLine(split, line, " \t");
+    words = SplitLine_old(split, line, " \t");
     // are dihedrals present?
     if (strncasecmp(split[0], "dihedrals", 5) == 0) {
       // get number of dihedrals
@@ -2216,7 +2194,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
       // get info about dihedrals
       for (int j = 0; j < (*MoleculeType)[i].nDihedrals; j++) {
         fgets(line, sizeof line, fr);
-        words = SplitLine(split, line, " \t");
+        words = SplitLine_old(split, line, " \t");
         // error - wrong dihedral line //{{{
         // '<type> 4x<id> <double> <double>'
         // TODO: do something about having 4x<id> 0 0 (IsPosReal() checks > 0)
@@ -2276,7 +2254,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
     // skip till 'finish' //{{{
     fsetpos(fr, &position2);
     while(fgets(line, sizeof line, fr)) {
-      SplitLine(split, line, " \t");
+      SplitLine_old(split, line, " \t");
       if (strcasecmp(split[0], "finish") == 0) {
         break;
       }
@@ -2318,7 +2296,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
     // read bead lines //{{{
     for (int j = 0; j < (*MoleculeType)[i].nBeads; j++) {
       fgets(line, sizeof line, fr);
-      SplitLine(split, line, " \t");
+      SplitLine_old(split, line, " \t");
       for (int k = 0; k < (*MoleculeType)[i].Number; k++) {
         int id = count + k * (*MoleculeType)[i].nBeads;
         (*Bead)[id].Position.x = atof(split[1]);
@@ -2334,7 +2312,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
     // read bond types //{{{
     for (int j = 0; j < (*MoleculeType)[i].nBonds; j++) {
       fgets(line, sizeof line, fr);
-      SplitLine(split, line, " \t");
+      SplitLine_old(split, line, " \t");
       for (int k = 0; k < (*Counts).TypesOfBonds; k++) {
         if ((*bond_type)[k].a == atof(split[3]) && (*bond_type)[k].b == atof(split[4])) {
           (*MoleculeType)[i].Bond[j][2] = k;
@@ -2349,7 +2327,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
         fgets(line, sizeof line, fr);
       } //}}}
       fgets(line, sizeof line, fr);
-      SplitLine(split, line, " \t");
+      SplitLine_old(split, line, " \t");
       for (int k = 0; k < (*Counts).TypesOfAngles; k++) {
         if ((*angle_type)[k].a == atof(split[4]) && (*angle_type)[k].b == atof(split[5])) {
           (*MoleculeType)[i].Angle[j][3] = k;
@@ -2359,7 +2337,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
     } //}}}
     // skip till 'finish' //{{{
     while(fgets(line, sizeof line, fr)) {
-      SplitLine(split, line, " \t");
+      SplitLine_old(split, line, " \t");
       if (strcasecmp(split[0], "finish") == 0) {
         break;
       }
@@ -2465,7 +2443,7 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
   int words;
   do {
     fgets(line, sizeof line, fr);
-    words = SplitLine(split, line, " \t");
+    words = SplitLine_old(split, line, " \t");
     // number of atoms //{{{
     if (words > 1 && strcmp(split[1], "atoms") == 0) {
       if (!IsInteger_old(split[0])) {
@@ -2679,7 +2657,7 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
       // get mass of every bead
       for (int i = 0; i < (*Counts).TypesOfBeads; i++) {
         fgets(line, sizeof line, fr);
-        words = SplitLine(split, line, " \t");
+        words = SplitLine_old(split, line, " \t");
         // error if incorrect line //{{{
         if (words < 2 || !IsInteger_old(split[0]) || !IsPosReal_old(split[1])) {
           ErrorPrintError_old();
@@ -2715,7 +2693,7 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
       // get mass of every bead
       for (int i = 0; i < (*Counts).TypesOfBonds; i++) {
         fgets(line, sizeof line, fr);
-        words = SplitLine(split, line, " \t");
+        words = SplitLine_old(split, line, " \t");
         // error if incorrect line //{{{
         if (words < 3 || !IsInteger_old(split[0]) || !IsPosReal_old(split[1]) || !IsPosReal_old(split[2])) {
           ErrorPrintError_old();
@@ -2738,7 +2716,7 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
       // get mass of every bead
       for (int i = 0; i < (*Counts).TypesOfAngles; i++) {
         fgets(line, sizeof line, fr);
-        words = SplitLine(split, line, " \t");
+        words = SplitLine_old(split, line, " \t");
         // error if incorrect line //{{{
         if (words < 3 || !IsInteger_old(split[0]) || !IsPosReal_old(split[1]) || !IsPosReal_old(split[2])) {
           ErrorPrintError_old();
@@ -2771,7 +2749,7 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
       fgetpos(fr, &pos); // save file pointer
       for (int i = 0; i < (*Counts).BeadsCoor; i++) {
         fgets(line, sizeof line, fr);
-        words = SplitLine(split, line, " \t");
+        words = SplitLine_old(split, line, " \t");
         // format of each line: <id> <mol_id> <btype> <charge> <x> <y> <z>
         // Error - incorrect format //{{{
         if (words < 7 ||
@@ -2881,7 +2859,7 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
       // read all bonds //{{{
       for (int i = 0; i < *bonds; i++) {
         fgets(line, sizeof line, fr);
-        words = SplitLine(split, line, " \t");
+        words = SplitLine_old(split, line, " \t");
         // format of each line: <bond id> <bond type> <bead1> <bead2>
         // Error - incorrect format //{{{
         if (words < 4 ||
@@ -3093,7 +3071,7 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
       // read all angles //{{{
       for (int i = 0; i < *angles; i++) {
         fgets(line, sizeof line, fr);
-        words = SplitLine(split, line, " \t");
+        words = SplitLine_old(split, line, " \t");
         // format of each line: <angle id> <angle type> <bead1> <bead2> <bead3>
         // Error - incorrect format //{{{
         if (words < 5 ||
@@ -3288,7 +3266,7 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
     } //}}}
     // read and split next line
     fgets(line, sizeof line, fr);
-    words = SplitLine(split, line, " \t");
+    words = SplitLine_old(split, line, " \t");
   } //}}}
   free(mols);
 
@@ -3305,7 +3283,8 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
   fclose(fr);
 } //}}}
 
-// TODO use(d)?
+// helper functions //{{{
+// Fill arrays of structures (BEADTYPE & MOLECULTYPE)
 // NewBeadType() //{{{
 /*
  * Function to add a new bead type to a BEADTYPE struct
@@ -3421,8 +3400,7 @@ void FillMolType(int number_of_types, BEADTYPE *BeadType,
   FillMolMass(number_of_types, BeadType, MoleculeType);
   FillMolCharge(number_of_types, BeadType, MoleculeType);
 } //}}}
-
-// functions to check validity of line types //{{{
+// check validity of line types
 // VtfCheckCoorOrderedLine() //{{{
 int VtfCheckCoorOrderedLine(int words, char *split[SPL_STR]) {
   double val_d;
@@ -3595,7 +3573,7 @@ bool VtfCheckBondLine(int words, char *split[SPL_STR]) {
     // ':'-split the second string
     char index[SPL_STR][SPL_LEN], string[SPL_LEN];
     strcpy(string, split[1]);
-    int strings = SplitLine(index, string, ":");
+    int strings = SplitLine_old(index, string, ":");
     if (strings != 2 || !IsInteger(index[0], &val_i) || val_i < 0 ||
                         !IsInteger(index[1], &val_i) || val_i < 0) {
       strcpy(ERROR_MSG, "bond line: only 'b[ond] <int>:<int>' or \

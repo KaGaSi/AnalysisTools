@@ -125,7 +125,7 @@ int main ( int argc, char** argv ) {
 
     char split[SPL_STR][SPL_LEN], delim[8];
     strcpy(delim, " \t");
-    int words = SplitLine(split, line, delim);
+    int words = SplitLine_old(split, line, delim);
 
     // if not empty line or comment continue //{{{
     if (split[0][0] != '#' &&

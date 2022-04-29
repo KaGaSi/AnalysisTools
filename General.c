@@ -3,10 +3,13 @@
 
 // convert string into number if possible //{{{
 /* Functions to test provided string and convert it to a number type. Note that
- * the conversion stops when it encounters an illegal character but is
- * successful as long as some number was created, i.e, string 2.2x is converted
- * into 2.2 by IsReal() and into 2 by IsInteger(), while string x2.2 isn't
- * converted (i.e., the functions return 'false').
+ * the conversion stops when it encounters an illegal character, so only the
+ * beginning of the string must be a legal number of the given type.
+ *
+ * Example strings: 1) 02.2x & 2) x2.2
+ *   IsReal() on 1) gives val=2.2 and returns success (i.e., true)
+ *   IsInteger() on 2) gives val=2 and returns success (i.e., true)
+ *   On 2), all functions return failure (i.e., false)
  */
 bool IsReal(char *str, double *val) {
   char *endptr = NULL;
@@ -30,6 +33,13 @@ bool IsInteger(char *str, long *val) {
     return false;
   }
   return true;
+}
+bool IsPosInteger(char *str, long *val) {
+  if (IsInteger(str, val) && val > 0) {
+    return true;
+  } else {
+    return false;
+  }
 }
 bool IsNatural(char *str, long *val) {
   if (IsInteger(str, val) && val >= 0) {
@@ -93,11 +103,11 @@ double Max3(double x, double y, double z) {
   return max;
 } //}}}
 
-// Sort3() //{{{
+// SortVector() //{{{
 /**
  * Function returning sorted numbers x < y < z.
  */
-VECTOR Sort3(VECTOR in) {
+VECTOR SortVector(VECTOR in) {
   VECTOR out;
   if (in.x < in.y) {
     if (in.y < in.z) {
@@ -131,38 +141,23 @@ VECTOR Sort3(VECTOR in) {
   return out;
 } //}}}
 
-// SwapInt() //{{{
-/**
- * Swap two integers.
- */
+// swapping functions //{{{
 void SwapInt(int *a, int *b) {
   int swap = *a;
   *a = *b;
   *b = swap;
 }
-// }}}
-
-// SwapDouble() //{{{
-/**
- * Swap two doubles.
- */
 void SwapDouble(double *a, double *b) {
   double swap = *a;
   *a = *b;
   *b = swap;
 }
-// }}}
-
-// SwapBool() //{{{
-/**
- * Swap two booleans.
- */
 void SwapBool(bool *a, bool *b) {
   bool swap = *a;
   *a = *b;
   *b = swap;
 }
-// }}}
+ //}}}
 
 // SortArray() //{{{
 /**
@@ -193,23 +188,6 @@ void SortArray(int *array, int length, int mode) {
   }
 } //}}}
 
-// ReadAndSplitLine()  //{{{
-bool ReadAndSplitLine(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]) {
-  char line[LINE];
-  if (!fgets(line, sizeof line, fr)) {
-    return false; // error/EOF
-  }
-  // if the line is too long, skip the rest of it
-  if (strcspn(line, "\n") == (LINE-1)) {
-    int test;
-    do {
-      test = getc(fr);
-    } while (test != '\n' && test != EOF);
-  }
-  *words = SplitLine(split, line, "\t ");
-  return true;
-} //}}}
-
 // ReadLine() //{{{
 bool ReadLine(FILE *fr, char line[LINE]) {
   if (!fgets(line, LINE, fr)) {
@@ -228,45 +206,11 @@ bool ReadLine(FILE *fr, char line[LINE]) {
   return true;
 } //}}}
 
-// ReadAndSplitLine2()  //{{{
-bool ReadAndSplitLine2(FILE *fr, int *words, char *split[SPL_STR]) {
-  char line[LINE];
-  ReadLine(fr, line);
-  *words = SplitLine2(split, SPL_STR, line, "\t ");
-  return true;
-} //}}}
-
 // SplitLine() //{{{
 /**
  * Function that splits the provided line into individual strings.
  */
-int SplitLine(char out[SPL_STR][SPL_LEN], char *line, const char *delim) {
-  // trim whitespaces at the beginning and end of line
-  strcpy(line, TrimLine(line));
-  // split into words separated by delimiters in delim array
-  char *split[SPL_STR];
-  int words = 0;
-  split[words] = strtok(line, delim); // first word
-  while (words < (SPL_STR-1) && split[words] != NULL) {
-    words++; // start from 1, as the first split is already done
-    split[words] = strtok(NULL, delim);
-  }
-  if (words == 0) {
-    out[0][0] = '\0';
-  } else {
-    // copy splits into the output array
-    for (int i = 0; i < words; i++) {
-      snprintf(out[i], SPL_LEN, "%s", split[i]);
-    }
-  }
-  return words;
-} //}}}
-
-// SplitLine2() //{{{
-/**
- * Function that splits the provided line into individual strings.
- */
-int SplitLine2(char *out[SPL_STR], int strings, char *line, const char *delim) {
+int SplitLine(char *out[SPL_STR], int strings, char *line, const char *delim) {
   if (strings >= SPL_STR) {
     strings = SPL_STR - 1;
   }
@@ -336,8 +280,7 @@ void PrintCommand(FILE *ptr, int argc, char *argv[]) {
   fprintf(ptr, "\n");
 } //}}}
 
-// Colour() //{{{
-// changing colour of the text (only for cli output)
+// changing colour the text for cli output //{{{
 char *Colour(FILE *f, char *colour) {
   if (isatty(fileno(f))) {
     return colour;
@@ -390,6 +333,22 @@ void ColourChange(int a, char *colour) {
 }
  //}}}
 
+// OpenFile() //{{{
+FILE *OpenFile(char *file, char *mode) {
+  FILE *ptr = fopen(file, mode);
+  if (ptr == NULL) {
+    strcpy(ERROR_MSG, "cannot open file");
+    ErrorPrintError();
+    FilePrintFile(file, RED);
+    fputs(Colour(stderr, RED), stderr);
+    perror(" ");
+    fputs(Colour(stderr, C_RESET), stderr);
+    exit(1);
+  }
+  return ptr;
+} //}}}
+
+// TODO remove?
 // SafeStrcat() //{{{
 /**
  * Function to safely concatenate strings; i.e., if the output array is too
@@ -420,22 +379,6 @@ void SafeStrcat(char **out, char *in, int initial_size) {
   }
   strcat(*out, in);
 } //}}}
-
-// OpenFile() //{{{
-FILE *OpenFile(char *file, char *mode) {
-  FILE *ptr = fopen(file, mode);
-  if (ptr == NULL) {
-    strcpy(ERROR_MSG, "cannot open file");
-    ErrorPrintError();
-    FilePrintFile(file, RED);
-    fputs(Colour(stderr, RED), stderr);
-    perror(" ");
-    fputs(Colour(stderr, C_RESET), stderr);
-    exit(1);
-  }
-  return ptr;
-} //}}}
-
 // TODO: remove
 // IsReal_old() //{{{
 /**
@@ -511,4 +454,52 @@ bool IsNatural_old(char *a) {
   } else {
     return false;
   }
+} //}}}
+// SplitLine_old() //{{{
+/**
+ * Function that splits the provided line into individual strings.
+ */
+int SplitLine_old(char out[SPL_STR][SPL_LEN], char *line, const char *delim) {
+  // trim whitespaces at the beginning and end of line
+  strcpy(line, TrimLine(line));
+  // split into words separated by delimiters in delim array
+  char *split[SPL_STR];
+  int words = 0;
+  split[words] = strtok(line, delim); // first word
+  while (words < (SPL_STR-1) && split[words] != NULL) {
+    words++; // start from 1, as the first split is already done
+    split[words] = strtok(NULL, delim);
+  }
+  if (words == 0) {
+    out[0][0] = '\0';
+  } else {
+    // copy splits into the output array
+    for (int i = 0; i < words; i++) {
+      snprintf(out[i], SPL_LEN, "%s", split[i]);
+    }
+  }
+  return words;
+} //}}}
+// ReadAndSplitLine2()  //{{{
+bool ReadAndSplitLine2(FILE *fr, int *words, char *split[SPL_STR]) {
+  char line[LINE];
+  ReadLine(fr, line);
+  *words = SplitLine(split, SPL_STR, line, "\t ");
+  return true;
+} //}}}
+// ReadAndSplitLine()  //{{{
+bool ReadAndSplitLine(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]) {
+  char line[LINE];
+  if (!fgets(line, sizeof line, fr)) {
+    return false; // error/EOF
+  }
+  // if the line is too long, skip the rest of it
+  if (strcspn(line, "\n") == (LINE-1)) {
+    int test;
+    do {
+      test = getc(fr);
+    } while (test != '\n' && test != EOF);
+  }
+  *words = SplitLine_old(split, line, "\t ");
+  return true;
 } //}}}

@@ -1588,7 +1588,7 @@ VECTOR Gyration(int n, int *list, COUNTS Counts,
   eigen2.x = eigen.x;
   eigen2.y = eigen.y;
   eigen2.z = eigen.z;
-  eigen2 = Sort3(eigen2); //}}}
+  eigen2 = SortVector(eigen2); //}}}
 
   return eigen2;
 } //}}}

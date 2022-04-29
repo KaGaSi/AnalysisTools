@@ -103,7 +103,7 @@ int main ( int argc, char** argv ) {
     char line[LINE], split[SPL_STR][SPL_LEN], delim[8];
     fgets(line, sizeof(line), fr);
     strcpy(delim, " \t");
-    int words = SplitLine(split, line, delim);
+    int words = SplitLine_old(split, line, delim);
     // exit on end of file
     if(feof(fr)) {
       break;
@@ -139,7 +139,7 @@ int main ( int argc, char** argv ) {
     char line[LINE], split[SPL_STR][SPL_LEN], delim[8];
     fgets(line, sizeof(line), fr);
     strcpy(delim, " \t");
-    SplitLine(split, line, delim);
+    SplitLine_old(split, line, delim);
     if (split[0][0] != '#' &&
         split[0][0] != '\n') {
       data[count][0] = atof(split[x-1]);

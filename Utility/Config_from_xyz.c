@@ -168,7 +168,7 @@ int main(int argc, char *argv[]) {
     fgets(line, sizeof(line), xyz);
     char split[SPL_STR][SPL_LEN], delim[8];
     strcpy(delim, " \t");
-    int words = SplitLine(split, line, delim);
+    int words = SplitLine_old(split, line, delim);
 
     // error - less then four whitespace-separated strings //{{{
     if (words < 4) {
