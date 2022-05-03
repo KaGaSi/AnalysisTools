@@ -143,8 +143,11 @@ bool ReadLine(FILE *fr, char line[LINE]); //}}}
  *  [in] line .. string to split
  * return: number of created strings
  */
-int SplitLine(char *out[SPL_STR], int strings, char *line, const char *delim);
+int SplitLine(char *out[SPL_STR], int str, char *line, const char *delim);
  //}}}
+
+int ReadAndSplitLine(FILE *fr, char *line, char *out[SPL_STR],
+                     int max_strings, const char *delim);
 
 // TrimLine() //{{{
 /**
@@ -209,7 +212,7 @@ bool IsPosReal_old(char *a); //}}}
 bool IsNatural_old(char *a); //}}}
 bool ReadAndSplitLine2(FILE *fr, int *words, char *split[SPL_STR]);
 // ReadAndSplitLine  //{{{
-bool ReadAndSplitLine(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]); //}}}
+bool ReadAndSplitLine_old(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]); //}}}
 // SplitLine_old() //{{{
 /*
  * \brief Function to split provided line.

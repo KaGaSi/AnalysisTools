@@ -210,22 +210,43 @@ bool ReadLine(FILE *fr, char line[LINE]) {
 /**
  * Function that splits the provided line into individual strings.
  */
+//int SplitLine(char **out, int str, char *line, const char *delim) {
 int SplitLine(char *out[SPL_STR], int strings, char *line, const char *delim) {
-  if (strings >= SPL_STR) {
-    strings = SPL_STR - 1;
-  }
   // split into words separated by delimiters in delim array
   int words = 0;
   out[words] = strtok(line, delim); // first word
-  if (out[words][0] == '\n') {
-    out[words] = NULL;
-  }
   while (words < strings && out[words] != NULL) {
     words++; // start from 1, as the first split is already done
     out[words] = strtok(NULL, delim);
   }
   return words;
 } //}}}
+
+// ReadAndSplitLin()
+int ReadAndSplitLine(FILE *fr, char *line, char *out[SPL_STR],
+                     int max_strings, const char *delim) {
+  if (!fgets(line, LINE, fr)) {
+    return -1; // error/EOF
+  }
+  // if the line is too long, skip the rest of it
+  if (strcspn(line, "\n") == (LINE-1)) {
+    int test;
+    do {
+      test = getc(fr);
+    } while (test != '\n' && test != EOF);
+    if (test == EOF) {
+      return -1;
+    }
+  }
+  // split into words separated by delimiters in delim array
+  int words = 0;
+  out[words] = strtok(line, delim); // first word
+  while (words < max_strings && out[words] != NULL) {
+    words++; // start from 1, as the first split is already done
+    out[words] = strtok(NULL, delim);
+  }
+  return words;
+}
 
 // TrimLine() //{{{
 /**
@@ -488,7 +509,7 @@ bool ReadAndSplitLine2(FILE *fr, int *words, char *split[SPL_STR]) {
   return true;
 } //}}}
 // ReadAndSplitLine()  //{{{
-bool ReadAndSplitLine(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]) {
+bool ReadAndSplitLine_old(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]) {
   char line[LINE];
   if (!fgets(line, sizeof line, fr)) {
     return false; // error/EOF

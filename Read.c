@@ -45,19 +45,17 @@ void VtfReadPBC(char *input_vcf, BOX *Box) {
   int file_line_count = 0;
   // read input_vcf line by line
   while (true) {
-    // read line
-    char line[LINE];
     file_line_count++;
-    if (!ReadLine(coor, line)) {
+    char *split[SPL_STR], line[LINE];
+    // read line & split it via whitespace //{{{
+    int words = ReadAndSplitLine(coor, line, split, SPL_STR, " \t\n");
+    if (words == -1) {
       strcpy(ERROR_MSG, "missing pbc line (and any coordinates)");
       PrintError();
       ErrorPrintFile(input_vcf);
       putc('\n', stderr);
       exit(1);
-    }
-    // split line into strings
-    char *split[SPL_STR];
-    int words = SplitLine(split, SPL_STR, line, "\t ");
+    } //}}}
     int ltype = VtfCheckLineType(words, split, input_vcf, file_line_count);
     // pbc line //{{{
     if (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) {
@@ -136,15 +134,13 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
   while (true) {
     file_line_count++;
     // read line
-    char line[LINE];
     file_line_count++;
-    if (!ReadLine(vsf, line)) {
+    // read line & split it via whitespace //{{{
+    char line[LINE], *split[SPL_STR];
+    int words = ReadAndSplitLine(vsf, line, split, SPL_STR, " \t\n");
+    if (words == -1) {
       break;
-    }
-//  printf("%d%s: %s%s%s", *file_line_count, Magenta(), Green(), line, ColourReset());
-    // split line into strings
-    char *split[SPL_STR];
-    int words = SplitLine(split, SPL_STR, line, "\t ");
+    } //}}}
     int ltype = VtfCheckLineType(words, split, struct_file, file_line_count);
 //  int ltype = VtfCheckLineType(words, split,
 //                               struct_file, file_line_count);
@@ -1105,6 +1101,7 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
                      int *file_line_count, int step_count, char *stuff) {
   start_function: ;
   stuff[0] = '\0';
+  char *cur = stuff, * const end = stuff + LINE; // TODO is here for snprintf of stuff array
   // set 'not in timestep' to all beads //{{{
   for (int i = 0; i < (*Counts).BeadsTotal; i++) {
     (*Bead)[i].InTimestep = false;
@@ -1119,14 +1116,12 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
     // read line
     char line[LINE];
     (*file_line_count)++;
-    if (!ReadLine(vcf, line)) {
-      return false;
-    }
-    char comment[LINE];
-    strcpy(comment, line);
     // split line into strings
     char *split[SPL_STR];
-    int words = SplitLine(split, SPL_STR, line, "\t ");
+    int words = ReadAndSplitLine(vcf, line, split, SPL_STR, " \t\n");
+    if (words == -1) {
+      return false;
+    } //}}}
     ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
     // do something based on what line it is
     if (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) { //{{{
@@ -1175,7 +1170,15 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
       (*Counts).BeadsCoor = 0;
       break; //}}}
     } else if (ltype == COMMENT_LINE) {
-      strncat(stuff, comment, LINE-strlen(stuff)-1);
+      // TODO clean this
+      printf(">|%s|<\n", stuff);
+      printf("%ld %ld\n", sizeof stuff, strlen(stuff));
+      cur += snprintf(cur, end-cur, "%s", split[0]);
+      for (int i = 1; i < (words-1) && cur < end; i++) {
+        cur += snprintf(cur, end-cur, " %s", split[i]);
+      }
+      cur += snprintf(cur, end-cur, " %s\n", split[words-1]);
+      printf("|%s| %ld\n", stuff, strlen(stuff));
     } else if (ltype == ERROR_LINE) {
       strcpy(ERROR_MSG, "ignoring unrecognised line in a timestep preamble");
       PrintWarningFileLine(vcf_file, *file_line_count, split, words);
@@ -1201,7 +1204,7 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
     }
     // split line into strings
     char *split[SPL_STR];
-    int words = SplitLine(split, SPL_STR, line, "\t ");
+    int words = SplitLine(split, SPL_STR, line, " \t\n");
     ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
     if (ltype != COOR_LINE_O && ltype != COOR_LINE_I) {
       // warn: unrecognised line - read next timestep //{{{
@@ -1347,7 +1350,7 @@ bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
       return false;
     }
     char *split[SPL_STR];
-    int words = SplitLine(split, SPL_STR, line, "\t ");
+    int words = SplitLine(split, SPL_STR, line, " \t\n");
     ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
     if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) {
       timestep = true;
@@ -1382,7 +1385,7 @@ bool VtfSkipCoorOrderedLine(FILE *fr) {
     return false; // error/EOF
   }
   char *split[SPL_STR];
-  int words = SplitLine(split, 3, line, "\t ");
+  int words = SplitLine(split, 3, line, " \t\n");
   if (VtfCheckCoorOrderedLine(words, split) == COOR_LINE_O) {
     return true;
   } else {
@@ -1402,30 +1405,33 @@ void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts,
                     AGGREGATE **Aggregate, BEADTYPE *BeadType, BEAD **Bead,
                     MOLECULETYPE *MoleculeType, MOLECULE **Molecule,
                     int *Index) {
-  char line[LINE], split[SPL_STR][SPL_LEN];
+  // TODO counting lines
+  int file_line_count = -1;
+  char line[LINE], *split[SPL_STR];
   // read 'Step|Last Step' line
   fgets(line, sizeof line, fr);
-  int words = SplitLine_old(split, line, " \t");
+  int words = SplitLine(split, SPL_STR, line, " \t\n");
   // error if the first line is 'L[ast Step]' or isn't 'Step: <int>'//{{{
   if (split[0][0] == 'L') {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, "premature end of ");
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%s", agg_file);
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " file");
-    ColourReset(STDERR_FILENO);
+    strcpy(ERROR_MSG, "premature end of file");
+    PrintError();
+    ErrorPrintFile(agg_file);
+    putc('\n', stderr);
     exit(1);
   } else if (words < 2 || strcmp(split[0], "Step:") != 0 ||
              !IsInteger_old(split[1])) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%s", agg_file);
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - wrong 'Step' line\n");
-    ColourReset(STDERR_FILENO);
-    ErrorPrintLine(split, words);
+//  ErrorPrintError_old();
+//  ColourChange(STDERR_FILENO, YELLOW);
+//  fprintf(stderr, "%s", agg_file);
+//  ColourChange(STDERR_FILENO, RED);
+//  fprintf(stderr, " - wrong 'Step' line\n");
+//  ColourReset(STDERR_FILENO);
+//  ErrorPrintLine(split, words);
+
+    strcpy(ERROR_MSG, "missing pbc line (and any coordinates)");
+    PrintError();
+    PrintErrorFileLine(agg_file, file_line_count, split, words);
+    putc('\n', stderr);
     exit(1);
   } //}}}
   // initialize array of number of aggregates per bead //{{{
@@ -1434,30 +1440,30 @@ void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts,
   } //}}}
   // get number of aggregates //{{{
   fgets(line, sizeof line, fr);
-  words = SplitLine_old(split, line, " \t");
+  words = SplitLine(split, SPL_STR, line, " \t\n");
   // error - the number of aggregates must be <int>
   if (words == 0 || !IsInteger_old(split[0])) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%s", agg_file);
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - number of aggregates must be a whole number\n");
-    ColourReset(STDERR_FILENO);
-    ErrorPrintLine(split, words);
+//  ErrorPrintError_old();
+//  ColourChange(STDERR_FILENO, YELLOW);
+//  fprintf(stderr, "%s", agg_file);
+//  ColourChange(STDERR_FILENO, RED);
+//  fprintf(stderr, " - number of aggregates must be a whole number\n");
+//  ColourReset(STDERR_FILENO);
+//  ErrorPrintLine(split, words);
     exit(1);
   }
   (*Counts).Aggregates = atoi(split[0]); //}}}
   // skip blank line - error if not a blank line //{{{
   fgets(line, sizeof line, fr);
-  words = SplitLine_old(split, line, " \t");
+  words = SplitLine(split, SPL_STR, line, " \t\n");
   if (words > 0) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%s", agg_file);
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - missing a blank line after number of aggregates\n");
-    ColourReset(STDERR_FILENO);
-    ErrorPrintLine(split, words);
+//  ErrorPrintError_old();
+//  ColourChange(STDERR_FILENO, YELLOW);
+//  fprintf(stderr, "%s", agg_file);
+//  ColourChange(STDERR_FILENO, RED);
+//  fprintf(stderr, " - missing a blank line after number of aggregates\n");
+//  ColourReset(STDERR_FILENO);
+//  ErrorPrintLine(split, words);
     exit(1);
   } //}}}
   // go through all aggregates
@@ -1554,7 +1560,7 @@ void ReadAggCommand(BEADTYPE *BeadType, COUNTS Counts,
   }
   fclose(agg);
   char *split[SPL_STR];
-  int words = SplitLine(split, SPL_STR, line, "\t ");
+  int words = SplitLine(split, SPL_STR, line, " \t\n");
   // error - not enough strings for a proper Aggregate command //{{{
   if (words < 6) {
     strcpy(ERROR_MSG, "first line must contain a valid Aggregates command");
@@ -1627,7 +1633,7 @@ void SkipAgg(FILE *agg, char *agg_file) {
     exit(1);
   }
   char *split[SPL_STR];
-  int words = SplitLine(split, SPL_STR, line, "\t ");
+  int words = SplitLine(split, SPL_STR, line, " \t\n");
   // error if the first line is 'L[ast Step]' or isn't 'Step: <int>'//{{{
   long val;
   if (split[0][0] == 'L') {
@@ -1649,7 +1655,7 @@ void SkipAgg(FILE *agg, char *agg_file) {
     putc('\n', stderr);
     exit(1);
   }
-  words = SplitLine(split, SPL_STR, line, "\t ");
+  words = SplitLine(split, SPL_STR, line, " \t\n");
   // Error - number of aggregates must be <int> //{{{
   if (words != 0 && !IsPosInteger(split[0], &val)) {
     strcpy(ERROR_MSG, "number of aggregates must be a natural number\n");
@@ -1679,7 +1685,7 @@ void SkipAgg(FILE *agg, char *agg_file) {
     putc('\n', stderr);
     exit(1);
   }
-  words = SplitLine(split, SPL_STR, line, "\t ");
+  words = SplitLine(split, SPL_STR, line, " \t\n");
   if (feof(agg) == EOF) {
     strcpy(ERROR_MSG, "premature end of file");
     ErrorPrintFile(agg_file);
