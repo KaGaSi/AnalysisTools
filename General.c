@@ -222,8 +222,8 @@ int SplitLine(char *out[SPL_STR], int strings, char *line, const char *delim) {
   return words;
 } //}}}
 
-// ReadAndSplitLin()
-int ReadAndSplitLine(FILE *fr, char *line, char *out[SPL_STR],
+// ReadAndSplitLine_oldish() //{{{
+int ReadAndSplitLine_oldish(FILE *fr, char *line, char *out[SPL_STR],
                      int max_strings, const char *delim) {
   if (!fgets(line, LINE, fr)) {
     return -1; // error/EOF
@@ -246,7 +246,27 @@ int ReadAndSplitLine(FILE *fr, char *line, char *out[SPL_STR],
     out[words] = strtok(NULL, delim);
   }
   return words;
-}
+} //}}}
+// ReadAndSplitLine() //{{{
+bool ReadAndSplitLine(FILE *fr, char *line, int *words, char *out[SPL_STR],
+                     int max_strings, const char *delim) {
+  if (!fgets(line, LINE, fr)) {
+    return false; // error/EOF
+  }
+  // if the line is too long, skip the rest of it
+  if (strcspn(line, "\n") == (LINE-1)) {
+    int test;
+    do {
+      test = getc(fr);
+    } while (test != '\n' && test != EOF);
+    if (test == EOF) {
+      return false;
+    }
+  }
+  // split into words separated by delimiters in delim array
+  *words = SplitLine(out, max_strings, line, delim);
+  return true;
+} //}}}
 
 // TrimLine() //{{{
 /**

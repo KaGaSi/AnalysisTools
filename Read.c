@@ -46,10 +46,10 @@ void VtfReadPBC(char *input_vcf, BOX *Box) {
   // read input_vcf line by line
   while (true) {
     file_line_count++;
-    char *split[SPL_STR], line[LINE];
     // read line & split it via whitespace //{{{
-    int words = ReadAndSplitLine(coor, line, split, SPL_STR, " \t\n");
-    if (words == -1) {
+    char *split[SPL_STR], line[LINE];
+    int words;
+    if (!ReadAndSplitLine(coor, line, &words, split, SPL_STR, " \t\n")) {
       strcpy(ERROR_MSG, "missing pbc line (and any coordinates)");
       PrintError();
       ErrorPrintFile(input_vcf);
@@ -130,20 +130,13 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
    *   e) anything else besides pbc, blank, or comment line: exit program as
    *      unrecognised line was encountered
    */
-//while (ReadAndSplitLine(vsf, &words, split)) {
-  while (true) {
+    char line[LINE], *split[SPL_STR];
+    int words;
+  while (ReadAndSplitLine(vsf, line, &words, split, SPL_STR, " \t\n")) {
     file_line_count++;
     // read line
     file_line_count++;
-    // read line & split it via whitespace //{{{
-    char line[LINE], *split[SPL_STR];
-    int words = ReadAndSplitLine(vsf, line, split, SPL_STR, " \t\n");
-    if (words == -1) {
-      break;
-    } //}}}
     int ltype = VtfCheckLineType(words, split, struct_file, file_line_count);
-//  int ltype = VtfCheckLineType(words, split,
-//                               struct_file, file_line_count);
     if (ltype == ATOM_LINE) { // a)
       if (strcmp(split[1], "default") == 0) { // 'a[tom] default' line
         // warning - multiple 'atom default' lines (warn only once)
@@ -285,8 +278,8 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
       bond = realloc(bond, sizeof *atom * (count_bonds + 1));
       long val;
       if (words == 2) { // case 'bond <id>:<id>'
-        char index[SPL_STR][SPL_LEN];
-        SplitLine_old(index, split[1], ":");
+        char *index[SPL_STR];
+        SplitLine(index, SPL_STR, split[1], ":");
         IsInteger(index[0], &val);
         bond[count_bonds].index1 = val;
         IsInteger(index[1], &val);
@@ -1113,13 +1106,11 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
   while (true) {
     // save file pointer position for when it's the first coordinate line
     fgetpos(vcf, &position);
-    // read line
-    char line[LINE];
     (*file_line_count)++;
-    // split line into strings
-    char *split[SPL_STR];
-    int words = ReadAndSplitLine(vcf, line, split, SPL_STR, " \t\n");
-    if (words == -1) {
+    // read line & split it via whitespace //{{{
+    char *split[SPL_STR], line[LINE];
+    int words;
+    if (!ReadAndSplitLine(vcf, line, &words, split, SPL_STR, " \t\n")) {
       return false;
     } //}}}
     ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
@@ -1196,15 +1187,13 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
   while (true) {
     // save file pointer position for when it's the first coordinate line
     fgetpos(vcf, &position);
-    // read line
-    char line[LINE];
     (*file_line_count)++;
-    if (!ReadLine(vcf, line)) {
+    // read line & split it via whitespace //{{{
+    char line[LINE], *split[SPL_STR];
+    int words;
+    if (!ReadAndSplitLine(vcf, line, &words, split, SPL_STR, " \t\n")) {
       return true;
-    }
-    // split line into strings
-    char *split[SPL_STR];
-    int words = SplitLine(split, SPL_STR, line, " \t\n");
+    } //}}}
     ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
     if (ltype != COOR_LINE_O && ltype != COOR_LINE_I) {
       // warn: unrecognised line - read next timestep //{{{

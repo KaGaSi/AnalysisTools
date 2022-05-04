@@ -146,8 +146,10 @@ bool ReadLine(FILE *fr, char line[LINE]); //}}}
 int SplitLine(char *out[SPL_STR], int str, char *line, const char *delim);
  //}}}
 
-int ReadAndSplitLine(FILE *fr, char *line, char *out[SPL_STR],
+int ReadAndSplitLine_oldish(FILE *fr, char *line, char *out[SPL_STR],
                      int max_strings, const char *delim);
+bool ReadAndSplitLine(FILE *fr, char *line, int *words, char *out[SPL_STR],
+                      int max_strings, const char *delim);
 
 // TrimLine() //{{{
 /**
@@ -211,7 +213,7 @@ bool IsPosReal_old(char *a); //}}}
 // IsNatural()  //{{{
 bool IsNatural_old(char *a); //}}}
 bool ReadAndSplitLine2(FILE *fr, int *words, char *split[SPL_STR]);
-// ReadAndSplitLine  //{{{
+// ReadAndSplitLine_old  //{{{
 bool ReadAndSplitLine_old(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]); //}}}
 // SplitLine_old() //{{{
 /*
