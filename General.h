@@ -132,7 +132,7 @@ void SwapBool(bool *a, bool *b);
 void SortArray(int *array, int length, int mode); //}}}
 
 // ReadLine() //{{{
-bool ReadLine(FILE *fr, char line[LINE]); //}}}
+bool ReadLine(FILE *fr, int max_char, char *line); //}}}
 
 // SplitLine() //{{{
 /*
@@ -143,23 +143,11 @@ bool ReadLine(FILE *fr, char line[LINE]); //}}}
  *  [in] line .. string to split
  * return: number of created strings
  */
-int SplitLine(char *out[SPL_STR], int str, char *line, const char *delim);
+int SplitLine(int max_str, char *out[], char *line, const char *delim);
  //}}}
 
-int ReadAndSplitLine_oldish(FILE *fr, char *line, char *out[SPL_STR],
-                     int max_strings, const char *delim);
-bool ReadAndSplitLine(FILE *fr, char *line, int *words, char *out[SPL_STR],
-                      int max_strings, const char *delim);
-
-// TrimLine() //{{{
-/**
- * Function to trim white space from the beginning and end of a string.
- *
- * Parameters:
- * [in] line .. string to trim
- * return: string without preceding or trailing white space
- */
-char* TrimLine(char *line); //}}}
+bool ReadAndSplitLine(FILE *fr, int max_char, char *line, int *words,
+                      char *out[], int max_strings, const char *delim);
 
 void PrintCommand(FILE *ptr, int argc, char *argv[]);
 
@@ -181,8 +169,6 @@ char *ColourReset();
 
 FILE *OpenFile(char *file, char *mode);
 
-// TODO remove?
-void SafeStrcat(char **out, char *in, int initial_size);
 // TODO remove //{{{
 void ColourChange(int a, char *colour);
 void ColourReset_old(int a);
@@ -210,11 +196,8 @@ bool IsInteger_old(char *a); //}}}
  * \return 'true' if a is non-negative double, 'false' otherwise
  */
 bool IsPosReal_old(char *a); //}}}
-// IsNatural()  //{{{
+// IsNatural_old()  //{{{
 bool IsNatural_old(char *a); //}}}
-bool ReadAndSplitLine2(FILE *fr, int *words, char *split[SPL_STR]);
-// ReadAndSplitLine_old  //{{{
-bool ReadAndSplitLine_old(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]); //}}}
 // SplitLine_old() //{{{
 /*
  * \brief Function to split provided line.
@@ -224,5 +207,15 @@ bool ReadAndSplitLine_old(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]); /
  * \return number of strings in the line
  */
 int SplitLine_old(char out[SPL_STR][SPL_LEN], char *line, const char *delim); //}}}
+// TrimLine() //{{{
+/**
+ * Function to trim white space from the beginning and end of a string.
+ *
+ * Parameters:
+ * [in] line .. string to trim
+ * return: string without preceding or trailing white space
+ */
+char* TrimLine(char *line); //}}}
  //}}}
+
 #endif

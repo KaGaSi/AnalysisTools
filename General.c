@@ -51,7 +51,7 @@ bool IsNatural(char *str, long *val) {
  //}}}
 
 // Length() //{{{
-/**
+/*
  * Function to calculate vector length.
  */
 double Length(VECTOR a) {
@@ -60,7 +60,7 @@ double Length(VECTOR a) {
 } //}}}
 
 // Min3() //{{{
-/**
+/*
  * Function returning the lowest number from three floats.
  */
 double Min3(double x, double y, double z) {
@@ -82,7 +82,7 @@ double Min3(double x, double y, double z) {
 } //}}}
 
 // Max3() //{{{
-/**
+/*
  * Function returning the highest number from three floats.
  */
 double Max3(double x, double y, double z) {
@@ -104,7 +104,7 @@ double Max3(double x, double y, double z) {
 } //}}}
 
 // SortVector() //{{{
-/**
+/*
  * Function returning sorted numbers x < y < z.
  */
 VECTOR SortVector(VECTOR in) {
@@ -160,7 +160,7 @@ void SwapBool(bool *a, bool *b) {
  //}}}
 
 // SortArray() //{{{
-/**
+/*
  * Sort an array using the bubble sort algorithm. If mode = 0, sort
  * ascendingly; if mode = 1, sort descendingly.
  */
@@ -189,7 +189,7 @@ void SortArray(int *array, int length, int mode) {
 } //}}}
 
 // ReadLine() //{{{
-bool ReadLine(FILE *fr, char line[LINE]) {
+bool ReadLine(FILE *fr, int max_char, char *line) {
   if (!fgets(line, LINE, fr)) {
     return false; // error/EOF
   }
@@ -207,113 +207,39 @@ bool ReadLine(FILE *fr, char line[LINE]) {
 } //}}}
 
 // SplitLine() //{{{
-/**
+/*
  * Function that splits the provided line into individual strings.
  */
-//int SplitLine(char **out, int str, char *line, const char *delim) {
-int SplitLine(char *out[SPL_STR], int strings, char *line, const char *delim) {
+int SplitLine(int max_str, char *out[], char *line, const char *delim) {
   // split into words separated by delimiters in delim array
   int words = 0;
   out[words] = strtok(line, delim); // first word
-  while (words < strings && out[words] != NULL) {
+  while (words < max_str && out[words] != NULL) {
     words++; // start from 1, as the first split is already done
     out[words] = strtok(NULL, delim);
   }
   return words;
 } //}}}
 
-// ReadAndSplitLine_oldish() //{{{
-int ReadAndSplitLine_oldish(FILE *fr, char *line, char *out[SPL_STR],
-                     int max_strings, const char *delim) {
-  if (!fgets(line, LINE, fr)) {
-    return -1; // error/EOF
-  }
-  // if the line is too long, skip the rest of it
-  if (strcspn(line, "\n") == (LINE-1)) {
-    int test;
-    do {
-      test = getc(fr);
-    } while (test != '\n' && test != EOF);
-    if (test == EOF) {
-      return -1;
-    }
-  }
-  // split into words separated by delimiters in delim array
-  int words = 0;
-  out[words] = strtok(line, delim); // first word
-  while (words < max_strings && out[words] != NULL) {
-    words++; // start from 1, as the first split is already done
-    out[words] = strtok(NULL, delim);
-  }
-  return words;
-} //}}}
 // ReadAndSplitLine() //{{{
-bool ReadAndSplitLine(FILE *fr, char *line, int *words, char *out[SPL_STR],
-                     int max_strings, const char *delim) {
-  if (!fgets(line, LINE, fr)) {
-    return false; // error/EOF
+bool ReadAndSplitLine(FILE *fr, int max_char, char *line, int *words, char *out[],
+                      int max_strings, const char *delim) {
+  if (!ReadLine(fr, max_char, line)) {
+    return false;
   }
-  // if the line is too long, skip the rest of it
-  if (strcspn(line, "\n") == (LINE-1)) {
-    int test;
-    do {
-      test = getc(fr);
-    } while (test != '\n' && test != EOF);
-    if (test == EOF) {
-      return false;
-    }
-  }
-  // split into words separated by delimiters in delim array
-  *words = SplitLine(out, max_strings, line, delim);
+  *words = SplitLine(max_strings, out, line, delim);
   return true;
 } //}}}
 
-// TrimLine() //{{{
-/**
- * Function to trim whitespace from the beginning and end of a string.
- */
-char * TrimLine(char *line) {
-  int length = strlen(line);
-  static char trimmed[LINE];
-  strcpy(trimmed, line);
-  // 1) trailing whitespace
-  while (length > 1 &&
-         (trimmed[length-1] == ' ' ||
-          trimmed[length-1] == '\n' ||
-          trimmed[length-1] == '\r' ||
-          trimmed[length-1] == '\t')) {
-    trimmed[length-1] = '\0';
-    length = strlen(trimmed);
-  }
-  // 2) preceding whitespace
-  while (length >= 1 &&
-         (trimmed[0] == ' ' ||
-          trimmed[0] == '\n' ||
-          trimmed[0] == '\r' ||
-          trimmed[0] == '\t')) {
-    for (int i = 0; i < length; i++) { // line[length] contains '\0'
-      trimmed[i] = trimmed[i+1];
-    }
-    length = strlen(trimmed);
-  }
-  return trimmed;
-} //}}}
-
 // PrintCommand() //{{{
-/**
+/*
  * Function to print the used command (at most 30 words).
  */
 void PrintCommand(FILE *ptr, int argc, char *argv[]) {
-  // first argument can contain whole path - remove that
-  char *split[30], str[LINE];
+  // command may contain whole path - print only the string behind last '/'
+  char *split[SPL_STR], str[LINE];
   strcpy(str, argv[0]);
-  split[0] = strtok(str, "/"); // first word
-  int words = 0;
-  while (words < 29 && split[words] != NULL) {
-    words++; // start from 1, as the first split is already done
-    split[words] = strtok(NULL, "/");
-  }
-  // print last split of argv[0], i.e., pathless command name
+  int words = SplitLine(SPL_STR, split, str, "/");
   fprintf(ptr, " %s", split[words-1]);
   // print the rest of the command
   for (int i = 1; i < argc; i++)
@@ -389,40 +315,9 @@ FILE *OpenFile(char *file, char *mode) {
   return ptr;
 } //}}}
 
-// TODO remove?
-// SafeStrcat() //{{{
-/**
- * Function to safely concatenate strings; i.e., if the output array is too
- * small, it first reallocs it. The input must be a string (i.e.,
- * null-terminated array).
- */
-void SafeStrcat(char **out, char *in, int initial_size) {
-  int in_length = 0, out_length = 0; // string length, not counting '\0'
-  // get length of the in array
-  while (true) {
-    if (in[in_length] == '\0') {
-      break;
-    }
-    in_length++;
-  }
-  // get length of the out array
-  while (true) {
-    if ((*out)[out_length] == '\0') {
-      break;
-    }
-    out_length++;
-  }
-  // out array length in units of initial_size
-  int out_times_initial = out_length / initial_size + 1;
-  int new_length = in_length + out_length; // required length for out array
-  if (new_length > (out_times_initial*initial_size)) { // is out array short?
-    *out = realloc(*out, sizeof **out * (out_times_initial + 1) * initial_size);
-  }
-  strcat(*out, in);
-} //}}}
 // TODO: remove
 // IsReal_old() //{{{
-/**
+/*
  * Function to test if provided string is a real number.
  */
 bool IsReal_old(char *a) {
@@ -465,7 +360,7 @@ bool IsReal_old(char *a) {
   return true;
 } //}}}
 // IsInteger_old() //{{{
-/**
+/*
  * Function to test if provided string is a non-negative whole number.
  */
 bool IsInteger_old(char *a) {
@@ -477,8 +372,8 @@ bool IsInteger_old(char *a) {
   }
   return true;
 } //}}}
-// IsPosReal() //{{{
-/**
+// IsPosReal_old() //{{{
+/*
  * Function to test if provided string is a positive real number.
  */
 bool IsPosReal_old(char *a) {
@@ -488,7 +383,7 @@ bool IsPosReal_old(char *a) {
     return false;
   }
 } //}}}
-// IsNatural()  //{{{
+// IsNatural_old()  //{{{
 bool IsNatural_old(char *a) {
   if (IsInteger_old(a) && atof(a) >= 0) {
     return true;
@@ -497,7 +392,7 @@ bool IsNatural_old(char *a) {
   }
 } //}}}
 // SplitLine_old() //{{{
-/**
+/*
  * Function that splits the provided line into individual strings.
  */
 int SplitLine_old(char out[SPL_STR][SPL_LEN], char *line, const char *delim) {
@@ -521,26 +416,33 @@ int SplitLine_old(char out[SPL_STR][SPL_LEN], char *line, const char *delim) {
   }
   return words;
 } //}}}
-// ReadAndSplitLine2()  //{{{
-bool ReadAndSplitLine2(FILE *fr, int *words, char *split[SPL_STR]) {
-  char line[LINE];
-  ReadLine(fr, line);
-  *words = SplitLine(split, SPL_STR, line, "\t ");
-  return true;
-} //}}}
-// ReadAndSplitLine()  //{{{
-bool ReadAndSplitLine_old(FILE *fr, int *words, char split[SPL_STR][SPL_LEN]) {
-  char line[LINE];
-  if (!fgets(line, sizeof line, fr)) {
-    return false; // error/EOF
+// TrimLine() //{{{
+/*
+ * Function to trim whitespace from the beginning and end of a string.
+ */
+char * TrimLine(char *line) {
+  int length = strlen(line);
+  static char trimmed[LINE];
+  strcpy(trimmed, line);
+  // 1) trailing whitespace
+  while (length > 1 &&
+         (trimmed[length-1] == ' ' ||
+          trimmed[length-1] == '\n' ||
+          trimmed[length-1] == '\r' ||
+          trimmed[length-1] == '\t')) {
+    trimmed[length-1] = '\0';
+    length = strlen(trimmed);
   }
-  // if the line is too long, skip the rest of it
-  if (strcspn(line, "\n") == (LINE-1)) {
-    int test;
-    do {
-      test = getc(fr);
-    } while (test != '\n' && test != EOF);
+  // 2) preceding whitespace
+  while (length >= 1 &&
+         (trimmed[0] == ' ' ||
+          trimmed[0] == '\n' ||
+          trimmed[0] == '\r' ||
+          trimmed[0] == '\t')) {
+    for (int i = 0; i < length; i++) { // line[length] contains '\0'
+      trimmed[i] = trimmed[i+1];
+    }
+    length = strlen(trimmed);
   }
-  *words = SplitLine_old(split, line, "\t ");
-  return true;
+  return trimmed;
 } //}}}

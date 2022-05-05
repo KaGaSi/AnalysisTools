@@ -9,7 +9,7 @@
  * value array: 0..name, 1..mass, 2..charge, 3..radius, 4..resame, 5..resid
  * If not present, the corresponding element has -1.
  */
-int * VtfAtomLineValues(int words, char *split[SPL_STR]) {
+int * VtfAtomLineValues(int words, char *split[]) {
   static int value[6];
   for (int i = 0; i < 6; i++) {
     value[i] = -1;
@@ -49,7 +49,7 @@ void VtfReadPBC(char *input_vcf, BOX *Box) {
     // read line & split it via whitespace //{{{
     char *split[SPL_STR], line[LINE];
     int words;
-    if (!ReadAndSplitLine(coor, line, &words, split, SPL_STR, " \t\n")) {
+    if (!ReadAndSplitLine(coor, LINE, line, &words, split, SPL_STR, " \t\n")) {
       strcpy(ERROR_MSG, "missing pbc line (and any coordinates)");
       PrintError();
       ErrorPrintFile(input_vcf);
@@ -97,9 +97,9 @@ searching for a pbc line");
  * and dihedrals for molecule types).
  */
 void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
-                   BEADTYPE **BeadType, BEAD **Bead, int **Index,
-                   MOLECULETYPE **MoleculeType, MOLECULE **Molecule,
-                   int **Index_mol) {
+                   BEADTYPE *BeadType[], BEAD *Bead[], int *Index[],
+                   MOLECULETYPE *MoleculeType[], MOLECULE *Molecule[],
+                   int *Index_mol[]) {
   (*Counts) = InitCounts; // zeroize
   FILE *vsf = OpenFile(struct_file, "r");
   // define variables and structures and arrays //{{{
@@ -132,7 +132,7 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
    */
     char line[LINE], *split[SPL_STR];
     int words;
-  while (ReadAndSplitLine(vsf, line, &words, split, SPL_STR, " \t\n")) {
+  while (ReadAndSplitLine(vsf, LINE, line, &words, split, SPL_STR, " \t\n")) {
     file_line_count++;
     // read line
     file_line_count++;
@@ -279,7 +279,7 @@ void VtfReadStruct(char *struct_file, bool detailed, COUNTS *Counts,
       long val;
       if (words == 2) { // case 'bond <id>:<id>'
         char *index[SPL_STR];
-        SplitLine(index, SPL_STR, split[1], ":");
+        SplitLine(SPL_STR, index, split[1], ":");
         IsInteger(index[0], &val);
         bond[count_bonds].index1 = val;
         IsInteger(index[1], &val);
@@ -1089,7 +1089,7 @@ contact developper");
  * something is wrong in the file and true when the timestep is read properly.
  */
 bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
-                     BEADTYPE *BeadType, BEAD **Bead, int *Index,
+                     BEADTYPE *BeadType, BEAD *Bead[], int *Index,
                      MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
                      int *file_line_count, int step_count, char *stuff) {
   start_function: ;
@@ -1110,7 +1110,7 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
     // read line & split it via whitespace //{{{
     char *split[SPL_STR], line[LINE];
     int words;
-    if (!ReadAndSplitLine(vcf, line, &words, split, SPL_STR, " \t\n")) {
+    if (!ReadAndSplitLine(vcf, LINE, line, &words, split, SPL_STR, " \t\n")) {
       return false;
     } //}}}
     ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
@@ -1162,14 +1162,14 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
       break; //}}}
     } else if (ltype == COMMENT_LINE) {
       // TODO clean this
-      printf(">|%s|<\n", stuff);
-      printf("%ld %ld\n", sizeof stuff, strlen(stuff));
+//    printf(">|%s|<\n", stuff);
+//    printf("%ld %ld\n", sizeof stuff, strlen(stuff));
       cur += snprintf(cur, end-cur, "%s", split[0]);
       for (int i = 1; i < (words-1) && cur < end; i++) {
         cur += snprintf(cur, end-cur, " %s", split[i]);
       }
       cur += snprintf(cur, end-cur, " %s\n", split[words-1]);
-      printf("|%s| %ld\n", stuff, strlen(stuff));
+//    printf("|%s| %ld\n", stuff, strlen(stuff));
     } else if (ltype == ERROR_LINE) {
       strcpy(ERROR_MSG, "ignoring unrecognised line in a timestep preamble");
       PrintWarningFileLine(vcf_file, *file_line_count, split, words);
@@ -1191,7 +1191,7 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
     // read line & split it via whitespace //{{{
     char line[LINE], *split[SPL_STR];
     int words;
-    if (!ReadAndSplitLine(vcf, line, &words, split, SPL_STR, " \t\n")) {
+    if (!ReadAndSplitLine(vcf, LINE, line, &words, split, SPL_STR, " \t\n")) {
       return true;
     } //}}}
     ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
@@ -1335,11 +1335,11 @@ bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
     char line[LINE];
     fgetpos(vcf, &position);
     (*file_line_count)++;
-    if (!ReadLine(vcf, line)) {
+    if (!ReadLine(vcf, LINE, line)) {
       return false;
     }
     char *split[SPL_STR];
-    int words = SplitLine(split, SPL_STR, line, " \t\n");
+    int words = SplitLine(SPL_STR, split, line, " \t\n");
     ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
     if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) {
       timestep = true;
@@ -1370,11 +1370,12 @@ bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
  */
 bool VtfSkipCoorOrderedLine(FILE *fr) {
   char line[LINE];
-  if (!ReadLine(fr, line)) {
+  if (!ReadLine(fr, LINE, line)) {
     return false; // error/EOF
   }
-  char *split[SPL_STR];
-  int words = SplitLine(split, 3, line, " \t\n");
+  int strings = 3;
+  char *split[strings];
+  int words = SplitLine(strings, split, line, " \t\n");
   if (VtfCheckCoorOrderedLine(words, split) == COOR_LINE_O) {
     return true;
   } else {
@@ -1391,15 +1392,15 @@ bool VtfSkipCoorOrderedLine(FILE *fr) {
  * Aggregates utility.
  */
 void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts,
-                    AGGREGATE **Aggregate, BEADTYPE *BeadType, BEAD **Bead,
-                    MOLECULETYPE *MoleculeType, MOLECULE **Molecule,
+                    AGGREGATE *Aggregate[], BEADTYPE *BeadType, BEAD *Bead[],
+                    MOLECULETYPE *MoleculeType, MOLECULE *Molecule[],
                     int *Index) {
   // TODO counting lines
   int file_line_count = -1;
   char line[LINE], *split[SPL_STR];
   // read 'Step|Last Step' line
   fgets(line, sizeof line, fr);
-  int words = SplitLine(split, SPL_STR, line, " \t\n");
+  int words = SplitLine(SPL_STR, split, line, " \t\n");
   // error if the first line is 'L[ast Step]' or isn't 'Step: <int>'//{{{
   if (split[0][0] == 'L') {
     strcpy(ERROR_MSG, "premature end of file");
@@ -1429,7 +1430,7 @@ void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts,
   } //}}}
   // get number of aggregates //{{{
   fgets(line, sizeof line, fr);
-  words = SplitLine(split, SPL_STR, line, " \t\n");
+  words = SplitLine(SPL_STR, split, line, " \t\n");
   // error - the number of aggregates must be <int>
   if (words == 0 || !IsInteger_old(split[0])) {
 //  ErrorPrintError_old();
@@ -1444,7 +1445,7 @@ void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts,
   (*Counts).Aggregates = atoi(split[0]); //}}}
   // skip blank line - error if not a blank line //{{{
   fgets(line, sizeof line, fr);
-  words = SplitLine(split, SPL_STR, line, " \t\n");
+  words = SplitLine(SPL_STR, split, line, " \t\n");
   if (words > 0) {
 //  ErrorPrintError_old();
 //  ColourChange(STDERR_FILENO, YELLOW);
@@ -1540,7 +1541,7 @@ void ReadAggCommand(BEADTYPE *BeadType, COUNTS Counts,
   // read first line (Aggregate command)
   char line[LINE];
   fgets(line, sizeof line, agg);
-  if (!ReadLine(agg, line)) {
+  if (!ReadLine(agg, LINE, line)) {
     strcpy(ERROR_MSG, "cannot read the first line from an aggregate file");
     PrintError();
     ErrorPrintFile(input_agg);
@@ -1549,7 +1550,7 @@ void ReadAggCommand(BEADTYPE *BeadType, COUNTS Counts,
   }
   fclose(agg);
   char *split[SPL_STR];
-  int words = SplitLine(split, SPL_STR, line, " \t\n");
+  int words = SplitLine(SPL_STR, split, line, " \t\n");
   // error - not enough strings for a proper Aggregate command //{{{
   if (words < 6) {
     strcpy(ERROR_MSG, "first line must contain a valid Aggregates command");
@@ -1614,7 +1615,7 @@ void SkipAgg(FILE *agg, char *agg_file) {
   int file_line_count = -1; // TODO line counting
   char line[LINE];
   fgets(line, sizeof line, agg);
-  if (!ReadLine(agg, line)) {
+  if (!ReadLine(agg, LINE, line)) {
     strcpy(ERROR_MSG, "cannot read a line from the aggregate file");
     PrintError();
     ErrorPrintFile(agg_file);
@@ -1622,7 +1623,7 @@ void SkipAgg(FILE *agg, char *agg_file) {
     exit(1);
   }
   char *split[SPL_STR];
-  int words = SplitLine(split, SPL_STR, line, " \t\n");
+  int words = SplitLine(SPL_STR, split, line, " \t\n");
   // error if the first line is 'L[ast Step]' or isn't 'Step: <int>'//{{{
   long val;
   if (split[0][0] == 'L') {
@@ -1637,14 +1638,14 @@ void SkipAgg(FILE *agg, char *agg_file) {
   } //}}}
   // get number of aggregates
   fgets(line, sizeof line, agg);
-  if (!ReadLine(agg, line)) {
+  if (!ReadLine(agg, LINE, line)) {
     strcpy(ERROR_MSG, "cannot read a line from the aggregate file");
     PrintError();
     ErrorPrintFile(agg_file);
     putc('\n', stderr);
     exit(1);
   }
-  words = SplitLine(split, SPL_STR, line, " \t\n");
+  words = SplitLine(SPL_STR, split, line, " \t\n");
   // Error - number of aggregates must be <int> //{{{
   if (words != 0 && !IsPosInteger(split[0], &val)) {
     strcpy(ERROR_MSG, "number of aggregates must be a natural number\n");
@@ -1667,14 +1668,14 @@ void SkipAgg(FILE *agg, char *agg_file) {
   }
   // skip empty line at the end
   fgets(line, sizeof line, agg);
-  if (!ReadLine(agg, line)) {
+  if (!ReadLine(agg, LINE, line)) {
     strcpy(ERROR_MSG, "cannot read a line from the aggregate file");
     PrintError();
     ErrorPrintFile(agg_file);
     putc('\n', stderr);
     exit(1);
   }
-  words = SplitLine(split, SPL_STR, line, " \t\n");
+  words = SplitLine(SPL_STR, split, line, " \t\n");
   if (feof(agg) == EOF) {
     strcpy(ERROR_MSG, "premature end of file");
     ErrorPrintFile(agg_file);
@@ -1719,7 +1720,7 @@ bool ReadFieldPbc(char *field, VECTOR *BoxLength) {
  * Function reading the species section of the FIELD-like file.
  */
 void ReadFieldBeadType(char *field, COUNTS *Counts,
-                       BEADTYPE **BeadType, BEAD **Bead) {
+                       BEADTYPE *BeadType[], BEAD *Bead[]) {
   // open FIELD-like file
   FILE *fr = OpenFile(field, "r");
   char line[LINE], split[SPL_STR][SPL_LEN];
@@ -1818,10 +1819,10 @@ void ReadFieldBeadType(char *field, COUNTS *Counts,
  * Function reading the molecules section of the FIELD-like file.
  */
 void ReadFieldMolecules(char *field, COUNTS *Counts,
-                        BEADTYPE **BeadType, BEAD **Bead,
-                        MOLECULETYPE **MoleculeType, MOLECULE **Molecule,
-                        PARAMS **bond_type, PARAMS **angle_type,
-                        PARAMS **dihedral_type) {
+                        BEADTYPE *BeadType[], BEAD *Bead[],
+                        MOLECULETYPE *MoleculeType[], MOLECULE *Molecule[],
+                        PARAMS *bond_type[], PARAMS *angle_type[],
+                        PARAMS *dihedral_type[]) {
   FILE *fr = OpenFile(field, "r");
   char line[LINE], split[SPL_STR][SPL_LEN];
   // read number of molecule types //{{{
@@ -2357,10 +2358,10 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
  * data copied from there afterwards.
  */
 void ReadField(char *field, VECTOR *BoxLength, COUNTS *Counts,
-               BEADTYPE **BeadType, BEAD **Bead, int **Index,
-               MOLECULETYPE **MoleculeType, MOLECULE **Molecule,
-               PARAMS **bond_type, PARAMS **angle_type,
-               PARAMS **dihedral_type) {
+               BEADTYPE *BeadType[], BEAD *Bead[], int *Index[],
+               MOLECULETYPE *MoleculeType[], MOLECULE *Molecule[],
+               PARAMS *bond_type[], PARAMS *angle_type[],
+               PARAMS *dihedral_type[]) {
 
   // read pbc if required //{{{
   if (BoxLength != NULL && !ReadFieldPbc(field, BoxLength)) {
@@ -2415,11 +2416,11 @@ void ReadField(char *field, VECTOR *BoxLength, COUNTS *Counts,
 
 // TODO will be changed - lammps data file
 // ReadLmpData() //{{{
-void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
-                 int *angles, PARAMS **angle_type,
+void ReadLmpData(char *data_file, int *bonds, PARAMS *bond_type[],
+                 int *angles, PARAMS *angle_type[],
                  VECTOR *BoxLength, VECTOR *box_lo, COUNTS *Counts,
-                 BEADTYPE **BeadType, BEAD **Bead, int **Index,
-                 MOLECULETYPE **MoleculeType, MOLECULE **Molecule) {
+                 BEADTYPE *BeadType[], BEAD *Bead[], int *Index[],
+                 MOLECULETYPE *MoleculeType[], MOLECULE *Molecule[]) {
   FILE *fr = OpenFile(data_file, "r");
 
   // ignore first line (comment) //{{{
@@ -3285,7 +3286,7 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS **bond_type,
  * Function to add a new bead type to a BEADTYPE struct
  * (and increment the number of bead types).
  */
-void NewBeadType(BEADTYPE **BeadType, int *number_of_types, char *name,
+void NewBeadType(BEADTYPE *BeadType[], int *number_of_types, char *name,
                  double charge, double mass, double radius) {
   int btype = *number_of_types;
   (*number_of_types)++;
@@ -3300,7 +3301,7 @@ void NewBeadType(BEADTYPE **BeadType, int *number_of_types, char *name,
 /*
  * Function to create a new molecule type in a MOLECULETYPE struct.
  */
-void NewMolType(MOLECULETYPE **MoleculeType, int *n_types, char *name,
+void NewMolType(MOLECULETYPE *MoleculeType[], int *n_types, char *name,
                 int n_beads, int n_bonds, int n_angles, int n_dihedrals) {
   int mtype = (*n_types)++;
   *MoleculeType = realloc(*MoleculeType,
@@ -3335,7 +3336,7 @@ void NewMolType(MOLECULETYPE **MoleculeType, int *n_types, char *name,
  * undefined mass, the mass of the molecule is also undefined.
  */
 void FillMolMass(int number_of_types,
-                 BEADTYPE *BeadType, MOLECULETYPE **MoleculeType) {
+                 BEADTYPE *BeadType, MOLECULETYPE *MoleculeType[]) {
   for (int i = 0; i < number_of_types; i++) {
     (*MoleculeType)[i].Mass = 0;
     for (int j = 0; j < (*MoleculeType)[i].nBeads; j++) {
@@ -3363,7 +3364,7 @@ void FillMolMass(int number_of_types,
  * undefined charge, the charge of the molecule is also undefined.
  */
 void FillMolCharge(int number_of_types, BEADTYPE *BeadType,
-                   MOLECULETYPE **MoleculeType) {
+                   MOLECULETYPE *MoleculeType[]) {
   for (int i = 0; i < number_of_types; i++) {
     (*MoleculeType)[i].Charge = 0;
     for (int j = 0; j < (*MoleculeType)[i].nBeads; j++) {
@@ -3390,14 +3391,14 @@ void FillMolCharge(int number_of_types, BEADTYPE *BeadType,
  * Function to fill BType array and mass and charge for each molecule type.
  */
 void FillMolType(int number_of_types, BEADTYPE *BeadType,
-                 MOLECULETYPE **MoleculeType) {
+                 MOLECULETYPE *MoleculeType[]) {
   FillMolBTypes(number_of_types, MoleculeType);
   FillMolMass(number_of_types, BeadType, MoleculeType);
   FillMolCharge(number_of_types, BeadType, MoleculeType);
 } //}}}
 // check validity of line types
 // VtfCheckCoorOrderedLine() //{{{
-int VtfCheckCoorOrderedLine(int words, char *split[SPL_STR]) {
+int VtfCheckCoorOrderedLine(int words, char *split[]) {
   double val_d;
   if (words > 2 && IsReal(split[0], &val_d) &&
                    IsReal(split[1], &val_d) &&
@@ -3407,7 +3408,7 @@ int VtfCheckCoorOrderedLine(int words, char *split[SPL_STR]) {
   return ERROR_LINE;
 } //}}}
 // VtfCheckCoorIndexedLine() //{{{
-int VtfCheckCoorIndexedLine(int words, char *split[SPL_STR]) {
+int VtfCheckCoorIndexedLine(int words, char *split[]) {
   long val_i;
   double val_d;
   // indexed line (may also be ordered)
@@ -3420,7 +3421,7 @@ int VtfCheckCoorIndexedLine(int words, char *split[SPL_STR]) {
   return ERROR_LINE;
 } //}}}
 // VtfCheckCoordinateLine() //{{{
-int VtfCheckCoordinateLine(int words, char *split[SPL_STR]) {
+int VtfCheckCoordinateLine(int words, char *split[]) {
   // indexed line (may also be ordered)
   if (VtfCheckCoorIndexedLine(words, split) == COOR_LINE_I) {
     return COOR_LINE_I;
@@ -3436,7 +3437,7 @@ int VtfCheckCoordinateLine(int words, char *split[SPL_STR]) {
  * Function to check if the provided line is a timestep line.
  *
  */
-int VtfCheckTimestepLine(int words, char *split[SPL_STR]) {
+int VtfCheckTimestepLine(int words, char *split[]) {
   // there are several possibilities how the timestep line can look
   /* ordered timestep:
    *   1) 't[imestep]'
@@ -3463,7 +3464,7 @@ int VtfCheckTimestepLine(int words, char *split[SPL_STR]) {
  * Function to check if the provided line is a pbc line. It returns -1 if not
  * and 0 or 1 if pbc line without or with angles, respectively.
  */
-int VtfCheckPbcLine(int words, char *split[SPL_STR]) {
+int VtfCheckPbcLine(int words, char *split[]) {
   // valid line: pbc <x> <y> <z> [<alpha> <beta> <gamm>]
   // unrecognised line
   double val;
@@ -3484,7 +3485,7 @@ int VtfCheckPbcLine(int words, char *split[SPL_STR]) {
 /*
  * Function to check if the provided line is a proper vtf structure atom line.
  */
-bool VtfCheckAtomLine(int words, char *split[SPL_STR]) {
+bool VtfCheckAtomLine(int words, char *split[]) {
   long val_i;
   double val_d;
   // error - line not starting with a[tom] default/<id> //{{{
@@ -3556,7 +3557,7 @@ positive real number ");
 /*
  * Function to check if the provided line is a proper vtf structure bond line.
  */
-bool VtfCheckBondLine(int words, char *split[SPL_STR]) {
+bool VtfCheckBondLine(int words, char *split[]) {
   long val_i;
   // valid line b[ond] '<id>:[  ]<id> anything'
   // error - only one string or missing 'b[ond]' keyword
@@ -3592,7 +3593,7 @@ bool VtfCheckBondLine(int words, char *split[SPL_STR]) {
 /*
  * Function to check what line from a vtf file is passed to it.
  */
-int VtfCheckLineType(int words, char *split[SPL_STR], char *file, int line) {
+int VtfCheckLineType(int words, char *split[], char *file, int line) {
   ERROR_MSG[0] = '\0'; // clear error message array
   // blank line
   if (words == 0) {
