@@ -2211,8 +2211,8 @@ void FreeSystemInfo(COUNTS Counts, MOLECULETYPE **MoleculeType, MOLECULE **Molec
  * Free memory for all standard arrays and structures of arrays.
  */
 void FreeSystemInfo2(COUNTS Counts, MOLECULETYPE **MoleculeType,
-                    MOLECULE **Molecule, int **Index_mol,
-                    BEADTYPE **BeadType, BEAD **Bead, int **Index) {
+                     MOLECULE **Molecule, int **Index_mol,
+                     BEADTYPE **BeadType, BEAD **Bead, int **Index) {
   free(*Index);
   free(*Index_mol);
   FreeBead(Counts.BeadsTotal, Bead);

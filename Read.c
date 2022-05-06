@@ -1123,14 +1123,14 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
         (*Box).alpha = atof(split[4]);
         (*Box).beta = atof(split[5]);
         (*Box).gamma = atof(split[6]);
-      } else {
-        (*Box).alpha = 90;
-        (*Box).beta = 90;
-        (*Box).gamma = 90;
         if (!TriclinicCellData(Box)) {
           ErrorPrintFull2(vcf_file, *file_line_count, split, words);
           exit(1);
         }
+      } else {
+        (*Box).alpha = 90;
+        (*Box).beta = 90;
+        (*Box).gamma = 90;
       }
      //}}}
     } else if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) { //{{{
@@ -1161,14 +1161,28 @@ bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
       (*Counts).BeadsCoor = 0;
       break; //}}}
     } else if (ltype == COMMENT_LINE) {
-      // TODO clean this
+      // TODO clean this; well, do something about it, anyway
 //    printf(">|%s|<\n", stuff);
 //    printf("%ld %ld\n", sizeof stuff, strlen(stuff));
-      cur += snprintf(cur, end-cur, "%s", split[0]);
-      for (int i = 1; i < (words-1) && cur < end; i++) {
-        cur += snprintf(cur, end-cur, " %s", split[i]);
+//    if ((end-cur) < LINE) {
+      if ((end-cur) > 0) {
+        cur += snprintf(cur, end-cur, "%s", split[0]);
       }
-      cur += snprintf(cur, end-cur, " %s\n", split[words-1]);
+        for (int i = 1; i < (words-1) && cur < end; i++) {
+          if ((end-cur) > 0) {
+            cur += snprintf(cur, end-cur, " %s", split[i]);
+          } else {
+            break;
+          }
+        }
+//      printf("%ld %ld %d |%s|\n", end-cur, strlen(stuff), LINE, stuff);
+        if ((end-cur) > 0) {
+          cur += snprintf(cur, end-cur, " %s\n", split[words-1]);
+        }
+//      printf("x %ld %ld %d |%s|\n", end-cur, strlen(stuff), LINE, stuff);
+//    } else {
+//      printf("%ld %d |%s|\n", end-cur, LINE, stuff);
+//    }
 //    printf("|%s| %ld\n", stuff, strlen(stuff));
     } else if (ltype == ERROR_LINE) {
       strcpy(ERROR_MSG, "ignoring unrecognised line in a timestep preamble");

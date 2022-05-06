@@ -411,12 +411,14 @@ int main(int argc, char *argv[]) {
     PrintCommand(stdout, argc, argv);
   } //}}}
 
+  InFile = calloc(1000000, sizeof *InFile);
+
   // read information from input vtf file(s) if present //{{{
   BEADTYPE *bt_orig;
   MOLECULETYPE *mt_orig;
   BEAD *bead_orig;
   int *Index_orig,
-      *Index_mol; // same, but between molecule indices
+      *Index_mol_orig; // same, but between molecule indices
   MOLECULE *mol_orig;
   COUNTS Counts_orig = InitCounts; // structure with number of beads, molecules, etc.
   BOX Box_orig = InitBox; // triclinic box dimensions and angles
@@ -428,8 +430,7 @@ int main(int argc, char *argv[]) {
 //              &Box_orig, &Counts_orig, &bt_orig, &bead_orig, &Index_orig,
 //              &mt_orig, &mol_orig);
     VtfReadStruct(input_vsf, false, &Counts_orig, &bt_orig, &bead_orig,
-                  &Index_orig, &mt_orig, &mol_orig, &Index_mol);
-    InFile = calloc(Counts_orig.BeadsTotal, sizeof *InFile);
+                  &Index_orig, &mt_orig, &mol_orig, &Index_mol_orig);
   } else { // if there's no input coordinate file, just allocate some memory
     bt_orig = calloc(1, sizeof (BEADTYPE));
     mt_orig = calloc(1, sizeof (MOLECULETYPE));
@@ -501,15 +502,14 @@ int main(int argc, char *argv[]) {
   if (strlen(input_coor) > 0) {
     vcf = OpenFile(input_coor, "r");
 //  count = SkipCoorSteps(vcf, input_coor, Counts_orig, start, silent);
+    count= 0;
     if (!silent) {
       fprintf(stdout, "Using step %6d\n", ++count);
     }
-//  ReadVcfCoordinates(indexed, input_coor, vcf, &Box, Counts_orig,
-//                     Index_orig, &bead_orig, &stuff);
     int file_line_count = 0, count_vcf = 0;
-    VtfReadTimestep(vcf, input_coor, &Box_orig, &Counts_orig, bt_orig, &bead_orig,
-                    Index_orig, mt_orig, mol_orig,
-                    &file_line_count, count_vcf);
+    VtfReadTimestep(vcf, input_coor, &Box_orig, &Counts_orig, bt_orig,
+                    &bead_orig, Index_orig, mt_orig, mol_orig,
+                    &file_line_count, count_vcf, stuff);
     fclose(vcf);
   } //}}}
 
@@ -519,7 +519,8 @@ int main(int argc, char *argv[]) {
   MOLECULETYPE *mt_add;
   BEADTYPE *bt_add;
   BEAD *bead_add;
-  int *Index_add;
+  int *Index_add,
+      *Index_mol_add;
   PARAMS *bond_type;
   PARAMS *angle_type;
   PARAMS *dihedral_type;
@@ -532,18 +533,14 @@ int main(int argc, char *argv[]) {
               &bond_type, &angle_type, &dihedral_type);
     Box_add.Length = Box_orig.Length; //}}}
   } else { // read stuff to add from vtf file(s) ('-vtf' option) //{{{
-//  FullVtfRead(add_vsf, input_coor_add, false, vtf_add, &indexed_add,
-//              &struct_lines_add, &Box_add, &Counts_add,
-//              &bt_add, &bead_add, &Index_add, &mt_add, &mol_add);
     VtfReadStruct(add_vsf, false, &Counts_add, &bt_add, &bead_add, &Index_add,
-                  &mt_add, &mol_add, &Index_mol);
+                  &mt_add, &mol_add, &Index_mol_add);
     // read coordinates
     vcf = OpenFile(input_coor_add, "r");
-//  ReadVcfCoordinates(indexed_add, input_coor_add, vcf, &Box, Counts_add,
-//                     Index_add, &bead_add, &stuff);
     int file_line_count = 0, count_vcf = 0;
-    VtfReadTimestep(vcf, input_coor_add, &Box_add, &Counts_add, bt_add, &bead_add,
-                    Index_add, mt_add, mol_add, &file_line_count, count_vcf);
+    VtfReadTimestep(vcf, input_coor_add, &Box_add, &Counts_add, bt_add,
+                    &bead_add, Index_add, mt_add, mol_add, &file_line_count,
+                    count_vcf, stuff);
     fclose(vcf);
     // TODO: !no_rot? ...shouldn't -vtf be this by default?
     VECTOR rotated[Counts_add.BeadsCoor];
@@ -1396,6 +1393,7 @@ int main(int argc, char *argv[]) {
   // create output vsf file
   WriteVsf(output_vsf, Counts_new, bt_new, bead_new, mt_new, mol_new, false);
 
+  count=0;
   // free memory - to make valgrind happy //{{{
   FreeSystemInfo(Counts_orig, &mt_orig, &mol_orig,
                  &bt_orig, &bead_orig, &Index_orig);
@@ -1403,6 +1401,8 @@ int main(int argc, char *argv[]) {
                  &bt_add, &bead_add, &Index_add);
   FreeSystemInfo(Counts_new, &mt_new, &mol_new,
                  &bt_new, &bead_new, &Index_new);
+  free(Index_mol_add);
+  free(Index_mol_orig);
   free(stuff);
   free(bond_type);
   free(angle_type);
