@@ -235,7 +235,7 @@ int main(int argc, char *argv[]) {
     if (use) {
       if (!VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
                            Index, MoleculeType, Molecule,
-                           &file_line_count, count_vcf)) {
+                           &file_line_count, count_vcf, stuff)) {
         count_vcf--;
         break;
       }

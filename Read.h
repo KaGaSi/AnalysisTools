@@ -20,6 +20,24 @@
 #define TIME_LINE_I 8
 #define TIME_LINE_O 9
 
+// Functions to read vtf files //{{{
+
+// Get the first pbc line from a vcf/vtf coordinate file.
+void VtfReadPBC(char input_vcf[], BOX *Box);
+// Read all information about the system from a vsf/vtf structure file.
+void VtfReadStruct(char vsf_file[], bool detailed, COUNTS *Counts,
+                   BEADTYPE *BeadType[], BEAD *Bead[], int *Index[],
+                   MOLECULETYPE *MoleculeType[], MOLECULE *Molecule[],
+                   int *Index_mol[]);
+// Read a single timestep from a vcf/vtf coordinate file
+bool VtfReadTimestep(FILE *vcf, char vcf_file[], BOX *Box, COUNTS *Counts,
+                     BEADTYPE BeadType[], BEAD *Bead[], int Index[],
+                     MOLECULETYPE MoleculeType[], MOLECULE Molecule[],
+                     int *file_line_count, int step_count, char stuff[]);
+// Discard a single timestep from a vcf/vtf coordinate file
+bool VtfSkipTimestep(FILE *vcf, char vcf_file[],
+                     int *file_line_count, int step_count);
+bool VtfSkipCoorOrderedLine(FILE *fr);
 // VtfAtomLineValues() //{{{
 /*
  * Function to go through a confirmed atom line and pick where are which
@@ -28,48 +46,16 @@
  * If not present, the corresponding element has -1;
  */
 int * VtfAtomLineValues(int words, char *split[]); //}}}
-
-// VtfReadPBC() //{{{
-/*
- * Function to get box dimensions from the provided coordinate file, that
- * is, search for a 'pbc <x> <y> <z> [<alpha> <beta> <gamma>]' line. The
- * provided file can either be a vcf coordinate only file or a full vtf one.
- */
-void VtfReadPBC(char *input_vcf, BOX *Box); //}}}
-
-// VtfReadStruct() //{{{
-/*
- * Function to read vtf structure file. It can recognize bead and molecule
- * types either according to name only (taking everything with the same name
- * for the first bead/molecule with that name) or according to all information
- * (name, mass, charge, and radius for bead types; bead order, bonds, angles,
- * and dihedrals for molecule types).
- */
-void VtfReadStruct(char *vsf_file, bool detailed, COUNTS *Counts,
-                   BEADTYPE *BeadType[], BEAD *Bead[], int *Index[],
-                   MOLECULETYPE *MoleculeType[], MOLECULE *Molecule[],
-                   int *Index_mol[]); //}}}
-
-// VtfReadTimestep() //{{{
-/*
- * Function to read vcf timestep - first the preamble (getting timestep type
- * and possibly pbc), then the coordinates. Return false at eof or when
- * something is wrong in the file and true when the timestep is read properly.
- */
-bool VtfReadTimestep(FILE *vcf, char *vcf_file, BOX *Box, COUNTS *Counts,
-                     BEADTYPE *BeadType, BEAD *Bead[], int *Index,
-                     MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
-                     int *file_line_count, int step_count, char *stuff); //}}}
-
-bool VtfSkipTimestep(FILE *vcf, char *vcf_file,
-                     int *file_line_count, int step_count);
-
-// VtfSkipCoorOrderedLine() //{{{
-/*
- * Helper function for VtfSkipTimestep() to read and discard a coordinate line
- * (where a line starting with three numbers is considered a coordinate line).
- */
-bool VtfSkipCoorOrderedLine(FILE *fr); //}}}
+// functions checkingi validity of line types
+int VtfCheckLineType(int words, char *split[], char *file, int line);
+int VtfCheckCoorOrderedLine(int words, char *split[]);
+int VtfCheckCoorIndexedLine(int words, char *split[]);
+int VtfCheckCoordinateLine(int words, char *split[]);
+int VtfCheckTimestepLine(int words, char *split[]);
+int VtfCheckPbcLine(int words, char *split[]);
+bool VtfCheckAtomLine(int words, char *split[]);
+bool VtfCheckBondLine(int words, char *split[]);
+ //}}}
 
 // TODO will be changed - agg files
 // ReadAggCommand() //{{{
@@ -204,14 +190,5 @@ void FillMolCharge(int number_of_types, BEADTYPE *BeadType,
  */
 void FillMolType(int number_of_types, BEADTYPE *BeadType,
                  MOLECULETYPE *MoleculeType[]); //}}}
-// check validity of line types
-int VtfCheckLineType(int words, char *split[], char *file, int line);
-int VtfCheckCoorOrderedLine(int words, char *split[]);
-int VtfCheckCoorIndexedLine(int words, char *split[]);
-int VtfCheckCoordinateLine(int words, char *split[]);
-int VtfCheckTimestepLine(int words, char *split[]);
-int VtfCheckPbcLine(int words, char *split[]);
-bool VtfCheckAtomLine(int words, char *split[]);
-bool VtfCheckBondLine(int words, char *split[]);
  //}}}
 #endif

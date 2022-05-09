@@ -163,7 +163,6 @@ int main(int argc, char *argv[]) {
     PrintError();
     exit(1);
   } //}}}
-  PrintBox(Box);
 
   // <bead names> - names of bead types to save //{{{
   for (int i = 0; i < Counts.TypesOfBeads; i++) {
@@ -376,10 +375,10 @@ int main(int argc, char *argv[]) {
   //}}}
   } else if (!silent) {
     if (isatty(STDOUT_FILENO)) {
-      fflush(stdout);
       fprintf(stdout, "\r                          \r");
     }
     fprintf(stdout, "Last Step: %d\n", count_vcf);
+    fflush(stdout);
   } //}}}
 
   // free memory
