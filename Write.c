@@ -1,92 +1,8 @@
 #include "Write.h"
 
-// WriteCoorIndexed_old() //{{{
-/**
- * Function writing coordinates to a `.vcf` file. According to the Write flag
- * in BeadType and MoleculeType structures only certain bead types will be
- * saved into the indexed timestep in .vcf file.
- */
-void WriteCoorIndexed_old(FILE *vcf_file, COUNTS Counts,
-                      BEADTYPE *BeadType, BEAD *Bead,
-                      MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
-                      char *stuff, VECTOR BoxLength) {
-  // print comment at the beginning of a timestep if present in initial vcf file
-  fprintf(vcf_file, "%s\n", stuff);
-  // print box size
-  fprintf(vcf_file, "pbc %lf %lf %lf\n", BoxLength.x, BoxLength.y, BoxLength.z);
-  // print 'indexed' on the next
-  fprintf(vcf_file, "indexed\n");
-
-  for (int i = 0; i < Counts.BeadsCoor; i++) {
-    int btype = Bead[i].Type;
-    if (BeadType[btype].Write) {
-      if (Bead[i].Molecule != -1) { // bead in a molecule
-        int mtype = Molecule[Bead[i].Molecule].Type;
-        if (MoleculeType[mtype].Write) {
-          fprintf(vcf_file, "%8d %8.4f %8.4f %8.4f\n", Bead[i].Index,
-                                                       Bead[i].Position.x,
-                                                       Bead[i].Position.y,
-                                                       Bead[i].Position.z);
-        }
-      } else { // monomer bead
-        fprintf(vcf_file, "%8d %8.4f %8.4f %8.4f\n", Bead[i].Index,
-                                                     Bead[i].Position.x,
-                                                     Bead[i].Position.y,
-                                                     Bead[i].Position.z);
-      }
-    }
-  }
-} //}}}
-
-// WriteCoorIndexed() //{{{
-/**
- * Function writing coordinates to a `.vcf` file. According to the Write flag
- * in BeadType and MoleculeType structures only certain bead types will be
- * saved into the indexed timestep in .vcf file.
- */
-void WriteCoorIndexed(FILE *vcf_file, COUNTS Counts,
-                         BEADTYPE *BeadType, BEAD *Bead,
-                         MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
-                         char *stuff, BOX Box) {
-  // print comment at the beginning of a timestep if present in initial vcf file
-  fprintf(vcf_file, "%s\n", stuff);
-  // print box size
-  fprintf(vcf_file, "pbc %lf %lf %lf  ", Box.Length.x,
-                                         Box.Length.y,
-                                         Box.Length.z);
-  fprintf(vcf_file, "    %lf %lf %lf\n", Box.alpha, Box.beta, Box.gamma);
-  // print 'indexed' on the next
-  fprintf(vcf_file, "indexed\n");
-
-  for (int i = 0; i < Counts.BeadsCoor; i++) {
-    int btype = Bead[i].Type;
-    if (BeadType[btype].Write) {
-      if (Bead[i].Molecule != -1) { // bead in a molecule
-        int mtype = Molecule[Bead[i].Molecule].Type;
-        if (MoleculeType[mtype].Write) {
-          fprintf(vcf_file, "%8d %8.4f %8.4f %8.4f\n", Bead[i].Index,
-                                                       Bead[i].Position.x,
-                                                       Bead[i].Position.y,
-                                                       Bead[i].Position.z);
-        }
-      } else { // monomer bead
-        fprintf(vcf_file, "%8d %8.4f %8.4f %8.4f\n", Bead[i].Index,
-                                                     Bead[i].Position.x,
-                                                     Bead[i].Position.y,
-                                                     Bead[i].Position.z);
-      }
-    }
-  }
-} //}}}
-
-// VtfWriteCoorIndexed() //{{{
-/**
- * Function writing coordinates to a `.vcf` file. According to the Write flag
- * in BeadType and MoleculeType structures only certain bead types will be
- * saved into the indexed timestep in .vcf file.
- */
-void VtfWriteCoorIndexed(FILE *vcf, char *stuff,
-                         COUNTS Counts, BEAD *Bead, BOX Box) {
+// Append an indexed timestep to a vcf/vtf coordinate file //{{{
+void VtfWriteCoorIndexed(FILE *vcf, char stuff[], int InFile[],
+                         COUNTS Counts, BEAD Bead[], BOX Box) {
   // print box size
   fprintf(vcf, "\npbc %lf %lf %lf  ", Box.Length.x, Box.Length.y, Box.Length.z);
   fprintf(vcf, "    %lf %lf %lf\n", Box.alpha, Box.beta, Box.gamma);
@@ -97,17 +13,15 @@ void VtfWriteCoorIndexed(FILE *vcf, char *stuff,
   // print 'indexed' on the next
   fprintf(vcf, "indexed\n");
 
-//for (int i = 0; i < Counts.BeadsTotal; i++) {
-//  int id = i;
-  int none = true;
+  bool none = true;
   for (int i = 0; i < Counts.BeadsCoor; i++) {
     int id = InFile[i];
     if (Bead[id].InTimestep && Bead[id].Use) {
       none = false;
       fprintf(vcf, "%8d %8.4f %8.4f %8.4f\n", Bead[id].Index,
-                                                   Bead[id].Position.x,
-                                                   Bead[id].Position.y,
-                                                   Bead[id].Position.z);
+                                              Bead[id].Position.x,
+                                              Bead[id].Position.y,
+                                              Bead[id].Position.z);
     }
   }
   if (none) {
@@ -116,42 +30,41 @@ void VtfWriteCoorIndexed(FILE *vcf, char *stuff,
   }
 } //}}}
 
-// WriteCoorXYZ() //{{{
-void WriteCoorXYZ(FILE *xyz_file, COUNTS Counts,
+// Append a timestep to an xyz file //{{{
+void WriteCoorXYZ(FILE *xyz, COUNTS Counts, int InFile[],
                   BEADTYPE *BeadType, BEAD *Bead) {
-
-  // count beads to write
+  // find out number of beads to save
   int count = 0;
-  for (int i = 0; i < Counts.TypesOfBeads; i++) {
-    if (BeadType[i].Write) {
-      count += BeadType[i].Number;
+  bool none = true; // to make sure there are beads to save
+  for (int i = 0; i < Counts.BeadsCoor; i++) {
+    int id = InFile[i];
+    if (Bead[id].InTimestep && Bead[id].Use) {
+      none = false;
+      count++;
     }
   }
-
-  // print number of beads to file
-  fprintf(xyz_file, "%d\n\n", count);
-
-  // print coordinates
-  for (int i = 0; i < Counts.BeadsCoor; i++) {
-    int type = Bead[i].Type;
-    if (BeadType[type].Write) {
-      fprintf(xyz_file, "%8s %7.3f %7.3f %7.3f\n", BeadType[type].Name, Bead[i].Position.x, Bead[i].Position.y, Bead[i].Position.z);
+  if (none) {
+    strcpy(ERROR_MSG, "no beads to save");
+    WarnPrintWarning();
+  } else {
+    fprintf(xyz, "%d\n\n", count);
+    for (int i = 0; i < Counts.BeadsCoor; i++) {
+      int id = InFile[i];
+      if (Bead[id].InTimestep && Bead[id].Use) {
+        int type = Bead[id].Type;
+        fprintf(xyz, "%8s %7.3f %7.3f %7.3f\n", BeadType[type].Name,
+                                                Bead[id].Position.x,
+                                                Bead[id].Position.y,
+                                                Bead[id].Position.z);
+      }
     }
   }
 } //}}}
 
-// TODO: if q<0, are the lines nicely lined up?
-// WriteVsf() //{{{
-/*
- * Function creating `.vsf` structure file for use in conjunction with
- * `.vcf` coordinate file for better visualisation via VMD program. Note that
- * if not all bead types from the original system are not present in the
- * structures, the system may significantly differ from the original one.
- */
+// Create a new vsf/vtf structure file. //{{{
 void WriteVsf(char *input_vsf, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
               MOLECULETYPE *MoleculeType, MOLECULE *Molecule, bool change) {
 
-  // opten structure file //{{{
   FILE *fw = OpenFile(input_vsf, "w");
   // find most common type of bead and make it default //{{{
   int type_def = -1, count = 0;
@@ -175,7 +88,6 @@ void WriteVsf(char *input_vsf, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
     fprintf(fw, "mass %lf ", BeadType[type_def].Mass);
     fprintf(fw, "charge %lf\n", BeadType[type_def].Charge);
   } //}}}
-
   // print beads //{{{
   for (int i = 0; i < Counts.BeadsCoor; i++) {
     int btype = Bead[i].Type;
@@ -216,7 +128,6 @@ void WriteVsf(char *input_vsf, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
       putc('\n', fw);
     }
   } //}}}
-
   // print bonds //{{{
   putc('\n', fw);
   for (int i = 0; i < Counts.Molecules; i++) {
@@ -231,15 +142,14 @@ void WriteVsf(char *input_vsf, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
                                      Bead[bead2].Index);
     }
   } //}}}
-
   // close structure file
   fclose(fw);
 } //}}}
 
+// TODO will change
 // WriteAggregates() //{{{
-/**
- * Function writiing (appending to .agg file) information about aggregates from
- * given timestep.
+/*
+ * Append aggregate information from a timestep to an .agg file
  */
 void WriteAggregates(int step_count, char *agg_file, COUNTS Counts,
                      MOLECULETYPE *MoleculeType, BEAD *Bead, AGGREGATE *Aggregate) {
@@ -279,9 +189,10 @@ void WriteAggregates(int step_count, char *agg_file, COUNTS Counts,
   fclose(fw);
 } //}}}
 
+// TODO will change
 // WriteField() //{{{
 /*
- * Function writing a dl_meso FIELD file.
+ * Create a new dl_meso FIELD file
  */
 void WriteField(char *field, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
                 MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
@@ -412,10 +323,51 @@ void WriteField(char *field, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
   fclose(fw);
 } //}}}
 
-// PrintByline() //{{{
-void PrintByline(FILE *ptr, int argc, char *argv[]) {
+void PrintByline(FILE *ptr, int argc, char *argv[]) { //{{{
   fprintf(ptr, "# Created by AnalysisTools v%s ", VERSION);
   fprintf(ptr, " (https://github.com/KaGaSi/AnalysisTools)\n");
   fprintf(ptr, "# command: ");
   PrintCommand(ptr, argc, argv);
+} //}}}
+
+// TODO remove
+// WriteCoorIndexed() //{{{
+/**
+ * Function writing coordinates to a `.vcf` file. According to the Write flag
+ * in BeadType and MoleculeType structures only certain bead types will be
+ * saved into the indexed timestep in .vcf file.
+ */
+void WriteCoorIndexed(FILE *vcf_file, COUNTS Counts,
+                         BEADTYPE *BeadType, BEAD *Bead,
+                         MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
+                         char *stuff, BOX Box) {
+  // print comment at the beginning of a timestep if present in initial vcf file
+  fprintf(vcf_file, "%s\n", stuff);
+  // print box size
+  fprintf(vcf_file, "pbc %lf %lf %lf  ", Box.Length.x,
+                                         Box.Length.y,
+                                         Box.Length.z);
+  fprintf(vcf_file, "    %lf %lf %lf\n", Box.alpha, Box.beta, Box.gamma);
+  // print 'indexed' on the next
+  fprintf(vcf_file, "indexed\n");
+
+  for (int i = 0; i < Counts.BeadsCoor; i++) {
+    int btype = Bead[i].Type;
+    if (BeadType[btype].Write) {
+      if (Bead[i].Molecule != -1) { // bead in a molecule
+        int mtype = Molecule[Bead[i].Molecule].Type;
+        if (MoleculeType[mtype].Write) {
+          fprintf(vcf_file, "%8d %8.4f %8.4f %8.4f\n", Bead[i].Index,
+                                                       Bead[i].Position.x,
+                                                       Bead[i].Position.y,
+                                                       Bead[i].Position.z);
+        }
+      } else { // monomer bead
+        fprintf(vcf_file, "%8d %8.4f %8.4f %8.4f\n", Bead[i].Index,
+                                                     Bead[i].Position.x,
+                                                     Bead[i].Position.y,
+                                                     Bead[i].Position.z);
+      }
+    }
+  }
 } //}}}

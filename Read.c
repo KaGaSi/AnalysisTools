@@ -1,12 +1,13 @@
 #include "Read.h"
-// TODO test output of snprintf() to get rid of a warning; see https://stackoverflow.com/questions/51534284/how-to-circumvent-format-truncation-warning-in-gcc
+// TODO test output of snprintf() to get rid of a warning; see
+//      https://stackoverflow.com/questions/51534284/how-to-circumvent-format-truncation-warning-in-gcc
 // TODO impropers vs dihedrals - add improper section to FIELD
 
 // Read vtf files //{{{
 // VtfReadPBC() //{{{
 /*
- * Function to get the first pbc line from a vcf/vtf coordinate file. If a
- * coordinate line is encountered first, the function exits with an error.
+ * Get the first pbc line from a vcf/vtf coordinate file. If a coordinate line
+ * is encountered before the pbc one, the function exits with an error.
  */
 void VtfReadPBC(char input_vcf[], BOX *Box) {
   // open the coordinate file
@@ -58,10 +59,10 @@ searching for a pbc line");
 } //}}}
 // VtfReadStruct() //{{{
 /*
- * Function to read vsf/vtf structure file. It can recognize bead and molecule
- * types based either on name only or on all information (name, mass, charge,
- * and radius for bead types; bead order, bonds, angles, and dihedrals for
- * molecule types).
+ * Read system information from vsf/vtf structure file. It can recognize bead
+ * and molecule types based either on name only or on all information (name,
+ * mass, charge, and radius for bead types; bead order, bonds, angles, and
+ * dihedrals for molecule types).
  */
 void VtfReadStruct(char struct_file[], bool detailed, COUNTS *Counts,
                    BEADTYPE *BeadType[], BEAD *Bead[], int *Index[],
@@ -278,7 +279,7 @@ inside the structure block ");
     strcpy(ERROR_MSG, "not all beads defined ('atom default' line is omitted)");
     PrintError();
     ErrorPrintFile(struct_file);
-    fprintf(stderr, "%s, %s%d", ErrRed(), ErrCyan(),
+    fprintf(stderr, "%s, %s%d", ErrRed(), ErrYellow(),
                                 (*Counts).BeadsTotal-count_atoms);
     fprintf(stderr, "%s bead(s) undefined%s\n", ErrRed(), ErrColourReset());
     exit(1);
@@ -1050,16 +1051,18 @@ contact developper");
 } //}}}
 // VtfReadTimestep() //{{{
 /*
- * Function to read vcf/vtf timestep - first the preamble (getting timestep
- * type and possibly pbc, ignoring any unrecognised line), then the coordinates
- * (if a wrong line is in the coordinate section, the function skips the
- * remaining coordinate lines and returns to the beginning to read the next
- * timestep). Returns false only if a line couldn't be read (e.g., on eof).
+ * Read a single timestep from a vcf/vtf coordinate line - first the preamble
+ * (getting timestep type and possibly pbc, ignoring any unrecognised line),
+ * then the coordinates (if a wrong line is in the coordinate section, the
+ * function skips the remaining coordinate lines and returns to the beginning
+ * to read the next timestep). Returns false only if a line couldn't be read
+ * (e.g., on eof).
  */
 bool VtfReadTimestep(FILE *vcf, char vcf_file[], BOX *Box, COUNTS *Counts,
                      BEADTYPE BeadType[], BEAD *Bead[], int Index[],
                      MOLECULETYPE MoleculeType[], MOLECULE Molecule[],
-                     int *file_line_count, int step_count, char stuff[]) {
+                     int *InFile[], int *file_line_count,
+                     int step_count, char stuff[]) {
   start_function: ; // return here when a bad line is encountered
   char *cur = stuff, * const end = stuff + LINE; // to properly snprintf stuff[]
   // set 'not in timestep' to all beads //{{{
@@ -1236,7 +1239,7 @@ using next timestep instead of this one");
           (*Bead)[id].Velocity.y = vel.y;
           (*Bead)[id].Velocity.z = vel.z;
         }
-        InFile[(*Counts).BeadsCoor] = id;
+        (*InFile)[(*Counts).BeadsCoor] = id;
       } else {
         // warn: ordered line in indexed timestep - read next timestep //{{{
         strcpy(ERROR_MSG, "ordered coordinate line in indexed timestep; \
@@ -1278,7 +1281,7 @@ using next timestep instead of this one");
         (*Bead)[id].Velocity.y = val.y;
         (*Bead)[id].Velocity.z = val.z;
       }
-      InFile[(*Counts).BeadsCoor] = id;
+      (*InFile)[(*Counts).BeadsCoor] = id;
     }
     (*Counts).BeadsCoor++;
   }
@@ -1299,10 +1302,10 @@ using next timestep instead of this one");
 } //}}}
 // VtfSkipTimestep() //{{{
 /*
- * Function to discard a single timestep from a vcf/vtf coordinate file; it
- * assumes the coordinates are ordered lines (i.e., three numbers). Returns
- * false only if a line cannot be read (e.g., on eof), if a timestep line is
+ * Discard a single timestep from a vcf/vtf coordinate file. It assumes the
+ * coordinates are ordered lines (i.e., three numbers); if a timestep line is
  * missing, it prints only a warning (and skips the ensuing coordinate lines).
+ * Returns false only if a line cannot be read (e.g., on eof).
  */
 bool VtfSkipTimestep(FILE *vcf, char vcf_file[],
                      int *file_line_count, int step_count) {
@@ -1579,10 +1582,10 @@ bool VtfCheckBondLine(int words, char *split[]) { //{{{
 // save data from a vsf line TODO from here on
 // VtfAtomLineValues() //{{{
 /*
- * Function to go through a confirmed atom line and pick where are which
- * keywords (or its value, more precisely).
- * value array: 0..name, 1..mass, 2..charge, 3..radius, 4..resame, 5..resid
- * If not present, the corresponding element has -1.
+ * Go through a confirmed atom line, picking out positions of values
+ * corresponding to certain keywords. Returns 'array' where subscripts
+ * correspond to n-th split[] for: 0..name, 1..mass, 2..charge, 3..radius,
+ * 4..resame, 5..resid If not present, the corresponding element has - 1.
  */
 int * VtfAtomLineValues(int words, char *split[]) {
   static int value[6];

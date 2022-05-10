@@ -14,8 +14,6 @@
 #define MOL_NAME 8 // maximum molecule name length (array size is +1)
 #define BEAD_NAME 16 // maximum bead name length (array size is +1)
 
-extern int *InFile;
-
 // struct Counts //{{{
 /**
  * \brief Total numbers of various things.

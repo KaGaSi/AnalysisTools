@@ -1,6 +1,4 @@
 #include "../AnalysisTools.h"
-int nanosleep(const struct timespec *req, struct timespec *rem);
-int *InFile;
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -156,7 +154,7 @@ int main(int argc, char *argv[]) {
   BOX Box = InitBox; // triclinic box dimensions and angles
   VtfReadStruct(input_vsf, false, &Counts, &BeadType, &Bead, &Index,
                 &MoleculeType, &Molecule, &Index_mol);
-  InFile = calloc(Counts.BeadsTotal, sizeof *InFile);
+  int *InFile = calloc(Counts.BeadsTotal, sizeof *InFile);
   VtfReadPBC(input_coor, &Box);
   if (!TriclinicCellData(&Box)) {
     strcpy(ERROR_MSG, "wrong pbc data");
@@ -230,6 +228,10 @@ int main(int argc, char *argv[]) {
   FILE *out = OpenFile(output_vcf, "w");
   PrintByline(out, argc, argv);
   fclose(out);
+  // make sure a new xyz file is created in case of -xyz option
+  if (output_xyz[0] != '\0') {
+    fclose(OpenFile(output_xyz, "w"));
+  }
 
   // main loop //{{{
   int n_opt_count = 0, // count saved steps if -n option is used
@@ -277,7 +279,7 @@ int main(int argc, char *argv[]) {
     // read and write the timestep, if it should be saved //{{{
     if (use) {
       if (!VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
-                           Index, MoleculeType, Molecule,
+                           Index, MoleculeType, Molecule, &InFile,
                            &file_line_count, count_vcf, stuff)) {
         count_vcf--;
         break;
@@ -299,12 +301,12 @@ int main(int argc, char *argv[]) {
       }
       // write to output .vcf file
       out = OpenFile(output_vcf, "a");
-      VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
+      VtfWriteCoorIndexed(out, stuff, InFile, Counts, Bead, Box);
       fclose(out);
       // write to xyz file?
       if (output_xyz[0] != '\0') {
         out = OpenFile(output_xyz, "a");
-        WriteCoorXYZ(out, Counts, BeadType, Bead);
+        WriteCoorXYZ(out, Counts, InFile, BeadType, Bead);
         fclose(out);
       }
       //}}}
@@ -340,7 +342,8 @@ int main(int argc, char *argv[]) {
       fsetpos(vcf, &position2);
     }
     VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead, Index,
-                    MoleculeType, Molecule, &file_line_count, count_vcf, stuff);
+                    MoleculeType, Molecule, &InFile, &file_line_count,
+                    count_vcf, stuff);
     // transform coordinates into fractional ones for non-orthogonal box
     ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
     // wrap and/or join molecules?
@@ -355,12 +358,12 @@ int main(int argc, char *argv[]) {
     FromFractionalCoor(Counts.BeadsCoor, &Bead, Box);
     // write to output .vcf file
     out = OpenFile(output_vcf, "a");
-    VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
+    VtfWriteCoorIndexed(out, stuff, InFile, Counts, Bead, Box);
     fclose(out);
     // write to xyz file?
     if (output_xyz[0] != '\0') {
       out = OpenFile(output_xyz, "a");
-      WriteCoorXYZ(out, Counts, BeadType, Bead);
+      WriteCoorXYZ(out, Counts, InFile, BeadType, Bead);
       fclose(out);
     }
   }

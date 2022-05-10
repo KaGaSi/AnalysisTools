@@ -33,19 +33,14 @@ void VtfReadStruct(char vsf_file[], bool detailed, COUNTS *Counts,
 bool VtfReadTimestep(FILE *vcf, char vcf_file[], BOX *Box, COUNTS *Counts,
                      BEADTYPE BeadType[], BEAD *Bead[], int Index[],
                      MOLECULETYPE MoleculeType[], MOLECULE Molecule[],
-                     int *file_line_count, int step_count, char stuff[]);
+                     int *InVcfFile[], int *file_line_count,
+                     int step_count, char stuff[]);
 // Discard a single timestep from a vcf/vtf coordinate file
 bool VtfSkipTimestep(FILE *vcf, char vcf_file[],
                      int *file_line_count, int step_count);
 bool VtfSkipCoorOrderedLine(FILE *fr);
-// VtfAtomLineValues() //{{{
-/*
- * Function to go through a confirmed atom line and pick where are which
- * keywords (or its value, more precisely).
- * values array: 0..name, 1..mass, 2..charge, 3..radius, 4..resame, 5..resid
- * If not present, the corresponding element has -1;
- */
-int * VtfAtomLineValues(int words, char *split[]); //}}}
+// Find position of atom line keywords in the provided strtok'd line
+int * VtfAtomLineValues(int words, char *split[]);
 // functions checkingi validity of line types
 int VtfCheckLineType(int words, char *split[], char *file, int line);
 int VtfCheckCoorOrderedLine(int words, char *split[]);

@@ -1,5 +1,6 @@
 #include "../AnalysisTools.h"
-int *InFile;
+// TODO assumes the both original vcf file and -vtf vcf file contain all beads
+//      from their respective vsf files
 // TODO: split into two utilities - adding existing (vtf) configuration and
 //       generating addition from FIELD?
 // TODO: -offset for -vtf option
@@ -411,8 +412,6 @@ int main(int argc, char *argv[]) {
     PrintCommand(stdout, argc, argv);
   } //}}}
 
-  InFile = calloc(1000000, sizeof *InFile);
-
   // read information from input vtf file(s) if present //{{{
   BEADTYPE *bt_orig;
   MOLECULETYPE *mt_orig;
@@ -425,12 +424,12 @@ int main(int argc, char *argv[]) {
   Box_orig.Length.x = 0;
   Box_orig.Length.y = 0; // TODO: why?
   Box_orig.Length.z = 0;
+  int *InFile_orig = calloc(1, sizeof *InFile_orig);
   if (strlen(input_coor) > 0) { // is there an input coordinate file?
-//  FullVtfRead(input_vsf, input_coor, false, vtf, &indexed, &struct_lines,
-//              &Box_orig, &Counts_orig, &bt_orig, &bead_orig, &Index_orig,
-//              &mt_orig, &mol_orig);
     VtfReadStruct(input_vsf, false, &Counts_orig, &bt_orig, &bead_orig,
                   &Index_orig, &mt_orig, &mol_orig, &Index_mol_orig);
+    InFile_orig = realloc(InFile_orig,
+                          Counts_orig.BeadsTotal * sizeof *InFile_orig);
   } else { // if there's no input coordinate file, just allocate some memory
     bt_orig = calloc(1, sizeof (BEADTYPE));
     mt_orig = calloc(1, sizeof (MOLECULETYPE));
@@ -501,16 +500,16 @@ int main(int argc, char *argv[]) {
   FILE *vcf;
   if (strlen(input_coor) > 0) {
     vcf = OpenFile(input_coor, "r");
-//  count = SkipCoorSteps(vcf, input_coor, Counts_orig, start, silent);
     count= 0;
     if (!silent) {
       fprintf(stdout, "Using step %6d\n", ++count);
     }
     int file_line_count = 0, count_vcf = 0;
     VtfReadTimestep(vcf, input_coor, &Box_orig, &Counts_orig, bt_orig,
-                    &bead_orig, Index_orig, mt_orig, mol_orig,
+                    &bead_orig, Index_orig, mt_orig, mol_orig, &InFile_orig,
                     &file_line_count, count_vcf, stuff);
     fclose(vcf);
+//  PrintCounts(Counts_orig);
   } //}}}
 
   // create structures for added stuff //{{{
@@ -521,6 +520,7 @@ int main(int argc, char *argv[]) {
   BEAD *bead_add;
   int *Index_add,
       *Index_mol_add;
+  int *InFile_add;
   PARAMS *bond_type;
   PARAMS *angle_type;
   PARAMS *dihedral_type;
@@ -535,12 +535,13 @@ int main(int argc, char *argv[]) {
   } else { // read stuff to add from vtf file(s) ('-vtf' option) //{{{
     VtfReadStruct(add_vsf, false, &Counts_add, &bt_add, &bead_add, &Index_add,
                   &mt_add, &mol_add, &Index_mol_add);
+    InFile_add = calloc(Counts_add.BeadsTotal, sizeof *InFile_add);
     // read coordinates
     vcf = OpenFile(input_coor_add, "r");
     int file_line_count = 0, count_vcf = 0;
     VtfReadTimestep(vcf, input_coor_add, &Box_add, &Counts_add, bt_add,
-                    &bead_add, Index_add, mt_add, mol_add, &file_line_count,
-                    count_vcf, stuff);
+                    &bead_add, Index_add, mt_add, mol_add, &InFile_add,
+                    &file_line_count, count_vcf, stuff);
     fclose(vcf);
     // TODO: !no_rot? ...shouldn't -vtf be this by default?
     VECTOR rotated[Counts_add.BeadsCoor];
@@ -754,6 +755,8 @@ int main(int argc, char *argv[]) {
   MOLECULE *mol_new = calloc(1, sizeof (MOLECULE));
   int *Index_new = calloc(1, sizeof *Index_new); //}}}
 
+// TODO take into account vcf files not containing all beads from vsf files
+//      (via InFile arrays, obviously)
   // join original and added systems (depending on '--switch' mode)
   if (sw) { // switch old beads for new ones? //{{{
     Counts_new.BeadsCoor = Counts_orig.BeadsCoor;
@@ -1056,7 +1059,6 @@ int main(int argc, char *argv[]) {
     bead_new = realloc(bead_new, sizeof (BEAD) * Counts_new.BeadsCoor);
     Index_new = realloc(Index_new, sizeof *Index_new * Counts_new.BeadsCoor);
     // copy original unbonded beads to the start of bead_new //{{{
-    // TODO: assumes unbonded beads are before bonded beads
     for (int i = 0; i < Counts_orig.Unbonded; i++) {
       bead_new[i] = bead_orig[i];
       bead_new[i].Molecule = -1;
@@ -1127,6 +1129,11 @@ int main(int argc, char *argv[]) {
   } //}}}
   FillMolBTypes(Counts_new.TypesOfMolecules, &mt_new);
   FillMolMassCharge(Counts_new.TypesOfMolecules, &mt_new, bt_new);
+  // TODO is this what I really want?
+  int *InFile_new = calloc(Counts_new.BeadsTotal, sizeof *Index_new);
+  for (int i = 0; i < Counts_new.BeadsTotal; i++) {
+    InFile_new[i] = i;
+  }
 
 //PrintCounts(Counts_new);
 //PrintMoleculeType2(Counts_new.TypesOfMolecules, bt_new, mt_new);
@@ -1386,7 +1393,7 @@ int main(int argc, char *argv[]) {
   // print coordinates to xyz file (if -xyz option is present) //{{{
   if (strlen(output_xyz) > 0) {
     FILE *xyz = OpenFile(output_xyz, "w");
-    WriteCoorXYZ(xyz, Counts_new, bt_new, bead_new);
+    WriteCoorXYZ(xyz, Counts_new, InFile_new, bt_new, bead_new);
     fclose(xyz);
   } //}}}
 
@@ -1407,7 +1414,9 @@ int main(int argc, char *argv[]) {
   free(bond_type);
   free(angle_type);
   free(dihedral_type);
-  free(InFile);
+  free(InFile_orig);
+  free(InFile_add);
+  free(InFile_new);
   //}}}
 
   return 0;
