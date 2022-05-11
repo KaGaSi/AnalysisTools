@@ -240,14 +240,14 @@ void PrintCommand(FILE *ptr, int argc, char *argv[]) {
   char *split[SPL_STR], str[LINE];
   strcpy(str, argv[0]);
   int words = SplitLine(SPL_STR, split, str, "/");
-  fprintf(ptr, " %s", split[words-1]);
+  fprintf(ptr, " %s%s", Colour(ptr, WHITE), split[words-1]);
   // print the rest of the command
   for (int i = 1; i < argc; i++)
     fprintf(ptr, " %s", argv[i]);
-  fprintf(ptr, "\n");
+  fprintf(ptr, "%s\n", Colour(ptr, C_RESET));
 } //}}}
 
-// changing colour the text for cli output //{{{
+// changing the text colour (and making it bold) for cli output //{{{
 char *Colour(FILE *f, char *colour) {
   if (isatty(fileno(f))) {
     return colour;
@@ -283,6 +283,9 @@ char *Magenta() {
 }
 char *Green() {
   return Colour(stdout, GREEN);
+}
+char *White() {
+  return Colour(stdout, WHITE);
 }
 char *ColourReset() {
   return Colour(stdout, C_RESET);

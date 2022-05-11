@@ -3,13 +3,13 @@
 // Append an indexed timestep to a vcf/vtf coordinate file //{{{
 void VtfWriteCoorIndexed(FILE *vcf, char stuff[], int InFile[],
                          COUNTS Counts, BEAD Bead[], BOX Box) {
-  // print box size
-  fprintf(vcf, "\npbc %lf %lf %lf  ", Box.Length.x, Box.Length.y, Box.Length.z);
-  fprintf(vcf, "    %lf %lf %lf\n", Box.alpha, Box.beta, Box.gamma);
   // print comment at the beginning of a timestep if present in initial vcf file
   if (stuff[0] != '\0') {
     fprintf(vcf, "%s\n", stuff);
   }
+  // print box size
+  fprintf(vcf, "pbc %lf %lf %lf  ", Box.Length.x, Box.Length.y, Box.Length.z);
+  fprintf(vcf, "    %lf %lf %lf\n", Box.alpha, Box.beta, Box.gamma);
   // print 'indexed' on the next
   fprintf(vcf, "indexed\n");
 
@@ -26,12 +26,12 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[], int InFile[],
   }
   if (none) {
     strcpy(ERROR_MSG, "no beads to save");
-    WarnPrintWarning();
+    PrintWarning();
   }
 } //}}}
 
 // Append a timestep to an xyz file //{{{
-void WriteCoorXYZ(FILE *xyz, COUNTS Counts, int InFile[],
+void XyzWriteCoor(FILE *xyz, COUNTS Counts, int InFile[],
                   BEADTYPE *BeadType, BEAD *Bead) {
   // find out number of beads to save
   int count = 0;

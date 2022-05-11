@@ -18,6 +18,8 @@ void CommonHelp(bool error) {
   fprintf(ptr, "   [standard options]\n");
   fprintf(ptr, "      -i <name>     input vtf structure file \
 (default: traject.vs)\n");
+  fprintf(ptr, "      --detailed    use name as weel as charge, mass, \
+and radius to identfy bead types\n");
   fprintf(ptr, "      -v            verbose output\n");
   fprintf(ptr, "      --silent      no output (overrides verbose option)\n");
   fprintf(ptr, "      -h            print this help and exit\n");
@@ -28,8 +30,8 @@ void CommonHelp(bool error) {
 /**
  * Function for options common to most of the utilities.
  */
-void CommonOptions(int argc, char **argv, char *vsf_file,
-                   bool *verbose, bool *silent, int length) {
+void CommonOptions(int argc, char *argv[], char vsf_file[], int length,
+                   bool *verbose, bool *silent, bool *detailed) {
 
   // -i <name> option - input structure file //{{{
   // test if '-i' option is there
@@ -54,6 +56,8 @@ void CommonOptions(int argc, char **argv, char *vsf_file,
   *verbose = BoolOption(argc, argv, "-v");
   // --silent option - silent mode
   SilentOption(argc, argv, verbose, silent);
+  // --detailed option - base bead types on name, charge, mass, and radius
+  *detailed = BoolOption(argc, argv, "--detailed");
 } //}}}
 
 // SilentOption() //{{{

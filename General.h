@@ -151,7 +151,7 @@ bool ReadAndSplitLine(FILE *fr, int max_char, char *line, int *words,
 
 void PrintCommand(FILE *ptr, int argc, char *argv[]);
 
-// changing colour the text for cli output //{{{
+// changing the text colour (and making it bold) for cli output //{{{
 char *Colour(FILE *f, char *colour);
 // colours for stderr
 char *ErrRed();
@@ -164,6 +164,7 @@ char *Cyan();
 char *Yellow();
 char *Magenta();
 char *Green();
+char *White();
 char *ColourReset();
  //}}}
 

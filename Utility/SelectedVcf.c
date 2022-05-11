@@ -31,11 +31,12 @@ the specified bead types (use all if no <bead names> are present)\n");
   fprintf(ptr, "      -st <int>      starting timestep for calculation\n");
   fprintf(ptr, "      -e <end>       ending timestep for calculation\n");
   fprintf(ptr, "      -sk <skip>     leave out every 'skip' steps\n");
-  fprintf(ptr, "      -n <int(s)>    save only specified timesteps\n");
+  fprintf(ptr, "      -n <int(s)>    save only specified timesteps \
+(if --last option is used, save also the last timestep)\n");
   fprintf(ptr, "      -x <name(s)>   exclude specified molecule(s)\n");
   fprintf(ptr, "      -xyz <name>    output xyz file\n");
   fprintf(ptr, "      --last         use only the last step \
-(-st/-e/-n options are ignored)\n");
+(-st/-e options are ignored; -n option is not)\n");
   CommonHelp(error);
 } //}}}
 
@@ -71,6 +72,7 @@ int main(int argc, char *argv[]) {
     if (argv[i][0] == '-' &&
         strcmp(argv[i], "-i") != 0 &&
         strcmp(argv[i], "-v") != 0 &&
+        strcmp(argv[i], "--detailed") != 0 &&
         strcmp(argv[i], "--silent") != 0 &&
         strcmp(argv[i], "-h") != 0 &&
         strcmp(argv[i], "--version") != 0 &&
@@ -115,9 +117,8 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // options before reading system data //{{{
-  bool silent;
-  bool verbose;
-  CommonOptions(argc, argv, input_vsf, &verbose, &silent, LINE);
+  bool silent, verbose, detailed;
+  CommonOptions(argc, argv, input_vsf, LINE, &verbose, &silent, &detailed);
   int skip = 0;
   if (IntegerOption(argc, argv, "-sk", &skip)) {
     exit(1);
@@ -152,7 +153,7 @@ int main(int argc, char *argv[]) {
   MOLECULE *Molecule; // structure with info about every molecule
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
   BOX Box = InitBox; // triclinic box dimensions and angles
-  VtfReadStruct(input_vsf, false, &Counts, &BeadType, &Bead, &Index,
+  VtfReadStruct(input_vsf, detailed, &Counts, &BeadType, &Bead, &Index,
                 &MoleculeType, &Molecule, &Index_mol);
   int *InFile = calloc(Counts.BeadsTotal, sizeof *InFile);
   VtfReadPBC(input_coor, &Box);
@@ -266,16 +267,17 @@ int main(int argc, char *argv[]) {
       } else {
         use = false;
       }
+      // definitely not use, if --last option is used
+      if (last) {
+        use = false;
+      }
     // -n option is used - save the timestep if it's in the list
     } else if (n_opt_count < n_opt_number &&
                n_opt_save[n_opt_count] == count_vcf) {
       use = true;
       n_opt_count++;
     }
-    // definitely not use, if --last option is used
-    if (last) {
-      use = false;
-    } //}}}
+    //}}}
     // read and write the timestep, if it should be saved //{{{
     if (use) {
       if (!VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
@@ -306,7 +308,7 @@ int main(int argc, char *argv[]) {
       // write to xyz file?
       if (output_xyz[0] != '\0') {
         out = OpenFile(output_xyz, "a");
-        WriteCoorXYZ(out, Counts, InFile, BeadType, Bead);
+        XyzWriteCoor(out, Counts, InFile, BeadType, Bead);
         fclose(out);
       }
       //}}}
@@ -325,12 +327,12 @@ int main(int argc, char *argv[]) {
     } //}}}
     // decide whether to exit the main loop //{{{
     /* break the loop if
-     *    1) all timesteps in the -n option are saved
+     *    1) all timesteps in the -n option are saved (and --last isn't used)
      *    or
-     *    2) end timeste was reached (-e option)
+     *    2) end timestep was reached (-e option)
      */
-    if (n_opt_count == n_opt_number || // 1)
-        count_vcf == end) {
+    if ((n_opt_count == n_opt_number && !last) || // 1)
+        count_vcf == end) { // 2)
       break;
     } //}}}
   } //}}}
@@ -363,11 +365,17 @@ int main(int argc, char *argv[]) {
     // write to xyz file?
     if (output_xyz[0] != '\0') {
       out = OpenFile(output_xyz, "a");
-      WriteCoorXYZ(out, Counts, InFile, BeadType, Bead);
+      XyzWriteCoor(out, Counts, InFile, BeadType, Bead);
       fclose(out);
     }
-  }
-  fclose(vcf); //}}}
+  //}}}
+  // warn if no timesteps were actually written //{{{
+  } else if (start >= count_vcf) {
+    strcpy(ERROR_MSG, "no coordinates written (starting timestep higher \
+than the number of timestep)");
+    PrintWarning();
+  } //}}}
+  fclose(vcf);
   // print last step count? //{{{
   // error - input coordinate file with no coordinates //{{{
   if (count_vcf == 0) {

@@ -264,9 +264,9 @@ void PrintCounts(COUNTS Counts) {
   fprintf(stdout, "  .TypesOfBeads     = %d,\n", Counts.TypesOfBeads);
   fprintf(stdout, "  .Bonded           = %d,\n", Counts.Bonded);
   fprintf(stdout, "  .Unbonded         = %d,\n", Counts.Unbonded);
-  fprintf(stdout, "  .BeadsCoor        = %d,\n", Counts.BeadsCoor);
+  fprintf(stdout, "  .BeadsTotal       = %d,\n", Counts.BeadsTotal);
   if (Counts.BeadsTotal != Counts.BeadsCoor) {
-    fprintf(stdout, "  .BeadsTotal       = %d,\n", Counts.BeadsTotal);
+    fprintf(stdout, "  .BeadsCoor        = %d,\n", Counts.BeadsCoor);
   }
   fprintf(stdout, "  .TypesOfMolecules = %d,\n", Counts.TypesOfMolecules);
   fprintf(stdout, "  .Molecules        = %d", Counts.Molecules);

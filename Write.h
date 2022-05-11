@@ -7,7 +7,7 @@
 void VtfWriteCoorIndexed(FILE *vcf, char *stuff, int InFile[],
                          COUNTS Counts, BEAD *Bead, BOX Box);
 // Append a timestep to an xyz file
-void WriteCoorXYZ(FILE *xyz, COUNTS Counts, int InFile[],
+void XyzWriteCoor(FILE *xyz, COUNTS Counts, int InFile[],
                   BEADTYPE *BeadType, BEAD *Bead);
 // Create a new vsf/vtf structure file
 void WriteVsf(char *input_vsf, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,

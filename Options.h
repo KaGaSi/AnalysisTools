@@ -33,19 +33,8 @@ void Help(char cmd[50], bool error); //}}}
  */
 void CommonHelp(bool error); //}}}
 
-// CommonOptions() //{{{
-/**
- * \brief Function for options common to most of the utilities.
- *
- * \param [in]  argc         number of program's arguments
- * \param [in]  argv         program's arguments
- * \param [out] input.vsf    .vsf structure file
- * \param [out] verbose      verbose output?
- * \param [out] silent       no output?
- * \param [in]  length       maximum name length for files
- */
-void CommonOptions(int argc, char **argv, char *vsf_file,
-                   bool *verbose, bool *silent, int length); //}}}
+void CommonOptions(int argc, char *argv[], char vsf_file[], int length,
+                   bool *verbose, bool *silent, bool *detailed);
 
 //// VerboseLongOption() //{{{
 /**

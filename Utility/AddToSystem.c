@@ -1,12 +1,10 @@
 #include "../AnalysisTools.h"
 // TODO assumes the both original vcf file and -vtf vcf file contain all beads
-//      from their respective vsf files
+//      from their respective vsf files; get rid of it
 // TODO: split into two utilities - adding existing (vtf) configuration and
 //       generating addition from FIELD?
-// TODO: -offset for -vtf option
 // TODO: --random for -vtf option (i.e., place added system's components
 //       randomly in a new box)
-// TODO: triclinic box
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -161,9 +159,8 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // options before reading system data //{{{
-  bool silent;
-  bool verbose;
-  CommonOptions(argc, argv, input_vsf, &verbose, &silent, LINE);
+  bool silent, verbose, detailed;
+  CommonOptions(argc, argv, input_vsf, LINE, &verbose, &silent, &detailed);
 
   // -f <add> - FIELD-like file with molecules to add //{{{
   char input_add[LINE] = "";
@@ -426,7 +423,7 @@ int main(int argc, char *argv[]) {
   Box_orig.Length.z = 0;
   int *InFile_orig = calloc(1, sizeof *InFile_orig);
   if (strlen(input_coor) > 0) { // is there an input coordinate file?
-    VtfReadStruct(input_vsf, false, &Counts_orig, &bt_orig, &bead_orig,
+    VtfReadStruct(input_vsf, detailed, &Counts_orig, &bt_orig, &bead_orig,
                   &Index_orig, &mt_orig, &mol_orig, &Index_mol_orig);
     InFile_orig = realloc(InFile_orig,
                           Counts_orig.BeadsTotal * sizeof *InFile_orig);
@@ -948,8 +945,8 @@ int main(int argc, char *argv[]) {
   } else { // or add beads to the system? //{{{
     Counts_new.BeadsCoor = Counts_orig.BeadsCoor + Counts_add.BeadsCoor;
     Counts_new.BeadsTotal = Counts_orig.BeadsTotal + Counts_add.BeadsTotal;
-    Counts_new.Bonded = Counts_orig.Bonded + Counts_add.Bonded;
-    Counts_new.Unbonded = Counts_new.BeadsCoor - Counts_new.Bonded;
+//  Counts_new.Bonded = Counts_orig.Bonded + Counts_add.Bonded;
+//  Counts_new.Unbonded = Counts_new.BeadsCoor - Counts_new.Bonded;
     Counts_new.TypesOfBonds = Counts_add.TypesOfBonds;
     Counts_new.TypesOfAngles = Counts_add.TypesOfAngles;
     Counts_new.Molecules = Counts_orig.Molecules + Counts_add.Molecules;
@@ -1058,48 +1055,78 @@ int main(int argc, char *argv[]) {
     // fill Bead struct for the new system
     bead_new = realloc(bead_new, sizeof (BEAD) * Counts_new.BeadsCoor);
     Index_new = realloc(Index_new, sizeof *Index_new * Counts_new.BeadsCoor);
+    count = 0;
+    // TODO do something about the .Use flags - for sw, use some other flag
     // copy original unbonded beads to the start of bead_new //{{{
     for (int i = 0; i < Counts_orig.Unbonded; i++) {
-      bead_new[i] = bead_orig[i];
-      bead_new[i].Molecule = -1;
-      bead_new[i].Index = i;
-      bead_new[i].Use = false; // do not rewrite, obviously
-      bead_new[i].Aggregate = malloc(sizeof *bead_new[i].Aggregate * 1);
-      Index_new[i] = i;
+      int id_orig = InFile_orig[i];
+      if (bead_orig[id_orig].InTimestep/* && bead_orig[id_orig].Use*/) {
+        bead_new[count] = bead_orig[i];
+        bead_new[count].Molecule = -1;
+        bead_new[count].Index = count;
+        bead_new[count].Use = false;
+        bead_new[count].InTimestep = true;
+        bead_new[count].Aggregate = malloc(sizeof *bead_new[i].Aggregate * 1);
+        Index_new[count] = count;
+        count++;
+      }
     } //}}}
     // put unbonded beads to be added beyond the original unbonded beads //{{{
-    for (int i = Counts_orig.Unbonded; i < Counts_new.Unbonded; i++) {
-      int id_add = i - Counts_orig.Unbonded;
-      int type = bead_add[id_add].Type;
-      int new_type = FindBeadType(bt_add[type].Name, Counts_new, bt_new);
-      bead_new[i] = bead_add[id_add];
-      bead_new[i].Type = new_type;
-      bead_new[i].Molecule = -1;
-      bead_new[i].Index = i;
-      bead_new[i].Aggregate = malloc(sizeof *bead_new[i].Aggregate * 1);
-      Index_new[i] = i;
+//  for (int i = Counts_orig.Unbonded; i < Counts_new.Unbonded; i++) {
+    for (int i = 0; i < Counts_add.Unbonded; i++) {
+      int id_add = InFile_add[i];
+      if (bead_add[id_add].InTimestep/* && bead_add[id_add].Use*/) {
+        int type = bead_add[id_add].Type;
+        int new_type = FindBeadType(bt_add[type].Name, Counts_new, bt_new);
+        bead_new[count] = bead_add[id_add];
+        bead_new[count].Type = new_type;
+        bead_new[count].Molecule = -1;
+        bead_new[count].Index = count;
+        bead_new[count].Use = false;
+        bead_new[count].InTimestep = true;
+        bead_new[count].Aggregate = malloc(sizeof *bead_new[count].Aggregate * 1);
+        Index_new[count] = count;
+        count++;
+      }
     } //}}}
+    Counts_new.Unbonded = count;
     // copy the original bonded beads //{{{
-    for (int i = Counts_orig.Unbonded; i < Counts_orig.BeadsCoor; i++) {
-      // id goes from Counts_new.Unbonded to (Counts_new.Unbonded+Counts_orig.Bonded)
-      int id = Counts_new.Unbonded + i - Counts_orig.Unbonded;
-      bead_new[id] = bead_orig[i];
-      bead_new[id].Index = id;
-      bead_new[id].Aggregate = malloc(sizeof *bead_new[id].Aggregate * 1);
-      Index_new[id] = id;
+    for (int i = Counts_orig.Unbonded; i < Counts_orig.BeadsTotal; i++) {
+      int id_orig = InFile_orig[i];
+      if (bead_orig[id_orig].InTimestep/* && bead_orig[id_orig].Use*/) {
+//      int id = Counts_new.Unbonded + id_orig - Counts_orig.Unbonded;
+        bead_new[count] = bead_orig[id_orig];
+        bead_new[count].Index = count;
+        bead_new[count].Use = false;
+        bead_new[count].InTimestep = true;
+        bead_new[count].Aggregate = malloc(sizeof *bead_new[count].Aggregate * 1);
+        Index_new[count] = count;
+        count++;
+      }
     } //}}}
     // put bonded beads to be added at the very end //{{{
     for (int i = Counts_add.Unbonded; i < Counts_add.BeadsCoor; i++) {
-      int type = bead_add[i].Type;
-      int new_type = FindBeadType(bt_add[type].Name, Counts_new, bt_new);
-      int id = Counts_new.BeadsCoor - Counts_add.BeadsCoor + i;
-      bead_new[id] = bead_add[i];
-      bead_new[id].Type = new_type;
-      bead_new[id].Molecule = bead_add[i].Molecule + Counts_orig.Molecules;
-      bead_new[id].Index = id;
-      bead_new[id].Aggregate = malloc(sizeof *bead_new[id].Aggregate * 1);
-      Index_new[id] = id;
+      int id_add = InFile_add[i];
+      if (bead_add[id_add].InTimestep/* && bead_add[id_add].Use*/) {
+        int type = bead_add[id_add].Type;
+        int new_type = FindBeadType(bt_add[type].Name, Counts_new, bt_new);
+        bead_new[count] = bead_add[id_add];
+        bead_new[count].Type = new_type;
+        // TODO mol count when not beads present in the file
+        bead_new[count].Molecule = bead_add[id_add].Molecule +
+                                   Counts_orig.Molecules;
+        bead_new[count].Use = false;
+        bead_new[count].InTimestep = true;
+        bead_new[count].Index = count;
+        bead_new[count].Aggregate = malloc(sizeof *bead_new[count].Aggregate * 1);
+        Index_new[count] = count;
+        count++;
+      }
     } //}}}
+    Counts_new.Bonded = count;
+    // TODO properly copy molecules - what if there aren't all from the vsf(s)
+    //      in the vcf(s) etc.? ...or is that fine as we always use
+    //      InFile/InTimestep/whatever for beads in the molecules?
     // alocate new molecule struct
     mol_new = realloc(mol_new, sizeof (MOLECULE) * Counts_new.Molecules);
     // copy original molecules to _new struct //{{{
@@ -1135,7 +1162,9 @@ int main(int argc, char *argv[]) {
     InFile_new[i] = i;
   }
 
-//PrintCounts(Counts_new);
+  PrintCounts(Counts_orig);
+  PrintCounts(Counts_add);
+  PrintCounts(Counts_new);
 //PrintMoleculeType2(Counts_new.TypesOfMolecules, bt_new, mt_new);
 //PrintMolecule(Counts_new.Molecules, mt_new, mol_new, bt_new, bead_new);
 
@@ -1378,22 +1407,16 @@ int main(int argc, char *argv[]) {
   PrintByline(out, argc, argv);
 
   // print coordinates to output .vcf file //{{{
-  // write all beads (Write flag was used with '-xb' option)
-  for (int i = 0; i < Counts_new.TypesOfBeads; i++) {
-    bt_new[i].Write = true;
+  for (int i = 0; i < Counts_new.BeadsCoor; i++) {
+    bead_new[i].Use = true; // TODO change somewhere (use different flag for sw)
   }
-  // write all molecules (basically just to make sure)
-  for (int i = 0; i < Counts_new.TypesOfMolecules; i++) {
-    mt_new[i].Write = true;
-  }
-  WriteCoorIndexed(out, Counts_new, bt_new, bead_new,
-                   mt_new, mol_new, stuff, Box_new);
+  VtfWriteCoorIndexed(out, stuff, InFile_new, Counts_new, bead_new, Box_new);
   fclose(out); //}}}
 
   // print coordinates to xyz file (if -xyz option is present) //{{{
   if (strlen(output_xyz) > 0) {
     FILE *xyz = OpenFile(output_xyz, "w");
-    WriteCoorXYZ(xyz, Counts_new, InFile_new, bt_new, bead_new);
+    XyzWriteCoor(xyz, Counts_new, InFile_new, bt_new, bead_new);
     fclose(xyz);
   } //}}}
 
