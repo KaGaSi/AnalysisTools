@@ -70,18 +70,7 @@ void SilentOption(int argc, char **argv, bool *verbose, bool *silent); //}}}
  */
 bool VersionOption(int argc, char **argv); //}}}
 
-// ExcludeOption() //{{{
-/**
- * \brief Option whether to exclude molecule types (`-x <name(s)>`).
- *
- * \param [in]  argc         number of program's arguments
- * \param [in]  argv         program's arguments
- * \param [in]  Counts       numbers of beads, molecules, etc.
- * \param [out] MoleculeType information about molecule types
- * \return `true` or `false` error or not error
- */
-bool ExcludeOption(int argc, char **argv, COUNTS Counts,
-                   MOLECULETYPE **MoleculeType); //}}}
+bool ExcludeOption(int argc, char *argv[], SYSTEM *System);
 
 // JoinCoorOption() //{{{
 /**
@@ -96,21 +85,8 @@ bool ExcludeOption(int argc, char **argv, COUNTS Counts,
  */
 bool JoinCoorOption(int argc, char **argv, char *joined_vcf); //}}}
 
-// BeadTypeOption() //{{{
-/**
- * \brief Option to choose which bead types to use in calculations (`-bt
- * <name(s)>`).
- *
- * \param [in]  argc         number of program's arguments
- * \param [in]  argv         program's arguments
- * \param [in]  opt          option switich (e.g., string '-bt')
- * \param [in]  use          if the option is not present, set all BeadType[].Use flags to 'use'
- * \param [in]  Counts       numbers of beads, molecules, etc.
- * \param [out] BeadType     information about bead types
- * \return `true` or `false` error or not error
- */
-bool BeadTypeOption(int argc, char **argv, char *opt, bool use,
-                    COUNTS Counts, BEADTYPE **BeadType); //}}}
+bool BeadTypeOption(int argc, char **argv, char *opt,
+                    bool use, SYSTEM *System);
 
 // BoolOption() //{{{
 /**
@@ -268,4 +244,33 @@ bool MoleculeTypeIntOption(int argc, int i, char **argv, char *opt,
  * \param [in]  end    ending timestep
  */
 void StartEndTime(int argc, char **argv, int *start, int *end); //}}}
+
+// TODO: remove
+// BeadTypeOption() //{{{
+/**
+ * \brief Option to choose which bead types to use in calculations (`-bt
+ * <name(s)>`).
+ *
+ * \param [in]  argc         number of program's arguments
+ * \param [in]  argv         program's arguments
+ * \param [in]  opt          option switich (e.g., string '-bt')
+ * \param [in]  use          if the option is not present, set all BeadType[].Use flags to 'use'
+ * \param [in]  Counts       numbers of beads, molecules, etc.
+ * \param [out] BeadType     information about bead types
+ * \return `true` or `false` error or not error
+ */
+bool BeadTypeOption_old(int argc, char **argv, char *opt, bool use,
+                    COUNTS Counts, BEADTYPE **BeadType); //}}}
+// ExcludeOption_old() //{{{
+/**
+ * \brief Option whether to exclude molecule types (`-x <name(s)>`).
+ *
+ * \param [in]  argc         number of program's arguments
+ * \param [in]  argv         program's arguments
+ * \param [in]  Counts       numbers of beads, molecules, etc.
+ * \param [out] MoleculeType information about molecule types
+ * \return `true` or `false` error or not error
+ */
+bool ExcludeOption_old(int argc, char **argv, COUNTS Counts,
+                   MOLECULETYPE **MoleculeType); //}}}
 #endif

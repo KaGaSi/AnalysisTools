@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
 
   // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
   // warn if not all beads //{{{

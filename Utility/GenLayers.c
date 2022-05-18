@@ -419,7 +419,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // write output vsf file
-  WriteVsf(output, Counts, BeadType, Bead, MoleculeType, Molecule, false);
+  WriteVsf_old(output, Counts, BeadType, Bead, MoleculeType, Molecule, false);
 
   // open output .vcf file for writing
   FILE *out = OpenFile(output_vcf, "w");
@@ -438,7 +438,7 @@ int main(int argc, char *argv[]) {
       fprintf(stdout, "(%d molecules) ", number_of_mols);
     }
     fprintf(stdout, "molecules on each wall\n");
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
     PrintBondTypes2(Counts.TypesOfBonds, bond_type);
     PrintAngleTypes2(Counts.TypesOfAngles, angle_type);
     PrintDihedralTypes2(Counts.TypesOfDihedrals, dihedral_type);

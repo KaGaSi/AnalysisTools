@@ -131,7 +131,7 @@ int main(int argc, char *argv[]) {
   MOLECULE *Molecule; // structure with info about every molecule
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
   BOX Box = InitBox; // triclinic box dimensions and angles
-  VtfReadStruct(input_vsf, false, &Counts, &BeadType, &Bead, &Index,
+  VtfReadStruct_old(input_vsf, false, &Counts, &BeadType, &Bead, &Index,
                 &MoleculeType, &Molecule, &Index_mol);
   InFile = calloc(Counts.BeadsTotal, sizeof *InFile); //}}}
 
@@ -200,7 +200,7 @@ int main(int argc, char *argv[]) {
 
   // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
     // TODO bond & angle & dihedral types into VerboseOutput
     PrintBondTypes2(Counts.TypesOfBonds, bond_type);
     PrintAngleTypes2(Counts.TypesOfAngles, angle_type);
@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
     bool use = true; // TODO maybe later there'll be something
     // read timestep and calculate stuff, if the timestep should be used //{{{
     if (use) {
-      if (!VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
+      if (!VtfReadTimestep_old(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
                            Index, MoleculeType, Molecule,
                            &file_line_count, count_vcf, stuff)) {
         count_vcf--;

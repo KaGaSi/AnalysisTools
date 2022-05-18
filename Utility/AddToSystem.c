@@ -410,29 +410,17 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // read information from input vtf file(s) if present //{{{
-  BEADTYPE *bt_orig;
-  MOLECULETYPE *mt_orig;
-  BEAD *bead_orig;
-  int *Index_orig,
-      *Index_mol_orig; // same, but between molecule indices
-  MOLECULE *mol_orig;
-  COUNTS Counts_orig = InitCounts; // structure with number of beads, molecules, etc.
-  BOX Box_orig = InitBox; // triclinic box dimensions and angles
-  Box_orig.Length.x = 0;
-  Box_orig.Length.y = 0; // TODO: why?
-  Box_orig.Length.z = 0;
-  int *InFile_orig = calloc(1, sizeof *InFile_orig);
+  SYSTEM S_orig = InitSystem;
   if (strlen(input_coor) > 0) { // is there an input coordinate file?
-    VtfReadStruct(input_vsf, detailed, &Counts_orig, &bt_orig, &bead_orig,
-                  &Index_orig, &mt_orig, &mol_orig, &Index_mol_orig);
-    InFile_orig = realloc(InFile_orig,
-                          Counts_orig.BeadsTotal * sizeof *InFile_orig);
+    S_orig = VtfReadStruct(input_vsf, detailed);
+    S_orig.InFile = realloc(S_orig.InFile,
+                            S_orig.BeadsTotal * sizeof *S_orig.InFile);
   } else { // if there's no input coordinate file, just allocate some memory
-    bt_orig = calloc(1, sizeof (BEADTYPE));
-    mt_orig = calloc(1, sizeof (MOLECULETYPE));
-    bead_orig = calloc(1, sizeof (BEAD));
-    Index_orig = calloc(1, sizeof *Index_orig);
-    mol_orig = calloc(1, sizeof (MOLECULE));
+    S_orig.BeadType = calloc(1, sizeof (BEADTYPE));
+    S_orig.MoleculeType = calloc(1, sizeof (MOLECULETYPE));
+    S_orig.Bead = calloc(1, sizeof (BEAD));
+    S_orig.Index = calloc(1, sizeof *S_orig.Index);
+    S_orig.Molecule = calloc(1, sizeof (MOLECULE));
   } //}}}
 
   // -xb <name(s)> - specify what bead types to exchange //{{{
@@ -449,28 +437,28 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   // which beads to exchange?
-  if (BeadTypeOption(argc, argv, "-xb", false, Counts_orig, &bt_orig)) {
+  if (BeadTypeOption(argc, argv, "-xb", false, &S_orig)) {
     exit(0);
   }
   // use Write flag to decide which bead types to use
   bool all_false = true; // no '-xb' option
-  for (int i = 0; i < Counts_orig.TypesOfBeads; i++) {
-    bt_orig[i].Write = bt_orig[i].Use;
-    bt_orig[i].Use = false; // this flag may be used later
-    if (bt_orig[i].Write) {
+  for (int i = 0; i < S_orig.TypesOfBeads; i++) {
+    S_orig.BeadType[i].Write = S_orig.BeadType[i].Use;
+    S_orig.BeadType[i].Use = false; // this flag may be used later
+    if (S_orig.BeadType[i].Write) {
       all_false = false; // '-xb' option is present
     }
   }
   if (all_false) {
-    for (int i = 0; i < Counts_orig.TypesOfBeads; i++) {
-      if (bt_orig[i].Charge == 0) {
-        bt_orig[i].Write = true;
+    for (int i = 0; i < S_orig.TypesOfBeads; i++) {
+      if (S_orig.BeadType[i].Charge == 0) {
+        S_orig.BeadType[i].Write = true;
       }
     }
   } //}}}
 
   // -bt <name(s)> - specify what bead types to use //{{{
-  if (BeadTypeOption(argc, argv, "-bt", false, Counts_orig, &bt_orig)) {
+  if (BeadTypeOption(argc, argv, "-bt", false, &S_orig)) {
     exit(0);
   } //}}}
 
@@ -484,7 +472,7 @@ int main(int argc, char *argv[]) {
   // print original system (if present) //{{{
   if (verbose && strlen(input_coor) > 0) {
     fprintf(stdout, "\nORIGINAL SYSTEM\n");
-    VerboseOutput(Counts_orig, bt_orig, bead_orig, mt_orig, mol_orig);
+    VerboseOutput(S_orig);
     if (start > 1) {
       fprintf(stdout, "\n   Using %d. timestep\n", start);
     }
@@ -502,46 +490,30 @@ int main(int argc, char *argv[]) {
       fprintf(stdout, "Using step %6d\n", ++count);
     }
     int file_line_count = 0, count_vcf = 0;
-    VtfReadTimestep(vcf, input_coor, &Box_orig, &Counts_orig, bt_orig,
-                    &bead_orig, Index_orig, mt_orig, mol_orig, &InFile_orig,
-                    &file_line_count, count_vcf, stuff);
+    VtfReadTimestep(vcf, input_coor, &S_orig, &file_line_count,
+                    count_vcf, stuff);
     fclose(vcf);
 //  PrintCounts(Counts_orig);
   } //}}}
 
-  // create structures for added stuff //{{{
-  COUNTS Counts_add = InitCounts;
-  MOLECULE *mol_add;
-  MOLECULETYPE *mt_add;
-  BEADTYPE *bt_add;
-  BEAD *bead_add;
-  int *Index_add,
-      *Index_mol_add;
-  int *InFile_add;
-  PARAMS *bond_type;
-  PARAMS *angle_type;
-  PARAMS *dihedral_type;
-  BOX Box_add;
-  //}}}
+  SYSTEM S_add = InitSystem;
 
+  // TODO FIELD must be completely redone
   if (strlen(add_vsf) == 0) { // read stuff to be added from FIELD //{{{
-    ReadField(input_add, '\0', &Counts_add, &bt_add, &bead_add,
-              &Index_add, &mt_add, &mol_add,
-              &bond_type, &angle_type, &dihedral_type);
-    Box_add.Length = Box_orig.Length; //}}}
+//  ReadField(input_add, '\0', &Counts_add, &S_add.BeadType, &S_add.Bead,
+//            &Index_add, &S_add.MoleculeType, &S_add.Molecule,
+//            &bond_type, &angle_type, &dihedral_type);
+//  S_add.Box.Length = S_orig.Box.Length; //}}}
   } else { // read stuff to add from vtf file(s) ('-vtf' option) //{{{
-    VtfReadStruct(add_vsf, false, &Counts_add, &bt_add, &bead_add, &Index_add,
-                  &mt_add, &mol_add, &Index_mol_add);
-    InFile_add = calloc(Counts_add.BeadsTotal, sizeof *InFile_add);
+    S_add = VtfReadStruct(add_vsf, false);
+    S_add.InFile = calloc(S_add.BeadsTotal, sizeof *S_add.InFile);
     // read coordinates
     vcf = OpenFile(input_coor_add, "r");
     int file_line_count = 0, count_vcf = 0;
-    VtfReadTimestep(vcf, input_coor_add, &Box_add, &Counts_add, bt_add,
-                    &bead_add, Index_add, mt_add, mol_add, &InFile_add,
-                    &file_line_count, count_vcf, stuff);
+    VtfReadTimestep(vcf, input_coor_add, &S_add, &file_line_count, count_vcf, stuff);
     fclose(vcf);
     // TODO: !no_rot? ...shouldn't -vtf be this by default?
-    VECTOR rotated[Counts_add.BeadsCoor];
+    VECTOR rotated[S_add.BeadsCoor];
     if (!no_rot) { //{{{
       // random rotation axis
       VECTOR random = {0};
@@ -577,68 +549,71 @@ int main(int argc, char *argv[]) {
       printf("%lf %lf %lf\n", rot.y.x, rot.y.y, rot.y.z);
       printf("%lf %lf %lf\n", rot.z.x, rot.z.y, rot.z.z);
       // transform the prototype molecule (rotation matrix * coordinates)
-      for (int i = 0; i < Counts_add.BeadsCoor; i++) {
-        rotated[i].x = rot.x.x * (bead_add[i].Position.x - Box_add.Length.x / 2)
-                     + rot.x.y * (bead_add[i].Position.y - Box_add.Length.y / 2)
-                     + rot.x.z * (bead_add[i].Position.z - Box_add.Length.z / 2);
-        rotated[i].y = rot.y.x * (bead_add[i].Position.x - Box_add.Length.x / 2)
-                     + rot.y.y * (bead_add[i].Position.y - Box_add.Length.y / 2)
-                     + rot.y.z * (bead_add[i].Position.z - Box_add.Length.z / 2);
-        rotated[i].z = rot.z.x * (bead_add[i].Position.x - Box_add.Length.x / 2)
-                     + rot.z.y * (bead_add[i].Position.y - Box_add.Length.y / 2)
-                     + rot.z.z * (bead_add[i].Position.z - Box_add.Length.z / 2);
+      for (int i = 0; i < S_add.BeadsCoor; i++) {
+        rotated[i].x = rot.x.x * (S_add.Bead[i].Position.x - S_add.Box.Length.x / 2)
+                     + rot.x.y * (S_add.Bead[i].Position.y - S_add.Box.Length.y / 2)
+                     + rot.x.z * (S_add.Bead[i].Position.z - S_add.Box.Length.z / 2);
+        rotated[i].y = rot.y.x * (S_add.Bead[i].Position.x - S_add.Box.Length.x / 2)
+                     + rot.y.y * (S_add.Bead[i].Position.y - S_add.Box.Length.y / 2)
+                     + rot.y.z * (S_add.Bead[i].Position.z - S_add.Box.Length.z / 2);
+        rotated[i].z = rot.z.x * (S_add.Bead[i].Position.x - S_add.Box.Length.x / 2)
+                     + rot.z.y * (S_add.Bead[i].Position.y - S_add.Box.Length.y / 2)
+                     + rot.z.z * (S_add.Bead[i].Position.z - S_add.Box.Length.z / 2);
       }
-      for (int i = 0; i < Counts_add.BeadsCoor; i++) {
-        bead_add[i].Position.x = rotated[i].x + offset[0] + Box_add.Length.x / 2;
-        bead_add[i].Position.y = rotated[i].y + offset[1] + Box_add.Length.y / 2;
-        bead_add[i].Position.z = rotated[i].z + offset[2] + Box_add.Length.z / 2;
+      for (int i = 0; i < S_add.BeadsCoor; i++) {
+        S_add.Bead[i].Position.x = rotated[i].x + offset[0] + S_add.Box.Length.x / 2;
+        S_add.Bead[i].Position.y = rotated[i].y + offset[1] + S_add.Box.Length.y / 2;
+        S_add.Bead[i].Position.z = rotated[i].z + offset[2] + S_add.Box.Length.z / 2;
       }
      //}}}
     } else { // don't rotate //{{{
-      ToFractionalCoor(Counts_add.BeadsCoor, &bead_add, Box_add);
-      for (int i = 0; i < Counts_add.BeadsCoor; i++) {
-        bead_add[i].Position.x += offset[0];
-        bead_add[i].Position.y += offset[1];
-        bead_add[i].Position.z += offset[2];
+      ToFractionalCoor(S_add.BeadsTotal, &S_add.Bead, S_add.Box);
+      for (int i = 0; i < S_add.BeadsCoor; i++) {
+        int id = S_add.InFile[i];
+        S_add.Bead[id].Position.x += offset[0];
+        S_add.Bead[id].Position.y += offset[1];
+        S_add.Bead[id].Position.z += offset[2];
       }
-      FromFractionalCoor(Counts_add.BeadsCoor, &bead_add, Box_add);
+      FromFractionalCoor(S_add.BeadsTotal, &S_add.Bead, S_add.Box);
     } //}}}
     // allocate memory only to free it later
-    bond_type = calloc(1, sizeof (PARAMS));
-    angle_type = calloc(1, sizeof (PARAMS));
-    dihedral_type = calloc(1, sizeof (PARAMS));
+//  bond_type = calloc(1, sizeof (PARAMS));
+//  angle_type = calloc(1, sizeof (PARAMS));
+//  dihedral_type = calloc(1, sizeof (PARAMS));
   } //}}}
+
+  SYSTEM S_new = InitSystem;
 
   // set final box size //{{{
   /*
    * if -b isn't used, set box size as the larger of the dimensions from
    * original and to-be-added systems
    */
-  BOX Box_new = InitBox;
-  Box_new.Length.x = 0;
-  Box_new.Length.y = 0;
-  Box_new.Length.z = 0;
+  S_new.Box = InitBox;
+  S_new.Box.Length.x = 0;
+  S_new.Box.Length.y = 0;
+  S_new.Box.Length.z = 0;
   if (box_option[0] == -1) {
-    if (Box_add.Length.x > Box_orig.Length.x) {
-      Box_new.Length.x = Box_add.Length.x;
+    if (S_add.Box.Length.x > S_orig.Box.Length.x) {
+      S_new.Box.Length.x = S_add.Box.Length.x;
     } else {
-      Box_new.Length.x = Box_orig.Length.x;
+      S_new.Box.Length.x = S_orig.Box.Length.x;
     }
-    if (Box_add.Length.y > Box_orig.Length.y) {
-      Box_new.Length.y = Box_add.Length.y;
+    if (S_add.Box.Length.y > S_orig.Box.Length.y) {
+      S_new.Box.Length.y = S_add.Box.Length.y;
     } else {
-      Box_new.Length.y = Box_orig.Length.y;
+      S_new.Box.Length.y = S_orig.Box.Length.y;
     }
-    if (Box_add.Length.z > Box_orig.Length.z) {
-      Box_new.Length.z = Box_add.Length.z;
+    if (S_add.Box.Length.z > S_orig.Box.Length.z) {
+      S_new.Box.Length.z = S_add.Box.Length.z;
     } else {
-      Box_new.Length.z = Box_orig.Length.z;
+      S_new.Box.Length.z = S_orig.Box.Length.z;
     }
   } else {
-    Box_new = Box_orig; // TODO just for now
-    Box_new.Length.x = box_option[0];
-    Box_new.Length.y = box_option[1];
-    Box_new.Length.z = box_option[2];
+    S_new.Box = S_orig.Box; // TODO just for now
+    S_new.Box.Length.x = box_option[0];
+    S_new.Box.Length.y = box_option[1];
+    S_new.Box.Length.z = box_option[2];
   } //}}}
 
   // define 'box' for additions using constraints (-c{x,y,z} options)//{{{
@@ -646,21 +621,21 @@ int main(int argc, char *argv[]) {
   if (constraint[1].x != 0) {
     constraint_box.Length.x = constraint[1].x - constraint[0].x;
   } else {
-    constraint_box.Length.x = Box_new.Length.x;
+    constraint_box.Length.x = S_new.Box.Length.x;
   }
   if (constraint[1].y != 0) {
     constraint_box.Length.y = constraint[1].y - constraint[0].y;
   } else {
-    constraint_box.Length.y = Box_new.Length.y;
+    constraint_box.Length.y = S_new.Box.Length.y;
   }
   if (constraint[1].z != 0) {
     constraint_box.Length.z = constraint[1].z - constraint[0].z;
   } else {
-    constraint_box.Length.z = Box_new.Length.z;
+    constraint_box.Length.z = S_new.Box.Length.z;
   } //}}}
 
   // error - no box size //{{{
-  if (Box_new.Length.x == 0 || Box_new.Length.y == 0 || Box_new.Length.z == 0) {
+  if (S_new.Box.Length.x == 0 || S_new.Box.Length.y == 0 || S_new.Box.Length.z == 0) {
     ErrorPrintError_old();
     ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, "zero box size for the new system\n\n");
@@ -671,14 +646,14 @@ int main(int argc, char *argv[]) {
 
   // check number of exchangeable beads //{{{
   int can_be_exchanged = 0;
-  for (int i = 0; i < Counts_orig.BeadsTotal; i++) {
-    int btype = bead_orig[i].Type;
-    if (bead_orig[i].Molecule == -1 && bt_orig[btype].Write) {
+  for (int i = 0; i < S_orig.BeadsTotal; i++) {
+    int btype = S_orig.Bead[i].Type;
+    if (S_orig.Bead[i].Molecule == -1 && S_orig.BeadType[btype].Write) {
       can_be_exchanged++;
     }
   }
   // count beads to be added
-  if (sw && Counts_add.BeadsCoor > can_be_exchanged) {
+  if (sw && S_add.BeadsCoor > can_be_exchanged) {
     ErrorPrintError_old();
     ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, "insufficient beads to exchange for new ones\n");
@@ -688,33 +663,33 @@ int main(int argc, char *argv[]) {
     ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, "     Beads to be added: ");
     ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%d\n\n", Counts_add.BeadsCoor);
+    fprintf(stderr, "%d\n\n", S_add.BeadsCoor);
     ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
 
   // if '-gc' is used, put prototypes' geometric centres to (0,0,0) //{{{
   if (com) {
-    for (int i = 0; i < Counts_add.Molecules; i++) {
-      int mtype = mol_add[i].Type;
+    for (int i = 0; i < S_add.Molecules; i++) {
+      int mtype = S_add.Molecule[i].Type;
       VECTOR geom_centre;
       geom_centre.x = 0;
       geom_centre.y = 0;
       geom_centre.z = 0;
-      for (int j = 0; j < mt_add[mtype].nBeads; j++) {
-        int id = mol_add[i].Bead[j];
-        geom_centre.x += bead_add[id].Position.x;
-        geom_centre.y += bead_add[id].Position.y;
-        geom_centre.z += bead_add[id].Position.z;
+      for (int j = 0; j < S_add.MoleculeType[mtype].nBeads; j++) {
+        int id = S_add.Molecule[i].Bead[j];
+        geom_centre.x += S_add.Bead[id].Position.x;
+        geom_centre.y += S_add.Bead[id].Position.y;
+        geom_centre.z += S_add.Bead[id].Position.z;
       }
-      geom_centre.x /= mt_add[mtype].nBeads;
-      geom_centre.y /= mt_add[mtype].nBeads;
-      geom_centre.z /= mt_add[mtype].nBeads;
-      for (int j = 0; j < mt_add[mtype].nBeads; j++) {
-        int id = mol_add[i].Bead[j];
-        bead_add[id].Position.x -= geom_centre.x;
-        bead_add[id].Position.y -= geom_centre.y;
-        bead_add[id].Position.z -= geom_centre.z;
+      geom_centre.x /= S_add.MoleculeType[mtype].nBeads;
+      geom_centre.y /= S_add.MoleculeType[mtype].nBeads;
+      geom_centre.z /= S_add.MoleculeType[mtype].nBeads;
+      for (int j = 0; j < S_add.MoleculeType[mtype].nBeads; j++) {
+        int id = S_add.Molecule[i].Bead[j];
+        S_add.Bead[id].Position.x -= geom_centre.x;
+        S_add.Bead[id].Position.y -= geom_centre.y;
+        S_add.Bead[id].Position.z -= geom_centre.z;
       }
     }
   } //}}}
@@ -722,457 +697,630 @@ int main(int argc, char *argv[]) {
   // print what is to be added //{{{
   if (verbose) {
     fprintf(stdout, "\nBEADS AND MOLECULES TO ADD\n");
-    VerboseOutput(Counts_add, bt_add, bead_add, mt_add, mol_add);
+    VerboseOutput(S_add);
   } //}}}
 
   /* decide which beads to exchange //{{{
    * i.e., give them Bead[].Flag = true); has effect only if --switch is used
    */
   // zeroize Bead[].Flag //{{{
-  for (int i = 0; i < Counts_orig.BeadsCoor; i++) {
-    bead_orig[i].Use = false;
+  for (int i = 0; i < S_orig.BeadsCoor; i++) {
+    S_orig.Bead[i].Use = false;
   } //}}}
   count = 0; // counts bead in the original Bead[] struct
-  for (int i = 0; i < Counts_add.BeadsCoor; i++) {
-    for (; count < Counts_orig.BeadsCoor; count++) {
-      int type = bead_orig[count].Type;
-      if (bt_orig[type].Write && bead_orig[count].Molecule == -1) {
-        bead_orig[count].Use = true; // exchange bead 'count'
+  for (int i = 0; i < S_add.BeadsCoor; i++) {
+    for (; count < S_orig.BeadsCoor; count++) {
+      int type = S_orig.Bead[count].Type;
+      if (S_orig.BeadType[type].Write && S_orig.Bead[count].Molecule == -1) {
+        S_orig.Bead[count].Use = true; // exchange bead 'count'
         break;
       }
     }
     count++; // loop didn't update count because of the break
   } //}}}
 
-  // create structures for new system //{{{
-  COUNTS Counts_new = InitCounts;
-  BEADTYPE *bt_new = calloc(1, sizeof (BEADTYPE));
-  MOLECULETYPE *mt_new = calloc(1, sizeof (MOLECULETYPE));
-  BEAD *bead_new = calloc(1, sizeof (BEAD));
-  MOLECULE *mol_new = calloc(1, sizeof (MOLECULE));
-  int *Index_new = calloc(1, sizeof *Index_new); //}}}
+//// create structures for new system //{{{
+//COUNTS S_new = InitCounts;
+//BEADTYPE *S_new.BeadType = calloc(1, sizeof (BEADTYPE));
+//MOLECULETYPE *S_new.MoleculeType = calloc(1, sizeof (MOLECULETYPE));
+//BEAD *S_new.Bead = calloc(1, sizeof (BEAD));
+//MOLECULE *S_new.Molecule = calloc(1, sizeof (MOLECULE));
+//int *S_new.Index = calloc(1, sizeof *S_new.Index),
+//    *S_new.InFile = calloc(1, sizeof *S_new.InFile);
+////}}}
 
-// TODO take into account vcf files not containing all beads from vsf files
-//      (via InFile arrays, obviously)
   // join original and added systems (depending on '--switch' mode)
   if (sw) { // switch old beads for new ones? //{{{
-    Counts_new.BeadsCoor = Counts_orig.BeadsCoor;
-    Counts_new.BeadsTotal = Counts_orig.BeadsTotal;
-    Counts_new.Bonded = Counts_orig.Bonded + Counts_add.Bonded;
-    Counts_new.Unbonded = Counts_orig.BeadsCoor - Counts_new.Bonded;
-    Counts_new.TypesOfBonds = Counts_add.TypesOfBonds;
-    Counts_new.TypesOfAngles = Counts_add.TypesOfAngles;
-    Counts_new.Molecules = Counts_orig.Molecules + Counts_add.Molecules;
+    S_new.BeadsCoor = S_orig.BeadsCoor;
+    S_new.BeadsTotal = S_orig.BeadsTotal;
+    S_new.Bonded = S_orig.Bonded + S_add.Bonded;
+    S_new.Unbonded = S_orig.BeadsCoor - S_new.Bonded;
+    S_new.TypesOfBonds = S_add.TypesOfBonds;
+    S_new.TypesOfAngles = S_add.TypesOfAngles;
+    S_new.Molecules = S_orig.Molecules + S_add.Molecules;
     // fill BeadType struct for the new system
-    Counts_new.TypesOfBeads = Counts_orig.TypesOfBeads;
+    S_new.TypesOfBeads = S_orig.TypesOfBeads;
     // 1) copy original BeadType
-    CopyBeadType(Counts_new.TypesOfBeads, &bt_new, bt_orig, 3);
+    CopyBeadType(S_new.TypesOfBeads, &S_new.BeadType, S_orig.BeadType, 3);
     // 2) add new bead types - the check is based only on Name //{{{
-    for (int i = 0; i < Counts_add.TypesOfBeads; i++) {
+    for (int i = 0; i < S_add.TypesOfBeads; i++) {
       bool new = true;
-      for (int j = 0; j < Counts_orig.TypesOfBeads; j++) {
-        if (strcmp(bt_add[i].Name, bt_orig[j].Name) == 0) {
+      for (int j = 0; j < S_orig.TypesOfBeads; j++) {
+        if (strcmp(S_add.BeadType[i].Name, S_orig.BeadType[j].Name) == 0) {
           new = false;
-          bt_new[j].Number += bt_add[i].Number;
+          S_new.BeadType[j].Number += S_add.BeadType[i].Number;
           break;
         }
       }
       if (new) {
-        int type = Counts_new.TypesOfBeads;
-        bt_new = realloc(bt_new, sizeof (BEADTYPE) * (type + 1));
-        bt_new[type] = bt_add[i];
-        Counts_new.TypesOfBeads++;
+        int type = S_new.TypesOfBeads;
+        S_new.BeadType = realloc(S_new.BeadType, sizeof (BEADTYPE) * (type + 1));
+        S_new.BeadType[type] = S_add.BeadType[i];
+        S_new.TypesOfBeads++;
       }
     } //}}}
     // fill MoleculeType struct for the new system
-    Counts_new.TypesOfMolecules = Counts_orig.TypesOfMolecules;
-    mt_new = realloc(mt_new, sizeof (MOLECULETYPE) * Counts_new.TypesOfMolecules);
+    S_new.TypesOfMolecules = S_orig.TypesOfMolecules;
+    S_new.MoleculeType = realloc(S_new.MoleculeType, sizeof (MOLECULETYPE) * S_new.TypesOfMolecules);
     // copy original MoleculeType to _new //{{{
-    for (int i = 0; i < Counts_new.TypesOfMolecules; i++) {
-      mt_new[i] = mt_orig[i];
-      mt_new[i].Bead = malloc(sizeof *mt_new[i].Bead * mt_new[i].nBeads);
-      for (int j = 0; j < mt_new[i].nBeads; j++) {
-        mt_new[i].Bead[j] = mt_orig[i].Bead[j];
+    for (int i = 0; i < S_new.TypesOfMolecules; i++) {
+      S_new.MoleculeType[i] = S_orig.MoleculeType[i];
+      S_new.MoleculeType[i].Bead = malloc(sizeof *S_new.MoleculeType[i].Bead * S_new.MoleculeType[i].nBeads);
+      for (int j = 0; j < S_new.MoleculeType[i].nBeads; j++) {
+        S_new.MoleculeType[i].Bead[j] = S_orig.MoleculeType[i].Bead[j];
       }
-      mt_new[i].Bond = malloc(sizeof *mt_new[i].Bond * mt_new[i].nBonds);
-      for (int j = 0; j < mt_new[i].nBonds; j++) {
-        mt_new[i].Bond[j][0] = mt_orig[i].Bond[j][0];
-        mt_new[i].Bond[j][1] = mt_orig[i].Bond[j][1];
-        mt_new[i].Bond[j][2] = mt_orig[i].Bond[j][2];
+      S_new.MoleculeType[i].Bond = malloc(sizeof *S_new.MoleculeType[i].Bond * S_new.MoleculeType[i].nBonds);
+      for (int j = 0; j < S_new.MoleculeType[i].nBonds; j++) {
+        S_new.MoleculeType[i].Bond[j][0] = S_orig.MoleculeType[i].Bond[j][0];
+        S_new.MoleculeType[i].Bond[j][1] = S_orig.MoleculeType[i].Bond[j][1];
+        S_new.MoleculeType[i].Bond[j][2] = S_orig.MoleculeType[i].Bond[j][2];
       }
     } //}}}
     // add new molecule types - check if their the same based only on Name //{{{
-    for (int i = 0; i < Counts_add.TypesOfMolecules; i++) {
+    for (int i = 0; i < S_add.TypesOfMolecules; i++) {
       bool new = true;
-      for (int j = 0; j < Counts_orig.TypesOfMolecules; j++) {
-        if (strcmp(mt_add[i].Name, mt_orig[j].Name) == 0) {
+      for (int j = 0; j < S_orig.TypesOfMolecules; j++) {
+        if (strcmp(S_add.MoleculeType[i].Name, S_orig.MoleculeType[j].Name) == 0) {
           new = false;
-          mt_new[j].Number += mt_add[i].Number;
+          S_new.MoleculeType[j].Number += S_add.MoleculeType[i].Number;
           break;
         }
       }
       if (new) {
-        int type = Counts_new.TypesOfMolecules;
-        mt_new = realloc(mt_new, sizeof (MOLECULETYPE) * (type + 1));
-        mt_new[type] = mt_add[i];
-        mt_new[type].Bead = malloc(sizeof *mt_new[type].Bead *
-                                   mt_new[type].nBeads);
-        for (int j = 0; j < mt_new[type].nBeads; j++) {
-          int old_type = mt_add[i].Bead[j];
-          int btype = FindBeadType(bt_add[old_type].Name,
-                                   Counts_new, bt_new);
-          mt_new[type].Bead[j] = btype;
+        int type = S_new.TypesOfMolecules;
+        S_new.MoleculeType = realloc(S_new.MoleculeType, sizeof (MOLECULETYPE) * (type + 1));
+        S_new.MoleculeType[type] = S_add.MoleculeType[i];
+        S_new.MoleculeType[type].Bead = malloc(sizeof *S_new.MoleculeType[type].Bead *
+                                   S_new.MoleculeType[type].nBeads);
+        for (int j = 0; j < S_new.MoleculeType[type].nBeads; j++) {
+          int old_type = S_add.MoleculeType[i].Bead[j];
+          int btype = FindBeadType(S_add.BeadType[old_type].Name, S_new);
+          S_new.MoleculeType[type].Bead[j] = btype;
         }
-        mt_new[type].Bond = malloc(sizeof *mt_new[i].Bond *
-                                   mt_new[type].nBonds);
-        for (int j = 0; j < mt_new[type].nBonds; j++) {
-          mt_new[type].Bond[j][0] = mt_add[i].Bond[j][0];
-          mt_new[type].Bond[j][1] = mt_add[i].Bond[j][1];
-          mt_new[type].Bond[j][2] = mt_add[i].Bond[j][2];
+        S_new.MoleculeType[type].Bond = malloc(sizeof *S_new.MoleculeType[i].Bond *
+                                   S_new.MoleculeType[type].nBonds);
+        for (int j = 0; j < S_new.MoleculeType[type].nBonds; j++) {
+          S_new.MoleculeType[type].Bond[j][0] = S_add.MoleculeType[i].Bond[j][0];
+          S_new.MoleculeType[type].Bond[j][1] = S_add.MoleculeType[i].Bond[j][1];
+          S_new.MoleculeType[type].Bond[j][2] = S_add.MoleculeType[i].Bond[j][2];
         }
-        if (mt_new[i].nAngles > 0) {
-          mt_new[type].Angle = malloc(sizeof *mt_new[type].Angle *
-                                      mt_new[type].nAngles);
-          for (int j = 0; j < mt_new[type].nAngles; j++) {
-            mt_new[type].Angle[j][0] = mt_add[i].Angle[j][0];
-            mt_new[type].Angle[j][1] = mt_add[i].Angle[j][1];
-            mt_new[type].Angle[j][2] = mt_add[i].Angle[j][2];
-            mt_new[type].Angle[j][3] = mt_add[i].Angle[j][3];
+        if (S_new.MoleculeType[i].nAngles > 0) {
+          S_new.MoleculeType[type].Angle = malloc(sizeof *S_new.MoleculeType[type].Angle *
+                                      S_new.MoleculeType[type].nAngles);
+          for (int j = 0; j < S_new.MoleculeType[type].nAngles; j++) {
+            S_new.MoleculeType[type].Angle[j][0] = S_add.MoleculeType[i].Angle[j][0];
+            S_new.MoleculeType[type].Angle[j][1] = S_add.MoleculeType[i].Angle[j][1];
+            S_new.MoleculeType[type].Angle[j][2] = S_add.MoleculeType[i].Angle[j][2];
+            S_new.MoleculeType[type].Angle[j][3] = S_add.MoleculeType[i].Angle[j][3];
           }
         }
-        if (mt_new[i].nDihedrals > 0) {
-          mt_new[type].Dihedral = malloc(sizeof *mt_new[type].Dihedral *
-                                         mt_new[type].nDihedrals);
-          for (int j = 0; j < mt_new[type].nDihedrals; j++) {
-            mt_new[type].Dihedral[j][0] = mt_add[i].Dihedral[j][0];
-            mt_new[type].Dihedral[j][1] = mt_add[i].Dihedral[j][1];
-            mt_new[type].Dihedral[j][2] = mt_add[i].Dihedral[j][2];
-            mt_new[type].Dihedral[j][3] = mt_add[i].Dihedral[j][3];
-            mt_new[type].Dihedral[j][4] = mt_add[i].Dihedral[j][4];
+        if (S_new.MoleculeType[i].nDihedrals > 0) {
+          S_new.MoleculeType[type].Dihedral = malloc(sizeof *S_new.MoleculeType[type].Dihedral *
+                                         S_new.MoleculeType[type].nDihedrals);
+          for (int j = 0; j < S_new.MoleculeType[type].nDihedrals; j++) {
+            S_new.MoleculeType[type].Dihedral[j][0] = S_add.MoleculeType[i].Dihedral[j][0];
+            S_new.MoleculeType[type].Dihedral[j][1] = S_add.MoleculeType[i].Dihedral[j][1];
+            S_new.MoleculeType[type].Dihedral[j][2] = S_add.MoleculeType[i].Dihedral[j][2];
+            S_new.MoleculeType[type].Dihedral[j][3] = S_add.MoleculeType[i].Dihedral[j][3];
+            S_new.MoleculeType[type].Dihedral[j][4] = S_add.MoleculeType[i].Dihedral[j][4];
           }
         }
-        Counts_new.TypesOfMolecules++;
+        S_new.TypesOfMolecules++;
       }
     } //}}}
     // fill Bead struct for the new system
-    bead_new = realloc(bead_new, sizeof (BEAD) * Counts_new.BeadsCoor);
-    Index_new = realloc(Index_new, sizeof *Index_new * Counts_new.BeadsCoor);
-    // copy unbonded beads not to be exchanged to the start of bead_new //{{{
+    S_new.Bead = realloc(S_new.Bead, sizeof (BEAD) * S_new.BeadsCoor);
+    S_new.Index = realloc(S_new.Index, sizeof *S_new.Index * S_new.BeadsCoor);
+    // copy unbonded beads not to be exchanged to the start of S_new.Bead //{{{
     // TODO: assumes unbonded beads are before bonded beads
     count = 0; // counts copied beads
-    for (int i = 0; i < Counts_orig.Unbonded; i++) {
+    for (int i = 0; i < S_orig.Unbonded; i++) {
       // first, copy only beads of the type that's not to be exchange
-      if (!bead_orig[i].Use) {
-        bead_new[count] = bead_orig[i];
-        bead_new[count].Molecule = -1;
-        bead_new[count].Index = count;
-        bead_new[count].Use = false; // do not rewrite, obviously
-        bead_new[count].Aggregate = malloc(sizeof *bead_new[count].Aggregate *
+      if (!S_orig.Bead[i].Use) {
+        S_new.Bead[count] = S_orig.Bead[i];
+        S_new.Bead[count].Molecule = -1;
+        S_new.Bead[count].Index = count;
+        S_new.Bead[count].Use = false; // do not rewrite, obviously
+        S_new.Bead[count].Aggregate = malloc(sizeof *S_new.Bead[count].Aggregate *
                                            1); // just to free later
-        Index_new[count] = count;
+        S_new.Index[count] = count;
         count++;
       }
     }
     // count ended at <number of unbonded original beads> - <added beads> //}}}
     // put unbonded beads to be added beyond the unchanged unbonded beads //{{{
-    count = Counts_orig.Unbonded - Counts_add.BeadsCoor; // just to be sure
-    for (int i = 0; i < Counts_add.Unbonded; i++) {
-      int type = bead_add[i].Type;
-      int new_type = FindBeadType(bt_add[type].Name, Counts_new, bt_new);
-      bead_new[count] = bead_orig[i];
-      bead_new[count].Type = new_type;
-      bead_new[count].Molecule = -1;
-      bead_new[count].Index = count;
-      bead_new[count].Use = true; // coordinates to be rewritten
-      bead_new[count].Aggregate = malloc(sizeof *bead_new[count].Aggregate *
+    count = S_orig.Unbonded - S_add.BeadsCoor; // just to be sure
+    for (int i = 0; i < S_add.Unbonded; i++) {
+      int type = S_add.Bead[i].Type;
+      int new_type = FindBeadType(S_add.BeadType[type].Name, S_new);
+      S_new.Bead[count] = S_orig.Bead[i];
+      S_new.Bead[count].Type = new_type;
+      S_new.Bead[count].Molecule = -1;
+      S_new.Bead[count].Index = count;
+      S_new.Bead[count].Use = true; // coordinates to be rewritten
+      S_new.Bead[count].Aggregate = malloc(sizeof *S_new.Bead[count].Aggregate *
                                          1); // just to free later
-      Index_new[count] = count;
+      S_new.Index[count] = count;
       count++; // use count to make it consistent & easy to read
     } //}}}
     // copy the original bonded beads //{{{
-    count = Counts_new.Unbonded;
-    for (int i = Counts_orig.Unbonded; i < Counts_orig.BeadsCoor; i++) {
-      bead_new[count] = bead_orig[i];
-      bead_new[count].Index = count;
-      bead_new[count].Use = false; // coordinates to be rewritten
-      bead_new[count].Aggregate = malloc(sizeof *bead_new[count].Aggregate *
+    count = S_new.Unbonded;
+    for (int i = S_orig.Unbonded; i < S_orig.BeadsCoor; i++) {
+      S_new.Bead[count] = S_orig.Bead[i];
+      S_new.Bead[count].Index = count;
+      S_new.Bead[count].Use = false; // coordinates to be rewritten
+      S_new.Bead[count].Aggregate = malloc(sizeof *S_new.Bead[count].Aggregate *
                                          1); // just to free later
-      Index_new[count] = count;
+      S_new.Index[count] = count;
       count++;
     } //}}}
     // put bonded beads to be added at the very end //{{{
-    count = Counts_new.Unbonded + Counts_orig.Bonded;
-    for (int i = Counts_add.Unbonded; i < Counts_add.BeadsCoor; i++) {
-      int type = bead_add[i].Type;
-      int new_type = FindBeadType(bt_add[type].Name, Counts_new, bt_new);
-      bead_new[count] = bead_add[i];
-      bead_new[count].Type = new_type;
-      bead_new[count].Molecule = bead_add[i].Molecule + Counts_orig.Molecules;
-      bead_new[count].Index = count;
-      bead_new[count].Use = true; // coordinates to be rewritten
-      bead_new[count].Aggregate = malloc(sizeof *bead_new[count].Aggregate *
+    count = S_new.Unbonded + S_orig.Bonded;
+    for (int i = S_add.Unbonded; i < S_add.BeadsCoor; i++) {
+      int type = S_add.Bead[i].Type;
+      int new_type = FindBeadType(S_add.BeadType[type].Name, S_new);
+      S_new.Bead[count] = S_add.Bead[i];
+      S_new.Bead[count].Type = new_type;
+      S_new.Bead[count].Molecule = S_add.Bead[i].Molecule + S_orig.Molecules;
+      S_new.Bead[count].Index = count;
+      S_new.Bead[count].Use = true; // coordinates to be rewritten
+      S_new.Bead[count].Aggregate = malloc(sizeof *S_new.Bead[count].Aggregate *
                                          1); // just to free later
-      Index_new[count] = count;
+      S_new.Index[count] = count;
       count++; // use count to make it consistent & easy to read
     } //}}}
     // alocate new molecule struct
-    mol_new = realloc(mol_new, sizeof (MOLECULE) * Counts_new.Molecules);
+    S_new.Molecule = realloc(S_new.Molecule, sizeof (MOLECULE) * S_new.Molecules);
     // copy original molecules to _new struct //{{{
-    for (int i = 0; i < Counts_orig.Molecules; i++) {
-      int type = mol_orig[i].Type;
-      mol_new[i].Type = type;
-      mol_new[i].Bead = malloc(sizeof *mol_new[i].Bead * mt_new[type].nBeads);
-      for (int j = 0; j < mt_new[type].nBeads; j++) {
-        mol_new[i].Bead[j] = mol_orig[i].Bead[j] - Counts_add.Bonded;
+    for (int i = 0; i < S_orig.Molecules; i++) {
+      int type = S_orig.Molecule[i].Type;
+      S_new.Molecule[i].Type = type;
+      S_new.Molecule[i].Bead = malloc(sizeof *S_new.Molecule[i].Bead * S_new.MoleculeType[type].nBeads);
+      for (int j = 0; j < S_new.MoleculeType[type].nBeads; j++) {
+        S_new.Molecule[i].Bead[j] = S_orig.Molecule[i].Bead[j] - S_add.Bonded;
       }
     } //}}}
     // put _add molecules into _new struct //{{{
-    count = Counts_new.BeadsCoor - Counts_add.Bonded;
-    for (int i = 0; i < Counts_add.Molecules; i++) {
-      int add_type = mol_add[i].Type;
-      int new_type = FindMoleculeType(mt_add[add_type].Name,
-                                      Counts_new, mt_new);
-      int new_i = Counts_orig.Molecules + i;
-      mol_new[new_i].Type = new_type;
-      mol_new[new_i].Bead = malloc(sizeof *mol_new[new_i].Bead *
-                                   mt_new[new_type].nBeads);
-      for (int j = 0; j < mt_new[new_type].nBeads; j++) {
-        mol_new[new_i].Bead[j] = count;
+    count = S_new.BeadsCoor - S_add.Bonded;
+    for (int i = 0; i < S_add.Molecules; i++) {
+      int add_type = S_add.Molecule[i].Type;
+      int new_type = FindMoleculeType(S_add.MoleculeType[add_type].Name, S_new);
+      int new_i = S_orig.Molecules + i;
+      S_new.Molecule[new_i].Type = new_type;
+      S_new.Molecule[new_i].Bead = malloc(sizeof *S_new.Molecule[new_i].Bead *
+                                   S_new.MoleculeType[new_type].nBeads);
+      for (int j = 0; j < S_new.MoleculeType[new_type].nBeads; j++) {
+        S_new.Molecule[new_i].Bead[j] = count;
         count++;
       }
     } //}}}
     //}}}
   } else { // or add beads to the system? //{{{
-    Counts_new.BeadsCoor = Counts_orig.BeadsCoor + Counts_add.BeadsCoor;
-    Counts_new.BeadsTotal = Counts_orig.BeadsTotal + Counts_add.BeadsTotal;
-//  Counts_new.Bonded = Counts_orig.Bonded + Counts_add.Bonded;
-//  Counts_new.Unbonded = Counts_new.BeadsCoor - Counts_new.Bonded;
-    Counts_new.TypesOfBonds = Counts_add.TypesOfBonds;
-    Counts_new.TypesOfAngles = Counts_add.TypesOfAngles;
-    Counts_new.Molecules = Counts_orig.Molecules + Counts_add.Molecules;
+    // TODO: simplify; it's just to know what to print!!!
+    S_new.TypesOfBeads = S_orig.TypesOfBeads + S_add.TypesOfBeads;
+    S_new.BeadsCoor = S_orig.BeadsCoor + S_add.BeadsCoor;
+    S_new.BeadsTotal = S_orig.BeadsTotal + S_add.BeadsTotal;
+    S_new.Unbonded = S_orig.BeadsCoor - S_add.Bonded;
+    S_new.UnbondedCoor = S_orig.UnbondedCoor + S_add.UnbondedCoor;
+    S_new.Bonded = S_orig.Bonded + S_add.Bonded;
+    S_new.BondedCoor = S_orig.BondedCoor + S_add.BondedCoor;
+    S_new.TypesOfBonds = S_orig.TypesOfBonds + S_add.TypesOfBonds;
+    S_new.TypesOfAngles = S_orig.TypesOfAngles + S_add.TypesOfAngles;
+    S_new.Molecules = S_orig.Molecules + S_add.Molecules;
     // fill BeadType struct for the new system //{{{
-    Counts_new.TypesOfBeads = Counts_orig.TypesOfBeads;
-    // 1) copy original BeadType (if there is an input system)
-    if (Counts_new.TypesOfBeads > 0) {
-      CopyBeadType(Counts_new.TypesOfBeads, &bt_new, bt_orig, 3);
+    // copy original BeadType (if there is an input system)
+    S_new.BeadType = malloc(sizeof (BEADTYPE) * S_new.TypesOfBeads);
+    if (strlen(input_coor) > 0) {
+      CopyBeadType(S_orig.TypesOfBeads, &S_new.BeadType, S_orig.BeadType, 0);
     }
-    // 2) add new bead types - check is based only on Name //{{{
-    for (int i = 0; i < Counts_add.TypesOfBeads; i++) {
-      bool new = true;
-      for (int j = 0; j < Counts_orig.TypesOfBeads; j++) {
-        if (strcmp(bt_add[i].Name, bt_orig[j].Name) == 0) {
-          new = false;
-          // increase old type's number of beads
-          bt_new[j].Number += bt_add[i].Number;
-          break;
-        }
-      }
-      if (new) { // create new type
-        int type = Counts_new.TypesOfBeads;
-        bt_new = realloc(bt_new, sizeof (BEADTYPE) * (type + 1));
-        bt_new[type] = bt_add[i];
-        Counts_new.TypesOfBeads++;
-      }
+    // add new bead types - just add them behind the original ones
+    for (int i = 0; i < S_add.TypesOfBeads; i++) {
+      int new_id = S_orig.TypesOfBeads + i;
+      strcpy(S_new.BeadType[new_id].Name, S_add.BeadType[i].Name);
+      S_new.BeadType[new_id] = S_add.BeadType[i];
     } //}}}
-    //}}}
     // fill MoleculeType struct for the new system //{{{
-    Counts_new.TypesOfMolecules = Counts_orig.TypesOfMolecules;
-    if (Counts_new.TypesOfMolecules > 0) { // are there input coordinates?
-      mt_new = realloc(mt_new, sizeof (MOLECULETYPE) * Counts_new.TypesOfMolecules);
-      // copy original MoleculeType to _new //{{{
-      for (int i = 0; i < Counts_new.TypesOfMolecules; i++) {
-        mt_new[i] = mt_orig[i]; // copy simple variables
-        // copy Bead array
-        mt_new[i].Bead = malloc(sizeof *mt_new[i].Bead * mt_new[i].nBeads);
-        for (int j = 0; j < mt_new[i].nBeads; j++) {
-          mt_new[i].Bead[j] = mt_orig[i].Bead[j];
-        }
-        // copy Bond array
-        mt_new[i].Bond = malloc(sizeof *mt_new[i].Bond * mt_new[i].nBonds);
-        for (int j = 0; j < mt_new[i].nBonds; j++) {
-          mt_new[i].Bond[j][0] = mt_orig[i].Bond[j][0];
-          mt_new[i].Bond[j][1] = mt_orig[i].Bond[j][1];
-          mt_new[i].Bond[j][2] = mt_orig[i].Bond[j][2];
-        }
-      } //}}}
+    S_new.TypesOfMolecules = S_orig.TypesOfMolecules;
+    if (strlen(input_coor) > 0) {
+      CopyMoleculeType(S_new.TypesOfMolecules, &S_new.MoleculeType,
+                       S_orig.MoleculeType, 2);
     }
-    // add new molecule types - check if their the same based only on Name //{{{
-    for (int i = 0; i < Counts_add.TypesOfMolecules; i++) {
-      bool new = true;
-      for (int j = 0; j < Counts_orig.TypesOfMolecules; j++) {
-        if (strcmp(mt_add[i].Name, mt_orig[j].Name) == 0) {
-          new = false;
-          mt_new[j].Number += mt_add[i].Number;
-          break;
+    S_new.TypesOfMolecules += S_add.TypesOfMolecules;
+    S_new.MoleculeType = realloc(S_new.MoleculeType, sizeof (MOLECULETYPE) * S_new.TypesOfMolecules);
+    // add new molecule types - just add them to the end //{{{
+    for (int i = 0; i < S_add.TypesOfMolecules; i++) {
+      int new_id = S_orig.TypesOfMolecules + i;
+      S_new.MoleculeType[new_id] = S_add.MoleculeType[i];
+      S_new.MoleculeType[new_id].Bead = malloc(sizeof *S_new.MoleculeType[new_id].Bead *
+                                   S_new.MoleculeType[new_id].nBeads);
+      for (int j = 0; j < S_new.MoleculeType[new_id].nBeads; j++) {
+        S_new.MoleculeType[new_id].Bead[j] = S_add.MoleculeType[i].Bead[j] + S_orig.TypesOfBeads;
+      }
+      if (S_new.MoleculeType[new_id].nBonds > 0) {
+        S_new.MoleculeType[new_id].Bond = malloc(sizeof *S_new.MoleculeType[new_id].Bond *
+                                     S_new.MoleculeType[new_id].nBonds);
+        for (int j = 0; j < S_new.MoleculeType[new_id].nBonds; j++) {
+          S_new.MoleculeType[new_id].Bond[j][0] = S_add.MoleculeType[i].Bond[j][0];
+          S_new.MoleculeType[new_id].Bond[j][1] = S_add.MoleculeType[i].Bond[j][1];
+          S_new.MoleculeType[new_id].Bond[j][2] = S_add.MoleculeType[i].Bond[j][2];
         }
       }
-      if (new) {
-        int type = Counts_new.TypesOfMolecules;
-        mt_new = realloc(mt_new, sizeof (MOLECULETYPE) * (type + 1));
-        mt_new[type] = mt_add[i];
-        mt_new[type].Bead = malloc(sizeof *mt_new[type].Bead *
-                                   mt_new[type].nBeads);
-        for (int j = 0; j < mt_new[type].nBeads; j++) {
-          int old_type = mt_add[i].Bead[j];
-          int btype = FindBeadType(bt_add[old_type].Name,
-                                   Counts_new, bt_new);
-          mt_new[type].Bead[j] = btype;
+      if (S_new.MoleculeType[new_id].nAngles > 0) {
+        S_new.MoleculeType[new_id].Angle = malloc(sizeof *S_new.MoleculeType[new_id].Angle *
+                                      S_new.MoleculeType[new_id].nAngles);
+        for (int j = 0; j < S_new.MoleculeType[new_id].nAngles; j++) {
+          S_new.MoleculeType[new_id].Angle[j][0] = S_add.MoleculeType[i].Angle[j][0];
+          S_new.MoleculeType[new_id].Angle[j][1] = S_add.MoleculeType[i].Angle[j][1];
+          S_new.MoleculeType[new_id].Angle[j][2] = S_add.MoleculeType[i].Angle[j][2];
+          S_new.MoleculeType[new_id].Angle[j][3] = S_add.MoleculeType[i].Angle[j][3];
         }
-        if (mt_new[type].nBonds > 0) {
-          mt_new[type].Bond = malloc(sizeof *mt_new[type].Bond *
-                                     mt_new[type].nBonds);
-          for (int j = 0; j < mt_new[type].nBonds; j++) {
-            mt_new[type].Bond[j][0] = mt_add[i].Bond[j][0];
-            mt_new[type].Bond[j][1] = mt_add[i].Bond[j][1];
-            mt_new[type].Bond[j][2] = mt_add[i].Bond[j][2];
+      }
+      if (S_new.MoleculeType[new_id].nDihedrals > 0) {
+        S_new.MoleculeType[new_id].Dihedral = malloc(sizeof *S_new.MoleculeType[new_id].Dihedral *
+                                      S_new.MoleculeType[new_id].nDihedrals);
+        for (int j = 0; j < S_new.MoleculeType[new_id].nDihedrals; j++) {
+          S_new.MoleculeType[new_id].Dihedral[j][0] = S_add.MoleculeType[i].Dihedral[j][0];
+          S_new.MoleculeType[new_id].Dihedral[j][1] = S_add.MoleculeType[i].Dihedral[j][1];
+          S_new.MoleculeType[new_id].Dihedral[j][2] = S_add.MoleculeType[i].Dihedral[j][2];
+          S_new.MoleculeType[new_id].Dihedral[j][3] = S_add.MoleculeType[i].Dihedral[j][3];
+          S_new.MoleculeType[new_id].Dihedral[j][4] = S_add.MoleculeType[i].Dihedral[j][4];
+        }
+      }
+      S_new.MoleculeType[new_id].nBTypes = 0;
+      S_new.MoleculeType[new_id].BType = malloc(sizeof *S_new.MoleculeType[new_id].BType * 1);
+      for (int j = 0; j < S_new.MoleculeType[new_id].nBeads; j++) {
+        bool new = true;
+        for (int k = 0; k < S_new.MoleculeType[new_id].nBTypes; k++) {
+          if (S_new.MoleculeType[new_id].Bead[j] == S_new.MoleculeType[new_id].BType[k]) {
+            new = false;
+            break;
           }
         }
-        if (mt_new[type].nAngles > 0) {
-          mt_new[type].Angle = malloc(sizeof *mt_new[type].Angle *
-                                      mt_new[type].nAngles);
-          for (int j = 0; j < mt_new[type].nAngles; j++) {
-            mt_new[type].Angle[j][0] = mt_add[i].Angle[j][0];
-            mt_new[type].Angle[j][1] = mt_add[i].Angle[j][1];
-            mt_new[type].Angle[j][2] = mt_add[i].Angle[j][2];
-            mt_new[type].Angle[j][3] = mt_add[i].Angle[j][3];
-          }
+        if (new) {
+          int type = S_new.MoleculeType[new_id].nBTypes++;
+          S_new.MoleculeType[new_id].BType = realloc(S_new.MoleculeType[new_id].BType,
+                                         sizeof *S_new.MoleculeType[new_id].BType *
+                                         S_new.MoleculeType[i].nBTypes);
+          S_new.MoleculeType[new_id].BType[type] = S_new.MoleculeType[new_id].Bead[j];
         }
-        if (mt_new[type].nDihedrals > 0) {
-          mt_new[type].Dihedral = malloc(sizeof *mt_new[type].Dihedral *
-                                      mt_new[type].nDihedrals);
-          for (int j = 0; j < mt_new[type].nDihedrals; j++) {
-            mt_new[type].Dihedral[j][0] = mt_add[i].Dihedral[j][0];
-            mt_new[type].Dihedral[j][1] = mt_add[i].Dihedral[j][1];
-            mt_new[type].Dihedral[j][2] = mt_add[i].Dihedral[j][2];
-            mt_new[type].Dihedral[j][3] = mt_add[i].Dihedral[j][3];
-            mt_new[type].Dihedral[j][4] = mt_add[i].Dihedral[j][4];
-          }
-        }
-        Counts_new.TypesOfMolecules++;
       }
     } //}}}
     //}}}
     // fill Bead struct for the new system
-    bead_new = realloc(bead_new, sizeof (BEAD) * Counts_new.BeadsCoor);
-    Index_new = realloc(Index_new, sizeof *Index_new * Counts_new.BeadsCoor);
-    count = 0;
+    S_new.Bead = malloc(sizeof (BEAD) * S_new.BeadsTotal);
+    S_new.Index = malloc(sizeof *S_new.Index * S_new.BeadsTotal);
+    S_new.InFile = malloc(sizeof *S_new.InFile * S_new.BeadsTotal);
     // TODO do something about the .Use flags - for sw, use some other flag
-    // copy original unbonded beads to the start of bead_new //{{{
-    for (int i = 0; i < Counts_orig.Unbonded; i++) {
-      int id_orig = InFile_orig[i];
-      if (bead_orig[id_orig].InTimestep/* && bead_orig[id_orig].Use*/) {
-        bead_new[count] = bead_orig[i];
-        bead_new[count].Molecule = -1;
-        bead_new[count].Index = count;
-        bead_new[count].Use = false;
-        bead_new[count].InTimestep = true;
-        bead_new[count].Aggregate = malloc(sizeof *bead_new[i].Aggregate * 1);
-        Index_new[count] = count;
+    // copy original beads to the start of S_new.Bead //{{{
+    count = 0;
+    for (int i = 0; i < S_orig.BeadsTotal; i++) {
+      S_new.Bead[i] = S_orig.Bead[i];
+      S_new.Bead[i].Use = false;
+      S_new.Bead[i].Aggregate = malloc(sizeof *S_new.Bead[count].Aggregate * 1);
+      S_new.Index[i] = S_orig.Index[i];
+      if (S_new.Bead[i].InTimestep) {
+        S_new.InFile[count] = i;
         count++;
       }
     } //}}}
-    // put unbonded beads to be added beyond the original unbonded beads //{{{
-//  for (int i = Counts_orig.Unbonded; i < Counts_new.Unbonded; i++) {
-    for (int i = 0; i < Counts_add.Unbonded; i++) {
-      int id_add = InFile_add[i];
-      if (bead_add[id_add].InTimestep/* && bead_add[id_add].Use*/) {
-        int type = bead_add[id_add].Type;
-        int new_type = FindBeadType(bt_add[type].Name, Counts_new, bt_new);
-        bead_new[count] = bead_add[id_add];
-        bead_new[count].Type = new_type;
-        bead_new[count].Molecule = -1;
-        bead_new[count].Index = count;
-        bead_new[count].Use = false;
-        bead_new[count].InTimestep = true;
-        bead_new[count].Aggregate = malloc(sizeof *bead_new[count].Aggregate * 1);
-        Index_new[count] = count;
+    // put beads to be added beyond the original ones //{{{
+    for (int i = 0; i < S_add.BeadsTotal; i++) {
+      int new_id = S_orig.BeadsTotal + i;
+      S_new.Bead[new_id] = S_add.Bead[i];
+      S_new.Bead[new_id].Type += S_orig.TypesOfBeads;
+      S_new.Bead[new_id].Index += S_orig.BeadsTotal;
+      if (S_new.Bead[new_id].Molecule != -1) {
+        S_new.Bead[new_id].Molecule += S_orig.Molecules;
+      }
+      S_new.Bead[new_id].Use = false;
+      S_new.Bead[new_id].Aggregate = malloc(sizeof *S_new.Bead[count].Aggregate * 1);
+      S_new.Index[new_id] = S_add.Index[i] + S_orig.BeadsTotal;
+      if (S_new.Bead[new_id].InTimestep) {
+        S_new.InFile[count] = new_id;
         count++;
       }
     } //}}}
-    Counts_new.Unbonded = count;
-    // copy the original bonded beads //{{{
-    for (int i = Counts_orig.Unbonded; i < Counts_orig.BeadsTotal; i++) {
-      int id_orig = InFile_orig[i];
-      if (bead_orig[id_orig].InTimestep/* && bead_orig[id_orig].Use*/) {
-//      int id = Counts_new.Unbonded + id_orig - Counts_orig.Unbonded;
-        bead_new[count] = bead_orig[id_orig];
-        bead_new[count].Index = count;
-        bead_new[count].Use = false;
-        bead_new[count].InTimestep = true;
-        bead_new[count].Aggregate = malloc(sizeof *bead_new[count].Aggregate * 1);
-        Index_new[count] = count;
-        count++;
-      }
-    } //}}}
-    // put bonded beads to be added at the very end //{{{
-    for (int i = Counts_add.Unbonded; i < Counts_add.BeadsCoor; i++) {
-      int id_add = InFile_add[i];
-      if (bead_add[id_add].InTimestep/* && bead_add[id_add].Use*/) {
-        int type = bead_add[id_add].Type;
-        int new_type = FindBeadType(bt_add[type].Name, Counts_new, bt_new);
-        bead_new[count] = bead_add[id_add];
-        bead_new[count].Type = new_type;
-        // TODO mol count when not beads present in the file
-        bead_new[count].Molecule = bead_add[id_add].Molecule +
-                                   Counts_orig.Molecules;
-        bead_new[count].Use = false;
-        bead_new[count].InTimestep = true;
-        bead_new[count].Index = count;
-        bead_new[count].Aggregate = malloc(sizeof *bead_new[count].Aggregate * 1);
-        Index_new[count] = count;
-        count++;
-      }
-    } //}}}
-    Counts_new.Bonded = count;
     // TODO properly copy molecules - what if there aren't all from the vsf(s)
     //      in the vcf(s) etc.? ...or is that fine as we always use
     //      InFile/InTimestep/whatever for beads in the molecules?
     // alocate new molecule struct
-    mol_new = realloc(mol_new, sizeof (MOLECULE) * Counts_new.Molecules);
+    S_new.Molecule = malloc(sizeof (MOLECULE) * S_new.Molecules);
     // copy original molecules to _new struct //{{{
-    for (int i = 0; i < Counts_orig.Molecules; i++) {
-      int type = mol_orig[i].Type;
-      mol_new[i].Type = type;
-      mol_new[i].Bead = malloc(sizeof *mol_new[i].Bead * mt_new[type].nBeads);
-      for (int j = 0; j < mt_new[type].nBeads; j++) {
-        mol_new[i].Bead[j] = mol_orig[i].Bead[j] + Counts_add.Unbonded;
+    for (int i = 0; i < S_orig.Molecules; i++) {
+      int type = S_orig.Molecule[i].Type;
+      S_new.Molecule[i] = S_orig.Molecule[i];
+      S_new.Molecule[i].Bead = malloc(sizeof *S_new.Molecule[i].Bead * S_new.MoleculeType[type].nBeads);
+      for (int j = 0; j < S_new.MoleculeType[type].nBeads; j++) {
+        S_new.Molecule[i].Bead[j] = S_orig.Molecule[i].Bead[j];
       }
     } //}}}
     // put _add molecules into _new struct //{{{
-    count = Counts_new.BeadsCoor - Counts_add.Bonded;
-    for (int i = 0; i < Counts_add.Molecules; i++) {
-      int add_type = mol_add[i].Type;
-      int new_type = FindMoleculeType(mt_add[add_type].Name,
-                                      Counts_new, mt_new);
-      int new_i = Counts_orig.Molecules + i;
-      mol_new[new_i].Type = new_type;
-      mol_new[new_i].Bead = malloc(sizeof *mol_new[new_i].Bead *
-                                   mt_new[new_type].nBeads);
-      for (int j = 0; j < mt_new[new_type].nBeads; j++) {
-        mol_new[new_i].Bead[j] = count;
+    for (int i = 0; i < S_add.Molecules; i++) {
+      int new_id = S_orig.Molecules + i;
+      S_new.Molecule[new_id] = S_add.Molecule[i];
+      int type =  S_add.Molecule[i].Type + S_orig.TypesOfMolecules;
+      S_new.Molecule[new_id].Type = type;
+      S_new.Molecule[new_id].Bead = malloc(sizeof *S_new.Molecule[new_id].Bead *
+                                    S_new.MoleculeType[type].nBeads);
+      for (int j = 0; j < S_new.MoleculeType[type].nBeads; j++) {
+        S_new.Molecule[new_id].Bead[j] = S_add.Molecule[i].Bead[j] + S_orig.BeadsTotal;
+      }
+    } //}}}
+/*    // TODO: OLDER //{{{
+    S_new.BeadsCoor = S_orig.BeadsCoor + S_add.BeadsCoor;
+    S_new.BeadsTotal = S_new.BeadsCoor;
+    S_new.UnbondedCoor = S_orig.UnbondedCoor + S_add.UnbondedCoor;
+    S_new.BondedCoor = S_orig.BondedCoor + S_add.BondedCoor;
+//  S_new.BeadsTotal = S_orig.BeadsTotal + S_add.BeadsTotal;
+//  S_new.Bonded = S_orig.Bonded + S_add.Bonded;
+//  S_new.Unbonded = S_new.BeadsCoor - S_new.Bonded;
+    S_new.TypesOfBonds = S_add.TypesOfBonds;
+    S_new.TypesOfAngles = S_add.TypesOfAngles;
+    S_new.Molecules = S_orig.Molecules + S_add.Molecules;
+    // fill BeadType struct for the new system //{{{
+    S_new.TypesOfBeads = S_orig.TypesOfBeads;
+    // 1) copy original BeadType (if there is an input system)
+    if (S_new.TypesOfBeads > 0) {
+      CopyBeadType(S_new.TypesOfBeads, &S_new.BeadType, S_orig.BeadType, 3);
+    }
+    // 2) add new bead types - check is based only on Name //{{{
+    for (int i = 0; i < S_add.TypesOfBeads; i++) {
+      bool new = true;
+      for (int j = 0; j < S_orig.TypesOfBeads; j++) {
+        if (strcmp(S_add.BeadType[i].Name, S_orig.BeadType[j].Name) == 0) {
+          new = false;
+          // increase old type's number of beads
+          S_new.BeadType[j].Number += S_add.BeadType[i].Number;
+          break;
+        }
+      }
+      if (new) { // create new type
+        int type = S_new.TypesOfBeads;
+        S_new.BeadType = realloc(S_new.BeadType, sizeof (BEADTYPE) * (type + 1));
+        S_new.BeadType[type] = S_add.BeadType[i];
+        S_new.TypesOfBeads++;
+      }
+    } //}}}
+    //}}}
+    // fill MoleculeType struct for the new system //{{{
+    S_new.TypesOfMolecules = S_orig.TypesOfMolecules;
+    if (S_new.TypesOfMolecules > 0) { // are there input coordinates?
+      S_new.MoleculeType = realloc(S_new.MoleculeType, sizeof (MOLECULETYPE) *
+                       S_new.TypesOfMolecules);
+      // copy original MoleculeType to _new //{{{
+      for (int i = 0; i < S_new.TypesOfMolecules; i++) {
+        S_new.MoleculeType[i] = mt_orig[i]; // copy simple variables
+        // copy Bead array
+        S_new.MoleculeType[i].Bead = malloc(sizeof *S_new.MoleculeType[i].Bead * S_new.MoleculeType[i].nBeads);
+        for (int j = 0; j < S_new.MoleculeType[i].nBeads; j++) {
+          S_new.MoleculeType[i].Bead[j] = mt_orig[i].Bead[j];
+        }
+        // copy Bond array
+        S_new.MoleculeType[i].Bond = malloc(sizeof *S_new.MoleculeType[i].Bond * S_new.MoleculeType[i].nBonds);
+        for (int j = 0; j < S_new.MoleculeType[i].nBonds; j++) {
+          S_new.MoleculeType[i].Bond[j][0] = mt_orig[i].Bond[j][0];
+          S_new.MoleculeType[i].Bond[j][1] = mt_orig[i].Bond[j][1];
+          S_new.MoleculeType[i].Bond[j][2] = mt_orig[i].Bond[j][2];
+        }
+      } //}}}
+    }
+    // add new molecule types - check if their the same based only on Name //{{{
+    for (int i = 0; i < S_add.TypesOfMolecules; i++) {
+      bool new = true;
+      for (int j = 0; j < S_orig.TypesOfMolecules; j++) {
+        if (strcmp(S_add.MoleculeType[i].Name, mt_orig[j].Name) == 0) {
+          new = false;
+          S_new.MoleculeType[j].Number += S_add.MoleculeType[i].Number;
+          break;
+        }
+      }
+      if (new) {
+        int type = S_new.TypesOfMolecules;
+        S_new.MoleculeType = realloc(S_new.MoleculeType, sizeof (MOLECULETYPE) * (type + 1));
+        S_new.MoleculeType[type] = S_add.MoleculeType[i];
+        S_new.MoleculeType[type].Bead = malloc(sizeof *S_new.MoleculeType[type].Bead *
+                                   S_new.MoleculeType[type].nBeads);
+        for (int j = 0; j < S_new.MoleculeType[type].nBeads; j++) {
+          int old_type = S_add.MoleculeType[i].Bead[j];
+          int btype = FindBeadType(S_add.BeadType[old_type].Name,
+                                   S_new, S_new.BeadType);
+          S_new.MoleculeType[type].Bead[j] = btype;
+        }
+        if (S_new.MoleculeType[type].nBonds > 0) {
+          S_new.MoleculeType[type].Bond = malloc(sizeof *S_new.MoleculeType[type].Bond *
+                                     S_new.MoleculeType[type].nBonds);
+          for (int j = 0; j < S_new.MoleculeType[type].nBonds; j++) {
+            S_new.MoleculeType[type].Bond[j][0] = S_add.MoleculeType[i].Bond[j][0];
+            S_new.MoleculeType[type].Bond[j][1] = S_add.MoleculeType[i].Bond[j][1];
+            S_new.MoleculeType[type].Bond[j][2] = S_add.MoleculeType[i].Bond[j][2];
+          }
+        }
+        if (S_new.MoleculeType[type].nAngles > 0) {
+          S_new.MoleculeType[type].Angle = malloc(sizeof *S_new.MoleculeType[type].Angle *
+                                      S_new.MoleculeType[type].nAngles);
+          for (int j = 0; j < S_new.MoleculeType[type].nAngles; j++) {
+            S_new.MoleculeType[type].Angle[j][0] = S_add.MoleculeType[i].Angle[j][0];
+            S_new.MoleculeType[type].Angle[j][1] = S_add.MoleculeType[i].Angle[j][1];
+            S_new.MoleculeType[type].Angle[j][2] = S_add.MoleculeType[i].Angle[j][2];
+            S_new.MoleculeType[type].Angle[j][3] = S_add.MoleculeType[i].Angle[j][3];
+          }
+        }
+        if (S_new.MoleculeType[type].nDihedrals > 0) {
+          S_new.MoleculeType[type].Dihedral = malloc(sizeof *S_new.MoleculeType[type].Dihedral *
+                                      S_new.MoleculeType[type].nDihedrals);
+          for (int j = 0; j < S_new.MoleculeType[type].nDihedrals; j++) {
+            S_new.MoleculeType[type].Dihedral[j][0] = S_add.MoleculeType[i].Dihedral[j][0];
+            S_new.MoleculeType[type].Dihedral[j][1] = S_add.MoleculeType[i].Dihedral[j][1];
+            S_new.MoleculeType[type].Dihedral[j][2] = S_add.MoleculeType[i].Dihedral[j][2];
+            S_new.MoleculeType[type].Dihedral[j][3] = S_add.MoleculeType[i].Dihedral[j][3];
+            S_new.MoleculeType[type].Dihedral[j][4] = S_add.MoleculeType[i].Dihedral[j][4];
+          }
+        }
+        S_new.TypesOfMolecules++;
+      }
+    } //}}}
+    //}}}
+    // fill Bead struct for the new system
+    S_new.Bead = realloc(S_new.Bead, sizeof (BEAD) * S_new.BeadsCoor);
+    S_new.Index = realloc(S_new.Index, sizeof *S_new.Index * S_new.BeadsCoor);
+    count = 0;
+    // TODO do something about the .Use flags - for sw, use some other flag
+    // copy original unbonded beads to the start of S_new.Bead //{{{
+    for (int i = 0; i < S_orig.UnbondedCoor; i++) {
+      int id_orig = orig[i];
+      if (S_orig.Bead[id_orig].InTimestep) {//&& S_orig.Bead[id_orig].Use
+        S_new.Bead[count] = S_orig.Bead[i];
+        S_new.Bead[count].Molecule = -1;
+        S_new.Bead[count].Index = count;
+        S_new.Bead[count].Use = false;
+        S_new.Bead[count].InTimestep = true;
+        S_new.Bead[count].Aggregate = malloc(sizeof *S_new.Bead[count].Aggregate * 1);
+        S_new.Index[count] = count;
         count++;
       }
     } //}}}
+    // put unbonded beads to be added beyond the original unbonded beads //{{{
+//  for (int i = S_orig.Unbonded; i < S_new.Unbonded; i++) {
+    for (int i = 0; i < S_add.UnbondedCoor; i++) {
+      int id_add = S_add.InFile[i];
+      if (S_add.Bead[id_add].InTimestep) {// && S_add.Bead[id_add].Use
+        int type = S_add.Bead[id_add].Type;
+        int new_type = FindBeadType(S_add.BeadType[type].Name, S_new, S_new.BeadType);
+        S_new.Bead[count] = S_add.Bead[id_add];
+        S_new.Bead[count].Type = new_type;
+        S_new.Bead[count].Molecule = -1;
+        S_new.Bead[count].Index = count;
+        S_new.Bead[count].Use = false;
+        S_new.Bead[count].InTimestep = true;
+        S_new.Bead[count].Aggregate = malloc(sizeof *S_new.Bead[count].Aggregate * 1);
+        S_new.Index[count] = count;
+        count++;
+      }
+    } //}}}
+    S_new.Unbonded = count;
+    // warning - different Unbonded & UnbondedCoor (should never trigger) //{{{
+    if (S_new.Unbonded != S_new.UnbondedCoor) {
+      strcpy(ERROR_MSG, "Counts.Unbonded and Counts.UnbondedCoor differ \
+in the new system, which should never happen");
+      PrintWarning();
+      PrintCounts(S_new);
+    } //}}}
+    // copy the original bonded beads //{{{
+    for (int i = S_orig.UnbondedCoor; i < S_orig.BeadsCoor; i++) {
+      int id_orig = orig[i];
+      if (S_orig.Bead[id_orig].InTimestep) {// && S_orig.Bead[id_orig].Use
+        S_new.Bead[count] = S_orig.Bead[id_orig];
+        S_new.Bead[count].Index = count;
+        S_new.Bead[count].Use = false;
+        S_new.Bead[count].InTimestep = true;
+        S_new.Bead[count].Aggregate = malloc(sizeof *S_new.Bead[count].Aggregate * 1);
+        S_new.Index[count] = count;
+        count++;
+      }
+    } //}}}
+    // put bonded beads to be added at the very end //{{{
+    for (int i = S_add.UnbondedCoor; i < S_add.BeadsCoor; i++) {
+      int id_add = S_add.InFile[i];
+      if (S_add.Bead[id_add].InTimestep) {// && S_add.Bead[id_add].Use
+        int type = S_add.Bead[id_add].Type;
+        int new_type = FindBeadType(S_add.BeadType[type].Name, S_new, S_new.BeadType);
+        S_new.Bead[count] = S_add.Bead[id_add];
+        S_new.Bead[count].Type = new_type;
+        // TODO mol count when not beads present in the file
+        S_new.Bead[count].Molecule = S_add.Bead[id_add].Molecule +
+                                   S_orig.Molecules;
+        S_new.Bead[count].Use = false;
+        S_new.Bead[count].InTimestep = true;
+        S_new.Bead[count].Index = count;
+        S_new.Bead[count].Aggregate = malloc(sizeof *S_new.Bead[count].Aggregate * 1);
+        S_new.Index[count] = count;
+        count++;
+      }
+    } //}}}
+    S_new.Bonded = count;
+    // warning - different Unbonded & UnbondedCoor (should never trigger) //{{{
+    if (S_new.Bonded != S_new.BondedCoor) {
+      strcpy(ERROR_MSG, "Counts.Bonded and Counts.BondedCoor differ \
+in the new system, which should never happen");
+      PrintWarning();
+      PrintCounts(S_new);
+    } //}}}
+    // TODO properly copy molecules - what if there aren't all from the vsf(s)
+    //      in the vcf(s) etc.? ...or is that fine as we always use
+    //      InFile/InTimestep/whatever for beads in the molecules?
+    // alocate new molecule struct
+    S_new.Molecule = realloc(S_new.Molecule, sizeof (MOLECULE) * S_new.Molecules);
+    // copy original molecules to _new struct //{{{
+    for (int i = 0; i < S_orig.Molecules; i++) {
+      int type = mol_orig[i].Type;
+      S_new.Molecule[i].Type = type;
+      S_new.Molecule[i].Bead = malloc(sizeof *S_new.Molecule[i].Bead * S_new.MoleculeType[type].nBeads);
+      for (int j = 0; j < S_new.MoleculeType[type].nBeads; j++) {
+        S_new.Molecule[i].Bead[j] = mol_orig[i].Bead[j] + S_add.Unbonded;
+      }
+    } //}}}
+    // put _add molecules into _new struct //{{{
+    count = S_new.BeadsCoor - S_add.BondedCoor;
+    for (int i = 0; i < S_add.Molecules; i++) {
+      int add_type = S_add.Molecule[i].Type;
+      int new_type = FindMoleculeType(S_add.MoleculeType[add_type].Name,
+                                      S_new, S_new.MoleculeType);
+      int new_i = S_orig.Molecules + i;
+      S_new.Molecule[new_i].Type = new_type;
+      S_new.Molecule[new_i].Bead = malloc(sizeof *S_new.Molecule[new_i].Bead *
+                                   S_new.MoleculeType[new_type].nBeads);
+      for (int j = 0; j < S_new.MoleculeType[new_type].nBeads; j++) {
+        S_new.Molecule[new_i].Bead[j] = count;
+        count++;
+      }
+    } //}}}
+*/      // //}}}
   } //}}}
-  FillMolBTypes(Counts_new.TypesOfMolecules, &mt_new);
-  FillMolMassCharge(Counts_new.TypesOfMolecules, &mt_new, bt_new);
-  // TODO is this what I really want?
-  int *InFile_new = calloc(Counts_new.BeadsTotal, sizeof *Index_new);
-  for (int i = 0; i < Counts_new.BeadsTotal; i++) {
-    InFile_new[i] = i;
-  }
+//FillMolBTypes(S_new.TypesOfMolecules, &S_new.MoleculeType);
+  FillMolMassCharge(S_new.TypesOfMolecules, &S_new.MoleculeType, S_new.BeadType);
 
-  PrintCounts(Counts_orig);
-  PrintCounts(Counts_add);
-  PrintCounts(Counts_new);
-//PrintMoleculeType2(Counts_new.TypesOfMolecules, bt_new, mt_new);
-//PrintMolecule(Counts_new.Molecules, mt_new, mol_new, bt_new, bead_new);
+  printf("original:\n");
+  PrintCounts(S_orig);
+  printf("to add:\n");
+  PrintCounts(S_add);
+  PrintBead(S_add);
+  printf("new:\n");
+  PrintCounts(S_new);
+  PrintBead(S_new);
+//PrintMoleculeType(S_new);
+//PrintMolecule(S_new);
+  for (int i = 0; i < S_new.BeadsCoor; i++) {
+    int id = S_new.InFile[i],
+        type = S_new.Bead[id].Type;
+    printf("S_new.InFile[%d]=%d: %s %d\n", i, id, S_new.BeadType[type].Name,
+                                           S_new.Bead[id].Index);
+  }
 
   // print new system //{{{
   if (verbose) {
     fprintf(stdout, "\nNEW SYSTEM\n");
-    VerboseOutput(Counts_new, bt_new, bead_new, mt_new, mol_new);
-    PrintBondTypes2(Counts_new.TypesOfBonds, bond_type);
+    VerboseOutput(S_new);
+//  PrintBondTypes2(S_new.TypesOfBonds, bond_type);
   } //}}}
 
   // add beads randomly if FIELD-like file is used //{{{
@@ -1180,7 +1328,7 @@ int main(int argc, char *argv[]) {
   if (strlen(add_vsf) == 0) {
     count = 0;
     // add monomeric beads //{{{
-    for (int i = 0; i < Counts_add.Unbonded; i++) {
+    for (int i = 0; i < S_add.Unbonded; i++) {
       VECTOR random;
       if (lowest_dist != -1 || highest_dist != -1) {
         double min_dist;
@@ -1201,16 +1349,16 @@ int main(int argc, char *argv[]) {
           number = (double)rand() / ((double)RAND_MAX + 1);
           random.z = number * constraint_box.Length.z + constraint[0].z;
 
-          min_dist = SQR(Box_orig.Length.x * 100);
-          for (int j = 0; j < Counts_orig.BeadsCoor; j++) {
-            int btype = bead_orig[j].Type;
+          min_dist = SQR(S_orig.Box.Length.x * 100);
+          for (int j = 0; j < S_orig.BeadsCoor; j++) {
+            int btype = S_orig.Bead[j].Type;
             /*
              * j can be added monomeric bead, so it's type can be higher than
              * the number of types
              */
-            if (btype < Counts_orig.TypesOfBeads && bt_orig[btype].Use) {
+            if (btype < S_orig.TypesOfBeads && S_orig.BeadType[btype].Use) {
               VECTOR dist;
-              dist = Distance(bead_orig[j].Position, random, Box_new.Length);
+              dist = Distance(S_orig.Bead[j].Position, random, S_new.Box.Length);
               dist.x = SQR(dist.x) + SQR(dist.y) + SQR(dist.z);
               if (dist.x < min_dist) {
                 min_dist = dist.x;
@@ -1231,12 +1379,12 @@ int main(int argc, char *argv[]) {
       // determine index of the added bead
       int id = -1;
       if (!sw) { // added beads (no --switch option)
-        id = Counts_orig.Unbonded + i;
+        id = S_orig.Unbonded + i;
       } else { // switched beds (--switch option)
-        for (int j = count; j < Counts_new.Unbonded; j++) {
-          if (bead_new[j].Use) { // is this an original bead to be exchanged?
+        for (int j = count; j < S_new.Unbonded; j++) {
+          if (S_new.Bead[j].Use) { // is this an original bead to be exchanged?
             id = j;
-            bead_new[j].Use = false; // just exchanged (only pro forma)
+            S_new.Bead[j].Use = false; // just exchanged (only pro forma)
             count = j + 1;
             break;
           }
@@ -1251,9 +1399,9 @@ int main(int argc, char *argv[]) {
       }
 
       // add the new coordinate
-      bead_new[id].Position.x = random.x;
-      bead_new[id].Position.y = random.y;
-      bead_new[id].Position.z = random.z;
+      S_new.Bead[id].Position.x = random.x;
+      S_new.Bead[id].Position.y = random.y;
+      S_new.Bead[id].Position.z = random.z;
 
       // print number of placed beads? //{{{
       if (!silent && isatty(STDOUT_FILENO)) {
@@ -1267,16 +1415,16 @@ int main(int argc, char *argv[]) {
         fflush(stdout);
         fprintf(stdout, "\r                           \r");
       }
-      fprintf(stdout, "\rMonomer placed: %d\n", Counts_add.Unbonded);
+      fprintf(stdout, "\rMonomer placed: %d\n", S_add.Unbonded);
     } //}}}
     // add molecules //{{{
-    // doesn't depend on --switch option as it's determined by the mol_new
+    // doesn't depend on --switch option as it's determined by the S_new.Molecule
     // array established earlier
     count = 0;
-    for (int i = Counts_orig.Molecules; i < Counts_new.Molecules; i++) {
-      int mtype = mol_new[i].Type;
+    for (int i = S_orig.Molecules; i < S_new.Molecules; i++) {
+      int mtype = S_new.Molecule[i].Type;
 
-      VECTOR rotated[mt_new[mtype].nBeads];
+      VECTOR rotated[S_new.MoleculeType[mtype].nBeads];
       VECTOR random = {0};
 
       // rotate the molecule randomly if desired //{{{
@@ -1308,24 +1456,24 @@ int main(int argc, char *argv[]) {
         rot.z.y = random.y * random.z * c + random.x * sin(angle);
         rot.z.z = cos(angle) + SQR(random.z) * c;
         // transform the prototype molecule (rotation matrix * coordinates)
-        for (int j = 0; j < mt_new[mtype].nBeads; j++) {
-          int id = mol_new[i].Bead[j];
-          rotated[j].x = rot.x.x * bead_new[id].Position.x
-                       + rot.x.y * bead_new[id].Position.y
-                       + rot.x.z * bead_new[id].Position.z;
-          rotated[j].y = rot.y.x * bead_new[id].Position.x
-                       + rot.y.y * bead_new[id].Position.y
-                       + rot.y.z * bead_new[id].Position.z;
-          rotated[j].z = rot.z.x * bead_new[id].Position.x
-                       + rot.z.y * bead_new[id].Position.y
-                       + rot.z.z * bead_new[id].Position.z;
+        for (int j = 0; j < S_new.MoleculeType[mtype].nBeads; j++) {
+          int id = S_new.Molecule[i].Bead[j];
+          rotated[j].x = rot.x.x * S_new.Bead[id].Position.x
+                       + rot.x.y * S_new.Bead[id].Position.y
+                       + rot.x.z * S_new.Bead[id].Position.z;
+          rotated[j].y = rot.y.x * S_new.Bead[id].Position.x
+                       + rot.y.y * S_new.Bead[id].Position.y
+                       + rot.y.z * S_new.Bead[id].Position.z;
+          rotated[j].z = rot.z.x * S_new.Bead[id].Position.x
+                       + rot.z.y * S_new.Bead[id].Position.y
+                       + rot.z.z * S_new.Bead[id].Position.z;
         }
       } else { // don't rotate
-        for (int j = 0; j < mt_new[mtype].nBeads; j++) {
-          int id = mol_new[i].Bead[j];
-          rotated[j].x = bead_new[id].Position.x;
-          rotated[j].y = bead_new[id].Position.y;
-          rotated[j].z = bead_new[id].Position.z;
+        for (int j = 0; j < S_new.MoleculeType[mtype].nBeads; j++) {
+          int id = S_new.Molecule[i].Bead[j];
+          rotated[j].x = S_new.Bead[id].Position.x;
+          rotated[j].y = S_new.Bead[id].Position.y;
+          rotated[j].z = S_new.Bead[id].Position.z;
         }
       } //}}}
 
@@ -1350,18 +1498,18 @@ int main(int argc, char *argv[]) {
           number = (double)rand() / ((double)RAND_MAX + 1);
           random.z = number * constraint_box.Length.z + constraint[0].z;
 
-          min_dist = SQR(Box_new.Length.x) +
-                     SQR(Box_new.Length.y) +
-                     SQR(Box_new.Length.z);
-          for (int j = 0; j < Counts_orig.BeadsCoor; j++) {
-            int btype_j = bead_orig[j].Type;
+          min_dist = SQR(S_new.Box.Length.x) +
+                     SQR(S_new.Box.Length.y) +
+                     SQR(S_new.Box.Length.z);
+          for (int j = 0; j < S_orig.BeadsCoor; j++) {
+            int btype_j = S_orig.Bead[j].Type;
             /*
              * j can be added monomeric bead, so it's type can be higher than
              * the number of types
              */
-            if (btype_j < Counts_orig.TypesOfBeads && bt_orig[btype_j].Use) {
-              dist = Length(Distance(bead_orig[j].Position,
-                                     random, Box_orig.Length));
+            if (btype_j < S_orig.TypesOfBeads && S_orig.BeadType[btype_j].Use) {
+              dist = Length(Distance(S_orig.Bead[j].Position,
+                                     random, S_orig.Box.Length));
               if (dist < min_dist) {
                 min_dist = dist;
               }
@@ -1379,17 +1527,17 @@ int main(int argc, char *argv[]) {
       } //}}}
 
       // place the rest of the molecule //{{{
-      for (int j = 0; j < mt_new[mtype].nBeads; j++) {
-        int id = mol_new[i].Bead[j];
-        bead_new[id].Position.x = random.x + rotated[j].x;
-        bead_new[id].Position.y = random.y + rotated[j].y;
-        bead_new[id].Position.z = random.z + rotated[j].z;
+      for (int j = 0; j < S_new.MoleculeType[mtype].nBeads; j++) {
+        int id = S_new.Molecule[i].Bead[j];
+        S_new.Bead[id].Position.x = random.x + rotated[j].x;
+        S_new.Bead[id].Position.y = random.y + rotated[j].y;
+        S_new.Bead[id].Position.z = random.z + rotated[j].z;
       } //}}}
 
       // print number of placed molecules? //{{{
       if (!silent && isatty(STDOUT_FILENO)) {
         fflush(stdout);
-        fprintf(stdout, "\rMolecules placed: %d", i-Counts_orig.Molecules+1);
+        fprintf(stdout, "\rMolecules placed: %d", i-S_orig.Molecules+1);
       } //}}}
     } //}}}
     // print total number of placed molecules? //{{{
@@ -1398,48 +1546,36 @@ int main(int argc, char *argv[]) {
         fflush(stdout);
         fprintf(stdout, "\r                                             \r");
       }
-      fprintf(stdout, "Molecules placed: %3d\n", Counts_add.Molecules);
+      fprintf(stdout, "Molecules placed: %3d\n", S_add.Molecules);
     } //}}}
   } //}}}
 
-  // open output .vcf file
+  // write data to output files //{{{
+  // vsf file
+  VtfWriteStruct(output_vsf, S_new);
+  // .vcf file
   FILE *out = OpenFile(output_vcf, "w");
   PrintByline(out, argc, argv);
-
-  // print coordinates to output .vcf file //{{{
-  for (int i = 0; i < Counts_new.BeadsCoor; i++) {
-    bead_new[i].Use = true; // TODO change somewhere (use different flag for sw)
+  for (int i = 0; i < S_new.BeadsTotal; i++) {
+    S_new.Bead[i].Use = true; // TODO change somewhere (use different flag for sw)
+    printf("S_new.Bead[%d].InTimestep=%d %s\n", i, S_new.Bead[i].InTimestep, S_new.BeadType[S_new.Bead[i].Type].Name);
   }
-  VtfWriteCoorIndexed(out, stuff, InFile_new, Counts_new, bead_new, Box_new);
-  fclose(out); //}}}
-
-  // print coordinates to xyz file (if -xyz option is present) //{{{
+  VtfWriteCoorIndexed(out, stuff, S_new);
+  fclose(out);
+  // xyz file (if -xyz option is present)
   if (strlen(output_xyz) > 0) {
     FILE *xyz = OpenFile(output_xyz, "w");
-    XyzWriteCoor(xyz, Counts_new, InFile_new, bt_new, bead_new);
+    XyzWriteCoor(xyz, S_new);
     fclose(xyz);
-  } //}}}
-
-  // create output vsf file
-  WriteVsf(output_vsf, Counts_new, bt_new, bead_new, mt_new, mol_new, false);
+  }
+  //}}}
 
   count=0;
   // free memory - to make valgrind happy //{{{
-  FreeSystemInfo(Counts_orig, &mt_orig, &mol_orig,
-                 &bt_orig, &bead_orig, &Index_orig);
-  FreeSystemInfo(Counts_add, &mt_add, &mol_add,
-                 &bt_add, &bead_add, &Index_add);
-  FreeSystemInfo(Counts_new, &mt_new, &mol_new,
-                 &bt_new, &bead_new, &Index_new);
-  free(Index_mol_add);
-  free(Index_mol_orig);
+  FreeSystem(&S_orig);
+  FreeSystem(&S_add);
+  FreeSystem(&S_new);
   free(stuff);
-  free(bond_type);
-  free(angle_type);
-  free(dihedral_type);
-  free(InFile_orig);
-  free(InFile_add);
-  free(InFile_new);
   //}}}
 
   return 0;

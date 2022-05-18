@@ -248,14 +248,14 @@ int main(int argc, char *argv[]) {
 
   // <type names> - names of bead types to save //{{{
   while (++count < argc && argv[count][0] != '-') {
-    int type = FindBeadType(argv[count], Counts, BeadType1);
+    int type = FindBeadType_old(argv[count], Counts, BeadType1);
     // TODO colours
     if (type == -1) {
       ErrorPrintError_old();
       fprintf(stderr, "\033[1;31m");
       fprintf(stderr, "non-existent bead name \033[1;33m%s\033[1;31m\n", argv[count]);
       fprintf(stderr, "\033[0m");
-      ErrorBeadType(Counts, BeadType1);
+      ErrorBeadType_old(Counts, BeadType1);
       fprintf(stderr, "\033[1;31m");
       fprintf(stderr, "Note that all bead types must be in both coordinate files.\n\n");
       fprintf(stderr, "\033[0m");
@@ -310,7 +310,7 @@ int main(int argc, char *argv[]) {
   // print information - verbose output //{{{
   if (verbose) {
     fprintf(stdout, "   box size: %lf x %lf x %lf\n\n", BoxLength.x, BoxLength.y, BoxLength.z);
-    VerboseOutput(Counts, BoxLength, BeadType1, Bead1, MoleculeType1, Molecule1);
+    VerboseOutput_oldish(Counts, BoxLength, BeadType1, Bead1, MoleculeType1, Molecule1);
     fprintf(stdout, "\n   Starting from %d. (%d.) timestep\n", start_1, start_2);
     fprintf(stdout, "   Every %d. (%d.) timestep used\n", skip_1+1, skip_2+1);
   } //}}}
@@ -373,7 +373,7 @@ int main(int argc, char *argv[]) {
 
     // join molecules? //{{{
     if (join) {
-      RemovePBCMolecules(Counts, BoxLength, BeadType1, &Bead1, MoleculeType1, Molecule1);
+      RemovePBCMolecules2(Counts, BoxLength, BeadType1, &Bead1, MoleculeType1, Molecule1);
     } //}}}
 
     // open output .vcf file for appending
@@ -517,7 +517,7 @@ int main(int argc, char *argv[]) {
 
     // join molecules? //{{{
     if (join) {
-      RemovePBCMolecules(Counts, BoxLength, BeadType2, &Bead2, MoleculeType2, Molecule2);
+      RemovePBCMolecules2(Counts, BoxLength, BeadType2, &Bead2, MoleculeType2, Molecule2);
     } //}}}
 
     // open output .vcf file for appending

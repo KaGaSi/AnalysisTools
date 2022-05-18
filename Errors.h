@@ -66,23 +66,8 @@ void ErrorNaN(char *option); //}}}
  */
 void ErrorOption(char *option); //}}}
 
-// ErrorBeadType() //{{{
-/**
- * Error when non-existent bead is used.
- *
- * \param [in] Counts      numbers of beads, molecules, etc.
- * \param [in] BeadType    information about bead types
- */
-void ErrorBeadType(COUNTS Counts, BEADTYPE *BeadType); //}}}
-
-// ErrorMoleculeType() //{{{
-/**
- * Error when non-existent bead is used.
- *
- * \param [in] Counts        numbers of beads, molecules, etc.
- * \param [in] MoleculeType  information about molecule types
- */
-void ErrorMoleculeType(COUNTS Counts, MOLECULETYPE *MoleculeType); //}}}
+void ErrorBeadType(SYSTEM System);
+void ErrorMoleculeType(SYSTEM System);
 
 // ErrorPrintLine() //{{{
 /**
@@ -93,15 +78,7 @@ void ErrorMoleculeType(COUNTS Counts, MOLECULETYPE *MoleculeType); //}}}
  */
 void ErrorPrintLine(char split[SPL_STR][SPL_LEN], int words); //}}}
 
-// WarnElNeutrality() //{{{
-/**
- * \brief Function warning about charged system
- *
- * \param [in] Counts    numbers of beads, molecules, etc.
- * \param [in] BeadType  informationn about bead types
- * \param [in] file      file name containing the system data
- */
-void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file); //}}}
+void WarnChargedSystem(SYSTEM System, char *file);
 
 // ErrorStartEnd() //{{{
 /**
@@ -165,7 +142,6 @@ void PrintError();
 void PrintErrorOption(char *opt);
  //}}}
 
-// TODO remove
 // ErrorPrintError_old() //{{{
 void ErrorPrintError_old(); //}}}
 // ErrorPrintError() //{{{
@@ -183,4 +159,29 @@ void ErrorPrintError(); //}}}
 bool ErrorDiscard(int start, int step, char *file, FILE *coor); //}}}
 // WarnPrintWarning() //{{{
 void WarnPrintWarning(); //}}}
+// WarnElNeutrality() //{{{
+/**
+ * \brief Function warning about charged system
+ *
+ * \param [in] Counts    numbers of beads, molecules, etc.
+ * \param [in] BeadType  informationn about bead types
+ * \param [in] file      file name containing the system data
+ */
+void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file); //}}}
+// ErrorBeadType_old() //{{{
+/**
+ * Error when non-existent bead is used.
+ *
+ * \param [in] Counts      numbers of beads, molecules, etc.
+ * \param [in] BeadType    information about bead types
+ */
+void ErrorBeadType_old(COUNTS Counts, BEADTYPE *BeadType); //}}}
+// ErrorMoleculeType_old() //{{{
+/**
+ * Error when non-existent bead is used.
+ *
+ * \param [in] Counts        numbers of beads, molecules, etc.
+ * \param [in] MoleculeType  information about molecule types
+ */
+void ErrorMoleculeType_old(COUNTS Counts, MOLECULETYPE *MoleculeType); //}}}
 #endif

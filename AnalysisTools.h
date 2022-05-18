@@ -40,83 +40,7 @@ void FromFractionalCoor(int number_of_beads, BEAD **Bead, BOX Box);
  */
 bool InputCoor(bool *vtf, char *file_coor, char *file_struct); //}}}
 
-// VerboseOutput_old() //{{{
-/**
- * \brief Function printing basic information about system if `-v` or `-V`
- * option is provided
- *
- * \param [in] input_vcf     .vcf coordinate file
- * \param [in] Counts        numbers of beads, molecules, etc.
- * \param [in] BoxLength     dimension of the simulation box
- * \param [in] BeadType      information about bead types
- * \param [in] Bead          informationn about individual beads
- * \param [in] MoleculeType  information about molecule types
- * \param [in] Molecule      information about individual molecules
- */
-void VerboseOutput_old(char *input_vcf, COUNTS Counts, VECTOR BoxLength,
-                       BEADTYPE *BeadType, BEAD *Bead,
-                       MOLECULETYPE *MoleculeType, MOLECULE *Molecule); //}}}
-// VerboseOutput() //{{{
-/**
- * \brief Function printing basic information about system if `-v` or `-V`
- * option is provided
- *
- * \param [in] Counts        numbers of beads, molecules, etc.
- * \param [in] BeadType      information about bead types
- * \param [in] Bead          informationn about individual beads
- * \param [in] MoleculeType  information about molecule types
- * \param [in] Molecule      information about individual molecules
- */
-void VerboseOutput(COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
-                   MOLECULETYPE *MoleculeType, MOLECULE *Molecule); //}}}
-
-// PrintCounts()  //{{{
-/**
- * \brief Function printing Counts structure.
- *
- * \param [in] Counts   numbers of beads, molecules, etc.
- */
-void PrintCounts(COUNTS Counts);
-//}}}
 void PrintBox(BOX Box);
-
-// PrintBeadType() //{{{
-/**
- * \brief Function printing Counts structure.
- *
- * \param [in] Counts     numbers of beads, molecules, etc.
- * \param [in] BeadType   information about bead types
- */
-void PrintBeadType(COUNTS Counts, BEADTYPE *BeadType); //}}}
-void PrintBeadType2(int number, BEADTYPE *BeadType);
-
-// PrintMoleculeTypeType()  //{{{
-/**
- * \brief Function printing MoleculeType structure.
- *
- * \param [in] Counts        numbers of beads, molecules, etc.
- * \param [in] BeadType      information about bead types
- * \param [in] MoleculeType  information about molecule types
- */
-void PrintMoleculeType(COUNTS Counts, BEADTYPE *BeadType,
-                       MOLECULETYPE *MoleculeType); //}}}
-void PrintMoleculeType2(int number_of_types, BEADTYPE *BeadType,
-                        MOLECULETYPE *MoleculeType);
-
-// PrintBead() //{{{
-/**
- * Function printing Bead structure.
- */
-void PrintBead(COUNTS Counts, int *Index, BEADTYPE *BeadType, BEAD *Bead); //}}}
-void PrintBead2(int number_of_beads, int *Index, BEADTYPE *BeadType,
-                BEAD *Bead);
-
-// PrintMolecule() //{{{
-/**
- * Function printing Molecule structure.
- */
-void PrintMolecule(int number_of_molecules, MOLECULETYPE *MoleculeType,
-                   MOLECULE *Molecule, BEADTYPE *BeadType, BEAD *Bead); //}}}
 
 // PrintAggregate() //{{{
 /**
@@ -136,31 +60,8 @@ void PrintAngleTypes2(int number_of_angles, PARAMS *angle_type);
 
 void PrintDihedralTypes2(int number_of_dihedrals, PARAMS *dihedral_type);
 
-// FindBeadType() //{{{
-/** \brief Function to identify type of bead from its name
- *
- * \param [in]  name      bead name
- * \param [in]  Counts    numbers of beads, residues, etc.
- * \param [in]  BeadType  information about bead types
- * \return bead type id corresponding to index in BeadType struct (or -1 if
- * non-existent bead name)
- */
-int FindBeadType(char *name, COUNTS Counts, BEADTYPE *BeadType); //}}}
-int FindBeadType2(char *name, int types_of_beads, BEADTYPE *BeadType);
-
-// FindMoleculeType() //{{{
-/** \brief Function to identify type of molecule from its name
- *
- * \param [in]  name          molecule name
- * \param [in]  Counts        numbers of beads, residues, etc.
- * \param [in]  MoleculeType  information about bead types
- * \return molecule type      id corresponding to index in BeadType struct (or
- * -1 for non-existent molecule)
- */
-int FindMoleculeType(char *name, COUNTS Counts,
-                     MOLECULETYPE *MoleculeType); //}}}
-int FindMoleculeType2(char *name, int number_of_types,
-                      MOLECULETYPE *MoleculeType);
+int FindBeadType(char name[], SYSTEM System);
+int FindMoleculeType(char name[], SYSTEM System);
 
 void FillMolBTypes(int number_of_types, MOLECULETYPE **MoleculeType);
 
@@ -182,24 +83,7 @@ void FillMolMassCharge(int number_of_types, MOLECULETYPE **MoleculeType,
  */
 VECTOR Distance(VECTOR id1, VECTOR id2, VECTOR BoxLength); //}}}
 
-// RemovePBCMolecules() //{{{
-/**
- * \brief Function to join all molecules.
- *
- * \param [in]  Counts         numbers of beads, molecules, etc.
- * \param [in]  BoxLength      dimension of the simulation box
- * \param [in]  BeadType       information about bead types
- * \param [out] Bead           information about individual beads (coordinates)
- * \param [in]  MoleculeType   information about molecule types
- * \param [in]  Molecule       information about individual molecules
- */
-void RemovePBCMolecules_old(COUNTS Counts, VECTOR BoxLength, BEADTYPE *BeadType,
-                            BEAD **Bead, MOLECULETYPE *MoleculeType,
-                            MOLECULE *Molecule); //}}}
-void RemovePBCMolecules(COUNTS Counts, BOX Box, BEADTYPE *BeadType, BEAD **Bead,
-                        MOLECULETYPE *MoleculeType, MOLECULE *Molecule);
-void RemovePBCMolecules_new(COUNTS Counts, BOX Box, BEADTYPE *BeadType, BEAD **Bead,
-                        MOLECULETYPE *MoleculeType, MOLECULE *Molecule);
+void RemovePBCMolecules(SYSTEM *System);
 
 // RemovePBCAggregates() //{{{
 /**
@@ -363,33 +247,6 @@ void CopySystem(COUNTS *Counts_out, COUNTS Counts_in, BEADTYPE **bt_out,
                 MOLECULETYPE *m_in, MOLECULE **mol_out, MOLECULE *mol_in,
                 int mode); //}}}
 
-// FreeBead() //{{{
-/**
- * \brief Free memory allocated for Bead struct array.
- *
- * \param [in]  number_of_beads   number of beads
- * \param [out] Bead              information about individual beads
- */
-void FreeBead(int number_of_beads, BEAD **Bead); //}}}
-
-// FreeMolecule() //{{{
-/**
- * \brief Free memory allocated for Molecule struct array.
- *
- * \param [in]  number_of_molecules   number of molecules
- * \param [out] Molecule              information about individual molecules
- */
-void FreeMolecule(int number_of_molecules, MOLECULE **Molecule); //}}}
-
-// FreeMoleculeType() //{{{
-/**
- * \brief Free memory allocated for MoleculeType struct array.
- *
- * \param [in]  number_of_types  number of molecule types
- * \param [out] MoleculeType     information about molecule types
- */
-void FreeMoleculeType(int number_of_types, MOLECULETYPE **MoleculeType); //}}}
-
 // FreeAggregate() //{{{
 /**
  * \brief Free memory allocated for MoleculeType struct array.
@@ -399,6 +256,45 @@ void FreeMoleculeType(int number_of_types, MOLECULETYPE **MoleculeType); //}}}
  */
 void FreeAggregate(COUNTS Counts, AGGREGATE **Aggregate); //}}}
 
+// TODO new via struct System
+void VerboseOutput(SYSTEM System);
+void PrintCounts(SYSTEM System);
+void PrintBeadType(SYSTEM System);
+void PrintMoleculeType(SYSTEM System);
+void PrintMolecule(SYSTEM System);
+void PrintBead(SYSTEM System);
+void FreeSystem(SYSTEM *System);
+
+// TODO remove
+// VerboseOutput_old() //{{{
+/**
+ * \brief Function printing basic information about system if `-v` or `-V`
+ * option is provided
+ *
+ * \param [in] input_vcf     .vcf coordinate file
+ * \param [in] Counts        numbers of beads, molecules, etc.
+ * \param [in] BoxLength     dimension of the simulation box
+ * \param [in] BeadType      information about bead types
+ * \param [in] Bead          informationn about individual beads
+ * \param [in] MoleculeType  information about molecule types
+ * \param [in] Molecule      information about individual molecules
+ */
+void VerboseOutput_old(char *input_vcf, COUNTS Counts, VECTOR BoxLength,
+                       BEADTYPE *BeadType, BEAD *Bead,
+                       MOLECULETYPE *MoleculeType, MOLECULE *Molecule); //}}}
+// VerboseOutput_oldish() //{{{
+/**
+ * \brief Function printing basic information about system if `-v` or `-V`
+ * option is provided
+ *
+ * \param [in] Counts        numbers of beads, molecules, etc.
+ * \param [in] BeadType      information about bead types
+ * \param [in] Bead          informationn about individual beads
+ * \param [in] MoleculeType  information about molecule types
+ * \param [in] Molecule      information about individual molecules
+ */
+void VerboseOutput_oldish(COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
+                   MOLECULETYPE *MoleculeType, MOLECULE *Molecule); //}}}
 // FreeSystemInfo() //{{{
 /**
  * \brief Free memory for all standard arrays and structures of arrays.
@@ -415,4 +311,112 @@ void FreeSystemInfo(COUNTS Counts, MOLECULETYPE **MoleculeType,
 void FreeSystemInfo2(COUNTS Counts, MOLECULETYPE **MoleculeType,
                     MOLECULE **Molecule, int **Index_mol,
                     BEADTYPE **BeadType, BEAD **Bead, int **Index);
+// PrintCounts_old()  //{{{
+/**
+ * \brief Function printing Counts structure.
+ *
+ * \param [in] Counts   numbers of beads, molecules, etc.
+ */
+void PrintCounts_old(COUNTS Counts);
+//}}}
+// PrintBeadType_old() //{{{
+/**
+ * \brief Function printing Counts structure.
+ *
+ * \param [in] Counts     numbers of beads, molecules, etc.
+ * \param [in] BeadType   information about bead types
+ */
+void PrintBeadType_old(COUNTS Counts, BEADTYPE *BeadType); //}}}
+void PrintBeadType2(int number, BEADTYPE *BeadType);
+// PrintMoleculeType_old()  //{{{
+/**
+ * \brief Function printing MoleculeType structure.
+ *
+ * \param [in] Counts        numbers of beads, molecules, etc.
+ * \param [in] BeadType      information about bead types
+ * \param [in] MoleculeType  information about molecule types
+ */
+void PrintMoleculeType_old(COUNTS Counts, BEADTYPE *BeadType,
+                       MOLECULETYPE *MoleculeType); //}}}
+void PrintMoleculeType2(int number_of_types, BEADTYPE *BeadType,
+                        MOLECULETYPE *MoleculeType);
+// PrintMolecule_old() //{{{
+/**
+ * Function printing Molecule structure.
+ */
+void PrintMolecule_old(int number_of_molecules, MOLECULETYPE *MoleculeType,
+                   MOLECULE *Molecule, BEADTYPE *BeadType, BEAD *Bead); //}}}
+// PrintBead_old() //{{{
+/**
+ * Function printing Bead structure.
+ */
+void PrintBead_old(COUNTS Counts, int *Index, BEADTYPE *BeadType, BEAD *Bead); //}}}
+void PrintBead2(int number_of_beads, int *Index, BEADTYPE *BeadType,
+                BEAD *Bead);
+// FreeBead() //{{{
+/**
+ * \brief Free memory allocated for Bead struct array.
+ *
+ * \param [in]  number_of_beads   number of beads
+ * \param [out] Bead              information about individual beads
+ */
+void FreeBead(int number_of_beads, BEAD **Bead); //}}}
+// FreeMolecule() //{{{
+/**
+ * \brief Free memory allocated for Molecule struct array.
+ *
+ * \param [in]  number_of_molecules   number of molecules
+ * \param [out] Molecule              information about individual molecules
+ */
+void FreeMolecule(int number_of_molecules, MOLECULE **Molecule); //}}}
+// FreeMoleculeType() //{{{
+/**
+ * \brief Free memory allocated for MoleculeType struct array.
+ *
+ * \param [in]  number_of_types  number of molecule types
+ * \param [out] MoleculeType     information about molecule types
+ */
+void FreeMoleculeType(int number_of_types, MOLECULETYPE **MoleculeType); //}}}
+// FindBeadType_old() //{{{
+/** \brief Function to identify type of bead from its name
+ *
+ * \param [in]  name      bead name
+ * \param [in]  Counts    numbers of beads, residues, etc.
+ * \param [in]  BeadType  information about bead types
+ * \return bead type id corresponding to index in BeadType struct (or -1 if
+ * non-existent bead name)
+ */
+int FindBeadType_old(char *name, COUNTS Counts, BEADTYPE *BeadType); //}}}
+int FindBeadType2(char *name, int types_of_beads, BEADTYPE *BeadType);
+// FindMoleculeType_old() //{{{
+/** \brief Function to identify type of molecule from its name
+ *
+ * \param [in]  name          molecule name
+ * \param [in]  Counts        numbers of beads, residues, etc.
+ * \param [in]  MoleculeType  information about bead types
+ * \return molecule type      id corresponding to index in BeadType struct (or
+ * -1 for non-existent molecule)
+ */
+int FindMoleculeType_old(char *name, COUNTS Counts,
+                     MOLECULETYPE *MoleculeType); //}}}
+int FindMoleculeType2(char *name, int number_of_types,
+                      MOLECULETYPE *MoleculeType);
+// RemovePBCMolecules_old() //{{{
+/**
+ * \brief Function to join all molecules.
+ *
+ * \param [in]  Counts         numbers of beads, molecules, etc.
+ * \param [in]  BoxLength      dimension of the simulation box
+ * \param [in]  BeadType       information about bead types
+ * \param [out] Bead           information about individual beads (coordinates)
+ * \param [in]  MoleculeType   information about molecule types
+ * \param [in]  Molecule       information about individual molecules
+ */
+void RemovePBCMolecules_old(COUNTS Counts, VECTOR BoxLength, BEADTYPE *BeadType,
+                            BEAD **Bead, MOLECULETYPE *MoleculeType,
+                            MOLECULE *Molecule); //}}}
+void RemovePBCMolecules2(COUNTS Counts, BOX Box, BEADTYPE *BeadType, BEAD **Bead,
+                        MOLECULETYPE *MoleculeType, MOLECULE *Molecule);
+void RemovePBCMolecules_new(COUNTS Counts, BOX Box, BEADTYPE *BeadType, BEAD **Bead,
+                        MOLECULETYPE *MoleculeType, MOLECULE *Molecule);
 #endif

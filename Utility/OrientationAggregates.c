@@ -319,7 +319,7 @@ int main(int argc, char *argv[]) {
 
   // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
   // open input coordinate file
@@ -356,7 +356,7 @@ int main(int argc, char *argv[]) {
     if (!joined) {
       // transform coordinates into fractional ones for non-orthogonal box
       ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
-      RemovePBCMolecules(Counts, Box, BeadType, &Bead,
+      RemovePBCMolecules2(Counts, Box, BeadType, &Bead,
                          MoleculeType, Molecule);
       RemovePBCAggregates(distance, Aggregate, Counts, Box.Length,
                           BeadType, &Bead, MoleculeType, Molecule);

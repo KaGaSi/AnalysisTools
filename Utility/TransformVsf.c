@@ -131,11 +131,11 @@ int main(int argc, char *argv[]) {
 
   // print information - verbose option
   if (verbose) {
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
   }
 
   // create & fill output vsf file
-  WriteVsf(output, Counts, BeadType, Bead, MoleculeType, Molecule, change);
+  WriteVsf_old(output, Counts, BeadType, Bead, MoleculeType, Molecule, change);
 
   // free memory - to make valgrind happy
   FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);

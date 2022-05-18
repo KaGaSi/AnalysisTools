@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // '-x' option //{{{
-  if (ExcludeOption(argc, argv, Counts, &MoleculeType)) {
+  if (ExcludeOption_old(argc, argv, Counts, &MoleculeType)) {
     exit(1);
   }
   // TODO those ridiculous flags are everywhere!
@@ -215,7 +215,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // -bt <name(s)> - specify what bead types to use //{{{
-  if (BeadTypeOption(argc, argv, "-bt", true, Counts, &BeadType)) {
+  if (BeadTypeOption_old_old(argc, argv, "-bt", true, Counts, &BeadType)) {
     exit(0);
   }
 
@@ -271,7 +271,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   if (verbose) { //{{{
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
   // TODO memory allocation... Aaargh!
@@ -323,7 +323,7 @@ int main(int argc, char *argv[]) {
     // transform coordinates into fractional ones for non-orthogonal box
     ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
     if (!joined) {
-      RemovePBCMolecules(Counts, Box, BeadType, &Bead,
+      RemovePBCMolecules2(Counts, Box, BeadType, &Bead,
                          MoleculeType, Molecule);
       RemovePBCAggregates(distance, Aggregate, Counts, Box.Length,
                           BeadType, &Bead, MoleculeType, Molecule);

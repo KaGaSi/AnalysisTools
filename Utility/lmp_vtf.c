@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
 
   // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
     // TODO bond & angle & dihedral types into VerboseOutput
     PrintBondTypes2(Counts.TypesOfBonds, bond_type);
     PrintAngleTypes2(Counts.TypesOfAngles, angle_type);
@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
   fclose(fw); //}}}
 
   // create & fill output vsf file
-  WriteVsf(output_vsf, Counts, BeadType, Bead, MoleculeType, Molecule, false);
+  WriteVsf_old(output_vsf, Counts, BeadType, Bead, MoleculeType, Molecule, false);
 
   // free memory (to make valgrind happy) //{{{
   FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);

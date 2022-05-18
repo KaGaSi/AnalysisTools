@@ -141,7 +141,7 @@ orthogonal box.\n", argv[0]);
     BeadType[i].Use = false;
   }
   while (++count < argc && argv[count][0] != '-') {
-    int type = FindBeadType(argv[count], Counts, BeadType);
+    int type = FindBeadType_old(argv[count], Counts, BeadType);
     if (type == -1) {
       ErrorPrintError_old();
       ColourChange(STDERR_FILENO, YELLOW);
@@ -151,7 +151,7 @@ orthogonal box.\n", argv[0]);
       ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s\n", argv[count]);
       ColourReset(STDERR_FILENO);
-      ErrorBeadType(Counts, BeadType);
+      ErrorBeadType_old(Counts, BeadType);
       exit(1);
     }
     BeadType[type].Use = true;
@@ -170,7 +170,7 @@ orthogonal box.\n", argv[0]);
 
   // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
   // number of bins

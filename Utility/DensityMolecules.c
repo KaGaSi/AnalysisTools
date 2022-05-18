@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
   // <mol(s)> - names of molecule types to use //{{{
   if (!all) { // --all option not used
     while (++count < argc && argv[count][0] != '-') {
-      int type = FindMoleculeType(argv[count], Counts, MoleculeType);
+      int type = FindMoleculeType_old(argv[count], Counts, MoleculeType);
       // error - nonexistent molecule  //{{{
       if (type == -1) {
         ErrorPrintError_old();
@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
         ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s\n", argv[count]);
         ColourReset(STDERR_FILENO);
-        ErrorMoleculeType(Counts, MoleculeType);
+        ErrorMoleculeType_old(Counts, MoleculeType);
         exit(1);
       } //}}}
       MoleculeType[type].Use = true;
@@ -246,7 +246,7 @@ int main(int argc, char *argv[]) {
 
   // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
   // open input coordinate file
@@ -274,7 +274,7 @@ int main(int argc, char *argv[]) {
     if (!joined) {
       // transform coordinates into fractional ones for non-orthogonal box
       ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
-      RemovePBCMolecules(Counts, Box, BeadType, &Bead, MoleculeType, Molecule);
+      RemovePBCMolecules2(Counts, Box, BeadType, &Bead, MoleculeType, Molecule);
     } //}}}
 
   // TODO: sizeof ...argh!

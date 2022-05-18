@@ -201,7 +201,7 @@ int main(int argc, char *argv[]) {
 
   // <molecule names> - types of molecules for calculation //{{{
   while (++count < argc && argv[count][0] != '-') {
-    int mol_type = FindMoleculeType(argv[count], Counts, MoleculeType);
+    int mol_type = FindMoleculeType_old(argv[count], Counts, MoleculeType);
     if (mol_type == -1) {
       ErrorPrintError_old();
       ColourChange(STDERR_FILENO, YELLOW);
@@ -213,7 +213,7 @@ int main(int argc, char *argv[]) {
       ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, "\n");
       ColourReset(STDERR_FILENO);
-      ErrorMoleculeType(Counts, MoleculeType);
+      ErrorMoleculeType_old(Counts, MoleculeType);
       exit(1);
     } else {
       MoleculeType[mol_type].Use = true;
@@ -331,7 +331,7 @@ int main(int argc, char *argv[]) {
     } //}}}
 
     ReadVcfCoordinates(indexed, input_coor, vcf, Counts, Index, &Bead, &stuff);
-    RemovePBCMolecules(Counts, BoxLength, BeadType, &Bead, MoleculeType, Molecule);
+    RemovePBCMolecules2(Counts, BoxLength, BeadType, &Bead, MoleculeType, Molecule);
 
     // calculate orientation parameter //{{{
     // go through all molecules

@@ -203,7 +203,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // '-x' option //{{{
-  if (ExcludeOption(argc, argv, Counts, &MoleculeType)) {
+  if (ExcludeOption_old(argc, argv, Counts, &MoleculeType)) {
     exit(1);
   }
 
@@ -333,7 +333,7 @@ int main(int argc, char *argv[]) {
   // print information - verbose output //{{{
   if (verbose) {
     Box.Length.x = -1;
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
 // TODO memory allocation... Aaargh!

@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
   MOLECULE *Molecule; // structure with info about every molecule
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
   BOX Box = InitBox; // triclinic box dimensions and angles
-  VtfReadStruct(input_vsf, false, &Counts, &BeadType, &Bead, &Index,
+  VtfReadStruct_old(input_vsf, false, &Counts, &BeadType, &Bead, &Index,
                 &MoleculeType, &Molecule, &Index_mol);
   InFile = calloc(Counts.BeadsTotal, sizeof *InFile); //}}}
 
@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
   }
   if (!all) { // --all option not used
     while (++count < argc && argv[count][0] != '-') {
-      int type = FindBeadType(argv[count], Counts, BeadType);
+      int type = FindBeadType_old(argv[count], Counts, BeadType);
       // error - nonexistent bead  //{{{
       if (type == -1) {
         ErrorPrintError_old();
@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
         ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "%s\n", argv[count]);
         ColourReset(STDERR_FILENO);
-        ErrorBeadType(Counts, BeadType);
+        ErrorBeadType_old(Counts, BeadType);
         exit(1);
       } //}}}
       BeadType[type].Use = true;
@@ -216,7 +216,7 @@ int main(int argc, char *argv[]) {
 
   // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
   // open input coordinate file
@@ -254,7 +254,7 @@ int main(int argc, char *argv[]) {
     } //}}}
     // work with the timestep, if it's to be used //{{{
     if (use) {
-      if (!VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
+      if (!VtfReadTimestep_old(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
                            Index, MoleculeType, Molecule,
                            &file_line_count, count_vcf)) {
         count_vcf--;

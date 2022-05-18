@@ -339,7 +339,7 @@ int main(int argc, char *argv[]) {
 
   // print information /{{{
   if (verbose) {
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
   // print angles & dihedrals //{{{

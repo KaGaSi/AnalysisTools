@@ -373,7 +373,7 @@ or 'rot[ation]'");
   MOLECULE *Molecule; // structure with info about every molecule
   COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
   BOX Box = InitBox; // triclinic box dimensions and angles
-  VtfReadStruct(input_vsf, false, &Counts, &BeadType, &Bead, &Index,
+  VtfReadStruct_old(input_vsf, false, &Counts, &BeadType, &Bead, &Index,
                 &MoleculeType, &Molecule, &Index_mol);
   InFile = calloc(Counts.BeadsTotal, sizeof *InFile); //}}}
 
@@ -403,7 +403,7 @@ or 'rot[ation]'");
 
   // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
   // print initial stuff to output vcf file
@@ -432,7 +432,7 @@ or 'rot[ation]'");
     bool use = true; // TODO maybe later there'll be something
     // read timestep and calculate stuff, if the timestep should be used //{{{
     if (use) {
-      if (!VtfReadTimestep(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
+      if (!VtfReadTimestep_old(vcf, input_coor, &Box, &Counts, BeadType, &Bead,
                            Index, MoleculeType, Molecule,
                            &file_line_count, count_vcf)) {
         count_vcf--;
@@ -660,7 +660,7 @@ or 'rot[ation]'");
 
       // write to output .vcf file
       out = OpenFile(output_vcf, "a");
-      VtfWriteCoorIndexed(out, stuff, Counts, Bead, Box);
+      VtfWriteCoorIndexed_old(out, stuff, Counts, Bead, Box);
       fclose(out);
       //}}}
     // skip the timestep, if it shouldn't be saved //{{{

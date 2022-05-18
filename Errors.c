@@ -54,26 +54,19 @@ void ErrorOption(char *option) {
   PrintErrorOption(option);
 } //}}}
 
-// ErrorBeadType() //{{{
-/**
- * Error when non-existent bead is used.
- */
-void ErrorBeadType(COUNTS Counts, BEADTYPE *BeadType) {
-  fprintf(stderr, "       Possible bead names: %s\n", BeadType[0].Name);
-  for (int i = 1; i < Counts.TypesOfBeads; i++) {
-    fprintf(stderr, "                            %s\n", BeadType[i].Name);
+void ErrorBeadType(SYSTEM System) { //{{{
+  fprintf(stderr, "     Possible bead names: %s\n", System.BeadType[0].Name);
+  for (int i = 1; i < System.TypesOfBeads; i++) {
+    fprintf(stderr, "                          %s\n", System.BeadType[i].Name);
   }
   putc('\n', stderr);
 } //}}}
-
-// ErrorMoleculeType() //{{{
-/**
- * Error when non-existent molecule is used.
- */
-void ErrorMoleculeType(COUNTS Counts, MOLECULETYPE *MoleculeType) {
-  fprintf(stderr, "       Possible molecule names: %s\n", MoleculeType[0].Name);
-  for (int i = 1; i < Counts.TypesOfMolecules; i++) {
-    fprintf(stderr, "                            %s\n", MoleculeType[i].Name);
+void ErrorMoleculeType(SYSTEM System) { //{{{
+  fprintf(stderr, "   Possible molecule names: %s\n",
+          System.MoleculeType[0].Name);
+  for (int i = 1; i < System.TypesOfMolecules; i++) {
+    fprintf(stderr, "                        %s\n",
+            System.MoleculeType[i].Name);
   }
   putc('\n', stderr);
 } //}}}
@@ -101,18 +94,14 @@ void ErrorPrintLine(char split[SPL_STR][SPL_LEN], int words) {
   ColourReset(STDERR_FILENO);
 } //}}}
 
-// WarnElNeutrality() //{{{
-/**
- * Function to warn if the system is not electrically neutral.
- */
-void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file) {
+void WarnChargedSystem(SYSTEM System, char *file) { //{{{
   double charge = 0;
-  for (int i = 0; i < Counts.TypesOfBeads; i++) {
+  for (int i = 0; i < System.TypesOfBeads; i++) {
     // do nothing if at least one bead type had undefined charge
-    if (BeadType[i].Charge == CHARGE) {
+    if (System.BeadType[i].Charge == CHARGE) {
       return;
     }
-    charge += BeadType[i].Charge * BeadType[i].Number;
+    charge += System.BeadType[i].Charge * System.BeadType[i].Number;
   }
   if (fabs(charge) > 0.00001) {
     strcpy(ERROR_MSG, "system with net electric charge");
@@ -425,4 +414,47 @@ void FilePrintFile(char *file, char *colour) {
   ColourChange(STDERR_FILENO, colour);
   fputs("File ", stderr);
   PrintFile(stderr, file, YELLOW);
+} //}}}
+// WarnElNeutrality() //{{{
+/**
+ * Function to warn if the system is not electrically neutral.
+ */
+void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file) {
+  double charge = 0;
+  for (int i = 0; i < Counts.TypesOfBeads; i++) {
+    // do nothing if at least one bead type had undefined charge
+    if (BeadType[i].Charge == CHARGE) {
+      return;
+    }
+    charge += BeadType[i].Charge * BeadType[i].Number;
+  }
+  if (fabs(charge) > 0.00001) {
+    strcpy(ERROR_MSG, "system with net electric charge");
+    PrintWarning();
+    WarnPrintFile(file);
+    fprintf(stderr, "%s, %sq = %lf%s\n", ErrCyan(), ErrYellow(), charge,
+                                         ErrColourReset());
+  }
+} //}}}
+// ErrorBeadType_old() //{{{
+/**
+ * Error when non-existent bead is used.
+ */
+void ErrorBeadType_old(COUNTS Counts, BEADTYPE *BeadType) {
+  fprintf(stderr, "       Possible bead names: %s\n", BeadType[0].Name);
+  for (int i = 1; i < Counts.TypesOfBeads; i++) {
+    fprintf(stderr, "                            %s\n", BeadType[i].Name);
+  }
+  putc('\n', stderr);
+} //}}}
+// ErrorMoleculeType_old() //{{{
+/**
+ * Error when non-existent molecule is used.
+ */
+void ErrorMoleculeType_old(COUNTS Counts, MOLECULETYPE *MoleculeType) {
+  fprintf(stderr, "       Possible molecule names: %s\n", MoleculeType[0].Name);
+  for (int i = 1; i < Counts.TypesOfMolecules; i++) {
+    fprintf(stderr, "                            %s\n", MoleculeType[i].Name);
+  }
+  putc('\n', stderr);
 } //}}}

@@ -166,12 +166,12 @@ orthogonal box.\n", argv[0]);
   } //}}}
 
   // '-x' option //{{{
-  if (ExcludeOption(argc, argv, Counts, &MoleculeType)) {
+  if (ExcludeOption_old(argc, argv, Counts, &MoleculeType)) {
     exit(1);
   } //}}}
 
   // -bt <name(s)> - specify what bead types to use //{{{
-  if (BeadTypeOption(argc, argv, "-bt", true, Counts, &BeadType)) {
+  if (BeadTypeOption_old_old(argc, argv, "-bt", true, Counts, &BeadType)) {
     exit(1);
   } //}}}
 
@@ -245,7 +245,7 @@ orthogonal box.\n", argv[0]);
 
   // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
   // open input coordinate file

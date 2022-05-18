@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
   // <mol(s)> - names of molecule types to use //{{{
   if (!all) { // --all option not used
     while (++count < argc && argv[count][0] != '-') {
-      int mtype = FindMoleculeType(argv[count], Counts, MoleculeType);
+      int mtype = FindMoleculeType_old(argv[count], Counts, MoleculeType);
       // error - nonexistent molecule  //{{{
       if (mtype == -1) {
         ErrorPrintError_old();
@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
         ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, "\n");
         ColourReset(STDERR_FILENO);
-        ErrorMoleculeType(Counts, MoleculeType);
+        ErrorMoleculeType_old(Counts, MoleculeType);
         exit(1);
       } //}}}
       MoleculeType[mtype].Use = true;
@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // -bt <name(s)> - specify what bead types to use //{{{
-  if (BeadTypeOption(argc, argv, "-bt", true, Counts, &BeadType)) {
+  if (BeadTypeOption_old_old(argc, argv, "-bt", true, Counts, &BeadType)) {
     exit(0);
   } //}}}
 
@@ -177,7 +177,7 @@ int main(int argc, char *argv[]) {
 
   // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
   // allocate memory for sums of shape descriptors //{{{
@@ -210,7 +210,7 @@ int main(int argc, char *argv[]) {
     if (!joined) {
       // transform coordinates into fractional ones for non-orthogonal box
       ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
-      RemovePBCMolecules(Counts, Box, BeadType, &Bead, MoleculeType, Molecule);
+      RemovePBCMolecules2(Counts, Box, BeadType, &Bead, MoleculeType, Molecule);
     } //}}}
 
 

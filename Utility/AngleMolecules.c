@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
   // <mol(s)> - names of molecule types to use //{{{
   if (!all) { // --all option not used
     while (++count < argc && argv[count][0] != '-') {
-      int mol_type = FindMoleculeType(argv[count], Counts, MoleculeType);
+      int mol_type = FindMoleculeType_old(argv[count], Counts, MoleculeType);
       if (mol_type == -1) {
         ErrorPrintError_old();
         ColourChange(STDERR_FILENO, YELLOW);
@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
         ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, "\n");
         ColourReset(STDERR_FILENO);
-        ErrorMoleculeType(Counts, MoleculeType);
+        ErrorMoleculeType_old(Counts, MoleculeType);
         exit(1);
       } else {
         MoleculeType[mol_type].Use = true;
@@ -250,7 +250,7 @@ int main(int argc, char *argv[]) {
 
   // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
     fprintf(stdout, "\nAngle-specifying bead trios:\n");
     for (int i = 0; i < number_of_beads; i += beads_per_set) {
       fprintf(stdout, "  %d-%d-%d\n", bead[i], bead[i+1], bead[i+2]);
@@ -293,7 +293,7 @@ int main(int argc, char *argv[]) {
     ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
     // join molecules if un-joined coordinates provided
     if (!joined) {
-      RemovePBCMolecules(Counts, Box, BeadType, &Bead, MoleculeType, Molecule);
+      RemovePBCMolecules2(Counts, Box, BeadType, &Bead, MoleculeType, Molecule);
     }
     // transform back to 'normal' coordinates for non-orthogonal box
     FromFractionalCoor(Counts.BeadsCoor, &Bead, Box); //}}}

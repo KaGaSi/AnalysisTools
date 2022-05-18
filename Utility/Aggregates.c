@@ -557,7 +557,7 @@ int main(int argc, char *argv[]) {
     BeadType[i].Use = false;
   }
   while (++count < argc && argv[count][0] != '-') {
-    int type = FindBeadType(argv[count], Counts, BeadType);
+    int type = FindBeadType_old(argv[count], Counts, BeadType);
     if (type == -1) {
       ErrorPrintError_old();
       ColourChange(STDERR_FILENO, YELLOW);
@@ -567,7 +567,7 @@ int main(int argc, char *argv[]) {
       ColourChange(STDERR_FILENO, YELLOW);
       fprintf(stderr, "%s\n", argv[count]);
       ColourReset(STDERR_FILENO);
-      ErrorBeadType(Counts, BeadType);
+      ErrorBeadType_old(Counts, BeadType);
       exit(1);
     }
     if (BeadType[type].Use) {
@@ -584,7 +584,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // '-x' option //{{{
-  if (ExcludeOption(argc, argv, Counts, &MoleculeType)) {
+  if (ExcludeOption_old(argc, argv, Counts, &MoleculeType)) {
     exit(1);
   }
 
@@ -651,7 +651,7 @@ int main(int argc, char *argv[]) {
 
   // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
   // main loop //{{{
@@ -684,7 +684,7 @@ int main(int argc, char *argv[]) {
     // calculate & write joined coordinatest to <out.vcf> if '-j' option is used //{{{
     if (joined_vcf[0] != '\0') {
       // TODO: fractionals!
-      RemovePBCMolecules(Counts, Box, BeadType, &Bead, MoleculeType, Molecule);
+      RemovePBCMolecules2(Counts, Box, BeadType, &Bead, MoleculeType, Molecule);
       // TODO: we're in fractionals, so maybe no need for anything new?
       RemovePBCAggregates(distance, Aggregate, Counts, Box.Length,
                           BeadType, &Bead, MoleculeType, Molecule);

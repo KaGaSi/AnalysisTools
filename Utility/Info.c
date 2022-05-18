@@ -1,6 +1,4 @@
 #include "../AnalysisTools.h"
-int *InFile;
-
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
   if (error) {
@@ -82,37 +80,25 @@ int main(int argc, char *argv[]) {
   // print command to stdout
   PrintCommand(stdout, argc, argv);
 
-  // options before reading system data //{{{
+  // options before reading system data
   bool verbose = BoolOption(argc, argv, "-v");
   bool detailed = BoolOption(argc, argv, "--detailed");
-  //}}}
 
-  // read information from vtf file(s) //{{{
-  BEADTYPE *BeadType; // structure with info about all bead types
-  MOLECULETYPE *MoleculeType; // structure with info about all molecule types
-  BEAD *Bead; // structure with info about every bead
-  int *Index, // link between indices (i.e., Index[Bead[i].Index]=i)
-      *Index_mol; // same as Index, but for molecules
-  MOLECULE *Molecule; // structure with info about every molecule
-  COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
-  VtfReadStruct(input_vsf, detailed, &Counts, &BeadType, &Bead, &Index,
-                &MoleculeType, &Molecule, &Index_mol);
-  InFile = calloc(Counts.BeadsTotal, sizeof *InFile); //}}}
+  // read information from vtf file
+  SYSTEM System = VtfReadStruct(input_vsf, detailed);
+  System.InFile = calloc(System.BeadsTotal, sizeof *System.InFile);
 
   // print information
-  VerboseOutput(Counts, BeadType, Bead, MoleculeType, Molecule);
-  // TODO: if beads in vsf != beads in vcf, write out vcf
-  if (verbose) { //{{{
+  VerboseOutput(System);
+  if (verbose) { // -v option
     fprintf(stdout, "\nInformation about every bead:\n");
-    PrintBead2(Counts.BeadsCoor, Index, BeadType, Bead);
+    PrintBead(System);
     fprintf(stdout, "\nInformation about every molecule:\n");
-    PrintMolecule(Counts.Molecules, MoleculeType, Molecule, BeadType, Bead);
-  } //}}}
+    PrintMolecule(System);
+  }
 
   // free memory - to make valgrind happy
-  FreeSystemInfo2(Counts, &MoleculeType, &Molecule, &Index_mol,
-                  &BeadType, &Bead, &Index);
-  free(InFile);
+  FreeSystem(&System);
 
   return 0;
 }

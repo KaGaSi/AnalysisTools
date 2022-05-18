@@ -22,26 +22,20 @@
 
 // Functions to read vtf files //{{{
 
+// Read all information about the system from a vsf/vtf structure file.
+SYSTEM VtfReadStruct(char struct_file[], bool detailed);
 // Get the first pbc line from a vcf/vtf coordinate file.
 void VtfReadPBC(char input_vcf[], BOX *Box);
-// Read all information about the system from a vsf/vtf structure file.
-void VtfReadStruct(char vsf_file[], bool detailed, COUNTS *Counts,
-                   BEADTYPE *BeadType[], BEAD *Bead[], int *Index[],
-                   MOLECULETYPE *MoleculeType[], MOLECULE *Molecule[],
-                   int *Index_mol[]);
 // Read a single timestep from a vcf/vtf coordinate file
-bool VtfReadTimestep(FILE *vcf, char vcf_file[], BOX *Box, COUNTS *Counts,
-                     BEADTYPE BeadType[], BEAD *Bead[], int Index[],
-                     MOLECULETYPE MoleculeType[], MOLECULE Molecule[],
-                     int *InVcfFile[], int *file_line_count,
-                     int step_count, char stuff[]);
+bool VtfReadTimestep(FILE *vcf, char vcf_file[], SYSTEM *System,
+                     int *file_line_count, int step_count, char stuff[]);
 // Discard a single timestep from a vcf/vtf coordinate file
 bool VtfSkipTimestep(FILE *vcf, char vcf_file[],
                      int *file_line_count, int step_count);
 bool VtfSkipCoorOrderedLine(FILE *fr);
 // Find position of atom line keywords in the provided strtok'd line
 int * VtfAtomLineValues(int words, char *split[]);
-// functions checkingi validity of line types
+// functions checking validity of line types
 int VtfCheckLineType(int words, char *split[], char *file, int line);
 int VtfCheckCoorOrderedLine(int words, char *split[]);
 int VtfCheckCoorIndexedLine(int words, char *split[]);
@@ -51,6 +45,7 @@ int VtfCheckPbcLine(int words, char *split[]);
 bool VtfCheckAtomLine(int words, char *split[]);
 bool VtfCheckBondLine(int words, char *split[]);
  //}}}
+
 
 // TODO will be changed - agg files
 // ReadAggCommand() //{{{
@@ -186,4 +181,15 @@ void FillMolCharge(int number_of_types, BEADTYPE *BeadType,
 void FillMolType(int number_of_types, BEADTYPE *BeadType,
                  MOLECULETYPE *MoleculeType[]); //}}}
  //}}}
+
+// TODO remove
+void VtfReadStruct_old(char vsf_file[], bool detailed, COUNTS *Counts,
+                   BEADTYPE *BeadType[], BEAD *Bead[], int *Index[],
+                   MOLECULETYPE *MoleculeType[], MOLECULE *Molecule[],
+                   int *Index_mol[]);
+bool VtfReadTimestep_old(FILE *vcf, char vcf_file[], BOX *Box, COUNTS *Counts,
+                     BEADTYPE BeadType[], BEAD *Bead[], int Index[],
+                     MOLECULETYPE MoleculeType[], MOLECULE Molecule[],
+                     int *InVcfFile[], int *file_line_count,
+                     int step_count, char stuff[]);
 #endif

@@ -96,18 +96,10 @@ bool VersionOption(int argc, char **argv) {
   return false;
 } //}}}
 
-// ExcludeOption() //{{{
-/**
- * Option to exclude specified molecule types from calculations. Gives
- * specified molecule types `Use = false` and the rest `Use = true`.
- * Arguments: `-x <name(s)>`
- */
-bool ExcludeOption(int argc, char **argv, COUNTS Counts,
-                   MOLECULETYPE **MoleculeType) {
-
+bool ExcludeOption(int argc, char *argv[], SYSTEM *System) { //{{{
   // set all molecules to use //{{{
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    (*MoleculeType)[i].Use = true;
+  for (int i = 0; i < (*System).TypesOfMolecules; i++) {
+    (*System).MoleculeType[i].Use = true;
   } //}}}
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-x") == 0) {
@@ -124,7 +116,7 @@ bool ExcludeOption(int argc, char **argv, COUNTS Counts,
       // read molecule(s) names
       int j = 0;
       while ((i+1+j) < argc && argv[i+1+j][0] != '-') {
-        int type = FindMoleculeType(argv[i+1+j], Counts, *MoleculeType);
+        int type = FindMoleculeType(argv[i+1+j], *System);
         if (type == -1) { // is it in vsf?
           ErrorPrintError_old();
           ColourChange(STDERR_FILENO, YELLOW);
@@ -136,11 +128,11 @@ bool ExcludeOption(int argc, char **argv, COUNTS Counts,
           ColourChange(STDERR_FILENO, RED);
           fprintf(stderr, " molecule\n\n");
           ColourReset(STDERR_FILENO);
-          ErrorMoleculeType(Counts, *MoleculeType);
+          ErrorMoleculeType(*System);
           return(true);
         } else {
           // exclude that molecule
-          (*MoleculeType)[type].Use = false;
+          (*System).MoleculeType[type].Use = false;
         }
         j++;
       }
@@ -198,8 +190,8 @@ bool JoinCoorOption(int argc, char **argv, char *joined_vcf) {
  * Option to choose which bead types to use for calculation. If the option
  * is absent, all bead types are switched to the specified 'bool use' value.
  */
-bool BeadTypeOption(int argc, char **argv, char *opt, bool use,
-                    COUNTS Counts, BEADTYPE **BeadType) {
+bool BeadTypeOption(int argc, char **argv, char *opt,
+                    bool use, SYSTEM *System) {
 
   // specify what bead types to use - either specified by 'opt' or use all
   int types = -1;
@@ -208,7 +200,7 @@ bool BeadTypeOption(int argc, char **argv, char *opt, bool use,
       types = i; // positon of the '-bt' argument in command
       // <type names> - names of bead types to save
       while (++types < argc && argv[types][0] != '-') {
-        int type = FindBeadType(argv[types], Counts, *BeadType);
+        int type = FindBeadType(argv[types], *System);
         if (type == -1) {
           ErrorPrintError_old();
           ColourChange(STDERR_FILENO, YELLOW);
@@ -220,17 +212,17 @@ bool BeadTypeOption(int argc, char **argv, char *opt, bool use,
           ColourChange(STDERR_FILENO, RED);
           fprintf(stderr, " bead type\n\n");
           ColourReset(STDERR_FILENO);
-          ErrorBeadType(Counts, *BeadType);
+          ErrorBeadType(*System);
           return(true);
         }
 
-        (*BeadType)[type].Use = true;
+        (*System).BeadType[type].Use = true;
       }
     }
   }
   if (types == -1) {
-    for (int i = 0; i < Counts.TypesOfBeads; i++) {
-      (*BeadType)[i].Use = use;
+    for (int i = 0; i < (*System).TypesOfBeads; i++) {
+      (*System).BeadType[i].Use = use;
     }
   }
 
@@ -536,7 +528,7 @@ bool MoleculeTypeOption(int argc, char **argv, char *opt, int *moltype,
         ColourReset(STDERR_FILENO);
         return(true);
       } //}}}
-      *moltype = FindMoleculeType(argv[i+1], Counts, *MoleculeType);
+      *moltype = FindMoleculeType_old(argv[i+1], Counts, *MoleculeType);
       if (*moltype == -1) {
         ErrorPrintError_old();
         ColourChange(STDERR_FILENO, YELLOW);
@@ -548,7 +540,7 @@ bool MoleculeTypeOption(int argc, char **argv, char *opt, int *moltype,
         ColourChange(STDERR_FILENO, RED);
         fprintf(stderr, " molecule\n\n");
         ColourReset(STDERR_FILENO);
-        ErrorMoleculeType(Counts, *MoleculeType);
+        ErrorMoleculeType_old(Counts, *MoleculeType);
         return(true);
       }
     }
@@ -583,13 +575,13 @@ bool MoleculeTypeOption2(int argc, char **argv, char *opt, int *moltype,
         fprintf(stderr, " - missing molecule name");
         fprintf(stderr, " (or the name begins with '-')\n\n");
         ColourReset(STDERR_FILENO);
-        ErrorMoleculeType(Counts, *MoleculeType);
+        ErrorMoleculeType_old(Counts, *MoleculeType);
         return true;
       } //}}}
       // read molecule(s) names
       int j = 0;
       while ((i+1+j) < argc && argv[i+1+j][0] != '-') {
-        int type = FindMoleculeType(argv[i+1+j], Counts, *MoleculeType);
+        int type = FindMoleculeType_old(argv[i+1+j], Counts, *MoleculeType);
         if (type == -1) { // is argv[i+1+j] in vsf?
           ErrorPrintError_old();
           ColourChange(STDERR_FILENO, YELLOW);
@@ -601,7 +593,7 @@ bool MoleculeTypeOption2(int argc, char **argv, char *opt, int *moltype,
           ColourChange(STDERR_FILENO, RED);
           fprintf(stderr, " molecule\n\n");
           ColourReset(STDERR_FILENO);
-          ErrorMoleculeType(Counts, *MoleculeType);
+          ErrorMoleculeType_old(Counts, *MoleculeType);
           return true;
         }
         moltype[type] = 1;
@@ -633,7 +625,7 @@ bool MoleculeTypeIntOption(int argc, int i, char **argv, char *opt,
       ColourReset(STDERR_FILENO);
       return true;
     } //}}}
-    *moltype = FindMoleculeType(argv[i+1], Counts, MoleculeType);
+    *moltype = FindMoleculeType_old(argv[i+1], Counts, MoleculeType);
     if (*moltype == -1) {
       ErrorPrintError_old();
       ColourChange(STDERR_FILENO, YELLOW);
@@ -645,7 +637,7 @@ bool MoleculeTypeIntOption(int argc, int i, char **argv, char *opt,
       ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " molecule\n\n");
       ColourReset(STDERR_FILENO);
-      ErrorMoleculeType(Counts, MoleculeType);
+      ErrorMoleculeType_old(Counts, MoleculeType);
       return true;
     }
     *value = atoi(argv[i+2]);
@@ -667,4 +659,102 @@ void StartEndTime(int argc, char **argv, int *start, int *end) {
     exit(1);
   }
   ErrorStartEnd(*start, *end);
+} //}}}
+
+// TODO remove
+// BeadTypeOption_old() //{{{
+/**
+ * Option to choose which bead types to use for calculation. If the option
+ * is absent, all bead types are switched to the specified 'bool use' value.
+ */
+bool BeadTypeOption_old(int argc, char **argv, char *opt, bool use,
+                    COUNTS Counts, BEADTYPE **BeadType) {
+
+  // specify what bead types to use - either specified by 'opt' or use all
+  int types = -1;
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], opt) == 0) {
+      types = i; // positon of the '-bt' argument in command
+      // <type names> - names of bead types to save
+      while (++types < argc && argv[types][0] != '-') {
+        int type = FindBeadType_old(argv[types], Counts, *BeadType);
+        if (type == -1) {
+          ErrorPrintError_old();
+          ColourChange(STDERR_FILENO, YELLOW);
+          fprintf(stderr, "%s", opt);
+          ColourChange(STDERR_FILENO, RED);
+          fprintf(stderr, " - non-existent ");
+          ColourChange(STDERR_FILENO, YELLOW);
+          fprintf(stderr, "%s", argv[types]);
+          ColourChange(STDERR_FILENO, RED);
+          fprintf(stderr, " bead type\n\n");
+          ColourReset(STDERR_FILENO);
+          ErrorBeadType_old(Counts, *BeadType);
+          return(true);
+        }
+
+        (*BeadType)[type].Use = true;
+      }
+    }
+  }
+  if (types == -1) {
+    for (int i = 0; i < Counts.TypesOfBeads; i++) {
+      (*BeadType)[i].Use = use;
+    }
+  }
+
+  return(false);
+} // }}}
+// ExcludeOption_old() //{{{
+/**
+ * Option to exclude specified molecule types from calculations. Gives
+ * specified molecule types `Use = false` and the rest `Use = true`.
+ * Arguments: `-x <name(s)>`
+ */
+bool ExcludeOption_old(int argc, char **argv, COUNTS Counts,
+                   MOLECULETYPE **MoleculeType) {
+
+  // set all molecules to use //{{{
+  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
+    (*MoleculeType)[i].Use = true;
+  } //}}}
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-x") == 0) {
+      // wrong argument to -x option //{{{
+      if ((i+1) >= argc || argv[i+1][0] == '-') {
+        ErrorPrintError_old();
+        ColourChange(STDERR_FILENO, YELLOW);
+        fprintf(stderr, "-x");
+        ColourChange(STDERR_FILENO, RED);
+        fprintf(stderr, " - missing an argument (or molecule name beginning with a dash)\n\n");
+        ColourReset(STDERR_FILENO);
+        exit(1);
+      } //}}}
+      // read molecule(s) names
+      int j = 0;
+      while ((i+1+j) < argc && argv[i+1+j][0] != '-') {
+        int type = FindMoleculeType_old(argv[i+1+j], Counts, *MoleculeType);
+        if (type == -1) { // is it in vsf?
+          ErrorPrintError_old();
+          ColourChange(STDERR_FILENO, YELLOW);
+          fprintf(stderr, "-x");
+          ColourChange(STDERR_FILENO, RED);
+          fprintf(stderr, " - non-existent ");
+          ColourChange(STDERR_FILENO, YELLOW);
+          fprintf(stderr, "%s", argv[i+1+j]);
+          ColourChange(STDERR_FILENO, RED);
+          fprintf(stderr, " molecule\n\n");
+          ColourReset(STDERR_FILENO);
+          ErrorMoleculeType_old(Counts, *MoleculeType);
+          return(true);
+        } else {
+          // exclude that molecule
+          (*MoleculeType)[type].Use = false;
+        }
+        j++;
+      }
+    }
+  }
+
+  return(false);
 } //}}}
