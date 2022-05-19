@@ -231,6 +231,7 @@ void CopyMolecule(int number_of_molecules, MOLECULETYPE *mt, MOLECULE **m_out,
                   MOLECULE *m_in, int mode); //}}}
 
 SYSTEM CopySystem(SYSTEM Sys_in);
+void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in);
 
 // FreeAggregate() //{{{
 /**

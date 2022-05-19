@@ -1719,6 +1719,159 @@ SYSTEM CopySystem(SYSTEM S_in) {
   return S_out;
 } //}}}
 
+// ConcatenateSystems()
+/*
+ * Assumes S_out needs reallocating memory to accommodate S_in.
+ */
+// TODO: some warning about S_in being empty
+void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in) {
+  // bead types //{{{
+  int n_old = (*S_out).TypesOfBeads;
+  (*S_out).TypesOfBeads += S_in.TypesOfBeads;
+  (*S_out).BeadType = realloc((*S_out).BeadType, sizeof (BEADTYPE) *
+                              (*S_out).TypesOfBeads);
+  memcpy((*S_out).BeadType + n_old, S_in.BeadType,
+         sizeof (BEADTYPE) * S_in.TypesOfBeads); //}}}
+  // beads ... TODO not memcpy anymore as Bead[].Index must be updated (and
+  //                possibly others)
+  // TODO memcpy might be useful for shuffling blocks of bonded/unbonded beads?
+  n_old = (*S_out).BeadsTotal;
+  (*S_out).BeadsTotal += S_in.BeadsTotal;
+  (*S_out).BeadsCoor += S_in.BeadsCoor;
+  (*S_out).Bead = realloc((*S_out).Bead, sizeof (BEAD) * (*S_out).BeadsTotal);
+  memcpy((*S_out).Bead + n_old, S_in.Bead, sizeof (BEAD) * S_in.BeadsTotal);
+  (*S_out).Index = realloc((*S_out).Index, sizeof (BEAD) * (*S_out).BeadsTotal);
+
+  //}}}
+//// molecule types //{{{
+//n_old = (*S_out).TypesOfMolecules;
+//(*S_out).TypesOfMolecules += S_in.TypesOfMolecules;
+//(*S_out).MoleculeType = realloc((*S_out).MoleculeType, sizeof (MOLECULETYPE) *
+//                                (*S_out).TypesOfMolecules);
+//memcpy((*S_out).MoleculeType + n_old, S_in.MoleculeType,
+//       sizeof (BEADTYPE) * S_in.TypesOfMolecules);
+//for (int i = n_old; i < (*S_out).TypesOfMolecules; i++) {
+//  int id_old = i - n_old;
+//  // MoleculeType[].Bead array
+//  if ((*S_out).MoleculeType[i].nBeads > 0) {
+//    (*S_out).MoleculeType[i].Bead =
+//      malloc(sizeof *(*S_out).MoleculeType[i].Bead *
+//             (*S_out).MoleculeType[i].nBeads);
+//      memcpy((*S_out).MoleculeType[i].Bead, S_in.MoleculeType[id_old].Bead,
+//             sizeof *(*S_out).MoleculeType[i].Bead *
+//             (*S_out).MoleculeType[i].nBeads);
+//  } else {
+//    // TODO print warning/error that should never happen
+//  }
+//  // MoleculeType[].Bond array
+//  if ((*S_out).MoleculeType[i].nBonds > 0) {
+//    (*S_out).MoleculeType[i].Bond =
+//      malloc(sizeof *(*S_out).MoleculeType[i].Bond *
+//             (*S_out).MoleculeType[i].nBonds);
+//      memcpy((*S_out).MoleculeType[i].Bond, S_in.MoleculeType[id_old].Bond,
+//             sizeof *(*S_out).MoleculeType[i].Bond *
+//             (*S_out).MoleculeType[i].nBonds);
+//  }
+//  // MoleculeType[].Angle array
+//  if ((*S_out).MoleculeType[i].nAngles > 0) {
+//    (*S_out).MoleculeType[i].Angle =
+//      malloc(sizeof *(*S_out).MoleculeType[i].Angle *
+//             (*S_out).MoleculeType[i].nAngles);
+//      memcpy((*S_out).MoleculeType[i].Angle, S_in.MoleculeType[id_old].Angle,
+//             sizeof *(*S_out).MoleculeType[i].Angle *
+//             (*S_out).MoleculeType[i].nAngles);
+//  }
+//  // MoleculeType[].Dihedral array
+//  if ((*S_out).MoleculeType[i].nDihedrals > 0) {
+//    (*S_out).MoleculeType[i].Dihedral =
+//      malloc(sizeof *(*S_out).MoleculeType[i].Dihedral *
+//             (*S_out).MoleculeType[i].nDihedrals);
+//      memcpy((*S_out).MoleculeType[i].Dihedral,
+//             S_in.MoleculeType[id_old].Dihedral,
+//             sizeof *(*S_out).MoleculeType[i].Dihedral *
+//             (*S_out).MoleculeType[i].nDihedrals);
+//  }
+//  // MoleculeType[].BType array
+//  if ((*S_out).MoleculeType[i].nBTypes > 0) {
+//    (*S_out).MoleculeType[i].BType =
+//      malloc(sizeof *(*S_out).MoleculeType[i].BType *
+//             (*S_out).MoleculeType[i].nBTypes);
+//      memcpy((*S_out).MoleculeType[i].BType,
+//             S_in.MoleculeType[id_old].BType,
+//             sizeof *(*S_out).MoleculeType[i].BType *
+//             (*S_out).MoleculeType[i].nBTypes);
+//  } else {
+//    // TODO print warning/error that should never happen
+//  }
+//}
+////}}}
+  printf("ok\n");
+  // bond types //{{{
+  if (S_in.TypesOfBonds != -1) {
+    if ((*S_out).TypesOfBonds == -1) { // newly allocate memory
+      (*S_out).TypesOfBonds = S_in.TypesOfBonds;
+      (*S_out).BondType = malloc(sizeof *(*S_out).BondType *
+                                 (*S_out).TypesOfBonds);
+      memcpy((*S_out).BondType, S_in.BondType,
+             sizeof *(*S_out).BondType * (*S_out).TypesOfBonds);
+    } else { // add to the existing array
+      int n = (*S_out).TypesOfBonds;
+      (*S_out).TypesOfBonds += S_in.TypesOfBonds;
+      (*S_out).BondType = realloc((*S_out).BondType, sizeof *(*S_out).BondType *
+                                  (*S_out).TypesOfBonds);
+      memcpy((*S_out).BondType + n, S_in.BondType,
+             sizeof *(*S_out).BondType * S_in.TypesOfBonds);
+    }
+  } //}}}
+  // angle types //{{{
+  if (S_in.TypesOfAngles != -1) {
+    if ((*S_out).TypesOfAngles == -1) {
+      (*S_out).TypesOfAngles = S_in.TypesOfAngles;
+      (*S_out).AngleType = malloc(sizeof *(*S_out).AngleType *
+                                 (*S_out).TypesOfAngles);
+      memcpy((*S_out).AngleType, S_in.AngleType,
+             sizeof *(*S_out).AngleType * (*S_out).TypesOfAngles);
+    } else {
+      int n = (*S_out).TypesOfAngles;
+      (*S_out).TypesOfAngles += S_in.TypesOfAngles;
+      (*S_out).AngleType = realloc((*S_out).AngleType,
+                                   sizeof *(*S_out).AngleType *
+                                   S_in.TypesOfAngles);
+      memcpy((*S_out).AngleType + n, S_in.AngleType,
+             sizeof *(*S_out).AngleType * (*S_out).TypesOfAngles);
+    }
+  } //}}}
+  // dihedral types //{{{
+  if (S_in.TypesOfDihedrals != -1) {
+    if ((*S_out).TypesOfDihedrals == -1) {
+      (*S_out).TypesOfDihedrals = S_in.TypesOfDihedrals;
+      (*S_out).DihedralType = malloc(sizeof *(*S_out).DihedralType *
+                                 (*S_out).TypesOfDihedrals);
+      memcpy((*S_out).DihedralType, S_in.DihedralType,
+             sizeof *(*S_out).DihedralType * (*S_out).TypesOfDihedrals);
+    } else {
+      int n = (*S_out).TypesOfDihedrals;
+      (*S_out).TypesOfDihedrals += S_in.TypesOfDihedrals;
+      (*S_out).DihedralType = realloc((*S_out).DihedralType,
+                                   sizeof *(*S_out).DihedralType *
+                                   S_in.TypesOfDihedrals);
+      memcpy((*S_out).DihedralType + n, S_in.DihedralType,
+             sizeof *(*S_out).DihedralType * (*S_out).TypesOfDihedrals);
+    }
+  } //}}}
+//(*S_out).TypesOfAngles += S_in.TypesOfAngles;
+//(*S_out).TypesOfDihedrals += S_in.TypesOfDihedrals;
+//(*S_out).Bonded       += S_in.Bonded;
+//(*S_out).BondedCoor   += S_in.BondedCoor;
+//(*S_out).Unbonded     += S_in.Unbonded;
+//(*S_out).UnbondedCoor += S_in.UnbondedCoor;
+//(*S_out).BeadsTotal   += S_in.BeadsTotal;
+//(*S_out).BeadsCoor    += S_in.BeadsCoor;
+//(*S_out).Molecules    += S_in.Molecules;
+//(*S_out).HighestResid += S_in.HighestResid;
+//(*S_out).Aggregates   += S_in.Aggregates;
+}
+
 // FreeAggregate() //{{{
 /**
  * Free memory allocated for Aggregate struct array. This function makes it

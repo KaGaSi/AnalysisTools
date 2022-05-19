@@ -1351,15 +1351,19 @@ int main(int argc, char *argv[]) {
 
   count=0;
   SYSTEM sys_test = CopySystem(S_orig);
-  VerboseOutput(S_orig);
+//VerboseOutput(S_orig);
 //PrintMoleculeType(S_orig);
-  PrintBox(S_orig.Box);
+//PrintBox(S_orig.Box);
+//PrintBeadType(S_orig);
+  PrintCounts(S_orig);
+//VerboseOutput(sys_test);
+  PrintCounts(sys_test);
+//PrintBeadType(sys_test);
+//PrintBox(sys_test.Box);
+  ConcatenateSystems(&sys_test, S_orig);
   FreeSystem(&S_orig);
-  VerboseOutput(sys_test);
-//PrintCounts(sys_test);
-//PrintCounts(sys_test);
-//PrintMoleculeType(sys_test);
-  PrintBox(sys_test.Box);
+  PrintCounts(sys_test);
+//PrintBeadType(sys_test);
   FreeSystem(&sys_test);
 
   // free memory - to make valgrind happy //{{{
