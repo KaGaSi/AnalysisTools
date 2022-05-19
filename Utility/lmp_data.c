@@ -280,7 +280,7 @@ int main(int argc, char *argv[]) {
   // TODO describe
   BEADTYPE *bt_print = calloc(Counts.TypesOfBeads, sizeof (BEADTYPE));
   BEAD *b_print;
-  CopyBead(Counts.BeadsTotal, &b_print, Bead, 2);
+  CopyBead_old(Counts.BeadsTotal, &b_print, Bead, 2);
   int count_types = 0;
   if (mass) {
     for (int i = 0; i < Counts.TypesOfBeads; i++) {

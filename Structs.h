@@ -17,11 +17,11 @@
 typedef struct Box { //{{{
   VECTOR Length; // side lengths (a, b, c for triclinic cell)
   VECTOR TriLength; // lx, ly, lz for lammps (triclinic cell)
-  double TriTilt[3]; // xy, xz, and yz tilts for triclinic box
-  double alpha, beta, gamma; // angles - all 90 for orthogonal box
-  double transform[3][3], // transformation matrix
-         inverse[3][3]; // inverse of the transformation matrix
-  double Volume;
+  double TriTilt[3], // xy, xz, and yz tilts for triclinic box
+         alpha, beta, gamma, // angles - all 90 for orthogonal box
+         transform[3][3], // transformation matrix
+         inverse[3][3], // inverse of the transformation matrix
+         Volume;
 } BOX;
 
 // TODO: is that used at all?
@@ -179,6 +179,7 @@ typedef struct Counts { //{{{
       BeadsCoor, // number of beads in the coordinate file (e.g., in vcf file)
       Molecules, // total number of molecules
       HighestResid, // highest id in a file (discontinuous molecule counting)
+                    // TODO is that useful outside reading vsf?
       Aggregates; // total number of aggregates
 } COUNTS;
 

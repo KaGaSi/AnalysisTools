@@ -222,9 +222,166 @@ bool InputCoor(bool *vtf, char *file_coor, char *file_struct) {
   return true;
 } //}}}
 
-void CombineSystems(SYSTEM System1, SYSTEM System2, SYSTEM *System_out) {
-
-}
+/*
+SYSTEM CombineSystems(SYSTEM System1, SYSTEM System2) { //{{{
+  // warning - empty system; this should never happen //{{{
+  // TODO: or maybe should - consider AddToSystem without original system
+  if (System1.TypesOfBeads == 0 || System1.TypesOfBeads == 0) {
+    strcpy(ERROR_MSG, "one of two systems to join contain no bead types \
+(i.e., doesn't exist in practice)");
+  } //}}}
+  SYSTEM S_new;
+  S_new.TypesOfBeads = System1.TypesOfBeads + System2.TypesOfBeads;
+  S_new.BeadsCoor = System1.BeadsCoor + System2.BeadsCoor;
+  S_new.BeadsTotal = System1.BeadsTotal + System2.BeadsTotal;
+  S_new.Unbonded = System1.Unbonded + System2.Unbonded;
+  S_new.UnbondedCoor = System1.UnbondedCoor + System2.UnbondedCoor;
+  S_new.Bonded = System1.Bonded + System2.Bonded;
+  S_new.BondedCoor = System1.BondedCoor + System2.BondedCoor;
+  S_new.TypesOfBonds = System1.TypesOfBonds + System2.TypesOfBonds;
+  S_new.TypesOfAngles = System1.TypesOfAngles + System2.TypesOfAngles;
+  S_new.Molecules = System1.Molecules + System2.Molecules;
+  // fill BeadType struct for the new system //{{{
+  // copy original BeadType
+  if (System1.TypesOfBeads > 0) { // TODO checks done before?
+    S_new.BeadType = malloc(sizeof (BEADTYPE) * S_new.TypesOfBeads);
+    CopyBeadType(System1.TypesOfBeads, &S_new.BeadType, System1.BeadType, 0);
+  }
+  // add new bead types - just add them behind the original ones
+  for (int i = 0; i < System2.TypesOfBeads; i++) {
+    int new_id = System1.TypesOfBeads + i;
+    strcpy(S_new.BeadType[new_id].Name, System2.BeadType[i].Name);
+    S_new.BeadType[new_id] = System2.BeadType[i];
+  } //}}}
+  // fill MoleculeType struct for the new system //{{{
+  S_new.TypesOfMolecules = System1.TypesOfMolecules;
+  if (strlen(input_coor) > 0) {
+    CopyMoleculeType(S_new.TypesOfMolecules, &S_new.MoleculeType,
+                     System1.MoleculeType, 2);
+  }
+  S_new.TypesOfMolecules += System2.TypesOfMolecules;
+  S_new.MoleculeType = realloc(S_new.MoleculeType, sizeof (MOLECULETYPE) * S_new.TypesOfMolecules);
+  // add new molecule types - just add them to the end //{{{
+  for (int i = 0; i < System2.TypesOfMolecules; i++) {
+    int new_id = System1.TypesOfMolecules + i;
+    S_new.MoleculeType[new_id] = System2.MoleculeType[i];
+    S_new.MoleculeType[new_id].Bead = malloc(sizeof *S_new.MoleculeType[new_id].Bead *
+                                 S_new.MoleculeType[new_id].nBeads);
+    for (int j = 0; j < S_new.MoleculeType[new_id].nBeads; j++) {
+      S_new.MoleculeType[new_id].Bead[j] = System2.MoleculeType[i].Bead[j] + System1.TypesOfBeads;
+    }
+    if (S_new.MoleculeType[new_id].nBonds > 0) {
+      S_new.MoleculeType[new_id].Bond = malloc(sizeof *S_new.MoleculeType[new_id].Bond *
+                                   S_new.MoleculeType[new_id].nBonds);
+      for (int j = 0; j < S_new.MoleculeType[new_id].nBonds; j++) {
+        S_new.MoleculeType[new_id].Bond[j][0] = System2.MoleculeType[i].Bond[j][0];
+        S_new.MoleculeType[new_id].Bond[j][1] = System2.MoleculeType[i].Bond[j][1];
+        S_new.MoleculeType[new_id].Bond[j][2] = System2.MoleculeType[i].Bond[j][2];
+      }
+    }
+    if (S_new.MoleculeType[new_id].nAngles > 0) {
+      S_new.MoleculeType[new_id].Angle = malloc(sizeof *S_new.MoleculeType[new_id].Angle *
+                                    S_new.MoleculeType[new_id].nAngles);
+      for (int j = 0; j < S_new.MoleculeType[new_id].nAngles; j++) {
+        S_new.MoleculeType[new_id].Angle[j][0] = System2.MoleculeType[i].Angle[j][0];
+        S_new.MoleculeType[new_id].Angle[j][1] = System2.MoleculeType[i].Angle[j][1];
+        S_new.MoleculeType[new_id].Angle[j][2] = System2.MoleculeType[i].Angle[j][2];
+        S_new.MoleculeType[new_id].Angle[j][3] = System2.MoleculeType[i].Angle[j][3];
+      }
+    }
+    if (S_new.MoleculeType[new_id].nDihedrals > 0) {
+      S_new.MoleculeType[new_id].Dihedral = malloc(sizeof *S_new.MoleculeType[new_id].Dihedral *
+                                    S_new.MoleculeType[new_id].nDihedrals);
+      for (int j = 0; j < S_new.MoleculeType[new_id].nDihedrals; j++) {
+        S_new.MoleculeType[new_id].Dihedral[j][0] = System2.MoleculeType[i].Dihedral[j][0];
+        S_new.MoleculeType[new_id].Dihedral[j][1] = System2.MoleculeType[i].Dihedral[j][1];
+        S_new.MoleculeType[new_id].Dihedral[j][2] = System2.MoleculeType[i].Dihedral[j][2];
+        S_new.MoleculeType[new_id].Dihedral[j][3] = System2.MoleculeType[i].Dihedral[j][3];
+        S_new.MoleculeType[new_id].Dihedral[j][4] = System2.MoleculeType[i].Dihedral[j][4];
+      }
+    }
+    S_new.MoleculeType[new_id].nBTypes = 0;
+    S_new.MoleculeType[new_id].BType = malloc(sizeof *S_new.MoleculeType[new_id].BType * 1);
+    for (int j = 0; j < S_new.MoleculeType[new_id].nBeads; j++) {
+      bool new = true;
+      for (int k = 0; k < S_new.MoleculeType[new_id].nBTypes; k++) {
+        if (S_new.MoleculeType[new_id].Bead[j] == S_new.MoleculeType[new_id].BType[k]) {
+          new = false;
+          break;
+        }
+      }
+      if (new) {
+        int type = S_new.MoleculeType[new_id].nBTypes++;
+        S_new.MoleculeType[new_id].BType = realloc(S_new.MoleculeType[new_id].BType,
+                                       sizeof *S_new.MoleculeType[new_id].BType *
+                                       S_new.MoleculeType[i].nBTypes);
+        S_new.MoleculeType[new_id].BType[type] = S_new.MoleculeType[new_id].Bead[j];
+      }
+    }
+  } //}}}
+  //}}}
+  // fill Bead struct for the new system
+  S_new.Bead = malloc(sizeof (BEAD) * S_new.BeadsTotal);
+  S_new.Index = malloc(sizeof *S_new.Index * S_new.BeadsTotal);
+  S_new.InFile = malloc(sizeof *S_new.InFile * S_new.BeadsTotal);
+  // TODO do something about the .Use flags - for sw, use some other flag
+  // copy original beads to the start of S_new.Bead //{{{
+  count = 0;
+  for (int i = 0; i < System1.BeadsTotal; i++) {
+    S_new.Bead[i] = System1.Bead[i];
+    S_new.Bead[i].Use = false;
+    S_new.Bead[i].Aggregate = malloc(sizeof *S_new.Bead[count].Aggregate * 1);
+    S_new.Index[i] = System1.Index[i];
+    if (S_new.Bead[i].InTimestep) {
+      S_new.InFile[count] = i;
+      count++;
+    }
+  } //}}}
+  // put beads to be added beyond the original ones //{{{
+  for (int i = 0; i < System2.BeadsTotal; i++) {
+    int new_id = System1.BeadsTotal + i;
+    S_new.Bead[new_id] = System2.Bead[i];
+    S_new.Bead[new_id].Type += System1.TypesOfBeads;
+    S_new.Bead[new_id].Index += System1.BeadsTotal;
+    if (S_new.Bead[new_id].Molecule != -1) {
+      S_new.Bead[new_id].Molecule += System1.Molecules;
+    }
+    S_new.Bead[new_id].Use = false;
+    S_new.Bead[new_id].Aggregate = malloc(sizeof *S_new.Bead[count].Aggregate * 1);
+    S_new.Index[new_id] = System2.Index[i] + System1.BeadsTotal;
+    if (S_new.Bead[new_id].InTimestep) {
+      S_new.InFile[count] = new_id;
+      count++;
+    }
+  } //}}}
+  // TODO properly copy molecules - what if there aren't all from the vsf(s)
+  //      in the vcf(s) etc.? ...or is that fine as we always use
+  //      InFile/InTimestep/whatever for beads in the molecules?
+  // alocate new molecule struct
+  S_new.Molecule = malloc(sizeof (MOLECULE) * S_new.Molecules);
+  // copy original molecules to _new struct //{{{
+  for (int i = 0; i < System1.Molecules; i++) {
+    int type = System1.Molecule[i].Type;
+    S_new.Molecule[i] = System1.Molecule[i];
+    S_new.Molecule[i].Bead = malloc(sizeof *S_new.Molecule[i].Bead * S_new.MoleculeType[type].nBeads);
+    for (int j = 0; j < S_new.MoleculeType[type].nBeads; j++) {
+      S_new.Molecule[i].Bead[j] = System1.Molecule[i].Bead[j];
+    }
+  } //}}}
+  // put _add molecules into _new struct //{{{
+  for (int i = 0; i < System2.Molecules; i++) {
+    int new_id = System1.Molecules + i;
+    S_new.Molecule[new_id] = System2.Molecule[i];
+    int type =  System2.Molecule[i].Type + System1.TypesOfMolecules;
+    S_new.Molecule[new_id].Type = type;
+    S_new.Molecule[new_id].Bead = malloc(sizeof *S_new.Molecule[new_id].Bead *
+                                  S_new.MoleculeType[type].nBeads);
+    for (int j = 0; j < S_new.MoleculeType[type].nBeads; j++) {
+      S_new.Molecule[new_id].Bead[j] = System2.Molecule[i].Bead[j] + System1.BeadsTotal;
+    }
+  } //}}}
+} //}}}
+  */
 
 // PrintBox()  //{{{
 /**
@@ -1279,43 +1436,6 @@ void SortDihedrals(int (*dihedral)[5], int length) {
   }
 } //}}}
 
-// CopyBead() //{{{
-/**
- * Function to copy BEAD structure into a new. Memory for the new one will be
- * reallocated in this function. Memory management for the output structure:
- * sufficient memory is already allocated (mode=0), the structure needs freeing
- * and allocating (mode=1), no memory wasn't yet allocated at all (mode=2), or
- * it needs reallocating - only for the case when the BEAD array is allocated,
- * but not the internal arrays (mode=3).
- */
-void CopyBead(int number_of_beads, BEAD **b_out, BEAD *b_in, int mode) {
-  // bt_out memory management //{{{
-  switch (mode) {
-    case 1:
-      free(*b_out);
-      *b_out = malloc(sizeof (BEAD) * number_of_beads);
-      break;
-    case 2:
-      *b_out = malloc(sizeof (BEAD) * number_of_beads);
-      break;
-    case 3:
-      *b_out = realloc(*b_out, sizeof (BEAD) * number_of_beads);
-      break;
-    default:
-      ErrorPrintError_old();
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "CopyBead()");
-      ColourChange(STDERR_FILENO, RED);
-      fprintf(stderr, " function requires mode=0, 1, 2, or 3\n");
-      ColourReset(STDERR_FILENO);
-      exit(1);
-  } //}}}
-  for (int i = 0; i < number_of_beads; i++) {
-    (*b_out)[i] = b_in[i];
-    (*b_out)[i].Aggregate = calloc(1, sizeof *(*b_out)[i].Aggregate);
-  }
-} //}}}
-
 // CopyBeadType() //{{{
 /**
  * Function to copy BEADTYPE structure into a new. Memory for the new one will be
@@ -1474,34 +1594,129 @@ void CopyMolecule(int number_of_molecules, MOLECULETYPE *mt,
 
 // CopySystem() //{{{
 /*
- * Function to copy the whole system - COUNTS, BEADTYPE, BEAD, MOLECULETYPE,
- * and MOLECULE structures and Index array. Memory management for the output:
- * sufficient memory is already allocated (mode=0), the structure needs freeing
- * and allocating (mode=1), no memory was yet allocated at all (mode=2), or it
- * just needs reallocating - only for cases when memory only for the structure
- * itself was allocated, not for the arrays within the structure (mode=3).
+ * Assumes unallocated SYSTEM.
  */
-void CopySystem(COUNTS *Counts_out, COUNTS Counts_in,
-                BEADTYPE **bt_out, BEADTYPE *bt_in,
-                BEAD **bead_out, BEAD *bead_in, int **index_out, int *index_in,
-                MOLECULETYPE **mt_out, MOLECULETYPE *mt_in,
-                MOLECULE **mol_out, MOLECULE *mol_in, int mode) {
-  *Counts_out = Counts_in;
-  // BEADTYPE
-  CopyBeadType((*Counts_out).TypesOfBeads, bt_out, bt_in, mode);
-  // BEAD & Index
-  *bead_out = malloc(sizeof (BEAD) * (*Counts_out).BeadsCoor);
-  *index_out = malloc(sizeof *index_out * (*Counts_out).BeadsCoor);
-  for (int i = 0; i < (*Counts_out).BeadsCoor; i++) {
-    (*bead_out)[i] = bead_in[i];
-    (*bead_out)[i].Aggregate = malloc(sizeof *(*bead_out)[i].Aggregate *
-                                   1); // just to free later
-    (*index_out)[i] = index_in[i];
+SYSTEM CopySystem(SYSTEM S_in) {
+  SYSTEM S_out;
+  S_out = S_in;
+  // Box struct
+  memcpy(&S_out.Box, &S_in.Box, sizeof(BOX));
+  // BeadType array of structures
+  S_out.BeadType = malloc(sizeof (BEADTYPE) * S_out.TypesOfBeads);
+  memcpy(S_out.BeadType, S_in.BeadType, sizeof (BEADTYPE) * S_out.TypesOfBeads);
+  // Bead array of structures
+  S_out.Bead = malloc(sizeof (BEAD) * S_out.BeadsTotal);
+  memcpy(S_out.Bead, S_in.Bead, sizeof (BEAD) * S_out.BeadsTotal);
+  for (int i = 0; i < S_out.BeadsTotal; i++) { // TODO this will disappear
+    S_out.Bead[i].Aggregate = malloc(sizeof *S_out.Bead[i].Aggregate * 1);
   }
-  // MOLECULETYPE
-  CopyMoleculeType((*Counts_out).TypesOfMolecules, mt_out, mt_in, mode);
-  // MOLECULE
-  CopyMolecule((*Counts_out).Molecules, mt_in, mol_out, mol_in, mode);
+  // Index array
+  S_out.Index = malloc(sizeof *S_out.Index * S_out.BeadsTotal);
+  memcpy(S_out.Index, S_in.Index, sizeof *S_out.Index * S_out.BeadsTotal);
+  // InFile array
+  S_out.InFile = malloc(sizeof *S_out.InFile * S_out.BeadsTotal);
+  memcpy(S_out.InFile, S_in.InFile, sizeof *S_out.InFile * S_out.BeadsTotal);
+  // Index_mol array
+  S_out.Index_mol = malloc(sizeof *S_out.Index_mol * S_out.Molecules);
+  memcpy(S_out.Index_mol, S_in.Index_mol,
+         sizeof *S_out.Index_mol * S_out.Molecules);
+  // MoleculeType array of structures //{{{
+  if (S_out.TypesOfMolecules > 0) {
+    S_out.MoleculeType = malloc(sizeof (MOLECULETYPE) * S_out.TypesOfMolecules);
+    memcpy(S_out.MoleculeType, S_in.MoleculeType, sizeof (MOLECULETYPE) *
+           S_out.TypesOfMolecules);
+    for (int i = 0; i < S_out.TypesOfMolecules; i++) {
+      // MoleculeType[].Bead array
+      if (S_out.MoleculeType[i].nBeads > 0) {
+        S_out.MoleculeType[i].Bead = malloc(sizeof *S_out.MoleculeType[i].Bead *
+                                            S_out.MoleculeType[i].nBeads);
+        memcpy(S_out.MoleculeType[i].Bead, S_in.MoleculeType[i].Bead,
+               sizeof *S_out.MoleculeType[i].Bead *
+               S_out.MoleculeType[i].nBeads);
+      } else {
+        // should never happen
+        strcpy(ERROR_MSG, "molecule type without beads");
+        PrintWarning();
+        fprintf(stderr, "%sMolecule %s%s%s\n\n", ErrCyan(), ErrYellow(),
+                                                 S_out.MoleculeType[i].Name,
+                                                 ErrColourReset());
+      }
+      // MoleculeType[].Bond array
+      if (S_out.MoleculeType[i].nBonds > 0) {
+        S_out.MoleculeType[i].Bond = malloc(sizeof *S_out.MoleculeType[i].Bond *
+                                            S_out.MoleculeType[i].nBonds);
+        memcpy(S_out.MoleculeType[i].Bond, S_in.MoleculeType[i].Bond,
+               sizeof *S_out.MoleculeType[i].Bond *
+               S_out.MoleculeType[i].nBonds);
+      }
+      // MoleculeType[].Angle array
+      if (S_out.MoleculeType[i].nAngles > 0) {
+        S_out.MoleculeType[i].Angle =
+          malloc(sizeof *S_out.MoleculeType[i].Angle *
+                 S_out.MoleculeType[i].nAngles);
+        memcpy(S_out.MoleculeType[i].Angle, S_in.MoleculeType[i].Angle,
+               sizeof *S_out.MoleculeType[i].Angle *
+               S_out.MoleculeType[i].nAngles);
+      }
+      // MoleculeType[].Dihedral array
+      if (S_out.MoleculeType[i].nDihedrals > 0) {
+        S_out.MoleculeType[i].Dihedral =
+          malloc(sizeof *S_out.MoleculeType[i].Dihedral *
+                 S_out.MoleculeType[i].nDihedrals);
+        memcpy(S_out.MoleculeType[i].Dihedral, S_in.MoleculeType[i].Dihedral,
+               sizeof *S_out.MoleculeType[i].Dihedral *
+               S_out.MoleculeType[i].nDihedrals);
+      }
+      // MoleculeType[].BType array
+      if (S_out.MoleculeType[i].nBTypes > 0) {
+        S_out.MoleculeType[i].BType =
+          malloc(sizeof *S_out.MoleculeType[i].BType *
+                 S_out.MoleculeType[i].nBTypes);
+        memcpy(S_out.MoleculeType[i].BType, S_in.MoleculeType[i].BType,
+               sizeof *S_out.MoleculeType[i].BType *
+               S_out.MoleculeType[i].nBTypes);
+      } else {
+        // this should never happen
+        strcpy(ERROR_MSG, "0 nBTypes; contact developper");
+        PrintWarning();
+      }
+    }
+  } //}}}
+  // Molecule array of structures //{{{
+  if (S_out.Molecules > 0) {
+    S_out.Molecule = malloc(sizeof (MOLECULE) * S_out.Molecules);
+    memcpy(S_out.Molecule, S_in.Molecule, sizeof (MOLECULE) * S_out.Molecules);
+    // Bead array
+    for (int i = 0; i < S_out.Molecules; i++) {
+      int type = S_out.Molecule[i].Type;
+      if (S_out.MoleculeType[type].nBeads > 0) {
+        S_out.Molecule[i].Bead = malloc(sizeof *S_out.Molecule[i].Bead *
+                                        S_out.MoleculeType[type].nBeads);
+        memcpy(S_out.Molecule[i].Bead, S_in.Molecule[i].Bead,
+               sizeof *S_out.Molecule[i].Bead *
+               S_out.MoleculeType[type].nBeads);
+      } // else not needed as the warning was made while copying MOLECULETYPE
+    }
+  } //}}}
+  // BondType //{{{
+  if (S_out.TypesOfBonds > 0) {
+    S_out.BondType = malloc(sizeof (PARAMS) * S_out.TypesOfBonds);
+    memcpy(S_out.BondType, S_in.BondType,
+           sizeof (PARAMS) * S_out.TypesOfBonds);
+  } //}}}
+  // AngleType //{{{
+  if (S_out.TypesOfAngles > 0) {
+    S_out.AngleType = malloc(sizeof (PARAMS) * S_out.TypesOfAngles);
+    memcpy(S_out.AngleType, S_in.AngleType,
+           sizeof (PARAMS) * S_out.TypesOfAngles);
+  } //}}}
+  // DihedralType //{{{
+  if (S_out.TypesOfDihedrals > 0) {
+    S_out.DihedralType = malloc(sizeof (PARAMS) * S_out.TypesOfDihedrals);
+    memcpy(S_out.DihedralType, S_in.DihedralType,
+           sizeof (PARAMS) * S_out.TypesOfDihedrals);
+  } //}}}
+  return S_out;
 } //}}}
 
 // FreeAggregate() //{{{
@@ -2655,5 +2870,41 @@ void RemovePBCMolecules_new(COUNTS Counts, BOX Box,
       (*Bead)[bead].Position.y -= move.y * Box.Length.y;
       (*Bead)[bead].Position.z -= move.z * Box.Length.z;
     } //}}}
+  }
+} //}}}
+// CopyBead_old() //{{{
+/**
+ * Function to copy BEAD structure into a new. Memory for the new one will be
+ * reallocated in this function. Memory management for the output structure:
+ * sufficient memory is already allocated (mode=0), the structure needs freeing
+ * and allocating (mode=1), no memory wasn't yet allocated at all (mode=2), or
+ * it needs reallocating - only for the case when the BEAD array is allocated,
+ * but not the internal arrays (mode=3).
+ */
+void CopyBead_old(int number_of_beads, BEAD **b_out, BEAD *b_in, int mode) {
+  // bt_out memory management //{{{
+  switch (mode) {
+    case 1:
+      free(*b_out);
+      *b_out = malloc(sizeof (BEAD) * number_of_beads);
+      break;
+    case 2:
+      *b_out = malloc(sizeof (BEAD) * number_of_beads);
+      break;
+    case 3:
+      *b_out = realloc(*b_out, sizeof (BEAD) * number_of_beads);
+      break;
+    default:
+      ErrorPrintError_old();
+      ColourChange(STDERR_FILENO, YELLOW);
+      fprintf(stderr, "CopyBead()");
+      ColourChange(STDERR_FILENO, RED);
+      fprintf(stderr, " function requires mode=0, 1, 2, or 3\n");
+      ColourReset(STDERR_FILENO);
+      exit(1);
+  } //}}}
+  for (int i = 0; i < number_of_beads; i++) {
+    (*b_out)[i] = b_in[i];
+    (*b_out)[i].Aggregate = calloc(1, sizeof *(*b_out)[i].Aggregate);
   }
 } //}}}

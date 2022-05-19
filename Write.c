@@ -38,18 +38,11 @@ void XyzWriteCoor(FILE *xyz, SYSTEM System) {
   // find out number of beads to save
   int count = 0;
   bool none = true; // to make sure there are beads to save
-//PrintCounts(System);
   for (int i = 0; i < System.BeadsCoor; i++) {
-    int id = System.InFile[i],
-        btype = System.Bead[id].Type;
+    int id = System.InFile[i];
     if (System.Bead[id].InTimestep && System.Bead[id].Use) {
       none = false;
       count++;
-      printf("  %d: %s %d (%d)\n", count, System.BeadType[btype].Name,
-                                   id, System.Bead[id].Index);
-    } else {
-      printf("Y %d: %s %d (%d)\n", count, System.BeadType[btype].Name,
-                                   id, System.Bead[id].Index);
     }
   }
   if (none) {

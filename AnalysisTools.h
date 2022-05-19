@@ -209,12 +209,6 @@ void SortBonds(int (*bond)[3], int length); //}}}
 void SortAngles(int (*angle)[4], int length); //}}}
 void SortDihedrals(int (*dihedral)[5], int length);
 
-// CopyBead() //{{{
-/**
- * Function to copy BEAD structure into a new one.
- */
-void CopyBead(int number_of_beads, BEAD **b_out, BEAD *b_in, int mode); //}}}
-
 // CopyBeadType() //{{{
 /**
  * Function to copy BEADTYPE structure into a new one.
@@ -236,16 +230,7 @@ void CopyMoleculeType(int number_of_types, MOLECULETYPE **mt_out,
 void CopyMolecule(int number_of_molecules, MOLECULETYPE *mt, MOLECULE **m_out,
                   MOLECULE *m_in, int mode); //}}}
 
-// CopySystem() //{{{
-/*
- * Function to copy the whole system - COUNTS, BEADTYPE, BEAD, MOLECULETYPE,
- * and MOLECULE structures and Index array.
- */
-void CopySystem(COUNTS *Counts_out, COUNTS Counts_in, BEADTYPE **bt_out,
-                BEADTYPE *bt_in, BEAD **bead_out, BEAD *bead_in,
-                int **index_out, int *index_in, MOLECULETYPE **mt_out,
-                MOLECULETYPE *m_in, MOLECULE **mol_out, MOLECULE *mol_in,
-                int mode); //}}}
+SYSTEM CopySystem(SYSTEM Sys_in);
 
 // FreeAggregate() //{{{
 /**
@@ -419,4 +404,5 @@ void RemovePBCMolecules2(COUNTS Counts, BOX Box, BEADTYPE *BeadType, BEAD **Bead
                         MOLECULETYPE *MoleculeType, MOLECULE *Molecule);
 void RemovePBCMolecules_new(COUNTS Counts, BOX Box, BEADTYPE *BeadType, BEAD **Bead,
                         MOLECULETYPE *MoleculeType, MOLECULE *Molecule);
+void CopyBead_old(int number_of_beads, BEAD **b_out, BEAD *b_in, int mode);
 #endif
