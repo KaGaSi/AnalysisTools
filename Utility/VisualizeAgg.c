@@ -594,7 +594,7 @@ int main(int argc, char *argv[]) {
         fprintf(out, "indexed\n");
         for (int j = 0; j < Aggregate[i].nBeads; j++) {
           int id = Aggregate[i].Bead[j];
-          fprintf(out, "%6d %lf %lf %lf\n", Bead[id].Index,
+          fprintf(out, "%6d %lf %lf %lf\n", Bead[id].Indexxx,
                                             Bead[id].Position.x,
                                             Bead[id].Position.y,
                                             Bead[id].Position.z);

@@ -431,7 +431,7 @@ int main(int argc, char *argv[]) {
         if (Bead2[i].Molecule == -1 &&
             strcmp(BeadType2[Bead2[j].Type].Name, BeadType1[Bead1[i].Type].Name) == 0 &&
             !used[j]) {
-          Index1[Bead1[i].Index] = Index2[Bead2[j].Index];
+          Index1[Bead1[i].Indexxx] = Index2[Bead2[j].Indexxx];
 
           used[j] = true;
 
@@ -457,8 +457,8 @@ int main(int argc, char *argv[]) {
                 break;
               }
             }
-            test = Bead1[Molecule1[mol_id_1].Bead[test]].Index;
-            Index1[test] = Index2[Bead2[j].Index];
+            test = Bead1[Molecule1[mol_id_1].Bead[test]].Indexxx;
+            Index1[test] = Index2[Bead2[j].Indexxx];
             used[j] = true;
             break;
           }
@@ -524,9 +524,9 @@ int main(int argc, char *argv[]) {
     out = OpenFile(output_vcf, "a");
 
     for (int i = 0; i < Counts.BeadsCoor; i++) {
-        Bead1[i].Position.x = Bead2[Index1[Bead1[i].Index]].Position.x;
-        Bead1[i].Position.y = Bead2[Index1[Bead1[i].Index]].Position.y;
-        Bead1[i].Position.z = Bead2[Index1[Bead1[i].Index]].Position.z;
+        Bead1[i].Position.x = Bead2[Index1[Bead1[i].Indexxx]].Position.x;
+        Bead1[i].Position.y = Bead2[Index1[Bead1[i].Indexxx]].Position.y;
+        Bead1[i].Position.z = Bead2[Index1[Bead1[i].Indexxx]].Position.z;
     }
 
     // Molecule(Type)1 and Bead(Type)1 are used, because *2 were copied to them

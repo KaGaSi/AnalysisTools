@@ -336,9 +336,9 @@ int main(int argc, char *argv[]) {
       Molecule[i].Bead[j] = count;
       Bead[count].Type = MoleculeType[0].Bead[j];
       Bead[count].Molecule = i;
-      Bead[count].Index = count;
-      Bead[count].Aggregate = calloc(1, sizeof(int)); // just to free later
-      Index[Bead[count].Index] = count;
+      Bead[count].Indexxx = count;
+      Bead[count].Aggregatexxx = calloc(1, sizeof(int)); // just to free later
+      Index[Bead[count].Indexxx] = count;
     }
   } //}}}
 
@@ -373,7 +373,7 @@ int main(int argc, char *argv[]) {
         } else {
           Bead[count].Position.z = Box.Length.z;
         }
-        Bead[count].Index = count;
+        Bead[count].Indexxx = count;
         Bead[count].Type = MoleculeType[0].Bead[0];
         // remaining beads of the molecule
         for (int k = 1; k < MoleculeType[0].nBeads; k++) {
@@ -389,7 +389,7 @@ int main(int argc, char *argv[]) {
             Bead[count+k].Position.z = Bead[count].Position.z -
                                        Bead_field[id_field].Position.z;
           }
-          Bead[count+k].Index = count + k;
+          Bead[count+k].Indexxx = count + k;
           Bead[count+k].Type = MoleculeType[0].Bead[k];
         }
         count += MoleculeType[0].nBeads;

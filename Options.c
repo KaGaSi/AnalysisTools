@@ -98,7 +98,7 @@ bool VersionOption(int argc, char **argv) {
 
 bool ExcludeOption(int argc, char *argv[], SYSTEM *System) { //{{{
   // set all molecules to use //{{{
-  for (int i = 0; i < (*System).TypesOfMolecules; i++) {
+  for (int i = 0; i < (*System).Count.nMoleculeTypes; i++) {
     (*System).MoleculeType[i].Use = true;
   } //}}}
   for (int i = 1; i < argc; i++) {
@@ -221,7 +221,7 @@ bool BeadTypeOption(int argc, char **argv, char *opt,
     }
   }
   if (types == -1) {
-    for (int i = 0; i < (*System).TypesOfBeads; i++) {
+    for (int i = 0; i < (*System).Count.nBeadTypes; i++) {
       (*System).BeadType[i].Use = use;
     }
   }

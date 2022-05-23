@@ -39,6 +39,37 @@ static const BOX InitBox = {
   .gamma = 90,
   .Volume = -1,
 }; //}}}
+typedef struct Count { //{{{
+  int nBeadTypes, // number of bead types
+      nMoleculeTypes, // number of molecule types
+      nBondTypes, // number of bond types; -1 if not read from anywhere
+      nAngleTypes, // number of bond types; -1 if not read from anywhere
+      nDihedralTypes, // number of dihedral types; -1 if not read from anywhere
+      nBonded, // total number of beads in all molecules
+      nBondedCoor, // total number of bonded beads in in the coordinate file
+      nUnbonded, // total number of monomeric beads
+      nUnbondedCoor, // total number of monomeric beads in the coordinate file
+      nBeadsTotal, // total number of beads in the system (e.g., in vsf file)
+      nBeadsCoor, // number of beads in the coordinate file (e.g., in vcf file)
+      nMolecules, // total number of molecules
+      HighestResid; // highest id in a file (discontinuous molecule counting)
+} COUNT;
+// Initialize Count
+static const COUNT InitCount = {
+  .nBeadTypes = 0,
+  .nMoleculeTypes = 0,
+  .nBondTypes = 0,
+  .nAngleTypes = 0,
+  .nDihedralTypes = 0,
+  .nBonded = 0,
+  .nBondedCoor = 0,
+  .nUnbonded = 0,
+  .nUnbondedCoor = 0,
+  .nBeadsTotal = 0,
+  .nBeadsCoor = 0,
+  .nMolecules = 0,
+  .HighestResid = -1,
+}; //}}}
 typedef struct Params { //{{{
   double a, b;
 } PARAMS;
@@ -63,9 +94,7 @@ typedef struct BeadType { //{{{
 typedef struct Bead { //{{{
   int Type, // type of bead corresponding to index in BeadType struct
       Molecule, // index number of molecule corresponding to Molecule struct (-1 for monomeric bead)
-      nAggregates, // number of aggregates the bead is in (only monomeric beads can be in more aggregates - allocated memory for 10)
-      *Aggregate, // index numbers of aggregates corresponding to Aggregate struct (-1 for bead in no aggregate)
-      Index; // index of the bead according to .vsf file (needed for indexed timesteps)
+      nAggregates; // number of aggregates the bead is in (only monomeric beads can be in more aggregates - allocated memory for 10)
 
   VECTOR Position; // cartesian coordinates of the bead
   VECTOR Velocity; // velocity of the bead
@@ -107,6 +136,7 @@ typedef struct Molecule { //{{{
 } MOLECULE; //}}}
 typedef struct System { //{{{
   BOX Box;
+  COUNT Count;
   BEADTYPE *BeadType;
   BEAD *Bead;
   MOLECULETYPE *MoleculeType;
@@ -114,42 +144,13 @@ typedef struct System { //{{{
   PARAMS *BondType;
   PARAMS *AngleType;
   PARAMS *DihedralType;
-  int *Index, // link between indices (i.e., Index[Bead[i].Index]=i)
-      *InFile, // array of internal ids for beads with InTimestep=true
-      *Index_mol, // link between indices (i.e., Index_mol[Molecule[i].Index]=i)
-      TypesOfBeads, // number of bead types
-      TypesOfMolecules, // number of molecule types
-      TypesOfBonds, // number of bond types; -1 if not read from anywhere
-      TypesOfAngles, // number of bond types; -1 if not read from anywhere
-      TypesOfDihedrals, // number of dihedral types; -1 if not read from anywhere
-      Bonded, // total number of beads in all molecules
-      BondedCoor, // total number of bonded beads in in the coordinate file
-      Unbonded, // total number of monomeric beads
-      UnbondedCoor, // total number of monomeric beads in the coordinate file
-      BeadsTotal, // total number of beads in the system (e.g., in vsf file)
-      BeadsCoor, // number of beads in the coordinate file (e.g., in vcf file)
-      Molecules, // total number of molecules
-      HighestResid, // highest id in a file (discontinuous molecule counting)
-      Aggregates; // total number of aggregates
-} SYSTEM;
-
-// Initialize System
-static const SYSTEM InitSystem = {
-  .TypesOfBeads = 0,
-  .TypesOfMolecules = 0,
-  .TypesOfBonds = -1,
-  .TypesOfAngles = -1,
-  .TypesOfDihedrals = -1,
-  .Bonded = 0,
-  .BondedCoor = 0,
-  .Unbonded = 0,
-  .UnbondedCoor = 0,
-  .BeadsTotal = 0,
-  .BeadsCoor = 0,
-  .Molecules = 0,
-  .HighestResid = -1,
-  .Aggregates = 0,
-}; //}}}
+  int *Index_mol, // link between indices (i.e., Index_mol[Molecule[i].Index]=i)
+      *Bonded, // array of Bead[] ids of in-molecule beads
+      *BondedCoor, // array of Bead[] ids of in-molecule beads in a timestep
+      *Unbonded, // array of Bead[] ids of in-molecule beads
+      *UnbondedCoor, // array of Bead[] ids of in-molecule beads in a timestep
+      *BeadsCoor; // array of internal ids for beads with InTimestep=true
+} SYSTEM; //}}}
 
 typedef struct Aggregate { //{{{
   int nMolecules, // number of molecules in aggregate

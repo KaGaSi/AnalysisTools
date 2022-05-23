@@ -238,7 +238,7 @@ int main(int argc, char *argv[]) {
   // create array of bead indices //{{{
   int *index = calloc(Counts.BeadsTotal,sizeof(int));
   for (int i = 0; i < Counts.BeadsCoor; i++) {
-    index[Bead[i].Index] = i;
+    index[Bead[i].Indexxx] = i;
   } //}}}
 
   // main loop //{{{

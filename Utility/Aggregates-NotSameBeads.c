@@ -277,7 +277,7 @@ void CalculateAggregates(AGGREGATE **Aggregate, COUNTS *Counts, double sqdist,
       for (int k = 0; k < MoleculeType[mtype].nBeads; k++) {
         int id = (*Molecule)[mol].Bead[k];
         (*Bead)[id].nAggregates = 1;
-        (*Bead)[id].Aggregate[0] = i;
+        (*Bead)[id].Aggregatexxx[0] = i;
       }
     }
   } //}}}
@@ -327,13 +327,13 @@ void CalculateAggregates(AGGREGATE **Aggregate, COUNTS *Counts, double sqdist,
               if ((*Bead)[i].Molecule == -1 && // monomeric 'i'
                   (*Bead)[j].Molecule != -1) { // 'j' in molecule //{{{
 
-                int agg_j = (*Bead)[j].Aggregate[0];
+                int agg_j = (*Bead)[j].Aggregatexxx[0];
                 int beads_j = (*Aggregate)[agg_j].nMonomers;
 
                 // test if 'i' is already in 'j''s aggregate //{{{
                 bool in_agg = false;
                 for (int l = 0; l < (*Bead)[i].nAggregates; l++) {
-                  if ((*Bead)[i].Aggregate[l] == agg_j) {
+                  if ((*Bead)[i].Aggregatexxx[l] == agg_j) {
                     in_agg = true;
                     break;
                   }
@@ -352,23 +352,23 @@ void CalculateAggregates(AGGREGATE **Aggregate, COUNTS *Counts, double sqdist,
 
                     int aggs = (*Bead)[i].nAggregates;
                     (*Bead)[i].nAggregates++;
-                    (*Bead)[i].Aggregate =
-                      realloc((*Bead)[i].Aggregate,
-                              sizeof *(*Bead)[i].Aggregate *
+                    (*Bead)[i].Aggregatexxx =
+                      realloc((*Bead)[i].Aggregatexxx,
+                              sizeof *(*Bead)[i].Aggregatexxx *
                               (*Bead)[i].nAggregates);
-                    (*Bead)[i].Aggregate[aggs] = agg_j;
+                    (*Bead)[i].Aggregatexxx[aggs] = agg_j;
                   }
                 } //}}}
               } else if ((*Bead)[j].Molecule == -1 && // monomeric 'j'
                          (*Bead)[i].Molecule != -1) { // 'i' in molecule //{{{
 
-                int agg_i = (*Bead)[i].Aggregate[0];
+                int agg_i = (*Bead)[i].Aggregatexxx[0];
                 int mono_i = (*Aggregate)[agg_i].nMonomers;
 
                 // test if 'j' is already in 'i''s aggregate //{{{
                 bool in_agg = false;
                 for (int l = 0; l < (*Bead)[j].nAggregates; l++) {
-                  if ((*Bead)[j].Aggregate[l] == agg_i) {
+                  if ((*Bead)[j].Aggregatexxx[l] == agg_i) {
                     in_agg = true;
                     break;
                   }
@@ -387,11 +387,11 @@ void CalculateAggregates(AGGREGATE **Aggregate, COUNTS *Counts, double sqdist,
 
                     int aggs = (*Bead)[j].nAggregates;
                     (*Bead)[j].nAggregates++;
-                    (*Bead)[j].Aggregate =
-                      realloc((*Bead)[j].Aggregate,
-                              sizeof *(*Bead)[j].Aggregate *
+                    (*Bead)[j].Aggregatexxx =
+                      realloc((*Bead)[j].Aggregatexxx,
+                              sizeof *(*Bead)[j].Aggregatexxx *
                               (*Bead)[j].nAggregates);
-                    (*Bead)[j].Aggregate[aggs] = agg_i;
+                    (*Bead)[j].Aggregatexxx[aggs] = agg_i;
                   }
                 }
               } //}}}

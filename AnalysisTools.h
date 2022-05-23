@@ -231,7 +231,10 @@ void CopyMolecule(int number_of_molecules, MOLECULETYPE *mt, MOLECULE **m_out,
                   MOLECULE *m_in, int mode); //}}}
 
 SYSTEM CopySystem(SYSTEM Sys_in);
-void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in);
+void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box);
+void PruneSystem(SYSTEM *System);
+
+void InitSystem(SYSTEM *System);
 
 // FreeAggregate() //{{{
 /**
@@ -244,7 +247,7 @@ void FreeAggregate(COUNTS Counts, AGGREGATE **Aggregate); //}}}
 
 // TODO new via struct System
 void VerboseOutput(SYSTEM System);
-void PrintCounts(SYSTEM System);
+void PrintCount(COUNT Count);
 void PrintBeadType(SYSTEM System);
 void PrintMoleculeType(SYSTEM System);
 void PrintMolecule(SYSTEM System);
@@ -406,4 +409,5 @@ void RemovePBCMolecules2(COUNTS Counts, BOX Box, BEADTYPE *BeadType, BEAD **Bead
 void RemovePBCMolecules_new(COUNTS Counts, BOX Box, BEADTYPE *BeadType, BEAD **Bead,
                         MOLECULETYPE *MoleculeType, MOLECULE *Molecule);
 void CopyBead_old(int number_of_beads, BEAD **b_out, BEAD *b_in, int mode);
+void FreeSystem_old(SYSTEM *System);
 #endif

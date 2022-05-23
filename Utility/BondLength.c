@@ -312,7 +312,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "\n   Beads: ");
             // first bead
             ColourChange(STDERR_FILENO, CYAN);
-            fprintf(stderr, "%6d", Bead[id1].Index);
+            fprintf(stderr, "%6d", Bead[id1].Indexxx);
             ColourChange(STDERR_FILENO, YELLOW);
             fprintf(stderr, " (");
             ColourChange(STDERR_FILENO, CYAN);
@@ -324,7 +324,7 @@ int main(int argc, char *argv[]) {
                                              Bead[id1].Position.y,
                                              Bead[id1].Position.z);
             // second bead
-            fprintf(stderr, "          %6d", Bead[id1].Index);
+            fprintf(stderr, "          %6d", Bead[id1].Indexxx);
             fprintf(stderr, " (");
             ColourChange(STDERR_FILENO, CYAN);
             fprintf(stderr, "%s", BeadType[btype1].Name);

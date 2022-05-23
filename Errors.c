@@ -56,7 +56,7 @@ void ErrorOption(char *option) {
 
 void ErrorBeadType(SYSTEM System) { //{{{
   fprintf(stderr, "     Possible bead names: %s\n", System.BeadType[0].Name);
-  for (int i = 1; i < System.TypesOfBeads; i++) {
+  for (int i = 1; i < System.Count.nBeadTypes; i++) {
     fprintf(stderr, "                          %s\n", System.BeadType[i].Name);
   }
   putc('\n', stderr);
@@ -64,7 +64,7 @@ void ErrorBeadType(SYSTEM System) { //{{{
 void ErrorMoleculeType(SYSTEM System) { //{{{
   fprintf(stderr, "   Possible molecule names: %s\n",
           System.MoleculeType[0].Name);
-  for (int i = 1; i < System.TypesOfMolecules; i++) {
+  for (int i = 1; i < System.Count.nMoleculeTypes; i++) {
     fprintf(stderr, "                        %s\n",
             System.MoleculeType[i].Name);
   }
@@ -96,7 +96,7 @@ void ErrorPrintLine(char split[SPL_STR][SPL_LEN], int words) {
 
 void WarnChargedSystem(SYSTEM System, char *file) { //{{{
   double charge = 0;
-  for (int i = 0; i < System.TypesOfBeads; i++) {
+  for (int i = 0; i < System.Count.nBeadTypes; i++) {
     // do nothing if at least one bead type had undefined charge
     if (System.BeadType[i].Charge == CHARGE) {
       return;

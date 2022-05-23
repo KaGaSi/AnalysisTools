@@ -86,7 +86,6 @@ int main(int argc, char *argv[]) {
 
   // read information from vtf file
   SYSTEM System = VtfReadStruct(input_vsf, detailed);
-  System.InFile = calloc(System.BeadsTotal, sizeof *System.InFile);
 
   // print information
   VerboseOutput(System);

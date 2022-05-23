@@ -17,11 +17,11 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[], SYSTEM System) {
   fprintf(vcf, "indexed\n");
 
   bool none = true;
-  for (int i = 0; i < System.BeadsCoor; i++) {
-    int id = System.InFile[i];
+  for (int i = 0; i < System.Count.nBeadsCoor; i++) {
+    int id = System.BeadsCoor[i];
     if (System.Bead[id].InTimestep && System.Bead[id].Use) {
       none = false;
-      fprintf(vcf, "%8d %8.4f %8.4f %8.4f\n", System.Bead[id].Index,
+      fprintf(vcf, "%8d %8.4f %8.4f %8.4f\n", id,
                                               System.Bead[id].Position.x,
                                               System.Bead[id].Position.y,
                                               System.Bead[id].Position.z);
@@ -38,8 +38,8 @@ void XyzWriteCoor(FILE *xyz, SYSTEM System) {
   // find out number of beads to save
   int count = 0;
   bool none = true; // to make sure there are beads to save
-  for (int i = 0; i < System.BeadsCoor; i++) {
-    int id = System.InFile[i];
+  for (int i = 0; i < System.Count.nBeadsCoor; i++) {
+    int id = System.BeadsCoor[i];
     if (System.Bead[id].InTimestep && System.Bead[id].Use) {
       none = false;
       count++;
@@ -50,8 +50,8 @@ void XyzWriteCoor(FILE *xyz, SYSTEM System) {
     WarnPrintWarning();
   } else {
     fprintf(xyz, "%d\n\n", count);
-    for (int i = 0; i < System.BeadsCoor; i++) {
-      int id = System.InFile[i];
+    for (int i = 0; i < System.Count.nBeadsCoor; i++) {
+      int id = System.BeadsCoor[i];
       if (System.Bead[id].InTimestep && System.Bead[id].Use) {
         int type = System.Bead[id].Type;
         fprintf(xyz, "%8s %7.3f %7.3f %7.3f\n", System.BeadType[type].Name,
@@ -69,15 +69,15 @@ void VtfWriteStruct(char file[], SYSTEM System) {
   FILE *fw = OpenFile(file, "w");
   // TODO integrate InFile & BeadsCoor
   // find most common type of bead and make it default //{{{
-  int *count = calloc(System.TypesOfBeads, sizeof *count);
-  for (int i = 0; i < System.BeadsTotal; i++) {
+  int *count = calloc(System.Count.nBeadTypes, sizeof *count);
+  for (int i = 0; i < System.Count.nBeadsTotal; i++) {
     if (System.Bead[i].Molecule == -1) {
       int type = System.Bead[i].Type;
       count[type]++;
     }
   }
   int type_def = -1, max = 0;
-  for (int i = 0; i < System.TypesOfBeads; i++) {
+  for (int i = 0; i < System.Count.nBeadTypes; i++) {
     if (count[i] > max) {
       max = count[i];
       type_def = i;
@@ -92,12 +92,12 @@ void VtfWriteStruct(char file[], SYSTEM System) {
     fprintf(fw, "charge %lf\n", System.BeadType[type_def].Charge);
   } //}}}
   // print beads //{{{
-  for (int i = 0; i < System.BeadsTotal; i++) {
+  for (int i = 0; i < System.Count.nBeadsTotal; i++) {
     int btype = System.Bead[i].Type,
         mol = System.Bead[i].Molecule;
     // don't print beads with type 'type_def' // TODO is it done correctly?
     if (btype != type_def || mol != -1) {
-      fprintf(fw, "atom %7d ", System.Bead[i].Index);
+      fprintf(fw, "atom %7d ", i);
       if (mol != -1) { // TODO okay, what's this?
         int mtype = System.Molecule[mol].Type;
         int n = -1;
@@ -106,6 +106,11 @@ void VtfWriteStruct(char file[], SYSTEM System) {
             n = j;
             break;
           }
+        }
+        if (n == -1) {
+          strcpy(ERROR_MSG, "something wrong with bead ids in molecules; \
+contact developer");
+          PrintWarning();
         }
         btype = System.MoleculeType[mtype].Bead[n];
         fprintf(fw, "name %8s ", System.BeadType[btype].Name);
@@ -123,7 +128,7 @@ void VtfWriteStruct(char file[], SYSTEM System) {
       }
       putc('\n', fw);
     // print highest bead id even if it's default type
-    } else if (i == (System.BeadsTotal-1)) {
+    } else if (i == (System.Count.nBeadsTotal-1)) {
       fprintf(fw, "atom %7d ", i);
       fprintf(fw, "name %8s ", System.BeadType[btype].Name);
       fprintf(fw, "mass %lf ", System.BeadType[btype].Mass);
@@ -133,7 +138,7 @@ void VtfWriteStruct(char file[], SYSTEM System) {
   } //}}}
   // print bonds //{{{
   putc('\n', fw);
-  for (int i = 0; i < System.Molecules; i++) {
+  for (int i = 0; i < System.Count.nMolecules; i++) {
     fprintf(fw, "# resid %d\n", i+1); // in VMD resid start with 1
     int mol_type = System.Molecule[i].Type;
     for (int j = 0; j < System.MoleculeType[mol_type].nBonds; j++) {
@@ -141,8 +146,7 @@ void VtfWriteStruct(char file[], SYSTEM System) {
       bead1 = System.Molecule[i].Bead[bead1];
       int bead2 = System.MoleculeType[mol_type].Bond[j][1];
       bead2 = System.Molecule[i].Bead[bead2];
-      fprintf(fw, "bond %6d: %6d\n", System.Bead[bead1].Index,
-                                     System.Bead[bead2].Index);
+      fprintf(fw, "bond %6d: %6d\n", bead1, bead2);
     }
   } //}}}
   // close structure file
@@ -183,7 +187,7 @@ void WriteAggregates(int step_count, char *agg_file, COUNTS Counts,
       // go through all monomeric beads in aggregate 'i'
       fprintf(fw, "   %d :", Aggregate[i].nMonomers);
       for (int j = 0; j < Aggregate[i].nMonomers; j++) {
-        fprintf(fw, " %d", Bead[Aggregate[i].Monomer[j]].Index);
+        fprintf(fw, " %d", Aggregate[i].Monomer[j]);
       }
       putc('\n', fw);
     }
@@ -360,13 +364,13 @@ void WriteCoorIndexed(FILE *vcf_file, COUNTS Counts,
       if (Bead[i].Molecule != -1) { // bead in a molecule
         int mtype = Molecule[Bead[i].Molecule].Type;
         if (MoleculeType[mtype].Write) {
-          fprintf(vcf_file, "%8d %8.4f %8.4f %8.4f\n", Bead[i].Index,
+          fprintf(vcf_file, "%8d %8.4f %8.4f %8.4f\n", i,
                                                        Bead[i].Position.x,
                                                        Bead[i].Position.y,
                                                        Bead[i].Position.z);
         }
       } else { // monomer bead
-        fprintf(vcf_file, "%8d %8.4f %8.4f %8.4f\n", Bead[i].Index,
+        fprintf(vcf_file, "%8d %8.4f %8.4f %8.4f\n", i,
                                                      Bead[i].Position.x,
                                                      Bead[i].Position.y,
                                                      Bead[i].Position.z);
@@ -408,7 +412,7 @@ void WriteVsf_old(char *input_vsf, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead
     int mol = Bead[i].Molecule;
     // don't print beads with type 'type_def'
     if (btype != type_def || mol != -1) {
-      fprintf(fw, "atom %7d ", Bead[i].Index);
+      fprintf(fw, "atom %7d ", i);
       if (mol != -1 && change) {
         int mtype = Molecule[mol].Type;
         int n = -1;
@@ -452,8 +456,7 @@ void WriteVsf_old(char *input_vsf, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead
       int bead2 = MoleculeType[mol_type].Bond[j][1];
       bead1 = Molecule[i].Bead[bead1];
       bead2 = Molecule[i].Bead[bead2];
-      fprintf(fw, "bond %6d: %6d\n", Bead[bead1].Index,
-                                     Bead[bead2].Index);
+      fprintf(fw, "bond %6d: %6d\n", bead1, bead1);
     }
   } //}}}
   // close structure file
@@ -477,7 +480,7 @@ void VtfWriteCoorIndexed_old(FILE *vcf, char stuff[], int InFile[],
     int id = InFile[i];
     if (Bead[id].InTimestep && Bead[id].Use) {
       none = false;
-      fprintf(vcf, "%8d %8.4f %8.4f %8.4f\n", Bead[id].Index,
+      fprintf(vcf, "%8d %8.4f %8.4f %8.4f\n", id,
                                               Bead[id].Position.x,
                                               Bead[id].Position.y,
                                               Bead[id].Position.z);
@@ -500,9 +503,6 @@ void XyzWriteCoor_old(FILE *xyz, COUNTS Counts, int InFile[],
     if (Bead[id].InTimestep && Bead[id].Use) {
       none = false;
       count++;
-      printf("  %d: %s %d (%d)\n", count, BeadType[Bead[id].Type].Name, id, Bead[id].Index);
-    } else {
-      printf("Y %d: %s %d (%d)\n", count, BeadType[Bead[id].Type].Name, id, Bead[id].Index);
     }
   }
   if (none) {
@@ -558,7 +558,7 @@ void VtfWriteStruct_old(char file[], COUNTS Counts,
     int mol = Bead[i].Molecule;
     // don't print beads with type 'type_def'
     if (btype != type_def || mol != -1) {
-      fprintf(fw, "atom %7d ", Bead[i].Index);
+      fprintf(fw, "atom %7d ", i);
       if (mol != -1) {
         int mtype = Molecule[mol].Type;
         int n = -1;
@@ -602,8 +602,7 @@ void VtfWriteStruct_old(char file[], COUNTS Counts,
       int bead2 = MoleculeType[mol_type].Bond[j][1];
       bead1 = Molecule[i].Bead[bead1];
       bead2 = Molecule[i].Bead[bead2];
-      fprintf(fw, "bond %6d: %6d\n", Bead[bead1].Index,
-                                     Bead[bead2].Index);
+      fprintf(fw, "bond %6d: %6d\n", bead1, bead2);
     }
   } //}}}
   // close structure file

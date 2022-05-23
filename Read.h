@@ -46,7 +46,6 @@ bool VtfCheckAtomLine(int words, char *split[]);
 bool VtfCheckBondLine(int words, char *split[]);
  //}}}
 
-
 // TODO will be changed - agg files
 // ReadAggCommand() //{{{
 /*
@@ -192,4 +191,5 @@ bool VtfReadTimestep_old(FILE *vcf, char vcf_file[], BOX *Box, COUNTS *Counts,
                      MOLECULETYPE MoleculeType[], MOLECULE Molecule[],
                      int *InVcfFile[], int *file_line_count,
                      int step_count, char stuff[]);
+SYSTEM VtfReadStruct_oldish(char struct_file[], bool detailed);
 #endif
