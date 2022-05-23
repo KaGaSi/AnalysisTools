@@ -17,7 +17,7 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[], SYSTEM System) {
   fprintf(vcf, "indexed\n");
 
   bool none = true;
-  for (int i = 0; i < System.Count.nBeadsCoor; i++) {
+  for (int i = 0; i < System.Count.BeadsCoor; i++) {
     int id = System.BeadsCoor[i];
     if (System.Bead[id].InTimestep && System.Bead[id].Use) {
       none = false;
@@ -38,7 +38,7 @@ void XyzWriteCoor(FILE *xyz, SYSTEM System) {
   // find out number of beads to save
   int count = 0;
   bool none = true; // to make sure there are beads to save
-  for (int i = 0; i < System.Count.nBeadsCoor; i++) {
+  for (int i = 0; i < System.Count.BeadsCoor; i++) {
     int id = System.BeadsCoor[i];
     if (System.Bead[id].InTimestep && System.Bead[id].Use) {
       none = false;
@@ -50,7 +50,7 @@ void XyzWriteCoor(FILE *xyz, SYSTEM System) {
     WarnPrintWarning();
   } else {
     fprintf(xyz, "%d\n\n", count);
-    for (int i = 0; i < System.Count.nBeadsCoor; i++) {
+    for (int i = 0; i < System.Count.BeadsCoor; i++) {
       int id = System.BeadsCoor[i];
       if (System.Bead[id].InTimestep && System.Bead[id].Use) {
         int type = System.Bead[id].Type;
@@ -69,15 +69,15 @@ void VtfWriteStruct(char file[], SYSTEM System) {
   FILE *fw = OpenFile(file, "w");
   // TODO integrate InFile & BeadsCoor
   // find most common type of bead and make it default //{{{
-  int *count = calloc(System.Count.nBeadTypes, sizeof *count);
-  for (int i = 0; i < System.Count.nBeadsTotal; i++) {
+  int *count = calloc(System.Count.BeadType, sizeof *count);
+  for (int i = 0; i < System.Count.Bead; i++) {
     if (System.Bead[i].Molecule == -1) {
       int type = System.Bead[i].Type;
       count[type]++;
     }
   }
   int type_def = -1, max = 0;
-  for (int i = 0; i < System.Count.nBeadTypes; i++) {
+  for (int i = 0; i < System.Count.BeadType; i++) {
     if (count[i] > max) {
       max = count[i];
       type_def = i;
@@ -92,7 +92,7 @@ void VtfWriteStruct(char file[], SYSTEM System) {
     fprintf(fw, "charge %lf\n", System.BeadType[type_def].Charge);
   } //}}}
   // print beads //{{{
-  for (int i = 0; i < System.Count.nBeadsTotal; i++) {
+  for (int i = 0; i < System.Count.Bead; i++) {
     int btype = System.Bead[i].Type,
         mol = System.Bead[i].Molecule;
     // don't print beads with type 'type_def' // TODO is it done correctly?
@@ -128,7 +128,7 @@ contact developer");
       }
       putc('\n', fw);
     // print highest bead id even if it's default type
-    } else if (i == (System.Count.nBeadsTotal-1)) {
+    } else if (i == (System.Count.Bead-1)) {
       fprintf(fw, "atom %7d ", i);
       fprintf(fw, "name %8s ", System.BeadType[btype].Name);
       fprintf(fw, "mass %lf ", System.BeadType[btype].Mass);
@@ -138,7 +138,7 @@ contact developer");
   } //}}}
   // print bonds //{{{
   putc('\n', fw);
-  for (int i = 0; i < System.Count.nMolecules; i++) {
+  for (int i = 0; i < System.Count.Molecule; i++) {
     fprintf(fw, "# resid %d\n", i+1); // in VMD resid start with 1
     int mol_type = System.Molecule[i].Type;
     for (int j = 0; j < System.MoleculeType[mol_type].nBonds; j++) {

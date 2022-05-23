@@ -40,34 +40,34 @@ static const BOX InitBox = {
   .Volume = -1,
 }; //}}}
 typedef struct Count { //{{{
-  int nBeadTypes, // number of bead types
-      nMoleculeTypes, // number of molecule types
-      nBondTypes, // number of bond types; -1 if not read from anywhere
-      nAngleTypes, // number of bond types; -1 if not read from anywhere
-      nDihedralTypes, // number of dihedral types; -1 if not read from anywhere
-      nBonded, // total number of beads in all molecules
-      nBondedCoor, // total number of bonded beads in in the coordinate file
-      nUnbonded, // total number of monomeric beads
-      nUnbondedCoor, // total number of monomeric beads in the coordinate file
-      nBeadsTotal, // total number of beads in the system (e.g., in vsf file)
-      nBeadsCoor, // number of beads in the coordinate file (e.g., in vcf file)
-      nMolecules, // total number of molecules
+  int BeadType, // number of bead types
+      MoleculeType, // number of molecule types
+      BondType, // number of bond types; -1 if not read from anywhere
+      AngleType, // number of bond types; -1 if not read from anywhere
+      DihedralType, // number of dihedral types; -1 if not read from anywhere
+      Bonded, // total number of beads in all molecules
+      BondedCoor, // total number of bonded beads in in the coordinate file
+      Unbonded, // total number of monomeric beads
+      UnbondedCoor, // total number of monomeric beads in the coordinate file
+      Bead, // total number of beads in the system (e.g., in vsf file)
+      BeadsCoor, // number of beads in the coordinate file (e.g., in vcf file)
+      Molecule, // total number of molecules
       HighestResid; // highest id in a file (discontinuous molecule counting)
 } COUNT;
 // Initialize Count
 static const COUNT InitCount = {
-  .nBeadTypes = 0,
-  .nMoleculeTypes = 0,
-  .nBondTypes = 0,
-  .nAngleTypes = 0,
-  .nDihedralTypes = 0,
-  .nBonded = 0,
-  .nBondedCoor = 0,
-  .nUnbonded = 0,
-  .nUnbondedCoor = 0,
-  .nBeadsTotal = 0,
-  .nBeadsCoor = 0,
-  .nMolecules = 0,
+  .BeadType = 0,
+  .MoleculeType = 0,
+  .BondType = 0,
+  .AngleType = 0,
+  .DihedralType = 0,
+  .Bonded = 0,
+  .BondedCoor = 0,
+  .Unbonded = 0,
+  .UnbondedCoor = 0,
+  .Bead = 0,
+  .BeadsCoor = 0,
+  .Molecule = 0,
   .HighestResid = -1,
 }; //}}}
 typedef struct Params { //{{{
