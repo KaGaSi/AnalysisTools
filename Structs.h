@@ -45,12 +45,12 @@ typedef struct Count { //{{{
       BondType, // number of bond types; -1 if not read from anywhere
       AngleType, // number of bond types; -1 if not read from anywhere
       DihedralType, // number of dihedral types; -1 if not read from anywhere
+      Bead, // total number of beads in the system (e.g., in vsf file)
+      BeadCoor, // number of beads in the coordinate file (e.g., in vcf file)
       Bonded, // total number of beads in all molecules
       BondedCoor, // total number of bonded beads in in the coordinate file
       Unbonded, // total number of monomeric beads
       UnbondedCoor, // total number of monomeric beads in the coordinate file
-      Bead, // total number of beads in the system (e.g., in vsf file)
-      BeadsCoor, // number of beads in the coordinate file (e.g., in vcf file)
       Molecule, // total number of molecules
       HighestResid; // highest id in a file (discontinuous molecule counting)
 } COUNT;
@@ -61,12 +61,12 @@ static const COUNT InitCount = {
   .BondType = 0,
   .AngleType = 0,
   .DihedralType = 0,
+  .Bead = 0,
+  .BeadCoor = 0,
   .Bonded = 0,
   .BondedCoor = 0,
   .Unbonded = 0,
   .UnbondedCoor = 0,
-  .Bead = 0,
-  .BeadsCoor = 0,
   .Molecule = 0,
   .HighestResid = -1,
 }; //}}}

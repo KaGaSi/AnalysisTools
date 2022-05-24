@@ -17,7 +17,7 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[], SYSTEM System) {
   fprintf(vcf, "indexed\n");
 
   bool none = true;
-  for (int i = 0; i < System.Count.BeadsCoor; i++) {
+  for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadsCoor[i];
     if (System.Bead[id].InTimestep && System.Bead[id].Use) {
       none = false;
@@ -38,7 +38,7 @@ void XyzWriteCoor(FILE *xyz, SYSTEM System) {
   // find out number of beads to save
   int count = 0;
   bool none = true; // to make sure there are beads to save
-  for (int i = 0; i < System.Count.BeadsCoor; i++) {
+  for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadsCoor[i];
     if (System.Bead[id].InTimestep && System.Bead[id].Use) {
       none = false;
@@ -50,7 +50,7 @@ void XyzWriteCoor(FILE *xyz, SYSTEM System) {
     WarnPrintWarning();
   } else {
     fprintf(xyz, "%d\n\n", count);
-    for (int i = 0; i < System.Count.BeadsCoor; i++) {
+    for (int i = 0; i < System.Count.BeadCoor; i++) {
       int id = System.BeadsCoor[i];
       if (System.Bead[id].InTimestep && System.Bead[id].Use) {
         int type = System.Bead[id].Type;

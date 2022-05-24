@@ -924,7 +924,7 @@ contact developper\n");
   free(molec);
   //}}}
   // assume empty/none-existent coordinate file
-  Sys.Count.BeadsCoor = 0;
+  Sys.Count.BeadCoor = 0;
   Sys.BeadsCoor = realloc(Sys.BeadsCoor,
                           sizeof *Sys.BeadsCoor * Sys.Count.Bead);
   Sys.Count.BondedCoor = 0;
@@ -1012,7 +1012,7 @@ bool VtfReadTimestep(FILE *vcf, char vcf_file[], SYSTEM *System,
     (*System).Bead[i].InTimestep = false;
   } //}}}
   // read timestep preamble //{{{
-  (*System).Count.BeadsCoor = -1; // no coordinate line found yet
+  (*System).Count.BeadCoor = -1; // no coordinate line found yet
   int ltype, timestep = ERROR_LINE;
   fpos_t position; // to save file position
   while (true) {
@@ -1069,7 +1069,7 @@ using next timestep instead of this one");
         (*file_line_count)--; // the first non-coordinate line will be re-read
         goto start_function;
       } //}}}
-      (*System).Count.BeadsCoor = 0;
+      (*System).Count.BeadCoor = 0;
       break; //}}}
     } else if (ltype == COMMENT_LINE) {
       // TODO clean this; well, do something about it, anyway
@@ -1101,7 +1101,7 @@ using next timestep instead of this one");
     }
   } //}}}
   // return 'false' if no coordinate line encountered //{{{
-  if ((*System).Count.BeadsCoor == -1) {
+  if ((*System).Count.BeadCoor == -1) {
     strcpy(ERROR_MSG, "no coordinates; this warning should never trigger!");
     PrintWarning();
   } //}}}
@@ -1183,7 +1183,7 @@ using next timestep instead of this one");
           (*System).Bead[id].Velocity.y = vel.y;
           (*System).Bead[id].Velocity.z = vel.z;
         }
-        (*System).BeadsCoor[(*System).Count.BeadsCoor] = id;
+        (*System).BeadsCoor[(*System).Count.BeadCoor] = id;
       } else {
         // warn: ordered line in indexed timestep - read next timestep //{{{
         strcpy(ERROR_MSG, "ordered coordinate line in indexed timestep; \
@@ -1200,7 +1200,7 @@ using next timestep instead of this one");
       }
     } else { // 'timestep ordered' coordinate line
       // warn: extra bead in ordered timestep - read next timestep //{{{
-      if ((*System).Count.BeadsCoor == (*System).Count.Bead) {
+      if ((*System).Count.BeadCoor == (*System).Count.Bead) {
         strcpy(ERROR_MSG, "too many beads in an ordered timestep; \
 using next timestep instead of this one");
         PrintWarningFileLine(vcf_file, *file_line_count, split, words);
@@ -1213,7 +1213,7 @@ using next timestep instead of this one");
         (*file_line_count)--; // the first non-coordinate line will be re-read
         goto start_function;
       } //}}}
-      id = (*System).Count.BeadsCoor;
+      id = (*System).Count.BeadCoor;
       (*System).Bead[id].Position.x = atof(split[0]);
       (*System).Bead[id].Position.y = atof(split[1]);
       (*System).Bead[id].Position.z = atof(split[2]);
@@ -1225,7 +1225,7 @@ using next timestep instead of this one");
         (*System).Bead[id].Velocity.y = val.y;
         (*System).Bead[id].Velocity.z = val.z;
       }
-      (*System).BeadsCoor[(*System).Count.BeadsCoor] = id;
+      (*System).BeadsCoor[(*System).Count.BeadCoor] = id;
     }
     if ((*System).Bead[id].Molecule == -1) {
       (*System).UnbondedCoor[(*System).Count.UnbondedCoor] = id;
@@ -1234,12 +1234,12 @@ using next timestep instead of this one");
       (*System).BondedCoor[(*System).Count.BondedCoor] = id;
       (*System).Count.BondedCoor++;
     }
-    (*System).Count.BeadsCoor++;
+    (*System).Count.BeadCoor++;
   }
   // restore file pointer to before the first non-coordinate line
   fsetpos(vcf, &position); //}}}
   // warn: too few beads in an ordered timestep - read next timestep //{{{
-  if (timestep == TIME_LINE_O && (*System).Count.BeadsCoor < (*System).Count.Bead) {
+  if (timestep == TIME_LINE_O && (*System).Count.BeadCoor < (*System).Count.Bead) {
     strcpy(ERROR_MSG, "insufficient number of beads for ordered timestep; \
 using next timestep instead of this one");
     PrintWarning();

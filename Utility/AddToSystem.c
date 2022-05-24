@@ -476,15 +476,6 @@ int main(int argc, char *argv[]) {
     srand(time(0));
   } //}}}
 
-  // print original system (if present) //{{{
-  if (verbose && strlen(input_coor) > 0) {
-    fprintf(stdout, "\nORIGINAL SYSTEM\n");
-    VerboseOutput(S_orig);
-    if (start > 1) {
-      fprintf(stdout, "\n   Using %d. timestep\n", start);
-    }
-  } //}}}
-
   // array for the timestep preamble
   char *stuff = calloc(LINE, sizeof *stuff);
 
@@ -500,7 +491,15 @@ int main(int argc, char *argv[]) {
     VtfReadTimestep(vcf, input_coor, &S_orig, &file_line_count,
                     count_vcf, stuff);
     fclose(vcf);
-//  PrintCounts(Counts_orig);
+  } //}}}
+
+  // print original system (if present) //{{{
+  if (verbose && strlen(input_coor) > 0) {
+    fprintf(stdout, "\nORIGINAL SYSTEM\n");
+    VerboseOutput(S_orig);
+    if (start > 1) {
+      fprintf(stdout, "\n   Using %d. timestep\n", start);
+    }
   } //}}}
 
   SYSTEM S_add;
@@ -519,7 +518,7 @@ int main(int argc, char *argv[]) {
     VtfReadTimestep(vcf, input_coor_add, &S_add, &file_line_count, count_vcf, stuff);
     fclose(vcf);
     // TODO: !no_rot? ...shouldn't -vtf be this by default?
-    VECTOR rotated[S_add.Count.BeadsCoor];
+    VECTOR rotated[S_add.Count.BeadCoor];
     if (!no_rot) { //{{{
       // random rotation axis
       VECTOR random = {0};
@@ -547,15 +546,8 @@ int main(int argc, char *argv[]) {
       rot.z.x = random.x * random.z * (1 - cos(angle)) - random.y * sin(angle);
       rot.z.y = random.y * random.z * (1 - cos(angle)) + random.x * sin(angle);
       rot.z.z = cos(angle) + SQR(random.z) * (1 - cos(angle));
-      printf("xxXxx\n");
-      printf("%lf %lf %lf\n", random.x, random.y, random.z);
-      printf("%lf\n", (double)rand());
-      printf("XxXxX\n");
-      printf("%lf %lf %lf\n", rot.x.x, rot.x.y, rot.x.z);
-      printf("%lf %lf %lf\n", rot.y.x, rot.y.y, rot.y.z);
-      printf("%lf %lf %lf\n", rot.z.x, rot.z.y, rot.z.z);
       // transform the prototype molecule (rotation matrix * coordinates)
-      for (int i = 0; i < S_add.Count.BeadsCoor; i++) {
+      for (int i = 0; i < S_add.Count.BeadCoor; i++) {
         rotated[i].x = rot.x.x * (S_add.Bead[i].Position.x - S_add.Box.Length.x / 2)
                      + rot.x.y * (S_add.Bead[i].Position.y - S_add.Box.Length.y / 2)
                      + rot.x.z * (S_add.Bead[i].Position.z - S_add.Box.Length.z / 2);
@@ -566,7 +558,7 @@ int main(int argc, char *argv[]) {
                      + rot.z.y * (S_add.Bead[i].Position.y - S_add.Box.Length.y / 2)
                      + rot.z.z * (S_add.Bead[i].Position.z - S_add.Box.Length.z / 2);
       }
-      for (int i = 0; i < S_add.Count.BeadsCoor; i++) {
+      for (int i = 0; i < S_add.Count.BeadCoor; i++) {
         S_add.Bead[i].Position.x = rotated[i].x + offset[0] + S_add.Box.Length.x / 2;
         S_add.Bead[i].Position.y = rotated[i].y + offset[1] + S_add.Box.Length.y / 2;
         S_add.Bead[i].Position.z = rotated[i].z + offset[2] + S_add.Box.Length.z / 2;
@@ -574,7 +566,7 @@ int main(int argc, char *argv[]) {
      //}}}
     } else { // don't rotate //{{{
       ToFractionalCoor(S_add.Count.Bead, &S_add.Bead, S_add.Box);
-      for (int i = 0; i < S_add.Count.BeadsCoor; i++) {
+      for (int i = 0; i < S_add.Count.BeadCoor; i++) {
         int id = S_add.BeadsCoor[i];
         S_add.Bead[id].Position.x += offset[0];
         S_add.Bead[id].Position.y += offset[1];
@@ -664,7 +656,7 @@ int main(int argc, char *argv[]) {
     }
   }
   // count beads to be added
-  if (sw && S_add.Count.BeadsCoor > can_be_exchanged) {
+  if (sw && S_add.Count.BeadCoor > can_be_exchanged) {
     ErrorPrintError_old();
     ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, "insufficient beads to exchange for new ones\n");
@@ -674,7 +666,7 @@ int main(int argc, char *argv[]) {
     ColourChange(STDERR_FILENO, RED);
     fprintf(stderr, "     Beads to be added: ");
     ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%d\n\n", S_add.Count.BeadsCoor);
+    fprintf(stderr, "%d\n\n", S_add.Count.BeadCoor);
     ColourReset(STDERR_FILENO);
     exit(1);
   } //}}}
@@ -715,12 +707,12 @@ int main(int argc, char *argv[]) {
    * i.e., give them Bead[].Flag = true); has effect only if --switch is used
    */
   // zeroize Bead[].Flag //{{{
-  for (int i = 0; i < S_orig.Count.BeadsCoor; i++) {
+  for (int i = 0; i < S_orig.Count.BeadCoor; i++) {
     S_orig.Bead[i].Use = false;
   } //}}}
   count = 0; // counts bead in the original Bead[] struct
-  for (int i = 0; i < S_add.Count.BeadsCoor; i++) {
-    for (; count < S_orig.Count.BeadsCoor; count++) {
+  for (int i = 0; i < S_add.Count.BeadCoor; i++) {
+    for (; count < S_orig.Count.BeadCoor; count++) {
       int type = S_orig.Bead[count].Type;
       if (S_orig.BeadType[type].Write && S_orig.Bead[count].Molecule == -1) {
         S_orig.Bead[count].Use = true; // exchange bead 'count'
@@ -732,10 +724,10 @@ int main(int argc, char *argv[]) {
 
   // join original and added systems (depending on '--switch' mode)
   if (sw) { // switch old beads for new ones? //{{{
-    S_new.Count.BeadsCoor = S_orig.Count.BeadsCoor;
+    S_new.Count.BeadCoor = S_orig.Count.BeadCoor;
     S_new.Count.Bead = S_orig.Count.Bead;
     S_new.Count.Bonded = S_orig.Count.Bonded + S_add.Count.Bonded;
-    S_new.Count.Unbonded = S_orig.Count.BeadsCoor - S_new.Count.Bonded;
+    S_new.Count.Unbonded = S_orig.Count.BeadCoor - S_new.Count.Bonded;
     S_new.Count.BondType = S_add.Count.BondType;
     S_new.Count.AngleType = S_add.Count.AngleType;
     S_new.Count.Molecule = S_orig.Count.Molecule + S_add.Count.Molecule;
@@ -830,7 +822,7 @@ int main(int argc, char *argv[]) {
       }
     } //}}}
     // fill Bead struct for the new system
-    S_new.Bead = realloc(S_new.Bead, sizeof (BEAD) * S_new.Count.BeadsCoor);
+    S_new.Bead = realloc(S_new.Bead, sizeof (BEAD) * S_new.Count.BeadCoor);
     // copy unbonded beads not to be exchanged to the start of S_new.Bead //{{{
     // TODO: assumes unbonded beads are before bonded beads
     count = 0; // counts copied beads
@@ -845,7 +837,7 @@ int main(int argc, char *argv[]) {
     }
     // count ended at <number of unbonded original beads> - <added beads> //}}}
     // put unbonded beads to be added beyond the unchanged unbonded beads //{{{
-    count = S_orig.Count.Unbonded - S_add.Count.BeadsCoor; // just to be sure
+    count = S_orig.Count.Unbonded - S_add.Count.BeadCoor; // just to be sure
     for (int i = 0; i < S_add.Count.Unbonded; i++) {
       int type = S_add.Bead[i].Type;
       int new_type = FindBeadType(S_add.BeadType[type].Name, S_new);
@@ -857,14 +849,14 @@ int main(int argc, char *argv[]) {
     } //}}}
     // copy the original bonded beads //{{{
     count = S_new.Count.Unbonded;
-    for (int i = S_orig.Count.Unbonded; i < S_orig.Count.BeadsCoor; i++) {
+    for (int i = S_orig.Count.Unbonded; i < S_orig.Count.BeadCoor; i++) {
       S_new.Bead[count] = S_orig.Bead[i];
       S_new.Bead[count].Use = false; // coordinates to be rewritten
       count++;
     } //}}}
     // put bonded beads to be added at the very end //{{{
     count = S_new.Count.Unbonded + S_orig.Count.Bonded;
-    for (int i = S_add.Count.Unbonded; i < S_add.Count.BeadsCoor; i++) {
+    for (int i = S_add.Count.Unbonded; i < S_add.Count.BeadCoor; i++) {
       int type = S_add.Bead[i].Type;
       int new_type = FindBeadType(S_add.BeadType[type].Name, S_new);
       S_new.Bead[count] = S_add.Bead[i];
@@ -885,7 +877,7 @@ int main(int argc, char *argv[]) {
       }
     } //}}}
     // put _add molecules into _new struct //{{{
-    count = S_new.Count.BeadsCoor - S_add.Count.Bonded;
+    count = S_new.Count.BeadCoor - S_add.Count.Bonded;
     for (int i = 0; i < S_add.Count.Molecule; i++) {
       int add_type = S_add.Molecule[i].Type;
       int new_type = FindMoleculeType(S_add.MoleculeType[add_type].Name, S_new);
@@ -903,8 +895,8 @@ int main(int argc, char *argv[]) {
     BOX Box_new = S_new.Box;
     S_new = CopySystem(S_orig);
     ConcatenateSystems(&S_new, S_add, Box_new);
-    FreeSystem(&S_orig);
-//  PruneSystem(&S_new);
+    PruneSystem(&S_new);
+    VerboseOutput(S_new);
   } //}}}
 
   // print new system //{{{
@@ -941,7 +933,7 @@ int main(int argc, char *argv[]) {
           random.z = number * constraint_box.Length.z + constraint[0].z;
 
           min_dist = SQR(S_orig.Box.Length.x * 100);
-          for (int j = 0; j < S_orig.Count.BeadsCoor; j++) {
+          for (int j = 0; j < S_orig.Count.BeadCoor; j++) {
             int btype = S_orig.Bead[j].Type;
             /*
              * j can be added monomeric bead, so it's type can be higher than
@@ -1092,7 +1084,7 @@ int main(int argc, char *argv[]) {
           min_dist = SQR(S_new.Box.Length.x) +
                      SQR(S_new.Box.Length.y) +
                      SQR(S_new.Box.Length.z);
-          for (int j = 0; j < S_orig.Count.BeadsCoor; j++) {
+          for (int j = 0; j < S_orig.Count.BeadCoor; j++) {
             int btype_j = S_orig.Bead[j].Type;
             /*
              * j can be added monomeric bead, so it's type can be higher than
@@ -1161,7 +1153,7 @@ int main(int argc, char *argv[]) {
   //}}}
 
   // free memory - to make valgrind happy //{{{
-//FreeSystem(&S_orig);
+  FreeSystem(&S_orig);
   FreeSystem(&S_add);
   FreeSystem(&S_new);
   free(stuff);
