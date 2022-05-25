@@ -925,8 +925,8 @@ contact developper\n");
   //}}}
   // assume empty/none-existent coordinate file
   Sys.Count.BeadCoor = 0;
-  Sys.BeadsCoor = realloc(Sys.BeadsCoor,
-                          sizeof *Sys.BeadsCoor * Sys.Count.Bead);
+  Sys.BeadCoor = realloc(Sys.BeadCoor,
+                          sizeof *Sys.BeadCoor * Sys.Count.Bead);
   Sys.Count.BondedCoor = 0;
   if (Sys.Count.Bonded > 0) {
     Sys.BondedCoor = realloc(Sys.BondedCoor,
@@ -1183,7 +1183,7 @@ using next timestep instead of this one");
           (*System).Bead[id].Velocity.y = vel.y;
           (*System).Bead[id].Velocity.z = vel.z;
         }
-        (*System).BeadsCoor[(*System).Count.BeadCoor] = id;
+        (*System).BeadCoor[(*System).Count.BeadCoor] = id;
       } else {
         // warn: ordered line in indexed timestep - read next timestep //{{{
         strcpy(ERROR_MSG, "ordered coordinate line in indexed timestep; \
@@ -1225,7 +1225,7 @@ using next timestep instead of this one");
         (*System).Bead[id].Velocity.y = val.y;
         (*System).Bead[id].Velocity.z = val.z;
       }
-      (*System).BeadsCoor[(*System).Count.BeadCoor] = id;
+      (*System).BeadCoor[(*System).Count.BeadCoor] = id;
     }
     if ((*System).Bead[id].Molecule == -1) {
       (*System).UnbondedCoor[(*System).Count.UnbondedCoor] = id;

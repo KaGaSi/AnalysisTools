@@ -29,6 +29,11 @@ void ToFractionalCoor(int number_of_beads, BEAD **Bead, BOX Box);
 VECTOR FromFractional(VECTOR coor, BOX Box);
 void FromFractionalCoor(int number_of_beads, BEAD **Bead, BOX Box);
 
+// get bead indices for bonds/angles/dihedrals (with some error checking)
+int * BondIndices(SYSTEM System, int mol, int bond);
+int * AngleIndices(SYSTEM System, int mol, int angle);
+int * DihedralIndices(SYSTEM System, int mol, int dihed);
+
 // InputCoor() //{{{
 /**
  * \brief Function test input coordinate file is correct

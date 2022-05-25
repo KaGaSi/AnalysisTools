@@ -4,6 +4,176 @@
 */
 // TODO add detailed switch FindBeadType/FindMoleculeType (check not just name)
 
+int * BondIndices(SYSTEM System, int mol, int bond) { //{{{
+  static int index[4]; // first are 'real' ids, then the intramolecular ones
+  int n = 2,
+      type = System.Molecule[mol].Type;
+  // intramolecular is
+  for (int i = 0; i < n; i++) {
+    index[i+n] = System.MoleculeType[type].Bond[bond][i];
+  }
+  // error if wrong intramolecular id //{{{
+  bool err = false;
+  for (int i = 0; i < n; i++) {
+    if (index[i+n] < 0 || index[i+n] >= System.MoleculeType[type].nBeads) {
+      err = true;
+      break;
+    }
+  }
+  if (err) {
+    strcpy(ERROR_MSG, "wrong index in a bond; should never happen!");
+    PrintError();
+    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s with %s%d%s beads),",
+            ErrRed(), ErrYellow(), mol, ErrRed(), ErrYellow(),
+            System.MoleculeType[type].Name, ErrRed(), ErrYellow(),
+            System.MoleculeType[type].nBeads, ErrRed());
+    fprintf(stderr, " intramolecular indices in bond %s%d%s:%s",
+            ErrYellow(), bond, ErrRed(), ErrYellow());
+    for (int i = 0; i < n; i++) {
+      fprintf(stderr, " %d", index[i+n]);
+    }
+    fprintf(stderr, "%s\n", ErrColourReset());
+  } //}}}
+  for (int i = 0; i < n; i++) {
+    index[i] = System.Molecule[mol].Bead[index[i+n]];
+  }
+  // error if wrong 'true' id //{{{
+  err = false;
+  for (int i = 0; i < n; i++) {
+    if (index[i] < 0 || index[i] >= System.Count.Bead) {
+      err = true;
+      break;
+    }
+  }
+  if (err) {
+    strcpy(ERROR_MSG, "wrong index in a bond; should never happen!");
+    PrintError();
+    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s),",
+            ErrRed(), ErrYellow(), mol, ErrRed(), ErrYellow(),
+            System.MoleculeType[type].Name, ErrRed());
+    fprintf(stderr, " indices in bond %s%d%s:%s",
+            ErrYellow(), bond, ErrRed(), ErrYellow());
+    for (int i = 0; i < n; i++) {
+      fprintf(stderr, " %d", index[i]);
+    }
+    fprintf(stderr, " %s(%s%d%s beads in the system)%s\n", ErrRed(),
+            ErrYellow(), System.Count.Bead, ErrRed(), ErrColourReset());
+  } //}}}
+  return index;
+} //}}}
+int * AngleIndices(SYSTEM System, int mol, int angle) { //{{{
+  static int index[6]; // first are 'real' ids, then the intramolecular ones
+  int n = 3,
+      type = System.Molecule[mol].Type;
+  // intramolecular is
+  for (int i = 0; i < n; i++) {
+    index[i+n] = System.MoleculeType[type].Angle[angle][i];
+  }
+  // error if wrong intramolecular id //{{{
+  bool err = false;
+  for (int i = 0; i < n; i++) {
+    if (index[i+n] < 0 || index[i+n] >= System.MoleculeType[type].nBeads) {
+      err = true;
+      break;
+    }
+  }
+  if (err) {
+    strcpy(ERROR_MSG, "wrong index in an angle; should never happen!");
+    PrintError();
+    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s with %s%d%s beads),",
+            ErrRed(), ErrYellow(), mol, ErrRed(), ErrYellow(),
+            System.MoleculeType[type].Name, ErrRed(), ErrYellow(),
+            System.MoleculeType[type].nBeads, ErrRed());
+    fprintf(stderr, " intramolecular indices in angle %s%d%s:%s",
+            ErrYellow(), angle, ErrRed(), ErrYellow());
+    for (int i = 0; i < n; i++) {
+      fprintf(stderr, " %d", index[i+n]);
+    }
+    fprintf(stderr, "%s\n", ErrColourReset());
+  } //}}}
+  for (int i = 0; i < n; i++) {
+    index[i] = System.Molecule[mol].Bead[index[i+n]];
+  }
+  // error if wrong 'true' id //{{{
+  err = false;
+  for (int i = 0; i < n; i++) {
+    if (index[i] < 0 || index[i] >= System.Count.Bead) {
+      err = true;
+      break;
+    }
+  }
+  if (err) {
+    strcpy(ERROR_MSG, "wrong index in an angle; should never happen!");
+    PrintError();
+    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s),", ErrRed(), ErrYellow(), mol,
+            ErrRed(), ErrYellow(), System.MoleculeType[type].Name, ErrRed());
+    fprintf(stderr, " indices in angle %s%d%s:%s",
+            ErrYellow(), angle, ErrRed(), ErrYellow());
+    for (int i = 0; i < n; i++) {
+      fprintf(stderr, " %d", index[i]);
+    }
+    fprintf(stderr, " %s(%s%d%s beads in the system)%s\n", ErrRed(),
+            ErrYellow(), System.Count.Bead, ErrRed(), ErrColourReset());
+  } //}}}
+  return index;
+} //}}}
+int * DihedralIndices(SYSTEM System, int mol, int dihed) { //{{{
+  static int index[8]; // first are 'real' ids, then the intramolecular ones
+  int n = 4,
+      type = System.Molecule[mol].Type;
+  // intramolecular is
+  for (int i = 0; i < n; i++) {
+    index[i+n] = System.MoleculeType[type].Dihedral[dihed][i];
+  }
+  // error if wrong intramolecular id //{{{
+  bool err = false;
+  for (int i = 0; i < n; i++) {
+    if (index[i+n] < 0 || index[i+n] >= System.MoleculeType[type].nBeads) {
+      err = true;
+      break;
+    }
+  }
+  if (err) {
+    strcpy(ERROR_MSG, "wrong index in an dihedral; should never happen!");
+    PrintError();
+    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s with %s%d%s beads),",
+            ErrRed(), ErrYellow(), mol, ErrRed(), ErrYellow(),
+            System.MoleculeType[type].Name, ErrRed(), ErrYellow(),
+            System.MoleculeType[type].nBeads, ErrRed());
+    fprintf(stderr, " intramolecular indices in dihedral %s%d%s:%s",
+            ErrYellow(), dihed, ErrRed(), ErrYellow());
+    for (int i = 0; i < n; i++) {
+      fprintf(stderr, " %d", index[i+n]);
+    }
+    fprintf(stderr, "%s\n", ErrColourReset());
+  } //}}}
+  for (int i = 0; i < n; i++) {
+    index[i] = System.Molecule[mol].Bead[index[i+n]];
+  }
+  // error if wrong 'true' id //{{{
+  err = false;
+  for (int i = 0; i < n; i++) {
+    if (index[i] < 0 || index[i] >= System.Count.Bead) {
+      err = true;
+      break;
+    }
+  }
+  if (err) {
+    strcpy(ERROR_MSG, "wrong index in a dihedral; should never happen!");
+    PrintError();
+    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s),", ErrRed(), ErrYellow(), mol,
+            ErrRed(), ErrYellow(), System.MoleculeType[type].Name, ErrRed());
+    fprintf(stderr, " indices in dihedral %s%d%s:%s",
+            ErrYellow(), dihed, ErrRed(), ErrYellow());
+    for (int i = 0; i < n; i++) {
+      fprintf(stderr, " %d", index[i]);
+    }
+    fprintf(stderr, " %s(%s%d%s beads in the system)%s\n", ErrRed(),
+            ErrYellow(), System.Count.Bead, ErrRed(), ErrColourReset());
+  } //}}}
+  return index;
+} //}}}
+
 /* HOW TO CALCULATE DISTANCE IN TRICLINIC SYSTEM //{{{
 //VECTOR dist;
 //dist.x = (*Bead)[0].Position.x - (*Bead)[10].Position.x;
@@ -1440,162 +1610,160 @@ SYSTEM CopySystem(SYSTEM S_in) {
   SYSTEM S_out;
   InitSystem(&S_out);
   S_out.Box = S_in.Box;
-  S_out.Count = S_in.Count;
-  // BeadType //{{{
-  if (S_out.Count.BeadType > 0) {
-    S_out.BeadType = realloc(S_out.BeadType,
-                             sizeof (BEADTYPE) * S_out.Count.BeadType);
-    memcpy(S_out.BeadType, S_in.BeadType, sizeof (BEADTYPE) * S_out.Count.BeadType);
-  } else {
-    strcpy(ERROR_MSG, "no bead types to copy");
-    PrintWarning();
-    return S_out;
-  } //}}}
-  // Bead //{{{
-  if (S_out.Count.Bead > 0) {
+  if (S_in.Count.Bead > 0) {
+    S_out.Count = S_in.Count;
+    // BeadType //{{{
+    if (S_out.Count.BeadType > 0) {
+      S_out.BeadType = realloc(S_out.BeadType,
+                               sizeof (BEADTYPE) * S_out.Count.BeadType);
+      memcpy(S_out.BeadType, S_in.BeadType,
+             sizeof (BEADTYPE) * S_out.Count.BeadType);
+    } else {
+      strcpy(ERROR_MSG, "no bead types to copy; should never happen!");
+      PrintWarning();
+      return S_out;
+    } //}}}
+    // Bead //{{{
     S_out.Bead = realloc(S_out.Bead,
                          sizeof (BEAD) * S_out.Count.Bead);
     memcpy(S_out.Bead, S_in.Bead, sizeof (BEAD) * S_out.Count.Bead);
-  } else {
-    strcpy(ERROR_MSG, "no beads to copy");
-    PrintWarning();
-    return S_out;
-  } //}}}
-  // BeadsCoor //{{{
-  if (S_out.Count.BeadCoor > 0) {
-    S_out.BeadsCoor = realloc(S_out.BeadsCoor,
-                              sizeof *S_out.BeadsCoor * S_out.Count.Bead);
-    memcpy(S_out.BeadsCoor, S_in.BeadsCoor,
-           sizeof *S_out.BeadsCoor * S_out.Count.Bead);
-  } //}}}
-  // Bonded //{{{
-  if (S_out.Count.Bonded > 0) {
-    S_out.Bonded = realloc(S_out.Bonded,
-                           sizeof *S_out.Bonded * S_out.Count.Bonded);
-    memcpy(S_out.Bonded, S_in.Bonded, sizeof *S_out.Bonded * S_out.Count.Bonded);
-  } //}}}
-  // BondedCoor //{{{
-  if (S_out.Count.BondedCoor > 0) {
-    S_out.BondedCoor = realloc(S_out.BondedCoor,
-                               sizeof *S_out.BondedCoor * S_out.Count.BondedCoor);
-    memcpy(S_out.BondedCoor, S_in.BondedCoor,
-           sizeof *S_out.BondedCoor * S_out.Count.BondedCoor);
-  } //}}}
-  // Unbonded //{{{
-  if (S_out.Count.Unbonded > 0) {
-    S_out.Unbonded = realloc(S_out.Unbonded, sizeof *S_out.Unbonded *
-                             S_out.Count.Unbonded);
-    memcpy(S_out.Unbonded, S_in.Unbonded,
-           sizeof *S_out.Unbonded * S_out.Count.Unbonded);
-  } //}}}
-  // UnbondedCoor //{{{
-  if (S_out.Count.UnbondedCoor > 0) {
-    S_out.UnbondedCoor = realloc(S_out.UnbondedCoor,
-                                 sizeof *S_out.UnbondedCoor *
-                                 S_out.Count.UnbondedCoor);
-    memcpy(S_out.UnbondedCoor, S_in.UnbondedCoor,
-           sizeof *S_out.UnbondedCoor * S_out.Count.UnbondedCoor);
-  } //}}}
-  // MoleculeType //{{{
-  if (S_out.Count.MoleculeType > 0) {
-    S_out.MoleculeType = realloc(S_out.MoleculeType,
-                                 sizeof (MOLECULETYPE) * S_out.Count.MoleculeType);
-    for (int i = 0; i < S_out.Count.MoleculeType; i++) {
-      S_out.MoleculeType[i] = S_in.MoleculeType[i];
-      // MoleculeType[].Bead array
-      if (S_out.MoleculeType[i].nBeads > 0) {
-        S_out.MoleculeType[i].Bead = malloc(sizeof *S_out.MoleculeType[i].Bead *
-                                            S_out.MoleculeType[i].nBeads);
-        memcpy(S_out.MoleculeType[i].Bead, S_in.MoleculeType[i].Bead,
-               sizeof *S_out.MoleculeType[i].Bead *
-               S_out.MoleculeType[i].nBeads);
-      } else {
-        // should never happen
-        strcpy(ERROR_MSG, "molecule type without beads");
-        PrintWarning();
-        fprintf(stderr, "%sMolecule %s%s%s\n\n", ErrCyan(), ErrYellow(),
-                                                 S_out.MoleculeType[i].Name,
-                                                 ErrColourReset());
-      }
-      // MoleculeType[].Bond array
-      if (S_out.MoleculeType[i].nBonds > 0) {
-        S_out.MoleculeType[i].Bond = malloc(sizeof *S_out.MoleculeType[i].Bond *
-                                            S_out.MoleculeType[i].nBonds);
-        memcpy(S_out.MoleculeType[i].Bond, S_in.MoleculeType[i].Bond,
-               sizeof *S_out.MoleculeType[i].Bond *
-               S_out.MoleculeType[i].nBonds);
-      }
-      // MoleculeType[].Angle array
-      if (S_out.MoleculeType[i].nAngles > 0) {
-        S_out.MoleculeType[i].Angle =
-          malloc(sizeof *S_out.MoleculeType[i].Angle *
+    //}}}
+    // BeadsCoor //{{{
+    if (S_out.Count.BeadCoor > 0) {
+      S_out.BeadCoor = realloc(S_out.BeadCoor,
+                                sizeof *S_out.BeadCoor * S_out.Count.Bead);
+      memcpy(S_out.BeadCoor, S_in.BeadCoor,
+             sizeof *S_out.BeadCoor * S_out.Count.Bead);
+    } //}}}
+    // Bonded //{{{
+    if (S_out.Count.Bonded > 0) {
+      S_out.Bonded = realloc(S_out.Bonded,
+                             sizeof *S_out.Bonded * S_out.Count.Bonded);
+      memcpy(S_out.Bonded, S_in.Bonded, sizeof *S_out.Bonded * S_out.Count.Bonded);
+    } //}}}
+    // BondedCoor //{{{
+    if (S_out.Count.BondedCoor > 0) {
+      S_out.BondedCoor = realloc(S_out.BondedCoor,
+                                 sizeof *S_out.BondedCoor * S_out.Count.BondedCoor);
+      memcpy(S_out.BondedCoor, S_in.BondedCoor,
+             sizeof *S_out.BondedCoor * S_out.Count.BondedCoor);
+    } //}}}
+    // Unbonded //{{{
+    if (S_out.Count.Unbonded > 0) {
+      S_out.Unbonded = realloc(S_out.Unbonded, sizeof *S_out.Unbonded *
+                               S_out.Count.Unbonded);
+      memcpy(S_out.Unbonded, S_in.Unbonded,
+             sizeof *S_out.Unbonded * S_out.Count.Unbonded);
+    } //}}}
+    // UnbondedCoor //{{{
+    if (S_out.Count.UnbondedCoor > 0) {
+      S_out.UnbondedCoor = realloc(S_out.UnbondedCoor,
+                                   sizeof *S_out.UnbondedCoor *
+                                   S_out.Count.UnbondedCoor);
+      memcpy(S_out.UnbondedCoor, S_in.UnbondedCoor,
+             sizeof *S_out.UnbondedCoor * S_out.Count.UnbondedCoor);
+    } //}}}
+    // MoleculeType //{{{
+    if (S_out.Count.MoleculeType > 0) {
+      S_out.MoleculeType = realloc(S_out.MoleculeType,
+                                   sizeof (MOLECULETYPE) * S_out.Count.MoleculeType);
+      for (int i = 0; i < S_out.Count.MoleculeType; i++) {
+        S_out.MoleculeType[i] = S_in.MoleculeType[i];
+        // MoleculeType[].Bead array
+        if (S_out.MoleculeType[i].nBeads > 0) {
+          S_out.MoleculeType[i].Bead = malloc(sizeof *S_out.MoleculeType[i].Bead *
+                                              S_out.MoleculeType[i].nBeads);
+          memcpy(S_out.MoleculeType[i].Bead, S_in.MoleculeType[i].Bead,
+                 sizeof *S_out.MoleculeType[i].Bead *
+                 S_out.MoleculeType[i].nBeads);
+        } else {
+          // should never happen
+          strcpy(ERROR_MSG, "molecule type without beads");
+          PrintWarning();
+          fprintf(stderr, "%sMolecule %s%s%s\n\n", ErrCyan(), ErrYellow(),
+                                                   S_out.MoleculeType[i].Name,
+                                                   ErrColourReset());
+        }
+        // MoleculeType[].Bond array
+        if (S_out.MoleculeType[i].nBonds > 0) {
+          S_out.MoleculeType[i].Bond = malloc(sizeof *S_out.MoleculeType[i].Bond *
+                                              S_out.MoleculeType[i].nBonds);
+          memcpy(S_out.MoleculeType[i].Bond, S_in.MoleculeType[i].Bond,
+                 sizeof *S_out.MoleculeType[i].Bond *
+                 S_out.MoleculeType[i].nBonds);
+        }
+        // MoleculeType[].Angle array
+        if (S_out.MoleculeType[i].nAngles > 0) {
+          S_out.MoleculeType[i].Angle =
+            malloc(sizeof *S_out.MoleculeType[i].Angle *
+                   S_out.MoleculeType[i].nAngles);
+          memcpy(S_out.MoleculeType[i].Angle, S_in.MoleculeType[i].Angle,
+                 sizeof *S_out.MoleculeType[i].Angle *
                  S_out.MoleculeType[i].nAngles);
-        memcpy(S_out.MoleculeType[i].Angle, S_in.MoleculeType[i].Angle,
-               sizeof *S_out.MoleculeType[i].Angle *
-               S_out.MoleculeType[i].nAngles);
-      }
-      // MoleculeType[].Dihedral array
-      if (S_out.MoleculeType[i].nDihedrals > 0) {
-        S_out.MoleculeType[i].Dihedral =
-          malloc(sizeof *S_out.MoleculeType[i].Dihedral *
+        }
+        // MoleculeType[].Dihedral array
+        if (S_out.MoleculeType[i].nDihedrals > 0) {
+          S_out.MoleculeType[i].Dihedral =
+            malloc(sizeof *S_out.MoleculeType[i].Dihedral *
+                   S_out.MoleculeType[i].nDihedrals);
+          memcpy(S_out.MoleculeType[i].Dihedral, S_in.MoleculeType[i].Dihedral,
+                 sizeof *S_out.MoleculeType[i].Dihedral *
                  S_out.MoleculeType[i].nDihedrals);
-        memcpy(S_out.MoleculeType[i].Dihedral, S_in.MoleculeType[i].Dihedral,
-               sizeof *S_out.MoleculeType[i].Dihedral *
-               S_out.MoleculeType[i].nDihedrals);
-      }
-      // MoleculeType[].BType array
-      if (S_out.MoleculeType[i].nBTypes > 0) {
-        S_out.MoleculeType[i].BType =
-          malloc(sizeof *S_out.MoleculeType[i].BType *
+        }
+        // MoleculeType[].BType array
+        if (S_out.MoleculeType[i].nBTypes > 0) {
+          S_out.MoleculeType[i].BType =
+            malloc(sizeof *S_out.MoleculeType[i].BType *
+                   S_out.MoleculeType[i].nBTypes);
+          memcpy(S_out.MoleculeType[i].BType, S_in.MoleculeType[i].BType,
+                 sizeof *S_out.MoleculeType[i].BType *
                  S_out.MoleculeType[i].nBTypes);
-        memcpy(S_out.MoleculeType[i].BType, S_in.MoleculeType[i].BType,
-               sizeof *S_out.MoleculeType[i].BType *
-               S_out.MoleculeType[i].nBTypes);
+        }
       }
-    }
-  } //}}}
-  // Molecule & Index_mol //{{{
-  if (S_out.Count.Molecule > 0) {
-    S_out.Molecule = realloc(S_out.Molecule,
-                             sizeof (MOLECULE) * S_out.Count.Molecule);
-    for (int i = 0; i < S_out.Count.Molecule; i++) {
-      S_out.Molecule[i] = S_in.Molecule[i];
-      // Molecule[].Bead array
-      int type = S_out.Molecule[i].Type;
-      if (S_out.MoleculeType[type].nBeads > 0) {
-        S_out.Molecule[i].Bead = malloc(sizeof *S_out.Molecule[i].Bead *
-                                        S_out.MoleculeType[type].nBeads);
-        memcpy(S_out.Molecule[i].Bead, S_in.Molecule[i].Bead,
-               sizeof *S_out.Molecule[i].Bead *
-               S_out.MoleculeType[type].nBeads);
+    } //}}}
+    // Molecule & Index_mol //{{{
+    if (S_out.Count.Molecule > 0) {
+      S_out.Molecule = realloc(S_out.Molecule,
+                               sizeof (MOLECULE) * S_out.Count.Molecule);
+      for (int i = 0; i < S_out.Count.Molecule; i++) {
+        S_out.Molecule[i] = S_in.Molecule[i];
+        // Molecule[].Bead array
+        int type = S_out.Molecule[i].Type;
+        if (S_out.MoleculeType[type].nBeads > 0) {
+          S_out.Molecule[i].Bead = malloc(sizeof *S_out.Molecule[i].Bead *
+                                          S_out.MoleculeType[type].nBeads);
+          memcpy(S_out.Molecule[i].Bead, S_in.Molecule[i].Bead,
+                 sizeof *S_out.Molecule[i].Bead *
+                 S_out.MoleculeType[type].nBeads);
+        }
       }
-    }
-    // Index_mol
-    S_out.Index_mol = realloc(S_out.Index_mol,
-                              sizeof *S_out.Index_mol * S_out.Count.Molecule);
-    memcpy(S_out.Index_mol, S_in.Index_mol,
-           sizeof *S_out.Index_mol * S_out.Count.Molecule);
-  } //}}}
-  // BondType //{{{
-  if (S_out.Count.BondType > 0) {
-    S_out.BondType = realloc(S_out.BondType, sizeof (PARAMS) * S_out.Count.BondType);
-    memcpy(S_out.BondType, S_in.BondType,
-           sizeof (PARAMS) * S_out.Count.BondType);
-  } //}}}
-  // AngleType //{{{
-  if (S_out.Count.AngleType > 0) {
-    S_out.AngleType = realloc(S_out.AngleType,
-                              sizeof (PARAMS) * S_out.Count.AngleType);
-    memcpy(S_out.AngleType, S_in.AngleType,
-           sizeof (PARAMS) * S_out.Count.AngleType);
-  } //}}}
-  // DihedralType //{{{
-  if (S_out.Count.DihedralType > 0) {
-    S_out.DihedralType = realloc(S_out.DihedralType,
-                                 sizeof (PARAMS) * S_out.Count.DihedralType);
-    memcpy(S_out.DihedralType, S_in.DihedralType,
-           sizeof (PARAMS) * S_out.Count.DihedralType);
-  } //}}}
+      // Index_mol
+      S_out.Index_mol = realloc(S_out.Index_mol,
+                                sizeof *S_out.Index_mol * S_out.Count.Molecule);
+      memcpy(S_out.Index_mol, S_in.Index_mol,
+             sizeof *S_out.Index_mol * S_out.Count.Molecule);
+    } //}}}
+    // BondType //{{{
+    if (S_out.Count.BondType > 0) {
+      S_out.BondType = realloc(S_out.BondType, sizeof (PARAMS) * S_out.Count.BondType);
+      memcpy(S_out.BondType, S_in.BondType,
+             sizeof (PARAMS) * S_out.Count.BondType);
+    } //}}}
+    // AngleType //{{{
+    if (S_out.Count.AngleType > 0) {
+      S_out.AngleType = realloc(S_out.AngleType,
+                                sizeof (PARAMS) * S_out.Count.AngleType);
+      memcpy(S_out.AngleType, S_in.AngleType,
+             sizeof (PARAMS) * S_out.Count.AngleType);
+    } //}}}
+    // DihedralType //{{{
+    if (S_out.Count.DihedralType > 0) {
+      S_out.DihedralType = realloc(S_out.DihedralType,
+                                   sizeof (PARAMS) * S_out.Count.DihedralType);
+      memcpy(S_out.DihedralType, S_in.DihedralType,
+             sizeof (PARAMS) * S_out.Count.DihedralType);
+    } //}}}
+  }
   return S_out;
 } //}}}
 // ConcatenateSystems() //{{{
@@ -1683,12 +1851,12 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
   // BeadsCoor //{{{
   if (S_in.Count.BeadCoor > 0) {
     (*S_out).Count.BeadCoor += S_in.Count.BeadCoor;
-    (*S_out).BeadsCoor = realloc((*S_out).BeadsCoor,
-                                 sizeof *(*S_out).BeadsCoor *
+    (*S_out).BeadCoor = realloc((*S_out).BeadCoor,
+                                 sizeof *(*S_out).BeadCoor *
                                  (*S_out).Count.Bead);
     for (int i = 0; i < S_in.Count.BeadCoor; i++) {
       int new = i + count.BeadCoor;
-      (*S_out).BeadsCoor[new] = S_in.BeadsCoor[i] + count.Bead;
+      (*S_out).BeadCoor[new] = S_in.BeadCoor[i] + count.Bead;
     }
   } //}}}
   // MoleculeType //{{{
@@ -1812,8 +1980,8 @@ void PruneSystem(SYSTEM *System) { //{{{
   // allocate memory for bead count arrays
   (*System).Bead = realloc((*System).Bead, sizeof (BEAD) *
                            (*System).Count.Bead);
-  (*System).BeadsCoor = realloc((*System).BeadsCoor,
-                                sizeof *(*System).BeadsCoor *
+  (*System).BeadCoor = realloc((*System).BeadCoor,
+                                sizeof *(*System).BeadCoor *
                                 (*System).Count.Bead);
   (*System).Bonded = realloc((*System).Bonded, sizeof *(*System).Bonded *
                              (*System).Count.Bonded);
@@ -1829,16 +1997,18 @@ void PruneSystem(SYSTEM *System) { //{{{
   int count_unbonded = 0, count_bonded = 0,
       *connect = calloc(S_old.Count.Bead, sizeof *connect);
   for (int i = 0; i < S_old.Count.BeadCoor; i++) {
-    int old_id = S_old.BeadsCoor[i];
+    int old_id = S_old.BeadCoor[i];
     (*System).Bead[i] = S_old.Bead[old_id];
-    (*System).BeadsCoor[i] = i;
+    (*System).BeadCoor[i] = i;
     connect[old_id] = i;
     if ((*System).Bead[i].Molecule == -1) {
       (*System).Unbonded[count_unbonded] = i;
       (*System).UnbondedCoor[count_unbonded] = i;
+      count_unbonded++;
     } else {
       (*System).Bonded[count_bonded] = i;
       (*System).BondedCoor[count_bonded] = i;
+      count_bonded++;
     }
     // create new bead type if it doesn't exist yet in the pruned system
     bool new = true;
@@ -1888,6 +2058,7 @@ void PruneSystem(SYSTEM *System) { //{{{
         int id = S_old.Molecule[i].Bead[j];
         if (S_old.Bead[id].InTimestep) {
           (*System).Molecule[new_id].Bead[c_bead] = connect[id];
+          (*System).Bead[connect[id]].Molecule = new_id;
           c_bead++;
         }
       }
@@ -1908,43 +2079,35 @@ void PruneSystem(SYSTEM *System) { //{{{
             c_bond = 0, c_angle = 0, c_dihedral = 0;
         // count bonds in the pruned molecule type //{{{
         for (int j = 0; j < S_old.MoleculeType[old_type].nBonds; j++) {
-          // TODO put intramol_id to angles & dihedrals (in count & copy)
-          int intramol_id1 = S_old.MoleculeType[old_type].Bond[j][0],
-              intramol_id2 = S_old.MoleculeType[old_type].Bond[j][1];
-          int id1 = S_old.Molecule[i].Bead[intramol_id1],
-              id2 = S_old.Molecule[i].Bead[intramol_id2];
-          if (S_old.Bead[id1].InTimestep && S_old.Bead[id2].InTimestep) {
+          int *id = BondIndices(S_old, i, j);
+          if (S_old.Bead[id[0]].InTimestep &&
+              S_old.Bead[id[1]].InTimestep) {
             c_bond++;
           }
         } //}}}
         // count angles in the pruned molecule type //{{{
         for (int j = 0; j < S_old.MoleculeType[old_type].nAngles; j++) {
-          int id1 = S_old.MoleculeType[old_type].Angle[j][0],
-              id2 = S_old.MoleculeType[old_type].Angle[j][1],
-              id3 = S_old.MoleculeType[old_type].Angle[j][2];
-          if (S_old.Bead[id1].InTimestep &&
-              S_old.Bead[id2].InTimestep &&
-              S_old.Bead[id3].InTimestep) {
+          int *id = AngleIndices(S_old, i, j);
+          if (S_old.Bead[id[0]].InTimestep &&
+              S_old.Bead[id[1]].InTimestep &&
+              S_old.Bead[id[2]].InTimestep) {
             c_angle++;
           }
         } //}}}
         // count dihedrals in the pruned molecule type //{{{
         for (int j = 0; j < S_old.MoleculeType[old_type].nDihedrals; j++) {
-          int id1 = S_old.MoleculeType[old_type].Dihedral[j][0],
-              id2 = S_old.MoleculeType[old_type].Dihedral[j][1],
-              id3 = S_old.MoleculeType[old_type].Dihedral[j][2],
-              id4 = S_old.MoleculeType[old_type].Dihedral[j][3];
-          if (S_old.Bead[id1].InTimestep &&
-              S_old.Bead[id2].InTimestep &&
-              S_old.Bead[id3].InTimestep &&
-              S_old.Bead[id4].InTimestep) {
+          int *id = DihedralIndices(S_old, i, j);
+          if (S_old.Bead[id[0]].InTimestep &&
+              S_old.Bead[id[1]].InTimestep &&
+              S_old.Bead[id[2]].InTimestep &&
+              S_old.Bead[id[3]].InTimestep) {
             c_dihedral++;
           }
         } //}}}
         NewMolType(&(*System).MoleculeType, &(*System).Count.MoleculeType,
                    S_old.MoleculeType[old_type].Name, c_bead, c_bond,
                    c_angle, c_dihedral);
-        (*System).Molecule[i].Type = type;
+        (*System).Molecule[new_id].Type = type;
         // copy beads to the new molecule type //{{{
         c_bead = 0;
         for (int j = 0; j < S_old.MoleculeType[old_type].nBeads; j++) {
@@ -1959,14 +2122,11 @@ void PruneSystem(SYSTEM *System) { //{{{
         // copy bonds to the new molecule type //{{{
         c_bond = 0;
         for (int j = 0; j < S_old.MoleculeType[old_type].nBonds; j++) {
-          int intramol_id1 = S_old.MoleculeType[old_type].Bond[j][0],
-              intramol_id2 = S_old.MoleculeType[old_type].Bond[j][1],
+          int *id = BondIndices(S_old, i, j),
               last = S_old.MoleculeType[old_type].Bond[j][2];
-          int id1 = S_old.Molecule[i].Bead[intramol_id1],
-              id2 = S_old.Molecule[i].Bead[intramol_id2];
-          if (S_old.Bead[id1].InTimestep && S_old.Bead[id2].InTimestep) {
-            (*System).MoleculeType[type].Bond[c_bond][0] = intramol_id1;
-            (*System).MoleculeType[type].Bond[c_bond][1] = intramol_id2;
+          if (S_old.Bead[id[0]].InTimestep && S_old.Bead[id[1]].InTimestep) {
+            (*System).MoleculeType[type].Bond[c_bond][0] = id[2];
+            (*System).MoleculeType[type].Bond[c_bond][1] = id[3];
             (*System).MoleculeType[type].Bond[c_bond][2] = last;
             c_bond++;
           }
@@ -1974,19 +2134,14 @@ void PruneSystem(SYSTEM *System) { //{{{
         // copy angles to the new molecule type //{{{
         c_angle = 0;
         for (int j = 0; j < S_old.MoleculeType[old_type].nAngles; j++) {
-          int id1 = S_old.MoleculeType[old_type].Angle[j][0],
-              id2 = S_old.MoleculeType[old_type].Angle[j][1],
-              id3 = S_old.MoleculeType[old_type].Angle[j][2],
+          int *id = AngleIndices(S_old, i, j),
               last = S_old.MoleculeType[old_type].Angle[j][3];
-          id1 = S_old.Molecule[i].Bead[id1];
-          id2 = S_old.Molecule[i].Bead[id2];
-          id3 = S_old.Molecule[i].Bead[id3];
-          if (S_old.Bead[id1].InTimestep &&
-              S_old.Bead[id2].InTimestep &&
-              S_old.Bead[id3].InTimestep) {
-            (*System).MoleculeType[type].Angle[c_angle][0] = connect[id1];
-            (*System).MoleculeType[type].Angle[c_angle][1] = connect[id2];
-            (*System).MoleculeType[type].Angle[c_angle][2] = connect[id2];
+          if (S_old.Bead[id[0]].InTimestep &&
+              S_old.Bead[id[1]].InTimestep &&
+              S_old.Bead[id[2]].InTimestep) {
+            (*System).MoleculeType[type].Angle[c_angle][0] = id[3];
+            (*System).MoleculeType[type].Angle[c_angle][1] = id[4];
+            (*System).MoleculeType[type].Angle[c_angle][2] = id[5];
             (*System).MoleculeType[type].Angle[c_angle][3] = last;
             c_angle++;
           }
@@ -1994,23 +2149,16 @@ void PruneSystem(SYSTEM *System) { //{{{
         // copy bonds to the new molecule type //{{{
         c_bond = 0;
         for (int j = 0; j < S_old.MoleculeType[old_type].nDihedrals; j++) {
-          int id1 = S_old.MoleculeType[old_type].Dihedral[j][0],
-              id2 = S_old.MoleculeType[old_type].Dihedral[j][1],
-              id3 = S_old.MoleculeType[old_type].Dihedral[j][2],
-              id4 = S_old.MoleculeType[old_type].Dihedral[j][3],
+          int *id = DihedralIndices(S_old, i, j),
               last = S_old.MoleculeType[old_type].Dihedral[j][4];
-          id1 = S_old.Molecule[i].Bead[id1];
-          id2 = S_old.Molecule[i].Bead[id2];
-          id3 = S_old.Molecule[i].Bead[id3];
-          id4 = S_old.Molecule[i].Bead[id4];
-          if (S_old.Bead[id1].InTimestep &&
-              S_old.Bead[id2].InTimestep &&
-              S_old.Bead[id3].InTimestep &&
-              S_old.Bead[id4].InTimestep) {
-            (*System).MoleculeType[type].Dihedral[c_dihedral][0] = connect[id1];
-            (*System).MoleculeType[type].Dihedral[c_dihedral][1] = connect[id2];
-            (*System).MoleculeType[type].Dihedral[c_dihedral][2] = connect[id2];
-            (*System).MoleculeType[type].Dihedral[c_dihedral][3] = connect[id2];
+          if (S_old.Bead[id[0]].InTimestep &&
+              S_old.Bead[id[1]].InTimestep &&
+              S_old.Bead[id[2]].InTimestep &&
+              S_old.Bead[id[3]].InTimestep) {
+            (*System).MoleculeType[type].Dihedral[c_dihedral][0] = id[4];
+            (*System).MoleculeType[type].Dihedral[c_dihedral][1] = id[5];
+            (*System).MoleculeType[type].Dihedral[c_dihedral][2] = id[6];
+            (*System).MoleculeType[type].Dihedral[c_dihedral][3] = id[7];
             (*System).MoleculeType[type].Dihedral[c_dihedral][4] = last;
             c_dihedral++;
           }
@@ -2022,6 +2170,9 @@ void PruneSystem(SYSTEM *System) { //{{{
   FillMolMassCharge((*System).Count.MoleculeType, &(*System).MoleculeType,
                     (*System).BeadType);
   //}}}
+//PrintMoleculeType(*System);
+//PrintMoleculeType(S_old);
+//PrintMolecule(*System);
   FreeSystem(&S_old);
   free(connect);
 } //}}}
@@ -2318,11 +2469,11 @@ void InitSystem(SYSTEM *System) { //{{{
   (*System).BondedCoor = calloc(1, sizeof *(*System).BondedCoor);
   (*System).Unbonded = calloc(1, sizeof *(*System).Unbonded);
   (*System).UnbondedCoor = calloc(1, sizeof *(*System).UnbondedCoor);
-  (*System).BeadsCoor = calloc(1, sizeof *(*System).BeadsCoor);
+  (*System).BeadCoor = calloc(1, sizeof *(*System).BeadCoor);
 } //}}}
 void FreeSystem(SYSTEM *System) { //{{{
   free((*System).Index_mol);
-  free((*System).BeadsCoor);
+  free((*System).BeadCoor);
   free((*System).Bonded);
   free((*System).BondedCoor);
   free((*System).Unbonded);
@@ -3220,7 +3371,7 @@ void CopyBead_old(int number_of_beads, BEAD **b_out, BEAD *b_in, int mode) {
 } //}}}
 void FreeSystem_old(SYSTEM *System) { //{{{
   free((*System).Index_mol);
-  free((*System).BeadsCoor);
+  free((*System).BeadCoor);
   // System.Bead
 //for (int i = 0; i < (*System).nBeadsTotal; i++) {
 //  free((*System).Bead[i].Aggregatexxx);

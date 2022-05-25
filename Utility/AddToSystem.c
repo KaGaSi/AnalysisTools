@@ -428,11 +428,13 @@ int main(int argc, char *argv[]) {
   SYSTEM S_orig;
   if (strlen(input_coor) > 0) { // is there an input coordinate file?
     S_orig = VtfReadStruct(input_vsf, detailed);
+  } else {
+    InitSystem(&S_orig);
   } //}}}
 
   // -xb <name(s)> - specify what bead types to exchange //{{{
   bool sw = BoolOption(argc, argv, "-xb"); // is -xb present?
-  // error - if -xb is used, 
+  // error - if -xb is used, input system must be present
   if (sw && strlen(input_coor) == 0) {
     ErrorPrintError_old();
     ColourChange(STDERR_FILENO, YELLOW);
@@ -506,6 +508,7 @@ int main(int argc, char *argv[]) {
 
   // TODO FIELD must be completely redone
   if (strlen(add_vsf) == 0) { // read stuff to be added from FIELD //{{{
+    InitSystem(&S_add);
 //  ReadField(input_add, '\0', &Counts_add, &S_add.BeadType, &S_add.Bead,
 //            &Index_add, &S_add.MoleculeType, &S_add.Molecule,
 //            &bond_type, &angle_type, &dihedral_type);
@@ -517,7 +520,6 @@ int main(int argc, char *argv[]) {
     int file_line_count = 0, count_vcf = 0;
     VtfReadTimestep(vcf, input_coor_add, &S_add, &file_line_count, count_vcf, stuff);
     fclose(vcf);
-    // TODO: !no_rot? ...shouldn't -vtf be this by default?
     VECTOR rotated[S_add.Count.BeadCoor];
     if (!no_rot) { //{{{
       // random rotation axis
@@ -546,7 +548,8 @@ int main(int argc, char *argv[]) {
       rot.z.x = random.x * random.z * (1 - cos(angle)) - random.y * sin(angle);
       rot.z.y = random.y * random.z * (1 - cos(angle)) + random.x * sin(angle);
       rot.z.z = cos(angle) + SQR(random.z) * (1 - cos(angle));
-      // transform the prototype molecule (rotation matrix * coordinates)
+      // transform the added system (rotation matrix * coordinates)
+      ToFractionalCoor(S_add.Count.Bead, &S_add.Bead, S_add.Box);
       for (int i = 0; i < S_add.Count.BeadCoor; i++) {
         rotated[i].x = rot.x.x * (S_add.Bead[i].Position.x - S_add.Box.Length.x / 2)
                      + rot.x.y * (S_add.Bead[i].Position.y - S_add.Box.Length.y / 2)
@@ -563,21 +566,18 @@ int main(int argc, char *argv[]) {
         S_add.Bead[i].Position.y = rotated[i].y + offset[1] + S_add.Box.Length.y / 2;
         S_add.Bead[i].Position.z = rotated[i].z + offset[2] + S_add.Box.Length.z / 2;
       }
-     //}}}
+      FromFractionalCoor(S_add.Count.Bead, &S_add.Bead, S_add.Box);
+      //}}}
     } else { // don't rotate //{{{
       ToFractionalCoor(S_add.Count.Bead, &S_add.Bead, S_add.Box);
       for (int i = 0; i < S_add.Count.BeadCoor; i++) {
-        int id = S_add.BeadsCoor[i];
+        int id = S_add.BeadCoor[i];
         S_add.Bead[id].Position.x += offset[0];
         S_add.Bead[id].Position.y += offset[1];
         S_add.Bead[id].Position.z += offset[2];
       }
       FromFractionalCoor(S_add.Count.Bead, &S_add.Bead, S_add.Box);
     } //}}}
-    // allocate memory only to free it later
-//  bond_type = calloc(1, sizeof (PARAMS));
-//  angle_type = calloc(1, sizeof (PARAMS));
-//  dihedral_type = calloc(1, sizeof (PARAMS));
   } //}}}
 
   SYSTEM S_new;
@@ -892,11 +892,12 @@ int main(int argc, char *argv[]) {
     } //}}}
     //}}}
   } else { // or add beads to the system? //{{{
-    BOX Box_new = S_new.Box;
+    BOX Box_new = S_new.Box; // TODO box set up previously; maybe make it a different BOX
     S_new = CopySystem(S_orig);
     ConcatenateSystems(&S_new, S_add, Box_new);
     PruneSystem(&S_new);
-    VerboseOutput(S_new);
+//  VerboseOutput(S_new);
+//  PrintMolecule(S_new);
   } //}}}
 
   // print new system //{{{

@@ -18,7 +18,7 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[], SYSTEM System) {
 
   bool none = true;
   for (int i = 0; i < System.Count.BeadCoor; i++) {
-    int id = System.BeadsCoor[i];
+    int id = System.BeadCoor[i];
     if (System.Bead[id].InTimestep && System.Bead[id].Use) {
       none = false;
       fprintf(vcf, "%8d %8.4f %8.4f %8.4f\n", id,
@@ -39,7 +39,7 @@ void XyzWriteCoor(FILE *xyz, SYSTEM System) {
   int count = 0;
   bool none = true; // to make sure there are beads to save
   for (int i = 0; i < System.Count.BeadCoor; i++) {
-    int id = System.BeadsCoor[i];
+    int id = System.BeadCoor[i];
     if (System.Bead[id].InTimestep && System.Bead[id].Use) {
       none = false;
       count++;
@@ -51,7 +51,7 @@ void XyzWriteCoor(FILE *xyz, SYSTEM System) {
   } else {
     fprintf(xyz, "%d\n\n", count);
     for (int i = 0; i < System.Count.BeadCoor; i++) {
-      int id = System.BeadsCoor[i];
+      int id = System.BeadCoor[i];
       if (System.Bead[id].InTimestep && System.Bead[id].Use) {
         int type = System.Bead[id].Type;
         fprintf(xyz, "%8s %7.3f %7.3f %7.3f\n", System.BeadType[type].Name,
@@ -67,7 +67,6 @@ void XyzWriteCoor(FILE *xyz, SYSTEM System) {
 void VtfWriteStruct(char file[], SYSTEM System) {
 
   FILE *fw = OpenFile(file, "w");
-  // TODO integrate InFile & BeadsCoor
   // find most common type of bead and make it default //{{{
   int *count = calloc(System.Count.BeadType, sizeof *count);
   for (int i = 0; i < System.Count.Bead; i++) {
@@ -98,6 +97,11 @@ void VtfWriteStruct(char file[], SYSTEM System) {
     // don't print beads with type 'type_def' // TODO is it done correctly?
     if (btype != type_def || mol != -1) {
       fprintf(fw, "atom %7d ", i);
+      if (mol >= System.Count.Molecule) {
+        strcpy(ERROR_MSG, "TOO MANY MOLECULES!");
+        PrintError();
+        exit(1);
+      }
       if (mol != -1) { // TODO okay, what's this?
         int mtype = System.Molecule[mol].Type;
         int n = -1;
@@ -142,11 +146,8 @@ contact developer");
     fprintf(fw, "# resid %d\n", i+1); // in VMD resid start with 1
     int mol_type = System.Molecule[i].Type;
     for (int j = 0; j < System.MoleculeType[mol_type].nBonds; j++) {
-      int bead1 = System.MoleculeType[mol_type].Bond[j][0];
-      bead1 = System.Molecule[i].Bead[bead1];
-      int bead2 = System.MoleculeType[mol_type].Bond[j][1];
-      bead2 = System.Molecule[i].Bead[bead2];
-      fprintf(fw, "bond %6d: %6d\n", bead1, bead2);
+      int *bead = BondIndices(System, i, j);
+      fprintf(fw, "bond %6d: %6d\n", bead[0], bead[1]);
     }
   } //}}}
   // close structure file

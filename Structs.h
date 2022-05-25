@@ -149,7 +149,7 @@ typedef struct System { //{{{
       *BondedCoor, // array of Bead[] ids of in-molecule beads in a timestep
       *Unbonded, // array of Bead[] ids of in-molecule beads
       *UnbondedCoor, // array of Bead[] ids of in-molecule beads in a timestep
-      *BeadsCoor; // array of internal ids for beads with InTimestep=true
+      *BeadCoor; // array of internal ids for beads with InTimestep=true
 } SYSTEM; //}}}
 
 typedef struct Aggregate { //{{{
