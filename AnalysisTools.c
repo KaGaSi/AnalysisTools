@@ -1775,6 +1775,8 @@ SYSTEM CopySystem(SYSTEM S_in) {
 //       must change if S_out and S_in contain types (akin to molecule types)
 void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
   COUNT count = (*S_out).Count;
+  PrintCount(count);
+  fflush(stdout);
   // Box
   (*S_out).Box = Box;
   // BeadType //{{{
@@ -2487,8 +2489,12 @@ void FreeSystem(SYSTEM *System) { //{{{
   for (int i = 0; i < (*System).Count.MoleculeType; i++) {
     free((*System).MoleculeType[i].Bead);
     free(*(*System).MoleculeType[i].Bond);
-    free(*(*System).MoleculeType[i].Angle);
-    free(*(*System).MoleculeType[i].Dihedral);
+    if ((*System).MoleculeType[i].nAngles > 0) {
+      free(*(*System).MoleculeType[i].Angle);
+    }
+    if ((*System).MoleculeType[i].nDihedrals > 0) {
+      free(*(*System).MoleculeType[i].Dihedral);
+    }
     free((*System).MoleculeType[i].BType);
   }
   free((*System).MoleculeType);

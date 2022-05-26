@@ -19,6 +19,35 @@
 
 extern char ERROR_MSG[LINE];
 
+// simple messages //{{{
+// print 'WARNING - <ERROR_MSG>' in cyan
+void PrintWarning();
+// print 'ERROR - <ERROR_MSG>' in red
+void PrintError();
+// print 'WARNING: <option> - <ERROR_MSG>' in cyan and yellow
+void PrintWarningOption(char *opt);
+// print 'ERROR: <option> - <ERROR_MSG>' in red and yellow
+void PrintErrorOption(char *opt);
+// print 'ERROR: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>'
+void PrintErrorFileLine(char *file,  int count,
+                        char *split[SPL_STR], int words);
+// print 'WARNING: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>'
+void PrintWarningFileLine(char file1[], char file2[], int count,
+                          char *split[SPL_STR], int words);
+// print 'FILE <name>' in given colour
+void PrintFile(FILE *f, char file[], char colour[]);
+void WarnPrintFile(char file[], char file2[]); // in cyan
+void ErrorPrintFile(char file[]); // in red
+// print 'Line: <line>|(blank)' in given colours
+void PrintLine2(FILE *f, char *split[SPL_STR], int words,
+                char *colour1, char *colour2);
+void ErrorPrintLine2(char *split[SPL_STR], int words); // in red
+void WarnPrintLine(char *split[SPL_STR], int words); // in cyan
+ //}}}
+
+void PrintLine(char split[SPL_STR][SPL_LEN], int words,
+               int col_line, int col_blank);
+
 // ErrorCoorRead() //{{{
 /**
  * \brief Incorrect reading of vcf file
@@ -78,7 +107,7 @@ void ErrorMoleculeType(SYSTEM System);
  */
 void ErrorPrintLine(char split[SPL_STR][SPL_LEN], int words); //}}}
 
-void WarnChargedSystem(SYSTEM System, char *file);
+void WarnChargedSystem(SYSTEM System, char file1[], char file2[]);
 
 // ErrorStartEnd() //{{{
 /**
@@ -115,32 +144,6 @@ void WarnStopReading(char *vcf_file, int line_count, int step_count,
  */
 void WarnStopReading2(char *vcf_file, int line_count, int step_count,
                      char *split[SPL_STR], int words); //}}}
-
-void PrintLine(char split[SPL_STR][SPL_LEN], int words,
-               int col_line, int col_blank);
-void PrintLine2(FILE *f, char *split[SPL_STR], int words,
-                char *colour1, char *colour2);
-void ErrorPrintLine2(char *split[SPL_STR], int words);
-void WarnPrintLine(char *split[SPL_STR], int words);
-void PrintErrorFileLine(char *file,  int count,
-                        char *split[SPL_STR], int words);
-void PrintWarningFileLine(char *file, int count,
-                          char *split[SPL_STR], int words);
-
-// simple messages //{{{
-// print 'FILE <name>' in given colour
-void PrintFile(FILE *f, char *file, char *colour);
-void WarnPrintFile(char *file); // in cyan
-void ErrorPrintFile(char *file); // in red
-// print 'WARNING - <ERROR_MSG>' in cyan
-void PrintWarning();
-// print 'WARNING: <option> - <ERROR_MSG>' in cyan and yellow
-void PrintWarningOption(char *opt);
-// print 'ERROR - <ERROR_MSG>' in red
-void PrintError();
-// print 'ERROR: <option> - <ERROR_MSG>' in red and yellow
-void PrintErrorOption(char *opt);
- //}}}
 
 // ErrorPrintError_old() //{{{
 void ErrorPrintError_old(); //}}}

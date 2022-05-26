@@ -58,7 +58,7 @@ SYSTEM VtfReadStruct(char struct_file[], bool detailed) {
           warned = true;
           strcpy(ERROR_MSG, "multiple 'a[tom] default' lines");
           PrintWarning();
-          WarnPrintFile(struct_file);
+          WarnPrintFile(struct_file, "\0");
           fprintf(stderr, "%s, using line %s%d%s as the default line%s\n",
                   ErrCyan(), ErrYellow(), default_atom, ErrCyan(),
                   ErrColourReset());
@@ -937,7 +937,7 @@ contact developper\n");
     Sys.UnbondedCoor = realloc(Sys.UnbondedCoor,
                                sizeof *Sys.UnbondedCoor * Sys.Count.Unbonded);
   }
-  WarnChargedSystem(Sys, struct_file);
+  WarnChargedSystem(Sys, struct_file, "\0");
   return Sys;
 } //}}}
 // VtfReadPBC() //{{{
@@ -945,7 +945,7 @@ contact developper\n");
  * Get the first pbc line from a vcf/vtf coordinate file. If a coordinate line
  * is encountered before the pbc one, the function exits with an error.
  */
-void VtfReadPBC(char input_vcf[], BOX *Box) {
+void VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box) {
   // open the coordinate file
   FILE *coor = OpenFile(input_vcf, "r");
   int file_line_count = 0;
@@ -988,7 +988,7 @@ void VtfReadPBC(char input_vcf[], BOX *Box) {
     } else if (ltype == ERROR_LINE) {
       strcpy(ERROR_MSG, "ignoring unrecognised line while \
 searching for a pbc line");
-      PrintWarningFileLine(input_vcf, file_line_count, split, words);
+      PrintWarningFileLine(input_vcf, input_vsf, file_line_count, split, words);
     } //}}}
   };
   fclose(coor);
@@ -1003,8 +1003,9 @@ searching for a pbc line");
  * from the preamble (e.g., on eof); on eof within the coordinate block, true
  * is retuerned as some coordinates were read (i.e., a valid timestep).
  */
-bool VtfReadTimestep(FILE *vcf, char vcf_file[], SYSTEM *System,
-                     int *file_line_count, int step_count, char stuff[]) {
+bool VtfReadTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
+                     SYSTEM *System, int *file_line_count,
+                     int step_count, char stuff[]) {
   start_function: ; // return here when a bad line is encountered
   char *cur = stuff, * const end = stuff + LINE; // to properly snprintf stuff[]
   // set 'not in timestep' to all beads //{{{
@@ -1050,7 +1051,7 @@ bool VtfReadTimestep(FILE *vcf, char vcf_file[], SYSTEM *System,
       if (timestep != ERROR_LINE) {
         strcpy(ERROR_MSG, "extra timestep line \
 (or timestep without any coordinates)");
-        PrintWarningFileLine(vcf_file, *file_line_count, split, words);
+        PrintWarningFileLine(vcf_file, vsf_file, *file_line_count, split, words);
       }
       timestep = ltype;
      //}}}
@@ -1059,7 +1060,8 @@ bool VtfReadTimestep(FILE *vcf, char vcf_file[], SYSTEM *System,
       if (timestep == ERROR_LINE) {
         strcpy(ERROR_MSG, "found a coordinate line before a timestep line; \
 using next timestep instead of this one");
-        PrintWarningFileLine(vcf_file, *file_line_count, split, words);
+        PrintWarningFileLine(vcf_file, vsf_file,
+                             *file_line_count, split, words);
         // skip the remaing coordinate line (if any)
         do {
           fgetpos(vcf, &position);
@@ -1097,7 +1099,7 @@ using next timestep instead of this one");
 //    printf("|%s| %ld\n", stuff, strlen(stuff));
     } else if (ltype == ERROR_LINE) {
       strcpy(ERROR_MSG, "ignoring unrecognised line in a timestep preamble");
-      PrintWarningFileLine(vcf_file, *file_line_count, split, words);
+      PrintWarningFileLine(vcf_file, vsf_file, *file_line_count, split, words);
     }
   } //}}}
   // return 'false' if no coordinate line encountered //{{{
@@ -1127,7 +1129,8 @@ using next timestep instead of this one");
       if (ltype == ERROR_LINE) {
         strcpy(ERROR_MSG, "unrecognised line in a timestep; \
 using next timestep instead of this one");
-        PrintWarningFileLine(vcf_file, *file_line_count, split, words);
+        PrintWarningFileLine(vcf_file, vsf_file,
+                             *file_line_count, split, words);
         // skip the remaing coordinate line (if any)
         do {
           fgetpos(vcf, &position);
@@ -1147,7 +1150,8 @@ using next timestep instead of this one");
         if (id >= (*System).Count.Bead) {
           strcpy(ERROR_MSG, "bead index too high; \
 using next timestep instead of this one");
-          PrintWarningFileLine(vcf_file, *file_line_count, split, words);
+          PrintWarningFileLine(vcf_file, vsf_file,
+                               *file_line_count, split, words);
           // skip the remaing coordinate line (if any)
           do {
             fgetpos(vcf, &position);
@@ -1161,7 +1165,8 @@ using next timestep instead of this one");
         if ((*System).Bead[id].InTimestep) {
           strcpy(ERROR_MSG, "multiple bead entries with the same index; \
 using next timestep instead of this one");
-          PrintWarningFileLine(vcf_file, *file_line_count, split, words);
+          PrintWarningFileLine(vcf_file, vsf_file,
+                               *file_line_count, split, words);
           // skip the remaing coordinate line (if any)
           do {
             fgetpos(vcf, &position);
@@ -1188,7 +1193,8 @@ using next timestep instead of this one");
         // warn: ordered line in indexed timestep - read next timestep //{{{
         strcpy(ERROR_MSG, "ordered coordinate line in indexed timestep; \
 using next timestep instead of this one");
-        PrintWarningFileLine(vcf_file, *file_line_count, split, words);
+        PrintWarningFileLine(vcf_file, vsf_file,
+                             *file_line_count, split, words);
         // skip the remaing coordinate line (if any)
         do {
           fgetpos(vcf, &position);
@@ -1203,7 +1209,8 @@ using next timestep instead of this one");
       if ((*System).Count.BeadCoor == (*System).Count.Bead) {
         strcpy(ERROR_MSG, "too many beads in an ordered timestep; \
 using next timestep instead of this one");
-        PrintWarningFileLine(vcf_file, *file_line_count, split, words);
+        PrintWarningFileLine(vcf_file, vsf_file,
+                             *file_line_count, split, words);
         // skip the remaing coordinate line (if any)
         do {
           fgetpos(vcf, &position);
@@ -1236,6 +1243,7 @@ using next timestep instead of this one");
     }
     (*System).Count.BeadCoor++;
   }
+  // TODO in file writing, also write vsf file!
   // restore file pointer to before the first non-coordinate line
   fsetpos(vcf, &position); //}}}
   // warn: too few beads in an ordered timestep - read next timestep //{{{
@@ -1243,7 +1251,7 @@ using next timestep instead of this one");
     strcpy(ERROR_MSG, "insufficient number of beads for ordered timestep; \
 using next timestep instead of this one");
     PrintWarning();
-    WarnPrintFile(vcf_file);
+    WarnPrintFile(vcf_file, vsf_file);
     fprintf(stderr, "%s, last line of the timestep: %s%d%s\n",
             ErrCyan(), ErrYellow(), *file_line_count, ErrColourReset());
     goto start_function;
@@ -1258,7 +1266,7 @@ using next timestep instead of this one");
  * missing, it prints only a warning (and skips the ensuing coordinate lines).
  * Returns false only if a line cannot be read (e.g., on eof).
  */
-bool VtfSkipTimestep(FILE *vcf, char vcf_file[],
+bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
                      int *file_line_count, int step_count) {
   // skip preamble - i.e., read until the first coordinate line
   fpos_t position;
@@ -1283,7 +1291,7 @@ bool VtfSkipTimestep(FILE *vcf, char vcf_file[],
     strcpy(ERROR_MSG, "found no timestep line in a timestp supposed \
 to be skipped; skipping only this invalid timestep");
     PrintWarning();
-    WarnPrintFile(vcf_file);
+    WarnPrintFile(vcf_file, vsf_file);
     fprintf(stderr, "%s, line %s%d%s\n", ErrCyan(), ErrYellow(),
                                          *file_line_count, ErrColourReset());
   }
@@ -3631,7 +3639,7 @@ void VtfReadStruct_old(char struct_file[], bool detailed, COUNTS *Counts,
           warned = true;
           strcpy(ERROR_MSG, "multiple 'a[tom] default' lines");
           PrintWarning();
-          WarnPrintFile(struct_file);
+          WarnPrintFile(struct_file, "\0");
           fprintf(stderr, "%s, using line %s%d%s", ErrCyan(), ErrYellow(),
                                                    default_atom, ErrCyan());
           fprintf(stderr, " as the default line%s\n", ErrColourReset());
@@ -4616,7 +4624,7 @@ bool VtfReadTimestep_old(FILE *vcf, char vcf_file[], BOX *Box, COUNTS *Counts,
       if (timestep != ERROR_LINE) {
         strcpy(ERROR_MSG, "extra timestep line \
 (or timestep without any coordinates)");
-        PrintWarningFileLine(vcf_file, *file_line_count, split, words);
+        PrintWarningFileLine(vcf_file, "\0", *file_line_count, split, words);
       }
       timestep = ltype;
      //}}}
@@ -4625,7 +4633,7 @@ bool VtfReadTimestep_old(FILE *vcf, char vcf_file[], BOX *Box, COUNTS *Counts,
       if (timestep == ERROR_LINE) {
         strcpy(ERROR_MSG, "found a coordinate line before a timestep line; \
 using next timestep instead of this one");
-        PrintWarningFileLine(vcf_file, *file_line_count, split, words);
+        PrintWarningFileLine(vcf_file, "\0", *file_line_count, split, words);
         // skip the remaing coordinate line (if any)
         do {
           fgetpos(vcf, &position);
@@ -4663,7 +4671,7 @@ using next timestep instead of this one");
 //    printf("|%s| %ld\n", stuff, strlen(stuff));
     } else if (ltype == ERROR_LINE) {
       strcpy(ERROR_MSG, "ignoring unrecognised line in a timestep preamble");
-      PrintWarningFileLine(vcf_file, *file_line_count, split, words);
+      PrintWarningFileLine(vcf_file, "\0", *file_line_count, split, words);
     }
   } //}}}
   // return 'false' if no coordinate line encountered //{{{
@@ -4693,7 +4701,7 @@ using next timestep instead of this one");
       if (ltype == ERROR_LINE) {
         strcpy(ERROR_MSG, "unrecognised line in a timestep; \
 using next timestep instead of this one");
-        PrintWarningFileLine(vcf_file, *file_line_count, split, words);
+        PrintWarningFileLine(vcf_file, "\0", *file_line_count, split, words);
         // skip the remaing coordinate line (if any)
         do {
           fgetpos(vcf, &position);
@@ -4713,7 +4721,7 @@ using next timestep instead of this one");
         if (id >= (*Counts).BeadsTotal) {
           strcpy(ERROR_MSG, "bead index too high; \
 using next timestep instead of this one");
-          PrintWarningFileLine(vcf_file, *file_line_count, split, words);
+          PrintWarningFileLine(vcf_file, "\0", *file_line_count, split, words);
           // skip the remaing coordinate line (if any)
           do {
             fgetpos(vcf, &position);
@@ -4728,7 +4736,7 @@ using next timestep instead of this one");
         if ((*Bead)[id].InTimestep) {
           strcpy(ERROR_MSG, "multiple bead entries with the same index; \
 using next timestep instead of this one");
-          PrintWarningFileLine(vcf_file, *file_line_count, split, words);
+          PrintWarningFileLine(vcf_file, "\0", *file_line_count, split, words);
           // skip the remaing coordinate line (if any)
           do {
             fgetpos(vcf, &position);
@@ -4755,7 +4763,7 @@ using next timestep instead of this one");
         // warn: ordered line in indexed timestep - read next timestep //{{{
         strcpy(ERROR_MSG, "ordered coordinate line in indexed timestep; \
 using next timestep instead of this one");
-        PrintWarningFileLine(vcf_file, *file_line_count, split, words);
+        PrintWarningFileLine(vcf_file, "\0", *file_line_count, split, words);
         // skip the remaing coordinate line (if any)
         do {
           fgetpos(vcf, &position);
@@ -4770,7 +4778,7 @@ using next timestep instead of this one");
       if ((*Counts).BeadsCoor == (*Counts).BeadsTotal) {
         strcpy(ERROR_MSG, "too many beads in an ordered timestep; \
 using next timestep instead of this one");
-        PrintWarningFileLine(vcf_file, *file_line_count, split, words);
+        PrintWarningFileLine(vcf_file, "\0", *file_line_count, split, words);
         // skip the remaing coordinate line (if any)
         do {
           fgetpos(vcf, &position);
@@ -4808,7 +4816,7 @@ using next timestep instead of this one");
     strcpy(ERROR_MSG, "insufficient number of beads for ordered timestep; \
 using next timestep instead of this one");
     PrintWarning();
-    WarnPrintFile(vcf_file);
+    WarnPrintFile(vcf_file, "\0");
     fprintf(stderr, "%s, last line of the timestep: %s%d%s\n",
             ErrCyan(), ErrYellow(), *file_line_count, ErrColourReset());
     goto start_function;

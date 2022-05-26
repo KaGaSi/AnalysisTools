@@ -25,12 +25,13 @@
 // Read all information about the system from a vsf/vtf structure file.
 SYSTEM VtfReadStruct(char struct_file[], bool detailed);
 // Get the first pbc line from a vcf/vtf coordinate file.
-void VtfReadPBC(char input_vcf[], BOX *Box);
+void VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box);
 // Read a single timestep from a vcf/vtf coordinate file
-bool VtfReadTimestep(FILE *vcf, char vcf_file[], SYSTEM *System,
-                     int *file_line_count, int step_count, char stuff[]);
+bool VtfReadTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
+                     SYSTEM *System, int *file_line_count,
+                     int step_count, char stuff[]);
 // Discard a single timestep from a vcf/vtf coordinate file
-bool VtfSkipTimestep(FILE *vcf, char vcf_file[],
+bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
                      int *file_line_count, int step_count);
 bool VtfSkipCoorOrderedLine(FILE *fr);
 // Find position of atom line keywords in the provided strtok'd line

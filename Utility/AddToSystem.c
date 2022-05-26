@@ -3,6 +3,7 @@
 //       generating addition from FIELD?
 // TODO: --random for -vtf option (i.e., place added system's components
 //       randomly in a new box)
+// TODO: remove --detailed option
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -90,6 +91,7 @@ int main(int argc, char *argv[]) {
   for (int i = req_args; i < argc; i++) {
     if (argv[i][0] == '-' &&
         strcmp(argv[i], "-i") != 0 &&
+        strcmp(argv[i], "--detailed") != 0 &&
         strcmp(argv[i], "-v") != 0 &&
         strcmp(argv[i], "--silent") != 0 &&
         strcmp(argv[i], "-h") != 0 &&
@@ -121,74 +123,76 @@ int main(int argc, char *argv[]) {
   count = 0; // count mandatory arguments
 
   // <input> - input coordinate file //{{{
-  char input_coor[LINE] = "", // unchanged => new system
-       input_vsf[LINE] = "";
+  char file_coor[LINE] = "", // unchanged => new system
+       file_struct[LINE] = "";
   bool vtf = false;
   if (strcmp(argv[++count], "--") != 0) {
     // test that <input> filename ends with '.vcf' or '.vtf'
-    snprintf(input_coor, LINE, "%s", argv[count]);
-    if (!InputCoor(&vtf, input_coor, input_vsf)) {
+    snprintf(file_coor, LINE, "%s", argv[count]);
+    if (!InputCoor(&vtf, file_coor, file_struct)) {
       Help(argv[0], true);
       exit(1);
     }
   } else {
-    strcpy(input_vsf, "in.vsf"); // won't be used
+    strcpy(file_struct, "in.vsf"); // won't be used
   } //}}}
 
   // <out.vsf> - output vsf file //{{{
-  char output_vsf[LINE] = "";
-  snprintf(output_vsf, LINE, "%s", argv[++count]);
+  char file_out_struct[LINE] = "";
+  snprintf(file_out_struct, LINE, "%s", argv[++count]);
   // test that <out.vsf> filename ends with '.vsf'
   int ext = 1;
   char extension[2][5];
   strcpy(extension[0], ".vsf");
-  if (ErrorExtension(output_vsf, ext, extension) == -1) {
+  if (ErrorExtension(file_out_struct, ext, extension) == -1) {
     Help(argv[0], true);
     exit(1);
   } //}}}
 
   // <out.vcf> - output vcf file //{{{
-  char output_vcf[LINE] = "";
-  snprintf(output_vcf, LINE, "%s", argv[++count]);
+  char file_out_coor[LINE] = "";
+  snprintf(file_out_coor, LINE, "%s", argv[++count]);
   // test if <output.vcf> filename ends with '.vcf' (required by VMD)
   ext = 1;
   strcpy(extension[0], ".vcf");
-  if (ErrorExtension(output_vcf, ext, extension) == -1) {
+  if (ErrorExtension(file_out_coor, ext, extension) == -1) {
     Help(argv[0], true);
     exit(1);
   } //}}}
 
   // options before reading system data //{{{
   bool silent, verbose, detailed;
-  CommonOptions(argc, argv, input_vsf, LINE, &verbose, &silent, &detailed);
+  CommonOptions(argc, argv, file_struct, LINE, &verbose, &silent, &detailed);
 
   // -f <add> - FIELD-like file with molecules to add //{{{
-  char input_add[LINE] = "";
-  if (FileOption(argc, argv, "-f", input_add, LINE)) {
+  char file_add_field[LINE] = "";
+  if (FileOption(argc, argv, "-f", file_add_field, LINE)) {
     exit(1);
   }
-  if (input_add[0] == '\0') {
-    strcpy(input_add, "FIELD");
+  if (file_add_field[0] == '\0') {
+    strcpy(file_add_field, "FIELD");
   } //}}}
 
   // -vtf <vsf> <vcf> - vtf file(s) to use instead of FIELD //{{{
-  char add_vsf[LINE] = "", input_coor_add[LINE] = "";
+  char file_add_struct[LINE] = "", file_add_coor[LINE] = "";
   // 1) vsf file
-  if (FileOption(argc, argv, "-vtf", add_vsf, LINE)) {
+  if (FileOption(argc, argv, "-vtf", file_add_struct, LINE)) {
     exit(1);
   }
   // 2) if vsf file exists, look for vcf
 //bool vtf_add = true; // if -vtf is present present, is the file a vtf format?
-  if (strlen(add_vsf) > 0) {
+  if (strlen(file_add_struct) > 0) {
     ext = 2;
     strcpy(extension[0], ".vsf");
     strcpy(extension[1], ".vtf");
-    if (ErrorExtension(add_vsf, ext, extension) == -1) {
+    if (ErrorExtension(file_add_struct, ext, extension) == -1) {
       Help(argv[0], true);
       exit(1);
     }
-    if (add_vsf[strlen(add_vsf)-2] == 't') { // if *.vtf file, use it as vcf too
-      snprintf(input_coor_add, LINE, "%s", add_vsf);
+    // TODO: change == to != and remove else
+    if (file_add_struct[strlen(file_add_struct)-2] == 't') {
+    // if *.vtf file, use it as vcf too
+      snprintf(file_add_coor, LINE, "%s", file_add_struct);
     } else { // if *.vsf file, read the vcf file
       for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-vtf") == 0) {
@@ -199,7 +203,7 @@ int main(int argc, char *argv[]) {
             // copy vcf filename to (i+1)th place - required by FileOption()
             snprintf(argv[i+1], LINE, "%s", argv[i+2]);
             // read vcf file name
-            if (FileOption(argc, argv, "-vtf", input_coor_add, LINE)) {
+            if (FileOption(argc, argv, "-vtf", file_add_coor, LINE)) {
               exit(1);
             }
             // restore vsf filename so the command in unchanged
@@ -207,7 +211,7 @@ int main(int argc, char *argv[]) {
             // coordinate file must be vcf, because there's already vsf
             ext = 1;
             strcpy(extension[0], ".vcf");
-            ext = ErrorExtension(input_coor_add, ext, extension);
+            ext = ErrorExtension(file_add_coor, ext, extension);
             if (ext == -1) {
               Help(argv[0], true);
               exit(1);
@@ -246,7 +250,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   // Warning - missing -vtf option
-  if (strlen(add_vsf) == 0 && offset[0] != 1000000) {
+  if (strlen(file_add_struct) == 0 && offset[0] != 1000000) {
     ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "\nWarning: ");
     ColourChange(STDERR_FILENO, CYAN);
@@ -263,8 +267,8 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // save into xyz file? //{{{
-  char output_xyz[LINE] = "";
-  if (FileOption(argc, argv, "-xyz", output_xyz, LINE)) {
+  char file_out_xyz[LINE] = "";
+  if (FileOption(argc, argv, "-xyz", file_out_xyz, LINE)) {
     exit(1);
   } //}}}
 
@@ -426,8 +430,8 @@ int main(int argc, char *argv[]) {
 
   // read information from input vtf file(s) if present //{{{
   SYSTEM S_orig;
-  if (strlen(input_coor) > 0) { // is there an input coordinate file?
-    S_orig = VtfReadStruct(input_vsf, detailed);
+  if (strlen(file_coor) > 0) { // is there an input coordinate file?
+    S_orig = VtfReadStruct(file_struct, detailed);
   } else {
     InitSystem(&S_orig);
   } //}}}
@@ -435,7 +439,7 @@ int main(int argc, char *argv[]) {
   // -xb <name(s)> - specify what bead types to exchange //{{{
   bool sw = BoolOption(argc, argv, "-xb"); // is -xb present?
   // error - if -xb is used, input system must be present
-  if (sw && strlen(input_coor) == 0) {
+  if (sw && strlen(file_coor) == 0) {
     ErrorPrintError_old();
     ColourChange(STDERR_FILENO, YELLOW);
     fprintf(stderr, "-xb");
@@ -483,20 +487,28 @@ int main(int argc, char *argv[]) {
 
   // open input coordinate file //{{{
   FILE *vcf;
-  if (strlen(input_coor) > 0) {
-    vcf = OpenFile(input_coor, "r");
+  if (strlen(file_coor) > 0) {
+    vcf = OpenFile(file_coor, "r");
     count= 0;
     if (!silent) {
       fprintf(stdout, "Using step %6d\n", ++count);
     }
     int file_line_count = 0, count_vcf = 0;
-    VtfReadTimestep(vcf, input_coor, &S_orig, &file_line_count,
+    VtfReadTimestep(vcf, file_coor, file_struct, &S_orig, &file_line_count,
                     count_vcf, stuff);
+    if (S_orig.Count.BeadCoor == -1) {
+      // TODO shouldn't this be handled better in the Read.c?
+      S_orig.Count.BeadCoor = 0;
+      strcpy(ERROR_MSG, "no coordinate for input system found");
+      PrintWarning();
+      WarnPrintFile(file_coor, file_struct);
+      putc('\n', stderr);
+    }
     fclose(vcf);
   } //}}}
 
   // print original system (if present) //{{{
-  if (verbose && strlen(input_coor) > 0) {
+  if (verbose && strlen(file_coor) > 0) {
     fprintf(stdout, "\nORIGINAL SYSTEM\n");
     VerboseOutput(S_orig);
     if (start > 1) {
@@ -507,18 +519,18 @@ int main(int argc, char *argv[]) {
   SYSTEM S_add;
 
   // TODO FIELD must be completely redone
-  if (strlen(add_vsf) == 0) { // read stuff to be added from FIELD //{{{
+  if (strlen(file_add_struct) == 0) { // read stuff to be added from FIELD //{{{
     InitSystem(&S_add);
 //  ReadField(input_add, '\0', &Counts_add, &S_add.BeadType, &S_add.Bead,
 //            &Index_add, &S_add.MoleculeType, &S_add.Molecule,
 //            &bond_type, &angle_type, &dihedral_type);
 //  S_add.Box.Length = S_orig.Box.Length; //}}}
   } else { // read stuff to add from vtf file(s) ('-vtf' option) //{{{
-    S_add = VtfReadStruct(add_vsf, false);
+    S_add = VtfReadStruct(file_add_struct, false);
     // read coordinates
-    vcf = OpenFile(input_coor_add, "r");
+    vcf = OpenFile(file_add_coor, "r");
     int file_line_count = 0, count_vcf = 0;
-    VtfReadTimestep(vcf, input_coor_add, &S_add, &file_line_count, count_vcf, stuff);
+    VtfReadTimestep(vcf, file_add_coor, file_add_struct, &S_add, &file_line_count, count_vcf, stuff);
     fclose(vcf);
     VECTOR rotated[S_add.Count.BeadCoor];
     if (!no_rot) { //{{{
@@ -894,6 +906,7 @@ int main(int argc, char *argv[]) {
   } else { // or add beads to the system? //{{{
     BOX Box_new = S_new.Box; // TODO box set up previously; maybe make it a different BOX
     S_new = CopySystem(S_orig);
+    fflush(stdout);
     ConcatenateSystems(&S_new, S_add, Box_new);
     PruneSystem(&S_new);
 //  VerboseOutput(S_new);
@@ -909,7 +922,7 @@ int main(int argc, char *argv[]) {
 
   // add beads randomly if FIELD-like file is used //{{{
   double dist;
-  if (strlen(add_vsf) == 0) {
+  if (strlen(file_add_struct) == 0) {
     count = 0;
     // add monomeric beads //{{{
     for (int i = 0; i < S_add.Count.Unbonded; i++) {
@@ -1136,9 +1149,9 @@ int main(int argc, char *argv[]) {
 
   // write data to output files //{{{
   // vsf file
-  VtfWriteStruct(output_vsf, S_new);
+  VtfWriteStruct(file_out_struct, S_new);
   // .vcf file
-  FILE *out = OpenFile(output_vcf, "w");
+  FILE *out = OpenFile(file_out_coor, "w");
   PrintByline(out, argc, argv);
   for (int i = 0; i < S_new.Count.Bead; i++) {
     S_new.Bead[i].Use = true; // TODO change somewhere (use different flag for sw)
@@ -1146,8 +1159,8 @@ int main(int argc, char *argv[]) {
   VtfWriteCoorIndexed(out, stuff, S_new);
   fclose(out);
   // xyz file (if -xyz option is present)
-  if (strlen(output_xyz) > 0) {
-    FILE *xyz = OpenFile(output_xyz, "w");
+  if (strlen(file_out_xyz) > 0) {
+    FILE *xyz = OpenFile(file_out_xyz, "w");
     XyzWriteCoor(xyz, S_new);
     fclose(xyz);
   }
