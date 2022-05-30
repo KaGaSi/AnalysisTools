@@ -3,6 +3,360 @@
 //      https://stackoverflow.com/questions/51534284/how-to-circumvent-format-truncation-warning-in-gcc
 // TODO impropers vs dihedrals - add improper section to FIELD
 
+#if 1
+// VtfReadStruct_new() //{{{
+/*
+ * Read system information from vsf/vtf structure file. It can recognize bead
+ * and molecule types based either on name only or on all information (name,
+ * mass, charge, and radius for bead types; bead order, bonds, angles, and
+ * dihedrals for molecule types).
+ */
+// TODO check that there are any molecules before filling the structures
+SYSTEM VtfReadStruct_new(char struct_file[], bool detailed) {
+  SYSTEM Sys; // zeroize counts
+  InitSystem(&Sys);
+  FILE *vsf = OpenFile(struct_file, "r");
+  // define variables and structures and arrays //{{{
+  int file_line_count = 0, // total number of lines
+      count_atoms = 0, // number of 'atom <id>'
+      default_atom = 0, // line number of the first 'atom default' line
+      count_bonds = 0; // number of bonds
+  bool warned = false; // has 'a[tom] default' line warning already been issued?
+//Sys.BeadType = malloc(sizeof (BEADTYPE));
+  InitBeadType(&Sys.BeadType[0]);
+  BEADTYPE bt_def;
+  InitBeadType(&bt_def);
+  InitBead(&Sys.Bead[0]);
+  InitMoleculeType(&Sys.MoleculeType[0]);
+  InitMolecule(&Sys.Molecule[0]);
+  struct bond {
+    int index1, index2; // indices from vsf file
+  } *bond = calloc(1, sizeof *bond); //}}}
+  // 1) read struct_file line by line, saving all atom and bond lines //{{{
+  /* Do something based on to line type
+   *   a) atom line: save bead information
+   *   b) bond line: save bonded bead indices
+   *   c) timestep line: break the loop (end of structure part of vsf file)
+   *   d) coordinate line: exit program as coordinates cannot be inside
+   *      structure file
+   *   e) anything else besides pbc, blank, or comment line: exit program as
+   *      unrecognised line was encountered
+   */
+  char line[LINE], *split[SPL_STR];
+  int words;
+  while (ReadAndSplitLine(vsf, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    file_line_count++;
+    // read line
+    int ltype = VtfCheckLineType(words, split, struct_file, file_line_count);
+    if (ltype == ATOM_LINE) { // a)
+      if (strcmp(split[1], "default") == 0) { // 'a[tom] default' line
+        if (default_atom != 0 && !warned) { // warn of multiple defaults //{{{
+          // warning - multiple 'atom default' lines (warn only once)
+          warned = true;
+          strcpy(ERROR_MSG, "multiple 'a[tom] default' lines");
+          PrintWarning();
+          WarnPrintFile(struct_file, "\0");
+          fprintf(stderr, "%s, using line %s%d%s as the default line%s\n",
+                  ErrCyan(), ErrYellow(), default_atom, ErrCyan(),
+                  ErrColourReset()); //}}}
+        } else { // save line number of the first 'atom default' line //{{{
+          default_atom = file_line_count;
+          // save values for the default bead type
+          int *values = VtfAtomLineValues(words, split);
+          strncpy(bt_def.Name, split[values[0]], BEAD_NAME);
+          if (values[1] != -1) {
+            bt_def.Mass = atof(split[values[1]]);
+          }
+          if (values[2] != -1) {
+            bt_def.Charge = atof(split[values[2]]);
+          }
+          if (values[3] != -1) {
+            bt_def.Radius = atof(split[values[3]]);
+          }
+        } //}}}
+      } else { // 'a[tom] <id>' line //{{{
+        count_atoms++;
+        int id = atoi(split[1]);
+        // warning - repeated atom line //{{{
+        if (id < Sys.Count.Bead && Sys.BeadType[id].Number != 0) {
+          strcpy(ERROR_MSG, "atom defined multiple times; \
+discounting the following line");
+          PrintWarningFileLine(struct_file, "\0",
+                               file_line_count, split, words);
+        } //}}}
+        // highest bead index? (corresponds to the number of beads in vsf)
+        if (id >= Sys.Count.Bead) {
+          Sys.BeadType = realloc(Sys.BeadType, sizeof (BEADTYPE) * (id + 1));
+          Sys.Bead = realloc(Sys.Bead, sizeof (BEAD) * (id + 1));
+          for (int i = Sys.Count.Bead; i <= id; i++) {
+            InitBeadType(&Sys.BeadType[i]);
+            InitBead(&Sys.Bead[i]);
+          }
+          Sys.Count.Bead = id + 1; // +1 as bead ids start from 0 in vsf
+        }
+        // save values from the 'a[tom] <id>' line
+        int *values = VtfAtomLineValues(words, split);
+        strncpy(Sys.BeadType[id].Name, split[values[0]], BEAD_NAME);
+        if (values[1] != -1) {
+          Sys.BeadType[id].Mass = atof(split[values[1]]);
+        }
+        if (values[2] != -1) {
+          Sys.BeadType[id].Charge = atof(split[values[2]]);
+        }
+        if (values[3] != -1) {
+          Sys.BeadType[id].Radius = atof(split[values[3]]);
+        }
+        Sys.BeadType[id].Number = 1;
+        Sys.BeadType[id].Index = malloc(sizeof *Sys.BeadType[id].Index);
+        Sys.BeadType[id].Index[0] = id;
+        Sys.Bead[id].Type = id;
+        // is the bead in a molecule?
+        if (values[5] > -1 ) {
+          int resid = atoi(split[values[5]]);
+          // highest molecule id?
+          if (resid > Sys.Count.HighestResid) {
+            Sys.MoleculeType = realloc(Sys.MoleculeType,
+                                       sizeof (MOLECULETYPE) * (resid + 1));
+            Sys.Molecule = realloc(Sys.Molecule, sizeof (MOLECULE) * (resid + 1));
+            for (int i = (Sys.Count.HighestResid+1); i <= resid; i++) {
+              InitMoleculeType(&Sys.MoleculeType[i]);
+              InitMolecule(&Sys.Molecule[i]);
+            }
+            Sys.Count.HighestResid = resid; // goes from 0
+            Sys.Count.Molecule = resid + 1;
+          }
+          if (Sys.MoleculeType[resid].Number == 0) { // new molecule type
+            strncpy(Sys.MoleculeType[resid].Name, split[values[4]], MOL_NAME);
+            Sys.MoleculeType[resid].Number = 1;
+            Sys.MoleculeType[resid].Index =
+              malloc(sizeof *Sys.MoleculeType[resid].Index);
+            Sys.MoleculeType[resid].Index[0] = resid;
+            Sys.MoleculeType[resid].nBeads = 1;
+            Sys.MoleculeType[resid].Bead =
+              malloc(sizeof *Sys.MoleculeType[resid].Bead);
+            Sys.MoleculeType[resid].Bead[0] = id; // bead type = bead index
+            Sys.Molecule[resid].Index = resid;
+          } else { // not new moleclue type
+            int bead = Sys.MoleculeType[resid].nBeads;
+            Sys.MoleculeType[resid].nBeads++;
+            Sys.MoleculeType[resid].Bead =
+              realloc(Sys.MoleculeType[resid].Bead,
+                      sizeof *Sys.MoleculeType[resid].Bead *
+                      Sys.MoleculeType[resid].nBeads);
+            Sys.MoleculeType[resid].Bead[bead] = id; // bead type = bead index
+          }
+          Sys.Bead[id].Molecule = resid;
+        }
+      } //}}}
+    } else if (ltype == BOND_LINE) { // b) //{{{
+      bond = realloc(bond, sizeof *bond * (count_bonds + 1));
+      long val;
+      if (words == 2) { // case 'bond <id>:<id>'
+        char *index[SPL_STR];
+        SplitLine(SPL_STR, index, split[1], ":");
+        IsInteger(index[0], &val);
+        bond[count_bonds].index1 = val;
+        IsInteger(index[1], &val);
+        bond[count_bonds].index2 = val;
+      } else { // case 'bond <id>: <id>'
+        IsInteger(split[1], &val);
+        bond[count_bonds].index1 = val;
+        IsInteger(split[2], &val);
+        bond[count_bonds].index2 = val;
+      }
+      count_bonds++; //}}}
+    } else if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) { // c)
+      break;
+    } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) { // d)
+      strcpy(ERROR_MSG, "encountered a coordinate-like line \
+inside the structure block ");
+      PrintErrorFileLine(struct_file, file_line_count, split, words);
+      exit(1);
+    } else if (ltype != BLANK_LINE && ltype != COMMENT_LINE &&
+               ltype != PBC_LINE && ltype != PBC_LINE_ANGLES) { // e)
+      // proper error message already established in VtfCheckLineType()
+      PrintErrorFileLine(struct_file, file_line_count, split, words);
+      exit(1);
+    }
+  }
+  fclose(vsf); //}}}
+  // error - no default line and too few atom lines //{{{
+  if (default_atom == 0 && count_atoms != Sys.Count.Bead) {
+    strcpy(ERROR_MSG, "not all beads defined ('atom default' line is omitted)");
+    PrintError();
+    ErrorPrintFile(struct_file);
+    int undefined = Sys.Count.Bead - count_atoms;
+    fprintf(stderr, "%s, %s%d%s bead(s) undefined%s\n", ErrRed(), ErrYellow(),
+                                                        undefined, ErrRed(),
+                                                        ErrColourReset());
+    exit(1);
+  } //}}}
+  // 2) assign atom default to default beads & count bonded/unbonded beads //{{{
+  // find first unused bead type and make it the default
+  int def, count_def = 0;
+  for (int i = 0; i < Sys.Count.Bead; i++) {
+    if (Sys.BeadType[i].Number == 0) {
+     def = i;
+     Sys.BeadType[def] = bt_def;
+     Sys.BeadType[def].Number = Sys.Count.Bead - count_atoms;
+     Sys.BeadType[def].Index = malloc(sizeof *Sys.BeadType[def].Index *
+                                      Sys.BeadType[def].Number);
+     Sys.BeadType[def].Index[0] = i;
+     Sys.Bead[def].Type = def;
+     count_def = 1;
+     break;
+    }
+  }
+  // add the default beads to their proper type
+  for (int i = 0; i < Sys.Count.Bead; i++) {
+    if (Sys.BeadType[i].Number == 0) { // default bead?
+      Sys.BeadType[def].Index[count_def] = i;
+      Sys.Bead[i].Type = def;
+      count_def++;
+    }
+    if (Sys.Bead[i].Molecule == -1) { // unbonded bead?
+      Sys.Count.Unbonded++;
+    } else {
+      Sys.Count.Bonded++; // bonded bead?
+    }
+  }
+  // just check that it counts the beads correctly
+  if (Sys.Count.Bead != (Sys.Count.Unbonded + Sys.Count.Bonded)) {
+    strcpy(ERROR_MSG, "something went wrong with bead counting; \
+contact developper\n");
+    ErrorPrintError();
+    exit(1);
+  } //}}}
+  // 3) fill Molecule[].Bead array (i.e., copy MoleculeType[].Bead array) //{{{
+  for (int i = 0; i < Sys.Count.Molecule; i++) {
+    if (Sys.MoleculeType[i].Number != 0) {
+      Sys.Molecule[i].Bead = malloc(sizeof *Sys.Molecule[i].Bead *
+                                    Sys.MoleculeType[i].nBeads);
+      for (int j = 0; j < Sys.MoleculeType[i].nBeads; j++) {
+        Sys.Molecule[i].Bead[j] = Sys.MoleculeType[i].Bead[j];
+      }
+    }
+  } //}}}
+  // 4) pre-prune - remove molecule and bead types with .Number = 0 //{{{
+  // 4a) BeadType & Bead[].Type
+  int *bt_old_to_new = malloc(sizeof *bt_old_to_new * Sys.Count.Bead);
+  for (int i = 0; i < Sys.Count.Bead; i++) {
+    if (Sys.BeadType[i].Number != 0) {
+      int bt_new = Sys.Count.BeadType;
+      Sys.Count.BeadType++;
+      if (bt_new != i) {
+        strcpy(Sys.BeadType[bt_new].Name, Sys.BeadType[i].Name);
+        Sys.BeadType[bt_new] = Sys.BeadType[i];
+        Sys.Bead[i].Type = bt_new;
+        bt_old_to_new[i] = bt_new;
+        // TODO memcpy, anyone?
+        // TODO cannot it be, by any chance, allocated? Nah (I think)
+        Sys.BeadType[bt_new].Index = malloc(sizeof *Sys.BeadType[bt_new].Index *
+                                            Sys.BeadType[bt_new].Number);
+        for (int j = 0; j < Sys.BeadType[bt_new].Number; j++) {
+          Sys.BeadType[bt_new].Index[j] = Sys.BeadType[i].Index[j];
+        }
+        free(Sys.BeadType[i].Index);
+      }
+    }
+  }
+  // 4b) sync MoleculeType[].Bead (i.e., bead types) with the new BeadType
+  for (int i = 0; i < Sys.Count.Molecule; i++) {
+    for (int j = 0; j < Sys.MoleculeType[i].nBeads; j++) {
+      int id = Sys.MoleculeType[i].Bead[j];
+      Sys.MoleculeType[i].Bead[j] = bt_old_to_new[id];
+    }
+  }
+  // 4c) MoleculeType & Molecule[].Type
+  Sys.Count.MoleculeType = 0;
+  for (int i = 0; i < Sys.Count.Molecule; i++) {
+    if (Sys.MoleculeType[i].Number != 0) {
+      int mt_new = Sys.Count.MoleculeType;
+      Sys.Count.MoleculeType++;
+      if (mt_new != i) {
+        Sys.MoleculeType[mt_new] = Sys.MoleculeType[i];
+        // Index array (just the one molecule)
+        Sys.MoleculeType[mt_new].Index =
+          malloc(sizeof *Sys.MoleculeType[mt_new].Index);
+        Sys.MoleculeType[mt_new].Index[0] = mt_new;
+        // Bead array (for MoleculeType & Molecule)
+        Sys.MoleculeType[mt_new].Bead =
+          malloc(sizeof *Sys.MoleculeType[mt_new].Bead *
+                 Sys.MoleculeType[mt_new].nBeads);
+        Sys.Molecule[mt_new].Bead = malloc(sizeof *Sys.Molecule[mt_new].Bead *
+                                           Sys.MoleculeType[mt_new].nBeads);
+        for (int j = 0; j < Sys.MoleculeType[i].nBeads; j++) {
+          int id = Sys.Molecule[i].Bead[j];
+          Sys.MoleculeType[mt_new].Bead[j] = Sys.MoleculeType[i].Bead[j];
+          Sys.Molecule[mt_new].Bead[j] = id;
+          Sys.Bead[id].Molecule = mt_new;
+        }
+        Sys.Molecule[mt_new].Index = i;
+        // free arrays in MoleculeType & Molecule
+        free(Sys.MoleculeType[i].Index);
+        free(Sys.MoleculeType[i].Bead);
+        free(Sys.Molecule[i].Bead);
+      }
+    }
+  } //}}}
+  // 5) TODO: fill Bond (from that saved bond struct) & BType arrays
+//for (int i = 0; i < Sys.Count.BeadType; i++) {
+//  printf("%s (%d), %d:", Sys.BeadType[i].Name, i, Sys.BeadType[i].Number);
+//  for (int j = 0; j < Sys.BeadType[i].Number; j++) {
+//    printf(" %d", Sys.BeadType[i].Index[j]);
+//  }
+//  putchar('\n');
+//  fflush(stdout);
+//}
+  for (int i = 0; i < Sys.Count.MoleculeType; i++) {
+    printf("%d: %s (Index=%d); Number=%d:", i, Sys.MoleculeType[i].Name,
+           Sys.Molecule[i].Index, Sys.MoleculeType[i].Number);
+    for (int j = 0; j < Sys.MoleculeType[i].Number; j++) {
+      printf(" %d", Sys.MoleculeType[i].Index[j]);
+    }
+    putchar('\n');
+    printf(" %d:", Sys.MoleculeType[i].nBeads);
+    for (int j = 0; j < Sys.MoleculeType[i].nBeads; j++) {
+      printf(" %d (%d)", Sys.Molecule[i].Bead[j], j);
+    }
+    putchar('\n');
+    fflush(stdout);
+  }
+//PrintBead(Sys);
+//PrintBeadType(Sys);
+fflush(stdout);
+//exit(1);
+  // 7) copy everything back to their 'proper' arrays and structures //{{{
+  Sys.Index_mol = realloc(Sys.Index_mol, sizeof *Sys.Index_mol *
+                          (Sys.Count.HighestResid+1));
+  for (int i = 0; i <= Sys.Count.HighestResid; i++) {
+    Sys.Index_mol[i] = -1;
+  }
+  for (int i = 0; i < Sys.Count.Molecule; i++) {
+    Sys.Index_mol[Sys.Molecule[i].Index] = i;
+  } //}}}
+  // free memory //{{{
+  free(bond);
+  //}}}
+  // assume empty/none-existent coordinate file
+  Sys.Count.BeadCoor = 0;
+  Sys.BeadCoor = realloc(Sys.BeadCoor,
+                          sizeof *Sys.BeadCoor * Sys.Count.Bead);
+  Sys.Count.BondedCoor = 0;
+  if (Sys.Count.Bonded > 0) {
+    Sys.BondedCoor = realloc(Sys.BondedCoor,
+                             sizeof *Sys.BondedCoor * Sys.Count.Bonded);
+  }
+  Sys.Count.UnbondedCoor = 0;
+  if (Sys.Count.Unbonded > 0) {
+    Sys.UnbondedCoor = realloc(Sys.UnbondedCoor,
+                               sizeof *Sys.UnbondedCoor * Sys.Count.Unbonded);
+  }
+  WarnChargedSystem(Sys, struct_file, "\0");
+  return Sys;
+} //}}}
+#endif
+
 // Read vtf files //{{{
 // VtfReadStruct() //{{{
 /*
@@ -13,7 +367,7 @@
  */
 // TODO check that there are any molecules before filling the structures
 SYSTEM VtfReadStruct(char struct_file[], bool detailed) {
-  SYSTEM Sys; // zeroize counts
+  SYSTEM Sys;
   InitSystem(&Sys);
   FILE *vsf = OpenFile(struct_file, "r");
   // define variables and structures and arrays //{{{

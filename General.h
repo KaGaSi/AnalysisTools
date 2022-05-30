@@ -1,8 +1,3 @@
-/**
- * \file
- * \brief Functions independent of the analysis utilities.
- */
-
 #ifndef _GENERAL_H_
 #define _GENERAL_H_
 

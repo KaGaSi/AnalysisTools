@@ -2087,6 +2087,7 @@ void PruneSystem(SYSTEM *System) { //{{{
             c_bond++;
           }
         } //}}}
+//      printf("XXX c_bond=%d %d %s\n", c_bond, i, S_old.MoleculeType[old_type].Name);
         // count angles in the pruned molecule type //{{{
         for (int j = 0; j < S_old.MoleculeType[old_type].nAngles; j++) {
           int *id = AngleIndices(S_old, i, j);
@@ -2111,6 +2112,11 @@ void PruneSystem(SYSTEM *System) { //{{{
                    c_angle, c_dihedral);
         (*System).Molecule[new_id].Type = type;
         // copy beads to the new molecule type //{{{
+        int *id_old_to_new = calloc(S_old.MoleculeType[old_type].nBeads,
+                                    sizeof *id_old_to_new);
+        for (int j = 0; j < S_old.MoleculeType[old_type].nBeads; j++) {
+          id_old_to_new[j] = -1;
+        }
         c_bead = 0;
         for (int j = 0; j < S_old.MoleculeType[old_type].nBeads; j++) {
           int id = S_old.Molecule[i].Bead[j],
@@ -2118,6 +2124,7 @@ void PruneSystem(SYSTEM *System) { //{{{
           if (S_old.Bead[id].InTimestep) {
             (*System).MoleculeType[type].Bead[c_bead] =
               FindBeadType(S_old.BeadType[btype].Name, *System);
+            id_old_to_new[j] = c_bead;
             c_bead++;
           }
         } //}}}
@@ -2126,9 +2133,11 @@ void PruneSystem(SYSTEM *System) { //{{{
         for (int j = 0; j < S_old.MoleculeType[old_type].nBonds; j++) {
           int *id = BondIndices(S_old, i, j),
               last = S_old.MoleculeType[old_type].Bond[j][2];
-          if (S_old.Bead[id[0]].InTimestep && S_old.Bead[id[1]].InTimestep) {
-            (*System).MoleculeType[type].Bond[c_bond][0] = id[2];
-            (*System).MoleculeType[type].Bond[c_bond][1] = id[3];
+          if (S_old.Bead[id[0]].InTimestep &&
+              S_old.Bead[id[1]].InTimestep) {
+            // TODO the internal beads should have changed! - create array somewhere up there linking S_old.MoleculeType bead ids with (*System).MoleculeType bead ids...
+            (*System).MoleculeType[type].Bond[c_bond][0] = id_old_to_new[id[2]];
+            (*System).MoleculeType[type].Bond[c_bond][1] = id_old_to_new[id[3]];
             (*System).MoleculeType[type].Bond[c_bond][2] = last;
             c_bond++;
           }
@@ -2141,9 +2150,12 @@ void PruneSystem(SYSTEM *System) { //{{{
           if (S_old.Bead[id[0]].InTimestep &&
               S_old.Bead[id[1]].InTimestep &&
               S_old.Bead[id[2]].InTimestep) {
-            (*System).MoleculeType[type].Angle[c_angle][0] = id[3];
-            (*System).MoleculeType[type].Angle[c_angle][1] = id[4];
-            (*System).MoleculeType[type].Angle[c_angle][2] = id[5];
+            (*System).MoleculeType[type].Angle[c_angle][0] =
+              id_old_to_new[id[3]];
+            (*System).MoleculeType[type].Angle[c_angle][1] =
+              id_old_to_new[id[4]];
+            (*System).MoleculeType[type].Angle[c_angle][2] =
+              id_old_to_new[id[5]];
             (*System).MoleculeType[type].Angle[c_angle][3] = last;
             c_angle++;
           }
@@ -2157,14 +2169,19 @@ void PruneSystem(SYSTEM *System) { //{{{
               S_old.Bead[id[1]].InTimestep &&
               S_old.Bead[id[2]].InTimestep &&
               S_old.Bead[id[3]].InTimestep) {
-            (*System).MoleculeType[type].Dihedral[c_dihedral][0] = id[4];
-            (*System).MoleculeType[type].Dihedral[c_dihedral][1] = id[5];
-            (*System).MoleculeType[type].Dihedral[c_dihedral][2] = id[6];
-            (*System).MoleculeType[type].Dihedral[c_dihedral][3] = id[7];
+            (*System).MoleculeType[type].Dihedral[c_dihedral][0] =
+              id_old_to_new[id[4]];
+            (*System).MoleculeType[type].Dihedral[c_dihedral][1] =
+              id_old_to_new[id[5]];
+            (*System).MoleculeType[type].Dihedral[c_dihedral][2] =
+              id_old_to_new[id[6]];
+            (*System).MoleculeType[type].Dihedral[c_dihedral][3] =
+              id_old_to_new[id[7]];
             (*System).MoleculeType[type].Dihedral[c_dihedral][4] = last;
             c_dihedral++;
           }
         } //}}}
+        free(id_old_to_new);
       }
     }
   }
@@ -2455,24 +2472,6 @@ void PrintBead(SYSTEM System) { //{{{
   }
 } //}}}
 
-// TODO same order as in Structs.h
-void InitSystem(SYSTEM *System) { //{{{
-  (*System).Box = InitBox;
-  (*System).Count = InitCount;
-  (*System).BeadType = calloc(1, sizeof *(*System).BeadType);
-  (*System).Bead = calloc(1, sizeof *(*System).Bead);
-  (*System).MoleculeType = calloc(1, sizeof *(*System).MoleculeType);
-  (*System).Molecule = calloc(1, sizeof *(*System).Molecule);
-  (*System).BondType = calloc(1, sizeof *(*System).BondType);
-  (*System).AngleType = calloc(1, sizeof *(*System).AngleType);
-  (*System).DihedralType = calloc(1, sizeof *(*System).DihedralType);
-  (*System).Index_mol = calloc(1, sizeof *(*System).Index_mol);
-  (*System).Bonded = calloc(1, sizeof *(*System).Bonded);
-  (*System).BondedCoor = calloc(1, sizeof *(*System).BondedCoor);
-  (*System).Unbonded = calloc(1, sizeof *(*System).Unbonded);
-  (*System).UnbondedCoor = calloc(1, sizeof *(*System).UnbondedCoor);
-  (*System).BeadCoor = calloc(1, sizeof *(*System).BeadCoor);
-} //}}}
 void FreeSystem(SYSTEM *System) { //{{{
   free((*System).Index_mol);
   free((*System).BeadCoor);

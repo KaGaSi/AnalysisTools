@@ -24,6 +24,7 @@
 
 // Read all information about the system from a vsf/vtf structure file.
 SYSTEM VtfReadStruct(char struct_file[], bool detailed);
+SYSTEM VtfReadStruct_new(char struct_file[], bool detailed);
 // Get the first pbc line from a vcf/vtf coordinate file.
 void VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box);
 // Read a single timestep from a vcf/vtf coordinate file

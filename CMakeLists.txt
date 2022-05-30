@@ -23,7 +23,8 @@ set(LIBRARIES Read
               Options
               AnalysisTools
               Errors
-              General)
+              General
+              Structs)
 foreach(library ${LIBRARIES})
   add_library(${library} ${library}.c)
 endforeach(library)

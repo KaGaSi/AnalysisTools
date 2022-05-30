@@ -1,8 +1,3 @@
-/**
- * \file
- * \brief Functions common to all analysis utilities.
- */
-
 #ifndef _ANALYSISTOOLS_H_
 #define _ANALYSISTOOLS_H_
 
@@ -238,8 +233,6 @@ void CopyMolecule(int number_of_molecules, MOLECULETYPE *mt, MOLECULE **m_out,
 SYSTEM CopySystem(SYSTEM Sys_in);
 void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box);
 void PruneSystem(SYSTEM *System);
-
-void InitSystem(SYSTEM *System);
 
 // FreeAggregate() //{{{
 /**

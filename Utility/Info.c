@@ -85,7 +85,8 @@ int main(int argc, char *argv[]) {
   bool detailed = BoolOption(argc, argv, "--detailed");
 
   // read information from vtf file
-  SYSTEM System = VtfReadStruct(input_vsf, detailed);
+//SYSTEM System = VtfReadStruct(input_vsf, detailed);
+  SYSTEM System = VtfReadStruct_new(input_vsf, detailed);
 
   // print information
   VerboseOutput(System);

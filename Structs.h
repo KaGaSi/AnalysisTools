@@ -1,8 +1,3 @@
-/**
- * \file
- * \brief Structures for utilities
- */
-
 #ifndef _STRUCTS_H_
 #define _STRUCTS_H_
 
@@ -81,16 +76,15 @@ static const PARAMS InitParams = {
 }; //}}}
 typedef struct BeadType { //{{{
   char Name[BEAD_NAME+1]; // name of given bead type
-
-  int Number; // number of beads of given type
-
+  int Number, // number of beads of given type
+      *Index; // array of Bead[] indices
   bool Use, // should bead type in .vcf file be used for calculation?
        Write; // should bead type in .vcf file be written to output .vcf?
-
   double Charge, // charge of every bead of given type
          Mass, // mass of every bead of given type
          Radius; // radius of every bead of the given type
-} BEADTYPE; //}}}
+} BEADTYPE;
+void InitBeadType(BEADTYPE *bt); //}}}
 typedef struct Bead { //{{{
   int Type, // type of bead corresponding to index in BeadType struct
       Molecule, // index number of molecule corresponding to Molecule struct (-1 for monomeric bead)
@@ -102,11 +96,13 @@ typedef struct Bead { //{{{
   bool InTimestep, // is the bead in the present timestep?
        Use; // general-purpose flag
   bool Flag; // general-purpose flag
-} BEAD; //}}}
+} BEAD;
+void InitBead(BEAD *b); //}}}
 typedef struct MoleculeType { //{{{
   char Name[MOL_NAME+1]; // name of given molecule type
 
   int Number, // number of molecules of given type
+      *Index, // array of Molecule[] indices
       nBeads, // number of beads in every molecule of given type
       *Bead, // ids of bead types of every molecule bead
       nBonds, // number of bonds in every molecule of given type
@@ -127,13 +123,15 @@ typedef struct MoleculeType { //{{{
   bool InVcf, // is molecule type in vcf file?
        Use, // should molecule type be used for calculation?
        Write; // should molecule type be used for calculation?
-} MOLECULETYPE; //}}}
+} MOLECULETYPE;
+void InitMoleculeType(MOLECULETYPE *mt); //}}}
 typedef struct Molecule { //{{{
   int Type, // type of molecule corresponding to index in MoleculeType struct
       *Bead, // ids of beads in the molecule
       Aggregate, // id of aggregate molecule is in (corresponding to index in Aggregate struct)
       Index; // resid according to .vsf file
-} MOLECULE; //}}}
+} MOLECULE;
+void InitMolecule(MOLECULE *mol); //}}}
 typedef struct System { //{{{
   BOX Box;
   COUNT Count;
@@ -150,7 +148,8 @@ typedef struct System { //{{{
       *Unbonded, // array of Bead[] ids of in-molecule beads
       *UnbondedCoor, // array of Bead[] ids of in-molecule beads in a timestep
       *BeadCoor; // array of internal ids for beads with InTimestep=true
-} SYSTEM; //}}}
+} SYSTEM;
+void InitSystem(SYSTEM *System); //}}}
 
 typedef struct Aggregate { //{{{
   int nMolecules, // number of molecules in aggregate
