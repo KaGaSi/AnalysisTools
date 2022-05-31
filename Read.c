@@ -22,13 +22,8 @@ SYSTEM VtfReadStruct_new(char struct_file[], bool detailed) {
       default_atom = 0, // line number of the first 'atom default' line
       count_bonds = 0; // number of bonds
   bool warned = false; // has 'a[tom] default' line warning already been issued?
-//Sys.BeadType = malloc(sizeof (BEADTYPE));
-  InitBeadType(&Sys.BeadType[0]);
   BEADTYPE bt_def;
   InitBeadType(&bt_def);
-  InitBead(&Sys.Bead[0]);
-  InitMoleculeType(&Sys.MoleculeType[0]);
-  InitMolecule(&Sys.Molecule[0]);
   struct bond {
     int index1, index2; // indices from vsf file
   } *bond = calloc(1, sizeof *bond); //}}}
@@ -164,6 +159,10 @@ discounting the following line");
         IsInteger(split[2], &val);
         bond[count_bonds].index2 = val;
       }
+      // TODO why wanting index1<index2?
+      if (bond[count_bonds].index1 > bond[count_bonds].index2) {
+        SwapInt(&bond[count_bonds].index1, &bond[count_bonds].index2);
+      }
       count_bonds++; //}}}
     } else if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) { // c)
       break;
@@ -227,14 +226,15 @@ contact developper\n");
     ErrorPrintError();
     exit(1);
   } //}}}
-  // 3) fill Molecule[].Bead array (i.e., copy MoleculeType[].Bead array) //{{{
+  // 3) fill Molecule[].BIndexead array (i.e., copy MoleculeType[].Bead array) //{{{
   for (int i = 0; i < Sys.Count.Molecule; i++) {
-    if (Sys.MoleculeType[i].Number != 0) {
-      Sys.Molecule[i].Bead = malloc(sizeof *Sys.Molecule[i].Bead *
-                                    Sys.MoleculeType[i].nBeads);
-      for (int j = 0; j < Sys.MoleculeType[i].nBeads; j++) {
-        Sys.Molecule[i].Bead[j] = Sys.MoleculeType[i].Bead[j];
-      }
+    Sys.Molecule[i].Type = i;
+    Sys.Molecule[i].Index = i;
+    Sys.Molecule[i].Bead = malloc(sizeof *Sys.Molecule[i].Bead *
+                                  Sys.MoleculeType[i].nBeads);
+    // TODO memcpy, anyone?
+    for (int j = 0; j < Sys.MoleculeType[i].nBeads; j++) {
+      Sys.Molecule[i].Bead[j] = Sys.MoleculeType[i].Bead[j];
     }
   } //}}}
   // 4) pre-prune - remove molecule and bead types with .Number = 0 //{{{
@@ -267,13 +267,14 @@ contact developper\n");
       Sys.MoleculeType[i].Bead[j] = bt_old_to_new[id];
     }
   }
-  // 4c) MoleculeType & Molecule[].Type
+  // 4c) MoleculeType & Molecule
   Sys.Count.MoleculeType = 0;
   for (int i = 0; i < Sys.Count.Molecule; i++) {
     if (Sys.MoleculeType[i].Number != 0) {
       int mt_new = Sys.Count.MoleculeType;
       Sys.Count.MoleculeType++;
       if (mt_new != i) {
+        // MoleculeType struct
         Sys.MoleculeType[mt_new] = Sys.MoleculeType[i];
         // Index array (just the one molecule)
         Sys.MoleculeType[mt_new].Index =
@@ -283,23 +284,85 @@ contact developper\n");
         Sys.MoleculeType[mt_new].Bead =
           malloc(sizeof *Sys.MoleculeType[mt_new].Bead *
                  Sys.MoleculeType[mt_new].nBeads);
-        Sys.Molecule[mt_new].Bead = malloc(sizeof *Sys.Molecule[mt_new].Bead *
-                                           Sys.MoleculeType[mt_new].nBeads);
         for (int j = 0; j < Sys.MoleculeType[i].nBeads; j++) {
-          int id = Sys.Molecule[i].Bead[j];
           Sys.MoleculeType[mt_new].Bead[j] = Sys.MoleculeType[i].Bead[j];
-          Sys.Molecule[mt_new].Bead[j] = id;
-          Sys.Bead[id].Molecule = mt_new;
         }
-        Sys.Molecule[mt_new].Index = i;
         // free arrays in MoleculeType & Molecule
         free(Sys.MoleculeType[i].Index);
         free(Sys.MoleculeType[i].Bead);
+
+        // Molecule struct
+        Sys.Molecule[mt_new].Type = mt_new;
+        Sys.Molecule[mt_new].Index = i;
+        Sys.Molecule[mt_new].Bead = malloc(sizeof *Sys.Molecule[mt_new].Bead *
+                                           Sys.MoleculeType[mt_new].nBeads);
+        // TODO memcpy, anyone?
+        for (int j = 0; j < Sys.MoleculeType[mt_new].nBeads; j++) {
+          int id = Sys.Molecule[i].Bead[j];
+          Sys.Molecule[mt_new].Bead[j] = id;
+          Sys.Bead[id].Molecule = mt_new;
+        }
         free(Sys.Molecule[i].Bead);
       }
     }
+  }
+  Sys.Count.Molecule = Sys.Count.MoleculeType; //}}}
+  // 5) fill bonds in molecule types //{{{
+  // fill MoleculeType[].Bond array with bead indices
+  for (int i = 0; i < count_bonds; i++) {
+    int id1 = bond[i].index1,
+        id2 = bond[i].index2,
+        mol = Sys.Bead[id1].Molecule;
+    // warning - bonded beads in different molecules (skip the bond)  //{{{
+    if (mol != Sys.Bead[id2].Molecule ||
+        mol == -1 || Sys.Bead[id2].Molecule == -1) {
+      strcpy(ERROR_MSG, "bonded beads in different molecules (or in none); \
+discarding this bond");
+      PrintWarning();
+      WarnPrintFile(struct_file, "\0");
+      fprintf(stderr, "%s, bead (molecule):", ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id1, ErrCyan(),
+              ErrYellow(), Sys.Bead[id1].Molecule, ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s)\n", ErrYellow(), id2, ErrCyan(),
+              ErrYellow(), Sys.Bead[id2].Molecule, ErrCyan());
+      continue;
+    } //}}}
+    int bond = Sys.MoleculeType[mol].nBonds;
+    Sys.MoleculeType[mol].nBonds++;
+    if (bond == 0) {
+      Sys.MoleculeType[mol].Bond = malloc(sizeof *Sys.MoleculeType[mol].Bond);
+    } else {
+      Sys.MoleculeType[mol].Bond =
+        realloc(Sys.MoleculeType[mol].Bond,
+                sizeof *Sys.MoleculeType[mol].Bond *
+                Sys.MoleculeType[mol].nBonds);
+    }
+    Sys.MoleculeType[mol].Bond[bond][0] = id1;
+    Sys.MoleculeType[mol].Bond[bond][1] = id2;
+    Sys.MoleculeType[mol].Bond[bond][2] = -1;
+  }
+  // make the MoleculeType[].Bond bead indices go from 0 to nBeads
+  for (int i = 0; i < Sys.Count.MoleculeType; i++) {
+    int lowest = 1e7;
+    for (int j = 0; j < Sys.MoleculeType[i].nBonds; j++) {
+      if (Sys.MoleculeType[i].Bond[j][0] < lowest) {
+        lowest = Sys.MoleculeType[i].Bond[j][0];
+      }
+    }
+    for (int j = 0; j < Sys.MoleculeType[i].nBonds; j++) {
+      Sys.MoleculeType[i].Bond[j][0] -= lowest;
+      Sys.MoleculeType[i].Bond[j][1] -= lowest;
+      // warning - too high an intramolecular bead index; shouldn't happen //{{{
+      if (Sys.MoleculeType[i].Bond[j][0] > Sys.MoleculeType[i].nBeads ||
+          Sys.MoleculeType[i].Bond[j][0] > Sys.MoleculeType[i].nBeads) {
+        strcpy(ERROR_MSG, "something went wrong in bead indices in bond; \
+should never happen!");
+        PrintWarning();
+      } //}}}
+    }
   } //}}}
-  // 5) TODO: fill Bond (from that saved bond struct) & BType arrays
+  FillMolBTypes(Sys.Count.MoleculeType, &Sys.MoleculeType);
+  FillMolMassCharge(Sys.Count.MoleculeType, &Sys.MoleculeType, Sys.BeadType);
 //for (int i = 0; i < Sys.Count.BeadType; i++) {
 //  printf("%s (%d), %d:", Sys.BeadType[i].Name, i, Sys.BeadType[i].Number);
 //  for (int j = 0; j < Sys.BeadType[i].Number; j++) {
@@ -308,20 +371,20 @@ contact developper\n");
 //  putchar('\n');
 //  fflush(stdout);
 //}
-  for (int i = 0; i < Sys.Count.MoleculeType; i++) {
-    printf("%d: %s (Index=%d); Number=%d:", i, Sys.MoleculeType[i].Name,
-           Sys.Molecule[i].Index, Sys.MoleculeType[i].Number);
-    for (int j = 0; j < Sys.MoleculeType[i].Number; j++) {
-      printf(" %d", Sys.MoleculeType[i].Index[j]);
-    }
-    putchar('\n');
-    printf(" %d:", Sys.MoleculeType[i].nBeads);
-    for (int j = 0; j < Sys.MoleculeType[i].nBeads; j++) {
-      printf(" %d (%d)", Sys.Molecule[i].Bead[j], j);
-    }
-    putchar('\n');
-    fflush(stdout);
-  }
+//for (int i = 0; i < Sys.Count.MoleculeType; i++) {
+//  printf("%d: %s (Index=%d); Number=%d:", i, Sys.MoleculeType[i].Name,
+//         Sys.Molecule[i].Index, Sys.MoleculeType[i].Number);
+//  for (int j = 0; j < Sys.MoleculeType[i].Number; j++) {
+//    printf(" %d", Sys.MoleculeType[i].Index[j]);
+//  }
+//  putchar('\n');
+//  printf(" %d:", Sys.MoleculeType[i].nBeads);
+//  for (int j = 0; j < Sys.MoleculeType[i].nBeads; j++) {
+//    printf(" %d (%d)", Sys.Molecule[i].Bead[j], j);
+//  }
+//  putchar('\n');
+//  fflush(stdout);
+//}
 //PrintBead(Sys);
 //PrintBeadType(Sys);
 fflush(stdout);

@@ -33,14 +33,15 @@ void InitMolecule(MOLECULE *mol) {
 //(*mol).Bead = malloc(sizeof *(*mol).Bead); // TODO only if its bt.Number > 0?
 //(*mol).Bead[0] = -1;
 }
-// TODO add stuff
+// TODO add stuff?
+// TODO InitStuff() - possibly initializing twice (second in Read.c)
+// TODO wha allocate it all? ...not in InitMolecule(), etc. Should it be?
 void InitSystem(SYSTEM *System) {
   (*System).Box = InitBox;
   (*System).Count = InitCount;
   (*System).BeadType = calloc(1, sizeof *(*System).BeadType);
   (*System).Bead = calloc(1, sizeof *(*System).Bead);
   (*System).MoleculeType = calloc(1, sizeof *(*System).MoleculeType);
-//InitMoleculeType(&(*System).MoleculeType[0]);
   (*System).Molecule = calloc(1, sizeof *(*System).Molecule);
   (*System).BondType = calloc(1, sizeof *(*System).BondType);
   (*System).AngleType = calloc(1, sizeof *(*System).AngleType);
@@ -51,4 +52,8 @@ void InitSystem(SYSTEM *System) {
   (*System).Unbonded = calloc(1, sizeof *(*System).Unbonded);
   (*System).UnbondedCoor = calloc(1, sizeof *(*System).UnbondedCoor);
   (*System).BeadCoor = calloc(1, sizeof *(*System).BeadCoor);
+//InitBeadType(&(*System).BeadType[0]);
+//InitBead(&(*System).Bead[0]);
+//InitMoleculeType(&(*System).MoleculeType[0]);
+//InitMolecule(&(*System).Molecule[0]);
 } //}}}
