@@ -98,6 +98,12 @@ int main(int argc, char *argv[]) {
   }
 
   // free memory - to make valgrind happy
+  for (int i = 0; i < System.Count.MoleculeType; i++) {
+    free(System.MoleculeType[i].Index);
+  }
+  for (int i = 0; i < System.Count.BeadType; i++) {
+    free(System.BeadType[i].Index);
+  }
   FreeSystem(&System);
 
   return 0;

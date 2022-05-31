@@ -215,8 +215,13 @@ inside the structure block ");
     }
     if (Sys.Bead[i].Molecule == -1) { // unbonded bead?
       Sys.Count.Unbonded++;
+      Sys.Unbonded = realloc(Sys.Unbonded,
+                             sizeof *Sys.Unbonded * Sys.Count.Unbonded);
+      Sys.Unbonded[Sys.Count.Unbonded-1] = i;
     } else {
       Sys.Count.Bonded++; // bonded bead?
+      Sys.Bonded = realloc(Sys.Bonded, sizeof *Sys.Bonded * Sys.Count.Bonded);
+      Sys.Bonded[Sys.Count.Bonded-1] = i;
     }
   }
   // just check that it counts the beads correctly
@@ -228,16 +233,18 @@ contact developper\n");
   } //}}}
   // 3) fill Molecule[].BIndexead array (i.e., copy MoleculeType[].Bead array) //{{{
   for (int i = 0; i < Sys.Count.Molecule; i++) {
-    Sys.Molecule[i].Type = i;
-    Sys.Molecule[i].Index = i;
-    Sys.Molecule[i].Bead = malloc(sizeof *Sys.Molecule[i].Bead *
-                                  Sys.MoleculeType[i].nBeads);
-    // TODO memcpy, anyone?
-    for (int j = 0; j < Sys.MoleculeType[i].nBeads; j++) {
-      Sys.Molecule[i].Bead[j] = Sys.MoleculeType[i].Bead[j];
+    if (Sys.MoleculeType[i].Number > 0) {
+      Sys.Molecule[i].Type = i;
+      Sys.Molecule[i].Index = i;
+      Sys.Molecule[i].Bead = malloc(sizeof *Sys.Molecule[i].Bead *
+                                    Sys.MoleculeType[i].nBeads);
+      // TODO memcpy, anyone?
+      for (int j = 0; j < Sys.MoleculeType[i].nBeads; j++) {
+        Sys.Molecule[i].Bead[j] = Sys.MoleculeType[i].Bead[j];
+      }
     }
   } //}}}
-  // 4) pre-prune - remove molecule and bead types with .Number = 0 //{{{
+  // 4) pre-simplification - remove molecule and bead types with .Number = 0 //{{{
   // 4a) BeadType & Bead[].Type
   int *bt_old_to_new = malloc(sizeof *bt_old_to_new * Sys.Count.Bead);
   for (int i = 0; i < Sys.Count.Bead; i++) {
@@ -267,6 +274,7 @@ contact developper\n");
       Sys.MoleculeType[i].Bead[j] = bt_old_to_new[id];
     }
   }
+  free(bt_old_to_new);
   // 4c) MoleculeType & Molecule
   Sys.Count.MoleculeType = 0;
   for (int i = 0; i < Sys.Count.Molecule; i++) {
@@ -360,9 +368,11 @@ should never happen!");
         PrintWarning();
       } //}}}
     }
-  } //}}}
+  }
+  free(bond); //}}}
   FillMolBTypes(Sys.Count.MoleculeType, &Sys.MoleculeType);
   FillMolMassCharge(Sys.Count.MoleculeType, &Sys.MoleculeType, Sys.BeadType);
+  // some test prints //{{{
 //for (int i = 0; i < Sys.Count.BeadType; i++) {
 //  printf("%s (%d), %d:", Sys.BeadType[i].Name, i, Sys.BeadType[i].Number);
 //  for (int j = 0; j < Sys.BeadType[i].Number; j++) {
@@ -388,8 +398,8 @@ should never happen!");
 //PrintBead(Sys);
 //PrintBeadType(Sys);
 fflush(stdout);
-//exit(1);
-  // 7) copy everything back to their 'proper' arrays and structures //{{{
+//exit(1); //}}}
+  // 7) fill the remainder of the Sys struct //{{{
   Sys.Index_mol = realloc(Sys.Index_mol, sizeof *Sys.Index_mol *
                           (Sys.Count.HighestResid+1));
   for (int i = 0; i <= Sys.Count.HighestResid; i++) {
@@ -397,24 +407,206 @@ fflush(stdout);
   }
   for (int i = 0; i < Sys.Count.Molecule; i++) {
     Sys.Index_mol[Sys.Molecule[i].Index] = i;
-  } //}}}
-  // free memory //{{{
-  free(bond);
-  //}}}
-  // assume empty/none-existent coordinate file
-  Sys.Count.BeadCoor = 0;
+  }
   Sys.BeadCoor = realloc(Sys.BeadCoor,
                           sizeof *Sys.BeadCoor * Sys.Count.Bead);
-  Sys.Count.BondedCoor = 0;
   if (Sys.Count.Bonded > 0) {
     Sys.BondedCoor = realloc(Sys.BondedCoor,
                              sizeof *Sys.BondedCoor * Sys.Count.Bonded);
   }
-  Sys.Count.UnbondedCoor = 0;
   if (Sys.Count.Unbonded > 0) {
     Sys.UnbondedCoor = realloc(Sys.UnbondedCoor,
                                sizeof *Sys.UnbondedCoor * Sys.Count.Unbonded);
+  } //}}}
+
+  // TODO don't allocate them (somewhere up) in the first place
+  for (int i = 0; i < Sys.Count.BeadType; i++) {
+    free(Sys.BeadType[i].Index);
   }
+
+  // Merging //{{{
+  // TODO: in 1), find unique names and it like in the original version
+  // 1) //{{{
+  // arrays values of charge, mass, and radius for each bead type //{{{
+  double diff_q[Sys.Count.BeadType],
+         diff_m[Sys.Count.BeadType],
+         diff_r[Sys.Count.BeadType]; //}}}
+  // initialize arrays: assign values from the last type with each name //{{{
+  for (int i = 0; i < Sys.Count.BeadType; i++) {
+    for (int j = 0; j < Sys.Count.BeadType; j++) {
+      if (strcmp(Sys.BeadType[i].Name, Sys.BeadType[j].Name) == 0) {
+        diff_q[i] = Sys.BeadType[j].Charge;
+        diff_m[i] = Sys.BeadType[j].Mass;
+        diff_r[i] = Sys.BeadType[j].Radius;
+        break;
+      }
+    }
+  } //}}}
+  // find the proper values for charge/mass/radius for each type //{{{
+  /*
+   * diff_q/m/r = high ... more than one value for beads with that name
+   * diff_q/m/r = <value> ... exactly that one value;
+   *                          if both proper and undefined values exist
+   *                          (i.e., when there's really one value, but it's
+   *                          not written in each atom line), the proper
+   *                          value is assigned
+   */
+  // high, impossible number to indicate multiple values of charge/mass/radius
+  int high = 1000000;
+  // go through all bead type pairs (including self-pairs)
+  for (int i = 0; i < Sys.Count.BeadType; i++) {
+    for (int j = 0; j < Sys.Count.BeadType; j++) {
+      // only consider type pairs with the same name
+      if (strcmp(Sys.BeadType[i].Name, Sys.BeadType[j].Name) == 0) {
+        // charge
+        if (diff_q[i] != Sys.BeadType[j].Charge) {
+          if (diff_q[i] != CHARGE && Sys.BeadType[j].Charge != CHARGE) {
+            diff_q[i] = high;
+          } else if (diff_q[i] == CHARGE) {
+            diff_q[i] = Sys.BeadType[j].Charge;
+          }
+        }
+        // mass
+        if (diff_m[i] != Sys.BeadType[j].Mass) {
+          if (diff_m[i] != MASS && Sys.BeadType[j].Mass != MASS) {
+            diff_m[i] = high;
+          } else if (diff_m[i] == MASS) {
+            diff_m[i] = Sys.BeadType[j].Mass;
+          }
+        }
+        // radius
+        if (diff_r[i] != Sys.BeadType[j].Radius) {
+          if (diff_r[i] != RADIUS && Sys.BeadType[j].Radius != RADIUS) {
+            diff_r[i] = high;
+          } else if (diff_r[i] == RADIUS) {
+            diff_r[i] = Sys.BeadType[j].Radius;
+          }
+        }
+      }
+    }
+  } //}}}
+  //}}}
+  // 2) //{{{
+  // initialize merge array by assuming nothing will be merged //{{{
+  bool merge[Sys.Count.BeadType][Sys.Count.BeadType];
+  for (int i = 0; i < Sys.Count.BeadType; i++) {
+    for (int j = 0; j < Sys.Count.BeadType; j++) {
+      merge[i][j] = false; // 'i' and 'j' aren't to be merged
+      merge[i][i] = true; // 'i' and 'i' is to be merged/copied
+    }
+  } //}}}
+  // assume same-name bead types are to be merged //{{{
+  for (int i = 0; i < (Sys.Count.BeadType-1); i++) {
+    for (int j = (i+1); j < Sys.Count.BeadType; j++) {
+      if (strcmp(Sys.BeadType[i].Name, Sys.BeadType[j].Name) == 0) {
+        merge[i][j] = true;
+      }
+    }
+  } //}}}
+  // go through each bead type and compare it to two others //{{{
+  for (int i = 0; i < (Sys.Count.BeadType-1); i++) {
+    // i)
+    int k = 0;
+    for (; k < Sys.Count.BeadType; k++) {
+      if (strcmp(Sys.BeadType[k].Name, Sys.BeadType[i].Name) == 0) {
+        break;
+      }
+    }
+    // ii)
+    for (int j = (i+1); j < Sys.Count.BeadType; j++) {
+      // check charge
+      if (merge[i][j]) {
+        if (diff_q[k] == high) {
+          if (Sys.BeadType[i].Charge == Sys.BeadType[j].Charge) {
+            merge[i][j] = true;
+          } else {
+            merge[i][j] = false;
+          }
+        } else {
+          merge[i][j] = true;
+        }
+      }
+      // check mass
+      if (merge[i][j]) {
+        if (diff_m[k] == high) {
+          if (Sys.BeadType[i].Mass == Sys.BeadType[j].Mass) {
+            merge[i][j] = true;
+          } else {
+            merge[i][j] = false;
+          }
+        } else {
+          merge[i][j] = true;
+        }
+      }
+      // check radius
+      if (merge[i][j]) {
+        if (diff_r[k] == high) {
+          if (Sys.BeadType[i].Radius == Sys.BeadType[j].Radius) {
+            merge[i][j] = true;
+          } else {
+            merge[i][j] = false;
+          }
+        } else {
+          merge[i][j] = true;
+        }
+      }
+    }
+  } //}}}
+  //}}}
+  // 3) //{{{
+  BEADTYPE *temp = calloc(Sys.Count.BeadType, sizeof (BEADTYPE));
+  int old_bt_count = Sys.Count.BeadType,
+      count = 0;
+  bt_old_to_new = calloc(old_bt_count, sizeof *bt_old_to_new);
+  for (int i = 0; i < Sys.Count.BeadType; i++) {
+    if (merge[i][i]) { // i)
+      temp[count] = Sys.BeadType[i];
+      bt_old_to_new[i] = count;
+      for (int j = (i+1); j < Sys.Count.BeadType; j++) {
+        if (merge[i][j]) { // ii)
+          temp[count].Number += Sys.BeadType[j].Number;
+          if (temp[count].Charge == CHARGE) {
+            temp[count].Charge = Sys.BeadType[j].Charge;
+          }
+          if (temp[count].Mass == MASS) {
+            temp[count].Mass = Sys.BeadType[j].Mass;
+          }
+          if (temp[count].Radius == RADIUS) {
+            temp[count].Radius = Sys.BeadType[j].Radius;
+          }
+          merge[j][j] = false;
+        }
+      }
+      count++;
+    }
+  }
+  Sys.Count.BeadType = count; //}}}
+  free(temp);
+  //}}}
+  printf("XXX\n");
+  PrintCount(Sys.Count);
+  PrintBeadType(Sys);
+
+  // correct Bead[].Type
+  for (int i = 0; i < Sys.Count.Bead; i++) {
+    int old_type = Sys.Bead[i].Type;
+    Sys.Bead[i].Type = bt_old_to_new[old_type];
+  }
+  free(bt_old_to_new);
+
+  // fill BeadType[].Index arrays
+  for (int i = 0; i < Sys.Count.BeadType; i++) {
+    Sys.BeadType[i].Index = malloc(sizeof *Sys.BeadType[i].Index *
+                                   Sys.BeadType[i].Number);
+  }
+  int *count_id = calloc(Sys.Count.BeadType, sizeof *count_id);
+  for (int i = 0; i < Sys.Count.Bead; i++) {
+    int type = Sys.Bead[i].Type;
+    Sys.BeadType[type].Index[count_id[type]] = i;
+    count_id[type]++;
+  }
+  free(count_id);
+
   WarnChargedSystem(Sys, struct_file, "\0");
   return Sys;
 } //}}}

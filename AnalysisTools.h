@@ -230,6 +230,9 @@ void CopyMoleculeType(int number_of_types, MOLECULETYPE **mt_out,
 void CopyMolecule(int number_of_molecules, MOLECULETYPE *mt, MOLECULE **m_out,
                   MOLECULE *m_in, int mode); //}}}
 
+SYSTEM CopySystem_new(SYSTEM Sys_in);
+void PruneSystem_new(SYSTEM *System);
+
 SYSTEM CopySystem(SYSTEM Sys_in);
 void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box);
 void PruneSystem(SYSTEM *System);
