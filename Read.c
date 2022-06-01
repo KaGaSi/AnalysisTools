@@ -102,8 +102,6 @@ discounting the following line");
           Sys.BeadType[id].Radius = atof(split[values[3]]);
         }
         Sys.BeadType[id].Number = 1;
-        Sys.BeadType[id].Index = malloc(sizeof *Sys.BeadType[id].Index);
-        Sys.BeadType[id].Index[0] = id;
         Sys.Bead[id].Type = id;
         // is the bead in a molecule?
         if (values[5] > -1 ) {
@@ -123,14 +121,10 @@ discounting the following line");
           if (Sys.MoleculeType[resid].Number == 0) { // new molecule type
             strncpy(Sys.MoleculeType[resid].Name, split[values[4]], MOL_NAME);
             Sys.MoleculeType[resid].Number = 1;
-            Sys.MoleculeType[resid].Index =
-              malloc(sizeof *Sys.MoleculeType[resid].Index);
-            Sys.MoleculeType[resid].Index[0] = resid;
             Sys.MoleculeType[resid].nBeads = 1;
             Sys.MoleculeType[resid].Bead =
               malloc(sizeof *Sys.MoleculeType[resid].Bead);
             Sys.MoleculeType[resid].Bead[0] = id; // bead type = bead index
-            Sys.Molecule[resid].Index = resid;
           } else { // not new moleclue type
             int bead = Sys.MoleculeType[resid].nBeads;
             Sys.MoleculeType[resid].nBeads++;
@@ -198,9 +192,6 @@ inside the structure block ");
      def = i;
      Sys.BeadType[def] = bt_def;
      Sys.BeadType[def].Number = Sys.Count.Bead - count_atoms;
-     Sys.BeadType[def].Index = malloc(sizeof *Sys.BeadType[def].Index *
-                                      Sys.BeadType[def].Number);
-     Sys.BeadType[def].Index[0] = i;
      Sys.Bead[def].Type = def;
      count_def = 1;
      break;
@@ -209,7 +200,6 @@ inside the structure block ");
   // add the default beads to their proper type
   for (int i = 0; i < Sys.Count.Bead; i++) {
     if (Sys.BeadType[i].Number == 0) { // default bead?
-      Sys.BeadType[def].Index[count_def] = i;
       Sys.Bead[i].Type = def;
       count_def++;
     }
@@ -256,14 +246,6 @@ contact developper\n");
         Sys.BeadType[bt_new] = Sys.BeadType[i];
         Sys.Bead[i].Type = bt_new;
         bt_old_to_new[i] = bt_new;
-        // TODO memcpy, anyone?
-        // TODO cannot it be, by any chance, allocated? Nah (I think)
-        Sys.BeadType[bt_new].Index = malloc(sizeof *Sys.BeadType[bt_new].Index *
-                                            Sys.BeadType[bt_new].Number);
-        for (int j = 0; j < Sys.BeadType[bt_new].Number; j++) {
-          Sys.BeadType[bt_new].Index[j] = Sys.BeadType[i].Index[j];
-        }
-        free(Sys.BeadType[i].Index);
       }
     }
   }
@@ -284,10 +266,6 @@ contact developper\n");
       if (mt_new != i) {
         // MoleculeType struct
         Sys.MoleculeType[mt_new] = Sys.MoleculeType[i];
-        // Index array (just the one molecule)
-        Sys.MoleculeType[mt_new].Index =
-          malloc(sizeof *Sys.MoleculeType[mt_new].Index);
-        Sys.MoleculeType[mt_new].Index[0] = mt_new;
         // Bead array (for MoleculeType & Molecule)
         Sys.MoleculeType[mt_new].Bead =
           malloc(sizeof *Sys.MoleculeType[mt_new].Bead *
@@ -296,7 +274,6 @@ contact developper\n");
           Sys.MoleculeType[mt_new].Bead[j] = Sys.MoleculeType[i].Bead[j];
         }
         // free arrays in MoleculeType & Molecule
-        free(Sys.MoleculeType[i].Index);
         free(Sys.MoleculeType[i].Bead);
 
         // Molecule struct
@@ -304,7 +281,6 @@ contact developper\n");
         Sys.Molecule[mt_new].Index = i;
         Sys.Molecule[mt_new].Bead = malloc(sizeof *Sys.Molecule[mt_new].Bead *
                                            Sys.MoleculeType[mt_new].nBeads);
-        // TODO memcpy, anyone?
         for (int j = 0; j < Sys.MoleculeType[mt_new].nBeads; j++) {
           int id = Sys.Molecule[i].Bead[j];
           Sys.Molecule[mt_new].Bead[j] = id;
@@ -399,42 +375,108 @@ should never happen!");
 //PrintBeadType(Sys);
 fflush(stdout);
 //exit(1); //}}}
-  // 7) fill the remainder of the Sys struct //{{{
-  Sys.Index_mol = realloc(Sys.Index_mol, sizeof *Sys.Index_mol *
-                          (Sys.Count.HighestResid+1));
-  for (int i = 0; i <= Sys.Count.HighestResid; i++) {
-    Sys.Index_mol[i] = -1;
-  }
-  for (int i = 0; i < Sys.Count.Molecule; i++) {
-    Sys.Index_mol[Sys.Molecule[i].Index] = i;
-  }
-  Sys.BeadCoor = realloc(Sys.BeadCoor,
-                          sizeof *Sys.BeadCoor * Sys.Count.Bead);
-  if (Sys.Count.Bonded > 0) {
-    Sys.BondedCoor = realloc(Sys.BondedCoor,
-                             sizeof *Sys.BondedCoor * Sys.Count.Bonded);
-  }
-  if (Sys.Count.Unbonded > 0) {
-    Sys.UnbondedCoor = realloc(Sys.UnbondedCoor,
-                               sizeof *Sys.UnbondedCoor * Sys.Count.Unbonded);
+
+  // Merging bead types //{{{
+    /*
+     * First, identify bead types based on name, charge, masse, and radius,
+     * e.g., lines
+     *   atom 0 n x q 1 m 1
+     *   atom 1 n x q 2 m 1
+     * will be of two different types. This can create an excess of bead types,
+     * so some may have to be merged.
+     *
+     * What is to be merged:
+     * i) If a keyword is missing in one line but present in another, that does
+     * not count as a different type, e.g., lines
+     *       atom 0 n x q 1 m 1
+     *       atom 1 n x     m 1
+     *    are of the same type (both with charge +1);
+     * ii) however, there can be ambiguities, so e.g., lines
+     *        atom 0 n x q 1 m 1
+     *        atom 1 n x     m 1
+     *        atom 2 n x q 0 m 1
+     *     remain three distinct types (atom 1 has undefined charge);
+     * iii) but only some lines may be ambiguous, e.g., lines
+     *        atom 0 n x q 1 m 1
+     *        atom 1 n x     m 1
+     *        atom 2 n x q 0 m 1
+     *        atom 3 n x q 0
+     *      are still three different types (the last two should be considered
+     *      the same because there is no ambiguity because all beads have the
+     *      same mass)
+     * iv) note that sometimes the charge/mass/radius can remain undefined
+     *     even though there's only one well defined value; e.g., lines
+     *       atom 0 n x q 1 m 1
+     *       atom 1 n x     m 1
+     *       atom 2 n x q 0 m 1
+     *       atom 3 n x q 0
+     *       atom 4 n x q 0 m 1 r 1
+     *     will make radius well defined (with value 1) only for beads sharing
+     *     the type with atom 4 (i.e., atoms 2, 3, and 4), while the first two
+     *     atoms will still have undefined radius. What should the radius of
+     *     atoms 0 and 1 be when the mass/charge are different to that of the
+     *     last atom?
+     *     TODO is that right? shouldn't all those beads below have r=1?
+     *     Similarly in a simpler case: e.g., lines
+     *       atom 0 n x q 1 m 1
+     *       atom 1 n x     m 1 r 1
+     *       atom 2 n x     m 1
+     *     will make radius well defined for (with value 1) only for beads 1
+     *     and 2 as the charge is different for bead 0.
+     *
+     * Merging procedure:
+     * 1) find all unique bead names
+     * 2) for each unique name, find values of charge/mass/radius, noting
+     *    ambiguities (i.e., when more than one well defined value exists)
+     * 3) create 2D boolean array of size <unique names>*<unique names> to
+     *    see what should be merged based on points 1) and 2):
+     *    i) pick two bead types sharing a name (or the same bead type twice
+     *       if it does not share a name with any other), say 'i' and 'k'.
+     *    ii) check every bead type (say 'j') against i and k; if i and
+     *        j should be merged (i.e., share a name), check k's value of
+     *        diff_q/m/r - if it is a proper value, merge i and j; if not,
+     *        merge i and j only if they have the same diff_q/m/r value.
+     * 4) merge the types and count the number of unique types
+     *    i) create a new type when a diagonal element of the array is true
+     *    ii) check the remaining types against and merge those that should
+     *        be merge with that new type, making the diagonal element for
+     *        that merged type false so that no new type is created when
+     *        its time comes in i)
+     */
+  // 1) find unique bead names //{{{
+  int count_bnames = 0;
+  char (*bname)[BEAD_NAME+1] = malloc(sizeof *bname);
+  for (int i = 0; i < Sys.Count.BeadType; i++) {
+    bool new = true;
+    for (int j = 0; j < count_bnames; j++) {
+      if (strcmp(Sys.BeadType[i].Name, bname[j]) == 0) {
+        new = false;
+        break;
+      }
+    }
+    if (new) {
+      int n = count_bnames;
+      count_bnames++;
+      bname = realloc(bname, sizeof *bname * count_bnames);
+      strcpy(bname[n], Sys.BeadType[i].Name);
+    }
   } //}}}
-
-  // TODO don't allocate them (somewhere up) in the first place
-  for (int i = 0; i < Sys.Count.BeadType; i++) {
-    free(Sys.BeadType[i].Index);
-  }
-
-  // Merging //{{{
-  // TODO: in 1), find unique names and it like in the original version
-  // 1) //{{{
+/* test print the unique names //{{{
+printf("test print the unique names:\n");
+for (int i = 0; i < count_bnames; i++) {
+  printf("%d %s\t", i, bname[i]);
+}
+putchar('\n');
+// */ //}}}
+  // 2) //{{{
   // arrays values of charge, mass, and radius for each bead type //{{{
-  double diff_q[Sys.Count.BeadType],
-         diff_m[Sys.Count.BeadType],
-         diff_r[Sys.Count.BeadType]; //}}}
+  double diff_q[count_bnames],
+         diff_m[count_bnames],
+         diff_r[count_bnames]; //}}}
   // initialize arrays: assign values from the last type with each name //{{{
-  for (int i = 0; i < Sys.Count.BeadType; i++) {
+  for (int i = 0; i < count_bnames; i++) {
     for (int j = 0; j < Sys.Count.BeadType; j++) {
-      if (strcmp(Sys.BeadType[i].Name, Sys.BeadType[j].Name) == 0) {
+      if (strcmp(bname[i], Sys.BeadType[j].Name) == 0) {
         diff_q[i] = Sys.BeadType[j].Charge;
         diff_m[i] = Sys.BeadType[j].Mass;
         diff_r[i] = Sys.BeadType[j].Radius;
@@ -454,10 +496,10 @@ fflush(stdout);
   // high, impossible number to indicate multiple values of charge/mass/radius
   int high = 1000000;
   // go through all bead type pairs (including self-pairs)
-  for (int i = 0; i < Sys.Count.BeadType; i++) {
+  for (int i = 0; i < count_bnames; i++) {
     for (int j = 0; j < Sys.Count.BeadType; j++) {
       // only consider type pairs with the same name
-      if (strcmp(Sys.BeadType[i].Name, Sys.BeadType[j].Name) == 0) {
+      if (strcmp(bname[i], Sys.BeadType[j].Name) == 0) {
         // charge
         if (diff_q[i] != Sys.BeadType[j].Charge) {
           if (diff_q[i] != CHARGE && Sys.BeadType[j].Charge != CHARGE) {
@@ -486,7 +528,14 @@ fflush(stdout);
     }
   } //}}}
   //}}}
-  // 2) //{{{
+///* test print diff_q/m/r //{{{
+printf("test print diff_q/m/r:\n");
+for (int i = 0; i < count_bnames; i++) {
+  printf("%s:\tq=%lf;\tm=%lf;\tr=%lf\n", bname[i],
+         diff_q[i], diff_m[i], diff_r[i]);
+}
+// */ //}}}
+  // 3) //{{{
   // initialize merge array by assuming nothing will be merged //{{{
   bool merge[Sys.Count.BeadType][Sys.Count.BeadType];
   for (int i = 0; i < Sys.Count.BeadType; i++) {
@@ -507,8 +556,8 @@ fflush(stdout);
   for (int i = 0; i < (Sys.Count.BeadType-1); i++) {
     // i)
     int k = 0;
-    for (; k < Sys.Count.BeadType; k++) {
-      if (strcmp(Sys.BeadType[k].Name, Sys.BeadType[i].Name) == 0) {
+    for (; k < Sys.Count.BeadType; k++) { // TODO: should be count_bnames, no?
+      if (strcmp(bname[k], Sys.BeadType[i].Name) == 0) {
         break;
       }
     }
@@ -552,8 +601,24 @@ fflush(stdout);
       }
     }
   } //}}}
+  free(bname);
   //}}}
-  // 3) //{{{
+/* test print merge matrix //{{{
+printf("test print merge matrix:\n");
+printf("   ");
+for (int i = 0; i < Sys.Count.BeadType; i++) {
+  printf("%s ", Sys.BeadType[i].Name);
+}
+putchar('\n');
+for (int i = 0; i < Sys.Count.BeadType; i++) {
+  printf("%s ", Sys.BeadType[i].Name);
+  for (int j = 0; j < Sys.Count.BeadType; j++) {
+    printf(" %d", merge[i][j]);
+  }
+  putchar('\n');
+}
+// */ //}}}
+  // 4) //{{{
   BEADTYPE *temp = calloc(Sys.Count.BeadType, sizeof (BEADTYPE));
   int old_bt_count = Sys.Count.BeadType,
       count = 0;
@@ -565,6 +630,7 @@ fflush(stdout);
       for (int j = (i+1); j < Sys.Count.BeadType; j++) {
         if (merge[i][j]) { // ii)
           temp[count].Number += Sys.BeadType[j].Number;
+          bt_old_to_new[j] = count;
           if (temp[count].Charge == CHARGE) {
             temp[count].Charge = Sys.BeadType[j].Charge;
           }
@@ -581,20 +647,95 @@ fflush(stdout);
     }
   }
   Sys.Count.BeadType = count; //}}}
+  // 5) //{{{
+  // copy all bead types temporarily to bt struct
+  //TODO do this correctly; specifically, the bt_old_to_new shenanigans must be
+  //     changed correctly!
+//for (int i = 0; i < Sys.Count.BeadType; i++) {
+//  Sys.BeadType[i] = temp[i];
+//  Sys.BeadType[i].Use = false; // will indicate that it wasn't copied yet
+//}
+//// copy the bead types back to temp array in a proper order
+//count = 0;
+//for (int i = 0; i < Sys.Count.BeadType; i++) {
+//  if (!Sys.BeadType[i].Use) {
+//    temp[count] = Sys.BeadType[i];
+//    for (int k = 0; k < old_bt_count; k++) {
+//      if (bt_old_to_new[k] == i)
+//        bt_old_to_new[k] = count;
+//    }
+//    count++;
+//    Sys.BeadType[i].Use = true;
+//    for (int j = (i+1); j < Sys.Count.BeadType; j++) {
+//      if (strcmp(Sys.BeadType[i].Name, Sys.BeadType[j].Name) == 0 &&
+//          !Sys.BeadType[j].Use) {
+//        temp[count] = Sys.BeadType[j];
+//        Sys.BeadType[j].Use = true;
+//        count++;
+//      }
+//    }
+//  }
+//}
+  // finally, copy the types from the temporary array back to bt array
+  for (int i = 0; i < Sys.Count.BeadType; i++) {
+    Sys.BeadType[i] = temp[i];
+  }
   free(temp);
   //}}}
-  printf("XXX\n");
-  PrintCount(Sys.Count);
-  PrintBeadType(Sys);
-
-  // correct Bead[].Type
+  // 6) correct bead types in arrays //{{{
+  // Bead[].Type
   for (int i = 0; i < Sys.Count.Bead; i++) {
     int old_type = Sys.Bead[i].Type;
     Sys.Bead[i].Type = bt_old_to_new[old_type];
   }
-  free(bt_old_to_new);
+  // MoleculeType[].Bead[]
+  for (int i = 0; i < Sys.Count.MoleculeType; i++) {
+    for (int j = 0; j < Sys.MoleculeType[i].nBeads; j++) {
+      int old_type = Sys.MoleculeType[i].Bead[j];
+      Sys.MoleculeType[i].Bead[j] = bt_old_to_new[old_type];
+    }
+  }
+  free(bt_old_to_new); //}}}
+  // warning - test count bead types; should never happen //{{{
+  int *count_test = calloc(Sys.Count.BeadType, sizeof *count_test);
+  for (int i = 0; i < Sys.Count.Bead; i++) {
+    int type = Sys.Bead[i].Type;
+    count_test[type]++;
+  }
+  for (int i = 0; i < Sys.Count.BeadType; i++) {
+    if (count_test[i] != Sys.BeadType[i].Number) {
+      strcpy(ERROR_MSG, "something went wrong with bead type differentiation; \
+this should never happen!");
+      PrintWarning();
+      fprintf(stderr, "%sBead count for %s%s%s type: %s%d%s and %s%d%s\n",
+              ErrCyan(), ErrYellow(), Sys.BeadType[i].Name, ErrCyan(),
+              ErrYellow(), Sys.BeadType[i].Number, ErrCyan(),
+              ErrYellow(), count_test[i], ErrColourReset());
+    }
+  }
+  free(count_test); //}}}
+ //}}}
 
-  // fill BeadType[].Index arrays
+  // 7) fill the remainder of the Sys struct //{{{
+  Sys.Index_mol = realloc(Sys.Index_mol, sizeof *Sys.Index_mol *
+                          (Sys.Count.HighestResid+1));
+  for (int i = 0; i <= Sys.Count.HighestResid; i++) {
+    Sys.Index_mol[i] = -1;
+  }
+  for (int i = 0; i < Sys.Count.Molecule; i++) {
+    Sys.Index_mol[Sys.Molecule[i].Index] = i;
+  }
+  Sys.BeadCoor = realloc(Sys.BeadCoor,
+                          sizeof *Sys.BeadCoor * Sys.Count.Bead);
+  if (Sys.Count.Bonded > 0) {
+    Sys.BondedCoor = realloc(Sys.BondedCoor,
+                             sizeof *Sys.BondedCoor * Sys.Count.Bonded);
+  }
+  if (Sys.Count.Unbonded > 0) {
+    Sys.UnbondedCoor = realloc(Sys.UnbondedCoor,
+                               sizeof *Sys.UnbondedCoor * Sys.Count.Unbonded);
+  }
+  // BeadType[].Index arrays
   for (int i = 0; i < Sys.Count.BeadType; i++) {
     Sys.BeadType[i].Index = malloc(sizeof *Sys.BeadType[i].Index *
                                    Sys.BeadType[i].Number);
@@ -606,6 +747,19 @@ fflush(stdout);
     count_id[type]++;
   }
   free(count_id);
+  // MoleculeType[].Index arrays
+  for (int i = 0; i < Sys.Count.MoleculeType; i++) {
+    Sys.MoleculeType[i].Index = malloc(sizeof *Sys.MoleculeType[i].Index *
+                                       Sys.MoleculeType[i].Number);
+  }
+  count_id = calloc(Sys.Count.MoleculeType, sizeof *count_id);
+  for (int i = 0; i < Sys.Count.Molecule; i++) {
+    int type = Sys.Molecule[i].Type;
+    Sys.MoleculeType[type].Index[count_id[type]] = i;
+    count_id[type]++;
+  }
+  free(count_id);
+  //}}}
 
   WarnChargedSystem(Sys, struct_file, "\0");
   return Sys;
@@ -1157,7 +1311,8 @@ contact developper\n");
         temp[count++] = Sys.BeadType[i];
         Sys.BeadType[i].Use = true;
         for (int j = (i+1); j < Sys.Count.BeadType; j++) {
-          if (strcmp(Sys.BeadType[i].Name, Sys.BeadType[j].Name) == 0 && !Sys.BeadType[j].Use) {
+          if (strcmp(Sys.BeadType[i].Name, Sys.BeadType[j].Name) == 0 &&
+              !Sys.BeadType[j].Use) {
             temp[count++] = Sys.BeadType[j];
             Sys.BeadType[j].Use = true;
           }
