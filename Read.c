@@ -3,7 +3,374 @@
 //      https://stackoverflow.com/questions/51534284/how-to-circumvent-format-truncation-warning-in-gcc
 // TODO impropers vs dihedrals - add improper section to FIELD
 
-#if 1
+// MergeBeadTypes() //{{{
+/* Merge bead types either using names only (detailed=false) or using names,
+ * charge, mass, and radius (detailed=true). In the simpler case, the values
+ * for charge mass, and radius are each taken from the first bead type that has
+ * the corresponding value well defined; the more complicated case is described
+ * below in some detail.
+ * The function assumes BeadType[].Index arrays are unallocated (i.e., nothing
+ * is freed for the remaining extra BeadType array elements).
+ */
+/* detailed=true description: //{{{
+ * First, identify bead types based on name, charge, masse, and radius,
+ * e.g., lines
+ *   atom 0 n x q 1 m 1
+ *   atom 1 n x q 2 m 1
+ * will be of two different types. This can create an excess of bead types,
+ * so some may have to be merged.
+ *
+ * What is to be merged:
+ * i) If a keyword is missing in one line but present in another, that does
+ * not count as a different type, e.g., lines
+ *       atom 0 n x q 1 m 1
+ *       atom 1 n x     m 1
+ *    are of the same type (both with charge +1);
+ * ii) however, there can be ambiguities, so e.g., lines
+ *        atom 0 n x q 1 m 1
+ *        atom 1 n x     m 1
+ *        atom 2 n x q 0 m 1
+ *     remain three distinct types (atom 1 has undefined charge);
+ * iii) but only some lines may be ambiguous, e.g., lines
+ *        atom 0 n x q 1 m 1
+ *        atom 1 n x     m 1
+ *        atom 2 n x q 0 m 1
+ *        atom 3 n x q 0
+ *      are still three different types (the last two should be considered
+ *      the same because there is no ambiguity because all beads have the
+ *      same mass)
+ * iv) note that sometimes the charge/mass/radius can remain undefined
+ *     even though there's only one well defined value; e.g., lines
+ *       atom 0 n x q 1 m 1
+ *       atom 1 n x     m 1
+ *       atom 2 n x q 0 m 1
+ *       atom 3 n x q 0
+ *       atom 4 n x q 0 m 1 r 1
+ *     will make radius well defined (with value 1) only for beads sharing
+ *     the type with atom 4 (i.e., atoms 2, 3, and 4), while the first two
+ *     atoms will still have undefined radius. What should the radius of
+ *     atoms 0 and 1 be when the mass/charge are different to that of the
+ *     last atom?
+ *     TODO is that right? shouldn't all those beads below have r=1?
+ *     Similarly in a simpler case: e.g., lines
+ *       atom 0 n x q 1 m 1
+ *       atom 1 n x     m 1 r 1
+ *       atom 2 n x     m 1
+ *     will make radius well defined for (with value 1) only for beads 1
+ *     and 2 as the charge is different for bead 0.
+ *
+ * Merging procedure:
+ * 1) for each unique name, find values of charge/mass/radius, noting
+ *    ambiguities (i.e., when more than one well defined value exists)
+ * 2) create 2D boolean array of size <unique names>*<unique names> to
+ *    see what should be merged based on points 1) and 2):
+ *    i) pick two bead types sharing a name (or the same bead type twice
+ *       if it does not share a name with any other), say 'i' and 'k'.
+ *    ii) check every bead type (say 'j') against i and k; if i and
+ *        j should be merged (i.e., share a name), check k's value of
+ *        diff_q/m/r - if it is a proper value, merge i and j; if not,
+ *        merge i and j only if they have the same diff_q/m/r value.
+ * 3) merge the types and count the number of unique types
+ *    i) create a new type when a diagonal element of the array is true
+ *    ii) check the remaining types against and merge those that should
+ *        be merge with that new type, making the diagonal element for
+ *        that merged type false so that no new type is created when
+ *        its time comes in i)
+ * 4) reorder the types so that types sharing the name are next to each
+ *    other
+ */ //}}}
+void MergeBeadTypes(SYSTEM *System, bool detailed) {
+  int count_bt_old = (*System).Count.BeadType;
+  int *old_to_new = malloc(sizeof *old_to_new * count_bt_old);
+  // find the unique bead names //{{{
+  int count_bnames = 0;
+  char (*bname)[BEAD_NAME+1] = malloc(sizeof *bname);
+  for (int i = 0; i < (*System).Count.BeadType; i++) {
+    bool new = true;
+    for (int j = 0; j < count_bnames; j++) {
+      if (strcmp((*System).BeadType[i].Name, bname[j]) == 0) {
+        new = false;
+        break;
+      }
+    }
+    if (new) {
+      int n = count_bnames;
+      count_bnames++;
+      bname = realloc(bname, sizeof *bname * count_bnames);
+      strcpy(bname[n], (*System).BeadType[i].Name);
+    }
+  } //}}}
+  if (detailed) { // use name as well as charge, mass, and radius
+    // 1) find charge/mass/radius values for each unique name //{{{
+    // arrays values of charge, mass, and radius for each bead type //{{{
+    double diff_q[count_bnames],
+           diff_m[count_bnames],
+           diff_r[count_bnames]; //}}}
+    // initialize arrays: assign values from the last type with each name //{{{
+    for (int i = 0; i < count_bnames; i++) {
+      for (int j = 0; j < (*System).Count.BeadType; j++) {
+        if (strcmp(bname[i], (*System).BeadType[j].Name) == 0) {
+          diff_q[i] = (*System).BeadType[j].Charge;
+          diff_m[i] = (*System).BeadType[j].Mass;
+          diff_r[i] = (*System).BeadType[j].Radius;
+          break;
+        }
+      }
+    } //}}}
+    // find the proper values for charge/mass/radius for each type //{{{
+    /*
+     * diff_q/m/r = high ... more than one value for beads with that name
+     * diff_q/m/r = <value> ... exactly that one value;
+     *                          if both proper and undefined values exist
+     *                          (i.e., when there's really one value, but it's
+     *                          not written in each atom line), the proper
+     *                          value is assigned
+     */
+    // high, impossible number to indicate multiple values of charge/mass/radius
+    int high = 1000000;
+    // go through all bead type pairs (including self-pairs)
+    for (int i = 0; i < count_bnames; i++) {
+      for (int j = 0; j < (*System).Count.BeadType; j++) {
+        // only consider type pairs with the same name
+        if (strcmp(bname[i], (*System).BeadType[j].Name) == 0) {
+          // charge
+          if (diff_q[i] != (*System).BeadType[j].Charge) {
+            if (diff_q[i] != CHARGE && (*System).BeadType[j].Charge != CHARGE) {
+              diff_q[i] = high;
+            } else if (diff_q[i] == CHARGE) {
+              diff_q[i] = (*System).BeadType[j].Charge;
+            }
+          }
+          // mass
+          if (diff_m[i] != (*System).BeadType[j].Mass) {
+            if (diff_m[i] != MASS && (*System).BeadType[j].Mass != MASS) {
+              diff_m[i] = high;
+            } else if (diff_m[i] == MASS) {
+              diff_m[i] = (*System).BeadType[j].Mass;
+            }
+          }
+          // radius
+          if (diff_r[i] != (*System).BeadType[j].Radius) {
+            if (diff_r[i] != RADIUS && (*System).BeadType[j].Radius != RADIUS) {
+              diff_r[i] = high;
+            } else if (diff_r[i] == RADIUS) {
+              diff_r[i] = (*System).BeadType[j].Radius;
+            }
+          }
+        }
+      }
+    } //}}}
+    //}}}
+    // 2) create 2D merge array //{{{
+    // initialize merge array by assuming nothing will be merged //{{{
+    bool merge[(*System).Count.BeadType][(*System).Count.BeadType];
+    for (int i = 0; i < (*System).Count.BeadType; i++) {
+      for (int j = 0; j < (*System).Count.BeadType; j++) {
+        merge[i][j] = false; // 'i' and 'j' aren't to be merged
+        merge[i][i] = true; // 'i' and 'i' is to be merged/copied
+      }
+    } //}}}
+    // assume same-name bead types are to be merged //{{{
+    for (int i = 0; i < ((*System).Count.BeadType-1); i++) {
+      for (int j = (i+1); j < (*System).Count.BeadType; j++) {
+        if (strcmp((*System).BeadType[i].Name, (*System).BeadType[j].Name) == 0) {
+          merge[i][j] = true;
+        }
+      }
+    } //}}}
+    // go through each bead type and compare it to two others //{{{
+    for (int i = 0; i < ((*System).Count.BeadType-1); i++) {
+      // i)
+      int k = 0;
+      for (; k < (*System).Count.BeadType; k++) { // TODO: should be count_bnames, no?
+        if (strcmp(bname[k], (*System).BeadType[i].Name) == 0) {
+          break;
+        }
+      }
+      // ii)
+      for (int j = (i+1); j < (*System).Count.BeadType; j++) {
+        // check charge
+        if (merge[i][j]) {
+          if (diff_q[k] == high) {
+            if ((*System).BeadType[i].Charge == (*System).BeadType[j].Charge) {
+              merge[i][j] = true;
+            } else {
+              merge[i][j] = false;
+            }
+          } else {
+            merge[i][j] = true;
+          }
+        }
+        // check mass
+        if (merge[i][j]) {
+          if (diff_m[k] == high) {
+            if ((*System).BeadType[i].Mass == (*System).BeadType[j].Mass) {
+              merge[i][j] = true;
+            } else {
+              merge[i][j] = false;
+            }
+          } else {
+            merge[i][j] = true;
+          }
+        }
+        // check radius
+        if (merge[i][j]) {
+          if (diff_r[k] == high) {
+            if ((*System).BeadType[i].Radius == (*System).BeadType[j].Radius) {
+              merge[i][j] = true;
+            } else {
+              merge[i][j] = false;
+            }
+          } else {
+            merge[i][j] = true;
+          }
+        }
+      }
+    } //}}}
+    //}}}
+    // 3) merge the types, counting the new types //{{{
+    BEADTYPE *temp = calloc((*System).Count.BeadType, sizeof (BEADTYPE));
+    int old_bt_count = (*System).Count.BeadType, count = 0,
+        *bt_older_to_old = calloc(old_bt_count, sizeof *bt_older_to_old);
+    for (int i = 0; i < (*System).Count.BeadType; i++) {
+      if (merge[i][i]) { // i)
+        temp[count] = (*System).BeadType[i];
+        bt_older_to_old[i] = count;
+        for (int j = (i+1); j < (*System).Count.BeadType; j++) {
+          if (merge[i][j]) { // ii)
+            temp[count].Number += (*System).BeadType[j].Number;
+            bt_older_to_old[j] = count;
+            if (temp[count].Charge == CHARGE) {
+              temp[count].Charge = (*System).BeadType[j].Charge;
+            }
+            if (temp[count].Mass == MASS) {
+              temp[count].Mass = (*System).BeadType[j].Mass;
+            }
+            if (temp[count].Radius == RADIUS) {
+              temp[count].Radius = (*System).BeadType[j].Radius;
+            }
+            merge[j][j] = false;
+          }
+        }
+        count++;
+      }
+    }
+    (*System).Count.BeadType = count; //}}}
+    // 4) reorder the types, placing same-named ones next to each other //{{{
+    // copy all bead types temporarily to bt struct
+    //TODO do this correctly; specifically, the bt_old_to_new shenanigans must be
+    //     changed correctly!
+    int *bt_old_to_new = malloc(sizeof *bt_old_to_new * (*System).Count.BeadType);
+    for (int i = 0; i < (*System).Count.BeadType; i++) {
+      (*System).BeadType[i] = temp[i];
+      (*System).BeadType[i].Use = false; // will indicate that it wasn't copied yet
+    }
+    // copy the bead types back to temp array in a proper order
+    count = 0;
+    for (int i = 0; i < (*System).Count.BeadType; i++) {
+      if (!(*System).BeadType[i].Use) {
+        temp[count] = (*System).BeadType[i];
+        bt_old_to_new[i] = count;
+        count++;
+        (*System).BeadType[i].Use = true;
+        for (int j = (i+1); j < (*System).Count.BeadType; j++) {
+          if (strcmp((*System).BeadType[i].Name, (*System).BeadType[j].Name) == 0 &&
+              !(*System).BeadType[j].Use) {
+            temp[count] = (*System).BeadType[j];
+            bt_old_to_new[j] = count;
+            (*System).BeadType[j].Use = true;
+            count++;
+          }
+        }
+      }
+    }
+    // finally, copy the types from the temporary array back to bt array
+    for (int i = 0; i < (*System).Count.BeadType; i++) {
+      (*System).BeadType[i] = temp[i];
+    }
+    free(temp);
+    //}}}
+    // 5) TODO rename same-named bead types
+    // fill array to relabel bead types in arrays //{{{
+    for (int i = 0; i < count_bt_old; i++) {
+      old_to_new[i] = bt_old_to_new[bt_older_to_old[i]];
+    }
+    free(bt_older_to_old);
+    free(bt_old_to_new); //}}}
+  } else { // use name only
+    (*System).Count.BeadType = count_bnames;
+    // go through old types, creating a new one for each unique name //{{{
+    int count_bt_new = 0;
+    for (int i = 0; i < count_bt_old; i++) {
+      bool new = true;
+      int j = 0;
+      for (; j < count_bt_new; j++) {
+        if (strcmp((*System).BeadType[i].Name,
+                   (*System).BeadType[j].Name) == 0) {
+          if (i != j) {
+            (*System).BeadType[j].Number += (*System).BeadType[i].Number;
+            // assign charge/mass/radius, if yet undefined
+            if ((*System).BeadType[j].Charge == CHARGE) {
+              (*System).BeadType[j].Charge = (*System).BeadType[i].Charge;
+            }
+            if ((*System).BeadType[j].Mass == MASS) {
+              (*System).BeadType[j].Mass = (*System).BeadType[i].Mass;
+            }
+            if ((*System).BeadType[j].Radius == RADIUS) {
+              (*System).BeadType[j].Radius = (*System).BeadType[i].Radius;
+            }
+          }
+          old_to_new[i] = j;
+          new = false;
+          break;
+        }
+      }
+      if (new) { // create new type...
+        if (i != j) { // ...unless its id is the same as the old one's
+          strcpy((*System).BeadType[count_bt_new].Name,
+                 (*System).BeadType[i].Name);
+          (*System).BeadType[count_bt_new] = (*System).BeadType[i];
+        }
+        old_to_new[i] = count_bt_new;
+        count_bt_new++;
+      }
+    } //}}}
+  }
+  free(bname);
+  // relabel bead types in arrays //{{{
+  // Bead[].Type
+  for (int i = 0; i < (*System).Count.Bead; i++) {
+    int old_type = (*System).Bead[i].Type;
+    (*System).Bead[i].Type = old_to_new[old_type];
+  }
+  // MoleculeType[].Bead[]
+  for (int i = 0; i < (*System).Count.MoleculeType; i++) {
+    for (int j = 0; j < (*System).MoleculeType[i].nBeads; j++) {
+      int old_type = (*System).MoleculeType[i].Bead[j];
+      (*System).MoleculeType[i].Bead[j] = old_to_new[old_type];
+    }
+  }
+  free(old_to_new); //}}}
+  // warning - test count bead types; should never happen //{{{
+  int *count_test = calloc((*System).Count.BeadType, sizeof *count_test);
+  for (int i = 0; i < (*System).Count.Bead; i++) {
+    int type = (*System).Bead[i].Type;
+    count_test[type]++;
+  }
+  for (int i = 0; i < (*System).Count.BeadType; i++) {
+    if (count_test[i] != (*System).BeadType[i].Number) {
+      strcpy(ERROR_MSG, "something went wrong with bead type differentiation; \
+this should never happen!");
+      PrintWarning();
+      fprintf(stderr, "%sBead count for %s%s%s type: %s%d%s and %s%d%s\n",
+              ErrCyan(), ErrYellow(), (*System).BeadType[i].Name, ErrCyan(),
+              ErrYellow(), (*System).BeadType[i].Number, ErrCyan(),
+              ErrYellow(), count_test[i], ErrColourReset());
+    }
+  }
+  free(count_test); //}}}
+} //}}}
+
 // VtfReadStruct_new() //{{{
 /*
  * Read system information from vsf/vtf structure file. It can recognize bead
@@ -346,377 +713,13 @@ should never happen!");
     }
   }
   free(bond); //}}}
+  MergeBeadTypes(&Sys, detailed);
+
+  // TODO merge molecule types
   FillMolBTypes(Sys.Count.MoleculeType, &Sys.MoleculeType);
   FillMolMassCharge(Sys.Count.MoleculeType, &Sys.MoleculeType, Sys.BeadType);
-  // some test prints //{{{
-//for (int i = 0; i < Sys.Count.BeadType; i++) {
-//  printf("%s (%d), %d:", Sys.BeadType[i].Name, i, Sys.BeadType[i].Number);
-//  for (int j = 0; j < Sys.BeadType[i].Number; j++) {
-//    printf(" %d", Sys.BeadType[i].Index[j]);
-//  }
-//  putchar('\n');
-//  fflush(stdout);
-//}
-//for (int i = 0; i < Sys.Count.MoleculeType; i++) {
-//  printf("%d: %s (Index=%d); Number=%d:", i, Sys.MoleculeType[i].Name,
-//         Sys.Molecule[i].Index, Sys.MoleculeType[i].Number);
-//  for (int j = 0; j < Sys.MoleculeType[i].Number; j++) {
-//    printf(" %d", Sys.MoleculeType[i].Index[j]);
-//  }
-//  putchar('\n');
-//  printf(" %d:", Sys.MoleculeType[i].nBeads);
-//  for (int j = 0; j < Sys.MoleculeType[i].nBeads; j++) {
-//    printf(" %d (%d)", Sys.Molecule[i].Bead[j], j);
-//  }
-//  putchar('\n');
-//  fflush(stdout);
-//}
-//PrintBead(Sys);
-//PrintBeadType(Sys);
-fflush(stdout);
-//exit(1); //}}}
 
-  // Merging bead types //{{{
-    /*
-     * First, identify bead types based on name, charge, masse, and radius,
-     * e.g., lines
-     *   atom 0 n x q 1 m 1
-     *   atom 1 n x q 2 m 1
-     * will be of two different types. This can create an excess of bead types,
-     * so some may have to be merged.
-     *
-     * What is to be merged:
-     * i) If a keyword is missing in one line but present in another, that does
-     * not count as a different type, e.g., lines
-     *       atom 0 n x q 1 m 1
-     *       atom 1 n x     m 1
-     *    are of the same type (both with charge +1);
-     * ii) however, there can be ambiguities, so e.g., lines
-     *        atom 0 n x q 1 m 1
-     *        atom 1 n x     m 1
-     *        atom 2 n x q 0 m 1
-     *     remain three distinct types (atom 1 has undefined charge);
-     * iii) but only some lines may be ambiguous, e.g., lines
-     *        atom 0 n x q 1 m 1
-     *        atom 1 n x     m 1
-     *        atom 2 n x q 0 m 1
-     *        atom 3 n x q 0
-     *      are still three different types (the last two should be considered
-     *      the same because there is no ambiguity because all beads have the
-     *      same mass)
-     * iv) note that sometimes the charge/mass/radius can remain undefined
-     *     even though there's only one well defined value; e.g., lines
-     *       atom 0 n x q 1 m 1
-     *       atom 1 n x     m 1
-     *       atom 2 n x q 0 m 1
-     *       atom 3 n x q 0
-     *       atom 4 n x q 0 m 1 r 1
-     *     will make radius well defined (with value 1) only for beads sharing
-     *     the type with atom 4 (i.e., atoms 2, 3, and 4), while the first two
-     *     atoms will still have undefined radius. What should the radius of
-     *     atoms 0 and 1 be when the mass/charge are different to that of the
-     *     last atom?
-     *     TODO is that right? shouldn't all those beads below have r=1?
-     *     Similarly in a simpler case: e.g., lines
-     *       atom 0 n x q 1 m 1
-     *       atom 1 n x     m 1 r 1
-     *       atom 2 n x     m 1
-     *     will make radius well defined for (with value 1) only for beads 1
-     *     and 2 as the charge is different for bead 0.
-     *
-     * Merging procedure:
-     * 1) find all unique bead names
-     * 2) for each unique name, find values of charge/mass/radius, noting
-     *    ambiguities (i.e., when more than one well defined value exists)
-     * 3) create 2D boolean array of size <unique names>*<unique names> to
-     *    see what should be merged based on points 1) and 2):
-     *    i) pick two bead types sharing a name (or the same bead type twice
-     *       if it does not share a name with any other), say 'i' and 'k'.
-     *    ii) check every bead type (say 'j') against i and k; if i and
-     *        j should be merged (i.e., share a name), check k's value of
-     *        diff_q/m/r - if it is a proper value, merge i and j; if not,
-     *        merge i and j only if they have the same diff_q/m/r value.
-     * 4) merge the types and count the number of unique types
-     *    i) create a new type when a diagonal element of the array is true
-     *    ii) check the remaining types against and merge those that should
-     *        be merge with that new type, making the diagonal element for
-     *        that merged type false so that no new type is created when
-     *        its time comes in i)
-     */
-  // 1) find unique bead names //{{{
-  int count_bnames = 0;
-  char (*bname)[BEAD_NAME+1] = malloc(sizeof *bname);
-  for (int i = 0; i < Sys.Count.BeadType; i++) {
-    bool new = true;
-    for (int j = 0; j < count_bnames; j++) {
-      if (strcmp(Sys.BeadType[i].Name, bname[j]) == 0) {
-        new = false;
-        break;
-      }
-    }
-    if (new) {
-      int n = count_bnames;
-      count_bnames++;
-      bname = realloc(bname, sizeof *bname * count_bnames);
-      strcpy(bname[n], Sys.BeadType[i].Name);
-    }
-  } //}}}
-/* test print the unique names //{{{
-printf("test print the unique names:\n");
-for (int i = 0; i < count_bnames; i++) {
-  printf("%d %s\t", i, bname[i]);
-}
-putchar('\n');
-// */ //}}}
-  // 2) //{{{
-  // arrays values of charge, mass, and radius for each bead type //{{{
-  double diff_q[count_bnames],
-         diff_m[count_bnames],
-         diff_r[count_bnames]; //}}}
-  // initialize arrays: assign values from the last type with each name //{{{
-  for (int i = 0; i < count_bnames; i++) {
-    for (int j = 0; j < Sys.Count.BeadType; j++) {
-      if (strcmp(bname[i], Sys.BeadType[j].Name) == 0) {
-        diff_q[i] = Sys.BeadType[j].Charge;
-        diff_m[i] = Sys.BeadType[j].Mass;
-        diff_r[i] = Sys.BeadType[j].Radius;
-        break;
-      }
-    }
-  } //}}}
-  // find the proper values for charge/mass/radius for each type //{{{
-  /*
-   * diff_q/m/r = high ... more than one value for beads with that name
-   * diff_q/m/r = <value> ... exactly that one value;
-   *                          if both proper and undefined values exist
-   *                          (i.e., when there's really one value, but it's
-   *                          not written in each atom line), the proper
-   *                          value is assigned
-   */
-  // high, impossible number to indicate multiple values of charge/mass/radius
-  int high = 1000000;
-  // go through all bead type pairs (including self-pairs)
-  for (int i = 0; i < count_bnames; i++) {
-    for (int j = 0; j < Sys.Count.BeadType; j++) {
-      // only consider type pairs with the same name
-      if (strcmp(bname[i], Sys.BeadType[j].Name) == 0) {
-        // charge
-        if (diff_q[i] != Sys.BeadType[j].Charge) {
-          if (diff_q[i] != CHARGE && Sys.BeadType[j].Charge != CHARGE) {
-            diff_q[i] = high;
-          } else if (diff_q[i] == CHARGE) {
-            diff_q[i] = Sys.BeadType[j].Charge;
-          }
-        }
-        // mass
-        if (diff_m[i] != Sys.BeadType[j].Mass) {
-          if (diff_m[i] != MASS && Sys.BeadType[j].Mass != MASS) {
-            diff_m[i] = high;
-          } else if (diff_m[i] == MASS) {
-            diff_m[i] = Sys.BeadType[j].Mass;
-          }
-        }
-        // radius
-        if (diff_r[i] != Sys.BeadType[j].Radius) {
-          if (diff_r[i] != RADIUS && Sys.BeadType[j].Radius != RADIUS) {
-            diff_r[i] = high;
-          } else if (diff_r[i] == RADIUS) {
-            diff_r[i] = Sys.BeadType[j].Radius;
-          }
-        }
-      }
-    }
-  } //}}}
-  //}}}
-///* test print diff_q/m/r //{{{
-printf("test print diff_q/m/r:\n");
-for (int i = 0; i < count_bnames; i++) {
-  printf("%s:\tq=%lf;\tm=%lf;\tr=%lf\n", bname[i],
-         diff_q[i], diff_m[i], diff_r[i]);
-}
-// */ //}}}
-  // 3) //{{{
-  // initialize merge array by assuming nothing will be merged //{{{
-  bool merge[Sys.Count.BeadType][Sys.Count.BeadType];
-  for (int i = 0; i < Sys.Count.BeadType; i++) {
-    for (int j = 0; j < Sys.Count.BeadType; j++) {
-      merge[i][j] = false; // 'i' and 'j' aren't to be merged
-      merge[i][i] = true; // 'i' and 'i' is to be merged/copied
-    }
-  } //}}}
-  // assume same-name bead types are to be merged //{{{
-  for (int i = 0; i < (Sys.Count.BeadType-1); i++) {
-    for (int j = (i+1); j < Sys.Count.BeadType; j++) {
-      if (strcmp(Sys.BeadType[i].Name, Sys.BeadType[j].Name) == 0) {
-        merge[i][j] = true;
-      }
-    }
-  } //}}}
-  // go through each bead type and compare it to two others //{{{
-  for (int i = 0; i < (Sys.Count.BeadType-1); i++) {
-    // i)
-    int k = 0;
-    for (; k < Sys.Count.BeadType; k++) { // TODO: should be count_bnames, no?
-      if (strcmp(bname[k], Sys.BeadType[i].Name) == 0) {
-        break;
-      }
-    }
-    // ii)
-    for (int j = (i+1); j < Sys.Count.BeadType; j++) {
-      // check charge
-      if (merge[i][j]) {
-        if (diff_q[k] == high) {
-          if (Sys.BeadType[i].Charge == Sys.BeadType[j].Charge) {
-            merge[i][j] = true;
-          } else {
-            merge[i][j] = false;
-          }
-        } else {
-          merge[i][j] = true;
-        }
-      }
-      // check mass
-      if (merge[i][j]) {
-        if (diff_m[k] == high) {
-          if (Sys.BeadType[i].Mass == Sys.BeadType[j].Mass) {
-            merge[i][j] = true;
-          } else {
-            merge[i][j] = false;
-          }
-        } else {
-          merge[i][j] = true;
-        }
-      }
-      // check radius
-      if (merge[i][j]) {
-        if (diff_r[k] == high) {
-          if (Sys.BeadType[i].Radius == Sys.BeadType[j].Radius) {
-            merge[i][j] = true;
-          } else {
-            merge[i][j] = false;
-          }
-        } else {
-          merge[i][j] = true;
-        }
-      }
-    }
-  } //}}}
-  free(bname);
-  //}}}
-/* test print merge matrix //{{{
-printf("test print merge matrix:\n");
-printf("   ");
-for (int i = 0; i < Sys.Count.BeadType; i++) {
-  printf("%s ", Sys.BeadType[i].Name);
-}
-putchar('\n');
-for (int i = 0; i < Sys.Count.BeadType; i++) {
-  printf("%s ", Sys.BeadType[i].Name);
-  for (int j = 0; j < Sys.Count.BeadType; j++) {
-    printf(" %d", merge[i][j]);
-  }
-  putchar('\n');
-}
-// */ //}}}
-  // 4) //{{{
-  BEADTYPE *temp = calloc(Sys.Count.BeadType, sizeof (BEADTYPE));
-  int old_bt_count = Sys.Count.BeadType,
-      count = 0;
-  bt_old_to_new = calloc(old_bt_count, sizeof *bt_old_to_new);
-  for (int i = 0; i < Sys.Count.BeadType; i++) {
-    if (merge[i][i]) { // i)
-      temp[count] = Sys.BeadType[i];
-      bt_old_to_new[i] = count;
-      for (int j = (i+1); j < Sys.Count.BeadType; j++) {
-        if (merge[i][j]) { // ii)
-          temp[count].Number += Sys.BeadType[j].Number;
-          bt_old_to_new[j] = count;
-          if (temp[count].Charge == CHARGE) {
-            temp[count].Charge = Sys.BeadType[j].Charge;
-          }
-          if (temp[count].Mass == MASS) {
-            temp[count].Mass = Sys.BeadType[j].Mass;
-          }
-          if (temp[count].Radius == RADIUS) {
-            temp[count].Radius = Sys.BeadType[j].Radius;
-          }
-          merge[j][j] = false;
-        }
-      }
-      count++;
-    }
-  }
-  Sys.Count.BeadType = count; //}}}
-  // 5) //{{{
-  // copy all bead types temporarily to bt struct
-  //TODO do this correctly; specifically, the bt_old_to_new shenanigans must be
-  //     changed correctly!
-//for (int i = 0; i < Sys.Count.BeadType; i++) {
-//  Sys.BeadType[i] = temp[i];
-//  Sys.BeadType[i].Use = false; // will indicate that it wasn't copied yet
-//}
-//// copy the bead types back to temp array in a proper order
-//count = 0;
-//for (int i = 0; i < Sys.Count.BeadType; i++) {
-//  if (!Sys.BeadType[i].Use) {
-//    temp[count] = Sys.BeadType[i];
-//    for (int k = 0; k < old_bt_count; k++) {
-//      if (bt_old_to_new[k] == i)
-//        bt_old_to_new[k] = count;
-//    }
-//    count++;
-//    Sys.BeadType[i].Use = true;
-//    for (int j = (i+1); j < Sys.Count.BeadType; j++) {
-//      if (strcmp(Sys.BeadType[i].Name, Sys.BeadType[j].Name) == 0 &&
-//          !Sys.BeadType[j].Use) {
-//        temp[count] = Sys.BeadType[j];
-//        Sys.BeadType[j].Use = true;
-//        count++;
-//      }
-//    }
-//  }
-//}
-  // finally, copy the types from the temporary array back to bt array
-  for (int i = 0; i < Sys.Count.BeadType; i++) {
-    Sys.BeadType[i] = temp[i];
-  }
-  free(temp);
-  //}}}
-  // 6) correct bead types in arrays //{{{
-  // Bead[].Type
-  for (int i = 0; i < Sys.Count.Bead; i++) {
-    int old_type = Sys.Bead[i].Type;
-    Sys.Bead[i].Type = bt_old_to_new[old_type];
-  }
-  // MoleculeType[].Bead[]
-  for (int i = 0; i < Sys.Count.MoleculeType; i++) {
-    for (int j = 0; j < Sys.MoleculeType[i].nBeads; j++) {
-      int old_type = Sys.MoleculeType[i].Bead[j];
-      Sys.MoleculeType[i].Bead[j] = bt_old_to_new[old_type];
-    }
-  }
-  free(bt_old_to_new); //}}}
-  // warning - test count bead types; should never happen //{{{
-  int *count_test = calloc(Sys.Count.BeadType, sizeof *count_test);
-  for (int i = 0; i < Sys.Count.Bead; i++) {
-    int type = Sys.Bead[i].Type;
-    count_test[type]++;
-  }
-  for (int i = 0; i < Sys.Count.BeadType; i++) {
-    if (count_test[i] != Sys.BeadType[i].Number) {
-      strcpy(ERROR_MSG, "something went wrong with bead type differentiation; \
-this should never happen!");
-      PrintWarning();
-      fprintf(stderr, "%sBead count for %s%s%s type: %s%d%s and %s%d%s\n",
-              ErrCyan(), ErrYellow(), Sys.BeadType[i].Name, ErrCyan(),
-              ErrYellow(), Sys.BeadType[i].Number, ErrCyan(),
-              ErrYellow(), count_test[i], ErrColourReset());
-    }
-  }
-  free(count_test); //}}}
- //}}}
-
-  // 7) fill the remainder of the Sys struct //{{{
+  // fill the remainder of the Sys struct //{{{
   Sys.Index_mol = realloc(Sys.Index_mol, sizeof *Sys.Index_mol *
                           (Sys.Count.HighestResid+1));
   for (int i = 0; i <= Sys.Count.HighestResid; i++) {
@@ -760,11 +763,9 @@ this should never happen!");
   }
   free(count_id);
   //}}}
-
   WarnChargedSystem(Sys, struct_file, "\0");
   return Sys;
 } //}}}
-#endif
 
 // Read vtf files //{{{
 // VtfReadStruct() //{{{
