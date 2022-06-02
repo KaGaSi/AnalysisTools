@@ -24,7 +24,7 @@
 
 // Read all information about the system from a vsf/vtf structure file.
 SYSTEM VtfReadStruct(char struct_file[], bool detailed);
-SYSTEM VtfReadStruct_new(char struct_file[], bool detailed);
+void MergeBeadTypes(SYSTEM *System, bool detailed);
 // Get the first pbc line from a vcf/vtf coordinate file.
 void VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box);
 // Read a single timestep from a vcf/vtf coordinate file
@@ -184,14 +184,11 @@ void FillMolType(int number_of_types, BEADTYPE *BeadType,
  //}}}
 
 // TODO remove
-void VtfReadStruct_old(char vsf_file[], bool detailed, COUNTS *Counts,
-                   BEADTYPE *BeadType[], BEAD *Bead[], int *Index[],
-                   MOLECULETYPE *MoleculeType[], MOLECULE *Molecule[],
-                   int *Index_mol[]);
 bool VtfReadTimestep_old(FILE *vcf, char vcf_file[], BOX *Box, COUNTS *Counts,
                      BEADTYPE BeadType[], BEAD *Bead[], int Index[],
                      MOLECULETYPE MoleculeType[], MOLECULE Molecule[],
                      int *InVcfFile[], int *file_line_count,
                      int step_count, char stuff[]);
 SYSTEM VtfReadStruct_oldish(char struct_file[], bool detailed);
+SYSTEM VtfReadStruct_old(char struct_file[], bool detailed);
 #endif

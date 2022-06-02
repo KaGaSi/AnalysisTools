@@ -220,7 +220,7 @@ void CopyBeadType(int number_of_types, BEADTYPE **bt_out, BEADTYPE *bt_in,
 /**
  * Function to copy MOLECULETYPE structure into a new one.
  */
-void CopyMoleculeType(int number_of_types, MOLECULETYPE **mt_out,
+void CopyMoleculeType_old(int number_of_types, MOLECULETYPE **mt_out,
                       MOLECULETYPE *mt_in, int mode); //}}}
 
 // CopyMolecule() //{{{
@@ -234,6 +234,8 @@ SYSTEM CopySystem_new(SYSTEM Sys_in);
 void PruneSystem_new(SYSTEM *System);
 
 SYSTEM CopySystem(SYSTEM Sys_in);
+MOLECULETYPE CopyMoleculeType(MOLECULETYPE mt_old);
+MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old);
 void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box);
 void PruneSystem(SYSTEM *System);
 
@@ -254,6 +256,8 @@ void PrintMoleculeType(SYSTEM System);
 void PrintMolecule(SYSTEM System);
 void PrintBead(SYSTEM System);
 void FreeSystem(SYSTEM *System);
+void FreeMoleculeType(MOLECULETYPE *MoleculeType);
+void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType);
 
 // TODO remove
 // VerboseOutput_old() //{{{
@@ -359,14 +363,14 @@ void FreeBead(int number_of_beads, BEAD **Bead); //}}}
  * \param [out] Molecule              information about individual molecules
  */
 void FreeMolecule(int number_of_molecules, MOLECULE **Molecule); //}}}
-// FreeMoleculeType() //{{{
+// FreeMoleculeType_old() //{{{
 /**
  * \brief Free memory allocated for MoleculeType struct array.
  *
  * \param [in]  number_of_types  number of molecule types
  * \param [out] MoleculeType     information about molecule types
  */
-void FreeMoleculeType(int number_of_types, MOLECULETYPE **MoleculeType); //}}}
+void FreeMoleculeType_old(int number_of_types, MOLECULETYPE **MoleculeType); //}}}
 // FindBeadType_old() //{{{
 /** \brief Function to identify type of bead from its name
  *

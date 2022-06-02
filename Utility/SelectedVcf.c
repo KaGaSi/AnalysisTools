@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // read information from vtf file(s) //{{{
-  SYSTEM System = VtfReadStruct(input_vsf, detailed);
+  SYSTEM System = VtfReadStruct_old(input_vsf, detailed);
   System.BeadCoor = calloc(System.nBeadsTotal, sizeof *System.BeadCoor);
   VtfReadPBC(input_coor, &System.Box);
   if (!TriclinicCellData(&System.Box)) {

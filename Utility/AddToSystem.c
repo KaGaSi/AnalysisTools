@@ -431,7 +431,7 @@ int main(int argc, char *argv[]) {
   // read information from input vtf file(s) if present //{{{
   SYSTEM S_orig;
   if (strlen(file_coor) > 0) { // is there an input coordinate file?
-    S_orig = VtfReadStruct(file_struct, detailed);
+    S_orig = VtfReadStruct_old(file_struct, detailed);
   } else {
     InitSystem(&S_orig);
   } //}}}
@@ -526,7 +526,7 @@ int main(int argc, char *argv[]) {
 //            &bond_type, &angle_type, &dihedral_type);
 //  S_add.Box.Length = S_orig.Box.Length; //}}}
   } else { // read stuff to add from vtf file(s) ('-vtf' option) //{{{
-    S_add = VtfReadStruct(file_add_struct, false);
+    S_add = VtfReadStruct_old(file_add_struct, false);
     // read coordinates
     vcf = OpenFile(file_add_coor, "r");
     int file_line_count = 0, count_vcf = 0;

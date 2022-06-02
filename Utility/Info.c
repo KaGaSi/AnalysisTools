@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
 
   // read information from vtf file
 //SYSTEM System = VtfReadStruct(input_vsf, detailed);
-  SYSTEM System = VtfReadStruct_new(input_vsf, detailed);
+  SYSTEM System = VtfReadStruct(input_vsf, detailed);
 
   // print information
   VerboseOutput(System);
@@ -98,9 +98,6 @@ int main(int argc, char *argv[]) {
   }
 
   // free memory - to make valgrind happy
-  for (int i = 0; i < System.Count.MoleculeType; i++) {
-    free(System.MoleculeType[i].Index);
-  }
   for (int i = 0; i < System.Count.BeadType; i++) {
     free(System.BeadType[i].Index);
   }

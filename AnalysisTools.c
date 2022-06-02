@@ -1484,7 +1484,7 @@ void CopyBeadType(int number_of_types, BEADTYPE **bt_out,
   }
 } //}}}
 
-// CopyMoleculeType() //{{{
+// CopyMoleculeType_old() //{{{
 /**
  * Function to copy MOLECULETYPE structure into a new one. Memory management
  * for the output structure: sufficient memory is already allocated (mode=0),
@@ -1495,12 +1495,12 @@ void CopyBeadType(int number_of_types, BEADTYPE **bt_out,
  */
 // TODO if mode=0, then there shouldn't be any allocations at all; probably
 //      remove this mode - when do I need straight out copy the arrays?
-void CopyMoleculeType(int number_of_types, MOLECULETYPE **mt_out,
+void CopyMoleculeType_old(int number_of_types, MOLECULETYPE **mt_out,
                       MOLECULETYPE *mt_in, int mode) {
   // mt_out memory management //{{{
   switch (mode) {
     case 1:
-      FreeMoleculeType(number_of_types, mt_out);
+      FreeMoleculeType_old(number_of_types, mt_out);
       *mt_out = malloc(sizeof (MOLECULETYPE) * number_of_types);
       break;
     case 2:
@@ -1664,66 +1664,7 @@ SYSTEM CopySystem_new(SYSTEM S_in) {
       S_out.MoleculeType = realloc(S_out.MoleculeType,
                                    sizeof (MOLECULETYPE) * S_out.Count.MoleculeType);
       for (int i = 0; i < S_out.Count.MoleculeType; i++) {
-        S_out.MoleculeType[i] = S_in.MoleculeType[i];
-        // MoleculeType[].Index array
-        S_out.MoleculeType[i].Index =
-          malloc(sizeof *S_out.MoleculeType[i].Index *
-                 S_out.MoleculeType[i].Number);
-        memcpy(S_out.MoleculeType[i].Index, S_in.MoleculeType[i].Index,
-               sizeof *S_in.MoleculeType[i].Index *
-               S_in.MoleculeType[i].Number);
-        // MoleculeType[].Bead array
-        if (S_out.MoleculeType[i].nBeads > 0) {
-          S_out.MoleculeType[i].Bead =
-            malloc(sizeof *S_out.MoleculeType[i].Bead *
-                   S_out.MoleculeType[i].nBeads);
-          memcpy(S_out.MoleculeType[i].Bead, S_in.MoleculeType[i].Bead,
-                 sizeof *S_in.MoleculeType[i].Bead *
-                 S_in.MoleculeType[i].nBeads);
-        } else {
-          // should never happen
-          strcpy(ERROR_MSG, "molecule type without beads");
-          PrintWarning();
-          fprintf(stderr, "%sMolecule %s%s%s\n\n", ErrCyan(), ErrYellow(),
-                                                   S_out.MoleculeType[i].Name,
-                                                   ErrColourReset());
-        }
-        // MoleculeType[].Bond array
-        if (S_out.MoleculeType[i].nBonds > 0) {
-          S_out.MoleculeType[i].Bond =
-            malloc(sizeof *S_out.MoleculeType[i].Bond *
-                   S_out.MoleculeType[i].nBonds);
-          memcpy(S_out.MoleculeType[i].Bond, S_in.MoleculeType[i].Bond,
-                 sizeof *S_in.MoleculeType[i].Bond *
-                 S_in.MoleculeType[i].nBonds);
-        }
-        // MoleculeType[].Angle array
-        if (S_out.MoleculeType[i].nAngles > 0) {
-          S_out.MoleculeType[i].Angle =
-            malloc(sizeof *S_out.MoleculeType[i].Angle *
-                   S_out.MoleculeType[i].nAngles);
-          memcpy(S_out.MoleculeType[i].Angle, S_in.MoleculeType[i].Angle,
-                 sizeof *S_in.MoleculeType[i].Angle *
-                 S_in.MoleculeType[i].nAngles);
-        }
-        // MoleculeType[].Dihedral array
-        if (S_out.MoleculeType[i].nDihedrals > 0) {
-          S_out.MoleculeType[i].Dihedral =
-            malloc(sizeof *S_out.MoleculeType[i].Dihedral *
-                   S_out.MoleculeType[i].nDihedrals);
-          memcpy(S_out.MoleculeType[i].Dihedral, S_in.MoleculeType[i].Dihedral,
-                 sizeof *S_in.MoleculeType[i].Dihedral *
-                 S_in.MoleculeType[i].nDihedrals);
-        }
-        // MoleculeType[].BType array
-        if (S_out.MoleculeType[i].nBTypes > 0) {
-          S_out.MoleculeType[i].BType =
-            malloc(sizeof *S_out.MoleculeType[i].BType *
-                   S_out.MoleculeType[i].nBTypes);
-          memcpy(S_out.MoleculeType[i].BType, S_in.MoleculeType[i].BType,
-                 sizeof *S_in.MoleculeType[i].BType *
-                 S_in.MoleculeType[i].nBTypes);
-        }
+        S_out.MoleculeType[i] = CopyMoleculeType(S_in.MoleculeType[i]);
       }
     } //}}}
     // Molecule & Index_mol //{{{
@@ -1771,6 +1712,50 @@ SYSTEM CopySystem_new(SYSTEM S_in) {
     } //}}}
   }
   return S_out;
+} //}}}
+MOLECULETYPE CopyMoleculeType(MOLECULETYPE mt_old) { //{{{
+  MOLECULETYPE mt_new = CopyMoleculeTypeEssentials(mt_old);
+  // MoleculeType[].Index array
+  mt_new.Index = malloc(sizeof *mt_new.Index * mt_new.Number);
+  memcpy(mt_new.Index, mt_old.Index, sizeof *mt_old.Index * mt_old.Number);
+  // MoleculeType[].BType array
+  if (mt_new.nBTypes > 0) {
+    mt_new.BType = malloc(sizeof *mt_new.BType * mt_new.nBTypes);
+    memcpy(mt_new.BType, mt_old.BType, sizeof *mt_old.BType * mt_old.nBTypes);
+  }
+  return mt_new;
+} //}}}
+MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old) { //{{{
+  MOLECULETYPE mt_new;
+  mt_new = mt_old;
+  // MoleculeType[].Bead array
+  if (mt_new.nBeads > 0) {
+    mt_new.Bead = malloc(sizeof *mt_new.Bead * mt_new.nBeads);
+    memcpy(mt_new.Bead, mt_old.Bead, sizeof *mt_old.Bead * mt_old.nBeads);
+  } else {
+    // should never happen
+    strcpy(ERROR_MSG, "molecule type without beads");
+    PrintWarning();
+    fprintf(stderr, "%sMolecule %s%s%s\n\n", ErrCyan(),
+            ErrYellow(), mt_new.Name, ErrColourReset());
+  }
+  // MoleculeType[].Bond array
+  if (mt_new.nBonds > 0) {
+    mt_new.Bond = malloc(sizeof *mt_new.Bond * mt_new.nBonds);
+    memcpy(mt_new.Bond, mt_old.Bond, sizeof *mt_old.Bond * mt_old.nBonds);
+  }
+  // MoleculeType[].Angle array
+  if (mt_new.nAngles > 0) {
+    mt_new.Angle = malloc(sizeof *mt_new.Angle * mt_new.nAngles);
+    memcpy(mt_new.Angle, mt_old.Angle, sizeof *mt_old.Angle * mt_old.nAngles);
+  }
+  // MoleculeType[].Dihedral array
+  if (mt_new.nDihedrals > 0) {
+    mt_new.Dihedral = malloc(sizeof *mt_new.Dihedral * mt_new.nDihedrals);
+    memcpy(mt_new.Dihedral, mt_old.Dihedral,
+           sizeof *mt_old.Dihedral * mt_old.nDihedrals);
+  }
+  return mt_new;
 } //}}}
 void PruneSystem_new(SYSTEM *System) { //{{{
   SYSTEM S_old = CopySystem_new(*System);
@@ -2920,21 +2905,32 @@ void FreeSystem(SYSTEM *System) { //{{{
   }
   free((*System).Molecule);
   for (int i = 0; i < (*System).Count.MoleculeType; i++) {
-    free((*System).MoleculeType[i].Bead);
-    free(*(*System).MoleculeType[i].Bond);
-    if ((*System).MoleculeType[i].nAngles > 0) {
-      free(*(*System).MoleculeType[i].Angle);
-    }
-    if ((*System).MoleculeType[i].nDihedrals > 0) {
-      free(*(*System).MoleculeType[i].Dihedral);
-    }
-    free((*System).MoleculeType[i].BType);
+    FreeMoleculeType(&(*System).MoleculeType[i]);
   }
   free((*System).MoleculeType);
   free((*System).BondType);
   free((*System).AngleType);
   free((*System).DihedralType);
-}; //}}}
+};
+void FreeMoleculeType(MOLECULETYPE *MoleculeType) {
+  FreeMoleculeTypeEssentials(MoleculeType);
+  if ((*MoleculeType).nBTypes > 0) {
+    free((*MoleculeType).BType);
+  }
+  free((*MoleculeType).Index);
+}
+void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) {
+  free((*MoleculeType).Bead);
+  if ((*MoleculeType).nBonds > 0) {
+    free((*MoleculeType).Bond);
+  }
+  if ((*MoleculeType).nAngles > 0) {
+    free((*MoleculeType).Angle);
+  }
+  if ((*MoleculeType).nDihedrals > 0) {
+    free((*MoleculeType).Dihedral);
+  }
+} //}}}
 
 // TODO remove
 // VerboseOutput_old() //{{{
@@ -3355,7 +3351,7 @@ void FreeSystemInfo(COUNTS Counts, MOLECULETYPE **MoleculeType, MOLECULE **Molec
   FreeBead(Counts.BeadsTotal, Bead);
   free(*BeadType);
   FreeMolecule(Counts.Molecules, Molecule);
-  FreeMoleculeType(Counts.TypesOfMolecules, MoleculeType);
+  FreeMoleculeType_old(Counts.TypesOfMolecules, MoleculeType);
 } //}}}
 // FreeSystemInfo2() //{{{
 /**
@@ -3369,7 +3365,7 @@ void FreeSystemInfo2(COUNTS Counts, MOLECULETYPE **MoleculeType,
   FreeBead(Counts.BeadsTotal, Bead);
   free(*BeadType);
   FreeMolecule(Counts.Molecules, Molecule);
-  FreeMoleculeType(Counts.TypesOfMolecules, MoleculeType);
+  FreeMoleculeType_old(Counts.TypesOfMolecules, MoleculeType);
 } //}}}
 // FreeBead() //{{{
 /**
@@ -3398,7 +3394,7 @@ void FreeMolecule(int number_of_molecules, MOLECULE **Molecule) {
  * Free memory allocated for MoleculeType struct array. This function makes
  * it easier other arrays to the MoleculeType struct in the future
  */
-void FreeMoleculeType(int number_of_types, MOLECULETYPE **MoleculeType) {
+void FreeMoleculeType_old(int number_of_types, MOLECULETYPE **MoleculeType) {
   for (int i = 0; i < number_of_types; i++) {
     free((*MoleculeType)[i].Bead);
     if ((*MoleculeType)[i].nBonds > 0) {
