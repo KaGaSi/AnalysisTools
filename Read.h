@@ -25,6 +25,7 @@
 // Read all information about the system from a vsf/vtf structure file.
 SYSTEM VtfReadStruct(char struct_file[], bool detailed);
 void MergeBeadTypes(SYSTEM *System, bool detailed);
+void MergeMoleculeTypes(SYSTEM *System);
 // Get the first pbc line from a vcf/vtf coordinate file.
 void VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box);
 // Read a single timestep from a vcf/vtf coordinate file

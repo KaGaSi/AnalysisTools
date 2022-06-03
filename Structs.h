@@ -6,8 +6,8 @@
 #define CHARGE 10000.0 // 'impossible' charge to define a given bead type has charge specified in an input file
 #define MASS 0.0 // 'impossible' mass to define a given bead type has charge specified in an input file
 #define RADIUS 0.0 // 'impossible' radius to define a given bead type has charge specified in an input file
-#define MOL_NAME 8 // maximum molecule name length (array size is +1)
-#define BEAD_NAME 16 // maximum bead name length (array size is +1)
+#define MOL_NAME 9 // maximum molecule name length (with null terminator)
+#define BEAD_NAME 17 // maximum bead name length (with null terminator)
 
 typedef struct Box { //{{{
   VECTOR Length; // side lengths (a, b, c for triclinic cell)
@@ -75,7 +75,7 @@ static const PARAMS InitParams = {
   .b = -1,
 }; //}}}
 typedef struct BeadType { //{{{
-  char Name[BEAD_NAME+1]; // name of given bead type
+  char Name[BEAD_NAME]; // name of given bead type
   int Number, // number of beads of given type
       *Index; // array of Bead[] indices
   bool Use, // should bead type in .vcf file be used for calculation?
@@ -99,7 +99,7 @@ typedef struct Bead { //{{{
 } BEAD;
 void InitBead(BEAD *b); //}}}
 typedef struct MoleculeType { //{{{
-  char Name[MOL_NAME+1]; // name of given molecule type
+  char Name[MOL_NAME]; // name of given molecule type
 
   int Number, // number of molecules of given type
       *Index, // array of Molecule[] indices

@@ -3,54 +3,6 @@
 //      https://stackoverflow.com/questions/51534284/how-to-circumvent-format-truncation-warning-in-gcc
 // TODO impropers vs dihedrals - add improper section to FIELD
 
-// MergeMoleculeTypes() //{{{
-  /*
-   * Molecules of one type must share:
-   * i) molecule name and numbers of beads, bonds, angles, and dihedrals
-   * ii) order of bead types // TODO
-   * iii) connectivity // TODO
-   */
-void MergeMoleculeTypes(SYSTEM *System) {
-  COUNT *Count = &System->Count;
-  int count_new = 0,
-      *old_to_new = calloc(Count->MoleculeType, sizeof *old_to_new);
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    bool new = true;
-    MOLECULETYPE *mt_i = &System->MoleculeType[i];
-    int j = 0;
-    for (; j < count_new; j++) {
-      MOLECULETYPE *mt_j = &System->MoleculeType[j];
-      if (strcmp(mt_i->Name, mt_j->Name) == 0 &&
-          mt_i->nBeads == mt_j->nBeads &&
-          mt_i->nBonds == mt_j->nBonds &&
-          mt_i->nAngles == mt_j->nAngles &&
-          mt_i->nDihedrals == mt_j->nDihedrals) {
-        if (i != j) {
-          mt_j->Number += mt_i->Number;
-          FreeMoleculeTypeEssentials(mt_i);
-        }
-        old_to_new[i] = j;
-        new = false;
-        break;
-      }
-    }
-    if (new) { // create new type...
-      if (i != j) { // ...unless its id is the same as the old one's
-        strcpy(System->MoleculeType[count_new].Name, mt_i->Name);
-        System->MoleculeType[count_new] = CopyMoleculeTypeEssentials(*mt_i);
-        FreeMoleculeTypeEssentials(mt_i);
-      }
-      old_to_new[i] = count_new;
-      count_new++;
-    }
-  }
-  Count->MoleculeType = count_new;
-  for (int i = 0; i < Count->Molecule; i++) {
-    int old_type = System->Molecule[i].Type;
-    System->Molecule[i].Type = old_to_new[old_type];
-  }
-  free(old_to_new);
-} //}}}
 // VtfReadStruct() //{{{
 /*
  * Read system information from vsf/vtf structure file. It can recognize bead
@@ -139,6 +91,7 @@ discounting the following line");
         // save values from the 'a[tom] <id>' line
         int *values = VtfAtomLineValues(words, split);
         strncpy(Sys.BeadType[id].Name, split[values[0]], BEAD_NAME);
+        Sys.BeadType[id].Name[BEAD_NAME-1] = '\0'; // ensure null-termination
         if (values[1] != -1) {
           Sys.BeadType[id].Mass = atof(split[values[1]]);
         }
@@ -167,6 +120,7 @@ discounting the following line");
           }
           if (Sys.MoleculeType[resid].Number == 0) { // new molecule type
             strncpy(Sys.MoleculeType[resid].Name, split[values[4]], MOL_NAME);
+            Sys.MoleculeType[resid].Name[MOL_NAME-1] = '\0'; // null-terminate!
             Sys.MoleculeType[resid].Number = 1;
             Sys.MoleculeType[resid].nBeads = 1;
             Sys.MoleculeType[resid].Bead =
@@ -289,7 +243,7 @@ contact developper\n");
       int bt_new = Sys.Count.BeadType;
       Sys.Count.BeadType++;
       if (bt_new != i) {
-        strcpy(Sys.BeadType[bt_new].Name, Sys.BeadType[i].Name);
+        strncpy(Sys.BeadType[bt_new].Name, Sys.BeadType[i].Name, BEAD_NAME);
         Sys.BeadType[bt_new] = Sys.BeadType[i];
         Sys.Bead[i].Type = bt_new;
         bt_old_to_new[i] = bt_new;
@@ -525,7 +479,7 @@ void MergeBeadTypes(SYSTEM *System, bool detailed) {
       *old_to_new = malloc(sizeof *old_to_new * count_bt_old);
   // find the unique bead names //{{{
   int count_bnames = 0;
-  char (*bname)[BEAD_NAME+1] = malloc(sizeof *bname);
+  char (*bname)[BEAD_NAME] = malloc(sizeof *bname);
   for (int i = 0; i < Count->BeadType; i++) {
     bool new = true;
     for (int j = 0; j < count_bnames; j++) {
@@ -538,7 +492,7 @@ void MergeBeadTypes(SYSTEM *System, bool detailed) {
       int n = count_bnames;
       count_bnames++;
       bname = realloc(bname, sizeof *bname * count_bnames);
-      strcpy(bname[n], System->BeadType[i].Name);
+      strncpy(bname[n], System->BeadType[i].Name, BEAD_NAME);
     }
   } //}}}
   if (detailed) { // use name as well as charge, mass, and radius
@@ -734,7 +688,27 @@ void MergeBeadTypes(SYSTEM *System, bool detailed) {
     }
     free(temp);
     //}}}
-    // 5) TODO rename same-named bead types
+    // 5) rename same-named bead types //{{{
+    for (int i = 0; i < (Count->BeadType-1); i++) {
+      count = 0;
+      for (int j = (i+1); j < Count->BeadType; j++) {
+        if (strcmp(System->BeadType[i].Name, System->BeadType[j].Name) == 0) {
+          count++;
+          char name[BEAD_NAME];
+          strncpy(name, System->BeadType[j].Name, BEAD_NAME);
+          // shorten name if necessary
+          if (count < 10) {
+            name[BEAD_NAME-3] = '\0';
+          } else if (count < 100) {
+            name[BEAD_NAME-4] = '\0';
+          } else if (count < 1000) {
+            name[BEAD_NAME-5] = '\0';
+          }
+          // BEAD_NAME is max string length, i.e., array is longer
+          snprintf(System->BeadType[j].Name, BEAD_NAME, "%s_%d", name, count);
+        }
+      }
+    } //}}}
     // fill array to relabel bead types in arrays //{{{
     for (int i = 0; i < count_bt_old; i++) {
       old_to_new[i] = bt_old_to_new[bt_older_to_old[i]];
@@ -772,8 +746,7 @@ void MergeBeadTypes(SYSTEM *System, bool detailed) {
       }
       if (new) { // create new type...
         if (i != j) { // ...unless its id is the same as the old one's
-          strcpy(System->BeadType[count_bt_new].Name,
-                 bt_i->Name);
+          strncpy(System->BeadType[count_bt_new].Name, bt_i->Name, BEAD_NAME);
           System->BeadType[count_bt_new] = *bt_i;
         }
         old_to_new[i] = count_bt_new;
@@ -814,6 +787,76 @@ this should never happen!");
     }
   }
   free(count_test); //}}}
+} //}}}
+// MergeMoleculeTypes() //{{{
+  /*
+   * Molecules of one type must share:
+   * i) molecule name and numbers of beads, bonds, angles, and dihedrals
+   * ii) order of bead types
+   * iii) connectivity
+   */
+void MergeMoleculeTypes(SYSTEM *System) {
+  COUNT *Count = &System->Count;
+  int count_new = 0,
+      *old_to_new = calloc(Count->MoleculeType, sizeof *old_to_new);
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    bool new = true;
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    int j = 0;
+    for (; j < count_new; j++) {
+      MOLECULETYPE *mt_j = &System->MoleculeType[j];
+      // i) check numbers of stuff
+      if (strcmp(mt_i->Name, mt_j->Name) == 0 &&
+          mt_i->nBeads == mt_j->nBeads &&
+          mt_i->nBonds == mt_j->nBonds &&
+          mt_i->nAngles == mt_j->nAngles &&
+          mt_i->nDihedrals == mt_j->nDihedrals) {
+        // ii) check bead order
+        bool same_beads = true; // assume the bead order is the same
+        for (int k = 0; k < mt_i->nBeads; k++) {
+          if (mt_i->Bead[k] != mt_j->Bead[k]) {
+            same_beads = false;
+          }
+        }
+        // iii) check bonds
+        bool same_bonds = true; // assume molecule i has j type's connectivity
+        for (int k = 0; k < mt_j->nBonds; k++) {
+          if (mt_i->Bond[k][0] != mt_j->Bond[k][0] ||
+              mt_i->Bond[k][1] != mt_j->Bond[k][1]) {
+            same_bonds = false; // nope, it doesn't; i is not type j
+            break;
+          }
+        }
+        // are molecule types i and j the same?
+        if (same_beads && same_bonds) {
+          if (i != j) {
+            mt_j->Number += mt_i->Number;
+            FreeMoleculeTypeEssentials(mt_i);
+          }
+          old_to_new[i] = j;
+          new = false;
+          break;
+        }
+      }
+    }
+    if (new) { // create new type...
+      if (i != j) { // ...unless its id is the same as the old one's
+        strncpy(System->MoleculeType[count_new].Name, mt_i->Name, MOL_NAME);
+        System->MoleculeType[count_new] = CopyMoleculeTypeEssentials(*mt_i);
+        FreeMoleculeTypeEssentials(mt_i);
+      }
+      old_to_new[i] = count_new;
+      count_new++;
+    }
+  }
+  Count->MoleculeType = count_new;
+  for (int i = 0; i < Count->Molecule; i++) {
+    int old_type = System->Molecule[i].Type;
+    System->Molecule[i].Type = old_to_new[old_type];
+  }
+  free(old_to_new);
+  // TODO reorder types, so the ones sharing the name are next to each other
+  // TODO change names if there are the same ones
 } //}}}
 
 // Read vtf files //{{{
@@ -1858,7 +1901,7 @@ void ReadFieldBeadType(char *field, COUNTS *Counts,
       exit(1);
     } //}}}
 //  P_IGNORE(-Wformat-truncation);
-    snprintf((*BeadType)[i].Name, BEAD_NAME+1, "%s", split[0]);
+    snprintf((*BeadType)[i].Name,BEAD_NAME, "%s", split[0]);
 //  P_POP;
     (*BeadType)[i].Mass = atof(split[1]);
     (*BeadType)[i].Charge = atof(split[2]);
@@ -1984,8 +2027,7 @@ void ReadFieldMolecules(char *field, COUNTS *Counts,
     }
     // copy name to MOLECULETYPE
 //  P_IGNORE(-Wformat-truncation);
-    // MOL_NAME is max string length, i.e., array is longer
-    snprintf((*MoleculeType)[i].Name, MOL_NAME+1, "%s", split[0]);
+    snprintf((*MoleculeType)[i].Name, MOL_NAME, "%s", split[0]);
 //  P_POP; //}}}
     // 2) //{{{
     fgets(line, sizeof line, fr);
