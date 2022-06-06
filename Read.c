@@ -855,7 +855,44 @@ void MergeMoleculeTypes(SYSTEM *System) {
     System->Molecule[i].Type = old_to_new[old_type];
   }
   free(old_to_new);
-  // TODO reorder types, so the ones sharing the name are next to each other
+  // reorder the types, placing same-named ones next to each other //{{{
+  // copy all molecule types temporarily to bt struct
+  MOLECULETYPE *temp = malloc(sizeof (MOLECULETYPE) * Count->MoleculeType);
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    temp[i] = CopyMoleculeTypeEssentials(System->MoleculeType[i]);
+    temp[i].Use = false;
+  }
+//FreeMoleculeTypeEssentials(System->MoleculeType);
+//System->MoleculeType = malloc(sizeof (MOLECULETYPE) * Count->MoleculeType);
+//old_to_new = malloc(sizeof *old_to_new * Count->MoleculeType);
+//count_new = 0;
+//for (int i = 0; i < Count->MoleculeType; i++) {
+//  if (!temp[i].Use) {
+//    System->MoleculeType[count_new] = CopyMoleculeTypeEssentials(temp[i]);
+//    old_to_new[i] = count_new;
+//    count_new++;
+//    temp[i].Use = true;
+//    for (int j = (i+1); j < Count->MoleculeType; j++) {
+//      if(strcmp(System->MoleculeType[i].Name, temp[j].Name) == 0 &&
+//         !temp[j].Use) {
+//        System->MoleculeType[count_new] = CopyMoleculeTypeEssentials(temp[j]);
+//        old_to_new[j] = count_new;
+//        count_new++;
+//        temp[j].Use = true;
+//      }
+//    }
+//  }
+//}
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    FreeMoleculeTypeEssentials(&temp[i]);
+  }
+    free(temp);
+//for (int i = 0; i < Count->Molecule; i++) {
+//  int old_type = System->Molecule[i].Type;
+//  System->Molecule[i].Type = old_to_new[old_type];
+//}
+//free(old_to_new);
+  //}}}
   // TODO change names if there are the same ones
 } //}}}
 
