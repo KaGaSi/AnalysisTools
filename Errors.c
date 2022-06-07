@@ -23,10 +23,10 @@ void PrintErrorOption(char *opt) {
           ErrYellow(), opt, ErrRed(), ERROR_MSG, ErrColourReset());
 } //}}}
 // print 'ERROR: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>' //{{{
-void PrintErrorFileLine(char *file, int count,
+void PrintErrorFileLine(char file1[], char file2[], int count,
                         char *split[SPL_STR], int words) {
   PrintError();
-  ErrorPrintFile(file);
+  ErrorPrintFile(file1, file2);
   fprintf(stderr, "%s, line %s%d%s:\n", ErrRed(), ErrYellow(), count, ErrRed());
   ErrorPrintLine2(split, words);
 } //}}}
@@ -52,9 +52,13 @@ void WarnPrintFile(char file1[], char file2[]) {
             file2, ErrCyan(), ErrColourReset());
   }
 }
-void ErrorPrintFile(char file1[]) {
+void ErrorPrintFile(char file1[], char file2[]) {
   fprintf(stderr, "%sFile %s%s%s", ErrRed(),
           ErrYellow(), file1, ErrColourReset());
+  if (file2[0] != '\0' && strcmp(file1, file2) != 0) {
+    fprintf(stderr, " %s(%s%s%s)%s", ErrRed(), ErrYellow(),
+            file2, ErrRed(), ErrColourReset());
+  }
 }
  //}}}
 // print 'Line: <line>|(blank)' in given colours //{{{
@@ -111,7 +115,7 @@ int ErrorExtension(char *file, int number, char extension[][5]) {
   }
   strcpy(ERROR_MSG, "incorrect file extension");
   PrintError();
-  ErrorPrintFile(file);
+  ErrorPrintFile(file, "\0");
   fprintf(stderr, "%s; allowed extensions:", ErrRed());
   for (int i = 0; i < (number-1); i++) {
     fprintf(stderr, " %s%s%s,", ErrYellow(), extension[i], ErrRed());
@@ -398,7 +402,7 @@ bool ErrorDiscard(int start, int step, char *file, FILE *coor) {
     fflush(stdout);
     strcpy(ERROR_MSG, "starting timestep is too high");
     PrintError();
-    ErrorPrintFile(file);
+    ErrorPrintFile(file, "\0");
     fprintf(stderr, "%s, number of timesteps:%s%d%s\n", ErrRed(), ErrYellow(),
                                                         step, ErrColourReset());
     return true;

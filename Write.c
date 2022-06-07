@@ -94,49 +94,28 @@ void VtfWriteStruct(char file[], SYSTEM System) {
   for (int i = 0; i < System.Count.Bead; i++) {
     int btype = System.Bead[i].Type,
         mol = System.Bead[i].Molecule;
-    // don't print beads with type 'type_def' // TODO is it done correctly?
-    if (btype != type_def || mol != -1) {
-      fprintf(fw, "atom %7d ", i);
-      if (mol >= System.Count.Molecule) {
-        strcpy(ERROR_MSG, "TOO MANY MOLECULES!");
-        PrintError();
-        exit(1);
+    // print beads that are non-default, in a molecule, or have the highest id
+    bool print = false;
+    if (btype != type_def || mol != -1 || i == (System.Count.Bead-1)) {
+      print = true;
+    }
+    if (print) {
+      fprintf(fw, "atom %7d", i);
+      fprintf(fw, " name %8s", System.BeadType[btype].Name);
+      if (System.BeadType[btype].Mass != MASS) {
+        fprintf(fw, " mass %lf ", System.BeadType[btype].Mass);
       }
-      if (mol != -1) { // TODO okay, what's this?
-        int mtype = System.Molecule[mol].Type;
-        int n = -1;
-        for (int j = 0; j < System.MoleculeType[mtype].nBeads; j++) {
-          if (i == System.Molecule[mol].Bead[j]) {
-            n = j;
-            break;
-          }
-        }
-        if (n == -1) {
-          strcpy(ERROR_MSG, "something wrong with bead ids in molecules; \
-contact developer");
-          PrintWarning();
-        }
-        btype = System.MoleculeType[mtype].Bead[n];
-        fprintf(fw, "name %8s ", System.BeadType[btype].Name);
-        fprintf(fw, "mass %lf ", System.BeadType[btype].Mass);
-        fprintf(fw, "charge %lf", System.BeadType[btype].Charge);
-      } else {
-        fprintf(fw, "name %8s ", System.BeadType[btype].Name);
-        fprintf(fw, "mass %lf ", System.BeadType[btype].Mass);
-        fprintf(fw, "charge %lf", System.BeadType[btype].Charge);
+      if (System.BeadType[btype].Charge != CHARGE) {
+        fprintf(fw, " charge %lf", System.BeadType[btype].Charge);
+      }
+      if (System.BeadType[btype].Radius != RADIUS) {
+        fprintf(fw, " radius %lf", System.BeadType[btype].Radius);
       }
       if (mol != -1) {
         int mtype = System.Molecule[mol].Type;
         fprintf(fw, " resname %10s ", System.MoleculeType[mtype].Name);
         fprintf(fw, "resid %5d", mol+1);
       }
-      putc('\n', fw);
-    // print highest bead id even if it's default type
-    } else if (i == (System.Count.Bead-1)) {
-      fprintf(fw, "atom %7d ", i);
-      fprintf(fw, "name %8s ", System.BeadType[btype].Name);
-      fprintf(fw, "mass %lf ", System.BeadType[btype].Mass);
-      fprintf(fw, "charge %lf", System.BeadType[btype].Charge);
       putc('\n', fw);
     }
   } //}}}

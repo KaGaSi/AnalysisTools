@@ -4,6 +4,25 @@
 */
 // TODO add detailed switch FindBeadType/FindMoleculeType (check not just name)
 
+// TODO ErrorPrintFile should have two files (like )
+// TODO make CheckSystem & CheckSystemCoor?
+void CheckSystem(SYSTEM System, char file[]) {
+  // count total number of beads
+  // i) just unbonded+bonded
+  int count = System.Count.Unbonded + System.Count.Bonded;
+  if (count != System.Count.Bead) {
+    strcpy(ERROR_MSG, "unbonded and bonded beads do not add up properly!");
+    PrintError();
+    ErrorPrintFile(file, "\0");
+    fprintf(stderr, "%s, unbonded: %s%d%s",
+            ErrRed(), ErrYellow(), System.Count.Unbonded, ErrRed());
+    fprintf(stderr, ", bonded: %s%d%s",
+            ErrYellow(), System.Count.Bonded, ErrRed());
+    fprintf(stderr, ", sum should be: %s%d%s\n",
+            ErrYellow(), System.Count.Bead, ErrColourReset());
+  }
+  // ii) from BeadType
+}
 int * BondIndices(SYSTEM System, int mol, int bond) { //{{{
   static int index[4]; // first are 'real' ids, then the intramolecular ones
   int n = 2,

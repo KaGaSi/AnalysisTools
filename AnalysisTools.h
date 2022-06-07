@@ -16,7 +16,8 @@
 #include <time.h>
 #include <unistd.h>
 
-// TransformMatrices()
+void CheckSystem(SYSTEM System, char file[]);
+
 bool TriclinicCellData(BOX *Box);
 
 void ToFractional(VECTOR *coor, BOX Box);

@@ -15,11 +15,12 @@ well.\n\n");
   fprintf(ptr, "   %s <input> [options]\n\n", cmd);
   fprintf(ptr, "   <input>   vtf input structure file\n");
   fprintf(ptr, "   [options]\n");
-  fprintf(ptr, "      --detailed   differentiate bead types not just \
+  fprintf(ptr, "      --detailed        differentiate bead types not just \
 by names\n");
-  fprintf(ptr, "      -v           verbose output\n");
-  fprintf(ptr, "      -h           print this help and exit\n");
-  fprintf(ptr, "      --version    print version number and exit\n");
+  fprintf(ptr, "      -vsf <file.vsf>   create a new vsf structure file\n");
+  fprintf(ptr, "      -v                verbose output\n");
+  fprintf(ptr, "      -h                print this help and exit\n");
+  fprintf(ptr, "      --version         print version number and exit\n");
 } //}}}
 
 int main(int argc, char *argv[]) {
@@ -52,6 +53,7 @@ int main(int argc, char *argv[]) {
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] == '-' &&
         strcmp(argv[i], "--detailed") != 0 &&
+        strcmp(argv[i], "-vsf") != 0 &&
         strcmp(argv[i], "-v") != 0 &&
         strcmp(argv[i], "--version") != 0 &&
         strcmp(argv[i], "-h") != 0) {
@@ -83,9 +85,22 @@ int main(int argc, char *argv[]) {
   // options before reading system data
   bool verbose = BoolOption(argc, argv, "-v");
   bool detailed = BoolOption(argc, argv, "--detailed");
+  char output_vsf[LINE] = "\0";
+
+  // -vsf option //{{{
+  if (FileOption(argc, argv, "-vsf", output_vsf, LINE)) {
+    exit(1);
+  }
+  if (output_vsf[0] != '\0') {
+    ext = 1;
+    strcpy(extension[0], ".vsf");
+    if (ErrorExtension(output_vsf, ext, extension) == -1) {
+      Help(argv[0], true);
+      exit(1);
+    }
+  } //}}}
 
   // read information from vtf file
-//SYSTEM System = VtfReadStruct(input_vsf, detailed);
   SYSTEM System = VtfReadStruct(input_vsf, detailed);
 
   // print information
@@ -95,6 +110,10 @@ int main(int argc, char *argv[]) {
     PrintBead(System);
     fprintf(stdout, "\nInformation about every molecule:\n");
     PrintMolecule(System);
+  }
+
+  if (output_vsf[0] != '\0') {
+    VtfWriteStruct(output_vsf, System);
   }
 
   // free memory - to make valgrind happy

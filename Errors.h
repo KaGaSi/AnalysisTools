@@ -29,15 +29,15 @@ void PrintWarningOption(char *opt);
 // print 'ERROR: <option> - <ERROR_MSG>' in red and yellow
 void PrintErrorOption(char *opt);
 // print 'ERROR: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>'
-void PrintErrorFileLine(char *file,  int count,
+void PrintErrorFileLine(char file1[], char file2[],  int count,
                         char *split[SPL_STR], int words);
 // print 'WARNING: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>'
 void PrintWarningFileLine(char file1[], char file2[], int count,
                           char *split[SPL_STR], int words);
-// print 'FILE <name>' in given colour
+// print 'FILE <name(s)>' in given colour
 void PrintFile(FILE *f, char file[], char colour[]);
-void WarnPrintFile(char file[], char file2[]); // in cyan
-void ErrorPrintFile(char file[]); // in red
+void WarnPrintFile(char file1[], char file2[]); // in cyan
+void ErrorPrintFile(char file1[], char file2[]); // in red
 // print 'Line: <line>|(blank)' in given colours
 void PrintLine2(FILE *f, char *split[SPL_STR], int words,
                 char *colour1, char *colour2);

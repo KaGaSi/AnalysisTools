@@ -309,7 +309,7 @@ FILE *OpenFile(char *file, char *mode) {
   if (ptr == NULL) {
     strcpy(ERROR_MSG, "cannot open file");
     PrintError();
-    ErrorPrintFile(file);
+    ErrorPrintFile(file, "\0");
     fputs(Colour(stderr, RED), stderr);
     perror(" ");
     fputs(Colour(stderr, C_RESET), stderr);

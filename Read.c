@@ -164,12 +164,12 @@ discounting the following line");
     } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) { // d)
       strcpy(ERROR_MSG, "encountered a coordinate-like line \
 inside the structure block ");
-      PrintErrorFileLine(struct_file, file_line_count, split, words);
+      PrintErrorFileLine(struct_file, "\0", file_line_count, split, words);
       exit(1);
     } else if (ltype != BLANK_LINE && ltype != COMMENT_LINE &&
                ltype != PBC_LINE && ltype != PBC_LINE_ANGLES) { // e)
       // proper error message already established in VtfCheckLineType()
-      PrintErrorFileLine(struct_file, file_line_count, split, words);
+      PrintErrorFileLine(struct_file, "\0", file_line_count, split, words);
       exit(1);
     }
   }
@@ -178,7 +178,7 @@ inside the structure block ");
   if (default_atom == 0 && count_atoms != Sys.Count.Bead) {
     strcpy(ERROR_MSG, "not all beads defined ('atom default' line is omitted)");
     PrintError();
-    ErrorPrintFile(struct_file);
+    ErrorPrintFile(struct_file, "\0");
     int undefined = Sys.Count.Bead - count_atoms;
     fprintf(stderr, "%s, %s%d%s bead(s) undefined%s\n", ErrRed(), ErrYellow(),
                                                         undefined, ErrRed(),
@@ -394,6 +394,7 @@ should never happen!");
   }
   free(count_id);
   //}}}
+  CheckSystem(Sys, struct_file);
   WarnChargedSystem(Sys, struct_file, "\0");
   return Sys;
 } //}}}
@@ -704,7 +705,6 @@ void MergeBeadTypes(SYSTEM *System, bool detailed) {
           } else if (count < 1000) {
             name[BEAD_NAME-5] = '\0';
           }
-          // BEAD_NAME is max string length, i.e., array is longer
           snprintf(System->BeadType[j].Name, BEAD_NAME, "%s_%d", name, count);
         }
       }
@@ -797,13 +797,13 @@ this should never happen!");
    */
 void MergeMoleculeTypes(SYSTEM *System) {
   COUNT *Count = &System->Count;
-  int count_new = 0,
+  int count = 0,
       *old_to_new = calloc(Count->MoleculeType, sizeof *old_to_new);
-  for (int i = 0; i < Count->MoleculeType; i++) {
+  for (int i = 0; i < Count->MoleculeType; i++) { //{{{
     bool new = true;
     MOLECULETYPE *mt_i = &System->MoleculeType[i];
     int j = 0;
-    for (; j < count_new; j++) {
+    for (; j < count; j++) {
       MOLECULETYPE *mt_j = &System->MoleculeType[j];
       // i) check numbers of stuff
       if (strcmp(mt_i->Name, mt_j->Name) == 0 &&
@@ -841,59 +841,81 @@ void MergeMoleculeTypes(SYSTEM *System) {
     }
     if (new) { // create new type...
       if (i != j) { // ...unless its id is the same as the old one's
-        strncpy(System->MoleculeType[count_new].Name, mt_i->Name, MOL_NAME);
-        System->MoleculeType[count_new] = CopyMoleculeTypeEssentials(*mt_i);
+        strncpy(System->MoleculeType[count].Name, mt_i->Name, MOL_NAME);
+        System->MoleculeType[count] = CopyMoleculeTypeEssentials(*mt_i);
         FreeMoleculeTypeEssentials(mt_i);
       }
-      old_to_new[i] = count_new;
-      count_new++;
+      old_to_new[i] = count;
+      count++;
     }
   }
-  Count->MoleculeType = count_new;
+  Count->MoleculeType = count; //}}}
+  // relabel molecules with proper molecule types //{{{
   for (int i = 0; i < Count->Molecule; i++) {
     int old_type = System->Molecule[i].Type;
     System->Molecule[i].Type = old_to_new[old_type];
   }
-  free(old_to_new);
+  free(old_to_new); //}}}
   // reorder the types, placing same-named ones next to each other //{{{
-  // copy all molecule types temporarily to bt struct
+  // copy all molecule types to a temporary array & free the original array
   MOLECULETYPE *temp = malloc(sizeof (MOLECULETYPE) * Count->MoleculeType);
   for (int i = 0; i < Count->MoleculeType; i++) {
     temp[i] = CopyMoleculeTypeEssentials(System->MoleculeType[i]);
     temp[i].Use = false;
+    FreeMoleculeTypeEssentials(&System->MoleculeType[i]);
   }
-//FreeMoleculeTypeEssentials(System->MoleculeType);
-//System->MoleculeType = malloc(sizeof (MOLECULETYPE) * Count->MoleculeType);
-//old_to_new = malloc(sizeof *old_to_new * Count->MoleculeType);
-//count_new = 0;
-//for (int i = 0; i < Count->MoleculeType; i++) {
-//  if (!temp[i].Use) {
-//    System->MoleculeType[count_new] = CopyMoleculeTypeEssentials(temp[i]);
-//    old_to_new[i] = count_new;
-//    count_new++;
-//    temp[i].Use = true;
-//    for (int j = (i+1); j < Count->MoleculeType; j++) {
-//      if(strcmp(System->MoleculeType[i].Name, temp[j].Name) == 0 &&
-//         !temp[j].Use) {
-//        System->MoleculeType[count_new] = CopyMoleculeTypeEssentials(temp[j]);
-//        old_to_new[j] = count_new;
-//        count_new++;
-//        temp[j].Use = true;
-//      }
-//    }
-//  }
-//}
+  free(System->MoleculeType);
+  System->MoleculeType = malloc(sizeof (MOLECULETYPE) * Count->MoleculeType);
+  // array to link old molecule type indices to new ones
+  old_to_new = malloc(sizeof *old_to_new * Count->MoleculeType);
+  // copy the molecule types back in a proper order
+  count = 0;
   for (int i = 0; i < Count->MoleculeType; i++) {
+    if (!temp[i].Use) {
+      System->MoleculeType[count] = CopyMoleculeTypeEssentials(temp[i]);
+      old_to_new[i] = count;
+      count++;
+      temp[i].Use = true;
+      for (int j = (i+1); j < Count->MoleculeType; j++) {
+        if(strcmp(System->MoleculeType[i].Name, temp[j].Name) == 0 &&
+           !temp[j].Use) {
+          System->MoleculeType[count] = CopyMoleculeTypeEssentials(temp[j]);
+          old_to_new[j] = count;
+          count++;
+          temp[j].Use = true;
+        }
+      }
+    }
+  } //}}}
+  // rename same-named molecule types & free the temporary array //{{{
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    count = 0;
+    for (int j = (i+1); j < Count->MoleculeType; j++) {
+      if (strcmp(System->MoleculeType[i].Name,
+                 System->MoleculeType[j].Name) == 0) {
+        count++;
+        char name[MOL_NAME];
+        strncpy(name, System->MoleculeType[j].Name, MOL_NAME);
+        // shorten name if necessary
+        if (count < 10) {
+          name[MOL_NAME-3] = '\0';
+        } else if (count < 100) {
+          name[MOL_NAME-4] = '\0';
+        } else if (count < 1000) {
+          name[MOL_NAME-5] = '\0';
+        }
+        snprintf(System->MoleculeType[j].Name, MOL_NAME, "%s_%d", name, count);
+      }
+    }
     FreeMoleculeTypeEssentials(&temp[i]);
   }
-    free(temp);
-//for (int i = 0; i < Count->Molecule; i++) {
-//  int old_type = System->Molecule[i].Type;
-//  System->Molecule[i].Type = old_to_new[old_type];
-//}
-//free(old_to_new);
-  //}}}
-  // TODO change names if there are the same ones
+  free(temp); //}}}
+  // relabel molecules with proper molecule types; yep - again //{{{
+  for (int i = 0; i < Count->Molecule; i++) {
+    int old_type = System->Molecule[i].Type;
+    System->Molecule[i].Type = old_to_new[old_type];
+  }
+  free(old_to_new); //}}}
 } //}}}
 
 // Read vtf files //{{{
@@ -915,7 +937,7 @@ void VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box) {
     if (!ReadAndSplitLine(coor, LINE, line, &words, split, SPL_STR, " \t\n")) {
       strcpy(ERROR_MSG, "missing pbc line (and any coordinates)");
       PrintError();
-      ErrorPrintFile(input_vcf);
+      ErrorPrintFile(input_vcf, "\0");
       putc('\n', stderr);
       exit(1);
     } //}}}
@@ -939,7 +961,7 @@ void VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box) {
     // error - coordinate line //{{{
     } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
       strcpy(ERROR_MSG, "encountered coordinate line before pbc line");
-      PrintErrorFileLine(input_vcf, file_line_count, split, words);
+      PrintErrorFileLine(input_vcf, "\0", file_line_count, split, words);
       exit(1); //}}}
     // warning - unrecognised line //{{{
     } else if (ltype == ERROR_LINE) {
@@ -1214,6 +1236,19 @@ using next timestep instead of this one");
     goto start_function;
   } //}}}
   (*file_line_count)--; // the last line will be re-read next time
+  int count = System->Count.UnbondedCoor + System->Count.BondedCoor;
+  if (count == System->Count.BeadCoor) {
+    strcpy(ERROR_MSG, "unbonded and bonded beads in a coordinate file do not \
+add up properly!");
+    PrintError();
+    ErrorPrintFile(vcf_file, vsf_file);
+    fprintf(stderr, "%s, unbonded: %s%d%s",
+            ErrRed(), ErrYellow(), System->Count.UnbondedCoor, ErrRed());
+    fprintf(stderr, ", bonded: %s%d%s",
+            ErrYellow(), System->Count.BondedCoor, ErrRed());
+    fprintf(stderr, ", sum should be: %s%d%s\n",
+            ErrYellow(), System->Count.BeadCoor, ErrColourReset());
+  }
   return true; // coordinates read properly
 } //}}}
 // VtfSkipTimestep() //{{{
@@ -1550,7 +1585,7 @@ void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts,
   if (split[0][0] == 'L') {
     strcpy(ERROR_MSG, "premature end of file");
     PrintError();
-    ErrorPrintFile(agg_file);
+    ErrorPrintFile(agg_file, "\0");
     putc('\n', stderr);
     exit(1);
   } else if (words < 2 || strcmp(split[0], "Step:") != 0 ||
@@ -1565,7 +1600,7 @@ void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts,
 
     strcpy(ERROR_MSG, "missing pbc line (and any coordinates)");
     PrintError();
-    PrintErrorFileLine(agg_file, file_line_count, split, words);
+    PrintErrorFileLine(agg_file, "\0", file_line_count, split, words);
     putc('\n', stderr);
     exit(1);
   } //}}}
@@ -1689,7 +1724,7 @@ void ReadAggCommand(BEADTYPE *BeadType, COUNTS Counts,
   if (!ReadLine(agg, LINE, line)) {
     strcpy(ERROR_MSG, "cannot read the first line from an aggregate file");
     PrintError();
-    ErrorPrintFile(input_agg);
+    ErrorPrintFile(input_agg, "\0");
     putc('\n', stderr);
     exit(1);
   }
@@ -1700,7 +1735,7 @@ void ReadAggCommand(BEADTYPE *BeadType, COUNTS Counts,
   if (words < 6) {
     strcpy(ERROR_MSG, "first line must contain a valid Aggregates command");
     PrintError();
-    ErrorPrintFile(input_agg);
+    ErrorPrintFile(input_agg, "\0");
     putc('\n', stderr);
     exit(1);
   } //}}}
@@ -1709,7 +1744,7 @@ void ReadAggCommand(BEADTYPE *BeadType, COUNTS Counts,
     strcpy(ERROR_MSG, "Aggregate command: <distance> must be \
 a non-negative number");
     PrintError();
-    ErrorPrintFile(input_agg);
+    ErrorPrintFile(input_agg, "\0");
     ErrorPrintLine2(split, words);
     exit(1);
   } //}}}
@@ -1719,7 +1754,7 @@ a non-negative number");
     strcpy(ERROR_MSG, "Aggregate command: <contacts> must be \
 a positive integer");
     PrintError();
-    ErrorPrintFile(input_agg);
+    ErrorPrintFile(input_agg, "\0");
     ErrorPrintLine2(split, words);
     exit(1);
   }
@@ -1738,7 +1773,7 @@ beads present in the two files");
     if (type == -1) {
       strcpy(ERROR_MSG, "non-existent bead name in the Aggregaates command");
       PrintError();
-      ErrorPrintFile(input_agg);
+      ErrorPrintFile(input_agg, "\0");
       fprintf(stderr, "%s, bead %s%s%s\n", Red(), Yellow(), split[i],
                                            ColourReset());
       ErrorBeadType_old(Counts, BeadType);
@@ -1763,7 +1798,7 @@ void SkipAgg(FILE *agg, char *agg_file) {
   if (!ReadLine(agg, LINE, line)) {
     strcpy(ERROR_MSG, "cannot read a line from the aggregate file");
     PrintError();
-    ErrorPrintFile(agg_file);
+    ErrorPrintFile(agg_file, "\0");
     putc('\n', stderr);
     exit(1);
   }
@@ -1773,12 +1808,12 @@ void SkipAgg(FILE *agg, char *agg_file) {
   long val;
   if (split[0][0] == 'L') {
     strcpy(ERROR_MSG, "premature end of file");
-    ErrorPrintFile(agg_file);
+    ErrorPrintFile(agg_file, "\0");
     putc('\n', stderr);
     exit(1);
   } else if (words < 2 || !IsNatural(split[1], &val)) {
     strcpy(ERROR_MSG, "invalid 'Step' line");
-    PrintErrorFileLine(agg_file, file_line_count, split, words);
+    PrintErrorFileLine(agg_file, "\0", file_line_count, split, words);
     exit(1);
   } //}}}
   // get number of aggregates
@@ -1786,7 +1821,7 @@ void SkipAgg(FILE *agg, char *agg_file) {
   if (!ReadLine(agg, LINE, line)) {
     strcpy(ERROR_MSG, "cannot read a line from the aggregate file");
     PrintError();
-    ErrorPrintFile(agg_file);
+    ErrorPrintFile(agg_file, "\0");
     putc('\n', stderr);
     exit(1);
   }
@@ -1794,7 +1829,7 @@ void SkipAgg(FILE *agg, char *agg_file) {
   // Error - number of aggregates must be <int> //{{{
   if (words != 0 && !IsPosInteger(split[0], &val)) {
     strcpy(ERROR_MSG, "number of aggregates must be a natural number\n");
-    PrintErrorFileLine(agg_file, file_line_count, split, words);
+    PrintErrorFileLine(agg_file, "\0", file_line_count, split, words);
     exit(1);
   } //}}}
   int aggs = atoi(split[0]);
@@ -1804,7 +1839,7 @@ void SkipAgg(FILE *agg, char *agg_file) {
     while ((test = getc(agg)) != '\n') {
       if (test == EOF) {
         strcpy(ERROR_MSG, "premature end of file");
-        ErrorPrintFile(agg_file);
+        ErrorPrintFile(agg_file, "\0");
         fprintf(stderr, "%s, line %s%d%s\n", ErrRed(), ErrYellow(),
                                              file_line_count, ErrColourReset());
         exit(1);
@@ -1816,14 +1851,14 @@ void SkipAgg(FILE *agg, char *agg_file) {
   if (!ReadLine(agg, LINE, line)) {
     strcpy(ERROR_MSG, "cannot read a line from the aggregate file");
     PrintError();
-    ErrorPrintFile(agg_file);
+    ErrorPrintFile(agg_file, "\0");
     putc('\n', stderr);
     exit(1);
   }
   words = SplitLine(SPL_STR, split, line, " \t\n");
   if (feof(agg) == EOF) {
     strcpy(ERROR_MSG, "premature end of file");
-    ErrorPrintFile(agg_file);
+    ErrorPrintFile(agg_file, "\0");
     exit(1);
   }
 } //}}}
@@ -4004,12 +4039,12 @@ SYSTEM VtfReadStruct_old(char struct_file[], bool detailed) {
     } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) { // d)
       strcpy(ERROR_MSG, "encountered a coordinate-like line \
 inside the structure block ");
-      PrintErrorFileLine(struct_file, file_line_count, split, words);
+      PrintErrorFileLine(struct_file, "\0", file_line_count, split, words);
       exit(1);
     } else if (ltype != BLANK_LINE && ltype != COMMENT_LINE &&
                ltype != PBC_LINE && ltype != PBC_LINE_ANGLES) { // e)
       // proper error message already established in VtfCheckLineType()
-      PrintErrorFileLine(struct_file, file_line_count, split, words);
+      PrintErrorFileLine(struct_file, "\0", file_line_count, split, words);
       exit(1);
     }
   }
@@ -4018,7 +4053,7 @@ inside the structure block ");
   if (default_atom == 0 && count_atoms != Sys.Count.Bead) {
     strcpy(ERROR_MSG, "not all beads defined ('atom default' line is omitted)");
     PrintError();
-    ErrorPrintFile(struct_file);
+    ErrorPrintFile(struct_file, "\0");
     int undefined = Sys.Count.Bead-count_atoms;
     fprintf(stderr, "%s, %s%d%s bead(s) undefined%s\n", ErrRed(), ErrYellow(),
                                                         undefined, ErrRed(),
@@ -4540,7 +4575,7 @@ contact developper\n");
     if (m_id1 != m_id2) {
       strcpy(ERROR_MSG, "bonded beads not in the same molecule");
       PrintError();
-      ErrorPrintFile(struct_file);
+      ErrorPrintFile(struct_file, "\0");
       fprintf(stderr, "%s, atom id (resid): %s%d %s(%s", ErrRed(), ErrYellow(),
                                                          bond[i].index1,
                                                          ErrRed(), ErrYellow());
