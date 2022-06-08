@@ -433,7 +433,7 @@ int main(int argc, char *argv[]) {
   if (strlen(file_coor) > 0) { // is there an input coordinate file?
     S_orig = VtfReadStruct_old(file_struct, detailed);
   } else {
-    InitSystem(&S_orig);
+    C_old(&S_orig);
   } //}}}
 
   // -xb <name(s)> - specify what bead types to exchange //{{{
@@ -520,7 +520,7 @@ int main(int argc, char *argv[]) {
 
   // TODO FIELD must be completely redone
   if (strlen(file_add_struct) == 0) { // read stuff to be added from FIELD //{{{
-    InitSystem(&S_add);
+    C_old(&S_add);
 //  ReadField(input_add, '\0', &Counts_add, &S_add.BeadType, &S_add.Bead,
 //            &Index_add, &S_add.MoleculeType, &S_add.Molecule,
 //            &bond_type, &angle_type, &dihedral_type);
@@ -905,10 +905,10 @@ int main(int argc, char *argv[]) {
     //}}}
   } else { // or add beads to the system? //{{{
     BOX Box_new = S_new.Box; // TODO box set up previously; maybe make it a different BOX
-    S_new = CopySystem(S_orig);
+    S_new = CopySystem_old(S_orig);
     fflush(stdout);
     ConcatenateSystems(&S_new, S_add, Box_new);
-    PruneSystem(&S_new);
+    PruneSystem_old(&S_new);
 //  VerboseOutput(S_new);
 //  PrintMolecule(S_new);
   } //}}}

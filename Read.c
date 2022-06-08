@@ -1237,7 +1237,7 @@ using next timestep instead of this one");
   } //}}}
   (*file_line_count)--; // the last line will be re-read next time
   int count = System->Count.UnbondedCoor + System->Count.BondedCoor;
-  if (count == System->Count.BeadCoor) {
+  if (count != System->Count.BeadCoor) {
     strcpy(ERROR_MSG, "unbonded and bonded beads in a coordinate file do not \
 add up properly!");
     PrintError();

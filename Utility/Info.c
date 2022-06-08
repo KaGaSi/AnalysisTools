@@ -6,9 +6,10 @@ void Help(char cmd[50], bool error) { //{{{
   } else {
     ptr = stdout;
     fprintf(ptr, "\
-Info simply prints information about a system in the provided structure file. \
-The verbose option prints detailed information about every molecule as \
-well.\n\n");
+Info prints information about the provided system and can also create a new \
+vtf structure file. The new structure file may contain only a subset of the \
+original system, if a provided coordinate file does not contain all the beads; \
+the output file is also affected by the --detailed switch.\n\n");
   }
 
   fprintf(ptr, "Usage:\n");
@@ -18,7 +19,8 @@ well.\n\n");
   fprintf(ptr, "      --detailed        differentiate bead types not just \
 by names\n");
   fprintf(ptr, "      -vsf <file.vsf>   create a new vsf structure file\n");
-  fprintf(ptr, "      -v                verbose output\n");
+  fprintf(ptr, "      -c <file>         input coordinate file\n");
+  fprintf(ptr, "      -v                more verbose output\n");
   fprintf(ptr, "      -h                print this help and exit\n");
   fprintf(ptr, "      --version         print version number and exit\n");
 } //}}}
@@ -54,6 +56,7 @@ int main(int argc, char *argv[]) {
     if (argv[i][0] == '-' &&
         strcmp(argv[i], "--detailed") != 0 &&
         strcmp(argv[i], "-vsf") != 0 &&
+        strcmp(argv[i], "-c") != 0 &&
         strcmp(argv[i], "-v") != 0 &&
         strcmp(argv[i], "--version") != 0 &&
         strcmp(argv[i], "-h") != 0) {
@@ -85,9 +88,9 @@ int main(int argc, char *argv[]) {
   // options before reading system data
   bool verbose = BoolOption(argc, argv, "-v");
   bool detailed = BoolOption(argc, argv, "--detailed");
-  char output_vsf[LINE] = "\0";
 
   // -vsf option //{{{
+  char output_vsf[LINE] = "\0";
   if (FileOption(argc, argv, "-vsf", output_vsf, LINE)) {
     exit(1);
   }
@@ -100,8 +103,32 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
 
+  // -c option //{{{
+  char input_coor[LINE] = "\0";
+  if (FileOption(argc, argv, "-c", input_coor, LINE)) {
+    exit(1);
+  }
+  if (input_coor[0] != '\0') {
+    ext = 2;
+    strcpy(extension[0], ".vcf");
+    strcpy(extension[1], ".vtf");
+    if (ErrorExtension(input_coor, ext, extension) == -1) {
+      Help(argv[0], true);
+      exit(1);
+    }
+  } //}}}
+
   // read information from vtf file
   SYSTEM System = VtfReadStruct(input_vsf, detailed);
+  if (input_coor[0] != '\0') {
+    FILE *coor = OpenFile(input_coor, "r");
+    char stuff[LINE];
+    int step_count = 0, file_line_count = 0;
+    VtfReadTimestep(coor, input_coor, input_vsf, &System, &file_line_count,
+                    step_count, stuff);
+    fclose(coor);
+    PruneSystem(&System);
+  }
 
   // print information
   VerboseOutput(System);
@@ -116,10 +143,10 @@ int main(int argc, char *argv[]) {
     VtfWriteStruct(output_vsf, System);
   }
 
-  // free memory - to make valgrind happy
-  for (int i = 0; i < System.Count.BeadType; i++) {
-    free(System.BeadType[i].Index);
-  }
+//// free memory - to make valgrind happy
+//for (int i = 0; i < System.Count.BeadType; i++) {
+//  free(System.BeadType[i].Index);
+//}
   FreeSystem(&System);
 
   return 0;

@@ -35,23 +35,23 @@ void InitMolecule(MOLECULE *mol) {
 }
 // TODO add stuff?
 // TODO InitStuff() - possibly initializing twice (second in Read.c)
-// TODO wha allocate it all? ...not in InitMolecule(), etc. Should it be?
+// TODO why allocate it all? ...not in InitMolecule(), etc. Should it be?
 void InitSystem(SYSTEM *System) {
-  (*System).Box = InitBox;
-  (*System).Count = InitCount;
-  (*System).BeadType = calloc(1, sizeof *(*System).BeadType);
-  (*System).Bead = calloc(1, sizeof *(*System).Bead);
-  (*System).MoleculeType = calloc(1, sizeof *(*System).MoleculeType);
-  (*System).Molecule = calloc(1, sizeof *(*System).Molecule);
-  (*System).BondType = calloc(1, sizeof *(*System).BondType);
-  (*System).AngleType = calloc(1, sizeof *(*System).AngleType);
-  (*System).DihedralType = calloc(1, sizeof *(*System).DihedralType);
-  (*System).Index_mol = calloc(1, sizeof *(*System).Index_mol);
-  (*System).Bonded = calloc(1, sizeof *(*System).Bonded);
-  (*System).BondedCoor = calloc(1, sizeof *(*System).BondedCoor);
-  (*System).Unbonded = calloc(1, sizeof *(*System).Unbonded);
-  (*System).UnbondedCoor = calloc(1, sizeof *(*System).UnbondedCoor);
-  (*System).BeadCoor = calloc(1, sizeof *(*System).BeadCoor);
+  System->Box = InitBox;
+  System->Count = InitCount;
+  System->BeadType = calloc(1, sizeof *(*System).BeadType);
+  System->Bead = calloc(1, sizeof *(*System).Bead);
+  System->MoleculeType = calloc(1, sizeof *(*System).MoleculeType);
+  System->Molecule = calloc(1, sizeof *(*System).Molecule);
+  System->BondType = calloc(1, sizeof *(*System).BondType);
+  System->AngleType = calloc(1, sizeof *(*System).AngleType);
+  System->DihedralType = calloc(1, sizeof *(*System).DihedralType);
+  System->Index_mol = calloc(1, sizeof *(*System).Index_mol);
+  System->Bonded = calloc(1, sizeof *(*System).Bonded);
+  System->BondedCoor = calloc(1, sizeof *(*System).BondedCoor);
+  System->Unbonded = calloc(1, sizeof *(*System).Unbonded);
+  System->UnbondedCoor = calloc(1, sizeof *(*System).UnbondedCoor);
+  System->BeadCoor = calloc(1, sizeof *(*System).BeadCoor);
 //InitBeadType(&(*System).BeadType[0]);
 //InitBead(&(*System).Bead[0]);
 //InitMoleculeType(&(*System).MoleculeType[0]);
