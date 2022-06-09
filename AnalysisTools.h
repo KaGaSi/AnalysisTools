@@ -64,14 +64,12 @@ void PrintDihedralTypes2(int number_of_dihedrals, PARAMS *dihedral_type);
 int FindBeadType(char name[], SYSTEM System);
 int FindMoleculeType(char name[], SYSTEM System);
 
-void FillMolBTypes(int number_of_types, MOLECULETYPE **MoleculeType);
-
-// FillMolMassCharge() //{{{
-/*
- * Function to calculate total mass and charge of molecules.
- */
-void FillMolMassCharge(int number_of_types, MOLECULETYPE **MoleculeType,
-                       BEADTYPE *BeadType); //}}}
+void FillSystemNonessentials(SYSTEM *System);
+void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType);
+void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
+                                BEADTYPE BeadType[]);
+void FillBeadTypeIndex(SYSTEM *System);
+void FillMoleculeTypeIndex(SYSTEM *System);
 
 // Distancet() //{{{
 /**
@@ -416,4 +414,7 @@ void RemovePBCMolecules_new(COUNTS Counts, BOX Box, BEADTYPE *BeadType, BEAD **B
                         MOLECULETYPE *MoleculeType, MOLECULE *Molecule);
 void CopyBead_old(int number_of_beads, BEAD **b_out, BEAD *b_in, int mode);
 void FreeSystem_old(SYSTEM *System);
+void FillMolBTypes_old(int number_of_types, MOLECULETYPE **MoleculeType);
+void FillMolMassCharge_old(int number_of_types, MOLECULETYPE **MoleculeType,
+                       BEADTYPE *BeadType);
 #endif

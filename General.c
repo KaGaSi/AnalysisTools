@@ -8,7 +8,7 @@
  *
  * Example strings: 1) 02.2x & 2) x2.2
  *   IsReal() on 1) gives val=2.2 and returns success (i.e., true)
- *   IsInteger() on 2) gives val=2 and returns success (i.e., true)
+ *   IsInteger() on 1) gives val=2 and returns success (i.e., true)
  *   On 2), all functions return failure (i.e., false)
  */
 bool IsReal(char *str, double *val) {

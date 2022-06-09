@@ -579,64 +579,111 @@ int FindMoleculeType(char name[], SYSTEM System) { //{{{
   return(-1);
 } //}}}
 
-// FillMolBTypes //{{{
-/*
- * Function to fill MoleculeType[].BType array based on MoleculeType[].Bead array.
- */
-void FillMolBTypes(int number_of_types, MOLECULETYPE **MoleculeType) {
-  for (int i = 0; i < number_of_types; i++) {
-    (*MoleculeType)[i].nBTypes = 0;
-    (*MoleculeType)[i].BType = malloc(sizeof *(*MoleculeType)[i].BType * 1);
-    for (int j = 0; j < (*MoleculeType)[i].nBeads; j++) {
-      bool new = true;
-      for (int k = 0; k < (*MoleculeType)[i].nBTypes; k++) {
-        if ((*MoleculeType)[i].Bead[j] == (*MoleculeType)[i].BType[k]) {
-          new = false;
-          break;
-        }
-      }
-      if (new) {
-        int type = (*MoleculeType)[i].nBTypes++;
-        (*MoleculeType)[i].BType = realloc((*MoleculeType)[i].BType,
-                                           sizeof *(*MoleculeType)[i].BType *
-                                           (*MoleculeType)[i].nBTypes);
-        (*MoleculeType)[i].BType[type] = (*MoleculeType)[i].Bead[j];
-      }
-    }
+// fill the some System arrays //{{{
+void FillSystemNonessentials(SYSTEM *System) { //{{{
+  COUNT *Count = &System->Count;
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    FillMoleculeTypeBType(&System->MoleculeType[i]);
+    FillMoleculeTypeChargeMass(&System->MoleculeType[i], System->BeadType);
+  }
+  FillBeadTypeIndex(System);
+  FillMoleculeTypeIndex(System);
+  System->Index_mol = realloc(System->Index_mol, sizeof *System->Index_mol *
+                              (Count->HighestResid + 1));
+  for (int i = 0; i <= Count->HighestResid; i++) {
+    System->Index_mol[i] = -1;
+  }
+  for (int i = 0; i < Count->Molecule; i++) {
+    System->Index_mol[System->Molecule[i].Index] = i;
+  }
+  System->BeadCoor = realloc(System->BeadCoor,
+                          sizeof *System->BeadCoor * Count->Bead);
+  if (Count->Bonded > 0) {
+    System->BondedCoor = realloc(System->BondedCoor,
+                             sizeof *System->BondedCoor * Count->Bonded);
+  }
+  if (Count->Unbonded > 0) {
+    System->UnbondedCoor = realloc(System->UnbondedCoor,
+                               sizeof *System->UnbondedCoor * Count->Unbonded);
   }
 } //}}}
-
-// FillMolMassCharge() //{{{
-/*
- * Function to calculate total mass and charge of molecules.
- */
-void FillMolMassCharge(int number_of_types, MOLECULETYPE **MoleculeType,
-                 BEADTYPE *BeadType) {
-  for (int i = 0; i < number_of_types; i++) {
-    // mass
-    (*MoleculeType)[i].Mass = 0;
-    for (int j = 0; j < (*MoleculeType)[i].nBeads; j++) {
-      int btype = (*MoleculeType)[i].Bead[j];
-      if (BeadType[btype].Mass != MASS) {
-        (*MoleculeType)[i].Mass += BeadType[btype].Mass;
-      } else {
-        (*MoleculeType)[i].Mass = MASS;
+// molecule type's nBTypes and BType array //{{{
+void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType) {
+  MoleculeType->nBTypes = 0;
+  MoleculeType->BType = malloc(sizeof *MoleculeType->BType * 1);
+  for (int j = 0; j < MoleculeType->nBeads; j++) {
+    bool new = true;
+    for (int k = 0; k < MoleculeType->nBTypes; k++) {
+      if (MoleculeType->Bead[j] == MoleculeType->BType[k]) {
+        new = false;
         break;
       }
     }
+    if (new) {
+      int type = MoleculeType->nBTypes++;
+      MoleculeType->BType = realloc(MoleculeType->BType,
+                                    sizeof *MoleculeType->BType *
+                                    MoleculeType->nBTypes);
+      MoleculeType->BType[type] = MoleculeType->Bead[j];
+    }
+  }
+} //}}}
+// molecule type's Charge and Mass //{{{
+void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
+                                BEADTYPE BeadType[]) {
+  MoleculeType->Mass = 0;
+  MoleculeType->Charge = 0;
+  for (int j = 0; j < MoleculeType->nBeads; j++) {
+    int btype = MoleculeType->Bead[j];
     // charge
-    (*MoleculeType)[i].Charge = 0;
-    for (int j = 0; j < (*MoleculeType)[i].nBeads; j++) {
-      int btype = (*MoleculeType)[i].Bead[j];
-      if (BeadType[btype].Charge != CHARGE) {
-        (*MoleculeType)[i].Charge += BeadType[btype].Charge;
-      } else {
-        (*MoleculeType)[i].Charge = CHARGE;
-        break;
-      }
+    if (BeadType[btype].Charge != CHARGE) {
+      MoleculeType->Charge += BeadType[btype].Charge;
+    } else {
+      MoleculeType->Charge = CHARGE;
+      break;
+    }
+    // mass
+    if (BeadType[btype].Mass != MASS) {
+      MoleculeType->Mass += BeadType[btype].Mass;
+    } else {
+      MoleculeType->Mass = MASS;
+      break;
     }
   }
 } //}}}
+// all bead types' Index array //{{{
+void FillBeadTypeIndex(SYSTEM *System) {
+  COUNT *Count = &System->Count;
+  // allocate memory for Index arrays
+  for (int i = 0; i < Count->BeadType; i++) {
+    BEADTYPE *bt_i = &System->BeadType[i];
+    bt_i->Index = malloc(sizeof *bt_i->Index * bt_i->Number);
+  }
+  // fill the Index arrays
+  int *count_id = calloc(Count->BeadType, sizeof *count_id);
+  for (int i = 0; i < Count->Bead; i++) {
+    int type = System->Bead[i].Type;
+    System->BeadType[type].Index[count_id[type]] = i;
+    count_id[type]++;
+  }
+  free(count_id);
+} //}}}
+// all molecule types' Index array //{{{
+void FillMoleculeTypeIndex(SYSTEM *System) {
+  COUNT *Count = &System->Count;
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    mt_i->Index = malloc(sizeof *mt_i->Index * mt_i->Number);
+  }
+  int *count_id = calloc(Count->MoleculeType, sizeof *count_id);
+  for (int i = 0; i < Count->Molecule; i++) {
+    int type = System->Molecule[i].Type;
+    System->MoleculeType[type].Index[count_id[type]] = i;
+    count_id[type]++;
+  }
+  free(count_id);
+} //}}}
+ //}}}
 
 // Distance() //{{{
 /**
@@ -1595,7 +1642,7 @@ void CopyMoleculeType_old(int number_of_types, MOLECULETYPE **mt_out,
       }
     }
   }
-  FillMolBTypes(number_of_types, mt_out);
+  FillMolBTypes_old(number_of_types, mt_out);
 } //}}}
 
 // CopyMolecule() //{{{
@@ -2003,8 +2050,8 @@ void PruneSystem(SYSTEM *System) { //{{{
       }
     }
   }
-  FillMolBTypes(Count->MoleculeType, &System->MoleculeType);
-  FillMolMassCharge(Count->MoleculeType, &System->MoleculeType,
+  FillMolBTypes_old(Count->MoleculeType, &System->MoleculeType);
+  FillMolMassCharge_old(Count->MoleculeType, &System->MoleculeType,
                     System->BeadType);
   //}}}
   // fill BeadType[].Index //{{{
@@ -3852,8 +3899,8 @@ void PruneSystem_old(SYSTEM *System) { //{{{
       }
     }
   }
-  FillMolBTypes((*System).Count.MoleculeType, &(*System).MoleculeType);
-  FillMolMassCharge((*System).Count.MoleculeType, &(*System).MoleculeType,
+  FillMolBTypes_old((*System).Count.MoleculeType, &(*System).MoleculeType);
+  FillMolMassCharge_old((*System).Count.MoleculeType, &(*System).MoleculeType,
                     (*System).BeadType);
   //}}}
 //PrintMoleculeType(*System);
@@ -3861,4 +3908,61 @@ void PruneSystem_old(SYSTEM *System) { //{{{
 //PrintMolecule(*System);
   FreeSystem(&S_old);
   free(connect);
+} //}}}
+// FillMolBTypes_old() //{{{
+/*
+ * Function to fill MoleculeType[].BType array based on MoleculeType[].Bead array.
+ */
+void FillMolBTypes_old(int number_of_types, MOLECULETYPE **MoleculeType) {
+  for (int i = 0; i < number_of_types; i++) {
+    (*MoleculeType)[i].nBTypes = 0;
+    (*MoleculeType)[i].BType = malloc(sizeof *(*MoleculeType)[i].BType * 1);
+    for (int j = 0; j < (*MoleculeType)[i].nBeads; j++) {
+      bool new = true;
+      for (int k = 0; k < (*MoleculeType)[i].nBTypes; k++) {
+        if ((*MoleculeType)[i].Bead[j] == (*MoleculeType)[i].BType[k]) {
+          new = false;
+          break;
+        }
+      }
+      if (new) {
+        int type = (*MoleculeType)[i].nBTypes++;
+        (*MoleculeType)[i].BType = realloc((*MoleculeType)[i].BType,
+                                           sizeof *(*MoleculeType)[i].BType *
+                                           (*MoleculeType)[i].nBTypes);
+        (*MoleculeType)[i].BType[type] = (*MoleculeType)[i].Bead[j];
+      }
+    }
+  }
+} //}}}
+// FillMolMassCharge() //{{{
+/*
+ * Function to calculate total mass and charge of molecules.
+ */
+void FillMolMassCharge_old(int number_of_types, MOLECULETYPE **MoleculeType,
+                       BEADTYPE *BeadType) {
+  for (int i = 0; i < number_of_types; i++) {
+    // mass
+    (*MoleculeType)[i].Mass = 0;
+    for (int j = 0; j < (*MoleculeType)[i].nBeads; j++) {
+      int btype = (*MoleculeType)[i].Bead[j];
+      if (BeadType[btype].Mass != MASS) {
+        (*MoleculeType)[i].Mass += BeadType[btype].Mass;
+      } else {
+        (*MoleculeType)[i].Mass = MASS;
+        break;
+      }
+    }
+    // charge
+    (*MoleculeType)[i].Charge = 0;
+    for (int j = 0; j < (*MoleculeType)[i].nBeads; j++) {
+      int btype = (*MoleculeType)[i].Bead[j];
+      if (BeadType[btype].Charge != CHARGE) {
+        (*MoleculeType)[i].Charge += BeadType[btype].Charge;
+      } else {
+        (*MoleculeType)[i].Charge = CHARGE;
+        break;
+      }
+    }
+  }
 } //}}}

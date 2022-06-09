@@ -269,7 +269,7 @@ int main(int argc, char *argv[]) {
   MoleculeType[0].Mass = MoleculeType_field[0].Mass;
   MoleculeType[0].Charge = MoleculeType_field[0].Charge;
   // fill BTypes struct using the new bead type indices
-  FillMolBTypes(Counts.TypesOfMolecules, &MoleculeType); //}}}
+  FillMolBTypes_old(Counts.TypesOfMolecules, &MoleculeType); //}}}
 
   // copy bond & angle & dihedral types to be used //{{{
   bond_type = calloc(Counts.TypesOfBonds, sizeof(PARAMS));
