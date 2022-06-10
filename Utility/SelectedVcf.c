@@ -145,9 +145,8 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // read information from vtf file(s) //{{{
-  SYSTEM System = VtfReadStruct_old(input_vsf, detailed);
-  System.BeadCoor = calloc(System.nBeadsTotal, sizeof *System.BeadCoor);
-  VtfReadPBC(input_coor, &System.Box);
+  SYSTEM System = VtfReadStruct(input_vsf, detailed);
+  VtfReadPBC(input_coor, input_vsf, &System.Box);
   if (!TriclinicCellData(&System.Box)) {
     strcpy(ERROR_MSG, "wrong pbc data");
     PrintError();
@@ -155,7 +154,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // <bead names> - names of bead types to save //{{{
-  for (int i = 0; i < System.nBeadTypes; i++) {
+  for (int i = 0; i < System.Count.BeadType; i++) {
     System.BeadType[i].Write = false;
   }
   while (++count < argc && argv[count][0] != '-') {
@@ -176,7 +175,7 @@ int main(int argc, char *argv[]) {
   }
   // if '--reverse' is used, switch Write bools for all bead types
   if (reverse) {
-    for (int i = 0; i < System.nBeadTypes; i++) {
+    for (int i = 0; i < System.Count.BeadType; i++) {
       if (System.BeadType[i].Write) {
         System.BeadType[i].Write = false;
       } else {
@@ -184,7 +183,7 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-  for (int i = 0; i < System.nBeadsTotal; i++) {
+  for (int i = 0; i < System.Count.Bead; i++) {
     int type = System.Bead[i].Type;
     if (System.BeadType[type].Write) {
       System.Bead[i].Use = true;
@@ -196,7 +195,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   // copy Use flag to Write (for '-x' option)
-  for (int i = 0; i < System.nMoleculeTypes; i++) {
+  for (int i = 0; i < System.Count.MoleculeType; i++) {
     System.MoleculeType[i].Write = System.MoleculeType[i].Use;
   } //}}}
 
@@ -271,24 +270,24 @@ int main(int argc, char *argv[]) {
     //}}}
     // read and write the timestep, if it should be saved //{{{
     if (use) {
-      if (!VtfReadTimestep(vcf, input_coor, &System,
+      if (!VtfReadTimestep(vcf, input_coor, input_vsf, &System,
                            &file_line_count, count_vcf, stuff)) {
         count_vcf--;
         break;
       }
       // transform coordinates into fractional ones for non-orthogonal box
       if (wrap || join) {
-        ToFractionalCoor(System.nBeadsCoor, &System.Bead, System.Box);
+        ToFractionalCoor(System.Count.BeadCoor, &System.Bead, System.Box);
       }
       if (wrap) { // wrap coordinates into the simulation box
-        RestorePBC(System.nBeadsCoor, System.Box, &System.Bead);
+        RestorePBC(System.Count.BeadCoor, System.Box, &System.Bead);
       }
       if (join) { // join molecules by removing periodic boundary conditions
         RemovePBCMolecules(&System);
       }
       // transform back to 'normal' coordinates for non-orthogonal box
       if (wrap || join) {
-        FromFractionalCoor(System.nBeadsCoor, &System.Bead, System.Box);
+        FromFractionalCoor(System.Count.BeadCoor, &System.Bead, System.Box);
       }
       // write to output .vcf file
       out = OpenFile(output_vcf, "a");
@@ -303,7 +302,8 @@ int main(int argc, char *argv[]) {
       //}}}
     // skip the timestep, if it shouldn't be saved //{{{
     } else {
-      if (!VtfSkipTimestep(vcf, input_coor, &file_line_count, count_vcf)) {
+      if (!VtfSkipTimestep(vcf, input_coor, input_vsf, &file_line_count,
+                           count_vcf)) {
         count_vcf--;
         break;
       }
@@ -332,19 +332,19 @@ int main(int argc, char *argv[]) {
     } else {
       fsetpos(vcf, &position2);
     }
-    VtfReadTimestep(vcf, input_coor, &System,
+    VtfReadTimestep(vcf, input_coor, input_vsf, &System,
                     &file_line_count, count_vcf, stuff);
     // transform coordinates into fractional ones for non-orthogonal box
-    ToFractionalCoor(System.nBeadsCoor, &System.Bead, System.Box);
+    ToFractionalCoor(System.Count.BeadCoor, &System.Bead, System.Box);
     // wrap and/or join molecules?
     if (wrap) {
-      RestorePBC(System.nBeadsCoor, System.Box, &System.Bead);
+      RestorePBC(System.Count.BeadCoor, System.Box, &System.Bead);
     }
     if (join) {
       RemovePBCMolecules(&System);
     }
     // transform back to 'normal' coordinates for non-orthogonal box
-    FromFractionalCoor(System.nBeadsCoor, &System.Bead, System.Box);
+    FromFractionalCoor(System.Count.BeadCoor, &System.Bead, System.Box);
     // write to output .vcf file
     out = OpenFile(output_vcf, "a");
     VtfWriteCoorIndexed(out, stuff, System);
@@ -368,7 +368,7 @@ than the number of timestep)");
   if (count_vcf == 0) {
     strcpy(ERROR_MSG, "no valid timestep found");
     PrintError();
-    ErrorPrintFile(input_coor);
+    ErrorPrintFile(input_coor, "\0");
     fputc('\n', stderr);
   //}}}
   } else if (!silent) {

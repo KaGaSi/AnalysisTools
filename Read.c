@@ -11,8 +11,6 @@
  * dihedrals for molecule types).
  */
 // TODO check that there are any molecules before filling the structures
-// TODO maybe RemoveExtraTypes should be only after FillMoleculeTypeBonds (so
-//      that there no confusion as the MoleculeType struct is not fully filled)
 SYSTEM VtfReadStruct(char struct_file[], bool detailed) {
   SYSTEM Sys; // zeroize counts
   InitSystem(&Sys);
@@ -30,7 +28,7 @@ SYSTEM VtfReadStruct(char struct_file[], bool detailed) {
 //  int index1, index2; // indices from vsf file
 //} *bond = calloc(1, sizeof *bond); //}}}
   int (*bond)[2] = calloc(1, sizeof *bond);
-  // 1) read struct_file line by line, saving all atom and bond lines //{{{
+  // read struct_file line by line, saving all atom and bond lines //{{{
   /* Do something based on to line type
    *   a) atom line: save bead information
    *      i) atom default line (the first one): save into separate bt_def struct
@@ -180,6 +178,8 @@ inside the structure block ");
     }
   }
   fclose(vsf); //}}}
+  Count->BeadType = Count->Bead;
+  Count->MoleculeType = Count->Molecule;
   // error - no default line and too few atom lines //{{{
   if (default_atom == 0 && count_atoms != Count->Bead) {
     strcpy(ERROR_MSG, "not all beads defined ('atom default' line is omitted)");
@@ -190,7 +190,7 @@ inside the structure block ");
             undefined, ErrRed(), ErrColourReset());
     exit(1);
   } //}}}
-  // 2) assign atom default to default beads & count bonded/unbonded beads //{{{
+  // assign atom default to default beads & count bonded/unbonded beads //{{{
   // find first unused bead type and make it the default
   int def, count_def = 0;
   for (int i = 0; i < Count->Bead; i++) {
@@ -227,19 +227,9 @@ contact developper\n");
     PrintError();
     exit(1);
   } //}}}
-  // 3) fill Molecule[].Bead array (i.e., copy MoleculeType[].Bead array) //{{{
-  for (int i = 0; i < Count->Molecule; i++) {
-    MOLECULETYPE *mt_i = &Sys.MoleculeType[i];
-    MOLECULE *mol_i = &Sys.Molecule[i];
-    if (mt_i->Number > 0) {
-      mol_i->Type = i;
-      mol_i->Index = i;
-      mol_i->Bead = malloc(sizeof *mol_i->Bead * mt_i->nBeads);
-      memcpy(mol_i->Bead, mt_i->Bead, sizeof *mt_i->Bead * mt_i->nBeads);
-    }
-  } //}}}
-  RemoveExtraTypes(&Sys);
+  FillMoleculeBeads(&Sys);
   FillMoleculeTypeBonds(&Sys, bond, count_bonds);
+  RemoveExtraTypes(&Sys);
   MergeBeadTypes(&Sys, detailed);
   MergeMoleculeTypes(&Sys);
   FillSystemNonessentials(&Sys);
@@ -247,66 +237,18 @@ contact developper\n");
   WarnChargedSystem(Sys, struct_file, "\0");
   return Sys;
 } //}}}
-// RemoveExtraTypes()  //{{{
-/*
- * Remove bead and molecule types with Number=0. It assumes the allocated
- * memory for BeadType and MoleculeType arrays of structures correspond to the
- * number of beads and molecules, respectively (i.e., not to the number of
- * types).
- */
-void RemoveExtraTypes(SYSTEM *System) {
+void FillMoleculeBeads(SYSTEM *System) { //{{{
   COUNT *Count = &System->Count;
-  // BeadType & Bead[].Type
-  Count->BeadType = 0; // just pro forma
-  int *bt_old_to_new = malloc(sizeof *bt_old_to_new * Count->Bead);
-  for (int i = 0; i < Count->Bead; i++) {
-    if (System->BeadType[i].Number != 0) {
-      int bt_id = Count->BeadType;
-      Count->BeadType++;
-      if (bt_id != i) {
-        System->BeadType[bt_id] = System->BeadType[i];
-        System->Bead[i].Type = bt_id;
-        bt_old_to_new[i] = bt_id;
-      }
-    }
-  }
-  // sync MoleculeType[].Bead (i.e., bead types) with the new BeadType
   for (int i = 0; i < Count->Molecule; i++) {
-    for (int j = 0; j < System->MoleculeType[i].nBeads; j++) {
-      int id = System->MoleculeType[i].Bead[j];
-      System->MoleculeType[i].Bead[j] = bt_old_to_new[id];
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    MOLECULE *mol_i = &System->Molecule[i];
+    if (mt_i->Number > 0) {
+      mol_i->Type = i;
+      mol_i->Index = i;
+      mol_i->Bead = malloc(sizeof *mol_i->Bead * mt_i->nBeads);
+      memcpy(mol_i->Bead, mt_i->Bead, sizeof *mt_i->Bead * mt_i->nBeads);
     }
   }
-  free(bt_old_to_new);
-  // MoleculeType & Molecule
-  Count->MoleculeType = 0; // just pro forma
-  for (int i = 0; i < Count->Molecule; i++) {
-    if (System->MoleculeType[i].Number != 0) {
-      int mt_id = Count->MoleculeType;
-      Count->MoleculeType++;
-      if (mt_id != i) {
-        // MoleculeType struct
-        MOLECULETYPE *mt_new = &System->MoleculeType[mt_id],
-                     *mt_i = &System->MoleculeType[i];
-        *mt_new = *mt_i;
-        mt_new->Bead = malloc(sizeof *mt_new->Bead * mt_new->nBeads);
-        memcpy(mt_new->Bead, mt_i->Bead, sizeof *mt_i->Bead * mt_i->nBeads);
-        free(mt_i->Bead);
-        // Molecule struct
-        MOLECULE *mol_new = &System->Molecule[mt_id];
-        mol_new->Type = mt_id;
-        mol_new->Index = i;
-        mol_new->Bead = malloc(sizeof *mol_new->Bead * mt_new->nBeads);
-        for (int j = 0; j < mt_new->nBeads; j++) {
-          int id = System->Molecule[i].Bead[j];
-          System->Molecule[mt_id].Bead[j] = id;
-          System->Bead[id].Molecule = mt_id;
-        }
-        free(System->Molecule[i].Bead);
-      }
-    }
-  }
-  Count->Molecule = Count->MoleculeType;
 } //}}}
 void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[2], int nbonds) { //{{{
   COUNT *Count = &System->Count;
@@ -361,6 +303,72 @@ should never happen!");
     }
   }
   free(bond);
+} //}}}
+// RemoveExtraTypes()  //{{{
+/*
+ * Remove bead and molecule types with Number=0. It assumes the allocated
+ * memory for BeadType and MoleculeType arrays of structures correspond to the
+ * number of beads and molecules, respectively (i.e., not to the number of
+ * types).
+ */
+void RemoveExtraTypes(SYSTEM *System) {
+  COUNT *Count = &System->Count;
+  // BeadType & Bead[].Type
+  Count->BeadType = 0; // just pro forma
+  int *bt_old_to_new = malloc(sizeof *bt_old_to_new * Count->Bead);
+  for (int i = 0; i < Count->Bead; i++) {
+    if (System->BeadType[i].Number != 0) {
+      int bt_id = Count->BeadType;
+      Count->BeadType++;
+      if (bt_id != i) {
+        System->BeadType[bt_id] = System->BeadType[i];
+        System->Bead[i].Type = bt_id;
+      }
+      bt_old_to_new[i] = bt_id;
+    }
+  }
+  // sync MoleculeType[].Bead (i.e., bead types) with the new BeadType
+  for (int i = 0; i < Count->Molecule; i++) {
+    if (System->MoleculeType[i].Number != 0) {
+      for (int j = 0; j < System->MoleculeType[i].nBeads; j++) {
+        int id = System->MoleculeType[i].Bead[j];
+        System->MoleculeType[i].Bead[j] = bt_old_to_new[id];
+      }
+    }
+  }
+  free(bt_old_to_new);
+  // MoleculeType & Molecule
+  Count->MoleculeType = 0; // just pro forma
+  for (int i = 0; i < Count->Molecule; i++) {
+    if (System->MoleculeType[i].Number != 0) {
+      int mt_id = Count->MoleculeType;
+      Count->MoleculeType++;
+      if (mt_id != i) {
+        // MoleculeType struct
+        MOLECULETYPE *mt_new = &System->MoleculeType[mt_id],
+                     *mt_i = &System->MoleculeType[i];
+        *mt_new = *mt_i;
+        mt_new->Bead = malloc(sizeof *mt_new->Bead * mt_new->nBeads);
+        memcpy(mt_new->Bead, mt_i->Bead, sizeof *mt_i->Bead * mt_i->nBeads);
+        free(mt_i->Bead);
+        mt_new->Bond = malloc(sizeof *mt_new->Bond * mt_new->nBonds);
+        memcpy(mt_new->Bond, mt_i->Bond, sizeof *mt_i->Bond * mt_i->nBonds);
+        free(mt_i->Bond);
+        // Molecule struct
+        MOLECULE *mol_new = &System->Molecule[mt_id];
+        mol_new->Type = mt_id;
+        mol_new->Index = i;
+        mol_new->Bead = malloc(sizeof *mol_new->Bead * mt_new->nBeads);
+        for (int j = 0; j < mt_new->nBeads; j++) {
+          int id = System->Molecule[i].Bead[j];
+          System->Molecule[mt_id].Bead[j] = id;
+          System->Bead[id].Molecule = mt_id;
+        }
+        free(System->Molecule[i].Bead);
+      }
+    }
+  }
+  Count->Molecule = Count->MoleculeType;
 } //}}}
 // MergeBeadTypes() //{{{
 /* Merge bead types either using names only (detailed=false) or using names,

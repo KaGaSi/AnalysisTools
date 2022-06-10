@@ -24,6 +24,7 @@
 
 // Read all information about the system from a vsf/vtf structure file.
 SYSTEM VtfReadStruct(char struct_file[], bool detailed);
+void FillMoleculeBeads(SYSTEM *System);
 void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[2], int nbonds);
 void RemoveExtraTypes(SYSTEM *System);
 void MergeBeadTypes(SYSTEM *System, bool detailed);
