@@ -120,8 +120,8 @@ int ErrorExtension(char *file, int number, char extension[][5]) {
   for (int i = 0; i < (number-1); i++) {
     fprintf(stderr, " %s%s%s,", ErrYellow(), extension[i], ErrRed());
   }
-  fprintf(stderr, " %s%s%s\n", ErrYellow(), extension[number-1],
-                                ErrColourReset());
+  fprintf(stderr, " %s%s%s\n", ErrYellow(),
+          extension[number-1], ErrColourReset());
   return -1;
 } //}}}
 

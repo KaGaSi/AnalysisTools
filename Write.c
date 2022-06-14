@@ -1,7 +1,7 @@
 #include "Write.h"
 
 // Append an indexed timestep to a vcf/vtf coordinate file //{{{
-void VtfWriteCoorIndexed(FILE *vcf, char stuff[], SYSTEM System) {
+void VtfWriteCoorIndexed(FILE *vcf, char stuff[], bool write[], SYSTEM System) {
   // print comment at the beginning of a timestep if present in initial vcf file
   if (stuff[0] != '\0') {
     fprintf(vcf, "%s\n", stuff);
@@ -19,7 +19,7 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[], SYSTEM System) {
   bool none = true;
   for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadCoor[i];
-    if (System.Bead[id].InTimestep && System.Bead[id].Use) {
+    if (System.Bead[id].InTimestep && write[id]) {
       none = false;
       fprintf(vcf, "%8d %8.4f %8.4f %8.4f\n", id,
                                               System.Bead[id].Position.x,
@@ -34,13 +34,13 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[], SYSTEM System) {
 } //}}}
 
 // Append a timestep to an xyz file //{{{
-void XyzWriteCoor(FILE *xyz, SYSTEM System) {
+void XyzWriteCoor(FILE *xyz, bool write[], SYSTEM System) {
   // find out number of beads to save
   int count = 0;
   bool none = true; // to make sure there are beads to save
   for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadCoor[i];
-    if (System.Bead[id].InTimestep && System.Bead[id].Use) {
+    if (System.Bead[id].InTimestep && write[id]) {
       none = false;
       count++;
     }
@@ -52,9 +52,9 @@ void XyzWriteCoor(FILE *xyz, SYSTEM System) {
     fprintf(xyz, "%d\n\n", count);
     for (int i = 0; i < System.Count.BeadCoor; i++) {
       int id = System.BeadCoor[i];
-      if (System.Bead[id].InTimestep && System.Bead[id].Use) {
+      if (System.Bead[id].InTimestep && write[id]) {
         int type = System.Bead[id].Type;
-        fprintf(xyz, "%8s %7.3f %7.3f %7.3f\n", System.BeadType[type].Name,
+        fprintf(xyz, "%8s %8.4f %8.4f %8.4f\n", System.BeadType[type].Name,
                                                 System.Bead[id].Position.x,
                                                 System.Bead[id].Position.y,
                                                 System.Bead[id].Position.z);
@@ -65,7 +65,6 @@ void XyzWriteCoor(FILE *xyz, SYSTEM System) {
 
 // Create a new vsf/vtf structure file. //{{{
 void VtfWriteStruct(char file[], SYSTEM System) {
-
   FILE *fw = OpenFile(file, "w");
   // find most common type of bead and make it default //{{{
   int *count = calloc(System.Count.BeadType, sizeof *count);
@@ -82,7 +81,6 @@ void VtfWriteStruct(char file[], SYSTEM System) {
       type_def = i;
     }
   }
-//PrintBeadType(System);
   free(count); //}}}
   // print default bead type //{{{
   if (type_def != -1) {
@@ -318,6 +316,7 @@ void PrintByline(FILE *ptr, int argc, char *argv[]) { //{{{
 } //}}}
 
 // TODO remove
+#if 0
 // WriteCoorIndexed() //{{{
 /**
  * Function writing coordinates to a `.vcf` file. According to the Write flag
@@ -458,7 +457,7 @@ void VtfWriteCoorIndexed_old(FILE *vcf, char stuff[], int InFile[],
   bool none = true;
   for (int i = 0; i < Counts.BeadsCoor; i++) {
     int id = InFile[i];
-    if (Bead[id].InTimestep && Bead[id].Use) {
+    if (Bead[id].InTimestep) {
       none = false;
       fprintf(vcf, "%8d %8.4f %8.4f %8.4f\n", id,
                                               Bead[id].Position.x,
@@ -480,7 +479,7 @@ void XyzWriteCoor_old(FILE *xyz, COUNTS Counts, int InFile[],
   PrintCounts_old(Counts);
   for (int i = 0; i < Counts.BeadsCoor; i++) {
     int id = InFile[i];
-    if (Bead[id].InTimestep && Bead[id].Use) {
+    if (Bead[id].InTimestep) {
       none = false;
       count++;
     }
@@ -492,7 +491,7 @@ void XyzWriteCoor_old(FILE *xyz, COUNTS Counts, int InFile[],
     fprintf(xyz, "%d\n\n", count);
     for (int i = 0; i < Counts.BeadsCoor; i++) {
       int id = InFile[i];
-      if (Bead[id].InTimestep && Bead[id].Use) {
+      if (Bead[id].InTimestep) {
         int type = Bead[id].Type;
         fprintf(xyz, "%8s %7.3f %7.3f %7.3f\n", BeadType[type].Name,
                                                 Bead[id].Position.x,
@@ -588,3 +587,4 @@ void VtfWriteStruct_old(char file[], COUNTS Counts,
   // close structure file
   fclose(fw);
 } //}}}
+#endif

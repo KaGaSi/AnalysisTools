@@ -86,7 +86,7 @@ bool ExcludeOption(int argc, char *argv[], SYSTEM *System);
 bool JoinCoorOption(int argc, char **argv, char *joined_vcf); //}}}
 
 bool BeadTypeOption(int argc, char **argv, char *opt,
-                    bool use, SYSTEM *System);
+                    bool use, bool flag[], SYSTEM *System);
 
 // BoolOption() //{{{
 /**

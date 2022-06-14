@@ -135,6 +135,14 @@ int main(int argc, char *argv[]) {
   if (FileOption(argc, argv, "-xyz", output_xyz, LINE)) {
     exit(1);
   }
+  if (output_xyz[0] != '\0') {
+    ext = 1;
+    strcpy(extension[0], ".xyz");
+    if (ErrorExtension(output_xyz, ext, extension) == -1) {
+      Help(argv[0], true);
+      exit(1);
+    }
+  }
   // use only the last step?
   bool last = BoolOption(argc, argv, "--last");
   //}}}
@@ -154,9 +162,8 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // <bead names> - names of bead types to save //{{{
-  for (int i = 0; i < System.Count.BeadType; i++) {
-    System.BeadType[i].Write = false;
-  }
+  bool *write = calloc(System.Count.Bead, sizeof *write),
+       *write_bt = calloc(System.Count.BeadType, sizeof *write_bt);
   while (++count < argc && argv[count][0] != '-') {
     int type = FindBeadType(argv[count], System);
     if (type == -1) {
@@ -171,26 +178,28 @@ int main(int argc, char *argv[]) {
       ErrorBeadType(System);
       exit(1);
     }
-    System.BeadType[type].Write = true;
+    write_bt[type] = true;
   }
   // if '--reverse' is used, switch Write bools for all bead types
   if (reverse) {
     for (int i = 0; i < System.Count.BeadType; i++) {
-      if (System.BeadType[i].Write) {
-        System.BeadType[i].Write = false;
+      if (write_bt[i]) {
+        write_bt[i] = false;
       } else {
-        System.BeadType[i].Write = true;
+        write_bt[i] = true;
       }
     }
   }
   for (int i = 0; i < System.Count.Bead; i++) {
     int type = System.Bead[i].Type;
-    if (System.BeadType[type].Write) {
-      System.Bead[i].Use = true;
+    if (write_bt[type]) {
+      write[i] = true;
     }
-  } //}}}
+  }
+  free(write_bt); //}}}
 
   // '-x' option //{{{
+// TODO remove the bool flags from SYSTEM, i.e., also change ExcludeOption()
   if (ExcludeOption(argc, argv, &System)) {
     exit(1);
   }
@@ -277,7 +286,7 @@ int main(int argc, char *argv[]) {
       }
       // transform coordinates into fractional ones for non-orthogonal box
       if (wrap || join) {
-        ToFractionalCoor(System.Count.BeadCoor, &System.Bead, System.Box);
+        ToFractionalCoor(&System);
       }
       if (wrap) { // wrap coordinates into the simulation box
         RestorePBC(System.Count.BeadCoor, System.Box, &System.Bead);
@@ -287,16 +296,16 @@ int main(int argc, char *argv[]) {
       }
       // transform back to 'normal' coordinates for non-orthogonal box
       if (wrap || join) {
-        FromFractionalCoor(System.Count.BeadCoor, &System.Bead, System.Box);
+        FromFractionalCoor(&System);
       }
       // write to output .vcf file
       out = OpenFile(output_vcf, "a");
-      VtfWriteCoorIndexed(out, stuff, System);
+      VtfWriteCoorIndexed(out, stuff, write, System);
       fclose(out);
       // write to xyz file?
       if (output_xyz[0] != '\0') {
         out = OpenFile(output_xyz, "a");
-        XyzWriteCoor(out, System);
+        XyzWriteCoor(out, write, System);
         fclose(out);
       }
       //}}}
@@ -335,7 +344,7 @@ int main(int argc, char *argv[]) {
     VtfReadTimestep(vcf, input_coor, input_vsf, &System,
                     &file_line_count, count_vcf, stuff);
     // transform coordinates into fractional ones for non-orthogonal box
-    ToFractionalCoor(System.Count.BeadCoor, &System.Bead, System.Box);
+    ToFractionalCoor(&System);
     // wrap and/or join molecules?
     if (wrap) {
       RestorePBC(System.Count.BeadCoor, System.Box, &System.Bead);
@@ -344,15 +353,15 @@ int main(int argc, char *argv[]) {
       RemovePBCMolecules(&System);
     }
     // transform back to 'normal' coordinates for non-orthogonal box
-    FromFractionalCoor(System.Count.BeadCoor, &System.Bead, System.Box);
+    FromFractionalCoor(&System);
     // write to output .vcf file
     out = OpenFile(output_vcf, "a");
-    VtfWriteCoorIndexed(out, stuff, System);
+    VtfWriteCoorIndexed(out, stuff, write, System);
     fclose(out);
     // write to xyz file?
     if (output_xyz[0] != '\0') {
       out = OpenFile(output_xyz, "a");
-      XyzWriteCoor(out, System);
+      XyzWriteCoor(out, write, System);
       fclose(out);
     }
   //}}}
@@ -382,6 +391,7 @@ than the number of timestep)");
   // free memory
   FreeSystem(&System);
   free(stuff);
+  free(write);
 
   return 0;
 }

@@ -4,9 +4,9 @@
 #include "AnalysisTools.h"
 
 // Append an indexed timestep to a vcf/vtf coordinate file
-void VtfWriteCoorIndexed(FILE *vcf, char stuff[], SYSTEM System);
+void VtfWriteCoorIndexed(FILE *vcf, char stuff[], bool write[], SYSTEM System);
 // Append a timestep to an xyz file
-void XyzWriteCoor(FILE *xyz, SYSTEM System);
+void XyzWriteCoor(FILE *xyz, bool write[], SYSTEM System);
 // Create a new vsf/vtf structure file
 void VtfWriteStruct(char file[], SYSTEM System);
 

@@ -365,10 +365,14 @@ void ToFractional(VECTOR *coor, BOX Box) {
 } //}}}
 
 // ToFractionalCoor() //{{{
-void ToFractionalCoor(int number_of_beads, BEAD **Bead, BOX Box) {
-  if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
-    for (int i = 0; i < number_of_beads; i++) {
-      ToFractional(&Bead[i]->Position, Box);
+void ToFractionalCoor(SYSTEM *System) {
+  if (System->Box.alpha != 90 ||
+      System->Box.beta != 90 ||
+      System->Box.gamma != 90) {
+    for (int i = 0; i < System->Count.Bead; i++) {
+      if (System->Bead[i].InTimestep) {
+        ToFractional(&System->Bead[i].Position, System->Box);
+      }
     }
   }
 } //}}}
@@ -397,10 +401,13 @@ VECTOR FromFractional(VECTOR coor, BOX Box) {
 } //}}}
 
 // FromFractionalCoor() //{{{
-void FromFractionalCoor(int number_of_beads, BEAD **Bead, BOX Box) {
-  if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
-    for (int i = 0; i < number_of_beads; i++) {
-      (*Bead)[i].Position = FromFractional(Bead[i]->Position, Box);
+void FromFractionalCoor(SYSTEM *System) {
+  if (System->Box.alpha != 90 ||
+      System->Box.beta != 90 ||
+      System->Box.gamma != 90) {
+    for (int i = 0; i < System->Count.Bead; i++) {
+      BEAD *bead = &System->Bead[i];
+      bead->Position = FromFractional(bead->Position, System->Box);
     }
   }
 } //}}}
@@ -836,207 +843,6 @@ void RemovePBCMolecules(SYSTEM *System) {
       (*System).Bead[bead].Position.y -= move.y * (*System).Box.Length.y;
       (*System).Bead[bead].Position.z -= move.z * (*System).Box.Length.z;
     } //}}}
-  }
-} //}}}
-
-// RemovePBCAggregates() //{{{
-/**
- * Function to remove periodic boundary conditions from all aggregates,
- * thus joining them.
- */
-void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNTS Counts,
-                         VECTOR BoxLength, BEADTYPE *BeadType, BEAD **Bead,
-                         MOLECULETYPE *MoleculeType, MOLECULE *Molecule) {
-  // helper array indicating whether molecules already moved
-  bool *moved = malloc(sizeof *moved * Counts.Molecules);
-  // go through all aggregates larger than unimers and put all molecules together //{{{
-  for (int i = 0; i < Counts.Aggregates; i++) {
-
-    // negate moved array, but the first molecule is not to move //{{{
-    for (int j = 1; j < Counts.Molecules; j++) {
-      moved[j] = false;
-    }
-    moved[0] = true; //}}}
-
-    bool done = false;
-    int test = 0; // if too many loops, just exit with error
-    while (!done && test < 1000) {
-
-      // go through all molecule pairs
-      for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-        for (int k = 0; k < Aggregate[i].nMolecules; k++) {
-
-          // use only moved molecule 'mol1' and unmoved molecule 'mol2'
-          if (moved[j] && !moved[k]) { // automatically follows that j != k
-            int mol1 = Aggregate[i].Molecule[j],
-                mol2 = Aggregate[i].Molecule[k],
-                mol1_type = Molecule[mol1].Type,
-                mol2_type = Molecule[mol2].Type;
-
-            // go through all bead pairs in the two molecules
-            for (int l = 0; l < MoleculeType[mol1_type].nBeads; l++) {
-              for (int m = 0; m < MoleculeType[mol2_type].nBeads; m++) {
-                int bead1 = Molecule[mol1].Bead[l];
-                int bead2 = Molecule[mol2].Bead[m];
-
-                // use only bead types that were used to assign molecules to aggregates
-                if (BeadType[(*Bead)[bead1].Type].Use &&
-                    BeadType[(*Bead)[bead2].Type].Use) {
-
-                  // calculate distance between 'bead1' and 'bead2'
-                  VECTOR dist = Distance((*Bead)[bead1].Position, (*Bead)[bead2].Position, BoxLength);
-                  dist.x = Length(dist);
-
-                  // move 'mol2' (or 'k') if 'bead1' and 'bead2' are in contact
-                  if (dist.x <= distance) {
-
-                    // distance vector between 'bead1' and 'bead2' //{{{
-                    dist.x = (*Bead)[bead1].Position.x - (*Bead)[bead2].Position.x;
-                    dist.y = (*Bead)[bead1].Position.y - (*Bead)[bead2].Position.y;
-                    dist.z = (*Bead)[bead1].Position.z - (*Bead)[bead2].Position.z; //}}}
-                    // if 'bead1' and 'bead2' are too far in x-direction, move 'mol2' in x-direction //{{{
-                    while (dist.x > (BoxLength.x/2)) {
-                      for (int n = 0; n < MoleculeType[mol2_type].nBeads; n++) {
-                        (*Bead)[Molecule[mol2].Bead[n]].Position.x += BoxLength.x;
-                      }
-                      dist.x = (*Bead)[bead1].Position.x - (*Bead)[bead2].Position.x;
-                    }
-                    while (dist.x <= -(BoxLength.x/2)) {
-                      for (int n = 0; n < MoleculeType[mol2_type].nBeads; n++) {
-                        (*Bead)[Molecule[mol2].Bead[n]].Position.x -= BoxLength.x;
-                      }
-                      dist.x = (*Bead)[bead1].Position.x - (*Bead)[bead2].Position.x;
-                    } //}}}
-                    // if 'bead1' and 'bead2' are too far in y-direction, move 'mol2' in y-direction //{{{
-                    while (dist.y > (BoxLength.y/2)) {
-                      for (int n = 0; n < MoleculeType[mol2_type].nBeads; n++) {
-                        (*Bead)[Molecule[mol2].Bead[n]].Position.y += BoxLength.y;
-                      }
-                      dist.y = (*Bead)[bead1].Position.y - (*Bead)[bead2].Position.y;
-                    }
-                    while (dist.y <= -(BoxLength.y/2)) {
-                      for (int n = 0; n < MoleculeType[mol2_type].nBeads; n++) {
-                        (*Bead)[Molecule[mol2].Bead[n]].Position.y -= BoxLength.y;
-                      }
-                      dist.y = (*Bead)[bead1].Position.y - (*Bead)[bead2].Position.y;
-                    } //}}}
-                    // if 'bead1' and 'bead2' are too far in z-direction, move 'mol2' in x-direction //{{{
-                    while (dist.z > (BoxLength.z/2)) {
-                      for (int n = 0; n < MoleculeType[mol2_type].nBeads; n++) {
-                        (*Bead)[Molecule[mol2].Bead[n]].Position.z += BoxLength.z;
-                      }
-                      dist.z = (*Bead)[bead1].Position.z - (*Bead)[bead2].Position.z;
-                    }
-                    while (dist.z <= -(BoxLength.z/2)) {
-                      for (int n = 0; n < MoleculeType[mol2_type].nBeads; n++) {
-                        (*Bead)[Molecule[mol2].Bead[n]].Position.z -= BoxLength.z;
-                      }
-                      dist.z = (*Bead)[bead1].Position.z - (*Bead)[bead2].Position.z;
-                    } //}}}
-
-                    moved[k] = true;
-
-                    // skip remainder of 'mol2' (or 'k')
-                    break;
-                  }
-                }
-              }
-              // if molekule 'k' (or 'mol2') has been moved, skip also remainder of molecules 'mol1'
-              if (moved[k]) {
-                break;
-              }
-            }
-          }
-        }
-      }
-
-      // check if all molecules have moved //{{{
-      done = true;
-      for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-        if (!moved[j]) {
-          done = false;
-          break;
-        }
-      } //}}}
-      test++;
-    }
-    if (test == 1000) {
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "\nWarning: unable to 'join' aggregate with these ");
-      ColourChange(STDERR_FILENO, CYAN);
-      fprintf(stderr, "%d", Aggregate[i].nMolecules);
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, " molecules:\n");
-      for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-        ColourChange(STDERR_FILENO, CYAN);
-        fprintf(stderr, " %d", Aggregate[i].Molecule[j]);
-      }
-      fprintf(stderr, "\n");
-      ColourReset(STDERR_FILENO);
-    }
-  }
-  free(moved); //}}}
-  // put aggregates' centre of mass into the simulation box //{{{
-  for (int i = 0; i < Counts.Aggregates; i++) {
-    VECTOR com = CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead,
-                              *Bead, BeadType);
-
-    // by how many BoxLength's should com by moved?
-    // for distant aggregates - it shouldn't happen, but better safe than sorry
-    INTVECTOR move;
-    move.x = com.x / BoxLength.x;
-    move.y = com.y / BoxLength.y;
-    move.z = com.z / BoxLength.z;
-    if (com.x < 0) {
-      move.x--;
-    }
-    if (com.y < 0) {
-      move.y--;
-    }
-    if (com.z < 0) {
-      move.z--;
-    }
-    // move all the beads
-    for (int j = 0; j < Aggregate[i].nBeads; j++) {
-      int bead = Aggregate[i].Bead[j];
-      (*Bead)[bead].Position.x -= move.x * BoxLength.x;
-      (*Bead)[bead].Position.y -= move.y * BoxLength.y;
-      (*Bead)[bead].Position.z -= move.z * BoxLength.z;
-    }
-  } //}}}
-} //}}}
-
-// RestorePBC_old() //{{{
-/**
- * Function to restore removed periodic boundary conditions. Used also in case
- * of cell linked lists, because they need coordinates <0, BoxLength>. The
- * function requires orthogonal box, i.e., for triclinic box, the supplied
- * coordinates must first be transformed.
- */
-void RestorePBC_old(COUNTS Counts, VECTOR BoxLength, BEAD **Bead) {
-
-  for (int i = 0; i < Counts.BeadsCoor; i++) {
-    // x direction
-    while ((*Bead)[i].Position.x >= BoxLength.x) {
-      (*Bead)[i].Position.x -= BoxLength.x;
-    }
-    while ((*Bead)[i].Position.x < 0) {
-      (*Bead)[i].Position.x += BoxLength.x;
-    }
-    // y direction
-    while ((*Bead)[i].Position.y >= BoxLength.y) {
-      (*Bead)[i].Position.y -= BoxLength.y;
-    }
-    while ((*Bead)[i].Position.y < 0) {
-      (*Bead)[i].Position.y += BoxLength.y;
-    }
-    // z direction
-    while ((*Bead)[i].Position.z >= BoxLength.z) {
-      (*Bead)[i].Position.z -= BoxLength.z;
-    }
-    while ((*Bead)[i].Position.z < 0) {
-      (*Bead)[i].Position.z += BoxLength.z;
-    }
   }
 } //}}}
 
@@ -1569,124 +1375,6 @@ void CopyBeadType(int number_of_types, BEADTYPE **bt_out,
   }
 } //}}}
 
-// CopyMoleculeType_old() //{{{
-/**
- * Function to copy MOLECULETYPE structure into a new one. Memory management
- * for the output structure: sufficient memory is already allocated (mode=0),
- * the structure needs freeing and allocating (mode=1), no memory was yet
- * allocated at all (mode=2), or it just needs reallocating - only for cases
- * when memory only for the structure itself was allocated, not for the arrays
- * within the structure (mode=3).
- */
-// TODO if mode=0, then there shouldn't be any allocations at all; probably
-//      remove this mode - when do I need straight out copy the arrays?
-void CopyMoleculeType_old(int number_of_types, MOLECULETYPE **mt_out,
-                      MOLECULETYPE *mt_in, int mode) {
-  // mt_out memory management //{{{
-  switch (mode) {
-    case 1:
-      FreeMoleculeType_old(number_of_types, mt_out);
-      *mt_out = malloc(sizeof (MOLECULETYPE) * number_of_types);
-      break;
-    case 2:
-      *mt_out = malloc(sizeof (MOLECULETYPE) * number_of_types);
-      break;
-    case 3:
-      *mt_out = realloc(*mt_out, sizeof (MOLECULETYPE) * number_of_types);
-      break;
-    default:
-      ErrorPrintError_old();
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "CopyMoleculeType()");
-      ColourChange(STDERR_FILENO, RED);
-      fprintf(stderr, " function requires mode=0, 1, 2, or 3\n");
-      ColourReset(STDERR_FILENO);
-      exit(1);
-  } //}}}
-  for (int i = 0; i < number_of_types; i++) {
-    (*mt_out)[i] = mt_in[i]; // copy simple variables
-    // allocate & copy Bead array
-    (*mt_out)[i].Bead = malloc(sizeof *(*mt_out)[i].Bead * (*mt_out)[i].nBeads);
-    for (int j = 0; j < (*mt_out)[i].nBeads; j++) {
-      (*mt_out)[i].Bead[j] = mt_in[i].Bead[j];
-    }
-    // allocate & copy Bond array (if bonds are present)
-    if ((*mt_out)[i].nBonds > 0) {
-      (*mt_out)[i].nBonds = mt_in[i].nBonds;
-      (*mt_out)[i].Bond = malloc(sizeof *(*mt_out)[i].Bond *
-                                 (*mt_out)[i].nBonds);
-      for (int j = 0; j < (*mt_out)[i].nBonds; j++) {
-        for (int k = 0; k < 3; k++) {
-          (*mt_out)[i].Bond[j][k] = mt_in[i].Bond[j][k];
-        }
-      }
-    }
-    // allocate & copy Angle array (if angles are present)
-    if ((*mt_out)[i].nAngles > 0) {
-      (*mt_out)[i].Angle = malloc(sizeof *(*mt_out)[i].Angle *
-                                  (*mt_out)[i].nAngles);
-      for (int j = 0; j < (*mt_out)[i].nAngles; j++) {
-        for (int k = 0; k < 4; k++) {
-          (*mt_out)[i].Angle[j][k] = mt_in[i].Angle[j][k];
-        }
-      }
-    }
-    // allocate & copy Dihedral array (if dihedrals are present)
-    if ((*mt_out)[i].nDihedrals > 0) {
-      (*mt_out)[i].Dihedral = malloc(sizeof *(*mt_out)[i].Dihedral *
-                                     (*mt_out)[i].nDihedrals);
-      for (int j = 0; j < (*mt_out)[i].nDihedrals; j++) {
-        for (int k = 0; k < 5; k++) {
-          (*mt_out)[i].Dihedral[j][k] = mt_in[i].Dihedral[j][k];
-        }
-      }
-    }
-  }
-  FillMolBTypes_old(number_of_types, mt_out);
-} //}}}
-
-// CopyMolecule() //{{{
-/*
- * Function to copy a MOLECULE struct into a new one. Memory management for
- * the output structure: sufficient memory is already allocated (mode=0), the
- * structure needs freeing and allocating (mode=1), no memory was yet allocated
- * at all (mode=2), or it just needs reallocating - only for cases when memory
- * only for the structure itself was allocated, not for the arrays within the
- * structure (mode=3).
- */
-void CopyMolecule(int number_of_molecules, MOLECULETYPE *mt,
-                  MOLECULE **m_out, MOLECULE *m_in, int mode) {
-  // mt_out memory management //{{{
-  switch (mode) {
-    case 1:
-      FreeMolecule(number_of_molecules, m_out);
-      *m_out = malloc(sizeof (MOLECULE) * number_of_molecules);
-      break;
-    case 2:
-      *m_out = malloc(sizeof (MOLECULE) * number_of_molecules);
-      break;
-    case 3:
-      *m_out = realloc(*m_out, sizeof (MOLECULE) * number_of_molecules);
-      break;
-    default:
-      ErrorPrintError_old();
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "CopyMolecule()");
-      ColourChange(STDERR_FILENO, RED);
-      fprintf(stderr, " function requires mode=0, 1, 2, or 3\n");
-      ColourReset(STDERR_FILENO);
-      exit(1);
-  } //}}}
-  for (int i = 0; i < number_of_molecules; i++) {
-    (*m_out)[i] = m_in[i];
-    int mtype = m_in[i].Type;
-    (*m_out)[i].Bead = malloc(sizeof *(*m_out)[i].Bead * mt[mtype].nBeads);
-    for (int j = 0; j < mt[mtype].nBeads; j++) {
-      (*m_out)[i].Bead[j] = m_in[i].Bead[j];
-    }
-  }
-} //}}}
-
 // CopySystem() //{{{
 /*
  * Assumes unallocated SYSTEM.
@@ -2050,9 +1738,10 @@ void PruneSystem(SYSTEM *System) { //{{{
       }
     }
   }
-  FillMolBTypes_old(Count->MoleculeType, &System->MoleculeType);
-  FillMolMassCharge_old(Count->MoleculeType, &System->MoleculeType,
-                    System->BeadType);
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    FillMoleculeTypeBType(&System->MoleculeType[i]);
+    FillMoleculeTypeChargeMass(&System->MoleculeType[i], System->BeadType);
+  }
   //}}}
   // fill BeadType[].Index //{{{
   for (int i = 0; i < Count->BeadType; i++) {
@@ -2082,6 +1771,56 @@ void PruneSystem(SYSTEM *System) { //{{{
   free(connect);
 } //}}}
 
+// NewBeadType() //{{{
+/*
+ * Function to add a new bead type to a BEADTYPE struct
+ * (and increment the number of bead types).
+ */
+void NewBeadType(BEADTYPE *BeadType[], int *number_of_types, char *name,
+                 double charge, double mass, double radius) {
+  int btype = *number_of_types;
+  (*number_of_types)++;
+  *BeadType = realloc(*BeadType, sizeof (BEADTYPE) * (btype + 1));
+  strcpy((*BeadType)[btype].Name, name);
+  (*BeadType)[btype].Number = 0;
+  (*BeadType)[btype].Charge = charge;
+  (*BeadType)[btype].Mass = mass;
+  (*BeadType)[btype].Radius = radius;
+}; //}}}
+// NewMolType() //{{{
+/*
+ * Function to create a new molecule type in a MOLECULETYPE struct.
+ */
+void NewMolType(MOLECULETYPE *MoleculeType[], int *n_types, char *name,
+                int n_beads, int n_bonds, int n_angles, int n_dihedrals) {
+  int mtype = (*n_types)++;
+  *MoleculeType = realloc(*MoleculeType,
+                          sizeof (MOLECULETYPE) * (*n_types));
+  // copy new name to MoleculeType[].Name
+  strncpy((*MoleculeType)[mtype].Name, name, MOL_NAME);
+  // initialize struct members
+  (*MoleculeType)[mtype].Number = 1;
+  (*MoleculeType)[mtype].nBeads = n_beads;
+  (*MoleculeType)[mtype].Bead = calloc(n_beads,
+                                       sizeof *(*MoleculeType)[mtype].Bead);
+  (*MoleculeType)[mtype].nBonds = n_bonds;
+  if (n_bonds > 0) {
+    (*MoleculeType)[mtype].Bond = calloc(n_bonds,
+                                         sizeof *(*MoleculeType)[mtype].Bond);
+  }
+  (*MoleculeType)[mtype].nAngles = n_angles;
+  if (n_angles > 0) {
+    (*MoleculeType)[mtype].Angle = calloc(n_angles,
+                                          sizeof *(*MoleculeType)[mtype].Angle);
+  }
+  (*MoleculeType)[mtype].nDihedrals = n_dihedrals;
+  if (n_dihedrals > 0) {
+    (*MoleculeType)[mtype].Dihedral = calloc(n_dihedrals,
+                                       sizeof *(*MoleculeType)[mtype].Dihedral);
+  }
+  (*MoleculeType)[mtype].nBTypes = 0;
+}; //}}}
+
 // ConcatenateSystems() //{{{
 /*
  * Assumes S_out needs reallocating memory to accommodate S_in.
@@ -2096,6 +1835,7 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
   // Box
   (*S_out).Box = Box;
   // BeadType //{{{
+  // TODO BeadType[]Index array (and, I guess MoleculeType[].Index array)
   if (S_in.Count.BeadType > 0) {
     (*S_out).Count.BeadType += S_in.Count.BeadType;
     (*S_out).BeadType = realloc((*S_out).BeadType, sizeof (BEADTYPE) *
@@ -2283,25 +2023,10 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
   } //}}}
 } //}}}
 
-// FreeAggregate() //{{{
-/**
- * Free memory allocated for Aggregate struct array. This function makes it
- * easier other arrays to the Aggregate struct in the future
- */
-void FreeAggregate(COUNTS Counts, AGGREGATE **Aggregate) {
-  for (int i = 0; i < Counts.Molecules; i++) {
-    free((*Aggregate)[i].Molecule);
-    free((*Aggregate)[i].Bead);
-    free((*Aggregate)[i].Monomer);
-  }
-  free(*Aggregate);
-} //}}}
-
-// TODO new via struct System
 void VerboseOutput(SYSTEM System) { //{{{
   PrintCount(System.Count);
   PrintBeadType(System);
-  PrintMoleculeType2(System.Count.MoleculeType, System.BeadType, System.MoleculeType);
+  PrintMoleculeType(System);
 } //}}}
 void PrintCount(COUNT Count) { //{{{
   fprintf(stdout, "\nCounts of\n");
@@ -2603,7 +2328,263 @@ void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) {
   }
 } //}}}
 
+#if 0
+// TODO redo
+// RemovePBCAggregates() //{{{
+/**
+ * Function to remove periodic boundary conditions from all aggregates,
+ * thus joining them.
+ */
+void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNTS Counts,
+                         VECTOR BoxLength, BEADTYPE *BeadType, BEAD **Bead,
+                         MOLECULETYPE *MoleculeType, MOLECULE *Molecule) {
+  // helper array indicating whether molecules already moved
+  bool *moved = malloc(sizeof *moved * Counts.Molecules);
+  // go through all aggregates larger than unimers and put all molecules together //{{{
+  for (int i = 0; i < Counts.Aggregates; i++) {
+
+    // negate moved array, but the first molecule is not to move //{{{
+    for (int j = 1; j < Counts.Molecules; j++) {
+      moved[j] = false;
+    }
+    moved[0] = true; //}}}
+
+    bool done = false;
+    int test = 0; // if too many loops, just exit with error
+    while (!done && test < 1000) {
+
+      // go through all molecule pairs
+      for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+        for (int k = 0; k < Aggregate[i].nMolecules; k++) {
+
+          // use only moved molecule 'mol1' and unmoved molecule 'mol2'
+          if (moved[j] && !moved[k]) { // automatically follows that j != k
+            int mol1 = Aggregate[i].Molecule[j],
+                mol2 = Aggregate[i].Molecule[k],
+                mol1_type = Molecule[mol1].Type,
+                mol2_type = Molecule[mol2].Type;
+
+            // go through all bead pairs in the two molecules
+            for (int l = 0; l < MoleculeType[mol1_type].nBeads; l++) {
+              for (int m = 0; m < MoleculeType[mol2_type].nBeads; m++) {
+                int bead1 = Molecule[mol1].Bead[l];
+                int bead2 = Molecule[mol2].Bead[m];
+
+                // use only bead types that were used to assign molecules to aggregates
+                if (BeadType[(*Bead)[bead1].Type].Use &&
+                    BeadType[(*Bead)[bead2].Type].Use) {
+
+                  // calculate distance between 'bead1' and 'bead2'
+                  VECTOR dist = Distance((*Bead)[bead1].Position, (*Bead)[bead2].Position, BoxLength);
+                  dist.x = Length(dist);
+
+                  // move 'mol2' (or 'k') if 'bead1' and 'bead2' are in contact
+                  if (dist.x <= distance) {
+
+                    // distance vector between 'bead1' and 'bead2' //{{{
+                    dist.x = (*Bead)[bead1].Position.x - (*Bead)[bead2].Position.x;
+                    dist.y = (*Bead)[bead1].Position.y - (*Bead)[bead2].Position.y;
+                    dist.z = (*Bead)[bead1].Position.z - (*Bead)[bead2].Position.z; //}}}
+                    // if 'bead1' and 'bead2' are too far in x-direction, move 'mol2' in x-direction //{{{
+                    while (dist.x > (BoxLength.x/2)) {
+                      for (int n = 0; n < MoleculeType[mol2_type].nBeads; n++) {
+                        (*Bead)[Molecule[mol2].Bead[n]].Position.x += BoxLength.x;
+                      }
+                      dist.x = (*Bead)[bead1].Position.x - (*Bead)[bead2].Position.x;
+                    }
+                    while (dist.x <= -(BoxLength.x/2)) {
+                      for (int n = 0; n < MoleculeType[mol2_type].nBeads; n++) {
+                        (*Bead)[Molecule[mol2].Bead[n]].Position.x -= BoxLength.x;
+                      }
+                      dist.x = (*Bead)[bead1].Position.x - (*Bead)[bead2].Position.x;
+                    } //}}}
+                    // if 'bead1' and 'bead2' are too far in y-direction, move 'mol2' in y-direction //{{{
+                    while (dist.y > (BoxLength.y/2)) {
+                      for (int n = 0; n < MoleculeType[mol2_type].nBeads; n++) {
+                        (*Bead)[Molecule[mol2].Bead[n]].Position.y += BoxLength.y;
+                      }
+                      dist.y = (*Bead)[bead1].Position.y - (*Bead)[bead2].Position.y;
+                    }
+                    while (dist.y <= -(BoxLength.y/2)) {
+                      for (int n = 0; n < MoleculeType[mol2_type].nBeads; n++) {
+                        (*Bead)[Molecule[mol2].Bead[n]].Position.y -= BoxLength.y;
+                      }
+                      dist.y = (*Bead)[bead1].Position.y - (*Bead)[bead2].Position.y;
+                    } //}}}
+                    // if 'bead1' and 'bead2' are too far in z-direction, move 'mol2' in x-direction //{{{
+                    while (dist.z > (BoxLength.z/2)) {
+                      for (int n = 0; n < MoleculeType[mol2_type].nBeads; n++) {
+                        (*Bead)[Molecule[mol2].Bead[n]].Position.z += BoxLength.z;
+                      }
+                      dist.z = (*Bead)[bead1].Position.z - (*Bead)[bead2].Position.z;
+                    }
+                    while (dist.z <= -(BoxLength.z/2)) {
+                      for (int n = 0; n < MoleculeType[mol2_type].nBeads; n++) {
+                        (*Bead)[Molecule[mol2].Bead[n]].Position.z -= BoxLength.z;
+                      }
+                      dist.z = (*Bead)[bead1].Position.z - (*Bead)[bead2].Position.z;
+                    } //}}}
+
+                    moved[k] = true;
+
+                    // skip remainder of 'mol2' (or 'k')
+                    break;
+                  }
+                }
+              }
+              // if molekule 'k' (or 'mol2') has been moved, skip also remainder of molecules 'mol1'
+              if (moved[k]) {
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      // check if all molecules have moved //{{{
+      done = true;
+      for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+        if (!moved[j]) {
+          done = false;
+          break;
+        }
+      } //}}}
+      test++;
+    }
+    if (test == 1000) {
+      ColourChange(STDERR_FILENO, YELLOW);
+      fprintf(stderr, "\nWarning: unable to 'join' aggregate with these ");
+      ColourChange(STDERR_FILENO, CYAN);
+      fprintf(stderr, "%d", Aggregate[i].nMolecules);
+      ColourChange(STDERR_FILENO, YELLOW);
+      fprintf(stderr, " molecules:\n");
+      for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+        ColourChange(STDERR_FILENO, CYAN);
+        fprintf(stderr, " %d", Aggregate[i].Molecule[j]);
+      }
+      fprintf(stderr, "\n");
+      ColourReset(STDERR_FILENO);
+    }
+  }
+  free(moved); //}}}
+  // put aggregates' centre of mass into the simulation box //{{{
+  for (int i = 0; i < Counts.Aggregates; i++) {
+    VECTOR com = CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead,
+                              *Bead, BeadType);
+
+    // by how many BoxLength's should com by moved?
+    // for distant aggregates - it shouldn't happen, but better safe than sorry
+    INTVECTOR move;
+    move.x = com.x / BoxLength.x;
+    move.y = com.y / BoxLength.y;
+    move.z = com.z / BoxLength.z;
+    if (com.x < 0) {
+      move.x--;
+    }
+    if (com.y < 0) {
+      move.y--;
+    }
+    if (com.z < 0) {
+      move.z--;
+    }
+    // move all the beads
+    for (int j = 0; j < Aggregate[i].nBeads; j++) {
+      int bead = Aggregate[i].Bead[j];
+      (*Bead)[bead].Position.x -= move.x * BoxLength.x;
+      (*Bead)[bead].Position.y -= move.y * BoxLength.y;
+      (*Bead)[bead].Position.z -= move.z * BoxLength.z;
+    }
+  } //}}}
+} //}}}
+// FreeAggregate() //{{{
+/**
+ * Free memory allocated for Aggregate struct array. This function makes it
+ * easier other arrays to the Aggregate struct in the future
+ */
+void FreeAggregate(COUNTS Counts, AGGREGATE **Aggregate) {
+  for (int i = 0; i < Counts.Molecules; i++) {
+    free((*Aggregate)[i].Molecule);
+    free((*Aggregate)[i].Bead);
+    free((*Aggregate)[i].Monomer);
+  }
+  free(*Aggregate);
+} //}}}
+// TODO remove, I think
+// CopyMolecule() //{{{
+/*
+ * Function to copy a MOLECULE struct into a new one. Memory management for
+ * the output structure: sufficient memory is already allocated (mode=0), the
+ * structure needs freeing and allocating (mode=1), no memory was yet allocated
+ * at all (mode=2), or it just needs reallocating - only for cases when memory
+ * only for the structure itself was allocated, not for the arrays within the
+ * structure (mode=3).
+ */
+void CopyMolecule(int number_of_molecules, MOLECULETYPE *mt,
+                  MOLECULE **m_out, MOLECULE *m_in, int mode) {
+  // mt_out memory management //{{{
+  switch (mode) {
+    case 1:
+      FreeMolecule(number_of_molecules, m_out);
+      *m_out = malloc(sizeof (MOLECULE) * number_of_molecules);
+      break;
+    case 2:
+      *m_out = malloc(sizeof (MOLECULE) * number_of_molecules);
+      break;
+    case 3:
+      *m_out = realloc(*m_out, sizeof (MOLECULE) * number_of_molecules);
+      break;
+    default:
+      ErrorPrintError_old();
+      ColourChange(STDERR_FILENO, YELLOW);
+      fprintf(stderr, "CopyMolecule()");
+      ColourChange(STDERR_FILENO, RED);
+      fprintf(stderr, " function requires mode=0, 1, 2, or 3\n");
+      ColourReset(STDERR_FILENO);
+      exit(1);
+  } //}}}
+  for (int i = 0; i < number_of_molecules; i++) {
+    (*m_out)[i] = m_in[i];
+    int mtype = m_in[i].Type;
+    (*m_out)[i].Bead = malloc(sizeof *(*m_out)[i].Bead * mt[mtype].nBeads);
+    for (int j = 0; j < mt[mtype].nBeads; j++) {
+      (*m_out)[i].Bead[j] = m_in[i].Bead[j];
+    }
+  }
+} //}}}
 // TODO remove
+// RestorePBC_old() //{{{
+/**
+ * Function to restore removed periodic boundary conditions. Used also in case
+ * of cell linked lists, because they need coordinates <0, BoxLength>. The
+ * function requires orthogonal box, i.e., for triclinic box, the supplied
+ * coordinates must first be transformed.
+ */
+void RestorePBC_old(COUNTS Counts, VECTOR BoxLength, BEAD **Bead) {
+
+  for (int i = 0; i < Counts.BeadsCoor; i++) {
+    // x direction
+    while ((*Bead)[i].Position.x >= BoxLength.x) {
+      (*Bead)[i].Position.x -= BoxLength.x;
+    }
+    while ((*Bead)[i].Position.x < 0) {
+      (*Bead)[i].Position.x += BoxLength.x;
+    }
+    // y direction
+    while ((*Bead)[i].Position.y >= BoxLength.y) {
+      (*Bead)[i].Position.y -= BoxLength.y;
+    }
+    while ((*Bead)[i].Position.y < 0) {
+      (*Bead)[i].Position.y += BoxLength.y;
+    }
+    // z direction
+    while ((*Bead)[i].Position.z >= BoxLength.z) {
+      (*Bead)[i].Position.z -= BoxLength.z;
+    }
+    while ((*Bead)[i].Position.z < 0) {
+      (*Bead)[i].Position.z += BoxLength.z;
+    }
+  }
+} //}}}
 // VerboseOutput_old() //{{{
 /**
  * Function providing standard verbose output (for cases when verbose
@@ -2851,96 +2832,6 @@ void PrintMoleculeType_old(COUNTS Counts, BEADTYPE *BeadType, MOLECULETYPE *Mole
     }
   }
 } //}}}
-// PrintMoleculeType2()  //{{{
-/**
- * Function printing MoleculeType structure.
- */
-void PrintMoleculeType2(int number_of_types, BEADTYPE *BeadType, MOLECULETYPE *MoleculeType) {
-  for (int i = 0; i < number_of_types; i++) {
-    fprintf(stdout, "MoleculeType[%d] = {\n", i);
-    fprintf(stdout, "  .Name       = %s,\n", MoleculeType[i].Name);
-    fprintf(stdout, "  .Number     = %d,\n", MoleculeType[i].Number);
-    // print bead types (list all beads) //{{{
-    fprintf(stdout, "  .nBeads     = %d,\n", MoleculeType[i].nBeads);
-    fprintf(stdout, "  .Bead       = {");
-    for (int j = 0; j < MoleculeType[i].nBeads; j++) {
-      if (j != 0) {
-        fprintf(stdout, ", ");
-      }
-      fprintf(stdout, "%s", BeadType[MoleculeType[i].Bead[j]].Name);
-    }
-    fprintf(stdout, "},\n"); //}}}
-    // print bonds if there are any //{{{
-    if (MoleculeType[i].nBonds > 0) {
-      fprintf(stdout, "  .nBonds     = %d,\n", MoleculeType[i].nBonds);
-      fprintf(stdout, "  .Bond       = {");
-      for (int j = 0; j < MoleculeType[i].nBonds; j++) {
-        if (j != 0) {
-          fprintf(stdout, ", ");
-        }
-        fprintf(stdout, "%d-%d", MoleculeType[i].Bond[j][0]+1,
-                                 MoleculeType[i].Bond[j][1]+1);
-        if (MoleculeType[i].Bond[j][2] != -1) {
-          fprintf(stdout, "(%d)", MoleculeType[i].Bond[j][2]+1);
-        }
-      }
-      fprintf(stdout, "},\n");
-    } //}}}
-    // print angles if there are any //{{{
-    if (MoleculeType[i].nAngles > 0) {
-      fprintf(stdout, "  .nAngles    = %d,\n", MoleculeType[i].nAngles);
-      fprintf(stdout, "  .Angle      = {");
-      for (int j = 0; j < MoleculeType[i].nAngles; j++) {
-        if (j != 0) {
-          fprintf(stdout, ", ");
-        }
-        fprintf(stdout, "%d-%d-%d", MoleculeType[i].Angle[j][0]+1,
-                                    MoleculeType[i].Angle[j][1]+1,
-                                    MoleculeType[i].Angle[j][2]+1);
-        if (MoleculeType[i].Angle[j][3] != -1) {
-          fprintf(stdout, "(%d)", MoleculeType[i].Angle[j][3]+1);
-        }
-      }
-      fprintf(stdout, "},\n");
-    } //}}}
-    // print dihedrals if there are any //{{{
-    if (MoleculeType[i].nDihedrals > 0) {
-      fprintf(stdout, "  .nDihedrals = %d,\n  .Dihedral   = {", MoleculeType[i].nDihedrals);
-      for (int j = 0; j < MoleculeType[i].nDihedrals; j++) {
-        if (j != 0) {
-          fprintf(stdout, ", ");
-        }
-        fprintf(stdout, "%d-%d-%d-%d", MoleculeType[i].Dihedral[j][0]+1,
-                                       MoleculeType[i].Dihedral[j][1]+1,
-                                       MoleculeType[i].Dihedral[j][2]+1,
-                                       MoleculeType[i].Dihedral[j][3]+1);
-        if (MoleculeType[i].Dihedral[j][4] != -1) {
-          fprintf(stdout, "(%d)", MoleculeType[i].Dihedral[j][4]+1);
-        }
-      }
-      fprintf(stdout, "},\n");
-    } //}}}
-    // print bead types (just the which are present) //{{{
-    fprintf(stdout, "  .nBTypes    = %d\n", MoleculeType[i].nBTypes);
-    fprintf(stdout, "  .BType      = {");
-    for (int j = 0; j < MoleculeType[i].nBTypes; j++) {
-      if (j != 0) {
-        fprintf(stdout, ", ");
-      }
-      fprintf(stdout, "%s", BeadType[MoleculeType[i].BType[j]].Name);
-    } //}}}
-    if (MoleculeType[i].Mass != MASS) {
-      fprintf(stdout, "},\n  .Mass       = %.5f,\n", MoleculeType[i].Mass);
-    } else {
-      fprintf(stdout, "},\n  .Mass       = n/a,\n");
-    }
-    if (MoleculeType[i].Charge != CHARGE) {
-      fprintf(stdout, "  .Charge     = %.5f\n}\n", MoleculeType[i].Charge);
-    } else {
-      fprintf(stdout, "  .Charge     = n/a\n}\n");
-    }
-  }
-} //}}}
 // PrintMolecule_old() //{{{
 /**
  * Function printing Molecule structure.
@@ -3049,17 +2940,6 @@ void FreeBead(int number_of_beads, BEAD **Bead) {
   }
   free(*Bead);
 } //}}}
-// FreeMolecule() //{{{
-/**
- * Free memory allocated for Molecule struct array. This function makes it
- * easier other arrays to the Molecule struct in the future
- */
-void FreeMolecule(int number_of_molecules, MOLECULE **Molecule) {
-  for (int i = 0; i < number_of_molecules; i++) {
-    free((*Molecule)[i].Bead);
-  }
-  free(*Molecule);
-} //}}}
 // FreeMoleculeType() //{{{
 /**
  * Free memory allocated for MoleculeType struct array. This function makes
@@ -3081,21 +2961,6 @@ void FreeMoleculeType_old(int number_of_types, MOLECULETYPE **MoleculeType) {
   }
   free(*MoleculeType);
 } //}}}
-// FindBeadType_old() //{{{
-/* Function to identify type of bead from its name; returns -1 on non-existent
- * bead name.
- */
-int FindBeadType_old(char *name, COUNTS Counts, BEADTYPE *BeadType) {
-  int type;
-  for (int i = 0; i < Counts.TypesOfBeads; i++) {
-    if (strcmp(name, BeadType[i].Name) == 0) {
-      type = i;
-      return type;
-    }
-  }
-  // name isn't in BeadType struct
-  return -1;
-} //}}}
 // FindBeadType2() //{{{
 /* Function to identify type of bead from its name; returns -1 on non-existent
  * bead name.
@@ -3110,18 +2975,6 @@ int FindBeadType2(char *name, int types_of_beads, BEADTYPE *BeadType) {
   }
   // name isn't in BeadType struct
   return -1;
-} //}}}
-// FindMoleculeType_old() //{{{
-int FindMoleculeType_old(char *name, COUNTS Counts, MOLECULETYPE *MoleculeType) {
-  int type;
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    if (strcmp(name, MoleculeType[i].Name) == 0) {
-      type = i;
-      return type;
-    }
-  }
-  // name isn't in MoleculeType struct
-  return(-1);
 } //}}}
 // FindMoleculeType2() //{{{
 int FindMoleculeType2(char *name, int number_of_types, MOLECULETYPE *MoleculeType) {
@@ -3909,6 +3762,81 @@ void PruneSystem_old(SYSTEM *System) { //{{{
   FreeSystem(&S_old);
   free(connect);
 } //}}}
+// CopyMoleculeType_old() //{{{
+/**
+ * Function to copy MOLECULETYPE structure into a new one. Memory management
+ * for the output structure: sufficient memory is already allocated (mode=0),
+ * the structure needs freeing and allocating (mode=1), no memory was yet
+ * allocated at all (mode=2), or it just needs reallocating - only for cases
+ * when memory only for the structure itself was allocated, not for the arrays
+ * within the structure (mode=3).
+ */
+// TODO if mode=0, then there shouldn't be any allocations at all; probably
+//      remove this mode - when do I need straight out copy the arrays?
+void CopyMoleculeType_old(int number_of_types, MOLECULETYPE **mt_out,
+                      MOLECULETYPE *mt_in, int mode) {
+  // mt_out memory management //{{{
+  switch (mode) {
+    case 1:
+      FreeMoleculeType_old(number_of_types, mt_out);
+      *mt_out = malloc(sizeof (MOLECULETYPE) * number_of_types);
+      break;
+    case 2:
+      *mt_out = malloc(sizeof (MOLECULETYPE) * number_of_types);
+      break;
+    case 3:
+      *mt_out = realloc(*mt_out, sizeof (MOLECULETYPE) * number_of_types);
+      break;
+    default:
+      ErrorPrintError_old();
+      ColourChange(STDERR_FILENO, YELLOW);
+      fprintf(stderr, "CopyMoleculeType()");
+      ColourChange(STDERR_FILENO, RED);
+      fprintf(stderr, " function requires mode=0, 1, 2, or 3\n");
+      ColourReset(STDERR_FILENO);
+      exit(1);
+  } //}}}
+  for (int i = 0; i < number_of_types; i++) {
+    (*mt_out)[i] = mt_in[i]; // copy simple variables
+    // allocate & copy Bead array
+    (*mt_out)[i].Bead = malloc(sizeof *(*mt_out)[i].Bead * (*mt_out)[i].nBeads);
+    for (int j = 0; j < (*mt_out)[i].nBeads; j++) {
+      (*mt_out)[i].Bead[j] = mt_in[i].Bead[j];
+    }
+    // allocate & copy Bond array (if bonds are present)
+    if ((*mt_out)[i].nBonds > 0) {
+      (*mt_out)[i].nBonds = mt_in[i].nBonds;
+      (*mt_out)[i].Bond = malloc(sizeof *(*mt_out)[i].Bond *
+                                 (*mt_out)[i].nBonds);
+      for (int j = 0; j < (*mt_out)[i].nBonds; j++) {
+        for (int k = 0; k < 3; k++) {
+          (*mt_out)[i].Bond[j][k] = mt_in[i].Bond[j][k];
+        }
+      }
+    }
+    // allocate & copy Angle array (if angles are present)
+    if ((*mt_out)[i].nAngles > 0) {
+      (*mt_out)[i].Angle = malloc(sizeof *(*mt_out)[i].Angle *
+                                  (*mt_out)[i].nAngles);
+      for (int j = 0; j < (*mt_out)[i].nAngles; j++) {
+        for (int k = 0; k < 4; k++) {
+          (*mt_out)[i].Angle[j][k] = mt_in[i].Angle[j][k];
+        }
+      }
+    }
+    // allocate & copy Dihedral array (if dihedrals are present)
+    if ((*mt_out)[i].nDihedrals > 0) {
+      (*mt_out)[i].Dihedral = malloc(sizeof *(*mt_out)[i].Dihedral *
+                                     (*mt_out)[i].nDihedrals);
+      for (int j = 0; j < (*mt_out)[i].nDihedrals; j++) {
+        for (int k = 0; k < 5; k++) {
+          (*mt_out)[i].Dihedral[j][k] = mt_in[i].Dihedral[j][k];
+        }
+      }
+    }
+  }
+  FillMolBTypes_old(number_of_types, mt_out);
+} //}}}
 // FillMolBTypes_old() //{{{
 /*
  * Function to fill MoleculeType[].BType array based on MoleculeType[].Bead array.
@@ -3935,7 +3863,45 @@ void FillMolBTypes_old(int number_of_types, MOLECULETYPE **MoleculeType) {
     }
   }
 } //}}}
-// FillMolMassCharge() //{{{
+// FindMoleculeType_old() //{{{
+int FindMoleculeType_old(char *name, COUNTS Counts, MOLECULETYPE *MoleculeType) {
+  int type;
+  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
+    if (strcmp(name, MoleculeType[i].Name) == 0) {
+      type = i;
+      return type;
+    }
+  }
+  // name isn't in MoleculeType struct
+  return(-1);
+} //}}}
+// FindBeadType_old() //{{{
+/* Function to identify type of bead from its name; returns -1 on non-existent
+ * bead name.
+ */
+int FindBeadType_old(char *name, COUNTS Counts, BEADTYPE *BeadType) {
+  int type;
+  for (int i = 0; i < Counts.TypesOfBeads; i++) {
+    if (strcmp(name, BeadType[i].Name) == 0) {
+      type = i;
+      return type;
+    }
+  }
+  // name isn't in BeadType struct
+  return -1;
+} //}}}
+// FreeMolecule() //{{{
+/**
+ * Free memory allocated for Molecule struct array. This function makes it
+ * easier other arrays to the Molecule struct in the future
+ */
+void FreeMolecule(int number_of_molecules, MOLECULE **Molecule) {
+  for (int i = 0; i < number_of_molecules; i++) {
+    free((*Molecule)[i].Bead);
+  }
+  free(*Molecule);
+} //}}}
+// FillMolMassCharge_old() //{{{
 /*
  * Function to calculate total mass and charge of molecules.
  */
@@ -3966,3 +3932,94 @@ void FillMolMassCharge_old(int number_of_types, MOLECULETYPE **MoleculeType,
     }
   }
 } //}}}
+// PrintMoleculeType2()  //{{{
+/**
+ * Function printing MoleculeType structure.
+ */
+void PrintMoleculeType2(int number_of_types, BEADTYPE *BeadType, MOLECULETYPE *MoleculeType) {
+  for (int i = 0; i < number_of_types; i++) {
+    fprintf(stdout, "MoleculeType[%d] = {\n", i);
+    fprintf(stdout, "  .Name       = %s,\n", MoleculeType[i].Name);
+    fprintf(stdout, "  .Number     = %d,\n", MoleculeType[i].Number);
+    // print bead types (list all beads) //{{{
+    fprintf(stdout, "  .nBeads     = %d,\n", MoleculeType[i].nBeads);
+    fprintf(stdout, "  .Bead       = {");
+    for (int j = 0; j < MoleculeType[i].nBeads; j++) {
+      if (j != 0) {
+        fprintf(stdout, ", ");
+      }
+      fprintf(stdout, "%s", BeadType[MoleculeType[i].Bead[j]].Name);
+    }
+    fprintf(stdout, "},\n"); //}}}
+    // print bonds if there are any //{{{
+    if (MoleculeType[i].nBonds > 0) {
+      fprintf(stdout, "  .nBonds     = %d,\n", MoleculeType[i].nBonds);
+      fprintf(stdout, "  .Bond       = {");
+      for (int j = 0; j < MoleculeType[i].nBonds; j++) {
+        if (j != 0) {
+          fprintf(stdout, ", ");
+        }
+        fprintf(stdout, "%d-%d", MoleculeType[i].Bond[j][0]+1,
+                                 MoleculeType[i].Bond[j][1]+1);
+        if (MoleculeType[i].Bond[j][2] != -1) {
+          fprintf(stdout, "(%d)", MoleculeType[i].Bond[j][2]+1);
+        }
+      }
+      fprintf(stdout, "},\n");
+    } //}}}
+    // print angles if there are any //{{{
+    if (MoleculeType[i].nAngles > 0) {
+      fprintf(stdout, "  .nAngles    = %d,\n", MoleculeType[i].nAngles);
+      fprintf(stdout, "  .Angle      = {");
+      for (int j = 0; j < MoleculeType[i].nAngles; j++) {
+        if (j != 0) {
+          fprintf(stdout, ", ");
+        }
+        fprintf(stdout, "%d-%d-%d", MoleculeType[i].Angle[j][0]+1,
+                                    MoleculeType[i].Angle[j][1]+1,
+                                    MoleculeType[i].Angle[j][2]+1);
+        if (MoleculeType[i].Angle[j][3] != -1) {
+          fprintf(stdout, "(%d)", MoleculeType[i].Angle[j][3]+1);
+        }
+      }
+      fprintf(stdout, "},\n");
+    } //}}}
+    // print dihedrals if there are any //{{{
+    if (MoleculeType[i].nDihedrals > 0) {
+      fprintf(stdout, "  .nDihedrals = %d,\n  .Dihedral   = {", MoleculeType[i].nDihedrals);
+      for (int j = 0; j < MoleculeType[i].nDihedrals; j++) {
+        if (j != 0) {
+          fprintf(stdout, ", ");
+        }
+        fprintf(stdout, "%d-%d-%d-%d", MoleculeType[i].Dihedral[j][0]+1,
+                                       MoleculeType[i].Dihedral[j][1]+1,
+                                       MoleculeType[i].Dihedral[j][2]+1,
+                                       MoleculeType[i].Dihedral[j][3]+1);
+        if (MoleculeType[i].Dihedral[j][4] != -1) {
+          fprintf(stdout, "(%d)", MoleculeType[i].Dihedral[j][4]+1);
+        }
+      }
+      fprintf(stdout, "},\n");
+    } //}}}
+    // print bead types (just the which are present) //{{{
+    fprintf(stdout, "  .nBTypes    = %d\n", MoleculeType[i].nBTypes);
+    fprintf(stdout, "  .BType      = {");
+    for (int j = 0; j < MoleculeType[i].nBTypes; j++) {
+      if (j != 0) {
+        fprintf(stdout, ", ");
+      }
+      fprintf(stdout, "%s", BeadType[MoleculeType[i].BType[j]].Name);
+    } //}}}
+    if (MoleculeType[i].Mass != MASS) {
+      fprintf(stdout, "},\n  .Mass       = %.5f,\n", MoleculeType[i].Mass);
+    } else {
+      fprintf(stdout, "},\n  .Mass       = n/a,\n");
+    }
+    if (MoleculeType[i].Charge != CHARGE) {
+      fprintf(stdout, "  .Charge     = %.5f\n}\n", MoleculeType[i].Charge);
+    } else {
+      fprintf(stdout, "  .Charge     = n/a\n}\n");
+    }
+  }
+} //}}}
+#endif

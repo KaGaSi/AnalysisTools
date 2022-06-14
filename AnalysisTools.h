@@ -21,9 +21,9 @@ void CheckSystem(SYSTEM System, char file[]);
 bool TriclinicCellData(BOX *Box);
 
 void ToFractional(VECTOR *coor, BOX Box);
-void ToFractionalCoor(int number_of_beads, BEAD **Bead, BOX Box);
+void ToFractionalCoor(SYSTEM *System);
 VECTOR FromFractional(VECTOR coor, BOX Box);
-void FromFractionalCoor(int number_of_beads, BEAD **Bead, BOX Box);
+void FromFractionalCoor(SYSTEM *System);
 
 // get bead indices for bonds/angles/dihedrals (with some error checking)
 int * BondIndices(SYSTEM System, int mol, int bond);
@@ -70,6 +70,11 @@ void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
                                 BEADTYPE BeadType[]);
 void FillBeadTypeIndex(SYSTEM *System);
 void FillMoleculeTypeIndex(SYSTEM *System);
+
+void NewBeadType(BEADTYPE *BeadType[], int *number_of_types, char *name,
+                 double charge, double mass, double radius);
+void NewMolType(MOLECULETYPE *MoleculeType[], int *n_types, char *name,
+                int n_beads, int n_bonds, int n_angles, int n_dihedrals);
 
 // Distancet() //{{{
 /**

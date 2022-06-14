@@ -1,11 +1,11 @@
 #include "Structs.h"
 
 void InitBeadType(BEADTYPE *bt) {
-  (*bt).Name[0] = '\0';
-  (*bt).Number = 0;
-  (*bt).Charge = CHARGE;
-  (*bt).Mass = MASS;
-  (*bt).Radius = RADIUS;
+  bt->Name[0] = '\0';
+  bt->Number = 0;
+  bt->Charge = CHARGE;
+  bt->Mass = MASS;
+  bt->Radius = RADIUS;
 //(*bt).Index = malloc(sizeof *(*bt).Index); // TODO only if Number > 0?
 //(*bt).Index[0] = -1;
 }
@@ -39,19 +39,19 @@ void InitMolecule(MOLECULE *mol) {
 void InitSystem(SYSTEM *System) {
   System->Box = InitBox;
   System->Count = InitCount;
-  System->BeadType = calloc(1, sizeof *(*System).BeadType);
-  System->Bead = calloc(1, sizeof *(*System).Bead);
-  System->MoleculeType = calloc(1, sizeof *(*System).MoleculeType);
-  System->Molecule = calloc(1, sizeof *(*System).Molecule);
-  System->BondType = calloc(1, sizeof *(*System).BondType);
-  System->AngleType = calloc(1, sizeof *(*System).AngleType);
-  System->DihedralType = calloc(1, sizeof *(*System).DihedralType);
-  System->Index_mol = calloc(1, sizeof *(*System).Index_mol);
-  System->Bonded = calloc(1, sizeof *(*System).Bonded);
-  System->BondedCoor = calloc(1, sizeof *(*System).BondedCoor);
-  System->Unbonded = calloc(1, sizeof *(*System).Unbonded);
-  System->UnbondedCoor = calloc(1, sizeof *(*System).UnbondedCoor);
-  System->BeadCoor = calloc(1, sizeof *(*System).BeadCoor);
+  System->BeadType =     calloc(1, sizeof System->BeadType);
+  System->Bead =         calloc(1, sizeof System->Bead);
+  System->MoleculeType = calloc(1, sizeof System->MoleculeType);
+  System->Molecule =     calloc(1, sizeof System->Molecule);
+  System->BondType =     calloc(1, sizeof System->BondType);
+  System->AngleType =    calloc(1, sizeof System->AngleType);
+  System->DihedralType = calloc(1, sizeof System->DihedralType);
+  System->Index_mol =    calloc(1, sizeof System->Index_mol);
+  System->Bonded =       calloc(1, sizeof System->Bonded);
+  System->BondedCoor =   calloc(1, sizeof System->BondedCoor);
+  System->Unbonded =     calloc(1, sizeof System->Unbonded);
+  System->UnbondedCoor = calloc(1, sizeof System->UnbondedCoor);
+  System->BeadCoor =     calloc(1, sizeof System->BeadCoor);
 //InitBeadType(&(*System).BeadType[0]);
 //InitBead(&(*System).Bead[0]);
 //InitMoleculeType(&(*System).MoleculeType[0]);

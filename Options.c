@@ -191,7 +191,7 @@ bool JoinCoorOption(int argc, char **argv, char *joined_vcf) {
  * is absent, all bead types are switched to the specified 'bool use' value.
  */
 bool BeadTypeOption(int argc, char **argv, char *opt,
-                    bool use, SYSTEM *System) {
+                    bool use, bool flag[], SYSTEM *System) {
 
   // specify what bead types to use - either specified by 'opt' or use all
   int types = -1;
@@ -215,17 +215,15 @@ bool BeadTypeOption(int argc, char **argv, char *opt,
           ErrorBeadType(*System);
           return(true);
         }
-
-        (*System).BeadType[type].Use = true;
+        flag[type] = true;
       }
     }
   }
   if (types == -1) {
-    for (int i = 0; i < (*System).Count.BeadType; i++) {
-      (*System).BeadType[i].Use = use;
+    for (int i = 0; i < System->Count.BeadType; i++) {
+      flag[i] = use;
     }
   }
-
   return(false);
 } // }}}
 
@@ -506,6 +504,24 @@ bool FileOption(int argc, char **argv, char *opt,
   return(false);
 } //}}}
 
+// StartEndTime() //{{{
+/**
+ * Options for starting and ending timesteps.
+ */
+void StartEndTime(int argc, char **argv, int *start, int *end) {
+  *start = 1;
+  if (IntegerOption(argc, argv, "-st", start)) {
+    exit(1);
+  }
+  *end = -1;
+  if (IntegerOption(argc, argv, "-e", end)) {
+    exit(1);
+  }
+  ErrorStartEnd(*start, *end);
+} //}}}
+
+#if 0
+// TODO redo
 // MoleculeTypeOption() //{{{
 /**
  * Generic option for molecule type that can take one
@@ -548,10 +564,6 @@ bool MoleculeTypeOption(int argc, char **argv, char *opt, int *moltype,
 
   return(false);
 } //}}}
-
-// TODO: why not use MoleculeType[].Use flag? Actually, I need to get rid of
-//       the flags from the structures
-// TODO: why not bool *moltype?
 // MoleculeTypeOption2() //{{{
 /**
  * Generic option for molecule types that can take multiple arguments. The
@@ -604,7 +616,6 @@ bool MoleculeTypeOption2(int argc, char **argv, char *opt, int *moltype,
 
   return false;
 } //}}}
-
 // MoleculeTypeIntOption() //{{{
 /**
  * Generic option for a single molecule type followed by a single integer
@@ -644,23 +655,6 @@ bool MoleculeTypeIntOption(int argc, int i, char **argv, char *opt,
   }
   return false;
 } //}}}
-
-// StartEndTime() //{{{
-/**
- * Options for starting and ending timesteps.
- */
-void StartEndTime(int argc, char **argv, int *start, int *end) {
-  *start = 1;
-  if (IntegerOption(argc, argv, "-st", start)) {
-    exit(1);
-  }
-  *end = -1;
-  if (IntegerOption(argc, argv, "-e", end)) {
-    exit(1);
-  }
-  ErrorStartEnd(*start, *end);
-} //}}}
-
 // TODO remove
 // BeadTypeOption_old() //{{{
 /**
@@ -692,7 +686,6 @@ bool BeadTypeOption_old(int argc, char **argv, char *opt, bool use,
           ErrorBeadType_old(Counts, *BeadType);
           return(true);
         }
-
         (*BeadType)[type].Use = true;
       }
     }
@@ -758,3 +751,4 @@ bool ExcludeOption_old(int argc, char **argv, COUNTS Counts,
 
   return(false);
 } //}}}
+#endif

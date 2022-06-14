@@ -78,8 +78,8 @@ typedef struct BeadType { //{{{
   char Name[BEAD_NAME]; // name of given bead type
   int Number, // number of beads of given type
       *Index; // array of Bead[] indices
-  bool Use, // should bead type in .vcf file be used for calculation?
-       Write; // should bead type in .vcf file be written to output .vcf?
+//bool Use, // should bead type in .vcf file be used for calculation?
+//     Write; // should bead type in .vcf file be written to output .vcf?
   double Charge, // charge of every bead of given type
          Mass, // mass of every bead of given type
          Radius; // radius of every bead of the given type
@@ -93,8 +93,8 @@ typedef struct Bead { //{{{
   VECTOR Position; // cartesian coordinates of the bead
   VECTOR Velocity; // velocity of the bead
 
-  bool InTimestep, // is the bead in the present timestep?
-       Use; // general-purpose flag
+  bool InTimestep; // is the bead in the present timestep?
+//     Use; // general-purpose flag
   bool Flag; // general-purpose flag
 } BEAD;
 void InitBead(BEAD *b); //}}}

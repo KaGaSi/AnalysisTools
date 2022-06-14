@@ -151,20 +151,6 @@ void ReadLmpData(char *data_file, int *bonds, PARAMS *bond_type[],
 bool VtfSkipCoorOrderedLine(FILE *fr);
 
 // helper functions //{{{
-// Fill arrays of structures (BEADTYPE & MOLECULTYPE)
-// NewBeadType() //{{{
-/*
- * Function to add a new bead type to a BEADTYPE struct
- * (and increment the number of bead types).
- */
-void NewBeadType(BEADTYPE *BeadType[], int *number_of_types, char *name,
-                 double charge, double mass, double radius); //}}}
-// NewMolType() //{{{
-/*
- * Function to create a new molecule type in a MOLECULETYPE struct.
- */
-void NewMolType(MOLECULETYPE *MoleculeType[], int *n_types, char *name,
-                int n_beads, int n_bonds, int n_angles, int n_dihedrals); //}}}
 // FillMolMass //{{{
 /*
  * Function to calculate mass of all molecules. If at least one bead has
