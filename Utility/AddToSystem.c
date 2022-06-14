@@ -744,7 +744,7 @@ int main(int argc, char *argv[]) {
     fflush(stdout);
   // TODO ConcatenateSystems doesn't copy BeadType[]Index array (and, I guess
   //      MoleculeType[].Index array), so I guess the S_new and S_add then
-  //      overlap or something...
+  //      overlap or something... Update: changed; hopefully it's gonna work
   ConcatenateSystems(&S_new, S_add, Box_new);
 PrintBeadType(S_add);
 for (int i = 0; i < S_add.Count.BeadType; i++) {
