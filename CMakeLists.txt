@@ -30,6 +30,8 @@ foreach(library ${LIBRARIES})
 endforeach(library)
 
 set(UTILS AddToSystem
+          AddSystemToSystem
+          AddRandomToSystem
           Aggregates
           Aggregates-NotSameBeads
           AngleMolecules

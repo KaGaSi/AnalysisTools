@@ -19,7 +19,6 @@ typedef struct Box { //{{{
          Volume;
 } BOX;
 
-// TODO: is that used at all?
 // Initialize Box
 static const BOX InitBox = {
   .Length.x = -1,

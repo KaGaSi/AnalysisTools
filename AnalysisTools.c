@@ -1779,7 +1779,6 @@ void PruneSystem(SYSTEM *System) { //{{{
 //       must change if S_out and S_in contain types (akin to molecule types)
 void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
   COUNT Count_old = (*S_out).Count; // copy the original COUNT
-  PrintCount(Count_old);
   fflush(stdout);
   // Box
   (*S_out).Box = Box;
@@ -1836,8 +1835,8 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
   if (S_in.Count.BondedCoor > 0) {
     (*S_out).Count.BondedCoor += S_in.Count.BondedCoor;
     (*S_out).BondedCoor = realloc((*S_out).BondedCoor,
-                                  sizeof *(*S_out).BondedCoor *
-                                  (*S_out).Count.BondedCoor);
+                                  sizeof *(*S_out).Bonded *
+                                  (*S_out).Count.Bonded);
     for (int i = 0; i < S_in.Count.BondedCoor; i++) {
       int new = i + Count_old.BondedCoor;
       (*S_out).BondedCoor[new] = S_in.BondedCoor[i] + Count_old.Bead;
@@ -1857,8 +1856,8 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
   if (S_in.Count.UnbondedCoor > 0) {
     (*S_out).Count.UnbondedCoor += S_in.Count.UnbondedCoor;
     (*S_out).UnbondedCoor =
-      realloc((*S_out).UnbondedCoor, sizeof *(*S_out).UnbondedCoor *
-              (*S_out).Count.UnbondedCoor);
+      realloc((*S_out).UnbondedCoor, sizeof *(*S_out).Unbonded *
+              (*S_out).Count.Unbonded);
     for (int i = 0; i < S_in.Count.UnbondedCoor; i++) {
       int new = i + Count_old.UnbondedCoor;
       (*S_out).UnbondedCoor[new] = S_in.UnbondedCoor[i] + Count_old.Bead;
@@ -2049,17 +2048,17 @@ void VerboseOutput(SYSTEM System) { //{{{
 void PrintCount(COUNT Count) { //{{{
   fprintf(stdout, "\nCounts of\n");
   fprintf(stdout, "  Bead Types:     %d\n", Count.BeadType);
+  fprintf(stdout, "  All Beads:      %d\n", Count.Bead);
+  if (Count.Bead != Count.BeadCoor && Count.Bead > 0) {
+    fprintf(stdout, "    In Coor File: %d\n", Count.BeadCoor);
+  }
   fprintf(stdout, "  Bonded Beads:   %d\n", Count.Bonded);
-  if (Count.Bead != Count.BeadCoor && Count.BeadCoor > 0) {
+  if (Count.Bead != Count.BeadCoor && Count.Bonded > 0) {
     fprintf(stdout, "    In Coor File: %d\n", Count.BondedCoor);
   }
   fprintf(stdout, "  Unbonded Beads: %d\n", Count.Unbonded);
-  if (Count.Bead != Count.BeadCoor && Count.BeadCoor > 0) {
+  if (Count.Bead != Count.BeadCoor && Count.Unbonded > 0) {
     fprintf(stdout, "    In Coor File: %d\n", Count.UnbondedCoor);
-  }
-  fprintf(stdout, "  All Beads:      %d\n", Count.Bead);
-  if (Count.Bead != Count.BeadCoor && Count.BeadCoor > 0) {
-    fprintf(stdout, "    In Coor File: %d\n", Count.BeadCoor);
   }
   fprintf(stdout, "  Molecule Types: %d\n", Count.MoleculeType);
   fprintf(stdout, "  Molecules:      %d", Count.Molecule);
@@ -2297,7 +2296,8 @@ void PrintBead(SYSTEM System) { //{{{
     if (System.Bead[i].Molecule == -1) {
       fprintf(stdout, "None\n");
     } else {
-      fprintf(stdout, "%6d\n", System.Bead[i].Molecule);
+      int id = System.Bead[i].Molecule;
+      fprintf(stdout, "%6d (%d)\n", System.Molecule[id].Index, id);
     }
   }
 } //}}}

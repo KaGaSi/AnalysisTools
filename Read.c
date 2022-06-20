@@ -960,13 +960,10 @@ bool VtfReadTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
                      SYSTEM *System, int *file_line_count,
                      int step_count, char stuff[]) {
   start_function: ; // return here when a bad line is encountered
+  stuff[0] = '\0';
   char *cur = stuff, * const end = stuff + LINE; // to properly snprintf stuff[]
-  // set 'not in timestep' to all beads //{{{
-  for (int i = 0; i < (*System).Count.Bead; i++) {
-    (*System).Bead[i].InTimestep = false;
-  } //}}}
   // read timestep preamble //{{{
-  (*System).Count.BeadCoor = -1; // no coordinate line found yet
+  bool coor_found = false;
   int ltype, timestep = ERROR_LINE;
   fpos_t position; // to save file position
   while (true) {
@@ -982,21 +979,22 @@ bool VtfReadTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
     ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
     // do something based on what line it is
     if (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) { //{{{
-      (*System).Box.Length.x = atof(split[1]);
-      (*System).Box.Length.y = atof(split[2]);
-      (*System).Box.Length.z = atof(split[3]);
+      BOX *Box = &System->Box;
+      Box->Length.x = atof(split[1]);
+      Box->Length.y = atof(split[2]);
+      Box->Length.z = atof(split[3]);
       if (ltype == PBC_LINE_ANGLES) {
-        (*System).Box.alpha = atof(split[4]);
-        (*System).Box.beta = atof(split[5]);
-        (*System).Box.gamma = atof(split[6]);
+        Box->alpha = atof(split[4]);
+        Box->beta = atof(split[5]);
+        Box->gamma = atof(split[6]);
         if (!TriclinicCellData(&(*System).Box)) {
           ErrorPrintFull2(vcf_file, *file_line_count, split, words);
           exit(1);
         }
       } else {
-        (*System).Box.alpha = 90;
-        (*System).Box.beta = 90;
-        (*System).Box.gamma = 90;
+        Box->alpha = 90;
+        Box->beta = 90;
+        Box->gamma = 90;
       }
      //}}}
     } else if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) { //{{{
@@ -1004,18 +1002,19 @@ bool VtfReadTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
       if (timestep != ERROR_LINE) {
         strcpy(ERROR_MSG, "extra timestep line \
 (or timestep without any coordinates)");
-        PrintWarningFileLine(vcf_file, vsf_file, *file_line_count, split, words);
+        PrintWarningFileLine(vcf_file, vsf_file, *file_line_count,
+                             split, words);
       }
       timestep = ltype;
      //}}}
     } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) { //{{{
-      // warn: missing timestep line - read next timeste //{{{
+      // warn: missing timestep line - read next timestep //{{{
       if (timestep == ERROR_LINE) {
         strcpy(ERROR_MSG, "found a coordinate line before a timestep line; \
 using next timestep instead of this one");
         PrintWarningFileLine(vcf_file, vsf_file,
                              *file_line_count, split, words);
-        // skip the remaing coordinate line (if any)
+        // skip the remaining coordinate lines (if any)
         do {
           fgetpos(vcf, &position);
           (*file_line_count)++;
@@ -1024,13 +1023,10 @@ using next timestep instead of this one");
         (*file_line_count)--; // the first non-coordinate line will be re-read
         goto start_function;
       } //}}}
-      (*System).Count.BeadCoor = 0;
+      coor_found = true;
       break; //}}}
-    } else if (ltype == COMMENT_LINE) {
-      // TODO clean this; well, do something about it, anyway
-//    printf(">|%s|<\n", stuff);
-//    printf("%ld %ld\n", sizeof stuff, strlen(stuff));
-//    if ((end-cur) < LINE) {
+    } else if (ltype == COMMENT_LINE) { //{{{
+      // add the comment to the stuff array
       if ((end-cur) > 0) {
         cur += snprintf(cur, end-cur, "%s", split[0]);
       }
@@ -1041,28 +1037,29 @@ using next timestep instead of this one");
             break;
           }
         }
-//      printf("%ld %ld %d |%s|\n", end-cur, strlen(stuff), LINE, stuff);
         if ((end-cur) > 0) {
           cur += snprintf(cur, end-cur, " %s\n", split[words-1]);
         }
-//      printf("x %ld %ld %d |%s|\n", end-cur, strlen(stuff), LINE, stuff);
-//    } else {
-//      printf("%ld %d |%s|\n", end-cur, LINE, stuff);
-//    }
-//    printf("|%s| %ld\n", stuff, strlen(stuff));
-    } else if (ltype == ERROR_LINE) {
+    //}}}
+    } else if (ltype == ERROR_LINE) { //{{{
       strcpy(ERROR_MSG, "ignoring unrecognised line in a timestep preamble");
       PrintWarningFileLine(vcf_file, vsf_file, *file_line_count, split, words);
-    }
+    } //}}}
   } //}}}
-  // return 'false' if no coordinate line encountered //{{{
-  if ((*System).Count.BeadCoor == -1) {
+  // warning - coordinate line encountered; should never trigger //{{{
+  if (!coor_found) {
     strcpy(ERROR_MSG, "no coordinates; this warning should never trigger!");
     PrintWarning();
   } //}}}
+  // set 'not in timestep' to all beads //{{{
+  for (int i = 0; i < (*System).Count.Bead; i++) {
+    System->Bead[i].InTimestep = false;
+  } //}}}
   // read coordinates  //{{{
-  (*System).Count.UnbondedCoor = 0;
-  (*System).Count.BondedCoor = 0;
+  COUNT *Count = &System->Count;
+  Count->BeadCoor = 0;
+  Count->UnbondedCoor = 0;
+  Count->BondedCoor = 0;
   // restore file pointer to before the first coordinate line
   fsetpos(vcf, &position);
   (*file_line_count)--; // the first coordinate line will be re-read
@@ -1084,7 +1081,7 @@ using next timestep instead of this one");
 using next timestep instead of this one");
         PrintWarningFileLine(vcf_file, vsf_file,
                              *file_line_count, split, words);
-        // skip the remaing coordinate line (if any)
+        // skip the remaining coordinate lines (if any)
         do {
           fgetpos(vcf, &position);
           (*file_line_count)++;
@@ -1100,7 +1097,7 @@ using next timestep instead of this one");
       if (ltype == COOR_LINE_I) {
         id = atoi(split[0]);
         // warn: bead index is too high - read next timestep //{{{
-        if (id >= (*System).Count.Bead) {
+        if (id >= Count->Bead) {
           strcpy(ERROR_MSG, "bead index too high; \
 using next timestep instead of this one");
           PrintWarningFileLine(vcf_file, vsf_file,
@@ -1115,7 +1112,7 @@ using next timestep instead of this one");
           goto start_function;
         } //}}}
         // warn: repeated bead index - read next timestep //{{{
-        if ((*System).Bead[id].InTimestep) {
+        if (System->Bead[id].InTimestep) {
           strcpy(ERROR_MSG, "multiple bead entries with the same index; \
 using next timestep instead of this one");
           PrintWarningFileLine(vcf_file, vsf_file,
@@ -1129,19 +1126,6 @@ using next timestep instead of this one");
           (*file_line_count)--; // the first non-coordinate line will be re-read
           goto start_function;
         } //}}}
-        (*System).Bead[id].Position.x = atof(split[1]);
-        (*System).Bead[id].Position.y = atof(split[2]);
-        (*System).Bead[id].Position.z = atof(split[3]);
-        (*System).Bead[id].InTimestep = true;
-        VECTOR vel;
-        if (words >= 7 && IsReal(split[4], &vel.x) &&
-                          IsReal(split[5], &vel.y) &&
-                          IsReal(split[6], &vel.z)) { // bead velocities, if there
-          (*System).Bead[id].Velocity.x = vel.x;
-          (*System).Bead[id].Velocity.y = vel.y;
-          (*System).Bead[id].Velocity.z = vel.z;
-        }
-        (*System).BeadCoor[(*System).Count.BeadCoor] = id;
       } else {
         // warn: ordered line in indexed timestep - read next timestep //{{{
         strcpy(ERROR_MSG, "ordered coordinate line in indexed timestep; \
@@ -1159,7 +1143,7 @@ using next timestep instead of this one");
       }
     } else { // 'timestep ordered' coordinate line
       // warn: extra bead in ordered timestep - read next timestep //{{{
-      if ((*System).Count.BeadCoor == (*System).Count.Bead) {
+      if (Count->BeadCoor == Count->Bead) {
         strcpy(ERROR_MSG, "too many beads in an ordered timestep; \
 using next timestep instead of this one");
         PrintWarningFileLine(vcf_file, vsf_file,
@@ -1174,33 +1158,35 @@ using next timestep instead of this one");
         goto start_function;
       } //}}}
       id = (*System).Count.BeadCoor;
-      (*System).Bead[id].Position.x = atof(split[0]);
-      (*System).Bead[id].Position.y = atof(split[1]);
-      (*System).Bead[id].Position.z = atof(split[2]);
-      (*System).Bead[id].InTimestep = true;
-      VECTOR val;
-      if (words >= 6 && IsReal(split[3], &val.x) &&
-          IsReal(split[4], &val.y) && IsReal(split[5], &val.z)) { // bead velocities, if present
-        (*System).Bead[id].Velocity.x = val.x;
-        (*System).Bead[id].Velocity.y = val.y;
-        (*System).Bead[id].Velocity.z = val.z;
-      }
-      (*System).BeadCoor[(*System).Count.BeadCoor] = id;
     }
-    if ((*System).Bead[id].Molecule == -1) {
-      (*System).UnbondedCoor[(*System).Count.UnbondedCoor] = id;
-      (*System).Count.UnbondedCoor++;
+    BEAD *bead_id = &System->Bead[id];
+    bead_id->Position.x = atof(split[1]);
+    bead_id->Position.y = atof(split[2]);
+    bead_id->Position.z = atof(split[3]);
+    bead_id->InTimestep = true;
+    VECTOR vel;
+    if (words >= 7 && IsReal(split[4], &vel.x) &&
+                      IsReal(split[5], &vel.y) &&
+                      IsReal(split[6], &vel.z)) {
+      bead_id->Velocity.x = vel.x;
+      bead_id->Velocity.y = vel.y;
+      bead_id->Velocity.z = vel.z;
+    }
+    System->BeadCoor[System->Count.BeadCoor] = id;
+    if (bead_id->Molecule == -1) {
+      System->UnbondedCoor[(*System).Count.UnbondedCoor] = id;
+      Count->UnbondedCoor++;
     } else {
-      (*System).BondedCoor[(*System).Count.BondedCoor] = id;
-      (*System).Count.BondedCoor++;
+      System->BondedCoor[(*System).Count.BondedCoor] = id;
+      Count->BondedCoor++;
     }
-    (*System).Count.BeadCoor++;
+    Count->BeadCoor++;
   }
   // TODO in file writing, also write vsf file!
   // restore file pointer to before the first non-coordinate line
   fsetpos(vcf, &position); //}}}
   // warn: too few beads in an ordered timestep - read next timestep //{{{
-  if (timestep == TIME_LINE_O && (*System).Count.BeadCoor < (*System).Count.Bead) {
+  if (timestep == TIME_LINE_O && Count->BeadCoor < Count->Bead) {
     strcpy(ERROR_MSG, "insufficient number of beads for ordered timestep; \
 using next timestep instead of this one");
     PrintWarning();
@@ -1210,19 +1196,20 @@ using next timestep instead of this one");
     goto start_function;
   } //}}}
   (*file_line_count)--; // the last line will be re-read next time
-  int count = System->Count.UnbondedCoor + System->Count.BondedCoor;
-  if (count != System->Count.BeadCoor) {
+  // error - test count of beads incorrect; should never trigger //{{{
+  int count = Count->UnbondedCoor + Count->BondedCoor;
+  if (count != Count->BeadCoor) {
     strcpy(ERROR_MSG, "unbonded and bonded beads in a coordinate file do not \
 add up properly!");
     PrintError();
     ErrorPrintFile(vcf_file, vsf_file);
     fprintf(stderr, "%s, unbonded: %s%d%s",
-            ErrRed(), ErrYellow(), System->Count.UnbondedCoor, ErrRed());
+            ErrRed(), ErrYellow(), Count->UnbondedCoor, ErrRed());
     fprintf(stderr, ", bonded: %s%d%s",
-            ErrYellow(), System->Count.BondedCoor, ErrRed());
+            ErrYellow(), Count->BondedCoor, ErrRed());
     fprintf(stderr, ", sum should be: %s%d%s\n",
-            ErrYellow(), System->Count.BeadCoor, ErrColourReset());
-  }
+            ErrYellow(), Count->BeadCoor, ErrColourReset());
+  } //}}}
   return true; // coordinates read properly
 } //}}}
 // VtfSkipTimestep() //{{{
@@ -1504,7 +1491,7 @@ bool VtfCheckBondLine(int words, char *split[]) { //{{{
   }
   return true;
 } //}}}
-// save data from a vsf line TODO from here on
+// save data from a vsf line
 // VtfAtomLineValues() //{{{
 /*
  * Go through a confirmed atom line, picking out positions of values

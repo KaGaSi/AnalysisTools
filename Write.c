@@ -110,9 +110,10 @@ void VtfWriteStruct(char file[], SYSTEM System) {
         fprintf(fw, " radius %lf", System.BeadType[btype].Radius);
       }
       if (mol != -1) {
-        int mtype = System.Molecule[mol].Type;
+        int mtype = System.Molecule[mol].Type,
+            id = System.Molecule[mol].Index;
         fprintf(fw, " resname %10s ", System.MoleculeType[mtype].Name);
-        fprintf(fw, "resid %5d", mol+1);
+        fprintf(fw, "resid %5d", id);
       }
       putc('\n', fw);
     }
