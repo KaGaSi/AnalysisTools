@@ -1092,10 +1092,11 @@ using next timestep instead of this one");
       } //}}}
       break;
     }
-    int id;
+    int id, indexed = 0;
     if (timestep == TIME_LINE_I) { // 'timestep indexed' coordinate line
       if (ltype == COOR_LINE_I) {
         id = atoi(split[0]);
+        indexed = 1;
         // warn: bead index is too high - read next timestep //{{{
         if (id >= Count->Bead) {
           strcpy(ERROR_MSG, "bead index too high; \
@@ -1160,26 +1161,26 @@ using next timestep instead of this one");
       id = (*System).Count.BeadCoor;
     }
     BEAD *bead_id = &System->Bead[id];
-    bead_id->Position.x = atof(split[1]);
-    bead_id->Position.y = atof(split[2]);
-    bead_id->Position.z = atof(split[3]);
+    bead_id->Position.x = atof(split[0+indexed]);
+    bead_id->Position.y = atof(split[1+indexed]);
+    bead_id->Position.z = atof(split[2+indexed]);
     bead_id->InTimestep = true;
     VECTOR vel;
-    if (words >= 7 && IsReal(split[4], &vel.x) &&
-                      IsReal(split[5], &vel.y) &&
-                      IsReal(split[6], &vel.z)) {
+    if (words >= 7 && IsReal(split[3+indexed], &vel.x) &&
+                      IsReal(split[4+indexed], &vel.y) &&
+                      IsReal(split[5+indexed], &vel.z)) {
       bead_id->Velocity.x = vel.x;
       bead_id->Velocity.y = vel.y;
       bead_id->Velocity.z = vel.z;
     }
-    System->BeadCoor[System->Count.BeadCoor] = id;
     if (bead_id->Molecule == -1) {
-      System->UnbondedCoor[(*System).Count.UnbondedCoor] = id;
+      System->UnbondedCoor[Count->UnbondedCoor] = id;
       Count->UnbondedCoor++;
     } else {
-      System->BondedCoor[(*System).Count.BondedCoor] = id;
+      System->BondedCoor[Count->BondedCoor] = id;
       Count->BondedCoor++;
     }
+    System->BeadCoor[Count->BeadCoor] = id;
     Count->BeadCoor++;
   }
   // TODO in file writing, also write vsf file!

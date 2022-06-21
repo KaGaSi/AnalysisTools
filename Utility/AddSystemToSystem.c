@@ -147,17 +147,13 @@ int main(int argc, char *argv[]) {
   CommonOptions(argc, argv, file_in_struct, LINE, &verbose, &silent, &detailed);
 
   // -offset <x> <y> <z> define offset for -vtf file //{{{
-  double offset[100] = {1000000};
+  double offset[100] = {0};
   if (MultiDoubleOption(argc, argv, "-offset", &count, offset)) {
     exit(1);
   }
-  if (count != 3) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "-offset");
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - three numbers required\n\n");
-    ColourReset(STDERR_FILENO);
+  if (count != 0 && count != 3) {
+    strcpy(ERROR_MSG, "three numbers required");
+    PrintErrorOption("-offset");
     Help(argv[0], true);
     exit(1);
   } //}}}
@@ -176,13 +172,9 @@ int main(int argc, char *argv[]) {
   if (MultiDoubleOption(argc, argv, "-b", &count, box_option)) {
     exit(1);
   }
-  if (count != 3) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "-b");
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - three non-negative numbers required\n\n");
-    ColourReset(STDERR_FILENO);
+  if (count != 0 && count != 3) {
+    strcpy(ERROR_MSG, "three non-negative numbers required");
+    PrintErrorOption("-b");
     Help(argv[0], true);
     exit(1);
   }
@@ -190,13 +182,9 @@ int main(int argc, char *argv[]) {
   if (MultiDoubleOption(argc, argv, "-ba", &count, box_angle_option)) {
     exit(1);
   }
-  if (count != 3) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "-ba");
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - three non-negative numbers required\n\n");
-    ColourReset(STDERR_FILENO);
+  if (count != 0 && count != 3) {
+    strcpy(ERROR_MSG, "three non-negative numbers required");
+    PrintErrorOption("-ba");
     Help(argv[0], true);
     exit(1);
   }
@@ -337,7 +325,7 @@ int main(int argc, char *argv[]) {
   // join original and added systems
   SYSTEM S_new = CopySystem(S_orig);
   ConcatenateSystems(&S_new, S_add, Box_new);
-  PruneSystem(&S_new);
+//PruneSystem(&S_new);
 
   // verbose output //{{{
   if (verbose) {

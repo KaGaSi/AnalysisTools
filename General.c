@@ -160,10 +160,8 @@ void SwapBool(bool *a, bool *b) {
  //}}}
 
 // SortArray() //{{{
-/*
- * Sort an array using the bubble sort algorithm. If mode = 0, sort
- * ascendingly; if mode = 1, sort descendingly.
- */
+// Bubble sort an array; mode = 0: sort ascendingly, mode = 1: sort
+// descendingly.
 void SortArray(int *array, int length, int mode) {
   if (mode != 0 && mode != 1) {
     fprintf(stderr, "\033[1;31m");

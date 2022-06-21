@@ -46,6 +46,7 @@ typedef struct Count { //{{{
       Unbonded, // total number of monomeric beads
       UnbondedCoor, // total number of monomeric beads in the coordinate file
       Molecule, // total number of molecules
+      MoleculeCoor, // total number of molecules in the coordinate file
       HighestResid; // highest id in a file (discontinuous molecule counting)
 } COUNT;
 // Initialize Count
@@ -62,6 +63,7 @@ static const COUNT InitCount = {
   .Unbonded = 0,
   .UnbondedCoor = 0,
   .Molecule = 0,
+  .MoleculeCoor = 0,
   .HighestResid = -1,
 }; //}}}
 typedef struct Params { //{{{

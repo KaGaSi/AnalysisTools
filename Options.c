@@ -364,12 +364,12 @@ bool MultiIntegerOption(int argc, char **argv, char *opt,
 bool MultiDoubleOption(int argc, char **argv, char *opt,
                        int *count, double *values) {
 
+  *count = 0;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
       int n = 0; // number of arguments
       // read doubles
       int arg = i+1+n;
-//    while ((arg) < argc && argv[arg][0] != '-') {
       // A = arg < argc; B = argv[arg][0] == '-'; C = IsReal(argv[arg])
       // A B C | we want | A and ((B and C) or (!B and C)) = A and C
       // ----------------|------------------------------------------
@@ -380,17 +380,6 @@ bool MultiDoubleOption(int argc, char **argv, char *opt,
       // 0 1 1 | 0       | 0
       // 0 1 0 | 0       | 0
       while (arg < argc && IsReal_old(argv[arg])) { // see expression table up
-        // Error - non-numeric argument
-//      if (!IsPosReal(argv[arg])) {
-//        ColourText(STDERR_FILENO, RED);
-//        fprintf(stderr, "\nError: ");
-//        ColourText(STDERR_FILENO, YELLOW);
-//        fprintf(stderr, "%s", opt);
-//        ColourText(STDERR_FILENO, RED);
-//        fprintf(stderr, " - argument(s) must be positive number(s)\n\n");
-//        ColourReset(STDERR_FILENO);
-//        return true;
-//      }
         values[n] = atof(argv[arg]);
         n++;
         arg = i+1+n;

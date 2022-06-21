@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
     VtfReadTimestep(coor, input_coor, input_vsf, &System, &file_line_count,
                     step_count, stuff);
     fclose(coor);
-    PruneSystem(&System);
+    PrintBox(System.Box);
   }
 
   // print information
@@ -140,6 +140,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (output_vsf[0] != '\0') {
+    PruneSystem(&System);
     VtfWriteStruct(output_vsf, System);
   }
 
