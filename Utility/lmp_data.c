@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
   PARAMS *bond_type;
   PARAMS *angle_type;
   PARAMS *dihedral_type;
-  ReadField(input, NULL, &Counts_new, &bt_new, &Bead_new, &Index_new,
+  FieldReadFull(input, NULL, &Counts_new, &bt_new, &Bead_new, &Index_new,
             &mt_new, &Molecule_new,
             &bond_type, &angle_type, &dihedral_type); //}}}
 

@@ -289,7 +289,7 @@ int main(int argc, char *argv[]) {
         ToFractionalCoor(&System);
       }
       if (wrap) { // wrap coordinates into the simulation box
-        RestorePBC(System.Count.BeadCoor, System.Box, &System.Bead);
+        RestorePBC(&System);
       }
       if (join) { // join molecules by removing periodic boundary conditions
         RemovePBCMolecules(&System);
@@ -347,7 +347,7 @@ int main(int argc, char *argv[]) {
     ToFractionalCoor(&System);
     // wrap and/or join molecules?
     if (wrap) {
-      RestorePBC(System.Count.BeadCoor, System.Box, &System.Bead);
+      RestorePBC(&System);
     }
     if (join) {
       RemovePBCMolecules(&System);

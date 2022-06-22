@@ -35,14 +35,14 @@ bool IsInteger(char *str, long *val) {
   return true;
 }
 bool IsPosInteger(char *str, long *val) {
-  if (IsInteger(str, val) && val > 0) {
+  if (IsInteger(str, val) && *val > 0) {
     return true;
   } else {
     return false;
   }
 }
 bool IsNatural(char *str, long *val) {
-  if (IsInteger(str, val) && val >= 0) {
+  if (IsInteger(str, val) && *val >= 0) {
     return true;
   } else {
     return false;

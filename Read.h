@@ -52,6 +52,88 @@ bool VtfCheckAtomLine(int words, char *split[]);
 bool VtfCheckBondLine(int words, char *split[]);
  //}}}
 
+SYSTEM FieldReadFull(char field_file[]);
+void FieldReadSpecies(char field_file[], SYSTEM *System);
+void FieldReadMolecules(char field_file[], SYSTEM *System);
+
+// helper functions //{{{
+// FillMolMass //{{{
+/*
+ * Function to calculate mass of all molecules. If at least one bead has
+ * undefined mass, the mass of the molecule is also undefined.
+ */
+void FillMolMass(int number_of_types,
+                 BEADTYPE *BeadType, MOLECULETYPE *MoleculeType[]); //}}}
+// FillMolCharge //{{{
+/*
+ * Function to calculate charge of all molecules. If at least one bead has
+ * undefined charge, the charge of the molecule is also undefined.
+ */
+void FillMolCharge(int number_of_types, BEADTYPE *BeadType,
+                   MOLECULETYPE *MoleculeType[]); //}}}
+// FillMolType //{{{
+/*
+ * Function to fill BType array and mass and charge for each molecule type.
+ */
+void FillMolType(int number_of_types, BEADTYPE *BeadType,
+                 MOLECULETYPE *MoleculeType[]); //}}}
+ //}}}
+
+#if 0
+// TODO will be changed - lammps data file
+// ReadLmpData() //{{{
+/*
+ * Function reading all information from lammps data file
+ *
+ *  [in] data_field    input data file file
+ * [out] bonds         number of bonds
+ * [out] bond_type     information about bond types
+ * [out] angles        number of angles
+ * [out] angle_type    information about angle types
+ * [out] BoxLength     simulation box size
+ * [out] box_lo        minimum box coordinates
+ * [out] Counts        numbers of beads, molecules, etc.
+ * [out] BeadType      information about bead types
+ * [out] Bead          informationn about individual beads
+ * [out] Index         bead indices between program and vsf (i.e., opposite of Bead[].Index)
+ * [out] MoleculeType  information about molecule types
+ * [out] Molecule      information about individual molecules
+ * */
+void ReadLmpData(char *data_file, int *bonds, PARAMS *bond_type[],
+                 int *angles, PARAMS *angle_type[],
+                 VECTOR *BoxLength, VECTOR *box_lo, COUNTS *Counts,
+                 BEADTYPE *BeadType[], BEAD *Bead[], int *Index[],
+                 MOLECULETYPE *MoleculeType[], MOLECULE *Molecule[]); //}}}
+// TODO will be changed - FIELD file
+bool ReadFieldPbc(char *field, VECTOR *BoxLength);
+void ReadFieldBeadType(char *field, COUNTS *Counts,
+                       BEADTYPE *BeadType[], BEAD *Bead[]);
+// ReadFieldMolecules() //{{{
+void ReadFieldMolecules(char *field, COUNTS *Counts,
+                        BEADTYPE *BeadType[], BEAD *Bead[],
+                        MOLECULETYPE *MoleculeType[], MOLECULE *Molecule[],
+                        PARAMS *bond_type[], PARAMS *angle_type[],
+                        PARAMS *dihedral_type[]); //}}}
+// ReadField() //{{{
+/*
+ * \brief Function reading structure information from FIELD-like file
+ *
+ * \param [in]  field         input FIELD-like file
+ * \param [out] BoxLength     simulation box size
+ * \param [out] Counts        numbers of beads, molecules, etc.
+ * \param [out] BeadType      information about bead types
+ * \param [out] Bead          informationn about individual beads
+ * \param [out] Index         bead indices between program and vsf (i.e., opposite of Bead[].Index)
+ * \param [out] MoleculeType  information about molecule types
+ * \param [out] Molecule      information about individual molecules
+ * \param [out] bond_types    information abount bond types
+ * \param [out] angle_types   information abount angle types
+ * */
+void ReadField(char *field, VECTOR *BoxLength, COUNTS *Counts,
+               BEADTYPE *BeadType[], BEAD *Bead[], int *Index[],
+               MOLECULETYPE *MoleculeType[], MOLECULE *Molecule[],
+               PARAMS *bond_type[], PARAMS *angle_type[],
+               PARAMS *dihedral_type[]); //}}}
 // TODO will be changed - agg files
 // ReadAggCommand() //{{{
 /*
@@ -91,88 +173,6 @@ void SkipAgg(FILE *agg, char *agg_file); //}}}
 void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts, AGGREGATE *Aggregate[],
                     BEADTYPE *BeadType, BEAD *Bead[],
                     MOLECULETYPE *MoleculeType, MOLECULE *Molecule[], int *Index); //}}}
-
-// TODO will be changed - FIELD file
-bool ReadFieldPbc(char *field, VECTOR *BoxLength);
-void ReadFieldBeadType(char *field, COUNTS *Counts,
-                       BEADTYPE *BeadType[], BEAD *Bead[]);
-// ReadFieldMolecules() //{{{
-void ReadFieldMolecules(char *field, COUNTS *Counts,
-                        BEADTYPE *BeadType[], BEAD *Bead[],
-                        MOLECULETYPE *MoleculeType[], MOLECULE *Molecule[],
-                        PARAMS *bond_type[], PARAMS *angle_type[],
-                        PARAMS *dihedral_type[]); //}}}
-// ReadField() //{{{
-/*
- * \brief Function reading structure information from FIELD-like file
- *
- * \param [in]  field         input FIELD-like file
- * \param [out] BoxLength     simulation box size
- * \param [out] Counts        numbers of beads, molecules, etc.
- * \param [out] BeadType      information about bead types
- * \param [out] Bead          informationn about individual beads
- * \param [out] Index         bead indices between program and vsf (i.e., opposite of Bead[].Index)
- * \param [out] MoleculeType  information about molecule types
- * \param [out] Molecule      information about individual molecules
- * \param [out] bond_types    information abount bond types
- * \param [out] angle_types   information abount angle types
- * */
-void ReadField(char *field, VECTOR *BoxLength, COUNTS *Counts,
-               BEADTYPE *BeadType[], BEAD *Bead[], int *Index[],
-               MOLECULETYPE *MoleculeType[], MOLECULE *Molecule[],
-               PARAMS *bond_type[], PARAMS *angle_type[],
-               PARAMS *dihedral_type[]); //}}}
-
-// TODO will be changed - lammps data file
-// ReadLmpData() //{{{
-/*
- * Function reading all information from lammps data file
- *
- *  [in] data_field    input data file file
- * [out] bonds         number of bonds
- * [out] bond_type     information about bond types
- * [out] angles        number of angles
- * [out] angle_type    information about angle types
- * [out] BoxLength     simulation box size
- * [out] box_lo        minimum box coordinates
- * [out] Counts        numbers of beads, molecules, etc.
- * [out] BeadType      information about bead types
- * [out] Bead          informationn about individual beads
- * [out] Index         bead indices between program and vsf (i.e., opposite of Bead[].Index)
- * [out] MoleculeType  information about molecule types
- * [out] Molecule      information about individual molecules
- * */
-void ReadLmpData(char *data_file, int *bonds, PARAMS *bond_type[],
-                 int *angles, PARAMS *angle_type[],
-                 VECTOR *BoxLength, VECTOR *box_lo, COUNTS *Counts,
-                 BEADTYPE *BeadType[], BEAD *Bead[], int *Index[],
-                 MOLECULETYPE *MoleculeType[], MOLECULE *Molecule[]); //}}}
-
-bool VtfSkipCoorOrderedLine(FILE *fr);
-
-// helper functions //{{{
-// FillMolMass //{{{
-/*
- * Function to calculate mass of all molecules. If at least one bead has
- * undefined mass, the mass of the molecule is also undefined.
- */
-void FillMolMass(int number_of_types,
-                 BEADTYPE *BeadType, MOLECULETYPE *MoleculeType[]); //}}}
-// FillMolCharge //{{{
-/*
- * Function to calculate charge of all molecules. If at least one bead has
- * undefined charge, the charge of the molecule is also undefined.
- */
-void FillMolCharge(int number_of_types, BEADTYPE *BeadType,
-                   MOLECULETYPE *MoleculeType[]); //}}}
-// FillMolType //{{{
-/*
- * Function to fill BType array and mass and charge for each molecule type.
- */
-void FillMolType(int number_of_types, BEADTYPE *BeadType,
-                 MOLECULETYPE *MoleculeType[]); //}}}
- //}}}
-
 // TODO remove
 bool VtfReadTimestep_old(FILE *vcf, char vcf_file[], BOX *Box, COUNTS *Counts,
                      BEADTYPE BeadType[], BEAD *Bead[], int Index[],
@@ -181,4 +181,5 @@ bool VtfReadTimestep_old(FILE *vcf, char vcf_file[], BOX *Box, COUNTS *Counts,
                      int step_count, char stuff[]);
 SYSTEM VtfReadStruct_oldish(char struct_file[], bool detailed);
 SYSTEM VtfReadStruct_old(char struct_file[], bool detailed);
+#endif
 #endif

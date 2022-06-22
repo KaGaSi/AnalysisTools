@@ -123,7 +123,7 @@ void RestorePBC_old(COUNTS Counts, VECTOR BoxLength, BEAD **Bead); //}}}
  * \param [out] Bead              information about individual beads
  * (coordinates)
  */
-void RestorePBC(int number_of_beads, BOX Box, BEAD **Bead); //}}}
+void RestorePBC(SYSTEM *System); //}}}
 
 // CentreOfMass() //{{{
 /**

@@ -851,30 +851,35 @@ void RemovePBCMolecules(SYSTEM *System) {
  * Function to restore removed periodic boundary conditions. Used also in case
  * of cell linked lists, because they need coordinates <0, BoxLength>.
  */
-void RestorePBC(int number_of_beads, BOX Box, BEAD **Bead) {
-  for (int i = 0; i < number_of_beads; i++) {
-    // TODO: whiles - really? There's remainder() in math.h, I think, (or
-    //       fmod() or some such)
+// TODO use System (and System.BeadCoor[])
+void RestorePBC(SYSTEM *System) {
+  for (int i = 0; i < System->Count.BeadCoor; i++) {
+    int id = System->BeadCoor[i];
+    BEAD *bead = &System->Bead[id];
+    BOX *box = &System->Box;
     // x direction
-    while ((*Bead)[i].Position.x >= Box.Length.x) {
-      (*Bead)[i].Position.x -= Box.Length.x;
+    while (bead->Position.x >= box->Length.x) {
+      bead->Position.x -= box->Length.x;
     }
-    while ((*Bead)[i].Position.x < 0) {
-      (*Bead)[i].Position.x += Box.Length.x;
+    while (bead->Position.x < 0) {
+      bead->Position.x += box->Length.x;
     }
     // y direction
-    while ((*Bead)[i].Position.y >= Box.Length.y) {
-      (*Bead)[i].Position.y -= Box.Length.y;
+    while (bead->Position.y >= box->Length.y) {
+      bead->Position.y -= box->Length.y;
     }
-    while ((*Bead)[i].Position.y < 0) {
-      (*Bead)[i].Position.y += Box.Length.y;
+    printf("\n%d %lf\n", i, bead->Position.y);
+    while (bead->Position.y < 0) {
+      printf("!  %lf\n", bead->Position.y);
+      bead->Position.y += box->Length.y;
+      printf("!! %lf\n", bead->Position.y);
     }
     // z direction
-    while ((*Bead)[i].Position.z >= Box.Length.z) {
-      (*Bead)[i].Position.z -= Box.Length.z;
+    while (bead->Position.z >= box->Length.z) {
+      bead->Position.z -= box->Length.z;
     }
-    while ((*Bead)[i].Position.z < 0) {
-      (*Bead)[i].Position.z += Box.Length.z;
+    while (bead->Position.z < 0) {
+      bead->Position.z += box->Length.z;
     }
   }
 } //}}}
@@ -2068,9 +2073,9 @@ void PrintBeadType(SYSTEM System) { //{{{
   // some stuff to properly align the fields //{{{
   int precision = 3, // number of decimal digits
       longest_name = 0, // longest bead type name
-      most_beads = 0, // maximum number of beads
+      max_number = 0, // maximum number of beads
       max_q = 0, // maximum charge
-      max_mass = 0, // maximum mass
+      max_m = 0, // maximum mass
       max_r = 0; // maximum radius
   bool negative = false; // extra space for '-' if there's negative charge
   for (int i = 0; i < System.Count.BeadType; i++) {
@@ -2078,8 +2083,8 @@ void PrintBeadType(SYSTEM System) { //{{{
     if (length > longest_name) {
       longest_name = length;
     }
-    if (System.BeadType[i].Number > most_beads) {
-      most_beads = System.BeadType[i].Number;
+    if (System.BeadType[i].Number > max_number) {
+      max_number = System.BeadType[i].Number;
     }
     if (System.BeadType[i].Charge < 0) {
       negative = true;
@@ -2087,15 +2092,19 @@ void PrintBeadType(SYSTEM System) { //{{{
     if (System.BeadType[i].Charge != CHARGE && fabs(System.BeadType[i].Charge) > max_q) {
       max_q = floor(fabs(System.BeadType[i].Charge));
     }
-    if (System.BeadType[i].Mass != MASS && System.BeadType[i].Mass > max_mass) {
-      max_mass = floor(System.BeadType[i].Mass);
+    if (System.BeadType[i].Mass != MASS && System.BeadType[i].Mass > max_m) {
+      max_m = floor(System.BeadType[i].Mass);
     }
     if (System.BeadType[i].Radius != RADIUS && System.BeadType[i].Radius > max_r) {
       max_r = floor(System.BeadType[i].Radius);
     }
   }
   // number of digits of the highest_number
-  most_beads = floor(log10(most_beads)) + 1;
+  if (max_number == 0) {
+    max_number = 1;
+  } else {
+    max_number = floor(log10(max_number)) + 1;
+  }
   // number of digits of the charge
   if (max_q == 0) {
     max_q = 1;
@@ -2107,16 +2116,16 @@ void PrintBeadType(SYSTEM System) { //{{{
     max_q++; // extra space for minus sign
   }
   // number of digits of the mass
-  if (max_mass == 0) {
-    max_mass = 1;
+  if (max_m == 0) {
+    max_m = 1;
   } else {
-    max_mass = floor(log10(max_mass)) + 1 + precision + 1;
+    max_m = floor(log10(max_m)) + 1 + precision + 1;
   }
   // number of digits of the radius
   if (max_r == 0) {
     max_r = 1;
   } else {
-    max_r = floor(log10(max_mass)) + 1 + precision + 1;
+    max_r = floor(log10(max_m)) + 1 + precision + 1;
   }
   // number of digits of the number of types
   int types_digits = floor(log10(System.Count.BeadType)) + 1;
@@ -2125,7 +2134,7 @@ void PrintBeadType(SYSTEM System) { //{{{
   for (int i = 0; i < System.Count.BeadType; i++) {
     fprintf(stdout, "BeadType[%*d] = {", types_digits, i);
     fprintf(stdout, ".Name = %*s, ", longest_name, System.BeadType[i].Name);
-    fprintf(stdout, ".Number = %*d, ", most_beads, System.BeadType[i].Number);
+    fprintf(stdout, ".Number = %*d, ", max_number, System.BeadType[i].Number);
     // print charge
     fprintf(stdout, ".Charge = ");
     if (System.BeadType[i].Charge != CHARGE) {
@@ -2139,9 +2148,9 @@ void PrintBeadType(SYSTEM System) { //{{{
     // print mass
     fprintf(stdout, ".Mass = ");
     if (System.BeadType[i].Mass != MASS) {
-      fprintf(stdout, "%*.*f, ", max_mass, precision, System.BeadType[i].Mass);
+      fprintf(stdout, "%*.*f, ", max_m, precision, System.BeadType[i].Mass);
     } else {
-      for (int j = 0; j < (max_mass-3); j++) {
+      for (int j = 0; j < (max_m-3); j++) {
         putchar(' ');
       }
       fprintf(stdout, "n/a, ");
