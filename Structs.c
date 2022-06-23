@@ -21,6 +21,7 @@ void InitMoleculeType(MOLECULETYPE *mt) {
   (*mt).nBonds = 0;
   (*mt).nAngles = 0;
   (*mt).nDihedrals = 0;
+  (*mt).nImpropers = 0;
   (*mt).nBTypes = 0;
   (*mt).Mass = MASS;
   (*mt).Charge = CHARGE;
@@ -46,6 +47,7 @@ void InitSystem(SYSTEM *System) {
   System->BondType =     calloc(1, sizeof System->BondType);
   System->AngleType =    calloc(1, sizeof System->AngleType);
   System->DihedralType = calloc(1, sizeof System->DihedralType);
+  System->ImproperType = calloc(1, sizeof System->ImproperType);
   System->Index_mol =    calloc(1, sizeof System->Index_mol);
   System->Bonded =       calloc(1, sizeof System->Bonded);
   System->BondedCoor =   calloc(1, sizeof System->BondedCoor);

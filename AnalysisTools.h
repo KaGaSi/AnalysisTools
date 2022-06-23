@@ -29,6 +29,9 @@ void FromFractionalCoor(SYSTEM *System);
 int * BondIndices(SYSTEM System, int mol, int bond);
 int * AngleIndices(SYSTEM System, int mol, int angle);
 int * DihedralIndices(SYSTEM System, int mol, int dihed);
+int * ImproperIndices(SYSTEM System, int mol, int dihed);
+
+void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads);
 
 // InputCoor() //{{{
 /**
@@ -74,7 +77,8 @@ void FillMoleculeTypeIndex(SYSTEM *System);
 void NewBeadType(BEADTYPE *BeadType[], int *number_of_types, char *name,
                  double charge, double mass, double radius);
 void NewMolType(MOLECULETYPE *MoleculeType[], int *n_types, char *name,
-                int n_beads, int n_bonds, int n_angles, int n_dihedrals);
+                int n_beads, int n_bonds, int n_angles, int n_dihedrals,
+                int n_impropers);
 
 // Distancet() //{{{
 /**

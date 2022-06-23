@@ -39,6 +39,7 @@ typedef struct Count { //{{{
       BondType, // number of bond types; -1 if not read from anywhere
       AngleType, // number of bond types; -1 if not read from anywhere
       DihedralType, // number of dihedral types; -1 if not read from anywhere
+      ImproperType, // number of dihedral types; -1 if not read from anywhere
       Bead, // total number of beads in the system (e.g., in vsf file)
       BeadCoor, // number of beads in the coordinate file (e.g., in vcf file)
       Bonded, // total number of beads in all molecules
@@ -56,6 +57,7 @@ static const COUNT InitCount = {
   .BondType = 0,
   .AngleType = 0,
   .DihedralType = 0,
+  .ImproperType = 0,
   .Bead = 0,
   .BeadCoor = 0,
   .Bonded = 0,
@@ -69,7 +71,6 @@ static const COUNT InitCount = {
 typedef struct Params { //{{{
   double a, b;
 } PARAMS;
-
 // Initialize Params
 static const PARAMS InitParams = {
   .a = -1,
@@ -107,14 +108,16 @@ typedef struct MoleculeType { //{{{
       nBeads, // number of beads in every molecule of given type
       *Bead, // ids of bead types of every molecule bead
       nBonds, // number of bonds in every molecule of given type
-      (*Bond)[3], // pair of ids for every bond (with relative bead numbers from 0 to nBeads)
+      (*Bond)[3], // pair of ids for every bond (with relative bead numbers from 0 to nBeads-1)
                // has to be sorted; size: [MoleculeType[i].Bond[3]
       nAngles, // number of angles in every molecule of given type
-      (*Angle)[4], // trio of ids for every angle (with relative bead numbers from 0 to nBeads)
+      (*Angle)[4], // trio of ids for every angle (with relative bead numbers from 0 to nBeads-1)
                // has to be sorted; size: [MoleculeType[i].Angle[4]
       nDihedrals, // number of dihedrals in every molecule of given type
-      (*Dihedral)[5], // fourtet of ids for every dihedral (with relative bead numbers from 0 to nBeads)
-               // has to be sorted; size: [MoleculeType[i].Dihedral[5]
+      (*Dihedral)[5], // fourtet of ids for every dihedral (with relative bead numbers from 0 to nBeads-1)
+      nImpropers, // number of improper dihedrals in every molecule of given type
+      (*Improper)[5], // fourtet of ids for every improper dihedral (with relative bead numbers from 0 to nBeads-1)
+               // has to be sorted; size: [MoleculeType[i].Improper[5]
       nBTypes, // number of bead types in every molecule of given type
       *BType; // ids of bead types in every molecule of given type (corresponds to indices in BeadType struct)
 
@@ -129,7 +132,6 @@ void InitMoleculeType(MOLECULETYPE *mt); //}}}
 typedef struct Molecule { //{{{
   int Type, // type of molecule corresponding to index in MoleculeType struct
       *Bead, // ids of beads in the molecule
-      Aggregate, // id of aggregate molecule is in (corresponding to index in Aggregate struct)
       Index; // resid according to .vsf file
 } MOLECULE;
 void InitMolecule(MOLECULE *mol); //}}}
@@ -143,6 +145,7 @@ typedef struct System { //{{{
   PARAMS *BondType;
   PARAMS *AngleType;
   PARAMS *DihedralType;
+  PARAMS *ImproperType;
   int *Index_mol, // link between indices (i.e., Index_mol[Molecule[i].Index]=i)
       *Bonded, // array of Bead[] ids of in-molecule beads
       *BondedCoor, // array of Bead[] ids of in-molecule beads in a timestep

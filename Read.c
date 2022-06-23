@@ -1,75 +1,7 @@
 #include "Read.h"
 // TODO test output of snprintf() to get rid of a warning; see
 //      https://stackoverflow.com/questions/51534284/how-to-circumvent-format-truncation-warning-in-gcc
-// TODO impropers vs dihedrals - add improper section to FIELD
 
-void FillMoleculeBeads(SYSTEM *System) { //{{{
-  COUNT *Count = &System->Count;
-  for (int i = 0; i < Count->Molecule; i++) {
-    MOLECULETYPE *mt_i = &System->MoleculeType[i];
-    MOLECULE *mol_i = &System->Molecule[i];
-    if (mt_i->Number > 0) {
-      mol_i->Type = i;
-      mol_i->Index = i;
-      mol_i->Bead = malloc(sizeof *mol_i->Bead * mt_i->nBeads);
-      memcpy(mol_i->Bead, mt_i->Bead, sizeof *mt_i->Bead * mt_i->nBeads);
-    }
-  }
-} //}}}
-void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[2], int nbonds) { //{{{
-  COUNT *Count = &System->Count;
-  // fill MoleculeType[].Bond array with bead indices
-  for (int i = 0; i < nbonds; i++) {
-    int id1 = bond[i][0],
-        id2 = bond[i][1],
-        mol = System->Bead[id1].Molecule;
-    // warning - bonded beads in different molecules (skip the bond)  //{{{
-    if (mol != System->Bead[id2].Molecule || mol == -1) {
-      strcpy(ERROR_MSG, "bonded beads in different molecules (or in none); \
-discarding this bond");
-      PrintWarning();
-      fprintf(stderr, "%sBead (molecule):", ErrCyan());
-      fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id1, ErrCyan(),
-              ErrYellow(), System->Bead[id1].Molecule, ErrCyan());
-      fprintf(stderr, " %s%d%s (%s%d%s)\n", ErrYellow(), id2, ErrCyan(),
-              ErrYellow(), System->Bead[id2].Molecule, ErrCyan());
-      continue;
-    } //}}}
-    MOLECULETYPE *mt_mol = &System->MoleculeType[mol];
-    int bond = mt_mol->nBonds;
-    mt_mol->nBonds++;
-    if (bond == 0) {
-      mt_mol->Bond = malloc(sizeof *mt_mol->Bond);
-    } else {
-      mt_mol->Bond = realloc(mt_mol->Bond,
-                             sizeof *mt_mol->Bond * mt_mol->nBonds);
-    }
-    mt_mol->Bond[bond][0] = id1;
-    mt_mol->Bond[bond][1] = id2;
-    mt_mol->Bond[bond][2] = -1;
-  }
-  // make the MoleculeType[].Bond bead indices go from 0 to nBeads
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    int lowest = 1e7;
-    for (int j = 0; j < System->MoleculeType[i].nBonds; j++) {
-      if (System->MoleculeType[i].Bond[j][0] < lowest) {
-        lowest = System->MoleculeType[i].Bond[j][0];
-      }
-    }
-    for (int j = 0; j < System->MoleculeType[i].nBonds; j++) {
-      System->MoleculeType[i].Bond[j][0] -= lowest;
-      System->MoleculeType[i].Bond[j][1] -= lowest;
-      // warning - too high an intramolecular bead index; shouldn't happen //{{{
-      if (System->MoleculeType[i].Bond[j][0] > System->MoleculeType[i].nBeads ||
-          System->MoleculeType[i].Bond[j][0] > System->MoleculeType[i].nBeads) {
-        strcpy(ERROR_MSG, "something went wrong in bead indices in bond; \
-should never happen!");
-        PrintWarning();
-      } //}}}
-    }
-  }
-  free(bond);
-} //}}}
 // RemoveExtraTypes()  //{{{
 /*
  * Remove bead and molecule types with Number=0. It assumes the allocated
@@ -80,21 +12,25 @@ should never happen!");
 void RemoveExtraTypes(SYSTEM *System) {
   COUNT *Count = &System->Count;
   // BeadType & Bead[].Type
-  Count->BeadType = 0; // just pro forma
-  int *bt_old_to_new = malloc(sizeof *bt_old_to_new * Count->Bead);
-  for (int i = 0; i < Count->Bead; i++) {
+  int count = 0;
+  int *bt_old_to_new = malloc(sizeof *bt_old_to_new * Count->BeadType);
+  for (int i = 0; i < Count->BeadType; i++) {
     if (System->BeadType[i].Number != 0) {
-      int bt_id = Count->BeadType;
-      Count->BeadType++;
+      int bt_id = count;
+      count++;
       if (bt_id != i) {
         System->BeadType[bt_id] = System->BeadType[i];
-        System->Bead[i].Type = bt_id;
       }
       bt_old_to_new[i] = bt_id;
     }
   }
+  Count->BeadType = count;
+  for (int i = 0; i < Count->Bead; i++) {
+    int old_type = System->Bead[i].Type;
+    System->Bead[i].Type = bt_old_to_new[old_type];
+  }
   // sync MoleculeType[].Bead (i.e., bead types) with the new BeadType
-  for (int i = 0; i < Count->Molecule; i++) {
+  for (int i = 0; i < Count->MoleculeType; i++) {
     if (System->MoleculeType[i].Number != 0) {
       for (int j = 0; j < System->MoleculeType[i].nBeads; j++) {
         int id = System->MoleculeType[i].Bead[j];
@@ -103,16 +39,18 @@ void RemoveExtraTypes(SYSTEM *System) {
     }
   }
   free(bt_old_to_new);
-  // MoleculeType & Molecule // TODO what about angles etc?
-  Count->MoleculeType = 0; // just pro forma
-  for (int i = 0; i < Count->Molecule; i++) {
-    if (System->MoleculeType[i].Number != 0) {
-      int mt_id = Count->MoleculeType;
-      Count->MoleculeType++;
+  // MoleculeType & Molecule // TODO angles etc.
+  count = 0;
+  Count->Molecule = 0;
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    if (mt_i->Number != 0) {
+      Count->Molecule += mt_i->Number;
+      int mt_id = count;
+      count++;
       if (mt_id != i) {
         // MoleculeType struct
-        MOLECULETYPE *mt_new = &System->MoleculeType[mt_id],
-                     *mt_i = &System->MoleculeType[i];
+        MOLECULETYPE *mt_new = &System->MoleculeType[mt_id];
         *mt_new = *mt_i;
         mt_new->Bead = malloc(sizeof *mt_new->Bead * mt_new->nBeads);
         memcpy(mt_new->Bead, mt_i->Bead, sizeof *mt_i->Bead * mt_i->nBeads);
@@ -121,6 +59,26 @@ void RemoveExtraTypes(SYSTEM *System) {
           mt_new->Bond = malloc(sizeof *mt_new->Bond * mt_new->nBonds);
           memcpy(mt_new->Bond, mt_i->Bond, sizeof *mt_i->Bond * mt_i->nBonds);
           free(mt_i->Bond);
+        }
+        if (mt_new->nAngles > 0) {
+          mt_new->Angle = malloc(sizeof *mt_new->Angle * mt_new->nAngles);
+          memcpy(mt_new->Angle, mt_i->Angle,
+                 sizeof *mt_i->Angle * mt_i->nAngles);
+          free(mt_i->Angle);
+        }
+        if (mt_new->nDihedrals > 0) {
+          mt_new->Dihedral = malloc(sizeof *mt_new->Dihedral *
+                                    mt_new->nDihedrals);
+          memcpy(mt_new->Dihedral, mt_i->Dihedral,
+                 sizeof *mt_i->Dihedral * mt_i->nDihedrals);
+          free(mt_i->Dihedral);
+        }
+        if (mt_new->nImpropers > 0) {
+          mt_new->Improper = malloc(sizeof *mt_new->Improper *
+                                    mt_new->nImpropers);
+          memcpy(mt_new->Improper, mt_i->Improper,
+                 sizeof *mt_i->Improper * mt_i->nImpropers);
+          free(mt_i->Improper);
         }
         // Molecule struct
         MOLECULE *mol_new = &System->Molecule[mt_id];
@@ -136,7 +94,7 @@ void RemoveExtraTypes(SYSTEM *System) {
       }
     }
   }
-  Count->Molecule = Count->MoleculeType;
+  Count->MoleculeType = count;
 } //}}}
 // MergeBeadTypes() //{{{
 /* Merge bead types either using names only (detailed=false) or using names,
@@ -537,9 +495,11 @@ this should never happen!");
 // MergeMoleculeTypes() //{{{
   /*
    * Molecules of one type must share:
-   * i) molecule name and numbers of beads, bonds, angles, and dihedrals
+   * i) molecule name and numbers of beads, bonds, angles, dihedrals,
+   *    and impropers
    * ii) order of bead types
    * iii) connectivity
+   * iv) TODO same angles, dihedrals & impropers
    */
 void MergeMoleculeTypes(SYSTEM *System) {
   COUNT *Count = &System->Count;
@@ -556,7 +516,8 @@ void MergeMoleculeTypes(SYSTEM *System) {
           mt_i->nBeads == mt_j->nBeads &&
           mt_i->nBonds == mt_j->nBonds &&
           mt_i->nAngles == mt_j->nAngles &&
-          mt_i->nDihedrals == mt_j->nDihedrals) {
+          mt_i->nDihedrals == mt_j->nDihedrals &&
+          mt_i->nImpropers == mt_j->nImpropers) {
         // ii) check bead order
         bool same_beads = true; // assume the bead order is the same
         for (int k = 0; k < mt_i->nBeads; k++) {
@@ -1326,6 +1287,73 @@ int VtfCheckLineType(int words, char *split[], char file[], int line) {
   }
   return ERROR_LINE;
 } //}}}
+void FillMoleculeBeads(SYSTEM *System) { //{{{
+  COUNT *Count = &System->Count;
+  for (int i = 0; i < Count->Molecule; i++) {
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    MOLECULE *mol_i = &System->Molecule[i];
+    if (mt_i->Number > 0) {
+      mol_i->Type = i;
+      mol_i->Index = i;
+      mol_i->Bead = malloc(sizeof *mol_i->Bead * mt_i->nBeads);
+      memcpy(mol_i->Bead, mt_i->Bead, sizeof *mt_i->Bead * mt_i->nBeads);
+    }
+  }
+} //}}}
+void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[2], int nbonds) { //{{{
+  COUNT *Count = &System->Count;
+  // fill MoleculeType[].Bond array with bead indices
+  for (int i = 0; i < nbonds; i++) {
+    int id1 = bond[i][0],
+        id2 = bond[i][1],
+        mol = System->Bead[id1].Molecule;
+    // warning - bonded beads in different molecules (skip the bond)  //{{{
+    if (mol != System->Bead[id2].Molecule || mol == -1) {
+      strcpy(ERROR_MSG, "bonded beads in different molecules (or in none); \
+discarding this bond");
+      PrintWarning();
+      fprintf(stderr, "%sBead (molecule):", ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id1, ErrCyan(),
+              ErrYellow(), System->Bead[id1].Molecule, ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s)\n", ErrYellow(), id2, ErrCyan(),
+              ErrYellow(), System->Bead[id2].Molecule, ErrCyan());
+      continue;
+    } //}}}
+    MOLECULETYPE *mt_mol = &System->MoleculeType[mol];
+    int bond = mt_mol->nBonds;
+    mt_mol->nBonds++;
+    if (bond == 0) {
+      mt_mol->Bond = malloc(sizeof *mt_mol->Bond);
+    } else {
+      mt_mol->Bond = realloc(mt_mol->Bond,
+                             sizeof *mt_mol->Bond * mt_mol->nBonds);
+    }
+    mt_mol->Bond[bond][0] = id1;
+    mt_mol->Bond[bond][1] = id2;
+    mt_mol->Bond[bond][2] = -1;
+  }
+  // make the MoleculeType[].Bond bead indices go from 0 to nBeads
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    int lowest = 1e7;
+    for (int j = 0; j < System->MoleculeType[i].nBonds; j++) {
+      if (System->MoleculeType[i].Bond[j][0] < lowest) {
+        lowest = System->MoleculeType[i].Bond[j][0];
+      }
+    }
+    for (int j = 0; j < System->MoleculeType[i].nBonds; j++) {
+      System->MoleculeType[i].Bond[j][0] -= lowest;
+      System->MoleculeType[i].Bond[j][1] -= lowest;
+      // warning - too high an intramolecular bead index; shouldn't happen //{{{
+      if (System->MoleculeType[i].Bond[j][0] > System->MoleculeType[i].nBeads ||
+          System->MoleculeType[i].Bond[j][0] > System->MoleculeType[i].nBeads) {
+        strcpy(ERROR_MSG, "something went wrong in bead indices in bond; \
+should never happen!");
+        PrintWarning();
+      } //}}}
+    }
+  }
+  free(bond);
+} //}}}
 // Helper functions to check whether provided line is of a given type
 int VtfCheckCoorOrderedLine(int words, char *split[]) { //{{{
   double val_d;
@@ -1531,7 +1559,7 @@ int * VtfAtomLineValues(int words, char *split[]) {
 } //}}}
  //}}}
 
-SYSTEM FieldReadFull(char field_file[]) {
+SYSTEM FieldReadFull(char field_file[]) { //{{{
   SYSTEM System;
   InitSystem(&System);
   COUNT *Count = &System.Count;
@@ -1540,7 +1568,7 @@ SYSTEM FieldReadFull(char field_file[]) {
   // fill System.Bead & System.Unbonded //{{{
   if (System.Unbonded > 0) {
     System.Bead = realloc(System.Bead, sizeof (BEAD) * Count->Bead);
-    System.Unbonded = realloc(System.Bead,
+    System.Unbonded = realloc(System.Unbonded,
                               sizeof *System.Unbonded * Count->Unbonded);
     int count = 0;
     for (int i = 0; i < Count->BeadType; i++) {
@@ -1558,8 +1586,17 @@ SYSTEM FieldReadFull(char field_file[]) {
     }
   } //}}}
   FieldReadMolecules(field_file, &System);
+  RemoveExtraTypes(&System);
+  MergeBeadTypes(&System, true);
+  MergeMoleculeTypes(&System);
+  FillSystemNonessentials(&System);
+  CheckSystem(System, field_file);
+  PrintCount(*Count);
+  PrintBeadType(System);
+  PrintMoleculeType(System);
+  VtfWriteStruct("field.vsf", System);
   return System;
-}
+} //}}}
 void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{
   int file_line_count = 0, words;
   char line[LINE], *split[SPL_STR];
@@ -1590,7 +1627,6 @@ void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{
     exit(1);
   } //}}}
   // read bead types //{{{
-  System->BeadType = malloc(sizeof (BEADTYPE));
   for (int i = 0; i < types; i++) {
     file_line_count++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -1617,7 +1653,7 @@ void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{
   } //}}}
   fclose(fr);
 } //}}}
-void FieldReadMolecules(char field_file[], SYSTEM *System) {
+void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
   int file_line_count = 0, words;
   char line[LINE], *split[SPL_STR];
   FILE *fr = OpenFile(field_file, "r");
@@ -1667,7 +1703,6 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) {
   for (int i = 0; i < Count->MoleculeType; i++) {
     MOLECULETYPE *mt_i = &System->MoleculeType[i];
     InitMoleculeType(mt_i);
-    // TODO: go over bonds/angles/dihedrals; add impropers; add if/else for 'missing' bonds/angles/dihedrals/impropers with 'finish' check
     // 1) name //{{{
     file_line_count++;
     // read a line //{{{
@@ -1778,6 +1813,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) {
         bead->Position.x = coor[k].x;
         bead->Position.y = coor[k].y;
         bead->Position.z = coor[k].z;
+        System->BeadType[bead->Type].Number++;
         System->Bonded[count-Count->Unbonded] = count;
         mol->Bead[k] = count;
         count++;
@@ -1870,6 +1906,12 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) {
         } //}}}
         mt_i->Bond[j][2] = bond_type;
       } //}}}
+    } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
+      continue;
+    } else {
+      strcpy(ERROR_MSG, "unrecognised line in a molecule entry");
+      PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
+      exit(1);
     } //}}}
     // 5) angles in the molecule (if present) //{{{
     file_line_count++;
@@ -1946,6 +1988,12 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) {
         } //}}}
         mt_i->Angle[j][3] = angle_type;
       } //}}}
+    } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
+      continue;
+    } else {
+      strcpy(ERROR_MSG, "unrecognised line in a molecule entry");
+      PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
+      exit(1);
     } //}}}
     // 6) dihedrals in the molecule (if present) //{{{
     file_line_count++;
@@ -2025,12 +2073,117 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) {
         } //}}}
         mt_i->Dihedral[j][4] = dihedral_type;
       } //}}}
+    } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
+      continue;
+    } else {
+      strcpy(ERROR_MSG, "unrecognised line in a molecule entry");
+      PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
+      exit(1);
+    } //}}}
+    // 6) impropers in the molecule (if present) //{{{
+    file_line_count++;
+    // read a line //{{{
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      strcpy(ERROR_MSG, "premature end of file (incomplete 'molecule' entry)");
+      PrintError();
+      ErrorPrintFile(field_file, "\0");
+      putc('\n', stderr);
+      exit(1);
+    } //}}}
+    if (words > 1 && strncasecmp(split[0], "impropers", 6) == 0) {
+      // a) number of impropers //{{{
+      if (!IsPosInteger(split[1], &val)) {
+        strcpy(ERROR_MSG, "incorrect 'impropers' line in a molecule entry");
+        PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
+        exit(1);
+      }
+      mt_i->nImpropers = val; //}}}
+      mt_i->Improper = malloc(sizeof *mt_i->Improper * mt_i->nImpropers);
+      // b) impropers themselves & improper types //{{{
+      // TODO: for now, only harmonic impropers are considered
+      for (int j = 0; j < mt_i->nImpropers; j++) {
+        file_line_count++;
+        // read a line //{{{
+        if (!ReadAndSplitLine(fr, LINE, line, &words,
+                              split, SPL_STR, " \t\n")) {
+          strcpy(ERROR_MSG, "premature end of file \
+(incomplete impropers section for molecule entry)");
+          PrintError();
+          ErrorPrintFile(field_file, "\0");
+          putc('\n', stderr);
+          exit(1);
+        } //}}}
+        long beads[4];
+        PARAMS values;
+        // error - incorrect line //{{{
+        if (words < 5 || !IsPosInteger(split[1], &beads[0]) ||
+                         !IsPosInteger(split[2], &beads[1]) ||
+                         !IsPosInteger(split[3], &beads[2]) ||
+                         !IsPosInteger(split[4], &beads[3]) ||
+                         !IsReal(split[5], &values.a) || values.a < 0 ||
+                         !IsReal(split[6], &values.b) || values.b < 0) {
+          strcpy(ERROR_MSG, "incorrect improper line in a molecule entry");
+          PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
+          exit(1);
+        } //}}}
+        // error - bead index is too high //{{{
+        if (beads[0] > mt_i->nBeads || beads[1] > mt_i->nBeads ||
+            beads[2] > mt_i->nBeads || beads[3] > mt_i->nBeads) {
+          strcpy(ERROR_MSG, "bead index in a improper is too high");
+          PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
+          exit(1);
+        } //}}}
+        mt_i->Improper[j][0] = beads[0] - 1; // in FIELD, indices start from 1
+        mt_i->Improper[j][1] = beads[1] - 1; //
+        mt_i->Improper[j][2] = beads[2] - 1; //
+        mt_i->Improper[j][3] = beads[3] - 1; //
+        // find improper type //{{{
+        int improper_type = -1;
+        // find if this improper type already exists
+        for (int k = 0; k < Count->ImproperType; k++) {
+          if (System->ImproperType[k].a == values.a &&
+              System->ImproperType[k].b == values.b) {
+            improper_type = k;
+            break;
+          }
+        }
+        // create a new improper type if necessary
+        if (improper_type == -1) {
+          improper_type = Count->ImproperType;
+          Count->ImproperType++;
+          System->ImproperType = realloc(System->ImproperType,
+                                         sizeof (PARAMS) * Count->ImproperType);
+          System->ImproperType[improper_type].a = values.a;
+          System->ImproperType[improper_type].b = values.b;
+        } //}}}
+        mt_i->Improper[j][4] = improper_type;
+      } //}}}
+    } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
+      continue;
+    } else {
+      strcpy(ERROR_MSG, "unrecognised line in a molecule entry");
+      PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
+      exit(1);
+    } //}}}
+    // finish keyword //{{{
+    file_line_count++;
+    // read a line //{{{
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      strcpy(ERROR_MSG, "premature end of file (incomplete 'molecule' entry)");
+      PrintError();
+      ErrorPrintFile(field_file, "\0");
+      putc('\n', stderr);
+      exit(1);
+    } //}}}
+    if (words == 0 || strcasecmp(split[0], "finish") != 0) {
+      strcpy(ERROR_MSG, "missing 'finish' at the end of a molecule entry");
+      PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
+      exit(1);
     } //}}}
   }
+  Count->HighestResid = Count->Molecule;
   fclose(fr);
-  PrintMoleculeType(*System);
-  printf("XXX %d\n", file_line_count);
-}
+} //}}}
 
 #if 0
 // TODO will be changed - FIELD file

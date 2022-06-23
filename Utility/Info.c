@@ -127,14 +127,14 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // read information from input file(s)
-  SYSTEM System = VtfReadStruct(input_vsf, detailed);
+  SYSTEM System = VtfReadStruct(input_vsf, detailed); // vsf input
+  // FIELD input (if present)
+  SYSTEM field;
   if (input_field[0] != '\0') {
-    printf("%sfield: %s%s\n", Green(), input_field, ColourReset());
-    SYSTEM field = FieldReadFull(input_field);
+    field = FieldReadFull(input_field);
     PrintCount(field.Count);
-  } else {
-    printf("%sNO FIELD%s\n", Magenta(), ColourReset());
   }
+  // vcf coordinates (if present)
   if (input_coor[0] != '\0') {
     FILE *coor = OpenFile(input_coor, "r");
     char stuff[LINE];
@@ -143,6 +143,11 @@ int main(int argc, char *argv[]) {
                     step_count, stuff);
     fclose(coor);
     PrintBox(System.Box);
+  }
+
+  if (input_field[0] != '\0') {
+    ChangeMolecules(&System, field, true);
+    CheckSystem(System, input_field);
   }
 
   // print information
@@ -159,6 +164,9 @@ int main(int argc, char *argv[]) {
   }
 
   FreeSystem(&System);
+  if (input_field[0] != '\0') {
+    FreeSystem(&field);
+  }
 
   return 0;
 }
