@@ -366,7 +366,7 @@ int main(int argc, char *argv[]) {
     }
   //}}}
   // warn if no timesteps were actually written //{{{
-  } else if (start >= count_vcf) {
+  } else if (start > count_vcf) {
     strcpy(ERROR_MSG, "no coordinates written (starting timestep higher \
 than the number of timestep)");
     PrintWarning();

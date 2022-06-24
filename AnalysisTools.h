@@ -33,6 +33,8 @@ int * ImproperIndices(SYSTEM System, int mol, int dihed);
 
 void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads);
 
+void CountBondAngleDihedralImproper(SYSTEM *System);
+
 // InputCoor() //{{{
 /**
  * \brief Function test input coordinate file is correct
@@ -217,56 +219,29 @@ void SortBonds(int (*bond)[3], int length); //}}}
 void SortAngles(int (*angle)[4], int length); //}}}
 void SortDihedrals(int (*dihedral)[5], int length);
 
-// CopyBeadType() //{{{
-/**
- * Function to copy BEADTYPE structure into a new one.
- */
-void CopyBeadType(int number_of_types, BEADTYPE **bt_out, BEADTYPE *bt_in,
-                  int mode); //}}}
-
-// CopyMoleculeType() //{{{
-/**
- * Function to copy MOLECULETYPE structure into a new one.
- */
-void CopyMoleculeType_old(int number_of_types, MOLECULETYPE **mt_out,
-                      MOLECULETYPE *mt_in, int mode); //}}}
-
-// CopyMolecule() //{{{
-/*
- * Function to copy a MOLECULE struct into a new one.
- */
-void CopyMolecule(int number_of_molecules, MOLECULETYPE *mt, MOLECULE **m_out,
-                  MOLECULE *m_in, int mode); //}}}
 
 SYSTEM CopySystem(SYSTEM Sys_in);
-void PruneSystem(SYSTEM *System);
-
-SYSTEM CopySystem_old(SYSTEM Sys_in);
 MOLECULETYPE CopyMoleculeType(MOLECULETYPE mt_old);
 MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old);
+void PruneSystem(SYSTEM *System);
 void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box);
-void PruneSystem_old(SYSTEM *System);
 
-// FreeAggregate() //{{{
-/**
- * \brief Free memory allocated for MoleculeType struct array.
- *
- * \param [in]  Counts      number of beads, molecu.es, etc.
- * \param [out] Aggregate   information about individual molecules
- */
-void FreeAggregate(COUNTS Counts, AGGREGATE **Aggregate); //}}}
-
-// TODO new via struct System
 void VerboseOutput(SYSTEM System);
 void PrintCount(COUNT Count);
 void PrintBeadType(SYSTEM System);
 void PrintMoleculeType(SYSTEM System);
 void PrintMolecule(SYSTEM System);
 void PrintBead(SYSTEM System);
+void PrintBondType(SYSTEM System);
+void PrintAngleType(SYSTEM System);
+void PrintDihedralType(SYSTEM System);
+void PrintImproperType(SYSTEM System);
+
 void FreeSystem(SYSTEM *System);
 void FreeMoleculeType(MOLECULETYPE *MoleculeType);
 void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType);
 
+#if 0 //{{{
 // TODO remove
 // VerboseOutput_old() //{{{
 /**
@@ -426,4 +401,33 @@ void FreeSystem_old(SYSTEM *System);
 void FillMolBTypes_old(int number_of_types, MOLECULETYPE **MoleculeType);
 void FillMolMassCharge_old(int number_of_types, MOLECULETYPE **MoleculeType,
                        BEADTYPE *BeadType);
+// FreeAggregate() //{{{
+/**
+ * \brief Free memory allocated for MoleculeType struct array.
+ *
+ * \param [in]  Counts      number of beads, molecu.es, etc.
+ * \param [out] Aggregate   information about individual molecules
+ */
+void FreeAggregate(COUNTS Counts, AGGREGATE **Aggregate); //}}}
+SYSTEM CopySystem_old(SYSTEM Sys_in);
+void PruneSystem_old(SYSTEM *System);
+// CopyBeadType() //{{{
+/**
+ * Function to copy BEADTYPE structure into a new one.
+ */
+void CopyBeadType(int number_of_types, BEADTYPE **bt_out, BEADTYPE *bt_in,
+                  int mode); //}}}
+// CopyMoleculeType() //{{{
+/**
+ * Function to copy MOLECULETYPE structure into a new one.
+ */
+void CopyMoleculeType_old(int number_of_types, MOLECULETYPE **mt_out,
+                      MOLECULETYPE *mt_in, int mode); //}}}
+// CopyMolecule() //{{{
+/*
+ * Function to copy a MOLECULE struct into a new one.
+ */
+void CopyMolecule(int number_of_molecules, MOLECULETYPE *mt, MOLECULE **m_out,
+                  MOLECULE *m_in, int mode); //}}}
+#endif //}}}
 #endif

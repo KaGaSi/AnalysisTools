@@ -4,7 +4,6 @@
 */
 // TODO add detailed switch FindBeadType/FindMoleculeType (check not just name)
 
-// TODO make CheckSystem & CheckSystemCoor?
 void CheckSystem(SYSTEM System, char file[]) { //{{{
   COUNT *Count = &System.Count;
   if (Count->Molecule > 0 && Count->HighestResid < Count->Molecule) { //{{{
@@ -509,7 +508,7 @@ int * ImproperIndices(SYSTEM System, int mol, int dihed) { //{{{
       type = System.Molecule[mol].Type;
   // intramolecular is
   for (int i = 0; i < n; i++) {
-    index[i+n] = System.MoleculeType[type].Dihedral[dihed][i];
+    index[i+n] = System.MoleculeType[type].Improper[dihed][i];
   }
   // error if wrong intramolecular id //{{{
   bool err = false;
@@ -621,8 +620,8 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) { //{{{
       // ...or just add angle types where missing //{{{
       } else if (Count_add->AngleType > 0) {
         for (int j = 0; j < mt_orig->nAngles; j++) {
-          if (mt_orig->Angle[j][2] == -1 && mt_add->Angle[j][2] != -1) {
-            mt_orig->Angle[j][2] = mt_add->Angle[j][2] + count_old.AngleType;
+          if (mt_orig->Angle[j][3] == -1 && mt_add->Angle[j][3] != -1) {
+            mt_orig->Angle[j][3] = mt_add->Angle[j][3] + count_old.AngleType;
           }
         }
       } //}}}
@@ -636,8 +635,8 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) { //{{{
       // ...or just add dihedral types where missing //{{{
       } else if (Count_add->DihedralType > 0) {
         for (int j = 0; j < mt_orig->nDihedrals; j++) {
-          if (mt_orig->Dihedral[j][2] == -1 && mt_add->Dihedral[j][2] != -1) {
-            mt_orig->Dihedral[j][2] = mt_add->Dihedral[j][2] +
+          if (mt_orig->Dihedral[j][4] == -1 && mt_add->Dihedral[j][4] != -1) {
+            mt_orig->Dihedral[j][4] = mt_add->Dihedral[j][4] +
                                       count_old.DihedralType;
           }
         }
@@ -652,8 +651,8 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) { //{{{
       // ...or just add improper types where missing //{{{
       } else if (Count_add->ImproperType > 0) {
         for (int j = 0; j < mt_orig->nImpropers; j++) {
-          if (mt_orig->Improper[j][2] == -1 && mt_add->Improper[j][2] != -1) {
-            mt_orig->Improper[j][2] = mt_add->Improper[j][2] +
+          if (mt_orig->Improper[j][4] == -1 && mt_add->Improper[j][4] != -1) {
+            mt_orig->Improper[j][4] = mt_add->Improper[j][4] +
                                       count_old.ImproperType;
           }
         }
@@ -701,6 +700,22 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) { //{{{
     FillBeadTypeIndex(Sys_orig);
     PruneSystem(Sys_orig);
   } //}}}
+  CountBondAngleDihedralImproper(Sys_orig);
+} //}}}
+
+void CountBondAngleDihedralImproper(SYSTEM *System) { //{{{
+  COUNT *Count = &System->Count;
+  Count->Bond = 0;
+  Count->Angle = 0;
+  Count->Dihedral = 0;
+  Count->Improper = 0;
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    Count->Bond += mt_i->nBonds * mt_i->Number;
+    Count->Angle += mt_i->nAngles * mt_i->Number;
+    Count->Dihedral += mt_i->nDihedrals * mt_i->Number;
+    Count->Improper += mt_i->nImpropers * mt_i->Number;
+  }
 } //}}}
 
 /* HOW TO CALCULATE DISTANCE IN TRICLINIC SYSTEM //{{{
@@ -726,8 +741,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) { //{{{
 //printf("dist2 = (%lf, %lf, %lf) = %lf\n", dist.x, dist.y, dist.z, sqrt(SQR(dist.x)+SQR(dist.y)+SQR(dist.z)));
 */ //}}}
 
-// TriclinicCellData() //{{{
-bool TriclinicCellData(BOX *Box) {
+bool TriclinicCellData(BOX *Box) { //{{{
   // triclinic box //{{{
   if (Box->alpha != 90 || Box->beta != 90 || Box->gamma != 90 ) {
     double a = Box->Length.x,
@@ -824,20 +838,10 @@ bool TriclinicCellData(BOX *Box) {
     Box->TriTilt[1] = 0;
     Box->TriTilt[2] = 0;
   } //}}}
-  // test print the matrices //{{{
-//printf("Transformation matrix:\n");
-//printf("   %lf %lf %lf\n", Box->transform[0][0], Box->transform[0][1], Box->transform[0][2]);
-//printf("   %lf %lf %lf\n", Box->transform[1][0], Box->transform[1][1], Box->transform[1][2]);
-//printf("   %lf %lf %lf\n", Box->transform[2][0], Box->transform[2][1], Box->transform[2][2]);
-//printf("Inverse of transformation matrix:\n");
-//printf("   %lf %lf %lf\n", Box->inverse[0][0], Box->inverse[0][1], Box->inverse[0][2]);
-//printf("   %lf %lf %lf\n", Box->inverse[1][0], Box->inverse[1][1], Box->inverse[1][2]);
-//printf("   %lf %lf %lf\n", Box->inverse[2][0], Box->inverse[2][1], Box->inverse[2][2]); //}}}
   return true;
 } //}}}
 
-// ToFractional() //{{{
-void ToFractional(VECTOR *coor, BOX Box) {
+void ToFractional(VECTOR *coor, BOX Box) { //{{{
   if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
     VECTOR new = {0, 0, 0};
     new.x = Box.inverse[0][0] * coor->x +
@@ -854,9 +858,7 @@ void ToFractional(VECTOR *coor, BOX Box) {
     coor->z = new.z * Box.Length.z;
   }
 } //}}}
-
-// ToFractionalCoor() //{{{
-void ToFractionalCoor(SYSTEM *System) {
+void ToFractionalCoor(SYSTEM *System) { //{{{
   if (System->Box.alpha != 90 ||
       System->Box.beta != 90 ||
       System->Box.gamma != 90) {
@@ -867,9 +869,7 @@ void ToFractionalCoor(SYSTEM *System) {
     }
   }
 } //}}}
-
-// FromFractional() //{{{
-VECTOR FromFractional(VECTOR coor, BOX Box) {
+VECTOR FromFractional(VECTOR coor, BOX Box) { //{{{
   if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
     coor.x /= Box.Length.x;
     coor.y /= Box.Length.y;
@@ -890,9 +890,7 @@ VECTOR FromFractional(VECTOR coor, BOX Box) {
   }
   return coor;
 } //}}}
-
-// FromFractionalCoor() //{{{
-void FromFractionalCoor(SYSTEM *System) {
+void FromFractionalCoor(SYSTEM *System) { //{{{
   if (System->Box.alpha != 90 ||
       System->Box.beta != 90 ||
       System->Box.gamma != 90) {
@@ -927,39 +925,6 @@ bool InputCoor(bool *vtf, char *file_coor, char *file_struct) {
     strcpy(file_struct, "traject.vsf");
   }
   return true;
-} //}}}
-
-// PrintBox()  //{{{
-/**
- * Function printing Counts structure.
- */
-void PrintBox(BOX Box) {
-  fprintf(stdout, "Box = {\n");
-  fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x,
-                                                    Box.Length.y,
-                                                    Box.Length.z);
-  fprintf(stdout, "  .TriLength = (%lf, %lf, %lf),\n", Box.TriLength.x,
-                                                       Box.TriLength.y,
-                                                       Box.TriLength.z);
-  fprintf(stdout, "  .TriTilt = (%lf, %lf, %lf),\n", Box.TriTilt[0],
-                                                     Box.TriTilt[1],
-                                                     Box.TriTilt[2]);
-  fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
-  fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
-  fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);
-  fprintf(stdout, "  .transform = (%9.5f, %9.5f, %9.5f)\n",
-          Box.transform[0][0], Box.transform[0][1], Box.transform[0][2]);
-  fprintf(stdout, "               (%9.5f, %9.5f, %9.5f)\n",
-          Box.transform[1][0], Box.transform[1][1], Box.transform[1][2]);
-  fprintf(stdout, "               (%9.5f, %9.5f, %9.5f)\n",
-          Box.transform[2][0], Box.transform[2][1], Box.transform[2][2]);
-  fprintf(stdout, "  .inverse = (%9.5f, %9.5f, %9.5f)\n",
-          Box.inverse[0][0], Box.inverse[0][1], Box.inverse[0][2]);
-  fprintf(stdout, "             (%9.5f, %9.5f, %9.5f)\n",
-          Box.inverse[1][0], Box.inverse[1][1], Box.inverse[1][2]);
-  fprintf(stdout, "             (%9.5f, %9.5f, %9.5f)\n",
-          Box.inverse[2][0], Box.inverse[2][1], Box.inverse[2][2]);
-  fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
 } //}}}
 
 // PrintAggregate() //{{{
@@ -1005,52 +970,6 @@ void PrintAggregate(COUNTS Counts, int *Index,
         putchar('\n');
       }
     }
-  }
-} //}}}
-
-// PrintBondTypes() //{{{
-void PrintBondTypes(COUNTS Counts, PARAMS *bond_type) {
-  for (int i = 0; i < Counts.TypesOfBonds; i++) {
-    fprintf(stdout, "bond %2d: k = %lf, r_0 = %lf\n", i+1, bond_type[i].a, bond_type[i].b);
-  }
-  putc('\n', stdout);
-} //}}}
-
-// PrintBondTypes2() //{{{
-void PrintBondTypes2(int number_of_bonds, PARAMS *bond_type) {
-  for (int i = 0; i < number_of_bonds; i++) {
-    fprintf(stdout, "BondType[%d] = {", i);
-    fprintf(stdout, ".k = %9.5f, ", bond_type[i].a);
-    fprintf(stdout, ".r_0 = %9.5f", bond_type[i].b);
-    fprintf(stdout, "}\n");
-  }
-} //}}}
-
-// PrintAngleTypes() //{{{
-void PrintAngleTypes(COUNTS Counts, PARAMS *angle_type) {
-  for (int i = 0; i < Counts.TypesOfAngles; i++) {
-    fprintf(stdout, "angle %2d: k = %lf, r_0 = %lf\n", i+1, angle_type[i].a, angle_type[i].b);
-  }
-  putc('\n', stdout);
-} //}}}
-
-// PrintAngleTypes2() //{{{
-void PrintAngleTypes2(int number_of_angles, PARAMS *angle_type) {
-  for (int i = 0; i < number_of_angles; i++) {
-    fprintf(stdout, "AngleType[%d] = {", i);
-    fprintf(stdout, ".k = %9.5f, ", angle_type[i].a);
-    fprintf(stdout, ".theta_0 = %9.5f", angle_type[i].b);
-    fprintf(stdout, "}\n");
-  }
-} //}}}
-
-// PrintDihedralTypes2() //{{{
-void PrintDihedralTypes2(int number_of_dihedrals, PARAMS *dihedral_type) {
-  for (int i = 0; i < number_of_dihedrals; i++) {
-    fprintf(stdout, "DihedralType[%d] = {", i);
-    fprintf(stdout, ".k = %9.5f, ", dihedral_type[i].a);
-    fprintf(stdout, ".theta_0 = %9.5f", dihedral_type[i].b);
-    fprintf(stdout, "}\n");
   }
 } //}}}
 
@@ -1105,6 +1024,7 @@ void FillSystemNonessentials(SYSTEM *System) { //{{{
                                    sizeof *System->UnbondedCoor *
                                    Count->Unbonded);
   }
+  CountBondAngleDihedralImproper(System);
 } //}}}
 // molecule type's nBTypes and BType array //{{{
 void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType) {
@@ -1779,9 +1699,7 @@ void CopyBeadType(int number_of_types, BEADTYPE **bt_out,
 } //}}}
 
 // CopySystem() //{{{
-/*
- * Assumes unallocated SYSTEM.
- */
+// Assumes unallocated SYSTEM.
 SYSTEM CopySystem(SYSTEM S_in) {
   SYSTEM S_out;
   InitSystem(&S_out);
@@ -1887,6 +1805,13 @@ SYSTEM CopySystem(SYSTEM S_in) {
                                    sizeof (PARAMS) * S_out.Count.DihedralType);
       memcpy(S_out.DihedralType, S_in.DihedralType,
              sizeof (PARAMS) * S_in.Count.DihedralType);
+    } //}}}
+    // ImproperType //{{{
+    if (S_out.Count.ImproperType > 0) {
+      S_out.ImproperType = realloc(S_out.ImproperType,
+                                   sizeof (PARAMS) * S_out.Count.ImproperType);
+      memcpy(S_out.ImproperType, S_in.ImproperType,
+             sizeof (PARAMS) * S_in.Count.ImproperType);
     } //}}}
   }
   return S_out;
@@ -2004,7 +1929,13 @@ void PruneSystem(SYSTEM *System) { //{{{
       }
       count_all++;
     }
-  } //}}}
+  }
+  Count->Bead = count_all;
+  Count->BeadCoor = Count->Bead;
+  Count->Bonded = count_bonded;
+  Count->BondedCoor = Count->Bonded;
+  Count->Unbonded = count_unbonded;
+  Count->UnbondedCoor = Count->Unbonded; //}}}
   // copy Molecule array & create a new MoleculeType array //{{{
   Count->MoleculeType = 0;
   Count->Molecule = 0;
@@ -2214,6 +2145,32 @@ void PruneSystem(SYSTEM *System) { //{{{
   for (int i = 0; i < Count->Molecule; i++) {
     System->Index_mol[System->Molecule[i].Index] = i;
   } //}}}
+  // copy bond/angle/dihedral/improper types //{{{
+  if (Count->BondType > 0) {
+    System->BondType = realloc(System->BondType,
+                               sizeof (PARAMS) * Count->BondType);
+    memcpy(System->BondType, S_old.BondType,
+           sizeof (PARAMS) * S_old.Count.BondType);
+  }
+  if (Count->AngleType > 0) {
+    System->AngleType = realloc(System->AngleType,
+                                sizeof (PARAMS) * Count->AngleType);
+    memcpy(System->AngleType, S_old.AngleType,
+           sizeof (PARAMS) * S_old.Count.AngleType);
+  }
+  if (Count->DihedralType > 0) {
+    System->DihedralType = realloc(System->DihedralType,
+                                   sizeof (PARAMS) * Count->DihedralType);
+    memcpy(System->DihedralType, S_old.DihedralType,
+           sizeof (PARAMS) * S_old.Count.DihedralType);
+  }
+  if (Count->ImproperType > 0) {
+    System->ImproperType = realloc(System->ImproperType,
+                                   sizeof (PARAMS) * Count->ImproperType);
+    memcpy(System->ImproperType, S_old.ImproperType,
+           sizeof (PARAMS) * S_old.Count.ImproperType);
+  }
+  //}}}
   FreeSystem(&S_old);
   free(connect);
 } //}}}
@@ -2479,6 +2436,10 @@ void NewMolType(MOLECULETYPE *MoleculeType[], int *n_types, char *name,
 void VerboseOutput(SYSTEM System) { //{{{
   PrintCount(System.Count);
   PrintBeadType(System);
+  PrintBondType(System);
+  PrintAngleType(System);
+  PrintDihedralType(System);
+  PrintImproperType(System);
   PrintMoleculeType(System);
 } //}}}
 void PrintCount(COUNT Count) { //{{{
@@ -2503,16 +2464,20 @@ void PrintCount(COUNT Count) { //{{{
   fprintf(stdout, "  Molecule Types: %d\n", Count.MoleculeType);
   fprintf(stdout, "  Molecules:      %d", Count.Molecule);
   if (Count.BondType > 0) {
-    fprintf(stdout, ",\n  Bond Types:     %d", Count.BondType);
+    fprintf(stdout, "\n  Bond Types:     %d", Count.BondType);
+    fprintf(stdout, "\n  Bonds:          %d", Count.Bond);
   }
   if (Count.AngleType > 0) {
-    fprintf(stdout, ",\n  Angle Types:    %d", Count.AngleType);
+    fprintf(stdout, "\n  Angle Types:    %d", Count.AngleType);
+    fprintf(stdout, "\n  Angles:         %d", Count.Angle);
   }
   if (Count.DihedralType > 0) {
-    fprintf(stdout, ",\n  Dihedral Types: %d", Count.DihedralType);
+    fprintf(stdout, "\n  Dihedral Types: %d", Count.DihedralType);
+    fprintf(stdout, "\n  Dihedrals:      %d", Count.Dihedral);
   }
   if (Count.ImproperType > 0) {
-    fprintf(stdout, ",\n  Improper Types: %d", Count.ImproperType);
+    fprintf(stdout, "\n  Improper Types: %d", Count.ImproperType);
+    fprintf(stdout, "\n  Impropers:      %d", Count.Improper);
   }
   fprintf(stdout, "\n\n");
 } //}}}
@@ -2684,7 +2649,8 @@ void PrintMoleculeType(SYSTEM System) { //{{{
     } //}}}
     // print impropers if there are any //{{{
     if (System.MoleculeType[i].nImpropers > 0) {
-      fprintf(stdout, "  .nImpropers = %d,\n  .Improper   = {", System.MoleculeType[i].nImpropers);
+      fprintf(stdout, "  .nImpropers = %d,\n  .Improper   = {",
+              System.MoleculeType[i].nImpropers);
       for (int j = 0; j < System.MoleculeType[i].nImpropers; j++) {
         if (j != 0) {
           fprintf(stdout, ", ");
@@ -2709,12 +2675,14 @@ void PrintMoleculeType(SYSTEM System) { //{{{
       fprintf(stdout, "%s", System.BeadType[System.MoleculeType[i].BType[j]].Name);
     } //}}}
     if (System.MoleculeType[i].Mass != MASS) {
-      fprintf(stdout, "},\n  .Mass       = %.5f,\n", System.MoleculeType[i].Mass);
+      fprintf(stdout, "},\n  .Mass       = %.5f,\n",
+              System.MoleculeType[i].Mass);
     } else {
       fprintf(stdout, "},\n  .Mass       = n/a,\n");
     }
     if (System.MoleculeType[i].Charge != CHARGE) {
-      fprintf(stdout, "  .Charge     = %.5f\n}\n", System.MoleculeType[i].Charge);
+      fprintf(stdout, "  .Charge     = %.5f\n}\n",
+              System.MoleculeType[i].Charge);
     } else {
       fprintf(stdout, "  .Charge     = n/a\n}\n");
     }
@@ -2765,6 +2733,74 @@ void PrintBead(SYSTEM System) { //{{{
     }
   }
 } //}}}
+void PrintBondType(SYSTEM System) { //{{{
+  if (System.Count.BondType > 0) {
+    fprintf(stdout, "Bond types\n");
+    for (int i = 0; i < System.Count.BondType; i++) {
+      fprintf(stdout, "   %lf %lf\n",
+              System.BondType[i].a, System.BondType[i].b);
+    }
+    fprintf(stdout, "\n");
+  }
+} //}}}
+void PrintAngleType(SYSTEM System) { //{{{
+  if (System.Count.AngleType > 0) {
+    fprintf(stdout, "Angle types\n");
+    for (int i = 0; i < System.Count.AngleType; i++) {
+      fprintf(stdout, "   %lf %lf\n",
+              System.AngleType[i].a, System.AngleType[i].b);
+    }
+    fprintf(stdout, "\n");
+  }
+} //}}}
+void PrintDihedralType(SYSTEM System) { //{{{
+  if (System.Count.DihedralType > 0) {
+    fprintf(stdout, "Dihedral types\n");
+    for (int i = 0; i < System.Count.DihedralType; i++) {
+      fprintf(stdout, "   %lf %lf\n",
+              System.DihedralType[i].a, System.DihedralType[i].b);
+    }
+    fprintf(stdout, "\n");
+  }
+} //}}}
+void PrintImproperType(SYSTEM System) { //{{{
+  if (System.Count.ImproperType > 0) {
+    fprintf(stdout, "Improper types\n");
+    for (int i = 0; i < System.Count.ImproperType; i++) {
+      fprintf(stdout, "   %lf %lf\n",
+              System.ImproperType[i].a, System.ImproperType[i].b);
+    }
+    fprintf(stdout, "\n");
+  }
+} //}}}
+void PrintBox(BOX Box) { //{{{
+  fprintf(stdout, "Box = {\n");
+  fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x,
+                                                    Box.Length.y,
+                                                    Box.Length.z);
+  fprintf(stdout, "  .TriLength = (%lf, %lf, %lf),\n", Box.TriLength.x,
+                                                       Box.TriLength.y,
+                                                       Box.TriLength.z);
+  fprintf(stdout, "  .TriTilt = (%lf, %lf, %lf),\n", Box.TriTilt[0],
+                                                     Box.TriTilt[1],
+                                                     Box.TriTilt[2]);
+  fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
+  fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
+  fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);
+  fprintf(stdout, "  .transform = (%9.5f, %9.5f, %9.5f)\n",
+          Box.transform[0][0], Box.transform[0][1], Box.transform[0][2]);
+  fprintf(stdout, "               (%9.5f, %9.5f, %9.5f)\n",
+          Box.transform[1][0], Box.transform[1][1], Box.transform[1][2]);
+  fprintf(stdout, "               (%9.5f, %9.5f, %9.5f)\n",
+          Box.transform[2][0], Box.transform[2][1], Box.transform[2][2]);
+  fprintf(stdout, "  .inverse = (%9.5f, %9.5f, %9.5f)\n",
+          Box.inverse[0][0], Box.inverse[0][1], Box.inverse[0][2]);
+  fprintf(stdout, "             (%9.5f, %9.5f, %9.5f)\n",
+          Box.inverse[1][0], Box.inverse[1][1], Box.inverse[1][2]);
+  fprintf(stdout, "             (%9.5f, %9.5f, %9.5f)\n",
+          Box.inverse[2][0], Box.inverse[2][1], Box.inverse[2][2]);
+  fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
+} //}}}
 
 void FreeSystem(SYSTEM *System) { //{{{
   free(System->Index_mol);
@@ -2792,15 +2828,15 @@ void FreeSystem(SYSTEM *System) { //{{{
   free(System->AngleType);
   free(System->DihedralType);
   free(System->ImproperType);
-};
-void FreeMoleculeType(MOLECULETYPE *MoleculeType) {
+}; //}}}
+void FreeMoleculeType(MOLECULETYPE *MoleculeType) { //{{{
   FreeMoleculeTypeEssentials(MoleculeType);
   if (MoleculeType->nBTypes > 0) {
     free(MoleculeType->BType);
   }
   free(MoleculeType->Index);
-}
-void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) {
+} //}}}
+void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) { //{{{
   free(MoleculeType->Bead);
   if (MoleculeType->nBonds > 0) {
     free(MoleculeType->Bond);
@@ -2816,7 +2852,7 @@ void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) {
   }
 } //}}}
 
-#if 0
+#if 0 //{{{
 // TODO exchange Molecule[].Aggregate for something else
 // EvaluateContacts() //{{{
 /**
@@ -4609,4 +4645,45 @@ void PrintMoleculeType2(int number_of_types, BEADTYPE *BeadType, MOLECULETYPE *M
     }
   }
 } //}}}
-#endif
+// PrintBondTypes() //{{{
+void PrintBondTypes(COUNTS Counts, PARAMS *bond_type) {
+  for (int i = 0; i < Counts.TypesOfBonds; i++) {
+    fprintf(stdout, "bond %2d: k = %lf, r_0 = %lf\n", i+1, bond_type[i].a, bond_type[i].b);
+  }
+  putc('\n', stdout);
+} //}}}
+// PrintBondTypes2() //{{{
+void PrintBondTypes2(int number_of_bonds, PARAMS *bond_type) {
+  for (int i = 0; i < number_of_bonds; i++) {
+    fprintf(stdout, "BondType[%d] = {", i);
+    fprintf(stdout, ".k = %9.5f, ", bond_type[i].a);
+    fprintf(stdout, ".r_0 = %9.5f", bond_type[i].b);
+    fprintf(stdout, "}\n");
+  }
+} //}}}
+// PrintAngleTypes() //{{{
+void PrintAngleTypes(COUNTS Counts, PARAMS *angle_type) {
+  for (int i = 0; i < Counts.TypesOfAngles; i++) {
+    fprintf(stdout, "angle %2d: k = %lf, r_0 = %lf\n", i+1, angle_type[i].a, angle_type[i].b);
+  }
+  putc('\n', stdout);
+} //}}}
+// PrintAngleTypes2() //{{{
+void PrintAngleTypes2(int number_of_angles, PARAMS *angle_type) {
+  for (int i = 0; i < number_of_angles; i++) {
+    fprintf(stdout, "AngleType[%d] = {", i);
+    fprintf(stdout, ".k = %9.5f, ", angle_type[i].a);
+    fprintf(stdout, ".theta_0 = %9.5f", angle_type[i].b);
+    fprintf(stdout, "}\n");
+  }
+} //}}}
+// PrintDihedralTypes2() //{{{
+void PrintDihedralTypes2(int number_of_dihedrals, PARAMS *dihedral_type) {
+  for (int i = 0; i < number_of_dihedrals; i++) {
+    fprintf(stdout, "DihedralType[%d] = {", i);
+    fprintf(stdout, ".k = %9.5f, ", dihedral_type[i].a);
+    fprintf(stdout, ".theta_0 = %9.5f", dihedral_type[i].b);
+    fprintf(stdout, "}\n");
+  }
+} //}}}
+#endif //}}}

@@ -8,7 +8,10 @@ void Help(char cmd[50], bool error) { //{{{
     fprintf(ptr, "\
 Info prints information about the provided system and can also create a new \
 vtf structure file. The new structure file can differ from the original one if \
---detailed switch is used. \n\n");
+--detailed switch is used. A FIELD-like file can be used to gather additional \
+information (bond types, angles, dihedrals, improper dihedral, and, \
+optionally, exchange the beads from the vtf structure file); \
+applies to molecules with the same name in both files.\n\n");
   }
 
   fprintf(ptr, "Usage:\n");
@@ -19,8 +22,8 @@ vtf structure file. The new structure file can differ from the original one if \
 by names\n");
   fprintf(ptr, "      -vsf <file.vsf>   create a new vsf structure file\n");
   fprintf(ptr, "      -c <file>         input coordinate file\n");
-  fprintf(ptr, "      -f <file>         input FIELD-like file for extra \
-structural information\n");
+  fprintf(ptr, "      -f[!] <file>      input FIELD-like file for extra \
+structural information (change beads in molecules if '1' is used)\n");
   fprintf(ptr, "      -v                more verbose output\n");
   fprintf(ptr, "      -h                print this help and exit\n");
   fprintf(ptr, "      --version         print version number and exit\n");
@@ -42,7 +45,7 @@ int main(int argc, char *argv[]) {
 
   // check if correct number of arguments //{{{
   int count = 0;
-  while ((count+1) < argc && argv[count+1][0] != '-') {
+  while ((count + 1) < argc && argv[count + 1][0] != '-') {
     count++;
   }
 
@@ -54,14 +57,11 @@ int main(int argc, char *argv[]) {
 
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' &&
-        strcmp(argv[i], "--detailed") != 0 &&
-        strcmp(argv[i], "-vsf") != 0 &&
-        strcmp(argv[i], "-c") != 0 &&
-        strcmp(argv[i], "-f") != 0 &&
-        strcmp(argv[i], "-v") != 0 &&
-        strcmp(argv[i], "--version") != 0 &&
-        strcmp(argv[i], "-h") != 0) {
+    if (argv[i][0] == '-' && strcmp(argv[i], "--detailed") != 0 &&
+        strcmp(argv[i], "-vsf") != 0 && strcmp(argv[i], "-c") != 0 &&
+        strcmp(argv[i], "-f") != 0 && strcmp(argv[i], "-v") != 0 &&
+        strcmp(argv[i], "-f!") != 0 && strcmp(argv[i], "-v") != 0 &&
+        strcmp(argv[i], "--version") != 0 && strcmp(argv[i], "-h") != 0) {
 
       ErrorOption(argv[i]);
       Help(argv[0], true);
@@ -120,20 +120,23 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
 
-  // -f option //{{{
+  // -f[!] option //{{{
   char input_field[LINE] = "\0";
+  bool change_beads = false;
   if (FileOption(argc, argv, "-f", input_field, LINE)) {
     exit(1);
+  }
+  if (input_field[0] == '\0') {
+    if (FileOption(argc, argv, "-f!", input_field, LINE)) {
+      exit(1);
+    }
+    if (input_field[0] != '\0') {
+      change_beads = true;
+    }
   } //}}}
 
-  // read information from input file(s)
+  // read information from input file(s) //{{{
   SYSTEM System = VtfReadStruct(input_vsf, detailed); // vsf input
-  // FIELD input (if present)
-  SYSTEM field;
-  if (input_field[0] != '\0') {
-    field = FieldReadFull(input_field);
-    PrintCount(field.Count);
-  }
   // vcf coordinates (if present)
   if (input_coor[0] != '\0') {
     FILE *coor = OpenFile(input_coor, "r");
@@ -144,25 +147,29 @@ int main(int argc, char *argv[]) {
     fclose(coor);
     PrintBox(System.Box);
   }
-
+  // FIELD input (if present)
+  SYSTEM field;
   if (input_field[0] != '\0') {
-    ChangeMolecules(&System, field, true);
+    field = FieldReadFull(input_field);
+    ChangeMolecules(&System, field, change_beads);
     CheckSystem(System, input_field);
-  }
+  } //}}}
 
-  // print information
+  // print information //{{{
   VerboseOutput(System);
   if (verbose) { // -v option
     fprintf(stdout, "\nInformation about every bead:\n");
     PrintBead(System);
     fprintf(stdout, "\nInformation about every molecule:\n");
     PrintMolecule(System);
-  }
+  } //}}}
 
+  // write output vtf structure file //{{{
   if (output_vsf[0] != '\0') {
     VtfWriteStruct(output_vsf, System);
-  }
+  } //}}}
 
+  // free memory //{{{
   FreeSystem(&System);
   if (input_field[0] != '\0') {
     FreeSystem(&field);

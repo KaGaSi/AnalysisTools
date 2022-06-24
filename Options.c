@@ -234,10 +234,10 @@ bool BeadTypeOption(int argc, char **argv, char *opt,
 bool BoolOption(int argc, char **argv, char *opt) {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
-      return(true);
+      return true;
     }
   }
-  return(false);
+  return false;
 } // }}}
 
 // IntegerOption() //{{{

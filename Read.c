@@ -1558,7 +1558,7 @@ int * VtfAtomLineValues(int words, char *split[]) {
   return value;
 } //}}}
  //}}}
-
+// Read FIELD-like files //{{{
 SYSTEM FieldReadFull(char field_file[]) { //{{{
   SYSTEM System;
   InitSystem(&System);
@@ -1591,9 +1591,6 @@ SYSTEM FieldReadFull(char field_file[]) { //{{{
   MergeMoleculeTypes(&System);
   FillSystemNonessentials(&System);
   CheckSystem(System, field_file);
-  PrintCount(*Count);
-  PrintBeadType(System);
-  PrintMoleculeType(System);
   VtfWriteStruct("field.vsf", System);
   return System;
 } //}}}
@@ -2184,8 +2181,9 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
   Count->HighestResid = Count->Molecule;
   fclose(fr);
 } //}}}
+ //}}}
 
-#if 0
+#if 0 //{{{
 // TODO will be changed - FIELD file
 // ReadFieldPbc() //{{{
 /*
@@ -5337,4 +5335,4 @@ void FillMolType(int number_of_types, BEADTYPE *BeadType,
   FillMolMass(number_of_types, BeadType, MoleculeType);
   FillMolCharge(number_of_types, BeadType, MoleculeType);
 } //}}}
-#endif
+#endif //}}}

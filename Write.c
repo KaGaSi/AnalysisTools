@@ -132,6 +132,98 @@ void VtfWriteStruct(char file[], SYSTEM System) {
   fclose(fw);
 } //}}}
 
+void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) {
+  FILE *fw = OpenFile(file_lmp, "w");
+  fprintf(fw, "LAMMPS data filea via AnalysisTools v%s \
+(https://github.com/KaGaSi/AnalysisTools)\n\n", VERSION);
+  COUNT *Count = &System.Count;
+  // print counts //{{{
+  fprintf(fw, "%10d atoms\n", Count->Bead);
+  fprintf(fw, "%10d bonds\n", Count->Bond);
+  fprintf(fw, "%10d angles\n", Count->Angle);
+  fprintf(fw, "%10d dihedrals\n", Count->Dihedral);
+  fprintf(fw, "%10d impropers\n", Count->Improper);
+  putc('\n', fw);
+  fprintf(fw, "%10d atom types\n", Count->BeadType);
+  fprintf(fw, "%10d bond types\n", Count->BondType);
+  fprintf(fw, "%10d angle types\n", Count->AngleType);
+  fprintf(fw, "%10d dihedral types\n", Count->DihedralType);
+  fprintf(fw, "%10d improper types\n", Count->ImproperType);
+  putc('\n', fw); //}}}
+  // print box size //{{{
+  fprintf(fw, "0 %lf xlo xhi\n", System.Box.Length.x);
+  fprintf(fw, "0 %lf ylo yhi\n", System.Box.Length.y);
+  fprintf(fw, "0 %lf zlo zhi\n", System.Box.Length.z);
+  if (System.Box.alpha != 90 ||
+      System.Box.beta != 90 ||
+      System.Box.gamma != 90) {
+    fprintf(fw, "%lf %lf %lf xy xz yz\n", System.Box.TriTilt[0],
+            System.Box.TriTilt[1], System.Box.TriTilt[2]);
+  } //}}}
+  // create new SYSTEM structure to figure out bead types if mass==true //{{{
+  SYSTEM Sys_print = CopySystem(System);
+  COUNT *Count_print = &Sys_print.Count;
+  if (mass) {
+    Count_print->BeadType = 0;
+    for (int i = 0; i < Count->BeadType; i++) {
+      BEADTYPE *bt_i = &System.BeadType[i];
+      bool found = false;
+      for (int j = 0; j < Sys_print.Count.BeadType; j++) {
+        BEADTYPE *bt_print_j = &Sys_print.BeadType[j];
+        if (bt_i->Mass == bt_print_j->Mass) {
+          for (int k = 0; k < Count->Bead; k++) {
+            if (Sys_print.Bead[k].Type == i) {
+              Sys_print.Bead[k].Type = j;
+            }
+          }
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        BEADTYPE *bt_new = &Sys_print.BeadType[Count_print->BeadType];
+        bt_new->Charge = bt_i->Charge;
+        bt_new->Mass = bt_i->Mass;
+        bt_new->Radius = bt_i->Radius;
+        strcpy(bt_new->Name, bt_i->Name);
+        for (int j = 0; j < Count->Bead; j++) {
+          if (System.Bead[j].Type == i) {
+            printf("%d %d\n", j, bt_new->Number);
+            Sys_print.Bead[j].Type = Count_print->BeadType;
+          }
+        }
+        Sys_print.Count.BeadType++;
+      }
+    }
+    // recount numbers of bead type - not really needed
+    for (int i = 0; i < Count->BeadType; i++) {
+      Sys_print.BeadType[i].Number = 0;
+    }
+    for (int i = 0; i < Count_print->Bead; i++) {
+      int type = Sys_print.Bead[i].Type;
+      Sys_print.BeadType[type].Number++;
+    }
+    // free extraneous Index arrays
+    for (int i = 0; i < Count->BeadType; i++) {
+      if (Sys_print.BeadType[i].Number == 0) {
+        free(Sys_print.BeadType[i].Index);
+      }
+    }
+  } //}}}
+  PrintCount(*Count_print);
+  // print bead masses //{{{
+  fprintf(fw, "Masses\n\n");
+  for (int i = 0; i < Count_print->BeadType; i++) {
+    BEADTYPE *bt_i = &Sys_print.BeadType[i];
+    fprintf(fw, "%5d %lf # %s\n", i, bt_i->Mass, bt_i->Name);
+  }
+  //}}}
+  PrintCount(*Count_print);
+  PrintBeadType(Sys_print);
+  FreeSystem(&Sys_print);
+  fclose(fw);
+}
+
 // TODO will change
 // WriteAggregates() //{{{
 /*
