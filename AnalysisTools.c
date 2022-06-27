@@ -337,7 +337,7 @@ int * BondIndices(SYSTEM System, int mol, int bond) { //{{{
   static int index[4]; // first are 'real' ids, then the intramolecular ones
   int n = 2,
       type = System.Molecule[mol].Type;
-  // intramolecular is
+  // intramolecular id
   for (int i = 0; i < n; i++) {
     index[i+n] = System.MoleculeType[type].Bond[bond][i];
   }
@@ -606,8 +606,12 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) { //{{{
       // ...or just add bond types where missing //{{{
       } else if (Count_add->BondType > 0) {
         for (int j = 0; j < mt_orig->nBonds; j++) {
-          if (mt_orig->Bond[j][2] == -1 && mt_add->Bond[j][2] != -1) {
-            mt_orig->Bond[j][2] = mt_add->Bond[j][2] + count_old.BondType;
+          for (int k = 0; k < mt_add->nBonds; k++) {
+            if (mt_orig->Bond[j][0] == mt_add->Bond[k][0] &&
+                mt_orig->Bond[j][1] == mt_add->Bond[k][1] &&
+                mt_orig->Bond[j][2] == -1 && mt_add->Bond[k][2] != -1) {
+                mt_orig->Bond[j][2] = mt_add->Bond[k][2] + count_old.BondType;
+            }
           }
         }
       } //}}}
@@ -620,8 +624,13 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) { //{{{
       // ...or just add angle types where missing //{{{
       } else if (Count_add->AngleType > 0) {
         for (int j = 0; j < mt_orig->nAngles; j++) {
-          if (mt_orig->Angle[j][3] == -1 && mt_add->Angle[j][3] != -1) {
-            mt_orig->Angle[j][3] = mt_add->Angle[j][3] + count_old.AngleType;
+          for (int k = 0; k < mt_orig->nAngles; k++) {
+            if (mt_orig->Angle[j][0] == mt_add->Angle[k][0] &&
+                mt_orig->Angle[j][1] == mt_add->Angle[k][1] &&
+                mt_orig->Angle[j][2] == mt_add->Angle[k][2] &&
+                mt_orig->Angle[j][3] == -1 && mt_add->Angle[k][3] != -1) {
+              mt_orig->Angle[j][3] = mt_add->Angle[k][3] + count_old.AngleType;
+            }
           }
         }
       } //}}}
@@ -635,9 +644,15 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) { //{{{
       // ...or just add dihedral types where missing //{{{
       } else if (Count_add->DihedralType > 0) {
         for (int j = 0; j < mt_orig->nDihedrals; j++) {
-          if (mt_orig->Dihedral[j][4] == -1 && mt_add->Dihedral[j][4] != -1) {
+          for (int k = 0; k < mt_orig->nDihedrals; k++) {
+            if (mt_orig->Dihedral[j][0] == mt_add->Dihedral[k][0] &&
+                mt_orig->Dihedral[j][1] == mt_add->Dihedral[k][1] &&
+                mt_orig->Dihedral[j][2] == mt_add->Dihedral[k][2] &&
+                mt_orig->Dihedral[j][2] == mt_add->Dihedral[k][2] &&
+                mt_orig->Dihedral[j][4] == -1 && mt_add->Dihedral[j][4] != -1) {
             mt_orig->Dihedral[j][4] = mt_add->Dihedral[j][4] +
                                       count_old.DihedralType;
+            }
           }
         }
       } //}}}
@@ -651,9 +666,15 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) { //{{{
       // ...or just add improper types where missing //{{{
       } else if (Count_add->ImproperType > 0) {
         for (int j = 0; j < mt_orig->nImpropers; j++) {
-          if (mt_orig->Improper[j][4] == -1 && mt_add->Improper[j][4] != -1) {
-            mt_orig->Improper[j][4] = mt_add->Improper[j][4] +
-                                      count_old.ImproperType;
+          for (int k = 0; k < mt_orig->nImpropers; k++) {
+            if (mt_orig->Improper[j][0] == mt_add->Improper[k][0] &&
+                mt_orig->Improper[j][1] == mt_add->Improper[k][1] &&
+                mt_orig->Improper[j][2] == mt_add->Improper[k][2] &&
+                mt_orig->Improper[j][2] == mt_add->Improper[k][2] &&
+                mt_orig->Improper[j][4] == -1 && mt_add->Improper[j][4] != -1) {
+              mt_orig->Improper[j][4] = mt_add->Improper[j][4] +
+                                        count_old.ImproperType;
+            }
           }
         }
       } //}}}
@@ -1562,7 +1583,7 @@ void SortBonds(int (*bond)[3], int number_of_bonds) {
   for (int j = 0; j < (number_of_bonds-1); j++) {
     bool swap = false;
     for (int k = 0; k < (number_of_bonds-j-1); k++) {
-      if ((bond[k][0] > bond[k+1][0]) || // swap if first beads are in wrong order
+      if (bond[k][0] > bond[k+1][0] || // swap if first beads are in wrong order
           (bond[k][0] == bond[k+1][0] && // or if they're the same, but second ones are in wrong order
           bond[k][1] > bond[k+1][1])) {
         SwapInt(&bond[k][0], &bond[k+1][0]);
@@ -4277,7 +4298,6 @@ void PruneSystem_old(SYSTEM *System) { //{{{
             c_bond++;
           }
         } //}}}
-//      printf("XXX c_bond=%d %d %s\n", c_bond, i, S_old.MoleculeType[old_type].Name);
         // count angles in the pruned molecule type //{{{
         for (int j = 0; j < S_old.MoleculeType[old_type].nAngles; j++) {
           int *id = AngleIndices(S_old, i, j);

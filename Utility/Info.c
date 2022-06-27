@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
   FreeSystem(&System);
   if (input_field[0] != '\0') {
     FreeSystem(&field);
-  }
+  } //}}}
 
   return 0;
 }
