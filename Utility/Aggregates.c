@@ -233,7 +233,7 @@ void CalculateAggregates(AGGREGATE **Aggregate, COUNTS *Counts, double sqdist,
                   // are 'i' and 'j' close enough?
                   if (mol_i != mol_j && rij.x <= sqdist) {
                     // xm option
-                    if (i > j) {
+                    if (mol_i > mol_j) {
                       contact[mol_i][mol_j]++;
                     } else {
                       contact[mol_j][mol_i]++;
