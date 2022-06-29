@@ -857,7 +857,6 @@ contact developper\n");
   MergeMoleculeTypes(&Sys);
   FillSystemNonessentials(&Sys);
   CheckSystem(Sys, struct_file);
-  WarnChargedSystem(Sys, struct_file, "\0");
   return Sys;
 } //}}}
 // VtfReadPBC() //{{{
@@ -1139,6 +1138,10 @@ using next timestep instead of this one");
       bead_id->Velocity.x = vel.x;
       bead_id->Velocity.y = vel.y;
       bead_id->Velocity.z = vel.z;
+    } else {
+      bead_id->Velocity.x = 0;
+      bead_id->Velocity.y = 0;
+      bead_id->Velocity.z = 0;
     }
     if (bead_id->Molecule == -1) {
       System->UnbondedCoor[Count->UnbondedCoor] = id;

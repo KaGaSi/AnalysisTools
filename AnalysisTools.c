@@ -1391,12 +1391,12 @@ VECTOR Gyration(int n, int *list, COUNTS Counts,
   // calculate gyration tensor //{{{
   for (int i = 0; i < n; i++) {
     int id = list[i];
-    GyrationTensor.x.x += (*Bead)[id].Position.x * (*Bead)[id].Position.x;
-    GyrationTensor.x.y += (*Bead)[id].Position.x * (*Bead)[id].Position.y;
-    GyrationTensor.x.z += (*Bead)[id].Position.x * (*Bead)[id].Position.z;
-    GyrationTensor.y.y += (*Bead)[id].Position.y * (*Bead)[id].Position.y;
-    GyrationTensor.y.z += (*Bead)[id].Position.y * (*Bead)[id].Position.z;
-    GyrationTensor.z.z += (*Bead)[id].Position.z * (*Bead)[id].Position.z;
+    GyrationTensor.x.x += Bead[id]->Position.x * Bead[id]->Position.x;
+    GyrationTensor.x.y += Bead[id]->Position.x * Bead[id]->Position.y;
+    GyrationTensor.x.z += Bead[id]->Position.x * Bead[id]->Position.z;
+    GyrationTensor.y.y += Bead[id]->Position.y * Bead[id]->Position.y;
+    GyrationTensor.y.z += Bead[id]->Position.y * Bead[id]->Position.z;
+    GyrationTensor.z.z += Bead[id]->Position.z * Bead[id]->Position.z;
   }
   GyrationTensor.x.x /= n;
   GyrationTensor.x.y /= n;

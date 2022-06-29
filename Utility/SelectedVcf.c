@@ -161,6 +161,8 @@ int main(int argc, char *argv[]) {
     exit(1);
   } //}}}
 
+  WarnChargedSystem(System, input_vsf, "\0");
+
   // <bead names> - names of bead types to save //{{{
   bool *write = calloc(System.Count.Bead, sizeof *write),
        *write_bt = calloc(System.Count.BeadType, sizeof *write_bt);

@@ -156,6 +156,7 @@ int main(int argc, char *argv[]) {
   SYSTEM field = FieldReadFull(input_field);
   ChangeMolecules(&System, field, change_beads);
   CheckSystem(System, input_field);
+  WarnChargedSystem(System, input_vsf, input_field);
 
   if (verbose) {
     VerboseOutput(System);

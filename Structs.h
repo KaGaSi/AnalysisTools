@@ -18,16 +18,11 @@ typedef struct Box { //{{{
          inverse[3][3], // inverse of the transformation matrix
          Volume;
 } BOX;
-
 // Initialize Box
 static const BOX InitBox = {
-  .Length.x = -1,
-  .Length.y = -1,
-  .Length.z = -1,
-  .TriLength.x = -1,
-  .TriLength.y = -1,
-  .TriLength.z = -1,
-  .TriTilt = {0},
+  .Length = {-1, -1, -1},
+  .TriLength = {-1, -1, -1},
+  .TriTilt = {0, 0, 0},
   .alpha = 90,
   .beta = 90,
   .gamma = 90,
@@ -117,15 +112,15 @@ typedef struct MoleculeType { //{{{
       *Bead, // ids of bead types of every molecule bead
       nBonds, // number of bonds in every molecule of given type
       (*Bond)[3], // pair of ids for every bond (with relative bead numbers from 0 to nBeads-1)
-               // has to be sorted; size: [MoleculeType[i].Bond[3]
+                  // has to be sorted; size: [MoleculeType[i].Bond[3]
       nAngles, // number of angles in every molecule of given type
       (*Angle)[4], // trio of ids for every angle (with relative bead numbers from 0 to nBeads-1)
-               // has to be sorted; size: [MoleculeType[i].Angle[4]
+                  // has to be sorted; size: [MoleculeType[i].Angle[4]
       nDihedrals, // number of dihedrals in every molecule of given type
       (*Dihedral)[5], // fourtet of ids for every dihedral (with relative bead numbers from 0 to nBeads-1)
       nImpropers, // number of improper dihedrals in every molecule of given type
       (*Improper)[5], // fourtet of ids for every improper dihedral (with relative bead numbers from 0 to nBeads-1)
-               // has to be sorted; size: [MoleculeType[i].Improper[5]
+                      // has to be sorted; size: [MoleculeType[i].Improper[5]
       nBTypes, // number of bead types in every molecule of given type
       *BType; // ids of bead types in every molecule of given type (corresponds to indices in BeadType struct)
 

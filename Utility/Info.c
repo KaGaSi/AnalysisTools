@@ -153,7 +153,9 @@ int main(int argc, char *argv[]) {
     field = FieldReadFull(input_field);
     ChangeMolecules(&System, field, change_beads);
     CheckSystem(System, input_field);
-  } //}}}
+  }
+  WarnChargedSystem(System, input_vsf, input_field);
+  //}}}
 
   // print information //{{{
   VerboseOutput(System);
