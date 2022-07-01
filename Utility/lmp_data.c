@@ -8,10 +8,13 @@ void Help(char cmd[50], bool error) { //{{{
   } else {
     ptr = stdout;
     fprintf(stdout, "\
-lmp_data utility generates lammps data file from the FIELD and coordinate \
-files. It assumes molecules have bonds and can also have angles and \
-dihedrals. For all cases, the a harmonic potential is assumed (the \
-dihedrals are written to the lmp data file as impropers).\n\n");
+lmp_data utility generates lammps data file from vtf structure and coordinate \
+files; extra data can be read from a FIELD-like file (bond parameters, angles, \
+dihedrals, and improper dihedrals for molecules and charge and mass for bead \
+types if not provided via the vtf structure file). \
+Extra bead type can be added for segmental repulsive \
+potential (srp) and the bead types can be specified by mass but with each bead \
+having a different charge.\n\n");
   }
 
   fprintf(ptr, "Usage:\n");
@@ -20,7 +23,7 @@ dihedrals are written to the lmp data file as impropers).\n\n");
   fprintf(ptr, "   <input>      input coordinate file (vcf or vtf format)\n");
   fprintf(ptr, "   <out.data>   output lammps data file\n");
   fprintf(ptr, "   [options]\n");
-  fprintf(ptr, "      -f[!] <name> FIELD-like file (default: FIELD)\n");
+  fprintf(ptr, "      -f[!] <name> FIELD-like file\n");
   fprintf(ptr, "      --srp        add one more bead type for srp\n");
   fprintf(ptr, "      --mass       define atom types by mass (printing their\
 different charges in the Atoms section)\n");
@@ -153,10 +156,13 @@ int main(int argc, char *argv[]) {
   }
   fclose(vcf); //}}}
 
-  SYSTEM field = FieldReadFull(input_field);
-  ChangeMolecules(&System, field, change_beads);
-  CheckSystem(System, input_field);
-  WarnChargedSystem(System, input_vsf, input_field);
+  SYSTEM field;
+  if (input_field[0] != '\0') {
+    field = FieldReadFull(input_field);
+    ChangeMolecules(&System, field, change_beads);
+    CheckSystem(System, input_field);
+    WarnChargedSystem(System, input_vsf, input_field);
+  }
 
   if (verbose) {
     VerboseOutput(System);
@@ -166,7 +172,9 @@ int main(int argc, char *argv[]) {
 
   // free memory - to make valgrind happy //{{{
   FreeSystem(&System);
-  FreeSystem(&field);
+  if (input_field[0] != '\0') {
+    FreeSystem(&field);
+  }
   free(stuff);
   //}}}
 

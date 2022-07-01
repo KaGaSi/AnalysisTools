@@ -814,21 +814,17 @@ bool TriclinicCellData(BOX *Box) { //{{{
                         Box->TriLength.y;
     sqr = SQR(c) - SQR(Box->TriTilt[1]) - SQR(Box->TriTilt[2]);
     if (sqr < 0) {
-      ErrorPrintError_old();
-      //TODO coloured output
-      fprintf(stderr, "Error - wrong dimensions");
+      strcpy(ERROR_MSG, "wrong simulation box box dimensions");
+      PrintError();
       exit(1);
     }
     Box->TriLength.z = sqrt(sqr);
     // make tilt component zero if they're close to zero
     for (int i = 0; i < 3; i++) {
-      if (fabs(Box->TriTilt[i]) < 0.001) {
+      if (fabs(Box->TriTilt[i]) < 0.00001) {
         Box->TriTilt[i] = 0;
       }
     }
-//  printf("\nLength:    %lf %lf %lf\n", Box->Length.x, Box->Length.y, Box->Length.z);
-//  printf("TirLength: %lf %lf %lf\n", Box->TriLength.x, Box->TriLength.y, Box->TriLength.z);
-//  printf("TriTilt:   %lf %lf %lf\n", Box->TriTilt[0], Box->TriTilt[1], Box->TriTilt[2]);
   //}}}
   } else { // orthogonal box //{{{
     Box->Volume = Box->Length.x * Box->Length.y * Box->Length.z;
@@ -920,6 +916,13 @@ void FromFractionalCoor(SYSTEM *System) { //{{{
       bead->Position = FromFractional(bead->Position, System->Box);
     }
   }
+} //}}}
+
+void PrintByline(FILE *ptr, int argc, char *argv[]) { //{{{
+  fprintf(ptr, "# Created by AnalysisTools v%s ", VERSION);
+  fprintf(ptr, " (https://github.com/KaGaSi/AnalysisTools)\n");
+  fprintf(ptr, "# command: ");
+  PrintCommand(ptr, argc, argv);
 } //}}}
 
 // InputCoor() //{{{

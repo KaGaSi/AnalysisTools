@@ -7,24 +7,20 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[],
     fprintf(vcf, "%s\n", stuff);
   }
   // print box size
-  fprintf(vcf, "pbc %lf %lf %lf  ", System.Box.Length.x,
-                                    System.Box.Length.y,
-                                    System.Box.Length.z);
-  fprintf(vcf, "    %lf %lf %lf\n", System.Box.alpha,
-                                    System.Box.beta,
-                                    System.Box.gamma);
+  BOX *box = &System.Box;
+  fprintf(vcf, "pbc %lf %lf %lf", box->Length.x, box->Length.y, box->Length.z);
+  fprintf(vcf, "    %lf %lf %lf\n", box->alpha, box->beta, box->gamma);
   // print 'indexed' on the next
   fprintf(vcf, "indexed\n");
 
   bool none = true;
   for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadCoor[i];
-    if (System.Bead[id].InTimestep && write[id]) {
+    BEAD *bead = &System.Bead[id];
+    if (bead->InTimestep && write[id]) {
       none = false;
       fprintf(vcf, "%8d %8.4f %8.4f %8.4f\n", id,
-                                              System.Bead[id].Position.x,
-                                              System.Bead[id].Position.y,
-                                              System.Bead[id].Position.z);
+              bead->Position.x, bead->Position.y, bead->Position.z);
     }
   }
   if (none) {
@@ -32,7 +28,6 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[],
     PrintWarning();
   }
 } //}}}
-
 void XyzWriteCoor(FILE *xyz, bool write[], SYSTEM System) { //{{{
   // find out number of beads to save
   int count = 0;
@@ -51,29 +46,28 @@ void XyzWriteCoor(FILE *xyz, bool write[], SYSTEM System) { //{{{
     fprintf(xyz, "%d\n\n", count);
     for (int i = 0; i < System.Count.BeadCoor; i++) {
       int id = System.BeadCoor[i];
-      if (System.Bead[id].InTimestep && write[id]) {
-        int type = System.Bead[id].Type;
+      BEAD *bead = &System.Bead[id];
+      if (bead->InTimestep && write[id]) {
+        int type = bead->Type;
         fprintf(xyz, "%8s %8.4f %8.4f %8.4f\n", System.BeadType[type].Name,
-                                                System.Bead[id].Position.x,
-                                                System.Bead[id].Position.y,
-                                                System.Bead[id].Position.z);
+                bead->Position.x, bead->Position.y, bead->Position.z);
       }
     }
   }
 } //}}}
-
 void VtfWriteStruct(char file[], SYSTEM System) { //{{{
   FILE *fw = OpenFile(file, "w");
+  COUNT *Count = &System.Count;
   // find most common type of bead and make it default //{{{
-  int *count = calloc(System.Count.BeadType, sizeof *count);
-  for (int i = 0; i < System.Count.Bead; i++) {
+  int *count = calloc(Count->BeadType, sizeof *count);
+  for (int i = 0; i < Count->Bead; i++) {
     if (System.Bead[i].Molecule == -1) {
       int type = System.Bead[i].Type;
       count[type]++;
     }
   }
   int type_def = -1, max = 0;
-  for (int i = 0; i < System.Count.BeadType; i++) {
+  for (int i = 0; i < Count->BeadType; i++) {
     if (count[i] > max) {
       max = count[i];
       type_def = i;
@@ -87,25 +81,25 @@ void VtfWriteStruct(char file[], SYSTEM System) { //{{{
     fprintf(fw, "charge %lf\n", System.BeadType[type_def].Charge);
   } //}}}
   // print beads //{{{
-  for (int i = 0; i < System.Count.Bead; i++) {
+  for (int i = 0; i < Count->Bead; i++) {
     int btype = System.Bead[i].Type,
         mol = System.Bead[i].Molecule;
     // print beads that are non-default, in a molecule, or have the highest id
     bool print = false;
-    if (btype != type_def || mol != -1 || i == (System.Count.Bead-1)) {
+    if (btype != type_def || mol != -1 || i == (Count->Bead-1)) {
       print = true;
     }
+    BEADTYPE *bt = &System.BeadType[btype];
     if (print) {
-      fprintf(fw, "atom %7d", i);
-      fprintf(fw, " name %8s", System.BeadType[btype].Name);
-      if (System.BeadType[btype].Mass != MASS) {
-        fprintf(fw, " mass %lf ", System.BeadType[btype].Mass);
+      fprintf(fw, "atom %7d name %8s", i, bt->Name);
+      if (bt->Mass != MASS) {
+        fprintf(fw, " mass %lf ", bt->Mass);
       }
-      if (System.BeadType[btype].Charge != CHARGE) {
-        fprintf(fw, " charge %lf", System.BeadType[btype].Charge);
+      if (bt->Charge != CHARGE) {
+        fprintf(fw, " charge %lf", bt->Charge);
       }
-      if (System.BeadType[btype].Radius != RADIUS) {
-        fprintf(fw, " radius %lf", System.BeadType[btype].Radius);
+      if (bt->Radius != RADIUS) {
+        fprintf(fw, " radius %lf", bt->Radius);
       }
       if (mol != -1) {
         int mtype = System.Molecule[mol].Type,
@@ -118,7 +112,7 @@ void VtfWriteStruct(char file[], SYSTEM System) { //{{{
   } //}}}
   // print bonds //{{{
   putc('\n', fw);
-  for (int i = 0; i < System.Count.Molecule; i++) {
+  for (int i = 0; i < Count->Molecule; i++) {
     fprintf(fw, "# resid %d\n", i+1); // in VMD resid start with 1
     int mol_type = System.Molecule[i].Type;
     for (int j = 0; j < System.MoleculeType[mol_type].nBonds; j++) {
@@ -129,7 +123,6 @@ void VtfWriteStruct(char file[], SYSTEM System) { //{{{
   // close structure file
   fclose(fw);
 } //}}}
-
 void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
 FILE *fw = OpenFile(file_lmp, "w");
 fprintf(fw, "LAMMPS data filea via AnalysisTools v%s \
@@ -191,7 +184,6 @@ if (mass) {
     }
   }
 } //}}}
-PrintMoleculeType(Sys_print);
 // print counts //{{{
 fprintf(fw, "%10d atoms\n", Count_print->Bead);
 fprintf(fw, "%10d bonds\n", Count_print->Bond);
@@ -200,15 +192,35 @@ fprintf(fw, "%10d dihedrals\n", Count_print->Dihedral);
 fprintf(fw, "%10d impropers\n", Count_print->Improper);
 putc('\n', fw);
 fprintf(fw, "%10d atom types\n", Count_print->BeadType);
-fprintf(fw, "%10d bond types\n", Count_print->BondType);
-fprintf(fw, "%10d angle types\n", Count_print->AngleType);
-fprintf(fw, "%10d dihedral types\n", Count_print->DihedralType);
-fprintf(fw, "%10d improper types\n", Count_print->ImproperType);
+if (Count_print->Bond > 0 && Count_print->BondType == 0) {
+  fprintf(fw,  "       ???");
+} else {
+  fprintf(fw, "%10d", Count_print->BondType);
+}
+fprintf(fw, " bond types\n");
+if (Count_print->Angle > 0 && Count_print->AngleType == 0) {
+  fprintf(fw,  "       ???");
+} else {
+  fprintf(fw, "%10d", Count_print->AngleType);
+}
+fprintf(fw, " angle types\n");
+if (Count_print->Dihedral > 0 && Count_print->DihedralType == 0) {
+  fprintf(fw,  "       ???");
+} else {
+  fprintf(fw, "%10d", Count_print->DihedralType);
+}
+fprintf(fw, " dihedral types\n");
+if (Count_print->Improper > 0 && Count_print->ImproperType == 0) {
+  fprintf(fw,  "       ???");
+} else {
+  fprintf(fw, "%10d", Count_print->ImproperType);
+}
+fprintf(fw, " improper types\n");
 putc('\n', fw); //}}}
 // print box size //{{{
-fprintf(fw, "0 %lf xlo xhi\n", Sys_print.Box.Length.x);
-fprintf(fw, "0 %lf ylo yhi\n", Sys_print.Box.Length.y);
-fprintf(fw, "0 %lf zlo zhi\n", Sys_print.Box.Length.z);
+fprintf(fw, "0 %lf xlo xhi\n", Sys_print.Box.TriLength.x);
+fprintf(fw, "0 %lf ylo yhi\n", Sys_print.Box.TriLength.y);
+fprintf(fw, "0 %lf zlo zhi\n", Sys_print.Box.TriLength.z);
 if (System.Box.alpha != 90 ||
     System.Box.beta != 90 ||
     System.Box.gamma != 90) {
@@ -227,25 +239,49 @@ fprintf(fw, "\nPair Coeffs\n\n");
 for (int i = 0; i < Count_print->BeadType; i++) {
   fprintf(fw, "%5d ???\n", i+1);
 }
-fprintf(fw, "\nBond Coeffs\n\n");
-for (int i = 0; i < Count_print->BondType; i++) {
-  fprintf(fw, "%5d %lf %lf\n", i+1,
-          Sys_print.BondType[i].a/2, Sys_print.BondType[i].b);
+if (Count_print->Bond > 0) {
+  fprintf(fw, "\nBond Coeffs\n\n");
+  if (Count_print->BondType > 0) {
+    for (int i = 0; i < Count_print->BondType; i++) {
+      fprintf(fw, "%5d %lf %lf\n", i+1,
+              Sys_print.BondType[i].a/2, Sys_print.BondType[i].b);
+    }
+  } else {
+    fprintf(fw, "  ???\n");
+  }
 }
-fprintf(fw, "\nAngle Coeffs\n\n");
-for (int i = 0; i < Count_print->AngleType; i++) {
-  fprintf(fw, "%5d %lf %lf\n", i+1,
-          Sys_print.AngleType[i].a/2, Sys_print.AngleType[i].b);
+if (Count_print->Angle > 0) {
+  fprintf(fw, "\nAngle Coeffs\n\n");
+  if (Count_print->AngleType > 0) {
+    for (int i = 0; i < Count_print->AngleType; i++) {
+      fprintf(fw, "%5d %lf %lf\n", i+1,
+              Sys_print.AngleType[i].a/2, Sys_print.AngleType[i].b);
+    }
+  } else {
+    fprintf(fw, "  ???\n");
+  }
 }
-fprintf(fw, "\nDihedral Coeffs\n\n");
-for (int i = 0; i < Count_print->DihedralType; i++) {
-  fprintf(fw, "%5d %lf %lf\n", i+1,
-          Sys_print.DihedralType[i].a/2, Sys_print.DihedralType[i].b);
+if (Count_print->Dihedral > 0) {
+  fprintf(fw, "\nDihedral Coeffs\n\n");
+  if (Count_print->DihedralType > 0) {
+    for (int i = 0; i < Count_print->DihedralType; i++) {
+      fprintf(fw, "%5d %lf %lf\n", i+1,
+              Sys_print.DihedralType[i].a/2, Sys_print.DihedralType[i].b);
+    }
+  } else {
+    fprintf(fw, "  ???\n");
+  }
 }
-fprintf(fw, "\nImproper Coeffs\n\n");
-for (int i = 0; i < Count_print->ImproperType; i++) {
-  fprintf(fw, "%5d %lf %lf\n", i+1,
-          Sys_print.ImproperType[i].a/2, Sys_print.ImproperType[i].b);
+if (Count_print->Improper > 0) {
+  fprintf(fw, "\nImproper Coeffs\n\n");
+  if (Count_print->ImproperType > 0) {
+    for (int i = 0; i < Count_print->ImproperType; i++) {
+      fprintf(fw, "%5d %lf %lf\n", i+1,
+              Sys_print.ImproperType[i].a/2, Sys_print.ImproperType[i].b);
+    }
+  } else {
+    fprintf(fw, "  ???\n");
+  }
 } //}}}
 // print atoms //{{{
 fprintf(fw, "\nAtoms\n\n");
@@ -288,78 +324,105 @@ for (int i = 0; i < Count_print->BeadCoor; i++) {
   }
 } //}}}
 // print bonds //{{{
-fprintf(fw, "\nBonds\n\n");
-int count = 0;
-for (int i = 0; i < Count->Molecule; i++) {
-  int mtype = Sys_print.Molecule[i].Type;
-  MOLECULETYPE *mt_i = &System.MoleculeType[mtype];
-  for (int j = 0; j < mt_i->nBonds; j++) {
-    count++;
-    int *val = BondIndices(System, i, j);
-    if (System.Bead[val[0]].InTimestep &&
-        System.Bead[val[1]].InTimestep) {
-      fprintf(fw, "%7d %6d %5d %5d\n", count, mt_i->Bond[j][2]+1,
-              val[0]+1, val[1]+1);
+if (Count_print->Bond > 0) {
+  fprintf(fw, "\nBonds\n\n");
+  int count = 0;
+  for (int i = 0; i < Count->Molecule; i++) {
+    int mtype = Sys_print.Molecule[i].Type;
+    MOLECULETYPE *mt_i = &System.MoleculeType[mtype];
+    for (int j = 0; j < mt_i->nBonds; j++) {
+      count++;
+      int *val = BondIndices(System, i, j);
+      if (System.Bead[val[0]].InTimestep &&
+          System.Bead[val[1]].InTimestep) {
+        fprintf(fw, "%7d", count);
+        if (Count_print->BondType > 0) {
+          fprintf(fw, "%6d", mt_i->Bond[j][2]+1);
+        } else {
+          fprintf(fw, "   ???");
+        }
+        fprintf(fw, " %5d %5d\n", val[0]+1, val[1]+1);
+      }
     }
   }
-}
-//}}}
+} //}}}
 // print angles //{{{
-fprintf(fw, "\nAngles\n\n");
-count = 0;
-for (int i = 0; i < Count->Molecule; i++) {
-  int mtype = Sys_print.Molecule[i].Type;
-  MOLECULETYPE *mt_i = &System.MoleculeType[mtype];
-  for (int j = 0; j < mt_i->nAngles; j++) {
-    count++;
-    int *val = AngleIndices(System, i, j);
-    if (System.Bead[val[0]].InTimestep &&
-        System.Bead[val[1]].InTimestep &&
-        System.Bead[val[2]].InTimestep) {
-      fprintf(fw, "%7d %6d %5d %5d %5d\n", count, mt_i->Angle[j][3]+1,
-              val[0]+1, val[1]+1, val[2]+1);
+if (Count_print->Angle > 0) {
+  fprintf(fw, "\nAngles\n\n");
+  int count = 0;
+  for (int i = 0; i < Count->Molecule; i++) {
+    int mtype = Sys_print.Molecule[i].Type;
+    MOLECULETYPE *mt_i = &System.MoleculeType[mtype];
+    for (int j = 0; j < mt_i->nAngles; j++) {
+      count++;
+      int *val = AngleIndices(System, i, j);
+      if (System.Bead[val[0]].InTimestep &&
+          System.Bead[val[1]].InTimestep &&
+          System.Bead[val[2]].InTimestep) {
+        fprintf(fw, "%7d", count);
+        if (Count_print->AngleType > 0) {
+          fprintf(fw, "%6d", mt_i->Angle[j][3]+1);
+        } else {
+          fprintf(fw, "   ???");
+        }
+        fprintf(fw, " %5d %5d %5d\n", val[0]+1, val[1]+1, val[2]+1);
+      }
     }
   }
 }
 //}}}
 // print dihedrals //{{{
-fprintf(fw, "\nDihedrals\n\n");
-count = 0;
-for (int i = 0; i < Count->Molecule; i++) {
-  int mtype = Sys_print.Molecule[i].Type;
-  MOLECULETYPE *mt_i = &System.MoleculeType[mtype];
-  for (int j = 0; j < mt_i->nDihedrals; j++) {
-    count++;
-    int *val = DihedralIndices(System, i, j);
-    if (System.Bead[val[0]].InTimestep &&
-        System.Bead[val[1]].InTimestep &&
-        System.Bead[val[2]].InTimestep &&
-        System.Bead[val[3]].InTimestep) {
-      fprintf(fw, "%7d %6d %5d %5d %5d %5d\n", count, mt_i->Dihedral[j][4]+1,
-              val[0]+1, val[1]+1, val[2]+1, val[3]+1);
+if (Count_print->Dihedral > 0) {
+  fprintf(fw, "\nDihedrals\n\n");
+  int count = 0;
+  for (int i = 0; i < Count->Molecule; i++) {
+    int mtype = Sys_print.Molecule[i].Type;
+    MOLECULETYPE *mt_i = &System.MoleculeType[mtype];
+    for (int j = 0; j < mt_i->nDihedrals; j++) {
+      count++;
+      int *val = DihedralIndices(System, i, j);
+      if (System.Bead[val[0]].InTimestep &&
+          System.Bead[val[1]].InTimestep &&
+          System.Bead[val[2]].InTimestep &&
+          System.Bead[val[3]].InTimestep) {
+        fprintf(fw, "%7d", count);
+        if (Count_print->DihedralType > 0) {
+          fprintf(fw, "%6d", mt_i->Dihedral[j][4]+1);
+        } else {
+          fprintf(fw, "   ???");
+        }
+        fprintf(fw, " %5d %5d %5d %5d\n",
+                val[0]+1, val[1]+1, val[2]+1, val[3]+1);
+      }
     }
   }
-}
-//}}}
+} //}}}
 // print impropers //{{{
-fprintf(fw, "\nImpropers\n\n");
-count = 0;
-for (int i = 0; i < Count->Molecule; i++) {
-  int mtype = Sys_print.Molecule[i].Type;
-  MOLECULETYPE *mt_i = &System.MoleculeType[mtype];
-  for (int j = 0; j < mt_i->nImpropers; j++) {
-    count++;
-    int *val = ImproperIndices(System, i, j);
-    if (System.Bead[val[0]].InTimestep &&
-        System.Bead[val[1]].InTimestep &&
-        System.Bead[val[2]].InTimestep &&
-        System.Bead[val[3]].InTimestep) {
-      fprintf(fw, "%7d %6d %5d %5d %5d %5d\n", count, mt_i->Improper[j][4]+1,
-              val[0]+1, val[1]+1, val[2]+1, val[3]+1);
+if (Count_print->Improper > 0) {
+  fprintf(fw, "\nImpropers\n\n");
+  int count = 0;
+  for (int i = 0; i < Count->Molecule; i++) {
+    int mtype = Sys_print.Molecule[i].Type;
+    MOLECULETYPE *mt_i = &System.MoleculeType[mtype];
+    for (int j = 0; j < mt_i->nImpropers; j++) {
+      count++;
+      int *val = ImproperIndices(System, i, j);
+      if (System.Bead[val[0]].InTimestep &&
+          System.Bead[val[1]].InTimestep &&
+          System.Bead[val[2]].InTimestep &&
+          System.Bead[val[3]].InTimestep) {
+        fprintf(fw, "%7d", count);
+        if (Count_print->DihedralType > 0) {
+          fprintf(fw, "%6d", mt_i->Dihedral[j][4]+1);
+        } else {
+          fprintf(fw, "   ???");
+        }
+        fprintf(fw, " %5d %5d %5d %5d\n",
+                val[0]+1, val[1]+1, val[2]+1, val[3]+1);
+      }
     }
   }
-}
-//}}}
+} //}}}
 FreeSystem(&Sys_print);
 fclose(fw);
 } //}}}
@@ -539,13 +602,6 @@ void WriteField(char *field, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
     fprintf(fw, "finish\n");
   }
   fclose(fw);
-} //}}}
-
-void PrintByline(FILE *ptr, int argc, char *argv[]) { //{{{
-  fprintf(ptr, "# Created by AnalysisTools v%s ", VERSION);
-  fprintf(ptr, " (https://github.com/KaGaSi/AnalysisTools)\n");
-  fprintf(ptr, "# command: ");
-  PrintCommand(ptr, argc, argv);
 } //}}}
 
 #if 0 //{{{
