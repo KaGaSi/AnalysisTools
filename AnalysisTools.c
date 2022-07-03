@@ -4,741 +4,7 @@
 */
 // TODO add detailed switch FindBeadType/FindMoleculeType (check not just name)
 
-void CheckSystem(SYSTEM System, char file[]) { //{{{
-  COUNT *Count = &System.Count;
-  if (Count->Molecule > 0 && Count->HighestResid < Count->Molecule) { //{{{
-      strcpy(ERROR_MSG, "Count.HighestResid must be at least Count.Molecules");
-      PrintError();
-      ErrorPrintFile(file, "\0");
-      fprintf(stderr, "%s, Count.HighestResid = %s%d", ErrRed(),
-              ErrYellow(), Count->HighestResid);
-      fprintf(stderr, "%s, Count.Molecule = %s%d%s", ErrRed(),
-              ErrYellow(), Count->Molecule, ErrColourReset());
-  } //}}}
-  // total number of beads //{{{
-  // i) just unbonded+bonded
-  int count = Count->Unbonded + Count->Bonded;
-  if (count != Count->Bead) {
-    strcpy(ERROR_MSG, "unbonded and bonded beads do not add up properly!");
-    PrintError();
-    ErrorPrintFile(file, "\0");
-    fprintf(stderr, "%s, unbonded: %s%d%s",
-            ErrRed(), ErrYellow(), Count->Unbonded, ErrRed());
-    fprintf(stderr, ", bonded: %s%d%s",
-            ErrYellow(), Count->Bonded, ErrRed());
-    fprintf(stderr, ", sum should be: %s%d%s\n",
-            ErrYellow(), Count->Bead, ErrColourReset());
-  }
-  // ii) from BeadType
-  count = 0;
-  for (int i = 0; i < Count->BeadType; i++) {
-    count += System.BeadType[i].Number;
-  }
-  if (count != Count->Bead) {
-    strcpy(ERROR_MSG, "number of beads in bead types do not add up properly!");
-    PrintError();
-    ErrorPrintFile(file, "\0");
-    fprintf(stderr, "%s, sum should be: %s%d%s",
-            ErrRed(), ErrYellow(), Count->Bead, ErrRed());
-    fprintf(stderr, " but is: %s%d%s\n",
-            ErrYellow(), count, ErrRed());
-    fprintf(stderr, "Number | Name%s\n", ErrYellow());
-    for (int i = 0; i < Count->BeadType; i++) {
-      fprintf(stderr, "%6d %s|%s %s\n", System.BeadType[i].Number, ErrRed(),
-              ErrYellow(), System.BeadType[i].Name);
-    }
-    fputs(ErrColourReset(), stderr);
-  } //}}}
-  // BeadCoor array //{{{
-  for (int i = 0; i < Count->BeadCoor; i++) {
-    if (System.BeadCoor[i] < 0 || System.BeadCoor[i] >= Count->Bead) {
-      strcpy(ERROR_MSG, "incorrect index in BeadCoor array");
-      PrintError();
-      ErrorPrintFile(file, "\0");
-      fprintf(stderr, "%s, BeadCoor[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
-              i, ErrRed(), ErrYellow(), System.BeadCoor[i], ErrColourReset());
-      break;
-    }
-  } //}}}
-  // Bonded array //{{{
-  for (int i = 0; i < Count->Bonded; i++) {
-    if (System.Bonded[i] < 0 || System.Bonded[i] >= Count->Bead) {
-      strcpy(ERROR_MSG, "incorrect index in Bonded array");
-      PrintError();
-      ErrorPrintFile(file, "\0");
-      fprintf(stderr, "%s, Bonded[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
-              i, ErrRed(), ErrYellow(), System.Bonded[i], ErrColourReset());
-      break;
-    }
-  } //}}}
-  // BondedCoor array //{{{
-  for (int i = 0; i < Count->BondedCoor; i++) {
-    if (System.BondedCoor[i] < 0 || System.BondedCoor[i] >= Count->Bead) {
-      strcpy(ERROR_MSG, "incorrect index in BondedCoor array");
-      PrintError();
-      ErrorPrintFile(file, "\0");
-      fprintf(stderr, "%s, BondedCoor[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
-              i, ErrRed(), ErrYellow(), System.BondedCoor[i], ErrColourReset());
-      break;
-    }
-  } //}}}
-  // Unbonded array //{{{
-  for (int i = 0; i < Count->Unbonded; i++) {
-    if (System.Unbonded[i] < 0 || System.Unbonded[i] >= Count->Bead) {
-      strcpy(ERROR_MSG, "incorrect index in Unbonded array");
-      PrintError();
-      ErrorPrintFile(file, "\0");
-      fprintf(stderr, "%s, Unbonded[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
-              i, ErrRed(), ErrYellow(), System.Unbonded[i], ErrColourReset());
-      break;
-    }
-  } //}}}
-  // UnbondedCoor array //{{{
-  for (int i = 0; i < Count->UnbondedCoor; i++) {
-    if (System.UnbondedCoor[i] < 0 || System.UnbondedCoor[i] >= Count->Bead) {
-      strcpy(ERROR_MSG, "incorrect index in UnbondedCoor array");
-      PrintError();
-      ErrorPrintFile(file, "\0");
-      fprintf(stderr, "%s, UnbondedCoor[%s%d%s] = %s%d%s\n",
-              ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
-              System.UnbondedCoor[i], ErrColourReset());
-      break;
-    }
-  } //}}}
-  // Index_mol array //{{{
-  for (int i = 0; i < Count->HighestResid; i++) {
-    if (System.Index_mol[i] < -1 || System.Index_mol[i] >= Count->Molecule) {
-      strcpy(ERROR_MSG, "incorrect index in Index_mol array");
-      PrintError();
-      ErrorPrintFile(file, "\0");
-      fprintf(stderr, "%s, Index_mol[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
-              i, ErrRed(), ErrYellow(), System.Index_mol[i], ErrColourReset());
-      break;
-    }
-  } //}}}
-  // BeadType[].Index array //{{{
-  for (int i = 0; i < Count->BeadType; i++) {
-    BEADTYPE *bt_i = &System.BeadType[i];
-    for (int j = 0; j < bt_i->Number; j++) {
-      if (bt_i->Index[j] < 0 || bt_i->Index[j] >= Count->Bead) {
-        strcpy(ERROR_MSG, "incorrect index in BeadType[].Index array");
-        PrintError();
-        ErrorPrintFile(file, "\0");
-        fprintf(stderr, "%s, BeadType[%s%d%s].Index[%s%d%s] = %s%d%s\n",
-                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
-                ErrYellow(), bt_i->Index[j], ErrColourReset());
-        break;
-      }
-    }
-  } //}}}
-  // MoleculeType[]. arrays //{{{
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    MOLECULETYPE *mt_i = &System.MoleculeType[i];
-    // Index array //{{{
-    for (int j = 0; j < mt_i->Number; j++) {
-      if (mt_i->Index[j] < 0 || mt_i->Index[j] >= Count->Molecule) {
-        strcpy(ERROR_MSG, "incorrect index in MoleculeType[].Index array");
-        PrintError();
-        ErrorPrintFile(file, "\0");
-        fprintf(stderr, "%s, MoleculeType[%s%d%s].Index[%s%d%s] = %s%d%s\n",
-                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
-                ErrYellow(), mt_i->Index[j], ErrColourReset());
-        break;
-      }
-    } //}}}
-    // Bead array //{{{
-    for (int j = 0; j < mt_i->nBeads; j++) {
-      if (mt_i->Bead[j] < 0 || mt_i->Bead[j] >= Count->BeadType) {
-        strcpy(ERROR_MSG, "incorrect index in Bead array");
-        PrintError();
-        ErrorPrintFile(file, "\0");
-        fprintf(stderr, "%s, MoleculeType[%s%d%s].Bead[%s%d%s] = %s%d%s\n",
-                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
-                ErrYellow(), mt_i->Bead[j], ErrColourReset());
-        break;
-      }
-    } //}}}
-    // Bond array //{{{
-    for (int j = 0; j < mt_i->nBonds; j++) {
-      if (mt_i->Bond[j][0] < 0 || mt_i->Bond[j][0] >= mt_i->nBeads ||
-          mt_i->Bond[j][1] < 0 || mt_i->Bond[j][1] >= mt_i->nBeads) {
-        strcpy(ERROR_MSG, "incorrect index in Bond array");
-        PrintError();
-        ErrorPrintFile(file, "\0");
-        fprintf(stderr, "%s, MoleculeType[%s%d%s].Bond[0..2] = %s%d %d%s\n",
-                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
-                mt_i->Bond[j][0], mt_i->Bond[j][1], ErrColourReset());
-        break;
-      }
-      if (mt_i->Bond[j][2] < -1 || mt_i->Bond[j][2] >= Count->BondType) {
-        strcpy(ERROR_MSG, "incorrect bond type in Bond array");
-        PrintError();
-        ErrorPrintFile(file, "\0");
-        fprintf(stderr, "%s, MoleculeType[%s%d%s].Bond[2] = %s%d%s\n",
-                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
-                mt_i->Bond[j][2], ErrColourReset());
-        break;
-      }
-    } //}}}
-    // Angle array //{{{
-    for (int j = 0; j < mt_i->nAngles; j++) {
-      if (mt_i->Angle[j][0] < 0 || mt_i->Angle[j][0] >= mt_i->nBeads ||
-          mt_i->Angle[j][1] < 0 || mt_i->Angle[j][1] >= mt_i->nBeads ||
-          mt_i->Angle[j][2] < 0 || mt_i->Angle[j][2] >= mt_i->nBeads) {
-        strcpy(ERROR_MSG, "incorrect index in Angle array");
-        PrintError();
-        ErrorPrintFile(file, "\0");
-        fprintf(stderr, "%s, MoleculeType[%s%d%s].Angle[0..2] = %s%d %d %d%s\n",
-                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
-                mt_i->Angle[j][0], mt_i->Angle[j][1], mt_i->Angle[j][2],
-                ErrColourReset());
-        break;
-      }
-      if (mt_i->Angle[j][3] < -1 || mt_i->Angle[j][3] >= Count->AngleType) {
-        strcpy(ERROR_MSG, "incorrect angle type in Angle array");
-        PrintError();
-        ErrorPrintFile(file, "\0");
-        fprintf(stderr, "%s, MoleculeType[%s%d%s].Angle[3] = %s%d%s\n",
-                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
-                mt_i->Angle[j][3], ErrColourReset());
-        break;
-      }
-    } //}}}
-    // Dihedral array //{{{
-    for (int j = 0; j < mt_i->nDihedrals; j++) {
-      if (mt_i->Dihedral[j][0] < 0 || mt_i->Dihedral[j][0] >= mt_i->nBeads ||
-          mt_i->Dihedral[j][1] < 0 || mt_i->Dihedral[j][1] >= mt_i->nBeads ||
-          mt_i->Dihedral[j][2] < 0 || mt_i->Dihedral[j][2] >= mt_i->nBeads ||
-          mt_i->Dihedral[j][3] < 0 || mt_i->Dihedral[j][3] >= mt_i->nBeads) {
-        strcpy(ERROR_MSG, "incorrect index in Dihedral array");
-        PrintError();
-        ErrorPrintFile(file, "\0");
-        fprintf(stderr, "%s, MoleculeType[%s%d%s].Dihedral[0..3] = %s",
-                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow());
-        fprintf(stderr, "%d %d %d %d%s\n",
-                mt_i->Dihedral[j][0], mt_i->Dihedral[j][1],
-                mt_i->Dihedral[j][2], mt_i->Dihedral[j][3], ErrColourReset());
-        break;
-      }
-      if (mt_i->Dihedral[j][4] < -1 ||
-          mt_i->Dihedral[j][4] >= Count->DihedralType) {
-        strcpy(ERROR_MSG, "incorrect dihedral type in Dihedral array");
-        PrintError();
-        ErrorPrintFile(file, "\0");
-        fprintf(stderr, "%s, MoleculeType[%s%d%s].Dihedral[4] = %s%d%s\n",
-                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
-                mt_i->Dihedral[j][4], ErrColourReset());
-        break;
-      }
-    } //}}}
-    // Improper array //{{{
-    for (int j = 0; j < mt_i->nImpropers; j++) {
-      if (mt_i->Improper[j][0] < 0 || mt_i->Improper[j][0] >= mt_i->nBeads ||
-          mt_i->Improper[j][1] < 0 || mt_i->Improper[j][1] >= mt_i->nBeads ||
-          mt_i->Improper[j][2] < 0 || mt_i->Improper[j][2] >= mt_i->nBeads ||
-          mt_i->Improper[j][3] < 0 || mt_i->Improper[j][3] >= mt_i->nBeads) {
-        strcpy(ERROR_MSG, "incorrect index in Improper array");
-        PrintError();
-        ErrorPrintFile(file, "\0");
-        fprintf(stderr, "%s, MoleculeType[%s%d%s].Improper[0..3] = %s",
-                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow());
-        fprintf(stderr, "%d %d %d %d%s\n",
-                mt_i->Improper[j][0], mt_i->Improper[j][1],
-                mt_i->Improper[j][2], mt_i->Improper[j][3], ErrColourReset());
-        break;
-      }
-      if (mt_i->Improper[j][4] < -1 ||
-          mt_i->Improper[j][4] >= Count->ImproperType) {
-        strcpy(ERROR_MSG, "incorrect improper type in Improper array");
-        PrintError();
-        ErrorPrintFile(file, "\0");
-        fprintf(stderr, "%s, MoleculeType[%s%d%s].Improper[4] = %s%d%s\n",
-                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
-                mt_i->Improper[j][4], ErrColourReset());
-        break;
-      }
-    } //}}}
-    // BType array //{{{
-    for (int j = 0; j < mt_i->nBTypes; j++) {
-      if (mt_i->BType[j] < 0 || mt_i->BType[j] >= Count->BeadType) {
-        strcpy(ERROR_MSG, "incorrect index in BType array");
-        PrintError();
-        ErrorPrintFile(file, "\0");
-        fprintf(stderr, "%s, MoleculeType[%s%d%s].BType[%s%d%s] = %s%d%s\n",
-                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
-                ErrYellow(), mt_i->BType[j], ErrColourReset());
-        break;
-      }
-    } //}}}
-  } //}}}
-  // bead types & Bead[].Molecule //{{{
-  for (int i = 0; i < Count->Bead; i++) {
-    int type = System.Bead[i].Type;
-    if (type < 0 || type >= Count->BeadType) {
-      strcpy(ERROR_MSG, "incorrect bead type for a bead");
-      PrintError();
-      ErrorPrintFile(file, "\0");
-      fprintf(stderr, "%s, Bead[%s%d%s].Type = %s%d%s\n", ErrRed(), ErrYellow(),
-              i, ErrRed(), ErrYellow(), type, ErrColourReset());
-      break;
-    }
-    int mol = System.Bead[i].Molecule;
-    if (mol < -1 || mol >= Count->Molecule) {
-      strcpy(ERROR_MSG, "incorrect molecule index for a bead");
-      PrintError();
-      ErrorPrintFile(file, "\0");
-      fprintf(stderr, "%s, Bead[%s%d%s].Molecule = %s%d%s\n", ErrRed(),
-              ErrYellow(), i, ErrRed(), ErrYellow(), mol, ErrColourReset());
-      break;
-    }
-  } //}}}
-  // molecule types & Molecule[].Bead & Index arrays //{{{
-  int *test = calloc(Count->HighestResid+1, sizeof *test);
-  for (int i = 0; i <= Count->HighestResid; i++) {
-    test[i] = -1;
-  }
-  for (int i = 0; i < Count->Molecule; i++) {
-    MOLECULE *mol_i = &System.Molecule[i];
-    int type = mol_i->Type;
-    if (type < 0 || type >= Count->MoleculeType) {
-      strcpy(ERROR_MSG, "incorrect molecule type for a molecule");
-      PrintError();
-      ErrorPrintFile(file, "\0");
-      fprintf(stderr, "%s, Molecule[%s%d%s].Type = %s%d%s\n", ErrRed(),
-              ErrYellow(), i, ErrRed(), ErrYellow(), type, ErrColourReset());
-      break;
-    }
-    for (int j = 0; j < System.MoleculeType[type].nBeads; j++) {
-      if (mol_i->Bead[j] < 0 || mol_i->Bead[j] >= Count->Bead) {
-        strcpy(ERROR_MSG, "incorrect index in Bead array");
-        PrintError();
-        ErrorPrintFile(file, "\0");
-        fprintf(stderr, "%s, Molecule[%s%d%s].Bead[%s%d%s] = %s%d%s\n",
-                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
-                ErrYellow(), mol_i->Bead[j], ErrColourReset());
-        break;
-      }
-    }
-    if (test[mol_i->Index] > -1) {
-      strcpy(ERROR_MSG, "same molecule index with multiple molecules");
-      PrintError();
-      ErrorPrintFile(file, "\0");
-      fprintf(stderr, "%s, index %s%d%s with molecuces %s%d %d%s\n",
-              ErrRed(), ErrYellow(), mol_i->Index, ErrRed(), ErrYellow(),
-              test[mol_i->Index], i, ErrColourReset());
-      break;
-    }
-    test[mol_i->Index] = i;
-  }
-  free(test); //}}}
-} //}}}
-
-int * BondIndices(SYSTEM System, int mol, int bond) { //{{{
-  static int index[4]; // first are 'real' ids, then the intramolecular ones
-  int n = 2,
-      type = System.Molecule[mol].Type;
-  // intramolecular id
-  for (int i = 0; i < n; i++) {
-    index[i+n] = System.MoleculeType[type].Bond[bond][i];
-  }
-  // error if wrong intramolecular id //{{{
-  bool err = false;
-  for (int i = 0; i < n; i++) {
-    if (index[i+n] < 0 || index[i+n] >= System.MoleculeType[type].nBeads) {
-      err = true;
-      break;
-    }
-  }
-  if (err) {
-    strcpy(ERROR_MSG, "wrong index in a bond; should never happen!");
-    PrintError();
-    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s with %s%d%s beads),",
-            ErrRed(), ErrYellow(), mol, ErrRed(), ErrYellow(),
-            System.MoleculeType[type].Name, ErrRed(), ErrYellow(),
-            System.MoleculeType[type].nBeads, ErrRed());
-    fprintf(stderr, " intramolecular indices in bond %s%d%s:%s",
-            ErrYellow(), bond, ErrRed(), ErrYellow());
-    for (int i = 0; i < n; i++) {
-      fprintf(stderr, " %d", index[i+n]);
-    }
-    fprintf(stderr, "%s\n", ErrColourReset());
-  } //}}}
-  for (int i = 0; i < n; i++) {
-    index[i] = System.Molecule[mol].Bead[index[i+n]];
-  }
-  // error if wrong 'true' id //{{{
-  err = false;
-  for (int i = 0; i < n; i++) {
-    if (index[i] < 0 || index[i] >= System.Count.Bead) {
-      err = true;
-      break;
-    }
-  }
-  if (err) {
-    strcpy(ERROR_MSG, "wrong index in a bond; should never happen!");
-    PrintError();
-    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s),",
-            ErrRed(), ErrYellow(), mol, ErrRed(), ErrYellow(),
-            System.MoleculeType[type].Name, ErrRed());
-    fprintf(stderr, " indices in bond %s%d%s:%s",
-            ErrYellow(), bond, ErrRed(), ErrYellow());
-    for (int i = 0; i < n; i++) {
-      fprintf(stderr, " %d", index[i]);
-    }
-    fprintf(stderr, " %s(%s%d%s beads in the system)%s\n", ErrRed(),
-            ErrYellow(), System.Count.Bead, ErrRed(), ErrColourReset());
-  } //}}}
-  return index;
-} //}}}
-int * AngleIndices(SYSTEM System, int mol, int angle) { //{{{
-  static int index[6]; // first are 'real' ids, then the intramolecular ones
-  int n = 3,
-      type = System.Molecule[mol].Type;
-  // intramolecular is
-  for (int i = 0; i < n; i++) {
-    index[i+n] = System.MoleculeType[type].Angle[angle][i];
-  }
-  // error if wrong intramolecular id //{{{
-  bool err = false;
-  for (int i = 0; i < n; i++) {
-    if (index[i+n] < 0 || index[i+n] >= System.MoleculeType[type].nBeads) {
-      err = true;
-      break;
-    }
-  }
-  if (err) {
-    strcpy(ERROR_MSG, "wrong index in an angle; should never happen!");
-    PrintError();
-    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s with %s%d%s beads),",
-            ErrRed(), ErrYellow(), mol, ErrRed(), ErrYellow(),
-            System.MoleculeType[type].Name, ErrRed(), ErrYellow(),
-            System.MoleculeType[type].nBeads, ErrRed());
-    fprintf(stderr, " intramolecular indices in angle %s%d%s:%s",
-            ErrYellow(), angle, ErrRed(), ErrYellow());
-    for (int i = 0; i < n; i++) {
-      fprintf(stderr, " %d", index[i+n]);
-    }
-    fprintf(stderr, "%s\n", ErrColourReset());
-  } //}}}
-  for (int i = 0; i < n; i++) {
-    index[i] = System.Molecule[mol].Bead[index[i+n]];
-  }
-  // error if wrong 'true' id //{{{
-  err = false;
-  for (int i = 0; i < n; i++) {
-    if (index[i] < 0 || index[i] >= System.Count.Bead) {
-      err = true;
-      break;
-    }
-  }
-  if (err) {
-    strcpy(ERROR_MSG, "wrong index in an angle; should never happen!");
-    PrintError();
-    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s),", ErrRed(), ErrYellow(), mol,
-            ErrRed(), ErrYellow(), System.MoleculeType[type].Name, ErrRed());
-    fprintf(stderr, " indices in angle %s%d%s:%s",
-            ErrYellow(), angle, ErrRed(), ErrYellow());
-    for (int i = 0; i < n; i++) {
-      fprintf(stderr, " %d", index[i]);
-    }
-    fprintf(stderr, " %s(%s%d%s beads in the system)%s\n", ErrRed(),
-            ErrYellow(), System.Count.Bead, ErrRed(), ErrColourReset());
-  } //}}}
-  return index;
-} //}}}
-int * DihedralIndices(SYSTEM System, int mol, int dihed) { //{{{
-  static int index[8]; // first are 'real' ids, then the intramolecular ones
-  int n = 4,
-      type = System.Molecule[mol].Type;
-  // intramolecular is
-  for (int i = 0; i < n; i++) {
-    index[i+n] = System.MoleculeType[type].Dihedral[dihed][i];
-  }
-  // error if wrong intramolecular id //{{{
-  bool err = false;
-  for (int i = 0; i < n; i++) {
-    if (index[i+n] < 0 || index[i+n] >= System.MoleculeType[type].nBeads) {
-      err = true;
-      break;
-    }
-  }
-  if (err) {
-    strcpy(ERROR_MSG, "wrong index in an dihedral; should never happen!");
-    PrintError();
-    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s with %s%d%s beads),",
-            ErrRed(), ErrYellow(), mol, ErrRed(), ErrYellow(),
-            System.MoleculeType[type].Name, ErrRed(), ErrYellow(),
-            System.MoleculeType[type].nBeads, ErrRed());
-    fprintf(stderr, " intramolecular indices in dihedral %s%d%s:%s",
-            ErrYellow(), dihed, ErrRed(), ErrYellow());
-    for (int i = 0; i < n; i++) {
-      fprintf(stderr, " %d", index[i+n]);
-    }
-    fprintf(stderr, "%s\n", ErrColourReset());
-  } //}}}
-  for (int i = 0; i < n; i++) {
-    index[i] = System.Molecule[mol].Bead[index[i+n]];
-  }
-  // error if wrong 'true' id //{{{
-  err = false;
-  for (int i = 0; i < n; i++) {
-    if (index[i] < 0 || index[i] >= System.Count.Bead) {
-      err = true;
-      break;
-    }
-  }
-  if (err) {
-    strcpy(ERROR_MSG, "wrong index in a dihedral; should never happen!");
-    PrintError();
-    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s),", ErrRed(), ErrYellow(), mol,
-            ErrRed(), ErrYellow(), System.MoleculeType[type].Name, ErrRed());
-    fprintf(stderr, " indices in dihedral %s%d%s:%s",
-            ErrYellow(), dihed, ErrRed(), ErrYellow());
-    for (int i = 0; i < n; i++) {
-      fprintf(stderr, " %d", index[i]);
-    }
-    fprintf(stderr, " %s(%s%d%s beads in the system)%s\n", ErrRed(),
-            ErrYellow(), System.Count.Bead, ErrRed(), ErrColourReset());
-  } //}}}
-  return index;
-} //}}}
-int * ImproperIndices(SYSTEM System, int mol, int dihed) { //{{{
-  static int index[8]; // first are 'real' ids, then the intramolecular ones
-  int n = 4,
-      type = System.Molecule[mol].Type;
-  // intramolecular is
-  for (int i = 0; i < n; i++) {
-    index[i+n] = System.MoleculeType[type].Improper[dihed][i];
-  }
-  // error if wrong intramolecular id //{{{
-  bool err = false;
-  for (int i = 0; i < n; i++) {
-    if (index[i+n] < 0 || index[i+n] >= System.MoleculeType[type].nBeads) {
-      err = true;
-      break;
-    }
-  }
-  if (err) {
-    strcpy(ERROR_MSG, "wrong index in an dihedral; should never happen!");
-    PrintError();
-    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s with %s%d%s beads),",
-            ErrRed(), ErrYellow(), mol, ErrRed(), ErrYellow(),
-            System.MoleculeType[type].Name, ErrRed(), ErrYellow(),
-            System.MoleculeType[type].nBeads, ErrRed());
-    fprintf(stderr, " intramolecular indices in dihedral %s%d%s:%s",
-            ErrYellow(), dihed, ErrRed(), ErrYellow());
-    for (int i = 0; i < n; i++) {
-      fprintf(stderr, " %d", index[i+n]);
-    }
-    fprintf(stderr, "%s\n", ErrColourReset());
-  } //}}}
-  for (int i = 0; i < n; i++) {
-    index[i] = System.Molecule[mol].Bead[index[i+n]];
-  }
-  // error if wrong 'true' id //{{{
-  err = false;
-  for (int i = 0; i < n; i++) {
-    if (index[i] < 0 || index[i] >= System.Count.Bead) {
-      err = true;
-      break;
-    }
-  }
-  if (err) {
-    strcpy(ERROR_MSG, "wrong index in a dihedral; should never happen!");
-    PrintError();
-    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s),", ErrRed(), ErrYellow(), mol,
-            ErrRed(), ErrYellow(), System.MoleculeType[type].Name, ErrRed());
-    fprintf(stderr, " indices in dihedral %s%d%s:%s",
-            ErrYellow(), dihed, ErrRed(), ErrYellow());
-    for (int i = 0; i < n; i++) {
-      fprintf(stderr, " %d", index[i]);
-    }
-    fprintf(stderr, " %s(%s%d%s beads in the system)%s\n", ErrRed(),
-            ErrYellow(), System.Count.Bead, ErrRed(), ErrColourReset());
-  } //}}}
-  return index;
-} //}}}
-
-void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) { //{{{
-  COUNT *Count_orig = &Sys_orig->Count,
-        *Count_add = &Sys_add.Count;
-  COUNT count_old = *Count_orig;
-  // copy bond/angle/dihedral/improper types //{{{
-  if (Count_add->BondType > 0) {
-    Count_orig->BondType += Count_add->BondType;
-    Sys_orig->BondType = realloc(Sys_orig->BondType,
-                                  sizeof (PARAMS) * Count_orig->BondType);
-    memcpy(Sys_orig->BondType + count_old.BondType, Sys_add.BondType,
-           sizeof (PARAMS) * Count_add->BondType);
-  }
-  if (Count_add->AngleType > 0) {
-    Count_orig->AngleType += Count_add->AngleType;
-    Sys_orig->AngleType = realloc(Sys_orig->AngleType,
-                                  sizeof (PARAMS) * Count_orig->AngleType);
-    memcpy(Sys_orig->AngleType + count_old.AngleType, Sys_add.AngleType,
-           sizeof (PARAMS) * Count_add->AngleType);
-  }
-  if (Count_add->DihedralType > 0) {
-    Count_orig->DihedralType += Count_add->DihedralType;
-    Sys_orig->DihedralType = realloc(Sys_orig->DihedralType, sizeof (PARAMS) *
-                                     Count_orig->DihedralType);
-    memcpy(Sys_orig->DihedralType + count_old.DihedralType,
-           Sys_add.DihedralType, sizeof (PARAMS) * Count_add->DihedralType);
-  }
-  if (Count_add->ImproperType > 0) {
-    Count_orig->ImproperType += Count_add->ImproperType;
-    Sys_orig->ImproperType = realloc(Sys_orig->ImproperType, sizeof (PARAMS) *
-                                     Count_orig->ImproperType);
-    memcpy(Sys_orig->ImproperType + count_old.ImproperType,
-           Sys_add.ImproperType, sizeof (PARAMS) * Count_add->ImproperType);
-  } //}}}
-  for (int i = 0; i < Count_orig->MoleculeType; i++) {
-    MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
-    int type = FindMoleculeType(mt_orig->Name, Sys_add);
-    if (type != -1) {
-      MOLECULETYPE *mt_add = &Sys_add.MoleculeType[type];
-      // add bonds, if there are none in the original molecule type... //{{{
-      if (mt_add->nBonds > 0 && mt_orig->nBonds == 0) {
-        mt_orig->nBonds = mt_add->nBonds;
-        mt_orig->Bond = malloc(sizeof *mt_orig->Bond * mt_orig->nBonds);
-        memcpy(mt_orig->Bond, mt_add->Bond,
-               sizeof *mt_add->Bond * mt_add->nBonds); //}}}
-      // ...or just add bond types where missing //{{{
-      } else if (Count_add->BondType > 0) {
-        for (int j = 0; j < mt_orig->nBonds; j++) {
-          for (int k = 0; k < mt_add->nBonds; k++) {
-            if (mt_orig->Bond[j][0] == mt_add->Bond[k][0] &&
-                mt_orig->Bond[j][1] == mt_add->Bond[k][1] &&
-                mt_orig->Bond[j][2] == -1 && mt_add->Bond[k][2] != -1) {
-                mt_orig->Bond[j][2] = mt_add->Bond[k][2] + count_old.BondType;
-            }
-          }
-        }
-      } //}}}
-      // add angles, if there are none in the original molecule type... //{{{
-      if (mt_add->nAngles > 0 && mt_orig->nAngles == 0) {
-        mt_orig->nAngles = mt_add->nAngles;
-        mt_orig->Angle = malloc(sizeof *mt_orig->Angle * mt_orig->nAngles);
-        memcpy(mt_orig->Angle, mt_add->Angle,
-               sizeof *mt_add->Angle * mt_add->nAngles); //}}}
-      // ...or just add angle types where missing //{{{
-      } else if (Count_add->AngleType > 0) {
-        for (int j = 0; j < mt_orig->nAngles; j++) {
-          for (int k = 0; k < mt_orig->nAngles; k++) {
-            if (mt_orig->Angle[j][0] == mt_add->Angle[k][0] &&
-                mt_orig->Angle[j][1] == mt_add->Angle[k][1] &&
-                mt_orig->Angle[j][2] == mt_add->Angle[k][2] &&
-                mt_orig->Angle[j][3] == -1 && mt_add->Angle[k][3] != -1) {
-              mt_orig->Angle[j][3] = mt_add->Angle[k][3] + count_old.AngleType;
-            }
-          }
-        }
-      } //}}}
-      // add dihedrals, if there are none in the original molecule type... //{{{
-      if (mt_add->nDihedrals > 0 && mt_orig->nDihedrals == 0) {
-        mt_orig->nDihedrals = mt_add->nDihedrals;
-        mt_orig->Dihedral = malloc(sizeof *mt_orig->Dihedral *
-                                   mt_orig->nDihedrals);
-        memcpy(mt_orig->Dihedral, mt_add->Dihedral,
-               sizeof *mt_add->Dihedral * mt_add->nDihedrals); //}}}
-      // ...or just add dihedral types where missing //{{{
-      } else if (Count_add->DihedralType > 0) {
-        for (int j = 0; j < mt_orig->nDihedrals; j++) {
-          for (int k = 0; k < mt_orig->nDihedrals; k++) {
-            if (mt_orig->Dihedral[j][0] == mt_add->Dihedral[k][0] &&
-                mt_orig->Dihedral[j][1] == mt_add->Dihedral[k][1] &&
-                mt_orig->Dihedral[j][2] == mt_add->Dihedral[k][2] &&
-                mt_orig->Dihedral[j][2] == mt_add->Dihedral[k][2] &&
-                mt_orig->Dihedral[j][4] == -1 && mt_add->Dihedral[j][4] != -1) {
-            mt_orig->Dihedral[j][4] = mt_add->Dihedral[j][4] +
-                                      count_old.DihedralType;
-            }
-          }
-        }
-      } //}}}
-      // add impropers, if there are none in the original molecule type... //{{{
-      if (mt_add->nImpropers > 0 && mt_orig->nImpropers == 0) {
-        mt_orig->nImpropers = mt_add->nImpropers;
-        mt_orig->Improper = malloc(sizeof *mt_orig->Improper *
-                                   mt_orig->nImpropers);
-        memcpy(mt_orig->Improper, mt_add->Improper,
-               sizeof *mt_add->Improper * mt_add->nImpropers); //}}}
-      // ...or just add improper types where missing //{{{
-      } else if (Count_add->ImproperType > 0) {
-        for (int j = 0; j < mt_orig->nImpropers; j++) {
-          for (int k = 0; k < mt_orig->nImpropers; k++) {
-            if (mt_orig->Improper[j][0] == mt_add->Improper[k][0] &&
-                mt_orig->Improper[j][1] == mt_add->Improper[k][1] &&
-                mt_orig->Improper[j][2] == mt_add->Improper[k][2] &&
-                mt_orig->Improper[j][2] == mt_add->Improper[k][2] &&
-                mt_orig->Improper[j][4] == -1 && mt_add->Improper[j][4] != -1) {
-              mt_orig->Improper[j][4] = mt_add->Improper[j][4] +
-                                        count_old.ImproperType;
-            }
-          }
-        }
-      } //}}}
-    }
-  }
-  // should the original bead types be replaced with 'new' bead types? //{{{
-  if (beads) {
-    // append bead types from Sys_add to Sys_orig
-    Count_orig->BeadType += Count_add->BeadType;
-    Sys_orig->BeadType = realloc(Sys_orig->BeadType, sizeof (BEADTYPE) *
-                                 Count_orig->BeadType);
-    for (int i = 0; i < Count_add->BeadType; i++) {
-      int new = i + count_old.BeadType;
-      Sys_orig->BeadType[new] = Sys_add.BeadType[i];
-      Sys_orig->BeadType[new].Number = 0;
-    }
-    // change bead types in MoleculeType[].Bead
-    for (int i = 0; i < Count_orig->MoleculeType; i++) {
-      MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
-      int mtype_add = FindMoleculeType(mt_orig->Name, Sys_add);
-      if (mtype_add != -1) {
-        MOLECULETYPE *mt_add = &Sys_add.MoleculeType[mtype_add];
-        for (int j = 0; j < mt_orig->nBeads; j++) {
-          mt_orig->Bead[j] = mt_add->Bead[j] + count_old.BeadType;
-        }
-      }
-    }
-    // change bead types in Bead[].Type
-    for (int i = 0; i < Count_orig->Molecule; i++) {
-      MOLECULE *mol_orig = &Sys_orig->Molecule[i];
-      MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[mol_orig->Type];
-      int mtype_add = FindMoleculeType(mt_orig->Name, Sys_add);
-      if (mtype_add != -1) {
-        for (int j = 0; j < mt_orig->nBeads; j++) {
-          int bead = mol_orig->Bead[j];
-          Sys_orig->Bead[bead].Type = mt_orig->Bead[j];
-        }
-      }
-    }
-    // remake BeadType[].Index arrays
-    for (int i = 0; i < count_old.BeadType; i++) {
-      free(Sys_orig->BeadType[i].Index);
-    }
-    FillBeadTypeIndex(Sys_orig);
-    PruneSystem(Sys_orig);
-  } //}}}
-  CountBondAngleDihedralImproper(Sys_orig);
-} //}}}
-
-void CountBondAngleDihedralImproper(SYSTEM *System) { //{{{
-  COUNT *Count = &System->Count;
-  Count->Bond = 0;
-  Count->Angle = 0;
-  Count->Dihedral = 0;
-  Count->Improper = 0;
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    MOLECULETYPE *mt_i = &System->MoleculeType[i];
-    Count->Bond += mt_i->nBonds * mt_i->Number;
-    Count->Angle += mt_i->nAngles * mt_i->Number;
-    Count->Dihedral += mt_i->nDihedrals * mt_i->Number;
-    Count->Improper += mt_i->nImpropers * mt_i->Number;
-  }
-} //}}}
-
+// transform to/from fractional coordinates //{{{
 /* HOW TO CALCULATE DISTANCE IN TRICLINIC SYSTEM //{{{
 //VECTOR dist;
 //dist.x = (*Bead)[0].Position.x - (*Bead)[10].Position.x;
@@ -761,127 +27,32 @@ void CountBondAngleDihedralImproper(SYSTEM *System) { //{{{
 //dist.z = new.z / c;
 //printf("dist2 = (%lf, %lf, %lf) = %lf\n", dist.x, dist.y, dist.z, sqrt(SQR(dist.x)+SQR(dist.y)+SQR(dist.z)));
 */ //}}}
-
-bool TriclinicCellData(BOX *Box) { //{{{
-  // triclinic box //{{{
-  if (Box->alpha != 90 || Box->beta != 90 || Box->gamma != 90 ) {
-    double a = Box->Length.x,
-           b = Box->Length.y,
-           c = Box->Length.z;
-    double c_a = cos(Box->alpha * PI / 180),
-           c_b = cos(Box->beta * PI / 180),
-           c_g = cos(Box->gamma * PI / 180),
-           s_g = sin(Box->gamma * PI / 180);
-    double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
-    if (sqr < 0) {
-      strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
-      return false;
-    }
-    double vol = a * b * c * sqrt(sqr);
-    Box->Volume = vol;
-
-    Box->transform[0][0] = a;
-    Box->transform[1][0] = 0;
-    Box->transform[2][0] = 0;
-    Box->transform[0][1] = b * c_g;
-    Box->transform[1][1] = b * s_g;
-    Box->transform[2][1] = 0;
-    Box->transform[0][2] = c * c_b;
-    Box->transform[1][2] = c * (c_a - c_b * c_g) / s_g;
-    Box->transform[2][2] = vol / (a * b * s_g);
-
-    Box->inverse[0][0] = 1 / a;
-    Box->inverse[1][0] = 0;
-    Box->inverse[2][0] = 0;
-    Box->inverse[0][1] = -c_g / (a * s_g);
-    Box->inverse[1][1] = 1 / (b * s_g);
-    Box->inverse[2][1] = 0;
-    Box->inverse[0][2] = b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) -
-                           c_b * s_g / vol);
-    Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
-    Box->inverse[2][2] = a * b * s_g / vol;
-    // tilt for triclinic axes (xy, xz, and yz) & lx, ly, and lz (lammps labels)
-    Box->TriLength.x = a;
-    Box->TriTilt[0] = b * c_g; // xy
-    Box->TriTilt[1] = c * c_b; // xz
-    sqr = SQR(b) - SQR(Box->TriTilt[0]);
-    if (sqr < 0) {
-      strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
-      return false;
-    }
-    Box->TriLength.y = sqrt(sqr);
-    Box->TriTilt[2] = (b * c_a - Box->TriTilt[0] * Box->TriTilt[1]) /
-                        Box->TriLength.y;
-    sqr = SQR(c) - SQR(Box->TriTilt[1]) - SQR(Box->TriTilt[2]);
-    if (sqr < 0) {
-      strcpy(ERROR_MSG, "wrong simulation box box dimensions");
-      PrintError();
-      exit(1);
-    }
-    Box->TriLength.z = sqrt(sqr);
-    // make tilt component zero if they're close to zero
-    for (int i = 0; i < 3; i++) {
-      if (fabs(Box->TriTilt[i]) < 0.00001) {
-        Box->TriTilt[i] = 0;
-      }
-    }
-  //}}}
-  } else { // orthogonal box //{{{
-    Box->Volume = Box->Length.x * Box->Length.y * Box->Length.z;
-
-    Box->transform[0][0] = Box->Length.x;
-    Box->transform[1][0] = 0;
-    Box->transform[2][0] = 0;
-    Box->transform[0][1] = 0;
-    Box->transform[1][1] = Box->Length.y;
-    Box->transform[2][1] = 0;
-    Box->transform[0][2] = 0;
-    Box->transform[1][2] = 0;
-    Box->transform[2][2] = Box->Length.z;
-
-    Box->inverse[0][0] = 1 / Box->Length.x;
-    Box->inverse[1][0] = 0;
-    Box->inverse[2][0] = 0;
-    Box->inverse[0][1] = 0;
-    Box->inverse[1][1] = 1 / Box->Length.y;
-    Box->inverse[2][1] = 0;
-    Box->inverse[0][2] = 0;
-    Box->inverse[1][2] = 0;
-    Box->inverse[2][2] = 1 / Box->Length.z;
-    // lx, ly, and lz for lammps
-    Box->TriLength = Box->Length;
-    // tilt for triclinic axes (xy, xz, and yz)
-    Box->TriTilt[0] = 0;
-    Box->TriTilt[1] = 0;
-    Box->TriTilt[2] = 0;
-  } //}}}
-  return true;
-} //}}}
-
-void ToFractional(VECTOR *coor, BOX Box) { //{{{
+VECTOR ToFractional(VECTOR coor, BOX Box) { //{{{
   if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
     VECTOR new = {0, 0, 0};
-    new.x = Box.inverse[0][0] * coor->x +
-            Box.inverse[0][1] * coor->y +
-            Box.inverse[0][2] * coor->z;
-    new.y = Box.inverse[1][0] * coor->x +
-            Box.inverse[1][1] * coor->y +
-            Box.inverse[1][2] * coor->z;
-    new.z = Box.inverse[2][0] * coor->x +
-            Box.inverse[2][1] * coor->y +
-            Box.inverse[2][2] * coor->z;
-    coor->x = new.x * Box.Length.x;
-    coor->y = new.y * Box.Length.y;
-    coor->z = new.z * Box.Length.z;
+    new.x = Box.inverse[0][0] * coor.x +
+            Box.inverse[0][1] * coor.y +
+            Box.inverse[0][2] * coor.z;
+    new.y = Box.inverse[1][0] * coor.x +
+            Box.inverse[1][1] * coor.y +
+            Box.inverse[1][2] * coor.z;
+    new.z = Box.inverse[2][0] * coor.x +
+            Box.inverse[2][1] * coor.y +
+            Box.inverse[2][2] * coor.z;
+    coor.x = new.x * Box.Length.x;
+    coor.y = new.y * Box.Length.y;
+    coor.z = new.z * Box.Length.z;
   }
+  return coor;
 } //}}}
 void ToFractionalCoor(SYSTEM *System) { //{{{
   if (System->Box.alpha != 90 ||
       System->Box.beta != 90 ||
       System->Box.gamma != 90) {
     for (int i = 0; i < System->Count.Bead; i++) {
-      if (System->Bead[i].InTimestep) {
-        ToFractional(&System->Bead[i].Position, System->Box);
+      BEAD *bead = &System->Bead[i];
+      if (bead->InTimestep) {
+        bead->Position = ToFractional(bead->Position, System->Box);
       }
     }
   }
@@ -913,22 +84,18 @@ void FromFractionalCoor(SYSTEM *System) { //{{{
       System->Box.gamma != 90) {
     for (int i = 0; i < System->Count.Bead; i++) {
       BEAD *bead = &System->Bead[i];
-      bead->Position = FromFractional(bead->Position, System->Box);
+      if (bead->InTimestep) {
+        bead->Position = FromFractional(bead->Position, System->Box);
+      }
     }
   }
 } //}}}
-
-void PrintByline(FILE *ptr, int argc, char *argv[]) { //{{{
-  fprintf(ptr, "# Created by AnalysisTools v%s ", VERSION);
-  fprintf(ptr, " (https://github.com/KaGaSi/AnalysisTools)\n");
-  fprintf(ptr, "# command: ");
-  PrintCommand(ptr, argc, argv);
-} //}}}
+ //}}}
 
 // InputCoor() //{{{
 /**
  * Function to test whether input coordinate file is vtf or vcf and assign
- * default structure file name as either the vtf or traject.vsf
+ * default structure file name as either the vtf or traject.vsf.
  */
 bool InputCoor(bool *vtf, char *file_coor, char *file_struct) {
   int ext = 2;
@@ -951,52 +118,7 @@ bool InputCoor(bool *vtf, char *file_coor, char *file_struct) {
   return true;
 } //}}}
 
-// PrintAggregate() //{{{
-/**
- * Function printing Aggregate structure.
- */
-void PrintAggregate(COUNTS Counts, int *Index,
-                    MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
-                    BEAD *Bead, BEADTYPE *BeadType, AGGREGATE *Aggregate) {
-  fprintf(stdout, "Aggregates: %d\n", Counts.Aggregates);
-  for (int i = 0; i < Counts.Aggregates; i++) {
-    // print molecules
-    fprintf(stdout, " %d mols:", Aggregate[i].nMolecules);
-    for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-      int mol = Aggregate[i].Molecule[j];
-      int type = Molecule[mol].Type;
-      fprintf(stdout, " %d (%d)", mol, type);
-      if (j != (Aggregate[i].nMolecules-1)) {
-        putchar(',');
-      } else {
-        putchar('\n');
-      }
-    }
-    // print bonded beads
-    fprintf(stdout, " %d bonded beads:", Aggregate[i].nBeads);
-    for (int j = 0; j < Aggregate[i].nBeads; j++) {
-      int bead = Aggregate[i].Bead[j];
-      fprintf(stdout, " %d", bead);
-      if (j != (Aggregate[i].nBeads-1)) {
-        putchar(',');
-      } else {
-        putchar('\n');
-      }
-    }
-    // print monomeric beads
-    fprintf(stdout, " %d free beads:", Aggregate[i].nMonomers);
-    for (int j = 0; j < Aggregate[i].nMonomers; j++) {
-      int bead = Aggregate[i].Monomer[j];
-      fprintf(stdout, " %d", bead);
-      if (j != (Aggregate[i].nMonomers-1)) {
-        putchar(',');
-      } else {
-        putchar('\n');
-      }
-    }
-  }
-} //}}}
-
+// TODO add detailed stuff
 int FindBeadType(char name[], SYSTEM System) { //{{{
   int type;
   for (int i = 0; i < System.Count.BeadType; i++) {
@@ -1018,149 +140,6 @@ int FindMoleculeType(char name[], SYSTEM System) { //{{{
   }
   // name isn't in MoleculeType struct
   return(-1);
-} //}}}
-
-// fill the some System arrays //{{{
-void FillSystemNonessentials(SYSTEM *System) { //{{{
-  COUNT *Count = &System->Count;
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    FillMoleculeTypeBType(&System->MoleculeType[i]);
-    FillMoleculeTypeChargeMass(&System->MoleculeType[i], System->BeadType);
-  }
-  FillBeadTypeIndex(System);
-  FillMoleculeTypeIndex(System);
-  System->Index_mol = realloc(System->Index_mol, sizeof *System->Index_mol *
-                              (Count->HighestResid + 1));
-  for (int i = 0; i <= Count->HighestResid; i++) {
-    System->Index_mol[i] = -1;
-  }
-  for (int i = 0; i < Count->Molecule; i++) {
-    System->Index_mol[System->Molecule[i].Index] = i;
-  }
-  System->BeadCoor = realloc(System->BeadCoor,
-                             sizeof *System->BeadCoor * Count->Bead);
-  if (Count->Bonded > 0) {
-    System->BondedCoor = realloc(System->BondedCoor,
-                                 sizeof *System->BondedCoor * Count->Bonded);
-  }
-  if (Count->Unbonded > 0) {
-    System->UnbondedCoor = realloc(System->UnbondedCoor,
-                                   sizeof *System->UnbondedCoor *
-                                   Count->Unbonded);
-  }
-  CountBondAngleDihedralImproper(System);
-} //}}}
-// molecule type's nBTypes and BType array //{{{
-void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType) {
-  MoleculeType->nBTypes = 0;
-  MoleculeType->BType = malloc(sizeof *MoleculeType->BType * 1);
-  for (int j = 0; j < MoleculeType->nBeads; j++) {
-    bool new = true;
-    for (int k = 0; k < MoleculeType->nBTypes; k++) {
-      if (MoleculeType->Bead[j] == MoleculeType->BType[k]) {
-        new = false;
-        break;
-      }
-    }
-    if (new) {
-      int type = MoleculeType->nBTypes++;
-      MoleculeType->BType = realloc(MoleculeType->BType,
-                                    sizeof *MoleculeType->BType *
-                                    MoleculeType->nBTypes);
-      MoleculeType->BType[type] = MoleculeType->Bead[j];
-    }
-  }
-} //}}}
-// molecule type's Charge and Mass //{{{
-void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
-                                BEADTYPE BeadType[]) {
-  MoleculeType->Mass = 0;
-  MoleculeType->Charge = 0;
-  for (int j = 0; j < MoleculeType->nBeads; j++) {
-    int btype = MoleculeType->Bead[j];
-    // charge
-    if (BeadType[btype].Charge != CHARGE) {
-      MoleculeType->Charge += BeadType[btype].Charge;
-    } else {
-      MoleculeType->Charge = CHARGE;
-      break;
-    }
-    // mass
-    if (BeadType[btype].Mass != MASS) {
-      MoleculeType->Mass += BeadType[btype].Mass;
-    } else {
-      MoleculeType->Mass = MASS;
-      break;
-    }
-  }
-} //}}}
-// all bead types' Index array //{{{
-void FillBeadTypeIndex(SYSTEM *System) {
-  COUNT *Count = &System->Count;
-  // allocate memory for Index arrays
-  for (int i = 0; i < Count->BeadType; i++) {
-    BEADTYPE *bt_i = &System->BeadType[i];
-    if (bt_i->Number > 0) {
-      bt_i->Index = malloc(sizeof *bt_i->Index * bt_i->Number);
-    }
-  }
-  // fill the Index arrays
-  int *count_id = calloc(Count->BeadType, sizeof *count_id);
-  for (int i = 0; i < Count->Bead; i++) {
-    int type = System->Bead[i].Type;
-    if (System->BeadType[type].Number < count_id[type]) {
-//    fprintf(stderr, "...ehm; error count_id[%d]=%d (%d)\n", type, count_id[type], System->BeadType[type].Number);
-    }
-    System->BeadType[type].Index[count_id[type]] = i;
-    count_id[type]++;
-  }
-  free(count_id);
-} //}}}
-// all molecule types' Index array //{{{
-void FillMoleculeTypeIndex(SYSTEM *System) {
-  COUNT *Count = &System->Count;
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    MOLECULETYPE *mt_i = &System->MoleculeType[i];
-    mt_i->Index = malloc(sizeof *mt_i->Index * mt_i->Number);
-  }
-  int *count_id = calloc(Count->MoleculeType, sizeof *count_id);
-  for (int i = 0; i < Count->Molecule; i++) {
-    int type = System->Molecule[i].Type;
-    System->MoleculeType[type].Index[count_id[type]] = i;
-    count_id[type]++;
-  }
-  free(count_id);
-} //}}}
- //}}}
-
-// Distance() //{{{
-/**
- * Function calculating distance vector between two beads. It removes
- * periodic boundary conditions and returns x, y, and z distances in the
- * range <0, BoxLength/2).
- */
-VECTOR Distance(VECTOR id1, VECTOR id2, VECTOR BoxLength) {
-  // distance vector
-  VECTOR rij;
-  rij.x = id1.x - id2.x;
-  rij.y = id1.y - id2.y;
-  rij.z = id1.z - id2.z;
-  // remove periodic boundary conditions in x-direction
-  while (rij.x >= (BoxLength.x/2))
-    rij.x = rij.x - BoxLength.x;
-  while (rij.x < -(BoxLength.x/2))
-    rij.x = rij.x + BoxLength.x;
-  // in y-direction
-  while (rij.y >= (BoxLength.y/2))
-    rij.y = rij.y - BoxLength.y;
-  while (rij.y < -(BoxLength.y/2))
-    rij.y = rij.y + BoxLength.y;
-  // in z-direction
-  while (rij.z >= (BoxLength.z/2))
-    rij.z = rij.z - BoxLength.z;
-  while (rij.z < -(BoxLength.z/2))
-    rij.z = rij.z + BoxLength.z;
-  return rij;
 } //}}}
 
 /* TODO what about if the molecule has bonds, but is in more 'pieces'; should
@@ -1286,13 +265,11 @@ void RemovePBCMolecules(SYSTEM *System) {
     } //}}}
   }
 } //}}}
-
 // RestorePBC() //{{{
 /**
  * Function to restore removed periodic boundary conditions. Used also in case
  * of cell linked lists, because they need coordinates <0, BoxLength>.
  */
-// TODO use System (and System.BeadCoor[])
 void RestorePBC(SYSTEM *System) {
   for (int i = 0; i < System->Count.BeadCoor; i++) {
     int id = System->BeadCoor[i];
@@ -1309,11 +286,8 @@ void RestorePBC(SYSTEM *System) {
     while (bead->Position.y >= box->Length.y) {
       bead->Position.y -= box->Length.y;
     }
-    printf("\n%d %lf\n", i, bead->Position.y);
     while (bead->Position.y < 0) {
-      printf("!  %lf\n", bead->Position.y);
       bead->Position.y += box->Length.y;
-      printf("!! %lf\n", bead->Position.y);
     }
     // z direction
     while (bead->Position.z >= box->Length.z) {
@@ -1325,11 +299,41 @@ void RestorePBC(SYSTEM *System) {
   }
 } //}}}
 
+// Distance() //{{{
+/**
+ * Function calculating distance vector between two beads. It removes
+ * periodic boundary conditions and returns x, y, and z distances in the
+ * range <-BoxLength/2, BoxLength/2).
+ */
+VECTOR Distance(VECTOR id1, VECTOR id2, VECTOR BoxLength) {
+  // distance vector
+  VECTOR rij;
+  rij.x = id1.x - id2.x;
+  rij.y = id1.y - id2.y;
+  rij.z = id1.z - id2.z;
+  // remove periodic boundary conditions in x-direction
+  while (rij.x >= (BoxLength.x/2))
+    rij.x = rij.x - BoxLength.x;
+  while (rij.x < -(BoxLength.x/2))
+    rij.x = rij.x + BoxLength.x;
+  // in y-direction
+  while (rij.y >= (BoxLength.y/2))
+    rij.y = rij.y - BoxLength.y;
+  while (rij.y < -(BoxLength.y/2))
+    rij.y = rij.y + BoxLength.y;
+  // in z-direction
+  while (rij.z >= (BoxLength.z/2))
+    rij.z = rij.z - BoxLength.z;
+  while (rij.z < -(BoxLength.z/2))
+    rij.z = rij.z + BoxLength.z;
+  return rij;
+} //}}}
 // CentreOfMass() //{{{
 /**
  * Function to calculate centre of mass for a given list of beads.
  */
-// TODO: what if bead's mass is undefined?
+// TODO: what if bead's mass is undefined? ...return warning 'nothing's calculated'
+// TODO: change for (int n, int list[], SYSTEM *System)
 VECTOR CentreOfMass(int n, int *list, BEAD *Bead, BEADTYPE *BeadType) {
   VECTOR com = {0, 0, 0};
   double mass = 0;
@@ -1346,7 +350,6 @@ VECTOR CentreOfMass(int n, int *list, BEAD *Bead, BEADTYPE *BeadType) {
   com.z /= mass;
   return com;
 } //}}}
-
 // GeomCentre() //{{{
 /**
  * Function to calculate centre of mass for a given list of beads.
@@ -1368,11 +371,11 @@ VECTOR GeomCentre(int n, int *list, BEAD *Bead) {
   cog.z /= count;
   return cog;
 } //}}}
-
 // Gyration() //{{{
 /**
  * Function to calculate the principle moments of the gyration tensor.
  */
+// TODO: change to (int n, int list[], SYSTEM *System)
 VECTOR Gyration(int n, int *list, COUNTS Counts,
                 BEADTYPE *BeadType, BEAD **Bead) {
   // gyration tensor (3x3 array)
@@ -1466,98 +469,27 @@ VECTOR Gyration(int n, int *list, COUNTS Counts,
   return eigen2;
 } //}}}
 
-// SortAggStruct() //{{{
-/**
- * Sort an Aggregate struct using the bubble sort algorithm. The resulting
- * struct is arranged so that aggregates with the first molecule's lower id
- * come first.
- */
-void SortAggStruct(AGGREGATE **Aggregate, COUNTS Counts,
-                   MOLECULE *Molecule, MOLECULETYPE *MoleculeType,
-                   BEAD **Bead, BEADTYPE *BeadType) {
-  for (int i = 0; i < (Counts.Aggregates-1); i++) {
-    bool done = true;
-    for (int j = 0; j < (Counts.Aggregates-i-1); j++) {
-      if ((*Aggregate)[j].Molecule[0] > (*Aggregate)[j+1].Molecule[0]) {
-        SwapInt(&(*Aggregate)[j].nMolecules, &(*Aggregate)[j+1].nMolecules);
-        // switch the whole Aggregate[].Molecule array
-        int mols; // number of molecules in the larger aggregate
-        if ((*Aggregate)[j].nMolecules > (*Aggregate)[j+1].nMolecules) {
-          mols = (*Aggregate)[j].nMolecules;
-        } else {
-          mols = (*Aggregate)[j+1].nMolecules;
-        }
-        for (int k = 0; k < mols; k++) {
-          SwapInt(&(*Aggregate)[j].Molecule[k], &(*Aggregate)[j+1].Molecule[k]);
-        }
-        // switch bonded beads array
-        SwapInt(&(*Aggregate)[j].nBeads, &(*Aggregate)[j+1].nBeads);
-        int beads; // number of beads in the larger aggregate
-        if ((*Aggregate)[j].nBeads > (*Aggregate)[j+1].nBeads) {
-          beads = (*Aggregate)[j].nBeads;
-        } else {
-          beads = (*Aggregate)[j+1].nBeads;
-        }
-        for (int k = 0; k < beads; k++) {
-          SwapInt(&(*Aggregate)[j].Bead[k], &(*Aggregate)[j+1].Bead[k]);
-        }
-        // switch monomer beads array
-        SwapInt(&(*Aggregate)[j].nMonomers, &(*Aggregate)[j+1].nMonomers);
-        int mons; // larger number of monomers of the two aggregates
-        if ((*Aggregate)[j].nMonomers > (*Aggregate)[j+1].nMonomers) {
-          mons = (*Aggregate)[j].nMonomers;
-        } else {
-          mons = (*Aggregate)[j+1].nMonomers;
-        }
-        for (int k = 0; k < mons; k++) {
-          SwapInt(&(*Aggregate)[j].Monomer[k], &(*Aggregate)[j+1].Monomer[k]);
-        }
-        done = false;
-      }
-    }
-    if (done)
-      break;
-  }
-
-  // re-assign aggregate id to every bonded bead in the aggregate, correcting after sorting //{{{
-  for (int i = 0; i < Counts.Aggregates; i++) {
-    for (int j = 0; j < (*Aggregate)[i].nMolecules; j++) {
-      int mol = (*Aggregate)[i].Molecule[j];
-      int mtype = Molecule[mol].Type;
-      for (int k = 0; k < MoleculeType[mtype].nBeads; k++) {
-//      int id = Molecule[mol].Bead[k];
-//      (*Bead)[id].nAggregates = 1;
-//      (*Bead)[id].Aggregatexxx[0] = i;
-      }
-    }
-  } //}}}
-} //}}}
-
 // LinkedList() //{{{
 void LinkedList(VECTOR BoxLength, COUNTS Counts, BEAD *Bead,
                 int **Head, int **Link, double cell_size, INTVECTOR *n_cells,
                 int *Dcx, int *Dcy, int *Dcz) {
-
-  (*n_cells).x = ceil(BoxLength.x/cell_size),
-  (*n_cells).y = ceil(BoxLength.y/cell_size),
-  (*n_cells).z = ceil(BoxLength.z/cell_size);
-
+  n_cells->x = ceil(BoxLength.x/cell_size),
+  n_cells->y = ceil(BoxLength.y/cell_size),
+  n_cells->z = ceil(BoxLength.z/cell_size);
   // allocate arrays
-  *Head = malloc(sizeof **Head * (*n_cells).x * (*n_cells).y * (*n_cells).z);
+  *Head = malloc(sizeof **Head * n_cells->x * n_cells->y * n_cells->z);
   *Link = malloc(sizeof **Link * Counts.BeadsCoor);
-  for (int i = 0; i < ((*n_cells).x*(*n_cells).y*(*n_cells).z); i++) {
+  for (int i = 0; i < (n_cells->x*n_cells->y*n_cells->z); i++) {
     (*Head)[i] = -1;
   }
-
   // sort beads into cells //{{{
   for (int i = 0; i < Counts.BeadsCoor; i++) {
     int cell = (int)(Bead[i].Position.x / cell_size)
-             + (int)(Bead[i].Position.y / cell_size) * (*n_cells).x
-             + (int)(Bead[i].Position.z / cell_size) * (*n_cells).x * (*n_cells).y;
+             + (int)(Bead[i].Position.y / cell_size) * n_cells->x
+             + (int)(Bead[i].Position.z / cell_size) * n_cells->x * n_cells->y;
     (*Link)[i] = (*Head)[cell];
     (*Head)[cell] = i;
   } //}}}
-
   // coordinates of adjoining cells //{{{
   int x[14] = {0, 1,-1, 0, 1,-1, 0, 1,-1, 0, 1,-1, 0, 1};
   int y[14] = {0, 0, 1, 1, 1,-1,-1,-1, 0, 0, 0, 1, 1, 1};
@@ -1601,7 +533,6 @@ void SortBonds(int (*bond)[3], int number_of_bonds) {
     }
   }
 } //}}}
-
 // SortAngles() //{{{
 /**
  * Function to sort an angle array. As each angle contains a 3-member array
@@ -1639,7 +570,6 @@ void SortAngles(int (*angle)[4], int length) {
     }
   }
 } //}}}
-
 // SortDihedrals() //{{{
 /**
  * Function to sort an angle array. As each angle contains a 3-member array
@@ -1684,44 +614,7 @@ void SortDihedrals(int (*dihedral)[5], int length) {
   }
 } //}}}
 
-// CopyBeadType() //{{{
-/**
- * Function to copy BEADTYPE structure into a new. Memory for the new one will be
- * reallocated in this function. Memory management for the output structure:
- * sufficient memory is already allocated (mode=0), the structure needs freeing
- * and allocating (mode=1), no memory wasn't yet allocated at all (mode=2), or
- * it needs reallocating (mode=3).
- */
-void CopyBeadType(int number_of_types, BEADTYPE **bt_out,
-                  BEADTYPE *bt_in, int mode) {
-  // bt_out memory management //{{{
-  switch (mode) {
-    case 0:
-      break;
-    case 1:
-      free(*bt_out);
-      *bt_out = malloc(sizeof (BEADTYPE) * number_of_types);
-      break;
-    case 2:
-      *bt_out = malloc(sizeof (BEADTYPE) * number_of_types);
-      break;
-    case 3:
-      *bt_out = realloc(*bt_out, sizeof (BEADTYPE) * number_of_types);
-      break;
-    default:
-      ErrorPrintError_old();
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "CopyBeadType()");
-      ColourChange(STDERR_FILENO, RED);
-      fprintf(stderr, " function requires mode=0, 1, 2, or 3\n");
-      ColourReset(STDERR_FILENO);
-      exit(1);
-  } //}}}
-  for (int i = 0; i < number_of_types; i++) {
-    (*bt_out)[i] = bt_in[i];
-  }
-} //}}}
-
+// manipulate SYSTEM structure //{{{
 // CopySystem() //{{{
 // Assumes unallocated SYSTEM.
 SYSTEM CopySystem(SYSTEM S_in) {
@@ -2400,6 +1293,962 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
              sizeof *S_out->DihedralType * Count_out->DihedralType);
   } //}}}
 } //}}}
+// ChangeMolecules() //{{{
+/*
+ * Function to add bonds, angles, dihedrals, and/or impropers as well as their
+ * types (creating new ones) to a molecule type, possibly also changing the
+ * bead types in MoleculeType[].Bead array for new ones.
+ * TODO: proper molecule type checking - not just the name.
+ */
+void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) {
+  COUNT *Count_orig = &Sys_orig->Count,
+        *Count_add = &Sys_add.Count;
+  COUNT count_old = *Count_orig;
+  // copy bond/angle/dihedral/improper types //{{{
+  if (Count_add->BondType > 0) {
+    Count_orig->BondType += Count_add->BondType;
+    Sys_orig->BondType = realloc(Sys_orig->BondType,
+                                  sizeof (PARAMS) * Count_orig->BondType);
+    memcpy(Sys_orig->BondType + count_old.BondType, Sys_add.BondType,
+           sizeof (PARAMS) * Count_add->BondType);
+  }
+  if (Count_add->AngleType > 0) {
+    Count_orig->AngleType += Count_add->AngleType;
+    Sys_orig->AngleType = realloc(Sys_orig->AngleType,
+                                  sizeof (PARAMS) * Count_orig->AngleType);
+    memcpy(Sys_orig->AngleType + count_old.AngleType, Sys_add.AngleType,
+           sizeof (PARAMS) * Count_add->AngleType);
+  }
+  if (Count_add->DihedralType > 0) {
+    Count_orig->DihedralType += Count_add->DihedralType;
+    Sys_orig->DihedralType = realloc(Sys_orig->DihedralType, sizeof (PARAMS) *
+                                     Count_orig->DihedralType);
+    memcpy(Sys_orig->DihedralType + count_old.DihedralType,
+           Sys_add.DihedralType, sizeof (PARAMS) * Count_add->DihedralType);
+  }
+  if (Count_add->ImproperType > 0) {
+    Count_orig->ImproperType += Count_add->ImproperType;
+    Sys_orig->ImproperType = realloc(Sys_orig->ImproperType, sizeof (PARAMS) *
+                                     Count_orig->ImproperType);
+    memcpy(Sys_orig->ImproperType + count_old.ImproperType,
+           Sys_add.ImproperType, sizeof (PARAMS) * Count_add->ImproperType);
+  } //}}}
+  for (int i = 0; i < Count_orig->MoleculeType; i++) {
+    MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
+    int type = FindMoleculeType(mt_orig->Name, Sys_add);
+    if (type != -1) {
+      MOLECULETYPE *mt_add = &Sys_add.MoleculeType[type];
+      // add bonds, if there are none in the original molecule type... //{{{
+      if (mt_add->nBonds > 0 && mt_orig->nBonds == 0) {
+        mt_orig->nBonds = mt_add->nBonds;
+        mt_orig->Bond = malloc(sizeof *mt_orig->Bond * mt_orig->nBonds);
+        memcpy(mt_orig->Bond, mt_add->Bond,
+               sizeof *mt_add->Bond * mt_add->nBonds); //}}}
+      // ...or just add bond types where missing //{{{
+      } else if (Count_add->BondType > 0) {
+        for (int j = 0; j < mt_orig->nBonds; j++) {
+          for (int k = 0; k < mt_add->nBonds; k++) {
+            if (mt_orig->Bond[j][0] == mt_add->Bond[k][0] &&
+                mt_orig->Bond[j][1] == mt_add->Bond[k][1] &&
+                mt_orig->Bond[j][2] == -1 && mt_add->Bond[k][2] != -1) {
+                mt_orig->Bond[j][2] = mt_add->Bond[k][2] + count_old.BondType;
+            }
+          }
+        }
+      } //}}}
+      // add angles, if there are none in the original molecule type... //{{{
+      if (mt_add->nAngles > 0 && mt_orig->nAngles == 0) {
+        mt_orig->nAngles = mt_add->nAngles;
+        mt_orig->Angle = malloc(sizeof *mt_orig->Angle * mt_orig->nAngles);
+        memcpy(mt_orig->Angle, mt_add->Angle,
+               sizeof *mt_add->Angle * mt_add->nAngles); //}}}
+      // ...or just add angle types where missing //{{{
+      } else if (Count_add->AngleType > 0) {
+        for (int j = 0; j < mt_orig->nAngles; j++) {
+          for (int k = 0; k < mt_orig->nAngles; k++) {
+            if (mt_orig->Angle[j][0] == mt_add->Angle[k][0] &&
+                mt_orig->Angle[j][1] == mt_add->Angle[k][1] &&
+                mt_orig->Angle[j][2] == mt_add->Angle[k][2] &&
+                mt_orig->Angle[j][3] == -1 && mt_add->Angle[k][3] != -1) {
+              mt_orig->Angle[j][3] = mt_add->Angle[k][3] + count_old.AngleType;
+            }
+          }
+        }
+      } //}}}
+      // add dihedrals, if there are none in the original molecule type... //{{{
+      if (mt_add->nDihedrals > 0 && mt_orig->nDihedrals == 0) {
+        mt_orig->nDihedrals = mt_add->nDihedrals;
+        mt_orig->Dihedral = malloc(sizeof *mt_orig->Dihedral *
+                                   mt_orig->nDihedrals);
+        memcpy(mt_orig->Dihedral, mt_add->Dihedral,
+               sizeof *mt_add->Dihedral * mt_add->nDihedrals); //}}}
+      // ...or just add dihedral types where missing //{{{
+      } else if (Count_add->DihedralType > 0) {
+        for (int j = 0; j < mt_orig->nDihedrals; j++) {
+          for (int k = 0; k < mt_orig->nDihedrals; k++) {
+            if (mt_orig->Dihedral[j][0] == mt_add->Dihedral[k][0] &&
+                mt_orig->Dihedral[j][1] == mt_add->Dihedral[k][1] &&
+                mt_orig->Dihedral[j][2] == mt_add->Dihedral[k][2] &&
+                mt_orig->Dihedral[j][2] == mt_add->Dihedral[k][2] &&
+                mt_orig->Dihedral[j][4] == -1 && mt_add->Dihedral[j][4] != -1) {
+            mt_orig->Dihedral[j][4] = mt_add->Dihedral[j][4] +
+                                      count_old.DihedralType;
+            }
+          }
+        }
+      } //}}}
+      // add impropers, if there are none in the original molecule type... //{{{
+      if (mt_add->nImpropers > 0 && mt_orig->nImpropers == 0) {
+        mt_orig->nImpropers = mt_add->nImpropers;
+        mt_orig->Improper = malloc(sizeof *mt_orig->Improper *
+                                   mt_orig->nImpropers);
+        memcpy(mt_orig->Improper, mt_add->Improper,
+               sizeof *mt_add->Improper * mt_add->nImpropers); //}}}
+      // ...or just add improper types where missing //{{{
+      } else if (Count_add->ImproperType > 0) {
+        for (int j = 0; j < mt_orig->nImpropers; j++) {
+          for (int k = 0; k < mt_orig->nImpropers; k++) {
+            if (mt_orig->Improper[j][0] == mt_add->Improper[k][0] &&
+                mt_orig->Improper[j][1] == mt_add->Improper[k][1] &&
+                mt_orig->Improper[j][2] == mt_add->Improper[k][2] &&
+                mt_orig->Improper[j][2] == mt_add->Improper[k][2] &&
+                mt_orig->Improper[j][4] == -1 && mt_add->Improper[j][4] != -1) {
+              mt_orig->Improper[j][4] = mt_add->Improper[j][4] +
+                                        count_old.ImproperType;
+            }
+          }
+        }
+      } //}}}
+    }
+  }
+  // should the original bead types be replaced with 'new' bead types? //{{{
+  if (beads) {
+    // append bead types from Sys_add to Sys_orig
+    Count_orig->BeadType += Count_add->BeadType;
+    Sys_orig->BeadType = realloc(Sys_orig->BeadType, sizeof (BEADTYPE) *
+                                 Count_orig->BeadType);
+    for (int i = 0; i < Count_add->BeadType; i++) {
+      int new = i + count_old.BeadType;
+      Sys_orig->BeadType[new] = Sys_add.BeadType[i];
+      Sys_orig->BeadType[new].Number = 0;
+    }
+    // change bead types in MoleculeType[].Bead
+    for (int i = 0; i < Count_orig->MoleculeType; i++) {
+      MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
+      int mtype_add = FindMoleculeType(mt_orig->Name, Sys_add);
+      if (mtype_add != -1) {
+        MOLECULETYPE *mt_add = &Sys_add.MoleculeType[mtype_add];
+        for (int j = 0; j < mt_orig->nBeads; j++) {
+          mt_orig->Bead[j] = mt_add->Bead[j] + count_old.BeadType;
+        }
+      }
+    }
+    // change bead types in Bead[].Type
+    for (int i = 0; i < Count_orig->Molecule; i++) {
+      MOLECULE *mol_orig = &Sys_orig->Molecule[i];
+      MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[mol_orig->Type];
+      int mtype_add = FindMoleculeType(mt_orig->Name, Sys_add);
+      if (mtype_add != -1) {
+        for (int j = 0; j < mt_orig->nBeads; j++) {
+          int bead = mol_orig->Bead[j];
+          Sys_orig->Bead[bead].Type = mt_orig->Bead[j];
+        }
+      }
+    }
+    // remake BeadType[].Index arrays
+    for (int i = 0; i < count_old.BeadType; i++) {
+      free(Sys_orig->BeadType[i].Index);
+    }
+    FillBeadTypeIndex(Sys_orig);
+    PruneSystem(Sys_orig);
+  } //}}}
+  CountBondAngleDihedralImproper(Sys_orig);
+} //}}}
+// fill some System arrays and some such //{{{
+void FillSystemNonessentials(SYSTEM *System) { //{{{
+  COUNT *Count = &System->Count;
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    FillMoleculeTypeBType(&System->MoleculeType[i]);
+    FillMoleculeTypeChargeMass(&System->MoleculeType[i], System->BeadType);
+  }
+  FillBeadTypeIndex(System);
+  FillMoleculeTypeIndex(System);
+  System->Index_mol = realloc(System->Index_mol, sizeof *System->Index_mol *
+                              (Count->HighestResid + 1));
+  for (int i = 0; i <= Count->HighestResid; i++) {
+    System->Index_mol[i] = -1;
+  }
+  for (int i = 0; i < Count->Molecule; i++) {
+    System->Index_mol[System->Molecule[i].Index] = i;
+  }
+  System->BeadCoor = realloc(System->BeadCoor,
+                             sizeof *System->BeadCoor * Count->Bead);
+  if (Count->Bonded > 0) {
+    System->BondedCoor = realloc(System->BondedCoor,
+                                 sizeof *System->BondedCoor * Count->Bonded);
+  }
+  if (Count->Unbonded > 0) {
+    System->UnbondedCoor = realloc(System->UnbondedCoor,
+                                   sizeof *System->UnbondedCoor *
+                                   Count->Unbonded);
+  }
+  CountBondAngleDihedralImproper(System);
+} //}}}
+// molecule type's nBTypes and BType array //{{{
+void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType) {
+  MoleculeType->nBTypes = 0;
+  MoleculeType->BType = malloc(sizeof *MoleculeType->BType * 1);
+  for (int j = 0; j < MoleculeType->nBeads; j++) {
+    bool new = true;
+    for (int k = 0; k < MoleculeType->nBTypes; k++) {
+      if (MoleculeType->Bead[j] == MoleculeType->BType[k]) {
+        new = false;
+        break;
+      }
+    }
+    if (new) {
+      int type = MoleculeType->nBTypes++;
+      MoleculeType->BType = realloc(MoleculeType->BType,
+                                    sizeof *MoleculeType->BType *
+                                    MoleculeType->nBTypes);
+      MoleculeType->BType[type] = MoleculeType->Bead[j];
+    }
+  }
+} //}}}
+// molecule type's Charge and Mass //{{{
+void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
+                                BEADTYPE BeadType[]) {
+  MoleculeType->Mass = 0;
+  MoleculeType->Charge = 0;
+  for (int j = 0; j < MoleculeType->nBeads; j++) {
+    int btype = MoleculeType->Bead[j];
+    // charge
+    if (BeadType[btype].Charge != CHARGE) {
+      MoleculeType->Charge += BeadType[btype].Charge;
+    } else {
+      MoleculeType->Charge = CHARGE;
+      break;
+    }
+    // mass
+    if (BeadType[btype].Mass != MASS) {
+      MoleculeType->Mass += BeadType[btype].Mass;
+    } else {
+      MoleculeType->Mass = MASS;
+      break;
+    }
+  }
+} //}}}
+// all bead types' Index array //{{{
+void FillBeadTypeIndex(SYSTEM *System) {
+  COUNT *Count = &System->Count;
+  // allocate memory for Index arrays
+  for (int i = 0; i < Count->BeadType; i++) {
+    BEADTYPE *bt_i = &System->BeadType[i];
+    if (bt_i->Number > 0) {
+      bt_i->Index = malloc(sizeof *bt_i->Index * bt_i->Number);
+    }
+  }
+  // fill the Index arrays
+  int *count_id = calloc(Count->BeadType, sizeof *count_id);
+  for (int i = 0; i < Count->Bead; i++) {
+    int type = System->Bead[i].Type;
+    if (System->BeadType[type].Number < count_id[type]) {
+//    fprintf(stderr, "...ehm; error count_id[%d]=%d (%d)\n", type, count_id[type], System->BeadType[type].Number);
+    }
+    System->BeadType[type].Index[count_id[type]] = i;
+    count_id[type]++;
+  }
+  free(count_id);
+} //}}}
+// all molecule types' Index array //{{{
+void FillMoleculeTypeIndex(SYSTEM *System) {
+  COUNT *Count = &System->Count;
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    mt_i->Index = malloc(sizeof *mt_i->Index * mt_i->Number);
+  }
+  int *count_id = calloc(Count->MoleculeType, sizeof *count_id);
+  for (int i = 0; i < Count->Molecule; i++) {
+    int type = System->Molecule[i].Type;
+    System->MoleculeType[type].Index[count_id[type]] = i;
+    count_id[type]++;
+  }
+  free(count_id);
+} //}}}
+void CountBondAngleDihedralImproper(SYSTEM *System) { //{{{
+  COUNT *Count = &System->Count;
+  Count->Bond = 0;
+  Count->Angle = 0;
+  Count->Dihedral = 0;
+  Count->Improper = 0;
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    Count->Bond += mt_i->nBonds * mt_i->Number;
+    Count->Angle += mt_i->nAngles * mt_i->Number;
+    Count->Dihedral += mt_i->nDihedrals * mt_i->Number;
+    Count->Improper += mt_i->nImpropers * mt_i->Number;
+  }
+} //}}}
+// Populate BOX with volume, transform and invert matrices, etc. //{{{
+bool TriclinicCellData(BOX *Box) {
+  // triclinic box //{{{
+  if (Box->alpha != 90 || Box->beta != 90 || Box->gamma != 90 ) {
+    double a = Box->Length.x,
+           b = Box->Length.y,
+           c = Box->Length.z;
+    double c_a = cos(Box->alpha * PI / 180),
+           c_b = cos(Box->beta * PI / 180),
+           c_g = cos(Box->gamma * PI / 180),
+           s_g = sin(Box->gamma * PI / 180);
+    double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
+    if (sqr < 0) {
+      strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
+      return false;
+    }
+    double vol = a * b * c * sqrt(sqr);
+    Box->Volume = vol;
+
+    Box->transform[0][0] = a;
+    Box->transform[1][0] = 0;
+    Box->transform[2][0] = 0;
+    Box->transform[0][1] = b * c_g;
+    Box->transform[1][1] = b * s_g;
+    Box->transform[2][1] = 0;
+    Box->transform[0][2] = c * c_b;
+    Box->transform[1][2] = c * (c_a - c_b * c_g) / s_g;
+    Box->transform[2][2] = vol / (a * b * s_g);
+
+    Box->inverse[0][0] = 1 / a;
+    Box->inverse[1][0] = 0;
+    Box->inverse[2][0] = 0;
+    Box->inverse[0][1] = -c_g / (a * s_g);
+    Box->inverse[1][1] = 1 / (b * s_g);
+    Box->inverse[2][1] = 0;
+    Box->inverse[0][2] = b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) -
+                           c_b * s_g / vol);
+    Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
+    Box->inverse[2][2] = a * b * s_g / vol;
+    // tilt for triclinic axes (xy, xz, and yz) & lx, ly, and lz (lammps labels)
+    Box->TriLength.x = a;
+    Box->TriTilt[0] = b * c_g; // xy
+    Box->TriTilt[1] = c * c_b; // xz
+    sqr = SQR(b) - SQR(Box->TriTilt[0]);
+    if (sqr < 0) {
+      strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
+      return false;
+    }
+    Box->TriLength.y = sqrt(sqr);
+    Box->TriTilt[2] = (b * c_a - Box->TriTilt[0] * Box->TriTilt[1]) /
+                        Box->TriLength.y;
+    sqr = SQR(c) - SQR(Box->TriTilt[1]) - SQR(Box->TriTilt[2]);
+    if (sqr < 0) {
+      strcpy(ERROR_MSG, "wrong simulation box box dimensions");
+      PrintError();
+      exit(1);
+    }
+    Box->TriLength.z = sqrt(sqr);
+    // make tilt component zero if they're close to zero
+    for (int i = 0; i < 3; i++) {
+      if (fabs(Box->TriTilt[i]) < 0.00001) {
+        Box->TriTilt[i] = 0;
+      }
+    }
+  //}}}
+  } else { // orthogonal box //{{{
+    Box->Volume = Box->Length.x * Box->Length.y * Box->Length.z;
+
+    Box->transform[0][0] = Box->Length.x;
+    Box->transform[1][0] = 0;
+    Box->transform[2][0] = 0;
+    Box->transform[0][1] = 0;
+    Box->transform[1][1] = Box->Length.y;
+    Box->transform[2][1] = 0;
+    Box->transform[0][2] = 0;
+    Box->transform[1][2] = 0;
+    Box->transform[2][2] = Box->Length.z;
+
+    Box->inverse[0][0] = 1 / Box->Length.x;
+    Box->inverse[1][0] = 0;
+    Box->inverse[2][0] = 0;
+    Box->inverse[0][1] = 0;
+    Box->inverse[1][1] = 1 / Box->Length.y;
+    Box->inverse[2][1] = 0;
+    Box->inverse[0][2] = 0;
+    Box->inverse[1][2] = 0;
+    Box->inverse[2][2] = 1 / Box->Length.z;
+    // lx, ly, and lz for lammps
+    Box->TriLength = Box->Length;
+    // tilt for triclinic axes (xy, xz, and yz)
+    Box->TriTilt[0] = 0;
+    Box->TriTilt[1] = 0;
+    Box->TriTilt[2] = 0;
+  } //}}}
+  return true;
+} //}}}
+ //}}}
+void CheckSystem(SYSTEM System, char file[]) { //{{{
+  COUNT *Count = &System.Count;
+  if (Count->Molecule > 0 && Count->HighestResid < Count->Molecule) { //{{{
+      strcpy(ERROR_MSG, "Count.HighestResid must be at least Count.Molecules");
+      PrintError();
+      ErrorPrintFile(file, "\0");
+      fprintf(stderr, "%s, Count.HighestResid = %s%d", ErrRed(),
+              ErrYellow(), Count->HighestResid);
+      fprintf(stderr, "%s, Count.Molecule = %s%d%s", ErrRed(),
+              ErrYellow(), Count->Molecule, ErrColourReset());
+  } //}}}
+  // total number of beads //{{{
+  // i) just unbonded+bonded
+  int count = Count->Unbonded + Count->Bonded;
+  if (count != Count->Bead) {
+    strcpy(ERROR_MSG, "unbonded and bonded beads do not add up properly!");
+    PrintError();
+    ErrorPrintFile(file, "\0");
+    fprintf(stderr, "%s, unbonded: %s%d%s",
+            ErrRed(), ErrYellow(), Count->Unbonded, ErrRed());
+    fprintf(stderr, ", bonded: %s%d%s",
+            ErrYellow(), Count->Bonded, ErrRed());
+    fprintf(stderr, ", sum should be: %s%d%s\n",
+            ErrYellow(), Count->Bead, ErrColourReset());
+  }
+  // ii) from BeadType
+  count = 0;
+  for (int i = 0; i < Count->BeadType; i++) {
+    count += System.BeadType[i].Number;
+  }
+  if (count != Count->Bead) {
+    strcpy(ERROR_MSG, "number of beads in bead types do not add up properly!");
+    PrintError();
+    ErrorPrintFile(file, "\0");
+    fprintf(stderr, "%s, sum should be: %s%d%s",
+            ErrRed(), ErrYellow(), Count->Bead, ErrRed());
+    fprintf(stderr, " but is: %s%d%s\n",
+            ErrYellow(), count, ErrRed());
+    fprintf(stderr, "Number | Name%s\n", ErrYellow());
+    for (int i = 0; i < Count->BeadType; i++) {
+      fprintf(stderr, "%6d %s|%s %s\n", System.BeadType[i].Number, ErrRed(),
+              ErrYellow(), System.BeadType[i].Name);
+    }
+    fputs(ErrColourReset(), stderr);
+  } //}}}
+  // BeadCoor array //{{{
+  for (int i = 0; i < Count->BeadCoor; i++) {
+    if (System.BeadCoor[i] < 0 || System.BeadCoor[i] >= Count->Bead) {
+      strcpy(ERROR_MSG, "incorrect index in BeadCoor array");
+      PrintError();
+      ErrorPrintFile(file, "\0");
+      fprintf(stderr, "%s, BeadCoor[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
+              i, ErrRed(), ErrYellow(), System.BeadCoor[i], ErrColourReset());
+      break;
+    }
+  } //}}}
+  // Bonded array //{{{
+  for (int i = 0; i < Count->Bonded; i++) {
+    if (System.Bonded[i] < 0 || System.Bonded[i] >= Count->Bead) {
+      strcpy(ERROR_MSG, "incorrect index in Bonded array");
+      PrintError();
+      ErrorPrintFile(file, "\0");
+      fprintf(stderr, "%s, Bonded[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
+              i, ErrRed(), ErrYellow(), System.Bonded[i], ErrColourReset());
+      break;
+    }
+  } //}}}
+  // BondedCoor array //{{{
+  for (int i = 0; i < Count->BondedCoor; i++) {
+    if (System.BondedCoor[i] < 0 || System.BondedCoor[i] >= Count->Bead) {
+      strcpy(ERROR_MSG, "incorrect index in BondedCoor array");
+      PrintError();
+      ErrorPrintFile(file, "\0");
+      fprintf(stderr, "%s, BondedCoor[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
+              i, ErrRed(), ErrYellow(), System.BondedCoor[i], ErrColourReset());
+      break;
+    }
+  } //}}}
+  // Unbonded array //{{{
+  for (int i = 0; i < Count->Unbonded; i++) {
+    if (System.Unbonded[i] < 0 || System.Unbonded[i] >= Count->Bead) {
+      strcpy(ERROR_MSG, "incorrect index in Unbonded array");
+      PrintError();
+      ErrorPrintFile(file, "\0");
+      fprintf(stderr, "%s, Unbonded[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
+              i, ErrRed(), ErrYellow(), System.Unbonded[i], ErrColourReset());
+      break;
+    }
+  } //}}}
+  // UnbondedCoor array //{{{
+  for (int i = 0; i < Count->UnbondedCoor; i++) {
+    if (System.UnbondedCoor[i] < 0 || System.UnbondedCoor[i] >= Count->Bead) {
+      strcpy(ERROR_MSG, "incorrect index in UnbondedCoor array");
+      PrintError();
+      ErrorPrintFile(file, "\0");
+      fprintf(stderr, "%s, UnbondedCoor[%s%d%s] = %s%d%s\n",
+              ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
+              System.UnbondedCoor[i], ErrColourReset());
+      break;
+    }
+  } //}}}
+  // Index_mol array //{{{
+  for (int i = 0; i < Count->HighestResid; i++) {
+    if (System.Index_mol[i] < -1 || System.Index_mol[i] >= Count->Molecule) {
+      strcpy(ERROR_MSG, "incorrect index in Index_mol array");
+      PrintError();
+      ErrorPrintFile(file, "\0");
+      fprintf(stderr, "%s, Index_mol[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
+              i, ErrRed(), ErrYellow(), System.Index_mol[i], ErrColourReset());
+      break;
+    }
+  } //}}}
+  // BeadType[].Index array //{{{
+  for (int i = 0; i < Count->BeadType; i++) {
+    BEADTYPE *bt_i = &System.BeadType[i];
+    for (int j = 0; j < bt_i->Number; j++) {
+      if (bt_i->Index[j] < 0 || bt_i->Index[j] >= Count->Bead) {
+        strcpy(ERROR_MSG, "incorrect index in BeadType[].Index array");
+        PrintError();
+        ErrorPrintFile(file, "\0");
+        fprintf(stderr, "%s, BeadType[%s%d%s].Index[%s%d%s] = %s%d%s\n",
+                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
+                ErrYellow(), bt_i->Index[j], ErrColourReset());
+        break;
+      }
+    }
+  } //}}}
+  // MoleculeType[]. arrays //{{{
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    MOLECULETYPE *mt_i = &System.MoleculeType[i];
+    // Index array //{{{
+    for (int j = 0; j < mt_i->Number; j++) {
+      if (mt_i->Index[j] < 0 || mt_i->Index[j] >= Count->Molecule) {
+        strcpy(ERROR_MSG, "incorrect index in MoleculeType[].Index array");
+        PrintError();
+        ErrorPrintFile(file, "\0");
+        fprintf(stderr, "%s, MoleculeType[%s%d%s].Index[%s%d%s] = %s%d%s\n",
+                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
+                ErrYellow(), mt_i->Index[j], ErrColourReset());
+        break;
+      }
+    } //}}}
+    // Bead array //{{{
+    for (int j = 0; j < mt_i->nBeads; j++) {
+      if (mt_i->Bead[j] < 0 || mt_i->Bead[j] >= Count->BeadType) {
+        strcpy(ERROR_MSG, "incorrect index in Bead array");
+        PrintError();
+        ErrorPrintFile(file, "\0");
+        fprintf(stderr, "%s, MoleculeType[%s%d%s].Bead[%s%d%s] = %s%d%s\n",
+                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
+                ErrYellow(), mt_i->Bead[j], ErrColourReset());
+        break;
+      }
+    } //}}}
+    // Bond array //{{{
+    for (int j = 0; j < mt_i->nBonds; j++) {
+      if (mt_i->Bond[j][0] < 0 || mt_i->Bond[j][0] >= mt_i->nBeads ||
+          mt_i->Bond[j][1] < 0 || mt_i->Bond[j][1] >= mt_i->nBeads) {
+        strcpy(ERROR_MSG, "incorrect index in Bond array");
+        PrintError();
+        ErrorPrintFile(file, "\0");
+        fprintf(stderr, "%s, MoleculeType[%s%d%s].Bond[0..2] = %s%d %d%s\n",
+                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
+                mt_i->Bond[j][0], mt_i->Bond[j][1], ErrColourReset());
+        break;
+      }
+      if (mt_i->Bond[j][2] < -1 || mt_i->Bond[j][2] >= Count->BondType) {
+        strcpy(ERROR_MSG, "incorrect bond type in Bond array");
+        PrintError();
+        ErrorPrintFile(file, "\0");
+        fprintf(stderr, "%s, MoleculeType[%s%d%s].Bond[2] = %s%d%s\n",
+                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
+                mt_i->Bond[j][2], ErrColourReset());
+        break;
+      }
+    } //}}}
+    // Angle array //{{{
+    for (int j = 0; j < mt_i->nAngles; j++) {
+      if (mt_i->Angle[j][0] < 0 || mt_i->Angle[j][0] >= mt_i->nBeads ||
+          mt_i->Angle[j][1] < 0 || mt_i->Angle[j][1] >= mt_i->nBeads ||
+          mt_i->Angle[j][2] < 0 || mt_i->Angle[j][2] >= mt_i->nBeads) {
+        strcpy(ERROR_MSG, "incorrect index in Angle array");
+        PrintError();
+        ErrorPrintFile(file, "\0");
+        fprintf(stderr, "%s, MoleculeType[%s%d%s].Angle[0..2] = %s%d %d %d%s\n",
+                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
+                mt_i->Angle[j][0], mt_i->Angle[j][1], mt_i->Angle[j][2],
+                ErrColourReset());
+        break;
+      }
+      if (mt_i->Angle[j][3] < -1 || mt_i->Angle[j][3] >= Count->AngleType) {
+        strcpy(ERROR_MSG, "incorrect angle type in Angle array");
+        PrintError();
+        ErrorPrintFile(file, "\0");
+        fprintf(stderr, "%s, MoleculeType[%s%d%s].Angle[3] = %s%d%s\n",
+                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
+                mt_i->Angle[j][3], ErrColourReset());
+        break;
+      }
+    } //}}}
+    // Dihedral array //{{{
+    for (int j = 0; j < mt_i->nDihedrals; j++) {
+      if (mt_i->Dihedral[j][0] < 0 || mt_i->Dihedral[j][0] >= mt_i->nBeads ||
+          mt_i->Dihedral[j][1] < 0 || mt_i->Dihedral[j][1] >= mt_i->nBeads ||
+          mt_i->Dihedral[j][2] < 0 || mt_i->Dihedral[j][2] >= mt_i->nBeads ||
+          mt_i->Dihedral[j][3] < 0 || mt_i->Dihedral[j][3] >= mt_i->nBeads) {
+        strcpy(ERROR_MSG, "incorrect index in Dihedral array");
+        PrintError();
+        ErrorPrintFile(file, "\0");
+        fprintf(stderr, "%s, MoleculeType[%s%d%s].Dihedral[0..3] = %s",
+                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow());
+        fprintf(stderr, "%d %d %d %d%s\n",
+                mt_i->Dihedral[j][0], mt_i->Dihedral[j][1],
+                mt_i->Dihedral[j][2], mt_i->Dihedral[j][3], ErrColourReset());
+        break;
+      }
+      if (mt_i->Dihedral[j][4] < -1 ||
+          mt_i->Dihedral[j][4] >= Count->DihedralType) {
+        strcpy(ERROR_MSG, "incorrect dihedral type in Dihedral array");
+        PrintError();
+        ErrorPrintFile(file, "\0");
+        fprintf(stderr, "%s, MoleculeType[%s%d%s].Dihedral[4] = %s%d%s\n",
+                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
+                mt_i->Dihedral[j][4], ErrColourReset());
+        break;
+      }
+    } //}}}
+    // Improper array //{{{
+    for (int j = 0; j < mt_i->nImpropers; j++) {
+      if (mt_i->Improper[j][0] < 0 || mt_i->Improper[j][0] >= mt_i->nBeads ||
+          mt_i->Improper[j][1] < 0 || mt_i->Improper[j][1] >= mt_i->nBeads ||
+          mt_i->Improper[j][2] < 0 || mt_i->Improper[j][2] >= mt_i->nBeads ||
+          mt_i->Improper[j][3] < 0 || mt_i->Improper[j][3] >= mt_i->nBeads) {
+        strcpy(ERROR_MSG, "incorrect index in Improper array");
+        PrintError();
+        ErrorPrintFile(file, "\0");
+        fprintf(stderr, "%s, MoleculeType[%s%d%s].Improper[0..3] = %s",
+                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow());
+        fprintf(stderr, "%d %d %d %d%s\n",
+                mt_i->Improper[j][0], mt_i->Improper[j][1],
+                mt_i->Improper[j][2], mt_i->Improper[j][3], ErrColourReset());
+        break;
+      }
+      if (mt_i->Improper[j][4] < -1 ||
+          mt_i->Improper[j][4] >= Count->ImproperType) {
+        strcpy(ERROR_MSG, "incorrect improper type in Improper array");
+        PrintError();
+        ErrorPrintFile(file, "\0");
+        fprintf(stderr, "%s, MoleculeType[%s%d%s].Improper[4] = %s%d%s\n",
+                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
+                mt_i->Improper[j][4], ErrColourReset());
+        break;
+      }
+    } //}}}
+    // BType array //{{{
+    for (int j = 0; j < mt_i->nBTypes; j++) {
+      if (mt_i->BType[j] < 0 || mt_i->BType[j] >= Count->BeadType) {
+        strcpy(ERROR_MSG, "incorrect index in BType array");
+        PrintError();
+        ErrorPrintFile(file, "\0");
+        fprintf(stderr, "%s, MoleculeType[%s%d%s].BType[%s%d%s] = %s%d%s\n",
+                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
+                ErrYellow(), mt_i->BType[j], ErrColourReset());
+        break;
+      }
+    } //}}}
+  } //}}}
+  // bead types & Bead[].Molecule //{{{
+  for (int i = 0; i < Count->Bead; i++) {
+    int type = System.Bead[i].Type;
+    if (type < 0 || type >= Count->BeadType) {
+      strcpy(ERROR_MSG, "incorrect bead type for a bead");
+      PrintError();
+      ErrorPrintFile(file, "\0");
+      fprintf(stderr, "%s, Bead[%s%d%s].Type = %s%d%s\n", ErrRed(), ErrYellow(),
+              i, ErrRed(), ErrYellow(), type, ErrColourReset());
+      break;
+    }
+    int mol = System.Bead[i].Molecule;
+    if (mol < -1 || mol >= Count->Molecule) {
+      strcpy(ERROR_MSG, "incorrect molecule index for a bead");
+      PrintError();
+      ErrorPrintFile(file, "\0");
+      fprintf(stderr, "%s, Bead[%s%d%s].Molecule = %s%d%s\n", ErrRed(),
+              ErrYellow(), i, ErrRed(), ErrYellow(), mol, ErrColourReset());
+      break;
+    }
+  } //}}}
+  // molecule types & Molecule[].Bead & Index arrays //{{{
+  int *test = calloc(Count->HighestResid+1, sizeof *test);
+  for (int i = 0; i <= Count->HighestResid; i++) {
+    test[i] = -1;
+  }
+  for (int i = 0; i < Count->Molecule; i++) {
+    MOLECULE *mol_i = &System.Molecule[i];
+    int type = mol_i->Type;
+    if (type < 0 || type >= Count->MoleculeType) {
+      strcpy(ERROR_MSG, "incorrect molecule type for a molecule");
+      PrintError();
+      ErrorPrintFile(file, "\0");
+      fprintf(stderr, "%s, Molecule[%s%d%s].Type = %s%d%s\n", ErrRed(),
+              ErrYellow(), i, ErrRed(), ErrYellow(), type, ErrColourReset());
+      break;
+    }
+    for (int j = 0; j < System.MoleculeType[type].nBeads; j++) {
+      if (mol_i->Bead[j] < 0 || mol_i->Bead[j] >= Count->Bead) {
+        strcpy(ERROR_MSG, "incorrect index in Bead array");
+        PrintError();
+        ErrorPrintFile(file, "\0");
+        fprintf(stderr, "%s, Molecule[%s%d%s].Bead[%s%d%s] = %s%d%s\n",
+                ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
+                ErrYellow(), mol_i->Bead[j], ErrColourReset());
+        break;
+      }
+    }
+    if (test[mol_i->Index] > -1) {
+      strcpy(ERROR_MSG, "same molecule index with multiple molecules");
+      PrintError();
+      ErrorPrintFile(file, "\0");
+      fprintf(stderr, "%s, index %s%d%s with molecuces %s%d %d%s\n",
+              ErrRed(), ErrYellow(), mol_i->Index, ErrRed(), ErrYellow(),
+              test[mol_i->Index], i, ErrColourReset());
+      break;
+    }
+    test[mol_i->Index] = i;
+  }
+  free(test); //}}}
+} //}}}
+// helper functions to get bead indices from bonds, angles, etc. //{{{
+/*
+ * They all return an array of size 2*n where n is the number of bead indices
+ * (2 for bonds, 3 for angles, 4 for dihedrals and impropers); elements 0..n-1
+ * contain internal bead indices for the corresponding array in MoleculeType
+ * (Bond, Angle, etc.), while elements n..2*n-1 contain bead indices for in
+ * Bead.
+ */
+int * BondIndices(SYSTEM System, int mol, int bond) { //{{{
+  static int index[4]; // first are 'real' ids, then the intramolecular ones
+  int n = 2,
+      type = System.Molecule[mol].Type;
+  // intramolecular id
+  for (int i = 0; i < n; i++) {
+    index[i+n] = System.MoleculeType[type].Bond[bond][i];
+  }
+  // error if wrong intramolecular id //{{{
+  bool err = false;
+  for (int i = 0; i < n; i++) {
+    if (index[i+n] < 0 || index[i+n] >= System.MoleculeType[type].nBeads) {
+      err = true;
+      break;
+    }
+  }
+  if (err) {
+    strcpy(ERROR_MSG, "wrong index in a bond; should never happen!");
+    PrintError();
+    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s with %s%d%s beads),",
+            ErrRed(), ErrYellow(), mol, ErrRed(), ErrYellow(),
+            System.MoleculeType[type].Name, ErrRed(), ErrYellow(),
+            System.MoleculeType[type].nBeads, ErrRed());
+    fprintf(stderr, " intramolecular indices in bond %s%d%s:%s",
+            ErrYellow(), bond, ErrRed(), ErrYellow());
+    for (int i = 0; i < n; i++) {
+      fprintf(stderr, " %d", index[i+n]);
+    }
+    fprintf(stderr, "%s\n", ErrColourReset());
+  } //}}}
+  for (int i = 0; i < n; i++) {
+    index[i] = System.Molecule[mol].Bead[index[i+n]];
+  }
+  // error if wrong 'true' id //{{{
+  err = false;
+  for (int i = 0; i < n; i++) {
+    if (index[i] < 0 || index[i] >= System.Count.Bead) {
+      err = true;
+      break;
+    }
+  }
+  if (err) {
+    strcpy(ERROR_MSG, "wrong index in a bond; should never happen!");
+    PrintError();
+    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s),",
+            ErrRed(), ErrYellow(), mol, ErrRed(), ErrYellow(),
+            System.MoleculeType[type].Name, ErrRed());
+    fprintf(stderr, " indices in bond %s%d%s:%s",
+            ErrYellow(), bond, ErrRed(), ErrYellow());
+    for (int i = 0; i < n; i++) {
+      fprintf(stderr, " %d", index[i]);
+    }
+    fprintf(stderr, " %s(%s%d%s beads in the system)%s\n", ErrRed(),
+            ErrYellow(), System.Count.Bead, ErrRed(), ErrColourReset());
+  } //}}}
+  return index;
+} //}}}
+int * AngleIndices(SYSTEM System, int mol, int angle) { //{{{
+  static int index[6]; // first are 'real' ids, then the intramolecular ones
+  int n = 3,
+      type = System.Molecule[mol].Type;
+  // intramolecular is
+  for (int i = 0; i < n; i++) {
+    index[i+n] = System.MoleculeType[type].Angle[angle][i];
+  }
+  // error if wrong intramolecular id //{{{
+  bool err = false;
+  for (int i = 0; i < n; i++) {
+    if (index[i+n] < 0 || index[i+n] >= System.MoleculeType[type].nBeads) {
+      err = true;
+      break;
+    }
+  }
+  if (err) {
+    strcpy(ERROR_MSG, "wrong index in an angle; should never happen!");
+    PrintError();
+    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s with %s%d%s beads),",
+            ErrRed(), ErrYellow(), mol, ErrRed(), ErrYellow(),
+            System.MoleculeType[type].Name, ErrRed(), ErrYellow(),
+            System.MoleculeType[type].nBeads, ErrRed());
+    fprintf(stderr, " intramolecular indices in angle %s%d%s:%s",
+            ErrYellow(), angle, ErrRed(), ErrYellow());
+    for (int i = 0; i < n; i++) {
+      fprintf(stderr, " %d", index[i+n]);
+    }
+    fprintf(stderr, "%s\n", ErrColourReset());
+  } //}}}
+  for (int i = 0; i < n; i++) {
+    index[i] = System.Molecule[mol].Bead[index[i+n]];
+  }
+  // error if wrong 'true' id //{{{
+  err = false;
+  for (int i = 0; i < n; i++) {
+    if (index[i] < 0 || index[i] >= System.Count.Bead) {
+      err = true;
+      break;
+    }
+  }
+  if (err) {
+    strcpy(ERROR_MSG, "wrong index in an angle; should never happen!");
+    PrintError();
+    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s),", ErrRed(), ErrYellow(), mol,
+            ErrRed(), ErrYellow(), System.MoleculeType[type].Name, ErrRed());
+    fprintf(stderr, " indices in angle %s%d%s:%s",
+            ErrYellow(), angle, ErrRed(), ErrYellow());
+    for (int i = 0; i < n; i++) {
+      fprintf(stderr, " %d", index[i]);
+    }
+    fprintf(stderr, " %s(%s%d%s beads in the system)%s\n", ErrRed(),
+            ErrYellow(), System.Count.Bead, ErrRed(), ErrColourReset());
+  } //}}}
+  return index;
+} //}}}
+int * DihedralIndices(SYSTEM System, int mol, int dihed) { //{{{
+  static int index[8]; // first are 'real' ids, then the intramolecular ones
+  int n = 4,
+      type = System.Molecule[mol].Type;
+  // intramolecular is
+  for (int i = 0; i < n; i++) {
+    index[i+n] = System.MoleculeType[type].Dihedral[dihed][i];
+  }
+  // error if wrong intramolecular id //{{{
+  bool err = false;
+  for (int i = 0; i < n; i++) {
+    if (index[i+n] < 0 || index[i+n] >= System.MoleculeType[type].nBeads) {
+      err = true;
+      break;
+    }
+  }
+  if (err) {
+    strcpy(ERROR_MSG, "wrong index in an dihedral; should never happen!");
+    PrintError();
+    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s with %s%d%s beads),",
+            ErrRed(), ErrYellow(), mol, ErrRed(), ErrYellow(),
+            System.MoleculeType[type].Name, ErrRed(), ErrYellow(),
+            System.MoleculeType[type].nBeads, ErrRed());
+    fprintf(stderr, " intramolecular indices in dihedral %s%d%s:%s",
+            ErrYellow(), dihed, ErrRed(), ErrYellow());
+    for (int i = 0; i < n; i++) {
+      fprintf(stderr, " %d", index[i+n]);
+    }
+    fprintf(stderr, "%s\n", ErrColourReset());
+  } //}}}
+  for (int i = 0; i < n; i++) {
+    index[i] = System.Molecule[mol].Bead[index[i+n]];
+  }
+  // error if wrong 'true' id //{{{
+  err = false;
+  for (int i = 0; i < n; i++) {
+    if (index[i] < 0 || index[i] >= System.Count.Bead) {
+      err = true;
+      break;
+    }
+  }
+  if (err) {
+    strcpy(ERROR_MSG, "wrong index in a dihedral; should never happen!");
+    PrintError();
+    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s),", ErrRed(), ErrYellow(), mol,
+            ErrRed(), ErrYellow(), System.MoleculeType[type].Name, ErrRed());
+    fprintf(stderr, " indices in dihedral %s%d%s:%s",
+            ErrYellow(), dihed, ErrRed(), ErrYellow());
+    for (int i = 0; i < n; i++) {
+      fprintf(stderr, " %d", index[i]);
+    }
+    fprintf(stderr, " %s(%s%d%s beads in the system)%s\n", ErrRed(),
+            ErrYellow(), System.Count.Bead, ErrRed(), ErrColourReset());
+  } //}}}
+  return index;
+} //}}}
+int * ImproperIndices(SYSTEM System, int mol, int dihed) { //{{{
+  static int index[8]; // first are 'real' ids, then the intramolecular ones
+  int n = 4,
+      type = System.Molecule[mol].Type;
+  // intramolecular is
+  for (int i = 0; i < n; i++) {
+    index[i+n] = System.MoleculeType[type].Improper[dihed][i];
+  }
+  // error if wrong intramolecular id //{{{
+  bool err = false;
+  for (int i = 0; i < n; i++) {
+    if (index[i+n] < 0 || index[i+n] >= System.MoleculeType[type].nBeads) {
+      err = true;
+      break;
+    }
+  }
+  if (err) {
+    strcpy(ERROR_MSG, "wrong index in an dihedral; should never happen!");
+    PrintError();
+    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s with %s%d%s beads),",
+            ErrRed(), ErrYellow(), mol, ErrRed(), ErrYellow(),
+            System.MoleculeType[type].Name, ErrRed(), ErrYellow(),
+            System.MoleculeType[type].nBeads, ErrRed());
+    fprintf(stderr, " intramolecular indices in dihedral %s%d%s:%s",
+            ErrYellow(), dihed, ErrRed(), ErrYellow());
+    for (int i = 0; i < n; i++) {
+      fprintf(stderr, " %d", index[i+n]);
+    }
+    fprintf(stderr, "%s\n", ErrColourReset());
+  } //}}}
+  for (int i = 0; i < n; i++) {
+    index[i] = System.Molecule[mol].Bead[index[i+n]];
+  }
+  // error if wrong 'true' id //{{{
+  err = false;
+  for (int i = 0; i < n; i++) {
+    if (index[i] < 0 || index[i] >= System.Count.Bead) {
+      err = true;
+      break;
+    }
+  }
+  if (err) {
+    strcpy(ERROR_MSG, "wrong index in a dihedral; should never happen!");
+    PrintError();
+    fprintf(stderr, "%sMolecule %s%d%s (%s%s%s),", ErrRed(), ErrYellow(), mol,
+            ErrRed(), ErrYellow(), System.MoleculeType[type].Name, ErrRed());
+    fprintf(stderr, " indices in dihedral %s%d%s:%s",
+            ErrYellow(), dihed, ErrRed(), ErrYellow());
+    for (int i = 0; i < n; i++) {
+      fprintf(stderr, " %d", index[i]);
+    }
+    fprintf(stderr, " %s(%s%d%s beads in the system)%s\n", ErrRed(),
+            ErrYellow(), System.Count.Bead, ErrRed(), ErrColourReset());
+  } //}}}
+  return index;
+} //}}}
+ //}}}
+ //}}}
 
 // NewBeadType() //{{{
 /*
@@ -2457,6 +2306,7 @@ void NewMolType(MOLECULETYPE *MoleculeType[], int *n_types, char *name,
   (*MoleculeType)[mtype].nBTypes = 0;
 }; //}}}
 
+// verbose output (print various structures and some such) //{{{
 void VerboseOutput(SYSTEM System) { //{{{
   PrintCount(System.Count);
   PrintBeadType(System);
@@ -2825,7 +2675,15 @@ void PrintBox(BOX Box) { //{{{
           Box.inverse[2][0], Box.inverse[2][1], Box.inverse[2][2]);
   fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
 } //}}}
+void PrintByline(FILE *ptr, int argc, char *argv[]) { //{{{
+  fprintf(ptr, "# Created by AnalysisTools v%s ", VERSION);
+  fprintf(ptr, " (https://github.com/KaGaSi/AnalysisTools)\n");
+  fprintf(ptr, "# command: ");
+  PrintCommand(ptr, argc, argv);
+} //}}}
+ //}}}
 
+// memory-freeing functions //{{{
 void FreeSystem(SYSTEM *System) { //{{{
   free(System->Index_mol);
   free(System->BeadCoor);
@@ -2875,6 +2733,7 @@ void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) { //{{{
     free(MoleculeType->Improper);
   }
 } //}}}
+ //}}}
 
 #if 0 //{{{
 // TODO exchange Molecule[].Aggregate for something else
@@ -3156,6 +3015,117 @@ void FreeAggregate(COUNTS Counts, AGGREGATE **Aggregate) {
   }
   free(*Aggregate);
 } //}}}
+// SortAggStruct() //{{{
+/**
+ * Sort an Aggregate struct using the bubble sort algorithm. The resulting
+ * struct is arranged so that aggregates with the first molecule's lower id
+ * come first.
+ */
+void SortAggStruct(AGGREGATE **Aggregate, COUNTS Counts,
+                   MOLECULE *Molecule, MOLECULETYPE *MoleculeType,
+                   BEAD **Bead, BEADTYPE *BeadType) {
+  for (int i = 0; i < (Counts.Aggregates-1); i++) {
+    bool done = true;
+    for (int j = 0; j < (Counts.Aggregates-i-1); j++) {
+      if ((*Aggregate)[j].Molecule[0] > (*Aggregate)[j+1].Molecule[0]) {
+        SwapInt(&(*Aggregate)[j].nMolecules, &(*Aggregate)[j+1].nMolecules);
+        // switch the whole Aggregate[].Molecule array
+        int mols; // number of molecules in the larger aggregate
+        if ((*Aggregate)[j].nMolecules > (*Aggregate)[j+1].nMolecules) {
+          mols = (*Aggregate)[j].nMolecules;
+        } else {
+          mols = (*Aggregate)[j+1].nMolecules;
+        }
+        for (int k = 0; k < mols; k++) {
+          SwapInt(&(*Aggregate)[j].Molecule[k], &(*Aggregate)[j+1].Molecule[k]);
+        }
+        // switch bonded beads array
+        SwapInt(&(*Aggregate)[j].nBeads, &(*Aggregate)[j+1].nBeads);
+        int beads; // number of beads in the larger aggregate
+        if ((*Aggregate)[j].nBeads > (*Aggregate)[j+1].nBeads) {
+          beads = (*Aggregate)[j].nBeads;
+        } else {
+          beads = (*Aggregate)[j+1].nBeads;
+        }
+        for (int k = 0; k < beads; k++) {
+          SwapInt(&(*Aggregate)[j].Bead[k], &(*Aggregate)[j+1].Bead[k]);
+        }
+        // switch monomer beads array
+        SwapInt(&(*Aggregate)[j].nMonomers, &(*Aggregate)[j+1].nMonomers);
+        int mons; // larger number of monomers of the two aggregates
+        if ((*Aggregate)[j].nMonomers > (*Aggregate)[j+1].nMonomers) {
+          mons = (*Aggregate)[j].nMonomers;
+        } else {
+          mons = (*Aggregate)[j+1].nMonomers;
+        }
+        for (int k = 0; k < mons; k++) {
+          SwapInt(&(*Aggregate)[j].Monomer[k], &(*Aggregate)[j+1].Monomer[k]);
+        }
+        done = false;
+      }
+    }
+    if (done)
+      break;
+  }
+
+  // re-assign aggregate id to every bonded bead in the aggregate, correcting after sorting //{{{
+  for (int i = 0; i < Counts.Aggregates; i++) {
+    for (int j = 0; j < (*Aggregate)[i].nMolecules; j++) {
+      int mol = (*Aggregate)[i].Molecule[j];
+      int mtype = Molecule[mol].Type;
+      for (int k = 0; k < MoleculeType[mtype].nBeads; k++) {
+//      int id = Molecule[mol].Bead[k];
+//      (*Bead)[id].nAggregates = 1;
+//      (*Bead)[id].Aggregatexxx[0] = i;
+      }
+    }
+  } //}}}
+} //}}}
+// PrintAggregate() //{{{
+/**
+ * Function printing Aggregate structure.
+ */
+void PrintAggregate(COUNTS Counts, int *Index,
+                    MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
+                    BEAD *Bead, BEADTYPE *BeadType, AGGREGATE *Aggregate) {
+  fprintf(stdout, "Aggregates: %d\n", Counts.Aggregates);
+  for (int i = 0; i < Counts.Aggregates; i++) {
+    // print molecules
+    fprintf(stdout, " %d mols:", Aggregate[i].nMolecules);
+    for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+      int mol = Aggregate[i].Molecule[j];
+      int type = Molecule[mol].Type;
+      fprintf(stdout, " %d (%d)", mol, type);
+      if (j != (Aggregate[i].nMolecules-1)) {
+        putchar(',');
+      } else {
+        putchar('\n');
+      }
+    }
+    // print bonded beads
+    fprintf(stdout, " %d bonded beads:", Aggregate[i].nBeads);
+    for (int j = 0; j < Aggregate[i].nBeads; j++) {
+      int bead = Aggregate[i].Bead[j];
+      fprintf(stdout, " %d", bead);
+      if (j != (Aggregate[i].nBeads-1)) {
+        putchar(',');
+      } else {
+        putchar('\n');
+      }
+    }
+    // print monomeric beads
+    fprintf(stdout, " %d free beads:", Aggregate[i].nMonomers);
+    for (int j = 0; j < Aggregate[i].nMonomers; j++) {
+      int bead = Aggregate[i].Monomer[j];
+      fprintf(stdout, " %d", bead);
+      if (j != (Aggregate[i].nMonomers-1)) {
+        putchar(',');
+      } else {
+        putchar('\n');
+      }
+    }
+  }
+} //}}}
 // TODO remove, I think
 // CopyMolecule() //{{{
 /*
@@ -3196,6 +3166,43 @@ void CopyMolecule(int number_of_molecules, MOLECULETYPE *mt,
     for (int j = 0; j < mt[mtype].nBeads; j++) {
       (*m_out)[i].Bead[j] = m_in[i].Bead[j];
     }
+  }
+} //}}}
+// CopyBeadType() //{{{
+/**
+ * Function to copy BEADTYPE structure into a new. Memory for the new one will be
+ * reallocated in this function. Memory management for the output structure:
+ * sufficient memory is already allocated (mode=0), the structure needs freeing
+ * and allocating (mode=1), no memory wasn't yet allocated at all (mode=2), or
+ * it needs reallocating (mode=3).
+ */
+void CopyBeadType(int number_of_types, BEADTYPE **bt_out,
+                  BEADTYPE *bt_in, int mode) {
+  // bt_out memory management //{{{
+  switch (mode) {
+    case 0:
+      break;
+    case 1:
+      free(*bt_out);
+      *bt_out = malloc(sizeof (BEADTYPE) * number_of_types);
+      break;
+    case 2:
+      *bt_out = malloc(sizeof (BEADTYPE) * number_of_types);
+      break;
+    case 3:
+      *bt_out = realloc(*bt_out, sizeof (BEADTYPE) * number_of_types);
+      break;
+    default:
+      ErrorPrintError_old();
+      ColourChange(STDERR_FILENO, YELLOW);
+      fprintf(stderr, "CopyBeadType()");
+      ColourChange(STDERR_FILENO, RED);
+      fprintf(stderr, " function requires mode=0, 1, 2, or 3\n");
+      ColourReset(STDERR_FILENO);
+      exit(1);
+  } //}}}
+  for (int i = 0; i < number_of_types; i++) {
+    (*bt_out)[i] = bt_in[i];
   }
 } //}}}
 // TODO remove

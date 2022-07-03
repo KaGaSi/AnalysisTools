@@ -18,8 +18,6 @@ void WriteField(char *field, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
                 MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
                 PARAMS *bond_type, PARAMS *angle_type, PARAMS *dihedral_type);
 
-void PrintByline(FILE *ptr, int argc, char *argv[]);
-
 // TODO remove
 void WriteCoorIndexed(FILE *vcf_file, COUNTS Counts,
                       BEADTYPE *BeadType, BEAD *Bead,

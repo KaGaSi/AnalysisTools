@@ -16,11 +16,7 @@
 #include <time.h>
 #include <unistd.h>
 
-void CheckSystem(SYSTEM System, char file[]);
-
-bool TriclinicCellData(BOX *Box);
-
-void ToFractional(VECTOR *coor, BOX Box);
+VECTOR ToFractional(VECTOR coor, BOX Box);
 void ToFractionalCoor(SYSTEM *System);
 VECTOR FromFractional(VECTOR coor, BOX Box);
 void FromFractionalCoor(SYSTEM *System);
@@ -33,7 +29,7 @@ int * ImproperIndices(SYSTEM System, int mol, int dihed);
 
 void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads);
 
-void CountBondAngleDihedralImproper(SYSTEM *System);
+void CheckSystem(SYSTEM System, char file[]);
 
 // InputCoor() //{{{
 /**
@@ -46,26 +42,6 @@ void CountBondAngleDihedralImproper(SYSTEM *System);
  */
 bool InputCoor(bool *vtf, char *file_coor, char *file_struct); //}}}
 
-void PrintBox(BOX Box);
-
-// PrintAggregate() //{{{
-/**
- * Function printing Molecule structure.
- */
-void PrintAggregate(COUNTS Counts, int *Index, MOLECULETYPE *MoleculeType,
-                    MOLECULE *Molecule, BEAD *Bead, BEADTYPE *BeadType,
-                    AGGREGATE *Aggregate); //}}}
-
-// PrintBondTypes() //{{{
-void PrintBondTypes(COUNTS Counts, PARAMS *bond_type); //}}}
-void PrintBondTypes2(int number_of_bonds, PARAMS *bond_type);
-
-// PrintAngleTypes() //{{{
-void PrintAngleTypes(COUNTS Counts, PARAMS *angle_type); //}}}
-void PrintAngleTypes2(int number_of_angles, PARAMS *angle_type);
-
-void PrintDihedralTypes2(int number_of_dihedrals, PARAMS *dihedral_type);
-
 int FindBeadType(char name[], SYSTEM System);
 int FindMoleculeType(char name[], SYSTEM System);
 
@@ -75,12 +51,17 @@ void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
                                 BEADTYPE BeadType[]);
 void FillBeadTypeIndex(SYSTEM *System);
 void FillMoleculeTypeIndex(SYSTEM *System);
+bool TriclinicCellData(BOX *Box);
+void CountBondAngleDihedralImproper(SYSTEM *System);
 
 void NewBeadType(BEADTYPE *BeadType[], int *number_of_types, char *name,
                  double charge, double mass, double radius);
 void NewMolType(MOLECULETYPE *MoleculeType[], int *n_types, char *name,
                 int n_beads, int n_bonds, int n_angles, int n_dihedrals,
                 int n_impropers);
+
+void RemovePBCMolecules(SYSTEM *System);
+void RestorePBC(SYSTEM *System);
 
 // Distancet() //{{{
 /**
@@ -92,45 +73,6 @@ void NewMolType(MOLECULETYPE *MoleculeType[], int *n_types, char *name,
  * \return distance vector between the two provided beads (without pbc)
  */
 VECTOR Distance(VECTOR id1, VECTOR id2, VECTOR BoxLength); //}}}
-
-void RemovePBCMolecules(SYSTEM *System);
-
-// RemovePBCAggregates() //{{{
-/**
- * \brief Funcion to join all aggregates.
- *
- * \param [in]  distance       distance for closeness check (taken from agg
- * file) \param [in]  Aggregate      information about aggregates \param [in]
- * Counts         number of beads, molecu.es, etc. \param [in]  BoxLength
- * dimensions of the simulation box \param [in]  BeadType       information
- * about bead types \param [out] Bead           information about individual
- * beads (coordinates) \param [in]  MoleculeType   information about molecule
- * types \param [in]  Molecule       information about individual molecules
- */
-void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNTS Counts,
-                         VECTOR BoxLength, BEADTYPE *BeadType, BEAD **Bead,
-                         MOLECULETYPE *MoleculeType, MOLECULE *Molecule); //}}}
-
-// RestorePBC_old() //{{{
-/**
- * \brief Function to restore pbc.
- *
- * \param [in]  Counts         numbers of beads, molecules, etc.
- * \param [in]  BoxLength      dimension of the simulation box
- * \param [out] Bead           information about individual beads (coordinates)
- */
-void RestorePBC_old(COUNTS Counts, VECTOR BoxLength, BEAD **Bead); //}}}
-// RestorePBC() //{{{
-/**
- * \brief Function to restore pbc.
- *
- * \param [in]  number_of_beads   number of beads in the system
- * \param [in]  BoxLength         dimension of the simulation box
- * \param [out] Bead              information about individual beads
- * (coordinates)
- */
-void RestorePBC(SYSTEM *System); //}}}
-
 // CentreOfMass() //{{{
 /**
  * \brief Function to calculate centre of mass for a collection of beads.
@@ -142,7 +84,6 @@ void RestorePBC(SYSTEM *System); //}}}
  * \return coordinates of centre of mass of a given aggregate
  */
 VECTOR CentreOfMass(int n, int *list, BEAD *Bead, BEADTYPE *BeadType); //}}}
-
 // GeomCentre() //{{{
 /**
  * \brief Function to calculate geometric centre for a collection of beads.
@@ -153,7 +94,6 @@ VECTOR CentreOfMass(int n, int *list, BEAD *Bead, BEADTYPE *BeadType); //}}}
  * (coordinates) \return coordinates of geometric centre of a given aggregate
  */
 VECTOR GeomCentre(int n, int *list, BEAD *Bead); //}}}
-
 // Gyration() //{{{
 /*
  * \brief Function calculating principal moments of the gyration tensor.
@@ -169,56 +109,14 @@ VECTOR GeomCentre(int n, int *list, BEAD *Bead); //}}}
 VECTOR Gyration(int n, int *list, COUNTS Counts, BEADTYPE *BeadType,
                 BEAD **Bead); //}}}
 
-// EvaluateContacts() //{{{
-/**
- * \brief Function evaluating contacts for aggregate detection
- *
- * \param [in]  Counts        numbers of beads, molecules, etc.
- * \param [out] Aggregate     information about aggregates
- * \param [in]  Molecule      information about individual molecules
- * \param [in]  contacts      number of contacts for aggregate check
- * \param [in]  contact       2D array containing number of contacts between
- * molecules
- */
-void EvaluateContacts(COUNTS *Counts, AGGREGATE **Aggregate,
-                      MOLECULE **Molecule, int contacts, int **contact);
-//}}}
-
-// SortAggStruct() //{{{
-/**
- * \brief Function to sort Aggregate struct.
- *
- * \param [out] Aggregate  Aggregate struct to sort
- * \param [in]  Counts     numbers of beads, molecules, etc.
- */
-void SortAggStruct(AGGREGATE **Aggregate, COUNTS Counts, MOLECULE *Molecule,
-                   MOLECULETYPE *MoleculeType, BEAD **Bead,
-                   BEADTYPE *BeadType); //}}}
-
 // LinkedList() //{{{
 void LinkedList(VECTOR BoxLength, COUNTS Counts, BEAD *Bead, int **Head,
                 int **Link, double cell_size, INTVECTOR *n_cells, int *Dcx,
                 int *Dcy, int *Dcz); //}}}
 
-// SortBonds() //{{{
-/**
- * \brief Function to sort 2D array of bonds.
- *
- * \param [out] bond    2D array of bonds
- * \param [in]  length  number of bonds
- */
-void SortBonds(int (*bond)[3], int length); //}}}
-
-// SortAngles() //{{{
-/**
- * \brief Function to sort 2D array of bonds.
- *
- * \param [out] angle   2D array of angles
- * \param [in]  length  number of angles
- */
-void SortAngles(int (*angle)[4], int length); //}}}
+void SortBonds(int (*bond)[3], int length);
+void SortAngles(int (*angle)[4], int length);
 void SortDihedrals(int (*dihedral)[5], int length);
-
 
 SYSTEM CopySystem(SYSTEM Sys_in);
 MOLECULETYPE CopyMoleculeType(MOLECULETYPE mt_old);
@@ -236,6 +134,12 @@ void PrintBondType(SYSTEM System);
 void PrintAngleType(SYSTEM System);
 void PrintDihedralType(SYSTEM System);
 void PrintImproperType(SYSTEM System);
+// TODO: use SYSTEM
+void PrintBondTypes(COUNTS Counts, PARAMS *bond_type);
+// TODO: use SYSTEM
+void PrintAngleTypes(COUNTS Counts, PARAMS *angle_type);
+void PrintBox(BOX Box);
+void PrintByline(FILE *ptr, int argc, char *argv[]);
 
 void FreeSystem(SYSTEM *System);
 void FreeMoleculeType(MOLECULETYPE *MoleculeType);
@@ -243,6 +147,49 @@ void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType);
 
 #if 0 //{{{
 // TODO remove
+// PrintAggregate() //{{{
+/**
+ * Function printing Molecule structure.
+ */
+void PrintAggregate(COUNTS Counts, int *Index, MOLECULETYPE *MoleculeType,
+                    MOLECULE *Molecule, BEAD *Bead, BEADTYPE *BeadType,
+                    AGGREGATE *Aggregate); //}}}
+void PrintBondTypes2(int number_of_bonds, PARAMS *bond_type);
+// RestorePBC_old() //{{{
+/**
+ * \brief Function to restore pbc.
+ *
+ * \param [in]  Counts         numbers of beads, molecules, etc.
+ * \param [in]  BoxLength      dimension of the simulation box
+ * \param [out] Bead           information about individual beads (coordinates)
+ */
+void RestorePBC_old(COUNTS Counts, VECTOR BoxLength, BEAD **Bead); //}}}
+// EvaluateContacts() //{{{
+/**
+ * \brief Function evaluating contacts for aggregate detection
+ *
+ * \param [in]  Counts        numbers of beads, molecules, etc.
+ * \param [out] Aggregate     information about aggregates
+ * \param [in]  Molecule      information about individual molecules
+ * \param [in]  contacts      number of contacts for aggregate check
+ * \param [in]  contact       2D array containing number of contacts between
+ * molecules
+ */
+void EvaluateContacts(COUNTS *Counts, AGGREGATE **Aggregate,
+                      MOLECULE **Molecule, int contacts, int **contact);
+//}}}
+// SortAggStruct() //{{{
+/**
+ * \brief Function to sort Aggregate struct.
+ *
+ * \param [out] Aggregate  Aggregate struct to sort
+ * \param [in]  Counts     numbers of beads, molecules, etc.
+ */
+void SortAggStruct(AGGREGATE **Aggregate, COUNTS Counts, MOLECULE *Molecule,
+                   MOLECULETYPE *MoleculeType, BEAD **Bead,
+                   BEADTYPE *BeadType); //}}}
+void PrintAngleTypes2(int number_of_angles, PARAMS *angle_type);
+void PrintDihedralTypes2(int number_of_dihedrals, PARAMS *dihedral_type);
 // VerboseOutput_old() //{{{
 /**
  * \brief Function printing basic information about system if `-v` or `-V`
@@ -429,5 +376,20 @@ void CopyMoleculeType_old(int number_of_types, MOLECULETYPE **mt_out,
  */
 void CopyMolecule(int number_of_molecules, MOLECULETYPE *mt, MOLECULE **m_out,
                   MOLECULE *m_in, int mode); //}}}
+// RemovePBCAggregates() //{{{
+/**
+ * \brief Funcion to join all aggregates.
+ *
+ * \param [in]  distance       distance for closeness check (taken from agg
+ * file) \param [in]  Aggregate      information about aggregates \param [in]
+ * Counts         number of beads, molecu.es, etc. \param [in]  BoxLength
+ * dimensions of the simulation box \param [in]  BeadType       information
+ * about bead types \param [out] Bead           information about individual
+ * beads (coordinates) \param [in]  MoleculeType   information about molecule
+ * types \param [in]  Molecule       information about individual molecules
+ */
+void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNTS Counts,
+                         VECTOR BoxLength, BEADTYPE *BeadType, BEAD **Bead,
+                         MOLECULETYPE *MoleculeType, MOLECULE *Molecule); //}}}
 #endif //}}}
 #endif
