@@ -116,7 +116,7 @@ bool ExcludeOption(int argc, char *argv[], SYSTEM *System) { //{{{
       // read molecule(s) names
       int j = 0;
       while ((i+1+j) < argc && argv[i+1+j][0] != '-') {
-        int type = FindMoleculeType(argv[i+1+j], *System);
+        int type = FindMoleculeName(argv[i+1+j], *System);
         if (type == -1) { // is it in vsf?
           ErrorPrintError_old();
           ColourChange(STDERR_FILENO, YELLOW);

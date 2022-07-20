@@ -23,7 +23,8 @@ having a different charge.\n\n");
   fprintf(ptr, "   <input>      input coordinate file (vcf or vtf format)\n");
   fprintf(ptr, "   <out.data>   output lammps data file\n");
   fprintf(ptr, "   [options]\n");
-  fprintf(ptr, "      -f[!] <name> FIELD-like file\n");
+  fprintf(ptr, "      -f[!] <name> FIELD-like file (! - exchange beads in the \
+molecules from vtf structure file for those from the FIELD-like file)\n");
   fprintf(ptr, "      --srp        add one more bead type for srp\n");
   fprintf(ptr, "      --mass       define atom types by mass (printing their\
 different charges in the Atoms section)\n");
@@ -169,6 +170,14 @@ int main(int argc, char *argv[]) {
   }
 
   WriteLmpData(System, file_out_lmp, srp, mass);
+
+  for (int i = 0; i < System.Count.MoleculeType; i++) {
+    int type = FindMoleculeType(System.MoleculeType[i], System, 3);
+    if (type != i) {
+      strcpy(ERROR_MSG, "nope...");
+      PrintError();
+    }
+  }
 
   // free memory - to make valgrind happy //{{{
   FreeSystem(&System);

@@ -3,9 +3,9 @@
 
 #include "General.h"
 
-#define CHARGE 10000.0 // 'impossible' charge to define a given bead type has charge specified in an input file
-#define MASS 0.0 // 'impossible' mass to define a given bead type has charge specified in an input file
-#define RADIUS 0.0 // 'impossible' radius to define a given bead type has charge specified in an input file
+#define CHARGE 10000.0 // 'impossible' charge
+#define MASS 0.0 // 'impossible' mass
+#define RADIUS 0.0 // 'impossible' radius
 #define MOL_NAME 9 // maximum molecule name length (with null terminator)
 #define BEAD_NAME 17 // maximum bead name length (with null terminator)
 
@@ -73,18 +73,11 @@ static const COUNT InitCount = {
 }; //}}}
 typedef struct Params { //{{{
   double a, b;
-} PARAMS;
-// Initialize Params
-static const PARAMS InitParams = {
-  .a = -1,
-  .b = -1,
-}; //}}}
+} PARAMS; //}}}
 typedef struct BeadType { //{{{
   char Name[BEAD_NAME]; // name of given bead type
   int Number, // number of beads of given type
       *Index; // array of Bead[] indices
-//bool Use, // should bead type in .vcf file be used for calculation?
-//     Write; // should bead type in .vcf file be written to output .vcf?
   double Charge, // charge of every bead of given type
          Mass, // mass of every bead of given type
          Radius; // radius of every bead of the given type
@@ -158,6 +151,7 @@ typedef struct System { //{{{
 } SYSTEM;
 void InitSystem(SYSTEM *System); //}}}
 
+// TODO remake/remove?
 typedef struct Aggregate { //{{{
   int nMolecules, // number of molecules in aggregate
       *Molecule, // ids of molecules in aggregate
@@ -170,7 +164,6 @@ typedef struct Aggregate { //{{{
 
   bool Use; // should aggregate be used for calculation?
 } AGGREGATE; //}}}
-
 // TODO remove
 typedef struct Counts { //{{{
   int TypesOfBeads, // number of bead types

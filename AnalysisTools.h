@@ -43,7 +43,8 @@ void CheckSystem(SYSTEM System, char file[]);
 bool InputCoor(bool *vtf, char *file_coor, char *file_struct); //}}}
 
 int FindBeadType(char name[], SYSTEM System);
-int FindMoleculeType(char name[], SYSTEM System);
+int FindMoleculeName(char name[], SYSTEM System);
+int FindMoleculeType(MOLECULETYPE mol, SYSTEM System, int mode);
 
 void FillSystemNonessentials(SYSTEM *System);
 void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType);

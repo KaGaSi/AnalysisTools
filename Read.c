@@ -647,10 +647,7 @@ SYSTEM VtfReadStruct(char struct_file[], bool detailed) {
   bool warned = false; // has 'a[tom] default' line warning already been issued?
   BEADTYPE bt_def;
   InitBeadType(&bt_def);
-//struct bond {
-//  int index1, index2; // indices from vsf file
-//} *bond = calloc(1, sizeof *bond); //}}}
-  int (*bond)[2] = calloc(1, sizeof *bond);
+  int (*bond)[2] = calloc(1, sizeof *bond); //}}}
   // read struct_file line by line, saving all atom and bond lines //{{{
   /* Do something based on to line type
    *   a) atom line: save bead information

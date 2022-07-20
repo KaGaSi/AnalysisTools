@@ -8,26 +8,26 @@ void InitBeadType(BEADTYPE *bt) { //{{{
   bt->Radius = RADIUS;
 } //}}}
 void InitBead(BEAD *b) { //{{{
-  (*b).Type = -1;
-  (*b).Molecule = -1;
-  (*b).InTimestep = false;
+  b->Type = -1;
+  b->Molecule = -1;
+  b->InTimestep = false;
 } //}}}
 void InitMoleculeType(MOLECULETYPE *mt) { //{{{
-  (*mt).Name[0] = '\0';
-  (*mt).Number = 0;
-  (*mt).nBeads = 0;
-  (*mt).nBonds = 0;
-  (*mt).nAngles = 0;
-  (*mt).nDihedrals = 0;
-  (*mt).nImpropers = 0;
-  (*mt).nBTypes = 0;
-  (*mt).Mass = MASS;
-  (*mt).Charge = CHARGE;
-  (*mt).InVcf = false;
+  mt->Name[0] = '\0';
+  mt->Number = 0;
+  mt->nBeads = 0;
+  mt->nBonds = 0;
+  mt->nAngles = 0;
+  mt->nDihedrals = 0;
+  mt->nImpropers = 0;
+  mt->nBTypes = 0;
+  mt->Mass = MASS;
+  mt->Charge = CHARGE;
+  mt->InVcf = false;
 } //}}}
 void InitMolecule(MOLECULE *mol) { //{{{
-  (*mol).Type = -1;
-  (*mol).Index = -1;
+  mol->Type = -1;
+  mol->Index = -1;
 } //}}}
 void InitSystem(SYSTEM *System) { //{{{
   System->Box = InitBox;

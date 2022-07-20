@@ -130,7 +130,7 @@ int FindBeadType(char name[], SYSTEM System) { //{{{
   // name isn't in BeadType struct
   return -1;
 } //}}}
-int FindMoleculeType(char name[], SYSTEM System) { //{{{
+int FindMoleculeName(char name[], SYSTEM System) { //{{{
   int type;
   for (int i = 0; i < System.Count.MoleculeType; i++) {
     if (strcmp(name, System.MoleculeType[i].Name) == 0) {
@@ -140,6 +140,91 @@ int FindMoleculeType(char name[], SYSTEM System) { //{{{
   }
   // name isn't in MoleculeType struct
   return(-1);
+} //}}}
+// FindMoleculeType() //{{{
+/*
+ * Find according to mode:
+ *   0 - check only name
+ *   1 - check name and number of beads
+ *   2 - check name and number and identity of beads
+ *   3 - check everything
+ */
+int FindMoleculeType(MOLECULETYPE mol, SYSTEM System, int mode) {
+  int type;
+  // find the same name
+  for (int i = 0; i < System.Count.MoleculeType; i++) {
+    if (strcmp(mol.Name, System.MoleculeType[i].Name) == 0) {
+      type = i;
+      if (mode == 0) {
+        return type;
+      }
+      MOLECULETYPE *mtype = &System.MoleculeType[type];
+      // check number of beads //{{{
+      if (mtype->nBeads != mol.nBeads) {
+        return -1; // TODO: return to function start or some such
+      } //}}}
+      if (mode == 1) {
+        return type;
+      }
+      // check bead order //{{{
+      for (int j = 0; j < mtype->nBeads; j++) {
+        if (mtype->Bead[j] != mol.Bead[j]) {
+          return -1; // TODO: return to function start or some such
+        }
+      } //}}}
+      // check bonds //{{{
+      if (mtype->nBonds != mol.nBonds) {
+        return -1; // TODO: return to function start or some such
+      }
+      for (int j = 0; j < mtype->nBonds; j++) {
+        if (mtype->Bond[j][0] != mol.Bond[j][0] ||
+            mtype->Bond[j][1] != mol.Bond[j][1] ||
+            mtype->Bond[j][2] != mol.Bond[j][2]) {
+          return -1; // TODO: return to function start or some such
+        }
+      } //}}}
+      // check angles //{{{
+      if (mtype->nAngles != mol.nAngles) {
+        return -1; // TODO: return to function start or some such
+      }
+      for (int j = 0; j < mtype->nAngles; j++) {
+        if (mtype->Angle[j][0] != mol.Angle[j][0] ||
+            mtype->Angle[j][1] != mol.Angle[j][1] ||
+            mtype->Angle[j][2] != mol.Angle[j][2] ||
+            mtype->Angle[j][3] != mol.Angle[j][3]) {
+          return -1; // TODO: return to function start or some such
+        }
+      } //}}}
+      // check dihedrals //{{{
+      if (mtype->nDihedrals != mol.nDihedrals) {
+        return -1; // TODO: return to function start or some such
+      }
+      for (int j = 0; j < mtype->nDihedrals; j++) {
+        if (mtype->Dihedral[j][0] != mol.Dihedral[j][0] ||
+            mtype->Dihedral[j][1] != mol.Dihedral[j][1] ||
+            mtype->Dihedral[j][2] != mol.Dihedral[j][2] ||
+            mtype->Dihedral[j][3] != mol.Dihedral[j][3] ||
+            mtype->Dihedral[j][4] != mol.Dihedral[j][4]) {
+          return -1; // TODO: return to function start or some such
+        }
+      } //}}}
+      // check impropers //{{{
+      if (mtype->nImpropers != mol.nImpropers) {
+        return -1; // TODO: return to function start or some such
+      }
+      for (int j = 0; j < mtype->nImpropers; j++) {
+        if (mtype->Improper[j][0] != mol.Improper[j][0] ||
+            mtype->Improper[j][1] != mol.Improper[j][1] ||
+            mtype->Improper[j][2] != mol.Improper[j][2] ||
+            mtype->Improper[j][3] != mol.Improper[j][3] ||
+            mtype->Improper[j][4] != mol.Improper[j][4]) {
+          return -1; // TODO: return to function start or some such
+        }
+      } //}}}
+    }
+  }
+
+  return type;
 } //}}}
 
 /* TODO what about if the molecule has bonds, but is in more 'pieces'; should
@@ -888,7 +973,7 @@ void PruneSystem(SYSTEM *System) { //{{{
       // find if the molecule type already exists in the pruned system
       bool new = true;
       for (int j = 0; j < Count->BeadType; j++) {
-        int new_type = FindMoleculeType(mt_old->Name,
+        int new_type = FindMoleculeName(mt_old->Name,
                                         (*System));
         if (new_type != -1) {
           mol_new->Type = new_type;
@@ -1335,7 +1420,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) {
   } //}}}
   for (int i = 0; i < Count_orig->MoleculeType; i++) {
     MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
-    int type = FindMoleculeType(mt_orig->Name, Sys_add);
+    int type = FindMoleculeType(*mt_orig, Sys_add, 1);
     if (type != -1) {
       MOLECULETYPE *mt_add = &Sys_add.MoleculeType[type];
       // add bonds, if there are none in the original molecule type... //{{{
@@ -1435,7 +1520,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) {
     // change bead types in MoleculeType[].Bead
     for (int i = 0; i < Count_orig->MoleculeType; i++) {
       MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
-      int mtype_add = FindMoleculeType(mt_orig->Name, Sys_add);
+      int mtype_add = FindMoleculeName(mt_orig->Name, Sys_add);
       if (mtype_add != -1) {
         MOLECULETYPE *mt_add = &Sys_add.MoleculeType[mtype_add];
         for (int j = 0; j < mt_orig->nBeads; j++) {
@@ -1447,7 +1532,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) {
     for (int i = 0; i < Count_orig->Molecule; i++) {
       MOLECULE *mol_orig = &Sys_orig->Molecule[i];
       MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[mol_orig->Type];
-      int mtype_add = FindMoleculeType(mt_orig->Name, Sys_add);
+      int mtype_add = FindMoleculeName(mt_orig->Name, Sys_add);
       if (mtype_add != -1) {
         for (int j = 0; j < mt_orig->nBeads; j++) {
           int bead = mol_orig->Bead[j];
