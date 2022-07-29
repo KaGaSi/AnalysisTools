@@ -7,16 +7,19 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[], bool write[], SYSTEM System);
 void XyzWriteCoor(FILE *xyz, bool write[], SYSTEM System);
 void VtfWriteStruct(char file[], SYSTEM System);
 void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass);
+void WriteField(SYSTEM System, char file_field[]);
 
 // TODO will change
 void WriteAggregates(int step_count, char *agg_file, COUNTS Counts,
                      MOLECULETYPE *MoleculeType, BEAD *Bead, AGGREGATE
                      *Aggregate);
 
+#if 0
 // TODO will change
 void WriteField(char *field, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
                 MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
                 PARAMS *bond_type, PARAMS *angle_type, PARAMS *dihedral_type);
+#endif
 
 // TODO remove
 void WriteCoorIndexed(FILE *vcf_file, COUNTS Counts,

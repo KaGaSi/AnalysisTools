@@ -125,7 +125,7 @@ void VtfWriteStruct(char file[], SYSTEM System) { //{{{
 } //}}}
 void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
   FILE *fw = OpenFile(file_lmp, "w");
-  fprintf(fw, "LAMMPS data filea via AnalysisTools v%s \
+  fprintf(fw, "Created via AnalysisTools v%s \
   (https://github.com/KaGaSi/AnalysisTools)\n\n", VERSION);
   COUNT *Count = &System.Count;
   // create new SYSTEM structure to figure out bead types if mass==true //{{{
@@ -426,6 +426,45 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
   FreeSystem(&Sys_print);
   fclose(fw);
 } //}}}
+void WriteField(SYSTEM System, char file_field[]) {
+  FILE *fw = OpenFile(file_field, "w");
+  fprintf(fw, "Created via AnalysisTools v%s \
+  (https://github.com/KaGaSi/AnalysisTools)\n\n", VERSION);
+  COUNT *Count = &System.Count;
+  // print species section //{{{
+  fprintf(fw, "species %d\n", Count->BeadType);
+  // count unbonded beads of each type
+  int *unbonded = calloc(Count->BeadType, sizeof *unbonded);
+  for (int i = 0; i < Count->Unbonded; i++) {
+    int id = System.Unbonded[i];
+    int btype = System.Bead[id].Type;
+    unbonded[btype]++;
+  }
+  // print the lines
+  for (int i = 0; i < Count->BeadType; i++) {
+    BEADTYPE *bt_i = &System.BeadType[i];
+    fprintf(fw, "%16s %8.5f %8.5f %5d\n",
+            bt_i->Name, bt_i->Mass, bt_i->Charge, unbonded[i]);
+  }
+  free(unbonded); //}}}
+  // print molecules section
+  fprintf(fw, "molecule %d\n", Count->MoleculeType);
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    MOLECULETYPE *mt_i = &System.MoleculeType[i];
+    fprintf(fw, "%s\n", mt_i->Name);
+    fprintf(fw, "nummols %d\n", mt_i->Number);
+    fprintf(fw, "beads %d\n", mt_i->nBeads);
+    int mol = mt_i->Index[0];
+    for (int j = 0; j < mt_i->nBeads; j++) {
+      int id = System.Molecule[mol].Bead[j];
+      int bt = mt_i->Bead[j];
+      VECTOR *pos = &System.Bead[id].Position;
+      fprintf(fw, "%16s %8.5f %8.5f %8.5f\n",
+              System.BeadType[bt].Name, pos->x, pos->y, pos->z);
+    }
+  }
+  fclose(fw);
+}
 
 // TODO will change
 // WriteAggregates() //{{{
@@ -470,6 +509,7 @@ void WriteAggregates(int step_count, char *agg_file, COUNTS Counts,
   fclose(fw);
 } //}}}
 
+#if 0 //{{{
 // TODO will change
 // WriteField() //{{{
 /*
@@ -603,8 +643,6 @@ void WriteField(char *field, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
   }
   fclose(fw);
 } //}}}
-
-#if 0 //{{{
 // TODO remove
 // WriteCoorIndexed() //{{{
 /**

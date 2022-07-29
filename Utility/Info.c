@@ -171,6 +171,10 @@ int main(int argc, char *argv[]) {
     VtfWriteStruct(output_vsf, System);
   } //}}}
 
+  char file_field[LINE];
+  strcpy(file_field, "FIELD");
+  WriteField(System, file_field);
+
   // free memory //{{{
   FreeSystem(&System);
   if (input_field[0] != '\0') {
