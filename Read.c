@@ -493,7 +493,8 @@ this should never happen!");
   free(count_test); //}}}
 } //}}}
 // MergeMoleculeTypes() //{{{
-  /*
+  /* TODO: should bond/angle/etc/ types be also checked? I guess so, but first,
+   *       have a look where the function is used...
    * Molecules of one type must share:
    * i) molecule name and numbers of beads, bonds, angles, dihedrals,
    *    and impropers
@@ -512,38 +513,84 @@ void MergeMoleculeTypes(SYSTEM *System) {
     for (; j < count; j++) {
       MOLECULETYPE *mt_j = &System->MoleculeType[j];
       // i) check numbers of stuff
-      if (strcmp(mt_i->Name, mt_j->Name) == 0 &&
-          mt_i->nBeads == mt_j->nBeads &&
-          mt_i->nBonds == mt_j->nBonds &&
-          mt_i->nAngles == mt_j->nAngles &&
-          mt_i->nDihedrals == mt_j->nDihedrals &&
-          mt_i->nImpropers == mt_j->nImpropers) {
-        // ii) check bead order
-        bool same_beads = true; // assume the bead order is the same
-        for (int k = 0; k < mt_i->nBeads; k++) {
-          if (mt_i->Bead[k] != mt_j->Bead[k]) {
-            same_beads = false;
-          }
+      if (strcmp(mt_i->Name, mt_j->Name) == 0 ||
+          mt_i->nBeads != mt_j->nBeads ||
+          mt_i->nBonds != mt_j->nBonds ||
+          mt_i->nAngles != mt_j->nAngles ||
+          mt_i->nDihedrals != mt_j->nDihedrals ||
+          mt_i->nImpropers != mt_j->nImpropers) {
+        continue;
+      }
+      // ii) check bead order
+      bool same_mol = true; // assume i and j are the same molecule
+      for (int k = 0; k < mt_i->nBeads; k++) {
+        if (mt_i->Bead[k] != mt_j->Bead[k]) {
+          same_mol = false; // i and j aren't the same
         }
-        // iii) check bonds
-        bool same_bonds = true; // assume molecule i has j type's connectivity
-        for (int k = 0; k < mt_j->nBonds; k++) {
-          if (mt_i->Bond[k][0] != mt_j->Bond[k][0] ||
-              mt_i->Bond[k][1] != mt_j->Bond[k][1]) {
-            same_bonds = false; // nope, it doesn't; i is not type j
-            break;
-          }
-        }
-        // are molecule types i and j the same?
-        if (same_beads && same_bonds) {
-          if (i != j) {
-            mt_j->Number += mt_i->Number;
-            FreeMoleculeTypeEssentials(mt_i);
-          }
-          old_to_new[i] = j;
-          new = false;
+      }
+      if (!same_mol) {
+        continue;
+      }
+      // iii) check bonds, angles, etc.
+      // bonds
+      for (int k = 0; k < mt_j->nBonds; k++) {
+        if (mt_i->Bond[k][0] != mt_j->Bond[k][0] ||
+            mt_i->Bond[k][1] != mt_j->Bond[k][1]) {
+          same_mol = false; // i and j aren't the same
           break;
         }
+      }
+      if (!same_mol) {
+        continue;
+      }
+      // angles
+      for (int k = 0; k < mt_j->nAngles; k++) {
+        if (mt_i->Angle[k][0] != mt_j->Angle[k][0] ||
+            mt_i->Angle[k][1] != mt_j->Angle[k][1] ||
+            mt_i->Angle[k][2] != mt_j->Angle[k][2]) {
+          same_mol = false; // i and j aren't the same
+          break;
+        }
+      }
+      if (!same_mol) {
+        continue;
+      }
+      // dihedrals
+      for (int k = 0; k < mt_j->nDihedrals; k++) {
+        if (mt_i->Dihedral[k][0] != mt_j->Dihedral[k][0] ||
+            mt_i->Dihedral[k][1] != mt_j->Dihedral[k][1] ||
+            mt_i->Dihedral[k][2] != mt_j->Dihedral[k][2] ||
+            mt_i->Dihedral[k][3] != mt_j->Dihedral[k][3]) {
+          same_mol = false; // i and j aren't the same
+          break;
+        }
+      }
+      if (!same_mol) {
+        continue;
+      }
+      // impropers
+      for (int k = 0; k < mt_j->nImpropers; k++) {
+        if (mt_i->Improper[k][0] != mt_j->Improper[k][0] ||
+            mt_i->Improper[k][1] != mt_j->Improper[k][1] ||
+            mt_i->Improper[k][2] != mt_j->Improper[k][2] ||
+            mt_i->Improper[k][3] != mt_j->Improper[k][3]) {
+          same_mol = false; // i and j aren't the same
+          break;
+        }
+      }
+      if (!same_mol) {
+        continue;
+      }
+      // are molecule types i and j the same?
+      // TODO: huh? why check i!=j here instead of at the beginning?
+      if (same_mol) {
+        if (i != j) {
+          mt_j->Number += mt_i->Number;
+          FreeMoleculeTypeEssentials(mt_i);
+        }
+        old_to_new[i] = j;
+        new = false;
+        break;
       }
     }
     if (new) { // create new type...
@@ -1591,7 +1638,7 @@ SYSTEM FieldReadFull(char field_file[]) { //{{{
   MergeMoleculeTypes(&System);
   FillSystemNonessentials(&System);
   CheckSystem(System, field_file);
-  VtfWriteStruct("field.vsf", System);
+  VtfWriteStruct("field.vsf", System, -1);
   return System;
 } //}}}
 void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{

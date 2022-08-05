@@ -984,7 +984,7 @@ int main(int argc, char *argv[]) {
 
   // write data to output files //{{{
   // vsf file
-  VtfWriteStruct(file_out_struct, S_new);
+  VtfWriteStruct(file_out_struct, S_new, -1);
   // .vcf file
   FILE *out = OpenFile(file_out_coor, "w");
   PrintByline(out, argc, argv);

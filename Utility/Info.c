@@ -20,10 +20,11 @@ applies to molecules with the same name in both files.\n\n");
   fprintf(ptr, "   [options]\n");
   fprintf(ptr, "      --detailed        differentiate bead types not just \
 by names\n");
-  fprintf(ptr, "      -vsf <file.vsf>   create a new vsf structure file\n");
   fprintf(ptr, "      -c <file>         input coordinate file\n");
   fprintf(ptr, "      -f[!] <file>      input FIELD-like file for extra \
 structural information (change beads in molecules if '1' is used)\n");
+  fprintf(ptr, "      -vsf <file.vsf>   create a new vsf structure file\n");
+  fprintf(ptr, "      -def <bead name>  default bead type for output file\n");
   fprintf(ptr, "      -v                more verbose output\n");
   fprintf(ptr, "      -h                print this help and exit\n");
   fprintf(ptr, "      --version         print version number and exit\n");
@@ -59,6 +60,7 @@ int main(int argc, char *argv[]) {
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] == '-' && strcmp(argv[i], "--detailed") != 0 &&
         strcmp(argv[i], "-vsf") != 0 && strcmp(argv[i], "-c") != 0 &&
+        strcmp(argv[i], "-def") != 0 && strcmp(argv[i], "-c") != 0 &&
         strcmp(argv[i], "-f") != 0 && strcmp(argv[i], "-v") != 0 &&
         strcmp(argv[i], "-f!") != 0 && strcmp(argv[i], "-v") != 0 &&
         strcmp(argv[i], "--version") != 0 && strcmp(argv[i], "-h") != 0) {
@@ -157,6 +159,20 @@ int main(int argc, char *argv[]) {
   WarnChargedSystem(System, input_vsf, input_field);
   //}}}
 
+  // -def option //{{{
+  bool *def_type = calloc(System.Count.BeadType, sizeof *def_type);
+  if (BeadTypeOption(argc, argv, "-def", false, def_type, &System)) {
+    exit(1);
+  }
+  int default_type = -1;
+  for (int i = 0; i < System.Count.BeadType; i++) {
+    if (def_type[i]) {
+      default_type = i;
+      break;
+    }
+  }
+  free(def_type); //}}}
+
   // print information //{{{
   VerboseOutput(System);
   if (verbose) { // -v option
@@ -168,7 +184,7 @@ int main(int argc, char *argv[]) {
 
   // write output vtf structure file //{{{
   if (output_vsf[0] != '\0') {
-    VtfWriteStruct(output_vsf, System);
+    VtfWriteStruct(output_vsf, System, default_type);
   } //}}}
 
   char file_field[LINE];

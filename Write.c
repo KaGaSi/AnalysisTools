@@ -55,25 +55,28 @@ void XyzWriteCoor(FILE *xyz, bool write[], SYSTEM System) { //{{{
     }
   }
 } //}}}
-void VtfWriteStruct(char file[], SYSTEM System) { //{{{
+void VtfWriteStruct(char file[], SYSTEM System, int type_def) { //{{{
   FILE *fw = OpenFile(file, "w");
   COUNT *Count = &System.Count;
-  // find most common type of bead and make it default //{{{
-  int *count = calloc(Count->BeadType, sizeof *count);
-  for (int i = 0; i < Count->Bead; i++) {
-    if (System.Bead[i].Molecule == -1) {
-      int type = System.Bead[i].Type;
-      count[type]++;
+  // default bead type //{{{
+  if (type_def == -1) {
+    // find most common type of bead and make it default
+    int *count = calloc(Count->BeadType, sizeof *count);
+    for (int i = 0; i < Count->Bead; i++) {
+      if (System.Bead[i].Molecule == -1) {
+        int type = System.Bead[i].Type;
+        count[type]++;
+      }
     }
-  }
-  int type_def = -1, max = 0;
-  for (int i = 0; i < Count->BeadType; i++) {
-    if (count[i] > max) {
-      max = count[i];
-      type_def = i;
+    int max = 0;
+    for (int i = 0; i < Count->BeadType; i++) {
+      if (count[i] > max) {
+        max = count[i];
+        type_def = i;
+      }
     }
-  }
-  free(count); //}}}
+    free(count);
+  } //}}}
   // print default bead type //{{{
   if (type_def != -1) {
     fprintf(fw, "atom default name %8s ", System.BeadType[type_def].Name);
