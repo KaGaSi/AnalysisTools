@@ -139,9 +139,6 @@ int main(int argc, char *argv[]) {
 
   // read information from input file(s) //{{{
   SYSTEM System = VtfReadStruct(input_vsf, detailed); // vsf input
-  printf("%s", Magenta());
-  PrintMoleculeType(System);
-  printf("%s", ColourReset());
   // vcf coordinates (if present)
   if (input_coor[0] != '\0') {
     FILE *coor = OpenFile(input_coor, "r");
