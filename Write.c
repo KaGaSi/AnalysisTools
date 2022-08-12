@@ -429,7 +429,7 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
   FreeSystem(&Sys_print);
   fclose(fw);
 } //}}}
-void WriteField(SYSTEM System, char file_field[]) {
+void WriteField(SYSTEM System, char file_field[]) { //{{{
   FILE *fw = OpenFile(file_field, "w");
   fprintf(fw, "Created via AnalysisTools v%s \
   (https://github.com/KaGaSi/AnalysisTools)\n\n", VERSION);
@@ -450,7 +450,7 @@ void WriteField(SYSTEM System, char file_field[]) {
             bt_i->Name, bt_i->Mass, bt_i->Charge, unbonded[i]);
   }
   free(unbonded); //}}}
-  // print molecules section
+  // print molecules section //{{{
   fprintf(fw, "molecule %d\n", Count->MoleculeType);
   for (int i = 0; i < Count->MoleculeType; i++) {
     MOLECULETYPE *mt_i = &System.MoleculeType[i];
@@ -458,6 +458,7 @@ void WriteField(SYSTEM System, char file_field[]) {
     fprintf(fw, "nummols %d\n", mt_i->Number);
     fprintf(fw, "beads %d\n", mt_i->nBeads);
     int mol = mt_i->Index[0];
+    // beads
     for (int j = 0; j < mt_i->nBeads; j++) {
       int id = System.Molecule[mol].Bead[j];
       int bt = mt_i->Bead[j];
@@ -465,9 +466,41 @@ void WriteField(SYSTEM System, char file_field[]) {
       fprintf(fw, "%16s %8.5f %8.5f %8.5f\n",
               System.BeadType[bt].Name, pos->x, pos->y, pos->z);
     }
-  }
+    // bonds (if present)
+    if (mt_i->nBonds > 0) {
+      fprintf(fw, "bonds %d\n", mt_i->nBonds);
+      for (int j = 0; j < mt_i->nBonds; j++) {
+        // TODO harm only for now
+        fprintf(fw, "harm %5d %5d", mt_i->Bond[j][0], mt_i->Bond[j][1]);
+        int type = mt_i->Bond[j][2];
+        if (type != -1) {
+          fprintf(fw, " %lf %lf\n",
+                  System.BondType[type].a, System.BondType[type].b);
+        } else {
+          fprintf(fw, " ???   ???\n");
+        }
+      }
+    }
+    // angles (if present)
+    if (mt_i->nAngles > 0) {
+      fprintf(fw, "angles %d\n", mt_i->nAngles);
+      for (int j = 0; j < mt_i->nAngles; j++) {
+        // TODO harm only for now
+        fprintf(fw, "harm %5d %5d %5d",
+                mt_i->Angle[j][0], mt_i->Angle[j][1], mt_i->Angle[j][2]);
+        int type = mt_i->Angle[j][3];
+        if (type != -1) {
+          fprintf(fw, " %lf %lf\n",
+                  System.AngleType[type].a, System.AngleType[type].b);
+        } else {
+          fprintf(fw, " ???   ???\n");
+        }
+      }
+    }
+    fprintf(fw, "finish\n");
+  } //}}}
   fclose(fw);
-}
+} //}}}
 
 // TODO will change
 // WriteAggregates() //{{{

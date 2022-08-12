@@ -39,7 +39,7 @@ void RemoveExtraTypes(SYSTEM *System) {
     }
   }
   free(bt_old_to_new);
-  // MoleculeType & Molecule // TODO angles etc.
+  // MoleculeType & Molecule
   count = 0;
   Count->Molecule = 0;
   for (int i = 0; i < Count->MoleculeType; i++) {
@@ -142,15 +142,8 @@ void RemoveExtraTypes(SYSTEM *System) {
  *     will make radius well defined (with value 1) only for beads sharing
  *     the type with atom 4 (i.e., atoms 2, 3, and 4), while the first two
  *     atoms will still have undefined radius. What should the radius of
- *     atoms 0 and 1 be when the mass/charge are different to that of the
+ *     atoms 0 and 1 be when the charge is different/unspecified to that of the
  *     last atom?
- *     TODO is that right? shouldn't all those beads below have r=1?
- *     Similarly in a simpler case: e.g., lines
- *       atom 0 n x q 1 m 1
- *       atom 1 n x     m 1 r 1
- *       atom 2 n x     m 1
- *     will make radius well defined for (with value 1) only for beads 1
- *     and 2 as the charge is different for bead 0.
  *
  * Merging procedure:
  * 1) for each unique name, find values of charge/mass/radius, noting
@@ -493,14 +486,13 @@ this should never happen!");
   free(count_test); //}}}
 } //}}}
 // MergeMoleculeTypes() //{{{
-  /* TODO: should bond/angle/etc/ types be also checked? I guess so, but first,
-   *       have a look where the function is used...
+  /* 
    * Molecules of one type must share:
    * i) molecule name and numbers of beads, bonds, angles, dihedrals,
    *    and impropers
    * ii) order of bead types
    * iii) connectivity
-   * iv) TODO same angles, dihedrals & impropers
+   * iv) same angles, dihedrals & impropers
    */
 void MergeMoleculeTypes(SYSTEM *System) {
   COUNT *Count = &System->Count;
@@ -582,7 +574,6 @@ void MergeMoleculeTypes(SYSTEM *System) {
         continue;
       }
       // are molecule types i and j the same?
-      // TODO: huh? why check i!=j here instead of at the beginning?
       if (same_mol) {
         if (i != j) {
           mt_j->Number += mt_i->Number;
