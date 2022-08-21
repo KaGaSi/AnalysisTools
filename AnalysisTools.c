@@ -151,6 +151,7 @@ int FindMoleculeName(char name[], SYSTEM System) { //{{{
  */
 int FindMoleculeType(MOLECULETYPE mol, SYSTEM System, int mode) {
   int type;
+  // TODO: change the return -1 stuff into some boolean
   // find the same name
   for (int i = 0; i < System.Count.MoleculeType; i++) {
     if (strcmp(mol.Name, System.MoleculeType[i].Name) == 0) {
@@ -932,6 +933,9 @@ void PruneSystem(SYSTEM *System) { //{{{
       count_all++;
     }
   }
+    printf("%s", Green());
+    PrintCount(System->Count);
+    printf("%s", ColourReset());
   Count->Bead = count_all;
   Count->BeadCoor = Count->Bead;
   Count->Bonded = count_bonded;
@@ -973,8 +977,9 @@ void PruneSystem(SYSTEM *System) { //{{{
       // find if the molecule type already exists in the pruned system
       bool new = true;
       for (int j = 0; j < Count->BeadType; j++) {
-        int new_type = FindMoleculeName(mt_old->Name,
-                                        (*System));
+        int new_type = FindMoleculeName(mt_old->Name, *System);
+        // TODO: use the type
+//      int new_type = FindMoleculeType(*mt_old, *System, 3);
         if (new_type != -1) {
           mol_new->Type = new_type;
           System->MoleculeType[new_type].Number++;
@@ -1535,8 +1540,12 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) {
       int mtype_add = FindMoleculeName(mt_orig->Name, Sys_add);
       if (mtype_add != -1) {
         for (int j = 0; j < mt_orig->nBeads; j++) {
-          int bead = mol_orig->Bead[j];
-          Sys_orig->Bead[bead].Type = mt_orig->Bead[j];
+          int bead = mol_orig->Bead[j],
+              btype = mt_orig->Bead[j],
+              old_btype = Sys_orig->Bead[bead].Type;
+          Sys_orig->Bead[bead].Type = btype;
+          Sys_orig->BeadType[btype].Number++;
+          Sys_orig->BeadType[old_btype].Number--;
         }
       }
     }
@@ -1637,9 +1646,10 @@ void FillBeadTypeIndex(SYSTEM *System) {
   int *count_id = calloc(Count->BeadType, sizeof *count_id);
   for (int i = 0; i < Count->Bead; i++) {
     int type = System->Bead[i].Type;
-    if (System->BeadType[type].Number < count_id[type]) {
-//    fprintf(stderr, "...ehm; error count_id[%d]=%d (%d)\n", type, count_id[type], System->BeadType[type].Number);
-    }
+//  if (System->BeadType[type].Number < count_id[type]) {
+//    fprintf(stderr, "...ehm; error count_id[%d]=%d (%d)\n",
+//            type, count_id[type], System->BeadType[type].Number);
+//  }
     System->BeadType[type].Index[count_id[type]] = i;
     count_id[type]++;
   }

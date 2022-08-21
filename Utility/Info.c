@@ -22,7 +22,7 @@ applies to molecules with the same name in both files.\n\n");
 by names\n");
   fprintf(ptr, "      -c <file>         input coordinate file\n");
   fprintf(ptr, "      -f[!] <file>      input FIELD-like file for extra \
-structural information (change beads in molecules if '1' is used)\n");
+structural information (change beads in molecules if '!' is used)\n");
   fprintf(ptr, "      -vsf <file.vsf>   create a new vsf structure file\n");
   fprintf(ptr, "      -def <bead name>  default bead type for output file\n");
   fprintf(ptr, "      -v                more verbose output\n");
@@ -148,6 +148,10 @@ int main(int argc, char *argv[]) {
                     step_count, stuff);
     fclose(coor);
     PrintBox(System.Box);
+  } else {
+    for (int i = 0; i < System.Count.Bead; i++) {
+      System.Bead[i].InTimestep = true;
+    }
   }
   // FIELD input (if present)
   SYSTEM field;
