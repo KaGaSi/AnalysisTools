@@ -61,6 +61,7 @@ set(UTILS AddToSystem
           PairCorrel
           PotentialAggregates
           SelectedVcf
+          SuttenChenParameters
           Surface
           TransformVsf
           Velocity

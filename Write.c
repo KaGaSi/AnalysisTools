@@ -1,7 +1,8 @@
 #include "Write.h"
 
+//VtfWriteCoorIndexed() //{{{
 void VtfWriteCoorIndexed(FILE *vcf, char stuff[],
-                         bool write[], SYSTEM System) { //{{{
+                         bool write[], SYSTEM System) {
   // print comment at the beginning of a timestep if present in initial vcf file
   if (stuff[0] != '\0') {
     fprintf(vcf, "%s\n", stuff);
@@ -79,9 +80,14 @@ void VtfWriteStruct(char file[], SYSTEM System, int type_def) { //{{{
   } //}}}
   // print default bead type //{{{
   if (type_def != -1) {
-    fprintf(fw, "atom default name %8s ", System.BeadType[type_def].Name);
-    fprintf(fw, "mass %lf ", System.BeadType[type_def].Mass);
-    fprintf(fw, "charge %lf\n", System.BeadType[type_def].Charge);
+    BEADTYPE *bt = &System.BeadType[type_def];
+    fprintf(fw, "atom default name %8s ", bt->Name);
+    if (bt->Mass != MASS) {
+      fprintf(fw, "mass %lf ", bt->Mass);
+    }
+    if (bt->Charge != CHARGE) {
+      fprintf(fw, "charge %lf\n", bt->Charge);
+    }
   } //}}}
   // print beads //{{{
   for (int i = 0; i < Count->Bead; i++) {

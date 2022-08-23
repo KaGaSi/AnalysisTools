@@ -58,12 +58,16 @@ int main(int argc, char *argv[]) {
 
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' && strcmp(argv[i], "--detailed") != 0 &&
-        strcmp(argv[i], "-vsf") != 0 && strcmp(argv[i], "-c") != 0 &&
-        strcmp(argv[i], "-def") != 0 && strcmp(argv[i], "-c") != 0 &&
-        strcmp(argv[i], "-f") != 0 && strcmp(argv[i], "-v") != 0 &&
-        strcmp(argv[i], "-f!") != 0 && strcmp(argv[i], "-v") != 0 &&
-        strcmp(argv[i], "--version") != 0 && strcmp(argv[i], "-h") != 0) {
+    if (argv[i][0] == '-' &&
+        strcmp(argv[i], "--detailed") != 0 &&
+        strcmp(argv[i], "-c") != 0 &&
+        strcmp(argv[i], "-f") != 0 &&
+        strcmp(argv[i], "-f!") != 0 &&
+        strcmp(argv[i], "-vsf") != 0 &&
+        strcmp(argv[i], "-def") != 0 &&
+        strcmp(argv[i], "-v") != 0 &&
+        strcmp(argv[i], "-h") != 0 &&
+        strcmp(argv[i], "--version") != 0) {
 
       ErrorOption(argv[i]);
       Help(argv[0], true);

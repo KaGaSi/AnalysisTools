@@ -19,14 +19,15 @@ The added system can be offset or rotated with regards to the original one, \
 and the dimension of the new system can be defined separately.\n\n");
   }
   fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input.vcf> <out.vsf> <out.vcf> [options]\n\n", cmd);
+  fprintf(ptr, "   %s <input.vcf> <in.vsf> <in.vcf> \
+<out.vsf> <out.vcf> [options]\n\n", cmd);
 
   fprintf(ptr, "      <input>        input original coordinate file \
-(vcf or vtf format)");
+(vcf or vtf format)\n");
   fprintf(ptr, "      <in.vsf>       input structure file for added system \
-(vsf or vtf format)");
+(vsf or vtf format)\n");
   fprintf(ptr, "      <in.vcf>       input coordinate file for added system \
-(vcf or vtf format)");
+(vcf or vtf format)\n");
   fprintf(ptr, "      <out.vsf>      output structure file (vsf format)\n");
   fprintf(ptr, "      <out.vcf>      output coordinate file (vcf format)\n");
   fprintf(ptr, "   [general options]\n");
@@ -106,17 +107,17 @@ int main(int argc, char *argv[]) {
        file_add_coor[LINE] = "";
   // <in.vsf>
   snprintf(file_add_struct, LINE, "%s", argv[++count]);
-  int ext = 1;
+  int ext = 2;
   char extension[2][5];
   strcpy(extension[0], ".vsf");
+  strcpy(extension[1], ".vtf");
   if (ErrorExtension(file_add_struct, ext, extension) == -1) {
     Help(argv[0], true);
     exit(1);
   }
   // <in.vcf>
-  snprintf(file_add_coor, LINE, "%s", argv[++count]);
-  ext = 1;
   strcpy(extension[0], ".vcf");
+  snprintf(file_add_coor, LINE, "%s", argv[++count]);
   if (ErrorExtension(file_add_coor, ext, extension) == -1) {
     Help(argv[0], true);
     exit(1);
@@ -342,7 +343,7 @@ int main(int argc, char *argv[]) {
 
   // write data to output files //{{{
   // vsf file
-  VtfWriteStruct(file_out_struct, S_new);
+  VtfWriteStruct(file_out_struct, S_new, -1);
   // .vcf file
   FILE *out = OpenFile(file_out_coor, "w");
   PrintByline(out, argc, argv);
