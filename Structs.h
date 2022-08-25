@@ -11,8 +11,8 @@
 
 typedef struct Box { //{{{
   VECTOR Length; // side lengths (a, b, c for triclinic cell)
-  VECTOR TriLength; // lx, ly, lz for lammps (triclinic cell)
-  double TriTilt[3], // xy, xz, and yz tilts for triclinic box
+  VECTOR OrthoLength; // lx, ly, lz for lammps (triclinic cell)
+  double Tilt[3], // xy, xz, and yz tilts for triclinic box
          alpha, beta, gamma, // angles - all 90 for orthogonal box
          transform[3][3], // transformation matrix
          inverse[3][3], // inverse of the transformation matrix
@@ -21,8 +21,8 @@ typedef struct Box { //{{{
 // Initialize Box
 static const BOX InitBox = {
   .Length = {-1, -1, -1},
-  .TriLength = {-1, -1, -1},
-  .TriTilt = {0, 0, 0},
+  .OrthoLength = {-1, -1, -1},
+  .Tilt = {0, 0, 0},
   .alpha = 90,
   .beta = 90,
   .gamma = 90,

@@ -15,7 +15,7 @@ typedef struct element {
 
 // fill element array with info //{{{
 void FillElements(ELEMENT element[]) {
-  // Crystal: fcc = 0; bcc = 1; hcp = 2
+  // Crystal: fcc = 1; bcc = 2; hcp = 3
   // State: gas = 0; solid = 1; liquid = 2
   // Mass in kg/mol
   // Radius in pm
@@ -120,6 +120,9 @@ void FillElements(ELEMENT element[]) {
   element[12].MeltingPoint = 923;
   element[12].BoilingPoint = 1363;
   element[12].Density = 1.74e3;
+  element[12].Crystal = 3;
+  element[12].BulkModulus = 35.4e9; // wiki
+  element[12].CohesionEnergy = 8.48e3 + 128e3; // wiki; heat of fusion + heat of vaporization
   strcpy(element[13].Symbol, "Al");
   element[13].State = 1;
   element[13].Mass = 26.981538e-3;
@@ -128,9 +131,9 @@ void FillElements(ELEMENT element[]) {
   element[13].MeltingPoint = 933.437;
   element[13].BoilingPoint = 2792;
   element[13].Density = 2.70e3;
+  element[13].Crystal = 1;
   element[13].BulkModulus = 0.48 * eVA3_to_Pa;
-  element[13].Crystal = 0;
-  element[13].CohesionEnergy = 3.34 / Jmol_to_eV;
+  element[13].CohesionEnergy = 3.39 / Jmol_to_eV;
   strcpy(element[14].Symbol, "Si");
   element[14].State = 1;
   element[14].Mass = 28.085e-3;
@@ -251,7 +254,7 @@ void FillElements(ELEMENT element[]) {
   element[28].MeltingPoint = 1728;
   element[28].BoilingPoint = 3186;
   element[28].Density = 8.912e3;
-  element[28].Crystal = 0;
+  element[28].Crystal = 1;
   element[28].BulkModulus = 187.5e9;
   element[28].CohesionEnergy = 428.4e3;
   strcpy(element[29].Symbol, "Cu");
@@ -262,8 +265,8 @@ void FillElements(ELEMENT element[]) {
   element[29].MeltingPoint = 1357.77;
   element[29].BoilingPoint = 2835;
   element[29].Density = 8.933e3;
+  element[29].Crystal = 1;
   element[29].BulkModulus = 0.89 * eVA3_to_Pa;
-  element[29].Crystal = 0;
   element[29].CohesionEnergy = 3.50 / Jmol_to_eV;
   strcpy(element[30].Symbol, "Zn");
   element[30].State = 1;
@@ -353,6 +356,9 @@ void FillElements(ELEMENT element[]) {
   element[40].MeltingPoint = 2128;
   element[40].BoilingPoint = 4682;
   element[40].Density = 6.52e3;
+  element[40].Crystal = 3;
+  element[40].BulkModulus = 97.2e9; // chapter 5 of that thingy
+  element[40].CohesionEnergy = 6.21 / Jmol_to_eV; // chapter 5 of that thingy
   strcpy(element[41].Symbol, "Nb");
   element[41].State = 1;
   element[41].Mass = 92.90637e-3;
@@ -393,8 +399,8 @@ void FillElements(ELEMENT element[]) {
   element[45].MeltingPoint = 2237;
   element[45].BoilingPoint = 3968;
   element[45].Density = 12.4e3;
+  element[45].Crystal = 1;
   element[45].BulkModulus = 1.68 * eVA3_to_Pa;
-  element[45].Crystal = 0;
   element[45].CohesionEnergy = 5.75 / Jmol_to_eV;
   strcpy(element[46].Symbol, "Pd");
   element[46].State = 1;
@@ -404,8 +410,8 @@ void FillElements(ELEMENT element[]) {
   element[46].MeltingPoint = 1828.05;
   element[46].BoilingPoint = 3236;
   element[46].Density = 12.0e3;
+  element[46].Crystal = 1;
   element[46].BulkModulus = 1.22 * eVA3_to_Pa;
-  element[46].Crystal = 0;
   element[46].CohesionEnergy = 3.94 / Jmol_to_eV;
   strcpy(element[47].Symbol, "Ag");
   element[47].State = 1;
@@ -415,8 +421,8 @@ void FillElements(ELEMENT element[]) {
   element[47].MeltingPoint = 1234.93;
   element[47].BoilingPoint = 2435;
   element[47].Density = 10.501e3;
+  element[47].Crystal = 1;
   element[47].BulkModulus = 0.68 * eVA3_to_Pa;
-  element[47].Crystal = 0;
   element[47].CohesionEnergy = 2.96 / Jmol_to_eV;
   strcpy(element[48].Symbol, "Cd");
   element[48].State = 1;
@@ -658,8 +664,8 @@ void FillElements(ELEMENT element[]) {
   element[77].MeltingPoint = 2719;
   element[77].BoilingPoint = 4701;
   element[77].Density = 22.42e3;
+  element[77].Crystal = 1;
   element[77].BulkModulus = 2.31 * eVA3_to_Pa;
-  element[77].Crystal = 0;
   element[77].CohesionEnergy = 6.93 / Jmol_to_eV;
   strcpy(element[78].Symbol, "Pt");
   element[78].State = 1;
@@ -669,8 +675,8 @@ void FillElements(ELEMENT element[]) {
   element[78].MeltingPoint = 2041.55;
   element[78].BoilingPoint = 4098;
   element[78].Density = 21.46e3;
+  element[78].Crystal = 1;
   element[78].BulkModulus = 1.80 * eVA3_to_Pa;
-  element[78].Crystal = 0;
   element[78].CohesionEnergy = 5.86 / Jmol_to_eV;
   strcpy(element[79].Symbol, "Au");
   element[79].State = 1;
@@ -680,8 +686,8 @@ void FillElements(ELEMENT element[]) {
   element[79].MeltingPoint = 1337.33;
   element[79].BoilingPoint = 3129;
   element[79].Density = 19.282e3;
+  element[79].Crystal = 1;
   element[79].BulkModulus = 1.03 * eVA3_to_Pa;
-  element[79].Crystal = 0;
   element[79].CohesionEnergy = 3.78 / Jmol_to_eV;
   strcpy(element[80].Symbol, "Hg");
   element[80].State = 2;
@@ -707,8 +713,8 @@ void FillElements(ELEMENT element[]) {
   element[82].MeltingPoint = 600.61;
   element[82].BoilingPoint = 2022;
   element[82].Density = 11.342e3;
+  element[82].Crystal = 1;
   element[82].BulkModulus = 0.26 * eVA3_to_Pa;
-  element[82].Crystal = 0;
   element[82].CohesionEnergy = 2.04 / Jmol_to_eV;
   strcpy(element[83].Symbol, "Bi");
   element[83].State = 1;
@@ -1000,9 +1006,9 @@ int main(int argc, char *argv[]) {
   double E_coh = element[el].CohesionEnergy;
   double B = element[el].BulkModulus;
   int n_unit = -1;
-  if (element[el].Crystal == 0) {
+  if (element[el].Crystal == 1) {
     n_unit = 4; // number of atoms in repeating unit (fcc)
-  } else if (element[el].Crystal == 1) {
+  } else if (element[el].Crystal == 2 || element[el].Crystal == 3) {
     n_unit = 2; // number of atoms in repeating unit (bcc)
   }
   if (n_unit == -1) {
@@ -1059,8 +1065,7 @@ int main(int argc, char *argv[]) {
 
   // TODO: make m_SC an input
   int m_SC = 6, n_SC;
-  double sum_m = 0,
-              sum_n = 0;
+  double sum_m = 0, sum_n = 0;
 
   // calculate n_SC as closest integer to 18*vol_a*B/(U*m) (in reduced units)
   double n_SC_dbl = 18 * vol_a_red * B_red / (E_red * m_SC);
@@ -1068,18 +1073,29 @@ int main(int argc, char *argv[]) {
   // calculate how much the bulk modulus differs from input data
   double B_calc = n_SC * m_SC * E_red / (18 * vol_a_red);
 
+  ToFractionalCoor(&System);
   // calculate lattice sums, S = sum_{i\neq j}(a/r_ij)^m_SC (and ^n_SC)
-  int id1 = System.BeadCoor[0]; // atom to calculate distances from
+  for (int j = 0; j < Count->Bead; j++) {
+    sum_m = 0;
+    sum_n = 0;
+  int id1 = System.BeadCoor[j]; // atom to calculate distances from
   VECTOR *first = &System.Bead[id1].Position;
-  for (int i = 1; i < Count->BeadCoor; i++) {
+  for (int i = 0; i < Count->BeadCoor; i++) {
     int id2 = System.BeadCoor[i];
     if (id1 != id2) {
-      VECTOR dist = Distance(*first, System.Bead[i].Position, System.Box.Length);
-      dist.x = sqrt(SQR(dist.x) + SQR(dist.y) + SQR(dist.z));
-      sum_m += 1 / pow(dist.x, m_SC); // assumes reduced distance, a_red=1
-      sum_n += 1 / pow(dist.x, n_SC); //
+      VECTOR *pos = &System.Bead[id2].Position;
+      VECTOR dist = Distance(*first, *pos, System.Box.Length);
+      dist = FromFractional(dist, System.Box);
+      double d = sqrt(SQR(dist.x) + SQR(dist.y) + SQR(dist.z));
+//printf("XXX %d dist: %lf (%lf %lf %lf) (%lf %lf %lf)\n",
+//id2, d, pos->x, pos->y, pos->z, dist.x, dist.y, dist.z);
+      sum_m += 1 / pow(d, m_SC); // assumes reduced distance, a_red=1
+      sum_n += 1 / pow(d, n_SC); //
     }
   }
+  double c = n_SC * sum_n / (m_SC * sqrt(sum_m));
+  printf(" %lf\n", c);
+}
 
 //// test print sums //{{{
 //printf("%sLattice sums:%s\n", Magenta(), ColourReset());
@@ -1097,9 +1113,9 @@ int main(int argc, char *argv[]) {
   printf("  n:       %4d (rounded from %lf)\n", n_SC, n_SC_dbl);
   printf("  a:       %8.3f Å\n", a*1e10);
   printf("  c:       %8.3f\n", c);
-  printf("  epsilon: %8.3f (%e K; %e eV)\n", eps, eps*T_ref, eps*eV);
-  printf("\nrecalculated bulk modulus: %lf (%e Pa; %e eV/Å)\n",
-         B_calc, B_calc*kT/a3, B_calc*eV/(a3*1e30));
+  printf("  epsilon: %e K; %e eV\n", eps*T_ref, eps*eV);
+  printf("\nrecalculated bulk modulus: %e Pa; %e eV/Å\n",
+         B_calc*kT/a3, B_calc*eV/(a3*1e30));
 
 // unneeded recalculated cohesion energy - sames as input //{{{
 //double E_coh_calc = eps * sum_n * (2 * n_SC - m_SC) / (2 * m_SC);

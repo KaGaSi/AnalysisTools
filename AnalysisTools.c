@@ -1799,28 +1799,28 @@ bool TriclinicCellData(BOX *Box) {
     Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
     Box->inverse[2][2] = a * b * s_g / vol;
     // tilt for triclinic axes (xy, xz, and yz) & lx, ly, and lz (lammps labels)
-    Box->TriLength.x = a;
-    Box->TriTilt[0] = b * c_g; // xy
-    Box->TriTilt[1] = c * c_b; // xz
-    sqr = SQR(b) - SQR(Box->TriTilt[0]);
+    Box->OrthoLength.x = a;
+    Box->Tilt[0] = b * c_g; // xy
+    Box->Tilt[1] = c * c_b; // xz
+    sqr = SQR(b) - SQR(Box->Tilt[0]);
     if (sqr < 0) {
       strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
       return false;
     }
-    Box->TriLength.y = sqrt(sqr);
-    Box->TriTilt[2] = (b * c_a - Box->TriTilt[0] * Box->TriTilt[1]) /
-                        Box->TriLength.y;
-    sqr = SQR(c) - SQR(Box->TriTilt[1]) - SQR(Box->TriTilt[2]);
+    Box->OrthoLength.y = sqrt(sqr);
+    Box->Tilt[2] = (b * c_a - Box->Tilt[0] * Box->Tilt[1]) /
+                        Box->OrthoLength.y;
+    sqr = SQR(c) - SQR(Box->Tilt[1]) - SQR(Box->Tilt[2]);
     if (sqr < 0) {
       strcpy(ERROR_MSG, "wrong simulation box box dimensions");
       PrintError();
       exit(1);
     }
-    Box->TriLength.z = sqrt(sqr);
+    Box->OrthoLength.z = sqrt(sqr);
     // make tilt component zero if they're close to zero
     for (int i = 0; i < 3; i++) {
-      if (fabs(Box->TriTilt[i]) < 0.00001) {
-        Box->TriTilt[i] = 0;
+      if (fabs(Box->Tilt[i]) < 0.00001) {
+        Box->Tilt[i] = 0;
       }
     }
   //}}}
@@ -1847,11 +1847,11 @@ bool TriclinicCellData(BOX *Box) {
     Box->inverse[1][2] = 0;
     Box->inverse[2][2] = 1 / Box->Length.z;
     // lx, ly, and lz for lammps
-    Box->TriLength = Box->Length;
+    Box->OrthoLength = Box->Length;
     // tilt for triclinic axes (xy, xz, and yz)
-    Box->TriTilt[0] = 0;
-    Box->TriTilt[1] = 0;
-    Box->TriTilt[2] = 0;
+    Box->Tilt[0] = 0;
+    Box->Tilt[1] = 0;
+    Box->Tilt[2] = 0;
   } //}}}
   return true;
 } //}}}
@@ -2822,28 +2822,51 @@ void PrintBox(BOX Box) { //{{{
   fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x,
                                                     Box.Length.y,
                                                     Box.Length.z);
-  fprintf(stdout, "  .TriLength = (%lf, %lf, %lf),\n", Box.TriLength.x,
-                                                       Box.TriLength.y,
-                                                       Box.TriLength.z);
-  fprintf(stdout, "  .TriTilt = (%lf, %lf, %lf),\n", Box.TriTilt[0],
-                                                     Box.TriTilt[1],
-                                                     Box.TriTilt[2]);
+  fprintf(stdout, "  .TriLength = (%lf, %lf, %lf),\n", Box.OrthoLength.x,
+                                                       Box.OrthoLength.y,
+                                                       Box.OrthoLength.z);
+  fprintf(stdout, "  .TriTilt = (%lf, %lf, %lf),\n", Box.Tilt[0],
+                                                     Box.Tilt[1],
+                                                     Box.Tilt[2]);
   fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
   fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
   fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);
-  fprintf(stdout, "  .transform = (%9.5f, %9.5f, %9.5f)\n",
-          Box.transform[0][0], Box.transform[0][1], Box.transform[0][2]);
-  fprintf(stdout, "               (%9.5f, %9.5f, %9.5f)\n",
-          Box.transform[1][0], Box.transform[1][1], Box.transform[1][2]);
-  fprintf(stdout, "               (%9.5f, %9.5f, %9.5f)\n",
-          Box.transform[2][0], Box.transform[2][1], Box.transform[2][2]);
-  fprintf(stdout, "  .inverse = (%9.5f, %9.5f, %9.5f)\n",
-          Box.inverse[0][0], Box.inverse[0][1], Box.inverse[0][2]);
-  fprintf(stdout, "             (%9.5f, %9.5f, %9.5f)\n",
-          Box.inverse[1][0], Box.inverse[1][1], Box.inverse[1][2]);
-  fprintf(stdout, "             (%9.5f, %9.5f, %9.5f)\n",
-          Box.inverse[2][0], Box.inverse[2][1], Box.inverse[2][2]);
-  fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
+  // print transform matrix //{{{
+  for (int i = 0; i < 3; i++) {
+    if (i == 0) {
+      fprintf(stdout, "  .transform = (");
+    } else {
+      fprintf(stdout, "               (");
+    }
+    for (int j = 0; j < 3; j++) {
+      if (Box.transform[i][j] >= 0) {
+        putchar(' ');
+      }
+      fprintf(stdout, "%e", Box.transform[i][j]);
+      if (j < 2) {
+        fprintf(stdout, ", ");
+      }
+    }
+    fprintf(stdout, ")\n");
+  } //}}}
+  // print inverse matrix //{{{
+  for (int i = 0; i < 3; i++) {
+    if (i == 0) {
+      fprintf(stdout, "  .inverse = (");
+    } else {
+      fprintf(stdout, "             (");
+    }
+    for (int j = 0; j < 3; j++) {
+      if (Box.inverse[i][j] >= 0) {
+        putchar(' ');
+      }
+      fprintf(stdout, "%e", Box.inverse[i][j]);
+      if (j < 2) {
+        fprintf(stdout, ", ");
+      }
+    }
+    fprintf(stdout, ")\n");
+  } //}}}
 } //}}}
 void PrintByline(FILE *ptr, int argc, char *argv[]) { //{{{
   fprintf(ptr, "# Created by AnalysisTools v%s ", VERSION);

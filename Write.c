@@ -81,13 +81,14 @@ void VtfWriteStruct(char file[], SYSTEM System, int type_def) { //{{{
   // print default bead type //{{{
   if (type_def != -1) {
     BEADTYPE *bt = &System.BeadType[type_def];
-    fprintf(fw, "atom default name %8s ", bt->Name);
+    fprintf(fw, "atom default name %8s", bt->Name);
     if (bt->Mass != MASS) {
-      fprintf(fw, "mass %lf ", bt->Mass);
+      fprintf(fw, " mass %lf", bt->Mass);
     }
     if (bt->Charge != CHARGE) {
-      fprintf(fw, "charge %lf\n", bt->Charge);
+      fprintf(fw, " charge %lf", bt->Charge);
     }
+    putc('\n', fw);
   } //}}}
   // print beads //{{{
   for (int i = 0; i < Count->Bead; i++) {
@@ -227,14 +228,14 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
   fprintf(fw, " improper types\n");
   putc('\n', fw); //}}}
   // print box size //{{{
-  fprintf(fw, "0 %lf xlo xhi\n", Sys_print.Box.TriLength.x);
-  fprintf(fw, "0 %lf ylo yhi\n", Sys_print.Box.TriLength.y);
-  fprintf(fw, "0 %lf zlo zhi\n", Sys_print.Box.TriLength.z);
+  fprintf(fw, "0 %lf xlo xhi\n", Sys_print.Box.OrthoLength.x);
+  fprintf(fw, "0 %lf ylo yhi\n", Sys_print.Box.OrthoLength.y);
+  fprintf(fw, "0 %lf zlo zhi\n", Sys_print.Box.OrthoLength.z);
   if (System.Box.alpha != 90 ||
       System.Box.beta != 90 ||
       System.Box.gamma != 90) {
-    fprintf(fw, "%lf %lf %lf xy xz yz\n\n", Sys_print.Box.TriTilt[0],
-            Sys_print.Box.TriTilt[1], Sys_print.Box.TriTilt[2]);
+    fprintf(fw, "%lf %lf %lf xy xz yz\n\n", Sys_print.Box.Tilt[0],
+            Sys_print.Box.Tilt[1], Sys_print.Box.Tilt[2]);
   } //}}}
   // print bead type masses //{{{
   fprintf(fw, "Masses\n\n");
