@@ -853,6 +853,7 @@ potentials (https://doi.org/10.1080/09500839008206493).\n\n");
   fprintf(ptr, "      <input>       input coordinate file \
 (vcf or vtf format)\n");
   fprintf(ptr, "   [options]\n");
+  fprintf(ptr, "      -m <int>      m parameter for Sutton-Chen potential\n");
   CommonHelp(error);
 } //}}}
 
@@ -886,6 +887,7 @@ int main(int argc, char *argv[]) {
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] == '-' &&
+        strcmp(argv[i], "-m") != 0 &&
         strcmp(argv[i], "-i") != 0 &&
         strcmp(argv[i], "-v") != 0 &&
         strcmp(argv[i], "--detailed") != 0 &&
@@ -911,7 +913,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // <element> - periodic table symbol for an element //{{{
-  char species[3];
+  char species[3] = "\0";
   strncpy(species, argv[++count], 2);
   //}}}
 
@@ -919,10 +921,18 @@ int main(int argc, char *argv[]) {
   bool silent, verbose, detailed;
   CommonOptions(argc, argv, input_vsf, LINE, &verbose, &silent, &detailed);
 
+  // '-m' option //{{{
+  int m_SC = 6; // no -m option
+  if (IntegerOption(argc, argv, "-m", &m_SC)) {
+    exit(1);
+  } //}}}
+
+/*
   // print command to stdout //{{{
   if (!silent) {
     PrintCommand(stdout, argc, argv);
   } //}}}
+*/
 
   // create the elements struct //{{{
   int n_elements = 118;
@@ -1006,13 +1016,19 @@ int main(int argc, char *argv[]) {
   double E_coh = element[el].CohesionEnergy;
   double B = element[el].BulkModulus;
   int n_unit = -1;
+  char lattice[4] = "\0";
   if (element[el].Crystal == 1) {
-    n_unit = 4; // number of atoms in repeating unit (fcc)
-  } else if (element[el].Crystal == 2 || element[el].Crystal == 3) {
-    n_unit = 2; // number of atoms in repeating unit (bcc)
+    strcpy(lattice, "fcc");
+    n_unit = 4;
+  } else if (element[el].Crystal == 2) {
+    strcpy(lattice, "bcc");
+    n_unit = 2;
+  } else if (element[el].Crystal == 3) {
+    strcpy(lattice, "hcp");
+    n_unit = 2;
   }
   if (n_unit == -1) {
-    strcpy(ERROR_MSG, "Wrong crystal structure! Should be fcc/bcc");
+    strcpy(ERROR_MSG, "Wrong crystal structure! Should be fcc/bcc/hcp");
     PrintError();
     exit(1);
   }
@@ -1023,8 +1039,7 @@ int main(int argc, char *argv[]) {
 
   // system quantities
   double E = Count->BeadCoor / N_A * E_coh; // energy, J
-  double vol = Count->BeadCoor * Mw / (N_A * rho); // volume, m^3
-  double a = pow(n_unit*vol/Count->BeadCoor, 1.0/3); // lattice const, m^3
+  double a = pow(n_unit*Mw/(N_A*rho), 1.0/3); // lattice const, m
   double a3 = CUBE(a);
   double vol_a = CUBE(a) / n_unit; // atomic volume, m^3
 
@@ -1040,7 +1055,8 @@ int main(int argc, char *argv[]) {
 // //}}}
 
   if (verbose) {
-    printf("%sInput data for %s:%s\n", Magenta(), species, ColourReset());
+    printf("%sInput data for %s (%s):%s\n",
+           Magenta(), species, lattice, ColourReset());
     printf("  Molar mass: %e kg/mol\n", Mw);
     printf("  Density: %e kg/m^3\n", rho);
     printf("  Cohesion energy: %e J/mol (%e eV)\n", E_coh, E_coh*Jmol_to_eV);
@@ -1063,39 +1079,46 @@ int main(int argc, char *argv[]) {
 //printf("  Bulk modulues: %e\n", B_red);
 // //}}}
 
-  // TODO: make m_SC an input
-  int m_SC = 6, n_SC;
-  double sum_m = 0, sum_n = 0;
-
+  int n_SC;
   // calculate n_SC as closest integer to 18*vol_a*B/(U*m) (in reduced units)
   double n_SC_dbl = 18 * vol_a_red * B_red / (E_red * m_SC);
   n_SC = round(n_SC_dbl);
+  if (n_SC <= m_SC) {
+    printf("m isn't larger than n! (m=%d n=%d)\n", n_SC, m_SC);
+    exit(0);
+  }
   // calculate how much the bulk modulus differs from input data
   double B_calc = n_SC * m_SC * E_red / (18 * vol_a_red);
 
   ToFractionalCoor(&System);
   // calculate lattice sums, S = sum_{i\neq j}(a/r_ij)^m_SC (and ^n_SC)
-  for (int j = 0; j < Count->Bead; j++) {
-    sum_m = 0;
-    sum_n = 0;
-  int id1 = System.BeadCoor[j]; // atom to calculate distances from
-  VECTOR *first = &System.Bead[id1].Position;
-  for (int i = 0; i < Count->BeadCoor; i++) {
-    int id2 = System.BeadCoor[i];
-    if (id1 != id2) {
-      VECTOR *pos = &System.Bead[id2].Position;
-      VECTOR dist = Distance(*first, *pos, System.Box.Length);
-      dist = FromFractional(dist, System.Box);
-      double d = sqrt(SQR(dist.x) + SQR(dist.y) + SQR(dist.z));
-//printf("XXX %d dist: %lf (%lf %lf %lf) (%lf %lf %lf)\n",
-//id2, d, pos->x, pos->y, pos->z, dist.x, dist.y, dist.z);
-      sum_m += 1 / pow(d, m_SC); // assumes reduced distance, a_red=1
-      sum_n += 1 / pow(d, n_SC); //
+  count = 0;
+  int values = 10; // TODO: make into option
+  int n = Count->Bead / values;
+  double avg_sum_m = 0, avg_sum_n = 0;
+  for (int j = 0; j < Count->Bead; j+=n) {
+    count++;
+    double sum_m = 0, sum_n = 0;
+    int id1 = System.BeadCoor[j]; // atom to calculate distances from
+    VECTOR *first = &System.Bead[id1].Position;
+    for (int i = 0; i < Count->BeadCoor; i++) {
+      int id2 = System.BeadCoor[i];
+      if (id1 != id2) {
+        VECTOR *pos = &System.Bead[id2].Position;
+        VECTOR dist = Distance(*first, *pos, System.Box.Length);
+        dist = FromFractional(dist, System.Box);
+        double d = sqrt(SQR(dist.x) + SQR(dist.y) + SQR(dist.z));
+  //printf("XXX %d dist: %lf (%lf %lf %lf) (%lf %lf %lf)\n",
+  //id2, d, pos->x, pos->y, pos->z, dist.x, dist.y, dist.z);
+        sum_m += 1 / pow(d, m_SC); // assumes reduced distance, a_red=1
+        sum_n += 1 / pow(d, n_SC); //
+      }
     }
+    avg_sum_m += sum_m;
+    avg_sum_n += sum_n;
   }
-  double c = n_SC * sum_n / (m_SC * sqrt(sum_m));
-  printf(" %lf\n", c);
-}
+  avg_sum_m /= count;
+  avg_sum_n /= count;
 
 //// test print sums //{{{
 //printf("%sLattice sums:%s\n", Magenta(), ColourReset());
@@ -1104,18 +1127,18 @@ int main(int argc, char *argv[]) {
 // //}}}
 
   // calculate remaining parameters
-  double c = n_SC * sum_n / (m_SC * sqrt(sum_m));
-  double eps = 2 * m_SC * E_red / (sum_n * (2 * n_SC - m_SC));
+  double c = n_SC * avg_sum_n / (m_SC * sqrt(avg_sum_m));
+  double eps = 2 * m_SC * E_red / (avg_sum_n * (2 * n_SC - m_SC));
 
-  printf("%sSutton-Chen parameters for %s:%s\n",
-         Magenta(), species, ColourReset());
-  printf("  m:       %4d\n", m_SC);
-  printf("  n:       %4d (rounded from %lf)\n", n_SC, n_SC_dbl);
-  printf("  a:       %8.3f Å\n", a*1e10);
-  printf("  c:       %8.3f\n", c);
+  printf("%sSutton-Chen parameters for %s (%s):%s\n",
+         Magenta(), species, lattice, ColourReset());
+  printf("  m:    %4d\n", m_SC);
+  printf("  n:    %4d (rounded from %lf)\n", n_SC, n_SC_dbl);
+  printf("  a:    %8.3f Å\n", a*1e10);
+  printf("  c:    %8.3f\n", c);
   printf("  epsilon: %e K; %e eV\n", eps*T_ref, eps*eV);
-  printf("\nrecalculated bulk modulus: %e Pa; %e eV/Å\n",
-         B_calc*kT/a3, B_calc*eV/(a3*1e30));
+  printf("\nrecalculated bulk modulus: %e Pa (experiment %e Pa)\n",
+         B_calc*kT/a3, B);
 
 // unneeded recalculated cohesion energy - sames as input //{{{
 //double E_coh_calc = eps * sum_n * (2 * n_SC - m_SC) / (2 * m_SC);
