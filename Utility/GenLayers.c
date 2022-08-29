@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
   PARAMS *angle_type_field;
   PARAMS *dihedral_type_field;
 
-  FieldReadFull(input, &Box.Length, &Counts_field, &BeadType_field, &Bead_field,
+  FieldRead(input, &Box.Length, &Counts_field, &BeadType_field, &Bead_field,
             &Index_field, &MoleculeType_field, &Molecule_field,
             &bond_type_field, &angle_type_field, &dihedral_type_field); //}}}
 

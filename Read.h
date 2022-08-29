@@ -51,10 +51,15 @@ int VtfCheckPbcLine(int words, char *split[]);
 bool VtfCheckAtomLine(int words, char *split[]);
 bool VtfCheckBondLine(int words, char *split[]);
  //}}}
-
-SYSTEM FieldReadFull(char field_file[]);
+// Functions to read FIELD-like files //{{{
+SYSTEM FieldRead(char field_file[]);
 void FieldReadSpecies(char field_file[], SYSTEM *System);
 void FieldReadMolecules(char field_file[], SYSTEM *System);
+ //}}}
+// Functions to read lammps data file //{{{
+SYSTEM LmpDataRead(char data_file[]);
+void LmpDataReadHeader(char data_file[], SYSTEM *System);
+ //}}}
 
 // helper functions //{{{
 // FillMolMass //{{{

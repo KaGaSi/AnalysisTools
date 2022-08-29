@@ -670,7 +670,6 @@ void MergeMoleculeTypes(SYSTEM *System) {
  * mass, charge, and radius for bead types; bead order, bonds, angles, and
  * dihedrals for molecule types).
  */
-// TODO check that there are any molecules before filling the structures
 SYSTEM VtfReadStruct(char struct_file[], bool detailed) {
   SYSTEM Sys;
   InitSystem(&Sys);
@@ -1187,7 +1186,6 @@ using next timestep instead of this one");
     System->BeadCoor[Count->BeadCoor] = id;
     Count->BeadCoor++;
   }
-  // TODO in file writing, also write vsf file!
   // restore file pointer to before the first non-coordinate line
   fsetpos(vcf, &position); //}}}
   // warn: too few beads in an ordered timestep - read next timestep //{{{
@@ -1596,7 +1594,7 @@ int * VtfAtomLineValues(int words, char *split[]) {
 } //}}}
  //}}}
 // Read FIELD-like files //{{{
-SYSTEM FieldReadFull(char field_file[]) { //{{{
+SYSTEM FieldRead(char field_file[]) { //{{{
   SYSTEM System;
   InitSystem(&System);
   COUNT *Count = &System.Count;
@@ -2219,6 +2217,124 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
   fclose(fr);
 } //}}}
  //}}}
+// Read lammps data file
+SYSTEM LmpDataRead(char data_file[]) {
+  SYSTEM System;
+  InitSystem(&System);
+  LmpDataReadHeader(data_file, &System);
+  COUNT *Count = &System.Count;
+  PrintCount(*Count);
+  return System;
+}
+void LmpDataReadHeader(char data_file[], SYSTEM *System) {
+  COUNT *Count = &System->Count;
+  int file_line_count = 1, words;
+  char line[LINE], *split[SPL_STR];
+  FILE *lmp = OpenFile(data_file, "r");
+  // ignore the first line //{{{
+  if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    strcpy(ERROR_MSG, "premature end of file");
+    PrintError();
+    ErrorPrintFile(data_file, "\0");
+    putc('\n', stderr);
+    exit(1);
+  } //}}}
+  // read until non-empty, non-comment, and non-number line is encountered
+  bool correct;
+  do {
+    correct = false;
+    file_line_count++;
+    // read a line //{{{
+    if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      strcpy(ERROR_MSG, "premature end of file");
+      PrintError();
+      ErrorPrintFile(data_file, "\0");
+      putc('\n', stderr);
+      exit(1);
+    } //}}}
+    // evaluate the line //{{{
+    long val;
+    if (words > 1 && strcmp(split[1], "atoms") == 0) {
+      if (!IsNatural(split[0], &val)) {
+        goto error;
+      }
+      Count->Bead = val;
+      correct = true;
+    } else if (words > 1 && strcmp(split[1], "bonds") == 0) {
+      if (!IsNatural(split[0], &val)) {
+        goto error;
+      }
+      Count->Bond = val;
+      correct = true;
+    } else if (words > 1 && strcmp(split[1], "angles") == 0) {
+      if (!IsNatural(split[0], &val)) {
+        goto error;
+      }
+      Count->Angle = val;
+      correct = true;
+    } else if (words > 1 && strcmp(split[1], "dihedrals") == 0) {
+      if (!IsNatural(split[0], &val)) {
+        goto error;
+      }
+      Count->Dihedral = val;
+      correct = true;
+    } else if (words > 1 && strcmp(split[1], "impropers") == 0) {
+      if (!IsNatural(split[0], &val)) {
+        goto error;
+      }
+      Count->Improper = val;
+      correct = true;
+    } else if (words > 2 && strcmp(split[1], "atom") == 0 &&
+                            strcmp(split[2], "types") == 0) {
+      if (!IsNatural(split[0], &val)) {
+        goto error;
+      }
+      Count->BeadType = val;
+      correct = true;
+    } else if (words > 2 && strcmp(split[1], "bond") == 0 &&
+                            strcmp(split[2], "types") == 0) {
+      if (!IsNatural(split[0], &val)) {
+        goto error;
+      }
+      Count->BondType = val;
+      correct = true;
+    } else if (words > 2 && strcmp(split[1], "angle") == 0 &&
+                            strcmp(split[2], "types") == 0) {
+      if (!IsNatural(split[0], &val)) {
+        goto error;
+      }
+      Count->AngleType = val;
+      correct = true;
+    } else if (words > 2 && strcmp(split[1], "dihedral") == 0 &&
+                            strcmp(split[2], "types") == 0) {
+      if (!IsNatural(split[0], &val)) {
+        goto error;
+      }
+      Count->DihedralType = val;
+      correct = true;
+    } else if (words > 2 && strcmp(split[1], "improper") == 0 &&
+                            strcmp(split[2], "types") == 0) {
+      if (!IsNatural(split[0], &val)) {
+        goto error;
+      }
+      Count->ImproperType = val;
+      correct = true;
+    } else if (words == 0 || split[0][0] == '#') {
+      correct = true;
+    } else { // TODO: if xlo, etc
+//    goto error;
+    } //}}}
+  } while (correct); // <num> ... <keyword> line
+  fclose(lmp);
+  // TODO: check Count->Bead > 0 && Count->BeadType > 0
+  //       if not, goto error;
+  return;
+  error: // unrecognised line //{{{{{{
+    strcpy(ERROR_MSG, "unrecognised line in lammps data file header");
+    PrintErrorFileLine(data_file, "\0", file_line_count, split, words);
+    putc('\n', stderr);
+    exit(1); //}}}}}}
+}
 
 #if 0 //{{{
 // TODO will be changed - FIELD file

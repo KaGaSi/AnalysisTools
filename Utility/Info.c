@@ -160,7 +160,7 @@ int main(int argc, char *argv[]) {
   // FIELD input (if present)
   SYSTEM field;
   if (input_field[0] != '\0') {
-    field = FieldReadFull(input_field);
+    field = FieldRead(input_field);
     ChangeMolecules(&System, field, change_beads);
     CheckSystem(System, input_field);
   }
@@ -204,6 +204,9 @@ int main(int argc, char *argv[]) {
   if (input_field[0] != '\0') {
     FreeSystem(&field);
   } //}}}
+
+  System = LmpDataRead("150.data");
+  FreeSystem(&System);
 
   return 0;
 }
