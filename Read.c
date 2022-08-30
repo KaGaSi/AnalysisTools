@@ -986,7 +986,7 @@ bool VtfReadTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
         Box->alpha = atof(split[4]);
         Box->beta = atof(split[5]);
         Box->gamma = atof(split[6]);
-        if (!TriclinicCellData(&(*System).Box)) {
+        if (!TriclinicCellData(&(*System).Box, 0)) {
           ErrorPrintFull2(vcf_file, *file_line_count, split, words);
           exit(1);
         }
@@ -2222,8 +2222,11 @@ SYSTEM LmpDataRead(char data_file[]) {
   SYSTEM System;
   InitSystem(&System);
   LmpDataReadHeader(data_file, &System);
+  TriclinicCellData(&System.Box, 1);
+//FillBeadTypeIndex(&System);
   COUNT *Count = &System.Count;
   PrintCount(*Count);
+  PrintBox(System.Box);
   return System;
 }
 void LmpDataReadHeader(char data_file[], SYSTEM *System) {
@@ -2290,6 +2293,11 @@ void LmpDataReadHeader(char data_file[], SYSTEM *System) {
         goto error;
       }
       Count->BeadType = val;
+      System->BeadType = realloc(System->BeadType,
+                                 Count->BeadType * sizeof *System->BeadType);
+      for (int i = 0; i < Count->BeadType; i++) {
+        InitBeadType(&System->BeadType[i]);
+      }
       correct = true;
     } else if (words > 2 && strcmp(split[1], "bond") == 0 &&
                             strcmp(split[2], "types") == 0) {
@@ -2318,6 +2326,43 @@ void LmpDataReadHeader(char data_file[], SYSTEM *System) {
         goto error;
       }
       Count->ImproperType = val;
+      correct = true;
+    } else if (words > 3 && strcmp(split[2], "xlo") == 0 &&
+                            strcmp(split[3], "xhi") == 0) {
+      double xlo, xhi;
+      if (!IsReal(split[0], &xlo) || !IsReal(split[1], &xhi)) {
+        goto error;
+      }
+      System->Box.OrthoLength.x = xhi - xlo;
+      correct = true;
+    } else if (words > 3 && strcmp(split[2], "ylo") == 0 &&
+                            strcmp(split[3], "yhi") == 0) {
+      double ylo, yhi;
+      if (!IsReal(split[0], &ylo) || !IsReal(split[1], &yhi)) {
+        goto error;
+      }
+      System->Box.OrthoLength.y = yhi - ylo;
+      correct = true;
+    } else if (words > 3 && strcmp(split[2], "zlo") == 0 &&
+                            strcmp(split[3], "zhi") == 0) {
+      double zlo, zhi;
+      if (!IsReal(split[0], &zlo) || !IsReal(split[1], &zhi)) {
+        goto error;
+      }
+      System->Box.OrthoLength.z = zhi - zlo;
+      correct = true;
+    } else if (words > 5 && strcmp(split[3], "xy") == 0 &&
+                            strcmp(split[4], "xz") == 0 &&
+                            strcmp(split[5], "yz") == 0) {
+      double xy, xz, yz;
+      if (!IsReal(split[0], &xy) ||
+          !IsReal(split[1], &xz) ||
+          !IsReal(split[2], &yz)) {
+        goto error;
+      }
+      System->Box.Tilt[0] = xy;
+      System->Box.Tilt[1] = xz;
+      System->Box.Tilt[2] = yz;
       correct = true;
     } else if (words == 0 || split[0][0] == '#') {
       correct = true;

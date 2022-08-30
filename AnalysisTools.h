@@ -52,7 +52,7 @@ void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
                                 BEADTYPE BeadType[]);
 void FillBeadTypeIndex(SYSTEM *System);
 void FillMoleculeTypeIndex(SYSTEM *System);
-bool TriclinicCellData(BOX *Box);
+bool TriclinicCellData(BOX *Box, int mode);
 void CountBondAngleDihedralImproper(SYSTEM *System);
 
 void NewBeadType(BEADTYPE *BeadType[], int *number_of_types, char *name,
