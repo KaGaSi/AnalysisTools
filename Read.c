@@ -2360,6 +2360,7 @@ void LmpDataReadHeader(char data_file[], SYSTEM *System) {
           !IsReal(split[2], &yz)) {
         goto error;
       }
+      // TODO: shows Tilt[2] == 0, though it should be -0.004381
       System->Box.Tilt[0] = xy;
       System->Box.Tilt[1] = xz;
       System->Box.Tilt[2] = yz;
