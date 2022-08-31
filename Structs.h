@@ -26,6 +26,8 @@ static const BOX InitBox = {
   .alpha = 90,
   .beta = 90,
   .gamma = 90,
+  .transform = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}},
+  .inverse = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}},
   .Volume = -1,
 }; //}}}
 typedef struct Count { //{{{

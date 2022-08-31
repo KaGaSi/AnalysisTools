@@ -372,6 +372,15 @@ void WarnStopReading2(char *vcf_file, int line_count, int step_count,
 //PrintLine2(split, words, YELLOW, CYAN);
 } //}}}
 
+// ErrorEOF() //{{{
+void ErrorEOF(char file1[], char file2[]) {
+  strcpy(ERROR_MSG, "premature end of file");
+  PrintError();
+  ErrorPrintFile(file1, file2);
+  putc('\n', stderr);
+  exit(1);
+} //}}}
+
 // TODO remove
 // ErrorPrintError_old() //{{{
 /*

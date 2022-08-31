@@ -58,7 +58,14 @@ void FieldReadMolecules(char field_file[], SYSTEM *System);
  //}}}
 // Functions to read lammps data file //{{{
 SYSTEM LmpDataRead(char data_file[]);
-void LmpDataReadHeader(char data_file[], SYSTEM *System);
+int LmpDataReadHeader(char data_file[], FILE *lmp,
+                      SYSTEM *System, int *file_line_count);
+void LmpDataReadBody(char data_file[], FILE *lmp,
+                     SYSTEM *System, int *file_line_count);
+void LmpDataReadMass(FILE *lmp, char data_file[],
+                     SYSTEM *System, int *file_line_count);
+void LmpDataReadBondCoeffs(FILE *lmp, char data_file[],
+                           SYSTEM *System, int *file_line_count);
  //}}}
 
 // helper functions //{{{

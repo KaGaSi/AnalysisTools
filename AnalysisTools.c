@@ -269,7 +269,8 @@ int FindMoleculeType(MOLECULETYPE mol, SYSTEM System, int mode) {
   return -1;
 } //}}}
 
-/* TODO what about if the molecule has bonds, but is in more 'pieces'; should
+/*
+ * TODO what about if the molecule has bonds, but is in more 'pieces'; should
  *      it really just try joining it 1000 times when we know it's impossible?
  *      There should be some check and then the separate pieces should be
  *      connected (with a warning issued).
@@ -1762,57 +1763,27 @@ void CountBondAngleDihedralImproper(SYSTEM *System) { //{{{
 // Populate BOX with volume, transform and invert matrices, etc. //{{{
 // mode: 0..knowing angles; 1..knowing tilt vector
 bool TriclinicCellData(BOX *Box, int mode) {
+  // calculate angles and tilt vectors or tilt vectors and OrthoLength //{{{
   switch(mode) {
-    case 0:
-      // triclinic box //{{{
+    case 0: // angles & Length given //{{{
       if (Box->alpha != 90 || Box->beta != 90 || Box->gamma != 90 ) {
         double a = Box->Length.x,
                b = Box->Length.y,
                c = Box->Length.z;
         double c_a = cos(Box->alpha * PI / 180),
                c_b = cos(Box->beta * PI / 180),
-               c_g = cos(Box->gamma * PI / 180),
-               s_g = sin(Box->gamma * PI / 180);
-        double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
-        if (sqr < 0) {
-          strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
-          return false;
-        }
-        double vol = a * b * c * sqrt(sqr);
-        Box->Volume = vol;
-
-        Box->transform[0][0] = a;
-        Box->transform[1][0] = 0;
-        Box->transform[2][0] = 0;
-        Box->transform[0][1] = b * c_g;
-        Box->transform[1][1] = b * s_g;
-        Box->transform[2][1] = 0;
-        Box->transform[0][2] = c * c_b;
-        Box->transform[1][2] = c * (c_a - c_b * c_g) / s_g;
-        Box->transform[2][2] = vol / (a * b * s_g);
-
-        Box->inverse[0][0] = 1 / a;
-        Box->inverse[1][0] = 0;
-        Box->inverse[2][0] = 0;
-        Box->inverse[0][1] = -c_g / (a * s_g);
-        Box->inverse[1][1] = 1 / (b * s_g);
-        Box->inverse[2][1] = 0;
-        Box->inverse[0][2] = b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) -
-                               c_b * s_g / vol);
-        Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
-        Box->inverse[2][2] = a * b * s_g / vol;
-        // tilt for triclinic axes (xy, xz, and yz) & lx, ly, and lz (lammps labels)
+               c_g = cos(Box->gamma * PI / 180);
         Box->OrthoLength.x = a;
-        Box->Tilt[0] = b * c_g; // xy
-        Box->Tilt[1] = c * c_b; // xz
-        sqr = SQR(b) - SQR(Box->Tilt[0]);
+        Box->Tilt[0] = b * c_g; // xy (lammps label)
+        Box->Tilt[1] = c * c_b; // xz (lammps label)
+        double sqr = SQR(b) - SQR(Box->Tilt[0]);
         if (sqr < 0) {
           strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
           return false;
         }
         Box->OrthoLength.y = sqrt(sqr);
-        Box->Tilt[2] = (b * c_a - Box->Tilt[0] * Box->Tilt[1]) /
-                            Box->OrthoLength.y;
+        Box->Tilt[2] = (b * c * c_a - Box->Tilt[0] * Box->Tilt[1]) /
+                       Box->OrthoLength.y; // yz (lammps label)
         sqr = SQR(c) - SQR(Box->Tilt[1]) - SQR(Box->Tilt[2]);
         if (sqr < 0) {
           strcpy(ERROR_MSG, "wrong simulation box box dimensions");
@@ -1820,46 +1791,10 @@ bool TriclinicCellData(BOX *Box, int mode) {
           exit(1);
         }
         Box->OrthoLength.z = sqrt(sqr);
-        // make tilt component zero if they're close to zero
-        for (int i = 0; i < 3; i++) {
-          if (fabs(Box->Tilt[i]) < 0.00001) {
-            Box->Tilt[i] = 0;
-          }
-        }
-      //}}}
-      } else { // orthogonal box //{{{
-        Box->Volume = Box->Length.x * Box->Length.y * Box->Length.z;
-
-        Box->transform[0][0] = Box->Length.x;
-        Box->transform[1][0] = 0;
-        Box->transform[2][0] = 0;
-        Box->transform[0][1] = 0;
-        Box->transform[1][1] = Box->Length.y;
-        Box->transform[2][1] = 0;
-        Box->transform[0][2] = 0;
-        Box->transform[1][2] = 0;
-        Box->transform[2][2] = Box->Length.z;
-
-        Box->inverse[0][0] = 1 / Box->Length.x;
-        Box->inverse[1][0] = 0;
-        Box->inverse[2][0] = 0;
-        Box->inverse[0][1] = 0;
-        Box->inverse[1][1] = 1 / Box->Length.y;
-        Box->inverse[2][1] = 0;
-        Box->inverse[0][2] = 0;
-        Box->inverse[1][2] = 0;
-        Box->inverse[2][2] = 1 / Box->Length.z;
-        // lx, ly, and lz for lammps
-        Box->OrthoLength = Box->Length;
-        // tilt for triclinic axes (xy, xz, and yz)
-        Box->Tilt[0] = 0;
-        Box->Tilt[1] = 0;
-        Box->Tilt[2] = 0;
-      } //}}}
-      break;
-    case 1:
-      // triclinic box //{{{
-      if (Box->Tilt[0] != 0 || Box->Tilt[1] != 0 || Box->Tilt[2] != 0 ) {
+      }
+      break; //}}}
+    case 1: // tilt & OrthoLength given //{{{
+      if (Box->Tilt[0] != 0 || Box->Tilt[1] != 0 || Box->Tilt[2] != 0) {
         double lx = Box->OrthoLength.x,
                ly = Box->OrthoLength.y,
                lz = Box->OrthoLength.z;
@@ -1871,99 +1806,60 @@ bool TriclinicCellData(BOX *Box, int mode) {
                c = sqrt(SQR(lz) + SQR(xz));
         double c_a = (xy * xz + ly * yz) / (b * c),
                c_b = xz / c,
-               c_g = xy / b,
-               s_g = sin(acos(c_g));
-        double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
-        if (sqr < 0) {
-          strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
-          return false;
-        }
-        double vol = a * b * c * sqrt(sqr);
-        Box->Volume = vol;
-
+               c_g = xy / b;
         Box->Length.x = a;
         Box->Length.y = b;
         Box->Length.z = c;
         Box->alpha = acos(c_a) / PI * 180;
         Box->beta  = acos(c_b) / PI * 180;
         Box->gamma = acos(c_g) / PI * 180;
-
-        Box->transform[0][0] = a;
-        Box->transform[1][0] = 0;
-        Box->transform[2][0] = 0;
-        Box->transform[0][1] = b * c_g;
-        Box->transform[1][1] = b * s_g;
-        Box->transform[2][1] = 0;
-        Box->transform[0][2] = c * c_b;
-        Box->transform[1][2] = c * (c_a - c_b * c_g) / s_g;
-        Box->transform[2][2] = vol / (a * b * s_g);
-
-        Box->inverse[0][0] = 1 / a;
-        Box->inverse[1][0] = 0;
-        Box->inverse[2][0] = 0;
-        Box->inverse[0][1] = -c_g / (a * s_g);
-        Box->inverse[1][1] = 1 / (b * s_g);
-        Box->inverse[2][1] = 0;
-        Box->inverse[0][2] = b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) -
-                               c_b * s_g / vol);
-        Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
-        Box->inverse[2][2] = a * b * s_g / vol;
-        // tilt for triclinic axes (xy, xz, and yz) & lx, ly, and lz (lammps labels)
-        Box->OrthoLength.x = a;
-        Box->Tilt[0] = b * c_g; // xy
-        Box->Tilt[1] = c * c_b; // xz
-        sqr = SQR(b) - SQR(Box->Tilt[0]);
-        if (sqr < 0) {
-          strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
-          return false;
-        }
-        Box->OrthoLength.y = sqrt(sqr);
-        Box->Tilt[2] = (b * c_a - Box->Tilt[0] * Box->Tilt[1]) /
-                            Box->OrthoLength.y;
-        sqr = SQR(c) - SQR(Box->Tilt[1]) - SQR(Box->Tilt[2]);
-        if (sqr < 0) {
-          strcpy(ERROR_MSG, "wrong simulation box box dimensions");
-          PrintError();
-          exit(1);
-        }
-        Box->OrthoLength.z = sqrt(sqr);
-        // make tilt component zero if they're close to zero
-        for (int i = 0; i < 3; i++) {
-          if (fabs(Box->Tilt[i]) < 0.00001) {
-            Box->Tilt[i] = 0;
-          }
-        }
-      //}}}
-      } else { // orthogonal box //{{{
-        Box->Length = Box->OrthoLength;
-
-        Box->Volume = Box->Length.x * Box->Length.y * Box->Length.z;
-
-        Box->transform[0][0] = Box->Length.x;
-        Box->transform[1][0] = 0;
-        Box->transform[2][0] = 0;
-        Box->transform[0][1] = 0;
-        Box->transform[1][1] = Box->Length.y;
-        Box->transform[2][1] = 0;
-        Box->transform[0][2] = 0;
-        Box->transform[1][2] = 0;
-        Box->transform[2][2] = Box->Length.z;
-
-        Box->inverse[0][0] = 1 / Box->Length.x;
-        Box->inverse[1][0] = 0;
-        Box->inverse[2][0] = 0;
-        Box->inverse[0][1] = 0;
-        Box->inverse[1][1] = 1 / Box->Length.y;
-        Box->inverse[2][1] = 0;
-        Box->inverse[0][2] = 0;
-        Box->inverse[1][2] = 0;
-        Box->inverse[2][2] = 1 / Box->Length.z;
       } //}}}
       break;
     default:
       strcpy(ERROR_MSG, "TriclinicCellData(): mode parameters must be 0 or 1");
       exit(1);
-  }
+  } //}}}
+  // transformation matrices //{{{
+  if (Box->alpha != 90 && Box->beta != 90 && Box->gamma != 90) { // triclinic
+    double a = Box->Length.x,
+           b = Box->Length.y,
+           c = Box->Length.z;
+    double c_a = cos(Box->alpha * PI / 180),
+           c_b = cos(Box->beta * PI / 180),
+           c_g = cos(Box->gamma * PI / 180),
+           s_g = sin(Box->gamma * PI / 180);
+    double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
+    if (sqr < 0) {
+      strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
+      return false;
+    }
+    Box->Volume = a * b * c * sqrt(sqr);
+    double vol = Box->Volume;
+    Box->transform[0][0] = a;
+    Box->transform[0][1] = b * c_g;
+    Box->transform[1][1] = b * s_g;
+    Box->transform[0][2] = c * c_b;
+    Box->transform[1][2] = c * (c_a - c_b * c_g) / s_g;
+    Box->transform[2][2] = vol / (a * b * s_g);
+
+    Box->inverse[0][0] = 1 / a;
+    Box->inverse[0][1] = -c_g / (a * s_g);
+    Box->inverse[1][1] = 1 / (b * s_g);
+    Box->inverse[0][2] = b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) -
+                           c_b * s_g / vol);
+    Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
+    Box->inverse[2][2] = a * b * s_g / vol;
+  } else { // orthographic
+    Box->Length = Box->OrthoLength;
+    Box->Volume = Box->Length.x * Box->Length.y * Box->Length.z;
+    Box->transform[0][0] = Box->Length.x;
+    Box->transform[1][1] = Box->Length.y;
+    Box->transform[2][2] = Box->Length.z;
+
+    Box->inverse[0][0] = 1 / Box->Length.x;
+    Box->inverse[1][1] = 1 / Box->Length.y;
+    Box->inverse[2][2] = 1 / Box->Length.z;
+  } //}}}
   return true;
 } //}}}
  //}}}
@@ -2936,7 +2832,7 @@ void PrintBox(BOX Box) { //{{{
   fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n", Box.OrthoLength.x,
                                                          Box.OrthoLength.y,
                                                          Box.OrthoLength.z);
-  fprintf(stdout, "  .TriTilt = (%lf, %lf, %lf),\n", Box.Tilt[0],
+  fprintf(stdout, "  .TriTilt = (%e, %e, %e),\n", Box.Tilt[0],
                                                      Box.Tilt[1],
                                                      Box.Tilt[2]);
   fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);

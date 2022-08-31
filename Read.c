@@ -832,8 +832,8 @@ inside the structure block ");
       PrintErrorFileLine(struct_file, "\0", file_line_count, split, words);
       exit(1);
     }
-  }
-  fclose(vsf); //}}}
+  } //}}}
+  fclose(vsf);
   Count->BeadType = Count->Bead;
   Count->MoleculeType = Count->Molecule;
   // error - no default line and too few atom lines //{{{
@@ -2217,23 +2217,37 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
   fclose(fr);
 } //}}}
  //}}}
-// Read lammps data file
-SYSTEM LmpDataRead(char data_file[]) {
+// Read lammps data file //{{{
+SYSTEM LmpDataRead(char data_file[]) { //{{{
   SYSTEM System;
   InitSystem(&System);
-  LmpDataReadHeader(data_file, &System);
+  COUNT *Count = &System.Count;
+  FILE *lmp = OpenFile(data_file, "r");
+  int file_line_count = 0;
+  LmpDataReadHeader(data_file, lmp, &System, &file_line_count);
+  // TODO: add something to lammps data file to get bead names
+  // name bead types 1..Count->BeadType //{{{
+  for (int i = 0; i < Count->BeadType; i++) {
+    char name[BEAD_NAME];
+    snprintf(name, BEAD_NAME, "%d", i+1);
+    strcpy(System.BeadType[i].Name, name);
+  } //}}}
+  LmpDataReadBody(data_file, lmp, &System, &file_line_count);
+  fclose(lmp);
   TriclinicCellData(&System.Box, 1);
 //FillBeadTypeIndex(&System);
-  COUNT *Count = &System.Count;
   PrintCount(*Count);
   PrintBox(System.Box);
+  PrintBeadType(System);
+  PrintBondType(System);
   return System;
-}
-void LmpDataReadHeader(char data_file[], SYSTEM *System) {
+} //}}}
+// read head  //{{{
+int LmpDataReadHeader(char data_file[], FILE *lmp,
+                      SYSTEM *System, int *file_line_count) {
   COUNT *Count = &System->Count;
-  int file_line_count = 1, words;
+  int words;
   char line[LINE], *split[SPL_STR];
-  FILE *lmp = OpenFile(data_file, "r");
   // ignore the first line //{{{
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     strcpy(ERROR_MSG, "premature end of file");
@@ -2242,54 +2256,56 @@ void LmpDataReadHeader(char data_file[], SYSTEM *System) {
     putc('\n', stderr);
     exit(1);
   } //}}}
-  // read until non-empty, non-comment, and non-number line is encountered
-  bool correct;
+  *file_line_count = 1;
+  // read until a line starting with capital letter //{{{
+  fpos_t position;
   do {
-    correct = false;
-    file_line_count++;
-    // read a line //{{{
+    (*file_line_count)++;
+    fgetpos(lmp, &position);
+    // read a line
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file");
-      PrintError();
-      ErrorPrintFile(data_file, "\0");
-      putc('\n', stderr);
-      exit(1);
-    } //}}}
-    // evaluate the line //{{{
+      ErrorEOF(data_file, "\0");
+    }
+    // evaluate the line
     long val;
+    // <int> atoms //{{{
     if (words > 1 && strcmp(split[1], "atoms") == 0) {
-      if (!IsNatural(split[0], &val)) {
+      if (!IsNatural(split[0], &val) || val == 0) {
         goto error;
       }
       Count->Bead = val;
-      correct = true;
+      System->Bead = realloc(System->Bead, Count->Bead * sizeof *System->Bead);
+      for (int i = 0; i < Count->Bead; i++) {
+        InitBead(&System->Bead[i]);
+      } //}}}
+    // <int> bonds //{{{
     } else if (words > 1 && strcmp(split[1], "bonds") == 0) {
       if (!IsNatural(split[0], &val)) {
         goto error;
       }
-      Count->Bond = val;
-      correct = true;
+      Count->Bond = val; //}}}
+    // <int> angles //{{{
     } else if (words > 1 && strcmp(split[1], "angles") == 0) {
       if (!IsNatural(split[0], &val)) {
         goto error;
       }
-      Count->Angle = val;
-      correct = true;
+      Count->Angle = val; //}}}
+    // <int> dihedrals //{{{
     } else if (words > 1 && strcmp(split[1], "dihedrals") == 0) {
       if (!IsNatural(split[0], &val)) {
         goto error;
       }
-      Count->Dihedral = val;
-      correct = true;
+      Count->Dihedral = val; //}}}
+    // <int> impropers //{{{
     } else if (words > 1 && strcmp(split[1], "impropers") == 0) {
       if (!IsNatural(split[0], &val)) {
         goto error;
       }
-      Count->Improper = val;
-      correct = true;
+      Count->Improper = val; //}}}
+    // <int> atom types //{{{
     } else if (words > 2 && strcmp(split[1], "atom") == 0 &&
                             strcmp(split[2], "types") == 0) {
-      if (!IsNatural(split[0], &val)) {
+      if (!IsNatural(split[0], &val) || val == 0) {
         goto error;
       }
       Count->BeadType = val;
@@ -2297,60 +2313,74 @@ void LmpDataReadHeader(char data_file[], SYSTEM *System) {
                                  Count->BeadType * sizeof *System->BeadType);
       for (int i = 0; i < Count->BeadType; i++) {
         InitBeadType(&System->BeadType[i]);
-      }
-      correct = true;
+      } //}}}
+    // <int> bond types //{{{
     } else if (words > 2 && strcmp(split[1], "bond") == 0 &&
                             strcmp(split[2], "types") == 0) {
       if (!IsNatural(split[0], &val)) {
         goto error;
       }
       Count->BondType = val;
-      correct = true;
+      System->BondType = realloc(System->BondType,
+                                 Count->BondType * sizeof *System->BondType);
+    //}}}
+    // <int> angle types //{{{
     } else if (words > 2 && strcmp(split[1], "angle") == 0 &&
                             strcmp(split[2], "types") == 0) {
       if (!IsNatural(split[0], &val)) {
         goto error;
       }
       Count->AngleType = val;
-      correct = true;
+      System->AngleType = realloc(System->AngleType,
+                                  Count->AngleType * sizeof *System->AngleType);
+    //}}}
+    // <int> dihedral types //{{{
     } else if (words > 2 && strcmp(split[1], "dihedral") == 0 &&
                             strcmp(split[2], "types") == 0) {
       if (!IsNatural(split[0], &val)) {
         goto error;
       }
       Count->DihedralType = val;
-      correct = true;
+      System->DihedralType =
+        realloc(System->DihedralType,
+                Count->DihedralType * sizeof *System->DihedralType);
+    //}}}
+    // <int> improper types //{{{
     } else if (words > 2 && strcmp(split[1], "improper") == 0 &&
                             strcmp(split[2], "types") == 0) {
       if (!IsNatural(split[0], &val)) {
         goto error;
       }
       Count->ImproperType = val;
-      correct = true;
+      System->ImproperType =
+        realloc(System->ImproperType,
+                Count->ImproperType * sizeof *System->ImproperType);
+    //}}}
+    // <double> <double> xlo xhi //{{{
     } else if (words > 3 && strcmp(split[2], "xlo") == 0 &&
                             strcmp(split[3], "xhi") == 0) {
       double xlo, xhi;
       if (!IsReal(split[0], &xlo) || !IsReal(split[1], &xhi)) {
         goto error;
       }
-      System->Box.OrthoLength.x = xhi - xlo;
-      correct = true;
+      System->Box.OrthoLength.x = xhi - xlo; //}}}
+    // <double> <double> ylo yhi //{{{
     } else if (words > 3 && strcmp(split[2], "ylo") == 0 &&
                             strcmp(split[3], "yhi") == 0) {
       double ylo, yhi;
       if (!IsReal(split[0], &ylo) || !IsReal(split[1], &yhi)) {
         goto error;
       }
-      System->Box.OrthoLength.y = yhi - ylo;
-      correct = true;
+      System->Box.OrthoLength.y = yhi - ylo; //}}}
+    // <double> <double> zlo zhi //{{{
     } else if (words > 3 && strcmp(split[2], "zlo") == 0 &&
                             strcmp(split[3], "zhi") == 0) {
       double zlo, zhi;
       if (!IsReal(split[0], &zlo) || !IsReal(split[1], &zhi)) {
         goto error;
       }
-      System->Box.OrthoLength.z = zhi - zlo;
-      correct = true;
+      System->Box.OrthoLength.z = zhi - zlo; //}}}
+    // <double> <double> <double> xy xz yz //{{{
     } else if (words > 5 && strcmp(split[3], "xy") == 0 &&
                             strcmp(split[4], "xz") == 0 &&
                             strcmp(split[5], "yz") == 0) {
@@ -2360,27 +2390,114 @@ void LmpDataReadHeader(char data_file[], SYSTEM *System) {
           !IsReal(split[2], &yz)) {
         goto error;
       }
-      // TODO: shows Tilt[2] == 0, though it should be -0.004381
       System->Box.Tilt[0] = xy;
       System->Box.Tilt[1] = xz;
       System->Box.Tilt[2] = yz;
-      correct = true;
-    } else if (words == 0 || split[0][0] == '#') {
-      correct = true;
-    } else { // TODO: if xlo, etc
-//    goto error;
     } //}}}
-  } while (correct); // <num> ... <keyword> line
-  fclose(lmp);
-  // TODO: check Count->Bead > 0 && Count->BeadType > 0
-  //       if not, goto error;
-  return;
-  error: // unrecognised line //{{{{{{
-    strcpy(ERROR_MSG, "unrecognised line in lammps data file header");
-    PrintErrorFileLine(data_file, "\0", file_line_count, split, words);
+  } while (  words == 0 || split[0][0] <  'A' || split[0][0] >  'Z' ); //}}}
+  // return file pointer to before the first capital-letter-starting line
+  fsetpos(lmp, &position);
+  (*file_line_count)--;
+  if (Count->Bead == 0 || Count->BeadType == 0) { //{{{
+    strcpy(ERROR_MSG, "missing atom/atom types in lammps data file");
+    PrintError();
+    ErrorPrintFile(data_file, "\0");
     putc('\n', stderr);
-    exit(1); //}}}}}}
-}
+    exit(1);
+  } //}}}
+  return *file_line_count;
+  error: // unrecognised line //{{{
+    strcpy(ERROR_MSG, "unrecognised line in lammps data file header");
+    PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+    putc('\n', stderr);
+    exit(1); //}}}
+} //}}}
+// read body //{{{
+void LmpDataReadBody(char data_file[], FILE *lmp,
+                     SYSTEM *System, int *file_line_count) {
+  while (true) {
+    int words;
+    char line[LINE], *split[SPL_STR];
+    // read a line
+    (*file_line_count)++;
+    if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      ErrorEOF(data_file, "\0");
+    }
+    // evaluate the line
+    if (words > 0 && strcmp(split[0], "Masses") == 0) {
+      LmpDataReadMass(lmp, data_file, System, file_line_count);
+    } else if (words > 1 && strcmp(split[0], "Bond") == 0 &&
+                            strcmp(split[1], "Coeffs") == 0) {
+      LmpDataReadBondCoeffs(lmp, data_file, System, file_line_count);
+      break;
+    }
+  }
+} //}}}
+// read Masses section //{{{
+void LmpDataReadMass(FILE *lmp, char data_file[],
+                     SYSTEM *System, int *file_line_count) {
+  int words;
+  char line[LINE], *split[SPL_STR];
+  COUNT *Count = &System->Count;
+  // skip one line
+  (*file_line_count)++;
+  if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    ErrorEOF(data_file, "\0");
+  }
+  for (int i = 0; i < Count->BeadType; i++) {
+    (*file_line_count)++;
+    if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      ErrorEOF(data_file, "\0");
+    }
+    long type;
+    double mass;
+    if (words < 2 || !IsPosInteger(split[0], &type) || type > Count->BeadType ||
+        !IsPosReal(split[1], &mass)) {
+      strcpy(ERROR_MSG, "wrong line in Masses section");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    System->BeadType[type-1].Mass = mass;
+  }
+} //}}}
+// read Bond Coeffs section //{{{
+// TODO: non-harmonic bonds
+void LmpDataReadBondCoeffs(FILE *lmp, char data_file[],
+                           SYSTEM *System, int *file_line_count) {
+  COUNT *Count = &System->Count;
+  // error - no bond types //{{{
+  if (Count->BondType == 0) {
+    strcpy(ERROR_MSG, "Bond Coeffs in a file with no bond types");
+    PrintError();
+    ErrorPrintFile(data_file, "\0");
+    putc('\n', stderr);
+    exit(1);
+  } //}}}
+  int words;
+  char line[LINE], *split[SPL_STR];
+  // skip one line
+  (*file_line_count)++;
+  if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    ErrorEOF(data_file, "\0");
+  }
+  for (int i = 0; i < Count->BondType; i++) {
+    (*file_line_count)++;
+    if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      ErrorEOF(data_file, "\0");
+    }
+    long type;
+    double a, b;
+    if (words < 2 || !IsPosInteger(split[0], &type) || type > Count->BondType ||
+        !IsPosReal(split[1], &a) || !IsPosReal(split[2], &b)) {
+      strcpy(ERROR_MSG, "wrong line in Bond Coeffs section");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    System->BondType[type-1].a = a * 2; // lammps uses k/2 as spring constant
+    System->BondType[type-1].b = b;
+  }
+} //}}}
+ //}}}
 
 #if 0 //{{{
 // TODO will be changed - FIELD file
