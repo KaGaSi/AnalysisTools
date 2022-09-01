@@ -28,6 +28,8 @@ void PrintError();
 void PrintWarningOption(char *opt);
 // print 'ERROR: <option> - <ERROR_MSG>' in red and yellow
 void PrintErrorOption(char *opt);
+// print 'ERROR: - <ERROR_MSG>\nFile <file(s)>'
+void PrintErrorFile(char file1[], char file2[]);
 // print 'ERROR: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>'
 void PrintErrorFileLine(char file1[], char file2[],  int count,
                         char *split[SPL_STR], int words);

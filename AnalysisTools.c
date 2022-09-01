@@ -2808,8 +2808,8 @@ void PrintDihedralType(SYSTEM System) { //{{{
   if (System.Count.DihedralType > 0) {
     fprintf(stdout, "Dihedral types\n");
     for (int i = 0; i < System.Count.DihedralType; i++) {
-      fprintf(stdout, "   %lf %lf\n",
-              System.DihedralType[i].a, System.DihedralType[i].b);
+      PARAMS *dihed = &System.DihedralType[i];
+      fprintf(stdout, "   %lf %lf %lf\n", dihed->a, dihed->b, dihed->c);
     }
     fprintf(stdout, "\n");
   }
@@ -2818,8 +2818,8 @@ void PrintImproperType(SYSTEM System) { //{{{
   if (System.Count.ImproperType > 0) {
     fprintf(stdout, "Improper types\n");
     for (int i = 0; i < System.Count.ImproperType; i++) {
-      fprintf(stdout, "   %lf %lf\n",
-              System.ImproperType[i].a, System.ImproperType[i].b);
+      PARAMS *imp = &System.ImproperType[i];
+      fprintf(stdout, "   %lf %lf %lf\n", imp->a, imp->b, imp->c);
     }
     fprintf(stdout, "\n");
   }
@@ -2874,6 +2874,7 @@ void PrintBox(BOX Box) { //{{{
     }
     fprintf(stdout, ")\n");
   } //}}}
+  fprintf(stdout, "\n");
 } //}}}
 void PrintByline(FILE *ptr, int argc, char *argv[]) { //{{{
   fprintf(ptr, "# Created by AnalysisTools v%s ", VERSION);

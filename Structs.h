@@ -74,7 +74,7 @@ static const COUNT InitCount = {
   .Improper = 0,
 }; //}}}
 typedef struct Params { //{{{
-  double a, b;
+  double a, b, c;
 } PARAMS; //}}}
 typedef struct BeadType { //{{{
   char Name[BEAD_NAME]; // name of given bead type

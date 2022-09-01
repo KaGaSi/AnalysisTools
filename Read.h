@@ -66,6 +66,24 @@ void LmpDataReadMass(FILE *lmp, char data_file[],
                      SYSTEM *System, int *file_line_count);
 void LmpDataReadBondCoeffs(FILE *lmp, char data_file[],
                            SYSTEM *System, int *file_line_count);
+void LmpDataReadAngleCoeffs(FILE *lmp, char data_file[],
+                            SYSTEM *System, int *file_line_count);
+void LmpDataReadDihedralCoeffs(FILE *lmp, char data_file[],
+                               SYSTEM *System, int *file_line_count);
+void LmpDataReadImproperCoeffs(FILE *lmp, char data_file[],
+                               SYSTEM *System, int *file_line_count);
+void LmpDataReadAtoms(FILE *lmp, char data_file[],
+                      SYSTEM *System, int *file_line_count);
+void LmpDataReadVelocities(FILE *lmp, char data_file[],
+                           SYSTEM *System, int *file_line_count);
+void LmpDataReadBonds(FILE *lmp, char data_file[], COUNT Count,
+                      int (*bond)[3], int *file_line_count);
+void LmpDataReadAngles(FILE *lmp, char data_file[], COUNT Count,
+                       int (*angle)[4], int *file_line_count);
+void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
+                          int (*diheral)[5], int *file_line_count);
+void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
+                          int (*improper)[5], int *file_line_count);
  //}}}
 
 // helper functions //{{{

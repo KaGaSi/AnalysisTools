@@ -148,6 +148,7 @@ void PrintCommand(FILE *ptr, int argc, char *argv[]);
 
 // changing the text colour (and making it bold) for cli output //{{{
 char *Colour(FILE *f, char *colour);
+void PrintColour(FILE *f, char *colour);
 // colours for stderr
 char *ErrRed();
 char *ErrCyan();

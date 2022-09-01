@@ -22,6 +22,12 @@ void PrintErrorOption(char *opt) {
   fprintf(stderr, "\n  %sERROR: %s%s%s - %s%s\n", ErrRed(),
           ErrYellow(), opt, ErrRed(), ERROR_MSG, ErrColourReset());
 } //}}}
+// print 'ERROR: - <ERROR_MSG>\nFile <file(s)>' //{{{
+void PrintErrorFile(char file1[], char file2[]) {
+  PrintError();
+  ErrorPrintFile(file1, file2);
+  putc('\n', stderr);
+} //}}}
 // print 'ERROR: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>' //{{{
 void PrintErrorFileLine(char file1[], char file2[], int count,
                         char *split[SPL_STR], int words) {

@@ -253,6 +253,11 @@ char *Colour(FILE *f, char *colour) {
     return "";
   }
 }
+void PrintColour(FILE *f, char *colour) {
+  if (isatty(fileno(f))) {
+    fputs(colour, f);
+  }
+}
 // colours for stderr
 char *ErrRed() {
   return Colour(stderr, RED);
