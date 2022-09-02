@@ -25,7 +25,7 @@
 // Read all information about the system from a vsf/vtf structure file.
 SYSTEM VtfReadStruct(char struct_file[], bool detailed);
 void FillMoleculeBeads(SYSTEM *System);
-void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[2], int nbonds);
+void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[3], int nbonds);
 void RemoveExtraTypes(SYSTEM *System);
 void MergeBeadTypes(SYSTEM *System, bool detailed);
 void MergeMoleculeTypes(SYSTEM *System);
@@ -61,9 +61,9 @@ SYSTEM LmpDataRead(char data_file[]);
 int LmpDataReadHeader(char data_file[], FILE *lmp,
                       SYSTEM *System, int *file_line_count);
 void LmpDataReadBody(char data_file[], FILE *lmp,
-                     SYSTEM *System, int *file_line_count);
-void LmpDataReadMass(FILE *lmp, char data_file[],
-                     SYSTEM *System, int *file_line_count);
+                     SYSTEM *System, int lmp_types, int *file_line_count);
+void LmpDataReadMasses(FILE *lmp, char data_file[],
+                     int lmp_types, double masses[], int *file_line_count);
 void LmpDataReadBondCoeffs(FILE *lmp, char data_file[],
                            SYSTEM *System, int *file_line_count);
 void LmpDataReadAngleCoeffs(FILE *lmp, char data_file[],
@@ -72,8 +72,8 @@ void LmpDataReadDihedralCoeffs(FILE *lmp, char data_file[],
                                SYSTEM *System, int *file_line_count);
 void LmpDataReadImproperCoeffs(FILE *lmp, char data_file[],
                                SYSTEM *System, int *file_line_count);
-void LmpDataReadAtoms(FILE *lmp, char data_file[],
-                      SYSTEM *System, int *file_line_count);
+void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
+                      double masses[], int lmp_types, int *file_line_count);
 void LmpDataReadVelocities(FILE *lmp, char data_file[],
                            SYSTEM *System, int *file_line_count);
 void LmpDataReadBonds(FILE *lmp, char data_file[], COUNT Count,

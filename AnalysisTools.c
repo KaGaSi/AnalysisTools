@@ -1654,13 +1654,27 @@ void FillSystemNonessentials(SYSTEM *System) { //{{{
   System->BeadCoor = realloc(System->BeadCoor,
                              sizeof *System->BeadCoor * Count->Bead);
   if (Count->Bonded > 0) {
+    System->Bonded = realloc(System->Bonded,
+                             sizeof *System->Bonded * Count->Bonded);
     System->BondedCoor = realloc(System->BondedCoor,
                                  sizeof *System->BondedCoor * Count->Bonded);
   }
   if (Count->Unbonded > 0) {
+    System->Unbonded = realloc(System->Unbonded,
+                           sizeof *System->Unbonded * Count->Unbonded);
     System->UnbondedCoor = realloc(System->UnbondedCoor,
                                    sizeof *System->UnbondedCoor *
                                    Count->Unbonded);
+  }
+  int c_bonded = 0, c_unbonded = 0;
+  for (int i = 0; i < Count->Bead; i++) {
+    if (System->Bead[i].Molecule > -1) {
+      System->Bonded[c_bonded] = i;
+      c_bonded++;
+    } else {
+      System->Unbonded[c_unbonded] = i;
+      c_unbonded++;
+    }
   }
   CountBondAngleDihedralImproper(System);
 } //}}}

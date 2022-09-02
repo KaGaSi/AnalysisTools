@@ -683,7 +683,8 @@ SYSTEM VtfReadStruct(char struct_file[], bool detailed) {
   bool warned = false; // has 'a[tom] default' line warning already been issued?
   BEADTYPE bt_def;
   InitBeadType(&bt_def);
-  int (*bond)[2] = calloc(1, sizeof *bond); //}}}
+  int (*bond)[3] = calloc(1, sizeof *bond);
+  bond[0][2] = -1; // no bond types in a vtf file //}}}
   // read struct_file line by line, saving all atom and bond lines //{{{
   /* Do something based on to line type
    *   a) atom line: save bead information
@@ -814,6 +815,7 @@ disregarding the following line");
         IsInteger(split[2], &val);
         bond[count_bonds][1] = val;
       }
+      bond[count_bonds][2] = -1;
       // assure index1<index2 (may be unnecessary, but definitely won't hurt)
       if (bond[count_bonds][0] > bond[count_bonds][1]) {
         SwapInt(&bond[count_bonds][0], &bond[count_bonds][1]);
@@ -867,13 +869,8 @@ inside the structure block ");
     }
     if (Sys.Bead[i].Molecule == -1) { // unbonded bead?
       Count->Unbonded++;
-      Sys.Unbonded = realloc(Sys.Unbonded,
-                             sizeof *Sys.Unbonded * Count->Unbonded);
-      Sys.Unbonded[Count->Unbonded-1] = i;
     } else {
       Count->Bonded++; // bonded bead?
-      Sys.Bonded = realloc(Sys.Bonded, sizeof *Sys.Bonded * Count->Bonded);
-      Sys.Bonded[Count->Bonded-1] = i;
     }
   }
   // just check that it counts the beads correctly
@@ -885,6 +882,7 @@ contact developper\n");
   } //}}}
   FillMoleculeBeads(&Sys);
   FillMoleculeTypeBonds(&Sys, bond, count_bonds);
+  free(bond);
   RemoveExtraTypes(&Sys);
   MergeBeadTypes(&Sys, detailed);
   MergeMoleculeTypes(&Sys);
@@ -1335,12 +1333,13 @@ void FillMoleculeBeads(SYSTEM *System) { //{{{
     }
   }
 } //}}}
-void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[2], int nbonds) { //{{{
+void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[3], int nbonds) { //{{{
   COUNT *Count = &System->Count;
   // fill MoleculeType[].Bond array with bead indices
   for (int i = 0; i < nbonds; i++) {
     int id1 = bond[i][0],
         id2 = bond[i][1],
+        bond_type = bond[i][2],
         mol = System->Bead[id1].Molecule;
     // warning - bonded beads in different molecules (skip the bond)  //{{{
     if (mol != System->Bead[id2].Molecule || mol == -1) {
@@ -1365,7 +1364,7 @@ discarding this bond");
     }
     mt_mol->Bond[bond][0] = id1;
     mt_mol->Bond[bond][1] = id2;
-    mt_mol->Bond[bond][2] = -1;
+    mt_mol->Bond[bond][2] = bond_type;
   }
   // make the MoleculeType[].Bond bead indices go from 0 to nBeads
   for (int i = 0; i < Count->MoleculeType; i++) {
@@ -1387,7 +1386,6 @@ should never happen!");
       } //}}}
     }
   }
-  free(bond);
 } //}}}
 // Helper functions to check whether provided line is of a given type
 int VtfCheckCoorOrderedLine(int words, char *split[]) { //{{{
@@ -2218,27 +2216,27 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
 } //}}}
  //}}}
 // Read lammps data file //{{{
+// TODO: in body, make sure the order of sections doesn't matter
+// TODO: molecules: angles, dihedrals & impropers
+// TODO: somehow, it's terrifyingly slow
 SYSTEM LmpDataRead(char data_file[]) { //{{{
   SYSTEM System;
   InitSystem(&System);
-  COUNT *Count = &System.Count;
   FILE *lmp = OpenFile(data_file, "r");
   int file_line_count = 0;
-  LmpDataReadHeader(data_file, lmp, &System, &file_line_count);
+  int lmp_types = LmpDataReadHeader(data_file, lmp, &System, &file_line_count);
   // TODO: add something to lammps data file to get bead names
-  // name bead types 1..Count->BeadType //{{{
-  for (int i = 0; i < Count->BeadType; i++) {
-    char name[BEAD_NAME];
-    snprintf(name, BEAD_NAME, "%d", i+1);
-    strcpy(System.BeadType[i].Name, name);
-  } //}}}
-  LmpDataReadBody(data_file, lmp, &System, &file_line_count);
+  LmpDataReadBody(data_file, lmp, &System, lmp_types, &file_line_count);
   fclose(lmp);
   TriclinicCellData(&System.Box, 1);
-  FillBeadTypeIndex(&System);
+  RemoveExtraTypes(&System);
   MergeBeadTypes(&System, true);
-  PrintColour(stdout, MAGENTA);
-  PrintCount(*Count);
+  MergeMoleculeTypes(&System);
+  FillSystemNonessentials(&System);
+  CheckSystem(System, data_file);
+
+//PrintColour(stdout, MAGENTA);
+//PrintCount(*Count);
 //PrintColour(stdout, GREEN);
 //PrintBeadType(System);
 //PrintColour(stdout, BLUE);
@@ -2250,7 +2248,8 @@ SYSTEM LmpDataRead(char data_file[]) { //{{{
 //PrintColour(stdout, BLUE);
 //PrintImproperType(System);
 //PrintColour(stdout, MAGENTA);
-  PrintColour(stdout, C_RESET);
+//PrintBox(System.Box);
+//PrintColour(stdout, C_RESET);
   return System;
 } //}}}
 // read head  //{{{
@@ -2259,6 +2258,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
   COUNT *Count = &System->Count;
   int words;
   char line[LINE], *split[SPL_STR];
+  double lmp_types = 0;
   // ignore the first line //{{{
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     strcpy(ERROR_MSG, "premature end of file");
@@ -2286,8 +2286,14 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
       }
       Count->Bead = val;
       System->Bead = realloc(System->Bead, Count->Bead * sizeof *System->Bead);
+      // Count->Bead = Count->BeadType as each bead can have different charge,
+      // so at first, each bead will be its own type
+      Count->BeadType = val;
+      System->BeadType = realloc(System->BeadType,
+                                 Count->BeadType * sizeof *System->BeadType);
       for (int i = 0; i < Count->Bead; i++) {
         InitBead(&System->Bead[i]);
+        InitBeadType(&System->BeadType[i]);
       } //}}}
     // <int> bonds //{{{
     } else if (words > 1 && strcmp(split[1], "bonds") == 0) {
@@ -2319,12 +2325,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
       if (!IsNatural(split[0], &val) || val == 0) {
         goto error;
       }
-      Count->BeadType = val;
-      System->BeadType = realloc(System->BeadType,
-                                 Count->BeadType * sizeof *System->BeadType);
-      for (int i = 0; i < Count->BeadType; i++) {
-        InitBeadType(&System->BeadType[i]);
-      } //}}}
+      lmp_types = val; //}}}
     // <int> bond types //{{{
     } else if (words > 2 && strcmp(split[1], "bond") == 0 &&
                             strcmp(split[2], "types") == 0) {
@@ -2443,7 +2444,7 @@ in lammps data file header");
     exit(1);
   }
   //}}}
-  return *file_line_count;
+  return lmp_types;
   error: // unrecognised line //{{{
     strcpy(ERROR_MSG, "unrecognised line in lammps data file header");
     PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
@@ -2452,8 +2453,9 @@ in lammps data file header");
 } //}}}
 // read body //{{{
 void LmpDataReadBody(char data_file[], FILE *lmp,
-                     SYSTEM *System, int *file_line_count) {
+                     SYSTEM *System, int lmp_types, int *file_line_count) {
   COUNT *Count = &System->Count;
+  double *masses = calloc(lmp_types, sizeof *masses);
   // create arrays for bonds/angles/dihedrals/impropers //{{{
   int (*bond)[3], (*angle)[4], (*dihedral)[5], (*improper)[5];
   if (Count->Bond > 0) {
@@ -2494,7 +2496,7 @@ void LmpDataReadBody(char data_file[], FILE *lmp,
     }
     // evaluate the line
     if (words > 0 && strcmp(split[0], "Masses") == 0) {
-      LmpDataReadMass(lmp, data_file, System, file_line_count);
+      LmpDataReadMasses(lmp, data_file, lmp_types, masses, file_line_count);
     } else if (words > 1 && strcmp(split[0], "Bond") == 0 &&
                             strcmp(split[1], "Coeffs") == 0) {
       bonds[0] = true;
@@ -2513,7 +2515,8 @@ void LmpDataReadBody(char data_file[], FILE *lmp,
       LmpDataReadImproperCoeffs(lmp, data_file, System, file_line_count);
     } else if (words > 0 && strcmp(split[0], "Atoms") == 0) {
       atoms = true;
-      LmpDataReadAtoms(lmp, data_file, System, file_line_count);
+      LmpDataReadAtoms(lmp, data_file, System,
+                       masses, lmp_types, file_line_count);
     } else if (words > 0 && strcmp(split[0], "Velocities") == 0) {
       LmpDataReadVelocities(lmp, data_file, System, file_line_count);
     } else if (words > 0 && strcmp(split[0], "Bonds") == 0) {
@@ -2531,7 +2534,7 @@ void LmpDataReadBody(char data_file[], FILE *lmp,
       break;
     }
   } //}}}
-
+  free(masses);
   // errors - missing sections //{{{
   if (!atoms) {
     strcpy(ERROR_MSG, "Missing Atoms section from lammps data file");
@@ -2579,63 +2582,9 @@ from lammps data file");
     PrintErrorFile(data_file, "\0");
     exit(1);
   } //}}}
-
-  // create molecule types
-  /*
-   * 1) find molecule count (same as molecule types for now)
-   * 2) count stuff per molecule
-   *    a) beads
-   *    b) bonds
-   *    c) angles
-   *    d) dihedrals
-   *    e) impropers
-   */
-  // 1)
-  int mol_count = 0;
-  for (int i = 0; i < Count->Bead; i++) {
-    if (System->Bead[i].Molecule > mol_count) {
-      mol_count = System->Bead[i].Molecule;
-    }
-  }
-  mol_count++; // lowest possible id is zero
-  // 2a)
-  int *bead_per_mol = calloc(mol_count, sizeof *bead_per_mol);
-  for (int i = 0; i < Count->Bead; i++) {
-    int mol = System->Bead[i].Molecule;
-    if (mol >= 0) {
-      bead_per_mol[mol]++;
-    }
-  }
-  // 2b)
-  int *bond_per_mol = calloc(mol_count, sizeof *bond_per_mol);
-  for (int i = 0; i < Count->Bond; i++) {
-    int id1 = bond[i][0],
-        id2 = bond[i][1];
-    int mol = System->Bead[id1].Molecule;
-    if (mol != System->Bead[id2].Molecule) {
-      strcpy(ERROR_MSG, "Bonded beads are not in the same molecule");
-      PrintError();
-      // TODO: print bond indices
-    }
-    bond_per_mol[mol]++;
-  }
-  for (int i = 0; i < mol_count; i++) {
-    printf("%5d %5d %5d\n", i, bead_per_mol[i], bond_per_mol[i]);
-  }
-  for (int i = 0; i < Count->Bead; i++) {
-  }
-  free(bead_per_mol);
-  free(bond_per_mol);
-//// initialize MoleculeType array
-//System->MoleculeType = realloc(System->MoleculeType, Count->MoleculeType *
-//                               sizeof *System->MoleculeType);
-//System->Molecule = realloc(System->Molecule, Count->Molecule *
-//                           sizeof *System->Molecule);
-//for (int i = 0; i < Count->MoleculeType; i++) {
-//  InitMoleculeType(&System->MoleculeType[i]);
-//  InitMolecule(&System->Molecule[i]);
-//}
-  PrintCount(*Count);
+  Count->MoleculeType = Count->Molecule;
+  FillMoleculeBeads(System);
+  FillMoleculeTypeBonds(System, bond, Count->Bond);
 
   free(bond);
   free(angle);
@@ -2643,30 +2592,29 @@ from lammps data file");
   free(improper);
 } //}}}
 // read Masses section //{{{
-void LmpDataReadMass(FILE *lmp, char data_file[],
-                     SYSTEM *System, int *file_line_count) {
+void LmpDataReadMasses(FILE *lmp, char data_file[],
+                       int lmp_types, double masses[], int *file_line_count) {
   int words;
   char line[LINE], *split[SPL_STR];
-  COUNT *Count = &System->Count;
   // skip one line
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(data_file, "\0");
   }
-  for (int i = 0; i < Count->BeadType; i++) {
+  for (int i = 0; i < lmp_types; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(data_file, "\0");
     }
     long type;
     double mass;
-    if (words < 2 || !IsPosInteger(split[0], &type) || type > Count->BeadType ||
+    if (words < 2 || !IsPosInteger(split[0], &type) || type > lmp_types ||
         !IsPosReal(split[1], &mass)) {
       strcpy(ERROR_MSG, "wrong line in Masses section");
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);
     }
-    System->BeadType[type-1].Mass = mass;
+    masses[type-1] = mass;
   }
 } //}}}
 // read Bond Coeffs section //{{{
@@ -2836,8 +2784,8 @@ void LmpDataReadImproperCoeffs(FILE *lmp, char data_file[],
   }
 } //}}}
 // read Atoms section //{{{
-void LmpDataReadAtoms(FILE *lmp, char data_file[],
-                      SYSTEM *System, int *file_line_count) {
+void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
+                      double masses[], int lmp_types, int *file_line_count) {
   COUNT *Count = &System->Count;
   int words;
   char line[LINE], *split[SPL_STR];
@@ -2851,13 +2799,13 @@ void LmpDataReadAtoms(FILE *lmp, char data_file[],
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(data_file, "\0");
     }
-    long id, mol, type;
+    long id, resid, type;
     double q;
     VECTOR pos;
     // error - wrong line //{{{
     if (words < 7 ||
         !IsPosInteger(split[0], &id) || id > Count->Bead || // bead index
-        !IsPosInteger(split[1], &mol) || // molecule index
+        !IsPosInteger(split[1], &resid) || // molecule index
         !IsInteger(split[2], &type) || // bead type
         !IsReal(split[3], &q) || // bead charge
         !IsReal(split[4], &pos.x) || //
@@ -2870,59 +2818,105 @@ void LmpDataReadAtoms(FILE *lmp, char data_file[],
     id--;
     type--;
     BEAD *b = &System->Bead[id];
-    BEADTYPE *bt = &System->BeadType[type];
     b->Position = pos;
     b->InTimestep = true;
-    if (mol >= 0) {
-      b->Molecule = mol;
-    } else {
-      b->Molecule = -1;
+    b->Type = id;
+    // bead type is same as bead index but with lmp-defined mass
+    BEADTYPE *bt = &System->BeadType[id];
+    if (type > lmp_types) {
+      // TODO: edit error message
+      strcpy(ERROR_MSG, "too high lmp-defined bead type id");
+      PrintError();
+      exit(1);
     }
-    /*
-     * Checking bead type based on type as well as on charge because in lammps,
-     * charge is per-atom, not per type
-     * 1) if the type's charge is undefined, it's the first bead of given
-     *    lammps type, so assign it this type and assign its charge to that type
-     * 2) if the type's charge is defined and same as the bead's lammp type,
-     *    assign it this type
-     * 3) go through extra types and either assign it to another type or create
-     *    a new type if the charge for this lammps type is still unknown
-     */
-    if (bt->Charge == CHARGE) { // 1)
-      bt->Charge = q;
-      bt->Number++;
-      b->Type = type;
-    } else if (bt->Charge == q) { // 2)
-      b->Type = type;
-      bt->Number++;
-    } else { // 3)
-      bool new = true;
-      // check against all bead types //{{{
-      for (int i = 0; i < Count->BeadType; i++) {
-        BEADTYPE *bt_i = &System->BeadType[i];
-        if (i != type &&
-            strcmp(bt_i->Name, bt->Name) == 0 &&
-            bt_i->Charge == q) {
-          new = false;
-          bt_i->Number++;
-          b->Type = i;
-          break;
+    bt->Mass = masses[type];
+    bt->Charge = q;
+    bt->Number = 1;
+    strcpy(bt->Name, "bt");
+//  BEADTYPE *bt = &System->BeadType[type];
+//  // BeadType - existing one or create a new one //{{{
+//  /*
+//   * Bead type check based on type as well as on charge because in lammps,
+//   * charge is per-atom, not per type
+//   * 1) if the type's charge is undefined, it's the first bead of given
+//   *    lammps type, so assign it this type and assign its charge to that type
+//   * 2) if the type's charge is defined and same as the bead's lammp type,
+//   *    assign it this type
+//   * 3) go through extra types and either assign it to another type or create
+//   *    a new type if the charge for this lammps type is still unknown
+//   */
+//  int final_bead_type = type;
+//  if (bt->Charge == CHARGE) { // 1)
+//    bt->Charge = q;
+//    bt->Number++;
+//    b->Type = type;
+//  } else if (bt->Charge == q) { // 2)
+//    b->Type = type;
+//    bt->Number++;
+//  } else { // 3)
+//    bool new = true;
+//    // check against all bead types //{{{
+//    for (int i = 0; i < Count->BeadType; i++) {
+//      BEADTYPE *bt_i = &System->BeadType[i];
+//      if (i != type &&
+//          strcmp(bt_i->Name, bt->Name) == 0 &&
+//          bt_i->Charge == q) {
+//        new = false;
+//        bt_i->Number++;
+//        b->Type = i;
+//        final_bead_type = i;
+//        break;
+//      }
+//    } //}}}
+//    // create new bead type //{{{
+//    if (new) {
+//      int new_type = Count->BeadType;
+//      Count->BeadType++;
+//      System->BeadType = realloc(System->BeadType,
+//                                 Count->BeadType * sizeof *System->BeadType);
+//      BEADTYPE *bt_new = &System->BeadType[new_type];
+//      InitBeadType(bt_new);
+//      System->BeadType[new_type] = System->BeadType[type];
+//      bt_new->Number = 1;
+//      bt_new->Charge = q;
+//      b->Type = new_type;
+//      final_bead_type = new_type;
+//    } //}}}
+//  } //}}}
+
+    // TODO: describe what's happening here //{{{
+    if (resid >= 0) { // bead in a molecule
+      Count->Bonded++;
+      b->Molecule = resid;
+      if (resid > Count->HighestResid) {
+        System->MoleculeType = realloc(System->MoleculeType,
+                                       sizeof (MOLECULETYPE) * (resid + 1));
+        System->Molecule = realloc(System->Molecule,
+                                   sizeof (MOLECULE) * (resid + 1));
+        for (int i = (Count->HighestResid+1); i <= resid; i++) {
+          InitMoleculeType(&System->MoleculeType[i]);
+          InitMolecule(&System->Molecule[i]);
         }
-      } //}}}
-      // create new bead type //{{{
-      if (new) {
-        int new_type = Count->BeadType;
-        Count->BeadType++;
-        System->BeadType = realloc(System->BeadType,
-                                   Count->BeadType * sizeof *System->BeadType);
-        BEADTYPE *bt_new = &System->BeadType[new_type];
-        InitBeadType(bt_new);
-        System->BeadType[new_type] = System->BeadType[type];
-        bt_new->Number = 1;
-        bt_new->Charge = q;
-        b->Type = new_type;
-      } //}}}
-    }
+        Count->HighestResid = resid; // goes from 0
+        Count->Molecule = resid + 1;
+      }
+      MOLECULETYPE *mt_resid = &System->MoleculeType[resid];
+      if (mt_resid->Number == 0) { // new molecule type
+        strcpy(mt_resid->Name, "mol");
+        mt_resid->Number = 1;
+        mt_resid->nBeads = 1;
+        mt_resid->Bead = malloc(sizeof *mt_resid->Bead);
+        mt_resid->Bead[0] = id;
+      } else { // not new moleclue type
+        int bead = mt_resid->nBeads;
+        mt_resid->nBeads++;
+        mt_resid->Bead = realloc(mt_resid->Bead,
+                                 sizeof *mt_resid->Bead * mt_resid->nBeads);
+        mt_resid->Bead[bead] = id;
+      }
+    } else {
+      Count->Unbonded++;
+    } //}}}
   }
 } //}}}
 // read Velocities section //{{{

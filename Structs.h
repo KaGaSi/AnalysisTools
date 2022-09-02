@@ -130,7 +130,7 @@ void InitMoleculeType(MOLECULETYPE *mt); //}}}
 typedef struct Molecule { //{{{
   int Type, // type of molecule corresponding to index in MoleculeType struct
       *Bead, // ids of beads in the molecule
-      Index; // resid according to .vsf file
+      Index; // resid according to input file
 } MOLECULE;
 void InitMolecule(MOLECULE *mol); //}}}
 typedef struct System { //{{{
