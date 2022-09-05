@@ -234,9 +234,10 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
   if (System.Box.alpha != 90 ||
       System.Box.beta != 90 ||
       System.Box.gamma != 90) {
-    fprintf(fw, "%lf %lf %lf xy xz yz\n\n", Sys_print.Box.Tilt[0],
+    fprintf(fw, "%lf %lf %lf xy xz yz\n", Sys_print.Box.Tilt[0],
             Sys_print.Box.Tilt[1], Sys_print.Box.Tilt[2]);
-  } //}}}
+  }
+  putc('\n', fw); //}}}
   // print bead type masses //{{{
   fprintf(fw, "Masses\n\n");
   for (int i = 0; i < Count_print->BeadType; i++) {

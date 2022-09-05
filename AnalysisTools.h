@@ -27,7 +27,7 @@ int * AngleIndices(SYSTEM System, int mol, int angle);
 int * DihedralIndices(SYSTEM System, int mol, int dihed);
 int * ImproperIndices(SYSTEM System, int mol, int dihed);
 
-void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads);
+void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name);
 
 void CheckSystem(SYSTEM System, char file[]);
 
@@ -44,7 +44,7 @@ bool InputCoor(bool *vtf, char *file_coor, char *file_struct); //}}}
 
 int FindBeadType(char name[], SYSTEM System);
 int FindMoleculeName(char name[], SYSTEM System);
-int FindMoleculeType(MOLECULETYPE mol, SYSTEM System, int mode);
+int FindMoleculeType(MOLECULETYPE mol, SYSTEM System, int mode, bool name);
 
 void FillSystemNonessentials(SYSTEM *System);
 void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType);

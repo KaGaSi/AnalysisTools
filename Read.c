@@ -984,14 +984,14 @@ bool VtfReadTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
         Box->alpha = atof(split[4]);
         Box->beta = atof(split[5]);
         Box->gamma = atof(split[6]);
-        if (!TriclinicCellData(&(*System).Box, 0)) {
-          ErrorPrintFull2(vcf_file, *file_line_count, split, words);
-          exit(1);
-        }
       } else {
         Box->alpha = 90;
         Box->beta = 90;
         Box->gamma = 90;
+      }
+      if (!TriclinicCellData(&(*System).Box, 0)) {
+        ErrorPrintFull2(vcf_file, *file_line_count, split, words);
+        exit(1);
       }
      //}}}
     } else if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) { //{{{
@@ -1624,7 +1624,9 @@ SYSTEM FieldRead(char field_file[]) { //{{{
   MergeMoleculeTypes(&System);
   FillSystemNonessentials(&System);
   CheckSystem(System, field_file);
-  VtfWriteStruct("field.vsf", System, -1);
+//PrintColour(stdout, Magenta());
+//VerboseOutput(System);
+//PrintColour(stdout, ColourReset());
   return System;
 } //}}}
 void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{
@@ -2059,7 +2061,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
           exit(1);
         } //}}}
         long beads[4];
-        PARAMS values;
+        PARAMS values = InitParams;
         // error - incorrect line //{{{
         if (words < 5 || !IsPosInteger(split[1], &beads[0]) ||
                          !IsPosInteger(split[2], &beads[1]) ||
@@ -2087,7 +2089,8 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         // find if this dihedral type already exists
         for (int k = 0; k < Count->DihedralType; k++) {
           if (System->DihedralType[k].a == values.a &&
-              System->DihedralType[k].b == values.b) {
+              System->DihedralType[k].b == values.b &&
+              System->DihedralType[k].c == values.c) {
             dihedral_type = k;
             break;
           }
@@ -2098,8 +2101,8 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
           Count->DihedralType++;
           System->DihedralType = realloc(System->DihedralType,
                                          sizeof (PARAMS) * Count->DihedralType);
-          System->DihedralType[dihedral_type].a = values.a;
-          System->DihedralType[dihedral_type].b = values.b;
+          System->DihedralType[dihedral_type] = InitParams;
+          System->DihedralType[dihedral_type] = values;
         } //}}}
         mt_i->Dihedral[j][4] = dihedral_type;
       } //}}}
@@ -2144,7 +2147,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
           exit(1);
         } //}}}
         long beads[4];
-        PARAMS values;
+        PARAMS values = InitParams;
         // error - incorrect line //{{{
         if (words < 5 || !IsPosInteger(split[1], &beads[0]) ||
                          !IsPosInteger(split[2], &beads[1]) ||
@@ -2172,7 +2175,8 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         // find if this improper type already exists
         for (int k = 0; k < Count->ImproperType; k++) {
           if (System->ImproperType[k].a == values.a &&
-              System->ImproperType[k].b == values.b) {
+              System->ImproperType[k].b == values.b &&
+              System->ImproperType[k].c == values.c) {
             improper_type = k;
             break;
           }
@@ -2183,8 +2187,8 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
           Count->ImproperType++;
           System->ImproperType = realloc(System->ImproperType,
                                          sizeof (PARAMS) * Count->ImproperType);
-          System->ImproperType[improper_type].a = values.a;
-          System->ImproperType[improper_type].b = values.b;
+          System->ImproperType[improper_type] = InitParams;
+          System->ImproperType[improper_type] = values;
         } //}}}
         mt_i->Improper[j][4] = improper_type;
       } //}}}
@@ -2356,6 +2360,9 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
       System->DihedralType =
         realloc(System->DihedralType,
                 Count->DihedralType * sizeof *System->DihedralType);
+      for (int i = 0; i < Count->DihedralType; i++) {
+        System->DihedralType[i] = InitParams;
+      }
     //}}}
     // <int> improper types //{{{
     } else if (words > 2 && strcmp(split[1], "improper") == 0 &&
@@ -2367,6 +2374,9 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
       System->ImproperType =
         realloc(System->ImproperType,
                 Count->ImproperType * sizeof *System->ImproperType);
+      for (int i = 0; i < Count->ImproperType; i++) {
+        System->ImproperType[i] = InitParams;
+      }
     //}}}
     // <double> <double> xlo xhi //{{{
     } else if (words > 3 && strcmp(split[2], "xlo") == 0 &&
@@ -2443,6 +2453,14 @@ in lammps data file header");
     PrintErrorFile(data_file, "\0");
     exit(1);
   }
+  if (System->Box.OrthoLength.x == -1 ||
+      System->Box.OrthoLength.y == -1 ||
+      System->Box.OrthoLength.z == -1) {
+    strcpy(ERROR_MSG, "missing impropers or improper types \
+in lammps data file header");
+    PrintErrorFile(data_file, "\0");
+    exit(1);
+  }
   //}}}
   return lmp_types;
   error: // unrecognised line //{{{
@@ -2455,7 +2473,7 @@ in lammps data file header");
 void LmpDataReadBody(char data_file[], FILE *lmp,
                      SYSTEM *System, int lmp_types, int *file_line_count) {
   COUNT *Count = &System->Count;
-  double *masses = calloc(lmp_types, sizeof *masses);
+  BEADTYPE *name_mass = calloc(lmp_types, sizeof *name_mass);
   // create arrays for bonds/angles/dihedrals/impropers //{{{
   int (*bond)[3], (*angle)[4], (*dihedral)[5], (*improper)[5];
   if (Count->Bond > 0) {
@@ -2496,7 +2514,8 @@ void LmpDataReadBody(char data_file[], FILE *lmp,
     }
     // evaluate the line
     if (words > 0 && strcmp(split[0], "Masses") == 0) {
-      LmpDataReadMasses(lmp, data_file, lmp_types, masses, file_line_count);
+      LmpDataReadMasses(lmp, data_file, name_mass,
+                        lmp_types, file_line_count);
     } else if (words > 1 && strcmp(split[0], "Bond") == 0 &&
                             strcmp(split[1], "Coeffs") == 0) {
       bonds[0] = true;
@@ -2516,7 +2535,7 @@ void LmpDataReadBody(char data_file[], FILE *lmp,
     } else if (words > 0 && strcmp(split[0], "Atoms") == 0) {
       atoms = true;
       LmpDataReadAtoms(lmp, data_file, System,
-                       masses, lmp_types, file_line_count);
+                       name_mass, lmp_types, file_line_count);
     } else if (words > 0 && strcmp(split[0], "Velocities") == 0) {
       LmpDataReadVelocities(lmp, data_file, System, file_line_count);
     } else if (words > 0 && strcmp(split[0], "Bonds") == 0) {
@@ -2534,7 +2553,7 @@ void LmpDataReadBody(char data_file[], FILE *lmp,
       break;
     }
   } //}}}
-  free(masses);
+  free(name_mass);
   // errors - missing sections //{{{
   if (!atoms) {
     strcpy(ERROR_MSG, "Missing Atoms section from lammps data file");
@@ -2592,8 +2611,8 @@ from lammps data file");
   free(improper);
 } //}}}
 // read Masses section //{{{
-void LmpDataReadMasses(FILE *lmp, char data_file[],
-                       int lmp_types, double masses[], int *file_line_count) {
+void LmpDataReadMasses(FILE *lmp, char data_file[], BEADTYPE name_mass[],
+                       int lmp_types, int *file_line_count) {
   int words;
   char line[LINE], *split[SPL_STR];
   // skip one line
@@ -2614,7 +2633,13 @@ void LmpDataReadMasses(FILE *lmp, char data_file[],
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);
     }
-    masses[type-1] = mass;
+    type--;
+    name_mass[type].Mass = mass;
+    // check for bead type name: # <name>
+    if (words > 3 && split[2][0] == '#') {
+      strncpy(name_mass[type].Name, split[3], BEAD_NAME);
+      name_mass[type].Name[BEAD_NAME-1] = '\0'; // ensure null-termination
+    }
   }
 } //}}}
 // read Bond Coeffs section //{{{
@@ -2785,7 +2810,8 @@ void LmpDataReadImproperCoeffs(FILE *lmp, char data_file[],
 } //}}}
 // read Atoms section //{{{
 void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
-                      double masses[], int lmp_types, int *file_line_count) {
+                      BEADTYPE name_mass[], int lmp_types,
+                      int *file_line_count) {
   COUNT *Count = &System->Count;
   int words;
   char line[LINE], *split[SPL_STR];
@@ -2829,10 +2855,14 @@ void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
       PrintError();
       exit(1);
     }
-    bt->Mass = masses[type];
+    bt->Mass = name_mass[type].Mass;
     bt->Charge = q;
     bt->Number = 1;
-    strcpy(bt->Name, "bt");
+    if (name_mass[type].Name[0] == '\0') {
+      strcpy(bt->Name, "bt");
+    } else {
+      strcpy(bt->Name, name_mass[type].Name);
+    }
 //  BEADTYPE *bt = &System->BeadType[type];
 //  // BeadType - existing one or create a new one //{{{
 //  /*
@@ -2883,7 +2913,6 @@ void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
 //      final_bead_type = new_type;
 //    } //}}}
 //  } //}}}
-
     // TODO: describe what's happening here //{{{
     if (resid >= 0) { // bead in a molecule
       Count->Bonded++;
@@ -2918,6 +2947,7 @@ void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
       Count->Unbonded++;
     } //}}}
   }
+//PrintBeadType(*System);
 } //}}}
 // read Velocities section //{{{
 void LmpDataReadVelocities(FILE *lmp, char data_file[],

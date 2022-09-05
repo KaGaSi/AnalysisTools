@@ -3,6 +3,8 @@
  * of beads and insert white space accordingly
 */
 // TODO add detailed switch FindBeadType/FindMoleculeType (check not just name)
+//      ...already done?
+// TODO split CheckSystem to CheckCount, CheckBeadType, etc.
 
 // transform to/from fractional coordinates //{{{
 /* HOW TO CALCULATE DISTANCE IN TRICLINIC SYSTEM //{{{
@@ -148,8 +150,9 @@ int FindMoleculeName(char name[], SYSTEM System) { //{{{
  *   1 - check name and number of beads
  *   2 - check name and number and identity of beads
  *   3 - check everything
+ * name = true/false for checking/ignoring molecule name
  */
-int FindMoleculeType(MOLECULETYPE mol, SYSTEM System, int mode) {
+int FindMoleculeType(MOLECULETYPE mol, SYSTEM System, int mode, bool name) {
   // just to be sure the function's mode parameter is correct //{{{
   if (mode < 0 || mode > 3) {
     strcpy(ERROR_MSG, "FindMoleculeType() - mode parameter must be <0,3>\n");
@@ -159,7 +162,7 @@ int FindMoleculeType(MOLECULETYPE mol, SYSTEM System, int mode) {
   // find the same name
   for (int i = 0; i < System.Count.MoleculeType; i++) {
     MOLECULETYPE *mtype = &System.MoleculeType[i];
-    if (strcmp(mol.Name, mtype->Name) == 0) {
+    if (strcmp(mol.Name, mtype->Name) == 0 || !name) {
       i = i;
       if (mode == 0) { // only name checked
         return i;
@@ -1048,7 +1051,7 @@ void PruneSystem(SYSTEM *System) { //{{{
           mt_old->Bead[k] = bt_old_to_new[mt_old->Bead[k]];
         }
         // identify molecule type based on all information
-        int new_type = FindMoleculeType(*mt_old, *System, 3);
+        int new_type = FindMoleculeType(*mt_old, *System, 3, true);
         // switch the beadtypes back
         for (int k = 0; k < mt_old->nBeads; k++) {
           mt_old->Bead[k] = bkp[mt_old->Bead[k]];
@@ -1463,9 +1466,8 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
  * Function to add bonds, angles, dihedrals, and/or impropers as well as their
  * types (creating new ones) to a molecule type, possibly also changing the
  * bead types in MoleculeType[].Bead array for new ones.
- * TODO: proper molecule type checking - not just the name.
  */
-void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) {
+void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
   COUNT *Count_orig = &Sys_orig->Count,
         *Count_add = &Sys_add.Count;
   COUNT count_old = *Count_orig;
@@ -1500,7 +1502,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) {
   } //}}}
   for (int i = 0; i < Count_orig->MoleculeType; i++) {
     MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
-    int type = FindMoleculeType(*mt_orig, Sys_add, 1);
+    int type = FindMoleculeType(*mt_orig, Sys_add, 1, name);
     if (type != -1) {
       MOLECULETYPE *mt_add = &Sys_add.MoleculeType[type];
       // add bonds, if there are none in the original molecule type... //{{{
@@ -1601,7 +1603,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) {
     // the same number of beads)
     for (int i = 0; i < Count_orig->MoleculeType; i++) {
       MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
-      int mtype_add = FindMoleculeType(*mt_orig, Sys_add, 1);
+      int mtype_add = FindMoleculeType(*mt_orig, Sys_add, 1, name);
       if (mtype_add != -1) {
         MOLECULETYPE *mt_add = &Sys_add.MoleculeType[mtype_add];
         for (int j = 0; j < mt_orig->nBeads; j++) {
@@ -1613,7 +1615,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads) {
     for (int i = 0; i < Count_orig->Molecule; i++) {
       MOLECULE *mol_orig = &Sys_orig->Molecule[i];
       MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[mol_orig->Type];
-      int mtype_add = FindMoleculeType(*mt_orig, Sys_add, 1);
+      int mtype_add = FindMoleculeType(*mt_orig, Sys_add, 1, name);
       if (mtype_add != -1) {
         for (int j = 0; j < mt_orig->nBeads; j++) {
           int bead = mol_orig->Bead[j],
@@ -1800,7 +1802,7 @@ bool TriclinicCellData(BOX *Box, int mode) {
                        Box->OrthoLength.y; // yz (lammps label)
         sqr = SQR(c) - SQR(Box->Tilt[1]) - SQR(Box->Tilt[2]);
         if (sqr < 0) {
-          strcpy(ERROR_MSG, "wrong simulation box box dimensions");
+          strcpy(ERROR_MSG, "wrong simulation box dimensions");
           PrintError();
           exit(1);
         }
@@ -1834,7 +1836,7 @@ bool TriclinicCellData(BOX *Box, int mode) {
       exit(1);
   } //}}}
   // transformation matrices //{{{
-  if (Box->alpha != 90 && Box->beta != 90 && Box->gamma != 90) { // triclinic
+  if (Box->alpha != 90 || Box->beta != 90 || Box->gamma != 90) { // triclinic
     double a = Box->Length.x,
            b = Box->Length.y,
            c = Box->Length.z;
@@ -1864,7 +1866,7 @@ bool TriclinicCellData(BOX *Box, int mode) {
     Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
     Box->inverse[2][2] = a * b * s_g / vol;
   } else { // orthographic
-    Box->Length = Box->OrthoLength;
+    Box->OrthoLength = Box->Length;
     Box->Volume = Box->Length.x * Box->Length.y * Box->Length.z;
     Box->transform[0][0] = Box->Length.x;
     Box->transform[1][1] = Box->Length.y;
@@ -2034,12 +2036,15 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
     // Bond array //{{{
     for (int j = 0; j < mt_i->nBonds; j++) {
       if (mt_i->Bond[j][0] < 0 || mt_i->Bond[j][0] >= mt_i->nBeads ||
-          mt_i->Bond[j][1] < 0 || mt_i->Bond[j][1] >= mt_i->nBeads) {
+          mt_i->Bond[j][1] < 0 || mt_i->Bond[j][1] >= mt_i->nBeads ||
+          mt_i->Bond[j][0] == mt_i->Bond[j][1]) {
         strcpy(ERROR_MSG, "incorrect index in Bond array");
         PrintError();
         ErrorPrintFile(file, "\0");
-        fprintf(stderr, "%s, MoleculeType[%s%d%s].Bond[0..2] = %s%d %d%s\n",
+        fprintf(stderr, "%s, MoleculeType[%s%d%s].Bond[%s%d%s][0..2]",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
+                j, ErrRed());
+        fprintf(stderr, " = %s%d %d%s\n", ErrYellow(),
                 mt_i->Bond[j][0], mt_i->Bond[j][1], ErrColourReset());
         break;
       }
@@ -2530,14 +2535,20 @@ void PrintCount(COUNT Count) { //{{{
   fprintf(stdout, "  Molecules:      %d", Count.Molecule);
   if (Count.BondType > 0) {
     fprintf(stdout, "\n  Bond Types:     %d", Count.BondType);
+  }
+  if (Count.Bonded > 0) {
     fprintf(stdout, "\n  Bonds:          %d", Count.Bond);
   }
   if (Count.AngleType > 0) {
     fprintf(stdout, "\n  Angle Types:    %d", Count.AngleType);
+  }
+  if (Count.Angle > 0) {
     fprintf(stdout, "\n  Angles:         %d", Count.Angle);
   }
   if (Count.DihedralType > 0) {
     fprintf(stdout, "\n  Dihedral Types: %d", Count.DihedralType);
+  }
+  if (Count.Dihedral > 0) {
     fprintf(stdout, "\n  Dihedrals:      %d", Count.Dihedral);
   }
   if (Count.ImproperType > 0) {

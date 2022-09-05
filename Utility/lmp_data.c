@@ -129,7 +129,8 @@ int main(int argc, char *argv[]) {
 
   SYSTEM System = VtfReadStruct(input_vsf, detailed);
 
-  // read coordinates //{{{
+  // read pbc & coordinates //{{{
+  VtfReadPBC(input_coor, input_vsf, &System.Box);
   FILE *vcf = OpenFile(input_coor, "r");
   int count_vcf = 0, // count steps in the vcf file
       file_line_count = 0; // count lines in the vcf file
@@ -170,14 +171,6 @@ int main(int argc, char *argv[]) {
   }
 
   WriteLmpData(System, file_out_lmp, srp, mass);
-
-  for (int i = 0; i < System.Count.MoleculeType; i++) {
-    int type = FindMoleculeType(System.MoleculeType[i], System, 3);
-    if (type != i) {
-      strcpy(ERROR_MSG, "nope...");
-      PrintError();
-    }
-  }
 
   // free memory - to make valgrind happy //{{{
   FreeSystem(&System);

@@ -8,7 +8,8 @@ void Help(char cmd[50], bool error) { //{{{
     fprintf(ptr, "\
 Info prints information about the provided system and can also create a new \
 vtf structure file. The new structure file can differ from the original one if \
---detailed switch is used. A FIELD-like file can be used to gather additional \
+--detailed switch is used. A FIELD-like file or lammps data file \
+can be used to gather additional \
 information (bond types, angles, dihedrals, improper dihedral, and, \
 optionally, exchange the beads from the vtf structure file); \
 applies to molecules with the same name in both files.\n\n");
@@ -22,6 +23,8 @@ applies to molecules with the same name in both files.\n\n");
 by names\n");
   fprintf(ptr, "      -c <file>         input coordinate file\n");
   fprintf(ptr, "      -f[!] <file>      input FIELD-like file for extra \
+structural information (change beads in molecules if '!' is used)\n");
+  fprintf(ptr, "      -l[!] <file>      input lammps data file for extra \
 structural information (change beads in molecules if '!' is used)\n");
   fprintf(ptr, "      -vsf <file.vsf>   create a new vsf structure file\n");
   fprintf(ptr, "      -def <bead name>  default bead type for output file\n");
@@ -63,6 +66,8 @@ int main(int argc, char *argv[]) {
         strcmp(argv[i], "-c") != 0 &&
         strcmp(argv[i], "-f") != 0 &&
         strcmp(argv[i], "-f!") != 0 &&
+        strcmp(argv[i], "-l") != 0 &&
+        strcmp(argv[i], "-l!") != 0 &&
         strcmp(argv[i], "-vsf") != 0 &&
         strcmp(argv[i], "-def") != 0 &&
         strcmp(argv[i], "-v") != 0 &&
@@ -128,7 +133,7 @@ int main(int argc, char *argv[]) {
 
   // -f[!] option //{{{
   char input_field[LINE] = "\0";
-  bool change_beads = false;
+  bool change_beads_field = false;
   if (FileOption(argc, argv, "-f", input_field, LINE)) {
     exit(1);
   }
@@ -137,7 +142,22 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
     if (input_field[0] != '\0') {
-      change_beads = true;
+      change_beads_field = true;
+    }
+  } //}}}
+
+  // -l[!] option //{{{
+  char input_lmp[LINE] = "\0";
+  bool change_beads_lmp = false;
+  if (FileOption(argc, argv, "-l", input_lmp, LINE)) {
+    exit(1);
+  }
+  if (input_lmp[0] == '\0') {
+    if (FileOption(argc, argv, "-l!", input_lmp, LINE)) {
+      exit(1);
+    }
+    if (input_lmp[0] != '\0') {
+      change_beads_field = true;
     }
   } //}}}
 
@@ -161,8 +181,15 @@ int main(int argc, char *argv[]) {
   SYSTEM field;
   if (input_field[0] != '\0') {
     field = FieldRead(input_field);
-    ChangeMolecules(&System, field, change_beads);
+    ChangeMolecules(&System, field, change_beads_field, true);
     CheckSystem(System, input_field);
+  }
+  // lammps input (if present)
+  SYSTEM lmp;
+  if (input_lmp[0] != '\0') {
+    lmp = LmpDataRead(input_lmp);
+    ChangeMolecules(&System, lmp, change_beads_lmp, false);
+    CheckSystem(System, input_lmp);
   }
   WarnChargedSystem(System, input_vsf, input_field);
   //}}}
@@ -203,9 +230,15 @@ int main(int argc, char *argv[]) {
   FreeSystem(&System);
   if (input_field[0] != '\0') {
     FreeSystem(&field);
+  }
+  if (input_lmp[0] != '\0') {
+    FreeSystem(&lmp);
   } //}}}
 
   System = LmpDataRead("150.data");
+  printf("%s", MAGENTA);
+  VerboseOutput(System);
+  printf("%s", C_RESET);
   FreeSystem(&System);
 
   return 0;

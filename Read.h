@@ -62,8 +62,8 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
                       SYSTEM *System, int *file_line_count);
 void LmpDataReadBody(char data_file[], FILE *lmp,
                      SYSTEM *System, int lmp_types, int *file_line_count);
-void LmpDataReadMasses(FILE *lmp, char data_file[],
-                     int lmp_types, double masses[], int *file_line_count);
+void LmpDataReadMasses(FILE *lmp, char data_file[], BEADTYPE name_mass[],
+                       int lmp_types, int *file_line_count);
 void LmpDataReadBondCoeffs(FILE *lmp, char data_file[],
                            SYSTEM *System, int *file_line_count);
 void LmpDataReadAngleCoeffs(FILE *lmp, char data_file[],
@@ -73,7 +73,8 @@ void LmpDataReadDihedralCoeffs(FILE *lmp, char data_file[],
 void LmpDataReadImproperCoeffs(FILE *lmp, char data_file[],
                                SYSTEM *System, int *file_line_count);
 void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
-                      double masses[], int lmp_types, int *file_line_count);
+                      BEADTYPE name_mass[], int lmp_types,
+                      int *file_line_count);
 void LmpDataReadVelocities(FILE *lmp, char data_file[],
                            SYSTEM *System, int *file_line_count);
 void LmpDataReadBonds(FILE *lmp, char data_file[], COUNT Count,

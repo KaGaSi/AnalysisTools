@@ -75,7 +75,12 @@ static const COUNT InitCount = {
 }; //}}}
 typedef struct Params { //{{{
   double a, b, c;
-} PARAMS; //}}}
+} PARAMS;
+static const PARAMS InitParams = {
+  .a = 0,
+  .b = 0,
+  .c = 0,
+}; //}}}
 typedef struct BeadType { //{{{
   char Name[BEAD_NAME]; // name of given bead type
   int Number, // number of beads of given type
