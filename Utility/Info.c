@@ -235,11 +235,11 @@ int main(int argc, char *argv[]) {
     FreeSystem(&lmp);
   } //}}}
 
-  System = LmpDataRead("150.data");
-  printf("%s", MAGENTA);
-  VerboseOutput(System);
-  printf("%s", C_RESET);
-  FreeSystem(&System);
+//System = LmpDataRead("150.data");
+//printf("%s", MAGENTA);
+//VerboseOutput(System);
+//printf("%s", C_RESET);
+//FreeSystem(&System);
 
   return 0;
 }

@@ -20,12 +20,16 @@
 #define TIME_LINE_I 8
 #define TIME_LINE_O 9
 
+void FillMoleculeBeads(SYSTEM *System);
+void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[3], int nbonds);
+void FillMoleculeTypeAngles(SYSTEM *System, int (*angle)[4], int nbonds);
+void FillMoleculeTypeDihedral(SYSTEM *System, int (*angle)[5], int nbonds);
+void FillMoleculeTypeImproper(SYSTEM *System, int (*angle)[5], int nbonds);
+
 // Functions to read vtf files //{{{
 
 // Read all information about the system from a vsf/vtf structure file.
 SYSTEM VtfReadStruct(char struct_file[], bool detailed);
-void FillMoleculeBeads(SYSTEM *System);
-void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[3], int nbonds);
 void RemoveExtraTypes(SYSTEM *System);
 void MergeBeadTypes(SYSTEM *System, bool detailed);
 void MergeMoleculeTypes(SYSTEM *System);

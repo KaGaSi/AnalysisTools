@@ -507,7 +507,7 @@ void MergeMoleculeTypes(SYSTEM *System) {
       // i) check numbers of stuff
       if (strcmp(mt_i->Name, mt_j->Name) == 0 &&
           mt_i->nBeads == mt_j->nBeads &&
-          mt_i->nBonds == mt_j->nBonds &&
+          mt_i->nAngles == mt_j->nAngles &&
           mt_i->nAngles == mt_j->nAngles &&
           mt_i->nDihedrals == mt_j->nDihedrals &&
           mt_i->nImpropers == mt_j->nImpropers) {
@@ -523,9 +523,9 @@ void MergeMoleculeTypes(SYSTEM *System) {
         }
         // iii) check bonds, angles, etc.
         // bonds
-        for (int k = 0; k < mt_j->nBonds; k++) {
-          if (mt_i->Bond[k][0] != mt_j->Bond[k][0] ||
-              mt_i->Bond[k][1] != mt_j->Bond[k][1]) {
+        for (int k = 0; k < mt_j->nAngles; k++) {
+          if (mt_i->Angle[k][0] != mt_j->Angle[k][0] ||
+              mt_i->Angle[k][1] != mt_j->Angle[k][1]) {
             same_mol = false; // i and j aren't the same
             break;
           }
@@ -660,6 +660,306 @@ void MergeMoleculeTypes(SYSTEM *System) {
     System->Molecule[i].Type = old_to_new[old_type];
   }
   free(old_to_new); //}}}
+} //}}}
+
+void FillMoleculeBeads(SYSTEM *System) { //{{{
+  COUNT *Count = &System->Count;
+  for (int i = 0; i < Count->Molecule; i++) {
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    MOLECULE *mol_i = &System->Molecule[i];
+    if (mt_i->Number > 0) {
+      mol_i->Type = i;
+      mol_i->Index = i;
+      mol_i->Bead = malloc(sizeof *mol_i->Bead * mt_i->nBeads);
+      memcpy(mol_i->Bead, mt_i->Bead, sizeof *mt_i->Bead * mt_i->nBeads);
+    }
+  }
+} //}}}
+void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[3], int num) { //{{{
+  COUNT *Count = &System->Count;
+  // fill MoleculeType[].Bond array with bead indices
+  for (int i = 0; i < num; i++) {
+    int id[2];
+    id[0] = bond[i][0];
+    id[1] = bond[i][1];
+    int bond_type = bond[i][2],
+        mol = System->Bead[id[0]].Molecule;
+    // warning - bonded beads in different molecules (skip the bond)  //{{{
+    if (mol != System->Bead[id[1]].Molecule || mol == -1) {
+      strcpy(ERROR_MSG, "bonded beads in different molecules (or in none); \
+discarding this bond");
+      PrintWarning();
+      fprintf(stderr, "%sBead (molecule):", ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[0], ErrCyan(),
+              ErrYellow(), System->Bead[id[0]].Molecule, ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s)\n", ErrYellow(), id[1], ErrCyan(),
+              ErrYellow(), System->Bead[id[1]].Molecule, ErrCyan());
+      continue;
+    } //}}}
+    MOLECULETYPE *mt_mol = &System->MoleculeType[mol];
+    int bond = mt_mol->nBonds;
+    mt_mol->nBonds++;
+    if (bond == 0) {
+      mt_mol->Bond = malloc(sizeof *mt_mol->Bond);
+    } else {
+      mt_mol->Bond = realloc(mt_mol->Bond,
+                             sizeof *mt_mol->Bond * mt_mol->nBonds);
+    }
+    mt_mol->Bond[bond][0] = id[0];
+    mt_mol->Bond[bond][1] = id[1];
+    mt_mol->Bond[bond][2] = bond_type;
+  }
+  // make the MoleculeType[].Bond bead indices go from 0 to nBeads
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    int lowest = 1e9;
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    for (int j = 0; j < mt_i->nBonds; j++) {
+      if (mt_i->Bond[j][0] < lowest) {
+        lowest = mt_i->Bond[j][0];
+      }
+      if (mt_i->Bond[j][1] < lowest) {
+        lowest = mt_i->Bond[j][1];
+      }
+    }
+    for (int j = 0; j < mt_i->nBonds; j++) {
+      mt_i->Bond[j][0] -= lowest;
+      mt_i->Bond[j][1] -= lowest;
+      // warning - too high an intramolecular bead index; shouldn't happen //{{{
+      if (mt_i->Bond[j][0] > mt_i->nBeads ||
+          mt_i->Bond[j][1] > mt_i->nBeads) {
+        strcpy(ERROR_MSG, "something went wrong in bead indices in bond; \
+should never happen!");
+        PrintWarning();
+      } //}}}
+    }
+  }
+} //}}}
+void FillMoleculeTypeAngles(SYSTEM *System, int (*angle)[4], int num) { //{{{
+  COUNT *Count = &System->Count;
+  // fill MoleculeType[].Bond array with bead indices
+  for (int i = 0; i < num; i++) {
+    int id[3];
+    id[0] = angle[i][0];
+    id[1] = angle[i][1];
+    id[2] = angle[i][2];
+    int angle_type = angle[i][3],
+        mol = System->Bead[id[0]].Molecule;
+    // warning - beads in different molecules (skip the bond)  //{{{
+    if (mol != System->Bead[id[1]].Molecule ||
+        mol != System->Bead[id[2]].Molecule || mol == -1) {
+      strcpy(ERROR_MSG, "Beads in an angle are in different molecules \
+(or in none); discarding this bond");
+      PrintWarning();
+      fprintf(stderr, "%sBead (molecule):", ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[0], ErrCyan(),
+              ErrYellow(), System->Bead[id[0]].Molecule, ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[1], ErrCyan(),
+              ErrYellow(), System->Bead[id[1]].Molecule, ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s)\n", ErrYellow(), id[2], ErrCyan(),
+              ErrYellow(), System->Bead[id[2]].Molecule, ErrCyan());
+      continue;
+    } //}}}
+    MOLECULETYPE *mt_mol = &System->MoleculeType[mol];
+    int angle = mt_mol->nAngles;
+    mt_mol->nAngles++;
+    if (angle == 0) {
+      mt_mol->Angle = malloc(sizeof *mt_mol->Angle);
+    } else {
+      mt_mol->Angle = realloc(mt_mol->Angle,
+                              sizeof *mt_mol->Angle * mt_mol->nAngles);
+    }
+    mt_mol->Angle[angle][0] = id[0];
+    mt_mol->Angle[angle][1] = id[1];
+    mt_mol->Angle[angle][2] = id[2];
+    mt_mol->Angle[angle][3] = angle_type;
+  }
+  // make the MoleculeType[].Bond bead indices go from 0 to nBeads
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    int lowest = 1e9;
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    for (int j = 0; j < mt_i->nAngles; j++) {
+      if (mt_i->Angle[j][0] < lowest) {
+        lowest = mt_i->Angle[j][0];
+      }
+      if (mt_i->Angle[j][1] < lowest) {
+        lowest = mt_i->Angle[j][1];
+      }
+      if (mt_i->Angle[j][2] < lowest) {
+        lowest = mt_i->Angle[j][2];
+      }
+    }
+    for (int j = 0; j < mt_i->nAngles; j++) {
+      mt_i->Angle[j][0] -= lowest;
+      mt_i->Angle[j][1] -= lowest;
+      mt_i->Angle[j][2] -= lowest;
+      // warning - too high an intramolecular bead index; shouldn't happen //{{{
+      if (mt_i->Angle[j][0] > mt_i->nBeads ||
+          mt_i->Angle[j][1] > mt_i->nBeads ||
+          mt_i->Angle[j][2] > mt_i->nBeads) {
+        strcpy(ERROR_MSG, "something went wrong in bead indices in bond; \
+should never happen!");
+        PrintWarning();
+      } //}}}
+    }
+  }
+} //}}}
+void FillMoleculeTypeDihedral(SYSTEM *System, int (*angle)[5], int num) { //{{{
+  COUNT *Count = &System->Count;
+  // fill MoleculeType[].Bond array with bead indices
+  for (int i = 0; i < num; i++) {
+    int id[4];
+    id[0] = angle[i][0];
+    id[1] = angle[i][1];
+    id[2] = angle[i][2];
+    id[3] = angle[i][3];
+    int angle_type = angle[i][4],
+        mol = System->Bead[id[0]].Molecule;
+    // warning - beads in different molecules (skip the bond)  //{{{
+    if (mol != System->Bead[id[1]].Molecule ||
+        mol != System->Bead[id[2]].Molecule ||
+        mol != System->Bead[id[3]].Molecule || mol == -1) {
+      strcpy(ERROR_MSG, "Beads in a dihedral are in different molecules \
+(or in none); discarding this bond");
+      PrintWarning();
+      fprintf(stderr, "%sBead (molecule):", ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[0], ErrCyan(),
+              ErrYellow(), System->Bead[id[0]].Molecule, ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[1], ErrCyan(),
+              ErrYellow(), System->Bead[id[1]].Molecule, ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[2], ErrCyan(),
+              ErrYellow(), System->Bead[id[2]].Molecule, ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s)\n", ErrYellow(), id[3], ErrCyan(),
+              ErrYellow(), System->Bead[id[3]].Molecule, ErrCyan());
+      continue;
+    } //}}}
+    MOLECULETYPE *mt_mol = &System->MoleculeType[mol];
+    int angle = mt_mol->nDihedrals;
+    mt_mol->nDihedrals++;
+    if (angle == 0) {
+      mt_mol->Dihedral = malloc(sizeof *mt_mol->Dihedral);
+    } else {
+      mt_mol->Dihedral = realloc(mt_mol->Dihedral,
+                                 sizeof *mt_mol->Dihedral * mt_mol->nDihedrals);
+    }
+    mt_mol->Dihedral[angle][0] = id[0];
+    mt_mol->Dihedral[angle][1] = id[1];
+    mt_mol->Dihedral[angle][2] = id[2];
+    mt_mol->Dihedral[angle][3] = id[3];
+    mt_mol->Dihedral[angle][4] = angle_type;
+  }
+  // make the MoleculeType[].Bond bead indices go from 0 to nBeads
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    int lowest = 1e9;
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    for (int j = 0; j < mt_i->nDihedrals; j++) {
+      if (mt_i->Dihedral[j][0] < lowest) {
+        lowest = mt_i->Dihedral[j][0];
+      }
+      if (mt_i->Dihedral[j][1] < lowest) {
+        lowest = mt_i->Dihedral[j][1];
+      }
+      if (mt_i->Dihedral[j][2] < lowest) {
+        lowest = mt_i->Dihedral[j][2];
+      }
+      if (mt_i->Dihedral[j][3] < lowest) {
+        lowest = mt_i->Dihedral[j][3];
+      }
+    }
+    for (int j = 0; j < mt_i->nDihedrals; j++) {
+      mt_i->Dihedral[j][0] -= lowest;
+      mt_i->Dihedral[j][1] -= lowest;
+      mt_i->Dihedral[j][2] -= lowest;
+      mt_i->Dihedral[j][3] -= lowest;
+      // warning - too high an intramolecular bead index; shouldn't happen //{{{
+      if (mt_i->Dihedral[j][0] > mt_i->nBeads ||
+          mt_i->Dihedral[j][1] > mt_i->nBeads ||
+          mt_i->Dihedral[j][2] > mt_i->nBeads ||
+          mt_i->Dihedral[j][3] > mt_i->nBeads) {
+        strcpy(ERROR_MSG, "something went wrong in bead indices in bond; \
+should never happen!");
+        PrintWarning();
+      } //}}}
+    }
+  }
+} //}}}
+void FillMoleculeTypeImproper(SYSTEM *System, int (*angle)[5], int num) { //{{{
+  COUNT *Count = &System->Count;
+  // fill MoleculeType[].Bond array with bead indices
+  for (int i = 0; i < num; i++) {
+    int id[4];
+    id[0] = angle[i][0];
+    id[1] = angle[i][1];
+    id[2] = angle[i][2];
+    id[3] = angle[i][3];
+    int angle_type = angle[i][4],
+        mol = System->Bead[id[0]].Molecule;
+    // warning - beads in different molecules (skip the bond)  //{{{
+    if (mol != System->Bead[id[1]].Molecule ||
+        mol != System->Bead[id[2]].Molecule ||
+        mol != System->Bead[id[3]].Molecule || mol == -1) {
+      strcpy(ERROR_MSG, "Beads in a dihedral are in different molecules \
+(or in none); discarding this bond");
+      PrintWarning();
+      fprintf(stderr, "%sBead (molecule):", ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[0], ErrCyan(),
+              ErrYellow(), System->Bead[id[0]].Molecule, ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[1], ErrCyan(),
+              ErrYellow(), System->Bead[id[1]].Molecule, ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[2], ErrCyan(),
+              ErrYellow(), System->Bead[id[2]].Molecule, ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s)\n", ErrYellow(), id[3], ErrCyan(),
+              ErrYellow(), System->Bead[id[3]].Molecule, ErrCyan());
+      continue;
+    } //}}}
+    MOLECULETYPE *mt_mol = &System->MoleculeType[mol];
+    int angle = mt_mol->nImpropers;
+    mt_mol->nImpropers++;
+    if (angle == 0) {
+      mt_mol->Improper = malloc(sizeof *mt_mol->Improper);
+    } else {
+      mt_mol->Improper = realloc(mt_mol->Improper,
+                                 sizeof *mt_mol->Improper * mt_mol->nImpropers);
+    }
+    mt_mol->Improper[angle][0] = id[0];
+    mt_mol->Improper[angle][1] = id[1];
+    mt_mol->Improper[angle][2] = id[2];
+    mt_mol->Improper[angle][3] = id[3];
+    mt_mol->Improper[angle][4] = angle_type;
+  }
+  // make the MoleculeType[].Bond bead indices go from 0 to nBeads
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    int lowest = 1e9;
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    for (int j = 0; j < mt_i->nImpropers; j++) {
+      if (mt_i->Improper[j][0] < lowest) {
+        lowest = mt_i->Improper[j][0];
+      }
+      if (mt_i->Improper[j][1] < lowest) {
+        lowest = mt_i->Improper[j][1];
+      }
+      if (mt_i->Improper[j][2] < lowest) {
+        lowest = mt_i->Improper[j][2];
+      }
+      if (mt_i->Improper[j][3] < lowest) {
+        lowest = mt_i->Improper[j][3];
+      }
+    }
+    for (int j = 0; j < mt_i->nImpropers; j++) {
+      mt_i->Improper[j][0] -= lowest;
+      mt_i->Improper[j][1] -= lowest;
+      mt_i->Improper[j][2] -= lowest;
+      mt_i->Improper[j][3] -= lowest;
+      // warning - too high an intramolecular bead index; shouldn't happen //{{{
+      if (mt_i->Improper[j][0] > mt_i->nBeads ||
+          mt_i->Improper[j][1] > mt_i->nBeads ||
+          mt_i->Improper[j][2] > mt_i->nBeads ||
+          mt_i->Improper[j][3] > mt_i->nBeads) {
+        strcpy(ERROR_MSG, "something went wrong in bead indices in bond; \
+should never happen!");
+        PrintWarning();
+      } //}}}
+    }
+  }
 } //}}}
 
 // Read vtf files //{{{
@@ -1319,73 +1619,6 @@ int VtfCheckLineType(int words, char *split[], char file[], int line) {
     strcpy(ERROR_MSG, "unrecognised line");
   }
   return ERROR_LINE;
-} //}}}
-void FillMoleculeBeads(SYSTEM *System) { //{{{
-  COUNT *Count = &System->Count;
-  for (int i = 0; i < Count->Molecule; i++) {
-    MOLECULETYPE *mt_i = &System->MoleculeType[i];
-    MOLECULE *mol_i = &System->Molecule[i];
-    if (mt_i->Number > 0) {
-      mol_i->Type = i;
-      mol_i->Index = i;
-      mol_i->Bead = malloc(sizeof *mol_i->Bead * mt_i->nBeads);
-      memcpy(mol_i->Bead, mt_i->Bead, sizeof *mt_i->Bead * mt_i->nBeads);
-    }
-  }
-} //}}}
-void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[3], int nbonds) { //{{{
-  COUNT *Count = &System->Count;
-  // fill MoleculeType[].Bond array with bead indices
-  for (int i = 0; i < nbonds; i++) {
-    int id1 = bond[i][0],
-        id2 = bond[i][1],
-        bond_type = bond[i][2],
-        mol = System->Bead[id1].Molecule;
-    // warning - bonded beads in different molecules (skip the bond)  //{{{
-    if (mol != System->Bead[id2].Molecule || mol == -1) {
-      strcpy(ERROR_MSG, "bonded beads in different molecules (or in none); \
-discarding this bond");
-      PrintWarning();
-      fprintf(stderr, "%sBead (molecule):", ErrCyan());
-      fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id1, ErrCyan(),
-              ErrYellow(), System->Bead[id1].Molecule, ErrCyan());
-      fprintf(stderr, " %s%d%s (%s%d%s)\n", ErrYellow(), id2, ErrCyan(),
-              ErrYellow(), System->Bead[id2].Molecule, ErrCyan());
-      continue;
-    } //}}}
-    MOLECULETYPE *mt_mol = &System->MoleculeType[mol];
-    int bond = mt_mol->nBonds;
-    mt_mol->nBonds++;
-    if (bond == 0) {
-      mt_mol->Bond = malloc(sizeof *mt_mol->Bond);
-    } else {
-      mt_mol->Bond = realloc(mt_mol->Bond,
-                             sizeof *mt_mol->Bond * mt_mol->nBonds);
-    }
-    mt_mol->Bond[bond][0] = id1;
-    mt_mol->Bond[bond][1] = id2;
-    mt_mol->Bond[bond][2] = bond_type;
-  }
-  // make the MoleculeType[].Bond bead indices go from 0 to nBeads
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    int lowest = 1e7;
-    for (int j = 0; j < System->MoleculeType[i].nBonds; j++) {
-      if (System->MoleculeType[i].Bond[j][0] < lowest) {
-        lowest = System->MoleculeType[i].Bond[j][0];
-      }
-    }
-    for (int j = 0; j < System->MoleculeType[i].nBonds; j++) {
-      System->MoleculeType[i].Bond[j][0] -= lowest;
-      System->MoleculeType[i].Bond[j][1] -= lowest;
-      // warning - too high an intramolecular bead index; shouldn't happen //{{{
-      if (System->MoleculeType[i].Bond[j][0] > System->MoleculeType[i].nBeads ||
-          System->MoleculeType[i].Bond[j][0] > System->MoleculeType[i].nBeads) {
-        strcpy(ERROR_MSG, "something went wrong in bead indices in bond; \
-should never happen!");
-        PrintWarning();
-      } //}}}
-    }
-  }
 } //}}}
 // Helper functions to check whether provided line is of a given type
 int VtfCheckCoorOrderedLine(int words, char *split[]) { //{{{
@@ -2220,16 +2453,13 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
 } //}}}
  //}}}
 // Read lammps data file //{{{
-// TODO: in body, make sure the order of sections doesn't matter
-// TODO: molecules: angles, dihedrals & impropers
-// TODO: somehow, it's terrifyingly slow
+// TODO: somehow, it's extremely slow; maybe the lmp data files are just large?
 SYSTEM LmpDataRead(char data_file[]) { //{{{
   SYSTEM System;
   InitSystem(&System);
   FILE *lmp = OpenFile(data_file, "r");
   int file_line_count = 0;
   int lmp_types = LmpDataReadHeader(data_file, lmp, &System, &file_line_count);
-  // TODO: add something to lammps data file to get bead names
   LmpDataReadBody(data_file, lmp, &System, lmp_types, &file_line_count);
   fclose(lmp);
   TriclinicCellData(&System.Box, 1);
@@ -2238,22 +2468,6 @@ SYSTEM LmpDataRead(char data_file[]) { //{{{
   MergeMoleculeTypes(&System);
   FillSystemNonessentials(&System);
   CheckSystem(System, data_file);
-
-//PrintColour(stdout, MAGENTA);
-//PrintCount(*Count);
-//PrintColour(stdout, GREEN);
-//PrintBeadType(System);
-//PrintColour(stdout, BLUE);
-//PrintBondType(System);
-//PrintColour(stdout, MAGENTA);
-//PrintAngleType(System);
-//PrintColour(stdout, GREEN);
-//PrintDihedralType(System);
-//PrintColour(stdout, BLUE);
-//PrintImproperType(System);
-//PrintColour(stdout, MAGENTA);
-//PrintBox(System.Box);
-//PrintColour(stdout, C_RESET);
   return System;
 } //}}}
 // read head  //{{{
@@ -2502,16 +2716,12 @@ void LmpDataReadBody(char data_file[], FILE *lmp,
        angles[2] = {false, false},
        dihedrals[2] = {false, false},
        impropers[2] = {false, false}; //}}}
-  // read all the sections lines //{{{
-  // TODO: properly break from the loop or some such
-  while (true) {
-    int words;
-    char line[LINE], *split[SPL_STR];
+  // read the rest of the file //{{{
+  int words;
+  char line[LINE], *split[SPL_STR];
+  while (ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     // read a line
     (*file_line_count)++;
-    if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(data_file, "\0");
-    }
     // evaluate the line
     if (words > 0 && strcmp(split[0], "Masses") == 0) {
       LmpDataReadMasses(lmp, data_file, name_mass,
@@ -2550,7 +2760,6 @@ void LmpDataReadBody(char data_file[], FILE *lmp,
     } else if (words > 0 && strcmp(split[0], "Impropers") == 0) {
       impropers[1] = true;
       LmpDataReadImpropers(lmp, data_file, *Count, improper, file_line_count);
-      break;
     }
   } //}}}
   free(name_mass);
@@ -2604,7 +2813,9 @@ from lammps data file");
   Count->MoleculeType = Count->Molecule;
   FillMoleculeBeads(System);
   FillMoleculeTypeBonds(System, bond, Count->Bond);
-
+  FillMoleculeTypeAngles(System, angle, Count->Angle);
+  FillMoleculeTypeDihedral(System, dihedral, Count->Dihedral);
+  FillMoleculeTypeImproper(System, improper, Count->Improper);
   free(bond);
   free(angle);
   free(dihedral);
@@ -2985,6 +3196,7 @@ void LmpDataReadVelocities(FILE *lmp, char data_file[],
 // read Bonds section //{{{
 void LmpDataReadBonds(FILE *lmp, char data_file[], COUNT Count,
                       int (*bond)[3], int *file_line_count) {
+  bool *found = calloc(Count.Bond, sizeof *found);
   int words;
   char line[LINE], *split[SPL_STR];
   // skip one line
@@ -2998,25 +3210,53 @@ void LmpDataReadBonds(FILE *lmp, char data_file[], COUNT Count,
       ErrorEOF(data_file, "\0");
     }
     long id, type, b_id[2];
-    // error - wrong line //{{{
+    // errors //{{{
+    // not <int> <int> <int> <int> line
     if (words < 4 ||
-        !IsPosInteger(split[0], &id) || id > Count.Bond || // bead index
-        !IsPosInteger(split[1], &type) || // bond type index
-        !IsPosInteger(split[2], &b_id[0]) || // ids of bonded indices
-        !IsPosInteger(split[3], &b_id[1])) { //
+        !IsPosInteger(split[0], &id) ||
+        !IsPosInteger(split[1], &type) ||
+        !IsPosInteger(split[2], &b_id[0]) ||
+        !IsPosInteger(split[3], &b_id[1])) {
       strcpy(ERROR_MSG, "wrong line in Bonds section");
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);
+    }
+    if (id > Count.Bond) {
+      strcpy(ERROR_MSG, "Bond index is too high (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    if (type > Count.BondType) {
+      strcpy(ERROR_MSG, "Bond type is too high (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    if (b_id[0] > Count.Bead || b_id[1] > Count.Bead) {
+      strcpy(ERROR_MSG, "Bead index in a bond is too high (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    if (b_id[0] == b_id[1]) {
+      strcpy(ERROR_MSG, "Same beads in a bond (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    if (found[id-1]) {
+      strcpy(ERROR_MSG, "Repeated bond index (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
     } //}}}
-    id--;
-    bond[id][0] = b_id[0] - 1;
-    bond[id][1] = b_id[1] - 1;
-    bond[id][2] = type - 1;
+    bond[id-1][0] = b_id[0] - 1;
+    bond[id-1][1] = b_id[1] - 1;
+    bond[id-1][2] = type - 1;
+    found[id-1] = true;
   }
+  free(found);
 } //}}}
 // read Angles section //{{{
 void LmpDataReadAngles(FILE *lmp, char data_file[], COUNT Count,
                       int (*angle)[4], int *file_line_count) {
+  bool *found = calloc(Count.Angle, sizeof *found);
   int words;
   char line[LINE], *split[SPL_STR];
   // skip one line
@@ -3030,27 +3270,56 @@ void LmpDataReadAngles(FILE *lmp, char data_file[], COUNT Count,
       ErrorEOF(data_file, "\0");
     }
     long id, type, a_id[3];
-    // error - wrong line //{{{
+    // errors //{{{
+    // not <int> <int> <int> <int> line
     if (words < 5 ||
-        !IsPosInteger(split[0], &id) || id > Count.Angle || // angle index
-        !IsPosInteger(split[1], &type) || // angle type index
-        !IsPosInteger(split[2], &a_id[0]) || //
-        !IsPosInteger(split[3], &a_id[1]) || // bead indices
+        !IsPosInteger(split[0], &id) ||
+        !IsPosInteger(split[1], &type) ||
+        !IsPosInteger(split[2], &a_id[0]) ||
+        !IsPosInteger(split[3], &a_id[1]) ||
         !IsPosInteger(split[4], &a_id[2])) { //
       strcpy(ERROR_MSG, "wrong line in Angles section");
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);
+    }
+    if (id > Count.Angle) {
+      strcpy(ERROR_MSG, "Angle index is too high (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    if (type > Count.AngleType) {
+      strcpy(ERROR_MSG, "Angle type is too high (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    if (a_id[0] > Count.Bead || a_id[1] > Count.Bead || a_id[2] > Count.Bead) {
+      strcpy(ERROR_MSG, "Bead index in an angle is too high \
+(lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    if (a_id[0] == a_id[1] || a_id[0] == a_id[2] || a_id[1] == a_id[2]) {
+      strcpy(ERROR_MSG, "Same beads in an angle (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    if (found[id-1]) {
+      strcpy(ERROR_MSG, "Repeated angle index (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
     } //}}}
-    id--;
-    angle[id][0] = a_id[0] - 1;
-    angle[id][1] = a_id[1] - 1;
-    angle[id][2] = a_id[2] - 1;
-    angle[id][3] = type - 1;
+    angle[id-1][0] = a_id[0] - 1;
+    angle[id-1][1] = a_id[1] - 1;
+    angle[id-1][2] = a_id[2] - 1;
+    angle[id-1][3] = type - 1;
+    found[id-1] = true;
   }
+  free(found);
 } //}}}
 // read Dihedrals section //{{{
 void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
                           int (*dihedral)[5], int *file_line_count) {
+  bool *found = calloc(Count.Dihedral, sizeof *found);
   int words;
   char line[LINE], *split[SPL_STR];
   // skip one line
@@ -3064,29 +3333,60 @@ void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
       ErrorEOF(data_file, "\0");
     }
     long id, type, d_id[4];
-    // error - wrong line //{{{
+    // errors //{{{
+    // not <int> <int> <int> <int> line
     if (words < 6 ||
-        !IsPosInteger(split[0], &id) || id > Count.Dihedral || // angle index
-        !IsPosInteger(split[1], &type) || // angle type index
-        !IsPosInteger(split[2], &d_id[0]) || //
-        !IsPosInteger(split[3], &d_id[1]) || // bead indices
-        !IsPosInteger(split[4], &d_id[2]) || //
-        !IsPosInteger(split[5], &d_id[3])) { //
+        !IsPosInteger(split[0], &id) ||
+        !IsPosInteger(split[1], &type) ||
+        !IsPosInteger(split[2], &d_id[0]) ||
+        !IsPosInteger(split[3], &d_id[1]) ||
+        !IsPosInteger(split[4], &d_id[2]) ||
+        !IsPosInteger(split[5], &d_id[3])) {
       strcpy(ERROR_MSG, "wrong line in Dihedrals section");
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);
+    }
+    if (id > Count.Dihedral) {
+      strcpy(ERROR_MSG, "Dihedral index is too high (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    if (type > Count.DihedralType) {
+      strcpy(ERROR_MSG, "Dihedral type is too high (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    if (d_id[0] > Count.Bead || d_id[1] > Count.Bead ||
+        d_id[2] > Count.Bead || d_id[3] > Count.Bead) {
+      strcpy(ERROR_MSG, "Bead index in a dihedral is too high \
+(lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    if (d_id[0] == d_id[1] || d_id[0] == d_id[2] || d_id[0] == d_id[3] ||
+        d_id[1] == d_id[2] || d_id[1] == d_id[3] || d_id[2] == d_id[3]) {
+      strcpy(ERROR_MSG, "Same beads in a dihedral (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    if (found[id-1]) {
+      strcpy(ERROR_MSG, "Repeated dihedral index (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
     } //}}}
-    id--;
-    dihedral[id][0] = d_id[0] - 1;
-    dihedral[id][1] = d_id[1] - 1;
-    dihedral[id][2] = d_id[2] - 1;
-    dihedral[id][3] = d_id[3] - 1;
-    dihedral[id][4] = type - 1;
+    dihedral[id-1][0] = d_id[0] - 1;
+    dihedral[id-1][1] = d_id[1] - 1;
+    dihedral[id-1][2] = d_id[2] - 1;
+    dihedral[id-1][3] = d_id[3] - 1;
+    dihedral[id-1][4] = type - 1;
+    found[id-1] = true;
   }
+  free(found);
 } //}}}
 // read Impropers section //{{{
 void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
                           int (*improper)[5], int *file_line_count) {
+  bool *found = calloc(Count.Angle, sizeof *found);
   int words;
   char line[LINE], *split[SPL_STR];
   // skip one line
@@ -3100,25 +3400,55 @@ void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
       ErrorEOF(data_file, "\0");
     }
     long id, type, i_id[4];
-    // error - wrong line //{{{
+    // errors //{{{
+    // not 6x<int>
     if (words < 6 ||
-        !IsPosInteger(split[0], &id) || id > Count.Improper || // angle index
-        !IsPosInteger(split[1], &type) || // angle type index
-        !IsPosInteger(split[2], &i_id[0]) || //
-        !IsPosInteger(split[3], &i_id[1]) || // bead indices
-        !IsPosInteger(split[4], &i_id[2]) || //
-        !IsPosInteger(split[5], &i_id[3])) { //
+        !IsPosInteger(split[0], &id) ||
+        !IsPosInteger(split[1], &type) ||
+        !IsPosInteger(split[2], &i_id[0]) ||
+        !IsPosInteger(split[3], &i_id[1]) ||
+        !IsPosInteger(split[4], &i_id[2]) ||
+        !IsPosInteger(split[5], &i_id[3])) {
       strcpy(ERROR_MSG, "wrong line in Impropers section");
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);
+    }
+    if (id > Count.Improper) {
+      strcpy(ERROR_MSG, "Improper index is too high (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    if (type > Count.ImproperType) {
+      strcpy(ERROR_MSG, "Improper type is too high (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    if (i_id[0] > Count.Bead || i_id[1] > Count.Bead ||
+        i_id[2] > Count.Bead || i_id[3] > Count.Bead) {
+      strcpy(ERROR_MSG, "Bead index in a improper is too high \
+(lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    if (i_id[0] == i_id[1] || i_id[0] == i_id[2] || i_id[0] == i_id[3] ||
+        i_id[1] == i_id[2] || i_id[1] == i_id[3] || i_id[2] == i_id[3]) {
+      strcpy(ERROR_MSG, "Same beads in a improper (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
+    }
+    if (found[id-1]) {
+      strcpy(ERROR_MSG, "Repeated improper index (lammps data file)");
+      PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
+      exit(1);
     } //}}}
-    id--;
-    improper[id][0] = i_id[0] - 1;
-    improper[id][1] = i_id[1] - 1;
-    improper[id][2] = i_id[2] - 1;
-    improper[id][3] = i_id[3] - 1;
-    improper[id][4] = type - 1;
+    improper[id-1][0] = i_id[0] - 1;
+    improper[id-1][1] = i_id[1] - 1;
+    improper[id-1][2] = i_id[2] - 1;
+    improper[id-1][3] = i_id[3] - 1;
+    improper[id-1][4] = type - 1;
+    found[id-1] = true;
   }
+  free(found);
 } //}}}
  //}}}
 

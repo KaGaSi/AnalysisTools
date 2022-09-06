@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-  SortDihedrals(MoleculeType[0].Dihedral, MoleculeType[0].nDihedrals); //}}}
+  SortDihImp(MoleculeType[0].Dihedral, MoleculeType[0].nDihedrals); //}}}
   // impropers //{{{
   int nImpropers = 0;
   int (*Improper)[5] = malloc(sizeof *Improper * 1);
@@ -321,7 +321,7 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-  SortDihedrals(Improper, nImpropers); //}}}
+  SortDihImp(Improper, nImpropers); //}}}
   // add impropers to dihedrals //{{{
   MoleculeType[0].nDihedrals += nImpropers;
   MoleculeType[0].Dihedral = realloc(MoleculeType[0].Dihedral,

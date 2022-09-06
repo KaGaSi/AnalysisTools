@@ -638,17 +638,17 @@ void LinkedList(VECTOR BoxLength, COUNTS Counts, BEAD *Bead,
  * check that first bead id is lower than the second. Then sort the bonds
  * according to the index of the first bead in each bond.
  */
-void SortBonds(int (*bond)[3], int number_of_bonds) {
+void SortBonds(int (*bond)[3], int num) {
   // first, check order in every bond
-  for (int j = 0; j < number_of_bonds; j++) {
+  for (int j = 0; j < num; j++) {
     if (bond[j][0] > bond[j][1]) {
       SwapInt(&bond[j][0], &bond[j][1]);
     }
   }
   // second, bubble sort bonds
-  for (int j = 0; j < (number_of_bonds-1); j++) {
+  for (int j = 0; j < (num-1); j++) {
     bool swap = false;
-    for (int k = 0; k < (number_of_bonds-j-1); k++) {
+    for (int k = 0; k < (num-j-1); k++) {
       if (bond[k][0] > bond[k+1][0] || // swap if first beads are in wrong order
           (bond[k][0] == bond[k+1][0] && // or if they're the same, but second ones are in wrong order
           bond[k][1] > bond[k+1][1])) {
@@ -671,17 +671,17 @@ void SortBonds(int (*bond)[3], int number_of_bonds) {
  * in the middle). Sort it so that the first index is lower than the third one
  * and then ascendingly according to the first indices.
  */
-void SortAngles(int (*angle)[4], int length) {
+void SortAngles(int (*angle)[4], int num) {
   // first, check order of the 1st and 3rd id in every angle
-  for (int j = 0; j < length; j++) {
+  for (int j = 0; j < num; j++) {
     if (angle[j][0] > angle[j][2]) {
       SwapInt(&angle[j][0], &angle[j][2]);
     }
   }
   // second, bubble sort angles
-  for (int j = 0; j < (length-1); j++) {
+  for (int j = 0; j < (num-1); j++) {
     bool swap = false;
-    for (int k = 0; k < (length-j-1); k++) {
+    for (int k = 0; k < (num-j-1); k++) {
       if ((angle[k][0] > angle[k+1][0]) || // swap if first beads are in wrong order
           (angle[k][0] == angle[k+1][0] &&
            angle[k][1] > angle[k+1][1]) || // or if they're the same, but 2nd ones are in wrong order
@@ -701,40 +701,40 @@ void SortAngles(int (*angle)[4], int length) {
     }
   }
 } //}}}
-// SortDihedrals() //{{{
+// SortDihImp() //{{{
 /**
  * Function to sort an angle array. As each angle contains a 3-member array
  * with the middle number being the 'centre' of the angle (i.e., it must remain
  * in the middle). Sort it so that the first index is lower than the third one
  * and then ascendingly according to the first indices.
  */
-void SortDihedrals(int (*dihedral)[5], int length) {
+void SortDihImp(int (*angle)[5], int num) {
   // first, check order of the 1st and 4th id in every dihedral
-  for (int j = 0; j < length; j++) {
-    if (dihedral[j][0] > dihedral[j][3]) {
-      SwapInt(&dihedral[j][0], &dihedral[j][3]);
-      SwapInt(&dihedral[j][1], &dihedral[j][2]);
+  for (int j = 0; j < num; j++) {
+    if (angle[j][0] > angle[j][3]) {
+      SwapInt(&angle[j][0], &angle[j][3]);
+      SwapInt(&angle[j][1], &angle[j][2]);
     }
   }
   // second, bubble sort dihedrals
-  for (int j = 0; j < (length-1); j++) {
+  for (int j = 0; j < (num-1); j++) {
     bool swap = false;
-    for (int k = 0; k < (length-j-1); k++) {
-      if ((dihedral[k][0] > dihedral[k+1][0]) || // swap if first beads are in wrong order
-          (dihedral[k][0] == dihedral[k+1][0] &&
-           dihedral[k][1] > dihedral[k+1][1]) || // or if they're the same, but 2nd ones are in wrong order
-          (dihedral[k][0] == dihedral[k+1][0] &&
-           dihedral[k][1] == dihedral[k+1][1] &&
-           dihedral[k][2] > dihedral[k+1][2]) || // same for 3rd...
-          (dihedral[k][0] == dihedral[k+1][0] &&
-           dihedral[k][1] == dihedral[k+1][1] &&
-           dihedral[k][2] == dihedral[k+1][2] &&
-           dihedral[k][3] > dihedral[k+1][3])) { // ...and for 4th.
-        SwapInt(&dihedral[k][0], &dihedral[k+1][0]);
-        SwapInt(&dihedral[k][1], &dihedral[k+1][1]);
-        SwapInt(&dihedral[k][2], &dihedral[k+1][2]);
-        SwapInt(&dihedral[k][3], &dihedral[k+1][3]);
-        SwapInt(&dihedral[k][4], &dihedral[k+1][4]);
+    for (int k = 0; k < (num-j-1); k++) {
+      if ((angle[k][0] > angle[k+1][0]) || // swap if first beads are in wrong order
+          (angle[k][0] == angle[k+1][0] &&
+           angle[k][1] > angle[k+1][1]) || // or if they're the same, but 2nd ones are in wrong order
+          (angle[k][0] == angle[k+1][0] &&
+           angle[k][1] == angle[k+1][1] &&
+           angle[k][2] > angle[k+1][2]) || // same for 3rd...
+          (angle[k][0] == angle[k+1][0] &&
+           angle[k][1] == angle[k+1][1] &&
+           angle[k][2] == angle[k+1][2] &&
+           angle[k][3] > angle[k+1][3])) { // ...and for 4th.
+        SwapInt(&angle[k][0], &angle[k+1][0]);
+        SwapInt(&angle[k][1], &angle[k+1][1]);
+        SwapInt(&angle[k][2], &angle[k+1][2]);
+        SwapInt(&angle[k][3], &angle[k+1][3]);
+        SwapInt(&angle[k][4], &angle[k+1][4]);
         swap = true;
       }
     }
@@ -1041,6 +1041,8 @@ void PruneSystem(SYSTEM *System) { //{{{
       }
       // find if the molecule type already exists in the pruned system
       bool new = true;
+      // TODO: WTF? Why the loop over bead types? ...when the outer loop is
+      //       commented out, it throws errors
       for (int j = 0; j < Count->BeadType; j++) {
         // TODO: not the best solution; used to keep S_old unchanged which
         //       doesn't matter now, but in principle, S_old shouldn't change...
@@ -1588,6 +1590,9 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
       } //}}}
     }
   }
+  PrintColour(stdout, MAGENTA);
+  PrintMoleculeType(*Sys_orig);
+  PrintColour(stdout, C_RESET);
   // should the original bead types be replaced with 'new' bead types? //{{{
   if (beads) {
     // append bead types from Sys_add to Sys_orig
@@ -1634,6 +1639,9 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
     FillBeadTypeIndex(Sys_orig);
     PruneSystem(Sys_orig);
   } //}}}
+  PrintColour(stdout, GREEN);
+  PrintMoleculeType(*Sys_orig);
+  PrintColour(stdout, C_RESET);
   CountBondAngleDihedralImproper(Sys_orig);
 } //}}}
 // fill some System arrays and some such //{{{
@@ -1679,6 +1687,14 @@ void FillSystemNonessentials(SYSTEM *System) { //{{{
     }
   }
   CountBondAngleDihedralImproper(System);
+  // sort bonds, angles, dihedrals, and impropers
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    SortBonds(mt_i->Bond, mt_i->nBonds);
+    SortAngles(mt_i->Angle, mt_i->nAngles);
+    SortDihImp(mt_i->Dihedral, mt_i->nDihedrals);
+    SortDihImp(mt_i->Improper, mt_i->nImpropers);
+  }
 } //}}}
 // molecule type's nBTypes and BType array //{{{
 void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType) {

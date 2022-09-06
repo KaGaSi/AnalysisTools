@@ -115,9 +115,9 @@ void LinkedList(VECTOR BoxLength, COUNTS Counts, BEAD *Bead, int **Head,
                 int **Link, double cell_size, INTVECTOR *n_cells, int *Dcx,
                 int *Dcy, int *Dcz); //}}}
 
-void SortBonds(int (*bond)[3], int length);
-void SortAngles(int (*angle)[4], int length);
-void SortDihedrals(int (*dihedral)[5], int length);
+void SortBonds(int (*bond)[3], int num);
+void SortAngles(int (*angle)[4], int num);
+void SortDihImp(int (*dihedral)[5], int num);
 
 SYSTEM CopySystem(SYSTEM Sys_in);
 MOLECULETYPE CopyMoleculeType(MOLECULETYPE mt_old);
