@@ -1039,35 +1039,29 @@ void PruneSystem(SYSTEM *System) { //{{{
           c_bead++;
         }
       }
-      // find if the molecule type already exists in the pruned system
-      bool new = true;
-      // TODO: WTF? Why the loop over bead types? ...when the outer loop is
-      //       commented out, it throws errors
-      for (int j = 0; j < Count->BeadType; j++) {
-        // TODO: not the best solution; used to keep S_old unchanged which
-        //       doesn't matter now, but in principle, S_old shouldn't change...
-        // temporarily change molecule's beadtypes to those in the pruned System
-        int bkp[mt_old->nBeads];
-        for (int k = 0; k < mt_old->nBeads; k++) {
-          bkp[k] = mt_old->Bead[k];
-          mt_old->Bead[k] = bt_old_to_new[mt_old->Bead[k]];
-        }
-        // identify molecule type based on all information
-        int new_type = FindMoleculeType(*mt_old, *System, 3, true);
-        // switch the beadtypes back
-        for (int k = 0; k < mt_old->nBeads; k++) {
-          mt_old->Bead[k] = bkp[mt_old->Bead[k]];
-        }
-        // if the molecule type already exist, add the molecule to it
-        if (new_type != -1) {
-          mol_new->Type = new_type;
-          System->MoleculeType[new_type].Number++;
-          new = false;
-          break;
-        }
+      // is the molecule type already in the pruned system?
+      // 1) temporarily change beadtypes to those in the pruned System
+      //    (everything else must be identical to the S_old molecule type
+      //    because nothing else depends on something outside the MoleculeType)
+      // TODO: not the best solution; used to keep S_old unchanged which
+      //       doesn't matter now, but in principle, S_old shouldn't change...
+      int bkp[mt_old->nBeads];
+      for (int k = 0; k < mt_old->nBeads; k++) {
+        int btype = mt_old->Bead[k];
+        bkp[k] = btype;
+        mt_old->Bead[k] = bt_old_to_new[btype];
       }
-      if (new) { // create new molecule type if it doesn't exist yet
-        int new_type = Count->MoleculeType,
+      // 2) identify molecule type based on all information
+      int new_type = FindMoleculeType(*mt_old, *System, 3, true);
+      // 3) switch the beadtypes back
+      for (int k = 0; k < mt_old->nBeads; k++) {
+        mt_old->Bead[k] = bkp[k];
+      }
+      if (new_type != -1) { // yes, the molecule type is in the pruned system
+        mol_new->Type = new_type;
+        System->MoleculeType[new_type].Number++;
+      } else { // no, it isn't; create a new one
+        int new_new_type = Count->MoleculeType,
             c_bond = 0, c_angle = 0, c_dihedral = 0, c_improper = 0;
         // count bonds in the pruned molecule type //{{{
         for (int j = 0; j < mt_old->nBonds; j++) {
@@ -1108,8 +1102,8 @@ void PruneSystem(SYSTEM *System) { //{{{
         } //}}}
         NewMolType(&System->MoleculeType, &Count->MoleculeType, mt_old->Name,
                    c_bead, c_bond, c_angle, c_dihedral, c_improper);
-        System->Molecule[new_id].Type = new_type;
-        MOLECULETYPE *mt_new = &System->MoleculeType[new_type];
+        System->Molecule[new_id].Type = new_new_type;
+        MOLECULETYPE *mt_new = &System->MoleculeType[new_new_type];
         // copy beads to the new molecule type //{{{
         // map internal MoleculeType[].Bead ids to new ones (some may disappear)
         int *id_old_to_new = calloc(mt_old->nBeads, sizeof *id_old_to_new);
@@ -1590,9 +1584,6 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
       } //}}}
     }
   }
-  PrintColour(stdout, MAGENTA);
-  PrintMoleculeType(*Sys_orig);
-  PrintColour(stdout, C_RESET);
   // should the original bead types be replaced with 'new' bead types? //{{{
   if (beads) {
     // append bead types from Sys_add to Sys_orig
@@ -1639,9 +1630,6 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
     FillBeadTypeIndex(Sys_orig);
     PruneSystem(Sys_orig);
   } //}}}
-  PrintColour(stdout, GREEN);
-  PrintMoleculeType(*Sys_orig);
-  PrintColour(stdout, C_RESET);
   CountBondAngleDihedralImproper(Sys_orig);
 } //}}}
 // fill some System arrays and some such //{{{
@@ -2178,6 +2166,8 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
     }
     int mol = System.Bead[i].Molecule;
     if (mol < -1 || mol >= Count->Molecule) {
+    printf("Count->Molecule = %d\n", Count->Molecule);
+    printf("Count->MoleculeType = %d\n", Count->MoleculeType);
       strcpy(ERROR_MSG, "incorrect molecule index for a bead");
       PrintError();
       ErrorPrintFile(file, "\0");
