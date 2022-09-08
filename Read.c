@@ -1105,14 +1105,14 @@ disregarding the following line");
       if (words == 2) { // case 'bond <id>:<id>'
         char *index[SPL_STR];
         SplitLine(SPL_STR, index, split[1], ":");
-        IsInteger(index[0], &val);
+        IsIntegerNumber(index[0], &val);
         bond[count_bonds][0] = val;
-        IsInteger(index[1], &val);
+        IsIntegerNumber(index[1], &val);
         bond[count_bonds][1] = val;
       } else { // case 'bond <id>: <id>'
-        IsInteger(split[1], &val);
+        IsIntegerNumber(split[1], &val);
         bond[count_bonds][0] = val;
-        IsInteger(split[2], &val);
+        IsIntegerNumber(split[2], &val);
         bond[count_bonds][1] = val;
       }
       bond[count_bonds][2] = -1;
@@ -1463,9 +1463,9 @@ using next timestep instead of this one");
     bead_id->Position.z = atof(split[2+indexed]);
     bead_id->InTimestep = true;
     VECTOR vel;
-    if (words >= 7 && IsReal(split[3+indexed], &vel.x) &&
-                      IsReal(split[4+indexed], &vel.y) &&
-                      IsReal(split[5+indexed], &vel.z)) {
+    if (words >= 7 && IsRealNumber(split[3+indexed], &vel.x) &&
+                      IsRealNumber(split[4+indexed], &vel.y) &&
+                      IsRealNumber(split[5+indexed], &vel.z)) {
       bead_id->Velocity.x = vel.x;
       bead_id->Velocity.y = vel.y;
       bead_id->Velocity.z = vel.z;
@@ -1623,9 +1623,9 @@ int VtfCheckLineType(int words, char *split[], char file[], int line) {
 // Helper functions to check whether provided line is of a given type
 int VtfCheckCoorOrderedLine(int words, char *split[]) { //{{{
   double val_d;
-  if (words > 2 && IsReal(split[0], &val_d) &&
-                   IsReal(split[1], &val_d) &&
-                   IsReal(split[2], &val_d)) {
+  if (words > 2 && IsRealNumber(split[0], &val_d) &&
+                   IsRealNumber(split[1], &val_d) &&
+                   IsRealNumber(split[2], &val_d)) {
     return COOR_LINE_O;
   }
   return ERROR_LINE;
@@ -1634,10 +1634,10 @@ int VtfCheckCoorIndexedLine(int words, char *split[]) { //{{{
   long val_i;
   double val_d;
   // indexed line (may also be ordered)
-  if (words > 3 && IsNatural(split[0], &val_i) &&
-                   IsReal(split[1], &val_d) &&
-                   IsReal(split[2], &val_d) &&
-                   IsReal(split[3], &val_d)) {
+  if (words > 3 && IsWholeNumber(split[0], &val_i) &&
+                   IsRealNumber(split[1], &val_d) &&
+                   IsRealNumber(split[2], &val_d) &&
+                   IsRealNumber(split[3], &val_d)) {
     return COOR_LINE_I;
   }
   return ERROR_LINE;
@@ -1680,13 +1680,13 @@ int VtfCheckPbcLine(int words, char *split[]) { //{{{
   // unrecognised line
   double val;
   if (words < 4 || strcmp(split[0], "pbc") != 0 ||
-      !IsPosReal(split[1], &val) ||
-      !IsPosReal(split[2], &val) ||
-      !IsPosReal(split[3], &val)) {
+      !IsPosRealNumber(split[1], &val) ||
+      !IsPosRealNumber(split[2], &val) ||
+      !IsPosRealNumber(split[3], &val)) {
     return ERROR_LINE;
-  } else if (words > 6 && IsPosReal(split[4], &val) &&
-                          IsPosReal(split[5], &val) &&
-                          IsPosReal(split[6], &val)) {
+  } else if (words > 6 && IsPosRealNumber(split[4], &val) &&
+                          IsPosRealNumber(split[5], &val) &&
+                          IsPosRealNumber(split[6], &val)) {
     return PBC_LINE_ANGLES;
   } else {
     return PBC_LINE;
@@ -1697,7 +1697,7 @@ bool VtfCheckAtomLine(int words, char *split[]) { //{{{
   double val_d;
   // error - line not starting with a[tom] default/<id> //{{{
   if (split[0][0] != 'a' ||
-      (strcmp(split[1], "default") != 0 && !IsInteger(split[1], &val_i))) {
+      (strcmp(split[1], "default") != 0 && !IsIntegerNumber(split[1], &val_i))) {
     return false;
   } //}}}
   // error - odd number of strings //{{{
@@ -1718,7 +1718,7 @@ bool VtfCheckAtomLine(int words, char *split[]) { //{{{
     if (r_id == 0) {
       resid = true;
       // resid must be followed by non-negative integer
-      if (!IsNatural(split[i+1], &val_i)) {
+      if (!IsWholeNumber(split[i+1], &val_i)) {
         strcpy(ERROR_MSG, "atom line: 'resid' not followed by natural number");
         return false;
       }
@@ -1729,17 +1729,17 @@ bool VtfCheckAtomLine(int words, char *split[]) { //{{{
     } //}}}
     // error - charge|q //{{{
     if ((strcmp(split[i], "charge") == 0 || split[i][0] == 'q') &&
-        !IsReal(split[i+1], &val_d)) {
+        !IsRealNumber(split[i+1], &val_d)) {
       strcpy(ERROR_MSG, "atom line: 'charge|q' not followed by real number ");
       return false; //}}}
     // error - r[adius] not followed by positive number //{{{
     } else if (split[i][0] == 'r' && r_name != 0 &&
-               !IsPosReal(split[i+1], &val_d)) {
+               !IsPosRealNumber(split[i+1], &val_d)) {
       strcpy(ERROR_MSG, "atom line: 'r[adius]]]' not followed by \
 positive real number ");
       return false; //}}}
     // error - m[ass] not followed by positive number //{{{
-    } else if (split[i][0] == 'm' && !IsPosReal(split[i+1], &val_d)) {
+    } else if (split[i][0] == 'm' && !IsPosRealNumber(split[i+1], &val_d)) {
       strcpy(ERROR_MSG, "atom line: 'm[ass]' not followed by \
 positive real number ");
       return false;
@@ -1773,8 +1773,8 @@ bool VtfCheckBondLine(int words, char *split[]) { //{{{
     char index[SPL_STR][SPL_LEN], string[SPL_LEN];
     strcpy(string, split[1]);
     int strings = SplitLine_old(index, string, ":");
-    if (strings != 2 || !IsInteger(index[0], &val_i) || val_i < 0 ||
-                        !IsInteger(index[1], &val_i) || val_i < 0) {
+    if (strings != 2 || !IsIntegerNumber(index[0], &val_i) || val_i < 0 ||
+                        !IsIntegerNumber(index[1], &val_i) || val_i < 0) {
       strcpy(ERROR_MSG, "bond line: only 'b[ond] <int>:<int>' or \
 'b[ond] <int>: <int>' is valid (for now)\n");
       return false;
@@ -1783,8 +1783,8 @@ bool VtfCheckBondLine(int words, char *split[]) { //{{{
   // more than two strings - assume '<int>: <int>' and test it
   if (words > 2) {
     split[1][strlen(split[1])-1] = '\0';
-    if (!IsInteger(split[1], &val_i) || val_i < 0 ||
-        !IsInteger(split[2], &val_i) || val_i < 0) {
+    if (!IsIntegerNumber(split[1], &val_i) || val_i < 0 ||
+        !IsIntegerNumber(split[2], &val_i) || val_i < 0) {
       strcpy(ERROR_MSG, "bond line: only 'b[ond] <int>:<int>' or \
 'b[ond] <int>: <int>' is valid (for now)\n");
       return false;
@@ -1886,7 +1886,7 @@ void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{
   COUNT *Count = &System->Count;
   // read number of bead types //{{{
   long types;
-  if (words < 2 || !IsNatural(split[1], &types)) {
+  if (words < 2 || !IsWholeNumber(split[1], &types)) {
     strcpy(ERROR_MSG, "incorrect 'Species' keyword line");
     PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
     exit(1);
@@ -1904,8 +1904,8 @@ void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{
     double mass, charge;
     long number;
     // error - illegal 'species' line //{{{
-    if (words < 4 || !IsPosReal(split[1], &mass) ||
-        !IsReal(split[2], &charge) || !IsNatural(split[3], &number)) {
+    if (words < 4 || !IsPosRealNumber(split[1], &mass) ||
+        !IsRealNumber(split[2], &charge) || !IsWholeNumber(split[3], &number)) {
       strcpy(ERROR_MSG, "incorrect 'Species' line");
       PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
       exit(1);
@@ -1941,7 +1941,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
   } //}}}
   // read number of types //{{{
   long val;
-  if (words < 2 || !IsNatural(split[1], &val)) {
+  if (words < 2 || !IsWholeNumber(split[1], &val)) {
     strcpy(ERROR_MSG, "incorrect 'Molecules' keyword line");
     PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
     exit(1);
@@ -1999,7 +1999,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
       exit(1);
     } //}}}
     if (words < 2 || strcasecmp(split[0], "nummols") != 0 ||
-        !IsPosInteger(split[1], &val)) {
+        !IsNaturalNumber(split[1], &val)) {
       strcpy(ERROR_MSG, "incorrect 'nummols' line in a molecule entry");
       PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
       exit(1);
@@ -2017,7 +2017,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
       exit(1);
     } //}}}
     if (words < 2 || strncasecmp(split[0], "beads", 4) != 0 ||
-        !IsPosInteger(split[1], &val)) {
+        !IsNaturalNumber(split[1], &val)) {
       strcpy(ERROR_MSG, "incorrect 'beads' line in a molecule entry");
       PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
       exit(1);
@@ -2038,9 +2038,9 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         exit(1);
       } //}}}
       // error - incorrect line //{{{
-      if (words < 4 || !IsReal(split[1], &coor[i].x) ||
-                       !IsReal(split[2], &coor[i].y) ||
-                       !IsReal(split[3], &coor[i].z)) {
+      if (words < 4 || !IsRealNumber(split[1], &coor[i].x) ||
+                       !IsRealNumber(split[2], &coor[i].y) ||
+                       !IsRealNumber(split[3], &coor[i].z)) {
         strcpy(ERROR_MSG, "incorrect bead coordinate line in a molecule entry");
         PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
         exit(1);
@@ -2110,7 +2110,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     } //}}}
     if (words > 1 && strncasecmp(split[0], "bonds", 4) == 0) {
       // a) number of bonds //{{{
-      if (!IsPosInteger(split[1], &val)) {
+      if (!IsNaturalNumber(split[1], &val)) {
         strcpy(ERROR_MSG, "incorrect 'bonds' line in a molecule entry");
         PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
         exit(1);
@@ -2134,10 +2134,10 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         long beads[2];
         PARAMS values;
         // error - incorrect line //{{{
-        if (words < 5 || !IsPosInteger(split[1], &beads[0]) ||
-                         !IsPosInteger(split[2], &beads[1]) ||
-                         !IsReal(split[3], &values.a) || values.a < 0 ||
-                         !IsReal(split[4], &values.b) || values.b < 0) {
+        if (words < 5 || !IsNaturalNumber(split[1], &beads[0]) ||
+                         !IsNaturalNumber(split[2], &beads[1]) ||
+                         !IsRealNumber(split[3], &values.a) || values.a < 0 ||
+                         !IsRealNumber(split[4], &values.b) || values.b < 0) {
           strcpy(ERROR_MSG, "incorrect bond line in a molecule entry");
           PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
           exit(1);
@@ -2190,7 +2190,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     } //}}}
     if (words > 1 && strncasecmp(split[0], "angles", 4) == 0) {
       // a) number of angles //{{{
-      if (!IsPosInteger(split[1], &val)) {
+      if (!IsNaturalNumber(split[1], &val)) {
         strcpy(ERROR_MSG, "incorrect 'angles' line in a molecule entry");
         PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
         exit(1);
@@ -2214,11 +2214,11 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         long beads[3];
         PARAMS values;
         // error - incorrect line //{{{
-        if (words < 5 || !IsPosInteger(split[1], &beads[0]) ||
-                         !IsPosInteger(split[2], &beads[1]) ||
-                         !IsPosInteger(split[3], &beads[2]) ||
-                         !IsReal(split[4], &values.a) || values.a < 0 ||
-                         !IsReal(split[5], &values.b) || values.b < 0) {
+        if (words < 5 || !IsNaturalNumber(split[1], &beads[0]) ||
+                         !IsNaturalNumber(split[2], &beads[1]) ||
+                         !IsNaturalNumber(split[3], &beads[2]) ||
+                         !IsRealNumber(split[4], &values.a) || values.a < 0 ||
+                         !IsRealNumber(split[5], &values.b) || values.b < 0) {
           strcpy(ERROR_MSG, "incorrect angle line in a molecule entry");
           PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
           exit(1);
@@ -2272,7 +2272,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     } //}}}
     if (words > 1 && strncasecmp(split[0], "dihedrals", 5) == 0) {
       // a) number of dihedrals //{{{
-      if (!IsPosInteger(split[1], &val)) {
+      if (!IsNaturalNumber(split[1], &val)) {
         strcpy(ERROR_MSG, "incorrect 'dihedrals' line in a molecule entry");
         PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
         exit(1);
@@ -2296,12 +2296,12 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         long beads[4];
         PARAMS values = InitParams;
         // error - incorrect line //{{{
-        if (words < 5 || !IsPosInteger(split[1], &beads[0]) ||
-                         !IsPosInteger(split[2], &beads[1]) ||
-                         !IsPosInteger(split[3], &beads[2]) ||
-                         !IsPosInteger(split[4], &beads[3]) ||
-                         !IsReal(split[5], &values.a) || values.a < 0 ||
-                         !IsReal(split[6], &values.b) || values.b < 0) {
+        if (words < 5 || !IsNaturalNumber(split[1], &beads[0]) ||
+                         !IsNaturalNumber(split[2], &beads[1]) ||
+                         !IsNaturalNumber(split[3], &beads[2]) ||
+                         !IsNaturalNumber(split[4], &beads[3]) ||
+                         !IsRealNumber(split[5], &values.a) || values.a < 0 ||
+                         !IsRealNumber(split[6], &values.b) || values.b < 0) {
           strcpy(ERROR_MSG, "incorrect dihedral line in a molecule entry");
           PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
           exit(1);
@@ -2358,7 +2358,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     } //}}}
     if (words > 1 && strncasecmp(split[0], "impropers", 6) == 0) {
       // a) number of impropers //{{{
-      if (!IsPosInteger(split[1], &val)) {
+      if (!IsNaturalNumber(split[1], &val)) {
         strcpy(ERROR_MSG, "incorrect 'impropers' line in a molecule entry");
         PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
         exit(1);
@@ -2382,12 +2382,12 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         long beads[4];
         PARAMS values = InitParams;
         // error - incorrect line //{{{
-        if (words < 5 || !IsPosInteger(split[1], &beads[0]) ||
-                         !IsPosInteger(split[2], &beads[1]) ||
-                         !IsPosInteger(split[3], &beads[2]) ||
-                         !IsPosInteger(split[4], &beads[3]) ||
-                         !IsReal(split[5], &values.a) || values.a < 0 ||
-                         !IsReal(split[6], &values.b) || values.b < 0) {
+        if (words < 5 || !IsNaturalNumber(split[1], &beads[0]) ||
+                         !IsNaturalNumber(split[2], &beads[1]) ||
+                         !IsNaturalNumber(split[3], &beads[2]) ||
+                         !IsNaturalNumber(split[4], &beads[3]) ||
+                         !IsRealNumber(split[5], &values.a) || values.a < 0 ||
+                         !IsRealNumber(split[6], &values.b) || values.b < 0) {
           strcpy(ERROR_MSG, "incorrect improper line in a molecule entry");
           PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
           exit(1);
@@ -2499,7 +2499,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
     long val;
     // <int> atoms //{{{
     if (words > 1 && strcmp(split[1], "atoms") == 0) {
-      if (!IsNatural(split[0], &val) || val == 0) {
+      if (!IsWholeNumber(split[0], &val) || val == 0) {
         goto error;
       }
       Count->Bead = val;
@@ -2515,39 +2515,39 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
       } //}}}
     // <int> bonds //{{{
     } else if (words > 1 && strcmp(split[1], "bonds") == 0) {
-      if (!IsNatural(split[0], &val)) {
+      if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->Bond = val; //}}}
     // <int> angles //{{{
     } else if (words > 1 && strcmp(split[1], "angles") == 0) {
-      if (!IsNatural(split[0], &val)) {
+      if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->Angle = val; //}}}
     // <int> dihedrals //{{{
     } else if (words > 1 && strcmp(split[1], "dihedrals") == 0) {
-      if (!IsNatural(split[0], &val)) {
+      if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->Dihedral = val; //}}}
     // <int> impropers //{{{
     } else if (words > 1 && strcmp(split[1], "impropers") == 0) {
-      if (!IsNatural(split[0], &val)) {
+      if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->Improper = val; //}}}
     // <int> atom types //{{{
     } else if (words > 2 && strcmp(split[1], "atom") == 0 &&
                             strcmp(split[2], "types") == 0) {
-      if (!IsNatural(split[0], &val) || val == 0) {
+      if (!IsWholeNumber(split[0], &val) || val == 0) {
         goto error;
       }
       lmp_types = val; //}}}
     // <int> bond types //{{{
     } else if (words > 2 && strcmp(split[1], "bond") == 0 &&
                             strcmp(split[2], "types") == 0) {
-      if (!IsNatural(split[0], &val)) {
+      if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->BondType = val;
@@ -2557,7 +2557,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
     // <int> angle types //{{{
     } else if (words > 2 && strcmp(split[1], "angle") == 0 &&
                             strcmp(split[2], "types") == 0) {
-      if (!IsNatural(split[0], &val)) {
+      if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->AngleType = val;
@@ -2567,7 +2567,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
     // <int> dihedral types //{{{
     } else if (words > 2 && strcmp(split[1], "dihedral") == 0 &&
                             strcmp(split[2], "types") == 0) {
-      if (!IsNatural(split[0], &val)) {
+      if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->DihedralType = val;
@@ -2581,7 +2581,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
     // <int> improper types //{{{
     } else if (words > 2 && strcmp(split[1], "improper") == 0 &&
                             strcmp(split[2], "types") == 0) {
-      if (!IsNatural(split[0], &val)) {
+      if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->ImproperType = val;
@@ -2596,7 +2596,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
     } else if (words > 3 && strcmp(split[2], "xlo") == 0 &&
                             strcmp(split[3], "xhi") == 0) {
       double xlo, xhi;
-      if (!IsReal(split[0], &xlo) || !IsReal(split[1], &xhi)) {
+      if (!IsRealNumber(split[0], &xlo) || !IsRealNumber(split[1], &xhi)) {
         goto error;
       }
       System->Box.OrthoLength.x = xhi - xlo; //}}}
@@ -2604,7 +2604,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
     } else if (words > 3 && strcmp(split[2], "ylo") == 0 &&
                             strcmp(split[3], "yhi") == 0) {
       double ylo, yhi;
-      if (!IsReal(split[0], &ylo) || !IsReal(split[1], &yhi)) {
+      if (!IsRealNumber(split[0], &ylo) || !IsRealNumber(split[1], &yhi)) {
         goto error;
       }
       System->Box.OrthoLength.y = yhi - ylo; //}}}
@@ -2612,7 +2612,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
     } else if (words > 3 && strcmp(split[2], "zlo") == 0 &&
                             strcmp(split[3], "zhi") == 0) {
       double zlo, zhi;
-      if (!IsReal(split[0], &zlo) || !IsReal(split[1], &zhi)) {
+      if (!IsRealNumber(split[0], &zlo) || !IsRealNumber(split[1], &zhi)) {
         goto error;
       }
       System->Box.OrthoLength.z = zhi - zlo; //}}}
@@ -2621,9 +2621,9 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
                             strcmp(split[4], "xz") == 0 &&
                             strcmp(split[5], "yz") == 0) {
       double xy, xz, yz;
-      if (!IsReal(split[0], &xy) ||
-          !IsReal(split[1], &xz) ||
-          !IsReal(split[2], &yz)) {
+      if (!IsRealNumber(split[0], &xy) ||
+          !IsRealNumber(split[1], &xz) ||
+          !IsRealNumber(split[2], &yz)) {
         goto error;
       }
       System->Box.Tilt[0] = xy;
@@ -2838,8 +2838,8 @@ void LmpDataReadMasses(FILE *lmp, char data_file[], BEADTYPE name_mass[],
     }
     long type;
     double mass;
-    if (words < 2 || !IsPosInteger(split[0], &type) || type > lmp_types ||
-        !IsPosReal(split[1], &mass)) {
+    if (words < 2 || !IsNaturalNumber(split[0], &type) || type > lmp_types ||
+        !IsPosRealNumber(split[1], &mass)) {
       strcpy(ERROR_MSG, "wrong line in Masses section");
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);
@@ -2882,9 +2882,9 @@ void LmpDataReadBondCoeffs(FILE *lmp, char data_file[],
     double a, b;
     // error - wrong line //{{{
     if (words < 3 ||
-        !IsPosInteger(split[0], &type) || type > Count->BondType ||
-        !IsPosReal(split[1], &a) ||
-        !IsPosReal(split[2], &b)) {
+        !IsNaturalNumber(split[0], &type) || type > Count->BondType ||
+        !IsPosRealNumber(split[1], &a) ||
+        !IsPosRealNumber(split[2], &b)) {
       strcpy(ERROR_MSG, "wrong line in Bond Coeffs section");
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);
@@ -2922,9 +2922,9 @@ void LmpDataReadAngleCoeffs(FILE *lmp, char data_file[],
     double a, b;
     // error - wrong line //{{{
     if (words < 3 ||
-        !IsPosInteger(split[0], &type) || type > Count->AngleType ||
-        !IsPosReal(split[1], &a) ||
-        !IsPosReal(split[2], &b)) {
+        !IsNaturalNumber(split[0], &type) || type > Count->AngleType ||
+        !IsPosRealNumber(split[1], &a) ||
+        !IsPosRealNumber(split[2], &b)) {
       strcpy(ERROR_MSG, "wrong line in Angle Coeffs section");
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);
@@ -2962,12 +2962,13 @@ void LmpDataReadDihedralCoeffs(FILE *lmp, char data_file[],
     double a, b, c;
     // TODO: all three are real? Seriously?
     // error - wrong line //{{{
-    if (words < 3 ||
-        !IsPosInteger(split[0], &type) || type > Count->DihedralType ||
-        !IsReal(split[1], &a) ||
-        !IsReal(split[2], &b) ||
-        !IsReal(split[3], &c)) {
-      strcpy(ERROR_MSG, "wrong line in Dihedral Coeffs section");
+    if (words < 4 ||
+        !IsNaturalNumber(split[0], &type) || type > Count->DihedralType ||
+        !IsRealNumber(split[1], &a) ||
+        !IsRealNumber(split[2], &b) ||
+        !IsRealNumber(split[3], &c)) {
+      strcpy(ERROR_MSG, "wrong line in Dihedral Coeffs section \
+(for now, only harmonic type accepted)");
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);
     } //}}}
@@ -3005,12 +3006,13 @@ void LmpDataReadImproperCoeffs(FILE *lmp, char data_file[],
     double a, b, c;
     // TODO: all three are real? Seriously?
     // error - wrong line //{{{
-    if (words < 3 ||
-        !IsPosInteger(split[0], &type) || type > Count->DihedralType ||
-        !IsReal(split[1], &a) ||
-        !IsReal(split[2], &b) ||
-        !IsReal(split[3], &c)) {
-      strcpy(ERROR_MSG, "wrong line in Improper Coeffs section");
+    if (words < 4 ||
+        !IsNaturalNumber(split[0], &type) || type > Count->DihedralType ||
+        !IsRealNumber(split[1], &a) ||
+        !IsRealNumber(split[2], &b) ||
+        !IsRealNumber(split[3], &c)) {
+      strcpy(ERROR_MSG, "wrong line in Improper Coeffs section \
+(for now, only cvff type accepted)");
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);
     } //}}}
@@ -3041,13 +3043,13 @@ void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
     VECTOR pos;
     // error - wrong line //{{{
     if (words < 7 ||
-        !IsPosInteger(split[0], &id) || id > Count->Bead || // bead index
-        !IsPosInteger(split[1], &resid) || // molecule index
-        !IsInteger(split[2], &type) || // bead type
-        !IsReal(split[3], &q) || // bead charge
-        !IsReal(split[4], &pos.x) || //
-        !IsReal(split[5], &pos.y) || // Cartesean coordinates
-        !IsReal(split[6], &pos.z)) { //
+        !IsNaturalNumber(split[0], &id) || id > Count->Bead || // bead index
+        !IsNaturalNumber(split[1], &resid) || // molecule index
+        !IsIntegerNumber(split[2], &type) || // bead type
+        !IsRealNumber(split[3], &q) || // bead charge
+        !IsRealNumber(split[4], &pos.x) || //
+        !IsRealNumber(split[5], &pos.y) || // Cartesean coordinates
+        !IsRealNumber(split[6], &pos.z)) { //
       strcpy(ERROR_MSG, "wrong line in Atoms section");
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);
@@ -3180,10 +3182,10 @@ void LmpDataReadVelocities(FILE *lmp, char data_file[],
     VECTOR vel;
     // error - wrong line //{{{
     if (words < 4 ||
-        !IsPosInteger(split[0], &id) || id > Count->Bead || // bead index
-        !IsReal(split[1], &vel.x) || //
-        !IsReal(split[2], &vel.y) || // bead velocities
-        !IsReal(split[3], &vel.z)) { //
+        !IsNaturalNumber(split[0], &id) || id > Count->Bead || // bead index
+        !IsRealNumber(split[1], &vel.x) || //
+        !IsRealNumber(split[2], &vel.y) || // bead velocities
+        !IsRealNumber(split[3], &vel.z)) { //
       strcpy(ERROR_MSG, "wrong line in Velocities section");
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);
@@ -3213,10 +3215,10 @@ void LmpDataReadBonds(FILE *lmp, char data_file[], COUNT Count,
     // errors //{{{
     // not <int> <int> <int> <int> line
     if (words < 4 ||
-        !IsPosInteger(split[0], &id) ||
-        !IsPosInteger(split[1], &type) ||
-        !IsPosInteger(split[2], &b_id[0]) ||
-        !IsPosInteger(split[3], &b_id[1])) {
+        !IsNaturalNumber(split[0], &id) ||
+        !IsNaturalNumber(split[1], &type) ||
+        !IsNaturalNumber(split[2], &b_id[0]) ||
+        !IsNaturalNumber(split[3], &b_id[1])) {
       strcpy(ERROR_MSG, "wrong line in Bonds section");
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);
@@ -3273,11 +3275,11 @@ void LmpDataReadAngles(FILE *lmp, char data_file[], COUNT Count,
     // errors //{{{
     // not <int> <int> <int> <int> line
     if (words < 5 ||
-        !IsPosInteger(split[0], &id) ||
-        !IsPosInteger(split[1], &type) ||
-        !IsPosInteger(split[2], &a_id[0]) ||
-        !IsPosInteger(split[3], &a_id[1]) ||
-        !IsPosInteger(split[4], &a_id[2])) { //
+        !IsNaturalNumber(split[0], &id) ||
+        !IsNaturalNumber(split[1], &type) ||
+        !IsNaturalNumber(split[2], &a_id[0]) ||
+        !IsNaturalNumber(split[3], &a_id[1]) ||
+        !IsNaturalNumber(split[4], &a_id[2])) { //
       strcpy(ERROR_MSG, "wrong line in Angles section");
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);
@@ -3336,12 +3338,12 @@ void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
     // errors //{{{
     // not <int> <int> <int> <int> line
     if (words < 6 ||
-        !IsPosInteger(split[0], &id) ||
-        !IsPosInteger(split[1], &type) ||
-        !IsPosInteger(split[2], &d_id[0]) ||
-        !IsPosInteger(split[3], &d_id[1]) ||
-        !IsPosInteger(split[4], &d_id[2]) ||
-        !IsPosInteger(split[5], &d_id[3])) {
+        !IsNaturalNumber(split[0], &id) ||
+        !IsNaturalNumber(split[1], &type) ||
+        !IsNaturalNumber(split[2], &d_id[0]) ||
+        !IsNaturalNumber(split[3], &d_id[1]) ||
+        !IsNaturalNumber(split[4], &d_id[2]) ||
+        !IsNaturalNumber(split[5], &d_id[3])) {
       strcpy(ERROR_MSG, "wrong line in Dihedrals section");
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);
@@ -3403,12 +3405,12 @@ void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
     // errors //{{{
     // not 6x<int>
     if (words < 6 ||
-        !IsPosInteger(split[0], &id) ||
-        !IsPosInteger(split[1], &type) ||
-        !IsPosInteger(split[2], &i_id[0]) ||
-        !IsPosInteger(split[3], &i_id[1]) ||
-        !IsPosInteger(split[4], &i_id[2]) ||
-        !IsPosInteger(split[5], &i_id[3])) {
+        !IsNaturalNumber(split[0], &id) ||
+        !IsNaturalNumber(split[1], &type) ||
+        !IsNaturalNumber(split[2], &i_id[0]) ||
+        !IsNaturalNumber(split[3], &i_id[1]) ||
+        !IsNaturalNumber(split[4], &i_id[2]) ||
+        !IsNaturalNumber(split[5], &i_id[3])) {
       strcpy(ERROR_MSG, "wrong line in Impropers section");
       PrintErrorFileLine(data_file, "\0", *file_line_count, split, words);
       exit(1);

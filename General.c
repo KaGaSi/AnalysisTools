@@ -11,7 +11,7 @@
  *   IsInteger() on 1) gives val=2 and returns success (i.e., true)
  *   On 2), all functions return failure (i.e., false)
  */
-bool IsReal(char *str, double *val) {
+bool IsRealNumber(char *str, double *val) {
   char *endptr = NULL;
   *val = strtod(str, &endptr);
   if (endptr == str) {
@@ -19,14 +19,14 @@ bool IsReal(char *str, double *val) {
   }
   return true;
 }
-bool IsPosReal(char *str, double *val) {
-  if (IsReal(str, val) && *val > 0) {
+bool IsPosRealNumber(char *str, double *val) {
+  if (IsRealNumber(str, val) && *val > 0) {
     return true;
   } else {
     return false;
   }
 }
-bool IsInteger(char *str, long *val) {
+bool IsIntegerNumber(char *str, long *val) {
   char *endptr = NULL;
   *val = strtol(str, &endptr, 0);
   if (endptr == str) {
@@ -34,15 +34,15 @@ bool IsInteger(char *str, long *val) {
   }
   return true;
 }
-bool IsPosInteger(char *str, long *val) {
-  if (IsInteger(str, val) && *val > 0) {
+bool IsNaturalNumber(char *str, long *val) {
+  if (IsIntegerNumber(str, val) && *val > 0) {
     return true;
   } else {
     return false;
   }
 }
-bool IsNatural(char *str, long *val) {
-  if (IsInteger(str, val) && *val >= 0) {
+bool IsWholeNumber(char *str, long *val) {
+  if (IsIntegerNumber(str, val) && *val >= 0) {
     return true;
   } else {
     return false;

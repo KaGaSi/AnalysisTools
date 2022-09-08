@@ -61,11 +61,11 @@ double Length(VECTOR a); //}}}
  * [out] val .. output number of the proper type
  * return: 'true' if str start with the proper number, 'false' otherwise
  */
-bool IsReal(char *str, double *val);
-bool IsPosReal(char *str, double *val);
-bool IsInteger(char *str, long *val);
-bool IsPosInteger(char *str, long *val);
-bool IsNatural(char *str, long *val);
+bool IsRealNumber(char *str, double *val);
+bool IsPosRealNumber(char *str, double *val);
+bool IsIntegerNumber(char *str, long *val);
+bool IsNaturalNumber(char *str, long *val);
+bool IsWholeNumber(char *str, long *val);
  //}}}
 
 // Min3() //{{{

@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
   SYSTEM field;
   if (input_field[0] != '\0') {
     field = FieldRead(input_field);
-    ChangeMolecules(&System, field, change_beads);
+    ChangeMolecules(&System, field, change_beads, true);
     CheckSystem(System, input_field);
     WarnChargedSystem(System, input_vsf, input_field);
   }

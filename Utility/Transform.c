@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
       for (int i = 0;
            ++count < argc && argv[count][0] != 'B' && i < max_ids; i++) {
         // error - not a non-negative number
-        if (!IsInteger(argv[count], &A[i]) || A[i] < 1) {
+        if (!IsIntegerNumber(argv[count], &A[i]) || A[i] < 1) {
           strcpy(ERROR_MSG, "<mode>: bead index must be positive integer \
 (or 'B' is missing)");
           PrintError();
@@ -177,7 +177,7 @@ int main(int argc, char *argv[]) {
       for (int i = 0;
            ++count < argc && argv[count][0] != 'C' && i < max_ids; i++) {
         // error - not a non-negative number
-        if (!IsInteger(argv[count], &B[i]) || B[i] < 1) {
+        if (!IsIntegerNumber(argv[count], &B[i]) || B[i] < 1) {
           strcpy(ERROR_MSG, "<mode>: bead index must be positive integer \
 (or 'C' is missing)");
           PrintError();
@@ -193,7 +193,7 @@ int main(int argc, char *argv[]) {
       for (int i = 0;
            ++count < argc && argv[count][0] != '-' && i < max_ids; i++) {
         // error - not a non-negative number
-        if (!IsInteger(argv[count], &C[i]) || C[i] < 1) {
+        if (!IsIntegerNumber(argv[count], &C[i]) || C[i] < 1) {
           strcpy(ERROR_MSG, "<mode>: bead index must be positive integer");
           PrintError();
           fprintf(stderr, "%swrong argument for %sC%s point:%s %s%s\n",
@@ -219,7 +219,7 @@ each of A, B, and C");
     case 1:
       for (i = 0; ++count < argc && argv[count][0] != '-' && i < max_ids; i++) {
         // error - not a non-negative number
-        if (!IsInteger(argv[count], &A[i]) || A[i] < 0) {
+        if (!IsIntegerNumber(argv[count], &A[i]) || A[i] < 0) {
           strcpy(ERROR_MSG, "<mode> 'inversion': at least one \
 positive number is required as an argument");
           PrintError();
@@ -245,7 +245,7 @@ positive number is required as an argument");
       for (int i = 0;
            ++count < argc && argv[count][0] != 'B' && i < max_ids; i++) {
         // error - not a non-negative number
-        if (!IsInteger(argv[count], &A[i]) || A[i] < 1) {
+        if (!IsIntegerNumber(argv[count], &A[i]) || A[i] < 1) {
           strcpy(ERROR_MSG, "<mode>: bead index must be positive integer \
 (or 'B' is missing)");
           PrintError();
@@ -263,7 +263,7 @@ positive number is required as an argument");
            argv[count][0] != 'C' && // mandatory 'C <int(s)>' follows
            i < max_ids; i++) {
         // error - not a non-negative number
-        if (!IsInteger(argv[count], &B[i]) || B[i] < 1) {
+        if (!IsIntegerNumber(argv[count], &B[i]) || B[i] < 1) {
           strcpy(ERROR_MSG, "<mode>: bead index must be positive integer \
 (or 'P' is missing)");
           PrintError();
@@ -280,7 +280,7 @@ positive number is required as an argument");
         for (int i = 0;
              ++count < argc && argv[count][0] != 'C' && i < max_ids; i++) {
           // error - not a non-negative number
-          if (!IsInteger(argv[count], &N[i]) || N[i] < 1) {
+          if (!IsIntegerNumber(argv[count], &N[i]) || N[i] < 1) {
             strcpy(ERROR_MSG, "<mode>: bead index must be positive integer");
             PrintError();
             fprintf(stderr, "%swrong argument for %sN%s point:%s %s%s\n",
@@ -303,7 +303,7 @@ the optional N");
       for (int i = 0;
            ++count < argc && argv[count][0] != 'P' && i < max_ids; i++) {
         // error - not a non-negative number
-        if (!IsInteger(argv[count], &C[i]) || C[i] < 1) {
+        if (!IsIntegerNumber(argv[count], &C[i]) || C[i] < 1) {
           strcpy(ERROR_MSG, "<mode>: bead index must be positive integer \
 (or 'P' is missing)");
           PrintError();
@@ -322,7 +322,7 @@ the optional N");
         Help(argv[0], true);
         exit(1);
       }
-      if (!IsReal(argv[count], &angle)) {
+      if (!IsRealNumber(argv[count], &angle)) {
         strcpy(ERROR_MSG, "<mode>: angle must be a real number");
         PrintError();
         fprintf(stderr, "%swrong argument:%s %s%s\n", Red(), Yellow(),

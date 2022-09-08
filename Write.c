@@ -276,8 +276,8 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
     fprintf(fw, "\nDihedral Coeffs\n\n");
     if (Count_print->DihedralType > 0) {
       for (int i = 0; i < Count_print->DihedralType; i++) {
-        fprintf(fw, "%5d %lf %lf\n", i+1,
-                Sys_print.DihedralType[i].a/2, Sys_print.DihedralType[i].b);
+        fprintf(fw, "%5d %lf %lf %lf\n", i+1, Sys_print.DihedralType[i].a/2,
+                Sys_print.DihedralType[i].b, Sys_print.DihedralType[i].c);
       }
     } else {
       fprintf(fw, "  ???\n");
@@ -287,8 +287,8 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
     fprintf(fw, "\nImproper Coeffs\n\n");
     if (Count_print->ImproperType > 0) {
       for (int i = 0; i < Count_print->ImproperType; i++) {
-        fprintf(fw, "%5d %lf %lf\n", i+1,
-                Sys_print.ImproperType[i].a/2, Sys_print.ImproperType[i].b);
+        fprintf(fw, "%5d %lf %lf %lf\n", i+1, Sys_print.ImproperType[i].a/2,
+                Sys_print.ImproperType[i].b, Sys_print.ImproperType[i].c);
       }
     } else {
       fprintf(fw, "  ???\n");
