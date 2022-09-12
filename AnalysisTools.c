@@ -1605,30 +1605,36 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
   if (Count_add->BondType > 0) {
     Count_orig->BondType += Count_add->BondType;
     Sys_orig->BondType = realloc(Sys_orig->BondType,
-                                  sizeof (PARAMS) * Count_orig->BondType);
+                                 sizeof *Sys_orig->BondType *
+                                 Count_orig->BondType);
     memcpy(Sys_orig->BondType + count_old.BondType, Sys_add.BondType,
-           sizeof (PARAMS) * Count_add->BondType);
+           sizeof *Sys_orig->BondType * Count_add->BondType);
   }
   if (Count_add->AngleType > 0) {
     Count_orig->AngleType += Count_add->AngleType;
     Sys_orig->AngleType = realloc(Sys_orig->AngleType,
-                                  sizeof (PARAMS) * Count_orig->AngleType);
+                                  sizeof *Sys_orig->AngleType *
+                                  Count_orig->AngleType);
     memcpy(Sys_orig->AngleType + count_old.AngleType, Sys_add.AngleType,
-           sizeof (PARAMS) * Count_add->AngleType);
+           sizeof *Sys_orig->AngleType * Count_add->AngleType);
   }
   if (Count_add->DihedralType > 0) {
     Count_orig->DihedralType += Count_add->DihedralType;
-    Sys_orig->DihedralType = realloc(Sys_orig->DihedralType, sizeof (PARAMS) *
+    Sys_orig->DihedralType = realloc(Sys_orig->DihedralType,
+                                     sizeof *Sys_orig->DihedralType *
                                      Count_orig->DihedralType);
     memcpy(Sys_orig->DihedralType + count_old.DihedralType,
-           Sys_add.DihedralType, sizeof (PARAMS) * Count_add->DihedralType);
+           Sys_add.DihedralType, sizeof *Sys_orig->DihedralType *
+           Count_add->DihedralType);
   }
   if (Count_add->ImproperType > 0) {
     Count_orig->ImproperType += Count_add->ImproperType;
-    Sys_orig->ImproperType = realloc(Sys_orig->ImproperType, sizeof (PARAMS) *
+    Sys_orig->ImproperType = realloc(Sys_orig->ImproperType,
+                                     sizeof *Sys_orig->ImproperType *
                                      Count_orig->ImproperType);
     memcpy(Sys_orig->ImproperType + count_old.ImproperType,
-           Sys_add.ImproperType, sizeof (PARAMS) * Count_add->ImproperType);
+           Sys_add.ImproperType, sizeof *Sys_orig->ImproperType *
+           Count_add->ImproperType);
   } //}}}
   for (int i = 0; i < Count_orig->MoleculeType; i++) {
     MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
@@ -1648,7 +1654,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
             if (mt_orig->Bond[j][0] == mt_add->Bond[k][0] &&
                 mt_orig->Bond[j][1] == mt_add->Bond[k][1] &&
                 mt_orig->Bond[j][2] == -1 && mt_add->Bond[k][2] != -1) {
-                mt_orig->Bond[j][2] = mt_add->Bond[k][2] + count_old.BondType;
+              mt_orig->Bond[j][2] = mt_add->Bond[k][2] + count_old.BondType;
             }
           }
         }
@@ -1686,10 +1692,10 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
             if (mt_orig->Dihedral[j][0] == mt_add->Dihedral[k][0] &&
                 mt_orig->Dihedral[j][1] == mt_add->Dihedral[k][1] &&
                 mt_orig->Dihedral[j][2] == mt_add->Dihedral[k][2] &&
-                mt_orig->Dihedral[j][2] == mt_add->Dihedral[k][2] &&
+                mt_orig->Dihedral[j][3] == mt_add->Dihedral[k][3] &&
                 mt_orig->Dihedral[j][4] == -1 && mt_add->Dihedral[j][4] != -1) {
-            mt_orig->Dihedral[j][4] = mt_add->Dihedral[j][4] +
-                                      count_old.DihedralType;
+              mt_orig->Dihedral[j][4] = mt_add->Dihedral[j][4] +
+                                        count_old.DihedralType;
             }
           }
         }
@@ -1708,7 +1714,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
             if (mt_orig->Improper[j][0] == mt_add->Improper[k][0] &&
                 mt_orig->Improper[j][1] == mt_add->Improper[k][1] &&
                 mt_orig->Improper[j][2] == mt_add->Improper[k][2] &&
-                mt_orig->Improper[j][2] == mt_add->Improper[k][2] &&
+                mt_orig->Improper[j][3] == mt_add->Improper[k][3] &&
                 mt_orig->Improper[j][4] == -1 && mt_add->Improper[j][4] != -1) {
               mt_orig->Improper[j][4] = mt_add->Improper[j][4] +
                                         count_old.ImproperType;
@@ -2651,6 +2657,7 @@ void VerboseOutput(SYSTEM System) { //{{{
   PrintDihedralType(System);
   PrintImproperType(System);
   PrintMoleculeType(System);
+  putchar('\n');
 } //}}}
 void PrintCount(COUNT Count) { //{{{
   bool coor = false;

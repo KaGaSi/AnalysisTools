@@ -258,18 +258,30 @@ lammps data file must be specified");
     vsf = VtfReadStruct(input_vsf, detailed);
     ChangeMolecules(System, vsf, change_beads_vsf, false);
     CheckSystem(*System, input_vsf);
+    if (verbose) {
+      printf("System in %s:\n", input_vsf);
+      VerboseOutput(vsf);
+    }
   } //}}}
   // FIELD input (if present) //{{{
   if (input_field[0] != '\0' && primary != f_in) {
     field = FieldRead(input_field);
     ChangeMolecules(System, field, change_beads_field, false);
     CheckSystem(*System, input_field);
+    if (verbose) {
+      printf("System in %s:\n", input_field);
+      VerboseOutput(field);
+    }
   } //}}}
   // lammps input (if present) //{{{
   if (input_lmp[0] != '\0' && primary != l_in) {
     lmp = LmpDataRead(input_lmp);
     ChangeMolecules(System, lmp, change_beads_lmp, false);
     CheckSystem(*System, input_lmp);
+    if (verbose) {
+      printf("System in %s:\n", input_lmp);
+      VerboseOutput(lmp);
+    }
   } //}}}
 //// vcf coordinates (if present) //{{{
 //if (input_vcf[0] != '\0') {
@@ -383,7 +395,7 @@ lammps data file must be specified");
   PruneSystem(System);
 
   // print information //{{{
-  printf("System composition:\n");
+  printf("Final system composition:\n");
   VerboseOutput(*System);
   if (verbose) { // -v option
     fprintf(stdout, "\nInformation about every bead:\n");

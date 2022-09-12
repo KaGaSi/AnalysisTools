@@ -505,6 +505,46 @@ void WriteField(SYSTEM System, char file_field[]) { //{{{
         }
       }
     }
+    // dihedrals (if present)
+    if (mt_i->nDihedrals > 0) {
+      fprintf(fw, "dihedrals %d ", mt_i->nDihedrals);
+      fprintf(fw, "# lammps' harmonic style\n");
+      for (int j = 0; j < mt_i->nDihedrals; j++) {
+        // TODO harm (lammps) only for now
+        fprintf(fw, "harm %5d %5d %5d %5d", mt_i->Dihedral[j][0],
+                                            mt_i->Dihedral[j][1],
+                                            mt_i->Dihedral[j][2],
+                                            mt_i->Dihedral[j][3]);
+        int type = mt_i->Dihedral[j][4];
+        if (type != -1) {
+          fprintf(fw, " %lf %lf %lf\n", System.DihedralType[type].a,
+                                        System.DihedralType[type].b,
+                                        System.DihedralType[type].c);
+        } else {
+          fprintf(fw, " ???\n");
+        }
+      }
+    }
+    // impropers (if present)
+    if (mt_i->nImpropers > 0) {
+      fprintf(fw, "impropers %d ", mt_i->nImpropers);
+      fprintf(fw, "# lammps' cvff style\n");
+      for (int j = 0; j < mt_i->nImpropers; j++) {
+        // TODO harm only for now
+        fprintf(fw, "cvff %5d %5d %5d %5d", mt_i->Improper[j][0],
+                                            mt_i->Improper[j][1],
+                                            mt_i->Improper[j][2],
+                                            mt_i->Improper[j][3]);
+        int type = mt_i->Improper[j][4];
+        if (type != -1) {
+          fprintf(fw, " %lf %lf %lf\n", System.ImproperType[type].a,
+                                        System.ImproperType[type].b,
+                                        System.ImproperType[type].c);
+        } else {
+          fprintf(fw, " ???\n");
+        }
+      }
+    }
     fprintf(fw, "finish\n");
   } //}}}
   fclose(fw);

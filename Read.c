@@ -1,5 +1,5 @@
 #include "Read.h"
-// TODO MISSING SOME InitBead() in FIELD READING...
+// TODO SEEMS THERE'S NO TOTAL COUNT OF IMPROPERS FOR FIELD
 // TODO test output of snprintf() to get rid of a warning; see
 //      https://stackoverflow.com/questions/51534284/how-to-circumvent-format-truncation-warning-in-gcc
 
@@ -1834,12 +1834,13 @@ SYSTEM FieldRead(char field_file[]) { //{{{
   FieldReadSpecies(field_file, &System);
   // fill System.Bead & System.Unbonded //{{{
   if (System.Unbonded > 0) {
-    System.Bead = realloc(System.Bead, sizeof (BEAD) * Count->Bead);
+    System.Bead = realloc(System.Bead, Count->Bead * sizeof *System.Bead);
     System.Unbonded = realloc(System.Unbonded,
                               sizeof *System.Unbonded * Count->Unbonded);
     int count = 0;
     for (int i = 0; i < Count->BeadType; i++) {
       for (int j = 0; j < System.BeadType[i].Number; j++) {
+        InitBead(&System.Bead[count]);
         System.Bead[count].Type = i;
         System.Bead[count].Molecule = -1;
         System.Unbonded[count] = count;
@@ -1858,9 +1859,6 @@ SYSTEM FieldRead(char field_file[]) { //{{{
   MergeMoleculeTypes(&System);
   FillSystemNonessentials(&System);
   CheckSystem(System, field_file);
-//PrintColour(stdout, Magenta());
-//VerboseOutput(System);
-//PrintColour(stdout, ColourReset());
   return System;
 } //}}}
 void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{
@@ -1914,9 +1912,6 @@ void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{
     NewBeadType(&System->BeadType, &Count->BeadType, split[0], charge, mass,
                 RADIUS);
     System->BeadType[Count->BeadType-1].Number = number;
-    for (int j = 0; j < System->BeadType[Count->BeadType-1].Number; j++) {
-      InitBead(&System->Bead[Count->Bead+j]);
-    }
     Count->Bead += number;
     Count->Unbonded += number;
   } //}}}
@@ -2042,9 +2037,9 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         exit(1);
       } //}}}
       // error - incorrect line //{{{
-      if (words < 4 || !IsRealNumber(split[1], &coor[i].x) ||
-                       !IsRealNumber(split[2], &coor[i].y) ||
-                       !IsRealNumber(split[3], &coor[i].z)) {
+      if (words < 4 || !IsRealNumber(split[1], &coor[j].x) ||
+                       !IsRealNumber(split[2], &coor[j].y) ||
+                       !IsRealNumber(split[3], &coor[j].z)) {
         strcpy(ERROR_MSG, "incorrect bead coordinate line in a molecule entry");
         PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
         exit(1);
@@ -2065,13 +2060,13 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     Count->Bead += mt_i->Number * mt_i->nBeads ;
     Count->Bonded += mt_i->Number * mt_i->nBeads ;
     System->Molecule = realloc(System->Molecule,
-                               sizeof (MOLECULE) * Count->Molecule);
-    System->Bead = realloc(System->Bead, sizeof (BEAD) * Count->Bead);
+                               sizeof *System->Molecule * Count->Molecule);
+    System->Bead = realloc(System->Bead, sizeof *System->Bead * Count->Bead);
+    System->Bonded = realloc(System->Bonded,
+                             sizeof System->Bonded * Count->Bonded);
     for (int j = count; j < Count->Bead; j++) {
       InitBead(&System->Bead[j]);
     }
-    System->Bonded = realloc(System->Bonded,
-                             sizeof System->Bonded * Count->Bonded);
     // c) fill Molecule[] & Bead[] //{{{
     for (int j = 0; j < mt_i->Number; j++) {
       MOLECULE *mol = &System->Molecule[mol_count];
@@ -2139,12 +2134,10 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
           exit(1);
         } //}}}
         long beads[2];
-        PARAMS values;
+        PARAMS values = InitParams;
         // error - incorrect line //{{{
-        if (words < 5 || !IsNaturalNumber(split[1], &beads[0]) ||
-                         !IsNaturalNumber(split[2], &beads[1]) ||
-                         !IsRealNumber(split[3], &values.a) || values.a < 0 ||
-                         !IsRealNumber(split[4], &values.b) || values.b < 0) {
+        if (words < 3 || !IsNaturalNumber(split[1], &beads[0]) ||
+                         !IsNaturalNumber(split[2], &beads[1])) {
           strcpy(ERROR_MSG, "incorrect bond line in a molecule entry");
           PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
           exit(1);
@@ -2157,25 +2150,37 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         } //}}}
         mt_i->Bond[j][0] = beads[0] - 1; // in FIELD, bead indices start from 1
         mt_i->Bond[j][1] = beads[1] - 1; //
-        // find bond type //{{{
-        int bond_type = -1;
-        // find if this bond type already exists
-        for (int k = 0; k < Count->BondType; k++) {
-          if (System->BondType[k].a == values.a &&
-              System->BondType[k].b == values.b) {
-            bond_type = k;
-            break;
-          }
+        // read up to three values for bond type
+        if (words > 3) {
+          IsRealNumber(split[3], &values.a);
         }
-        // create a new bond type if necessary
-        if (bond_type == -1) {
-          bond_type = Count->BondType;
-          Count->BondType++;
-          System->BondType = realloc(System->BondType,
-                                     sizeof (PARAMS) * Count->BondType);
-          System->BondType[bond_type] = InitParams;
-          System->BondType[bond_type].a = values.a;
-          System->BondType[bond_type].b = values.b;
+        if (words > 4) {
+          IsRealNumber(split[4], &values.b);
+        }
+        if (words > 5) {
+          IsRealNumber(split[5], &values.c);
+        }
+        // assign bond type //{{{
+        int bond_type = -1;
+        if (values.a != 0 || values.b != 0 || values.c != 0) {
+          // find if this bond type already exists
+          for (int k = 0; k < Count->BondType; k++) {
+            if (System->BondType[k].a == values.a &&
+                System->BondType[k].b == values.b) {
+              bond_type = k;
+              break;
+            }
+          }
+          // create a new bond type if necessary
+          if (bond_type == -1) {
+            bond_type = Count->BondType;
+            Count->BondType++;
+            System->BondType = realloc(System->BondType,
+                                       sizeof (PARAMS) * Count->BondType);
+            System->BondType[bond_type].a = values.a;
+            System->BondType[bond_type].b = values.b;
+            System->BondType[bond_type].c = values.c;
+          }
         } //}}}
         mt_i->Bond[j][2] = bond_type;
       } //}}}
@@ -2220,19 +2225,18 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
           exit(1);
         } //}}}
         long beads[3];
-        PARAMS values;
+        PARAMS values = InitParams;
         // error - incorrect line //{{{
-        if (words < 5 || !IsNaturalNumber(split[1], &beads[0]) ||
+        if (words < 4 || !IsNaturalNumber(split[1], &beads[0]) ||
                          !IsNaturalNumber(split[2], &beads[1]) ||
-                         !IsNaturalNumber(split[3], &beads[2]) ||
-                         !IsRealNumber(split[4], &values.a) || values.a < 0 ||
-                         !IsRealNumber(split[5], &values.b) || values.b < 0) {
+                         !IsNaturalNumber(split[3], &beads[2])) {
           strcpy(ERROR_MSG, "incorrect angle line in a molecule entry");
           PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
           exit(1);
         } //}}}
         // error - bead index is too high //{{{
-        if (beads[0] > mt_i->nBeads || beads[1] > mt_i->nBeads) {
+        if (beads[0] > mt_i->nBeads || beads[1] > mt_i->nBeads ||
+            beads[2] > mt_i->nBeads) {
           strcpy(ERROR_MSG, "bead index in a angle is too high");
           PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
           exit(1);
@@ -2240,25 +2244,38 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         mt_i->Angle[j][0] = beads[0] - 1; // in FIELD, bead indices start from 1
         mt_i->Angle[j][1] = beads[1] - 1; //
         mt_i->Angle[j][2] = beads[2] - 1; //
-        // find angle type //{{{
-        int angle_type = -1;
-        // find if this angle type already exists
-        for (int k = 0; k < Count->AngleType; k++) {
-          if (System->AngleType[k].a == values.a &&
-              System->AngleType[k].b == values.b) {
-            angle_type = k;
-            break;
-          }
+        // read up to three values for angle type
+        if (words > 4) {
+          IsRealNumber(split[4], &values.a);
         }
-        // create a new angle type if necessary
-        if (angle_type == -1) {
-          angle_type = Count->AngleType;
-          Count->AngleType++;
-          System->AngleType = realloc(System->AngleType,
-                                      sizeof (PARAMS) * Count->AngleType);
-          System->AngleType[angle_type] = InitParams;
-          System->AngleType[angle_type].a = values.a;
-          System->AngleType[angle_type].b = values.b;
+        if (words > 5) {
+          IsRealNumber(split[5], &values.b);
+        }
+        if (words > 6) {
+          IsRealNumber(split[6], &values.c);
+        }
+        // assign angle type //{{{
+        int angle_type = -1;
+        if (values.a != 0 || values.b != 0 || values.c != 0) {
+          // find if this angle type already exists
+          for (int k = 0; k < Count->AngleType; k++) {
+            if (System->AngleType[k].a == values.a &&
+                System->AngleType[k].b == values.b) {
+              angle_type = k;
+              break;
+            }
+          }
+          // create a new angle type if necessary
+          if (angle_type == -1) {
+            angle_type = Count->AngleType;
+            Count->AngleType++;
+            System->AngleType = realloc(System->AngleType,
+                                        sizeof *System->AngleType *
+                                        Count->AngleType);
+            System->AngleType[angle_type].a = values.a;
+            System->AngleType[angle_type].b = values.b;
+            System->AngleType[angle_type].c = values.c;
+          }
         } //}}}
         mt_i->Angle[j][3] = angle_type;
       } //}}}
@@ -2308,9 +2325,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         if (words < 5 || !IsNaturalNumber(split[1], &beads[0]) ||
                          !IsNaturalNumber(split[2], &beads[1]) ||
                          !IsNaturalNumber(split[3], &beads[2]) ||
-                         !IsNaturalNumber(split[4], &beads[3]) ||
-                         !IsRealNumber(split[5], &values.a) || values.a < 0 ||
-                         !IsRealNumber(split[6], &values.b) || values.b < 0) {
+                         !IsNaturalNumber(split[4], &beads[3])) {
           strcpy(ERROR_MSG, "incorrect dihedral line in a molecule entry");
           PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
           exit(1);
@@ -2326,27 +2341,38 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         mt_i->Dihedral[j][1] = beads[1] - 1; //
         mt_i->Dihedral[j][2] = beads[2] - 1; //
         mt_i->Dihedral[j][3] = beads[3] - 1; //
-        // find dihedral type //{{{
+        // read up to three values for dihedral type
+        if (words > 5) {
+          IsRealNumber(split[5], &values.a);
+        }
+        if (words > 6) {
+          IsRealNumber(split[6], &values.b);
+        }
+        if (words > 7) {
+          IsRealNumber(split[7], &values.c);
+        }
+        // assign dihedral type //{{{
         int dihedral_type = -1;
-        // find if this dihedral type already exists
-        for (int k = 0; k < Count->DihedralType; k++) {
-          if (System->DihedralType[k].a == values.a &&
-              System->DihedralType[k].b == values.b &&
-              System->DihedralType[k].c == values.c) {
-            dihedral_type = k;
-            break;
+        if (values.a != 0 || values.b != 0 || values.c != 0) {
+          // find if this dihedral type already exists
+          for (int k = 0; k < Count->DihedralType; k++) {
+            if (System->DihedralType[k].a == values.a &&
+                System->DihedralType[k].b == values.b &&
+                System->DihedralType[k].c == values.c) {
+              dihedral_type = k;
+              break;
+            }
+          }
+          // create a new dihedral type if necessary
+          if (dihedral_type == -1) {
+            dihedral_type = Count->DihedralType;
+            Count->DihedralType++;
+            System->DihedralType = realloc(System->DihedralType,
+                                           sizeof (PARAMS) * Count->DihedralType);
+            System->DihedralType[dihedral_type] = values;
           }
         }
-        // create a new dihedral type if necessary
-        if (dihedral_type == -1) {
-          dihedral_type = Count->DihedralType;
-          Count->DihedralType++;
-          System->DihedralType = realloc(System->DihedralType,
-                                         sizeof (PARAMS) * Count->DihedralType);
-          System->DihedralType[dihedral_type] = InitParams;
-          System->DihedralType[dihedral_type] = values;
-        } //}}}
-        mt_i->Dihedral[j][4] = dihedral_type;
+        mt_i->Dihedral[j][4] = dihedral_type; //}}}
       } //}}}
     } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
       continue;
@@ -2375,7 +2401,6 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
       mt_i->nImpropers = val; //}}}
       mt_i->Improper = malloc(sizeof *mt_i->Improper * mt_i->nImpropers);
       // b) impropers themselves & improper types //{{{
-      // TODO: for now, only harmonic impropers are considered
       for (int j = 0; j < mt_i->nImpropers; j++) {
         file_line_count++;
         // read a line //{{{
@@ -2394,9 +2419,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         if (words < 5 || !IsNaturalNumber(split[1], &beads[0]) ||
                          !IsNaturalNumber(split[2], &beads[1]) ||
                          !IsNaturalNumber(split[3], &beads[2]) ||
-                         !IsNaturalNumber(split[4], &beads[3]) ||
-                         !IsRealNumber(split[5], &values.a) || values.a < 0 ||
-                         !IsRealNumber(split[6], &values.b) || values.b < 0) {
+                         !IsNaturalNumber(split[4], &beads[3])) {
           strcpy(ERROR_MSG, "incorrect improper line in a molecule entry");
           PrintErrorFileLine(field_file, "\0", file_line_count, split, words);
           exit(1);
@@ -2412,27 +2435,39 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         mt_i->Improper[j][1] = beads[1] - 1; //
         mt_i->Improper[j][2] = beads[2] - 1; //
         mt_i->Improper[j][3] = beads[3] - 1; //
-        // find improper type //{{{
+        // read up to three values for improper type
+        if (words > 5) {
+          IsRealNumber(split[5], &values.a);
+        }
+        if (words > 6) {
+          IsRealNumber(split[6], &values.b);
+        }
+        if (words > 7) {
+          IsRealNumber(split[7], &values.c);
+        }
+        // assign improper type //{{{
         int improper_type = -1;
-        // find if this improper type already exists
-        for (int k = 0; k < Count->ImproperType; k++) {
-          if (System->ImproperType[k].a == values.a &&
-              System->ImproperType[k].b == values.b &&
-              System->ImproperType[k].c == values.c) {
-            improper_type = k;
-            break;
+        if (values.a != 0 || values.b != 0 || values.c != 0) {
+          // find if this improper type already exists
+          for (int k = 0; k < Count->ImproperType; k++) {
+            if (System->ImproperType[k].a == values.a &&
+                System->ImproperType[k].b == values.b &&
+                System->ImproperType[k].c == values.c) {
+              improper_type = k;
+              break;
+            }
+          }
+          // create a new improper type if necessary
+          if (improper_type == -1) {
+            improper_type = Count->ImproperType;
+            Count->ImproperType++;
+            System->ImproperType = realloc(System->ImproperType,
+                                           sizeof *System->ImproperType *
+                                           Count->ImproperType);
+            System->ImproperType[improper_type] = values;
           }
         }
-        // create a new improper type if necessary
-        if (improper_type == -1) {
-          improper_type = Count->ImproperType;
-          Count->ImproperType++;
-          System->ImproperType = realloc(System->ImproperType,
-                                         sizeof (PARAMS) * Count->ImproperType);
-          System->ImproperType[improper_type] = InitParams;
-          System->ImproperType[improper_type] = values;
-        } //}}}
-        mt_i->Improper[j][4] = improper_type;
+        mt_i->Improper[j][4] = improper_type; //}}}
       } //}}}
     } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
       continue;
