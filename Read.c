@@ -1,4 +1,5 @@
 #include "Read.h"
+// TODO MISSING SOME InitBead() in FIELD READING...
 // TODO test output of snprintf() to get rid of a warning; see
 //      https://stackoverflow.com/questions/51534284/how-to-circumvent-format-truncation-warning-in-gcc
 
@@ -1913,6 +1914,9 @@ void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{
     NewBeadType(&System->BeadType, &Count->BeadType, split[0], charge, mass,
                 RADIUS);
     System->BeadType[Count->BeadType-1].Number = number;
+    for (int j = 0; j < System->BeadType[Count->BeadType-1].Number; j++) {
+      InitBead(&System->Bead[Count->Bead+j]);
+    }
     Count->Bead += number;
     Count->Unbonded += number;
   } //}}}
@@ -2063,6 +2067,9 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     System->Molecule = realloc(System->Molecule,
                                sizeof (MOLECULE) * Count->Molecule);
     System->Bead = realloc(System->Bead, sizeof (BEAD) * Count->Bead);
+    for (int j = count; j < Count->Bead; j++) {
+      InitBead(&System->Bead[j]);
+    }
     System->Bonded = realloc(System->Bonded,
                              sizeof System->Bonded * Count->Bonded);
     // c) fill Molecule[] & Bead[] //{{{
@@ -2166,6 +2173,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
           Count->BondType++;
           System->BondType = realloc(System->BondType,
                                      sizeof (PARAMS) * Count->BondType);
+          System->BondType[bond_type] = InitParams;
           System->BondType[bond_type].a = values.a;
           System->BondType[bond_type].b = values.b;
         } //}}}
@@ -2248,6 +2256,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
           Count->AngleType++;
           System->AngleType = realloc(System->AngleType,
                                       sizeof (PARAMS) * Count->AngleType);
+          System->AngleType[angle_type] = InitParams;
           System->AngleType[angle_type].a = values.a;
           System->AngleType[angle_type].b = values.b;
         } //}}}
@@ -2553,6 +2562,9 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
       Count->BondType = val;
       System->BondType = realloc(System->BondType,
                                  Count->BondType * sizeof *System->BondType);
+      for (int i = 0; i < Count->BondType; i++) {
+        System->BondType[i] = InitParams;
+      }
     //}}}
     // <int> angle types //{{{
     } else if (words > 2 && strcmp(split[1], "angle") == 0 &&
@@ -2563,6 +2575,9 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
       Count->AngleType = val;
       System->AngleType = realloc(System->AngleType,
                                   Count->AngleType * sizeof *System->AngleType);
+      for (int i = 0; i < Count->AngleType; i++) {
+        System->AngleType[i] = InitParams;
+      }
     //}}}
     // <int> dihedral types //{{{
     } else if (words > 2 && strcmp(split[1], "dihedral") == 0 &&

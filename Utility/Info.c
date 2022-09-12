@@ -250,16 +250,19 @@ lammps data file must be specified");
       VerboseOutput(*System);
     }
   } //}}}
+  for (int i = 0; i < System->Count.Bead; i++) {
+    System->Bead[i].InTimestep = true;
+  }
   // vsf input (if present) //{{{
   if (input_vsf[0] != '\0' && primary != vs_in) {
     vsf = VtfReadStruct(input_vsf, detailed);
-    ChangeMolecules(System, vsf, change_beads_vsf, true);
+    ChangeMolecules(System, vsf, change_beads_vsf, false);
     CheckSystem(*System, input_vsf);
   } //}}}
   // FIELD input (if present) //{{{
   if (input_field[0] != '\0' && primary != f_in) {
     field = FieldRead(input_field);
-    ChangeMolecules(System, field, change_beads_field, true);
+    ChangeMolecules(System, field, change_beads_field, false);
     CheckSystem(*System, input_field);
   } //}}}
   // lammps input (if present) //{{{
@@ -325,12 +328,12 @@ lammps data file must be specified");
     }
   } //}}}
   // -def option //{{{
-  bool *def_type = calloc(vsf.Count.BeadType, sizeof *def_type);
-  if (BeadTypeOption(argc, argv, "-def", false, def_type, &vsf)) {
+  bool *def_type = calloc(System->Count.BeadType, sizeof *def_type);
+  if (BeadTypeOption(argc, argv, "-def", false, def_type, System)) {
     exit(1);
   }
   int default_type = -1;
-  for (int i = 0; i < vsf.Count.BeadType; i++) {
+  for (int i = 0; i < System->Count.BeadType; i++) {
     if (def_type[i]) {
       default_type = i;
       break;
@@ -351,7 +354,7 @@ lammps data file must be specified");
   bool mass = BoolOption(argc, argv, "--mass");
   // -vc_out option //{{{
   char output_vcf[LINE] = "\0";
-  if (FileOption(argc, argv, "-vs_out", output_vcf, LINE)) {
+  if (FileOption(argc, argv, "-vc_out", output_vcf, LINE)) {
     exit(1);
   }
   if (output_vcf[0] != '\0') {
@@ -364,7 +367,7 @@ lammps data file must be specified");
   } //}}}
   // -x_out option //{{{
   char output_xyz[LINE] = "\0";
-  if (FileOption(argc, argv, "-vs_out", output_xyz, LINE)) {
+  if (FileOption(argc, argv, "-x_out", output_xyz, LINE)) {
     exit(1);
   }
   if (output_xyz[0] != '\0') {
@@ -376,6 +379,8 @@ lammps data file must be specified");
     }
   } //}}}
   //}}}
+
+  PruneSystem(System);
 
   // print information //{{{
   printf("System composition:\n");
