@@ -7,13 +7,22 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[],
   if (stuff[0] != '\0') {
     fprintf(vcf, "%s\n", stuff);
   }
-  // print box size
+  // print box size (or 1 1 1 if unspecified box dimensions) //{{{
   BOX *box = &System.Box;
-  fprintf(vcf, "pbc %lf %lf %lf", box->Length.x, box->Length.y, box->Length.z);
+  if (box->Volume == -1) {
+    strcpy(ERROR_MSG, "undefined simulation box size");
+    PrintWarning();
+    fprintf(stderr, "%sdimensions:%s %lf %lf %lf%s;", ErrCyan(), ErrYellow(),
+            box->Length.x, box->Length.y, box->Length.z, ErrCyan());
+    fprintf(stderr, " using 1 1 1 instead%s\n", ErrColourReset());
+    fprintf(vcf, "pbc 1 1 1");
+  } else {
+    fprintf(vcf, "pbc %lf %lf %lf",
+            box->Length.x, box->Length.y, box->Length.z);
+  }
   fprintf(vcf, "    %lf %lf %lf\n", box->alpha, box->beta, box->gamma);
-  // print 'indexed' on the next
+  //}}}
   fprintf(vcf, "indexed\n");
-
   bool none = true;
   for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadCoor[i];

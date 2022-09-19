@@ -2025,8 +2025,8 @@ bool TriclinicCellData(BOX *Box, int mode) {
  //}}}
 void CheckSystem(SYSTEM System, char file[]) { //{{{
   COUNT *Count = &System.Count;
-  if (Count->Molecule > 0 && Count->HighestResid < Count->Molecule) { //{{{
-      strcpy(ERROR_MSG, "Count.HighestResid must be at least Count.Molecules");
+  if (Count->Molecule > 0 && Count->Molecule > (Count->HighestResid+1)) { //{{{
+      strcpy(ERROR_MSG, "Count.HighestResid is lower than Count.Molecules");
       PrintError();
       ErrorPrintFile(file, "\0");
       fprintf(stderr, "%s, Count.HighestResid = %s%d", ErrRed(),

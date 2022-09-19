@@ -283,25 +283,25 @@ lammps data file must be specified");
       VerboseOutput(lmp);
     }
   } //}}}
-//// vcf coordinates (if present) //{{{
-//if (input_vcf[0] != '\0') {
-//  FILE *coor = OpenFile(input_vcf, "r");
-//  char stuff[LINE];
-//  int step_count = 0, file_line_count = 0;
-//  VtfReadTimestep(coor, input_vcf, "\0", &vsf, &file_line_count,
-//                  step_count, stuff);
-//  fclose(coor);
-//  PrintBox(vsf.Box);
-//} else {
-//  for (int i = 0; i < vsf.Count.Bead; i++) {
-//    vsf.Bead[i].InTimestep = true;
-//  }
-//} //}}}
+  // vcf coordinates (if present) //{{{
+  if (input_vcf[0] != '\0') {
+    VtfReadPBC(input_vcf, input_vsf, &System->Box);
+    FILE *coor = OpenFile(input_vcf, "r");
+    char stuff[LINE];
+    int step_count = 0, file_line_count = 0;
+    VtfReadTimestep(coor, input_vcf, "\0", System, &file_line_count,
+                    step_count, stuff);
+    fclose(coor);
+    PrintBox(System->Box);
+  } //}}}
   // TODO: picking Box between vcf and lmp
   // use Box from lmp if Box is unspecified in System //{{{
   if (System->Box.Volume == -1) {
-    if (primary != l_in && input_lmp[0] != '\0' && lmp.Box.Volume != -1) {
-      vsf.Box = lmp.Box;
+    if (input_lmp[0] != '\0' && lmp.Box.Volume != -1) {
+      System->Box = lmp.Box;
+    }
+    if (input_vcf[0] != '\0' && vsf.Box.Volume != -1) {
+      System->Box = vsf.Box;
     }
   } //}}}
   // TODO: picking coordinates between vcf, xyz, and lmp
