@@ -46,7 +46,6 @@ while printing per-atom charges in Atoms section (works with -l_out)\n");
 
 // TODO: implement to choose box - vcf/lmp
 // TODO: implement to choose coordinates - vcf/lmp/xyz
-// TODO: ! options not working - produce bead-less system
 
 int main(int argc, char *argv[]) {
 
@@ -92,6 +91,7 @@ int main(int argc, char *argv[]) {
         strcmp(argv[i], "-f_out") != 0 &&
         strcmp(argv[i], "-l_out") != 0 &&
         strcmp(argv[i], "--mass") != 0 &&
+        strcmp(argv[i], "-vc_out") != 0 &&
         strcmp(argv[i], "-v") != 0 &&
         strcmp(argv[i], "-h") != 0 &&
         strcmp(argv[i], "--version") != 0) {
@@ -321,7 +321,7 @@ lammps data file must be specified");
       }
     }
   } //}}}
-  // TODO: specify correctly structur input files
+  // TODO: specify correctly structure input files
   WarnChargedSystem(*System, input_vsf, input_field);
   //}}}
 
@@ -413,6 +413,19 @@ lammps data file must be specified");
   }
   if (output_lmp[0] != '\0') {
     WriteLmpData(*System, output_lmp, false, mass);
+  }
+  if (output_vcf[0] != '\0') {
+    bool *write = malloc(sizeof *write * System->Count.Bead);
+    for (int i = 0; i < System->Count.Bead; i++) {
+      write[i] = true;
+    }
+    FILE *vcf = OpenFile(output_vcf, "w");
+    // TODO: stuff array?
+    VtfWriteCoorIndexed(vcf, "\0", write, *System);
+    fclose(vcf);
+    free(write);
+  }
+  if (output_xyz[0] != '\0') {
   } //}}}
 
   // free memory //{{{
