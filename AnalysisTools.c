@@ -2028,7 +2028,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
   if (Count->Molecule > 0 && Count->Molecule > (Count->HighestResid+1)) { //{{{
       strcpy(ERROR_MSG, "Count.HighestResid is lower than Count.Molecules");
       PrintError();
-      ErrorPrintFile(file, "\0");
+      ErrorPrintFile(file, "\0", "\0");
       fprintf(stderr, "%s, Count.HighestResid = %s%d", ErrRed(),
               ErrYellow(), Count->HighestResid);
       fprintf(stderr, "%s, Count.Molecule = %s%d%s", ErrRed(),
@@ -2040,7 +2040,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
   if (count != Count->Bead) {
     strcpy(ERROR_MSG, "unbonded and bonded beads do not add up properly!");
     PrintError();
-    ErrorPrintFile(file, "\0");
+    ErrorPrintFile(file, "\0", "\0");
     fprintf(stderr, "%s, unbonded: %s%d%s",
             ErrRed(), ErrYellow(), Count->Unbonded, ErrRed());
     fprintf(stderr, ", bonded: %s%d%s",
@@ -2056,7 +2056,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
   if (count != Count->Bead) {
     strcpy(ERROR_MSG, "number of beads in bead types do not add up properly!");
     PrintError();
-    ErrorPrintFile(file, "\0");
+    ErrorPrintFile(file, "\0", "\0");
     fprintf(stderr, "%s, sum should be: %s%d%s",
             ErrRed(), ErrYellow(), Count->Bead, ErrRed());
     fprintf(stderr, " but is: %s%d%s\n",
@@ -2073,7 +2073,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
     if (System.BeadCoor[i] < 0 || System.BeadCoor[i] >= Count->Bead) {
       strcpy(ERROR_MSG, "incorrect index in BeadCoor array");
       PrintError();
-      ErrorPrintFile(file, "\0");
+      ErrorPrintFile(file, "\0", "\0");
       fprintf(stderr, "%s, BeadCoor[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
               i, ErrRed(), ErrYellow(), System.BeadCoor[i], ErrColourReset());
       break;
@@ -2084,7 +2084,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
     if (System.Bonded[i] < 0 || System.Bonded[i] >= Count->Bead) {
       strcpy(ERROR_MSG, "incorrect index in Bonded array");
       PrintError();
-      ErrorPrintFile(file, "\0");
+      ErrorPrintFile(file, "\0", "\0");
       fprintf(stderr, "%s, Bonded[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
               i, ErrRed(), ErrYellow(), System.Bonded[i], ErrColourReset());
       break;
@@ -2095,7 +2095,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
     if (System.BondedCoor[i] < 0 || System.BondedCoor[i] >= Count->Bead) {
       strcpy(ERROR_MSG, "incorrect index in BondedCoor array");
       PrintError();
-      ErrorPrintFile(file, "\0");
+      ErrorPrintFile(file, "\0", "\0");
       fprintf(stderr, "%s, BondedCoor[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
               i, ErrRed(), ErrYellow(), System.BondedCoor[i], ErrColourReset());
       break;
@@ -2106,7 +2106,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
     if (System.Unbonded[i] < 0 || System.Unbonded[i] >= Count->Bead) {
       strcpy(ERROR_MSG, "incorrect index in Unbonded array");
       PrintError();
-      ErrorPrintFile(file, "\0");
+      ErrorPrintFile(file, "\0", "\0");
       fprintf(stderr, "%s, Unbonded[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
               i, ErrRed(), ErrYellow(), System.Unbonded[i], ErrColourReset());
       break;
@@ -2117,7 +2117,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
     if (System.UnbondedCoor[i] < 0 || System.UnbondedCoor[i] >= Count->Bead) {
       strcpy(ERROR_MSG, "incorrect index in UnbondedCoor array");
       PrintError();
-      ErrorPrintFile(file, "\0");
+      ErrorPrintFile(file, "\0", "\0");
       fprintf(stderr, "%s, UnbondedCoor[%s%d%s] = %s%d%s\n",
               ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
               System.UnbondedCoor[i], ErrColourReset());
@@ -2129,7 +2129,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
     if (System.Index_mol[i] < -1 || System.Index_mol[i] >= Count->Molecule) {
       strcpy(ERROR_MSG, "incorrect index in Index_mol array");
       PrintError();
-      ErrorPrintFile(file, "\0");
+      ErrorPrintFile(file, "\0", "\0");
       fprintf(stderr, "%s, Index_mol[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
               i, ErrRed(), ErrYellow(), System.Index_mol[i], ErrColourReset());
       break;
@@ -2142,7 +2142,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
       if (bt_i->Index[j] < 0 || bt_i->Index[j] >= Count->Bead) {
         strcpy(ERROR_MSG, "incorrect index in BeadType[].Index array");
         PrintError();
-        ErrorPrintFile(file, "\0");
+        ErrorPrintFile(file, "\0", "\0");
         fprintf(stderr, "%s, BeadType[%s%d%s].Index[%s%d%s] = %s%d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
                 ErrYellow(), bt_i->Index[j], ErrColourReset());
@@ -2158,7 +2158,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
       if (mt_i->Index[j] < 0 || mt_i->Index[j] >= Count->Molecule) {
         strcpy(ERROR_MSG, "incorrect index in MoleculeType[].Index array");
         PrintError();
-        ErrorPrintFile(file, "\0");
+        ErrorPrintFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Index[%s%d%s] = %s%d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
                 ErrYellow(), mt_i->Index[j], ErrColourReset());
@@ -2170,7 +2170,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
       if (mt_i->Bead[j] < 0 || mt_i->Bead[j] >= Count->BeadType) {
         strcpy(ERROR_MSG, "incorrect index in Bead array");
         PrintError();
-        ErrorPrintFile(file, "\0");
+        ErrorPrintFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Bead[%s%d%s] = %s%d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
                 ErrYellow(), mt_i->Bead[j], ErrColourReset());
@@ -2184,7 +2184,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
           mt_i->Bond[j][0] == mt_i->Bond[j][1]) {
         strcpy(ERROR_MSG, "incorrect index in Bond array");
         PrintError();
-        ErrorPrintFile(file, "\0");
+        ErrorPrintFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Bond[%s%d%s][0..2]",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
                 j, ErrRed());
@@ -2195,7 +2195,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
       if (mt_i->Bond[j][2] < -1 || mt_i->Bond[j][2] >= Count->BondType) {
         strcpy(ERROR_MSG, "incorrect bond type in Bond array");
         PrintError();
-        ErrorPrintFile(file, "\0");
+        ErrorPrintFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Bond[2] = %s%d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
                 mt_i->Bond[j][2], ErrColourReset());
@@ -2209,7 +2209,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
           mt_i->Angle[j][2] < 0 || mt_i->Angle[j][2] >= mt_i->nBeads) {
         strcpy(ERROR_MSG, "incorrect index in Angle array");
         PrintError();
-        ErrorPrintFile(file, "\0");
+        ErrorPrintFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Angle[0..2] = %s%d %d %d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
                 mt_i->Angle[j][0], mt_i->Angle[j][1], mt_i->Angle[j][2],
@@ -2219,7 +2219,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
       if (mt_i->Angle[j][3] < -1 || mt_i->Angle[j][3] >= Count->AngleType) {
         strcpy(ERROR_MSG, "incorrect angle type in Angle array");
         PrintError();
-        ErrorPrintFile(file, "\0");
+        ErrorPrintFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Angle[3] = %s%d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
                 mt_i->Angle[j][3], ErrColourReset());
@@ -2234,7 +2234,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
           mt_i->Dihedral[j][3] < 0 || mt_i->Dihedral[j][3] >= mt_i->nBeads) {
         strcpy(ERROR_MSG, "incorrect index in Dihedral array");
         PrintError();
-        ErrorPrintFile(file, "\0");
+        ErrorPrintFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Dihedral[0..3] = %s",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow());
         fprintf(stderr, "%d %d %d %d%s\n",
@@ -2246,7 +2246,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
           mt_i->Dihedral[j][4] >= Count->DihedralType) {
         strcpy(ERROR_MSG, "incorrect dihedral type in Dihedral array");
         PrintError();
-        ErrorPrintFile(file, "\0");
+        ErrorPrintFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Dihedral[4] = %s%d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
                 mt_i->Dihedral[j][4], ErrColourReset());
@@ -2261,7 +2261,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
           mt_i->Improper[j][3] < 0 || mt_i->Improper[j][3] >= mt_i->nBeads) {
         strcpy(ERROR_MSG, "incorrect index in Improper array");
         PrintError();
-        ErrorPrintFile(file, "\0");
+        ErrorPrintFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Improper[0..3] = %s",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow());
         fprintf(stderr, "%d %d %d %d%s\n",
@@ -2273,7 +2273,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
           mt_i->Improper[j][4] >= Count->ImproperType) {
         strcpy(ERROR_MSG, "incorrect improper type in Improper array");
         PrintError();
-        ErrorPrintFile(file, "\0");
+        ErrorPrintFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Improper[4] = %s%d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
                 mt_i->Improper[j][4], ErrColourReset());
@@ -2285,7 +2285,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
       if (mt_i->BType[j] < 0 || mt_i->BType[j] >= Count->BeadType) {
         strcpy(ERROR_MSG, "incorrect index in BType array");
         PrintError();
-        ErrorPrintFile(file, "\0");
+        ErrorPrintFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].BType[%s%d%s] = %s%d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
                 ErrYellow(), mt_i->BType[j], ErrColourReset());
@@ -2299,7 +2299,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
     if (type < 0 || type >= Count->BeadType) {
       strcpy(ERROR_MSG, "incorrect bead type for a bead");
       PrintError();
-      ErrorPrintFile(file, "\0");
+      ErrorPrintFile(file, "\0", "\0");
       fprintf(stderr, "%s, Bead[%s%d%s].Type = %s%d%s\n", ErrRed(), ErrYellow(),
               i, ErrRed(), ErrYellow(), type, ErrColourReset());
       break;
@@ -2310,7 +2310,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
     printf("Count->MoleculeType = %d\n", Count->MoleculeType);
       strcpy(ERROR_MSG, "incorrect molecule index for a bead");
       PrintError();
-      ErrorPrintFile(file, "\0");
+      ErrorPrintFile(file, "\0", "\0");
       fprintf(stderr, "%s, Bead[%s%d%s].Molecule = %s%d%s\n", ErrRed(),
               ErrYellow(), i, ErrRed(), ErrYellow(), mol, ErrColourReset());
       break;
@@ -2327,7 +2327,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
     if (type < 0 || type >= Count->MoleculeType) {
       strcpy(ERROR_MSG, "incorrect molecule type for a molecule");
       PrintError();
-      ErrorPrintFile(file, "\0");
+      ErrorPrintFile(file, "\0", "\0");
       fprintf(stderr, "%s, Molecule[%s%d%s].Type = %s%d%s\n", ErrRed(),
               ErrYellow(), i, ErrRed(), ErrYellow(), type, ErrColourReset());
       break;
@@ -2336,7 +2336,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
       if (mol_i->Bead[j] < 0 || mol_i->Bead[j] >= Count->Bead) {
         strcpy(ERROR_MSG, "incorrect index in Bead array");
         PrintError();
-        ErrorPrintFile(file, "\0");
+        ErrorPrintFile(file, "\0", "\0");
         fprintf(stderr, "%s, Molecule[%s%d%s].Bead[%s%d%s] = %s%d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
                 ErrYellow(), mol_i->Bead[j], ErrColourReset());
@@ -2346,7 +2346,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
     if (test[mol_i->Index] > -1) {
       strcpy(ERROR_MSG, "same molecule index with multiple molecules");
       PrintError();
-      ErrorPrintFile(file, "\0");
+      ErrorPrintFile(file, "\0", "\0");
       fprintf(stderr, "%s, index %s%d%s with molecuces %s%d %d%s\n",
               ErrRed(), ErrYellow(), mol_i->Index, ErrRed(), ErrYellow(),
               test[mol_i->Index], i, ErrColourReset());

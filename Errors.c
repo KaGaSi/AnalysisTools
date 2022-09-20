@@ -23,24 +23,24 @@ void PrintErrorOption(char *opt) {
           ErrYellow(), opt, ErrRed(), ERROR_MSG, ErrColourReset());
 } //}}}
 // print 'ERROR: - <ERROR_MSG>\nFile <file(s)>' //{{{
-void PrintErrorFile(char file1[], char file2[]) {
+void PrintErrorFile(char file1[], char file2[], char file3[]) {
   PrintError();
-  ErrorPrintFile(file1, file2);
+  ErrorPrintFile(file1, file2, file3);
   putc('\n', stderr);
 } //}}}
 // print 'ERROR: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>' //{{{
-void PrintErrorFileLine(char file1[], char file2[], int count,
+void PrintErrorFileLine(char file1[], int count,
                         char *split[SPL_STR], int words) {
   PrintError();
-  ErrorPrintFile(file1, file2);
+  ErrorPrintFile(file1, "\0", "\0");
   fprintf(stderr, "%s, line %s%d%s:\n", ErrRed(), ErrYellow(), count, ErrRed());
   ErrorPrintLine2(split, words);
 } //}}}
 // print 'WARNING: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>' //{{{
-void PrintWarningFileLine(char file1[], char file2[], int count,
+void PrintWarningFileLine(char file1[], char file2[], char file3[], int count,
                           char *split[SPL_STR], int words) {
   PrintWarning();
-  WarnPrintFile(file1, file2);
+  WarnPrintFile(file1, file2, file3);
   fprintf(stderr, "%s, line %s%d%s:\n", ErrCyan(), ErrYellow(),
                                         count, ErrCyan());
   WarnPrintLine(split, words);
@@ -50,20 +50,34 @@ void PrintFile(FILE *f, char file1[], char colour[]) {
   fprintf(f, "%sFile %s%s%s", Colour(f, colour), file1, Colour(f, YELLOW),
                               Colour(f, C_RESET));
 }
-void WarnPrintFile(char file1[], char file2[]) {
+void WarnPrintFile(char file1[], char file2[], char file3[]) {
   fprintf(stderr, "%sFile %s%s%s", ErrCyan(),
           ErrYellow(), file1, ErrColourReset());
-  if (file2[0] != '\0' && strcmp(file1, file2) != 0) {
-    fprintf(stderr, " %s(%s%s%s)%s", ErrCyan(), ErrYellow(),
-            file2, ErrCyan(), ErrColourReset());
+  if (file2[0] != '\0' || file3[0] != '\0') {
+    fprintf(stderr, " %s(%s", ErrCyan(), ErrYellow());
+    if (file2[0] != '\0' && file3[0] != '\0') {
+      fprintf(stderr, "%s%s, %s%s", file2, ErrCyan(), ErrYellow(), file3);
+    } else if (file3[0] == '\0') {
+      fprintf(stderr, "%s", file2);
+    } else {
+      fprintf(stderr, "%s", file3);
+    }
+    fprintf(stderr, "%s)%s", ErrCyan(), ErrColourReset());
   }
 }
-void ErrorPrintFile(char file1[], char file2[]) {
+void ErrorPrintFile(char file1[], char file2[], char file3[]) {
   fprintf(stderr, "%sFile %s%s%s", ErrRed(),
           ErrYellow(), file1, ErrColourReset());
-  if (file2[0] != '\0' && strcmp(file1, file2) != 0) {
-    fprintf(stderr, " %s(%s%s%s)%s", ErrRed(), ErrYellow(),
-            file2, ErrRed(), ErrColourReset());
+  if (file2[0] != '\0' || file3[0] != '\0') {
+    fprintf(stderr, " %s(%s", ErrRed(), ErrYellow());
+    if (file2[0] != '\0' && file3[0] != '\0') {
+      fprintf(stderr, "%s%s, %s%s", file2, ErrRed(), ErrYellow(), file3);
+    } else if (file3[0] == '\0') {
+      fprintf(stderr, "%s", file2);
+    } else {
+      fprintf(stderr, "%s", file3);
+    }
+    fprintf(stderr, "%s)%s", ErrRed(), ErrColourReset());
   }
 }
  //}}}
@@ -121,7 +135,7 @@ int ErrorExtension(char *file, int number, char extension[][5]) {
   }
   strcpy(ERROR_MSG, "incorrect file extension");
   PrintError();
-  ErrorPrintFile(file, "\0");
+  ErrorPrintFile(file, "\0", "\0");
   fprintf(stderr, "%s; allowed extensions:", ErrRed());
   for (int i = 0; i < (number-1); i++) {
     fprintf(stderr, " %s%s%s,", ErrYellow(), extension[i], ErrRed());
@@ -189,7 +203,8 @@ void ErrorPrintLine(char split[SPL_STR][SPL_LEN], int words) {
   ColourReset(STDERR_FILENO);
 } //}}}
 
-void WarnChargedSystem(SYSTEM System, char file1[], char file2[]) { //{{{
+void WarnChargedSystem(SYSTEM System, char file1[], char file2[],
+                       char file3[]) { //{{{
   double charge = 0;
   for (int i = 0; i < System.Count.BeadType; i++) {
     // do nothing if at least one bead type had undefined charge
@@ -201,7 +216,7 @@ void WarnChargedSystem(SYSTEM System, char file1[], char file2[]) { //{{{
   if (fabs(charge) > 0.00001) {
     strcpy(ERROR_MSG, "system with net electric charge");
     PrintWarning();
-    WarnPrintFile(file1, file2);
+    WarnPrintFile(file1, file2, file3);
     fprintf(stderr, "%s, %sq = %lf%s\n", ErrCyan(),
             ErrYellow(), charge, ErrColourReset());
   }
@@ -379,10 +394,10 @@ void WarnStopReading2(char *vcf_file, int line_count, int step_count,
 } //}}}
 
 // ErrorEOF() //{{{
-void ErrorEOF(char file1[], char file2[]) {
+void ErrorEOF(char file1[]) {
   strcpy(ERROR_MSG, "premature end of file");
   PrintError();
-  ErrorPrintFile(file1, file2);
+  ErrorPrintFile(file1, "\0", "\0");
   putc('\n', stderr);
   exit(1);
 } //}}}
@@ -417,7 +432,7 @@ bool ErrorDiscard(int start, int step, char *file, FILE *coor) {
     fflush(stdout);
     strcpy(ERROR_MSG, "starting timestep is too high");
     PrintError();
-    ErrorPrintFile(file, "\0");
+    ErrorPrintFile(file, "\0", "\0");
     fprintf(stderr, "%s, number of timesteps:%s%d%s\n", ErrRed(), ErrYellow(),
                                                         step, ErrColourReset());
     return true;
@@ -452,7 +467,7 @@ void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file) {
   if (fabs(charge) > 0.00001) {
     strcpy(ERROR_MSG, "system with net electric charge");
     PrintWarning();
-    WarnPrintFile(file, file);
+    WarnPrintFile(file, "\0", "\0");
     fprintf(stderr, "%s, %sq = %lf%s\n", ErrCyan(), ErrYellow(), charge,
                                          ErrColourReset());
   }

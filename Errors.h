@@ -29,17 +29,17 @@ void PrintWarningOption(char *opt);
 // print 'ERROR: <option> - <ERROR_MSG>' in red and yellow
 void PrintErrorOption(char *opt);
 // print 'ERROR: - <ERROR_MSG>\nFile <file(s)>'
-void PrintErrorFile(char file1[], char file2[]);
+void PrintErrorFile(char file1[], char file2[], char file3[]);
 // print 'ERROR: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>'
-void PrintErrorFileLine(char file1[], char file2[],  int count,
+void PrintErrorFileLine(char file1[], int count,
                         char *split[SPL_STR], int words);
 // print 'WARNING: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>'
-void PrintWarningFileLine(char file1[], char file2[], int count,
+void PrintWarningFileLine(char file1[], char file2[], char file3[], int count,
                           char *split[SPL_STR], int words);
 // print 'FILE <name(s)>' in given colour
 void PrintFile(FILE *f, char file[], char colour[]);
-void WarnPrintFile(char file1[], char file2[]); // in cyan
-void ErrorPrintFile(char file1[], char file2[]); // in red
+void WarnPrintFile(char file1[], char file2[], char file3[]); // in cyan
+void ErrorPrintFile(char file1[], char file2[], char file3[]); // in red
 // print 'Line: <line>|(blank)' in given colours
 void PrintLine2(FILE *f, char *split[SPL_STR], int words,
                 char *colour1, char *colour2);
@@ -109,9 +109,9 @@ void ErrorMoleculeType(SYSTEM System);
  */
 void ErrorPrintLine(char split[SPL_STR][SPL_LEN], int words); //}}}
 
-void ErrorEOF(char file1[], char file2[]);
+void ErrorEOF(char file1[]);
 
-void WarnChargedSystem(SYSTEM System, char file1[], char file2[]);
+void WarnChargedSystem(SYSTEM System, char file1[], char file2[], char file3[]);
 
 // ErrorStartEnd() //{{{
 /**

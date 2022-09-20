@@ -90,6 +90,8 @@ void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
 void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
                           int (*improper)[5], int *file_line_count);
  //}}}
+SYSTEM XYZFirstRead(char file[]);
+bool XYZCoorRead(FILE *fr, char file[], int *file_line_count);
 
 // helper functions //{{{
 // FillMolMass //{{{

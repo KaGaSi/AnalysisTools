@@ -38,7 +38,7 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[],
     PrintWarning();
   }
 } //}}}
-void XyzWriteCoor(FILE *xyz, bool write[], SYSTEM System) { //{{{
+void XyzWriteCoor(FILE *xyz, bool write[], char *stuff, SYSTEM System) { //{{{
   // find out number of beads to save
   int count = 0;
   bool none = true; // to make sure there are beads to save
@@ -53,7 +53,7 @@ void XyzWriteCoor(FILE *xyz, bool write[], SYSTEM System) { //{{{
     strcpy(ERROR_MSG, "no beads to save");
     WarnPrintWarning();
   } else {
-    fprintf(xyz, "%d\n\n", count);
+    fprintf(xyz, "%d\n%s\n", count, stuff);
     for (int i = 0; i < System.Count.BeadCoor; i++) {
       int id = System.BeadCoor[i];
       BEAD *bead = &System.Bead[id];

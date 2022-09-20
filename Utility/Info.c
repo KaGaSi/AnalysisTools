@@ -92,6 +92,7 @@ int main(int argc, char *argv[]) {
         strcmp(argv[i], "-l_out") != 0 &&
         strcmp(argv[i], "--mass") != 0 &&
         strcmp(argv[i], "-vc_out") != 0 &&
+        strcmp(argv[i], "-x_out") != 0 &&
         strcmp(argv[i], "-v") != 0 &&
         strcmp(argv[i], "-h") != 0 &&
         strcmp(argv[i], "--version") != 0) {
@@ -228,27 +229,23 @@ lammps data file must be specified");
     }
   }
   int primary = Min3(vs_in, f_in, l_in);
+  char *struct_in;
   if (primary == vs_in) {
     System = &vsf;
     *System = VtfReadStruct(input_vsf, detailed);
-    if (verbose) {
-      printf("System in %s:\n", input_vsf);
-      VerboseOutput(*System);
-    }
+    struct_in = input_vsf;
   } else if (primary == f_in) {
     System = &field;
     *System = FieldRead(input_field);
-    if (verbose) {
-      printf("System in %s:\n", input_field);
-      VerboseOutput(*System);
-    }
+    struct_in = input_field;
   } else {
     System = &lmp;
     *System = LmpDataRead(input_lmp);
-    if (verbose) {
-      printf("System in %s:\n", input_lmp);
-      VerboseOutput(*System);
-    }
+    struct_in = input_lmp;
+  }
+  if (verbose) {
+    printf("System in %s:\n", struct_in);
+    VerboseOutput(*System);
   } //}}}
   for (int i = 0; i < System->Count.Bead; i++) {
     System->Bead[i].InTimestep = true;
@@ -283,17 +280,6 @@ lammps data file must be specified");
       VerboseOutput(lmp);
     }
   } //}}}
-  // vcf coordinates (if present) //{{{
-  if (input_vcf[0] != '\0') {
-    VtfReadPBC(input_vcf, input_vsf, &System->Box);
-    FILE *coor = OpenFile(input_vcf, "r");
-    char stuff[LINE];
-    int step_count = 0, file_line_count = 0;
-    VtfReadTimestep(coor, input_vcf, "\0", System, &file_line_count,
-                    step_count, stuff);
-    fclose(coor);
-    PrintBox(System->Box);
-  } //}}}
   // TODO: picking Box between vcf and lmp
   // use Box from lmp if Box is unspecified in System //{{{
   if (System->Box.Volume == -1) {
@@ -321,8 +307,44 @@ lammps data file must be specified");
       }
     }
   } //}}}
-  // TODO: specify correctly structure input files
-  WarnChargedSystem(*System, input_vsf, input_field);
+  // use xyz coordinates if provided //{{{
+  if (input_xyz[0] != '\0') {
+    SYSTEM xyz = XYZFirstRead(input_xyz);
+    if (xyz.Count.Bead != System->Count.Bead) {
+      strcpy(ERROR_MSG, "different numbers of beads in the primary system \
+and in xyz coordinate file; not using xyz coordinates");
+      PrintWarning();
+      fprintf(stderr, "%sPrimary system: %s%d%s beads, ", ErrCyan(),
+              ErrYellow(), System->Count.Bead, ErrCyan());
+      fprintf(stderr, "%s%s%s file: %s%d%s beads%s\n", ErrYellow(), input_xyz,
+              ErrCyan(), ErrYellow(), xyz.Count.Bead,
+              ErrCyan(), ErrColourReset());
+    } else {
+      for (int i = 0; i < System->Count.Bead; i++) {
+        System->Bead[i].Position = xyz.Bead[i].Position;
+      }
+    }
+    FreeSystem(&xyz);
+  } //}}}
+  // use vcf coordinate if provided
+  char stuff[LINE];
+  if (input_vcf[0] != '\0') {
+    VtfReadPBC(input_vcf, input_vsf, &System->Box);
+    int l_count = 0, s_count = 1;
+    FILE *fr = OpenFile(input_vcf, "r");
+    if (!VtfReadTimestep(fr, input_vcf, "\0", // TODO: add some struct file
+                         System, &l_count, s_count, stuff)) {
+      strcpy(ERROR_MSG, "NOT ENOUGH BEADS IN input_vcf!");
+      PrintError();
+    }
+    fclose(fr);
+  }
+  // check electroneutrality //{{{
+  char *second = "\0", *third = "\0";
+  if (primary != vs_in && input_vsf[0] != '\0') {
+    second = input_vsf;
+  }
+  WarnChargedSystem(*System, struct_in, second, third); //}}}
   //}}}
 
   // output file names & other options //{{{
@@ -405,6 +427,7 @@ lammps data file must be specified");
   } //}}}
 
   // write output file(s)? //{{{
+  strcpy(stuff, "Created via Info utility from AnalysisTools");
   if (output_vsf[0] != '\0') {
     VtfWriteStruct(output_vsf, *System, default_type);
   }
@@ -414,19 +437,21 @@ lammps data file must be specified");
   if (output_lmp[0] != '\0') {
     WriteLmpData(*System, output_lmp, false, mass);
   }
+  bool *write = malloc(sizeof *write * System->Count.Bead);
+  for (int i = 0; i < System->Count.Bead; i++) {
+    write[i] = true;
+  }
   if (output_vcf[0] != '\0') {
-    bool *write = malloc(sizeof *write * System->Count.Bead);
-    for (int i = 0; i < System->Count.Bead; i++) {
-      write[i] = true;
-    }
     FILE *vcf = OpenFile(output_vcf, "w");
-    // TODO: stuff array?
-    VtfWriteCoorIndexed(vcf, "\0", write, *System);
+    VtfWriteCoorIndexed(vcf, stuff, write, *System);
     fclose(vcf);
-    free(write);
   }
   if (output_xyz[0] != '\0') {
-  } //}}}
+    FILE *xyz = OpenFile(output_xyz, "w");
+    XyzWriteCoor(xyz, write, stuff, *System);
+    fclose(xyz);
+  }
+  free(write); //}}}
 
   // free memory //{{{
   if (input_vsf[0] != '\0') {
