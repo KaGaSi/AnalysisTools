@@ -290,7 +290,6 @@ lammps data file must be specified");
       System->Box = vsf.Box;
     }
   } //}}}
-  // TODO: picking coordinates between vcf, xyz, and lmp
   // use coordinates from lmp if all coordinates in System are 0 //{{{
   bool coor = false;
   for (int i = 0; i < System->Count.Bead; i++) {
@@ -326,23 +325,43 @@ and in xyz coordinate file; not using xyz coordinates");
     }
     FreeSystem(&xyz);
   } //}}}
-  // use vcf coordinate if provided
+  // use vcf coordinate if provided //{{{
   char stuff[LINE];
   if (input_vcf[0] != '\0') {
-    VtfReadPBC(input_vcf, input_vsf, &System->Box);
+    SYSTEM Sys_new = CopySystem(*System);
+    VtfReadPBC(input_vcf, input_vsf, &Sys_new.Box);
     int l_count = 0, s_count = 1;
     FILE *fr = OpenFile(input_vcf, "r");
     if (!VtfReadTimestep(fr, input_vcf, "\0", // TODO: add some struct file
-                         System, &l_count, s_count, stuff)) {
-      strcpy(ERROR_MSG, "NOT ENOUGH BEADS IN input_vcf!");
-      PrintError();
+                         &Sys_new, &l_count, s_count, stuff)) {
+      strcpy(ERROR_MSG, "not all coordinates from vcf file could be read; \
+not using vcf coordinates");
+      PrintWarning();
+    } else {
+      for (int i = 0; i < System->Count.Bead; i++) {
+        System->Bead[i].InTimestep = false;
+      }
+      for (int i = 0; i < Sys_new.Count.BeadCoor; i++) {
+        int id = Sys_new.BeadCoor[i];
+        System->Bead[id].Position = Sys_new.Bead[id].Position;
+        System->Bead[id].InTimestep = true;
+        System->BeadCoor[i] = id;
+      }
     }
     fclose(fr);
-  }
+    FreeSystem(&Sys_new);
+  } //}}}
   // check electroneutrality //{{{
-  char *second = "\0", *third = "\0";
-  if (primary != vs_in && input_vsf[0] != '\0') {
+  char *second, *third;
+  if (primary == vs_in) {
+    second = input_lmp;
+    third = input_field;
+  } else if (primary == l_in) {
     second = input_vsf;
+    third = input_field;
+  } else {
+    second = input_vsf;
+    third = input_lmp;
   }
   WarnChargedSystem(*System, struct_in, second, third); //}}}
   //}}}
@@ -427,7 +446,7 @@ and in xyz coordinate file; not using xyz coordinates");
   } //}}}
 
   // write output file(s)? //{{{
-  strcpy(stuff, "Created via Info utility from AnalysisTools");
+  strcpy(stuff, "# Created via Info utility from AnalysisTools");
   if (output_vsf[0] != '\0') {
     VtfWriteStruct(output_vsf, *System, default_type);
   }

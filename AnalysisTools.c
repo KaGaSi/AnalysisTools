@@ -943,9 +943,25 @@ void PruneSystem(SYSTEM *System) { //{{{
   Count->BeadType = 0;
   for (int i = 0; i < Count_old->Bead; i++) {
     if (S_old.Bead[i].InTimestep) {
+      // create new bead type if it doesn't exist yet in the pruned system
+      int old_type = S_old.Bead[i].Type, new_type = -1;
+      for (int j = 0; j < Count->BeadType; j++) {
+        new_type = FindBeadType(S_old.BeadType[old_type].Name, *System);
+        if (new_type != -1) {
+          break;
+        }
+      }
+      if (new_type == -1) {
+        new_type = Count->BeadType;
+        NewBeadType(&System->BeadType, &Count->BeadType,
+                    S_old.BeadType[old_type].Name,
+                    S_old.BeadType[old_type].Charge,
+                    S_old.BeadType[old_type].Mass,
+                    S_old.BeadType[old_type].Radius);
+      }
+
       System->Bead[count_all] = S_old.Bead[i];
-      System->BeadCoor[count_all] = count_all;
-      b_id_old_to_new[i] = count_all;
+
       if (System->Bead[count_all].Molecule == -1) {
         System->Unbonded[count_unbonded] = count_all;
         System->UnbondedCoor[count_unbonded] = count_all;
@@ -955,58 +971,25 @@ void PruneSystem(SYSTEM *System) { //{{{
         System->BondedCoor[count_bonded] = count_all;
         count_bonded++;
       }
-      // create new bead type if it doesn't exist yet in the pruned system
-      bool new = true;
-      int old_type = S_old.Bead[count_all].Type;
-      for (int j = 0; j < Count->BeadType; j++) {
-        int new_type = FindBeadType(S_old.BeadType[old_type].Name, *System);
-        if (new_type != -1) {
-          System->Bead[count_all].Type = new_type;
-          System->BeadType[new_type].Number++;
-          new = false;
-          break;
-        }
-      }
-      if (new) {
-        int type = Count->BeadType;
-        NewBeadType(&System->BeadType, &Count->BeadType,
-                    S_old.BeadType[old_type].Name,
-                    S_old.BeadType[old_type].Charge,
-                    S_old.BeadType[old_type].Mass,
-                    S_old.BeadType[old_type].Radius);
-        System->BeadType[type].Number = 1;
-        int *old_type = &System->Bead[count_all].Type;
-        bt_old_to_new[*old_type] = type;
-        *old_type = type;
-      }
+      System->BeadCoor[count_all] = count_all;
+
+      System->Bead[count_all].Type = new_type;
+      b_id_old_to_new[i] = count_all;
+
+      System->BeadType[new_type].Number++;
+      bt_old_to_new[old_type] = new_type;
+
       count_all++;
     }
   }
-  // TODO: change bead types in MoleculeType arrays!!!
-  //       1) create old_type -> new_type mapping array somewhere up
-  //       2) go through the molecule types
-  //       ...why though? I'll test new molecule types based on old types, so
-  //       there's no need to remap the bead types as long as in the end the
-  //       MoleculeType[].Bead array gets updated
-  // change bead types in MoleculeType structs
-//for (int i = 0; i < Count_old->MoleculeType; i++) {
-//  MOLECULETYPE *mt_i = &S_old.MoleculeType[i];
-//  for (int j = 0; j < mt_i->nBeads; j++) {
-//    mt_i->Bead[j] = bt_old_to_new[mt_i->Bead[j]];
-//  }
-//}
-//for (int i = 0; i < Count_old->MoleculeType; i++) {
-//  MOLECULETYPE *mt_i = &S_old.MoleculeType[i];
-//  for (int j = 0; j < mt_i->nBeads; j++) {
-//    printf("%d %d\n", j, mt_i->Bead[j]);
-//  }
-//}
   Count->Bead = count_all;
   Count->BeadCoor = Count->Bead;
   Count->Bonded = count_bonded;
   Count->BondedCoor = Count->Bonded;
   Count->Unbonded = count_unbonded;
   Count->UnbondedCoor = Count->Unbonded; //}}}
+// TODO: all molecules are one type even though the first one has two fewer
+//       beads!!!
   // copy Molecule array & create a new MoleculeType array //{{{
   Count->MoleculeType = 0;
   Count->Molecule = 0;

@@ -1371,7 +1371,7 @@ using next timestep instead of this one");
     char line[LINE], *split[SPL_STR];
     int words;
     if (!ReadAndSplitLine(vcf, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      if (TIME_LINE_O && Count->BeadCoor != Count->Bead) {
+      if (timestep == TIME_LINE_O && Count->BeadCoor != Count->Bead) {
         return false;
       } else {
         return true;
@@ -1864,6 +1864,17 @@ SYSTEM FieldRead(char field_file[]) { //{{{
   MergeBeadTypes(&System, true);
   MergeMoleculeTypes(&System);
   FillSystemNonessentials(&System);
+  int c_unbonded = 0, c_bonded = 0;
+  for (int i = 0; i < Count->Bead; i++) {
+    System.BeadCoor[i] = i;
+    if (System.Bead[i].Molecule == -1) {
+      System.UnbondedCoor[c_unbonded] = i;
+      c_unbonded++;
+    } else {
+      System.BondedCoor[c_bonded] = i;
+      c_bonded++;
+    }
+  }
   CheckSystem(System, field_file);
   return System;
 } //}}}
@@ -2512,11 +2523,26 @@ SYSTEM LmpDataRead(char data_file[]) { //{{{
   int lmp_types = LmpDataReadHeader(data_file, lmp, &System, &file_line_count);
   LmpDataReadBody(data_file, lmp, &System, lmp_types, &file_line_count);
   fclose(lmp);
+  System.Count.BeadCoor = System.Count.Bead;
+  System.Count.UnbondedCoor = System.Count.Unbonded;
+  System.Count.BondedCoor = System.Count.Bonded;
   TriclinicCellData(&System.Box, 1);
   RemoveExtraTypes(&System);
   MergeBeadTypes(&System, true);
   MergeMoleculeTypes(&System);
   FillSystemNonessentials(&System);
+  PrintCount(System.Count);
+  int c_unbonded = 0, c_bonded = 0;
+  for (int i = 0; i < System.Count.Bead; i++) {
+    System.BeadCoor[i] = i;
+    if (System.Bead[i].Molecule == -1) {
+      System.UnbondedCoor[c_unbonded] = i;
+      c_unbonded++;
+    } else {
+      System.BondedCoor[c_bonded] = i;
+      c_bonded++;
+    }
+  }
   CheckSystem(System, data_file);
   return System;
 } //}}}
