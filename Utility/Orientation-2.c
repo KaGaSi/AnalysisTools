@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
   strcpy(input_coor, argv[++count]);
   // test that <input> filename ends with '.vcf' or '.vtf'
   bool vtf;
-  if (!InputCoor(&vtf, input_coor, input_vsf)) {
+  if (!InputCoor_old(&vtf, input_coor, input_vsf)) {
     Help(argv[0], true);
     exit(1);
   } //}}}

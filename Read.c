@@ -1196,7 +1196,7 @@ contact developper\n");
  * Get the first pbc line from a vcf/vtf coordinate file. If a coordinate line
  * is encountered before the pbc one, the function exits with an error.
  */
-void VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box) {
+bool VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box) {
   // open the coordinate file
   FILE *coor = OpenFile(input_vcf, "r");
   int file_line_count = 0;
@@ -1207,11 +1207,8 @@ void VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box) {
     char *split[SPL_STR], line[LINE];
     int words;
     if (!ReadAndSplitLine(coor, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "missing pbc line (and any coordinates)");
-      PrintError();
-      ErrorPrintFile(input_vcf, "\0", "\0");
-      putc('\n', stderr);
-      exit(1);
+      fclose(coor);
+      return false;
     } //}}}
     int ltype = VtfCheckLineType(words, split, input_vcf, file_line_count);
     // pbc line //{{{
@@ -1231,11 +1228,12 @@ void VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box) {
       }
       break; //}}}
     // error - coordinate line //{{{
-    } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
-      strcpy(ERROR_MSG, "encountered coordinate line before pbc line");
-      PrintErrorFileLine(input_vcf, file_line_count, split, words);
-      exit(1); //}}}
-    // warning - unrecognised line //{{{
+    // TODO: just check it's fine to ignore it...
+//  } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
+//    strcpy(ERROR_MSG, "encountered coordinate line before pbc line");
+//    PrintErrorFileLine(input_vcf, file_line_count, split, words);
+//    exit(1); //}}}
+//  // warning - unrecognised line //{{{
     } else if (ltype == ERROR_LINE) {
       strcpy(ERROR_MSG, "ignoring unrecognised line while \
 searching for a pbc line");
@@ -1244,6 +1242,7 @@ searching for a pbc line");
     } //}}}
   };
   fclose(coor);
+  return true;
 } //}}}
 // VtfReadTimestep() //{{{
 /*
@@ -2531,7 +2530,6 @@ SYSTEM LmpDataRead(char data_file[]) { //{{{
   MergeBeadTypes(&System, true);
   MergeMoleculeTypes(&System);
   FillSystemNonessentials(&System);
-  PrintCount(System.Count);
   int c_unbonded = 0, c_bonded = 0;
   for (int i = 0; i < System.Count.Bead; i++) {
     System.BeadCoor[i] = i;

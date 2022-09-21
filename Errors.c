@@ -117,9 +117,8 @@ void WarnPrintLine(char *split[SPL_STR], int words) {
 void ErrorArgNumber(int count, int need) {
   strcpy(ERROR_MSG, "insufficient number of arguments");
   PrintError();
-  fprintf(stderr, "%ssupplied: %d%s, needed: %s%d%s\n", ErrYellow(), count,
-                                                        ErrRed(), ErrYellow(),
-                                                        need, ErrColourReset());
+  fprintf(stderr, "%ssupplied: %s%d%s, needed: %s%d%s\n", ErrRed(), ErrYellow(),
+          count, ErrRed(), ErrYellow(), need, ErrColourReset());
 } //}}}
 
 // ErrorExtension() //{{{

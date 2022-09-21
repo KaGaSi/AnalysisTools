@@ -94,12 +94,12 @@ void FromFractionalCoor(SYSTEM *System) { //{{{
 } //}}}
  //}}}
 
-// InputCoor() //{{{
+// InputCoor_old() //{{{
 /**
  * Function to test whether input coordinate file is vtf or vcf and assign
  * default structure file name as either the vtf or traject.vsf.
  */
-bool InputCoor(bool *vtf, char *file_coor, char *file_struct) {
+bool InputCoor_old(bool *vtf, char *file_coor, char *file_struct) {
   int ext = 2;
   char extension[2][5];
   strcpy(extension[0], ".vcf");
@@ -118,6 +118,56 @@ bool InputCoor(bool *vtf, char *file_coor, char *file_struct) {
     strcpy(file_struct, "traject.vsf");
   }
   return true;
+} //}}}
+// InputCoorStruct() //{{{
+/**
+ * Function to test whether input coordinate file is vtf or vcf and assign
+ * default structure file name as either the vtf or traject.vsf.
+ */
+int InputCoorStruct(int argc, char **argv,
+                    char coor[], char vsf[], char lmp[], char field[]) {
+  int ext = 4, type;
+  char extension[4][5];
+  strcpy(extension[0], ".vcf");
+  strcpy(extension[1], ".vtf");
+  strcpy(extension[2], ".xyz");
+  strcpy(extension[3], ".lmp");
+  ext = ErrorExtension(coor, ext, extension);
+  switch(ext) {
+    case 0: // if vcf, copy to input_vsf with vsf ending
+      ; int last = -1;
+      for (int i = 0; i < strlen(coor); i++) {
+        if (coor[i] == '.') {
+          last = i;
+        }
+      }
+      strncpy(vsf, coor, last);
+      strcat(vsf, ".vsf");
+      type = 1;
+      break;
+    case 1: // if vtf, copy to input_vsf
+      strcpy(vsf, coor);
+      type = 1;
+      break;
+    case 2: // xyz
+      type = 2;
+      break;
+    case 3: // lmp
+      type = 3;
+      break;
+    default: // something wrong; should never happen
+      type = -1;
+  }
+  if (FileOption(argc, argv, "-l_in", lmp, LINE)) {
+    exit(1);
+  }
+  if (FileOption(argc, argv, "-vs_in", vsf, LINE)) {
+    exit(1);
+  }
+  if (FileOption(argc, argv, "-f_in", field, LINE)) {
+    exit(1);
+  }
+  return type;
 } //}}}
 
 // TODO add detailed stuff
@@ -988,8 +1038,6 @@ void PruneSystem(SYSTEM *System) { //{{{
   Count->BondedCoor = Count->Bonded;
   Count->Unbonded = count_unbonded;
   Count->UnbondedCoor = Count->Unbonded; //}}}
-// TODO: all molecules are one type even though the first one has two fewer
-//       beads!!!
   // copy Molecule array & create a new MoleculeType array //{{{
   Count->MoleculeType = 0;
   Count->Molecule = 0;
@@ -2993,6 +3041,7 @@ void PrintBox(BOX Box) { //{{{
   fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
   fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
   fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);
+  fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
   // print transform matrix //{{{
   for (int i = 0; i < 3; i++) {
     if (i == 0) {

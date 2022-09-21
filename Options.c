@@ -485,12 +485,12 @@ bool FileOption(int argc, char **argv, char *opt,
         fprintf(stderr, " - missing output file name");
         fprintf(stderr, " (or the file name begins with '-')\n\n");
         ColourReset(STDERR_FILENO);
-        return(true);
+        return true;
       }
       snprintf(name, LINE, "%s", argv[i+1]);
     }
   }
-  return(false);
+  return false;
 } //}}}
 
 // StartEndTime() //{{{

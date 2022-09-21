@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
        file_in_struct[LINE] = "";
   snprintf(file_in_coor, LINE, "%s", argv[++count]);
   bool vtf = false;
-  if (!InputCoor(&vtf, file_in_coor, file_in_struct)) {
+  if (!InputCoor_old(&vtf, file_in_coor, file_in_struct)) {
     Help(argv[0], true);
     exit(1);
   } //}}}

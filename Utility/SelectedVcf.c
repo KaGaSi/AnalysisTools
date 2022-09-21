@@ -19,7 +19,8 @@ containing all beads of any given type, so the usefulness is very limited \
   fprintf(ptr, "Usage:\n");
   fprintf(ptr, "   %s <input> <output.vcf> <bead(s)> [options]\n\n", cmd);
 
-  fprintf(ptr, "   <input>        input coordinate file (vcf or vtf format)\n");
+  fprintf(ptr, "   <input>        input coordinate file \
+(vcf, vtf or xyz format)\n");
   fprintf(ptr, "   <output.vcf>   output coordinate file (vcf format)\n");
   fprintf(ptr, "   <bead(s)>      names of bead types to save \
 (optional if '--reverse' used)\n");
@@ -70,7 +71,9 @@ int main(int argc, char *argv[]) {
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] == '-' &&
-        strcmp(argv[i], "-i") != 0 &&
+        strcmp(argv[i], "-l_in") != 0 &&
+        strcmp(argv[i], "-vs_in") != 0 &&
+        strcmp(argv[i], "-f_in") != 0 &&
         strcmp(argv[i], "-v") != 0 &&
         strcmp(argv[i], "--detailed") != 0 &&
         strcmp(argv[i], "--silent") != 0 &&
@@ -95,13 +98,25 @@ int main(int argc, char *argv[]) {
   count = 0; // count mandatory arguments
 
   // <input> - input coordinate file //{{{
-  char input_coor[LINE] = "", input_vsf[LINE] = "";
-  snprintf(input_coor, LINE, "%s", argv[++count]);
-  // test that <input> filename ends with '.vcf' or '.vtf'
-  bool vtf;
-  if (!InputCoor(&vtf, input_coor, input_vsf)) {
-    Help(argv[0], true);
-    exit(1);
+  char in_coor[LINE] = "",
+       in_vsf[LINE] = "",
+       in_lmp[LINE] = "",
+       in_field[LINE] = "",
+       *struct_file;
+  int coor_type, struct_type;
+  snprintf(in_coor, LINE, "%s", argv[++count]);
+  // coor_type: 1..vcf, 2..xyz, 3..lmp
+  coor_type = InputCoorStruct(argc, argv, in_coor, in_vsf, in_lmp, in_field);
+  // struct_type: 1..vsf, 2..lmp, 3..FIELD
+  if (in_vsf[0] != '\0') {
+    struct_type = 1;
+    struct_file = in_vsf;
+  } else if (in_lmp[0] != '\0') {
+    struct_type = 2;
+    struct_file = in_lmp;
+  } else if (in_field[0] != '\0') {
+    struct_type = 3;
+    struct_file = in_field;
   } //}}}
 
   // <output.vcf> - output vcf file //{{{
@@ -118,7 +133,7 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data //{{{
   bool silent, verbose, detailed;
-  CommonOptions(argc, argv, input_vsf, LINE, &verbose, &silent, &detailed);
+  CommonOptions(argc, argv, in_vsf, LINE, &verbose, &silent, &detailed);
   int skip = 0;
   if (IntegerOption(argc, argv, "-sk", &skip)) {
     exit(1);
@@ -152,16 +167,46 @@ int main(int argc, char *argv[]) {
     PrintCommand(stdout, argc, argv);
   } //}}}
 
-  // read information from vtf file(s) //{{{
-  SYSTEM System = VtfReadStruct(input_vsf, detailed);
-  VtfReadPBC(input_coor, input_vsf, &System.Box);
-  if (!TriclinicCellData(&System.Box)) {
-    strcpy(ERROR_MSG, "wrong pbc data");
-    PrintError();
-    exit(1);
+  // read structural information //{{{
+  SYSTEM System;
+  switch(struct_type) {
+    case 1: // vsf/vtf
+      System = VtfReadStruct(in_vsf, detailed);
+      VtfReadPBC(in_vsf, in_vsf, &System.Box);
+      if (!TriclinicCellData(&System.Box, 0)) {
+        strcpy(ERROR_MSG, "wrong pbc data");
+        PrintError();
+        exit(1);
+      }
+      break;
+    case 2: // lmp
+      System = LmpDataRead(in_lmp);
+      if (!TriclinicCellData(&System.Box, 0)) {
+        strcpy(ERROR_MSG, "wrong pbc data");
+        PrintError();
+        exit(1);
+      }
+      break;
+    case 3: // field
+      System = FieldRead(in_field);
+      break;
+  }
+  //}}}
+  // pbc from vcf/vtf coordinate file //{{{
+  if (coor_type == 1) {
+    VtfReadPBC(in_coor, in_vsf, &System.Box);
   } //}}}
 
-  WarnChargedSystem(System, input_vsf, "\0");
+  WarnChargedSystem(System, in_vsf, "\0", "\0");
+
+  // TODO: WTF? It's always printed!
+  if (System.Box.Volume == -1) {
+    strcpy(ERROR_MSG, "unspecified box dimensions");
+    PrintWarning();
+    WarnPrintFile(struct_file, in_coor, "\0");
+    putc('\n', stderr);
+    // TODO: WTF? Nothing is printed!
+  }
 
   // <bead names> - names of bead types to save //{{{
   bool *write = calloc(System.Count.Bead, sizeof *write),
@@ -171,7 +216,7 @@ int main(int argc, char *argv[]) {
     if (type == -1) {
       ErrorPrintError_old();
       ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "%s", input_coor);
+      fprintf(stderr, "%s", in_coor);
       ColourChange(STDERR_FILENO, RED);
       fprintf(stderr, " - non-existent bead name ");
       ColourChange(STDERR_FILENO, YELLOW);
@@ -223,7 +268,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // open input coordinate file
-  FILE *vcf = OpenFile(input_coor, "r");
+  FILE *vcf = OpenFile(in_coor, "r");
   fpos_t position1, position2;
 
   // print initial stuff to output vcf file
@@ -281,24 +326,26 @@ int main(int argc, char *argv[]) {
     //}}}
     // read and write the timestep, if it should be saved //{{{
     if (use) {
-      if (!VtfReadTimestep(vcf, input_coor, input_vsf, &System,
+      if (!VtfReadTimestep(vcf, in_coor, in_vsf, &System,
                            &file_line_count, count_vcf, stuff)) {
         count_vcf--;
         break;
       }
       // transform coordinates into fractional ones for non-orthogonal box
-      if (wrap || join) {
-        ToFractionalCoor(&System);
-      }
-      if (wrap) { // wrap coordinates into the simulation box
-        RestorePBC(&System);
-      }
-      if (join) { // join molecules by removing periodic boundary conditions
-        RemovePBCMolecules(&System);
-      }
-      // transform back to 'normal' coordinates for non-orthogonal box
-      if (wrap || join) {
-        FromFractionalCoor(&System);
+      if (System.Box.Volume != -1) { // only if box is specified
+        if (wrap || join) {
+          ToFractionalCoor(&System);
+        }
+        if (wrap) { // wrap coordinates into the simulation box
+          RestorePBC(&System);
+        }
+        if (join) { // join molecules by removing periodic boundary conditions
+          RemovePBCMolecules(&System);
+        }
+        // transform back to 'normal' coordinates for non-orthogonal box
+        if (wrap || join) {
+          FromFractionalCoor(&System);
+        }
       }
       // write to output .vcf file
       out = OpenFile(output_vcf, "a");
@@ -307,13 +354,13 @@ int main(int argc, char *argv[]) {
       // write to xyz file?
       if (output_xyz[0] != '\0') {
         out = OpenFile(output_xyz, "a");
-        XyzWriteCoor(out, write, System);
+        XyzWriteCoor(out, write, stuff, System);
         fclose(out);
       }
       //}}}
     // skip the timestep, if it shouldn't be saved //{{{
     } else {
-      if (!VtfSkipTimestep(vcf, input_coor, input_vsf, &file_line_count,
+      if (!VtfSkipTimestep(vcf, in_coor, in_vsf, &file_line_count,
                            count_vcf)) {
         count_vcf--;
         break;
@@ -343,7 +390,7 @@ int main(int argc, char *argv[]) {
     } else {
       fsetpos(vcf, &position2);
     }
-    VtfReadTimestep(vcf, input_coor, input_vsf, &System,
+    VtfReadTimestep(vcf, in_coor, in_vsf, &System,
                     &file_line_count, count_vcf, stuff);
     // transform coordinates into fractional ones for non-orthogonal box
     ToFractionalCoor(&System);
@@ -363,7 +410,7 @@ int main(int argc, char *argv[]) {
     // write to xyz file?
     if (output_xyz[0] != '\0') {
       out = OpenFile(output_xyz, "a");
-      XyzWriteCoor(out, write, System);
+      XyzWriteCoor(out, write, stuff, System);
       fclose(out);
     }
   //}}}
@@ -379,7 +426,7 @@ than the number of timestep)");
   if (count_vcf == 0) {
     strcpy(ERROR_MSG, "no valid timestep found");
     PrintError();
-    ErrorPrintFile(input_coor, "\0");
+    ErrorPrintFile(in_coor, "\0", "\0");
     fputc('\n', stderr);
   //}}}
   } else if (!silent) {

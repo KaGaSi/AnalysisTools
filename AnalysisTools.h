@@ -40,7 +40,9 @@ void CheckSystem(SYSTEM System, char file[]);
  * \param [in]  file_struct  name of structure file
  * \return false if file_coor has wrong extension, true otherwise
  */
-bool InputCoor(bool *vtf, char *file_coor, char *file_struct); //}}}
+bool InputCoor_old(bool *vtf, char *file_coor, char *file_struct); //}}}
+int InputCoorStruct(int argc, char **argv,
+                    char coor[], char vsf[], char lmp[], char field[]);
 
 int FindBeadType(char name[], SYSTEM System);
 int FindMoleculeName(char name[], SYSTEM System);

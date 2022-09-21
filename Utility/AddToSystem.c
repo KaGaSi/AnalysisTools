@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
   if (strcmp(argv[++count], "--") != 0) {
     // test that <input> filename ends with '.vcf' or '.vtf'
     snprintf(file_coor, LINE, "%s", argv[count]);
-    if (!InputCoor(&vtf, file_coor, file_struct)) {
+    if (!InputCoor_old(&vtf, file_coor, file_struct)) {
       Help(argv[0], true);
       exit(1);
     }

@@ -34,7 +34,7 @@ void RemoveExtraTypes(SYSTEM *System);
 void MergeBeadTypes(SYSTEM *System, bool detailed);
 void MergeMoleculeTypes(SYSTEM *System);
 // Get the first pbc line from a vcf/vtf coordinate file.
-void VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box);
+bool VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box);
 // Read a single timestep from a vcf/vtf coordinate file
 bool VtfReadTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
                      SYSTEM *System, int *file_line_count,

@@ -7,16 +7,17 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[],
   if (stuff[0] != '\0') {
     fprintf(vcf, "%s\n", stuff);
   }
-  // print box size (or 1 1 1 if unspecified box dimensions) //{{{
+  // print box size if present //{{{
   BOX *box = &System.Box;
-  if (box->Volume == -1) {
-    strcpy(ERROR_MSG, "undefined simulation box size");
-    PrintWarning();
-    fprintf(stderr, "%sdimensions:%s %lf %lf %lf%s;", ErrCyan(), ErrYellow(),
-            box->Length.x, box->Length.y, box->Length.z, ErrCyan());
-    fprintf(stderr, " using 1 1 1 instead%s\n", ErrColourReset());
-    fprintf(vcf, "pbc 1 1 1");
-  } else {
+//if (box->Volume == -1) {
+//  strcpy(ERROR_MSG, "undefined simulation box size");
+//  PrintWarning();
+//  fprintf(stderr, "%sdimensions:%s %lf %lf %lf%s;", ErrCyan(), ErrYellow(),
+//          box->Length.x, box->Length.y, box->Length.z, ErrCyan());
+//  fprintf(stderr, " using 1 1 1 instead%s\n", ErrColourReset());
+//  fprintf(vcf, "pbc 1 1 1");
+//} else {
+  if (box->Volume != -1) {
     fprintf(vcf, "pbc %lf %lf %lf",
             box->Length.x, box->Length.y, box->Length.z);
   }
@@ -488,7 +489,7 @@ void WriteField(SYSTEM System, char file_field[]) { //{{{
       fprintf(fw, "bonds %d\n", mt_i->nBonds);
       for (int j = 0; j < mt_i->nBonds; j++) {
         // TODO harm only for now
-        fprintf(fw, "harm %5d %5d", mt_i->Bond[j][0], mt_i->Bond[j][1]);
+        fprintf(fw, "harm %5d %5d", mt_i->Bond[j][0]+1, mt_i->Bond[j][1]+1);
         int type = mt_i->Bond[j][2];
         if (type != -1) {
           fprintf(fw, " %lf %lf\n",
@@ -503,8 +504,9 @@ void WriteField(SYSTEM System, char file_field[]) { //{{{
       fprintf(fw, "angles %d\n", mt_i->nAngles);
       for (int j = 0; j < mt_i->nAngles; j++) {
         // TODO harm only for now
-        fprintf(fw, "harm %5d %5d %5d",
-                mt_i->Angle[j][0], mt_i->Angle[j][1], mt_i->Angle[j][2]);
+        fprintf(fw, "harm %5d %5d %5d", mt_i->Angle[j][0]+1,
+                                        mt_i->Angle[j][1]+1,
+                                        mt_i->Angle[j][2]+1);
         int type = mt_i->Angle[j][3];
         if (type != -1) {
           fprintf(fw, " %lf %lf\n",
@@ -520,10 +522,10 @@ void WriteField(SYSTEM System, char file_field[]) { //{{{
       fprintf(fw, "# lammps' harmonic style\n");
       for (int j = 0; j < mt_i->nDihedrals; j++) {
         // TODO harm (lammps) only for now
-        fprintf(fw, "harm %5d %5d %5d %5d", mt_i->Dihedral[j][0],
-                                            mt_i->Dihedral[j][1],
-                                            mt_i->Dihedral[j][2],
-                                            mt_i->Dihedral[j][3]);
+        fprintf(fw, "harm %5d %5d %5d %5d", mt_i->Dihedral[j][0]+1,
+                                            mt_i->Dihedral[j][1]+1,
+                                            mt_i->Dihedral[j][2]+1,
+                                            mt_i->Dihedral[j][3]+1);
         int type = mt_i->Dihedral[j][4];
         if (type != -1) {
           fprintf(fw, " %lf %lf %lf\n", System.DihedralType[type].a,
