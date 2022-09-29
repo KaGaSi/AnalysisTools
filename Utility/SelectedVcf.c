@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data //{{{
   bool silent, verbose, detailed;
-  CommonOptions(argc, argv, in_vsf, LINE, &verbose, &silent, &detailed);
+  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed);
   int skip = 0;
   if (IntegerOption(argc, argv, "-sk", &skip)) {
     exit(1);
@@ -167,46 +167,37 @@ int main(int argc, char *argv[]) {
     PrintCommand(stdout, argc, argv);
   } //}}}
 
-  // read structural information //{{{
+  // read input data //{{{
   SYSTEM System;
   switch(struct_type) {
     case 1: // vsf/vtf
       System = VtfReadStruct(in_vsf, detailed);
       VtfReadPBC(in_vsf, in_vsf, &System.Box);
-      if (!TriclinicCellData(&System.Box, 0)) {
-        strcpy(ERROR_MSG, "wrong pbc data");
-        PrintError();
-        exit(1);
-      }
       break;
     case 2: // lmp
       System = LmpDataRead(in_lmp);
-      if (!TriclinicCellData(&System.Box, 0)) {
-        strcpy(ERROR_MSG, "wrong pbc data");
-        PrintError();
-        exit(1);
-      }
       break;
     case 3: // field
       System = FieldRead(in_field);
       break;
   }
-  //}}}
-  // pbc from vcf/vtf coordinate file //{{{
+  // pbc from vcf/vtf coordinate file
   if (coor_type == 1) {
     VtfReadPBC(in_coor, in_vsf, &System.Box);
-  } //}}}
-
+  }
+  if (!TriclinicCellData(&System.Box, 1)) {
+    strcpy(ERROR_MSG, "wrong pbc data");
+    PrintError();
+    exit(1);
+  }
   WarnChargedSystem(System, in_vsf, "\0", "\0");
-
-  // TODO: WTF? It's always printed!
+  // warn if missing box dimensions
   if (System.Box.Volume == -1) {
     strcpy(ERROR_MSG, "unspecified box dimensions");
     PrintWarning();
     WarnPrintFile(struct_file, in_coor, "\0");
     putc('\n', stderr);
-    // TODO: WTF? Nothing is printed!
-  }
+  } //}}}
 
   // <bead names> - names of bead types to save //{{{
   bool *write = calloc(System.Count.Bead, sizeof *write),
@@ -267,10 +258,6 @@ int main(int argc, char *argv[]) {
     VerboseOutput(System);
   } //}}}
 
-  // open input coordinate file
-  FILE *vcf = OpenFile(in_coor, "r");
-  fpos_t position1, position2;
-
   // print initial stuff to output vcf file
   FILE *out = OpenFile(output_vcf, "w");
   PrintByline(out, argc, argv);
@@ -280,22 +267,26 @@ int main(int argc, char *argv[]) {
     fclose(OpenFile(output_xyz, "w"));
   }
 
+  // open input coordinate file
+  FILE *coor = OpenFile(in_coor, "r");
+  fpos_t position1, position2;
+
   // main loop //{{{
   int n_opt_count = 0, // count saved steps if -n option is used
-      count_vcf = 0, // count steps in the vcf file
+      count_coor = 0, // count steps in the vcf file
       file_line_count = 0; // count lines in the vcf file
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
   while (true) {
-    count_vcf++;
+    count_coor++;
     // print step info? //{{{
     if (!silent && isatty(STDOUT_FILENO)) {
       if (last) {
-        fprintf(stdout, "\rDiscarding step: %d", count_vcf);
+        fprintf(stdout, "\rDiscarding step: %d", count_coor);
       } else {
-        if (count_vcf == start) {
+        if (count_coor == start) {
           fprintf(stdout, "\rStarting step: %d\n", start);
         }
-        fprintf(stdout, "\rStep: %d", count_vcf);
+        fprintf(stdout, "\rStep: %d", count_coor);
       }
       fflush(stdout);
     } //}}}
@@ -307,8 +298,8 @@ int main(int argc, char *argv[]) {
      *    2) isn't skipped (-sk option); skipping starts counting with 'start'
      */
     if (n_opt_number == -1) {
-      if ((count_vcf >= start && (count_vcf <= end || end == -1)) && // 1)
-          ((count_vcf-start)%skip) == 0) { // 2)
+      if ((count_coor >= start && (count_coor <= end || end == -1)) && // 1)
+          ((count_coor-start)%skip) == 0) { // 2)
         use = true;
       } else {
         use = false;
@@ -319,17 +310,24 @@ int main(int argc, char *argv[]) {
       }
     // -n option is used - save the timestep if it's in the list
     } else if (n_opt_count < n_opt_number &&
-               n_opt_save[n_opt_count] == count_vcf) {
+               n_opt_save[n_opt_count] == count_coor) {
       use = true;
       n_opt_count++;
     }
     //}}}
     // read and write the timestep, if it should be saved //{{{
     if (use) {
-      if (!VtfReadTimestep(vcf, in_coor, in_vsf, &System,
-                           &file_line_count, count_vcf, stuff)) {
-        count_vcf--;
-        break;
+      if (coor_type == 1) {
+        if (!VtfReadTimestep(coor, in_coor, in_vsf, &System,
+                             &file_line_count, stuff)) {
+          count_coor--;
+          break;
+        }
+      } else if (coor_type == 2) {
+        if (!XYZReadTimestep(coor, in_coor, &System, &file_line_count)) {
+          count_coor--;
+          break;
+        }
       }
       // transform coordinates into fractional ones for non-orthogonal box
       if (System.Box.Volume != -1) { // only if box is specified
@@ -360,17 +358,17 @@ int main(int argc, char *argv[]) {
       //}}}
     // skip the timestep, if it shouldn't be saved //{{{
     } else {
-      if (!VtfSkipTimestep(vcf, in_coor, in_vsf, &file_line_count,
-                           count_vcf)) {
-        count_vcf--;
+      if (!VtfSkipTimestep(coor, in_coor, in_vsf, &file_line_count,
+                           count_coor)) {
+        count_coor--;
         break;
       }
     } //}}}
     // save file position (last two because of --last) //{{{
-    if ((count_vcf%2) == 0) {
-      fgetpos(vcf, &position1);
+    if ((count_coor%2) == 0) {
+      fgetpos(coor, &position1);
     } else {
-      fgetpos(vcf, &position2);
+      fgetpos(coor, &position2);
     } //}}}
     // decide whether to exit the main loop //{{{
     /* break the loop if
@@ -379,61 +377,60 @@ int main(int argc, char *argv[]) {
      *    2) end timestep was reached (-e option)
      */
     if ((n_opt_count == n_opt_number && !last) || // 1)
-        count_vcf == end) { // 2)
+        count_coor == end) { // 2)
       break;
     } //}}}
   } //}}}
   // if --last option is used, read & save the last timestep //{{{
   if (last) {
-    if ((count_vcf%2) == 1) {
-      fsetpos(vcf, &position1);
+    if ((count_coor%2) == 1) {
+      fsetpos(coor, &position1);
     } else {
-      fsetpos(vcf, &position2);
+      fsetpos(coor, &position2);
     }
-    VtfReadTimestep(vcf, in_coor, in_vsf, &System,
-                    &file_line_count, count_vcf, stuff);
-    // transform coordinates into fractional ones for non-orthogonal box
-    ToFractionalCoor(&System);
-    // wrap and/or join molecules?
-    if (wrap) {
-      RestorePBC(&System);
-    }
-    if (join) {
-      RemovePBCMolecules(&System);
-    }
-    // transform back to 'normal' coordinates for non-orthogonal box
-    FromFractionalCoor(&System);
-    // write to output .vcf file
-    out = OpenFile(output_vcf, "a");
-    VtfWriteCoorIndexed(out, stuff, write, System);
-    fclose(out);
-    // write to xyz file?
-    if (output_xyz[0] != '\0') {
-      out = OpenFile(output_xyz, "a");
-      XyzWriteCoor(out, write, stuff, System);
+    if (VtfReadTimestep(coor, in_coor, in_vsf, &System,
+                        &file_line_count, stuff)) {
+      // transform coordinates into fractional ones for non-orthogonal box
+      ToFractionalCoor(&System);
+      // wrap and/or join molecules?
+      if (wrap) {
+        RestorePBC(&System);
+      }
+      if (join) {
+        RemovePBCMolecules(&System);
+      }
+      // transform back to 'normal' coordinates for non-orthogonal box
+      FromFractionalCoor(&System);
+      // write to output .vcf file
+      out = OpenFile(output_vcf, "a");
+      VtfWriteCoorIndexed(out, stuff, write, System);
       fclose(out);
+      // write to xyz file?
+      if (output_xyz[0] != '\0') {
+        out = OpenFile(output_xyz, "a");
+        XyzWriteCoor(out, write, stuff, System);
+        fclose(out);
+      }
     }
-  //}}}
-  // warn if no timesteps were actually written //{{{
-  } else if (start > count_vcf) {
-    strcpy(ERROR_MSG, "no coordinates written (starting timestep higher \
-than the number of timestep)");
-    PrintWarning();
   } //}}}
-  fclose(vcf);
-  // print last step count? //{{{
+  fclose(coor);
   // error - input coordinate file with no coordinates //{{{
-  if (count_vcf == 0) {
+  if (count_coor == 0) {
     strcpy(ERROR_MSG, "no valid timestep found");
     PrintError();
     ErrorPrintFile(in_coor, "\0", "\0");
-    fputc('\n', stderr);
-  //}}}
+    fputc('\n', stderr); //}}}
+  // warn if no timesteps were actually written //{{{
+  } else if (start > count_coor) {
+    strcpy(ERROR_MSG, "no coordinates written (starting timestep higher \
+than the number of timestep)");
+    PrintWarning(); //}}}
+  // print last step count? //{{{
   } else if (!silent) {
     if (isatty(STDOUT_FILENO)) {
       fprintf(stdout, "\r                          \r");
     }
-    fprintf(stdout, "Last Step: %d\n", count_vcf);
+    fprintf(stdout, "Last Step: %d\n", count_coor);
     fflush(stdout);
   } //}}}
 

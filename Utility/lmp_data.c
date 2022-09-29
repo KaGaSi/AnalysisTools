@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data //{{{
   bool silent, verbose, detailed = false;
-  CommonOptions(argc, argv, input_vsf, LINE, &verbose, &silent, &detailed);
+  CommonOptions_old(argc, argv, input_vsf, LINE, &verbose, &silent, &detailed);
   // -f[!] option //{{{
   char input_field[LINE] = "\0";
   bool change_beads = false;

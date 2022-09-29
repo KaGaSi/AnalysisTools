@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data //{{{
   bool silent, verbose, detailed;
-  CommonOptions(argc, argv, file_in_struct, LINE, &verbose, &silent, &detailed);
+  CommonOptions_old(argc, argv, file_in_struct, LINE, &verbose, &silent, &detailed);
 
   // -offset <x> <y> <z> define offset for -vtf file //{{{
   double offset[100] = {0};

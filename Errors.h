@@ -31,10 +31,10 @@ void PrintErrorOption(char *opt);
 // print 'ERROR: - <ERROR_MSG>\nFile <file(s)>'
 void PrintErrorFile(char file1[], char file2[], char file3[]);
 // print 'ERROR: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>'
-void PrintErrorFileLine(char file1[], int count,
+void PrintErrorFileLine(char file[], int count,
                         char *split[SPL_STR], int words);
 // print 'WARNING: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>'
-void PrintWarningFileLine(char file1[], char file2[], char file3[], int count,
+void PrintWarningFileLine(char file[], int count,
                           char *split[SPL_STR], int words);
 // print 'FILE <name(s)>' in given colour
 void PrintFile(FILE *f, char file[], char colour[]);

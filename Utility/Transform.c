@@ -352,7 +352,7 @@ or 'rot[ation]'");
   // options before reading system data //{{{
   bool silent;
   bool verbose;
-  CommonOptions(argc, argv, input_vsf, &verbose, &silent, LINE);
+  CommonOptions_old(argc, argv, input_vsf, &verbose, &silent, LINE);
   // are joined coordinates provided?
   bool joined = BoolOption(argc, argv, "--joined");
   // use the last step?

@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
   // options before reading system data //{{{
   bool silent;
   bool verbose;
-  CommonOptions(argc, argv, input_vsf, &verbose, &silent, LINE);
+  CommonOptions_old(argc, argv, input_vsf, &verbose, &silent, LINE);
   // number of steps to skip per one used //{{{
   int skip = 0;
   if (IntegerOption(argc, argv, "-sk", &skip)) {

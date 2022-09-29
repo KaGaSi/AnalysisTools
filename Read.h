@@ -37,8 +37,7 @@ void MergeMoleculeTypes(SYSTEM *System);
 bool VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box);
 // Read a single timestep from a vcf/vtf coordinate file
 bool VtfReadTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
-                     SYSTEM *System, int *file_line_count,
-                     int step_count, char stuff[]);
+                     SYSTEM *System, int *file_line_count, char stuff[]);
 // Discard a single timestep from a vcf/vtf coordinate file
 bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
                      int *file_line_count, int step_count);
@@ -90,8 +89,11 @@ void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
 void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
                           int (*improper)[5], int *file_line_count);
  //}}}
-SYSTEM XYZFirstRead(char file[]);
-bool XYZCoorRead(FILE *fr, char file[], int *file_line_count);
+SYSTEM XYZReadStruct(char file[]);
+bool XYZReadTimestep(FILE *fr, char file[], SYSTEM *System,
+                     int *file_line_count);
+bool XYZSkipCoorLine(FILE *fr);
+bool XYZCheckCoorLine(int words, char *split[]);
 
 // helper functions //{{{
 // FillMolMass //{{{

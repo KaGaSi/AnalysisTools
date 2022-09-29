@@ -26,21 +26,21 @@ void PrintErrorOption(char *opt) {
 void PrintErrorFile(char file1[], char file2[], char file3[]) {
   PrintError();
   ErrorPrintFile(file1, file2, file3);
-  putc('\n', stderr);
+//putc('\n', stderr);
 } //}}}
 // print 'ERROR: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>' //{{{
-void PrintErrorFileLine(char file1[], int count,
+void PrintErrorFileLine(char file[], int count,
                         char *split[SPL_STR], int words) {
   PrintError();
-  ErrorPrintFile(file1, "\0", "\0");
+  ErrorPrintFile(file, "\0", "\0");
   fprintf(stderr, "%s, line %s%d%s:\n", ErrRed(), ErrYellow(), count, ErrRed());
   ErrorPrintLine2(split, words);
 } //}}}
 // print 'WARNING: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>' //{{{
-void PrintWarningFileLine(char file1[], char file2[], char file3[], int count,
+void PrintWarningFileLine(char file[], int count,
                           char *split[SPL_STR], int words) {
   PrintWarning();
-  WarnPrintFile(file1, file2, file3);
+  WarnPrintFile(file, "\0", "\0");
   fprintf(stderr, "%s, line %s%d%s:\n", ErrCyan(), ErrYellow(),
                                         count, ErrCyan());
   WarnPrintLine(split, words);

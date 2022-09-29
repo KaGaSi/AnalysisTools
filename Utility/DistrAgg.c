@@ -131,7 +131,7 @@ int main(int argc, char *argv[]) {
   bool verbose;
   char input_vsf[LINE] = "";
   snprintf(input_vsf, LINE, "traject.vsf");
-  CommonOptions(argc, argv, input_vsf, &verbose, &silent, LINE);
+  CommonOptions_old(argc, argv, input_vsf, &verbose, &silent, LINE);
   int start, end;
   StartEndTime(argc, argv, &start, &end); //}}}
 

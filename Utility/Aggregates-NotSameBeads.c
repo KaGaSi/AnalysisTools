@@ -511,7 +511,7 @@ int main(int argc, char *argv[]) {
   // options before reading system data //{{{
   bool silent;
   bool verbose;
-  CommonOptions(argc, argv, input_vsf, &verbose, &silent, LINE);
+  CommonOptions_old(argc, argv, input_vsf, &verbose, &silent, LINE);
 
   // save coordinates of joined aggregates //{{{
   char joined_vcf[LINE];

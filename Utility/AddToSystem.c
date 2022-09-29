@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data //{{{
   bool silent, verbose, detailed;
-  CommonOptions(argc, argv, file_struct, LINE, &verbose, &silent, &detailed);
+  CommonOptions_old(argc, argv, file_struct, LINE, &verbose, &silent, &detailed);
 
   // -f <add> - FIELD-like file with molecules to add //{{{
   char file_add_field[LINE] = "";

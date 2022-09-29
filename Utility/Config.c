@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
   // options before reading system data //{{{
   bool silent;
   bool verbose;
-  CommonOptions(argc, argv, input_vsf, &verbose, &silent, LINE);
+  CommonOptions_old(argc, argv, input_vsf, &verbose, &silent, LINE);
   // timestep to create CONFIG file from
   int timestep = -1;
   if (IntegerOption(argc, argv, "-st", &timestep)) {

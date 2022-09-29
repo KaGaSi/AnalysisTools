@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data //{{{
   bool silent, verbose;
-  CommonOptions(argc, argv, input_vsf, &verbose, &silent, LINE);
+  CommonOptions_old(argc, argv, input_vsf, &verbose, &silent, LINE);
   int start, end;
   StartEndTime(argc, argv, &start, &end);
   // are provided coordinates joined?

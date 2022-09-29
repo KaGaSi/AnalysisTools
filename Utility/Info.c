@@ -308,7 +308,7 @@ lammps data file must be specified");
   } //}}}
   // use xyz coordinates if provided //{{{
   if (input_xyz[0] != '\0') {
-    SYSTEM xyz = XYZFirstRead(input_xyz);
+    SYSTEM xyz = XYZReadStruct(input_xyz);
     if (xyz.Count.Bead != System->Count.Bead) {
       strcpy(ERROR_MSG, "different numbers of beads in the primary system \
 and in xyz coordinate file; not using xyz coordinates");
@@ -330,10 +330,10 @@ and in xyz coordinate file; not using xyz coordinates");
   if (input_vcf[0] != '\0') {
     SYSTEM Sys_new = CopySystem(*System);
     VtfReadPBC(input_vcf, input_vsf, &Sys_new.Box);
-    int l_count = 0, s_count = 1;
+    int l_count = 0;
     FILE *fr = OpenFile(input_vcf, "r");
     if (!VtfReadTimestep(fr, input_vcf, "\0", // TODO: add some struct file
-                         &Sys_new, &l_count, s_count, stuff)) {
+                         &Sys_new, &l_count, stuff)) {
       strcpy(ERROR_MSG, "not all coordinates from vcf file could be read; \
 not using vcf coordinates");
       PrintWarning();

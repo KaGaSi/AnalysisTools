@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
   // options before reading system data //{{{
   bool silent;
   bool verbose;
-  CommonOptions(argc, argv, &input_vsf_1, &verbose, &silent);
+  CommonOptions_old(argc, argv, &input_vsf_1, &verbose, &silent);
 
   // save coordinates of joined aggregates //{{{
   char joined_vcf[LINE];

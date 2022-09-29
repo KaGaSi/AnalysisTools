@@ -919,7 +919,7 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data
   bool silent, verbose, detailed;
-  CommonOptions(argc, argv, input_vsf, LINE, &verbose, &silent, &detailed);
+  CommonOptions_old(argc, argv, input_vsf, LINE, &verbose, &silent, &detailed);
 
   // '-m' option //{{{
   int m_SC = 6; // no -m option
