@@ -2707,6 +2707,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
       System->Box.Tilt[2] = yz;
     } //}}}
   } while (  words == 0 || split[0][0] <  'A' || split[0][0] >  'Z' ); //}}}
+//PrintBox(System->Box);
   // return file pointer to before the first capital-letter-starting line
   fsetpos(lmp, &position);
   (*file_line_count)--;

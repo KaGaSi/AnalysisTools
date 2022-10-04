@@ -280,16 +280,6 @@ lammps data file must be specified");
       VerboseOutput(lmp);
     }
   } //}}}
-  // TODO: picking Box between vcf and lmp
-  // use Box from lmp if Box is unspecified in System //{{{
-  if (System->Box.Volume == -1) {
-    if (input_lmp[0] != '\0' && lmp.Box.Volume != -1) {
-      System->Box = lmp.Box;
-    }
-    if (input_vcf[0] != '\0' && vsf.Box.Volume != -1) {
-      System->Box = vsf.Box;
-    }
-  } //}}}
   // use coordinates from lmp if all coordinates in System are 0 //{{{
   bool coor = false;
   for (int i = 0; i < System->Count.Bead; i++) {
@@ -330,6 +320,7 @@ and in xyz coordinate file; not using xyz coordinates");
   if (input_vcf[0] != '\0') {
     SYSTEM Sys_new = CopySystem(*System);
     VtfReadPBC(input_vcf, input_vsf, &Sys_new.Box);
+    TriclinicCellData(&Sys_new.Box, 0);
     int l_count = 0;
     FILE *fr = OpenFile(input_vcf, "r");
     if (!VtfReadTimestep(fr, input_vcf, "\0", // TODO: add some struct file
@@ -348,8 +339,21 @@ not using vcf coordinates");
         System->BeadCoor[i] = id;
       }
     }
+    System->Box = Sys_new.Box;
     fclose(fr);
     FreeSystem(&Sys_new);
+  } //}}}
+  // TODO: picking Box between vcf and lmp
+  // use Box from lmp if Box is unspecified in System //{{{
+  if (System->Box.Volume == -1) {
+    if (input_lmp[0] != '\0' && lmp.Box.Volume != -1) {
+      System->Box = lmp.Box;
+      TriclinicCellData(&System->Box, 1);
+    }
+    if (input_vcf[0] != '\0' && vsf.Box.Volume != -1) {
+      System->Box = vsf.Box;
+      TriclinicCellData(&System->Box, 0);
+    }
   } //}}}
   // check electroneutrality //{{{
   char *second, *third;
@@ -438,6 +442,9 @@ not using vcf coordinates");
   // print information //{{{
   printf("Final system composition:\n");
   VerboseOutput(*System);
+  if (System->Box.Volume != -1) {
+    PrintBox(System->Box);
+  }
   if (verbose) { // -v option
     fprintf(stdout, "\nInformation about every bead:\n");
     PrintBead(*System);

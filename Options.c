@@ -490,6 +490,39 @@ void StartEndTime(int argc, char **argv, int *start, int *end) {
   ErrorStartEnd(*start, *end);
 } //}}}
 
+// CommonOptions_old() //{{{
+/**
+ * Function for options common to most of the utilities.
+ */
+void CommonOptions_old(int argc, char *argv[], char vsf_file[], int length,
+                   bool *verbose, bool *silent, bool *detailed) {
+
+  // -i <name> option - input structure file //{{{
+  // test if '-i' option is there
+  char name[LINE] = {'\0'};
+  if (FileOption(argc, argv, "-i", name, length)) {
+    exit(1);
+  }
+  // copy the name if '-i' option is present
+  if (name[0] != '\0') {
+    snprintf(vsf_file, LINE, "%s", name);
+  }
+  // test if structure file ends with '.vsf' or '.vtf'
+  int ext = 2;
+  char extension[2][5];
+  strcpy(extension[0], ".vsf");
+  strcpy(extension[1], ".vtf");
+  if (ErrorExtension(vsf_file, ext, extension) == -1) {
+    Help(argv[0], true);
+    exit(1);
+  } //}}}
+  // -v option - verbose output
+  *verbose = BoolOption(argc, argv, "-v");
+  // --silent option - silent mode
+  SilentOption(argc, argv, verbose, silent);
+  // --detailed option - base bead types on name, charge, mass, and radius
+  *detailed = BoolOption(argc, argv, "--detailed");
+} //}}}
 #if 0
 // TODO redo
 // MoleculeTypeOption() //{{{
@@ -720,38 +753,5 @@ bool ExcludeOption_old(int argc, char **argv, COUNTS Counts,
   }
 
   return(false);
-} //}}}
-// CommonOptions_old() //{{{
-/**
- * Function for options common to most of the utilities.
- */
-void CommonOptions_old(int argc, char *argv[], char vsf_file[], int length,
-                   bool *verbose, bool *silent, bool *detailed) {
-
-  // -i <name> option - input structure file //{{{
-  // test if '-i' option is there
-  char name[LINE] = {'\0'};
-  if (FileOption(argc, argv, "-i", name, length)) {
-    exit(1);
-  }
-  // copy the name if '-i' option is present
-  if (name[0] != '\0') {
-    snprintf(vsf_file, LINE, "%s", name);
-  }
-  // test if structure file ends with '.vsf' or '.vtf'
-  int ext = 2;
-  char extension[2][5];
-  strcpy(extension[0], ".vsf");
-  strcpy(extension[1], ".vtf");
-  if (ErrorExtension(vsf_file, ext, extension) == -1) {
-    Help(argv[0], true);
-    exit(1);
-  } //}}}
-  // -v option - verbose output
-  *verbose = BoolOption(argc, argv, "-v");
-  // --silent option - silent mode
-  SilentOption(argc, argv, verbose, silent);
-  // --detailed option - base bead types on name, charge, mass, and radius
-  *detailed = BoolOption(argc, argv, "--detailed");
 } //}}}
 #endif

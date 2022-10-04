@@ -1041,7 +1041,7 @@ int main(int argc, char *argv[]) {
   double E = Count->BeadCoor / N_A * E_coh; // energy, J
   double a = pow(n_unit*Mw/(N_A*rho), 1.0/3); // lattice const, m
   double a3 = CUBE(a);
-  double vol_a = CUBE(a) / n_unit; // atomic volume, m^3
+  double vol_a = a3 / n_unit; // atomic volume, m^3
 
   // reduced quantities
   double vol_a_red = vol_a / a3;

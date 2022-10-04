@@ -208,7 +208,7 @@ int main(int argc, char *argv[]) {
   while (count_vcf < st_orig) {
     count_vcf++;
     if (!VtfReadTimestep(vcf, file_in_coor, file_in_struct, &S_orig,
-                         &file_line_count, count_vcf, stuff)) {
+                         &file_line_count, stuff)) {
       count_vcf--;
       break;
     }
@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
   if (count_vcf < st_orig) {
     strcpy(ERROR_MSG, "starting step for the original system is too high");
     PrintWarning();
-    WarnPrintFile(file_in_coor, file_in_struct);
+    WarnPrintFile(file_in_coor, file_in_struct, "\0");
     fprintf(stderr, "%s contains %s%d%s steps (using the last one)%s\n",
             ErrCyan(), ErrYellow(), count_vcf, ErrCyan(), ErrColourReset());
   } //}}}
@@ -230,7 +230,7 @@ int main(int argc, char *argv[]) {
   while (count_vcf < st_add) {
     count_vcf++;
     if (!VtfReadTimestep(vcf, file_add_coor, file_add_struct, &S_add,
-                         &file_line_count, count_vcf, stuff)) {
+                         &file_line_count, stuff)) {
       count_vcf--;
       break;
     }
@@ -239,7 +239,7 @@ int main(int argc, char *argv[]) {
   if (count_vcf < st_add) {
     strcpy(ERROR_MSG, "starting step for the to-be-added system is too high");
     PrintWarning();
-    WarnPrintFile(file_add_coor, file_add_struct);
+    WarnPrintFile(file_add_coor, file_add_struct, "\0");
     fprintf(stderr, "%s contains %s%d%s steps (using the last one)%s\n",
             ErrCyan(), ErrYellow(), count_vcf, ErrCyan(), ErrColourReset());
   }
@@ -363,4 +363,5 @@ int main(int argc, char *argv[]) {
   free(write);
   //}}}
 
-  return 0; }
+  return 0;
+}

@@ -1957,6 +1957,9 @@ bool TriclinicCellData(BOX *Box, int mode) {
   // calculate angles and tilt vectors or tilt vectors and OrthoLength //{{{
   switch(mode) {
     case 0: // angles & Length given //{{{
+      Box->OrthoLength.x = Box->Length.x;
+      Box->OrthoLength.y = Box->Length.y;
+      Box->OrthoLength.z = Box->Length.z;
       if (Box->alpha != 90 || Box->beta != 90 || Box->gamma != 90 ) {
         double a = Box->Length.x,
                b = Box->Length.y,
@@ -1985,6 +1988,9 @@ bool TriclinicCellData(BOX *Box, int mode) {
       }
       break; //}}}
     case 1: // tilt & OrthoLength given //{{{
+      Box->Length.x = Box->OrthoLength.x;
+      Box->Length.y = Box->OrthoLength.y;
+      Box->Length.z = Box->OrthoLength.z;
       if (Box->Tilt[0] != 0 || Box->Tilt[1] != 0 || Box->Tilt[2] != 0) {
         double lx = Box->OrthoLength.x,
                ly = Box->OrthoLength.y,
