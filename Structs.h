@@ -11,7 +11,7 @@
 
 typedef struct Box { //{{{
   VECTOR Length; // side lengths (a, b, c for triclinic cell)
-  VECTOR OrthoLength; // lx, ly, lz for lammps (triclinic cell)
+  VECTOR OrthoLength; // orthogonal side length (lx, ly, lz for lammps)
   double alpha, beta, gamma, // angles - all 90 for orthogonal box
          transform[3][3], // transformation matrix
          inverse[3][3], // inverse of the transformation matrix

@@ -44,7 +44,9 @@ while printing per-atom charges in Atoms section (works with -l_out)\n");
   fprintf(ptr, "      --version            print version number and exit\n");
 } //}}}
 
-// TODO: implement to choose box - vcf/lmp
+// TODO: xXx implement to choose box - vcf/lmp
+//           possibly add -vc_in! if we want to overwrite any Box by the one
+//           from vcf file
 // TODO: implement to choose coordinates - vcf/lmp/xyz
 
 int main(int argc, char *argv[]) {
@@ -320,6 +322,7 @@ and in xyz coordinate file; not using xyz coordinates");
   if (input_vcf[0] != '\0') {
     SYSTEM Sys_new = CopySystem(*System);
     VtfReadPBC(input_vcf, input_vsf, &Sys_new.Box);
+    //TODO see at the top (xXx)
     TriclinicCellData(&Sys_new.Box, 0);
     int l_count = 0;
     FILE *fr = OpenFile(input_vcf, "r");

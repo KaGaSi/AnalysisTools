@@ -2066,10 +2066,6 @@ bool TriclinicCellData(BOX *Box, int mode) {
     Box->inverse[1][1] = 1 / Box->Length.y;
     Box->inverse[2][2] = 1 / Box->Length.z;
   } //}}}
-PrintBox(*Box); // TODO THIS IS CALLED THREE TIMES FOR:
-                //  Info -l_in 150.data -vc_in 150-v1.vcf -l_out test.data
-                //  @ /home/gary/AnalysisTools/build/test-lmp_data
-
   return true;
 } //}}}
  //}}}
