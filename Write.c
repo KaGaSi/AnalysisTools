@@ -238,14 +238,14 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
   fprintf(fw, " improper types\n");
   putc('\n', fw); //}}}
   // print box size //{{{
-  fprintf(fw, "0 %lf xlo xhi\n", Sys_print.Box.OrthoLength.x);
-  fprintf(fw, "0 %lf ylo yhi\n", Sys_print.Box.OrthoLength.y);
-  fprintf(fw, "0 %lf zlo zhi\n", Sys_print.Box.OrthoLength.z);
+  fprintf(fw, "0.0 %lf xlo xhi\n", Sys_print.Box.OrthoLength.x);
+  fprintf(fw, "0.0 %lf ylo yhi\n", Sys_print.Box.OrthoLength.y);
+  fprintf(fw, "0.0 %lf zlo zhi\n", Sys_print.Box.OrthoLength.z);
   if (System.Box.alpha != 90 ||
       System.Box.beta != 90 ||
       System.Box.gamma != 90) {
-    fprintf(fw, "%lf %lf %lf xy xz yz\n", Sys_print.Box.Tilt[0],
-            Sys_print.Box.Tilt[1], Sys_print.Box.Tilt[2]);
+    fprintf(fw, "%lf %lf %lf xy xz yz\n", Sys_print.Box.transform[0][1],
+            Sys_print.Box.transform[0][2], Sys_print.Box.transform[1][2]);
   }
   putc('\n', fw); //}}}
   // print bead type masses //{{{

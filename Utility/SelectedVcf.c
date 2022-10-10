@@ -190,7 +190,7 @@ int main(int argc, char *argv[]) {
     PrintError();
     exit(1);
   }
-  WarnChargedSystem(System, in_vsf, "\0", "\0");
+  WarnChargedSystem(System, in_vsf, in_field, in_lmp);
   // warn if missing box dimensions
   if (System.Box.Volume == -1) {
     strcpy(ERROR_MSG, "unspecified box dimensions");
@@ -246,7 +246,7 @@ int main(int argc, char *argv[]) {
     System.MoleculeType[i].Write = System.MoleculeType[i].Use;
   } //}}}
 
-  // '-n' option - specify bead ids //{{{
+  // '-n' option - specify timestep ids //{{{
   int n_opt_save[100] = {0}, n_opt_number = -1;
   if (MultiIntegerOption(argc, argv, "-n", &n_opt_number, n_opt_save)) {
     exit(1);

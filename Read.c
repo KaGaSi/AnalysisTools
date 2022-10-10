@@ -2702,9 +2702,9 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
           !IsRealNumber(split[2], &yz)) {
         goto error;
       }
-      System->Box.Tilt[0] = xy;
-      System->Box.Tilt[1] = xz;
-      System->Box.Tilt[2] = yz;
+      System->Box.transform[0][1] = xy;
+      System->Box.transform[0][2] = xz;
+      System->Box.transform[1][2] = yz;
     } //}}}
   } while (  words == 0 || split[0][0] <  'A' || split[0][0] >  'Z' ); //}}}
 //PrintBox(System->Box);

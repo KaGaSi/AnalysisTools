@@ -51,34 +51,40 @@ void PrintFile(FILE *f, char file1[], char colour[]) {
                               Colour(f, C_RESET));
 }
 void WarnPrintFile(char file1[], char file2[], char file3[]) {
-  fprintf(stderr, "%sFile %s%s%s", ErrCyan(),
-          ErrYellow(), file1, ErrColourReset());
-  if (file2[0] != '\0' || file3[0] != '\0') {
-    fprintf(stderr, " %s(%s", ErrCyan(), ErrYellow());
-    if (file2[0] != '\0' && file3[0] != '\0') {
-      fprintf(stderr, "%s%s, %s%s", file2, ErrCyan(), ErrYellow(), file3);
-    } else if (file3[0] == '\0') {
-      fprintf(stderr, "%s", file2);
-    } else {
-      fprintf(stderr, "%s", file3);
+  fprintf(stderr, "%sFile(s) %s", ErrCyan(), ErrYellow());
+  char *f[3];
+  f[0] = file1;
+  f[1] = file2;
+  f[2] = file3;
+  int n_files = 0;
+  for (int i = 0; i < 3; i++) {
+    if (f[i][0] != '\0') {
+      if (n_files > 0) {
+        fprintf(stderr, "%s, %s", ErrCyan(), ErrYellow());
+      }
+      fprintf(stderr, "%s", f[i]);
+      n_files++;
     }
-    fprintf(stderr, "%s)%s", ErrCyan(), ErrColourReset());
   }
+  fprintf(stderr, "%s", ErrColourReset());
 }
 void ErrorPrintFile(char file1[], char file2[], char file3[]) {
-  fprintf(stderr, "%sFile %s%s%s", ErrRed(),
-          ErrYellow(), file1, ErrColourReset());
-  if (file2[0] != '\0' || file3[0] != '\0') {
-    fprintf(stderr, " %s(%s", ErrRed(), ErrYellow());
-    if (file2[0] != '\0' && file3[0] != '\0') {
-      fprintf(stderr, "%s%s, %s%s", file2, ErrRed(), ErrYellow(), file3);
-    } else if (file3[0] == '\0') {
-      fprintf(stderr, "%s", file2);
-    } else {
-      fprintf(stderr, "%s", file3);
+  fprintf(stderr, "%sFile(s) %s", ErrRed(), ErrYellow());
+  char *f[3];
+  f[0] = file1;
+  f[1] = file2;
+  f[2] = file3;
+  int n_files = 0;
+  for (int i = 0; i < 3; i++) {
+    if (f[i][0] != '\0') {
+      if (n_files > 0) {
+        fprintf(stderr, "%s, %s", ErrRed(), ErrYellow());
+      }
+      fprintf(stderr, "%s", f[i]);
+      n_files++;
     }
-    fprintf(stderr, "%s)%s", ErrRed(), ErrColourReset());
   }
+  fprintf(stderr, "%s", ErrColourReset());
 }
  //}}}
 // print 'Line: <line>|(blank)' in given colours //{{{
@@ -202,8 +208,9 @@ void ErrorPrintLine(char split[SPL_STR][SPL_LEN], int words) {
   ColourReset(STDERR_FILENO);
 } //}}}
 
+// WarnChargedSystem() //{{{
 void WarnChargedSystem(SYSTEM System, char file1[], char file2[],
-                       char file3[]) { //{{{
+                       char file3[]) {
   double charge = 0;
   for (int i = 0; i < System.Count.BeadType; i++) {
     // do nothing if at least one bead type had undefined charge
@@ -216,7 +223,7 @@ void WarnChargedSystem(SYSTEM System, char file1[], char file2[],
     strcpy(ERROR_MSG, "system with net electric charge");
     PrintWarning();
     WarnPrintFile(file1, file2, file3);
-    fprintf(stderr, "%s, %sq = %lf%s\n", ErrCyan(),
+    fprintf(stderr, "%s; %sq = %lf%s\n", ErrCyan(),
             ErrYellow(), charge, ErrColourReset());
   }
 } //}}}

@@ -1,16 +1,16 @@
 #include "../AnalysisTools.h"
 
-#define e 1.60217646e-19 // electron charge
-#define N_A 6.0221367e23 // Avogadro
-#define k_B 1.380658e-23 // Boltzman
-#define eVA3_to_Pa (e*1e30) // eV/Angstrom^3 to Pa
+#define e 1.60217646e-19         // electron charge
+#define N_A 6.0221367e23         // Avogadro
+#define k_B 1.380658e-23         // Boltzman
+#define eVA3_to_Pa (e * 1e30)    // eV/Angstrom^3 to Pa
 #define Jmol_to_eV 1.03642755e-5 // J/mol to eV/particle
 
 typedef struct element {
   char Symbol[3];
   int State, Radius, Crystal;
   double Mass, IonizationEnergy, MeltingPoint, BoilingPoint, Density,
-         BulkModulus, CohesionEnergy;
+      BulkModulus, CohesionEnergy;
 } ELEMENT;
 
 // fill element array with info //{{{
@@ -122,7 +122,8 @@ void FillElements(ELEMENT element[]) {
   element[12].Density = 1.74e3;
   element[12].Crystal = 3;
   element[12].BulkModulus = 35.4e9; // wiki
-  element[12].CohesionEnergy = 8.48e3 + 128e3; // wiki; heat of fusion + heat of vaporization
+  element[12].CohesionEnergy =
+      8.48e3 + 128e3; // wiki; heat of fusion + heat of vaporization
   strcpy(element[13].Symbol, "Al");
   element[13].State = 1;
   element[13].Mass = 26.981538e-3;
@@ -357,7 +358,7 @@ void FillElements(ELEMENT element[]) {
   element[40].BoilingPoint = 4682;
   element[40].Density = 6.52e3;
   element[40].Crystal = 3;
-  element[40].BulkModulus = 97.2e9; // chapter 5 of that thingy
+  element[40].BulkModulus = 97.2e9;               // chapter 5 of that thingy
   element[40].CohesionEnergy = 6.21 / Jmol_to_eV; // chapter 5 of that thingy
   strcpy(element[41].Symbol, "Nb");
   element[41].State = 1;
@@ -872,13 +873,13 @@ int main(int argc, char *argv[]) {
 
   // check if correct number of arguments //{{{
   int count = 0;
-  while ((count+1) < argc && argv[count+1][0] != '-') {
+  while ((count + 1) < argc && argv[count + 1][0] != '-') {
     count++;
   }
   // reverse bead type selection? ...do now to check correct number of arguments
   bool reverse = BoolOption(argc, argv, "--reverse");
   // possible to omit <bead name(s)> if '--reverse' is used
-  if (count < (req_args-1) || (count == (req_args-1) && !reverse)) {
+  if (count < (req_args - 1) || (count == (req_args - 1) && !reverse)) {
     ErrorArgNumber(count, req_args);
     Help(argv[0], true);
     exit(1);
@@ -886,13 +887,10 @@ int main(int argc, char *argv[]) {
 
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' &&
-        strcmp(argv[i], "-m") != 0 &&
-        strcmp(argv[i], "-i") != 0 &&
-        strcmp(argv[i], "-v") != 0 &&
+    if (argv[i][0] == '-' && strcmp(argv[i], "-m") != 0 &&
+        strcmp(argv[i], "-i") != 0 && strcmp(argv[i], "-v") != 0 &&
         strcmp(argv[i], "--detailed") != 0 &&
-        strcmp(argv[i], "--silent") != 0 &&
-        strcmp(argv[i], "-h") != 0 &&
+        strcmp(argv[i], "--silent") != 0 && strcmp(argv[i], "-h") != 0 &&
         strcmp(argv[i], "--version") != 0) {
       ErrorOption(argv[i]);
       Help(argv[0], true);
@@ -927,12 +925,10 @@ int main(int argc, char *argv[]) {
     exit(1);
   } //}}}
 
-/*
   // print command to stdout //{{{
   if (!silent) {
     PrintCommand(stdout, argc, argv);
   } //}}}
-*/
 
   // create the elements struct //{{{
   int n_elements = 118;
@@ -942,22 +938,22 @@ int main(int argc, char *argv[]) {
   // read information from vtf file(s) //{{{
   SYSTEM System = VtfReadStruct(input_vsf, detailed);
   VtfReadPBC(input_coor, input_vsf, &System.Box);
-  if (!TriclinicCellData(&System.Box)) {
+  if (!TriclinicCellData(&System.Box, 0)) {
     strcpy(ERROR_MSG, "wrong pbc data");
     PrintError();
     exit(1);
   } //}}}
 
-  WarnChargedSystem(System, input_vsf, "\0");
+  WarnChargedSystem(System, input_vsf, "\0", "\0");
 
   // read coordinates //{{{
   FILE *vcf = OpenFile(input_coor, "r");
-  int count_vcf = 0, // count steps in the vcf file
-      file_line_count = 0; // count lines in the vcf file
+  int count_vcf = 0,                         // count steps in the vcf file
+      file_line_count = 0;                   // count lines in the vcf file
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
   count_vcf++;
   if (!VtfReadTimestep(vcf, input_coor, input_vsf, &System,
-                       &file_line_count, count_vcf, stuff)) {
+                       &file_line_count, stuff)) {
     count_vcf--;
   }
   fclose(vcf); //}}}
@@ -1011,21 +1007,50 @@ int main(int argc, char *argv[]) {
     exit(1);
   } //}}}
 
-  double Mw = element[el].Mass;
-  double rho = element[el].Density;
-  double E_coh = element[el].CohesionEnergy;
-  double B = element[el].BulkModulus;
+  // element-dependent quantities
+  double Mw = element[el].Mass,
+         rho = element[el].Density,
+         E_coh = element[el].CohesionEnergy,
+         B = element[el].BulkModulus;
+  // constants to recalculate stuff into different units
+  double kT = k_B * T_ref, // to calculate in J
+         eV = kT / e;      // to calculate in eV
+  // system quantities
+  double E = Count->BeadCoor / N_A * E_coh, // energy, J
+         a, // lattice constant, m
+         vol_a, // atomic volume, m^3
+         vol; // volume of unit cell
+
   int n_unit = -1;
   char lattice[4] = "\0";
   if (element[el].Crystal == 1) {
     strcpy(lattice, "fcc");
+    // 8 * 1/8 (corner atoms) +
+    // 6 * 1/2 (face-centered atoms)
     n_unit = 4;
+    vol = n_unit * Mw / (N_A * rho);
+    a = pow(vol, 1.0 / 3); // lattice const, m
   } else if (element[el].Crystal == 2) {
     strcpy(lattice, "bcc");
+    // 8 * 1/8 (corner atoms) +
+    // 1 * 1   (body-centered atoms)
     n_unit = 2;
+    vol = n_unit * Mw / (N_A * rho);
+    a = pow(vol, 1.0 / 3); // lattice const, m
   } else if (element[el].Crystal == 3) {
     strcpy(lattice, "hcp");
-    n_unit = 2;
+    //  2 * 1/2 (face-centered atoms) +
+    // 12 * 1/6 (corner atoms) +
+    //  3 * 1   (body-centered atoms)
+    n_unit = 6;
+    vol = n_unit * Mw / (N_A * rho);
+    /* volume of hcp cell
+     * volume =
+     * 3/2*sqrt(3)*a^2 (hexagon) *
+     * sqrt(8/3)*a (height) =
+     * 3*sqrt(2)a^3
+     */
+    a = pow(vol / (sqrt(2) * 3), 1.0 / 3);
   }
   if (n_unit == -1) {
     strcpy(ERROR_MSG, "Wrong crystal structure! Should be fcc/bcc/hcp");
@@ -1033,51 +1058,43 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  // common constants
-  double kT = k_B * T_ref; // to calculate in J
-  double eV = kT / e; // to calculate in eV
-
-  // system quantities
-  double E = Count->BeadCoor / N_A * E_coh; // energy, J
-  double a = pow(n_unit*Mw/(N_A*rho), 1.0/3); // lattice const, m
-  double a3 = CUBE(a);
-  double vol_a = a3 / n_unit; // atomic volume, m^3
+  vol_a = vol / n_unit;
 
   // reduced quantities
-  double vol_a_red = vol_a / a3;
+  double vol_a_red = vol_a / CUBE(a);
   double E_red = E / (kT * Count->BeadCoor);
-  double B_red = B * a3 / kT;
+  double B_red = B * CUBE(a) / kT;
 
-// unneeded reduced quantities //{{{
-//double vol_red = vol / a3;
-//double rho_red = Count->BeadCoor / vol_red;
-//double a_red = 1;
-// //}}}
+  // unneeded reduced quantities //{{{
+  // double vol_red = vol / a3;
+  // double rho_red = Count->BeadCoor / vol_red;
+  // double a_red = 1;
+  // //}}}
 
   if (verbose) {
-    printf("%sInput data for %s (%s):%s\n",
-           Magenta(), species, lattice, ColourReset());
+    printf("%sInput data for %s (%s):%s\n", Magenta(), species, lattice,
+           ColourReset());
     printf("  Molar mass: %e kg/mol\n", Mw);
     printf("  Density: %e kg/m^3\n", rho);
-    printf("  Cohesion energy: %e J/mol (%e eV)\n", E_coh, E_coh*Jmol_to_eV);
-    printf("  Bulk modulus: %e Pa (%e eV/Å)\n\n", B, B/eVA3_to_Pa);
+    printf("  Cohesion energy: %e J/mol (%e eV)\n", E_coh, E_coh * Jmol_to_eV);
+    printf("  Bulk modulus: %e Pa (%e eV/Å)\n\n", B, B / eVA3_to_Pa);
   }
 
-//// test prints //{{{
-//printf("%sCalculated quantities for %d atoms:%s\n",
-//       Magenta(), Count->BeadCoor, ColourReset());
-//printf("  Energy: %e J\n", U);
-//printf("  Volume: %e m^3\n", vol);
-//printf("  Lattice constant: %e m^3\n", a);
-//printf("  Atomic volume: %e m^3\n", vol_a);
-//printf("%sReduced quantities:%s\n", Magenta(), ColourReset());
-//printf("  Energy per atom: %e\n", U_red);
-//printf("  Volume: %e\n", vol_red);
-//printf("  Lattice constant: %e\n", a_red);
-//printf("  Atomic volume: %e\n", vol_a_red);
-//printf("  Density: %e\n", rho_red);
-//printf("  Bulk modulues: %e\n", B_red);
-// //}}}
+  //// test prints //{{{
+  // printf("%sCalculated quantities for %d atoms:%s\n",
+  //        Magenta(), Count->BeadCoor, ColourReset());
+  // printf("  Energy: %e J\n", U);
+  // printf("  Volume: %e m^3\n", vol);
+  // printf("  Lattice constant: %e m^3\n", a);
+  // printf("  Atomic volume: %e m^3\n", vol_a);
+  // printf("%sReduced quantities:%s\n", Magenta(), ColourReset());
+  // printf("  Energy per atom: %e\n", U_red);
+  // printf("  Volume: %e\n", vol_red);
+  // printf("  Lattice constant: %e\n", a_red);
+  // printf("  Atomic volume: %e\n", vol_a_red);
+  // printf("  Density: %e\n", rho_red);
+  // printf("  Bulk modulues: %e\n", B_red);
+  //  //}}}
 
   int n_SC;
   // calculate n_SC as closest integer to 18*vol_a*B/(U*m) (in reduced units)
@@ -1096,7 +1113,7 @@ int main(int argc, char *argv[]) {
   int values = 10; // TODO: make into option
   int n = Count->Bead / values;
   double avg_sum_m = 0, avg_sum_n = 0;
-  for (int j = 0; j < Count->Bead; j+=n) {
+  for (int j = 0; j < Count->Bead; j += n) {
     count++;
     double sum_m = 0, sum_n = 0;
     int id1 = System.BeadCoor[j]; // atom to calculate distances from
@@ -1108,8 +1125,8 @@ int main(int argc, char *argv[]) {
         VECTOR dist = Distance(*first, *pos, System.Box.Length);
         dist = FromFractional(dist, System.Box);
         double d = sqrt(SQR(dist.x) + SQR(dist.y) + SQR(dist.z));
-  //printf("XXX %d dist: %lf (%lf %lf %lf) (%lf %lf %lf)\n",
-  //id2, d, pos->x, pos->y, pos->z, dist.x, dist.y, dist.z);
+        // printf("XXX %d dist: %lf (%lf %lf %lf) (%lf %lf %lf)\n",
+        // id2, d, pos->x, pos->y, pos->z, dist.x, dist.y, dist.z);
         sum_m += 1 / pow(d, m_SC); // assumes reduced distance, a_red=1
         sum_n += 1 / pow(d, n_SC); //
       }
@@ -1120,31 +1137,31 @@ int main(int argc, char *argv[]) {
   avg_sum_m /= count;
   avg_sum_n /= count;
 
-//// test print sums //{{{
-//printf("%sLattice sums:%s\n", Magenta(), ColourReset());
-//printf("  sum_m (m=%d): %e\n", m_SC, sum_m);
-//printf("  sum_n (n=%d): %e\n", n_SC, sum_n);
-// //}}}
+  //// test print sums //{{{
+  // printf("%sLattice sums:%s\n", Magenta(), ColourReset());
+  // printf("  sum_m (m=%d): %e\n", m_SC, sum_m);
+  // printf("  sum_n (n=%d): %e\n", n_SC, sum_n);
+  //  //}}}
 
   // calculate remaining parameters
   double c = n_SC * avg_sum_n / (m_SC * sqrt(avg_sum_m));
   double eps = 2 * m_SC * E_red / (avg_sum_n * (2 * n_SC - m_SC));
 
-  printf("%sSutton-Chen parameters for %s (%s):%s\n",
-         Magenta(), species, lattice, ColourReset());
+  printf("%sSutton-Chen parameters for %s (%s):%s\n", Magenta(), species,
+         lattice, ColourReset());
   printf("  m:    %4d\n", m_SC);
   printf("  n:    %4d (rounded from %lf)\n", n_SC, n_SC_dbl);
-  printf("  a:    %8.3f Å\n", a*1e10);
+  printf("  a:    %8.3f Å\n", a * 1e10);
   printf("  c:    %8.3f\n", c);
-  printf("  epsilon: %e K; %e eV\n", eps*T_ref, eps*eV);
+  printf("  epsilon: %e K; %e eV\n", eps * T_ref, eps * eV);
   printf("\nrecalculated bulk modulus: %e Pa (experiment %e Pa)\n",
-         B_calc*kT/a3, B);
+         B_calc * kT / vol, B);
 
-// unneeded recalculated cohesion energy - sames as input //{{{
-//double E_coh_calc = eps * sum_n * (2 * n_SC - m_SC) / (2 * m_SC);
-//printf("  coh E    %8.3f (%e J/mol; %e eV)\n",
-//       E_coh_calc, E_coh_calc*(k_B*T_ref*N_A), E_coh_calc*eV);
-// //}}}
+  // unneeded recalculated cohesion energy - sames as input //{{{
+  // double E_coh_calc = eps * sum_n * (2 * n_SC - m_SC) / (2 * m_SC);
+  // printf("  coh E    %8.3f (%e J/mol; %e eV)\n",
+  //       E_coh_calc, E_coh_calc*(k_B*T_ref*N_A), E_coh_calc*eV);
+  // //}}}
 
   // free memory
   FreeSystem(&System);
