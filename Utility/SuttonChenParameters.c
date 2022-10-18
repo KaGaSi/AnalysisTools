@@ -6,6 +6,33 @@
 #define eVA3_to_Pa (e * 1e30)    // eV/Angstrom^3 to Pa
 #define Jmol_to_eV 1.03642755e-5 // J/mol to eV/particle
 
+void Help(char cmd[50], bool error) { //{{{
+  FILE *ptr;
+  if (error) {
+    ptr = stderr;
+  } else {
+    ptr = stdout;
+    fprintf(ptr, "\
+SuttenChenParameters calculates parameters for simulations using Sutten-Chen \
+potentials (https://doi.org/10.1080/09500839008206493).\n\n");
+  }
+
+  fprintf(ptr, "Usage:\n");
+  fprintf(ptr, "   %s <input> <element> [options]\n\n", cmd);
+
+  fprintf(ptr, "      <input>       input coordinate file \
+(vcf or vtf format)\n");
+  fprintf(ptr, "   [options]\n");
+  fprintf(ptr, "      -m <int>      m parameter for Sutton-Chen potential\n");
+  fprintf(ptr, "      -n <int>      n parameter for Sutton-Chen potential\n");
+  fprintf(ptr, "      -mu <float>   atomic mass (kg/mol)\n");
+  fprintf(ptr, "      -B <float>    bulk modulus (Pa)\n");
+  fprintf(ptr, "      -E <float>    cohesion energy (eV)\n");
+  fprintf(ptr, "      -rho <float>  density (kg/m3)\n");
+  fprintf(ptr, "      --fcc/bcc/hcp crystal lattice\n");
+  CommonHelp(error);
+} //}}}
+
 typedef struct element {
   char Symbol[3];
   int State, Radius, Crystal;
@@ -120,21 +147,26 @@ void FillElements(ELEMENT element[]) {
   element[12].MeltingPoint = 923;
   element[12].BoilingPoint = 1363;
   element[12].Density = 1.74e3;
-  element[12].Crystal = 3;
+  element[12].Crystal = 3; // hcp
+//element[12].Crystal = 1; // fcc
   element[12].BulkModulus = 35.4e9; // wiki
   element[12].CohesionEnergy =
       8.48e3 + 128e3; // wiki; heat of fusion + heat of vaporization
   strcpy(element[13].Symbol, "Al");
   element[13].State = 1;
   element[13].Mass = 26.981538e-3;
+//element[13].Mass = 26.982e-3; // ml
   element[13].Radius = 184;
   element[13].IonizationEnergy = 5.986;
   element[13].MeltingPoint = 933.437;
   element[13].BoilingPoint = 2792;
   element[13].Density = 2.70e3;
+//element[13].Density = 2.669e3; // ml
   element[13].Crystal = 1;
   element[13].BulkModulus = 0.48 * eVA3_to_Pa;
+//element[13].BulkModulus = 77.0e9; // ml
   element[13].CohesionEnergy = 3.39 / Jmol_to_eV;
+//element[13].CohesionEnergy = 322.3e3; // ml
   strcpy(element[14].Symbol, "Si");
   element[14].State = 1;
   element[14].Mass = 28.085e-3;
@@ -357,7 +389,8 @@ void FillElements(ELEMENT element[]) {
   element[40].MeltingPoint = 2128;
   element[40].BoilingPoint = 4682;
   element[40].Density = 6.52e3;
-  element[40].Crystal = 3;
+  element[40].Crystal = 3; // hcp
+//element[40].Crystal = 1; // fcc
   element[40].BulkModulus = 97.2e9;               // chapter 5 of that thingy
   element[40].CohesionEnergy = 6.21 / Jmol_to_eV; // chapter 5 of that thingy
   strcpy(element[41].Symbol, "Nb");
@@ -837,27 +870,6 @@ void FillElements(ELEMENT element[]) {
   element[97].Density = 14e3;
 } //}}}
 
-void Help(char cmd[50], bool error) { //{{{
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-    fprintf(ptr, "\
-SuttenChenParameters calculates parameters for simulations using Sutten-Chen \
-potentials (https://doi.org/10.1080/09500839008206493).\n\n");
-  }
-
-  fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <element> [options]\n\n", cmd);
-
-  fprintf(ptr, "      <input>       input coordinate file \
-(vcf or vtf format)\n");
-  fprintf(ptr, "   [options]\n");
-  fprintf(ptr, "      -m <int>      m parameter for Sutton-Chen potential\n");
-  CommonHelp(error);
-} //}}}
-
 int main(int argc, char *argv[]) {
   // -h/--version options - print stuff and exit //{{{
   if (VersionOption(argc, argv)) {
@@ -888,10 +900,13 @@ int main(int argc, char *argv[]) {
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] == '-' && strcmp(argv[i], "-m") != 0 &&
+        strcmp(argv[i], "-n") != 0 && strcmp(argv[i], "mu") != 0 &&
+        strcmp(argv[i], "-B") != 0 && strcmp(argv[i], "-E") != 0 &&
+        strcmp(argv[i], "-rho") != 0 && strcmp(argv[i], "--fcc") != 0 &&
+        strcmp(argv[i], "--bcc") != 0 && strcmp(argv[i], "--hcp") != 0 &&
         strcmp(argv[i], "-i") != 0 && strcmp(argv[i], "-v") != 0 &&
-        strcmp(argv[i], "--detailed") != 0 &&
-        strcmp(argv[i], "--silent") != 0 && strcmp(argv[i], "-h") != 0 &&
-        strcmp(argv[i], "--version") != 0) {
+        strcmp(argv[i], "--silent") != 0 && strcmp(argv[i], "--detailed") != 0 &&
+        strcmp(argv[i], "--version") != 0 && strcmp(argv[i], "-h") != 0) {
       ErrorOption(argv[i]);
       Help(argv[0], true);
       exit(1);
@@ -923,6 +938,54 @@ int main(int argc, char *argv[]) {
   int m_SC = 6; // no -m option
   if (IntegerOption(argc, argv, "-m", &m_SC)) {
     exit(1);
+  } //}}}
+  // '-n' option //{{{
+  int n_SC = -1; // no -n option
+  if (IntegerOption(argc, argv, "-n", &n_SC)) {
+    exit(1);
+  }
+  if (n_SC != -1 && n_SC <= m_SC) {
+    strcpy(ERROR_MSG, "in SC potentional, n > m!");
+    PrintError();
+    fprintf(stderr, "%s Supplied parameters: n=%s%d%s and m=%s%d%s\n",
+            ErrRed(), ErrYellow(), n_SC,
+            ErrRed(), ErrYellow(), m_SC, ErrColourReset());
+    exit(1);
+  } //}}}
+  // options for element properties //{{{
+  double Mw = -1, rho = -1, E_coh = -1, B = -1;
+  // atomic mass
+  if (DoubleOption(argc, argv, "-mu", &Mw)) {
+    exit(1);
+  }
+  // bulk modulus
+  if (DoubleOption(argc, argv, "-B", &B)) {
+    exit(1);
+  }
+  // cohesion energy
+  if (DoubleOption(argc, argv, "-E", &E_coh)) {
+    exit(1);
+  }
+  // density
+  if (DoubleOption(argc, argv, "-rho", &rho)) {
+    exit(1);
+  }
+  char lattice[4] = "\0";
+  // lattice
+  bool fcc = BoolOption(argc, argv, "--fcc");
+  bool bcc = BoolOption(argc, argv, "--bcc");
+  bool hcp = BoolOption(argc, argv, "--hcp");
+  if ((fcc && bcc) || (fcc && hcp) || (bcc && hcp)) {
+    strcpy(ERROR_MSG, "multiple lattices specified; \
+preference order: fcc > bcc > hcp");
+    PrintWarning();
+  }
+  if (fcc) {
+    strcpy(lattice, "fcc");
+  } else if (bcc) {
+    strcpy(lattice, "bcc");
+  } else if (hcp) {
+    strcpy(lattice, "hcp");
   } //}}}
 
   // print command to stdout //{{{
@@ -1007,11 +1070,19 @@ int main(int argc, char *argv[]) {
     exit(1);
   } //}}}
 
-  // element-dependent quantities
-  double Mw = element[el].Mass,
-         rho = element[el].Density,
-         E_coh = element[el].CohesionEnergy,
-         B = element[el].BulkModulus;
+  // element quantities from element array if not option-specified //{{{
+  if (Mw == -1) {
+    Mw = element[el].Mass;
+  }
+  if (rho == -1) {
+    rho = element[el].Density;
+  }
+  if (E_coh == -1) {
+    E_coh = element[el].CohesionEnergy;
+  }
+  if (B == -1) {
+    B = element[el].BulkModulus;
+  } //}}}
   // constants to recalculate stuff into different units
   double kT = k_B * T_ref, // to calculate in J
          eV = kT / e;      // to calculate in eV
@@ -1022,22 +1093,21 @@ int main(int argc, char *argv[]) {
          vol; // volume of unit cell
 
   int n_unit = -1;
-  char lattice[4] = "\0";
-  if (element[el].Crystal == 1) {
+  if ((lattice[0] == '\0' && element[el].Crystal == 1) || fcc) {
     strcpy(lattice, "fcc");
     // 8 * 1/8 (corner atoms) +
     // 6 * 1/2 (face-centered atoms)
     n_unit = 4;
     vol = n_unit * Mw / (N_A * rho);
     a = pow(vol, 1.0 / 3); // lattice const, m
-  } else if (element[el].Crystal == 2) {
+  } else if ((lattice[0] == '\0' && element[el].Crystal == 2) || bcc) {
     strcpy(lattice, "bcc");
     // 8 * 1/8 (corner atoms) +
     // 1 * 1   (body-centered atoms)
     n_unit = 2;
     vol = n_unit * Mw / (N_A * rho);
     a = pow(vol, 1.0 / 3); // lattice const, m
-  } else if (element[el].Crystal == 3) {
+  } else if ((lattice[0] == '\0' && element[el].Crystal == 3) || hcp) {
     strcpy(lattice, "hcp");
     //  2 * 1/2 (face-centered atoms) +
     // 12 * 1/6 (corner atoms) +
@@ -1061,9 +1131,9 @@ int main(int argc, char *argv[]) {
   vol_a = vol / n_unit;
 
   // reduced quantities
-  double vol_a_red = vol_a / CUBE(a);
+  double vol_a_red = vol_a / vol;
   double E_red = E / (kT * Count->BeadCoor);
-  double B_red = B * CUBE(a) / kT;
+  double B_red = B * vol / kT;
 
   // unneeded reduced quantities //{{{
   // double vol_red = vol / a3;
@@ -1096,13 +1166,15 @@ int main(int argc, char *argv[]) {
   // printf("  Bulk modulues: %e\n", B_red);
   //  //}}}
 
-  int n_SC;
   // calculate n_SC as closest integer to 18*vol_a*B/(U*m) (in reduced units)
-  double n_SC_dbl = 18 * vol_a_red * B_red / (E_red * m_SC);
-  n_SC = round(n_SC_dbl);
-  if (n_SC <= m_SC) {
-    printf("m isn't larger than n! (m=%d n=%d)\n", n_SC, m_SC);
-    exit(0);
+  double n_SC_dbl = -1;
+  if (n_SC == -1) {
+    n_SC_dbl = 18 * vol_a_red * B_red / (E_red * m_SC);
+    n_SC = round(n_SC_dbl);
+    if (n_SC <= m_SC) {
+      printf("m isn't larger than n! (m=%d n=%d)\n", n_SC, m_SC);
+      exit(0);
+    }
   }
   // calculate how much the bulk modulus differs from input data
   double B_calc = n_SC * m_SC * E_red / (18 * vol_a_red);
@@ -1150,11 +1222,15 @@ int main(int argc, char *argv[]) {
   printf("%sSutton-Chen parameters for %s (%s):%s\n", Magenta(), species,
          lattice, ColourReset());
   printf("  m:    %4d\n", m_SC);
-  printf("  n:    %4d (rounded from %lf)\n", n_SC, n_SC_dbl);
+  printf("  n:    %4d", n_SC);
+  if (n_SC_dbl != -1) {
+    printf("  n:     (rounded from %lf)", n_SC_dbl);
+  }
+  putchar('\n');
   printf("  a:    %8.3f Å\n", a * 1e10);
   printf("  c:    %8.3f\n", c);
-  printf("  epsilon: %e K; %e eV\n", eps * T_ref, eps * eV);
-  printf("\nrecalculated bulk modulus: %e Pa (experiment %e Pa)\n",
+  printf("  epsilon: %.4e K; %.4e eV\n", eps * T_ref, eps * eV);
+  printf("\nrecalculated bulk modulus: %.4e Pa (experiment %4e Pa)\n",
          B_calc * kT / vol, B);
 
   // unneeded recalculated cohesion energy - sames as input //{{{
