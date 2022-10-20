@@ -35,7 +35,6 @@ the specified bead types (use all if no <bead names> are present)\n");
   fprintf(ptr, "      -n <int(s)>    save only specified timesteps \
 (if --last option is used, save also the last timestep)\n");
   fprintf(ptr, "      -x <name(s)>   exclude specified molecule(s)\n");
-  fprintf(ptr, "      -xyz <name>    output xyz file\n");
   fprintf(ptr, "      --last         use only the last step \
 (-st/-e options are ignored; -n option is not)\n");
   CommonHelp(error);
@@ -87,7 +86,6 @@ int main(int argc, char *argv[]) {
         strcmp(argv[i], "-sk") != 0 &&
         strcmp(argv[i], "-n") != 0 &&
         strcmp(argv[i], "-x") != 0 &&
-        strcmp(argv[i], "-xyz") != 0 &&
         strcmp(argv[i], "--last") != 0) {
       ErrorOption(argv[i]);
       Help(argv[0], true);
@@ -103,7 +101,7 @@ int main(int argc, char *argv[]) {
        in_lmp[LINE] = "",
        in_field[LINE] = "",
        *struct_file;
-  int coor_type, struct_type;
+  int coor_type, struct_type = 0;
   snprintf(in_coor, LINE, "%s", argv[++count]);
   // coor_type: 1..vcf, 2..xyz, 3..lmp
   coor_type = InputCoorStruct(argc, argv, in_coor, in_vsf, in_lmp, in_field);
@@ -117,19 +115,33 @@ int main(int argc, char *argv[]) {
   } else if (in_field[0] != '\0') {
     struct_type = 3;
     struct_file = in_field;
+  } else {
+    struct_file = "\0";
+  }
+  // error if no structure file specified (except when input is xyz)
+  if (struct_type == 0 && coor_type != 2) {
+    strcpy(ERROR_MSG, "missing input structure file; \
+acceptable only for xyz input coordinate file");
+    PrintError();
+    exit(1);
   } //}}}
 
   // <output.vcf> - output vcf file //{{{
-  char output_vcf[LINE] = "";
-  snprintf(output_vcf, LINE, "%s", argv[++count]);
+  char out_coor[LINE] = "";
+  // 0..vcf, 1..xyz
+  int coor_out_type;
+  snprintf(out_coor, LINE, "%s", argv[++count]);
   // test if <output.vcf> ends with '.vcf'
-  int ext = 1;
+  int ext = 2;
   char extension[2][5];
   strcpy(extension[0], ".vcf");
-  if (ErrorExtension(output_vcf, ext, extension) == -1) {
+  strcpy(extension[1], ".xyz");
+  coor_out_type = ErrorExtension(out_coor, ext, extension);
+  if (coor_out_type == -1) {
     Help(argv[0], true);
     exit(1);
-  } //}}}
+  }
+  //}}}
 
   // options before reading system data //{{{
   bool silent, verbose, detailed;
@@ -145,19 +157,6 @@ int main(int argc, char *argv[]) {
   bool wrap = BoolOption(argc, argv, "--wrap");
   int start, end;
   StartEndTime(argc, argv, &start, &end);
-  // save into xyz file?
-  char output_xyz[LINE] = "";
-  if (FileOption(argc, argv, "-xyz", output_xyz, LINE)) {
-    exit(1);
-  }
-  if (output_xyz[0] != '\0') {
-    ext = 1;
-    strcpy(extension[0], ".xyz");
-    if (ErrorExtension(output_xyz, ext, extension) == -1) {
-      Help(argv[0], true);
-      exit(1);
-    }
-  }
   // use only the last step?
   bool last = BoolOption(argc, argv, "--last");
   //}}}
@@ -170,9 +169,12 @@ int main(int argc, char *argv[]) {
   // read input data //{{{
   SYSTEM System;
   switch(struct_type) {
+    case 0: // xyz
+      System = XYZReadStruct(in_coor);
+      break;
     case 1: // vsf/vtf
       System = VtfReadStruct(in_vsf, detailed);
-      VtfReadPBC(in_vsf, in_vsf, &System.Box);
+      VtfReadPBC(in_vsf, &System.Box);
       break;
     case 2: // lmp
       System = LmpDataRead(in_lmp);
@@ -183,7 +185,7 @@ int main(int argc, char *argv[]) {
   }
   // pbc from vcf/vtf coordinate file
   if (coor_type == 1) {
-    VtfReadPBC(in_coor, in_vsf, &System.Box);
+    VtfReadPBC(in_coor, &System.Box);
   }
   if (!TriclinicCellData(&System.Box, 1)) {
     strcpy(ERROR_MSG, "wrong pbc data");
@@ -259,13 +261,11 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // print initial stuff to output vcf file
-  FILE *out = OpenFile(output_vcf, "w");
-  PrintByline(out, argc, argv);
-  fclose(out);
-  // make sure a new xyz file is created (if -xyz option is used)
-  if (output_xyz[0] != '\0') {
-    fclose(OpenFile(output_xyz, "w"));
+  FILE *out = OpenFile(out_coor, "w");
+  if (coor_out_type == 0) {
+    PrintByline(out, argc, argv);
   }
+  fclose(out);
 
   // open input coordinate file
   FILE *coor = OpenFile(in_coor, "r");
@@ -318,8 +318,7 @@ int main(int argc, char *argv[]) {
     // read and write the timestep, if it should be saved //{{{
     if (use) {
       if (coor_type == 1) {
-        if (!VtfReadTimestep(coor, in_coor, in_vsf, &System,
-                             &file_line_count, stuff)) {
+        if (!VtfReadTimestep(coor, in_coor, &System, &file_line_count, stuff)) {
           count_coor--;
           break;
         }
@@ -345,23 +344,24 @@ int main(int argc, char *argv[]) {
           FromFractionalCoor(&System);
         }
       }
-      // write to output .vcf file
-      out = OpenFile(output_vcf, "a");
-      VtfWriteCoorIndexed(out, stuff, write, System);
-      fclose(out);
-      // write to xyz file?
-      if (output_xyz[0] != '\0') {
-        out = OpenFile(output_xyz, "a");
+      // write to output file (vcf or xyz)
+      out = OpenFile(out_coor, "a");
+      if (coor_out_type == 0) {
+        VtfWriteCoorIndexed(out, stuff, write, System);
+      } else {
         XyzWriteCoor(out, write, stuff, System);
-        fclose(out);
       }
+      fclose(out);
       //}}}
     // skip the timestep, if it shouldn't be saved //{{{
     } else {
-      if (!VtfSkipTimestep(coor, in_coor, in_vsf, &file_line_count,
-                           count_coor)) {
-        count_coor--;
-        break;
+      if (coor_out_type == 0) {
+        if (!VtfSkipTimestep(coor, in_coor, in_vsf, &file_line_count)) {
+          count_coor--;
+          break;
+        }
+      } else {
+        XYZSkipTimestep(coor, in_coor, &file_line_count);
       }
     } //}}}
     // save file position (last two because of --last) //{{{
@@ -388,8 +388,7 @@ int main(int argc, char *argv[]) {
     } else {
       fsetpos(coor, &position2);
     }
-    if (VtfReadTimestep(coor, in_coor, in_vsf, &System,
-                        &file_line_count, stuff)) {
+    if (VtfReadTimestep(coor, in_coor, &System, &file_line_count, stuff)) {
       // transform coordinates into fractional ones for non-orthogonal box
       ToFractionalCoor(&System);
       // wrap and/or join molecules?
@@ -401,16 +400,14 @@ int main(int argc, char *argv[]) {
       }
       // transform back to 'normal' coordinates for non-orthogonal box
       FromFractionalCoor(&System);
-      // write to output .vcf file
-      out = OpenFile(output_vcf, "a");
-      VtfWriteCoorIndexed(out, stuff, write, System);
-      fclose(out);
-      // write to xyz file?
-      if (output_xyz[0] != '\0') {
-        out = OpenFile(output_xyz, "a");
+      // write to output file (vcf or xyz)
+      out = OpenFile(out_coor, "a");
+      if (coor_out_type == 0) {
+        VtfWriteCoorIndexed(out, stuff, write, System);
+      } else {
         XyzWriteCoor(out, write, stuff, System);
-        fclose(out);
       }
+      fclose(out);
     }
   } //}}}
   fclose(coor);

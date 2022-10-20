@@ -1000,7 +1000,7 @@ preference order: fcc > bcc > hcp");
 
   // read information from vtf file(s) //{{{
   SYSTEM System = VtfReadStruct(input_vsf, detailed);
-  VtfReadPBC(input_coor, input_vsf, &System.Box);
+  VtfReadPBC(input_coor, &System.Box);
   if (!TriclinicCellData(&System.Box, 0)) {
     strcpy(ERROR_MSG, "wrong pbc data");
     PrintError();
@@ -1015,8 +1015,7 @@ preference order: fcc > bcc > hcp");
       file_line_count = 0;                   // count lines in the vcf file
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
   count_vcf++;
-  if (!VtfReadTimestep(vcf, input_coor, input_vsf, &System,
-                       &file_line_count, stuff)) {
+  if (!VtfReadTimestep(vcf, input_coor, &System, &file_line_count, stuff)) {
     count_vcf--;
   }
   fclose(vcf); //}}}

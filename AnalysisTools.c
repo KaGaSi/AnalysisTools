@@ -193,6 +193,7 @@ int FindMoleculeName(char name[], SYSTEM System) { //{{{
   // name isn't in MoleculeType struct
   return(-1);
 } //}}}
+// TODO: since bool name was added, mode=0 makes no sense; plus check the others
 // FindMoleculeType() //{{{
 /*
  * Find according to mode:
@@ -2703,6 +2704,10 @@ void VerboseOutput(SYSTEM System) { //{{{
   PrintDihedralType(System);
   PrintImproperType(System);
   PrintMoleculeType(System);
+  if (System.Box.Volume != -1) {
+    putchar('\n');
+    PrintBox(System.Box);
+  }
   putchar('\n');
 } //}}}
 void PrintCount(COUNT Count) { //{{{

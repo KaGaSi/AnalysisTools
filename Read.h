@@ -33,14 +33,14 @@ SYSTEM VtfReadStruct(char struct_file[], bool detailed);
 void RemoveExtraTypes(SYSTEM *System);
 void MergeBeadTypes(SYSTEM *System, bool detailed);
 void MergeMoleculeTypes(SYSTEM *System);
-// Get the first pbc line from a vcf/vtf coordinate file.
-bool VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box);
+// Get the first pbc line from a vcf/vsf/vtf coordinate file.
+bool VtfReadPBC(char input[], BOX *Box);
 // Read a single timestep from a vcf/vtf coordinate file
-bool VtfReadTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
+bool VtfReadTimestep(FILE *vcf, char vcf_file[],
                      SYSTEM *System, int *file_line_count, char stuff[]);
 // Discard a single timestep from a vcf/vtf coordinate file
 bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
-                     int *file_line_count, int step_count);
+                     int *file_line_count);
 bool VtfSkipCoorOrderedLine(FILE *fr);
 // Find position of atom line keywords in the provided strtok'd line
 int * VtfAtomLineValues(int words, char *split[]);
@@ -92,6 +92,7 @@ void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
 SYSTEM XYZReadStruct(char file[]);
 bool XYZReadTimestep(FILE *fr, char file[], SYSTEM *System,
                      int *file_line_count);
+bool XYZSkipTimestep(FILE *fr, char file[], int *file_line_count);
 bool XYZSkipCoorLine(FILE *fr);
 bool XYZCheckCoorLine(int words, char *split[]);
 

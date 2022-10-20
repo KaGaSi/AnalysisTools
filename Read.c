@@ -1188,29 +1188,29 @@ contact developper\n");
   MergeMoleculeTypes(&Sys);
   FillSystemNonessentials(&Sys);
   CheckSystem(Sys, struct_file);
+  VtfReadPBC(struct_file, &Sys.Box);
+  TriclinicCellData(&Sys.Box, 0);
   return Sys;
 } //}}}
 // VtfReadPBC() //{{{
 /*
- * Get the first pbc line from a vcf/vtf coordinate file. If a coordinate line
- * is encountered before the pbc one, the function exits with an error.
+ * Get the first pbc line from the provided file.
  */
-// TODO: remove input_vsf
-bool VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box) {
+bool VtfReadPBC(char input[], BOX *Box) {
   // open the coordinate file
-  FILE *coor = OpenFile(input_vcf, "r");
+  FILE *fr = OpenFile(input, "r");
   int file_line_count = 0;
-  // read input_vcf line by line
+  // read input file line by line
   while (true) {
     file_line_count++;
     // read line & split it via whitespace //{{{
     char *split[SPL_STR], line[LINE];
     int words;
-    if (!ReadAndSplitLine(coor, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      fclose(coor);
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      fclose(fr);
       return false;
     } //}}}
-    int ltype = VtfCheckLineType(words, split, input_vcf, file_line_count);
+    int ltype = VtfCheckLineType(words, split, input, file_line_count);
     // pbc line //{{{
     if (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) {
       (*Box).Length.x = atof(split[1]);
@@ -1227,20 +1227,9 @@ bool VtfReadPBC(char input_vcf[], char input_vsf[], BOX *Box) {
         (*Box).gamma = 90;
       }
       break; //}}}
-    // error - coordinate line //{{{
-    // TODO: just check it's fine to ignore it...
-//  } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
-//    strcpy(ERROR_MSG, "encountered coordinate line before pbc line");
-//    PrintErrorFileLine(input_vcf, file_line_count, split, words);
-//    exit(1); //}}}
-//  // warning - unrecognised line //{{{
-    } else if (ltype == ERROR_LINE) {
-      strcpy(ERROR_MSG, "ignoring unrecognised line while \
-searching for a pbc line");
-      PrintWarningFileLine(input_vcf, file_line_count, split, words);
-    } //}}}
+    }
   };
-  fclose(coor);
+  fclose(fr);
   return true;
 } //}}}
 // VtfReadTimestep() //{{{
@@ -1253,8 +1242,7 @@ searching for a pbc line");
  * from the preamble (e.g., on eof); on eof within the coordinate block, true
  * is retuerned as some coordinates were read (i.e., a valid timestep).
  */
-// TODO: remove vsf_file
-bool VtfReadTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
+bool VtfReadTimestep(FILE *vcf, char vcf_file[],
                      SYSTEM *System, int *file_line_count, char stuff[]) {
   start_function: ; // return here when a bad line is encountered
   stuff[0] = '\0';
@@ -1493,7 +1481,7 @@ using next timestep instead of this one");
     strcpy(ERROR_MSG, "insufficient number of beads for ordered timestep; \
 using next timestep instead of this one");
     PrintWarning();
-    WarnPrintFile(vcf_file, vsf_file, "\0");
+    WarnPrintFile(vcf_file, "\0", "\0");
     fprintf(stderr, "%s, last line of the timestep: %s%d%s\n", ErrCyan(),
             ErrYellow(), *file_line_count, ErrColourReset());
     goto start_function;
@@ -1505,7 +1493,7 @@ using next timestep instead of this one");
     strcpy(ERROR_MSG, "unbonded and bonded beads in a coordinate file do not \
 add up properly!");
     PrintError();
-    ErrorPrintFile(vcf_file, vsf_file, "\0");
+    ErrorPrintFile(vcf_file, "\0", "\0");
     fprintf(stderr, "%s, unbonded: %s%d%s",
             ErrRed(), ErrYellow(), Count->UnbondedCoor, ErrRed());
     fprintf(stderr, ", bonded: %s%d%s",
@@ -1523,7 +1511,7 @@ add up properly!");
  * Returns false only if a line cannot be read (e.g., on eof).
  */
 bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
-                     int *file_line_count, int step_count) {
+                     int *file_line_count) {
   // skip preamble - i.e., read until the first coordinate line
   fpos_t position;
   int ltype;
@@ -3702,6 +3690,55 @@ coordinate lines); using next timestep instead of this one");
     strcpy(ERROR_MSG, "System->Count.BeadCoor != System->Count.Bead in xyz; \
 should never happen!");
     PrintError();
+  } //}}}
+  return true;
+} //}}}
+// XYZSkipTimestep() //{{{
+bool XYZSkipTimestep(FILE *fr, char file[], int *file_line_count) {
+  int words;
+  char line[LINE], *split[SPL_STR];
+  fpos_t position;
+  // read number of beads (possibly go back to the function beginning) //{{{
+  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    return false;
+  }
+  (*file_line_count)++;
+  long bead_count;
+  if (words == 0 || !IsNaturalNumber(split[0], &bead_count)) {
+    strcpy(ERROR_MSG, "wrong first line of a skipped xyz timestep");
+    PrintWarningFileLine(file, *file_line_count, split, words);
+    // ignore the rest of the timestep
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      strcpy(ERROR_MSG, "premature end of file");
+      PrintErrorFile(file, "\0", "\0");
+    }
+    (*file_line_count)++;
+    // skip the coordinate lines (if any)
+    do {
+      fgetpos(fr, &position);
+      (*file_line_count)++;
+    } while (XYZSkipCoorLine(fr));
+    fsetpos(fr, &position);
+    (*file_line_count)--; // the first non-coordinate line will be re-read
+  } //}}}
+  // ignore next line //{{{
+  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    strcpy(ERROR_MSG, "premature end of file");
+    PrintErrorFile(file, "\0", "\0");
+  }
+  (*file_line_count)++; //}}}
+  // read coordinates //{{{
+  for (int i = 0; i < bead_count; i++) {
+    fgetpos(fr, &position);
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      strcpy(ERROR_MSG, "premature end of file");
+      PrintErrorFile(file, "\0", "\0");
+      fprintf(stderr, "%s, only %s%d%s beads present (instead of %s%ld%s)%s",
+              ErrRed(), ErrYellow(), i, ErrRed(),
+              ErrYellow(), bead_count, ErrRed(), ErrColourReset());
+      return false;
+    }
+    (*file_line_count)++;
   } //}}}
   return true;
 } //}}}

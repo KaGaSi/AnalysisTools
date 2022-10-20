@@ -6,6 +6,21 @@ void Help(char cmd[50], bool error) { //{{{
   } else {
     ptr = stdout;
     fprintf(ptr, "\
+Info gathers data about the system from provided file(s), printing it \
+to standard output and creating new file(s) if prompted to. It can read \
+the data from vtf file(s), lammps data file, and/or dl_meso FIELD file. \
+When multiple files are provided, the following rules apply:\n\
+  1) The underlying system (i.e., numbers of beads and molecules) is taken \
+from the first structure file in the Info command.\n\
+  2) The second file is used to supply missing data to molecules, i.e., \
+connectivity, angles, etc. The molecules from the two files must share \
+only the number or beads for the extra information to be added. \
+ALSO - when does it changes? only if there are non in the original? \
+In case of '!' option, the bead types in the molecules are also \
+switched for those from the second file.\n\
+  3) coordinates?\n\
+  4) box?\n\
+\n\
 Info prints information about the provided system and can also create a new \
 vtf structure file. The new structure file can differ from the original one if \
 --detailed switch is used. A FIELD-like file or lammps data file \
@@ -44,9 +59,6 @@ while printing per-atom charges in Atoms section (works with -l_out)\n");
   fprintf(ptr, "      --version            print version number and exit\n");
 } //}}}
 
-// TODO: xXx implement to choose box - vcf/lmp
-//           possibly add -vc_in! if we want to overwrite any Box by the one
-//           from vcf file
 // TODO: implement to choose coordinates - vcf/lmp/xyz
 
 int main(int argc, char *argv[]) {
@@ -321,13 +333,11 @@ and in xyz coordinate file; not using xyz coordinates");
   char stuff[LINE];
   if (input_vcf[0] != '\0') {
     SYSTEM Sys_new = CopySystem(*System);
-    VtfReadPBC(input_vcf, input_vsf, &Sys_new.Box);
-    //TODO see at the top (xXx)
+    VtfReadPBC(input_vcf, &Sys_new.Box);
     TriclinicCellData(&Sys_new.Box, 0);
     int l_count = 0;
     FILE *fr = OpenFile(input_vcf, "r");
-    if (!VtfReadTimestep(fr, input_vcf, "\0", // TODO: add some struct file
-                         &Sys_new, &l_count, stuff)) {
+    if (!VtfReadTimestep(fr, input_vcf, &Sys_new, &l_count, stuff)) {
       strcpy(ERROR_MSG, "not all coordinates from vcf file could be read; \
 not using vcf coordinates");
       PrintWarning();
@@ -346,16 +356,14 @@ not using vcf coordinates");
     fclose(fr);
     FreeSystem(&Sys_new);
   } //}}}
-  // TODO: picking Box between vcf and lmp
+  // TODO: picking Box between vtf and lmp
   // use Box from lmp if Box is unspecified in System //{{{
   if (System->Box.Volume == -1) {
     if (input_lmp[0] != '\0' && lmp.Box.Volume != -1) {
       System->Box = lmp.Box;
-      TriclinicCellData(&System->Box, 1);
     }
-    if (input_vcf[0] != '\0' && vsf.Box.Volume != -1) {
+    if (input_vsf[0] != '\0' && vsf.Box.Volume != -1) {
       System->Box = vsf.Box;
-      TriclinicCellData(&System->Box, 0);
     }
   } //}}}
   // check electroneutrality //{{{
@@ -445,11 +453,8 @@ not using vcf coordinates");
   // print information //{{{
   printf("Final system composition:\n");
   VerboseOutput(*System);
-  if (System->Box.Volume != -1) {
-    PrintBox(System->Box);
-  }
   if (verbose) { // -v option
-    fprintf(stdout, "\nInformation about every bead:\n");
+    fprintf(stdout, "Information about every bead:\n");
     PrintBead(*System);
     fprintf(stdout, "\nInformation about every molecule:\n");
     PrintMolecule(*System);
