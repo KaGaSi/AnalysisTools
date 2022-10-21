@@ -54,6 +54,8 @@ while printing per-atom charges in Atoms section (works with -l_out)\n");
   fprintf(ptr, "      -vc_out <file.vcf>   output vtf coordinate file\n");
   fprintf(ptr, "      -x_out <file.xyz>    output xyz coordinate file\n");
   fprintf(ptr, "    general options:\n");
+  fprintf(ptr, "      -c_out <filename>    output CONFIG file \
+for dl_software\n");
   fprintf(ptr, "      -v                   more verbose output\n");
   fprintf(ptr, "      -h                   print this help and exit\n");
   fprintf(ptr, "      --version            print version number and exit\n");
@@ -89,27 +91,17 @@ int main(int argc, char *argv[]) {
 
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' &&
-        strcmp(argv[i], "-vs_in") != 0 &&
-        strcmp(argv[i], "-vs_in!") != 0 &&
-        strcmp(argv[i], "--detailed") != 0 &&
-        strcmp(argv[i], "-vc_in") != 0 &&
-        strcmp(argv[i], "-x_in") != 0 &&
-        strcmp(argv[i], "-st") != 0 &&
-        strcmp(argv[i], "-f_in") != 0 &&
-        strcmp(argv[i], "-f_in!") != 0 &&
-        strcmp(argv[i], "-l_in") != 0 &&
-        strcmp(argv[i], "-l_in!") != 0 &&
-        strcmp(argv[i], "-vs_out") != 0 &&
-        strcmp(argv[i], "-def") != 0 &&
-        strcmp(argv[i], "-f_out") != 0 &&
-        strcmp(argv[i], "-l_out") != 0 &&
-        strcmp(argv[i], "--mass") != 0 &&
-        strcmp(argv[i], "-vc_out") != 0 &&
-        strcmp(argv[i], "-x_out") != 0 &&
-        strcmp(argv[i], "-v") != 0 &&
-        strcmp(argv[i], "-h") != 0 &&
-        strcmp(argv[i], "--version") != 0) {
+    if (argv[i][0] == '-' && strcmp(argv[i], "-x_in") != 0 &&
+        strcmp(argv[i], "-vs_in") != 0 && strcmp(argv[i], "-vs_in!") != 0 &&
+        strcmp(argv[i], "-vc_in") != 0 && strcmp(argv[i], "-st") != 0 &&
+        strcmp(argv[i], "-f_in") != 0 && strcmp(argv[i], "-f_in!") != 0 &&
+        strcmp(argv[i], "-l_in") != 0 && strcmp(argv[i], "-l_in!") != 0 &&
+        strcmp(argv[i], "-vs_out") != 0 && strcmp(argv[i], "-def") != 0 &&
+        strcmp(argv[i], "-f_out") != 0 && strcmp(argv[i], "-l_out") != 0 &&
+        strcmp(argv[i], "--mass") != 0 && strcmp(argv[i], "-vc_out") != 0 &&
+        strcmp(argv[i], "-x_out") != 0 && strcmp(argv[i], "-c_out") != 0 &&
+        strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--detailed") != 0 &&
+        strcmp(argv[i], "-h") != 0 && strcmp(argv[i], "--version") != 0) {
 
       ErrorOption(argv[i]);
       Help(argv[0], true);
@@ -211,7 +203,8 @@ int main(int argc, char *argv[]) {
   }
   //}}}
   // error - no input file with structure information //{{{
-  if (input_vsf[0] == '\0' && input_field[0] == '\0' && input_lmp[0] == '\0') {
+  if (input_vsf[0] == '\0' && input_field[0] == '\0' &&
+      input_lmp[0] == '\0' && input_xyz[0] == '\0') {
     strcpy(ERROR_MSG, "input vtf structure file, FIELD-like file, and/or \
 lammps data file must be specified");
     PrintError();
@@ -224,7 +217,7 @@ lammps data file must be specified");
   bool verbose = BoolOption(argc, argv, "-v");
 
   // read information from input file(s) //{{{
-  SYSTEM vsf, field, lmp;
+  SYSTEM vsf, field, lmp, xyz;
   SYSTEM *System; // pointer to one of the above SYSTEMs
   // find the first structure file and read it //{{{
   int vs_in = 1e2, f_in = 1e2, l_in = 1e2;
@@ -244,7 +237,10 @@ lammps data file must be specified");
   }
   int primary = Min3(vs_in, f_in, l_in);
   char *struct_in;
-  if (primary == vs_in) {
+  if (primary == 100) {
+    System = &xyz;
+    *System = XYZReadStruct(input_xyz);
+  } else if (primary == vs_in) {
     System = &vsf;
     *System = VtfReadStruct(input_vsf, detailed);
     struct_in = input_vsf;
@@ -383,14 +379,14 @@ not using vcf coordinates");
 
   // output file names & other options //{{{
   // -vs_out option //{{{
-  char output_vsf[LINE] = "\0";
-  if (FileOption(argc, argv, "-vs_out", output_vsf, LINE)) {
+  char out_vsf[LINE] = "\0";
+  if (FileOption(argc, argv, "-vs_out", out_vsf, LINE)) {
     exit(1);
   }
-  if (output_vsf[0] != '\0') {
+  if (out_vsf[0] != '\0') {
     ext = 1;
     strcpy(extension[0], ".vsf");
-    if (ErrorExtension(output_vsf, ext, extension) == -1) {
+    if (ErrorExtension(out_vsf, ext, extension) == -1) {
       Help(argv[0], true);
       exit(1);
     }
@@ -409,42 +405,47 @@ not using vcf coordinates");
   }
   free(def_type); //}}}
   // -f_out option //{{{
-  char output_field[LINE] = "\0";
-  if (FileOption(argc, argv, "-f_out", output_field, LINE)) {
+  char out_field[LINE] = "\0";
+  if (FileOption(argc, argv, "-f_out", out_field, LINE)) {
     exit(1);
   } //}}}
   // -l_out option //{{{
-  char output_lmp[LINE] = "\0";
-  if (FileOption(argc, argv, "-l_out", output_lmp, LINE)) {
+  char out_lmp[LINE] = "\0";
+  if (FileOption(argc, argv, "-l_out", out_lmp, LINE)) {
     exit(1);
   } //}}}
   // use mass only for atom type definition (for -l_out)
   bool mass = BoolOption(argc, argv, "--mass");
   // -vc_out option //{{{
-  char output_vcf[LINE] = "\0";
-  if (FileOption(argc, argv, "-vc_out", output_vcf, LINE)) {
+  char out_vcf[LINE] = "\0";
+  if (FileOption(argc, argv, "-vc_out", out_vcf, LINE)) {
     exit(1);
   }
-  if (output_vcf[0] != '\0') {
+  if (out_vcf[0] != '\0') {
     ext = 1;
     strcpy(extension[0], ".vcf");
-    if (ErrorExtension(output_vcf, ext, extension) == -1) {
+    if (ErrorExtension(out_vcf, ext, extension) == -1) {
       Help(argv[0], true);
       exit(1);
     }
   } //}}}
   // -x_out option //{{{
-  char output_xyz[LINE] = "\0";
-  if (FileOption(argc, argv, "-x_out", output_xyz, LINE)) {
+  char out_xyz[LINE] = "\0";
+  if (FileOption(argc, argv, "-x_out", out_xyz, LINE)) {
     exit(1);
   }
-  if (output_xyz[0] != '\0') {
+  if (out_xyz[0] != '\0') {
     ext = 1;
     strcpy(extension[0], ".xyz");
-    if (ErrorExtension(output_xyz, ext, extension) == -1) {
+    if (ErrorExtension(out_xyz, ext, extension) == -1) {
       Help(argv[0], true);
       exit(1);
     }
+  } //}}}
+  // -c_out option //{{{
+  char out_config[LINE] = "\0";
+  if (FileOption(argc, argv, "-c_out", out_config, LINE)) {
+    exit(1);
   } //}}}
   //}}}
 
@@ -462,28 +463,31 @@ not using vcf coordinates");
 
   // write output file(s)? //{{{
   strcpy(stuff, "# Created via Info utility from AnalysisTools");
-  if (output_vsf[0] != '\0') {
-    VtfWriteStruct(output_vsf, *System, default_type);
+  if (out_vsf[0] != '\0') {
+    VtfWriteStruct(out_vsf, *System, default_type);
   }
-  if (output_field[0] != '\0') {
-    WriteField(*System, output_field);
+  if (out_field[0] != '\0') {
+    WriteField(*System, out_field);
   }
-  if (output_lmp[0] != '\0') {
-    WriteLmpData(*System, output_lmp, false, mass);
+  if (out_lmp[0] != '\0') {
+    WriteLmpData(*System, out_lmp, false, mass);
   }
   bool *write = malloc(sizeof *write * System->Count.Bead);
   for (int i = 0; i < System->Count.Bead; i++) {
     write[i] = true;
   }
-  if (output_vcf[0] != '\0') {
-    FILE *vcf = OpenFile(output_vcf, "w");
+  if (out_vcf[0] != '\0') {
+    FILE *vcf = OpenFile(out_vcf, "w");
     VtfWriteCoorIndexed(vcf, stuff, write, *System);
     fclose(vcf);
   }
-  if (output_xyz[0] != '\0') {
-    FILE *xyz = OpenFile(output_xyz, "w");
+  if (out_xyz[0] != '\0') {
+    FILE *xyz = OpenFile(out_xyz, "w");
     XyzWriteCoor(xyz, write, stuff, *System);
     fclose(xyz);
+  }
+  if (out_config[0] != '\0') {
+    WriteConfig(*System, out_config);
   }
   free(write); //}}}
 

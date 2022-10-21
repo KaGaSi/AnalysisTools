@@ -8,6 +8,7 @@ void XyzWriteCoor(FILE *xyz, bool write[], char *stuff, SYSTEM System);
 void VtfWriteStruct(char file[], SYSTEM System, int type_def);
 void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass);
 void WriteField(SYSTEM System, char file_field[]);
+void WriteConfig(SYSTEM System, char file_config[]);
 
 // TODO will change
 void WriteAggregates(int step_count, char *agg_file, COUNTS Counts,

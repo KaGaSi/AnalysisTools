@@ -560,6 +560,27 @@ void WriteField(SYSTEM System, char file_field[]) { //{{{
   } //}}}
   fclose(fw);
 } //}}}
+void WriteConfig(SYSTEM System, char file_config[]) { //{{{
+  FILE *out = OpenFile(file_config, "w");
+  // TODO: check triclinic box in dl_meso
+  // print CONFIG file initial stuff
+  fprintf(out, "NAME\n 0 1\n"); // not sure what 0 1 is...
+  fprintf(out, "%lf 0.000000 0.000000\n", System.Box.Length.x);
+  fprintf(out, "0.000000 %lf 0.000000\n", System.Box.Length.y);
+  fprintf(out, "0.000000 0.000000 %lf\n", System.Box.Length.z);
+
+  // bead coordinates
+  // unbonded beads must be first (dl_meso requirement)
+  for (int i = 0; i < System.Count.BeadCoor; i++) {
+    int id = System.BeadCoor[i],
+        btype = System.Bead[id].Type;
+    fprintf(out, "%s %d\n", System.BeadType[btype].Name, id+1);
+    fprintf(out, "%lf %lf %lf\n", System.Bead[id].Position.x,
+                                  System.Bead[id].Position.y,
+                                  System.Bead[id].Position.z);
+  }
+  fclose(out);
+} //}}}
 
 // TODO will change
 // WriteAggregates() //{{{

@@ -3563,8 +3563,8 @@ SYSTEM XYZReadStruct(char file[]) { //{{{
     }
     VECTOR pos;
     if (words < 4 || !IsRealNumber(split[1], &pos.x) ||
-                     !IsRealNumber(split[1], &pos.y) ||
-                     !IsRealNumber(split[1], &pos.z)) {
+                     !IsRealNumber(split[2], &pos.y) ||
+                     !IsRealNumber(split[3], &pos.z)) {
       strcpy(ERROR_MSG, "wrong coordinate file");
       PrintErrorFileLine(file, file_line_count, split, words);
       exit(1);
