@@ -2232,7 +2232,7 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
         strcpy(ERROR_MSG, "incorrect index in Bond array");
         PrintError();
         ErrorPrintFile(file, "\0", "\0");
-        fprintf(stderr, "%s, MoleculeType[%s%d%s].Bond[%s%d%s][0..2]",
+        fprintf(stderr, "%s, MoleculeType[%s%d%s].Bond[%s%d%s][0..1]",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
                 j, ErrRed());
         fprintf(stderr, " = %s%d %d%s\n", ErrYellow(),

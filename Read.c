@@ -693,8 +693,9 @@ discarding this bond");
       fprintf(stderr, "%sBead (molecule):", ErrCyan());
       fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[0], ErrCyan(),
               ErrYellow(), System->Bead[id[0]].Molecule, ErrCyan());
-      fprintf(stderr, " %s%d%s (%s%d%s)\n", ErrYellow(), id[1], ErrCyan(),
-              ErrYellow(), System->Bead[id[1]].Molecule, ErrCyan());
+      fprintf(stderr, " %s%d%s (%s%d%s)%s\n", ErrYellow(), id[1], ErrCyan(),
+              ErrYellow(), System->Bead[id[1]].Molecule,
+              ErrCyan(), ErrColourReset());
       continue;
     } //}}}
     MOLECULETYPE *mt_mol = &System->MoleculeType[mol];
@@ -726,11 +727,11 @@ discarding this bond");
       mt_i->Bond[j][0] -= lowest;
       mt_i->Bond[j][1] -= lowest;
       // warning - too high an intramolecular bead index; shouldn't happen //{{{
-      if (mt_i->Bond[j][0] > mt_i->nBeads ||
-          mt_i->Bond[j][1] > mt_i->nBeads) {
+      if (mt_i->Bond[j][0] >= mt_i->nBeads ||
+          mt_i->Bond[j][1] >= mt_i->nBeads) {
         strcpy(ERROR_MSG, "something went wrong in bead indices in bond; \
 should never happen!");
-        PrintWarning();
+        PrintError();
       } //}}}
     }
   }
@@ -1182,6 +1183,8 @@ contact developper\n");
   } //}}}
   FillMoleculeBeads(&Sys);
   FillMoleculeTypeBonds(&Sys, bond, count_bonds);
+  fprintf(stderr, "|%d %d %d|\n", bond[0][0], bond[0][1], bond[0][2]);
+  fprintf(stderr, "|%d %d %d|\n", bond[1][0], bond[1][1], bond[1][2]);
   free(bond);
   RemoveExtraTypes(&Sys);
   MergeBeadTypes(&Sys, detailed);

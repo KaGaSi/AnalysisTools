@@ -13,9 +13,9 @@ When multiple files are provided, the following rules apply:\n\
   1) The underlying system (i.e., numbers of beads and molecules) is taken \
 from the first structure file in the Info command.\n\
   2) The second file is used to supply missing data to molecules, i.e., \
-connectivity, angles, etc. The molecules from the two files must share \
-only the number or beads for the extra information to be added. \
-ALSO - when does it changes? only if there are non in the original? \
+connectivity, angles, etc; the extra information is added only when \
+original molecule has none. The molecules from the two files must share \
+only the number of beads for the extra information to be added. \
 In case of '!' option, the bead types in the molecules are also \
 switched for those from the second file.\n\
   3) coordinates?\n\
@@ -234,61 +234,86 @@ lammps data file must be specified");
         strcmp(argv[i], "-l_in!") == 0) {
       l_in = i;
     }
-  }
-  int primary = Min3(vs_in, f_in, l_in);
-  char *struct_in;
-  if (primary == 100) {
-    System = &xyz;
-    *System = XYZReadStruct(input_xyz);
-  } else if (primary == vs_in) {
-    System = &vsf;
-    *System = VtfReadStruct(input_vsf, detailed);
-    struct_in = input_vsf;
-  } else if (primary == f_in) {
-    System = &field;
-    *System = FieldRead(input_field);
-    struct_in = input_field;
-  } else {
-    System = &lmp;
-    *System = LmpDataRead(input_lmp);
-    struct_in = input_lmp;
-  }
-  if (verbose) {
-    printf("System in %s:\n", struct_in);
-    VerboseOutput(*System);
   } //}}}
-  for (int i = 0; i < System->Count.Bead; i++) {
-    System->Bead[i].InTimestep = true;
-  }
-  // vsf input (if present) //{{{
-  if (input_vsf[0] != '\0' && primary != vs_in) {
+  int primary = Min3(vs_in, f_in, l_in);
+  // read vsf input if present //{{{
+  if (input_vsf[0] != '\0') {
     vsf = VtfReadStruct(input_vsf, detailed);
-    ChangeMolecules(System, vsf, change_beads_vsf, false);
-    CheckSystem(*System, input_vsf);
     if (verbose) {
       printf("System in %s:\n", input_vsf);
       VerboseOutput(vsf);
     }
   } //}}}
-  // FIELD input (if present) //{{{
-  if (input_field[0] != '\0' && primary != f_in) {
+  // read FIELD input if present //{{{
+  if (input_field[0] != '\0') {
     field = FieldRead(input_field);
-    ChangeMolecules(System, field, change_beads_field, false);
-    CheckSystem(*System, input_field);
     if (verbose) {
       printf("System in %s:\n", input_field);
       VerboseOutput(field);
     }
   } //}}}
-  // lammps input (if present) //{{{
-  if (input_lmp[0] != '\0' && primary != l_in) {
+  // read lammps input if present //{{{
+  if (input_lmp[0] != '\0') {
     lmp = LmpDataRead(input_lmp);
-    ChangeMolecules(System, lmp, change_beads_lmp, false);
-    CheckSystem(*System, input_lmp);
     if (verbose) {
       printf("System in %s:\n", input_lmp);
       VerboseOutput(lmp);
     }
+  } //}}}
+  // read xyz input if present //{{{
+  if (input_xyz[0] != '\0') {
+    xyz = XYZReadStruct(input_xyz);
+  } //}}}
+  // assign primary system //{{{
+  char *struct_in;
+  if (primary == 100) { // xyz if no 'real' structure file
+    System = &xyz;
+  } else if (primary == vs_in) { // vsf structure file
+    System = &vsf;
+    struct_in = input_vsf;
+  } else if (primary == f_in) { // field structure file
+    System = &field;
+    struct_in = input_field;
+  } else { // lammps data file
+    System = &lmp;
+    struct_in = input_lmp;
+  } //}}}
+  // vsf input (if present) //{{{
+  if (primary == vs_in) {
+    if (input_field[0] != '\0') {
+      ChangeMolecules(System, field, change_beads_field, false);
+      CheckSystem(*System, input_field);
+    }
+    if (input_lmp[0] != '\0') {
+      ChangeMolecules(System, lmp, change_beads_lmp, false);
+      CheckSystem(*System, input_lmp);
+    }
+  } else if (primary == l_in) {
+    if (input_field[0] != '\0') {
+      ChangeMolecules(System, field, change_beads_field, false);
+      CheckSystem(*System, input_field);
+    }
+    if (input_vsf[0] != '\0') {
+      ChangeMolecules(System, vsf, change_beads_vsf, false);
+      CheckSystem(*System, input_vsf);
+    }
+  } else if (primary == f_in) {
+    if (input_lmp[0] != '\0') {
+      ChangeMolecules(System, lmp, change_beads_lmp, false);
+      CheckSystem(*System, input_lmp);
+    }
+    if (input_vsf[0] != '\0') {
+      ChangeMolecules(System, vsf, change_beads_vsf, false);
+      CheckSystem(*System, input_vsf);
+    }
+  }
+  if (verbose) {
+    printf("System in %s:\n", struct_in);
+    VerboseOutput(*System);
+  } //}}}
+  // first, all beads are in the timestep; revised if coordinates supplied //{{{
+  for (int i = 0; i < System->Count.Bead; i++) {
+    System->Bead[i].InTimestep = true;
   } //}}}
   // use coordinates from lmp if all coordinates in System are 0 //{{{
   bool coor = false;
@@ -305,25 +330,6 @@ lammps data file must be specified");
         System->Bead[i].Position = lmp.Bead[i].Position;
       }
     }
-  } //}}}
-  // use xyz coordinates if provided //{{{
-  if (input_xyz[0] != '\0') {
-    SYSTEM xyz = XYZReadStruct(input_xyz);
-    if (xyz.Count.Bead != System->Count.Bead) {
-      strcpy(ERROR_MSG, "different numbers of beads in the primary system \
-and in xyz coordinate file; not using xyz coordinates");
-      PrintWarning();
-      fprintf(stderr, "%sPrimary system: %s%d%s beads, ", ErrCyan(),
-              ErrYellow(), System->Count.Bead, ErrCyan());
-      fprintf(stderr, "%s%s%s file: %s%d%s beads%s\n", ErrYellow(), input_xyz,
-              ErrCyan(), ErrYellow(), xyz.Count.Bead,
-              ErrCyan(), ErrColourReset());
-    } else {
-      for (int i = 0; i < System->Count.Bead; i++) {
-        System->Bead[i].Position = xyz.Bead[i].Position;
-      }
-    }
-    FreeSystem(&xyz);
   } //}}}
   // use vcf coordinate if provided //{{{
   char stuff[LINE];
@@ -500,6 +506,9 @@ not using vcf coordinates");
   }
   if (input_lmp[0] != '\0') {
     FreeSystem(&lmp);
+  }
+  if (input_xyz[0] != '\0') {
+    FreeSystem(&xyz);
   } //}}}
 
   return 0;
