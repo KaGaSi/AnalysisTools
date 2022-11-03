@@ -1097,14 +1097,16 @@ preference order: fcc > bcc > hcp");
     // 8 * 1/8 (corner atoms) +
     // 6 * 1/2 (face-centered atoms)
     n_unit = 4;
-    vol = n_unit * Mw / (N_A * rho);
+    vol_a = Mw / (N_A * rho);
+    vol = n_unit * vol_a;
     a = pow(vol, 1.0 / 3); // lattice const, m
   } else if ((lattice[0] == '\0' && element[el].Crystal == 2) || bcc) {
     strcpy(lattice, "bcc");
     // 8 * 1/8 (corner atoms) +
     // 1 * 1   (body-centered atoms)
     n_unit = 2;
-    vol = n_unit * Mw / (N_A * rho);
+    vol_a = Mw / (N_A * rho);
+    vol = n_unit * vol_a;
     a = pow(vol, 1.0 / 3); // lattice const, m
   } else if ((lattice[0] == '\0' && element[el].Crystal == 3) || hcp) {
     strcpy(lattice, "hcp");
@@ -1112,7 +1114,8 @@ preference order: fcc > bcc > hcp");
     // 12 * 1/6 (corner atoms) +
     //  3 * 1   (body-centered atoms)
     n_unit = 6;
-    vol = n_unit * Mw / (N_A * rho);
+    vol_a = Mw / (N_A * rho);
+    vol = n_unit * vol_a;
     /* volume of hcp cell
      * volume =
      * 3/2*sqrt(3)*a^2 (hexagon) *
@@ -1127,7 +1130,7 @@ preference order: fcc > bcc > hcp");
     exit(1);
   }
 
-  vol_a = vol / n_unit;
+//vol_a = vol / n_unit;
 
   // reduced quantities
   double vol_a_red = vol_a / vol;
@@ -1229,10 +1232,10 @@ preference order: fcc > bcc > hcp");
   printf("  a:    %8.3f Å\n", a * 1e10);
   printf("  c:    %8.3f\n", c);
   printf("  epsilon: %.4e K; %.4e eV\n", eps * T_ref, eps * eV);
-  printf("\nrecalculated bulk modulus: %.4e Pa (experiment %4e Pa)\n",
-         B_calc * kT / vol, B);
+  printf("  atomic volume: %.2f Å^3\n", vol_a*1e30);
+  printf("  bulk modulus: %.4e Pa (experiment %4e Pa)\n", B_calc * kT / vol, B);
 
-  // unneeded recalculated cohesion energy - sames as input //{{{
+  // unneeded recalculated cohesion energy - same as input //{{{
   // double E_coh_calc = eps * sum_n * (2 * n_SC - m_SC) / (2 * m_SC);
   // printf("  coh E    %8.3f (%e J/mol; %e eV)\n",
   //       E_coh_calc, E_coh_calc*(k_B*T_ref*N_A), E_coh_calc*eV);
