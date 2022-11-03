@@ -713,8 +713,9 @@ discarding this bond");
   }
   // make the MoleculeType[].Bond bead indices go from 0 to nBeads
   for (int i = 0; i < Count->MoleculeType; i++) {
-    int lowest = 1e9;
     MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    // 1) find lowest and highest index in the bond
+    int lowest = 1e9, highest = 0;
     for (int j = 0; j < mt_i->nBonds; j++) {
       if (mt_i->Bond[j][0] < lowest) {
         lowest = mt_i->Bond[j][0];
@@ -722,17 +723,47 @@ discarding this bond");
       if (mt_i->Bond[j][1] < lowest) {
         lowest = mt_i->Bond[j][1];
       }
+      if (mt_i->Bond[j][1] > highest) {
+        highest = mt_i->Bond[j][1] + 1;
+      }
     }
+    // 2) a) make lowest index 0
+    //    b) find which indices are present to detect dicontinuities
+    bool *present = calloc(highest, sizeof *present);
     for (int j = 0; j < mt_i->nBonds; j++) {
-      mt_i->Bond[j][0] -= lowest;
-      mt_i->Bond[j][1] -= lowest;
-      // warning - too high an intramolecular bead index; shouldn't happen //{{{
+      int *id0 = &mt_i->Bond[j][0],
+          *id1 = &mt_i->Bond[j][1];
+      *id0 -= lowest; // a)
+      *id1 -= lowest; // a)
+      present[*id0] = true; // b)
+      present[*id1] = true; // b)
+    }
+    // 3) find by how much to decrease indices (in case of discontinuities)
+    int *decrease = calloc(highest, sizeof *decrease);
+    for (int j = 0; j < highest; j++) {
+      if (!present[j]) {
+        for (int k = j; k < highest; k++) {
+          decrease[k]++;
+        }
+      }
+    }
+    // 4) remove the discontinuities
+    for (int j = 0; j < mt_i->nBonds; j++) {
+      int *id0 = &mt_i->Bond[j][0],
+          *id1 = &mt_i->Bond[j][1];
+      mt_i->Bond[j][0] -= decrease[*id0];
+      mt_i->Bond[j][1] -= decrease[*id1];
+    }
+    free(present);
+    free(decrease);
+    // 5) warning - index is too high; shouldn't happen
+    for (int j = 0; j < mt_i->nBonds; j++) {
       if (mt_i->Bond[j][0] >= mt_i->nBeads ||
           mt_i->Bond[j][1] >= mt_i->nBeads) {
         strcpy(ERROR_MSG, "something went wrong in bead indices in bond; \
 should never happen!");
         PrintError();
-      } //}}}
+      }
     }
   }
 } //}}}
@@ -1183,8 +1214,6 @@ contact developper\n");
   } //}}}
   FillMoleculeBeads(&Sys);
   FillMoleculeTypeBonds(&Sys, bond, count_bonds);
-  fprintf(stderr, "|%d %d %d|\n", bond[0][0], bond[0][1], bond[0][2]);
-  fprintf(stderr, "|%d %d %d|\n", bond[1][0], bond[1][1], bond[1][2]);
   free(bond);
   RemoveExtraTypes(&Sys);
   MergeBeadTypes(&Sys, detailed);
