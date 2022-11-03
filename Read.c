@@ -701,9 +701,9 @@ discarding this bond");
     MOLECULETYPE *mt_mol = &System->MoleculeType[mol];
     int bond = mt_mol->nBonds;
     mt_mol->nBonds++;
-    if (bond == 0) {
+    if (bond == 0) { // first bond in a molecule - allocate one memory space
       mt_mol->Bond = malloc(sizeof *mt_mol->Bond);
-    } else {
+    } else { // subsequent bonds - add one memory space
       mt_mol->Bond = realloc(mt_mol->Bond,
                              sizeof *mt_mol->Bond * mt_mol->nBonds);
     }
@@ -711,7 +711,7 @@ discarding this bond");
     mt_mol->Bond[bond][1] = id[1];
     mt_mol->Bond[bond][2] = bond_type;
   }
-  // make the MoleculeType[].Bond bead indices go from 0 to nBeads
+  // make the MoleculeType[].Bond bead indices go from 0 to nBeads //{{{
   for (int i = 0; i < Count->MoleculeType; i++) {
     MOLECULETYPE *mt_i = &System->MoleculeType[i];
     // 1) find lowest and highest index in the bond
@@ -765,7 +765,7 @@ should never happen!");
         PrintError();
       }
     }
-  }
+  } //}}}
 } //}}}
 void FillMoleculeTypeAngles(SYSTEM *System, int (*angle)[4], int num) { //{{{
   COUNT *Count = &System->Count;
