@@ -170,7 +170,6 @@ int InputCoorStruct(int argc, char **argv,
   return type;
 } //}}}
 
-// TODO add detailed stuff
 int FindBeadType(char name[], SYSTEM System) { //{{{
   int type;
   for (int i = 0; i < System.Count.BeadType; i++) {
@@ -193,13 +192,15 @@ int FindMoleculeName(char name[], SYSTEM System) { //{{{
   // name isn't in MoleculeType struct
   return(-1);
 } //}}}
-// TODO: since bool name was added, mode=0 makes no sense; plus check the others
+/* TODO: do the detailed stuff (in conjunction with Info -vs_in 1.vtf -f_in FIELD
+ *       in ~/AnalysisTools/build/test-Info)
+ */
 // FindMoleculeType() //{{{
 /*
- * Find according to mode:
- *   0 - check only name
- *   1 - check name and number of beads
- *   2 - check name and number and identity of beads
+ * If name==true, then find molecule type according to mode:
+ *   0 - check nothing else
+ *   1 - check number of beads
+ *   2 - check number and identity of beads
  *   3 - check everything
  * name = true/false for checking/ignoring molecule name
  */
@@ -214,7 +215,6 @@ int FindMoleculeType(MOLECULETYPE mol, SYSTEM System, int mode, bool name) {
   for (int i = 0; i < System.Count.MoleculeType; i++) {
     MOLECULETYPE *mtype = &System.MoleculeType[i];
     if (strcmp(mol.Name, mtype->Name) == 0 || !name) {
-      i = i;
       if (mode == 0) { // only name checked
         return i;
       }
@@ -1258,18 +1258,23 @@ void PruneSystem(SYSTEM *System) { //{{{
     System->Index_mol[System->Molecule[i].Index] = i;
   } //}}}
   // copy bond/angle/dihedral/improper types //{{{
-  // prune bondtypes //{{{
+  // prune bond types //{{{
   if (Count_old->BondType > 0) {
     Count->BondType = 0;
     int *type_old_to_new = calloc(Count_old->BondType,
-                                   sizeof *type_old_to_new);
+                                  sizeof *type_old_to_new);
     for (int i = 0; i < Count->MoleculeType; i++) {
       MOLECULETYPE *mt_i = &System->MoleculeType[i];
       for (int j = 0; j < mt_i->nBonds; j++) {
         int old_tbond = mt_i->Bond[j][2];
         bool new = true;
+//printf("j=%d %d\n", j, old_tbond);
         PARAMS *tbond = &S_old.BondType[old_tbond];
+//printf("%lf %lf %lf\n", tbond->a, tbond->b, tbond->c);
         for (int k = 0; k < Count->BondType; k++) {
+//printf("%lf %lf %lf\n", System->BondType[k].a,
+//                        System->BondType[k].b,
+//                        System->BondType[k].c);
           if (tbond->a == System->BondType[k].a &&
               tbond->b == System->BondType[k].b &&
               tbond->c == System->BondType[k].c) {
@@ -1629,6 +1634,10 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
  * types (creating new ones) to a molecule type, possibly also changing the
  * bead types in MoleculeType[].Bead array for new ones.
  */
+/* TODO: do the FindMoleculeType stuff to check all things but name (in
+ *       conjunction with Info -vs_in 1.vtf -f_in FIELD in
+ *       ~/AnalysisTools/build/test-Info)
+ */
 void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
   COUNT *Count_orig = &Sys_orig->Count,
         *Count_add = &Sys_add.Count;
@@ -1687,6 +1696,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
                 mt_orig->Bond[j][1] == mt_add->Bond[k][1] &&
                 mt_orig->Bond[j][2] == -1 && mt_add->Bond[k][2] != -1) {
               mt_orig->Bond[j][2] = mt_add->Bond[k][2] + count_old.BondType;
+              break;
             }
           }
         }
@@ -1706,6 +1716,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
                 mt_orig->Angle[j][2] == mt_add->Angle[k][2] &&
                 mt_orig->Angle[j][3] == -1 && mt_add->Angle[k][3] != -1) {
               mt_orig->Angle[j][3] = mt_add->Angle[k][3] + count_old.AngleType;
+              break;
             }
           }
         }
@@ -1728,6 +1739,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
                 mt_orig->Dihedral[j][4] == -1 && mt_add->Dihedral[j][4] != -1) {
               mt_orig->Dihedral[j][4] = mt_add->Dihedral[j][4] +
                                         count_old.DihedralType;
+              break;
             }
           }
         }
@@ -1750,6 +1762,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
                 mt_orig->Improper[j][4] == -1 && mt_add->Improper[j][4] != -1) {
               mt_orig->Improper[j][4] = mt_add->Improper[j][4] +
                                         count_old.ImproperType;
+              break;
             }
           }
         }

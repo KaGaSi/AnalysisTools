@@ -278,10 +278,13 @@ lammps data file must be specified");
     System = &lmp;
     struct_in = input_lmp;
   } //}}}
-  // vsf input (if present) //{{{
+  // extra input (if present) //{{{
   if (primary == vs_in) {
     if (input_field[0] != '\0') {
       ChangeMolecules(System, field, change_beads_field, false);
+//printf("%sJust Before Pruning\n", Green());
+//VerboseOutput(*System);
+//printf("%s", ColourReset());
       CheckSystem(*System, input_field);
     }
     if (input_lmp[0] != '\0') {
@@ -455,7 +458,10 @@ not using vcf coordinates");
   } //}}}
   //}}}
 
+//printf("%sJust Before Pruning\n", Magenta());
+//VerboseOutput(*System);
   PruneSystem(System);
+//printf("%s", ColourReset());
 
   // print information //{{{
   printf("Final system composition:\n");

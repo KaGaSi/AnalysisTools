@@ -29,6 +29,7 @@ potentials (https://doi.org/10.1080/09500839008206493).\n\n");
   fprintf(ptr, "      -B <float>    bulk modulus (Pa)\n");
   fprintf(ptr, "      -E <float>    cohesion energy (eV)\n");
   fprintf(ptr, "      -rho <float>  density (kg/m3)\n");
+  fprintf(ptr, "      -a <float>    lattice constant (Å)\n");
   fprintf(ptr, "      --fcc/bcc/hcp crystal lattice\n");
   CommonHelp(error);
 } //}}}
@@ -149,19 +150,16 @@ void FillElements(ELEMENT element[]) {
   element[12].Density = 1.74e3;
   element[12].Crystal = 3; // hcp
 //element[12].Crystal = 1; // fcc
-  element[12].BulkModulus = 35.4e9; // wiki
-  element[12].CohesionEnergy =
-      8.48e3 + 128e3; // wiki; heat of fusion + heat of vaporization
+  element[12].BulkModulus = 35.4e9;
+  element[12].CohesionEnergy = 1.51 / Jmol_to_eV;
   strcpy(element[13].Symbol, "Al");
   element[13].State = 1;
-  element[13].Mass = 26.981538e-3;
-//element[13].Mass = 26.982e-3; // ml
+  element[13].Mass = 26.982e-3;
   element[13].Radius = 184;
   element[13].IonizationEnergy = 5.986;
   element[13].MeltingPoint = 933.437;
   element[13].BoilingPoint = 2792;
   element[13].Density = 2.70e3;
-//element[13].Density = 2.669e3; // ml
   element[13].Crystal = 1;
   element[13].BulkModulus = 0.48 * eVA3_to_Pa;
 //element[13].BulkModulus = 77.0e9; // ml
@@ -902,6 +900,7 @@ int main(int argc, char *argv[]) {
     if (argv[i][0] == '-' && strcmp(argv[i], "-m") != 0 &&
         strcmp(argv[i], "-n") != 0 && strcmp(argv[i], "mu") != 0 &&
         strcmp(argv[i], "-B") != 0 && strcmp(argv[i], "-E") != 0 &&
+        strcmp(argv[i], "-a") != 0 &&
         strcmp(argv[i], "-rho") != 0 && strcmp(argv[i], "--fcc") != 0 &&
         strcmp(argv[i], "--bcc") != 0 && strcmp(argv[i], "--hcp") != 0 &&
         strcmp(argv[i], "-i") != 0 && strcmp(argv[i], "-v") != 0 &&
@@ -953,7 +952,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   } //}}}
   // options for element properties //{{{
-  double Mw = -1, rho = -1, E_coh = -1, B = -1;
+  double Mw = -1, rho = -1, E_coh = -1, B = -1, a = -1;
   // atomic mass
   if (DoubleOption(argc, argv, "-mu", &Mw)) {
     exit(1);
@@ -964,6 +963,10 @@ int main(int argc, char *argv[]) {
   }
   // cohesion energy
   if (DoubleOption(argc, argv, "-E", &E_coh)) {
+    exit(1);
+  }
+  // lattice constant
+  if (DoubleOption(argc, argv, "-a", &a)) {
     exit(1);
   }
   // density
@@ -1087,7 +1090,6 @@ preference order: fcc > bcc > hcp");
          eV = kT / e;      // to calculate in eV
   // system quantities
   double E = Count->BeadCoor / N_A * E_coh, // energy, J
-         a, // lattice constant, m
          vol_a, // atomic volume, m^3
          vol; // volume of unit cell
 
@@ -1099,7 +1101,9 @@ preference order: fcc > bcc > hcp");
     n_unit = 4;
     vol_a = Mw / (N_A * rho);
     vol = n_unit * vol_a;
-    a = pow(vol, 1.0 / 3); // lattice const, m
+    if (a == -1) {
+      a = pow(vol, 1.0 / 3) * 1e10; // lattice const, Å
+    }
   } else if ((lattice[0] == '\0' && element[el].Crystal == 2) || bcc) {
     strcpy(lattice, "bcc");
     // 8 * 1/8 (corner atoms) +
@@ -1107,7 +1111,9 @@ preference order: fcc > bcc > hcp");
     n_unit = 2;
     vol_a = Mw / (N_A * rho);
     vol = n_unit * vol_a;
-    a = pow(vol, 1.0 / 3); // lattice const, m
+    if (a == -1) {
+      a = pow(vol, 1.0 / 3) * 1e10; // lattice const, Å
+    }
   } else if ((lattice[0] == '\0' && element[el].Crystal == 3) || hcp) {
     strcpy(lattice, "hcp");
     //  2 * 1/2 (face-centered atoms) +
@@ -1122,7 +1128,9 @@ preference order: fcc > bcc > hcp");
      * sqrt(8/3)*a (height) =
      * 3*sqrt(2)a^3
      */
-    a = pow(vol / (sqrt(2) * 3), 1.0 / 3);
+    if (a == -1) {
+      a = pow(vol / (sqrt(2) * 3), 1.0 / 3) * 1e10; // lattice const, Å
+    }
   }
   if (n_unit == -1) {
     strcpy(ERROR_MSG, "Wrong crystal structure! Should be fcc/bcc/hcp");
@@ -1223,17 +1231,18 @@ preference order: fcc > bcc > hcp");
 
   printf("%sSutton-Chen parameters for %s (%s):%s\n", Magenta(), species,
          lattice, ColourReset());
-  printf("  m:    %4d\n", m_SC);
-  printf("  n:    %4d", n_SC);
+  printf("   m: %d\n", m_SC);
+  printf("   n: %d", n_SC);
   if (n_SC_dbl != -1) {
-    printf("  n:     (rounded from %lf)", n_SC_dbl);
+    printf(" (rounded from %lf)", n_SC_dbl);
   }
   putchar('\n');
-  printf("  a:    %8.3f Å\n", a * 1e10);
-  printf("  c:    %8.3f\n", c);
-  printf("  epsilon: %.4e K; %.4e eV\n", eps * T_ref, eps * eV);
-  printf("  atomic volume: %.2f Å^3\n", vol_a*1e30);
-  printf("  bulk modulus: %.4e Pa (experiment %4e Pa)\n", B_calc * kT / vol, B);
+  printf("   a: %.3f Å\n", a);
+  printf("   c: %.3f\n", c);
+  printf("   ε: %.3e K; %.3e eV\n", eps * T_ref, eps * eV);
+  printf("   Ω: %.3f Å^3\n", vol_a*1e30);
+  printf("   B: %.3e Pa; experiment %.3e Pa\n", B_calc * kT / vol, B);
+  printf("  Mw: %.3f kg/m^3\n", Mw*1e3);
 
   // unneeded recalculated cohesion energy - same as input //{{{
   // double E_coh_calc = eps * sum_n * (2 * n_SC - m_SC) / (2 * m_SC);
