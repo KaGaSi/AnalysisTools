@@ -204,6 +204,7 @@ int FindMoleculeName(char name[], SYSTEM System) { //{{{
  *   3 - check everything
  * name = true/false for checking/ignoring molecule name
  */
+// TODO: checking bead order means having bead type names, i.e., possibly two SYSTEMs
 int FindMoleculeType(MOLECULETYPE mol, SYSTEM System, int mode, bool name) {
   // just to be sure the function's mode parameter is correct //{{{
   if (mode < 0 || mode > 3) {
@@ -218,25 +219,15 @@ int FindMoleculeType(MOLECULETYPE mol, SYSTEM System, int mode, bool name) {
       if (mode == 0) { // only name checked
         return i;
       }
-      // check number of beads
+      // check number of beads //{{{
       if (mtype->nBeads != mol.nBeads) {
         continue;
-      }
-      if (mode == 1) { // name & number of beads checked
+      } else if (mode == 1) {
         return i;
-      }
+      } //}}}
       // check bead order //{{{
       bool same = true;
-//    for (int j = 0; j < mtype->nBeads; j++) {
-//      printf("%d %s (%d) %s (%d)\n", j,
-//             System.BeadType[mtype->Bead[j]].Name,
-//             mtype->Bead[j],
-//             System.BeadType[mol.Bead[j]].Name,
-//             mol.Bead[j]);
-//    }
-//    printf("yyy\n");
       for (int j = 0; j < mtype->nBeads; j++) {
-//      printf("XXX %d %d\n", mtype->Bead[j], mol.Bead[j]);
         if (mtype->Bead[j] != mol.Bead[j]) {
           same = false;
           break;
@@ -244,10 +235,9 @@ int FindMoleculeType(MOLECULETYPE mol, SYSTEM System, int mode, bool name) {
       }
       if (!same) {
         continue;
-      } //}}}
-      if (mode == 2) {
+      } else if (mode == 2) {
         return i;
-      }
+      } //}}}
       // check bonds //{{{
       if (mtype->nBonds != mol.nBonds) {
         continue;
@@ -1263,44 +1253,55 @@ void PruneSystem(SYSTEM *System) { //{{{
     Count->BondType = 0;
     int *type_old_to_new = calloc(Count_old->BondType,
                                   sizeof *type_old_to_new);
+//printf("%d\n", Count_old->BondType);
     for (int i = 0; i < Count->MoleculeType; i++) {
       MOLECULETYPE *mt_i = &System->MoleculeType[i];
       for (int j = 0; j < mt_i->nBonds; j++) {
+//printf("%d %d\n", Count_old->BondType, Count->BondType);
         int old_tbond = mt_i->Bond[j][2];
-        bool new = true;
+        if (old_tbond != -1) {
+          bool new = true;
 //printf("j=%d %d\n", j, old_tbond);
-        PARAMS *tbond = &S_old.BondType[old_tbond];
+          PARAMS *tbond = &S_old.BondType[old_tbond];
 //printf("%lf %lf %lf\n", tbond->a, tbond->b, tbond->c);
-        for (int k = 0; k < Count->BondType; k++) {
+          for (int k = 0; k < Count->BondType; k++) {
 //printf("%lf %lf %lf\n", System->BondType[k].a,
 //                        System->BondType[k].b,
 //                        System->BondType[k].c);
-          if (tbond->a == System->BondType[k].a &&
-              tbond->b == System->BondType[k].b &&
-              tbond->c == System->BondType[k].c) {
-            mt_i->Bond[j][2] = k;
-            new = false;
-            break;
+            if (tbond->a == System->BondType[k].a &&
+                tbond->b == System->BondType[k].b &&
+                tbond->c == System->BondType[k].c) {
+              mt_i->Bond[j][2] = k;
+              new = false;
+              break;
+            }
           }
-        }
-        if (new) {
-          int type = Count->BondType;
-          Count->BondType++;
-          System->BondType = realloc(System->BondType, Count->BondType *
-                                     sizeof *System->BondType);
-          System->BondType[type] = S_old.BondType[old_tbond];
-          type_old_to_new[old_tbond] = type;
+          if (new) {
+            int type = Count->BondType;
+            Count->BondType++;
+            System->BondType = realloc(System->BondType, Count->BondType *
+                                       sizeof *System->BondType);
+            System->BondType[type] = S_old.BondType[old_tbond];
+            type_old_to_new[old_tbond] = type;
+          }
         }
       }
     }
+//printf("%sOK%s\n", BLUE, C_RESET);
     for (int i = 0; i < Count->MoleculeType; i++) {
       MOLECULETYPE *mt_i = &System->MoleculeType[i];
       for (int j = 0; j < mt_i->nBonds; j++) {
         int old_tbond = mt_i->Bond[j][2];
-        mt_i->Bond[j][2] = type_old_to_new[old_tbond];
+        if (old_tbond != -1) {
+          mt_i->Bond[j][2] = type_old_to_new[old_tbond];
+        } else {
+          mt_i->Bond[j][2] = -1;
+        }
       }
     }
+//printf("%sOK%s\n", GREEN, C_RESET);
     free(type_old_to_new);
+//printf("%sOK%s\n", MAGENTA, C_RESET);
   } //}}}
   // prune angle types //{{{
   if (Count->AngleType > 0) {
@@ -1679,7 +1680,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
   } //}}}
   for (int i = 0; i < Count_orig->MoleculeType; i++) {
     MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
-    int type = FindMoleculeType(*mt_orig, Sys_add, 1, name);
+    int type = FindMoleculeType(*mt_orig, Sys_add, 2, name);
     if (type != -1) {
       MOLECULETYPE *mt_add = &Sys_add.MoleculeType[type];
       // add bonds, if there are none in the original molecule type... //{{{
