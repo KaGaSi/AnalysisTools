@@ -170,6 +170,18 @@ int InputCoorStruct(int argc, char **argv,
   return type;
 } //}}}
 
+// TODO: maybe just the two BEADTYPEs are needed?
+// SameBeadTypes() //{{{
+bool SameBeadTypes(BEADTYPE bt_1, BEADTYPE bt_2) {
+  if (strcmp(bt_1.Name, bt_2.Name) == 0 &&
+      bt_1.Charge == bt_2.Charge &&
+      bt_1.Mass == bt_2.Mass &&
+      bt_1.Radius == bt_2.Radius) {
+    return true;
+  } else {
+    return false;
+  }
+} //}}}
 int FindBeadType(char name[], SYSTEM System) { //{{{
   int type;
   for (int i = 0; i < System.Count.BeadType; i++) {
@@ -195,7 +207,7 @@ int FindMoleculeName(char name[], SYSTEM System) { //{{{
 /* TODO: do the detailed stuff (in conjunction with Info -vs_in 1.vtf -f_in FIELD
  *       in ~/AnalysisTools/build/test-Info)
  */
-// FindMoleculeType() //{{{
+// FindMoleculeType_old() //{{{
 /*
  * If name==true, then find molecule type according to mode:
  *   0 - check nothing else
@@ -205,7 +217,7 @@ int FindMoleculeName(char name[], SYSTEM System) { //{{{
  * name = true/false for checking/ignoring molecule name
  */
 // TODO: checking bead order means having bead type names, i.e., possibly two SYSTEMs
-int FindMoleculeType(MOLECULETYPE mol, SYSTEM System, int mode, bool name) {
+int FindMoleculeType_old(MOLECULETYPE mol, SYSTEM System, int mode, bool name) {
   // just to be sure the function's mode parameter is correct //{{{
   if (mode < 0 || mode > 3) {
     strcpy(ERROR_MSG, "FindMoleculeType() - mode parameter must be <0,3>\n");
@@ -307,6 +319,127 @@ int FindMoleculeType(MOLECULETYPE mol, SYSTEM System, int mode, bool name) {
       if (!same) {
         continue;
       } //}}}
+      return i; // assumes mode=3, obviously
+    }
+  }
+  return -1;
+} //}}}
+// FindMoleculeType() //{{{
+/*
+ * If name==true, then find molecule type according to mode:
+ *   0 - check nothing else
+ *   1 - check number of beads
+ *   2 - check number and identity of beads
+ *   3 - check everything
+ * name = true/false for checking/ignoring molecule name
+ */
+// TODO: checking bead order means having bead type names, i.e., possibly two SYSTEMs
+int FindMoleculeType(SYSTEM Sys1, int mt, SYSTEM Sys2, int mode, bool name) {
+  // just to be sure the function's mode parameter is correct //{{{
+  if (mode < 0 || mode > 3) {
+    strcpy(ERROR_MSG, "FindMoleculeType() - mode parameter must be <0,3>\n");
+    PrintError();
+    exit(1);
+  } //}}}
+  MOLECULETYPE *mt_1 = &Sys1.MoleculeType[mt];
+  // find the same name
+  for (int i = 0; i < Sys2.Count.MoleculeType; i++) {
+    MOLECULETYPE *mt_2 = &Sys2.MoleculeType[i];
+    if (strcmp(mt_1->Name, mt_2->Name) == 0 || !name) {
+      if (mode == 0) { // only name checked
+        return i;
+      }
+      // check number of beads //{{{
+      if (mt_1->nBeads != mt_2->nBeads) {
+        continue;
+      } else if (mode == 1) {
+        return i;
+      } //}}}
+      // check bead order //{{{
+      bool same = true;
+      for (int j = 0; j < mt_1->nBeads; j++) {
+        int bt_1 = mt_1->Bead[j],
+            bt_2 = mt_2->Bead[j];
+        if (!SameBeadTypes(Sys1.BeadType[bt_1], Sys2.BeadType[bt_2])) {
+          same = false;
+          break;
+        }
+      }
+      if (!same) {
+        continue;
+      } else if (mode == 2) {
+        return i;
+      } //}}}
+      // check bonds //{{{
+      if (mt_1->nBonds != mt_2->nBonds) {
+        continue;
+      }
+      same = true;
+      for (int j = 0; j < mt_1->nBonds; j++) {
+        // TODO: COMPARE BONDTYPES
+//      if (mtype->Bond[j][0] != mol.Bond[j][0] ||
+//          mtype->Bond[j][1] != mol.Bond[j][1] ||
+//          mtype->Bond[j][2] != mol.Bond[j][2]) {
+//        same = false; // TODO: return to function start or some such
+//        break;
+//      }
+      }
+      if (!same) {
+        continue;
+      } //}}}
+//    // check angles //{{{
+//    if (mtype->nAngles != mol.nAngles) {
+//      continue;
+//    }
+//    same = true;
+//    for (int j = 0; j < mtype->nAngles; j++) {
+//      if (mtype->Angle[j][0] != mol.Angle[j][0] ||
+//          mtype->Angle[j][1] != mol.Angle[j][1] ||
+//          mtype->Angle[j][2] != mol.Angle[j][2] ||
+//          mtype->Angle[j][3] != mol.Angle[j][3]) {
+//        same = false; // TODO: return to function start or some such
+//        break;
+//      }
+//    }
+//    if (!same) {
+//      continue;
+//    } //}}}
+//    // check dihedrals //{{{
+//    if (mtype->nDihedrals != mol.nDihedrals) {
+//      continue; // TODO: return to function start or some such
+//    }
+//    same = true;
+//    for (int j = 0; j < mtype->nDihedrals; j++) {
+//      if (mtype->Dihedral[j][0] != mol.Dihedral[j][0] ||
+//          mtype->Dihedral[j][1] != mol.Dihedral[j][1] ||
+//          mtype->Dihedral[j][2] != mol.Dihedral[j][2] ||
+//          mtype->Dihedral[j][3] != mol.Dihedral[j][3] ||
+//          mtype->Dihedral[j][4] != mol.Dihedral[j][4]) {
+//        same = false;
+//        break;
+//      }
+//    }
+//    if (!same) {
+//      continue;
+//    } //}}}
+//    // check impropers //{{{
+//    if (mtype->nImpropers != mol.nImpropers) {
+//      continue;
+//    }
+//    same = true;
+//    for (int j = 0; j < mtype->nImpropers; j++) {
+//      if (mtype->Improper[j][0] != mol.Improper[j][0] ||
+//          mtype->Improper[j][1] != mol.Improper[j][1] ||
+//          mtype->Improper[j][2] != mol.Improper[j][2] ||
+//          mtype->Improper[j][3] != mol.Improper[j][3] ||
+//          mtype->Improper[j][4] != mol.Improper[j][4]) {
+//        same = false;
+//        break;
+//      }
+//    }
+//    if (!same) {
+//      continue;
+//    } //}}}
       return i; // assumes mode=3, obviously
     }
   }
@@ -1074,7 +1207,7 @@ void PruneSystem(SYSTEM *System) { //{{{
         mt_old->Bead[k] = bt_old_to_new[btype];
       }
       // 2) identify molecule type based on all information
-      int new_type = FindMoleculeType(*mt_old, *System, 3, true);
+      int new_type = FindMoleculeType_old(*mt_old, *System, 3, true);
       // 3) switch the beadtypes back
       for (int k = 0; k < mt_old->nBeads; k++) {
         mt_old->Bead[k] = bkp[k];
@@ -1680,7 +1813,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
   } //}}}
   for (int i = 0; i < Count_orig->MoleculeType; i++) {
     MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
-    int type = FindMoleculeType(*mt_orig, Sys_add, 2, name);
+    int type = FindMoleculeType(*Sys_orig, i, Sys_add, 2, name);
     if (type != -1) {
       MOLECULETYPE *mt_add = &Sys_add.MoleculeType[type];
       // add bonds, if there are none in the original molecule type... //{{{
@@ -1785,7 +1918,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
     // the same number of beads)
     for (int i = 0; i < Count_orig->MoleculeType; i++) {
       MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
-      int mtype_add = FindMoleculeType(*mt_orig, Sys_add, 1, name);
+      int mtype_add = FindMoleculeType_old(*mt_orig, Sys_add, 1, name);
       if (mtype_add != -1) {
         MOLECULETYPE *mt_add = &Sys_add.MoleculeType[mtype_add];
         for (int j = 0; j < mt_orig->nBeads; j++) {
@@ -1797,7 +1930,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
     for (int i = 0; i < Count_orig->Molecule; i++) {
       MOLECULE *mol_orig = &Sys_orig->Molecule[i];
       MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[mol_orig->Type];
-      int mtype_add = FindMoleculeType(*mt_orig, Sys_add, 1, name);
+      int mtype_add = FindMoleculeType_old(*mt_orig, Sys_add, 1, name);
       if (mtype_add != -1) {
         for (int j = 0; j < mt_orig->nBeads; j++) {
           int bead = mol_orig->Bead[j],

@@ -281,7 +281,7 @@ lammps data file must be specified");
   // extra input (if present) //{{{
   if (primary == vs_in) {
     if (input_field[0] != '\0') {
-      ChangeMolecules(System, field, change_beads_field, false);
+      ChangeMolecules(System, field, change_beads_field, true);
 //printf("%sJust Before Pruning\n", Green());
 //VerboseOutput(*System);
 //printf("%s", ColourReset());

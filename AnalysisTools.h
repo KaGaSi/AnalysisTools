@@ -44,9 +44,11 @@ bool InputCoor_old(bool *vtf, char *file_coor, char *file_struct); //}}}
 int InputCoorStruct(int argc, char **argv,
                     char coor[], char vsf[], char lmp[], char field[]);
 
+bool SameBeadTypes(BEADTYPE bt_1, BEADTYPE bt_2);
 int FindBeadType(char name[], SYSTEM System);
 int FindMoleculeName(char name[], SYSTEM System);
-int FindMoleculeType(MOLECULETYPE mol, SYSTEM System, int mode, bool name);
+int FindMoleculeType_old(MOLECULETYPE mol, SYSTEM System, int mode, bool name);
+int FindMoleculeType(SYSTEM Sys1, int mt, SYSTEM Sys2, int mode, bool name);
 
 void FillSystemNonessentials(SYSTEM *System);
 void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType);
