@@ -263,11 +263,16 @@ lammps data file must be specified");
   // read xyz input if present //{{{
   if (input_xyz[0] != '\0') {
     xyz = XYZReadStruct(input_xyz);
+    if (verbose) {
+      printf("System in %s:\n", input_xyz);
+      VerboseOutput(xyz);
+    }
   } //}}}
   // assign primary system //{{{
   char *struct_in;
   if (primary == 100) { // xyz if no 'real' structure file
     System = &xyz;
+    struct_in = input_xyz;
   } else if (primary == vs_in) { // vsf structure file
     System = &vsf;
     struct_in = input_vsf;
@@ -278,8 +283,12 @@ lammps data file must be specified");
     System = &lmp;
     struct_in = input_lmp;
   } //}}}
+  // first, all beads are in the timestep; revised if coordinates supplied //{{{
+  for (int i = 0; i < System->Count.Bead; i++) {
+    System->Bead[i].InTimestep = true;
+  } //}}}
   // extra input (if present) //{{{
-  if (primary == vs_in) {
+  if (primary == vs_in) { // primary input: vtf
     if (input_field[0] != '\0') {
       ChangeMolecules(System, field, change_beads_field, true);
 //printf("%sJust Before Pruning\n", Green());
@@ -288,35 +297,27 @@ lammps data file must be specified");
       CheckSystem(*System, input_field);
     }
     if (input_lmp[0] != '\0') {
-      ChangeMolecules(System, lmp, change_beads_lmp, false);
+      ChangeMolecules_old(System, lmp, change_beads_lmp, false);
       CheckSystem(*System, input_lmp);
     }
-  } else if (primary == l_in) {
+  } else if (primary == l_in) { // primary input: lammps data
     if (input_field[0] != '\0') {
-      ChangeMolecules(System, field, change_beads_field, false);
+      ChangeMolecules_old(System, field, change_beads_field, false);
       CheckSystem(*System, input_field);
     }
     if (input_vsf[0] != '\0') {
-      ChangeMolecules(System, vsf, change_beads_vsf, false);
+      ChangeMolecules_old(System, vsf, change_beads_vsf, false);
       CheckSystem(*System, input_vsf);
     }
-  } else if (primary == f_in) {
+  } else if (primary == f_in) { // primary input: FIELD
     if (input_lmp[0] != '\0') {
-      ChangeMolecules(System, lmp, change_beads_lmp, false);
+      ChangeMolecules_old(System, lmp, change_beads_lmp, false);
       CheckSystem(*System, input_lmp);
     }
     if (input_vsf[0] != '\0') {
-      ChangeMolecules(System, vsf, change_beads_vsf, false);
+      ChangeMolecules_old(System, vsf, change_beads_vsf, false);
       CheckSystem(*System, input_vsf);
     }
-  }
-  if (verbose) {
-    printf("System in %s:\n", struct_in);
-    VerboseOutput(*System);
-  } //}}}
-  // first, all beads are in the timestep; revised if coordinates supplied //{{{
-  for (int i = 0; i < System->Count.Bead; i++) {
-    System->Bead[i].InTimestep = true;
   } //}}}
   // use coordinates from lmp if all coordinates in System are 0 //{{{
   bool coor = false;
@@ -458,10 +459,10 @@ not using vcf coordinates");
   } //}}}
   //}}}
 
-  printf("%sJust Before Pruning\n", Magenta());
-  VerboseOutput(*System);
+//printf("%sJust Before Pruning\n", Magenta());
+//VerboseOutput(*System);
   PruneSystem(System);
-  printf("%s", ColourReset());
+//printf("%s", ColourReset());
 
   // print information //{{{
   printf("Final system composition:\n");

@@ -181,7 +181,7 @@ int main(int argc, char *argv[]) {
   SYSTEM field;
   if (input_field[0] != '\0') {
     field = FieldRead(input_field);
-    ChangeMolecules(&System, field, change_beads_field, true);
+    ChangeMolecules_old(&System, field, change_beads_field, true);
     CheckSystem(System, input_field);
     printf("System in %s:\n", input_field);
     VerboseOutput(field);
@@ -192,7 +192,7 @@ int main(int argc, char *argv[]) {
     lmp = LmpDataRead(input_lmp);
     printf("System in %s:\n", input_lmp);
     VerboseOutput(lmp);
-    ChangeMolecules(&System, lmp, change_beads_lmp, false);
+    ChangeMolecules_old(&System, lmp, change_beads_lmp, false);
     CheckSystem(System, input_lmp);
   }
   WarnChargedSystem(System, input_vsf, input_field);

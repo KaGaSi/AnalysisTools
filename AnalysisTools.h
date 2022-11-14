@@ -28,6 +28,7 @@ int * DihedralIndices(SYSTEM System, int mol, int dihed);
 int * ImproperIndices(SYSTEM System, int mol, int dihed);
 
 void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name);
+void ChangeMolecules_old(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name);
 
 void CheckSystem(SYSTEM System, char file[]);
 
@@ -44,7 +45,7 @@ bool InputCoor_old(bool *vtf, char *file_coor, char *file_struct); //}}}
 int InputCoorStruct(int argc, char **argv,
                     char coor[], char vsf[], char lmp[], char field[]);
 
-bool SameBeadTypes(BEADTYPE bt_1, BEADTYPE bt_2);
+bool SameBeadType(BEADTYPE bt_1, BEADTYPE bt_2);
 int FindBeadType(char name[], SYSTEM System);
 int FindMoleculeName(char name[], SYSTEM System);
 int FindMoleculeType_old(MOLECULETYPE mol, SYSTEM System, int mode, bool name);

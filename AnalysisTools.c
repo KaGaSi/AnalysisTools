@@ -170,9 +170,8 @@ int InputCoorStruct(int argc, char **argv,
   return type;
 } //}}}
 
-// TODO: maybe just the two BEADTYPEs are needed?
-// SameBeadTypes() //{{{
-bool SameBeadTypes(BEADTYPE bt_1, BEADTYPE bt_2) {
+// SameBeadType() //{{{
+bool SameBeadType(BEADTYPE bt_1, BEADTYPE bt_2) {
   if (strcmp(bt_1.Name, bt_2.Name) == 0 &&
       bt_1.Charge == bt_2.Charge &&
       bt_1.Mass == bt_2.Mass &&
@@ -181,6 +180,15 @@ bool SameBeadTypes(BEADTYPE bt_1, BEADTYPE bt_2) {
   } else {
     return false;
   }
+} //}}}
+// SameArray() //{{{
+bool SameArray(int arr_1[], int arr_2[], int n) {
+  for (int i = 0; i < n; i++) {
+    if (arr_1[i] != arr_2[i]) {
+      return false;
+    }
+  }
+  return true;
 } //}}}
 int FindBeadType(char name[], SYSTEM System) { //{{{
   int type;
@@ -204,9 +212,6 @@ int FindMoleculeName(char name[], SYSTEM System) { //{{{
   // name isn't in MoleculeType struct
   return(-1);
 } //}}}
-/* TODO: do the detailed stuff (in conjunction with Info -vs_in 1.vtf -f_in FIELD
- *       in ~/AnalysisTools/build/test-Info)
- */
 // FindMoleculeType_old() //{{{
 /*
  * If name==true, then find molecule type according to mode:
@@ -333,7 +338,6 @@ int FindMoleculeType_old(MOLECULETYPE mol, SYSTEM System, int mode, bool name) {
  *   3 - check everything
  * name = true/false for checking/ignoring molecule name
  */
-// TODO: checking bead order means having bead type names, i.e., possibly two SYSTEMs
 int FindMoleculeType(SYSTEM Sys1, int mt, SYSTEM Sys2, int mode, bool name) {
   // just to be sure the function's mode parameter is correct //{{{
   if (mode < 0 || mode > 3) {
@@ -351,97 +355,60 @@ int FindMoleculeType(SYSTEM Sys1, int mt, SYSTEM Sys2, int mode, bool name) {
       }
       // check number of beads //{{{
       if (mt_1->nBeads != mt_2->nBeads) {
-        continue;
+        goto end_loop; // not continue to avoid break/continue combo later
       } else if (mode == 1) {
         return i;
       } //}}}
       // check bead order //{{{
-      bool same = true;
       for (int j = 0; j < mt_1->nBeads; j++) {
         int bt_1 = mt_1->Bead[j],
             bt_2 = mt_2->Bead[j];
-        if (!SameBeadTypes(Sys1.BeadType[bt_1], Sys2.BeadType[bt_2])) {
-          same = false;
-          break;
+        if (!SameBeadType(Sys1.BeadType[bt_1], Sys2.BeadType[bt_2])) {
+          goto end_loop;
         }
       }
-      if (!same) {
-        continue;
-      } else if (mode == 2) {
+      if (mode == 2) {
         return i;
       } //}}}
       // check bonds //{{{
       if (mt_1->nBonds != mt_2->nBonds) {
-        continue;
+        goto end_loop;
       }
-      same = true;
       for (int j = 0; j < mt_1->nBonds; j++) {
-        // TODO: COMPARE BONDTYPES
-//      if (mtype->Bond[j][0] != mol.Bond[j][0] ||
-//          mtype->Bond[j][1] != mol.Bond[j][1] ||
-//          mtype->Bond[j][2] != mol.Bond[j][2]) {
-//        same = false; // TODO: return to function start or some such
-//        break;
-//      }
-      }
-      if (!same) {
-        continue;
+        if (!SameArray(mt_1->Bond[j], mt_2->Bond[j], 3)) {
+          goto end_loop;
+        }
       } //}}}
-//    // check angles //{{{
-//    if (mtype->nAngles != mol.nAngles) {
-//      continue;
-//    }
-//    same = true;
-//    for (int j = 0; j < mtype->nAngles; j++) {
-//      if (mtype->Angle[j][0] != mol.Angle[j][0] ||
-//          mtype->Angle[j][1] != mol.Angle[j][1] ||
-//          mtype->Angle[j][2] != mol.Angle[j][2] ||
-//          mtype->Angle[j][3] != mol.Angle[j][3]) {
-//        same = false; // TODO: return to function start or some such
-//        break;
-//      }
-//    }
-//    if (!same) {
-//      continue;
-//    } //}}}
-//    // check dihedrals //{{{
-//    if (mtype->nDihedrals != mol.nDihedrals) {
-//      continue; // TODO: return to function start or some such
-//    }
-//    same = true;
-//    for (int j = 0; j < mtype->nDihedrals; j++) {
-//      if (mtype->Dihedral[j][0] != mol.Dihedral[j][0] ||
-//          mtype->Dihedral[j][1] != mol.Dihedral[j][1] ||
-//          mtype->Dihedral[j][2] != mol.Dihedral[j][2] ||
-//          mtype->Dihedral[j][3] != mol.Dihedral[j][3] ||
-//          mtype->Dihedral[j][4] != mol.Dihedral[j][4]) {
-//        same = false;
-//        break;
-//      }
-//    }
-//    if (!same) {
-//      continue;
-//    } //}}}
-//    // check impropers //{{{
-//    if (mtype->nImpropers != mol.nImpropers) {
-//      continue;
-//    }
-//    same = true;
-//    for (int j = 0; j < mtype->nImpropers; j++) {
-//      if (mtype->Improper[j][0] != mol.Improper[j][0] ||
-//          mtype->Improper[j][1] != mol.Improper[j][1] ||
-//          mtype->Improper[j][2] != mol.Improper[j][2] ||
-//          mtype->Improper[j][3] != mol.Improper[j][3] ||
-//          mtype->Improper[j][4] != mol.Improper[j][4]) {
-//        same = false;
-//        break;
-//      }
-//    }
-//    if (!same) {
-//      continue;
-//    } //}}}
+      // check angles //{{{
+      if (mt_1->nAngles != mt_2->nAngles) {
+        goto end_loop;
+      }
+      for (int j = 0; j < mt_1->nAngles; j++) {
+        if (!SameArray(mt_1->Angle[j], mt_2->Angle[j], 4)) {
+          goto end_loop;
+        }
+      } //}}}
+      // check dihedrals //{{{
+      if (mt_1->nDihedrals != mt_2->nDihedrals) {
+        goto end_loop;
+      }
+      for (int j = 0; j < mt_1->nDihedrals; j++) {
+        if (SameArray(mt_1->Dihedral[j], mt_2->Dihedral[j], 5)) {
+          goto end_loop;
+        }
+      } //}}}
+      // check impropers //{{{
+      if (mt_1->nImpropers != mt_2->nImpropers) {
+        goto end_loop;
+      }
+      for (int j = 0; j < mt_1->nImpropers; j++) {
+        if (SameArray(mt_1->Improper[j], mt_2->Improper[j], 5)) {
+          goto end_loop;
+        }
+      } //}}}
       return i; // assumes mode=3, obviously
     }
+    end_loop: ;
   }
   return -1;
 } //}}}
@@ -1768,11 +1735,193 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
  * types (creating new ones) to a molecule type, possibly also changing the
  * bead types in MoleculeType[].Bead array for new ones.
  */
+void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
+  COUNT *Count_orig = &Sys_orig->Count,
+        *Count_add = &Sys_add.Count;
+  COUNT count_old = *Count_orig;
+  // replace bead types from Sys_orig with those from Sys_add if required //{{{
+  if (beads) {
+    // append bead types from Sys_add to Sys_orig
+    Count_orig->BeadType += Count_add->BeadType;
+    Sys_orig->BeadType = realloc(Sys_orig->BeadType, sizeof (BEADTYPE) *
+                                 Count_orig->BeadType);
+    for (int i = 0; i < Count_add->BeadType; i++) {
+      int new = i + count_old.BeadType;
+      Sys_orig->BeadType[new] = Sys_add.BeadType[i];
+      Sys_orig->BeadType[new].Number = 0;
+    }
+    /* For molecules with the same number of beads and for those beads, rewrite:
+     * 1) MoleculeType[].Bead array in Sys_orig with bead types from Sys_add
+     * 2) Bead[].Type in Sys_orig with the same new types
+     * 3) adjust numbers of beads in BeadType[].Number in Sys_orig
+     */
+    for (int i = 0; i < Count_orig->MoleculeType; i++) {
+      int mtype_add = FindMoleculeType(*Sys_orig, i, Sys_add, 1, name);
+      if (mtype_add != -1) {
+        MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i],
+                     *mt_add = &Sys_add.MoleculeType[mtype_add];
+        for (int j = 0; j < mt_orig->nBeads; j++) {
+          mt_orig->Bead[j] = mt_add->Bead[j] + count_old.BeadType; // 1)
+          // go through molecules of type i
+          for (int k = 0; k < mt_orig->Number; k++) {
+            int mol_id = mt_orig->Index[k];
+            MOLECULE *mol = &Sys_orig->Molecule[mol_id];
+            int bead = mol->Bead[j];
+            Sys_orig->Bead[bead].Type = mt_orig->Bead[j]; // 2)
+            Sys_orig->BeadType[mt_orig->Bead[j]].Number++; // 3)
+            Sys_orig->BeadType[mt_add->Bead[j]].Number--;  //
+          }
+        }
+      }
+    }
+    // remake BeadType[].Index arrays as number of bead types changed
+    for (int i = 0; i < count_old.BeadType; i++) {
+      free(Sys_orig->BeadType[i].Index);
+    }
+    FillBeadTypeIndex(Sys_orig);
+  } //}}}
+  // add bond/angle/dihedral/improper types from Sys_add to Sys_orig //{{{
+  if (Count_add->BondType > 0) {
+    Count_orig->BondType += Count_add->BondType;
+    Sys_orig->BondType = realloc(Sys_orig->BondType,
+                                 sizeof *Sys_orig->BondType *
+                                 Count_orig->BondType);
+    memcpy(Sys_orig->BondType + count_old.BondType, Sys_add.BondType,
+           sizeof *Sys_orig->BondType * Count_add->BondType);
+  }
+  if (Count_add->AngleType > 0) {
+    Count_orig->AngleType += Count_add->AngleType;
+    Sys_orig->AngleType = realloc(Sys_orig->AngleType,
+                                  sizeof *Sys_orig->AngleType *
+                                  Count_orig->AngleType);
+    memcpy(Sys_orig->AngleType + count_old.AngleType, Sys_add.AngleType,
+           sizeof *Sys_orig->AngleType * Count_add->AngleType);
+  }
+  if (Count_add->DihedralType > 0) {
+    Count_orig->DihedralType += Count_add->DihedralType;
+    Sys_orig->DihedralType = realloc(Sys_orig->DihedralType,
+                                     sizeof *Sys_orig->DihedralType *
+                                     Count_orig->DihedralType);
+    memcpy(Sys_orig->DihedralType + count_old.DihedralType,
+           Sys_add.DihedralType, sizeof *Sys_orig->DihedralType *
+           Count_add->DihedralType);
+  }
+  if (Count_add->ImproperType > 0) {
+    Count_orig->ImproperType += Count_add->ImproperType;
+    Sys_orig->ImproperType = realloc(Sys_orig->ImproperType,
+                                     sizeof *Sys_orig->ImproperType *
+                                     Count_orig->ImproperType);
+    memcpy(Sys_orig->ImproperType + count_old.ImproperType,
+           Sys_add.ImproperType, sizeof *Sys_orig->ImproperType *
+           Count_add->ImproperType);
+  } //}}}
+  for (int i = 0; i < Count_orig->MoleculeType; i++) { //{{{
+    MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
+    int type = FindMoleculeType(*Sys_orig, i, Sys_add, 2, name);
+    if (type != -1) {
+      MOLECULETYPE *mt_add = &Sys_add.MoleculeType[type];
+      // add bonds, if there are none in the original molecule type... //{{{
+      if (mt_add->nBonds > 0 && mt_orig->nBonds == 0) {
+        mt_orig->nBonds = mt_add->nBonds;
+        mt_orig->Bond = malloc(sizeof *mt_orig->Bond * mt_orig->nBonds);
+        memcpy(mt_orig->Bond, mt_add->Bond,
+               sizeof *mt_add->Bond * mt_add->nBonds); //}}}
+      // ...or just add bond types where missing //{{{
+      } else if (Count_add->BondType > 0) {
+        for (int j = 0; j < mt_orig->nBonds; j++) {
+          for (int k = 0; k < mt_add->nBonds; k++) {
+            if (mt_orig->Bond[j][0] == mt_add->Bond[k][0] &&
+                mt_orig->Bond[j][1] == mt_add->Bond[k][1] &&
+                mt_orig->Bond[j][2] == -1 && mt_add->Bond[k][2] != -1) {
+              mt_orig->Bond[j][2] = mt_add->Bond[k][2] + count_old.BondType;
+              break;
+            }
+          }
+        }
+      } //}}}
+      // add angles, if there are none in the original molecule type... //{{{
+      if (mt_add->nAngles > 0 && mt_orig->nAngles == 0) {
+        mt_orig->nAngles = mt_add->nAngles;
+        mt_orig->Angle = malloc(sizeof *mt_orig->Angle * mt_orig->nAngles);
+        memcpy(mt_orig->Angle, mt_add->Angle,
+               sizeof *mt_add->Angle * mt_add->nAngles); //}}}
+      // ...or just add angle types where missing //{{{
+      } else if (Count_add->AngleType > 0) {
+        for (int j = 0; j < mt_orig->nAngles; j++) {
+          for (int k = 0; k < mt_orig->nAngles; k++) {
+            if (mt_orig->Angle[j][0] == mt_add->Angle[k][0] &&
+                mt_orig->Angle[j][1] == mt_add->Angle[k][1] &&
+                mt_orig->Angle[j][2] == mt_add->Angle[k][2] &&
+                mt_orig->Angle[j][3] == -1 && mt_add->Angle[k][3] != -1) {
+              mt_orig->Angle[j][3] = mt_add->Angle[k][3] + count_old.AngleType;
+              break;
+            }
+          }
+        }
+      } //}}}
+      // add dihedrals, if there are none in the original molecule type... //{{{
+      if (mt_add->nDihedrals > 0 && mt_orig->nDihedrals == 0) {
+        mt_orig->nDihedrals = mt_add->nDihedrals;
+        mt_orig->Dihedral = malloc(sizeof *mt_orig->Dihedral *
+                                   mt_orig->nDihedrals);
+        memcpy(mt_orig->Dihedral, mt_add->Dihedral,
+               sizeof *mt_add->Dihedral * mt_add->nDihedrals); //}}}
+      // ...or just add dihedral types where missing //{{{
+      } else if (Count_add->DihedralType > 0) {
+        for (int j = 0; j < mt_orig->nDihedrals; j++) {
+          for (int k = 0; k < mt_orig->nDihedrals; k++) {
+            if (mt_orig->Dihedral[j][0] == mt_add->Dihedral[k][0] &&
+                mt_orig->Dihedral[j][1] == mt_add->Dihedral[k][1] &&
+                mt_orig->Dihedral[j][2] == mt_add->Dihedral[k][2] &&
+                mt_orig->Dihedral[j][3] == mt_add->Dihedral[k][3] &&
+                mt_orig->Dihedral[j][4] == -1 && mt_add->Dihedral[j][4] != -1) {
+              mt_orig->Dihedral[j][4] = mt_add->Dihedral[j][4] +
+                                        count_old.DihedralType;
+              break;
+            }
+          }
+        }
+      } //}}}
+      // add impropers, if there are none in the original molecule type... //{{{
+      if (mt_add->nImpropers > 0 && mt_orig->nImpropers == 0) {
+        mt_orig->nImpropers = mt_add->nImpropers;
+        mt_orig->Improper = malloc(sizeof *mt_orig->Improper *
+                                   mt_orig->nImpropers);
+        memcpy(mt_orig->Improper, mt_add->Improper,
+               sizeof *mt_add->Improper * mt_add->nImpropers); //}}}
+      // ...or just add improper types where missing //{{{
+      } else if (Count_add->ImproperType > 0) {
+        for (int j = 0; j < mt_orig->nImpropers; j++) {
+          for (int k = 0; k < mt_orig->nImpropers; k++) {
+            if (mt_orig->Improper[j][0] == mt_add->Improper[k][0] &&
+                mt_orig->Improper[j][1] == mt_add->Improper[k][1] &&
+                mt_orig->Improper[j][2] == mt_add->Improper[k][2] &&
+                mt_orig->Improper[j][3] == mt_add->Improper[k][3] &&
+                mt_orig->Improper[j][4] == -1 && mt_add->Improper[j][4] != -1) {
+              mt_orig->Improper[j][4] = mt_add->Improper[j][4] +
+                                        count_old.ImproperType;
+              break;
+            }
+          }
+        }
+      } //}}}
+    }
+  } //}}}
+  // make sure all stuff is properly counted and there's nothing extra
+  CountBondAngleDihedralImproper(Sys_orig);
+  PruneSystem(Sys_orig);
+} //}}}
+// ChangeMolecules_old() //{{{
+/*
+ * Function to add bonds, angles, dihedrals, and/or impropers as well as their
+ * types (creating new ones) to a molecule type, possibly also changing the
+ * bead types in MoleculeType[].Bead array for new ones.
+ */
 /* TODO: do the FindMoleculeType stuff to check all things but name (in
  *       conjunction with Info -vs_in 1.vtf -f_in FIELD in
  *       ~/AnalysisTools/build/test-Info)
  */
-void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
+void ChangeMolecules_old(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
   COUNT *Count_orig = &Sys_orig->Count,
         *Count_add = &Sys_add.Count;
   COUNT count_old = *Count_orig;
