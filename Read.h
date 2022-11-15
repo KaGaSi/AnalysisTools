@@ -26,6 +26,10 @@ void FillMoleculeTypeAngles(SYSTEM *System, int (*angle)[4], int nbonds);
 void FillMoleculeTypeDihedral(SYSTEM *System, int (*angle)[5], int nbonds);
 void FillMoleculeTypeImproper(SYSTEM *System, int (*angle)[5], int nbonds);
 
+void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join);
+bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
+                  int *file_line_count, char stuff[]);
+
 // Functions to read vtf files //{{{
 
 // Read all information about the system from a vsf/vtf structure file.
@@ -34,7 +38,7 @@ void RemoveExtraTypes(SYSTEM *System);
 void MergeBeadTypes(SYSTEM *System, bool detailed);
 void MergeMoleculeTypes(SYSTEM *System);
 // Get the first pbc line from a vcf/vsf/vtf coordinate file.
-bool VtfReadPBC(char input[], BOX *Box);
+void VtfReadPBC(char input[], BOX *Box);
 // Read a single timestep from a vcf/vtf coordinate file
 bool VtfReadTimestep(FILE *vcf, char vcf_file[],
                      SYSTEM *System, int *file_line_count, char stuff[]);

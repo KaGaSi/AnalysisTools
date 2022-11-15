@@ -663,6 +663,9 @@ void MergeMoleculeTypes(SYSTEM *System) {
   free(old_to_new); //}}}
 } //}}}
 
+// SkipCoorStep()
+//SkipCoorStep()
+
 void FillMoleculeBeads(SYSTEM *System) { //{{{
   COUNT *Count = &System->Count;
   for (int i = 0; i < Count->Molecule; i++) {
@@ -995,6 +998,39 @@ should never happen!");
   }
 } //}}}
 
+// WrapJoinCoordinates() //{{{
+void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join) {
+  if (System->Box.Volume != -1 && (wrap || join)) {
+    // transform coordinates into fractional ones for non-orthogonal box
+    ToFractionalCoor(System);
+    if (wrap) { // wrap coordinates into the simulation box
+      RestorePBC(System);
+    }
+    if (join) { // join molecules by removing periodic boundary conditions
+      RemovePBCMolecules(System);
+    }
+    // transform back to 'normal' coordinates for non-orthogonal box
+    FromFractionalCoor(System);
+  }
+} //}}}
+// ReadTimestep() //{{{
+bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
+                  int *file_line_count, char stuff[]) {
+  switch (coor_type) {
+    case 1:
+      if (!VtfReadTimestep(f, file, System, file_line_count, stuff)) {
+        return false;
+      }
+      break;
+    case 2:
+      if (!XYZReadTimestep(f, file, System, file_line_count)) {
+        return false;
+      }
+      break;
+  }
+  return true;
+} //}}}
+
 // Read vtf files //{{{
 // VtfReadStruct() //{{{
 /*
@@ -1228,7 +1264,7 @@ contact developper\n");
 /*
  * Get the first pbc line from the provided file.
  */
-bool VtfReadPBC(char input[], BOX *Box) {
+void VtfReadPBC(char input[], BOX *Box) {
   // open the coordinate file
   FILE *fr = OpenFile(input, "r");
   int file_line_count = 0;
@@ -1239,8 +1275,7 @@ bool VtfReadPBC(char input[], BOX *Box) {
     char *split[SPL_STR], line[LINE];
     int words;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      fclose(fr);
-      return false;
+      break;
     } //}}}
     int ltype = VtfCheckLineType(words, split, input, file_line_count);
     // pbc line //{{{
@@ -1259,10 +1294,12 @@ bool VtfReadPBC(char input[], BOX *Box) {
         (*Box).gamma = 90;
       }
       break; //}}}
-    }
+    // coordinate line - return from function //{{{
+    } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
+      break;
+    } //}}}
   };
   fclose(fr);
-  return true;
 } //}}}
 // VtfReadTimestep() //{{{
 /*

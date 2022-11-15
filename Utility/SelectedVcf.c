@@ -1,5 +1,8 @@
 #include "../AnalysisTools.h"
 
+// TODO: -e X --last leads to leaving at step X and saving that as the last;
+//       is that okay?
+
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
   if (error) {
@@ -140,8 +143,7 @@ acceptable only for xyz input coordinate file");
   if (coor_out_type == -1) {
     Help(argv[0], true);
     exit(1);
-  }
-  //}}}
+  } //}}}
 
   // options before reading system data //{{{
   bool silent, verbose, detailed;
@@ -174,7 +176,6 @@ acceptable only for xyz input coordinate file");
       break;
     case 1: // vsf/vtf
       System = VtfReadStruct(in_vsf, detailed);
-      VtfReadPBC(in_vsf, &System.Box);
       break;
     case 2: // lmp
       System = LmpDataRead(in_lmp);
@@ -317,33 +318,12 @@ acceptable only for xyz input coordinate file");
     //}}}
     // read and write the timestep, if it should be saved //{{{
     if (use) {
-      if (coor_type == 1) {
-        if (!VtfReadTimestep(coor, in_coor, &System, &file_line_count, stuff)) {
-          count_coor--;
-          break;
-        }
-      } else if (coor_type == 2) {
-        if (!XYZReadTimestep(coor, in_coor, &System, &file_line_count)) {
-          count_coor--;
-          break;
-        }
+      if (!ReadTimestep(coor_type, coor, in_coor,
+            &System, &file_line_count, stuff)) {
+        count_coor--;
+        break;
       }
-      // transform coordinates into fractional ones for non-orthogonal box
-      if (System.Box.Volume != -1) { // only if box is specified
-        if (wrap || join) {
-          ToFractionalCoor(&System);
-        }
-        if (wrap) { // wrap coordinates into the simulation box
-          RestorePBC(&System);
-        }
-        if (join) { // join molecules by removing periodic boundary conditions
-          RemovePBCMolecules(&System);
-        }
-        // transform back to 'normal' coordinates for non-orthogonal box
-        if (wrap || join) {
-          FromFractionalCoor(&System);
-        }
-      }
+      WrapJoinCoordinates(&System, wrap, join);
       // write to output file (vcf or xyz)
       out = OpenFile(out_coor, "a");
       if (coor_out_type == 0) {
@@ -355,13 +335,16 @@ acceptable only for xyz input coordinate file");
       //}}}
     // skip the timestep, if it shouldn't be saved //{{{
     } else {
-      if (coor_out_type == 0) {
+      if (coor_type == 1) {
         if (!VtfSkipTimestep(coor, in_coor, in_vsf, &file_line_count)) {
           count_coor--;
           break;
         }
-      } else {
-        XYZSkipTimestep(coor, in_coor, &file_line_count);
+      } else if (coor_type == 2) {
+        if (!XYZSkipTimestep(coor, in_coor, &file_line_count)) {
+          count_coor--;
+          break;
+        }
       }
     } //}}}
     // save file position (last two because of --last) //{{{
@@ -383,32 +366,22 @@ acceptable only for xyz input coordinate file");
   } //}}}
   // if --last option is used, read & save the last timestep //{{{
   if (last) {
+    // restore file pointer
     if ((count_coor%2) == 1) {
       fsetpos(coor, &position1);
     } else {
       fsetpos(coor, &position2);
     }
-    if (VtfReadTimestep(coor, in_coor, &System, &file_line_count, stuff)) {
-      // transform coordinates into fractional ones for non-orthogonal box
-      ToFractionalCoor(&System);
-      // wrap and/or join molecules?
-      if (wrap) {
-        RestorePBC(&System);
-      }
-      if (join) {
-        RemovePBCMolecules(&System);
-      }
-      // transform back to 'normal' coordinates for non-orthogonal box
-      FromFractionalCoor(&System);
-      // write to output file (vcf or xyz)
-      out = OpenFile(out_coor, "a");
-      if (coor_out_type == 0) {
-        VtfWriteCoorIndexed(out, stuff, write, System);
-      } else {
-        XyzWriteCoor(out, write, stuff, System);
-      }
-      fclose(out);
+    ReadTimestep(coor_type, coor, in_coor, &System, &file_line_count, stuff);
+    WrapJoinCoordinates(&System, wrap, join);
+    // write to output file (vcf or xyz)
+    out = OpenFile(out_coor, "a");
+    if (coor_out_type == 0) {
+      VtfWriteCoorIndexed(out, stuff, write, System);
+    } else {
+      XyzWriteCoor(out, write, stuff, System);
     }
+    fclose(out);
   } //}}}
   fclose(coor);
   // error - input coordinate file with no coordinates //{{{

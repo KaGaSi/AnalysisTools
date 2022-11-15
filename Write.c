@@ -9,19 +9,13 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[],
   }
   // print box size if present //{{{
   BOX *box = &System.Box;
-//if (box->Volume == -1) {
-//  strcpy(ERROR_MSG, "undefined simulation box size");
-//  PrintWarning();
-//  fprintf(stderr, "%sdimensions:%s %lf %lf %lf%s;", ErrCyan(), ErrYellow(),
-//          box->Length.x, box->Length.y, box->Length.z, ErrCyan());
-//  fprintf(stderr, " using 1 1 1 instead%s\n", ErrColourReset());
-//  fprintf(vcf, "pbc 1 1 1");
-//} else {
   if (box->Volume != -1) {
     fprintf(vcf, "pbc %lf %lf %lf",
             box->Length.x, box->Length.y, box->Length.z);
+    if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {
+      fprintf(vcf, "    %lf %lf %lf\n", box->alpha, box->beta, box->gamma);
+    }
   }
-  fprintf(vcf, "    %lf %lf %lf\n", box->alpha, box->beta, box->gamma);
   //}}}
   fprintf(vcf, "indexed\n");
   bool none = true;
