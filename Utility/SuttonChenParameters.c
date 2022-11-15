@@ -221,6 +221,9 @@ void FillElements(ELEMENT element[]) {
   element[20].MeltingPoint = 1115;
   element[20].BoilingPoint = 1757;
   element[20].Density = 1.54e3;
+  element[20].Crystal = 1;
+  element[20].BulkModulus = 17e9;
+  element[20].CohesionEnergy = 178e3;
   strcpy(element[21].Symbol, "Sc");
   element[21].State = 1;
   element[21].Mass = 44.95591e-3;
