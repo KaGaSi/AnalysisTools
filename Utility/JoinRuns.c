@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
 
   // test if <1st input> ends with '.vcf' or '.vtf' (required by VMD)
   int ext = 2;
-  char extension[2][5];
+  char extension[2][EXTENSION];
   strcpy(extension[0], ".vcf");
   strcpy(extension[1], ".vtf");
   if (ErrorExtension(input_coor_1, ext, extension)) {

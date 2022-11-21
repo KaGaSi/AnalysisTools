@@ -131,7 +131,7 @@ void ErrorArgNumber(int count, int need) {
 /**
  * Error when missing or incorrect file extension
  */
-int ErrorExtension(char *file, int number, char extension[][5]) {
+int ErrorExtension(char *file, int number, char extension[][EXTENSION]) {
   char *dot = strrchr(file, '.');
   for (int i = 0; i < number; i++) {
     if (dot && strcmp(dot, extension[i]) == 0) {

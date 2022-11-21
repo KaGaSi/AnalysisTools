@@ -509,7 +509,7 @@ void CommonOptions_old(int argc, char *argv[], char vsf_file[], int length,
   }
   // test if structure file ends with '.vsf' or '.vtf'
   int ext = 2;
-  char extension[2][5];
+  char extension[2][EXTENSION];
   strcpy(extension[0], ".vsf");
   strcpy(extension[1], ".vtf");
   if (ErrorExtension(vsf_file, ext, extension) == -1) {

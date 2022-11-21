@@ -136,7 +136,7 @@ acceptable only for xyz input coordinate file");
   snprintf(out_coor, LINE, "%s", argv[++count]);
   // test if <output.vcf> ends with '.vcf'
   int ext = 2;
-  char extension[2][5];
+  char extension[2][EXTENSION];
   strcpy(extension[0], ".vcf");
   strcpy(extension[1], ".xyz");
   coor_out_type = ErrorExtension(out_coor, ext, extension);

@@ -1,6 +1,8 @@
 #ifndef _ANALYSISTOOLS_H_
 #define _ANALYSISTOOLS_H_
 
+#define EXTENSION 16
+
 #include "Errors.h"
 #include "General.h"
 #include "Options.h"

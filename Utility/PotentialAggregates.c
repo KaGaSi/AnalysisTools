@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
   snprintf(input_agg, LINE, "%s", argv[++count]);
   // test if <input.agg> ends with '.agg'
   int ext = 1;
-  char extension[2][5];
+  char extension[2][EXTENSION];
   strcpy(extension[0], ".agg");
   if (ErrorExtension(input_agg, ext, extension) == -1) {
     Help(argv[0], true);

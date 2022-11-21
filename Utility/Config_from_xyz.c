@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
 
   // test if <input> filename ends with '.xyz' (required by VMD)
   int ext = 1;
-  char extension[2][5];
+  char extension[2][EXTENSION];
   strcpy(extension[0], ".xyz");
   if (ErrorExtension(input_xyz, ext, extension)) {
     Help(argv[0], true);

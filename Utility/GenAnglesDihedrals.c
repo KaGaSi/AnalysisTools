@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
   snprintf(input_vsf, LINE, "%s", argv[++count]);
   // test if <input> ends with '.vsf' or '.vtf'
   int ext = 2;
-  char extension[2][5];
+  char extension[2][EXTENSION];
   strcpy(extension[0], ".vsf");
   strcpy(extension[1], ".vtf");
   if (ErrorExtension(input_vsf, ext, extension) == -1) {

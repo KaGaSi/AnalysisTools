@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
   // <in.vsf>
   snprintf(file_add_struct, LINE, "%s", argv[++count]);
   int ext = 2;
-  char extension[2][5];
+  char extension[2][EXTENSION];
   strcpy(extension[0], ".vsf");
   strcpy(extension[1], ".vtf");
   if (ErrorExtension(file_add_struct, ext, extension) == -1) {

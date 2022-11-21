@@ -101,7 +101,7 @@ void FromFractionalCoor(SYSTEM *System) { //{{{
  */
 bool InputCoor_old(bool *vtf, char *file_coor, char *file_struct) {
   int ext = 2;
-  char extension[2][5];
+  char extension[2][EXTENSION];
   strcpy(extension[0], ".vcf");
   strcpy(extension[1], ".vtf");
   ext = ErrorExtension(file_coor, ext, extension);
@@ -127,7 +127,7 @@ bool InputCoor_old(bool *vtf, char *file_coor, char *file_struct) {
 int InputCoorStruct(int argc, char **argv,
                     char coor[], char vsf[], char lmp[], char field[]) {
   int ext = 4, type;
-  char extension[4][5];
+  char extension[4][EXTENSION];
   strcpy(extension[0], ".vcf");
   strcpy(extension[1], ".vtf");
   strcpy(extension[2], ".xyz");

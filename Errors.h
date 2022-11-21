@@ -79,7 +79,7 @@ void ErrorArgNumber(int count, int need); //}}}
  * \param [in] extension  correct extension(s)
  * \return <int> of the extension (according to the input array) or -1 if missing a correct one
  */
-int ErrorExtension(char *file, int number, char extension[][5]); //}}}
+int ErrorExtension(char *file, int number, char extension[][EXTENSION]); //}}}
 
 // ErrorNaN() //{{{
 /**

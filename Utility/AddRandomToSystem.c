@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
   snprintf(file_out_struct, LINE, "%s", argv[++count]);
   // test that <out.vsf> filename ends with '.vsf'
   int ext = 1;
-  char extension[2][5];
+  char extension[2][EXTENSION];
   strcpy(extension[0], ".vsf");
   if (ErrorExtension(file_out_struct, ext, extension) == -1) {
     Help(argv[0], true);

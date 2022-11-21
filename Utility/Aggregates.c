@@ -504,7 +504,7 @@ int main(int argc, char *argv[]) {
 
   // test if <output.agg> ends with '.agg'
   int ext = 1;
-  char extension[2][5];
+  char extension[2][EXTENSION];
   strcpy(extension[0], ".agg");
   if (ErrorExtension(output_agg, ext, extension) == -1) {
     Help(argv[0], true);

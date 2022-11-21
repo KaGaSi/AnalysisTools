@@ -2565,8 +2565,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
   fclose(fr);
 } //}}}
  //}}}
-// Read lammps data file //{{{
-// TODO: somehow, it's extremely slow; maybe the lmp data files are just large?
+// Read lammps files //{{{
 SYSTEM LmpDataRead(char data_file[]) { //{{{
   SYSTEM System;
   InitSystem(&System);
@@ -3586,6 +3585,75 @@ void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
   }
   free(found);
 } //}}}
+// Read lammpstrj trajectory file (dump style custom) //{{{
+bool LmpReadCoor(FILE *f, char ltrj_file[],
+                 SYSTEM *System, int *file_line_count) {
+  start_function: ; // return here when a bad line is encountered
+  // ignore first three lines & read fourth (number of atoms) //{{{
+  char *split[SPL_STR], line[LINE];
+  int words;
+  fpos_t position; // to save file position
+  for (int i = 0; i < 4; i++) {
+    (*file_line_count)++;
+    if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      return false;
+    }
+  } //}}}
+  // read number of beads & warn if wrong (and return to start_function) //{{{
+  long n;
+  if (words == 0 || !IsIntegerNumber(split[0], &n) || n > System->Count.Bead) {
+    strcpy(ERROR_MSG, "invalid bead count; \
+using next timestep instead of this one");
+    PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
+    // read until 'ITEM: TIMESTEP' line is found
+    while(words < 2 || strcmp(split[0], "ITEM:") != 0 ||
+                       strcmp(split[1], "TIMESTEP") != 0) {
+      fgetpos(f, &position);
+      (*file_line_count)++;
+      if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+        return false;
+      }
+    }
+    fsetpos(f, &position);
+    (*file_line_count)--; // the 'ITEM: TIMESTEP' line will be re-read
+    goto start_function;
+  } //}}}
+  // read box dimensions //{{{
+  // 1) read 'ITEM:' line to find box type - TODO
+  if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    return false;
+  }
+  // 2) read box dimensions
+  // TODO: more than the simple cuboid stuf
+  double box[3];
+  for (int i = 0; i < 3; i++) {
+    if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      return false;
+    }
+    double low, high;
+    if (words < 2 || !IsPosRealNumber(split[0], &low) ||
+                     !IsPosRealNumber(split[1], &high) ||
+                     (high-low) < 0) {
+      // TODO: error - return to start_function
+    }
+    box[i] = high - low;
+  }
+  System->Box.Length.x = box[0];
+  System->Box.Length.y = box[1];
+  System->Box.Length.z = box[2]; //}}}
+  // read 'ITEM: ATOMS' line - TODO
+  if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    return false;
+  }
+  // read coordinates - TODO
+  for (int i = 0; i < n; i++) {
+    if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      return false;
+    }
+  }
+  return true;
+}
+//}}}
  //}}}
 // Read xyz coordinate file //{{{
 SYSTEM XYZReadStruct(char file[]) { //{{{

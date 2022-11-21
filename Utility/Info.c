@@ -34,31 +34,33 @@ applies to molecules with the same name in both files.\n\n");
   fprintf(ptr, "   %s [options]\n\n", cmd);
   fprintf(ptr, "   [options]\n");
   fprintf(ptr, "    input files:\n");
-  fprintf(ptr, "      -vs_in[!] <file.vsf> vtf structure file\n");
-  fprintf(ptr, "      --detailed           differentiate bead types not just \
-by names (works only with -vs_in)\n");
-  fprintf(ptr, "      -vc_in <file.vcf>    vtf coordinate file\n");
-  fprintf(ptr, "      -x_in <file.xyz>     xyz coordinate file\n");
-  fprintf(ptr, "      -st <int>            what timestep to use; default: 1; \
-for last, use '0' (works with -x_in or -vc_in)\n");
-  fprintf(ptr, "      -f_in[!] <file>      input FIELD-like file\n");
-  fprintf(ptr, "      -l_in[!] <file>      input lammps data file\n");
+  fprintf(ptr, "      -vs_in[!] <file.vsf>      vtf structure file\n");
+  fprintf(ptr, "      --detailed                differentiate bead types \
+not just by names (works only with -vs_in)\n");
+  fprintf(ptr, "      -vc_in <file.vcf>         vtf coordinate file\n");
+  fprintf(ptr, "      -x_in <file.xyz>          xyz coordinate file\n");
+  fprintf(ptr, "      -st <int>                 what timestep to use; \
+default: 1; for last, use '0' (works with -x_in or -vc_in)\n");
+  fprintf(ptr, "      -f_in[!] <file>           input FIELD-like file\n");
+  fprintf(ptr, "      -l_in[!] <file>           input lammps data file\n");
+  fprintf(ptr, "      -ltrj_in <file.lammpstrj> input lammps trajectory \
+file\n");
   fprintf(ptr, "    output files:\n");
-  fprintf(ptr, "      -vs_out <file.vsf>   output vtf structure file\n");
-  fprintf(ptr, "      -def <bead name>     default bead type \
+  fprintf(ptr, "      -vs_out <file.vsf>        output vtf structure file\n");
+  fprintf(ptr, "      -def <bead name>          default bead type \
 (works with -vs_out)\n");
-  fprintf(ptr, "      -f_out <file>        output FIELD-like file\n");
-  fprintf(ptr, "      -l_out <file>        output lammps data file\n");
-  fprintf(ptr, "      --mass               define lammps atom types by mass, \
-while printing per-atom charges in Atoms section (works with -l_out)\n");
-  fprintf(ptr, "      -vc_out <file.vcf>   output vtf coordinate file\n");
-  fprintf(ptr, "      -x_out <file.xyz>    output xyz coordinate file\n");
+  fprintf(ptr, "      -f_out <file>             output FIELD-like file\n");
+  fprintf(ptr, "      -l_out <file>             output lammps data file\n");
+  fprintf(ptr, "      --mass                    define lammps atom types by \
+mass, while printing per-atom charges in Atoms section (works with -l_out)\n");
+  fprintf(ptr, "      -vc_out <file.vcf>        output vtf coordinate file\n");
+  fprintf(ptr, "      -x_out <file.xyz>         output xyz coordinate file\n");
   fprintf(ptr, "    general options:\n");
-  fprintf(ptr, "      -c_out <filename>    output CONFIG file \
+  fprintf(ptr, "      -c_out <filename>         output CONFIG file \
 for dl_software\n");
-  fprintf(ptr, "      -v                   more verbose output\n");
-  fprintf(ptr, "      -h                   print this help and exit\n");
-  fprintf(ptr, "      --version            print version number and exit\n");
+  fprintf(ptr, "      -v                        more verbose output\n");
+  fprintf(ptr, "      -h                        print this help and exit\n");
+  fprintf(ptr, "      --version                 print version and exit\n");
 } //}}}
 
 // TODO: implement to choose coordinates - vcf/lmp/xyz
@@ -96,6 +98,7 @@ int main(int argc, char *argv[]) {
         strcmp(argv[i], "-vc_in") != 0 && strcmp(argv[i], "-st") != 0 &&
         strcmp(argv[i], "-f_in") != 0 && strcmp(argv[i], "-f_in!") != 0 &&
         strcmp(argv[i], "-l_in") != 0 && strcmp(argv[i], "-l_in!") != 0 &&
+        strcmp(argv[i], "-ltrj_in") != 0 &&
         strcmp(argv[i], "-vs_out") != 0 && strcmp(argv[i], "-def") != 0 &&
         strcmp(argv[i], "-f_out") != 0 && strcmp(argv[i], "-l_out") != 0 &&
         strcmp(argv[i], "--mass") != 0 && strcmp(argv[i], "-vc_out") != 0 &&
@@ -116,7 +119,7 @@ int main(int argc, char *argv[]) {
 
   // input file names & other options //{{{
   int ext;
-  char extension[2][5];
+  char extension[2][EXTENSION];
   // -vs_in[!] option //{{{
   char input_vsf[LINE] = "\0";
   bool change_beads_vsf = false;
@@ -202,6 +205,19 @@ int main(int argc, char *argv[]) {
     }
   }
   //}}}
+  // -ltrj_in option //{{{
+  char input_ltrj[LINE] = "\0";
+  if (FileOption(argc, argv, "-ltrj_in", input_ltrj, LINE)) {
+    exit(1);
+  }
+  if (input_vcf[0] != '\0') {
+    ext = 2;
+    strcpy(extension[0], ".lammpstrj");
+    if (ErrorExtension(input_ltrj, ext, extension) == -1) {
+      Help(argv[0], true);
+      exit(1);
+    }
+  } //}}}
   // error - no input file with structure information //{{{
   if (input_vsf[0] == '\0' && input_field[0] == '\0' &&
       input_lmp[0] == '\0' && input_xyz[0] == '\0') {
@@ -335,7 +351,7 @@ lammps data file must be specified");
       }
     }
   } //}}}
-  // use vcf coordinate if provided //{{{
+  // use vcf coordinates if provided //{{{
   char stuff[LINE];
   if (input_vcf[0] != '\0') {
     SYSTEM Sys_new = CopySystem(*System);
@@ -362,6 +378,15 @@ not using vcf coordinates");
     fclose(fr);
     FreeSystem(&Sys_new);
   } //}}}
+  if (input_ltrj[0] != '\0') {
+    // TODO: akin to vcf coordinates
+    int l_count = 0;
+    FILE *fr = OpenFile(input_ltrj, "r");
+    if (!LmpReadCoor(fr, input_ltrj, System, &l_count)) {
+      // TODO: error/warning
+    }
+    fclose(fr);
+  }
   // TODO: picking Box between vtf and lmp
   // use Box from lmp if Box is unspecified in System //{{{
   if (System->Box.Volume == -1) {

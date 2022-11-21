@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
   snprintf(output_vsf, LINE, "%s", argv[++count]);
   // test if <out.vsf> ends with '.vsf'
   int ext = 1;
-  char extension[2][5];
+  char extension[2][EXTENSION];
   strcpy(extension[0], ".vsf");
   if (ErrorExtension(output_vsf, ext, extension) == -1) {
     Help(argv[0], true);

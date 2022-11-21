@@ -63,7 +63,7 @@ SYSTEM FieldRead(char field_file[]);
 void FieldReadSpecies(char field_file[], SYSTEM *System);
 void FieldReadMolecules(char field_file[], SYSTEM *System);
  //}}}
-// Functions to read lammps data file //{{{
+// Functions to read lammps files //{{{
 SYSTEM LmpDataRead(char data_file[]);
 int LmpDataReadHeader(char data_file[], FILE *lmp,
                       SYSTEM *System, int *file_line_count);
@@ -92,6 +92,8 @@ void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
                           int (*diheral)[5], int *file_line_count);
 void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
                           int (*improper)[5], int *file_line_count);
+bool LmpReadCoor(FILE *f, char ltrj_file[],
+                 SYSTEM *System, int *file_line_count);
  //}}}
 SYSTEM XYZReadStruct(char file[]);
 bool XYZReadTimestep(FILE *fr, char file[], SYSTEM *System,
