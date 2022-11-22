@@ -13,8 +13,9 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[],
     fprintf(vcf, "pbc %lf %lf %lf",
             box->Length.x, box->Length.y, box->Length.z);
     if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {
-      fprintf(vcf, "    %lf %lf %lf\n", box->alpha, box->beta, box->gamma);
+      fprintf(vcf, "    %lf %lf %lf", box->alpha, box->beta, box->gamma);
     }
+    putc('\n', vcf);
   }
   //}}}
   fprintf(vcf, "indexed\n");
@@ -246,7 +247,11 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
   fprintf(fw, "Masses\n\n");
   for (int i = 0; i < Count_print->BeadType; i++) {
     BEADTYPE *bt_i = &Sys_print.BeadType[i];
-    fprintf(fw, "%5d %lf # %s\n", i+1, bt_i->Mass, bt_i->Name);
+    if (bt_i->Mass == MASS) {
+      fprintf(fw, "%5d ??? # %s\n", i+1, bt_i->Name);
+    } else {
+      fprintf(fw, "%5d %lf # %s\n", i+1, bt_i->Mass, bt_i->Name);
+    }
   }
   //}}}
   // print various coeffs //{{{
@@ -316,7 +321,12 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
     fprintf(fw, "%5d", bead->Type+1);
     // <charge> from original System as the charge can differ in lmp data file
     int type = System.Bead[id].Type;
-    fprintf(fw, "%15f", System.BeadType[type].Charge);
+    double q = System.BeadType[type].Charge;
+    if (q == CHARGE) {
+      fprintf(fw, "%15s", "???");
+    } else {
+      fprintf(fw, "%15f", q);
+    }
     // coordinates
     fprintf(fw, "%15f %15f %15f", bead->Position.x,
             bead->Position.y, bead->Position.z);

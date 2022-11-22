@@ -382,8 +382,12 @@ not using vcf coordinates");
     // TODO: akin to vcf coordinates
     int l_count = 0;
     FILE *fr = OpenFile(input_ltrj, "r");
-    if (!LmpReadCoor(fr, input_ltrj, System, &l_count)) {
+    if (!LmpReadTimestep(fr, input_ltrj, System, &l_count)) {
       // TODO: error/warning
+      strcpy(ERROR_MSG, "no valid timestep found");
+      PrintWarning();
+      WarnPrintFile(input_ltrj, "\0", "\0");
+      putc('\n', stderr);
     }
     fclose(fr);
   }

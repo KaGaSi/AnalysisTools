@@ -92,8 +92,8 @@ void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
                           int (*diheral)[5], int *file_line_count);
 void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
                           int (*improper)[5], int *file_line_count);
-bool LmpReadCoor(FILE *f, char ltrj_file[],
-                 SYSTEM *System, int *file_line_count);
+bool LmpReadTimestep(FILE *f, char ltrj_file[],
+                     SYSTEM *System, int *file_line_count);
  //}}}
 SYSTEM XYZReadStruct(char file[]);
 bool XYZReadTimestep(FILE *fr, char file[], SYSTEM *System,

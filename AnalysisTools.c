@@ -131,7 +131,7 @@ int InputCoorStruct(int argc, char **argv,
   strcpy(extension[0], ".vcf");
   strcpy(extension[1], ".vtf");
   strcpy(extension[2], ".xyz");
-  strcpy(extension[3], ".lmp");
+  strcpy(extension[3], ".lammpstrj");
   ext = ErrorExtension(coor, ext, extension);
   switch(ext) {
     case 0: // if vcf, copy to input_vsf with vsf ending
@@ -152,7 +152,7 @@ int InputCoorStruct(int argc, char **argv,
     case 2: // xyz
       type = 2;
       break;
-    case 3: // lmp
+    case 3: // lammpstrj
       type = 3;
       break;
     default: // something wrong; should never happen

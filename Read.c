@@ -1027,6 +1027,11 @@ bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
         return false;
       }
       break;
+    case 3:
+      if (!LmpReadTimestep(f, file, System, file_line_count)) {
+        return false;
+      }
+      break;
   }
   return true;
 } //}}}
@@ -2580,6 +2585,7 @@ SYSTEM LmpDataRead(char data_file[]) { //{{{
   TriclinicCellData(&System.Box, 1);
   RemoveExtraTypes(&System);
   MergeBeadTypes(&System, true);
+  PrintCount(System.Count);
   MergeMoleculeTypes(&System);
   FillSystemNonessentials(&System);
   int c_unbonded = 0, c_bonded = 0;
@@ -3177,8 +3183,8 @@ void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
     // error - wrong line //{{{
     if (words < 7 ||
         !IsNaturalNumber(split[0], &id) || id > Count->Bead || // bead index
-        !IsNaturalNumber(split[1], &resid) || // molecule index
-        !IsIntegerNumber(split[2], &type) || // bead type
+        !IsIntegerNumber(split[1], &resid) || // molecule index
+        !IsWholeNumber(split[2], &type) || // bead type
         !IsRealNumber(split[3], &q) || // bead charge
         !IsRealNumber(split[4], &pos.x) || //
         !IsRealNumber(split[5], &pos.y) || // Cartesean coordinates
@@ -3585,15 +3591,29 @@ void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
   }
   free(found);
 } //}}}
-// Read lammpstrj trajectory file (dump style custom) //{{{
-bool LmpReadCoor(FILE *f, char ltrj_file[],
-                 SYSTEM *System, int *file_line_count) {
+// read lammpstrj trajectory file (dump style custom) //{{{
+bool LmpReadTimestep(FILE *f, char ltrj_file[],
+                     SYSTEM *System, int *file_line_count) {
+  int start = *file_line_count + 1;
   start_function: ; // return here when a bad line is encountered
-  // ignore first three lines & read fourth (number of atoms) //{{{
+  // read until 'ITEM: TIMESTEP' line is found //{{{
   char *split[SPL_STR], line[LINE];
-  int words;
-  fpos_t position; // to save file position
-  for (int i = 0; i < 4; i++) {
+  int words = 0;
+  do {
+    // error - the first lie read by the function is wrong //{{{
+    if (start == *file_line_count) {
+      strcpy(ERROR_MSG, "invalid first line of a timestep; \
+  using next timestep instead of this one");
+      PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
+    } //}}}
+    (*file_line_count)++;
+    if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      return false;
+    }
+  } while (words < 2 || strcmp(split[0], "ITEM:") != 0 ||
+                     strcmp(split[1], "TIMESTEP") != 0); //}}}
+  // ignore the next two lines & read the third (number of atoms) //{{{
+  for (int i = 0; i < 3; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
       return false;
@@ -3605,21 +3625,11 @@ bool LmpReadCoor(FILE *f, char ltrj_file[],
     strcpy(ERROR_MSG, "invalid bead count; \
 using next timestep instead of this one");
     PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
-    // read until 'ITEM: TIMESTEP' line is found
-    while(words < 2 || strcmp(split[0], "ITEM:") != 0 ||
-                       strcmp(split[1], "TIMESTEP") != 0) {
-      fgetpos(f, &position);
-      (*file_line_count)++;
-      if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
-        return false;
-      }
-    }
-    fsetpos(f, &position);
-    (*file_line_count)--; // the 'ITEM: TIMESTEP' line will be re-read
     goto start_function;
   } //}}}
+  System->Count.BeadCoor = n;
   // read box dimensions //{{{
-  // 1) read 'ITEM:' line to find box type - TODO
+  // 1) read 'ITEM:' line to find box type - TODO (for now, assume cuboid)
   if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
     return false;
   }
@@ -3631,29 +3641,110 @@ using next timestep instead of this one");
       return false;
     }
     double low, high;
-    if (words < 2 || !IsPosRealNumber(split[0], &low) ||
-                     !IsPosRealNumber(split[1], &high) ||
+    if (words < 2 || !IsRealNumber(split[0], &low) ||
+                     !IsRealNumber(split[1], &high) ||
                      (high-low) < 0) {
-      // TODO: error - return to start_function
+      strcpy(ERROR_MSG, "invalid box size; \
+  using next timestep instead of this one");
+      PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
+      goto start_function;
     }
     box[i] = high - low;
   }
   System->Box.Length.x = box[0];
   System->Box.Length.y = box[1];
-  System->Box.Length.z = box[2]; //}}}
-  // read 'ITEM: ATOMS' line - TODO
+  System->Box.Length.z = box[2];
+  TriclinicCellData(&System->Box, 0); //}}}
+  // read 'ITEM: ATOMS' //{{{
   if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
     return false;
   }
-  // read coordinates - TODO
-  for (int i = 0; i < n; i++) {
+  if (words < 3 ||
+      strcmp(split[0], "ITEM:") != 0 ||
+      strcmp(split[1], "ATOMS") != 0) {
+    strcpy(ERROR_MSG, "incorrect 'ITEM: ATOMS' line; \
+using next timestep instead of this one");
+    PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
+    goto start_function;
+  }
+  // find atom line positions of id, coordinates, and velocities //{{{
+  int position[7] = {-1}, // id, x, y, z, vx, vy, vz
+      cols = 0; // number of entries (columns in an atom line)
+  for (int i = 2; i < words; i++) {
+    if (strcmp(split[i], "id") == 0) {
+      position[0] = i - 2; // subtract the two ITEM: ATOMS keywords
+      cols = i - 2 + 1; // +1 as I want the number of entries
+    } else if (strcmp(split[i], "x") == 0) {
+      position[1] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "y") == 0) {
+      position[2] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "z") == 0) {
+      position[3] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "vx") == 0) { // TODO: correct lammps keyword?
+      position[4] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "vy") == 0) { // TODO: correct lammps keyword?
+      position[5] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "vz") == 0) { // TODO: correct lammps keyword?
+      position[6] = i - 2;
+      cols = i - 1;
+    }
+  } //}}}
+  // warning - missing 'id'; skip to next timestep
+  if (position[0] == -1) {
+    strcpy(ERROR_MSG, "'ITEM: ATOMS' line must contain 'id' keywoerd; \
+using next timestep instead of this one");
+    PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
+    goto start_function;
+  } //}}}
+  // read atom lines //{{{
+  for (int i = 0; i < System->Count.BeadCoor; i++) {
     if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
       return false;
     }
-  }
+    long id;
+    VECTOR pos = {0, 0, 0}, vel = {0, 0, 0};
+    // read valus & skip to the next timestep if invalid atom line //{{{
+    // short atom line
+    if (words < cols) {
+      strcpy(ERROR_MSG, "atom line contains too few entries; \
+  using next timestep instead of this one");
+      PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
+      goto start_function;
+    }
+    // invalid values
+    if (!IsNaturalNumber(split[position[0]], &id) ||
+        (position[1] >= 0 && !IsRealNumber(split[position[1]], &pos.x)) ||
+        (position[2] >= 0 && !IsRealNumber(split[position[2]], &pos.y)) ||
+        (position[3] >= 0 && !IsRealNumber(split[position[3]], &pos.z)) ||
+        (position[4] >= 0 && !IsRealNumber(split[position[4]], &vel.x)) ||
+        (position[5] >= 0 && !IsRealNumber(split[position[5]], &vel.y)) ||
+        (position[6] >= 0 && !IsRealNumber(split[position[6]], &vel.z))) {
+      strcpy(ERROR_MSG, "invalid atom line; \
+  using next timestep instead of this one");
+      PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
+      goto start_function;
+    }
+    // bead index too high
+    if (id > System->Count.Bead) {
+      strcpy(ERROR_MSG, "atom id too high; \
+  using next timestep instead of this one");
+      PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
+      goto start_function;
+    } //}}}
+    id--; // in lammps, ids start from 1
+    BEAD *b = &System->Bead[id];
+    b->Position = pos;
+    b->Velocity = vel;
+    b->InTimestep = true;
+    System->BeadCoor[i] = id;
+  } //}}}
   return true;
-}
-//}}}
+} //}}}
  //}}}
 // Read xyz coordinate file //{{{
 SYSTEM XYZReadStruct(char file[]) { //{{{

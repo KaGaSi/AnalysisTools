@@ -106,8 +106,11 @@ int main(int argc, char *argv[]) {
        *struct_file;
   int coor_type, struct_type = 0;
   snprintf(in_coor, LINE, "%s", argv[++count]);
-  // coor_type: 1..vcf, 2..xyz, 3..lmp
+  // coor_type: 1..vcf, 2..xyz, 3..lammpstrj
   coor_type = InputCoorStruct(argc, argv, in_coor, in_vsf, in_lmp, in_field);
+  if (coor_type == -1) {
+    exit(1);
+  }
   // struct_type: 1..vsf, 2..lmp, 3..FIELD
   if (in_vsf[0] != '\0') {
     struct_type = 1;
@@ -185,6 +188,8 @@ acceptable only for xyz input coordinate file");
       break;
   }
   // pbc from vcf/vtf coordinate file
+  // TODO: do I need pbc now? VtfSkipTimestep should read them (and so should
+  //       LmpReadCoor)
   if (coor_type == 1) {
     VtfReadPBC(in_coor, &System.Box);
   }
@@ -319,7 +324,7 @@ acceptable only for xyz input coordinate file");
     // read and write the timestep, if it should be saved //{{{
     if (use) {
       if (!ReadTimestep(coor_type, coor, in_coor,
-            &System, &file_line_count, stuff)) {
+                        &System, &file_line_count, stuff)) {
         count_coor--;
         break;
       }
