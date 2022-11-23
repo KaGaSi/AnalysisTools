@@ -54,7 +54,6 @@ set(UTILS AddToSystem
           lmp_data
           lmp_vtf
           NumDeriv
-          Transform
           OrientationMolecules
 #         Orientation-2
           OrientationAggregates
@@ -63,7 +62,6 @@ set(UTILS AddToSystem
           SelectedVcf
           SuttonChenParameters
           Surface
-          TransformVsf
           Velocity
           VisualizeAgg)
 foreach(utility ${UTILS})

@@ -350,6 +350,11 @@ acceptable only for xyz input coordinate file");
           count_coor--;
           break;
         }
+      } else if (coor_type == 3) {
+        if (!LmpSkipTimestep(coor, in_coor, &file_line_count)) {
+          count_coor--;
+          break;
+        }
       }
     } //}}}
     // save file position (last two because of --last) //{{{

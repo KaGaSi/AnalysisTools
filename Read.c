@@ -1584,6 +1584,18 @@ add up properly!");
  * missing, it prints only a warning (and skips the ensuing coordinate lines).
  * Returns false only if a line cannot be read (e.g., on eof).
  */
+/*
+ * TODO: make it simpler; just go through the file until to line starting with
+ *       't', 'o', or 'i' are found
+ *       Also, don't forget so save file pointer to the first line of preamble;
+ *       i.e., after the first timestep line found, check for 'pbc', '#', or
+ *       empty line (or just one not starting with a number?)...
+ *       Actually, it could be even easier:
+ *       1) check for first number-starting line (i.e., beginning of skipped
+ *          coordinate block)
+ *       2) check for first non-number-starting line (i.e., beginning of the
+ *          next preamble)
+ */
 bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
                      int *file_line_count) {
   // skip preamble - i.e., read until the first coordinate line
@@ -3745,6 +3757,26 @@ using next timestep instead of this one");
   } //}}}
   return true;
 } //}}}
+bool LmpSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count) { //{{{
+  // read until two 'ITEM: TIMESTEP' lines are found
+  // the first one should be the first line read, but who cares...
+  char *split[SPL_STR], line[LINE];
+  int words = 0;
+  fpos_t position;
+  for (int i = 0; i < 2; i++) {
+    do {
+      fgetpos(f, &position);
+      (*file_line_count)++;
+      if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+        return false;
+      }
+    } while (words < 2 || strcmp(split[0], "ITEM:") != 0 ||
+                       strcmp(split[1], "TIMESTEP") != 0);
+  }
+  fsetpos(f, &position); // restore the second 'ITEM: TIMESTEP' line
+  (*file_line_count)--; // the 'ITEM: TIMESTEP' will be re-read
+  return true;
+} //}}}
  //}}}
 // Read xyz coordinate file //{{{
 SYSTEM XYZReadStruct(char file[]) { //{{{
@@ -3926,16 +3958,18 @@ bool XYZSkipTimestep(FILE *fr, char file[], int *file_line_count) {
   int words;
   char line[LINE], *split[SPL_STR];
   fpos_t position;
-  // read number of beads (possibly go back to the function beginning) //{{{
+  // read number of beads (go back to the function beginning on error) //{{{
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
     return false;
   }
   (*file_line_count)++;
   long bead_count;
   if (words == 0 || !IsNaturalNumber(split[0], &bead_count)) {
-    strcpy(ERROR_MSG, "wrong first line of a skipped xyz timestep");
+    strcpy(ERROR_MSG, "wrong first line of a skipped xyz timestep; \
+using next timestep instead of this one");
     PrintWarningFileLine(file, *file_line_count, split, words);
     // ignore the rest of the timestep
+    // ignore empty line after the botched number of beads line
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       strcpy(ERROR_MSG, "premature end of file");
       PrintErrorFile(file, "\0", "\0");
@@ -3949,24 +3983,12 @@ bool XYZSkipTimestep(FILE *fr, char file[], int *file_line_count) {
     fsetpos(fr, &position);
     (*file_line_count)--; // the first non-coordinate line will be re-read
   } //}}}
-  // ignore next line //{{{
-  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    strcpy(ERROR_MSG, "premature end of file");
-    PrintErrorFile(file, "\0", "\0");
-  }
-  (*file_line_count)++; //}}}
   // read coordinates //{{{
-  for (int i = 0; i < bead_count; i++) {
-    fgetpos(fr, &position);
+  for (int i = 0; i < (bead_count+1); i++) {
+    (*file_line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file");
-      PrintErrorFile(file, "\0", "\0");
-      fprintf(stderr, "%s, only %s%d%s beads present (instead of %s%ld%s)%s",
-              ErrRed(), ErrYellow(), i, ErrRed(),
-              ErrYellow(), bead_count, ErrRed(), ErrColourReset());
       return false;
     }
-    (*file_line_count)++;
   } //}}}
   return true;
 } //}}}
@@ -3990,7 +4012,7 @@ bool XYZCheckCoorLine(int words, char *split[]) { //{{{
     return false;
   }
 } //}}}
-  //}}}
+ //}}}
 
 #if 0 //{{{
 // TODO will be changed - FIELD file

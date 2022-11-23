@@ -94,6 +94,7 @@ void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
                           int (*improper)[5], int *file_line_count);
 bool LmpReadTimestep(FILE *f, char ltrj_file[],
                      SYSTEM *System, int *file_line_count);
+bool LmpSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count);
  //}}}
 SYSTEM XYZReadStruct(char file[]);
 bool XYZReadTimestep(FILE *fr, char file[], SYSTEM *System,
