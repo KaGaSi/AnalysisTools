@@ -340,21 +340,9 @@ acceptable only for xyz input coordinate file");
       //}}}
     // skip the timestep, if it shouldn't be saved //{{{
     } else {
-      if (coor_type == 1) {
-        if (!VtfSkipTimestep(coor, in_coor, in_vsf, &file_line_count)) {
-          count_coor--;
-          break;
-        }
-      } else if (coor_type == 2) {
-        if (!XYZSkipTimestep(coor, in_coor, &file_line_count)) {
-          count_coor--;
-          break;
-        }
-      } else if (coor_type == 3) {
-        if (!LmpSkipTimestep(coor, in_coor, &file_line_count)) {
-          count_coor--;
-          break;
-        }
+      if (!SkipTimestep(coor_type, coor, in_coor, in_vsf, &file_line_count)) {
+        count_coor--;
+        break;
       }
     } //}}}
     // save file position (last two because of --last) //{{{

@@ -1035,6 +1035,28 @@ bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
   }
   return true;
 } //}}}
+// SkipTimestep() //{{{
+bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],
+                  int *file_line_count) {
+  switch (coor_type) {
+    case 1:
+      if (!VtfSkipTimestep(f, file1, file2, file_line_count)) {
+        return false;
+      }
+      break;
+    case 2:
+      if (!XYZSkipTimestep(f, file1, file_line_count)) {
+        return false;
+      }
+      break;
+    case 3:
+    if (!LmpSkipTimestep(f, file1, file_line_count)) {
+      return false;
+    }
+    break;
+  }
+  return true;
+} //}}}
 
 // Read vtf files //{{{
 // VtfReadStruct() //{{{

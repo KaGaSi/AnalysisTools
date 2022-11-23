@@ -29,6 +29,8 @@ void FillMoleculeTypeImproper(SYSTEM *System, int (*angle)[5], int nbonds);
 void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join);
 bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
                   int *file_line_count, char stuff[]);
+bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],
+                  int *file_line_count);
 
 // Functions to read vtf files //{{{
 
