@@ -30,6 +30,8 @@ void PrintWarningOption(char *opt);
 void PrintErrorOption(char *opt);
 // print 'ERROR: - <ERROR_MSG>\nFile <file(s)>'
 void PrintErrorFile(char file1[], char file2[], char file3[]);
+// print 'WARNING: - <ERROR_MSG>\nFile <file(s)>'
+void PrintWarnFile(char file1[], char file2[], char file3[]);
 // print 'ERROR: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>'
 void PrintErrorFileLine(char file[], int count,
                         char *split[SPL_STR], int words);

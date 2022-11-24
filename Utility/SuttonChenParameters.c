@@ -903,7 +903,7 @@ int main(int argc, char *argv[]) {
     if (argv[i][0] == '-' && strcmp(argv[i], "-m") != 0 &&
         strcmp(argv[i], "-n") != 0 && strcmp(argv[i], "mu") != 0 &&
         strcmp(argv[i], "-B") != 0 && strcmp(argv[i], "-E") != 0 &&
-        strcmp(argv[i], "-a") != 0 &&
+        strcmp(argv[i], "-a") != 0 && strcmp(argv[i], "-mu") != 0 &&
         strcmp(argv[i], "-rho") != 0 && strcmp(argv[i], "--fcc") != 0 &&
         strcmp(argv[i], "--bcc") != 0 && strcmp(argv[i], "--hcp") != 0 &&
         strcmp(argv[i], "-i") != 0 && strcmp(argv[i], "-v") != 0 &&

@@ -35,8 +35,9 @@ applies to molecules with the same name in both files.\n\n");
   fprintf(ptr, "   [options]\n");
   fprintf(ptr, "    input files:\n");
   fprintf(ptr, "      -vs_in[!] <file.vsf>      vtf structure file\n");
+  fprintf(ptr, "      -vt_in[!] <file.vtf>      full vtf file\n");
   fprintf(ptr, "      --detailed                differentiate bead types \
-not just by names (works only with -vs_in)\n");
+not just by names (works only with -vs_in/-vt_in)\n");
   fprintf(ptr, "      -vc_in <file.vcf>         vtf coordinate file\n");
   fprintf(ptr, "      -x_in <file.xyz>          xyz coordinate file\n");
   fprintf(ptr, "      -st <int>                 what timestep to use; \
@@ -95,6 +96,7 @@ int main(int argc, char *argv[]) {
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] == '-' && strcmp(argv[i], "-x_in") != 0 &&
         strcmp(argv[i], "-vs_in") != 0 && strcmp(argv[i], "-vs_in!") != 0 &&
+        strcmp(argv[i], "-vt_in") != 0 && strcmp(argv[i], "-vt_in!") != 0 &&
         strcmp(argv[i], "-vc_in") != 0 && strcmp(argv[i], "-st") != 0 &&
         strcmp(argv[i], "-f_in") != 0 && strcmp(argv[i], "-f_in!") != 0 &&
         strcmp(argv[i], "-l_in") != 0 && strcmp(argv[i], "-l_in!") != 0 &&
@@ -143,7 +145,6 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
   } //}}}
-  bool detailed = BoolOption(argc, argv, "--detailed");
   // -vc_in option //{{{
   char input_vcf[LINE] = "\0";
   if (FileOption(argc, argv, "-vc_in", input_vcf, LINE)) {
@@ -158,6 +159,30 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
   } //}}}
+  // -vt_in[!] option //{{{
+  char input_vtf[LINE] = "\0";
+  if (FileOption(argc, argv, "-vt_in", input_vtf, LINE)) {
+    exit(1);
+  }
+  if (input_vtf[0] == '\0') {
+    if (FileOption(argc, argv, "-vt_in!", input_vtf, LINE)) {
+      exit(1);
+    }
+    if (input_vtf[0] != '\0') {
+      change_beads_vsf = true;
+    }
+  }
+  if (input_vtf[0] != '\0') {
+    ext = 1;
+    strcpy(extension[0], ".vtf");
+    if (ErrorExtension(input_vtf, ext, extension) == -1) {
+      Help(argv[0], true);
+      exit(1);
+    }
+    strcpy(input_vcf, input_vtf);
+    strcpy(input_vsf, input_vtf);
+  } //}}}
+  bool detailed = BoolOption(argc, argv, "--detailed");
   // -x_in option //{{{
   char input_xyz[LINE] = "\0";
   if (FileOption(argc, argv, "-x_in", input_xyz, LINE)) {
@@ -210,7 +235,7 @@ int main(int argc, char *argv[]) {
   if (FileOption(argc, argv, "-ltrj_in", input_ltrj, LINE)) {
     exit(1);
   }
-  if (input_vcf[0] != '\0') {
+  if (input_ltrj[0] != '\0') {
     ext = 2;
     strcpy(extension[0], ".lammpstrj");
     if (ErrorExtension(input_ltrj, ext, extension) == -1) {
@@ -238,8 +263,8 @@ lammps data file must be specified");
   // find the first structure file and read it //{{{
   int vs_in = 1e2, f_in = 1e2, l_in = 1e2;
   for (int i = 0; i < argc; i++) {
-    if (strcmp(argv[i], "-vs_in") == 0 ||
-        strcmp(argv[i], "-vs_in!") == 0) {
+    if (strncmp(argv[i], "-vs_in", 6) == 0 ||
+        strncmp(argv[i], "-vt_in", 6) == 0) {
       vs_in = i;
     }
     if (strcmp(argv[i], "-f_in") == 0 ||

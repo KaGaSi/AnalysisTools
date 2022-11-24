@@ -2636,7 +2636,7 @@ SYSTEM LmpDataRead(char data_file[]) { //{{{
   CheckSystem(System, data_file);
   return System;
 } //}}}
-// read head  //{{{
+// read header //{{{
 int LmpDataReadHeader(char data_file[], FILE *lmp,
                       SYSTEM *System, int *file_line_count) {
   COUNT *Count = &System->Count;
@@ -2713,14 +2713,16 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
     // <int> bond types //{{{
     } else if (words > 2 && strcmp(split[1], "bond") == 0 &&
                             strcmp(split[2], "types") == 0) {
-      if (!IsWholeNumber(split[0], &val)) {
-        goto error;
-      }
-      Count->BondType = val;
-      System->BondType = realloc(System->BondType,
-                                 Count->BondType * sizeof *System->BondType);
-      for (int i = 0; i < Count->BondType; i++) {
-        System->BondType[i] = InitParams;
+      if (strcmp(split[0], "???") != 0) {
+        if (!IsWholeNumber(split[0], &val)) {
+          goto error;
+        }
+        Count->BondType = val;
+        System->BondType = realloc(System->BondType,
+                                   Count->BondType * sizeof *System->BondType);
+        for (int i = 0; i < Count->BondType; i++) {
+          System->BondType[i] = InitParams;
+        }
       }
     //}}}
     // <int> angle types //{{{
@@ -2811,42 +2813,42 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
   if (Count->Bead == 0 || Count->BeadType == 0) {
     strcpy(ERROR_MSG, "missing atom/atom types in lammps data file header");
     PrintErrorFile(data_file, "\0", "\0");
+    putc('\n', stderr);
     exit(1);
   }
   if ((Count->Bond > 0 && Count->BondType == 0) ||
       (Count->Bond == 0 && Count->BondType > 0)) {
     strcpy(ERROR_MSG, "missing bonds or bond types in lammps data file header");
-    PrintErrorFile(data_file, "\0", "\0");
-    exit(1);
+    PrintWarnFile(data_file, "\0", "\0");
+    putc('\n', stderr);
   }
   if ((Count->Angle > 0 && Count->AngleType == 0) ||
       (Count->Angle == 0 && Count->AngleType > 0)) {
     strcpy(ERROR_MSG, "missing angles or angle types \
 in lammps data file header");
-    PrintErrorFile(data_file, "\0", "\0");
-    exit(1);
+    PrintWarnFile(data_file, "\0", "\0");
+    putc('\n', stderr);
   }
   if ((Count->Dihedral > 0 && Count->DihedralType == 0) ||
       (Count->Dihedral == 0 && Count->DihedralType > 0)) {
     strcpy(ERROR_MSG, "missing dihedrals or dihedral types \
 in lammps data file header");
-    PrintErrorFile(data_file, "\0", "\0");
-    exit(1);
+    PrintWarnFile(data_file, "\0", "\0");
+    putc('\n', stderr);
   }
   if ((Count->Improper > 0 && Count->ImproperType == 0) ||
       (Count->Improper == 0 && Count->ImproperType > 0)) {
     strcpy(ERROR_MSG, "missing impropers or improper types \
 in lammps data file header");
-    PrintErrorFile(data_file, "\0", "\0");
-    exit(1);
+    PrintWarnFile(data_file, "\0", "\0");
+    putc('\n', stderr);
   }
   if (System->Box.OrthoLength.x == -1 ||
       System->Box.OrthoLength.y == -1 ||
       System->Box.OrthoLength.z == -1) {
-    strcpy(ERROR_MSG, "missing impropers or improper types \
-in lammps data file header");
-    PrintErrorFile(data_file, "\0", "\0");
-    exit(1);
+    strcpy(ERROR_MSG, "missing box size in lammps data file header");
+    PrintWarnFile(data_file, "\0", "\0");
+    putc('\n', stderr);
   }
   //}}}
   return lmp_types;
@@ -3012,13 +3014,19 @@ void LmpDataReadMasses(FILE *lmp, char data_file[], BEADTYPE name_mass[],
     long type;
     double mass;
     if (words < 2 || !IsNaturalNumber(split[0], &type) || type > lmp_types ||
-        !IsPosRealNumber(split[1], &mass)) {
+        (!IsPosRealNumber(split[1], &mass) && strcmp(split[1], "???") != 0)) {
       strcpy(ERROR_MSG, "wrong line in Masses section");
       PrintErrorFileLine(data_file, *file_line_count, split, words);
       exit(1);
     }
     type--;
-    name_mass[type].Mass = mass;
+    if (strcmp(split[1], "???") == 0) {
+      strcpy(ERROR_MSG, "undefined mass");
+      PrintWarningFileLine(data_file, *file_line_count, split, words);
+      name_mass[type].Mass = MASS;
+    } else {
+      name_mass[type].Mass = mass;
+    }
     // check for bead type name: # <name>
     if (words > 3 && split[2][0] == '#') {
       strncpy(name_mass[type].Name, split[3], BEAD_NAME);
@@ -3034,10 +3042,9 @@ void LmpDataReadBondCoeffs(FILE *lmp, char data_file[],
   // error - no bond types //{{{
   if (Count->BondType == 0) {
     strcpy(ERROR_MSG, "Bond Coeffs in a file with no bond types");
-    PrintError();
-    ErrorPrintFile(data_file, "\0", "\0");
+    PrintWarnFile(data_file, "\0", "\0");
     putc('\n', stderr);
-    exit(1);
+    return;
   } //}}}
   int words;
   char line[LINE], *split[SPL_STR];

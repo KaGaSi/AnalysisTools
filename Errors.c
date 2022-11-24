@@ -28,6 +28,12 @@ void PrintErrorFile(char file1[], char file2[], char file3[]) {
   ErrorPrintFile(file1, file2, file3);
 //putc('\n', stderr);
 } //}}}
+// print 'WARNING: - <ERROR_MSG>\nFile <file(s)>' //{{{
+void PrintWarnFile(char file1[], char file2[], char file3[]) {
+  PrintWarning();
+  WarnPrintFile(file1, file2, file3);
+//putc('\n', stderr);
+} //}}}
 // print 'ERROR: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>' //{{{
 void PrintErrorFileLine(char file[], int count,
                         char *split[SPL_STR], int words) {

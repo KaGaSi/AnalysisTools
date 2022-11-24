@@ -3348,49 +3348,52 @@ void PrintBox(BOX Box) { //{{{
   fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x,
                                                     Box.Length.y,
                                                     Box.Length.z);
-  fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n", Box.OrthoLength.x,
-                                                         Box.OrthoLength.y,
-                                                         Box.OrthoLength.z);
-  fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
-  fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
-  fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);
-  fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
-  // print transform matrix //{{{
-  for (int i = 0; i < 3; i++) {
-    if (i == 0) {
-      fprintf(stdout, "  .transform = (");
-    } else {
-      fprintf(stdout, "               (");
-    }
-    for (int j = 0; j < 3; j++) {
-      if (Box.transform[i][j] >= 0) {
-        putchar(' ');
-      }
-      fprintf(stdout, "%e", Box.transform[i][j]);
-      if (j < 2) {
-        fprintf(stdout, ", ");
-      }
-    }
-    fprintf(stdout, ")\n");
-  } //}}}
-  // print inverse matrix //{{{
-  for (int i = 0; i < 3; i++) {
-    if (i == 0) {
-      fprintf(stdout, "  .inverse = (");
-    } else {
-      fprintf(stdout, "             (");
-    }
-    for (int j = 0; j < 3; j++) {
-      if (Box.inverse[i][j] >= 0) {
-        putchar(' ');
-      }
-      fprintf(stdout, "%e", Box.inverse[i][j]);
-      if (j < 2) {
-        fprintf(stdout, ", ");
-      }
-    }
-    fprintf(stdout, ")\n");
-  } //}}}
+  fprintf(stdout, "  .alpha = %lf,", Box.alpha);
+  fprintf(stdout, " .beta = %lf,", Box.beta);
+  fprintf(stdout, " .gamma = %lf,\n", Box.gamma);
+//fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n", Box.OrthoLength.x,
+//                                                       Box.OrthoLength.y,
+//                                                       Box.OrthoLength.z);
+//fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
+//fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
+//fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);
+//fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
+//// print transform matrix //{{{
+//for (int i = 0; i < 3; i++) {
+//  if (i == 0) {
+//    fprintf(stdout, "  .transform = (");
+//  } else {
+//    fprintf(stdout, "               (");
+//  }
+//  for (int j = 0; j < 3; j++) {
+//    if (Box.transform[i][j] >= 0) {
+//      putchar(' ');
+//    }
+//    fprintf(stdout, "%e", Box.transform[i][j]);
+//    if (j < 2) {
+//      fprintf(stdout, ", ");
+//    }
+//  }
+//  fprintf(stdout, ")\n");
+//} //}}}
+//// print inverse matrix //{{{
+//for (int i = 0; i < 3; i++) {
+//  if (i == 0) {
+//    fprintf(stdout, "  .inverse = (");
+//  } else {
+//    fprintf(stdout, "             (");
+//  }
+//  for (int j = 0; j < 3; j++) {
+//    if (Box.inverse[i][j] >= 0) {
+//      putchar(' ');
+//    }
+//    fprintf(stdout, "%e", Box.inverse[i][j]);
+//    if (j < 2) {
+//      fprintf(stdout, ", ");
+//    }
+//  }
+//  fprintf(stdout, ")\n");
+//} //}}}
   fprintf(stdout, "\n");
 } //}}}
 void PrintByline(FILE *ptr, int argc, char *argv[]) { //{{{
