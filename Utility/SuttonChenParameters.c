@@ -1210,7 +1210,6 @@ preference order: fcc > bcc > hcp");
         VECTOR dist = Distance(*first, *pos, System.Box.Length);
         dist = FromFractional(dist, System.Box);
         double d = sqrt(SQR(dist.x) + SQR(dist.y) + SQR(dist.z));
-        // printf("XXX %d dist: %lf (%lf %lf %lf) (%lf %lf %lf)\n",
         // id2, d, pos->x, pos->y, pos->z, dist.x, dist.y, dist.z);
         sum_m += 1 / pow(d, m_SC); // assumes reduced distance, a_red=1
         sum_n += 1 / pow(d, n_SC); //

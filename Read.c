@@ -1999,6 +1999,7 @@ void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{
     exit(1);
   } //}}}
   // read bead types //{{{
+  bool warned = false; // warn about undefined mass/charge only once
   for (int i = 0; i < types; i++) {
     file_line_count++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -2011,12 +2012,32 @@ void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{
     double mass, charge;
     long number;
     // error - illegal 'species' line //{{{
-    if (words < 4 || !IsPosRealNumber(split[1], &mass) ||
-        !IsRealNumber(split[2], &charge) || !IsWholeNumber(split[3], &number)) {
+    if (words < 4 ||
+        (!IsPosRealNumber(split[1], &mass) && strcmp(split[1], "???") != 0) ||
+        (!IsRealNumber(split[2], &charge) && strcmp(split[2], "???") != 0) ||
+        !IsWholeNumber(split[3], &number)) {
       strcpy(ERROR_MSG, "incorrect 'Species' line");
       PrintErrorFileLine(field_file, file_line_count, split, words);
       exit(1);
     } //}}}
+    if (strcmp(split[1], "???") == 0) {
+      mass = MASS;
+      if (!warned) {
+        strcpy(ERROR_MSG, "undefined charge/mass (\"???\" in species section)");
+        PrintWarnFile(field_file, "\0", "\0");
+        putc('\n', stderr);
+        warned = true;
+      }
+    }
+    if (strcmp(split[2], "???") == 0) {
+      charge = CHARGE;
+      if (!warned) {
+        strcpy(ERROR_MSG, "undefined charge/mass (\"???\" in species section)");
+        PrintWarnFile(field_file, "\0", "\0");
+        putc('\n', stderr);
+        warned = true;
+      }
+    }
     NewBeadType(&System->BeadType, &Count->BeadType, split[0], charge, mass,
                 RADIUS);
     System->BeadType[Count->BeadType-1].Number = number;
@@ -2229,6 +2250,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
       mt_i->Bond = malloc(sizeof *mt_i->Bond * mt_i->nBonds);
       // b) bonds themselves & bond types //{{{
       // TODO: for now, only harmonic bonds are considered
+      bool warned = false;
       for (int j = 0; j < mt_i->nBonds; j++) {
         file_line_count++;
         // read a line //{{{
@@ -2261,12 +2283,33 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         // read up to three values for bond type
         if (words > 3) {
           IsRealNumber(split[3], &values.a);
+          if (strcmp(split[3], "???") == 0 && !warned) {
+            strcpy(ERROR_MSG, "undefined bond type (\"???\" in bonds section)");
+            PrintWarnFile(field_file, "\0", "\0");
+            fprintf(stderr, "%s, molecule %s%s%s\n", ErrCyan(), ErrYellow(),
+                    mt_i->Name, ErrColourReset());
+            warned = true;
+          }
         }
         if (words > 4) {
           IsRealNumber(split[4], &values.b);
+          if (strcmp(split[4], "???") == 0 && !warned) {
+            strcpy(ERROR_MSG, "undefined bond type (\"???\" in bonds section)");
+            PrintWarnFile(field_file, "\0", "\0");
+            fprintf(stderr, "%s, molecule %s%s%s\n", ErrCyan(), ErrYellow(),
+                    mt_i->Name, ErrColourReset());
+            warned = true;
+          }
         }
         if (words > 5) {
           IsRealNumber(split[5], &values.c);
+          if (strcmp(split[5], "???") == 0 && !warned) {
+            strcpy(ERROR_MSG, "undefined bond type (\"???\" in bonds section)");
+            PrintWarnFile(field_file, "\0", "\0");
+            fprintf(stderr, "%s, molecule %s%s%s\n", ErrCyan(), ErrYellow(),
+                    mt_i->Name, ErrColourReset());
+            warned = true;
+          }
         }
         // assign bond type //{{{
         int bond_type = -1;
@@ -2320,6 +2363,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
       mt_i->Angle = malloc(sizeof *mt_i->Angle * mt_i->nAngles);
       // b) angles themselves & angle types //{{{
       // TODO: for now, only harmonic angles are considered
+      bool warned = false; // to warn of undefined angle type only once
       for (int j = 0; j < mt_i->nAngles; j++) {
         file_line_count++;
         // read a line //{{{
@@ -2355,12 +2399,36 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         // read up to three values for angle type
         if (words > 4) {
           IsRealNumber(split[4], &values.a);
+          if (strcmp(split[4], "???") == 0 && !warned) {
+            strcpy(ERROR_MSG, "undefined angle type \
+(\"???\" in angles section)");
+            PrintWarnFile(field_file, "\0", "\0");
+            fprintf(stderr, "%s, molecule %s%s%s\n", ErrCyan(), ErrYellow(),
+                    mt_i->Name, ErrColourReset());
+            warned = true;
+          }
         }
         if (words > 5) {
           IsRealNumber(split[5], &values.b);
+          if (strcmp(split[5], "???") == 0 && !warned) {
+            strcpy(ERROR_MSG, "undefined angle type \
+(\"???\" in angles section)");
+            PrintWarnFile(field_file, "\0", "\0");
+            fprintf(stderr, "%s, molecule %s%s%s\n", ErrCyan(), ErrYellow(),
+                    mt_i->Name, ErrColourReset());
+            warned = true;
+          }
         }
         if (words > 6) {
           IsRealNumber(split[6], &values.c);
+          if (strcmp(split[6], "???") == 0 && !warned) {
+            strcpy(ERROR_MSG, "undefined angle type \
+(\"???\" in angles section)");
+            PrintWarnFile(field_file, "\0", "\0");
+            fprintf(stderr, "%s, molecule %s%s%s\n", ErrCyan(), ErrYellow(),
+                    mt_i->Name, ErrColourReset());
+            warned = true;
+          }
         }
         // assign angle type //{{{
         int angle_type = -1;
@@ -2415,6 +2483,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
       mt_i->Dihedral = malloc(sizeof *mt_i->Dihedral * mt_i->nDihedrals);
       // b) dihedrals themselves & dihedral types //{{{
       // TODO: for now, only harmonic dihedrals are considered
+      bool warned = false; // to warn of undefined type only once
       for (int j = 0; j < mt_i->nDihedrals; j++) {
         file_line_count++;
         // read a line //{{{
@@ -2452,12 +2521,36 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         // read up to three values for dihedral type
         if (words > 5) {
           IsRealNumber(split[5], &values.a);
+          if (strcmp(split[5], "???") == 0 && !warned) {
+            strcpy(ERROR_MSG, "undefined dihedral type \
+(\"???\" in dihedrals section)");
+            PrintWarnFile(field_file, "\0", "\0");
+            fprintf(stderr, "%s, molecule %s%s%s\n", ErrCyan(), ErrYellow(),
+                    mt_i->Name, ErrColourReset());
+            warned = true;
+          }
         }
         if (words > 6) {
           IsRealNumber(split[6], &values.b);
+          if (strcmp(split[6], "???") == 0 && !warned) {
+            strcpy(ERROR_MSG, "undefined dihedral type \
+(\"???\" in dihedrals section)");
+            PrintWarnFile(field_file, "\0", "\0");
+            fprintf(stderr, "%s, molecule %s%s%s\n", ErrCyan(), ErrYellow(),
+                    mt_i->Name, ErrColourReset());
+            warned = true;
+          }
         }
         if (words > 7) {
           IsRealNumber(split[7], &values.c);
+          if (strcmp(split[7], "???") == 0 && !warned) {
+            strcpy(ERROR_MSG, "undefined dihedral type \
+(\"???\" in dihedrals section)");
+            PrintWarnFile(field_file, "\0", "\0");
+            fprintf(stderr, "%s, molecule %s%s%s\n", ErrCyan(), ErrYellow(),
+                    mt_i->Name, ErrColourReset());
+            warned = true;
+          }
         }
         // assign dihedral type //{{{
         int dihedral_type = -1;
@@ -2489,7 +2582,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
       PrintErrorFileLine(field_file, file_line_count, split, words);
       exit(1);
     } //}}}
-    // 6) impropers in the molecule (if present) //{{{
+    // 7) impropers in the molecule (if present) //{{{
     file_line_count++;
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -2509,6 +2602,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
       mt_i->nImpropers = val; //}}}
       mt_i->Improper = malloc(sizeof *mt_i->Improper * mt_i->nImpropers);
       // b) impropers themselves & improper types //{{{
+      bool warned = false; // to warn of undefined type only once
       for (int j = 0; j < mt_i->nImpropers; j++) {
         file_line_count++;
         // read a line //{{{
@@ -2546,12 +2640,36 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         // read up to three values for improper type
         if (words > 5) {
           IsRealNumber(split[5], &values.a);
+          if (strcmp(split[5], "???") == 0 && !warned) {
+            strcpy(ERROR_MSG, "undefined improper type \
+(\"???\" in improperss section)");
+            PrintWarnFile(field_file, "\0", "\0");
+            fprintf(stderr, "%s, molecule %s%s%s\n", ErrCyan(), ErrYellow(),
+                    mt_i->Name, ErrColourReset());
+            warned = true;
+          }
         }
         if (words > 6) {
           IsRealNumber(split[6], &values.b);
+          if (strcmp(split[6], "???") == 0 && !warned) {
+            strcpy(ERROR_MSG, "undefined improper type \
+(\"???\" in improperss section)");
+            PrintWarnFile(field_file, "\0", "\0");
+            fprintf(stderr, "%s, molecule %s%s%s\n", ErrCyan(), ErrYellow(),
+                    mt_i->Name, ErrColourReset());
+            warned = true;
+          }
         }
         if (words > 7) {
           IsRealNumber(split[7], &values.c);
+          if (strcmp(split[7], "???") == 0 && !warned) {
+            strcpy(ERROR_MSG, "undefined improper type \
+(\"???\" in improperss section)");
+            PrintWarnFile(field_file, "\0", "\0");
+            fprintf(stderr, "%s, molecule %s%s%s\n", ErrCyan(), ErrYellow(),
+                    mt_i->Name, ErrColourReset());
+            warned = true;
+          }
         }
         // assign improper type //{{{
         int improper_type = -1;
@@ -3213,6 +3331,7 @@ void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(data_file);
   }
+  bool warned = false; // to warn of undefined charge only once
   for (int i = 0; i < Count->Bead; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -3226,7 +3345,8 @@ void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
         !IsNaturalNumber(split[0], &id) || id > Count->Bead || // bead index
         !IsIntegerNumber(split[1], &resid) || // molecule index
         !IsWholeNumber(split[2], &type) || // bead type
-        !IsRealNumber(split[3], &q) || // bead charge
+        (!IsRealNumber(split[3], &q) &&
+         strcmp(split[3], "???") != 0) || // bead charge
         !IsRealNumber(split[4], &pos.x) || //
         !IsRealNumber(split[5], &pos.y) || // Cartesean coordinates
         !IsRealNumber(split[6], &pos.z)) { //
@@ -3249,7 +3369,17 @@ void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
       exit(1);
     }
     bt->Mass = name_mass[type].Mass;
-    bt->Charge = q;
+    if (strcmp(split[3], "???") == 0) {
+      if (!warned) {
+        strcpy(ERROR_MSG, "undefined charge (\"???\" in Atoms section)");
+        PrintWarnFile(data_file, "\0", "\0");
+        putc('\n', stderr);
+        warned = true;
+      }
+      bt->Charge = CHARGE;
+    } else {
+      bt->Charge = q;
+    }
     bt->Number = 1;
     if (name_mass[type].Name[0] == '\0') {
       strcpy(bt->Name, "bt");
@@ -3386,6 +3516,7 @@ void LmpDataReadBonds(FILE *lmp, char data_file[], COUNT Count,
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(data_file);
   }
+  bool warned = false;
   for (int i = 0; i < Count.Bond; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -3396,7 +3527,8 @@ void LmpDataReadBonds(FILE *lmp, char data_file[], COUNT Count,
     // not <int> <int> <int> <int> line
     if (words < 4 ||
         !IsNaturalNumber(split[0], &id) ||
-        !IsNaturalNumber(split[1], &type) ||
+        (!IsNaturalNumber(split[1], &type) &&
+         strcmp(split[1], "???") != 0) ||
         !IsNaturalNumber(split[2], &b_id[0]) ||
         !IsNaturalNumber(split[3], &b_id[1])) {
       strcpy(ERROR_MSG, "wrong line in Bonds section");
@@ -3430,7 +3562,17 @@ void LmpDataReadBonds(FILE *lmp, char data_file[], COUNT Count,
     } //}}}
     bond[id-1][0] = b_id[0] - 1;
     bond[id-1][1] = b_id[1] - 1;
-    bond[id-1][2] = type - 1;
+    if (strcmp(split[1], "???") == 0) {
+      if (!warned) {
+        strcpy(ERROR_MSG, "undefined bond type (\"???\" in Bonds section)");
+        PrintWarnFile(data_file, "\0", "\0");
+        putc('\n', stderr);
+        warned = true;
+      }
+      bond[id-1][2] = -1;
+    } else {
+      bond[id-1][2] = type - 1;
+    }
     found[id-1] = true;
   }
   free(found);

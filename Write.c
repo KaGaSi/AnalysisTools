@@ -143,6 +143,8 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
   fprintf(fw, "Created via AnalysisTools v%s \
   (https://github.com/KaGaSi/AnalysisTools)\n\n", VERSION);
   COUNT *Count = &System.Count;
+  PrintCount(*Count);
+  // count bonds according to Bead[].InTimestep
   // create new SYSTEM structure to figure out bead types if mass==true //{{{
   SYSTEM Sys_print = CopySystem(System);
   COUNT *Count_print = &Sys_print.Count;
@@ -468,8 +470,18 @@ void WriteField(SYSTEM System, char file_field[]) { //{{{
   // print the lines
   for (int i = 0; i < Count->BeadType; i++) {
     BEADTYPE *bt_i = &System.BeadType[i];
-    fprintf(fw, "%16s %8.5f %8.5f %5d\n",
-            bt_i->Name, bt_i->Mass, bt_i->Charge, unbonded[i]);
+    fprintf(fw, "%16s", bt_i->Name);
+    if (bt_i->Mass == MASS) {
+      fprintf(fw, " %8s", "???");
+    } else {
+      fprintf(fw, " %8.5f", bt_i->Mass);
+    }
+    if (bt_i->Charge == CHARGE) {
+      fprintf(fw, " %8s", "???");
+    } else {
+      fprintf(fw, " %8.5f", bt_i->Charge);
+    }
+    fprintf(fw, " %5d\n", unbonded[i]);
   }
   free(unbonded); //}}}
   // print molecules section //{{{

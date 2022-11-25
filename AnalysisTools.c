@@ -1523,6 +1523,7 @@ void PruneSystem(SYSTEM *System) { //{{{
     free(type_old_to_new);
   } //}}}
   //}}}
+  CountBondAngleDihedralImproper(System);
   FreeSystem(&S_old);
   free(b_id_old_to_new);
   free(bt_old_to_new);
@@ -3345,12 +3346,14 @@ void PrintImproperType(SYSTEM System) { //{{{
 } //}}}
 void PrintBox(BOX Box) { //{{{
   fprintf(stdout, "Box = {\n");
-  fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x,
+  fprintf(stdout, "  .Length = (%lf, %lf, %lf)", Box.Length.x,
                                                     Box.Length.y,
                                                     Box.Length.z);
-  fprintf(stdout, "  .alpha = %lf,", Box.alpha);
-  fprintf(stdout, " .beta = %lf,", Box.beta);
-  fprintf(stdout, " .gamma = %lf,\n", Box.gamma);
+  if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
+    fprintf(stdout, ",  .alpha = %lf,", Box.alpha);
+    fprintf(stdout, " .beta = %lf,", Box.beta);
+    fprintf(stdout, " .gamma = %lf,\n", Box.gamma);
+  }
 //fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n", Box.OrthoLength.x,
 //                                                       Box.OrthoLength.y,
 //                                                       Box.OrthoLength.z);
@@ -3394,7 +3397,7 @@ void PrintBox(BOX Box) { //{{{
 //  }
 //  fprintf(stdout, ")\n");
 //} //}}}
-  fprintf(stdout, "\n");
+  fprintf(stdout, "\n}\n");
 } //}}}
 void PrintByline(FILE *ptr, int argc, char *argv[]) { //{{{
   fprintf(ptr, "# Created by AnalysisTools v%s ", VERSION);
