@@ -64,7 +64,23 @@ for dl_software\n");
   fprintf(ptr, "      --version                 print version and exit\n");
 } //}}}
 
-// TODO: implement to choose coordinates - vcf/lmp/xyz
+// TODO: implement choosing coordinates - vcf/vtf/lmp/lammpstrj/xyz
+// TODO: implement choosing box dimensions - vcf/vtf/lmp/lammpstrj
+//       ...I guess it should be the same box size as are coordinetes; i.e.,
+//       when vcf/vtf/lammpstrj/lmp coordinate used, use the box from that file
+//       (if present)
+//       ...then again, choosing box can be after coordinate choosing, so should
+//       anyone want a different box, it doesn't mean any more work
+//       ...also possibly specify box dimension manually
+// TODO: make well-separated two sections
+//       1) read all systems into individual SYSTEM
+//          a) lammpstrj requires ReadLammpstrjStruct()
+//          b) vcf requires ReadVcfStruct() - akin to xyz but just 1 name (bt)
+//       2) choose systems
+//          i) primary system
+//          ii) add data from secondary (possibly terciary) system
+//          iii) add coordinates from proper system
+//          iv) add box dimensions
 
 int main(int argc, char *argv[]) {
 
@@ -379,44 +395,53 @@ lammps data file must be specified");
   // use vcf coordinates if provided //{{{
   char stuff[LINE];
   if (input_vcf[0] != '\0') {
-    SYSTEM Sys_new = CopySystem(*System);
-    VtfReadPBC(input_vcf, &Sys_new.Box);
-    TriclinicCellData(&Sys_new.Box, 0);
+    SYSTEM S_vcf_coor = CopySystem(*System);
+    VtfReadPBC(input_vcf, &S_vcf_coor.Box);
+    TriclinicCellData(&S_vcf_coor.Box, 0);
     int l_count = 0;
     FILE *fr = OpenFile(input_vcf, "r");
-    if (!VtfReadTimestep(fr, input_vcf, &Sys_new, &l_count, stuff)) {
-      strcpy(ERROR_MSG, "not all coordinates from vcf file could be read; \
-not using vcf coordinates");
-      PrintWarning();
+    if (!VtfReadTimestep(fr, input_vcf, &S_vcf_coor, &l_count, stuff)) {
+      strcpy(ERROR_MSG, "no valid timestep found");
+      WarnPrintFile(input_vcf, "\0", "\0");
+      putc('\n', stderr);
     } else {
       for (int i = 0; i < System->Count.Bead; i++) {
         System->Bead[i].InTimestep = false;
       }
-      for (int i = 0; i < Sys_new.Count.BeadCoor; i++) {
-        int id = Sys_new.BeadCoor[i];
-        System->Bead[id].Position = Sys_new.Bead[id].Position;
+      for (int i = 0; i < S_vcf_coor.Count.BeadCoor; i++) {
+        int id = S_vcf_coor.BeadCoor[i];
+        System->Bead[id].Position = S_vcf_coor.Bead[id].Position;
         System->Bead[id].InTimestep = true;
         System->BeadCoor[i] = id;
       }
     }
-    System->Box = Sys_new.Box;
+    System->Box = S_vcf_coor.Box;
     fclose(fr);
-    FreeSystem(&Sys_new);
+    FreeSystem(&S_vcf_coor);
   } //}}}
+  // use lammpstrj coordinates if provided //{{{
   if (input_ltrj[0] != '\0') {
-    // TODO: akin to vcf coordinates
+    SYSTEM S_ltrj_coor = CopySystem(*System);
     int l_count = 0;
     FILE *fr = OpenFile(input_ltrj, "r");
-    if (!LmpReadTimestep(fr, input_ltrj, System, &l_count)) {
-      // TODO: error/warning
+    if (!LmpReadTimestep(fr, input_ltrj, &S_ltrj_coor, &l_count)) {
       strcpy(ERROR_MSG, "no valid timestep found");
       PrintWarning();
       WarnPrintFile(input_ltrj, "\0", "\0");
       putc('\n', stderr);
+    } else {
+      for (int i = 0; i < System->Count.Bead; i++) {
+        System->Bead[i].InTimestep = false;
+      }
+      for (int i = 0; i < S_ltrj_coor.Count.BeadCoor; i++) {
+        int id = S_ltrj_coor.BeadCoor[i];
+        System->Bead[id].Position = S_ltrj_coor.Bead[id].Position;
+        System->Bead[id].InTimestep = true;
+        System->BeadCoor[i] = id;
+      }
     }
     fclose(fr);
-  }
-  // TODO: picking Box between vtf and lmp
+  } //}}}
   // use Box from lmp if Box is unspecified in System //{{{
   if (System->Box.Volume == -1) {
     if (input_lmp[0] != '\0' && lmp.Box.Volume != -1) {

@@ -2550,7 +2550,10 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
     for (int j = 0; j < mt_i->nAngles; j++) {
       if (mt_i->Angle[j][0] < 0 || mt_i->Angle[j][0] >= mt_i->nBeads ||
           mt_i->Angle[j][1] < 0 || mt_i->Angle[j][1] >= mt_i->nBeads ||
-          mt_i->Angle[j][2] < 0 || mt_i->Angle[j][2] >= mt_i->nBeads) {
+          mt_i->Angle[j][2] < 0 || mt_i->Angle[j][2] >= mt_i->nBeads ||
+          mt_i->Angle[j][0] == mt_i->Angle[j][1] ||
+          mt_i->Angle[j][0] == mt_i->Angle[j][2] ||
+          mt_i->Angle[j][1] == mt_i->Angle[j][2]) {
         strcpy(ERROR_MSG, "incorrect index in Angle array");
         PrintError();
         ErrorPrintFile(file, "\0", "\0");
@@ -2575,7 +2578,13 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
       if (mt_i->Dihedral[j][0] < 0 || mt_i->Dihedral[j][0] >= mt_i->nBeads ||
           mt_i->Dihedral[j][1] < 0 || mt_i->Dihedral[j][1] >= mt_i->nBeads ||
           mt_i->Dihedral[j][2] < 0 || mt_i->Dihedral[j][2] >= mt_i->nBeads ||
-          mt_i->Dihedral[j][3] < 0 || mt_i->Dihedral[j][3] >= mt_i->nBeads) {
+          mt_i->Dihedral[j][3] < 0 || mt_i->Dihedral[j][3] >= mt_i->nBeads ||
+          mt_i->Dihedral[j][0] == mt_i->Dihedral[j][1] ||
+          mt_i->Dihedral[j][0] == mt_i->Dihedral[j][2] ||
+          mt_i->Dihedral[j][0] == mt_i->Dihedral[j][3] ||
+          mt_i->Dihedral[j][1] == mt_i->Dihedral[j][2] ||
+          mt_i->Dihedral[j][1] == mt_i->Dihedral[j][3] ||
+          mt_i->Dihedral[j][2] == mt_i->Dihedral[j][3]) {
         strcpy(ERROR_MSG, "incorrect index in Dihedral array");
         PrintError();
         ErrorPrintFile(file, "\0", "\0");
@@ -2602,7 +2611,13 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
       if (mt_i->Improper[j][0] < 0 || mt_i->Improper[j][0] >= mt_i->nBeads ||
           mt_i->Improper[j][1] < 0 || mt_i->Improper[j][1] >= mt_i->nBeads ||
           mt_i->Improper[j][2] < 0 || mt_i->Improper[j][2] >= mt_i->nBeads ||
-          mt_i->Improper[j][3] < 0 || mt_i->Improper[j][3] >= mt_i->nBeads) {
+          mt_i->Improper[j][3] < 0 || mt_i->Improper[j][3] >= mt_i->nBeads ||
+          mt_i->Improper[j][0] == mt_i->Improper[j][1] ||
+          mt_i->Improper[j][0] == mt_i->Improper[j][2] ||
+          mt_i->Improper[j][0] == mt_i->Improper[j][3] ||
+          mt_i->Improper[j][1] == mt_i->Improper[j][2] ||
+          mt_i->Improper[j][1] == mt_i->Improper[j][3] ||
+          mt_i->Improper[j][2] == mt_i->Improper[j][3]) {
         strcpy(ERROR_MSG, "incorrect index in Improper array");
         PrintError();
         ErrorPrintFile(file, "\0", "\0");
@@ -3048,6 +3063,8 @@ void PrintCount(COUNT Count) { //{{{
   }
   if (Count.ImproperType > 0) {
     fprintf(stdout, "\n  Improper Types: %d", Count.ImproperType);
+  }
+  if (Count.Improper > 0) {
     fprintf(stdout, "\n  Impropers:      %d", Count.Improper);
   }
   fprintf(stdout, "\n\n");

@@ -663,9 +663,6 @@ void MergeMoleculeTypes(SYSTEM *System) {
   free(old_to_new); //}}}
 } //}}}
 
-// SkipCoorStep()
-//SkipCoorStep()
-
 void FillMoleculeBeads(SYSTEM *System) { //{{{
   COUNT *Count = &System->Count;
   for (int i = 0; i < Count->Molecule; i++) {
@@ -2266,8 +2263,10 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         long beads[2];
         PARAMS values = InitParams;
         // error - incorrect line //{{{
-        if (words < 3 || !IsNaturalNumber(split[1], &beads[0]) ||
-                         !IsNaturalNumber(split[2], &beads[1])) {
+        if (words < 3 ||
+            !IsNaturalNumber(split[1], &beads[0]) ||
+            !IsNaturalNumber(split[2], &beads[1]) ||
+            beads[0] == beads[1]) {
           strcpy(ERROR_MSG, "incorrect bond line in a molecule entry");
           PrintErrorFileLine(field_file, file_line_count, split, words);
           exit(1);
@@ -2379,9 +2378,13 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         long beads[3];
         PARAMS values = InitParams;
         // error - incorrect line //{{{
-        if (words < 4 || !IsNaturalNumber(split[1], &beads[0]) ||
-                         !IsNaturalNumber(split[2], &beads[1]) ||
-                         !IsNaturalNumber(split[3], &beads[2])) {
+        if (words < 4 ||
+            !IsNaturalNumber(split[1], &beads[0]) ||
+            !IsNaturalNumber(split[2], &beads[1]) ||
+            !IsNaturalNumber(split[3], &beads[2]) ||
+            beads[0] == beads[1] ||
+            beads[0] == beads[2] ||
+            beads[1] == beads[2]) {
           strcpy(ERROR_MSG, "incorrect angle line in a molecule entry");
           PrintErrorFileLine(field_file, file_line_count, split, words);
           exit(1);
@@ -2499,10 +2502,17 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         long beads[4];
         PARAMS values = InitParams;
         // error - incorrect line //{{{
-        if (words < 5 || !IsNaturalNumber(split[1], &beads[0]) ||
-                         !IsNaturalNumber(split[2], &beads[1]) ||
-                         !IsNaturalNumber(split[3], &beads[2]) ||
-                         !IsNaturalNumber(split[4], &beads[3])) {
+        if (words < 5 ||
+            !IsNaturalNumber(split[1], &beads[0]) ||
+            !IsNaturalNumber(split[2], &beads[1]) ||
+            !IsNaturalNumber(split[3], &beads[2]) ||
+            !IsNaturalNumber(split[4], &beads[3]) ||
+            beads[0] == beads[1] ||
+            beads[0] == beads[2] ||
+            beads[0] == beads[3] ||
+            beads[1] == beads[2] ||
+            beads[1] == beads[3] ||
+            beads[2] == beads[3]) {
           strcpy(ERROR_MSG, "incorrect dihedral line in a molecule entry");
           PrintErrorFileLine(field_file, file_line_count, split, words);
           exit(1);
@@ -2518,7 +2528,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         mt_i->Dihedral[j][1] = beads[1] - 1; //
         mt_i->Dihedral[j][2] = beads[2] - 1; //
         mt_i->Dihedral[j][3] = beads[3] - 1; //
-        // read up to three values for dihedral type
+        // read up to three values for dihedral type //{{{
         if (words > 5) {
           IsRealNumber(split[5], &values.a);
           if (strcmp(split[5], "???") == 0 && !warned) {
@@ -2551,7 +2561,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
                     mt_i->Name, ErrColourReset());
             warned = true;
           }
-        }
+        } //}}}
         // assign dihedral type //{{{
         int dihedral_type = -1;
         if (values.a != 0 || values.b != 0 || values.c != 0) {
@@ -2618,10 +2628,17 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         long beads[4];
         PARAMS values = InitParams;
         // error - incorrect line //{{{
-        if (words < 5 || !IsNaturalNumber(split[1], &beads[0]) ||
-                         !IsNaturalNumber(split[2], &beads[1]) ||
-                         !IsNaturalNumber(split[3], &beads[2]) ||
-                         !IsNaturalNumber(split[4], &beads[3])) {
+        if (words < 5 ||
+            !IsNaturalNumber(split[1], &beads[0]) ||
+            !IsNaturalNumber(split[2], &beads[1]) ||
+            !IsNaturalNumber(split[3], &beads[2]) ||
+            !IsNaturalNumber(split[4], &beads[3]) ||
+            beads[0] == beads[1] ||
+            beads[0] == beads[2] ||
+            beads[0] == beads[3] ||
+            beads[1] == beads[2] ||
+            beads[1] == beads[3] ||
+            beads[2] == beads[3]) {
           strcpy(ERROR_MSG, "incorrect improper line in a molecule entry");
           PrintErrorFileLine(field_file, file_line_count, split, words);
           exit(1);
@@ -2637,7 +2654,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         mt_i->Improper[j][1] = beads[1] - 1; //
         mt_i->Improper[j][2] = beads[2] - 1; //
         mt_i->Improper[j][3] = beads[3] - 1; //
-        // read up to three values for improper type
+        // read up to three values for improper type //{{{
         if (words > 5) {
           IsRealNumber(split[5], &values.a);
           if (strcmp(split[5], "???") == 0 && !warned) {
@@ -2670,7 +2687,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
                     mt_i->Name, ErrColourReset());
             warned = true;
           }
-        }
+        } //}}}
         // assign improper type //{{{
         int improper_type = -1;
         if (values.a != 0 || values.b != 0 || values.c != 0) {
