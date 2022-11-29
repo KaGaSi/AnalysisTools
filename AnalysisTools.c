@@ -133,6 +133,7 @@ int InputCoorStruct(int argc, char **argv,
   strcpy(extension[2], ".xyz");
   strcpy(extension[3], ".lammpstrj");
   ext = ErrorExtension(coor, ext, extension);
+  // define coordinate type and possibly vtf structure file
   switch(ext) {
     case 0: // if vcf, copy to input_vsf with vsf ending
       ; int last = -1;
@@ -158,12 +159,22 @@ int InputCoorStruct(int argc, char **argv,
     default: // something wrong; should never happen
       type = -1;
   }
+  // lammps data file as input?
   if (FileOption(argc, argv, "-l_in", lmp, LINE)) {
     exit(1);
+  }
+  // vtf structure file as input?
+  char bkp[LINE]; // backup in case there's no -vs_in
+  if (vsf[0] != '\0') {
+    strcpy(bkp, vsf);
   }
   if (FileOption(argc, argv, "-vs_in", vsf, LINE)) {
     exit(1);
   }
+  if (vsf[0] == '\0') { // copy backup back if no -vs_in
+    strcpy(vsf, bkp);
+  }
+  // FIELD file as input?
   if (FileOption(argc, argv, "-f_in", field, LINE)) {
     exit(1);
   }

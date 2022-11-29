@@ -1619,6 +1619,29 @@ bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
                      int *file_line_count) {
   // skip preamble - i.e., read until the first coordinate line
   fpos_t position;
+  char line[LINE], *split[SPL_STR];
+  int words;
+  do {
+    (*file_line_count)++;
+    if (!ReadAndSplitLine(vcf, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      return false;
+    }
+  } while (words == 0 || split[0][0] < '0' || split[0][0] > '9');
+  do {
+    fgetpos(vcf, &position);
+    (*file_line_count)++;
+    if (!ReadAndSplitLine(vcf, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      return false;
+    }
+  } while (split[0][0] >= '0' && split[0][0] <= '9');
+  fsetpos(vcf, &position);
+  return true;
+} //}}}
+// OLD VtfSkipTimestep() - TO BE DELETED //{{{
+bool VtfSkipTimestep_old(FILE *vcf, char vcf_file[], char vsf_file[],
+                     int *file_line_count) {
+  // skip preamble - i.e., read until the first coordinate line
+  fpos_t position;
   int ltype;
   bool timestep = false; // is timestep line present?
   do {
