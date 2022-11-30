@@ -20,12 +20,12 @@ containing all beads of any given type, so the usefulness is very limited \
   }
 
   fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <output.vcf> <bead(s)> [options]\n\n", cmd);
+  fprintf(ptr, "   %s <input> <output> <bead(s)> [options]\n\n", cmd);
 
-  fprintf(ptr, "   <input>        input coordinate file \
+  fprintf(ptr, "   <input>           input coordinate file \
 (vcf, vtf or xyz format)\n");
-  fprintf(ptr, "   <output.vcf>   output coordinate file (vcf format)\n");
-  fprintf(ptr, "   <bead(s)>      names of bead types to save \
+  fprintf(ptr, "   <output.vcf>      output coordinate file (vcf format)\n");
+  fprintf(ptr, "   <bead(s)>         names of bead types to save \
 (optional if '--reverse' used)\n");
   fprintf(ptr, "   [options]\n");
   fprintf(ptr, "      --reverse      reverse <bead name(s)>, i.e., exclude \
@@ -132,7 +132,7 @@ acceptable only for xyz input coordinate file");
     exit(1);
   } //}}}
 
-  // <output.vcf> - output vcf file //{{{
+  // <output> - output vcf file //{{{
   char out_coor[LINE] = "";
   // 0..vcf, 1..xyz
   int coor_out_type;

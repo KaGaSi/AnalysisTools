@@ -1033,6 +1033,7 @@ bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
   return true;
 } //}}}
 // SkipTimestep() //{{{
+// TODO unite skips so that it all returns false/true consistently (on eof)
 bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],
                   int *file_line_count) {
   switch (coor_type) {
@@ -1617,7 +1618,7 @@ add up properly!");
  */
 bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
                      int *file_line_count) {
-  // skip preamble - i.e., read until the first coordinate line
+  // skip preamble - i.e., read until the first number-starting line
   fpos_t position;
   char line[LINE], *split[SPL_STR];
   int words;
@@ -1627,6 +1628,7 @@ bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
       return false;
     }
   } while (words == 0 || split[0][0] < '0' || split[0][0] > '9');
+  // skip coordinate section - i.e., read until first non-number-starting line
   do {
     fgetpos(vcf, &position);
     (*file_line_count)++;
@@ -1634,7 +1636,7 @@ bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
       return false;
     }
   } while (split[0][0] >= '0' && split[0][0] <= '9');
-  fsetpos(vcf, &position);
+  fsetpos(vcf, &position); // return to before that non-number-starting line
   return true;
 } //}}}
 // OLD VtfSkipTimestep() - TO BE DELETED //{{{

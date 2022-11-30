@@ -165,13 +165,13 @@ int InputCoorStruct(int argc, char **argv,
   }
   // vtf structure file as input?
   char bkp[LINE]; // backup in case there's no -vs_in
-  if (vsf[0] != '\0') {
+  if (ext <= 1) {
     strcpy(bkp, vsf);
   }
   if (FileOption(argc, argv, "-vs_in", vsf, LINE)) {
     exit(1);
   }
-  if (vsf[0] == '\0') { // copy backup back if no -vs_in
+  if (vsf[0] == '\0' && ext <= 1) { // copy backup back if no -vs_in
     strcpy(vsf, bkp);
   }
   // FIELD file as input?

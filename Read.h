@@ -47,6 +47,8 @@ bool VtfReadTimestep(FILE *vcf, char vcf_file[],
 // Discard a single timestep from a vcf/vtf coordinate file
 bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
                      int *file_line_count);
+bool VtfSkipTimestep_old(FILE *vcf, char vcf_file[], char vsf_file[],
+                     int *file_line_count);
 bool VtfSkipCoorOrderedLine(FILE *fr);
 // Find position of atom line keywords in the provided strtok'd line
 int * VtfAtomLineValues(int words, char *split[]);
