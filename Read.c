@@ -2,6 +2,9 @@
 // TODO SEEMS THERE'S NO TOTAL COUNT OF IMPROPERS FOR FIELD
 // TODO test output of snprintf() to get rid of a warning; see
 //      https://stackoverflow.com/questions/51534284/how-to-circumvent-format-truncation-warning-in-gcc
+// TODO do not forget that timesteps are count only on successful reading
+//      (i.e., when an invalid step is skip while trying to read coordinates,
+//      the count doesn't grow)
 
 // RemoveExtraTypes()  //{{{
 /*
@@ -1633,9 +1636,21 @@ bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
     fgetpos(vcf, &position);
     (*file_line_count)++;
     if (!ReadAndSplitLine(vcf, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      return false;
+      /*
+       * if the file ends with a number-starting line (i.e., the next line is
+       * empty), return true to count that as a successfully skipped step to be
+       * consistent with other timestep skipping (and to properly count
+       * timesteps)
+       */
+      if (feof(vcf)) {
+        return true;
+      } else {
+        return false;
+      }
     }
-  } while (split[0][0] >= '0' && split[0][0] <= '9');
+  } while (words > 0 && split[0][0] >= '0' && split[0][0] <= '9');
+
+  (*file_line_count)--;
   fsetpos(vcf, &position); // return to before that non-number-starting line
   return true;
 } //}}}
@@ -4171,38 +4186,20 @@ bool XYZSkipTimestep(FILE *fr, char file[], int *file_line_count) {
   int words;
   char line[LINE], *split[SPL_STR];
   fpos_t position;
-  // read number of beads (go back to the function beginning on error) //{{{
-  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    return false;
-  }
-  (*file_line_count)++;
-  long bead_count;
-  if (words == 0 || !IsNaturalNumber(split[0], &bead_count)) {
-    strcpy(ERROR_MSG, "wrong first line of a skipped xyz timestep; \
-using next timestep instead of this one");
-    PrintWarningFileLine(file, *file_line_count, split, words);
-    // ignore the rest of the timestep
-    // ignore empty line after the botched number of beads line
-    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file");
-      PrintErrorFile(file, "\0", "\0");
-    }
-    (*file_line_count)++;
-    // skip the coordinate lines (if any)
-    do {
-      fgetpos(fr, &position);
-      (*file_line_count)++;
-    } while (XYZSkipCoorLine(fr));
-    fsetpos(fr, &position);
-    (*file_line_count)--; // the first non-coordinate line will be re-read
-  } //}}}
-  // read coordinates //{{{
-  for (int i = 0; i < (bead_count+1); i++) {
+  // skip the first two lines (number of beads + comment line)
+  for (int i = 0; i < 2; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       return false;
     }
-  } //}}}
+  }
+  // skip xyz coordinate lines
+  do {
+    fgetpos(fr, &position);
+    (*file_line_count)++;
+  } while (XYZSkipCoorLine(fr));
+  (*file_line_count)--;
+  fsetpos(fr, &position);
   return true;
 } //}}}
 bool XYZSkipCoorLine(FILE *fr) { //{{{
