@@ -58,13 +58,13 @@ int main(int argc, char *argv[]) {
 
   // check if correct number of arguments //{{{
   int count = 0;
-  while ((count+1) < argc && argv[count+1][0] != '-') {
+  while ((count + 1) < argc && argv[count + 1][0] != '-') {
     count++;
   }
   // reverse bead type selection? ...do now to check correct number of arguments
   bool reverse = BoolOption(argc, argv, "--reverse");
   // possible to omit <bead name(s)> if '--reverse' is used
-  if (count < (req_args-1) || (count == (req_args-1) && !reverse)) {
+  if (count < (req_args - 1) || (count == (req_args - 1) && !reverse)) {
     ErrorArgNumber(count, req_args);
     Help(argv[0], true);
     exit(1);
@@ -72,23 +72,15 @@ int main(int argc, char *argv[]) {
 
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' &&
-        strcmp(argv[i], "-l_in") != 0 &&
-        strcmp(argv[i], "-vs_in") != 0 &&
-        strcmp(argv[i], "-f_in") != 0 &&
-        strcmp(argv[i], "-v") != 0 &&
-        strcmp(argv[i], "--detailed") != 0 &&
-        strcmp(argv[i], "--silent") != 0 &&
-        strcmp(argv[i], "-h") != 0 &&
+    if (argv[i][0] == '-' && strcmp(argv[i], "-l_in") != 0 &&
+        strcmp(argv[i], "-vs_in") != 0 && strcmp(argv[i], "-f_in") != 0 &&
+        strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--detailed") != 0 &&
+        strcmp(argv[i], "--silent") != 0 && strcmp(argv[i], "-h") != 0 &&
         strcmp(argv[i], "--version") != 0 &&
-        strcmp(argv[i], "--reverse") != 0 &&
-        strcmp(argv[i], "--join") != 0 &&
-        strcmp(argv[i], "--wrap") != 0 &&
-        strcmp(argv[i], "-st") != 0 &&
-        strcmp(argv[i], "-e") != 0 &&
-        strcmp(argv[i], "-sk") != 0 &&
-        strcmp(argv[i], "-n") != 0 &&
-        strcmp(argv[i], "-x") != 0 &&
+        strcmp(argv[i], "--reverse") != 0 && strcmp(argv[i], "--join") != 0 &&
+        strcmp(argv[i], "--wrap") != 0 && strcmp(argv[i], "-st") != 0 &&
+        strcmp(argv[i], "-e") != 0 && strcmp(argv[i], "-sk") != 0 &&
+        strcmp(argv[i], "-n") != 0 && strcmp(argv[i], "-x") != 0 &&
         strcmp(argv[i], "--last") != 0) {
       ErrorOption(argv[i]);
       Help(argv[0], true);
@@ -99,11 +91,8 @@ int main(int argc, char *argv[]) {
   count = 0; // count mandatory arguments
 
   // <input> - input coordinate file //{{{
-  char in_coor[LINE] = "",
-       in_vsf[LINE] = "",
-       in_lmp[LINE] = "",
-       in_field[LINE] = "",
-       *struct_file;
+  char in_coor[LINE] = "", in_vsf[LINE] = "", in_lmp[LINE] = "",
+       in_field[LINE] = "", *struct_file;
   int coor_type, struct_type = 0;
   snprintf(in_coor, LINE, "%s", argv[++count]);
   // coor_type: 1..vcf, 2..xyz, 3..lammpstrj
@@ -173,19 +162,19 @@ acceptable only for xyz input coordinate file");
 
   // read input data //{{{
   SYSTEM System;
-  switch(struct_type) {
-    case 0: // xyz
-      System = XYZReadStruct(in_coor);
-      break;
-    case 1: // vsf/vtf
-      System = VtfReadStruct(in_vsf, detailed);
-      break;
-    case 2: // lmp
-      System = LmpDataRead(in_lmp);
-      break;
-    case 3: // field
-      System = FieldRead(in_field);
-      break;
+  switch (struct_type) {
+  case 0: // xyz
+    System = XYZReadStruct(in_coor);
+    break;
+  case 1: // vsf/vtf
+    System = VtfReadStruct(in_vsf, detailed);
+    break;
+  case 2: // lmp
+    System = LmpDataRead(in_lmp);
+    break;
+  case 3: // field
+    System = FieldRead(in_field);
+    break;
   }
   // pbc from vcf/vtf coordinate file
   // TODO: do I need pbc now? VtfSkipTimestep should read them (and so should
@@ -245,7 +234,7 @@ acceptable only for xyz input coordinate file");
   free(write_bt); //}}}
 
   // '-x' option //{{{
-// TODO remove the bool flags from SYSTEM, i.e., also change ExcludeOption()
+  // TODO remove the bool flags from SYSTEM, i.e., also change ExcludeOption()
   if (ExcludeOption(argc, argv, &System)) {
     exit(1);
   }
@@ -266,20 +255,19 @@ acceptable only for xyz input coordinate file");
     VerboseOutput(System);
   } //}}}
 
-  // print initial stuff to output vcf file
+  // print initial stuff to output vcf file //{{{
   FILE *out = OpenFile(out_coor, "w");
   if (coor_out_type == 0) {
     PrintByline(out, argc, argv);
   }
-  fclose(out);
+  fclose(out); //}}}
 
-  // open input coordinate file
-  FILE *coor = OpenFile(in_coor, "r");
-  fpos_t position1, position2;
 
   // main loop //{{{
-  int n_opt_count = 0, // count saved steps if -n option is used
-      count_coor = 0, // count steps in the vcf file
+  FILE *coor = OpenFile(in_coor, "r");
+  fpos_t position1, position2; // two file pointers for finding the last step
+  int n_opt_count = 0,     // count saved steps if -n option is used
+      count_coor = 0,      // count steps in the vcf file
       file_line_count = 0; // count lines in the vcf file
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
   while (true) {
@@ -305,7 +293,7 @@ acceptable only for xyz input coordinate file");
      */
     if (n_opt_number == -1) {
       if ((count_coor >= start && (count_coor <= end || end == -1)) && // 1)
-          ((count_coor-start)%skip) == 0) { // 2)
+          ((count_coor - start) % skip) == 0) {                        // 2)
         use = true;
       } else {
         use = false;
@@ -314,7 +302,7 @@ acceptable only for xyz input coordinate file");
       if (last) {
         use = false;
       }
-    // -n option is used - save the timestep if it's in the list
+      // -n option is used - save the timestep if it's in the list
     } else if (n_opt_count < n_opt_number &&
                n_opt_save[n_opt_count] == count_coor) {
       use = true;
@@ -323,8 +311,8 @@ acceptable only for xyz input coordinate file");
     //}}}
     // read and write the timestep, if it should be saved //{{{
     if (use) {
-      if (!ReadTimestep(coor_type, coor, in_coor,
-                        &System, &file_line_count, stuff)) {
+      if (!ReadTimestep(coor_type, coor, in_coor, &System, &file_line_count,
+                        stuff)) {
         count_coor--;
         break;
       }
@@ -338,7 +326,7 @@ acceptable only for xyz input coordinate file");
       }
       fclose(out);
       //}}}
-    // skip the timestep, if it shouldn't be saved //{{{
+      // skip the timestep, if it shouldn't be saved //{{{
     } else {
       if (!SkipTimestep(coor_type, coor, in_coor, in_vsf, &file_line_count)) {
         count_coor--;
@@ -346,7 +334,7 @@ acceptable only for xyz input coordinate file");
       }
     } //}}}
     // save file position (last two because of --last) //{{{
-    if ((count_coor%2) == 0) {
+    if ((count_coor % 2) == 0) {
       fgetpos(coor, &position1);
     } else {
       fgetpos(coor, &position2);
@@ -358,14 +346,14 @@ acceptable only for xyz input coordinate file");
      *    2) end timestep was reached (-e option)
      */
     if ((n_opt_count == n_opt_number && !last) || // 1)
-        count_coor == end) { // 2)
+        count_coor == end) {                      // 2)
       break;
     } //}}}
-  } //}}}
+  }   //}}}
   // if --last option is used, read & save the last timestep //{{{
   if (last) {
     // restore file pointer
-    if ((count_coor%2) == 1) {
+    if ((count_coor % 2) == 1) {
       fsetpos(coor, &position1);
     } else {
       fsetpos(coor, &position2);
