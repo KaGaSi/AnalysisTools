@@ -96,16 +96,17 @@ void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
                           int (*diheral)[5], int *file_line_count);
 void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
                           int (*improper)[5], int *file_line_count);
-bool LmpReadTimestep(FILE *f, char ltrj_file[],
+SYSTEM LtrjReadStruct(char file[]);
+bool LtrjReadTimestep(FILE *f, char ltrj_file[],
                      SYSTEM *System, int *file_line_count);
-bool LmpSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count);
+bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count);
  //}}}
-SYSTEM XYZReadStruct(char file[]);
-bool XYZReadTimestep(FILE *fr, char file[], SYSTEM *System,
+SYSTEM XyzReadStruct(char file[]);
+bool XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
                      int *file_line_count);
-bool XYZSkipTimestep(FILE *fr, char file[], int *file_line_count);
-bool XYZSkipCoorLine(FILE *fr);
-bool XYZCheckCoorLine(int words, char *split[]);
+bool XyzSkipTimestep(FILE *fr, char file[], int *file_line_count);
+bool XyzSkipCoorLine(FILE *fr);
+bool XyzCheckCoorLine(int words, char *split[]);
 
 // helper functions //{{{
 // FillMolMass //{{{

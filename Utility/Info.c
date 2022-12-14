@@ -261,9 +261,9 @@ int main(int argc, char *argv[]) {
   } //}}}
   // error - no input file with structure information //{{{
   if (input_vsf[0] == '\0' && input_field[0] == '\0' &&
-      input_lmp[0] == '\0' && input_xyz[0] == '\0') {
-    strcpy(ERROR_MSG, "input vtf structure file, FIELD-like file, and/or \
-lammps data file must be specified");
+      input_lmp[0] == '\0' && input_xyz[0] == '\0' &&
+      input_ltrj[0] == '\0') {
+    strcpy(ERROR_MSG, "no input file");
     PrintError();
     Help(argv[0], true);
     exit(1);
@@ -274,7 +274,7 @@ lammps data file must be specified");
   bool verbose = BoolOption(argc, argv, "-v");
 
   // read information from input file(s) //{{{
-  SYSTEM vsf, field, lmp, xyz;
+  SYSTEM vsf, field, lmp, xyz, ltrj;
   SYSTEM *System; // pointer to one of the above SYSTEMs
   // find the first structure file and read it //{{{
   int vs_in = 1e2, f_in = 1e2, l_in = 1e2;
@@ -319,10 +319,18 @@ lammps data file must be specified");
   } //}}}
   // read xyz input if present //{{{
   if (input_xyz[0] != '\0') {
-    xyz = XYZReadStruct(input_xyz);
+    xyz = XyzReadStruct(input_xyz);
     if (verbose) {
       printf("System in %s:\n", input_xyz);
       VerboseOutput(xyz);
+    }
+  } //}}}
+  // read lammpstrj input if present //{{{
+  if (input_ltrj[0] != '\0') {
+    ltrj = LtrjReadStruct(input_ltrj);
+    if (verbose) {
+      printf("System in %s:\n", input_ltrj);
+      VerboseOutput(ltrj);
     }
   } //}}}
   // assign primary system //{{{
@@ -424,7 +432,7 @@ lammps data file must be specified");
     SYSTEM S_ltrj_coor = CopySystem(*System);
     int l_count = 0;
     FILE *fr = OpenFile(input_ltrj, "r");
-    if (!LmpReadTimestep(fr, input_ltrj, &S_ltrj_coor, &l_count)) {
+    if (!LtrjReadTimestep(fr, input_ltrj, &S_ltrj_coor, &l_count)) {
       strcpy(ERROR_MSG, "no valid timestep found");
       PrintWarning();
       WarnPrintFile(input_ltrj, "\0", "\0");

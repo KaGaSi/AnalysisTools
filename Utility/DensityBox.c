@@ -160,7 +160,7 @@ acceptable only for xyz input coordinate file");
   SYSTEM System;
   switch(struct_type) {
     case 0: // xyz
-      System = XYZReadStruct(in_coor);
+      System = XyzReadStruct(in_coor);
       break;
     case 1: // vsf/vtf
       System = VtfReadStruct(in_vsf, detailed);

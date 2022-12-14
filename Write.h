@@ -7,6 +7,7 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[], bool write[], SYSTEM System);
 void XyzWriteCoor(FILE *xyz, bool write[], char *stuff, SYSTEM System);
 void VtfWriteStruct(char file[], SYSTEM System, int type_def);
 void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass);
+void LtrjWriteCoor(FILE *vcf, int step, bool write[], SYSTEM System);
 void WriteField(SYSTEM System, char file_field[]);
 void WriteConfig(SYSTEM System, char file_config[]);
 

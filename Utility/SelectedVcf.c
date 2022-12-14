@@ -123,14 +123,15 @@ acceptable only for xyz input coordinate file");
 
   // <output> - output vcf file //{{{
   char out_coor[LINE] = "";
-  // 0..vcf, 1..xyz
+  // 0..vcf, 1..xyz, 2...lammpstrj
   int coor_out_type;
   snprintf(out_coor, LINE, "%s", argv[++count]);
   // test if <output.vcf> ends with '.vcf'
-  int ext = 2;
-  char extension[2][EXTENSION];
+  int ext = 3;
+  char extension[3][EXTENSION];
   strcpy(extension[0], ".vcf");
   strcpy(extension[1], ".xyz");
+  strcpy(extension[2], ".lammpstrj");
   coor_out_type = ErrorExtension(out_coor, ext, extension);
   if (coor_out_type == -1) {
     Help(argv[0], true);
@@ -164,7 +165,7 @@ acceptable only for xyz input coordinate file");
   SYSTEM System;
   switch (struct_type) {
   case 0: // xyz
-    System = XYZReadStruct(in_coor);
+    System = XyzReadStruct(in_coor);
     break;
   case 1: // vsf/vtf
     System = VtfReadStruct(in_vsf, detailed);
@@ -262,13 +263,12 @@ acceptable only for xyz input coordinate file");
   }
   fclose(out); //}}}
 
-
   // main loop //{{{
   FILE *coor = OpenFile(in_coor, "r");
   fpos_t position1, position2; // two file pointers for finding the last step
-  int n_opt_count = 0,     // count saved steps if -n option is used
-      count_coor = 0,      // count steps in the vcf file
-      file_line_count = 0; // count lines in the vcf file
+  int n_opt_count = 0,         // count saved steps if -n option is used
+      count_coor = 0,          // count steps in the vcf file
+      file_line_count = 0;     // count lines in the vcf file
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
   while (true) {
     count_coor++;
@@ -309,8 +309,7 @@ acceptable only for xyz input coordinate file");
       n_opt_count++;
     }
     //}}}
-    // read and write the timestep, if it should be saved //{{{
-    if (use) {
+    if (use) { // read and write the timestep, if it should be saved //{{{
       if (!ReadTimestep(coor_type, coor, in_coor, &System, &file_line_count,
                         stuff)) {
         count_coor--;
@@ -321,13 +320,17 @@ acceptable only for xyz input coordinate file");
       out = OpenFile(out_coor, "a");
       if (coor_out_type == 0) {
         VtfWriteCoorIndexed(out, stuff, write, System);
-      } else {
+      } else if (coor_out_type == 1) {
         XyzWriteCoor(out, write, stuff, System);
+      } else if (coor_out_type == 2) {
+        LtrjWriteCoor(out, count_coor, write, System);
+      } else {
+        strcpy(ERROR_MSG, "Inexistant coor_out_type");
+        exit(1);
       }
       fclose(out);
       //}}}
-      // skip the timestep, if it shouldn't be saved //{{{
-    } else {
+    } else { // skip the timestep, if it shouldn't be saved //{{{
       if (!SkipTimestep(coor_type, coor, in_coor, in_vsf, &file_line_count)) {
         count_coor--;
         break;
@@ -364,25 +367,27 @@ acceptable only for xyz input coordinate file");
     out = OpenFile(out_coor, "a");
     if (coor_out_type == 0) {
       VtfWriteCoorIndexed(out, stuff, write, System);
-    } else {
+    } else if (coor_out_type == 1) {
       XyzWriteCoor(out, write, stuff, System);
+    } else if (coor_out_type == 2) {
+      LtrjWriteCoor(out, count_coor, write, System);
+    } else {
+      strcpy(ERROR_MSG, "Inexistant coor_out_type");
+      exit(1);
     }
     fclose(out);
   } //}}}
   fclose(coor);
-  // error - input coordinate file with no coordinates //{{{
-  if (count_coor == 0) {
+  if (count_coor == 0) { // error - input file without a valid timestep //{{{
     strcpy(ERROR_MSG, "no valid timestep found");
     PrintError();
     ErrorPrintFile(in_coor, "\0", "\0");
     fputc('\n', stderr); //}}}
-  // warn if no timesteps were actually written //{{{
-  } else if (start > count_coor) {
+  } else if (start > count_coor) { // warn if no timesteps were written //{{{
     strcpy(ERROR_MSG, "no coordinates written (starting timestep higher \
 than the number of timestep)");
     PrintWarning(); //}}}
-  // print last step count? //{{{
-  } else if (!silent) {
+  } else if (!silent) { // print last step count? //{{{
     if (isatty(STDOUT_FILENO)) {
       fprintf(stdout, "\r                          \r");
     }

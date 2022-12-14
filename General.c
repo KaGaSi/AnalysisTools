@@ -321,6 +321,12 @@ FILE *OpenFile(char *file, char *mode) {
   return ptr;
 } //}}}
 
+void InitIntArray (int array[], int n, double val) {
+  for (int i = 0; i < n; i++) {
+    array[i] = val;
+  }
+}
+
 // TODO: remove
 // IsReal_old() //{{{
 /*

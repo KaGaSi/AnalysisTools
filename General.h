@@ -166,6 +166,8 @@ char *ColourReset();
 
 FILE *OpenFile(char *file, char *mode);
 
+void InitIntArray (int array[], int n, double val);
+
 // TODO remove //{{{
 void ColourChange(int a, char *colour);
 void ColourReset_old(int a);

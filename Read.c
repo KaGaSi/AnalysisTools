@@ -1023,12 +1023,12 @@ bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
       }
       break;
     case 2:
-      if (!XYZReadTimestep(f, file, System, file_line_count)) {
+      if (!XyzReadTimestep(f, file, System, file_line_count)) {
         return false;
       }
       break;
     case 3:
-      if (!LmpReadTimestep(f, file, System, file_line_count)) {
+      if (!LtrjReadTimestep(f, file, System, file_line_count)) {
         return false;
       }
       break;
@@ -1046,12 +1046,12 @@ bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],
       }
       break;
     case 2:
-      if (!XYZSkipTimestep(f, file1, file_line_count)) {
+      if (!XyzSkipTimestep(f, file1, file_line_count)) {
         return false;
       }
       break;
     case 3:
-    if (!LmpSkipTimestep(f, file1, file_line_count)) {
+    if (!LtrjSkipTimestep(f, file1, file_line_count)) {
       return false;
     }
     break;
@@ -3831,8 +3831,177 @@ void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
   }
   free(found);
 } //}}}
+SYSTEM LtrjReadStruct(char file[]) { //{{{
+  SYSTEM Sys;
+  InitSystem(&Sys);
+  COUNT *Count = &Sys.Count;
+  int file_line_count = 0, words;
+  char line[LINE], *split[SPL_STR];
+  FILE *fr = OpenFile(file, "r");
+  // skip first three lines and read number of atoms //{{{
+  // 1) ITEM: TIMESTEP
+  // 2) <int>
+  // 3) ITEM: NUMBER OF ATOMS
+  // 4) <int> ...this is used
+  for (int i = 0; i < 4; i++) {
+    file_line_count++;
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      strcpy(ERROR_MSG, "premature end of file");
+      PrintError();
+      ErrorPrintFile(file, "\0", "\0");
+      putc('\n', stderr);
+      exit(1);
+    }
+  }
+  long val;
+  if (words == 0 || !IsNaturalNumber(split[0], &val)) {
+    strcpy(ERROR_MSG, "wrong lammpstrj line with number of atoms");
+    PrintErrorFileLine(file, file_line_count, split, words);
+    exit(1);
+  } //}}}
+  Count->Bead = val;
+  Count->BeadCoor = val;
+  Count->Unbonded = val;
+  Count->UnbondedCoor = val;
+  Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
+  // skip ITEM: BOX BOUNDS line and read pbc //{{{
+  file_line_count++;
+  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    strcpy(ERROR_MSG, "premature end of file");
+    PrintError();
+    ErrorPrintFile(file, "\0", "\0");
+    putc('\n', stderr);
+    exit(1);
+  }
+  // TODO: add triclinic box
+  double bounds[3][2];
+  for (int i = 0; i < 3; i++) {
+    file_line_count++;
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      strcpy(ERROR_MSG, "premature end of file");
+      PrintError();
+      ErrorPrintFile(file, "\0", "\0");
+      putc('\n', stderr);
+      exit(1);
+    }
+    if (words < 2 || !IsRealNumber(split[0], &bounds[i][0]) ||
+                     !IsRealNumber(split[1], &bounds[i][1]) ||
+                     bounds[i][1] <= bounds[i][0]) {
+      strcpy(ERROR_MSG, "wrong box dimensions line");
+      exit(1);
+    }
+  }
+  Sys.Box.Length.x = bounds[0][1] - bounds[0][0];
+  Sys.Box.Length.y = bounds[1][1] - bounds[1][0];
+  Sys.Box.Length.z = bounds[2][1] - bounds[2][0];
+  //}}}
+  // read ITEM: ATOMS line //{{{
+  file_line_count++;
+  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    strcpy(ERROR_MSG, "premature end of file");
+    PrintError();
+    ErrorPrintFile(file, "\0", "\0");
+    putc('\n', stderr);
+    exit(1);
+  }
+  // find atom line positions of id, element, coors, velocities, and forces
+  int n = 11, position[n], // id, element, x, y, z, vx, vy, vz, fx, fy, fz
+      cols = 0; // number of entries (columns in an atom line)
+  InitIntArray(position, n, -1);
+  if (words < 3 || strcmp(split[0], "ITEM:") != 0 ||
+                   strcmp(split[1], "ATOMS") != 0) {
+    strcpy(ERROR_MSG, "wrong ITEM: ATOMS line");
+    PrintWarningFileLine(file, file_line_count, split, words);
+    exit(1);
+  } else {
+    for (int i = 2; i < words; i++) {
+      if (strcmp(split[i], "id") == 0) {
+        position[0] = i - 2; // subtract the two ITEM: ATOMS keywords
+        cols = i - 2 + 1; // +1 as I want the number of entries
+      } else if (strcmp(split[i], "element") == 0) {
+        position[1] = i - 2;
+        cols = i - 1;
+      } else if (strcmp(split[i], "x") == 0) {
+        position[2] = i - 2;
+        cols = i - 1;
+      } else if (strcmp(split[i], "y") == 0) {
+        position[3] = i - 2;
+        cols = i - 1;
+      } else if (strcmp(split[i], "z") == 0) {
+        position[4] = i - 2;
+        cols = i - 1;
+      } else if (strcmp(split[i], "vx") == 0) {
+        position[5] = i - 2;
+        cols = i - 1;
+      } else if (strcmp(split[i], "vy") == 0) {
+        position[6] = i - 2;
+        cols = i - 1;
+      } else if (strcmp(split[i], "vz") == 0) {
+        position[7] = i - 2;
+        cols = i - 1;
+      } else if (strcmp(split[i], "fx") == 0) {
+        position[8] = i - 2;
+        cols = i - 1;
+      } else if (strcmp(split[i], "fy") == 0) {
+        position[9] = i - 2;
+        cols = i - 1;
+      } else if (strcmp(split[i], "fz") == 0) {
+        position[10] = i - 2;
+        cols = i - 1;
+      }
+    }
+  }
+  if (position[0] == -1) {
+    strcpy(ERROR_MSG, "missing 'id' in ITEM: ATOMS line");
+    PrintWarningFileLine(file, file_line_count, split, words);
+    exit(1);
+  } //}}}
+  // read coordinate lines
+  for (int i = 0; i < Count->Bead; i++) {
+    file_line_count++;
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      ErrorEOF(file);
+    }
+    if (words != cols) {
+      strcpy(ERROR_MSG, "wrong number of entries in a coordinate line");
+      PrintErrorFileLine(file, file_line_count, split, words);
+      exit(1);
+    }
+    BEAD *b = &Sys.Bead[i];
+    InitBead(b);
+    b->InTimestep = true;
+    // TODO: per-position[]!=-1, assign stuff
+    // assign bead type or create a new one
+    bool new = true;
+    for (int j = 0; j < Count->BeadType; j++) {
+      BEADTYPE *bt = &Sys.BeadType[j];
+      if (strcmp(split[0], bt->Name) == 0) {
+        bt->Number++;
+        b->Type = j;
+        new = false;
+        break;
+      }
+    }
+    if (new) {
+      int type = Count->BeadType;
+      NewBeadType(&Sys.BeadType, &Count->BeadType, split[0], CHARGE, MASS,
+                  RADIUS);
+      BEADTYPE *bt_new = &Sys.BeadType[type];
+      bt_new->Number = 1;
+      b->Type = type;
+    }
+  } //}}}
+  fclose(fr);
+  FillSystemNonessentials(&Sys);
+  for (int i = 0; i < Count->Bead; i++) {
+    Sys.BeadCoor[i] = i;
+    Sys.UnbondedCoor[i] = i;
+  }
+  CheckSystem(Sys, file);
+  return Sys;
+} //}}}
 // read lammpstrj trajectory file (dump style custom) //{{{
-bool LmpReadTimestep(FILE *f, char ltrj_file[],
+bool LtrjReadTimestep(FILE *f, char ltrj_file[],
                      SYSTEM *System, int *file_line_count) {
   int start = *file_line_count + 1;
   start_function: ; // return here when a bad line is encountered
@@ -3908,7 +4077,7 @@ using next timestep instead of this one");
     goto start_function;
   }
   // find atom line positions of id, coordinates, and velocities //{{{
-  int position[7] = {-1}, // id, x, y, z, vx, vy, vz
+  int position[10] = {-1}, // id, x, y, z, vx, vy, vz, fx, fy, fz
       cols = 0; // number of entries (columns in an atom line)
   for (int i = 2; i < words; i++) {
     if (strcmp(split[i], "id") == 0) {
@@ -3923,14 +4092,23 @@ using next timestep instead of this one");
     } else if (strcmp(split[i], "z") == 0) {
       position[3] = i - 2;
       cols = i - 1;
-    } else if (strcmp(split[i], "vx") == 0) { // TODO: correct lammps keyword?
+    } else if (strcmp(split[i], "vx") == 0) {
       position[4] = i - 2;
       cols = i - 1;
-    } else if (strcmp(split[i], "vy") == 0) { // TODO: correct lammps keyword?
+    } else if (strcmp(split[i], "vy") == 0) {
       position[5] = i - 2;
       cols = i - 1;
-    } else if (strcmp(split[i], "vz") == 0) { // TODO: correct lammps keyword?
+    } else if (strcmp(split[i], "vz") == 0) {
       position[6] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "fx") == 0) {
+      position[7] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "fy") == 0) {
+      position[8] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "fz") == 0) {
+      position[9] = i - 2;
       cols = i - 1;
     }
   } //}}}
@@ -3985,7 +4163,7 @@ using next timestep instead of this one");
   } //}}}
   return true;
 } //}}}
-bool LmpSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count) { //{{{
+bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count) { //{{{
   // read until two 'ITEM: TIMESTEP' lines are found
   // the first one should be the first line read, but who cares...
   char *split[SPL_STR], line[LINE];
@@ -4006,8 +4184,8 @@ bool LmpSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count) { //{{{
   return true;
 } //}}}
  //}}}
-// Read xyz coordinate file //{{{
-SYSTEM XYZReadStruct(char file[]) { //{{{
+// Read xyz file //{{{
+SYSTEM XyzReadStruct(char file[]) { //{{{
   SYSTEM Sys;
   InitSystem(&Sys);
   COUNT *Count = &Sys.Count;
@@ -4091,7 +4269,7 @@ SYSTEM XYZReadStruct(char file[]) { //{{{
   return Sys;
 } //}}}
 // XYZReadTimestep() //{{{
-bool XYZReadTimestep(FILE *fr, char file[], SYSTEM *System,
+bool XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
                      int *file_line_count) {
   start_function: ; // return here when a bad line is encountered
   int words;
@@ -4127,7 +4305,7 @@ skipping this timestep");
     do {
       fgetpos(fr, &position);
       (*file_line_count)++;
-    } while (XYZSkipCoorLine(fr));
+    } while (XyzSkipCoorLine(fr));
     fsetpos(fr, &position);
     (*file_line_count)--; // the first non-coordinate line will be re-read
     goto start_function;
@@ -4150,7 +4328,7 @@ skipping this timestep");
               ErrYellow(), System->Count.Bead, ErrRed(), ErrColourReset());
       return false;
     }
-    if (!XYZCheckCoorLine(words, split)) {
+    if (!XyzCheckCoorLine(words, split)) {
       strcpy(ERROR_MSG, "unrecognized line (insufficient number of valid \
 coordinate lines); using next timestep instead of this one");
       PrintWarningFileLine(file, *file_line_count, split, words);
@@ -4159,7 +4337,7 @@ coordinate lines); using next timestep instead of this one");
       do {
         fgetpos(fr, &position);
         (*file_line_count)++;
-      } while (XYZSkipCoorLine(fr));
+      } while (XyzSkipCoorLine(fr));
       fsetpos(fr, &position);
       (*file_line_count)--; // the first non-coordinate line will be re-read
       goto start_function;
@@ -4182,7 +4360,7 @@ should never happen!");
   return true;
 } //}}}
 // XYZSkipTimestep() //{{{
-bool XYZSkipTimestep(FILE *fr, char file[], int *file_line_count) {
+bool XyzSkipTimestep(FILE *fr, char file[], int *file_line_count) {
   int words;
   char line[LINE], *split[SPL_STR];
   fpos_t position;
@@ -4197,12 +4375,12 @@ bool XYZSkipTimestep(FILE *fr, char file[], int *file_line_count) {
   do {
     fgetpos(fr, &position);
     (*file_line_count)++;
-  } while (XYZSkipCoorLine(fr));
+  } while (XyzSkipCoorLine(fr));
   (*file_line_count)--;
   fsetpos(fr, &position);
   return true;
 } //}}}
-bool XYZSkipCoorLine(FILE *fr) { //{{{
+bool XyzSkipCoorLine(FILE *fr) { //{{{
   char line[LINE];
   if (!ReadLine(fr, LINE, line)) {
     return false; // error/EOF
@@ -4210,9 +4388,9 @@ bool XYZSkipCoorLine(FILE *fr) { //{{{
   int strings = 4;
   char *split[strings];
   int words = SplitLine(strings, split, line, " \t\n");
-  return XYZCheckCoorLine(words, split);
+  return XyzCheckCoorLine(words, split);
 } //}}}
-bool XYZCheckCoorLine(int words, char *split[]) { //{{{
+bool XyzCheckCoorLine(int words, char *split[]) { //{{{
   double val_d;
   if (words > 3 && IsRealNumber(split[1], &val_d) &&
                    IsRealNumber(split[2], &val_d) &&
