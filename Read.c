@@ -3956,26 +3956,36 @@ SYSTEM LtrjReadStruct(char file[]) { //{{{
     PrintWarningFileLine(file, file_line_count, split, words);
     exit(1);
   } //}}}
-  // read coordinate lines
+  // read coordinate lines //{{{
   for (int i = 0; i < Count->Bead; i++) {
     file_line_count++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(file);
     }
-    if (words != cols) {
-      strcpy(ERROR_MSG, "wrong number of entries in a coordinate line");
-      PrintErrorFileLine(file, file_line_count, split, words);
-      exit(1);
+    long id;
+    // error when wrong number of entries or wrong atom index
+    if (words != cols ||
+        !IsNaturalNumber(split[position[0]], &id) || id > Count->Bead) {
+      goto wrong_coor_line;
     }
-    BEAD *b = &Sys.Bead[i];
+    BEAD *b = &Sys.Bead[id];
     InitBead(b);
     b->InTimestep = true;
-    // TODO: per-position[]!=-1, assign stuff
+    // TODO: per-position[1..cols], assign stuff
+    // x
+    // y
+    // z
+    // vx
+    // vy
+    // vz
+    // fx
+    // fy
+    // fz
     // assign bead type or create a new one
     bool new = true;
     for (int j = 0; j < Count->BeadType; j++) {
       BEADTYPE *bt = &Sys.BeadType[j];
-      if (strcmp(split[0], bt->Name) == 0) {
+      if (position[1] != -1 && strcmp(split[position[1]], bt->Name) == 0) {
         bt->Number++;
         b->Type = j;
         new = false;
@@ -3999,6 +4009,11 @@ SYSTEM LtrjReadStruct(char file[]) { //{{{
   }
   CheckSystem(Sys, file);
   return Sys;
+
+  wrong_coor_line:
+    strcpy(ERROR_MSG, "wrong coordinate line");
+    PrintErrorFileLine(file, file_line_count, split, words);
+    exit(1);
 } //}}}
 // read lammpstrj trajectory file (dump style custom) //{{{
 bool LtrjReadTimestep(FILE *f, char ltrj_file[],
@@ -4043,7 +4058,7 @@ using next timestep instead of this one");
     return false;
   }
   // 2) read box dimensions
-  // TODO: more than the simple cuboid stuf
+  // TODO: more than the simple cuboid stuff
   double box[3];
   for (int i = 0; i < 3; i++) {
     if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {

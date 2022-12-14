@@ -474,7 +474,7 @@ void LtrjWriteCoor(FILE *fr, int step, bool write[], SYSTEM System) {
       BEAD *bead = &System.Bead[id];
       if (bead->InTimestep && write[id]) {
         int type = bead->Type;
-        fprintf(fr, "%d %8s %8.4f %8.4f %8.4f\n", id,
+        fprintf(fr, "%d %8s %8.4f %8.4f %8.4f\n", id+1, // ltrj id starts at 1
                 System.BeadType[type].Name,
                 bead->Position.x, bead->Position.y, bead->Position.z);
       }
