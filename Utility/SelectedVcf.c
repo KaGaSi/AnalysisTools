@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
     struct_file = "\0";
   }
   // error if no structure file specified (except when input is xyz)
-  if (struct_type == 0 && coor_type != 2) {
+  if (struct_type == 0 && coor_type != 2 && coor_type != 3) {
     strcpy(ERROR_MSG, "missing input structure file; \
 acceptable only for xyz input coordinate file");
     PrintError();
@@ -164,8 +164,12 @@ acceptable only for xyz input coordinate file");
   // read input data //{{{
   SYSTEM System;
   switch (struct_type) {
-  case 0: // xyz
-    System = XyzReadStruct(in_coor);
+  case 0: // xyz or lammpstrj
+    if (coor_type == 2) {
+      System = XyzReadStruct(in_coor);
+    } else {
+      System = LtrjReadStruct(in_coor);
+    }
     break;
   case 1: // vsf/vtf
     System = VtfReadStruct(in_vsf, detailed);

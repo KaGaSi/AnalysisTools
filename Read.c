@@ -3864,37 +3864,45 @@ SYSTEM LtrjReadStruct(char file[]) { //{{{
   Count->Unbonded = val;
   Count->UnbondedCoor = val;
   Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
-  // skip ITEM: BOX BOUNDS line and read pbc //{{{
-  file_line_count++;
-  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    strcpy(ERROR_MSG, "premature end of file");
-    PrintError();
-    ErrorPrintFile(file, "\0", "\0");
-    putc('\n', stderr);
+  if (!LmpReadPBC(fr, file, &Sys.Box, &file_line_count)) {
+    strcpy(ERROR_MSG, "wrong box dimensions line");
+    PrintErrorFile(file, "\0", "\0");
+    fprintf(stderr, "\n%sLine %s%d%s\n", ErrRed(), ErrYellow(), file_line_count,
+            ErrColourReset());
     exit(1);
   }
-  // TODO: add triclinic box
-  double bounds[3][2];
-  for (int i = 0; i < 3; i++) {
-    file_line_count++;
-    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file");
-      PrintError();
-      ErrorPrintFile(file, "\0", "\0");
-      putc('\n', stderr);
-      exit(1);
-    }
-    if (words < 2 || !IsRealNumber(split[0], &bounds[i][0]) ||
-                     !IsRealNumber(split[1], &bounds[i][1]) ||
-                     bounds[i][1] <= bounds[i][0]) {
-      strcpy(ERROR_MSG, "wrong box dimensions line");
-      exit(1);
-    }
-  }
-  Sys.Box.Length.x = bounds[0][1] - bounds[0][0];
-  Sys.Box.Length.y = bounds[1][1] - bounds[1][0];
-  Sys.Box.Length.z = bounds[2][1] - bounds[2][0];
-  //}}}
+  // // skip ITEM: BOX BOUNDS line and read pbc //{{{
+  // file_line_count++;
+  // if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+  //   strcpy(ERROR_MSG, "premature end of file");
+  //   PrintError();
+  //   ErrorPrintFile(file, "\0", "\0");
+  //   putc('\n', stderr);
+  //   exit(1);
+  // }
+  // // TODO: add triclinic box
+  // double bounds[3][2];
+  // for (int i = 0; i < 3; i++) {
+  //   file_line_count++;
+  //   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+  //     strcpy(ERROR_MSG, "premature end of file");
+  //     PrintError();
+  //     ErrorPrintFile(file, "\0", "\0");
+  //     putc('\n', stderr);
+  //     exit(1);
+  //   }
+  //   if (words < 2 || !IsRealNumber(split[0], &bounds[i][0]) ||
+  //                    !IsRealNumber(split[1], &bounds[i][1]) ||
+  //                    bounds[i][1] <= bounds[i][0]) {
+  //     strcpy(ERROR_MSG, "wrong box dimensions line");
+  //     PrintWarningFileLine(file, file_line_count, split, words);
+  //     exit(1);
+  //   }
+  // }
+  // Sys.Box.Length.x = bounds[0][1] - bounds[0][0];
+  // Sys.Box.Length.y = bounds[1][1] - bounds[1][0];
+  // Sys.Box.Length.z = bounds[2][1] - bounds[2][0];
+  // //}}}
   // read ITEM: ATOMS line //{{{
   file_line_count++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -3968,24 +3976,39 @@ SYSTEM LtrjReadStruct(char file[]) { //{{{
         !IsNaturalNumber(split[position[0]], &id) || id > Count->Bead) {
       goto wrong_coor_line;
     }
+    id--; // in lammpstrj, indices start at 1
     BEAD *b = &Sys.Bead[id];
     InitBead(b);
     b->InTimestep = true;
     // TODO: per-position[1..cols], assign stuff
-    // x
-    // y
-    // z
-    // vx
-    // vy
-    // vz
-    // fx
-    // fy
-    // fz
+    VECTOR pos = {0}, vel = {0}, f = {0};
+    // test that coordinate line is fine //{{{
+    if ((position[2]  != -1 && !IsRealNumber(split[position[2]],  &pos.x)) ||
+        (position[3]  != -1 && !IsRealNumber(split[position[3]],  &pos.y)) ||
+        (position[4]  != -1 && !IsRealNumber(split[position[4]],  &pos.z)) ||
+        (position[5]  != -1 && !IsRealNumber(split[position[5]],  &vel.x)) ||
+        (position[6]  != -1 && !IsRealNumber(split[position[6]],  &vel.y)) ||
+        (position[7]  != -1 && !IsRealNumber(split[position[7]],  &vel.z)) ||
+        (position[8]  != -1 && !IsRealNumber(split[position[8]],  &f.x)) ||
+        (position[9]  != -1 && !IsRealNumber(split[position[9]],  &f.y)) ||
+        (position[10] != -1 && !IsRealNumber(split[position[10]], &f.z))) {
+      goto wrong_coor_line;
+    } //}}}
+    b->Position.x = pos.x;
+    b->Position.y = pos.y;
+    b->Position.z = pos.z;
+    b->Velocity.x = vel.x;
+    b->Velocity.y = vel.y;
+    b->Velocity.z = vel.z;
+    // TODO: add force
+    // b->Force.x = f.x;
+    // b->Force.y = f.y;
+    // b->Force.z = f.z;
     // assign bead type or create a new one
     bool new = true;
     for (int j = 0; j < Count->BeadType; j++) {
       BEADTYPE *bt = &Sys.BeadType[j];
-      if (position[1] != -1 && strcmp(split[position[1]], bt->Name) == 0) {
+      if (position[1] == -1 || strcmp(split[position[1]], bt->Name) == 0) {
         bt->Number++;
         b->Type = j;
         new = false;
@@ -3994,8 +4017,14 @@ SYSTEM LtrjReadStruct(char file[]) { //{{{
     }
     if (new) {
       int type = Count->BeadType;
-      NewBeadType(&Sys.BeadType, &Count->BeadType, split[0], CHARGE, MASS,
-                  RADIUS);
+      if (position[1] != -1) {
+        NewBeadType(&Sys.BeadType, &Count->BeadType, split[position[1]], CHARGE,
+                    MASS, RADIUS);
+      } else {
+        NewBeadType(&Sys.BeadType, &Count->BeadType, "bt", CHARGE, MASS,
+                    RADIUS);
+      }
+      // NewBeadType(BEADTYPE **BeadType, int *number_of_types, char *name, double charge, double mass, double radius)
       BEADTYPE *bt_new = &Sys.BeadType[type];
       bt_new->Number = 1;
       b->Type = type;
@@ -4017,7 +4046,7 @@ SYSTEM LtrjReadStruct(char file[]) { //{{{
 } //}}}
 // read lammpstrj trajectory file (dump style custom) //{{{
 bool LtrjReadTimestep(FILE *f, char ltrj_file[],
-                     SYSTEM *System, int *file_line_count) {
+                      SYSTEM *System, int *file_line_count) {
   int start = *file_line_count + 1;
   start_function: ; // return here when a bad line is encountered
   // read until 'ITEM: TIMESTEP' line is found //{{{
@@ -4052,33 +4081,38 @@ using next timestep instead of this one");
     goto start_function;
   } //}}}
   System->Count.BeadCoor = n;
+  if (!LmpReadPBC(f, ltrj_file, &System->Box, file_line_count)) {
+    strcpy(ERROR_MSG, "invalid box size; \
+using next timestep instead of this one");
+    PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
+    goto start_function;
+  }
   // read box dimensions //{{{
-  // 1) read 'ITEM:' line to find box type - TODO (for now, assume cuboid)
-  if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    return false;
-  }
-  // 2) read box dimensions
-  // TODO: more than the simple cuboid stuff
-  double box[3];
-  for (int i = 0; i < 3; i++) {
-    if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      return false;
-    }
-    double low, high;
-    if (words < 2 || !IsRealNumber(split[0], &low) ||
-                     !IsRealNumber(split[1], &high) ||
-                     (high-low) < 0) {
-      strcpy(ERROR_MSG, "invalid box size; \
-  using next timestep instead of this one");
-      PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
-      goto start_function;
-    }
-    box[i] = high - low;
-  }
-  System->Box.Length.x = box[0];
-  System->Box.Length.y = box[1];
-  System->Box.Length.z = box[2];
-  TriclinicCellData(&System->Box, 0); //}}}
+  // // 1) read 'ITEM:' line to find box type - TODO (for now, assume cuboid)
+  // if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+  //   return false;
+  // }
+  // // 2) read box dimensions
+  // // TODO: more than the simple cuboid stuff
+  // double box[3];
+  // for (int i = 0; i < 3; i++) {
+  //   if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+  //     return false;
+  //   }
+  //   double low, high;
+  //   if (words < 2 || !IsRealNumber(split[0], &low) ||
+  //                    !IsRealNumber(split[1], &high) ||
+  //                    (high-low) < 0) {
+  //     strcpy(ERROR_MSG, "invalid box size; using next timestep instead of this one");
+  //     PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
+  //     goto start_function;
+  //   }
+  //   box[i] = high - low;
+  // }
+  // System->Box.Length.x = box[0];
+  // System->Box.Length.y = box[1];
+  // System->Box.Length.z = box[2];
+  // TriclinicCellData(&System->Box, 0); //}}}
   // read 'ITEM: ATOMS' //{{{
   if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
     return false;
@@ -4196,6 +4230,39 @@ bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count) { //{{{
   }
   fsetpos(f, &position); // restore the second 'ITEM: TIMESTEP' line
   (*file_line_count)--; // the 'ITEM: TIMESTEP' will be re-read
+  return true;
+} //}}}
+// read box dimenstions from lammpstrj //{{{
+bool LmpReadPBC(FILE *f, char file[], BOX *box, int *file_line_count) {
+  char *split[SPL_STR], line[LINE];
+  int words;
+  // 1) read 'ITEM:' line to find box type - TODO (for now, assume cuboid)
+  (*file_line_count)++;
+  if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    return false;
+  }
+  // 2) read box dimensions
+  // TODO: more than the simple cuboid stuff
+  double bounds[3][2];
+  for (int i = 0; i < 3; i++) {
+    (*file_line_count)++;
+    if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      strcpy(ERROR_MSG, "premature end of file");
+      PrintError();
+      ErrorPrintFile(file, "\0", "\0");
+      putc('\n', stderr);
+      exit(1);
+    }
+    if (words < 2 || !IsRealNumber(split[0], &bounds[i][0]) ||
+                     !IsRealNumber(split[1], &bounds[i][1]) ||
+                     bounds[i][1] <= bounds[i][0]) {
+      return false;
+    }
+  }
+  box->Length.x = bounds[0][1] - bounds[0][0];
+  box->Length.y = bounds[1][1] - bounds[1][0];
+  box->Length.z = bounds[2][1] - bounds[2][0];
+  TriclinicCellData(box, 0);
   return true;
 } //}}}
  //}}}

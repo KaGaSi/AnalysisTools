@@ -336,8 +336,13 @@ int main(int argc, char *argv[]) {
   // assign primary system //{{{
   char *struct_in;
   if (primary == 100) { // xyz if no 'real' structure file
-    System = &xyz;
-    struct_in = input_xyz;
+    if (input_xyz[0] != '\0') {
+      System = &xyz;
+      struct_in = input_xyz;
+    } else if (input_ltrj[0] != '\0') {
+      System = &ltrj;
+      struct_in = input_ltrj;
+    }
   } else if (primary == vs_in) { // vsf structure file
     System = &vsf;
     struct_in = input_vsf;
@@ -449,6 +454,7 @@ int main(int argc, char *argv[]) {
       }
     }
     fclose(fr);
+    FreeSystem(&S_ltrj_coor);
   } //}}}
   // use Box from lmp if Box is unspecified in System //{{{
   if (System->Box.Volume == -1) {
@@ -603,6 +609,9 @@ int main(int argc, char *argv[]) {
   }
   if (input_xyz[0] != '\0') {
     FreeSystem(&xyz);
+  }
+  if (input_ltrj[0] != '\0') {
+    FreeSystem(&ltrj);
   } //}}}
 
   return 0;

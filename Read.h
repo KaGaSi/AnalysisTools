@@ -100,6 +100,7 @@ SYSTEM LtrjReadStruct(char file[]);
 bool LtrjReadTimestep(FILE *f, char ltrj_file[],
                      SYSTEM *System, int *file_line_count);
 bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count);
+bool LmpReadPBC(FILE *f, char file[], BOX *box, int *file_line_count);
  //}}}
 SYSTEM XyzReadStruct(char file[]);
 bool XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
