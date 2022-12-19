@@ -220,12 +220,12 @@ int SplitLine(int max_str, char *out[], char *line, const char *delim) {
 } //}}}
 
 // ReadAndSplitLine() //{{{
-bool ReadAndSplitLine(FILE *fr, int max_char, char *line, int *words, char *out[],
-                      int max_strings, const char *delim) {
+bool ReadAndSplitLine(FILE *fr, int max_char, char *line, int *words,
+                      char *split[], int max_strings, const char *delim) {
   if (!ReadLine(fr, max_char, line)) {
     return false;
   }
-  *words = SplitLine(max_strings, out, line, delim);
+  *words = SplitLine(max_strings, split, line, delim);
   return true;
 } //}}}
 

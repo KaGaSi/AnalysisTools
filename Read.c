@@ -2021,11 +2021,7 @@ void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{
   }
   // error - missing 'Species' line
   if (!test) {
-    strcpy(ERROR_MSG, "premature end of file");
-    PrintError();
-    ErrorPrintFile(field_file, "\0", "\0");
-    putc('\n', stderr);
-    exit(1);
+    ErrorEOF(field_file);
   } //}}}
   COUNT *Count = &System->Count;
   // read number of bead types //{{{
@@ -2040,11 +2036,7 @@ void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{
   for (int i = 0; i < types; i++) {
     file_line_count++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file (not enough 'species' lines)");
-      PrintError();
-      ErrorPrintFile(field_file, "\0", "\0");
-      putc('\n', stderr);
-      exit(1);
+      ErrorEOF(field_file);
     }
     double mass, charge;
     long number;
@@ -2098,11 +2090,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
   }
   // error - missing 'Species' line
   if (!test) {
-    strcpy(ERROR_MSG, "premature end of file");
-    PrintError();
-    ErrorPrintFile(field_file, "\0", "\0");
-    putc('\n', stderr);
-    exit(1);
+    ErrorEOF(field_file);
   } //}}}
   // read number of types //{{{
   long val;
@@ -2137,11 +2125,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     file_line_count++;
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file (missing a 'molecule' entry)");
-      PrintError();
-      ErrorPrintFile(field_file, "\0", "\0");
-      putc('\n', stderr);
-      exit(1);
+      ErrorEOF(field_file);
     } //}}}
     if (words == 0) {
       strcpy(ERROR_MSG, "missing molecule name");
@@ -2157,11 +2141,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     file_line_count++;
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file (incomplete 'molecule' entry)");
-      PrintError();
-      ErrorPrintFile(field_file, "\0", "\0");
-      putc('\n', stderr);
-      exit(1);
+      ErrorEOF(field_file);
     } //}}}
     if (words < 2 || strcasecmp(split[0], "nummols") != 0 ||
         !IsNaturalNumber(split[1], &val)) {
@@ -2175,11 +2155,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     file_line_count++;
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file (incomplete 'molecule' entry)");
-      PrintError();
-      ErrorPrintFile(field_file, "\0", "\0");
-      putc('\n', stderr);
-      exit(1);
+      ErrorEOF(field_file);
     } //}}}
     if (words < 2 || strncasecmp(split[0], "beads", 4) != 0 ||
         !IsNaturalNumber(split[1], &val)) {
@@ -2195,12 +2171,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
       file_line_count++;
       // read a line //{{{
       if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-        strcpy(ERROR_MSG, "premature end of file \
-(incomplete beads section for molecule entry)");
-        PrintError();
-        ErrorPrintFile(field_file, "\0", "\0");
-        putc('\n', stderr);
-        exit(1);
+        ErrorEOF(field_file);
       } //}}}
       // error - incorrect line //{{{
       if (words < 4 || !IsRealNumber(split[1], &coor[j].x) ||
@@ -2270,11 +2241,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     file_line_count++;
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file (incomplete 'molecule' entry)");
-      PrintError();
-      ErrorPrintFile(field_file, "\0", "\0");
-      putc('\n', stderr);
-      exit(1);
+      ErrorEOF(field_file);
     } //}}}
     if (words > 1 && strncasecmp(split[0], "bonds", 4) == 0) {
       // a) number of bonds //{{{
@@ -2293,12 +2260,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         // read a line //{{{
         if (!ReadAndSplitLine(fr, LINE, line, &words,
                               split, SPL_STR, " \t\n")) {
-          strcpy(ERROR_MSG, "premature end of file \
-(incomplete bonds section for molecule entry)");
-          PrintError();
-          ErrorPrintFile(field_file, "\0", "\0");
-          putc('\n', stderr);
-          exit(1);
+          ErrorEOF(field_file);
         } //}}}
         long beads[2];
         PARAMS values = InitParams;
@@ -2385,11 +2347,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     file_line_count++;
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file (incomplete 'molecule' entry)");
-      PrintError();
-      ErrorPrintFile(field_file, "\0", "\0");
-      putc('\n', stderr);
-      exit(1);
+      ErrorEOF(field_file);
     } //}}}
     if (words > 1 && strncasecmp(split[0], "angles", 4) == 0) {
       // a) number of angles //{{{
@@ -2408,12 +2366,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         // read a line //{{{
         if (!ReadAndSplitLine(fr, LINE, line, &words,
                               split, SPL_STR, " \t\n")) {
-          strcpy(ERROR_MSG, "premature end of file \
-(incomplete angles section for molecule entry)");
-          PrintError();
-          ErrorPrintFile(field_file, "\0", "\0");
-          putc('\n', stderr);
-          exit(1);
+          ErrorEOF(field_file);
         } //}}}
         long beads[3];
         PARAMS values = InitParams;
@@ -2509,11 +2462,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     file_line_count++;
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file (incomplete 'molecule' entry)");
-      PrintError();
-      ErrorPrintFile(field_file, "\0", "\0");
-      putc('\n', stderr);
-      exit(1);
+      ErrorEOF(field_file);
     } //}}}
     if (words > 1 && strncasecmp(split[0], "dihedrals", 5) == 0) {
       // a) number of dihedrals //{{{
@@ -2532,12 +2481,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         // read a line //{{{
         if (!ReadAndSplitLine(fr, LINE, line, &words,
                               split, SPL_STR, " \t\n")) {
-          strcpy(ERROR_MSG, "premature end of file \
-(incomplete dihedrals section for molecule entry)");
-          PrintError();
-          ErrorPrintFile(field_file, "\0", "\0");
-          putc('\n', stderr);
-          exit(1);
+          ErrorEOF(field_file);
         } //}}}
         long beads[4];
         PARAMS values = InitParams;
@@ -2636,11 +2580,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     file_line_count++;
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file (incomplete 'molecule' entry)");
-      PrintError();
-      ErrorPrintFile(field_file, "\0", "\0");
-      putc('\n', stderr);
-      exit(1);
+      ErrorEOF(field_file);
     } //}}}
     if (words > 1 && strncasecmp(split[0], "impropers", 6) == 0) {
       // a) number of impropers //{{{
@@ -2658,12 +2598,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         // read a line //{{{
         if (!ReadAndSplitLine(fr, LINE, line, &words,
                               split, SPL_STR, " \t\n")) {
-          strcpy(ERROR_MSG, "premature end of file \
-(incomplete impropers section for molecule entry)");
-          PrintError();
-          ErrorPrintFile(field_file, "\0", "\0");
-          putc('\n', stderr);
-          exit(1);
+          ErrorEOF(field_file);
         } //}}}
         long beads[4];
         PARAMS values = InitParams;
@@ -2763,11 +2698,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     file_line_count++;
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file (incomplete 'molecule' entry)");
-      PrintError();
-      ErrorPrintFile(field_file, "\0", "\0");
-      putc('\n', stderr);
-      exit(1);
+      ErrorEOF(field_file);
     } //}}}
     if (words == 0 || strcasecmp(split[0], "finish") != 0) {
       strcpy(ERROR_MSG, "missing 'finish' at the end of a molecule entry");
@@ -2780,6 +2711,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
 } //}}}
  //}}}
 // Read lammps files //{{{
+// lammps data file
 SYSTEM LmpDataRead(char data_file[]) { //{{{
   SYSTEM System;
   InitSystem(&System);
@@ -2820,11 +2752,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp,
   double lmp_types = 0;
   // ignore the first line //{{{
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    strcpy(ERROR_MSG, "premature end of file");
-    PrintError();
-    ErrorPrintFile(data_file, "\0", "\0");
-    putc('\n', stderr);
-    exit(1);
+    ErrorEOF(data_file);
   } //}}}
   *file_line_count = 1;
   // read until a line starting with capital letter //{{{
@@ -3831,6 +3759,67 @@ void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
   }
   free(found);
 } //}}}
+// lammps trajectory file
+// read ITEM: ATOMS line to find position of variables //{{{
+// TODO: create char array with id, element, x, y, z, vx, vy, vz, fx, fy, fz
+int LtrjReadItemAtomsLine(int words, char *split[], int *var_position, int n) {
+  // check for the correct maximum number of entries //{{{
+  if (n != 11) {
+    strcpy(ERROR_MSG, "CODING: there should be a maximum of 11 entries \
+in ITEM: ATOMS line");
+    PrintError();
+    exit(1);
+  } //}}}
+  // error: line must be 'ITEMS: ATOMS <at least one more>' //{{{
+  if (words < 3 ||
+      strcmp(split[0], "ITEM:") != 0 ||
+      strcmp(split[1], "ATOMS") != 0) {
+    return -1;
+  } //}}}
+  // find atom line positions of id, coordinates, and velocities //{{{
+  InitIntArray(var_position, n, -1); // id, x, y, z, vx, vy, vz, fx, fy, fz
+  int cols = 0; // number of entries (columns in an atom line)
+  for (int i = 2; i < words; i++) {
+    if (strcmp(split[i], "id") == 0) {
+      var_position[0] = i - 2; // subtract the two ITEM: ATOMS keywords
+      cols = i - 2 + 1; // +1 as I want the number of entries
+    } else if (strcmp(split[i], "element") == 0) {
+      var_position[1] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "x") == 0) {
+      var_position[2] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "y") == 0) {
+      var_position[3] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "z") == 0) {
+      var_position[4] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "vx") == 0) {
+      var_position[5] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "vy") == 0) {
+      var_position[6] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "vz") == 0) {
+      var_position[7] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "fx") == 0) {
+      var_position[8] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "fy") == 0) {
+      var_position[9] = i - 2;
+      cols = i - 1;
+    } else if (strcmp(split[i], "fz") == 0) {
+      var_position[10] = i - 2;
+      cols = i - 1;
+    }
+    if (var_position[0] == -1) { // id must be present
+      return -1;
+    }
+  } //}}}
+  return cols;
+} //}}}
 SYSTEM LtrjReadStruct(char file[]) { //{{{
   SYSTEM Sys;
   InitSystem(&Sys);
@@ -3846,11 +3835,7 @@ SYSTEM LtrjReadStruct(char file[]) { //{{{
   for (int i = 0; i < 4; i++) {
     file_line_count++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file");
-      PrintError();
-      ErrorPrintFile(file, "\0", "\0");
-      putc('\n', stderr);
-      exit(1);
+      ErrorEOF(file);
     }
   }
   long val;
@@ -3864,106 +3849,24 @@ SYSTEM LtrjReadStruct(char file[]) { //{{{
   Count->Unbonded = val;
   Count->UnbondedCoor = val;
   Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
+  // read pbc //{{{
   if (!LmpReadPBC(fr, file, &Sys.Box, &file_line_count)) {
     strcpy(ERROR_MSG, "wrong box dimensions line");
     PrintErrorFile(file, "\0", "\0");
     fprintf(stderr, "\n%sLine %s%d%s\n", ErrRed(), ErrYellow(), file_line_count,
             ErrColourReset());
     exit(1);
-  }
-  // // skip ITEM: BOX BOUNDS line and read pbc //{{{
-  // file_line_count++;
-  // if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-  //   strcpy(ERROR_MSG, "premature end of file");
-  //   PrintError();
-  //   ErrorPrintFile(file, "\0", "\0");
-  //   putc('\n', stderr);
-  //   exit(1);
-  // }
-  // // TODO: add triclinic box
-  // double bounds[3][2];
-  // for (int i = 0; i < 3; i++) {
-  //   file_line_count++;
-  //   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-  //     strcpy(ERROR_MSG, "premature end of file");
-  //     PrintError();
-  //     ErrorPrintFile(file, "\0", "\0");
-  //     putc('\n', stderr);
-  //     exit(1);
-  //   }
-  //   if (words < 2 || !IsRealNumber(split[0], &bounds[i][0]) ||
-  //                    !IsRealNumber(split[1], &bounds[i][1]) ||
-  //                    bounds[i][1] <= bounds[i][0]) {
-  //     strcpy(ERROR_MSG, "wrong box dimensions line");
-  //     PrintWarningFileLine(file, file_line_count, split, words);
-  //     exit(1);
-  //   }
-  // }
-  // Sys.Box.Length.x = bounds[0][1] - bounds[0][0];
-  // Sys.Box.Length.y = bounds[1][1] - bounds[1][0];
-  // Sys.Box.Length.z = bounds[2][1] - bounds[2][0];
-  // //}}}
-  // read ITEM: ATOMS line //{{{
+  } //}}}
+  // read ITEM: ATOMS line
   file_line_count++;
+  // TODO: include this ReadAndSplitLine() in LtrjReadItemAtoms
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    strcpy(ERROR_MSG, "premature end of file");
-    PrintError();
-    ErrorPrintFile(file, "\0", "\0");
-    putc('\n', stderr);
-    exit(1);
+    ErrorEOF(file);
   }
   // find atom line positions of id, element, coors, velocities, and forces
-  int n = 11, position[n], // id, element, x, y, z, vx, vy, vz, fx, fy, fz
-      cols = 0; // number of entries (columns in an atom line)
-  InitIntArray(position, n, -1);
-  if (words < 3 || strcmp(split[0], "ITEM:") != 0 ||
-                   strcmp(split[1], "ATOMS") != 0) {
-    strcpy(ERROR_MSG, "wrong ITEM: ATOMS line");
-    PrintWarningFileLine(file, file_line_count, split, words);
-    exit(1);
-  } else {
-    for (int i = 2; i < words; i++) {
-      if (strcmp(split[i], "id") == 0) {
-        position[0] = i - 2; // subtract the two ITEM: ATOMS keywords
-        cols = i - 2 + 1; // +1 as I want the number of entries
-      } else if (strcmp(split[i], "element") == 0) {
-        position[1] = i - 2;
-        cols = i - 1;
-      } else if (strcmp(split[i], "x") == 0) {
-        position[2] = i - 2;
-        cols = i - 1;
-      } else if (strcmp(split[i], "y") == 0) {
-        position[3] = i - 2;
-        cols = i - 1;
-      } else if (strcmp(split[i], "z") == 0) {
-        position[4] = i - 2;
-        cols = i - 1;
-      } else if (strcmp(split[i], "vx") == 0) {
-        position[5] = i - 2;
-        cols = i - 1;
-      } else if (strcmp(split[i], "vy") == 0) {
-        position[6] = i - 2;
-        cols = i - 1;
-      } else if (strcmp(split[i], "vz") == 0) {
-        position[7] = i - 2;
-        cols = i - 1;
-      } else if (strcmp(split[i], "fx") == 0) {
-        position[8] = i - 2;
-        cols = i - 1;
-      } else if (strcmp(split[i], "fy") == 0) {
-        position[9] = i - 2;
-        cols = i - 1;
-      } else if (strcmp(split[i], "fz") == 0) {
-        position[10] = i - 2;
-        cols = i - 1;
-      }
-    }
-  }
-  if (position[0] == -1) {
-    strcpy(ERROR_MSG, "missing 'id' in ITEM: ATOMS line");
-    PrintWarningFileLine(file, file_line_count, split, words);
-    exit(1);
-  } //}}}
+  int max_vars = 11, position[max_vars]; // id, element, x, y, z, vx, vy, vz, fx, fy, fz
+      // cols = 0; // number of entries (columns in an atom line)
+  int cols = LtrjReadItemAtomsLine(words, split, position, max_vars);
   // read coordinate lines //{{{
   for (int i = 0; i < Count->Bead; i++) {
     file_line_count++;
@@ -4042,9 +3945,14 @@ SYSTEM LtrjReadStruct(char file[]) { //{{{
   wrong_coor_line:
     strcpy(ERROR_MSG, "wrong coordinate line");
     PrintErrorFileLine(file, file_line_count, split, words);
+    fprintf(stderr, "%sOrder of variables:%s", ErrRed(), ErrYellow());
+    for (int i = 0; i < max_vars; i++) {
+      fprintf(stderr, " TODO when char array is finished");
+    }
+    fprintf(stderr, "%s\n", ErrColourReset());
     exit(1);
 } //}}}
-// read lammpstrj trajectory file (dump style custom) //{{{
+// read timestep (dump style custom) //{{{
 bool LtrjReadTimestep(FILE *f, char ltrj_file[],
                       SYSTEM *System, int *file_line_count) {
   int start = *file_line_count + 1;
@@ -4081,38 +3989,13 @@ using next timestep instead of this one");
     goto start_function;
   } //}}}
   System->Count.BeadCoor = n;
+  // read box dimensions //{{{
   if (!LmpReadPBC(f, ltrj_file, &System->Box, file_line_count)) {
     strcpy(ERROR_MSG, "invalid box size; \
 using next timestep instead of this one");
     PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
     goto start_function;
-  }
-  // read box dimensions //{{{
-  // // 1) read 'ITEM:' line to find box type - TODO (for now, assume cuboid)
-  // if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
-  //   return false;
-  // }
-  // // 2) read box dimensions
-  // // TODO: more than the simple cuboid stuff
-  // double box[3];
-  // for (int i = 0; i < 3; i++) {
-  //   if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
-  //     return false;
-  //   }
-  //   double low, high;
-  //   if (words < 2 || !IsRealNumber(split[0], &low) ||
-  //                    !IsRealNumber(split[1], &high) ||
-  //                    (high-low) < 0) {
-  //     strcpy(ERROR_MSG, "invalid box size; using next timestep instead of this one");
-  //     PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
-  //     goto start_function;
-  //   }
-  //   box[i] = high - low;
-  // }
-  // System->Box.Length.x = box[0];
-  // System->Box.Length.y = box[1];
-  // System->Box.Length.z = box[2];
-  // TriclinicCellData(&System->Box, 0); //}}}
+  } //}}}
   // read 'ITEM: ATOMS' //{{{
   if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
     return false;
@@ -4213,8 +4096,10 @@ using next timestep instead of this one");
   return true;
 } //}}}
 bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count) { //{{{
-  // read until two 'ITEM: TIMESTEP' lines are found
-  // the first one should be the first line read, but who cares...
+  /* read until two 'ITEM: TIMESTEP' lines are found
+     1) should be the first line read, but who cares...
+     2) the beginning of the next timestep
+  */
   char *split[SPL_STR], line[LINE];
   int words = 0;
   fpos_t position;
@@ -4232,7 +4117,7 @@ bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count) { //{{{
   (*file_line_count)--; // the 'ITEM: TIMESTEP' will be re-read
   return true;
 } //}}}
-// read box dimenstions from lammpstrj //{{{
+// read box dimenstions //{{{
 bool LmpReadPBC(FILE *f, char file[], BOX *box, int *file_line_count) {
   char *split[SPL_STR], line[LINE];
   int words;
@@ -4247,11 +4132,7 @@ bool LmpReadPBC(FILE *f, char file[], BOX *box, int *file_line_count) {
   for (int i = 0; i < 3; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file");
-      PrintError();
-      ErrorPrintFile(file, "\0", "\0");
-      putc('\n', stderr);
-      exit(1);
+      ErrorEOF(file);
     }
     if (words < 2 || !IsRealNumber(split[0], &bounds[i][0]) ||
                      !IsRealNumber(split[1], &bounds[i][1]) ||
@@ -4276,11 +4157,7 @@ SYSTEM XyzReadStruct(char file[]) { //{{{
   FILE *fr = OpenFile(file, "r");
   // read number of beads //{{{
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    strcpy(ERROR_MSG, "premature end of file");
-    PrintError();
-    ErrorPrintFile(file, "\0", "\0");
-    putc('\n', stderr);
-    exit(1);
+    ErrorEOF(file);
   }
   file_line_count++;
   long val;
@@ -4296,11 +4173,7 @@ SYSTEM XyzReadStruct(char file[]) { //{{{
   Count->UnbondedCoor = val;
   // ignore next line //{{{
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    strcpy(ERROR_MSG, "premature end of file");
-    PrintError();
-    ErrorPrintFile(file, "\0", "\0");
-    putc('\n', stderr);
-    exit(1);
+    ErrorEOF(file);
   } //}}}
   Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
   // read atoms //{{{
@@ -4381,6 +4254,7 @@ skipping this timestep");
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       strcpy(ERROR_MSG, "premature end of file");
       PrintErrorFile(file, "\0", "\0");
+      return false;
     }
     (*file_line_count)++;
     // skip the coordinate lines (if any)
@@ -4396,6 +4270,7 @@ skipping this timestep");
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
     strcpy(ERROR_MSG, "premature end of file");
     PrintErrorFile(file, "\0", "\0");
+    return false;
   }
   (*file_line_count)++; //}}}
   // read coordinates //{{{
@@ -6094,11 +5969,7 @@ void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts,
   int words = SplitLine(SPL_STR, split, line, " \t\n");
   // error if the first line is 'L[ast Step]' or isn't 'Step: <int>'//{{{
   if (split[0][0] == 'L') {
-    strcpy(ERROR_MSG, "premature end of file");
-    PrintError();
-    ErrorPrintFile(agg_file, "\0");
-    putc('\n', stderr);
-    exit(1);
+    ErrorEOF(file);
   } else if (words < 2 || strcmp(split[0], "Step:") != 0 ||
              !IsInteger_old(split[1])) {
 //  ErrorPrintError_old();
@@ -6317,10 +6188,7 @@ void SkipAgg(FILE *agg, char *agg_file) {
   // error if the first line is 'L[ast Step]' or isn't 'Step: <int>'//{{{
   long val;
   if (split[0][0] == 'L') {
-    strcpy(ERROR_MSG, "premature end of file");
-    ErrorPrintFile(agg_file, "\0");
-    putc('\n', stderr);
-    exit(1);
+    ErrorEOF(file);
   } else if (words < 2 || !IsNatural(split[1], &val)) {
     strcpy(ERROR_MSG, "invalid 'Step' line");
     PrintErrorFileLine(agg_file, "\0", file_line_count, split, words);
