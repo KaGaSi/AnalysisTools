@@ -3760,7 +3760,7 @@ void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
   free(found);
 } //}}}
 // lammps trajectory file
-void LtrjFillItemAtomVariables(char *var[10], int n) {
+void LtrjFillItemAtomVariables(int n, char var[n][10]) {
   // check for the correct maximum number of entries //{{{
   if (n != 11) {
     strcpy(ERROR_MSG, "CODING: there should be a maximum of 11 entries \
@@ -3782,7 +3782,7 @@ in ITEM: ATOMS line");
 }
 // read ITEM: ATOMS line to find position of variables //{{{
 int LtrjReadItemAtomsLine(FILE *fr, char file[], int n, int *var_position,
-                          char vars[10][n]) {
+                          char vars[n][10]) {
   // check for the correct maximum number of entries //{{{
   if (n != 11) {
     strcpy(ERROR_MSG, "CODING: there should be a maximum of 11 entries \
@@ -3802,48 +3802,17 @@ in ITEM: ATOMS line");
       strcmp(split[1], "ATOMS") != 0) {
     return -1;
   } //}}}
-  // find atom line positions of id, coordinates, and velocities //{{{
   InitIntArray(var_position, n, -1); // id, x, y, z, vx, vy, vz, fx, fy, fz
   int cols = 0; // number of entries (columns in an atom line)
   for (int i = 2; i < words; i++) {
-    if (strcmp(split[i], "id") == 0) {
-      var_position[0] = i - 2; // subtract the two ITEM: ATOMS keywords
-      cols = i - 2 + 1; // +1 as I want the number of entries
-    } else if (strcmp(split[i], "element") == 0) {
-      var_position[1] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "x") == 0) {
-      var_position[2] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "y") == 0) {
-      var_position[3] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "z") == 0) {
-      var_position[4] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "vx") == 0) {
-      var_position[5] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "vy") == 0) {
-      var_position[6] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "vz") == 0) {
-      var_position[7] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "fx") == 0) {
-      var_position[8] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "fy") == 0) {
-      var_position[9] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "fz") == 0) {
-      var_position[10] = i - 2;
-      cols = i - 1;
+    for (int j = 0; j < n; j++) {
+      if (strcmp(split[i], vars[j]) == 0) {
+        var_position[j] = i - 2;
+        cols = i - 2 + 1;
+        break;
+      }
     }
-    if (var_position[0] == -1) { // id must be present
-      return -1;
-    }
-  } //}}}
+  }
   return cols;
 } //}}}
 SYSTEM LtrjReadStruct(char file[]) { //{{{
@@ -3884,16 +3853,13 @@ SYSTEM LtrjReadStruct(char file[]) { //{{{
     exit(1);
   } //}}}
   // read ITEM: ATOMS line
-  int max_vars = 11, position[max_vars]; // id, element, x, y, z, vx, vy, vz, fx, fy, fz
+  int max_vars = 11, position[max_vars];
+  // generate array with possible variable names
   char vars[max_vars][10];
+  LtrjFillItemAtomVariables(max_vars, vars);
+  // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
   file_line_count++;
   int cols = LtrjReadItemAtomsLine(fr, file, max_vars, position, vars);
-  // if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-  //   ErrorEOF(file);
-  // }
-  // // find atom line positions of id, element, coors, velocities, and forces
-  // // cols = 0; // number of entries (columns in an atom line)
-  // int cols = LtrjReadItemAtomsLine_old(words, split, position, max_vars);
   // read coordinate lines //{{{
   for (int i = 0; i < Count->Bead; i++) {
     file_line_count++;
@@ -4024,53 +3990,63 @@ using next timestep instead of this one");
     goto start_function;
   } //}}}
   // read 'ITEM: ATOMS' //{{{
-  if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    return false;
+//   if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+//     return false;
+//   }
+//   if (words < 3 ||
+//       strcmp(split[0], "ITEM:") != 0 ||
+//       strcmp(split[1], "ATOMS") != 0) {
+//     strcpy(ERROR_MSG, "incorrect 'ITEM: ATOMS' line; \
+// using next timestep instead of this one");
+//     PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
+//     goto start_function;
+//   }
+  int max_vars = 11, position[max_vars];
+  // generate array with possible variable names
+  char vars[max_vars][10];
+  LtrjFillItemAtomVariables(max_vars, vars);
+  for (int i = 0; i < max_vars; i++) {
+    printf("%s\n", vars[i]);
   }
-  if (words < 3 ||
-      strcmp(split[0], "ITEM:") != 0 ||
-      strcmp(split[1], "ATOMS") != 0) {
-    strcpy(ERROR_MSG, "incorrect 'ITEM: ATOMS' line; \
-using next timestep instead of this one");
-    PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
-    goto start_function;
-  }
-  // find atom line positions of id, coordinates, and velocities //{{{
-  int position[10] = {-1}, // id, x, y, z, vx, vy, vz, fx, fy, fz
-      cols = 0; // number of entries (columns in an atom line)
-  for (int i = 2; i < words; i++) {
-    if (strcmp(split[i], "id") == 0) {
-      position[0] = i - 2; // subtract the two ITEM: ATOMS keywords
-      cols = i - 2 + 1; // +1 as I want the number of entries
-    } else if (strcmp(split[i], "x") == 0) {
-      position[1] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "y") == 0) {
-      position[2] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "z") == 0) {
-      position[3] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "vx") == 0) {
-      position[4] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "vy") == 0) {
-      position[5] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "vz") == 0) {
-      position[6] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "fx") == 0) {
-      position[7] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "fy") == 0) {
-      position[8] = i - 2;
-      cols = i - 1;
-    } else if (strcmp(split[i], "fz") == 0) {
-      position[9] = i - 2;
-      cols = i - 1;
-    }
-  } //}}}
+  // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
+  file_line_count++;
+  int cols = LtrjReadItemAtomsLine(f, ltrj_file, max_vars, position, vars);
+  // // find atom line positions of id, coordinates, and velocities //{{{
+  // int position[10] = {-1}, // id, x, y, z, vx, vy, vz, fx, fy, fz
+  //     cols = 0; // number of entries (columns in an atom line)
+  // for (int i = 2; i < words; i++) {
+  //   if (strcmp(split[i], "id") == 0) {
+  //     position[0] = i - 2; // subtract the two ITEM: ATOMS keywords
+  //     cols = i - 2 + 1; // +1 as I want the number of entries
+  //   } else if (strcmp(split[i], "x") == 0) {
+  //     position[1] = i - 2;
+  //     cols = i - 1;
+  //   } else if (strcmp(split[i], "y") == 0) {
+  //     position[2] = i - 2;
+  //     cols = i - 1;
+  //   } else if (strcmp(split[i], "z") == 0) {
+  //     position[3] = i - 2;
+  //     cols = i - 1;
+  //   } else if (strcmp(split[i], "vx") == 0) {
+  //     position[4] = i - 2;
+  //     cols = i - 1;
+  //   } else if (strcmp(split[i], "vy") == 0) {
+  //     position[5] = i - 2;
+  //     cols = i - 1;
+  //   } else if (strcmp(split[i], "vz") == 0) {
+  //     position[6] = i - 2;
+  //     cols = i - 1;
+  //   } else if (strcmp(split[i], "fx") == 0) {
+  //     position[7] = i - 2;
+  //     cols = i - 1;
+  //   } else if (strcmp(split[i], "fy") == 0) {
+  //     position[8] = i - 2;
+  //     cols = i - 1;
+  //   } else if (strcmp(split[i], "fz") == 0) {
+  //     position[9] = i - 2;
+  //     cols = i - 1;
+  //   }
+  // } //}}}
   // warning - missing 'id'; skip to next timestep
   if (position[0] == -1) {
     strcpy(ERROR_MSG, "'ITEM: ATOMS' line must contain 'id' keywoerd; \
