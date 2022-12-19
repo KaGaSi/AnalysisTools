@@ -3760,9 +3760,7 @@ void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
   free(found);
 } //}}}
 // lammps trajectory file
-// read ITEM: ATOMS line to find position of variables //{{{
-// TODO: create char array with id, element, x, y, z, vx, vy, vz, fx, fy, fz
-int LtrjReadItemAtomsLine(int words, char *split[], int *var_position, int n) {
+void LtrjFillItemAtomVariables(char *var[10], int n) {
   // check for the correct maximum number of entries //{{{
   if (n != 11) {
     strcpy(ERROR_MSG, "CODING: there should be a maximum of 11 entries \
@@ -3770,7 +3768,35 @@ in ITEM: ATOMS line");
     PrintError();
     exit(1);
   } //}}}
-  // error: line must be 'ITEMS: ATOMS <at least one more>' //{{{
+  strcpy(var[0],  "id");
+  strcpy(var[1],  "element");
+  strcpy(var[2],  "x");
+  strcpy(var[3],  "y");
+  strcpy(var[4],  "z");
+  strcpy(var[5],  "vx");
+  strcpy(var[6],  "vy");
+  strcpy(var[7],  "vz");
+  strcpy(var[8],  "fx");
+  strcpy(var[9],  "fy");
+  strcpy(var[10], "fz");
+}
+// read ITEM: ATOMS line to find position of variables //{{{
+int LtrjReadItemAtomsLine(FILE *fr, char file[], int n, int *var_position,
+                          char vars[10][n]) {
+  // check for the correct maximum number of entries //{{{
+  if (n != 11) {
+    strcpy(ERROR_MSG, "CODING: there should be a maximum of 11 entries \
+in ITEM: ATOMS line");
+    PrintError();
+    exit(1);
+  } //}}}
+  // read ITEM: ATOMS line //{{{
+  int words;
+  char line[LINE], *split[SPL_STR];
+  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    ErrorEOF(file);
+  }
+  // error: line must be 'ITEMS: ATOMS <at least one more>'
   if (words < 3 ||
       strcmp(split[0], "ITEM:") != 0 ||
       strcmp(split[1], "ATOMS") != 0) {
@@ -3858,15 +3884,16 @@ SYSTEM LtrjReadStruct(char file[]) { //{{{
     exit(1);
   } //}}}
   // read ITEM: ATOMS line
-  file_line_count++;
-  // TODO: include this ReadAndSplitLine() in LtrjReadItemAtoms
-  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
-  }
-  // find atom line positions of id, element, coors, velocities, and forces
   int max_vars = 11, position[max_vars]; // id, element, x, y, z, vx, vy, vz, fx, fy, fz
-      // cols = 0; // number of entries (columns in an atom line)
-  int cols = LtrjReadItemAtomsLine(words, split, position, max_vars);
+  char vars[max_vars][10];
+  file_line_count++;
+  int cols = LtrjReadItemAtomsLine(fr, file, max_vars, position, vars);
+  // if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+  //   ErrorEOF(file);
+  // }
+  // // find atom line positions of id, element, coors, velocities, and forces
+  // // cols = 0; // number of entries (columns in an atom line)
+  // int cols = LtrjReadItemAtomsLine_old(words, split, position, max_vars);
   // read coordinate lines //{{{
   for (int i = 0; i < Count->Bead; i++) {
     file_line_count++;
