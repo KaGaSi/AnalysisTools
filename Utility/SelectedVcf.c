@@ -187,7 +187,9 @@ acceptable only for xyz input coordinate file");
   if (coor_type == 1) {
     VtfReadPBC(in_coor, &System.Box);
   }
-  if (!TriclinicCellData(&System.Box, 1)) {
+  // TODO: specify what kind of Box is aded; better still, call
+  //       TriclinicCellData() somewhere else - such as inside VtfReadPBC()
+  if (!TriclinicCellData(&System.Box, 0)) {
     strcpy(ERROR_MSG, "wrong pbc data");
     PrintError();
     exit(1);

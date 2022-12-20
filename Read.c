@@ -730,9 +730,10 @@ discarding this bond");
         highest = mt_i->Bond[j][1] + 1;
       }
     }
-    // 2) a) make lowest index 0
+    // 2) a) make lowest index of Bond[][] 0
     //    b) find which indices are present to detect dicontinuities
-    bool *present = calloc(highest, sizeof *present);
+    int diff = highest - lowest + 1; // +1 to count both highest and lowest ids
+    bool *present = calloc(diff, sizeof *present);
     for (int j = 0; j < mt_i->nBonds; j++) {
       int *id0 = &mt_i->Bond[j][0],
           *id1 = &mt_i->Bond[j][1];
@@ -742,10 +743,10 @@ discarding this bond");
       present[*id1] = true; // b)
     }
     // 3) find by how much to decrease indices (in case of discontinuities)
-    int *decrease = calloc(highest, sizeof *decrease);
-    for (int j = 0; j < highest; j++) {
+    int *decrease = calloc(diff, sizeof *decrease);
+    for (int j = 0; j < diff; j++) {
       if (!present[j]) {
-        for (int k = j; k < highest; k++) {
+        for (int k = j; k < diff; k++) {
           decrease[k]++;
         }
       }
@@ -3996,8 +3997,7 @@ using next timestep instead of this one");
 //   if (words < 3 ||
 //       strcmp(split[0], "ITEM:") != 0 ||
 //       strcmp(split[1], "ATOMS") != 0) {
-//     strcpy(ERROR_MSG, "incorrect 'ITEM: ATOMS' line; \
-// using next timestep instead of this one");
+//     strcpy(ERROR_MSG, "incorrect 'ITEM: ATOMS' line; using next timestep instead of this one");
 //     PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
 //     goto start_function;
 //   }
