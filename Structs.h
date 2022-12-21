@@ -93,8 +93,9 @@ typedef struct Bead { //{{{
       Molecule, // index number of molecule corresponding to Molecule struct (-1 for monomeric bead)
       nAggregates; // number of aggregates the bead is in (only monomeric beads can be in more aggregates - allocated memory for 10)
 
-  VECTOR Position; // cartesian coordinates of the bead
-  VECTOR Velocity; // velocity of the bead
+  VECTOR Position, // cartesian coordinates of the bead
+         Velocity, // velocity of the bead
+         Force; // force acting on the bead
 
   bool InTimestep; // is the bead in the present timestep?
 //     Use; // general-purpose flag

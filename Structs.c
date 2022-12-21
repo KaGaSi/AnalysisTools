@@ -17,6 +17,9 @@ void InitBead(BEAD *b) { //{{{
   b->Velocity.x = 0;
   b->Velocity.y = 0;
   b->Velocity.z = 0;
+  b->Force.x = 0;
+  b->Force.y = 0;
+  b->Force.z = 0;
 } //}}}
 void InitMoleculeType(MOLECULETYPE *mt) { //{{{
   mt->Name[0] = '\0';

@@ -101,13 +101,19 @@ bool LtrjReadTimestep(FILE *f, char ltrj_file[],
                      SYSTEM *System, int *file_line_count);
 bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count);
 bool LmpReadPBC(FILE *f, char file[], BOX *box, int *file_line_count);
+void LtrjFillItemAtomVariables(int n, char var[n][10]);
+int LtrjReadItemAtomsLine(FILE *fr, char file[], int n, int *var_position,
+                          char vars[n][10]);
+bool LtrjReadAtomLine(FILE *f, BEAD *b, SYSTEM System, int *var, int cols);
  //}}}
+// Functions to read xyz files //{{{
 SYSTEM XyzReadStruct(char file[]);
 bool XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
                      int *file_line_count);
 bool XyzSkipTimestep(FILE *fr, char file[], int *file_line_count);
 bool XyzSkipCoorLine(FILE *fr);
 bool XyzCheckCoorLine(int words, char *split[]);
+ //}}}
 
 // helper functions //{{{
 // FillMolMass //{{{
