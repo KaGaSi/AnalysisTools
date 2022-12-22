@@ -1092,12 +1092,10 @@ SYSTEM VtfReadStruct(char struct_file[], bool detailed) {
    *   e) anything else besides pbc, blank, or comment line: exit program as
    *      unrecognised line was encountered
    */
-  char line[LINE], *split[SPL_STR];
-  int words;
   while (ReadAndSplitLine(vsf, LINE, line, &words, split, SPL_STR, " \t\n")) {
     file_line_count++;
     // read line
-    int ltype = VtfCheckLineType(words, split, struct_file, file_line_count);
+    int ltype = VtfCheckLineType(struct_file, file_line_count);
     if (ltype == ATOM_LINE) {                 // a)
       if (strcmp(split[1], "default") == 0) { // 'a[tom] default' line
         if (default_atom != 0 && !warned) {   // warn of multiple defaults //{{{
@@ -1111,7 +1109,7 @@ SYSTEM VtfReadStruct(char struct_file[], bool detailed) {
         } else { // save line number of the first 'atom default' line //{{{
           default_atom = file_line_count;
           // save values for the default bead type
-          int *values = VtfAtomLineValues(words, split);
+          int *values = VtfAtomLineValues();
           strncpy(bt_def.Name, split[values[0]], BEAD_NAME);
           if (values[1] != -1) {
             bt_def.Mass = atof(split[values[1]]);
@@ -1144,7 +1142,7 @@ disregarding the following line");
           Count->Bead = id + 1; // +1 as bead ids start from 0 in vsf
         }
         // save values from the 'a[tom] <id>' line
-        int *values = VtfAtomLineValues(words, split);
+        int *values = VtfAtomLineValues();
         strncpy(Sys.BeadType[id].Name, split[values[0]], BEAD_NAME);
         Sys.BeadType[id].Name[BEAD_NAME - 1] = '\0'; // ensure null-termination
         if (values[1] != -1) {
@@ -1296,12 +1294,10 @@ void VtfReadPBC(char input[], BOX *Box) {
   while (true) {
     file_line_count++;
     // read line & split it via whitespace //{{{
-    char *split[SPL_STR], line[LINE];
-    int words;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       break;
     } //}}}
-    int ltype = VtfCheckLineType(words, split, input, file_line_count);
+    int ltype = VtfCheckLineType(input, file_line_count);
     // pbc line //{{{
     if (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) {
       (*Box).Length.x = atof(split[1]);
@@ -1350,12 +1346,10 @@ start_function:; // return here when a bad line is encountered
     fgetpos(vcf, &position);
     (*file_line_count)++;
     // read line & split it via whitespace //{{{
-    char *split[SPL_STR], line[LINE];
-    int words;
     if (!ReadAndSplitLine(vcf, LINE, line, &words, split, SPL_STR, " \t\n")) {
       return false;
     } //}}}
-    ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
+    ltype = VtfCheckLineType(vcf_file, *file_line_count);
     // do something based on what line it is
     if (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) { //{{{
       BOX *Box = &System->Box;
@@ -1445,8 +1439,6 @@ using next timestep instead of this one");
     fgetpos(vcf, &position);
     (*file_line_count)++;
     // read line & split it via whitespace //{{{
-    char line[LINE], *split[SPL_STR];
-    int words;
     if (!ReadAndSplitLine(vcf, LINE, line, &words, split, SPL_STR, " \t\n")) {
       if (timestep == TIME_LINE_O && Count->BeadCoor != Count->Bead) {
         strcpy(ERROR_MSG, "premature end of file; too few beads \
@@ -1459,7 +1451,7 @@ in an ordered timestep (ignoring this last step)");
         return true;
       }
     } //}}}
-    ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
+    ltype = VtfCheckLineType(vcf_file, *file_line_count);
     if (ltype != COOR_LINE_O && ltype != COOR_LINE_I) {
       // warn: unrecognised line - read next timestep //{{{
       if (ltype == ERROR_LINE) {
@@ -1620,8 +1612,6 @@ bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
                      int *file_line_count) {
   // skip preamble - i.e., read until the first number-starting line
   fpos_t position;
-  char line[LINE], *split[SPL_STR];
-  int words;
   do {
     (*file_line_count)++;
     if (!ReadAndSplitLine(vcf, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -1651,60 +1641,18 @@ bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
   fsetpos(vcf, &position); // return to before that non-number-starting line
   return true;
 } //}}}
-// OLD VtfSkipTimestep() - TO BE DELETED //{{{
-bool VtfSkipTimestep_old(FILE *vcf, char vcf_file[], char vsf_file[],
-                         int *file_line_count) {
-  // skip preamble - i.e., read until the first coordinate line
-  fpos_t position;
-  int ltype;
-  bool timestep = false; // is timestep line present?
-  do {
-    char line[LINE];
-    fgetpos(vcf, &position);
-    (*file_line_count)++;
-    if (!ReadLine(vcf, LINE, line)) {
-      return false;
-    }
-    char *split[SPL_STR];
-    int words = SplitLine(SPL_STR, split, line, " \t\n");
-    ltype = VtfCheckLineType(words, split, vcf_file, *file_line_count);
-    if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) {
-      timestep = true;
-    }
-  } while (ltype != COOR_LINE_O && ltype != COOR_LINE_I);
-  // when timestep line is missing
-  if (!timestep) {
-    strcpy(ERROR_MSG, "found no timestep line in a timestp supposed \
-to be skipped; skipping only this invalid timestep");
-    PrintWarning();
-    WarnPrintFile(vcf_file, vsf_file, "\0");
-    fprintf(stderr, "%s, line %s%d%s\n", ErrCyan(), ErrYellow(),
-            *file_line_count, ErrColourReset());
-  }
-  // skip coordinate lines - i.e., read until the first non-coordinate line
-  do {
-    fgetpos(vcf, &position);
-    (*file_line_count)++;
-  } while (VtfSkipCoorOrderedLine(vcf));
-  (*file_line_count)--;
-  // return to before the first non-coordinate line
-  fsetpos(vcf, &position);
-  return true;
-} //}}}
 // VtfSkipCoorOrderedLine() //{{{
 /*
  * Helper funciton to discard an ordered coordinate line (e.i., a line starting
  * with three real numbers).
  */
 bool VtfSkipCoorOrderedLine(FILE *fr) {
-  char line[LINE];
   if (!ReadLine(fr, LINE, line)) {
     return false; // error/EOF
   }
   int strings = 3;
-  char *split[strings];
-  int words = SplitLine(strings, split, line, " \t\n");
-  if (VtfCheckCoorOrderedLine(words, split) == COOR_LINE_O) {
+  words = SplitLine(strings, split, line, " \t\n");
+  if (VtfCheckCoorOrderedLine() == COOR_LINE_O) {
     return true;
   } else {
     return false;
@@ -1714,7 +1662,7 @@ bool VtfSkipCoorOrderedLine(FILE *fr) {
 /*
  * Function returning line type according to the codes in Read.h.
  */
-int VtfCheckLineType(int words, char *split[], char file[], int line) {
+int VtfCheckLineType(char file[], int line) {
   ERROR_MSG[0] = '\0'; // clear error message array
   // blank line
   if (words == 0) {
@@ -1725,26 +1673,26 @@ int VtfCheckLineType(int words, char *split[], char file[], int line) {
     return COMMENT_LINE;
   }
   // coordinate line
-  int test = VtfCheckCoordinateLine(words, split);
+  int test = VtfCheckCoordinateLine();
   if (test != ERROR_LINE) {
     return test;
   }
   // timestep line
-  test = VtfCheckTimestepLine(words, split);
+  test = VtfCheckTimestepLine();
   if (test != ERROR_LINE) {
     return test;
   }
   // pbc line
-  test = VtfCheckPbcLine(words, split);
+  test = VtfCheckPbcLine();
   if (test != ERROR_LINE) {
     return test;
   }
   // atom line (vsf)
-  if (VtfCheckAtomLine(words, split)) {
+  if (VtfCheckAtomLine()) {
     return ATOM_LINE;
   }
   // bond line (vsf)
-  if (VtfCheckBondLine(words, split)) {
+  if (VtfCheckBondLine()) {
     return BOND_LINE;
   }
   if (ERROR_MSG[0] == '\0') {
@@ -1753,7 +1701,7 @@ int VtfCheckLineType(int words, char *split[], char file[], int line) {
   return ERROR_LINE;
 } //}}}
 // Helper functions to check whether provided line is of a given type
-int VtfCheckCoorOrderedLine(int words, char *split[]) { //{{{
+int VtfCheckCoorOrderedLine() { //{{{
   double val_d;
   if (words > 2 && IsRealNumber(split[0], &val_d) &&
       IsRealNumber(split[1], &val_d) && IsRealNumber(split[2], &val_d)) {
@@ -1761,7 +1709,7 @@ int VtfCheckCoorOrderedLine(int words, char *split[]) { //{{{
   }
   return ERROR_LINE;
 } //}}}
-int VtfCheckCoorIndexedLine(int words, char *split[]) { //{{{
+int VtfCheckCoorIndexedLine() { //{{{
   long val_i;
   double val_d;
   // indexed line (may also be ordered)
@@ -1772,18 +1720,18 @@ int VtfCheckCoorIndexedLine(int words, char *split[]) { //{{{
   }
   return ERROR_LINE;
 } //}}}
-int VtfCheckCoordinateLine(int words, char *split[]) { //{{{
+int VtfCheckCoordinateLine() { //{{{
   // indexed line (may also be ordered)
-  if (VtfCheckCoorIndexedLine(words, split) == COOR_LINE_I) {
+  if (VtfCheckCoorIndexedLine() == COOR_LINE_I) {
     return COOR_LINE_I;
   }
   // definitely ordered line
-  if (VtfCheckCoorOrderedLine(words, split) == COOR_LINE_O) {
+  if (VtfCheckCoorOrderedLine() == COOR_LINE_O) {
     return COOR_LINE_O;
   }
   return ERROR_LINE;
 } //}}}
-int VtfCheckTimestepLine(int words, char *split[]) { //{{{
+int VtfCheckTimestepLine() { //{{{
   // there are several possibilities how the timestep line can look
   /* ordered timestep:
    *   1) 't[imestep]'
@@ -1805,7 +1753,7 @@ int VtfCheckTimestepLine(int words, char *split[]) { //{{{
   }
   return ERROR_LINE; // not a timestep line
 } //}}}
-int VtfCheckPbcLine(int words, char *split[]) { //{{{
+int VtfCheckPbcLine() { //{{{
   // valid line: pbc <x> <y> <z> [<alpha> <beta> <gamm>]
   // unrecognised line
   double val;
@@ -1821,7 +1769,7 @@ int VtfCheckPbcLine(int words, char *split[]) { //{{{
     return PBC_LINE;
   }
 } //}}}
-bool VtfCheckAtomLine(int words, char *split[]) { //{{{
+bool VtfCheckAtomLine() { //{{{
   long val_i;
   double val_d;
   // error - line not starting with a[tom] default/<id> //{{{
@@ -1889,7 +1837,7 @@ positive real number ");
   // valid atom line
   return true;
 } //}}}
-bool VtfCheckBondLine(int words, char *split[]) { //{{{
+bool VtfCheckBondLine() { //{{{
   long val_i;
   // valid line b[ond] '<id>:[  ]<id> anything'
   // error - only one string or missing 'b[ond]' keyword
@@ -1929,7 +1877,7 @@ bool VtfCheckBondLine(int words, char *split[]) { //{{{
  * correspond to n-th split[] for: 0..name, 1..mass, 2..charge, 3..radius,
  * 4..resame, 5..resid If not present, the corresponding element has - 1.
  */
-int *VtfAtomLineValues(int words, char *split[]) {
+int *VtfAtomLineValues() {
   static int value[6];
   for (int i = 0; i < 6; i++) {
     value[i] = -1;
@@ -2070,8 +2018,7 @@ void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{
   fclose(fr);
 } //}}}
 void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
-  int file_line_count = 0, words;
-  char line[LINE], *split[SPL_STR];
+  int file_line_count = 0;
   FILE *fr = OpenFile(field_file, "r");
   // skip till line starting with 'Molecule' keyword //{{{
   bool test;
@@ -2728,8 +2675,6 @@ SYSTEM LmpDataRead(char data_file[]) { //{{{
 int LmpDataReadHeader(char data_file[], FILE *lmp, SYSTEM *System,
                       int *file_line_count) {
   COUNT *Count = &System->Count;
-  int words;
-  char line[LINE], *split[SPL_STR];
   double lmp_types = 0;
   // ignore the first line //{{{
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -2970,8 +2915,6 @@ void LmpDataReadBody(char data_file[], FILE *lmp, SYSTEM *System, int lmp_types,
   bool atoms = false, bonds[2] = {false, false}, angles[2] = {false, false},
        dihedrals[2] = {false, false}, impropers[2] = {false, false}; //}}}
   // read the rest of the file //{{{
-  int words;
-  char line[LINE], *split[SPL_STR];
   while (ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     // read a line
     (*file_line_count)++;
@@ -3076,8 +3019,6 @@ from lammps data file");
 // read Masses section //{{{
 void LmpDataReadMasses(FILE *lmp, char data_file[], BEADTYPE name_mass[],
                        int lmp_types, int *file_line_count) {
-  int words;
-  char line[LINE], *split[SPL_STR];
   // skip one line
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -3123,8 +3064,6 @@ void LmpDataReadBondCoeffs(FILE *lmp, char data_file[], SYSTEM *System,
     putc('\n', stderr);
     return;
   } //}}}
-  int words;
-  char line[LINE], *split[SPL_STR];
   // skip one line
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -3162,8 +3101,6 @@ void LmpDataReadAngleCoeffs(FILE *lmp, char data_file[], SYSTEM *System,
     putc('\n', stderr);
     exit(1);
   } //}}}
-  int words;
-  char line[LINE], *split[SPL_STR];
   // skip one line
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -3201,8 +3138,6 @@ void LmpDataReadDihedralCoeffs(FILE *lmp, char data_file[], SYSTEM *System,
     putc('\n', stderr);
     exit(1);
   } //}}}
-  int words;
-  char line[LINE], *split[SPL_STR];
   // skip one line
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -3243,8 +3178,6 @@ void LmpDataReadImproperCoeffs(FILE *lmp, char data_file[], SYSTEM *System,
     putc('\n', stderr);
     exit(1);
   } //}}}
-  int words;
-  char line[LINE], *split[SPL_STR];
   // skip one line
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -3277,8 +3210,6 @@ void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
                       BEADTYPE name_mass[], int lmp_types,
                       int *file_line_count) {
   COUNT *Count = &System->Count;
-  int words;
-  char line[LINE], *split[SPL_STR];
   // skip one line
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -3432,8 +3363,6 @@ void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
 void LmpDataReadVelocities(FILE *lmp, char data_file[], SYSTEM *System,
                            int *file_line_count) {
   COUNT *Count = &System->Count;
-  int words;
-  char line[LINE], *split[SPL_STR];
   // skip one line
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -3465,8 +3394,6 @@ void LmpDataReadVelocities(FILE *lmp, char data_file[], SYSTEM *System,
 void LmpDataReadBonds(FILE *lmp, char data_file[], COUNT Count, int (*bond)[3],
                       int *file_line_count) {
   bool *found = calloc(Count.Bond, sizeof *found);
-  int words;
-  char line[LINE], *split[SPL_STR];
   // skip one line
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -3535,8 +3462,6 @@ void LmpDataReadBonds(FILE *lmp, char data_file[], COUNT Count, int (*bond)[3],
 void LmpDataReadAngles(FILE *lmp, char data_file[], COUNT Count,
                        int (*angle)[4], int *file_line_count) {
   bool *found = calloc(Count.Angle, sizeof *found);
-  int words;
-  char line[LINE], *split[SPL_STR];
   // skip one line
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -3597,8 +3522,6 @@ void LmpDataReadAngles(FILE *lmp, char data_file[], COUNT Count,
 void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
                           int (*dihedral)[5], int *file_line_count) {
   bool *found = calloc(Count.Dihedral, sizeof *found);
-  int words;
-  char line[LINE], *split[SPL_STR];
   // skip one line
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -3663,8 +3586,6 @@ void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
 void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
                           int (*improper)[5], int *file_line_count) {
   bool *found = calloc(Count.Angle, sizeof *found);
-  int words;
-  char line[LINE], *split[SPL_STR];
   // skip one line
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -3731,8 +3652,6 @@ SYSTEM LtrjReadStruct(char file[]) { //{{{
   InitSystem(&Sys);
   COUNT *Count = &Sys.Count;
   int file_line_count = 0;
-  // int words;
-  // char line[LINE], *split[SPL_STR];
   FILE *fr = OpenFile(file, "r");
   // skip first three lines and read number of atoms //{{{
   // 1) ITEM: TIMESTEP
@@ -3844,8 +3763,6 @@ bool LtrjReadTimestep(FILE *f, char ltrj_file[], SYSTEM *System,
   int start = *file_line_count + 1;
 start_function:; // return here when a bad line is encountered
   // read until 'ITEM: TIMESTEP' line is found //{{{
-  char *split[SPL_STR], line[LINE];
-  int words = 0;
   do {
     // error - the first lie read by the function is wrong //{{{
     if (start == *file_line_count) {
@@ -3883,62 +3800,13 @@ using next timestep instead of this one");
     goto start_function;
   } //}}}
   // read 'ITEM: ATOMS' //{{{
-  //   if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
-  //     return false;
-  //   }
-  //   if (words < 3 ||
-  //       strcmp(split[0], "ITEM:") != 0 ||
-  //       strcmp(split[1], "ATOMS") != 0) {
-  //     strcpy(ERROR_MSG, "incorrect 'ITEM: ATOMS' line; using next timestep
-  //     instead of this one"); PrintWarningFileLine(ltrj_file,
-  //     *file_line_count, split, words); goto start_function;
-  //   }
   int max_vars = 11, position[max_vars];
   // generate array with possible variable names
   char vars[max_vars][10];
   LtrjFillItemAtomVariables(max_vars, vars);
-  // for (int i = 0; i < max_vars; i++) {
-  //   printf("%s\n", vars[i]);
-  // }
   // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
   file_line_count++;
   int cols = LtrjReadItemAtomsLine(f, ltrj_file, max_vars, position, vars);
-  // // find atom line positions of id, coordinates, and velocities //{{{
-  // int position[10] = {-1}, // id, x, y, z, vx, vy, vz, fx, fy, fz
-  //     cols = 0; // number of entries (columns in an atom line)
-  // for (int i = 2; i < words; i++) {
-  //   if (strcmp(split[i], "id") == 0) {
-  //     position[0] = i - 2; // subtract the two ITEM: ATOMS keywords
-  //     cols = i - 2 + 1; // +1 as I want the number of entries
-  //   } else if (strcmp(split[i], "x") == 0) {
-  //     position[1] = i - 2;
-  //     cols = i - 1;
-  //   } else if (strcmp(split[i], "y") == 0) {
-  //     position[2] = i - 2;
-  //     cols = i - 1;
-  //   } else if (strcmp(split[i], "z") == 0) {
-  //     position[3] = i - 2;
-  //     cols = i - 1;
-  //   } else if (strcmp(split[i], "vx") == 0) {
-  //     position[4] = i - 2;
-  //     cols = i - 1;
-  //   } else if (strcmp(split[i], "vy") == 0) {
-  //     position[5] = i - 2;
-  //     cols = i - 1;
-  //   } else if (strcmp(split[i], "vz") == 0) {
-  //     position[6] = i - 2;
-  //     cols = i - 1;
-  //   } else if (strcmp(split[i], "fx") == 0) {
-  //     position[7] = i - 2;
-  //     cols = i - 1;
-  //   } else if (strcmp(split[i], "fy") == 0) {
-  //     position[8] = i - 2;
-  //     cols = i - 1;
-  //   } else if (strcmp(split[i], "fz") == 0) {
-  //     position[9] = i - 2;
-  //     cols = i - 1;
-  //   }
-  // } //}}}
   // warning - missing 'id'; skip to next timestep
   if (position[0] == -1) {
     strcpy(ERROR_MSG, "'ITEM: ATOMS' line must contain 'id' keywoerd; \
@@ -3970,8 +3838,6 @@ bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count) { //{{{
      1) should be the first line read, but who cares...
      2) the beginning of the next timestep
   */
-  char *split[SPL_STR], line[LINE];
-  int words = 0;
   fpos_t position;
   for (int i = 0; i < 2; i++) {
     do {
@@ -3988,8 +3854,6 @@ bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count) { //{{{
   return true;
 } //}}}
 bool LmpReadPBC(FILE *f, char file[], BOX *box, int *file_line_count) { //{{{
-  char *split[SPL_STR], line[LINE];
-  int words;
   // 1) read 'ITEM:' line to find box type - TODO (for now, assume cuboid)
   (*file_line_count)++;
   if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -4046,8 +3910,6 @@ in ITEM: ATOMS line");
     exit(1);
   } //}}}
   // read ITEM: ATOMS line //{{{
-  // int words;
-  // char line[LINE], *split[SPL_STR];
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(file);
   }
@@ -4071,8 +3933,6 @@ in ITEM: ATOMS line");
 } //}}}
 // read and verify an atom line //{{{
 bool LtrjReadAtomLine(FILE *f, BEAD *b, SYSTEM System, int *var, int cols) {
-  // char line[LINE], *split[SPL_STR];
-  // int words = 0;
   if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
     return false;
   }
@@ -4100,8 +3960,7 @@ SYSTEM XyzReadStruct(char file[]) { //{{{
   SYSTEM Sys;
   InitSystem(&Sys);
   COUNT *Count = &Sys.Count;
-  int file_line_count = 0, words;
-  char line[LINE], *split[SPL_STR];
+  int file_line_count = 0;
   FILE *fr = OpenFile(file, "r");
   // read number of beads //{{{
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -4174,8 +4033,6 @@ SYSTEM XyzReadStruct(char file[]) { //{{{
 bool XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
                      int *file_line_count) {
 start_function:; // return here when a bad line is encountered
-  int words;
-  char line[LINE], *split[SPL_STR];
   fpos_t position;
   // read number of beads (possibly go back to the function beginning) //{{{
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -4232,7 +4089,7 @@ skipping this timestep");
               System->Count.Bead, ErrRed(), ErrColourReset());
       return false;
     }
-    if (!XyzCheckCoorLine(words, split)) {
+    if (!XyzCheckCoorLine()) {
       strcpy(ERROR_MSG, "unrecognized line (insufficient number of valid \
 coordinate lines); using next timestep instead of this one");
       PrintWarningFileLine(file, *file_line_count, split, words);
@@ -4264,8 +4121,6 @@ should never happen!");
   return true;
 } //}}}
 bool XyzSkipTimestep(FILE *fr, char file[], int *file_line_count) { //{{{
-  int words;
-  char line[LINE], *split[SPL_STR];
   fpos_t position;
   // skip the first two lines (number of beads + comment line)
   for (int i = 0; i < 2; i++) {
@@ -4284,16 +4139,14 @@ bool XyzSkipTimestep(FILE *fr, char file[], int *file_line_count) { //{{{
   return true;
 } //}}}
 bool XyzSkipCoorLine(FILE *fr) { //{{{
-  char line[LINE];
   if (!ReadLine(fr, LINE, line)) {
     return false; // error/EOF
   }
   int strings = 4;
-  char *split[strings];
-  int words = SplitLine(strings, split, line, " \t\n");
-  return XyzCheckCoorLine(words, split);
+  words = SplitLine(strings, split, line, " \t\n");
+  return XyzCheckCoorLine();
 } //}}}
-bool XyzCheckCoorLine(int words, char *split[]) { //{{{
+bool XyzCheckCoorLine() { //{{{
   double val_d;
   if (words > 3 && IsRealNumber(split[1], &val_d) &&
       IsRealNumber(split[2], &val_d) && IsRealNumber(split[3], &val_d)) {

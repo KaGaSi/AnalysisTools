@@ -51,16 +51,16 @@ bool VtfSkipTimestep_old(FILE *vcf, char vcf_file[], char vsf_file[],
                      int *file_line_count);
 bool VtfSkipCoorOrderedLine(FILE *fr);
 // Find position of atom line keywords in the provided strtok'd line
-int * VtfAtomLineValues(int words, char *split[]);
+int * VtfAtomLineValues();
 // functions checking validity of line types
-int VtfCheckLineType(int words, char *split[], char *file, int line);
-int VtfCheckCoorOrderedLine(int words, char *split[]);
-int VtfCheckCoorIndexedLine(int words, char *split[]);
-int VtfCheckCoordinateLine(int words, char *split[]);
-int VtfCheckTimestepLine(int words, char *split[]);
-int VtfCheckPbcLine(int words, char *split[]);
-bool VtfCheckAtomLine(int words, char *split[]);
-bool VtfCheckBondLine(int words, char *split[]);
+int VtfCheckLineType(char *file, int line);
+int VtfCheckCoorOrderedLine();
+int VtfCheckCoorIndexedLine();
+int VtfCheckCoordinateLine();
+int VtfCheckTimestepLine();
+int VtfCheckPbcLine();
+bool VtfCheckAtomLine();
+bool VtfCheckBondLine();
  //}}}
 // Functions to read FIELD-like files //{{{
 SYSTEM FieldRead(char field_file[]);
@@ -112,7 +112,7 @@ bool XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
                      int *file_line_count);
 bool XyzSkipTimestep(FILE *fr, char file[], int *file_line_count);
 bool XyzSkipCoorLine(FILE *fr);
-bool XyzCheckCoorLine(int words, char *split[]);
+bool XyzCheckCoorLine();
  //}}}
 
 // helper functions //{{{
