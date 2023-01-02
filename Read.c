@@ -1594,19 +1594,7 @@ add up properly!");
  * Discard a single timestep from a vcf/vtf coordinate file. It assumes the
  * coordinates are ordered lines (i.e., three numbers); if a timestep line is
  * missing, it prints only a warning (and skips the ensuing coordinate lines).
- * Returns false only if a line cannot be read (e.g., on eof).
- */
-/*
- * TODO: make it simpler; just go through the file until to line starting with
- *       't', 'o', or 'i' are found
- *       Also, don't forget so save file pointer to the first line of preamble;
- *       i.e., after the first timestep line found, check for 'pbc', '#', or
- *       empty line (or just one not starting with a number?)...
- *       Actually, it could be even easier:
- *       1) check for first number-starting line (i.e., beginning of skipped
- *          coordinate block)
- *       2) check for first non-number-starting line (i.e., beginning of the
- *          next preamble)
+ * Returns false only if a line cannot be read during preamble (e.g., on eof).
  */
 bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
                      int *file_line_count) {
@@ -1615,7 +1603,7 @@ bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
   do {
     (*file_line_count)++;
     if (!ReadAndSplitLine(vcf, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      return false;
+      return false; // EOF during preamble, not a valid timestep
     }
   } while (words == 0 || split[0][0] < '0' || split[0][0] > '9');
   // skip coordinate section - i.e., read until first non-number-starting line
@@ -1623,20 +1611,9 @@ bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
     fgetpos(vcf, &position);
     (*file_line_count)++;
     if (!ReadAndSplitLine(vcf, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      /*
-       * if the file ends with a number-starting line (i.e., the next line is
-       * empty), return true to count that as a successfully skipped step to be
-       * consistent with other timestep skipping (and to properly count
-       * timesteps)
-       */
-      if (feof(vcf)) {
-        return true;
-      } else {
-        return false;
-      }
+      break; // EOF during coordinate block means successfully skipped timestep
     }
   } while (words > 0 && split[0][0] >= '0' && split[0][0] <= '9');
-
   (*file_line_count)--;
   fsetpos(vcf, &position); // return to before that non-number-starting line
   return true;
@@ -3763,6 +3740,7 @@ bool LtrjReadTimestep(FILE *f, char ltrj_file[], SYSTEM *System,
   int start = *file_line_count + 1;
 start_function:; // return here when a bad line is encountered
   // read until 'ITEM: TIMESTEP' line is found //{{{
+  // it should be the first line read, but who cares
   do {
     // error - the first lie read by the function is wrong //{{{
     if (start == *file_line_count) {
@@ -3805,7 +3783,7 @@ using next timestep instead of this one");
   char vars[max_vars][10];
   LtrjFillItemAtomVariables(max_vars, vars);
   // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
-  file_line_count++;
+  (*file_line_count)++;
   int cols = LtrjReadItemAtomsLine(f, ltrj_file, max_vars, position, vars);
   // warning - missing 'id'; skip to next timestep
   if (position[0] == -1) {
@@ -3817,7 +3795,7 @@ using next timestep instead of this one");
   // read atom lines //{{{
   for (int i = 0; i < System->Count.BeadCoor; i++) {
     BEAD line;
-    file_line_count++;
+    (*file_line_count)++;
     if (!LtrjReadAtomLine(f, &line, *System, position, cols)) {
       strcpy(ERROR_MSG, "invalid atom line;"
              " using next timestep instead of this one");
@@ -3835,8 +3813,10 @@ using next timestep instead of this one");
 } //}}}
 bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count) { //{{{
   /* read until two 'ITEM: TIMESTEP' lines are found
-     1) should be the first line read, but who cares...
-     2) the beginning of the next timestep
+   * 1) should be the first line read, but who cares...
+   * 2) the beginning of the next timestep
+   * ...but if EOF is met before the the second ITEM: TIMESTEP is read, it's
+   * still a validly skipped step (the last timestep in the file)
   */
   fpos_t position;
   for (int i = 0; i < 2; i++) {
@@ -3844,7 +3824,11 @@ bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count) { //{{{
       fgetpos(f, &position);
       (*file_line_count)++;
       if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
-        return false;
+        if (i == 0) { // EOF before the first ITEM: TIMESTEP
+          return false;
+        } else { // EOF before the second ITEM: TIMESTEP
+          break;
+        }
       }
     } while (words < 2 || strcmp(split[0], "ITEM:") != 0 ||
              strcmp(split[1], "TIMESTEP") != 0);

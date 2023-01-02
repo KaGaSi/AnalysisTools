@@ -3,6 +3,9 @@
 
 #include "AnalysisTools.h"
 
+void WriteTimestep(int coor_type, char file[], SYSTEM System,
+                   int count_coor, char stuff[], bool write[]);
+
 void VtfWriteCoorIndexed(FILE *vcf, char stuff[], bool write[], SYSTEM System);
 void XyzWriteCoor(FILE *xyz, bool write[], char *stuff, SYSTEM System);
 void VtfWriteStruct(char file[], SYSTEM System, int type_def);

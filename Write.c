@@ -1,5 +1,27 @@
 #include "Write.h"
 
+// WriteTimestep() //{{{
+void WriteTimestep(int coor_type, char file[], SYSTEM System,
+                   int count_coor, char stuff[], bool write[]) {
+  FILE *f = OpenFile(file, "a");
+  switch (coor_type) {
+    case 0:
+      VtfWriteCoorIndexed(f, stuff, write, System);
+      break;
+    case 1:
+      XyzWriteCoor(f, write, stuff, System);
+      break;
+    case 2:
+      LtrjWriteCoor(f, count_coor, write, System);
+      break;
+    default:
+      strcpy(ERROR_MSG, "Inexistant coor_out_type");
+      PrintError();
+      exit(1);
+  }
+  fclose(f);
+} //}}}
+
 // VtfWriteCoorIndexed() //{{{
 void VtfWriteCoorIndexed(FILE *vcf, char stuff[], bool write[], SYSTEM System) {
   // print comment at the beginning of a timestep if present in initial vcf file

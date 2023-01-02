@@ -267,6 +267,7 @@ acceptable only for xyz input coordinate file");
   fpos_t position1, position2; // two file pointers for finding the last step
   int n_opt_count = 0,         // count saved steps if -n option is used
       count_coor = 0,          // count steps in the vcf file
+      count_saved = 0,         // count steps in output file
       file_line_count = 0;     // count lines in the vcf file
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
   while (true) {
@@ -314,20 +315,9 @@ acceptable only for xyz input coordinate file");
         count_coor--;
         break;
       }
+      count_saved++;
       WrapJoinCoordinates(&System, wrap, join);
-      // write to output file (vcf or xyz)
-      out = OpenFile(out_coor, "a");
-      if (coor_out_type == 0) {
-        VtfWriteCoorIndexed(out, stuff, write, System);
-      } else if (coor_out_type == 1) {
-        XyzWriteCoor(out, write, stuff, System);
-      } else if (coor_out_type == 2) {
-        LtrjWriteCoor(out, count_coor, write, System);
-      } else {
-        strcpy(ERROR_MSG, "Inexistant coor_out_type");
-        exit(1);
-      }
-      fclose(out);
+      WriteTimestep(coor_out_type, out_coor, System, count_coor, stuff, write);
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
       if (!SkipTimestep(coor_type, coor, in_coor, in_vsf, &file_line_count)) {
@@ -361,20 +351,9 @@ acceptable only for xyz input coordinate file");
       fsetpos(coor, &position2);
     }
     ReadTimestep(coor_type, coor, in_coor, &System, &file_line_count, stuff);
+    count_saved++;
     WrapJoinCoordinates(&System, wrap, join);
-    // write to output file (vcf or xyz)
-    out = OpenFile(out_coor, "a");
-    if (coor_out_type == 0) {
-      VtfWriteCoorIndexed(out, stuff, write, System);
-    } else if (coor_out_type == 1) {
-      XyzWriteCoor(out, write, stuff, System);
-    } else if (coor_out_type == 2) {
-      LtrjWriteCoor(out, count_coor, write, System);
-    } else {
-      strcpy(ERROR_MSG, "Inexistant coor_out_type");
-      exit(1);
-    }
-    fclose(out);
+    WriteTimestep(coor_out_type, out_coor, System, count_coor, stuff, write);
   } //}}}
   fclose(coor);
   if (count_coor == 0) { // error - input file without a valid timestep //{{{
@@ -390,7 +369,7 @@ than the number of timestep)");
     if (isatty(STDOUT_FILENO)) {
       fprintf(stdout, "\r                          \r");
     }
-    fprintf(stdout, "Last Step: %d\n", count_coor);
+    fprintf(stdout, "Last Step: %d (saved %d)\n", count_coor, count_saved);
     fflush(stdout);
   } //}}}
 
