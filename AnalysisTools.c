@@ -118,6 +118,7 @@ bool InputCoor_old(bool *vtf, char *file_coor, char *file_struct) {
  * Function to test whether input coordinate file is vtf or vcf and assign
  * default structure file name as either the vtf or traject.vsf.
  */
+// TODO: make structure files' recognition extension-based (or 'FIELD')
 int InputCoorStruct(int argc, char **argv, char coor[], char vsf[], char lmp[],
                     char field[]) {
   int ext = 4, type;

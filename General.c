@@ -321,9 +321,23 @@ FILE *OpenFile(char *file, char *mode) {
   return ptr;
 } //}}}
 
-void InitIntArray (int array[], int n, double val) {
+void InitIntArray (int array[], int n, int val) {
   for (int i = 0; i < n; i++) {
     array[i] = val;
+  }
+}
+void InitLong2DArray (long *array[], int m, int n, long val) {
+  for (int i = 0; i < m; i++) {
+    for (int j = 0; j < n; j++) {
+      array[i][j] = val;
+    }
+  }
+}
+void InitDouble2DArray (double *array[], int m, int n, double val) {
+  for (int i = 0; i < m; i++) {
+    for (int j = 0; j < n; j++) {
+      array[i][j] = val;
+    }
   }
 }
 

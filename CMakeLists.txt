@@ -53,6 +53,7 @@ set(UTILS AddToSystem
 #         JoinRuns
           lmp_data
           lmp_vtf
+          Local
           NumDeriv
           OrientationMolecules
 #         Orientation-2
