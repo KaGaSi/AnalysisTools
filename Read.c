@@ -3806,6 +3806,7 @@ using next timestep instead of this one");
     BEAD *b = &System->Bead[id];
     b->Position = line.Position;
     b->Velocity = line.Velocity;
+    b->Force = line.Force;
     b->InTimestep = true;
     System->BeadCoor[i] = id;
   } //}}}

@@ -468,12 +468,20 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
 } //}}}
 // LtrjXyzWriteCoor() //{{{
 void LtrjWriteCoor(FILE *fr, int step, bool write[], SYSTEM System) {
-  // find out number of beads to save
+  // find out number of beads to save and if velocity/force should be saved
   int count = 0;
+  bool vel = false, force = false;
   for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadCoor[i];
-    if (System.Bead[id].InTimestep && write[id]) {
+    BEAD *b = &System.Bead[id];
+    if (b->InTimestep && write[id]) {
       count++;
+      if (b->Velocity.x != 0 || b->Velocity.y != 0 || b->Velocity.z != 0) {
+        vel = true;
+      }
+      if (b->Force.x != 0 || b->Force.y != 0 || b->Force.z != 0) {
+        force = true;
+      }
     }
   }
   // print the step
@@ -490,15 +498,31 @@ void LtrjWriteCoor(FILE *fr, int step, bool write[], SYSTEM System) {
     fprintf(fr, "0.0 %lf\n", box->x);
     fprintf(fr, "0.0 %lf\n", box->y);
     fprintf(fr, "0.0 %lf\n", box->z);
-    fprintf(fr, "ITEM: ATOMS id element x y z\n");
+    fprintf(fr, "ITEM: ATOMS id element x y z");
+    if (vel) {
+      fprintf(fr, " vx vy vz");
+    }
+    if (force) {
+      fprintf(fr, " fx fy fz");
+    }
+    putc('\n', fr);
     for (int i = 0; i < System.Count.BeadCoor; i++) {
       int id = System.BeadCoor[i];
-      BEAD *bead = &System.Bead[id];
-      if (bead->InTimestep && write[id]) {
-        int type = bead->Type;
-        fprintf(fr, "%d %8s %8.4f %8.4f %8.4f\n", id+1, // ltrj id starts at 1
+      BEAD *b = &System.Bead[id];
+      if (b->InTimestep && write[id]) {
+        int type = b->Type;
+        fprintf(fr, "%8d %8s %8.4f %8.4f %8.4f", id+1, // ltrj id starts at 1
                 System.BeadType[type].Name,
-                bead->Position.x, bead->Position.y, bead->Position.z);
+                b->Position.x, b->Position.y, b->Position.z);
+        if (vel) {
+          fprintf(fr, " %8.4f %8.4f %8.4f",
+                  b->Velocity.x, b->Velocity.y, b->Velocity.z);
+        }
+        if (force) {
+          fprintf(fr, " %8.4f %8.4f %8.4f",
+                  b->Force.x, b->Force.y, b->Force.z);
+        }
+        putc('\n', fr);
       }
     }
   } else {
