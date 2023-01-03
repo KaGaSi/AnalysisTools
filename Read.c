@@ -2631,7 +2631,6 @@ SYSTEM LmpDataRead(char data_file[]) { //{{{
   TriclinicCellData(&System.Box, 1);
   RemoveExtraTypes(&System);
   MergeBeadTypes(&System, true);
-  PrintCount(System.Count);
   MergeMoleculeTypes(&System);
   FillSystemNonessentials(&System);
   int c_unbonded = 0, c_bonded = 0;

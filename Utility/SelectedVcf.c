@@ -74,6 +74,7 @@ int main(int argc, char *argv[]) {
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] == '-' && strcmp(argv[i], "-l_in") != 0 &&
         strcmp(argv[i], "-vs_in") != 0 && strcmp(argv[i], "-f_in") != 0 &&
+        strcmp(argv[i], "-l_in") != 0 &&
         strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--detailed") != 0 &&
         strcmp(argv[i], "--silent") != 0 && strcmp(argv[i], "-h") != 0 &&
         strcmp(argv[i], "--version") != 0 &&
@@ -96,7 +97,7 @@ int main(int argc, char *argv[]) {
   int coor_type, struct_type = 0;
   snprintf(in_coor, LINE, "%s", argv[++count]);
   // coor_type: 1..vcf, 2..xyz, 3..lammpstrj
-  coor_type = InputCoorStruct(argc, argv, in_coor, in_vsf, in_lmp, in_field);
+  coor_type = InputCoorStruct_old(argc, argv, in_coor, in_vsf, in_lmp, in_field);
   if (coor_type == -1) {
     exit(1);
   }
@@ -162,24 +163,25 @@ acceptable only for xyz input coordinate file");
   } //}}}
 
   // read input data //{{{
+  // TODO: change according to the new InputCoorStruct()
   SYSTEM System;
   switch (struct_type) {
-  case 0: // xyz or lammpstrj
-    if (coor_type == 2) {
-      System = XyzReadStruct(in_coor);
-    } else {
-      System = LtrjReadStruct(in_coor);
-    }
-    break;
-  case 1: // vsf/vtf
-    System = VtfReadStruct(in_vsf, detailed);
-    break;
-  case 2: // lmp
-    System = LmpDataRead(in_lmp);
-    break;
-  case 3: // field
-    System = FieldRead(in_field);
-    break;
+    case 0: // xyz or lammpstrj
+      if (coor_type == 2) {
+        System = XyzReadStruct(in_coor);
+      } else {
+        System = LtrjReadStruct(in_coor);
+      }
+      break;
+    case 1: // vsf/vtf
+      System = VtfReadStruct(in_vsf, detailed);
+      break;
+    case 2: // lmp
+      System = LmpDataRead(in_lmp);
+      break;
+    case 3: // field
+      System = FieldRead(in_field);
+      break;
   }
   // pbc from vcf/vtf coordinate file
   // TODO: do I need pbc now? VtfSkipTimestep should read them (and so should

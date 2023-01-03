@@ -44,8 +44,10 @@ void CheckSystem(SYSTEM System, char file[]);
  * \return false if file_coor has wrong extension, true otherwise
  */
 bool InputCoor_old(bool *vtf, char *file_coor, char *file_struct); //}}}
-int InputCoorStruct(int argc, char **argv,
+int InputCoorStruct_old(int argc, char **argv,
                     char coor[], char vsf[], char lmp[], char field[]);
+bool InputCoorStruct(int argc, char **argv, char coor[], int *coor_type,
+                     char struc[], int *struc_type);
 
 bool SameBeadType(BEADTYPE bt_1, BEADTYPE bt_2);
 int FindBeadType(char name[], SYSTEM System);

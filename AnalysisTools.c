@@ -2,9 +2,10 @@
 /* TODO: PrintBeadType() needs to find the longest name and the most number
  * of beads and insert white space accordingly
  */
-// TODO add detailed switch FindBeadType/FindMoleculeType (check not just name)
-//      ...already done?
-// TODO split CheckSystem to CheckCount, CheckBeadType, etc.
+// TODO: add detailed switch FindBeadType/FindMoleculeType (check not just name)
+//       ...already done?
+// TODO: split CheckSystem to CheckCount, CheckBeadType, etc.
+// TODO: make #define from structure/coordinate file types (akin to line types)
 
 // transform to/from fractional coordinates //{{{
 /* HOW TO CALCULATE DISTANCE IN TRICLINIC SYSTEM //{{{
@@ -113,13 +114,13 @@ bool InputCoor_old(bool *vtf, char *file_coor, char *file_struct) {
   }
   return true;
 } //}}}
-// InputCoorStruct() //{{{
+// InputCoorStruct_old() //{{{
 /**
  * Function to test whether input coordinate file is vtf or vcf and assign
  * default structure file name as either the vtf or traject.vsf.
  */
 // TODO: make structure files' recognition extension-based (or 'FIELD')
-int InputCoorStruct(int argc, char **argv, char coor[], char vsf[], char lmp[],
+int InputCoorStruct_old(int argc, char **argv, char coor[], char vsf[], char lmp[],
                     char field[]) {
   int ext = 4, type;
   char extension[4][EXTENSION];
@@ -175,6 +176,91 @@ int InputCoorStruct(int argc, char **argv, char coor[], char vsf[], char lmp[],
     exit(1);
   }
   return type;
+} //}}}
+// InputCoorStruct() //{{{
+/**
+ * Function to test whether input coordinate file is vtf or vcf and assign
+ * default structure file name as either the vtf or traject.vsf.
+ */
+// TODO: make structure files' recognition extension-based (or 'FIELD')
+bool InputCoorStruct(int argc, char **argv, char coor[], int *coor_type,
+                     char struc[], int *struc_type) {
+  bool err = false; // return value
+  int ext;
+  char extension[6][EXTENSION];
+  // input structure file?
+  if (FileOption(argc, argv, "-i", struc, LINE)) {
+    exit(1);
+  }
+  if (struc[0] != '\0') { // -i option is present
+    ext = 6;
+    strcpy(extension[0], ".vsf");
+    strcpy(extension[1], ".vtf");
+    strcpy(extension[2], ".xyz");
+    strcpy(extension[3], ".lammpstrj");
+    strcpy(extension[4], ".data");
+    strcpy(extension[5], ".field");
+    ext = ErrorExtension(struc, ext, extension);
+    switch (ext) {
+      case 0: // vtf structure file
+        *struc_type = 1;
+        break;
+      case 1: // tf structure file
+        *struc_type = 1;
+        break;
+      case 2: // xyz coordinate file
+        *struc_type = 2;
+        break;
+      case 3: // lammps trajectory file
+        *struc_type = 3;
+        break;
+      case 4: // lammps data file
+        *struc_type = 4;
+        break;
+      case 5: // lammps data file
+        *struc_type = 5;
+        break;
+    }
+  }
+  ext = 4;
+  strcpy(extension[0], ".vcf");
+  strcpy(extension[1], ".vtf");
+  strcpy(extension[2], ".xyz");
+  strcpy(extension[3], ".lammpstrj");
+  ext = ErrorExtension(coor, ext, extension);
+  // define coordinate type and possibly vtf structure file
+  switch (ext) {
+    case 0: // vtf coordinate file
+      *coor_type = 1;
+      // copy to struc with vsf ending, if struc is empty
+      if (struc[0] == '\0') {
+        int last = -1;
+        for (int i = 0; i < strlen(coor); i++) {
+          if (coor[i] == '.') {
+            last = i;
+          }
+        }
+        strncpy(struc, coor, last);
+        strcat(struc, ".vsf");
+      }
+      break;
+    case 1: // vtf full file
+      *coor_type = 1;
+      // use also as a struc file, if struc is empty
+      if (struc[0] == '\0') {
+        strcpy(struc, coor);
+      }
+      break;
+    case 2: // xyz
+      *coor_type = 2;
+      break;
+    case 3: // lammpstrj
+      *coor_type = 3;
+      break;
+    default: // something wrong; should never happen
+      err = true;
+  }
+  return err;
 } //}}}
 
 // SameBeadType() //{{{

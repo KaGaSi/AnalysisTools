@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
   int coor_type, struct_type = 0;
   snprintf(in_coor, LINE, "%s", argv[++count]);
   // coor_type: 1..vcf, 2..xyz, 3..lammpstrj
-  coor_type = InputCoorStruct(argc, argv, in_coor, in_vsf, in_lmp, in_field);
+  coor_type = InputCoorStruct_old(argc, argv, in_coor, in_vsf, in_lmp, in_field);
   if (coor_type == -1) {
     exit(1);
   }
