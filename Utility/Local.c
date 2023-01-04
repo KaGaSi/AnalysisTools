@@ -1,5 +1,11 @@
 #include "../AnalysisTools.h"
 
+typedef struct constant {
+  // data from lammps/src/update.cpp
+  double mvv2e, // convert mv^2 to E (eV)
+         k_B; // Boltzmann constant in eV/K
+} CONST;
+
 // TODO: -e X --last leads to leaving at step X and saving that as the last;
 //       is that okay?
 // TODO: make some in_struct akin to in_coor (in InputCoorStruct() function)
@@ -31,6 +37,9 @@ void Help(char cmd[50], bool error) { //{{{
 (if --last option is used, save also the last timestep)\n");
   fprintf(ptr, "      --last         use only the last step \
 (-st/-e options are ignored; -n option is not)\n");
+  fprintf(ptr, "      --metal        assume lammps 'metal' units\n");
+  fprintf(ptr, "      --per-step     save a new file for each step"
+          "(adds '-<ste>.txt' to <output>)\n");
   CommonHelp(error);
 } //}}}
 
@@ -67,7 +76,8 @@ int main(int argc, char *argv[]) {
         strcmp(argv[i], "--version") != 0 && strcmp(argv[i], "-st") != 0 &&
         strcmp(argv[i], "-e") != 0 && strcmp(argv[i], "-sk") != 0 &&
         strcmp(argv[i], "-n") != 0 && strcmp(argv[i], "-x") != 0 &&
-        strcmp(argv[i], "--last") != 0) {
+        strcmp(argv[i], "--last") != 0 && strcmp(argv[i], "--metal") != 0 &&
+        strcmp(argv[i], "--per-step") != 0) {
       ErrorOption(argv[i]);
       Help(argv[0], true);
       exit(1);
@@ -171,7 +181,22 @@ acceptable only for xyz input coordinate file");
   StartEndTime(argc, argv, &start, &end);
   // use only the last step?
   bool last = BoolOption(argc, argv, "--last");
+  int style = 0; // reduced units
+  if (BoolOption(argc, argv, "--metal")) {
+    style = 1; // lammps 'metal' units
+  }
+  bool per_step = BoolOption(argc, argv, "--per-step");
   //}}}
+
+  // TODO: deal with this shit! ...this is for lmp metal units
+  CONST c;
+  if (style == 1) {
+    c.mvv2e = 1.0364269e-4;
+    c.k_B = 8.617343e-5;
+  } else {
+    c.mvv2e = 1;
+    c.k_B = 1;
+  }
 
   // print command to stdout //{{{
   if (!silent) {
@@ -250,9 +275,11 @@ acceptable only for xyz input coordinate file");
   } //}}}
 
   // print initial stuff to output vcf file //{{{
-  FILE *out = OpenFile(out_file, "w");
-  PrintByline(out, argc, argv);
-  fclose(out); //}}}
+  if (!per_step) {
+    FILE *out = OpenFile(out_file, "w");
+    PrintByline(out, argc, argv);
+    fclose(out);
+  } //}}}
 
   // main loop //{{{
   FILE *coor = OpenFile(in_coor, "r");
@@ -263,14 +290,18 @@ acceptable only for xyz input coordinate file");
       file_line_count = 0;     // count lines in the vcf file
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
   // when 1D is calculated, only Temp[i][0] is used
+
   long **bead_count = calloc(bin[0], sizeof **bead_count); // count beads
   double **Temp = calloc(bin[0], sizeof **Temp); // temperature
-  double **Ekin = calloc(bin[0], sizeof **Ekin); // kinetic energy
+  double **sum_Temp = calloc(bin[0], sizeof **sum_Temp);
   for (int i = 0; i < bin[0]; i++) {
     bead_count[i] = calloc(bin[1], sizeof *bead_count);
     Temp[i] = calloc(bin[1], sizeof *Temp);
-    Ekin[i] = calloc(bin[1], sizeof *Ekin);
+    sum_Temp[i] = calloc(bin[1], sizeof *sum_Temp);
   }
+  InitDouble2DArray(sum_Temp, bin[0], bin[1], 0);
+
+  // TODO: file to save some global stuff
   FILE *t_out = OpenFile("t.txt", "w");
   while (true) {
     count_coor++;
@@ -322,8 +353,7 @@ acceptable only for xyz input coordinate file");
       // calculate the local properties
       InitLong2DArray(bead_count, bin[0], bin[1], 0);
       InitDouble2DArray(Temp, bin[0], bin[1], 0);
-      InitDouble2DArray(Ekin, bin[0], bin[1], 0);
-      double temperature = 0;
+      double temperature = 0, energy_kin = 0;
       for (int i = 0; i < System.Count.BeadCoor; i++) {
         int id = System.BeadCoor[i];
         BEAD *b = &System.Bead[id];
@@ -343,17 +373,71 @@ acceptable only for xyz input coordinate file");
                       SQR(b->Velocity.y) +
                       SQR(b->Velocity.z);
         Temp[pos[0]][pos[1]] += bt->Mass * vel2;
-        Ekin[pos[0]][pos[1]] += 0.5 * bt->Mass * vel2;
         temperature += bt->Mass * vel2;
+        energy_kin += 0.5 * bt->Mass * vel2;
       }
       for (int i = 0; i < bin[0]; i++) {
         for (int j = 0; j < bin[1]; j++) {
-          Temp[i][j] /= 3 * bead_count[i][j];
-          // Ekin[i][j] /= bead_count[i][j];
+          Temp[i][j] *= c.mvv2e / (3 * bead_count[i][j] * c.k_B);
+          sum_Temp[i][j] += Temp[i][j];
         }
       }
-      temperature /= 3 * System.Count.BeadCoor;
-      fprintf(t_out, "%8d %8.4f\n", count_coor, temperature);
+      temperature *= c.mvv2e / (3 * System.Count.BeadCoor * c.k_B);
+      energy_kin *= c.mvv2e;
+      fprintf(t_out, "%8d %8.4f %8.4f\n", count_coor, temperature, energy_kin);
+      // TODO: add some averaging: sum up bins x-avg to x+avg, plot to x
+      // save values (if using --pers-step) //{{{
+      if (!per_step) {
+        char file[LINE];
+        snprintf(file, LINE, "%s-%04d.txt", out_file, count_coor);
+        FILE *out = OpenFile(file, "w");
+        if (dim[0] == 1) {
+          char *axis;
+          if (dim[1] == 0) {
+            axis = "x";
+          } else if (dim[1] == 1) {
+            axis = "y";
+          } else {
+            axis = "z";
+          }
+          fprintf(out, "# (1) %s coordinate; (2) temperature\n", axis);
+          for (int i = 0; i < bin[0]; i++) {
+            if (Temp[i][0] > 0) {
+              fprintf(out, "%8.4f %8.4f\n",
+                      width[0]*(2*i+1)/2, Temp[i][0]);
+            }
+          }
+        } else {
+          char *axis[2];
+          if (dim[1] == 0) {
+            axis[0] = "x";
+          } else if (dim[1] == 1) {
+            axis[0] = "y";
+          } else {
+            axis[0] = "z";
+          }
+          if (dim[2] == 0) {
+            axis[1] = "x";
+          } else if (dim[2] == 1) {
+            axis[1] = "y";
+          } else {
+            axis[1] = "z";
+          }
+          fprintf(out, "# (1) %s axis; (2) %s coordinate; (3) temperature\n",
+                  axis[0], axis[1]);
+          for (int i = 0; i < bin[0]; i++) {
+            for (int j = 0; j < bin[1]; j++) {
+              if (Temp[i][j] > 0) {
+                fprintf(out, "%8.4f", width[0]*(2*i+1)/2);
+                fprintf(out, " %8.4f", width[1]*(2*j+1)/2);
+                fprintf(out, " %8.4f\n", Temp[i][j]);
+              }
+            }
+            fprintf(out, "\n");
+          }
+        }
+        fclose(out);
+      } //}}}
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
       if (!SkipTimestep(coor_type, coor, in_coor, in_vsf, &file_line_count)) {
@@ -390,6 +474,38 @@ acceptable only for xyz input coordinate file");
     ReadTimestep(coor_type, coor, in_coor, &System, &file_line_count, stuff);
     count_used++;
     WrapJoinCoordinates(&System, true, false); // restore pbc
+    // calculate the local properties
+    InitLong2DArray(bead_count, bin[0], bin[1], 0);
+    InitDouble2DArray(Temp, bin[0], bin[1], 0);
+    double temperature = 0, energy_kin = 0;
+    for (int i = 0; i < System.Count.BeadCoor; i++) {
+      int id = System.BeadCoor[i];
+      BEAD *b = &System.Bead[id];
+      BEADTYPE *bt = &System.BeadType[b->Type];
+      int pos[2] = {0, 0};
+      for (int j = 0; j < 2; j++) {
+        if (dim[j+1] == 0) {
+          pos[j] = b->Position.x / width[j];
+        } else if (dim[j+1] == 1) {
+          pos[j] = b->Position.y / width[j];
+        } else if (dim[j+1] == 2) {
+          pos[j] = b->Position.z / width[j];
+        }
+      }
+      bead_count[pos[0]][pos[1]]++;
+      double vel2 = SQR(b->Velocity.x) +
+                    SQR(b->Velocity.y) +
+                    SQR(b->Velocity.z);
+      Temp[pos[0]][pos[1]] += bt->Mass * vel2;
+      temperature += bt->Mass * vel2;
+      energy_kin += 0.5 * bt->Mass * vel2;
+    }
+    for (int i = 0; i < bin[0]; i++) {
+      for (int j = 0; j < bin[1]; j++) {
+        Temp[i][j] *= c.mvv2e / (3 * bead_count[i][j] * c.k_B);
+        sum_Temp[i][j] += Temp[i][j];
+      }
+    }
   } //}}}
   fclose(coor);
   if (count_coor == 0) { // error - input file without a valid timestep //{{{
@@ -407,6 +523,53 @@ than the number of timestep)");
     }
     fprintf(stdout, "Last Step: %d (used %d)\n", count_coor, count_used);
     fflush(stdout);
+  } //}}}
+
+  // save average (if not using --pers-step) //{{{
+  if (!per_step) {
+    FILE *out = OpenFile(out_file, "a");
+    if (dim[0] == 1) {
+      char *axis;
+      if (dim[1] == 0) {
+        axis = "x";
+      } else if (dim[1] == 1) {
+        axis = "y";
+      } else {
+        axis = "z";
+      }
+      fprintf(out, "# (1) %s coordinate; (2) temperature\n", axis);
+      for (int i = 0; i < bin[0]; i++) {
+        fprintf(out, "%8.4f %8.4f\n",
+                width[0]*(2*i+1)/2, sum_Temp[i][0]/count_used);
+      }
+    } else {
+      char *axis[2];
+      if (dim[1] == 0) {
+        axis[0] = "x";
+      } else if (dim[1] == 1) {
+        axis[0] = "y";
+      } else {
+        axis[0] = "z";
+      }
+      if (dim[2] == 0) {
+        axis[1] = "x";
+      } else if (dim[2] == 1) {
+        axis[1] = "y";
+      } else {
+        axis[1] = "z";
+      }
+      fprintf(out, "# (1) %s axis; (2) %s coordinate; (3) temperature\n",
+              axis[0], axis[1]);
+      for (int i = 0; i < bin[0]; i++) {
+        for (int j = 0; j < bin[1]; j++) {
+          fprintf(out, "%8.4f", width[0]*(2*i+1)/2);
+          fprintf(out, " %8.4f", width[1]*(2*j+1)/2);
+          fprintf(out, " %8.4f\n", sum_Temp[i][j]/count_used);
+        }
+        fprintf(out, "\n");
+      }
+    }
+    fclose(out);
   } //}}}
 
   // free memory
