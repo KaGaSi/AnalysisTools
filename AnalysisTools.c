@@ -185,43 +185,48 @@ int InputCoorStruct_old(int argc, char **argv, char coor[], char vsf[], char lmp
 // TODO: make structure files' recognition extension-based (or 'FIELD')
 bool InputCoorStruct(int argc, char **argv, char coor[], int *coor_type,
                      char struc[], int *struc_type) {
-  bool err = false; // return value
+  bool fine = true; // return value
   int ext;
   char extension[6][EXTENSION];
-  // input structure file?
+  // input structure file (-i option) //{{{
   if (FileOption(argc, argv, "-i", struc, LINE)) {
     exit(1);
   }
   if (struc[0] != '\0') { // -i option is present
-    ext = 6;
-    strcpy(extension[0], ".vsf");
-    strcpy(extension[1], ".vtf");
-    strcpy(extension[2], ".xyz");
-    strcpy(extension[3], ".lammpstrj");
-    strcpy(extension[4], ".data");
-    strcpy(extension[5], ".field");
-    ext = ErrorExtension(struc, ext, extension);
-    switch (ext) {
-      case 0: // vtf structure file
-        *struc_type = 1;
-        break;
-      case 1: // tf structure file
-        *struc_type = 1;
-        break;
-      case 2: // xyz coordinate file
-        *struc_type = 2;
-        break;
-      case 3: // lammps trajectory file
-        *struc_type = 3;
-        break;
-      case 4: // lammps data file
-        *struc_type = 4;
-        break;
-      case 5: // lammps data file
-        *struc_type = 5;
-        break;
+    if (strcasecmp(struc, "FIELD") == 0) {
+      *struc_type = FIELD_FILE;
+    } else {
+      ext = 6;
+      strcpy(extension[0], ".vsf");
+      strcpy(extension[1], ".vtf");
+      strcpy(extension[2], ".xyz");
+      strcpy(extension[3], ".lammpstrj");
+      strcpy(extension[4], ".data");
+      strcpy(extension[5], ".field");
+      ext = ErrorExtension(struc, ext, extension);
+      switch (ext) {
+        case 0:
+          *struc_type = VSF_FILE;
+          break;
+        case 1:
+          *struc_type = VSF_FILE;
+          break;
+        case 2:
+          *struc_type = XYZ_FILE;
+          break;
+        case 3:
+          *struc_type = LTRJ_FILE;
+          break;
+        case 4:
+          *struc_type = LDATA_FILE;
+          break;
+        case 5:
+          *struc_type = FIELD_FILE;
+          break;
+      }
     }
-  }
+  } //}}}
+  // input coordinate file //{{{
   ext = 4;
   strcpy(extension[0], ".vcf");
   strcpy(extension[1], ".vtf");
@@ -230,8 +235,8 @@ bool InputCoorStruct(int argc, char **argv, char coor[], int *coor_type,
   ext = ErrorExtension(coor, ext, extension);
   // define coordinate type and possibly vtf structure file
   switch (ext) {
-    case 0: // vtf coordinate file
-      *coor_type = 1;
+    case 0:
+      *coor_type = VCF_FILE;
       // copy to struc with vsf ending, if struc is empty
       if (struc[0] == '\0') {
         int last = -1;
@@ -242,25 +247,37 @@ bool InputCoorStruct(int argc, char **argv, char coor[], int *coor_type,
         }
         strncpy(struc, coor, last);
         strcat(struc, ".vsf");
+        *struc_type = VSF_FILE;
       }
       break;
     case 1: // vtf full file
-      *coor_type = 1;
+      *coor_type = VCF_FILE;
       // use also as a struc file, if struc is empty
       if (struc[0] == '\0') {
         strcpy(struc, coor);
+        *struc_type = VSF_FILE;
       }
       break;
     case 2: // xyz
-      *coor_type = 2;
+      *coor_type = XYZ_FILE;
+      // use also as a struc file, if struc is empty
+      if (struc[0] == '\0') {
+        strcpy(struc, coor);
+        *struc_type = XYZ_FILE;
+      }
       break;
     case 3: // lammpstrj
-      *coor_type = 3;
+      *coor_type = LTRJ_FILE;
+      // use also as a struc file, if struc is empty
+      if (struc[0] == '\0') {
+        strcpy(struc, coor);
+        *struc_type = LTRJ_FILE;
+      }
       break;
     default: // something wrong; should never happen
-      err = true;
-  }
-  return err;
+      fine = false;
+  } //}}}
+  return fine;
 } //}}}
 
 // SameBeadType() //{{{

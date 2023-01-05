@@ -1013,17 +1013,17 @@ void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join) {
 bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
                   int *file_line_count, char stuff[]) {
   switch (coor_type) {
-  case 1:
+  case VCF_FILE:
     if (!VtfReadTimestep(f, file, System, file_line_count, stuff)) {
       return false;
     }
     break;
-  case 2:
+  case XYZ_FILE:
     if (!XyzReadTimestep(f, file, System, file_line_count)) {
       return false;
     }
     break;
-  case 3:
+  case LTRJ_FILE:
     if (!LtrjReadTimestep(f, file, System, file_line_count)) {
       return false;
     }
@@ -1036,21 +1036,25 @@ bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
 bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],
                   int *file_line_count) {
   switch (coor_type) {
-  case 1:
-    if (!VtfSkipTimestep(f, file1, file2, file_line_count)) {
+    case VCF_FILE:
+      if (!VtfSkipTimestep(f, file1, file2, file_line_count)) {
+        return false;
+      }
+      break;
+    case XYZ_FILE:
+      if (!XyzSkipTimestep(f, file1, file_line_count)) {
+        return false;
+      }
+      break;
+    case LTRJ_FILE:
+      if (!LtrjSkipTimestep(f, file1, file_line_count)) {
+        return false;
+      }
+      break;
+    default:
+      strcpy(ERROR_MSG, "unspecified coordinate file; should never happen!");
+      PrintError();
       return false;
-    }
-    break;
-  case 2:
-    if (!XyzSkipTimestep(f, file1, file_line_count)) {
-      return false;
-    }
-    break;
-  case 3:
-    if (!LtrjSkipTimestep(f, file1, file_line_count)) {
-      return false;
-    }
-    break;
   }
   return true;
 } //}}}

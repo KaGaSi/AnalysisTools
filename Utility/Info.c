@@ -552,10 +552,10 @@ int main(int argc, char *argv[]) {
   } //}}}
   //}}}
 
-//printf("%sJust Before Pruning\n", Magenta());
-//VerboseOutput(*System);
+  // printf("%sJust Before Pruning\n", Magenta());
+  // VerboseOutput(*System);
   PruneSystem(System);
-//printf("%s", ColourReset());
+  // printf("%s", ColourReset());
 
   // print information //{{{
   printf("Final system composition:\n");

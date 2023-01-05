@@ -140,7 +140,7 @@ void ErrorArgNumber(int count, int need) {
 int ErrorExtension(char *file, int number, char extension[][EXTENSION]) {
   char *dot = strrchr(file, '.');
   for (int i = 0; i < number; i++) {
-    if (dot && strcmp(dot, extension[i]) == 0) {
+    if (dot && strcasecmp(dot, extension[i]) == 0) {
       return i;
     }
   }

@@ -5,17 +5,17 @@ void WriteTimestep(int coor_type, char file[], SYSTEM System,
                    int count_coor, char stuff[], bool write[]) {
   FILE *f = OpenFile(file, "a");
   switch (coor_type) {
-    case 0:
+    case VCF_FILE:
       VtfWriteCoorIndexed(f, stuff, write, System);
       break;
-    case 1:
+    case XYZ_FILE:
       XyzWriteCoor(f, write, stuff, System);
       break;
-    case 2:
+    case LTRJ_FILE:
       LtrjWriteCoor(f, count_coor, write, System);
       break;
     default:
-      strcpy(ERROR_MSG, "Inexistant coor_out_type");
+      strcpy(ERROR_MSG, "Inexistant coor_out_type; should never happen!");
       PrintError();
       exit(1);
   }

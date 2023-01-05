@@ -18,6 +18,13 @@
 #include <time.h>
 #include <unistd.h>
 
+#define VSF_FILE 1
+#define VCF_FILE 2
+#define XYZ_FILE 3
+#define LDATA_FILE 4
+#define LTRJ_FILE 5
+#define FIELD_FILE 6
+
 VECTOR ToFractional(VECTOR coor, BOX Box);
 void ToFractionalCoor(SYSTEM *System);
 VECTOR FromFractional(VECTOR coor, BOX Box);

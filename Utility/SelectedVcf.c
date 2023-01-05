@@ -73,8 +73,7 @@ int main(int argc, char *argv[]) {
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] == '-' && strcmp(argv[i], "-l_in") != 0 &&
-        strcmp(argv[i], "-vs_in") != 0 && strcmp(argv[i], "-f_in") != 0 &&
-        strcmp(argv[i], "-l_in") != 0 &&
+        strcmp(argv[i], "-i") != 0 &&
         strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--detailed") != 0 &&
         strcmp(argv[i], "--silent") != 0 && strcmp(argv[i], "-h") != 0 &&
         strcmp(argv[i], "--version") != 0 &&
@@ -93,31 +92,12 @@ int main(int argc, char *argv[]) {
 
   // <input> - input coordinate file //{{{
   char in_coor[LINE] = "", in_vsf[LINE] = "", in_lmp[LINE] = "",
-       in_field[LINE] = "", *struct_file;
+       in_field[LINE] = "", struct_file[LINE] = "";
   int coor_type, struct_type = 0;
   snprintf(in_coor, LINE, "%s", argv[++count]);
-  // coor_type: 1..vcf, 2..xyz, 3..lammpstrj
-  coor_type = InputCoorStruct_old(argc, argv, in_coor, in_vsf, in_lmp, in_field);
-  if (coor_type == -1) {
-    exit(1);
-  }
-  // struct_type: 1..vsf, 2..lmp, 3..FIELD
-  if (in_vsf[0] != '\0') {
-    struct_type = 1;
-    struct_file = in_vsf;
-  } else if (in_lmp[0] != '\0') {
-    struct_type = 2;
-    struct_file = in_lmp;
-  } else if (in_field[0] != '\0') {
-    struct_type = 3;
-    struct_file = in_field;
-  } else {
-    struct_file = "\0";
-  }
-  // error if no structure file specified (except when input is xyz)
-  if (struct_type == 0 && coor_type != 2 && coor_type != 3) {
-    strcpy(ERROR_MSG, "missing input structure file; \
-acceptable only for xyz input coordinate file");
+  if (!InputCoorStruct(argc, argv, in_coor, &coor_type,
+                       struct_file, &struct_type)) {
+    strcpy(ERROR_MSG, "WTF?!?");
     PrintError();
     exit(1);
   } //}}}
@@ -134,7 +114,13 @@ acceptable only for xyz input coordinate file");
   strcpy(extension[1], ".xyz");
   strcpy(extension[2], ".lammpstrj");
   coor_out_type = ErrorExtension(out_coor, ext, extension);
-  if (coor_out_type == -1) {
+  if (coor_out_type == 0) {
+    coor_out_type = VCF_FILE;
+  } else if (coor_out_type == 1) {
+    coor_out_type = XYZ_FILE;
+  } else if (coor_out_type == 2) {
+    coor_out_type = LTRJ_FILE;
+  } else if (coor_out_type == -1) {
     Help(argv[0], true);
     exit(1);
   } //}}}
@@ -166,28 +152,25 @@ acceptable only for xyz input coordinate file");
   // TODO: change according to the new InputCoorStruct()
   SYSTEM System;
   switch (struct_type) {
-    case 0: // xyz or lammpstrj
-      if (coor_type == 2) {
-        System = XyzReadStruct(in_coor);
-      } else {
-        System = LtrjReadStruct(in_coor);
-      }
+    case VSF_FILE:
+      System = VtfReadStruct(struct_file, detailed);
       break;
-    case 1: // vsf/vtf
-      System = VtfReadStruct(in_vsf, detailed);
+    case XYZ_FILE:
+      System = XyzReadStruct(struct_file);
       break;
-    case 2: // lmp
-      System = LmpDataRead(in_lmp);
+    case LTRJ_FILE:
+      System = LtrjReadStruct(struct_file);
       break;
-    case 3: // field
-      System = FieldRead(in_field);
+    case LDATA_FILE:
+      System = LmpDataRead(struct_file);
       break;
-  }
-  // pbc from vcf/vtf coordinate file
-  // TODO: do I need pbc now? VtfSkipTimestep should read them (and so should
-  //       LmpReadCoor)
-  if (coor_type == 1) {
-    VtfReadPBC(in_coor, &System.Box);
+    case FIELD_FILE:
+      System = FieldRead(struct_file);
+      break;
+    default:
+      strcpy(ERROR_MSG, "unspecified structure file; should never happen!");
+      PrintError();
+      exit(1);
   }
   WarnChargedSystem(System, in_vsf, in_field, in_lmp);
   // warn if missing box dimensions
@@ -259,7 +242,7 @@ acceptable only for xyz input coordinate file");
 
   // print initial stuff to output vcf file //{{{
   FILE *out = OpenFile(out_coor, "w");
-  if (coor_out_type == 0) {
+  if (coor_out_type == VCF_FILE) {
     PrintByline(out, argc, argv);
   }
   fclose(out); //}}}
@@ -309,8 +292,7 @@ acceptable only for xyz input coordinate file");
                n_opt_save[n_opt_count] == count_coor) {
       use = true;
       n_opt_count++;
-    }
-    //}}}
+    } //}}}
     if (use) { // read and write the timestep, if it should be saved //{{{
       if (!ReadTimestep(coor_type, coor, in_coor, &System, &file_line_count,
                         stuff)) {
