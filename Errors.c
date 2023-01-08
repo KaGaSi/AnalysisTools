@@ -12,29 +12,29 @@ void PrintError() {
   fprintf(stderr, "\n  %sERROR - %s%s\n", ErrRed(),
           ERROR_MSG, ErrColourReset());
 } //}}}
-// print 'WARNING: <option> - <ERROR_MSG>' in cyan and yellow //{{{
+// print 'WARNING <option> - <ERROR_MSG>' in cyan and yellow //{{{
 void PrintWarningOption(char *opt) {
   fprintf(stderr, "\n  %sWARNING: %s%s%s - %s%s\n", ErrCyan(),
           ErrYellow(), opt, ErrCyan(), ERROR_MSG, ErrColourReset());
 } //}}}
-// print 'ERROR: <option> - <ERROR_MSG>' in red and yellow //{{{
+// print 'ERROR <option> - <ERROR_MSG>' in red and yellow //{{{
 void PrintErrorOption(char *opt) {
   fprintf(stderr, "\n  %sERROR: %s%s%s - %s%s\n", ErrRed(),
           ErrYellow(), opt, ErrRed(), ERROR_MSG, ErrColourReset());
 } //}}}
-// print 'ERROR: - <ERROR_MSG>\nFile <file(s)>' //{{{
+// print 'ERROR - <ERROR_MSG>\nFile <file(s)>' //{{{
 void PrintErrorFile(char file1[], char file2[], char file3[]) {
   PrintError();
   ErrorPrintFile(file1, file2, file3);
 //putc('\n', stderr);
 } //}}}
-// print 'WARNING: - <ERROR_MSG>\nFile <file(s)>' //{{{
+// print 'WARNING - <ERROR_MSG>\nFile <file(s)>' //{{{
 void PrintWarnFile(char file1[], char file2[], char file3[]) {
   PrintWarning();
   WarnPrintFile(file1, file2, file3);
 //putc('\n', stderr);
 } //}}}
-// print 'ERROR: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>' //{{{
+// print 'ERROR - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>' //{{{
 void PrintErrorFileLine(char file[], int count,
                         char *split[SPL_STR], int words) {
   PrintError();
@@ -42,7 +42,7 @@ void PrintErrorFileLine(char file[], int count,
   fprintf(stderr, "%s, line %s%d%s:\n", ErrRed(), ErrYellow(), count, ErrRed());
   ErrorPrintLine2(split, words);
 } //}}}
-// print 'WARNING: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>' //{{{
+// print 'WARNING - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>' //{{{
 void PrintWarningFileLine(char file[], int count,
                           char *split[SPL_STR], int words) {
   PrintWarning();
@@ -80,6 +80,14 @@ void ErrorPrintFile(char file1[], char file2[], char file3[]) {
   f[0] = file1;
   f[1] = file2;
   f[2] = file3;
+  if (strcmp(f[0], f[1]) == 0) {
+    f[1] = "\0";
+  } else if (strcmp(f[0], f[2]) == 0) {
+    f[2] = "\0";
+  }
+  if (strcmp(f[1], f[2]) == 0) {
+    f[2] = "\0";
+  }
   int n_files = 0;
   for (int i = 0; i < 3; i++) {
     if (f[i][0] != '\0') {
@@ -120,6 +128,13 @@ void WarnPrintLine(char *split[SPL_STR], int words) {
   PrintLine2(stderr, split, words, CYAN, YELLOW);
 }
 //}}}
+// print 'ERROR - premature end of file\n<file>\n' //{{{
+void ErrorEOF(char file1[]) {
+  strcpy(ERROR_MSG, "premature end of file");
+  PrintError();
+  ErrorPrintFile(file1, "\0", "\0");
+  putc('\n', stderr);
+} //}}}
  //}}}
 
 // ErrorArgNumber() //{{{
@@ -174,12 +189,15 @@ void ErrorOption(char *option) {
   PrintErrorOption(option);
 } //}}}
 
-void ErrorBeadType(SYSTEM System) { //{{{
-  fprintf(stderr, "     Possible bead names: %s\n", System.BeadType[0].Name);
+void ErrorBeadType(char *name, SYSTEM System) { //{{{
+  fprintf(stderr, "%s; illegal name: %s%s%s\n",
+          ErrRed(), ErrYellow(), name, ErrRed());
+  fprintf(stderr, "Possible names:%s %s\n",
+          ErrYellow(), System.BeadType[0].Name);
   for (int i = 1; i < System.Count.BeadType; i++) {
-    fprintf(stderr, "                          %s\n", System.BeadType[i].Name);
+    fprintf(stderr, "                %s\n", System.BeadType[i].Name);
   }
-  putc('\n', stderr);
+  fprintf(stderr, "%s\n", ErrColourReset());
 } //}}}
 void ErrorMoleculeType(SYSTEM System) { //{{{
   fprintf(stderr, "   Possible molecule names: %s\n",
@@ -403,15 +421,6 @@ void WarnStopReading2(char *vcf_file, int line_count, int step_count,
   ColourChange(STDERR_FILENO, CYAN);
   fputs(":\n", stderr);
 //PrintLine2(split, words, YELLOW, CYAN);
-} //}}}
-
-// ErrorEOF() //{{{
-void ErrorEOF(char file1[]) {
-  strcpy(ERROR_MSG, "premature end of file");
-  PrintError();
-  ErrorPrintFile(file1, "\0", "\0");
-  putc('\n', stderr);
-  exit(1);
 } //}}}
 
 // TODO remove

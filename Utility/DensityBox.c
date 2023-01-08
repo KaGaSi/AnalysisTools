@@ -176,12 +176,7 @@ acceptable only for xyz input coordinate file");
   // TODO: do I need pbc now? VtfSkipTimestep should read them (and so should
   //       LmpReadCoor)
   if (coor_type == 1) {
-    VtfReadPBC(in_coor, &System.Box);
-  }
-  if (!TriclinicCellData(&System.Box, 1)) {
-    strcpy(ERROR_MSG, "wrong pbc data");
-    PrintError();
-    exit(1);
+    System.Box = VtfReadPBC(in_coor);
   }
   WarnChargedSystem(System, in_vsf, in_field, in_lmp);
   // warn if missing box dimensions

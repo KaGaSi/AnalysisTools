@@ -258,7 +258,6 @@ int main(int argc, char *argv[]) {
   fgets(line, sizeof line, agg);
   fgets(line, sizeof line, agg); //}}}
 
-
   // allocate Aggregate struct //{{{
   AGGREGATE *Aggregate = calloc(Counts.Molecules, sizeof (AGGREGATE));
   for (int i = 0; i < Counts.Molecules; i++) {

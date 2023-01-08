@@ -1,8 +1,5 @@
 #include "../AnalysisTools.h"
 
-// TODO: -e X --last leads to leaving at step X and saving that as the last;
-//       is that okay?
-
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
   if (error) {
@@ -25,21 +22,21 @@ containing all beads of any given type, so the usefulness is very limited \
   fprintf(ptr, "   <input>           input coordinate file \
 (vcf, vtf or xyz format)\n");
   fprintf(ptr, "   <output.vcf>      output coordinate file (vcf format)\n");
-  fprintf(ptr, "   <bead(s)>         names of bead types to save \
-(optional if '--reverse' used)\n");
+  fprintf(ptr, "   <bead(s)>         names of bead types to save"
+          " (optional if '--reverse' used)\n");
   fprintf(ptr, "   [options]\n");
-  fprintf(ptr, "      --reverse      reverse <bead name(s)>, i.e., exclude \
-the specified bead types (use all if no <bead names> are present)\n");
+  fprintf(ptr, "      --reverse      reverse <bead name(s)>, i.e., exclude the"
+          " specified bead types (use all if no <bead names> are present)\n");
   fprintf(ptr, "      --join         join molecules (remove pbc)\n");
   fprintf(ptr, "      --wrap         wrap coordinates (i.e., apply pbc)\n");
   fprintf(ptr, "      -st <int>      starting timestep for calculation\n");
   fprintf(ptr, "      -e <end>       ending timestep for calculation\n");
   fprintf(ptr, "      -sk <skip>     leave out every 'skip' steps\n");
-  fprintf(ptr, "      -n <int(s)>    save only specified timesteps \
-(if --last option is used, save also the last timestep)\n");
+  fprintf(ptr, "      -n <int(s)>    save only specified timesteps"
+          "(if --last option is used, save also the last timestep)\n");
   fprintf(ptr, "      -x <name(s)>   exclude specified molecule(s)\n");
-  fprintf(ptr, "      --last         use only the last step \
-(-st/-e options are ignored; -n option is not)\n");
+  fprintf(ptr, "      --last         use only the last step"
+          "(-st/-e options are ignored; -n option is not)\n");
   CommonHelp(error);
 } //}}}
 
@@ -73,14 +70,13 @@ int main(int argc, char *argv[]) {
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] == '-' && strcmp(argv[i], "-l_in") != 0 &&
-        strcmp(argv[i], "-i") != 0 &&
-        strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--detailed") != 0 &&
+        strcmp(argv[i], "-i") != 0 && strcmp(argv[i], "-v") != 0 &&
+        strcmp(argv[i], "--detailed") != 0 && strcmp(argv[i], "-st") != 0 &&
         strcmp(argv[i], "--silent") != 0 && strcmp(argv[i], "-h") != 0 &&
-        strcmp(argv[i], "--version") != 0 &&
         strcmp(argv[i], "--reverse") != 0 && strcmp(argv[i], "--join") != 0 &&
-        strcmp(argv[i], "--wrap") != 0 && strcmp(argv[i], "-st") != 0 &&
-        strcmp(argv[i], "-e") != 0 && strcmp(argv[i], "-sk") != 0 &&
-        strcmp(argv[i], "-n") != 0 && strcmp(argv[i], "-x") != 0 &&
+        strcmp(argv[i], "--wrap") != 0 && strcmp(argv[i], "-e") != 0 &&
+        strcmp(argv[i], "-sk") != 0 && strcmp(argv[i], "-n") != 0 &&
+        strcmp(argv[i], "-x") != 0 && strcmp(argv[i], "--version") != 0 &&
         strcmp(argv[i], "--last") != 0) {
       ErrorOption(argv[i]);
       Help(argv[0], true);
@@ -91,21 +87,16 @@ int main(int argc, char *argv[]) {
   count = 0; // count mandatory arguments
 
   // <input> - input coordinate file //{{{
-  char in_coor[LINE] = "", in_vsf[LINE] = "", in_lmp[LINE] = "",
-       in_field[LINE] = "", struct_file[LINE] = "";
+  char in_coor[LINE] = "", struct_file[LINE] = "";
   int coor_type, struct_type = 0;
   snprintf(in_coor, LINE, "%s", argv[++count]);
   if (!InputCoorStruct(argc, argv, in_coor, &coor_type,
                        struct_file, &struct_type)) {
-    strcpy(ERROR_MSG, "WTF?!?");
-    PrintError();
     exit(1);
   } //}}}
 
   // <output> - output vcf file //{{{
   char out_coor[LINE] = "";
-  // 0..vcf, 1..xyz, 2...lammpstrj
-  int coor_out_type;
   snprintf(out_coor, LINE, "%s", argv[++count]);
   // test if <output.vcf> ends with '.vcf'
   int ext = 3;
@@ -113,7 +104,7 @@ int main(int argc, char *argv[]) {
   strcpy(extension[0], ".vcf");
   strcpy(extension[1], ".xyz");
   strcpy(extension[2], ".lammpstrj");
-  coor_out_type = ErrorExtension(out_coor, ext, extension);
+  int coor_out_type = ErrorExtension(out_coor, ext, extension);
   if (coor_out_type == 0) {
     coor_out_type = VCF_FILE;
   } else if (coor_out_type == 1) {
@@ -133,53 +124,18 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   skip++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
-  // should output coordinates be joined?
   bool join = BoolOption(argc, argv, "--join");
-  // should output coordinates be wrapped?
   bool wrap = BoolOption(argc, argv, "--wrap");
   int start, end;
   StartEndTime(argc, argv, &start, &end);
-  // use only the last step?
   bool last = BoolOption(argc, argv, "--last");
   //}}}
 
-  // print command to stdout //{{{
   if (!silent) {
     PrintCommand(stdout, argc, argv);
-  } //}}}
-
-  // read input data //{{{
-  // TODO: change according to the new InputCoorStruct()
-  SYSTEM System;
-  switch (struct_type) {
-    case VSF_FILE:
-      System = VtfReadStruct(struct_file, detailed);
-      break;
-    case XYZ_FILE:
-      System = XyzReadStruct(struct_file);
-      break;
-    case LTRJ_FILE:
-      System = LtrjReadStruct(struct_file);
-      break;
-    case LDATA_FILE:
-      System = LmpDataRead(struct_file);
-      break;
-    case FIELD_FILE:
-      System = FieldRead(struct_file);
-      break;
-    default:
-      strcpy(ERROR_MSG, "unspecified structure file; should never happen!");
-      PrintError();
-      exit(1);
   }
-  WarnChargedSystem(System, in_vsf, in_field, in_lmp);
-  // warn if missing box dimensions
-  if (System.Box.Volume == -1) {
-    strcpy(ERROR_MSG, "unspecified box dimensions");
-    PrintWarning();
-    WarnPrintFile(struct_file, in_coor, "\0");
-    putc('\n', stderr);
-  } //}}}
+
+  SYSTEM System = ReadStructure(struct_type, struct_file, detailed);
 
   // <bead names> - names of bead types to save //{{{
   bool *write = calloc(System.Count.Bead, sizeof *write),
@@ -187,15 +143,9 @@ int main(int argc, char *argv[]) {
   while (++count < argc && argv[count][0] != '-') {
     int type = FindBeadType(argv[count], System);
     if (type == -1) {
-      ErrorPrintError_old();
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "%s", in_coor);
-      ColourChange(STDERR_FILENO, RED);
-      fprintf(stderr, " - non-existent bead name ");
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "%s\n", argv[count]);
-      ColourReset(STDERR_FILENO);
-      ErrorBeadType(System);
+      strcpy(ERROR_MSG, "non-existent bead name");
+      PrintErrorFile(struct_file, in_coor, "\0");
+      ErrorBeadType(argv[count], System);
       exit(1);
     }
     write_bt[type] = true;
@@ -304,7 +254,8 @@ int main(int argc, char *argv[]) {
       WriteTimestep(coor_out_type, out_coor, System, count_coor, stuff, write);
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
-      if (!SkipTimestep(coor_type, coor, in_coor, in_vsf, &file_line_count)) {
+      if (!SkipTimestep(coor_type, coor, in_coor,
+                        struct_file, &file_line_count)) {
         count_coor--;
         break;
       }
@@ -346,8 +297,8 @@ int main(int argc, char *argv[]) {
     ErrorPrintFile(in_coor, "\0", "\0");
     fputc('\n', stderr); //}}}
   } else if (start > count_coor) { // warn if no timesteps were written //{{{
-    strcpy(ERROR_MSG, "no coordinates written (starting timestep higher \
-than the number of timestep)");
+    strcpy(ERROR_MSG, "no coordinates written (starting timestep higher"
+           " than the number of timestep)");
     PrintWarning(); //}}}
   } else if (!silent) { // print last step count? //{{{
     if (isatty(STDOUT_FILENO)) {

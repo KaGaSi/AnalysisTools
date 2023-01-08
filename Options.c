@@ -183,17 +183,9 @@ bool BeadTypeOption(int argc, char **argv, char *opt,
       while (++types < argc && argv[types][0] != '-') {
         int type = FindBeadType(argv[types], *System);
         if (type == -1) {
-          ErrorPrintError_old();
-          ColourChange(STDERR_FILENO, YELLOW);
-          fprintf(stderr, "%s", opt);
-          ColourChange(STDERR_FILENO, RED);
-          fprintf(stderr, " - non-existent ");
-          ColourChange(STDERR_FILENO, YELLOW);
-          fprintf(stderr, "%s", argv[types]);
-          ColourChange(STDERR_FILENO, RED);
-          fprintf(stderr, " bead type\n\n");
-          ColourReset(STDERR_FILENO);
-          ErrorBeadType(*System);
+          strcpy(ERROR_MSG, "non-existent bead name");
+          PrintError();
+          ErrorBeadType(argv[types], *System);
           return(true);
         }
         flag[type] = true;

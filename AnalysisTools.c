@@ -185,7 +185,6 @@ int InputCoorStruct_old(int argc, char **argv, char coor[], char vsf[], char lmp
 // TODO: make structure files' recognition extension-based (or 'FIELD')
 bool InputCoorStruct(int argc, char **argv, char coor[], int *coor_type,
                      char struc[], int *struc_type) {
-  bool fine = true; // return value
   int ext;
   char extension[6][EXTENSION];
   // input structure file (-i option) //{{{
@@ -223,6 +222,8 @@ bool InputCoorStruct(int argc, char **argv, char coor[], int *coor_type,
         case 5:
           *struc_type = FIELD_FILE;
           break;
+        default: // something wrong; should never happen
+          return false;
       }
     }
   } //}}}
@@ -275,9 +276,9 @@ bool InputCoorStruct(int argc, char **argv, char coor[], int *coor_type,
       }
       break;
     default: // something wrong; should never happen
-      fine = false;
+      return false;
   } //}}}
-  return fine;
+  return true;
 } //}}}
 
 // SameBeadType() //{{{
@@ -793,8 +794,7 @@ VECTOR Gyration(int n, int *list, COUNTS Counts, BEADTYPE *BeadType,
   GyrationTensor.y.z /= n;
   GyrationTensor.z.z /= n; //}}}
 
-  // char polynomial: a_cube * x^3 + b_cube * x^2 + c_cube * x + d_cube = 0
-  // //{{{
+  // char polynomial: a_cube * x^3 + b_cube * x^2 + c_cube * x + d_cube = 0 //{{{
   long double a_cube = -1;
   long double b_cube =
       GyrationTensor.x.x + GyrationTensor.y.y + GyrationTensor.z.z;

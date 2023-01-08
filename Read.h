@@ -27,6 +27,7 @@ void FillMoleculeTypeDihedral(SYSTEM *System, int (*angle)[5], int nbonds);
 void FillMoleculeTypeImproper(SYSTEM *System, int (*angle)[5], int nbonds);
 
 void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join);
+SYSTEM ReadStructure(int struct_type, char struct_file[], bool detailed);
 bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
                   int *file_line_count, char stuff[]);
 bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],
@@ -40,7 +41,7 @@ void RemoveExtraTypes(SYSTEM *System);
 void MergeBeadTypes(SYSTEM *System, bool detailed);
 void MergeMoleculeTypes(SYSTEM *System);
 // Get the first pbc line from a vcf/vsf/vtf coordinate file.
-void VtfReadPBC(char input[], BOX *Box);
+BOX VtfReadPBC(char input[]);
 // Read a single timestep from a vcf/vtf coordinate file
 bool VtfReadTimestep(FILE *vcf, char vcf_file[],
                      SYSTEM *System, int *file_line_count, char stuff[]);
@@ -97,10 +98,11 @@ void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
 void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
                           int (*improper)[5], int *file_line_count);
 SYSTEM LtrjReadStruct(char file[]);
+BOX LtrjReadPBC(char file[]);
 bool LtrjReadTimestep(FILE *f, char ltrj_file[],
                      SYSTEM *System, int *file_line_count);
 bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count);
-bool LmpReadPBC(FILE *f, char file[], BOX *box, int *file_line_count);
+bool LtrjReadPBCSection(FILE *f, char file[], BOX *box, int *file_line_count);
 void LtrjFillItemAtomVariables(int n, char var[n][10]);
 int LtrjReadItemAtomsLine(FILE *fr, char file[], int n, int *var_position,
                           char vars[n][10]);

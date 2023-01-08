@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] == '-' &&
-        strcmp(argv[i], "-l_in") != 0 && strcmp(argv[i], "-vs_in") != 0 &&
+        strcmp(argv[i], "-i") != 0 &&
         strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--detailed") != 0 &&
         strcmp(argv[i], "--silent") != 0 && strcmp(argv[i], "-h") != 0 &&
         strcmp(argv[i], "--version") != 0 && strcmp(argv[i], "-st") != 0 &&
@@ -89,33 +89,11 @@ int main(int argc, char *argv[]) {
   count = 0; // count mandatory arguments
 
   // <input> - input coordinate file //{{{
-  char in_coor[LINE] = "", in_vsf[LINE] = "", in_lmp[LINE] = "",
-       in_field[LINE] = "", *struct_file;
+  char in_coor[LINE] = "", struct_file[LINE] = "";
   int coor_type, struct_type = 0;
   snprintf(in_coor, LINE, "%s", argv[++count]);
-  // coor_type: 1..vcf, 2..xyz, 3..lammpstrj
-  coor_type = InputCoorStruct_old(argc, argv, in_coor, in_vsf, in_lmp, in_field);
-  if (coor_type == -1) {
-    exit(1);
-  }
-  // struct_type: 1..vsf, 2..lmp, 3..FIELD
-  if (in_vsf[0] != '\0') {
-    struct_type = 1;
-    struct_file = in_vsf;
-  } else if (in_lmp[0] != '\0') {
-    struct_type = 2;
-    struct_file = in_lmp;
-  } else if (in_field[0] != '\0') {
-    struct_type = 3;
-    struct_file = in_field;
-  } else {
-    struct_file = "\0";
-  }
-  // error if no structure file specified (except when input is xyz)
-  if (struct_type == 0 && coor_type != 2 && coor_type != 3) {
-    strcpy(ERROR_MSG, "missing input structure file; \
-acceptable only for xyz input coordinate file");
-    PrintError();
+  if (!InputCoorStruct(argc, argv, in_coor, &coor_type,
+                       struct_file, &struct_type)) {
     exit(1);
   } //}}}
 
@@ -209,40 +187,14 @@ acceptable only for xyz input coordinate file");
   } //}}}
 
   // TODO: make reading various structure types into a function in Read.c
-  // read input data //{{{
-  SYSTEM System;
-  switch (struct_type) {
-  case 0: // xyz or lammpstrj
-    if (coor_type == 2) {
-      System = XyzReadStruct(in_coor);
-    } else {
-      System = LtrjReadStruct(in_coor);
-    }
-    break;
-  case 1: // vsf/vtf
-    System = VtfReadStruct(in_vsf, detailed);
-    break;
-  case 2: // lmp
-    System = LmpDataRead(in_lmp);
-    break;
-  case 3: // field
-    System = FieldRead(in_field);
-    break;
+  SYSTEM System = ReadStructure(struct_type, struct_file, detailed);
+
+  // read pbc - must be known to calculate number of bins
+  if (coor_type == VCF_FILE) {
+    System.Box = VtfReadPBC(in_coor);
+  } else if (coor_type == LTRJ_FILE) {
+    System.Box = LtrjReadPBC(in_coor);
   }
-  // pbc from vcf/vtf coordinate file
-  // TODO: do I need pbc now? VtfSkipTimestep should read them (and so should
-  //       LmpReadCoor)
-  if (coor_type == 1) {
-    VtfReadPBC(in_coor, &System.Box);
-  }
-  WarnChargedSystem(System, in_vsf, in_field, in_lmp);
-  // warn if missing box dimensions
-  if (System.Box.Volume == -1) {
-    strcpy(ERROR_MSG, "unspecified box dimensions");
-    PrintWarning();
-    WarnPrintFile(struct_file, in_coor, "\0");
-    putc('\n', stderr);
-  } //}}}
 
   // number of bins //{{{
   // TODO: variable box size? For now, assume at most twice the size
@@ -512,7 +464,8 @@ acceptable only for xyz input coordinate file");
       } //}}}
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
-      if (!SkipTimestep(coor_type, coor, in_coor, in_vsf, &file_line_count)) {
+      if (!SkipTimestep(coor_type, coor, in_coor,
+                        struct_file, &file_line_count)) {
         count_coor--;
         break;
       }

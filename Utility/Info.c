@@ -31,56 +31,26 @@ applies to molecules with the same name in both files.\n\n");
   }
 
   fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s [options]\n\n", cmd);
+  fprintf(ptr, "   %s <input> [options]\n\n", cmd);
+  fprintf(ptr, "   <input>               input structure file\n");
   fprintf(ptr, "   [options]\n");
   fprintf(ptr, "    input files:\n");
-  fprintf(ptr, "      -vs_in[!] <file.vsf>      vtf structure file\n");
-  fprintf(ptr, "      -vt_in[!] <file.vtf>      full vtf file\n");
-  fprintf(ptr, "      --detailed                differentiate bead types \
-not just by names (works only with -vs_in/-vt_in)\n");
-  fprintf(ptr, "      -vc_in <file.vcf>         vtf coordinate file\n");
-  fprintf(ptr, "      -x_in <file.xyz>          xyz coordinate file\n");
-  fprintf(ptr, "      -st <int>                 what timestep to use; \
-default: 1; for last, use '0' (works with -x_in or -vc_in)\n");
-  fprintf(ptr, "      -f_in[!] <file>           input FIELD-like file\n");
-  fprintf(ptr, "      -l_in[!] <file>           input lammps data file\n");
-  fprintf(ptr, "      -ltrj_in <file.lammpstrj> input lammps trajectory \
-file\n");
+  fprintf(ptr, "      -i[!] <file>       secondary structure file\n");
+  fprintf(ptr, "      --detailed         differentiate bead types"
+          " not just by names (works only with vtf structure file)\n");
+  fprintf(ptr, "      -c <file>          input coordinate file\n");
+  fprintf(ptr, "      -st <int>          what timestep to use;"
+          " default: 1; for last, use '0' (works with -x_in or -vc_in)\n");
   fprintf(ptr, "    output files:\n");
-  fprintf(ptr, "      -vs_out <file.vsf>        output vtf structure file\n");
-  fprintf(ptr, "      -def <bead name>          default bead type \
-(works with -vs_out)\n");
-  fprintf(ptr, "      -f_out <file>             output FIELD-like file\n");
-  fprintf(ptr, "      -l_out <file>             output lammps data file\n");
-  fprintf(ptr, "      --mass                    define lammps atom types by \
-mass, while printing per-atom charges in Atoms section (works with -l_out)\n");
-  fprintf(ptr, "      -vc_out <file.vcf>        output vtf coordinate file\n");
-  fprintf(ptr, "      -x_out <file.xyz>         output xyz coordinate file\n");
-  fprintf(ptr, "    general options:\n");
-  fprintf(ptr, "      -c_out <filename>         output CONFIG file \
-for dl_software\n");
-  fprintf(ptr, "      -v                        more verbose output\n");
-  fprintf(ptr, "      -h                        print this help and exit\n");
-  fprintf(ptr, "      --version                 print version and exit\n");
+  fprintf(ptr, "      -o <file>          output structure file\n");
+  fprintf(ptr, "      -def <bead name>   default bead type"
+          " (works with vsf output file)\n");
+  fprintf(ptr, "      --mass             define lammps atom types by mass, but"
+          "print per-atom charges in Atoms section (works with data file)\n");
+  fprintf(ptr, "      -v                 more verbose output\n");
+  fprintf(ptr, "      -h                 print this help and exit\n");
+  fprintf(ptr, "      --version          print version and exit\n");
 } //}}}
-
-// TODO: implement choosing coordinates - vcf/vtf/lmp/lammpstrj/xyz
-// TODO: implement choosing box dimensions - vcf/vtf/lmp/lammpstrj
-//       ...I guess it should be the same box size as are coordinetes; i.e.,
-//       when vcf/vtf/lammpstrj/lmp coordinate used, use the box from that file
-//       (if present)
-//       ...then again, choosing box can be after coordinate choosing, so should
-//       anyone want a different box, it doesn't mean any more work
-//       ...also possibly specify box dimension manually
-// TODO: make well-separated two sections
-//       1) read all systems into individual SYSTEM
-//          a) lammpstrj requires ReadLammpstrjStruct()
-//          b) vcf requires ReadVcfStruct() - akin to xyz but just 1 name (bt)
-//       2) choose systems
-//          i) primary system
-//          ii) add data from secondary (possibly terciary) system
-//          iii) add coordinates from proper system
-//          iv) add box dimensions
 
 int main(int argc, char *argv[]) {
 
@@ -94,7 +64,7 @@ int main(int argc, char *argv[]) {
       exit(0);
     }
   }
-  int req_args = 0; //}}}
+  int req_args = 1; //}}}
 
   // check if correct number of arguments //{{{
   int count = 0;
@@ -110,19 +80,13 @@ int main(int argc, char *argv[]) {
 
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' && strcmp(argv[i], "-x_in") != 0 &&
-        strcmp(argv[i], "-vs_in") != 0 && strcmp(argv[i], "-vs_in!") != 0 &&
-        strcmp(argv[i], "-vt_in") != 0 && strcmp(argv[i], "-vt_in!") != 0 &&
-        strcmp(argv[i], "-vc_in") != 0 && strcmp(argv[i], "-st") != 0 &&
-        strcmp(argv[i], "-f_in") != 0 && strcmp(argv[i], "-f_in!") != 0 &&
-        strcmp(argv[i], "-l_in") != 0 && strcmp(argv[i], "-l_in!") != 0 &&
-        strcmp(argv[i], "-ltrj_in") != 0 &&
-        strcmp(argv[i], "-vs_out") != 0 && strcmp(argv[i], "-def") != 0 &&
-        strcmp(argv[i], "-f_out") != 0 && strcmp(argv[i], "-l_out") != 0 &&
-        strcmp(argv[i], "--mass") != 0 && strcmp(argv[i], "-vc_out") != 0 &&
-        strcmp(argv[i], "-x_out") != 0 && strcmp(argv[i], "-c_out") != 0 &&
-        strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--detailed") != 0 &&
-        strcmp(argv[i], "-h") != 0 && strcmp(argv[i], "--version") != 0) {
+    if (argv[i][0] == '-' && strcmp(argv[i], "--mass") != 0 &&
+        strcmp(argv[i], "-i") != 0 && strcmp(argv[i], "-i!") != 0 &&
+        strcmp(argv[i], "-o") != 0 && strcmp(argv[i], "-c") != 0 &&
+        strcmp(argv[i], "-st") != 0 && strcmp(argv[i], "-def") != 0 &&
+        strcmp(argv[i], "--mass") != 0 && strcmp(argv[i], "-v") != 0 &&
+        strcmp(argv[i], "-h") != 0 && strcmp(argv[i], "--version") != 0 &&
+        strcmp(argv[i], "--detailed") != 0 ) {
 
       ErrorOption(argv[i]);
       Help(argv[0], true);
@@ -132,486 +96,257 @@ int main(int argc, char *argv[]) {
 
   count = 0; // count arguments
 
+  // <input> //{{{
+  char struct_file[LINE] = "";
+  int struct_type;
+  snprintf(struct_file, LINE, "%s", argv[++count]);
+  if (strcasecmp(struct_file, "FIELD") == 0) {
+    struct_type = FIELD_FILE;
+  } else {
+    int ext = 6;
+    char extension[ext][EXTENSION];
+    strcpy(extension[0], ".vsf");
+    strcpy(extension[1], ".vtf");
+    strcpy(extension[2], ".xyz");
+    strcpy(extension[3], ".lammpstrj");
+    strcpy(extension[4], ".data");
+    strcpy(extension[5], ".field");
+    ext = ErrorExtension(struct_file, ext, extension);
+    switch (ext) {
+      case 0:
+        struct_type = VSF_FILE;
+        break;
+      case 1:
+        struct_type = VSF_FILE;
+        break;
+      case 2:
+        struct_type = XYZ_FILE;
+        break;
+      case 3:
+        struct_type = LTRJ_FILE;
+        break;
+      case 4:
+        struct_type = LDATA_FILE;
+        break;
+      case 5:
+        struct_type = FIELD_FILE;
+        break;
+      default: // wrong extension
+        exit(1);
+    }
+  } //}}}
+
   // print command to stdout
   PrintCommand(stdout, argc, argv);
 
-  // input file names & other options //{{{
-  int ext;
-  char extension[2][EXTENSION];
-  // -vs_in[!] option //{{{
-  char input_vsf[LINE] = "\0";
-  bool change_beads_vsf = false;
-  if (FileOption(argc, argv, "-vs_in", input_vsf, LINE)) {
+  // -i[!] option //{{{
+  char struct_file_extra[LINE] = "";
+  int struct_type_extra;
+  bool change_beads = false;
+  if (FileOption(argc, argv, "-i", struct_file_extra, LINE)) {
     exit(1);
   }
-  if (input_vsf[0] == '\0') {
-    if (FileOption(argc, argv, "-vs_in!", input_vsf, LINE)) {
+  if (struct_file_extra[0] == '\0') {
+    if (FileOption(argc, argv, "-i!", struct_file_extra, LINE)) {
       exit(1);
     }
-    if (input_vsf[0] != '\0') {
-      change_beads_vsf = true;
+    if (struct_file_extra[0] != '\0') {
+      change_beads = true;
     }
   }
-  if (input_vsf[0] != '\0') {
-    ext = 2;
-    strcpy(extension[0], ".vsf");
-    strcpy(extension[1], ".vtf");
-    if (ErrorExtension(input_vsf, ext, extension) == -1) {
-      Help(argv[0], true);
-      exit(1);
+  if (struct_file_extra[0] != '\0') {
+    if (strcasecmp(struct_file_extra, "FIELD") == 0) {
+      struct_type_extra = FIELD_FILE;
+    } else {
+      int ext = 6;
+      char extension[ext][EXTENSION];
+      strcpy(extension[0], ".vsf");
+      strcpy(extension[1], ".vtf");
+      strcpy(extension[2], ".xyz");
+      strcpy(extension[3], ".lammpstrj");
+      strcpy(extension[4], ".data");
+      strcpy(extension[5], ".field");
+      ext = ErrorExtension(struct_file_extra, ext, extension);
+      switch (ext) {
+        case 0:
+          struct_type_extra = VSF_FILE;
+          break;
+        case 1:
+          struct_type_extra = VSF_FILE;
+          break;
+        case 2:
+          struct_type_extra = XYZ_FILE;
+          break;
+        case 3:
+          struct_type_extra = LTRJ_FILE;
+          break;
+        case 4:
+          struct_type_extra = LDATA_FILE;
+          break;
+        case 5:
+          struct_type_extra = FIELD_FILE;
+          break;
+        default: // wrong extension
+          exit(1);
+      }
     }
   } //}}}
-  // -vc_in option //{{{
-  char input_vcf[LINE] = "\0";
-  if (FileOption(argc, argv, "-vc_in", input_vcf, LINE)) {
+  // input coordinate file (-c option) //{{{
+  char coor_file[LINE] = "";
+  int coor_type;
+  if (FileOption(argc, argv, "-c", coor_file, LINE)) {
     exit(1);
   }
-  if (input_vcf[0] != '\0') {
-    ext = 2;
+  if (coor_file[0] != '\0') {
+    int ext = 4;
+    char extension[ext][EXTENSION];
     strcpy(extension[0], ".vcf");
     strcpy(extension[1], ".vtf");
-    if (ErrorExtension(input_vcf, ext, extension) == -1) {
-      Help(argv[0], true);
-      exit(1);
+    strcpy(extension[2], ".xyz");
+    strcpy(extension[3], ".lammpstrj");
+    ext = ErrorExtension(coor_file, ext, extension);
+    // define coordinate type and possibly vtf structure file
+    switch (ext) {
+      case 0:
+        coor_type = VCF_FILE;
+        break;
+      case 1:
+        coor_type = VCF_FILE;
+        break;
+      case 2:
+        coor_type = XYZ_FILE;
+        break;
+      case 3: // lammpstrj
+        coor_type = LTRJ_FILE;
+        break;
+      default: // wrong extenstion
+        exit(1);
     }
   } //}}}
-  // -vt_in[!] option //{{{
-  char input_vtf[LINE] = "\0";
-  if (FileOption(argc, argv, "-vt_in", input_vtf, LINE)) {
+  // output structure file (-o option) //{{{
+  char struct_file_out[LINE] = "";
+  int struct_type_out;
+  if (FileOption(argc, argv, "-o", struct_file_out, LINE)) {
     exit(1);
   }
-  if (input_vtf[0] == '\0') {
-    if (FileOption(argc, argv, "-vt_in!", input_vtf, LINE)) {
-      exit(1);
-    }
-    if (input_vtf[0] != '\0') {
-      change_beads_vsf = true;
-    }
-  }
-  if (input_vtf[0] != '\0') {
-    ext = 1;
-    strcpy(extension[0], ".vtf");
-    if (ErrorExtension(input_vtf, ext, extension) == -1) {
-      Help(argv[0], true);
-      exit(1);
-    }
-    strcpy(input_vcf, input_vtf);
-    strcpy(input_vsf, input_vtf);
-  } //}}}
-  bool detailed = BoolOption(argc, argv, "--detailed");
-  // -x_in option //{{{
-  char input_xyz[LINE] = "\0";
-  if (FileOption(argc, argv, "-x_in", input_xyz, LINE)) {
-    exit(1);
-  }
-  if (input_xyz[0] != '\0') {
-    ext = 1;
-    strcpy(extension[0], ".xyz");
-    if (ErrorExtension(input_xyz, ext, extension) == -1) {
-      Help(argv[0], true);
-      exit(1);
+  if (struct_file_out[0] != '\0') {
+    if (strcasecmp(struct_file_out, "FIELD") == 0) {
+      struct_type_out = FIELD_FILE;
+    } else if (strcasecmp(struct_file_out, "CONFIG") == 0) {
+      struct_type_out = CONFIG_FILE;
+    } else {
+      int ext = 3;
+      char extension[ext][EXTENSION];
+      strcpy(extension[0], ".vsf");
+      strcpy(extension[1], ".data");
+      strcpy(extension[2], ".field");
+      ext = ErrorExtension(struct_file_out, ext, extension);
+      switch (ext) {
+        case 0:
+          struct_type_out = VSF_FILE;
+          break;
+        case 1:
+          struct_type_out = LDATA_FILE;
+          break;
+        case 2:
+          struct_type_out = FIELD_FILE;
+          break;
+        default: // wrong extension
+          exit(1);
+      }
     }
   } //}}}
-  // timestep to use coordinates from //{{{
+  // timestep to use coordinates from (-st option) //{{{
   int timestep = 1;
   if (IntegerOption(argc, argv, "-st", &timestep)) {
     exit(1);
-  } //}}}
-  // -f_in[!] option //{{{
-  char input_field[LINE] = "\0";
-  bool change_beads_field = false;
-  if (FileOption(argc, argv, "-f_in", input_field, LINE)) {
-    exit(1);
   }
-  if (input_field[0] == '\0') {
-    if (FileOption(argc, argv, "-f_in!", input_field, LINE)) {
-      exit(1);
-    }
-    if (input_field[0] != '\0') {
-      change_beads_field = true;
-    }
-  } //}}}
-  // -l_in[!] option //{{{
-  char input_lmp[LINE] = "\0";
-  bool change_beads_lmp = false;
-  if (FileOption(argc, argv, "-l_in", input_lmp, LINE)) {
-    exit(1);
-  }
-  if (input_lmp[0] == '\0') {
-    if (FileOption(argc, argv, "-l_in!", input_lmp, LINE)) {
-      exit(1);
-    }
-    if (input_lmp[0] != '\0') {
-      change_beads_lmp = true;
-    }
-  }
-  //}}}
-  // -ltrj_in option //{{{
-  char input_ltrj[LINE] = "\0";
-  if (FileOption(argc, argv, "-ltrj_in", input_ltrj, LINE)) {
-    exit(1);
-  }
-  if (input_ltrj[0] != '\0') {
-    ext = 2;
-    strcpy(extension[0], ".lammpstrj");
-    if (ErrorExtension(input_ltrj, ext, extension) == -1) {
-      Help(argv[0], true);
-      exit(1);
-    }
-  } //}}}
-  // error - no input file with structure information //{{{
-  if (input_vsf[0] == '\0' && input_field[0] == '\0' &&
-      input_lmp[0] == '\0' && input_xyz[0] == '\0' &&
-      input_ltrj[0] == '\0') {
-    strcpy(ERROR_MSG, "no input file");
-    PrintError();
-    Help(argv[0], true);
-    exit(1);
-  } //}}}
-  //}}}
-
-  // options before reading system data
+  timestep--; //}}}
+  bool detailed = BoolOption(argc, argv, "--detailed");
   bool verbose = BoolOption(argc, argv, "-v");
 
   // read information from input file(s) //{{{
-  SYSTEM vsf, field, lmp, xyz, ltrj;
-  SYSTEM *System; // pointer to one of the above SYSTEMs
-  // find the first structure file and read it //{{{
-  int vs_in = 1e2, f_in = 1e2, l_in = 1e2;
-  for (int i = 0; i < argc; i++) {
-    if (strncmp(argv[i], "-vs_in", 6) == 0 ||
-        strncmp(argv[i], "-vt_in", 6) == 0) {
-      vs_in = i;
-    }
-    if (strcmp(argv[i], "-f_in") == 0 ||
-        strcmp(argv[i], "-f_in!") == 0) {
-      f_in = i;
-    }
-    if (strcmp(argv[i], "-l_in") == 0 ||
-        strcmp(argv[i], "-l_in!") == 0) {
-      l_in = i;
-    }
-  } //}}}
-  int primary = Min3(vs_in, f_in, l_in);
-  // read vsf input if present //{{{
-  if (input_vsf[0] != '\0') {
-    vsf = VtfReadStruct(input_vsf, detailed);
+  SYSTEM System = ReadStructure(struct_type, struct_file, detailed);
+  if (verbose) {
+    printf("System in %s:\n", struct_file);
+    VerboseOutput(System);
+  }
+  SYSTEM Sys_extra;
+  if (struct_file_extra[0] != '\0') {
+    Sys_extra = ReadStructure(struct_type_extra, struct_file_extra, detailed);
     if (verbose) {
-      printf("System in %s:\n", input_vsf);
-      VerboseOutput(vsf);
-    }
-  } //}}}
-  // read FIELD input if present //{{{
-  if (input_field[0] != '\0') {
-    field = FieldRead(input_field);
-    if (verbose) {
-      printf("System in %s:\n", input_field);
-      VerboseOutput(field);
-    }
-  } //}}}
-  // read lammps input if present //{{{
-  if (input_lmp[0] != '\0') {
-    lmp = LmpDataRead(input_lmp);
-    if (verbose) {
-      printf("System in %s:\n", input_lmp);
-      VerboseOutput(lmp);
-    }
-  } //}}}
-  // read xyz input if present //{{{
-  if (input_xyz[0] != '\0') {
-    xyz = XyzReadStruct(input_xyz);
-    if (verbose) {
-      printf("System in %s:\n", input_xyz);
-      VerboseOutput(xyz);
-    }
-  } //}}}
-  // read lammpstrj input if present //{{{
-  if (input_ltrj[0] != '\0') {
-    ltrj = LtrjReadStruct(input_ltrj);
-    if (verbose) {
-      printf("System in %s:\n", input_ltrj);
-      VerboseOutput(ltrj);
-    }
-  } //}}}
-  // assign primary system //{{{
-  char *struct_in;
-  if (primary == 100) { // xyz if no 'real' structure file
-    if (input_xyz[0] != '\0') {
-      System = &xyz;
-      struct_in = input_xyz;
-    } else if (input_ltrj[0] != '\0') {
-      System = &ltrj;
-      struct_in = input_ltrj;
-    }
-  } else if (primary == vs_in) { // vsf structure file
-    System = &vsf;
-    struct_in = input_vsf;
-  } else if (primary == f_in) { // field structure file
-    System = &field;
-    struct_in = input_field;
-  } else { // lammps data file
-    System = &lmp;
-    struct_in = input_lmp;
-  } //}}}
-  // first, all beads are in the timestep; revised if coordinates supplied //{{{
-  for (int i = 0; i < System->Count.Bead; i++) {
-    System->Bead[i].InTimestep = true;
-  } //}}}
-  // extra input (if present) //{{{
-  if (primary == vs_in) { // primary input: vtf
-    if (input_field[0] != '\0') {
-      ChangeMolecules(System, field, change_beads_field, true);
-//printf("%sJust Before Pruning\n", Green());
-//VerboseOutput(*System);
-//printf("%s", ColourReset());
-      CheckSystem(*System, input_field);
-    }
-    if (input_lmp[0] != '\0') {
-      ChangeMolecules_old(System, lmp, change_beads_lmp, false);
-      CheckSystem(*System, input_lmp);
-    }
-  } else if (primary == l_in) { // primary input: lammps data
-    if (input_field[0] != '\0') {
-      ChangeMolecules_old(System, field, change_beads_field, false);
-      CheckSystem(*System, input_field);
-    }
-    if (input_vsf[0] != '\0') {
-      ChangeMolecules_old(System, vsf, change_beads_vsf, false);
-      CheckSystem(*System, input_vsf);
-    }
-  } else if (primary == f_in) { // primary input: FIELD
-    if (input_lmp[0] != '\0') {
-      ChangeMolecules_old(System, lmp, change_beads_lmp, false);
-      CheckSystem(*System, input_lmp);
-    }
-    if (input_vsf[0] != '\0') {
-      ChangeMolecules_old(System, vsf, change_beads_vsf, false);
-      CheckSystem(*System, input_vsf);
-    }
-  } //}}}
-  // use coordinates from lmp if all coordinates in System are 0 //{{{
-  bool coor = false;
-  for (int i = 0; i < System->Count.Bead; i++) {
-    BEAD *b_i = &System->Bead[i];
-    if (b_i->Position.x != 0 || b_i->Position.y != 0 || b_i->Position.z != 0) {
-      coor = true;
-      break;
+      printf("System in %s:\n", struct_file_extra);
+      VerboseOutput(Sys_extra);
     }
   }
-  if (!coor) {
-    if (primary != l_in && input_lmp[0] != '\0') {
-      for (int i = 0; i < System->Count.Bead && i < lmp.Count.Bead; i++) {
-        System->Bead[i].Position = lmp.Bead[i].Position;
-      }
-    }
-  } //}}}
-  // use vcf coordinates if provided //{{{
+  // add extra info to original system
+  if (struct_file_extra[0] != '\0') {
+    ChangeMolecules(&System, Sys_extra, change_beads, true);
+    CheckSystem(System, struct_file_extra);
+  }
+  // all beads are in the timestep; revised if coordinates supplied
+  for (int i = 0; i < System.Count.Bead; i++) {
+    System.Bead[i].InTimestep = true;
+  }
+  // use coordinate from a separate file (-c option)
   char stuff[LINE];
-  if (input_vcf[0] != '\0') {
-    SYSTEM S_vcf_coor = CopySystem(*System);
-    VtfReadPBC(input_vcf, &S_vcf_coor.Box);
-    TriclinicCellData(&S_vcf_coor.Box, 0);
-    int l_count = 0;
-    FILE *fr = OpenFile(input_vcf, "r");
-    if (!VtfReadTimestep(fr, input_vcf, &S_vcf_coor, &l_count, stuff)) {
-      strcpy(ERROR_MSG, "no valid timestep found");
-      WarnPrintFile(input_vcf, "\0", "\0");
-      putc('\n', stderr);
-    } else {
-      for (int i = 0; i < System->Count.Bead; i++) {
-        System->Bead[i].InTimestep = false;
-      }
-      for (int i = 0; i < S_vcf_coor.Count.BeadCoor; i++) {
-        int id = S_vcf_coor.BeadCoor[i];
-        System->Bead[id].Position = S_vcf_coor.Bead[id].Position;
-        System->Bead[id].InTimestep = true;
-        System->BeadCoor[i] = id;
-      }
+  if (coor_file[0] != '\0') {
+    int file_line_count = 0;
+    FILE *fr = OpenFile(coor_file, "r");
+    for (int i = 0; i < timestep; i++) {
+      SkipTimestep(coor_type, fr, coor_file, struct_file, &file_line_count);
     }
-    System->Box = S_vcf_coor.Box;
+    ReadTimestep(coor_type, fr, coor_file, &System, &file_line_count, stuff);
     fclose(fr);
-    FreeSystem(&S_vcf_coor);
   } //}}}
-  // use lammpstrj coordinates if provided //{{{
-  if (input_ltrj[0] != '\0') {
-    SYSTEM S_ltrj_coor = CopySystem(*System);
-    int l_count = 0;
-    FILE *fr = OpenFile(input_ltrj, "r");
-    if (!LtrjReadTimestep(fr, input_ltrj, &S_ltrj_coor, &l_count)) {
-      strcpy(ERROR_MSG, "no valid timestep found");
-      PrintWarning();
-      WarnPrintFile(input_ltrj, "\0", "\0");
-      putc('\n', stderr);
-    } else {
-      for (int i = 0; i < System->Count.Bead; i++) {
-        System->Bead[i].InTimestep = false;
-      }
-      for (int i = 0; i < S_ltrj_coor.Count.BeadCoor; i++) {
-        int id = S_ltrj_coor.BeadCoor[i];
-        System->Bead[id].Position = S_ltrj_coor.Bead[id].Position;
-        System->Bead[id].InTimestep = true;
-        System->BeadCoor[i] = id;
-      }
-    }
-    fclose(fr);
-    FreeSystem(&S_ltrj_coor);
-  } //}}}
-  // use Box from lmp if Box is unspecified in System //{{{
-  if (System->Box.Volume == -1) {
-    if (input_lmp[0] != '\0' && lmp.Box.Volume != -1) {
-      System->Box = lmp.Box;
-    }
-    if (input_vsf[0] != '\0' && vsf.Box.Volume != -1) {
-      System->Box = vsf.Box;
-    }
-  } //}}}
-  // check electroneutrality //{{{
-  char *second, *third;
-  if (primary == vs_in) {
-    second = input_lmp;
-    third = input_field;
-  } else if (primary == l_in) {
-    second = input_vsf;
-    third = input_field;
-  } else {
-    second = input_vsf;
-    third = input_lmp;
-  }
-  WarnChargedSystem(*System, struct_in, second, third); //}}}
-  //}}}
 
-  // output file names & other options //{{{
-  // -vs_out option //{{{
-  char out_vsf[LINE] = "\0";
-  if (FileOption(argc, argv, "-vs_out", out_vsf, LINE)) {
-    exit(1);
-  }
-  if (out_vsf[0] != '\0') {
-    ext = 1;
-    strcpy(extension[0], ".vsf");
-    if (ErrorExtension(out_vsf, ext, extension) == -1) {
-      Help(argv[0], true);
-      exit(1);
-    }
-  } //}}}
-  // -def option //{{{
-  bool *def_type = calloc(System->Count.BeadType, sizeof *def_type);
-  if (BeadTypeOption(argc, argv, "-def", false, def_type, System)) {
+  WarnChargedSystem(System, struct_file, struct_file_extra, "\0");
+
+  // -def option (for vsf output file) //{{{
+  bool *def_type = calloc(System.Count.BeadType, sizeof *def_type);
+  if (BeadTypeOption(argc, argv, "-def", false, def_type, &System)) {
     exit(1);
   }
   int default_type = -1;
-  for (int i = 0; i < System->Count.BeadType; i++) {
+  for (int i = 0; i < System.Count.BeadType; i++) {
     if (def_type[i]) {
       default_type = i;
       break;
     }
   }
   free(def_type); //}}}
-  // -f_out option //{{{
-  char out_field[LINE] = "\0";
-  if (FileOption(argc, argv, "-f_out", out_field, LINE)) {
-    exit(1);
-  } //}}}
-  // -l_out option //{{{
-  char out_lmp[LINE] = "\0";
-  if (FileOption(argc, argv, "-l_out", out_lmp, LINE)) {
-    exit(1);
-  } //}}}
-  // use mass only for atom type definition (for -l_out)
+  // use mass only for atom type definition (for data output file)
   bool mass = BoolOption(argc, argv, "--mass");
-  // -vc_out option //{{{
-  char out_vcf[LINE] = "\0";
-  if (FileOption(argc, argv, "-vc_out", out_vcf, LINE)) {
-    exit(1);
-  }
-  if (out_vcf[0] != '\0') {
-    ext = 1;
-    strcpy(extension[0], ".vcf");
-    if (ErrorExtension(out_vcf, ext, extension) == -1) {
-      Help(argv[0], true);
-      exit(1);
-    }
-  } //}}}
-  // -x_out option //{{{
-  char out_xyz[LINE] = "\0";
-  if (FileOption(argc, argv, "-x_out", out_xyz, LINE)) {
-    exit(1);
-  }
-  if (out_xyz[0] != '\0') {
-    ext = 1;
-    strcpy(extension[0], ".xyz");
-    if (ErrorExtension(out_xyz, ext, extension) == -1) {
-      Help(argv[0], true);
-      exit(1);
-    }
-  } //}}}
-  // -c_out option //{{{
-  char out_config[LINE] = "\0";
-  if (FileOption(argc, argv, "-c_out", out_config, LINE)) {
-    exit(1);
-  } //}}}
-  //}}}
 
-  // printf("%sJust Before Pruning\n", Magenta());
-  // VerboseOutput(*System);
-  PruneSystem(System);
-  // printf("%s", ColourReset());
+  PruneSystem(&System);
 
   // print information //{{{
   printf("Final system composition:\n");
-  VerboseOutput(*System);
+  VerboseOutput(System);
   if (verbose) { // -v option
     fprintf(stdout, "Information about every bead:\n");
-    PrintBead(*System);
+    PrintBead(System);
     fprintf(stdout, "\nInformation about every molecule:\n");
-    PrintMolecule(*System);
+    PrintMolecule(System);
   } //}}}
 
-  // write output file(s)? //{{{
-  strcpy(stuff, "# Created via Info utility from AnalysisTools");
-  if (out_vsf[0] != '\0') {
-    VtfWriteStruct(out_vsf, *System, default_type);
-  }
-  if (out_field[0] != '\0') {
-    WriteField(*System, out_field);
-  }
-  if (out_lmp[0] != '\0') {
-    WriteLmpData(*System, out_lmp, false, mass);
-  }
-  bool *write = malloc(sizeof *write * System->Count.Bead);
-  for (int i = 0; i < System->Count.Bead; i++) {
-    write[i] = true;
-  }
-  if (out_vcf[0] != '\0') {
-    FILE *vcf = OpenFile(out_vcf, "w");
-    VtfWriteCoorIndexed(vcf, stuff, write, *System);
-    fclose(vcf);
-  }
-  if (out_xyz[0] != '\0') {
-    FILE *xyz = OpenFile(out_xyz, "w");
-    XyzWriteCoor(xyz, write, stuff, *System);
-    fclose(xyz);
-  }
-  if (out_config[0] != '\0') {
-    WriteConfig(*System, out_config);
-  }
-  free(write); //}}}
+  // write output file? //{{{
+  if (struct_file_out[0] != '\0') {
+    if (struct_type_out == VSF_FILE) {
+      VtfWriteStruct(struct_file_out, System, default_type);
+    } else if (struct_type_out == LDATA_FILE) {
+      WriteLmpData(System, struct_file_out, false, mass);
+    } else if (struct_type_out == CONFIG_FILE) {
+      WriteConfig(System, struct_file_out);
+    } else if (struct_type_out == FIELD_FILE) {
+      WriteField(System, struct_file_out);
+    }
+  } //}}}
 
   // free memory //{{{
-  if (input_vsf[0] != '\0') {
-    FreeSystem(&vsf);
-  }
-  if (input_field[0] != '\0') {
-    FreeSystem(&field);
-  }
-  if (input_lmp[0] != '\0') {
-    FreeSystem(&lmp);
-  }
-  if (input_xyz[0] != '\0') {
-    FreeSystem(&xyz);
-  }
-  if (input_ltrj[0] != '\0') {
-    FreeSystem(&ltrj);
+  FreeSystem(&System);
+  if (struct_file_extra[0] != '\0') {
+    FreeSystem(&Sys_extra);
   } //}}}
 
   return 0;

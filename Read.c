@@ -1009,6 +1009,40 @@ void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join) {
     FromFractionalCoor(System);
   }
 } //}}}
+// ReadStructure() //{{{
+SYSTEM ReadStructure(int struct_type, char struct_file[], bool detailed) {
+  SYSTEM System;
+  switch (struct_type) {
+    case VSF_FILE:
+      System = VtfReadStruct(struct_file, detailed);
+      break;
+    case XYZ_FILE:
+      System = XyzReadStruct(struct_file);
+      break;
+    case LTRJ_FILE:
+      System = LtrjReadStruct(struct_file);
+      break;
+    case LDATA_FILE:
+      System = LmpDataRead(struct_file);
+      break;
+    case FIELD_FILE:
+      System = FieldRead(struct_file);
+      break;
+    default:
+      strcpy(ERROR_MSG, "unspecified structure file; should never happen!");
+      PrintError();
+      exit(1);
+  }
+  WarnChargedSystem(System, struct_file, "\0", "\0");
+  // warn if missing box dimensions
+  if (System.Box.Volume == -1) {
+    strcpy(ERROR_MSG, "unspecified box dimensions in structure file");
+    PrintWarning();
+    WarnPrintFile(struct_file, "\0", "\0");
+    putc('\n', stderr);
+  }
+  return System;
+} //}}}
 // ReadTimestep() //{{{
 bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
                   int *file_line_count, char stuff[]) {
@@ -1270,8 +1304,8 @@ inside the structure block ");
   }
   // just check that it counts the beads correctly
   if (Count->Bead != (Count->Unbonded + Count->Bonded)) {
-    strcpy(ERROR_MSG, "something went wrong with bead counting; \
-contact developper\n");
+    strcpy(ERROR_MSG, "something went wrong with bead counting;"
+           " should never happen!\n");
     PrintError();
     exit(1);
   } //}}}
@@ -1283,14 +1317,15 @@ contact developper\n");
   MergeMoleculeTypes(&Sys);
   FillSystemNonessentials(&Sys);
   CheckSystem(Sys, struct_file);
-  VtfReadPBC(struct_file, &Sys.Box);
+  Sys.Box = VtfReadPBC(struct_file);
   return Sys;
 } //}}}
 // VtfReadPBC() //{{{
 /*
  * Get the first pbc line from the provided file.
  */
-void VtfReadPBC(char input[], BOX *Box) {
+BOX VtfReadPBC(char input[]) {
+  BOX Box = InitBox;
   // open the coordinate file
   FILE *fr = OpenFile(input, "r");
   int file_line_count = 0;
@@ -1304,18 +1339,18 @@ void VtfReadPBC(char input[], BOX *Box) {
     int ltype = VtfCheckLineType(input, file_line_count);
     // pbc line //{{{
     if (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) {
-      (*Box).Length.x = atof(split[1]);
-      (*Box).Length.y = atof(split[2]);
-      (*Box).Length.z = atof(split[3]);
+      Box.Length.x = atof(split[1]);
+      Box.Length.y = atof(split[2]);
+      Box.Length.z = atof(split[3]);
       // angles in pbc line; possibly triclinic cell
       if (ltype == PBC_LINE_ANGLES) {
-        (*Box).alpha = atof(split[4]);
-        (*Box).beta = atof(split[5]);
-        (*Box).gamma = atof(split[6]);
+        Box.alpha = atof(split[4]);
+        Box.beta = atof(split[5]);
+        Box.gamma = atof(split[6]);
       } else { // definitely orthogonal box
-        (*Box).alpha = 90;
-        (*Box).beta = 90;
-        (*Box).gamma = 90;
+        Box.alpha = 90;
+        Box.beta = 90;
+        Box.gamma = 90;
       }
       break; //}}}
       // coordinate line - return from function //{{{
@@ -1324,7 +1359,8 @@ void VtfReadPBC(char input[], BOX *Box) {
     } //}}}
   };
   fclose(fr);
-  TriclinicCellData(Box, 0);
+  TriclinicCellData(&Box, 0);
+  return Box;
 } //}}}
 // VtfReadTimestep() //{{{
 /*
@@ -1945,6 +1981,7 @@ void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{
   // error - missing 'Species' line
   if (!test) {
     ErrorEOF(field_file);
+    exit(1);
   } //}}}
   COUNT *Count = &System->Count;
   // read number of bead types //{{{
@@ -1960,6 +1997,7 @@ void FieldReadSpecies(char field_file[], SYSTEM *System) { //{{{
     file_line_count++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(field_file);
+      exit(1);
     }
     double mass, charge;
     long number;
@@ -2013,6 +2051,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
   // error - missing 'Species' line
   if (!test) {
     ErrorEOF(field_file);
+    exit(1);
   } //}}}
   // read number of types //{{{
   long val;
@@ -2048,6 +2087,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(field_file);
+      exit(1);
     } //}}}
     if (words == 0) {
       strcpy(ERROR_MSG, "missing molecule name");
@@ -2064,6 +2104,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(field_file);
+      exit(1);
     } //}}}
     if (words < 2 || strcasecmp(split[0], "nummols") != 0 ||
         !IsNaturalNumber(split[1], &val)) {
@@ -2078,6 +2119,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(field_file);
+      exit(1);
     } //}}}
     if (words < 2 || strncasecmp(split[0], "beads", 4) != 0 ||
         !IsNaturalNumber(split[1], &val)) {
@@ -2094,6 +2136,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
       // read a line //{{{
       if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
         ErrorEOF(field_file);
+        exit(1);
       } //}}}
       // error - incorrect line //{{{
       if (words < 4 || !IsRealNumber(split[1], &coor[j].x) ||
@@ -2108,7 +2151,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
       if (btype == -1) {
         strcpy(ERROR_MSG, "unknown bead in a molecule entry");
         PrintErrorFileLine(field_file, file_line_count, split, words);
-        ErrorBeadType(*System);
+        ErrorBeadType(split[0], *System);
         exit(1);
       } //}}}
       mt_i->Bead[j] = btype;
@@ -2164,6 +2207,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(field_file);
+      exit(1);
     } //}}}
     if (words > 1 && strncasecmp(split[0], "bonds", 4) == 0) {
       // a) number of bonds //{{{
@@ -2183,6 +2227,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR,
                               " \t\n")) {
           ErrorEOF(field_file);
+          exit(1);
         } //}}}
         long beads[2];
         PARAMS values = InitParams;
@@ -2268,6 +2313,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(field_file);
+      exit(1);
     } //}}}
     if (words > 1 && strncasecmp(split[0], "angles", 4) == 0) {
       // a) number of angles //{{{
@@ -2287,6 +2333,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR,
                               " \t\n")) {
           ErrorEOF(field_file);
+          exit(1);
         } //}}}
         long beads[3];
         PARAMS values = InitParams;
@@ -2380,6 +2427,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(field_file);
+      exit(1);
     } //}}}
     if (words > 1 && strncasecmp(split[0], "dihedrals", 5) == 0) {
       // a) number of dihedrals //{{{
@@ -2399,6 +2447,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR,
                               " \t\n")) {
           ErrorEOF(field_file);
+          exit(1);
         } //}}}
         long beads[4];
         PARAMS values = InitParams;
@@ -2494,6 +2543,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(field_file);
+      exit(1);
     } //}}}
     if (words > 1 && strncasecmp(split[0], "impropers", 6) == 0) {
       // a) number of impropers //{{{
@@ -2512,6 +2562,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
         if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR,
                               " \t\n")) {
           ErrorEOF(field_file);
+          exit(1);
         } //}}}
         long beads[4];
         PARAMS values = InitParams;
@@ -2608,6 +2659,7 @@ void FieldReadMolecules(char field_file[], SYSTEM *System) { //{{{
     // read a line //{{{
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(field_file);
+      exit(1);
     } //}}}
     if (words == 0 || strcasecmp(split[0], "finish") != 0) {
       strcpy(ERROR_MSG, "missing 'finish' at the end of a molecule entry");
@@ -2659,6 +2711,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp, SYSTEM *System,
   // ignore the first line //{{{
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(data_file);
+    exit(1);
   } //}}}
   *file_line_count = 1;
   // read until a line starting with capital letter //{{{
@@ -2669,6 +2722,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp, SYSTEM *System,
     // read a line
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(data_file);
+      exit(1);
     }
     // evaluate the line
     long val;
@@ -3003,11 +3057,13 @@ void LmpDataReadMasses(FILE *lmp, char data_file[], BEADTYPE name_mass[],
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(data_file);
+    exit(1);
   }
   for (int i = 0; i < lmp_types; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(data_file);
+      exit(1);
     }
     long type;
     double mass;
@@ -3048,11 +3104,13 @@ void LmpDataReadBondCoeffs(FILE *lmp, char data_file[], SYSTEM *System,
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(data_file);
+    exit(1);
   }
   for (int i = 0; i < Count->BondType; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(data_file);
+      exit(1);
     }
     long type;
     double a, b;
@@ -3085,11 +3143,13 @@ void LmpDataReadAngleCoeffs(FILE *lmp, char data_file[], SYSTEM *System,
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(data_file);
+    exit(1);
   }
   for (int i = 0; i < Count->AngleType; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(data_file);
+      exit(1);
     }
     long type;
     double a, b;
@@ -3122,11 +3182,13 @@ void LmpDataReadDihedralCoeffs(FILE *lmp, char data_file[], SYSTEM *System,
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(data_file);
+    exit(1);
   }
   for (int i = 0; i < Count->DihedralType; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(data_file);
+      exit(1);
     }
     long type;
     double a, b, c;
@@ -3162,11 +3224,13 @@ void LmpDataReadImproperCoeffs(FILE *lmp, char data_file[], SYSTEM *System,
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(data_file);
+    exit(1);
   }
   for (int i = 0; i < Count->ImproperType; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(data_file);
+      exit(1);
     }
     long type;
     double a, b, c;
@@ -3194,12 +3258,14 @@ void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(data_file);
+    exit(1);
   }
   bool warned = false; // to warn of undefined charge only once
   for (int i = 0; i < Count->Bead; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(data_file);
+      exit(1);
     }
     long id, resid, type;
     double q;
@@ -3347,11 +3413,13 @@ void LmpDataReadVelocities(FILE *lmp, char data_file[], SYSTEM *System,
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(data_file);
+    exit(1);
   }
   for (int i = 0; i < Count->Bead; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(data_file);
+      exit(1);
     }
     long id;
     VECTOR vel;
@@ -3378,12 +3446,14 @@ void LmpDataReadBonds(FILE *lmp, char data_file[], COUNT Count, int (*bond)[3],
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(data_file);
+    exit(1);
   }
   bool warned = false;
   for (int i = 0; i < Count.Bond; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(data_file);
+      exit(1);
     }
     long id, type, b_id[2];
     // errors //{{{
@@ -3446,11 +3516,13 @@ void LmpDataReadAngles(FILE *lmp, char data_file[], COUNT Count,
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(data_file);
+    exit(1);
   }
   for (int i = 0; i < Count.Angle; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(data_file);
+      exit(1);
     }
     long id, type, a_id[3];
     // errors //{{{
@@ -3506,11 +3578,13 @@ void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(data_file);
+    exit(1);
   }
   for (int i = 0; i < Count.Dihedral; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(data_file);
+      exit(1);
     }
     long id, type, d_id[4];
     // errors //{{{
@@ -3570,11 +3644,13 @@ void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
   (*file_line_count)++;
   if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(data_file);
+    exit(1);
   }
   for (int i = 0; i < Count.Improper; i++) {
     (*file_line_count)++;
     if (!ReadAndSplitLine(lmp, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(data_file);
+      exit(1);
     }
     long id, type, i_id[4];
     // errors //{{{
@@ -3642,6 +3718,7 @@ SYSTEM LtrjReadStruct(char file[]) { //{{{
     file_line_count++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(file);
+      exit(1);
     }
   }
   long val;
@@ -3657,7 +3734,7 @@ SYSTEM LtrjReadStruct(char file[]) { //{{{
   Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
   Sys.BeadCoor = realloc(Sys.BeadCoor, sizeof *Sys.BeadCoor * Count->BeadCoor);
   // read pbc //{{{
-  if (!LmpReadPBC(fr, file, &Sys.Box, &file_line_count)) {
+  if (!LtrjReadPBCSection(fr, file, &Sys.Box, &file_line_count)) {
     strcpy(ERROR_MSG, "wrong box dimensions line");
     PrintErrorFile(file, "\0", "\0");
     fprintf(stderr, "\n%sLine %s%d%s\n", ErrRed(), ErrYellow(), file_line_count,
@@ -3737,6 +3814,35 @@ wrong_coor_line:
   fprintf(stderr, "%s\n", ErrColourReset());
   exit(1);
 } //}}}
+BOX LtrjReadPBC(char file[]) { //{{{
+  BOX Box = InitBox;
+  FILE *fr = OpenFile(file, "r");
+  int file_line_count = 0;
+  fpos_t position; // to save file position
+  while (true) {
+    fgetpos(fr, &position); // LtrjReadPBCSection rereads ITEM: line
+    file_line_count++;
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      ErrorEOF(file);
+      fprintf(stderr, "%sCouldn't read pbc%s\n", ErrRed(), ErrColourReset());
+      exit(1);
+    }
+    if (words > 3 && strcmp(split[0], "ITEM:") == 0 &&
+        strcmp(split[1], "BOX") == 0 && strcmp(split[2], "Bounds")) {
+      fsetpos(fr, &position);
+      if (!LtrjReadPBCSection(fr, file, &Box, &file_line_count)) {
+        strcpy(ERROR_MSG, "wrong box dimensions line");
+        PrintErrorFile(file, "\0", "\0");
+        fprintf(stderr, "\n%sLine %s%d%s\n", ErrRed(), ErrYellow(),
+                file_line_count, ErrColourReset());
+        exit(1);
+      }
+      break;
+    }
+  }
+  fclose(fr);
+  return Box;
+} //}}}
 // read timestep (dump style custom) //{{{
 bool LtrjReadTimestep(FILE *f, char ltrj_file[], SYSTEM *System,
                       int *file_line_count) {
@@ -3774,7 +3880,7 @@ using next timestep instead of this one");
   } //}}}
   System->Count.BeadCoor = n;
   // read box dimensions //{{{
-  if (!LmpReadPBC(f, ltrj_file, &System->Box, file_line_count)) {
+  if (!LtrjReadPBCSection(f, ltrj_file, &System->Box, file_line_count)) {
     strcpy(ERROR_MSG, "invalid box size; \
 using next timestep instead of this one");
     PrintWarningFileLine(ltrj_file, *file_line_count, split, words);
@@ -3841,7 +3947,7 @@ bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count) { //{{{
   (*file_line_count)--;  // the 'ITEM: TIMESTEP' will be re-read
   return true;
 } //}}}
-bool LmpReadPBC(FILE *f, char file[], BOX *box, int *file_line_count) { //{{{
+bool LtrjReadPBCSection(FILE *f, char file[], BOX *box, int *file_line_count) { //{{{
   // 1) read 'ITEM:' line to find box type - TODO (for now, assume cuboid)
   (*file_line_count)++;
   if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -3854,6 +3960,7 @@ bool LmpReadPBC(FILE *f, char file[], BOX *box, int *file_line_count) { //{{{
     (*file_line_count)++;
     if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(file);
+      exit(1);
     }
     if (words < 2 || !IsRealNumber(split[0], &bounds[i][0]) ||
         !IsRealNumber(split[1], &bounds[i][1]) ||
@@ -3900,6 +4007,7 @@ in ITEM: ATOMS line");
   // read ITEM: ATOMS line //{{{
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(file);
+    exit(1);
   }
   // error: line must be 'ITEMS: ATOMS <at least one more>'
   if (words < 3 || strcmp(split[0], "ITEM:") != 0 ||
@@ -3953,6 +4061,7 @@ SYSTEM XyzReadStruct(char file[]) { //{{{
   // read number of beads //{{{
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(file);
+    exit(1);
   }
   file_line_count++;
   long val;
@@ -3969,6 +4078,7 @@ SYSTEM XyzReadStruct(char file[]) { //{{{
   // ignore next line //{{{
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(file);
+    exit(1);
   } //}}}
   Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
   // read atoms //{{{
@@ -3976,6 +4086,7 @@ SYSTEM XyzReadStruct(char file[]) { //{{{
     file_line_count++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       ErrorEOF(file);
+      exit(1);
     }
     VECTOR pos;
     if (words < 4 || !IsRealNumber(split[1], &pos.x) ||
@@ -4044,8 +4155,7 @@ skipping this timestep");
   if (!correct) {
     // ignore the rest of the timestep
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file");
-      PrintErrorFile(file, "\0", "\0");
+      ErrorEOF(file);
       return false;
     }
     (*file_line_count)++;
@@ -4060,8 +4170,7 @@ skipping this timestep");
   } //}}}
   // ignore next line //{{{
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    strcpy(ERROR_MSG, "premature end of file");
-    PrintErrorFile(file, "\0", "\0");
+    ErrorEOF(file);
     return false;
   }
   (*file_line_count)++; //}}}
@@ -4070,9 +4179,8 @@ skipping this timestep");
   for (int i = 0; i < System->Count.Bead; i++) {
     fgetpos(fr, &position);
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      strcpy(ERROR_MSG, "premature end of file");
-      PrintErrorFile(file, "\0", "\0");
-      fprintf(stderr, "%s, only %s%d%s beads present (instead of %s%d%s)%s",
+      ErrorEOF(file);
+      fprintf(stderr, "%sOnly %s%d%s beads present (instead of %s%d%s)%s\n",
               ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
               System->Count.Bead, ErrRed(), ErrColourReset());
       return false;
@@ -5756,6 +5864,7 @@ void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts,
   // error if the first line is 'L[ast Step]' or isn't 'Step: <int>'//{{{
   if (split[0][0] == 'L') {
     ErrorEOF(file);
+    exit(1);
   } else if (words < 2 || strcmp(split[0], "Step:") != 0 ||
              !IsInteger_old(split[1])) {
 //  ErrorPrintError_old();
@@ -5975,6 +6084,7 @@ void SkipAgg(FILE *agg, char *agg_file) {
   long val;
   if (split[0][0] == 'L') {
     ErrorEOF(file);
+    exit(1);
   } else if (words < 2 || !IsNatural(split[1], &val)) {
     strcpy(ERROR_MSG, "invalid 'Step' line");
     PrintErrorFileLine(agg_file, "\0", file_line_count, split, words);
@@ -6002,8 +6112,7 @@ void SkipAgg(FILE *agg, char *agg_file) {
     int test;
     while ((test = getc(agg)) != '\n') {
       if (test == EOF) {
-        strcpy(ERROR_MSG, "premature end of file");
-        ErrorPrintFile(agg_file, "\0");
+        ErrorEOF(agg_file);
         fprintf(stderr, "%s, line %s%d%s\n", ErrRed(), ErrYellow(),
                                              file_line_count, ErrColourReset());
         exit(1);
@@ -6021,8 +6130,7 @@ void SkipAgg(FILE *agg, char *agg_file) {
   }
   words = SplitLine(SPL_STR, split, line, " \t\n");
   if (feof(agg) == EOF) {
-    strcpy(ERROR_MSG, "premature end of file");
-    ErrorPrintFile(agg_file, "\0");
+    ErrorEOF(agg_file);
     exit(1);
   }
 } //}}}

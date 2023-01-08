@@ -99,7 +99,7 @@ void ErrorNaN(char *option); //}}}
  */
 void ErrorOption(char *option); //}}}
 
-void ErrorBeadType(SYSTEM System);
+void ErrorBeadType(char name[], SYSTEM System);
 void ErrorMoleculeType(SYSTEM System);
 
 // ErrorPrintLine() //{{{

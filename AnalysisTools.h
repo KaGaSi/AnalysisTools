@@ -24,6 +24,7 @@
 #define LDATA_FILE 4
 #define LTRJ_FILE 5
 #define FIELD_FILE 6
+#define CONFIG_FILE 7
 
 VECTOR ToFractional(VECTOR coor, BOX Box);
 void ToFractionalCoor(SYSTEM *System);
