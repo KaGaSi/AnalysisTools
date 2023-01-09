@@ -420,7 +420,7 @@ int FindMoleculeType(SYSTEM Sys1, int mt, SYSTEM Sys2, int mode, bool name) {
         goto end_loop;
       }
       for (int j = 0; j < mt_1->nDihedrals; j++) {
-        if (SameArray(mt_1->Dihedral[j], mt_2->Dihedral[j], 5)) {
+        if (!SameArray(mt_1->Dihedral[j], mt_2->Dihedral[j], 5)) {
           goto end_loop;
         }
       } //}}}
@@ -429,13 +429,13 @@ int FindMoleculeType(SYSTEM Sys1, int mt, SYSTEM Sys2, int mode, bool name) {
         goto end_loop;
       }
       for (int j = 0; j < mt_1->nImpropers; j++) {
-        if (SameArray(mt_1->Improper[j], mt_2->Improper[j], 5)) {
+        if (!SameArray(mt_1->Improper[j], mt_2->Improper[j], 5)) {
           goto end_loop;
         }
-      }         //}}}
+      } //}}}
       return i; // assumes mode=3, obviously
     }
-  end_loop:;
+    end_loop:;
   }
   return -1;
 } //}}}
@@ -1212,8 +1212,8 @@ void PruneSystem(SYSTEM *System) { //{{{
         mt_old->Bead[k] = bt_old_to_new[btype];
       }
       // 2) identify molecule type based on all information
-      int new_type = FindMoleculeType_old(*mt_old, *System, 3, true);
-      // int new_type = FindMoleculeType(S_old, old_type, *System, 3, true);
+      // int new_type = FindMoleculeType_old(*mt_old, *System, 3, true);
+      int new_type = FindMoleculeType(S_old, old_type, *System, 3, true);
       // 3) switch the beadtypes back
       for (int k = 0; k < mt_old->nBeads; k++) {
         mt_old->Bead[k] = bkp[k];
@@ -1832,7 +1832,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
     memcpy(Sys_orig->ImproperType + count_old.ImproperType,
            Sys_add.ImproperType,
            sizeof *Sys_orig->ImproperType * Count_add->ImproperType);
-  }                                                    //}}}
+  } //}}}
   for (int i = 0; i < Count_orig->MoleculeType; i++) { //{{{
     MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
     int type = FindMoleculeType(*Sys_orig, i, Sys_add, 2, name);

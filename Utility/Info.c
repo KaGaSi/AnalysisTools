@@ -6,28 +6,7 @@ void Help(char cmd[50], bool error) { //{{{
   } else {
     ptr = stdout;
     fprintf(ptr, "\
-Info gathers data about the system from provided file(s), printing it \
-to standard output and creating new file(s) if prompted to. It can read \
-the data from vtf file(s), lammps data file, and/or dl_meso FIELD file. \
-When multiple files are provided, the following rules apply:\n\
-  1) The underlying system (i.e., numbers of beads and molecules) is taken \
-from the first structure file in the Info command.\n\
-  2) The second file is used to supply missing data to molecules, i.e., \
-connectivity, angles, etc; the extra information is added only when \
-original molecule has none. The molecules from the two files must share \
-only the number of beads for the extra information to be added. \
-In case of '!' option, the bead types in the molecules are also \
-switched for those from the second file.\n\
-  3) coordinates?\n\
-  4) box?\n\
-\n\
-Info prints information about the provided system and can also create a new \
-vtf structure file. The new structure file can differ from the original one if \
---detailed switch is used. A FIELD-like file or lammps data file \
-can be used to gather additional \
-information (bond types, angles, dihedrals, improper dihedral, and, \
-optionally, exchange the beads from the vtf structure file); \
-applies to molecules with the same name in both files.\n\n");
+TO BE ADDED...\n\n");
   }
 
   fprintf(ptr, "Usage:\n");
@@ -288,6 +267,11 @@ int main(int argc, char *argv[]) {
     ChangeMolecules(&System, Sys_extra, change_beads, true);
     CheckSystem(System, struct_file_extra);
   }
+  // printf("GREEN\n");
+  // VerboseOutput(System);
+  // PruneSystem(&System);
+  // printf("MAGENTA\n");
+  // VerboseOutput(System);
   // use coordinate from a separate file (-c option)
   char stuff[LINE];
   if (coor_file[0] != '\0') {
