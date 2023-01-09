@@ -279,14 +279,14 @@ int main(int argc, char *argv[]) {
       VerboseOutput(Sys_extra);
     }
   }
+  // all beads are in the timestep; revised if coordinates supplied
+  for (int i = 0; i < System.Count.Bead; i++) {
+    System.Bead[i].InTimestep = true;
+  }
   // add extra info to original system
   if (struct_file_extra[0] != '\0') {
     ChangeMolecules(&System, Sys_extra, change_beads, true);
     CheckSystem(System, struct_file_extra);
-  }
-  // all beads are in the timestep; revised if coordinates supplied
-  for (int i = 0; i < System.Count.Bead; i++) {
-    System.Bead[i].InTimestep = true;
   }
   // use coordinate from a separate file (-c option)
   char stuff[LINE];

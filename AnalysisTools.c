@@ -64,11 +64,14 @@ VECTOR FromFractional(VECTOR coor, BOX Box) { //{{{
     coor.y /= Box.Length.y;
     coor.z /= Box.Length.z;
     VECTOR new = {0, 0, 0};
-    new.x = Box.transform[0][0] * coor.x + Box.transform[0][1] * coor.y +
+    new.x = Box.transform[0][0] * coor.x +
+            Box.transform[0][1] * coor.y +
             Box.transform[0][2] * coor.z;
-    new.y = Box.transform[1][0] * coor.x + Box.transform[1][1] * coor.y +
+    new.y = Box.transform[1][0] * coor.x +
+            Box.transform[1][1] * coor.y +
             Box.transform[1][2] * coor.z;
-    new.z = Box.transform[2][0] * coor.x + Box.transform[2][1] * coor.y +
+    new.z = Box.transform[2][0] * coor.x +
+            Box.transform[2][1] * coor.y +
             Box.transform[2][2] * coor.z;
     coor.x = new.x;
     coor.y = new.y;
@@ -89,94 +92,6 @@ void FromFractionalCoor(SYSTEM *System) { //{{{
 } //}}}
   //}}}
 
-// InputCoor_old() //{{{
-/**
- * Function to test whether input coordinate file is vtf or vcf and assign
- * default structure file name as either the vtf or traject.vsf.
- */
-bool InputCoor_old(bool *vtf, char *file_coor, char *file_struct) {
-  int ext = 2;
-  char extension[2][EXTENSION];
-  strcpy(extension[0], ".vcf");
-  strcpy(extension[1], ".vtf");
-  ext = ErrorExtension(file_coor, ext, extension);
-  *vtf = false; // file_coor is vcf by default
-  if (ext == -1) {
-    return false; // wrong extension to file_coor
-  } else if (ext == 1) {
-    *vtf = true; // file_coor is vtf
-  }
-  // if vtf, copy to input_vsf
-  if (*vtf) {
-    strcpy(file_struct, file_coor);
-  } else {
-    strcpy(file_struct, "traject.vsf");
-  }
-  return true;
-} //}}}
-// InputCoorStruct_old() //{{{
-/**
- * Function to test whether input coordinate file is vtf or vcf and assign
- * default structure file name as either the vtf or traject.vsf.
- */
-// TODO: make structure files' recognition extension-based (or 'FIELD')
-int InputCoorStruct_old(int argc, char **argv, char coor[], char vsf[], char lmp[],
-                    char field[]) {
-  int ext = 4, type;
-  char extension[4][EXTENSION];
-  strcpy(extension[0], ".vcf");
-  strcpy(extension[1], ".vtf");
-  strcpy(extension[2], ".xyz");
-  strcpy(extension[3], ".lammpstrj");
-  ext = ErrorExtension(coor, ext, extension);
-  // define coordinate type and possibly vtf structure file
-  switch (ext) {
-  case 0: // if vcf, copy to input_vsf with vsf ending
-      ;
-    int last = -1;
-    for (int i = 0; i < strlen(coor); i++) {
-      if (coor[i] == '.') {
-        last = i;
-      }
-    }
-    strncpy(vsf, coor, last);
-    strcat(vsf, ".vsf");
-    type = 1;
-    break;
-  case 1: // if vtf, copy to input_vsf
-    strcpy(vsf, coor);
-    type = 1;
-    break;
-  case 2: // xyz
-    type = 2;
-    break;
-  case 3: // lammpstrj
-    type = 3;
-    break;
-  default: // something wrong; should never happen
-    type = -1;
-  }
-  // lammps data file as input?
-  if (FileOption(argc, argv, "-l_in", lmp, LINE)) {
-    exit(1);
-  }
-  // vtf structure file as input?
-  char bkp[LINE]; // backup in case there's no -vs_in
-  if (ext <= 1) {
-    strcpy(bkp, vsf);
-  }
-  if (FileOption(argc, argv, "-vs_in", vsf, LINE)) {
-    exit(1);
-  }
-  if (vsf[0] == '\0' && ext <= 1) { // copy backup back if no -vs_in
-    strcpy(vsf, bkp);
-  }
-  // FIELD file as input?
-  if (FileOption(argc, argv, "-f_in", field, LINE)) {
-    exit(1);
-  }
-  return type;
-} //}}}
 // InputCoorStruct() //{{{
 /**
  * Function to test whether input coordinate file is vtf or vcf and assign
@@ -184,16 +99,16 @@ int InputCoorStruct_old(int argc, char **argv, char coor[], char vsf[], char lmp
  */
 // TODO: make structure files' recognition extension-based (or 'FIELD')
 bool InputCoorStruct(int argc, char **argv, char coor[], int *coor_type,
-                     char struc[], int *struc_type) {
+                     char structure[], int *struct_type) {
   int ext;
   char extension[6][EXTENSION];
   // input structure file (-i option) //{{{
-  if (FileOption(argc, argv, "-i", struc, LINE)) {
+  if (FileOption(argc, argv, "-i", structure, LINE)) {
     exit(1);
   }
-  if (struc[0] != '\0') { // -i option is present
-    if (strcasecmp(struc, "FIELD") == 0) {
-      *struc_type = FIELD_FILE;
+  if (structure[0] != '\0') { // -i option is present
+    if (strcasecmp(structure, "FIELD") == 0) {
+      *struct_type = FIELD_FILE;
     } else {
       ext = 6;
       strcpy(extension[0], ".vsf");
@@ -202,25 +117,25 @@ bool InputCoorStruct(int argc, char **argv, char coor[], int *coor_type,
       strcpy(extension[3], ".lammpstrj");
       strcpy(extension[4], ".data");
       strcpy(extension[5], ".field");
-      ext = ErrorExtension(struc, ext, extension);
+      ext = ErrorExtension(structure, ext, extension);
       switch (ext) {
         case 0:
-          *struc_type = VSF_FILE;
+          *struct_type = VSF_FILE;
           break;
         case 1:
-          *struc_type = VSF_FILE;
+          *struct_type = VSF_FILE;
           break;
         case 2:
-          *struc_type = XYZ_FILE;
+          *struct_type = XYZ_FILE;
           break;
         case 3:
-          *struc_type = LTRJ_FILE;
+          *struct_type = LTRJ_FILE;
           break;
         case 4:
-          *struc_type = LDATA_FILE;
+          *struct_type = LDATA_FILE;
           break;
         case 5:
-          *struc_type = FIELD_FILE;
+          *struct_type = FIELD_FILE;
           break;
         default: // something wrong; should never happen
           return false;
@@ -238,41 +153,41 @@ bool InputCoorStruct(int argc, char **argv, char coor[], int *coor_type,
   switch (ext) {
     case 0:
       *coor_type = VCF_FILE;
-      // copy to struc with vsf ending, if struc is empty
-      if (struc[0] == '\0') {
+      // copy to 'structure' with vsf ending, if 'structure' is empty
+      if (structure[0] == '\0') {
         int last = -1;
         for (int i = 0; i < strlen(coor); i++) {
           if (coor[i] == '.') {
             last = i;
           }
         }
-        strncpy(struc, coor, last);
-        strcat(struc, ".vsf");
-        *struc_type = VSF_FILE;
+        strncpy(structure, coor, last);
+        strcat(structure, ".vsf");
+        *struct_type = VSF_FILE;
       }
       break;
     case 1: // vtf full file
       *coor_type = VCF_FILE;
-      // use also as a struc file, if struc is empty
-      if (struc[0] == '\0') {
-        strcpy(struc, coor);
-        *struc_type = VSF_FILE;
+      // use also as a 'structure' file, if 'structure' is empty
+      if (structure[0] == '\0') {
+        strcpy(structure, coor);
+        *struct_type = VSF_FILE;
       }
       break;
     case 2: // xyz
       *coor_type = XYZ_FILE;
-      // use also as a struc file, if struc is empty
-      if (struc[0] == '\0') {
-        strcpy(struc, coor);
-        *struc_type = XYZ_FILE;
+      // use also as a 'structure' file, if 'structure' is empty
+      if (structure[0] == '\0') {
+        strcpy(structure, coor);
+        *struct_type = XYZ_FILE;
       }
       break;
     case 3: // lammpstrj
       *coor_type = LTRJ_FILE;
-      // use also as a struc file, if struc is empty
-      if (struc[0] == '\0') {
-        strcpy(struc, coor);
-        *struc_type = LTRJ_FILE;
+      // use also as a 'structure' file, if 'structure' is empty
+      if (structure[0] == '\0') {
+        strcpy(structure, coor);
+        *struct_type = LTRJ_FILE;
       }
       break;
     default: // something wrong; should never happen
@@ -283,8 +198,10 @@ bool InputCoorStruct(int argc, char **argv, char coor[], int *coor_type,
 
 // SameBeadType() //{{{
 bool SameBeadType(BEADTYPE bt_1, BEADTYPE bt_2) {
-  if (strcmp(bt_1.Name, bt_2.Name) == 0 && bt_1.Charge == bt_2.Charge &&
-      bt_1.Mass == bt_2.Mass && bt_1.Radius == bt_2.Radius) {
+  if (strcmp(bt_1.Name, bt_2.Name) == 0 &&
+      bt_1.Charge == bt_2.Charge &&
+      bt_1.Mass == bt_2.Mass &&
+      bt_1.Radius == bt_2.Radius) {
     return true;
   } else {
     return false;
@@ -299,6 +216,7 @@ bool SameArray(int arr_1[], int arr_2[], int n) {
   }
   return true;
 } //}}}
+// TODO: only by name?
 int FindBeadType(char name[], SYSTEM System) { //{{{
   int type;
   for (int i = 0; i < System.Count.BeadType; i++) {
@@ -311,7 +229,7 @@ int FindBeadType(char name[], SYSTEM System) { //{{{
   return -1;
 } //}}}
 int FindMoleculeName(char name[], SYSTEM System) { //{{{
-  int type;
+  int type = -1;
   for (int i = 0; i < System.Count.MoleculeType; i++) {
     if (strcmp(name, System.MoleculeType[i].Name) == 0) {
       type = i;
@@ -319,7 +237,7 @@ int FindMoleculeName(char name[], SYSTEM System) { //{{{
     }
   }
   // name isn't in MoleculeType struct
-  return (-1);
+  return type;
 } //}}}
 // FindMoleculeType_old() //{{{
 /*
@@ -794,21 +712,24 @@ VECTOR Gyration(int n, int *list, COUNTS Counts, BEADTYPE *BeadType,
   GyrationTensor.y.z /= n;
   GyrationTensor.z.z /= n; //}}}
 
-  // char polynomial: a_cube * x^3 + b_cube * x^2 + c_cube * x + d_cube = 0 //{{{
+  // characteristic polynomial:
+  // a_cube * x^3 + b_cube * x^2 + c_cube * x + d_cube = 0
   long double a_cube = -1;
-  long double b_cube =
-      GyrationTensor.x.x + GyrationTensor.y.y + GyrationTensor.z.z;
+  long double b_cube = GyrationTensor.x.x +
+                       GyrationTensor.y.y +
+                       GyrationTensor.z.z;
   long double c_cube = -GyrationTensor.x.x * GyrationTensor.y.y -
-                       GyrationTensor.x.x * GyrationTensor.z.z -
-                       GyrationTensor.y.y * GyrationTensor.z.z +
-                       SQR(GyrationTensor.y.z) + SQR(GyrationTensor.x.y) +
-                       SQR(GyrationTensor.x.z);
+                        GyrationTensor.x.x * GyrationTensor.z.z -
+                        GyrationTensor.y.y * GyrationTensor.z.z +
+                        SQR(GyrationTensor.y.z) +
+                        SQR(GyrationTensor.x.y) +
+                        SQR(GyrationTensor.x.z);
   long double d_cube =
       +GyrationTensor.x.x * GyrationTensor.y.y * GyrationTensor.z.z +
       2 * GyrationTensor.x.y * GyrationTensor.y.z * GyrationTensor.x.z -
       SQR(GyrationTensor.x.z) * GyrationTensor.y.y -
       SQR(GyrationTensor.x.y) * GyrationTensor.z.z -
-      SQR(GyrationTensor.y.z) * GyrationTensor.x.x; //}}}
+      SQR(GyrationTensor.y.z) * GyrationTensor.x.x;
 
   // first root: either 0 or Newton's iterative method to get it //{{{
   long double root0 = 0;
@@ -834,13 +755,15 @@ VECTOR Gyration(int n, int *list, COUNTS Counts, BEADTYPE *BeadType,
     }
   } //}}}
 
-  // determine parameters of quadratic equation a_quad * x^2 + b_quad * x +
-  // c_quad = 0 //{{{ derived by division: (x^3 + (b_cube/a_cube) * x^2 +
-  // (c_cube/a_cube) * x + (d_cube/a_cube)):(x - root0)
+  // find parameters of a quadratic equation a_quad*x^2+b_quad*x+c_quad=0 //{{{
+  /*
+   * derived by division:
+   * (x^3+(b_cube/a_cube)*x^2+(c_cube/a_cube)*x+(d_cube/a_cube)):(x-root0)
+   */
   long double a_quad = 1;
   long double b_quad = b_cube / a_cube + root0;
-  long double c_quad =
-      SQR(root0) + b_cube / a_cube * root0 + c_cube / a_cube; //}}}
+  long double c_quad = SQR(root0) + b_cube / a_cube * root0 +
+                       c_cube / a_cube; //}}}
   // calculate & sort eigenvalues //{{{
   LONGVECTOR eigen;
   eigen.x = root0; // found out by Newton's method
@@ -870,15 +793,15 @@ void LinkedList(VECTOR BoxLength, COUNTS Counts, BEAD *Bead, int **Head,
   for (int i = 0; i < (n_cells->x * n_cells->y * n_cells->z); i++) {
     (*Head)[i] = -1;
   }
-  // sort beads into cells //{{{
+  // sort beads into cells
   for (int i = 0; i < Counts.BeadsCoor; i++) {
     int cell = (int)(Bead[i].Position.x / cell_size) +
                (int)(Bead[i].Position.y / cell_size) * n_cells->x +
                (int)(Bead[i].Position.z / cell_size) * n_cells->x * n_cells->y;
     (*Link)[i] = (*Head)[cell];
     (*Head)[cell] = i;
-  } //}}}
-  // coordinates of adjoining cells //{{{
+  }
+  // coordinates of adjoining cells
   int x[14] = {0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1};
   int y[14] = {0, 0, 1, 1, 1, -1, -1, -1, 0, 0, 0, 1, 1, 1};
   int z[14] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1};
@@ -886,7 +809,7 @@ void LinkedList(VECTOR BoxLength, COUNTS Counts, BEAD *Bead, int **Head,
     Dcx[i] = x[i];
     Dcy[i] = y[i];
     Dcz[i] = z[i];
-  } //}}}
+  }
 } //}}}
 
 // SortBonds() //{{{
@@ -1290,6 +1213,7 @@ void PruneSystem(SYSTEM *System) { //{{{
       }
       // 2) identify molecule type based on all information
       int new_type = FindMoleculeType_old(*mt_old, *System, 3, true);
+      // int new_type = FindMoleculeType(S_old, old_type, *System, 3, true);
       // 3) switch the beadtypes back
       for (int k = 0; k < mt_old->nBeads; k++) {
         mt_old->Bead[k] = bkp[k];
@@ -1831,8 +1755,9 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
  * bead types in MoleculeType[].Bead array for new ones.
  */
 void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
-  COUNT *Count_orig = &Sys_orig->Count, *Count_add = &Sys_add.Count;
-  COUNT count_old = *Count_orig;
+  COUNT *Count_orig = &Sys_orig->Count,
+        *Count_add = &Sys_add.Count,
+        count_old = *Count_orig;
   // replace bead types from Sys_orig with those from Sys_add if required //{{{
   if (beads) {
     // append bead types from Sys_add to Sys_orig
@@ -3559,6 +3484,94 @@ void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) { //{{{
   //}}}
 
 #if 0  //{{{
+// InputCoor_old() //{{{
+/**
+ * Function to test whether input coordinate file is vtf or vcf and assign
+ * default structure file name as either the vtf or traject.vsf.
+ */
+bool InputCoor_old(bool *vtf, char *file_coor, char *file_struct) {
+  int ext = 2;
+  char extension[2][EXTENSION];
+  strcpy(extension[0], ".vcf");
+  strcpy(extension[1], ".vtf");
+  ext = ErrorExtension(file_coor, ext, extension);
+  *vtf = false; // file_coor is vcf by default
+  if (ext == -1) {
+    return false; // wrong extension to file_coor
+  } else if (ext == 1) {
+    *vtf = true; // file_coor is vtf
+  }
+  // if vtf, copy to input_vsf
+  if (*vtf) {
+    strcpy(file_struct, file_coor);
+  } else {
+    strcpy(file_struct, "traject.vsf");
+  }
+  return true;
+} //}}}
+// InputCoorStruct_old() //{{{
+/**
+ * Function to test whether input coordinate file is vtf or vcf and assign
+ * default structure file name as either the vtf or traject.vsf.
+ */
+// TODO: make structure files' recognition extension-based (or 'FIELD')
+int InputCoorStruct_old(int argc, char **argv, char coor[], char vsf[], char lmp[],
+                    char field[]) {
+  int ext = 4, type;
+  char extension[4][EXTENSION];
+  strcpy(extension[0], ".vcf");
+  strcpy(extension[1], ".vtf");
+  strcpy(extension[2], ".xyz");
+  strcpy(extension[3], ".lammpstrj");
+  ext = ErrorExtension(coor, ext, extension);
+  // define coordinate type and possibly vtf structure file
+  switch (ext) {
+  case 0: // if vcf, copy to input_vsf with vsf ending
+      ;
+    int last = -1;
+    for (int i = 0; i < strlen(coor); i++) {
+      if (coor[i] == '.') {
+        last = i;
+      }
+    }
+    strncpy(vsf, coor, last);
+    strcat(vsf, ".vsf");
+    type = 1;
+    break;
+  case 1: // if vtf, copy to input_vsf
+    strcpy(vsf, coor);
+    type = 1;
+    break;
+  case 2: // xyz
+    type = 2;
+    break;
+  case 3: // lammpstrj
+    type = 3;
+    break;
+  default: // something wrong; should never happen
+    type = -1;
+  }
+  // lammps data file as input?
+  if (FileOption(argc, argv, "-l_in", lmp, LINE)) {
+    exit(1);
+  }
+  // vtf structure file as input?
+  char bkp[LINE]; // backup in case there's no -vs_in
+  if (ext <= 1) {
+    strcpy(bkp, vsf);
+  }
+  if (FileOption(argc, argv, "-vs_in", vsf, LINE)) {
+    exit(1);
+  }
+  if (vsf[0] == '\0' && ext <= 1) { // copy backup back if no -vs_in
+    strcpy(vsf, bkp);
+  }
+  // FIELD file as input?
+  if (FileOption(argc, argv, "-f_in", field, LINE)) {
+    exit(1);
+  }
+  return type;
+} //}}}
 // TODO exchange Molecule[].Aggregate for something else
 // EvaluateContacts() //{{{
 /**
