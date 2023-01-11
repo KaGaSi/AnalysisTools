@@ -326,7 +326,7 @@ void MergeBeadTypes(SYSTEM *System, bool detailed) {
     }
     //}}}
     // 3) merge the types, counting the new types //{{{
-    BEADTYPE *temp = calloc(Count->BeadType, sizeof(BEADTYPE));
+    BEADTYPE *temp = calloc(Count->BeadType, sizeof *temp);
     int old_bt_count = Count->BeadType, count = 0,
         *bt_older_to_old = calloc(old_bt_count, sizeof *bt_older_to_old);
     for (int i = 0; i < Count->BeadType; i++) {
@@ -731,7 +731,7 @@ discarding this bond");
       }
       // 2) a) make lowest index of Bond[][] 0
       //    b) find which indices are present to detect dicontinuities
-      int diff = highest - lowest + 1; // +1 to count both highest and lowest ids
+      int diff = highest - lowest + 1; // +1 to count both highest & lowest ids
       bool *present = calloc(diff, sizeof *present);
       for (int j = 0; j < mt_i->nBonds; j++) {
         int *id0 = &mt_i->Bond[j][0], *id1 = &mt_i->Bond[j][1];
@@ -1036,7 +1036,7 @@ SYSTEM ReadStructure(int struct_type, char struct_file[], bool detailed) {
   WarnChargedSystem(System, struct_file, "\0", "\0");
   // warn if missing box dimensions
   if (System.Box.Volume == -1) {
-    strcpy(ERROR_MSG, "unspecified box dimensions in structure file");
+    strcpy(ERROR_MSG, "unspecified box dimensions in structure definition");
     PrintWarning();
     WarnPrintFile(struct_file, "\0", "\0");
     putc('\n', stderr);
@@ -1171,8 +1171,8 @@ disregarding the following line");
         count_atoms++;
         // highest bead index? (corresponds to the number of beads in vsf)
         if (id >= Count->Bead) {
-          Sys.BeadType = realloc(Sys.BeadType, sizeof(BEADTYPE) * (id + 1));
-          Sys.Bead = realloc(Sys.Bead, sizeof(BEAD) * (id + 1));
+          Sys.BeadType = realloc(Sys.BeadType, sizeof *Sys.BeadType * (id + 1));
+          Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * (id + 1));
           for (int i = Count->Bead; i <= id; i++) {
             InitBeadType(&Sys.BeadType[i]);
             InitBead(&Sys.Bead[i]);
@@ -1182,7 +1182,7 @@ disregarding the following line");
         // save values from the 'a[tom] <id>' line
         int *values = VtfAtomLineValues();
         strncpy(Sys.BeadType[id].Name, split[values[0]], BEAD_NAME);
-        Sys.BeadType[id].Name[BEAD_NAME - 1] = '\0'; // ensure null-termination
+        Sys.BeadType[id].Name[BEAD_NAME-1] = '\0'; // ensure null-termination
         if (values[1] != -1) {
           Sys.BeadType[id].Mass = atof(split[values[1]]);
         }

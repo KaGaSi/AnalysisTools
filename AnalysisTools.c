@@ -939,15 +939,16 @@ SYSTEM CopySystem(SYSTEM S_in) {
     S_out.Count = S_in.Count;
     // BeadType //{{{
     if (S_out.Count.BeadType > 0) {
-      S_out.BeadType =
-          realloc(S_out.BeadType, sizeof(BEADTYPE) * S_out.Count.BeadType);
+      S_out.BeadType = realloc(S_out.BeadType,
+                               sizeof *S_out.BeadType * S_out.Count.BeadType);
       for (int i = 0; i < S_out.Count.BeadType; i++) {
         S_out.BeadType[i] = S_in.BeadType[i];
         if (S_out.BeadType[i].Number > 0) {
           S_out.BeadType[i].Index = malloc(sizeof *S_out.BeadType[i].Index *
                                            S_out.BeadType[i].Number);
-          memcpy(S_out.BeadType[i].Index, S_in.BeadType[i].Index,
-                 sizeof *S_in.BeadType[i].Index * S_in.BeadType[i].Number);
+          for (int j = 0; j < S_out.BeadType[i].Number; j++) {
+            S_out.BeadType[i].Index[j] = S_in.BeadType[i].Index[j];
+          }
         }
       }
     } else {
@@ -1096,6 +1097,7 @@ MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old) { //{{{
   }
   return mt_new;
 } //}}}
+
 void PruneSystem(SYSTEM *System) { //{{{
   SYSTEM S_old = CopySystem(*System);
   FreeSystem(System);
@@ -1105,16 +1107,17 @@ void PruneSystem(SYSTEM *System) { //{{{
   *Count = *Count_old; // some counts will change later
   // allocate memory for bead count arrays
   System->Bead = realloc(System->Bead, sizeof(BEAD) * Count->Bead);
-  System->BeadCoor =
-      realloc(System->BeadCoor, sizeof *System->BeadCoor * Count->Bead);
-  System->Bonded =
-      realloc(System->Bonded, sizeof *System->Bonded * Count->Bonded);
-  System->BondedCoor =
-      realloc(System->BondedCoor, sizeof *System->BondedCoor * Count->Bonded);
-  System->Unbonded =
-      realloc(System->Unbonded, sizeof *System->Unbonded * Count->Unbonded);
-  System->UnbondedCoor = realloc(
-      System->UnbondedCoor, sizeof *System->UnbondedCoor * Count->Unbonded);
+  System->BeadCoor = realloc(System->BeadCoor,
+                             sizeof *System->BeadCoor * Count->Bead);
+  System->Bonded = realloc(System->Bonded,
+                           sizeof *System->Bonded * Count->Bonded);
+  System->BondedCoor = realloc(System->BondedCoor,
+                               sizeof *System->BondedCoor * Count->Bonded);
+  System->Unbonded = realloc(System->Unbonded,
+                             sizeof *System->Unbonded * Count->Unbonded);
+  System->UnbondedCoor = realloc(System->UnbondedCoor,
+                                 sizeof *System->UnbondedCoor *
+                                 Count->Unbonded);
   // copy Bead/Unbonded/Bonded arrays & create new BeadType array //{{{
   int count_unbonded = 0, count_bonded = 0, count_all = 0;
   // arrays for mapping old bead ids/types to new ones
@@ -1126,8 +1129,12 @@ void PruneSystem(SYSTEM *System) { //{{{
       // create new bead type if it doesn't exist yet in the pruned system
       int old_type = S_old.Bead[i].Type, new_type = -1;
       for (int j = 0; j < Count->BeadType; j++) {
-        new_type = FindBeadType(S_old.BeadType[old_type].Name, *System);
-        if (new_type != -1) {
+        // new_type = FindBeadType(S_old.BeadType[old_type].Name, *System);
+        // if (new_type != -1) {
+        //   break;
+        // }
+        if (SameBeadType(S_old.BeadType[old_type], System->BeadType[j])) {
+          new_type = j;
           break;
         }
       }
@@ -1329,17 +1336,11 @@ void PruneSystem(SYSTEM *System) { //{{{
         free(id_old_to_new);
       }
     }
-  }
-  // TODO: FillSystemNonessentials()?
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    FillMoleculeTypeBType(&System->MoleculeType[i]);
-    FillMoleculeTypeChargeMass(&System->MoleculeType[i], System->BeadType);
-  }
-  //}}}
+  } //}}}
   // fill BeadType[].Index //{{{
   for (int i = 0; i < Count->BeadType; i++) {
-    System->BeadType[i].Index =
-        malloc(sizeof *System->BeadType[i].Index * System->BeadType[i].Number);
+    System->BeadType[i].Index = malloc(sizeof *System->BeadType[i].Index *
+                                       System->BeadType[i].Number);
   }
   int *count = calloc(Count->BeadType, sizeof *count);
   for (int i = 0; i < Count->Bead; i++) {
@@ -1545,6 +1546,11 @@ void PruneSystem(SYSTEM *System) { //{{{
   } //}}}
   //}}}
   CountBondAngleDihedralImproper(System);
+  MergeBeadTypes(System, true);
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    FillMoleculeTypeBType(&System->MoleculeType[i]);
+    FillMoleculeTypeChargeMass(&System->MoleculeType[i], System->BeadType);
+  }
   FreeSystem(&S_old);
   free(b_id_old_to_new);
   free(bt_old_to_new);
@@ -1563,8 +1569,8 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
   // BeadType //{{{
   if (Count_in->BeadType > 0) {
     Count_out->BeadType += Count_in->BeadType;
-    S_out->BeadType =
-        realloc(S_out->BeadType, sizeof(BEADTYPE) * Count_out->BeadType);
+    S_out->BeadType = realloc(S_out->BeadType,
+                              sizeof *S_out->BeadType * Count_out->BeadType);
     //  memcpy(S_out->BeadType + Count_old.BeadType, S_in.BeadType,
     //         sizeof (BEADTYPE) * Count_in->BeadType);
     for (int i = 0; i < Count_in->BeadType; i++) {
@@ -1573,8 +1579,8 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
       S_out->BeadType[new].Index = malloc(sizeof *S_out->BeadType[new].Index *
                                           S_out->BeadType[new].Number);
       for (int j = 0; j < S_out->BeadType[new].Number; j++) {
-        S_out->BeadType[new].Index[j] =
-            S_in.BeadType[i].Index[j] + Count_old.Bead;
+        S_out->BeadType[new].Index[j] = S_in.BeadType[i].Index[j] +
+                                        Count_old.Bead;
       }
     }
   } else {
@@ -1712,9 +1718,9 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
       }
     }
     Count_out->HighestResid += Count_in->HighestResid;
-    S_out->Index_mol =
-        realloc(S_out->Index_mol,
-                sizeof *S_out->Index_mol * (Count_out->HighestResid + 1));
+    S_out->Index_mol = realloc(S_out->Index_mol,
+                               sizeof *S_out->Index_mol *
+                               (Count_out->HighestResid + 1));
     for (int i = 0; i <= Count_out->HighestResid; i++) {
       S_out->Index_mol[i] = -1;
     }
@@ -1762,14 +1768,15 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
   if (beads) {
     // append bead types from Sys_add to Sys_orig
     Count_orig->BeadType += Count_add->BeadType;
-    Sys_orig->BeadType =
-        realloc(Sys_orig->BeadType, sizeof(BEADTYPE) * Count_orig->BeadType);
+    Sys_orig->BeadType = realloc(Sys_orig->BeadType,
+                                 sizeof(BEADTYPE) * Count_orig->BeadType);
     for (int i = 0; i < Count_add->BeadType; i++) {
       int new = i + count_old.BeadType;
       Sys_orig->BeadType[new] = Sys_add.BeadType[i];
       Sys_orig->BeadType[new].Number = 0;
     }
-    /* For molecules with the same number of beads and for those beads, rewrite:
+    /*
+     * For molecules with the same number of beads and for those beads, rewrite:
      * 1) MoleculeType[].Bead array in Sys_orig with bead types from Sys_add
      * 2) Bead[].Type in Sys_orig with the same new types
      * 3) adjust numbers of beads in BeadType[].Number in Sys_orig
@@ -1802,8 +1809,9 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
   // add bond/angle/dihedral/improper types from Sys_add to Sys_orig //{{{
   if (Count_add->BondType > 0) {
     Count_orig->BondType += Count_add->BondType;
-    Sys_orig->BondType = realloc(
-        Sys_orig->BondType, sizeof *Sys_orig->BondType * Count_orig->BondType);
+    Sys_orig->BondType = realloc(Sys_orig->BondType,
+                                 sizeof *Sys_orig->BondType *
+                                 Count_orig->BondType);
     memcpy(Sys_orig->BondType + count_old.BondType, Sys_add.BondType,
            sizeof *Sys_orig->BondType * Count_add->BondType);
   }
@@ -1929,193 +1937,6 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
   CountBondAngleDihedralImproper(Sys_orig);
   PruneSystem(Sys_orig);
 } //}}}
-// ChangeMolecules_old() //{{{
-/*
- * Function to add bonds, angles, dihedrals, and/or impropers as well as their
- * types (creating new ones) to a molecule type, possibly also changing the
- * bead types in MoleculeType[].Bead array for new ones.
- */
-/* TODO: do the FindMoleculeType stuff to check all things but name (in
- *       conjunction with Info -vs_in 1.vtf -f_in FIELD in
- *       ~/AnalysisTools/build/test-Info)
- */
-void ChangeMolecules_old(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads,
-                         bool name) {
-  COUNT *Count_orig = &Sys_orig->Count, *Count_add = &Sys_add.Count;
-  COUNT count_old = *Count_orig;
-  // copy bond/angle/dihedral/improper types //{{{
-  if (Count_add->BondType > 0) {
-    Count_orig->BondType += Count_add->BondType;
-    Sys_orig->BondType = realloc(
-        Sys_orig->BondType, sizeof *Sys_orig->BondType * Count_orig->BondType);
-    memcpy(Sys_orig->BondType + count_old.BondType, Sys_add.BondType,
-           sizeof *Sys_orig->BondType * Count_add->BondType);
-  }
-  if (Count_add->AngleType > 0) {
-    Count_orig->AngleType += Count_add->AngleType;
-    Sys_orig->AngleType =
-        realloc(Sys_orig->AngleType,
-                sizeof *Sys_orig->AngleType * Count_orig->AngleType);
-    memcpy(Sys_orig->AngleType + count_old.AngleType, Sys_add.AngleType,
-           sizeof *Sys_orig->AngleType * Count_add->AngleType);
-  }
-  if (Count_add->DihedralType > 0) {
-    Count_orig->DihedralType += Count_add->DihedralType;
-    Sys_orig->DihedralType =
-        realloc(Sys_orig->DihedralType,
-                sizeof *Sys_orig->DihedralType * Count_orig->DihedralType);
-    memcpy(Sys_orig->DihedralType + count_old.DihedralType,
-           Sys_add.DihedralType,
-           sizeof *Sys_orig->DihedralType * Count_add->DihedralType);
-  }
-  if (Count_add->ImproperType > 0) {
-    Count_orig->ImproperType += Count_add->ImproperType;
-    Sys_orig->ImproperType =
-        realloc(Sys_orig->ImproperType,
-                sizeof *Sys_orig->ImproperType * Count_orig->ImproperType);
-    memcpy(Sys_orig->ImproperType + count_old.ImproperType,
-           Sys_add.ImproperType,
-           sizeof *Sys_orig->ImproperType * Count_add->ImproperType);
-  } //}}}
-  for (int i = 0; i < Count_orig->MoleculeType; i++) {
-    MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
-    int type = FindMoleculeType(*Sys_orig, i, Sys_add, 2, name);
-    if (type != -1) {
-      MOLECULETYPE *mt_add = &Sys_add.MoleculeType[type];
-      // add bonds, if there are none in the original molecule type... //{{{
-      if (mt_add->nBonds > 0 && mt_orig->nBonds == 0) {
-        mt_orig->nBonds = mt_add->nBonds;
-        mt_orig->Bond = malloc(sizeof *mt_orig->Bond * mt_orig->nBonds);
-        memcpy(mt_orig->Bond, mt_add->Bond,
-               sizeof *mt_add->Bond * mt_add->nBonds); //}}}
-        // ...or just add bond types where missing //{{{
-      } else if (Count_add->BondType > 0) {
-        for (int j = 0; j < mt_orig->nBonds; j++) {
-          for (int k = 0; k < mt_add->nBonds; k++) {
-            if (mt_orig->Bond[j][0] == mt_add->Bond[k][0] &&
-                mt_orig->Bond[j][1] == mt_add->Bond[k][1] &&
-                mt_orig->Bond[j][2] == -1 && mt_add->Bond[k][2] != -1) {
-              mt_orig->Bond[j][2] = mt_add->Bond[k][2] + count_old.BondType;
-              break;
-            }
-          }
-        }
-      } //}}}
-      // add angles, if there are none in the original molecule type... //{{{
-      if (mt_add->nAngles > 0 && mt_orig->nAngles == 0) {
-        mt_orig->nAngles = mt_add->nAngles;
-        mt_orig->Angle = malloc(sizeof *mt_orig->Angle * mt_orig->nAngles);
-        memcpy(mt_orig->Angle, mt_add->Angle,
-               sizeof *mt_add->Angle * mt_add->nAngles); //}}}
-        // ...or just add angle types where missing //{{{
-      } else if (Count_add->AngleType > 0) {
-        for (int j = 0; j < mt_orig->nAngles; j++) {
-          for (int k = 0; k < mt_orig->nAngles; k++) {
-            if (mt_orig->Angle[j][0] == mt_add->Angle[k][0] &&
-                mt_orig->Angle[j][1] == mt_add->Angle[k][1] &&
-                mt_orig->Angle[j][2] == mt_add->Angle[k][2] &&
-                mt_orig->Angle[j][3] == -1 && mt_add->Angle[k][3] != -1) {
-              mt_orig->Angle[j][3] = mt_add->Angle[k][3] + count_old.AngleType;
-              break;
-            }
-          }
-        }
-      } //}}}
-      // add dihedrals, if there are none in the original molecule type... //{{{
-      if (mt_add->nDihedrals > 0 && mt_orig->nDihedrals == 0) {
-        mt_orig->nDihedrals = mt_add->nDihedrals;
-        mt_orig->Dihedral =
-            malloc(sizeof *mt_orig->Dihedral * mt_orig->nDihedrals);
-        memcpy(mt_orig->Dihedral, mt_add->Dihedral,
-               sizeof *mt_add->Dihedral * mt_add->nDihedrals); //}}}
-        // ...or just add dihedral types where missing //{{{
-      } else if (Count_add->DihedralType > 0) {
-        for (int j = 0; j < mt_orig->nDihedrals; j++) {
-          for (int k = 0; k < mt_orig->nDihedrals; k++) {
-            if (mt_orig->Dihedral[j][0] == mt_add->Dihedral[k][0] &&
-                mt_orig->Dihedral[j][1] == mt_add->Dihedral[k][1] &&
-                mt_orig->Dihedral[j][2] == mt_add->Dihedral[k][2] &&
-                mt_orig->Dihedral[j][3] == mt_add->Dihedral[k][3] &&
-                mt_orig->Dihedral[j][4] == -1 && mt_add->Dihedral[j][4] != -1) {
-              mt_orig->Dihedral[j][4] =
-                  mt_add->Dihedral[j][4] + count_old.DihedralType;
-              break;
-            }
-          }
-        }
-      } //}}}
-      // add impropers, if there are none in the original molecule type... //{{{
-      if (mt_add->nImpropers > 0 && mt_orig->nImpropers == 0) {
-        mt_orig->nImpropers = mt_add->nImpropers;
-        mt_orig->Improper =
-            malloc(sizeof *mt_orig->Improper * mt_orig->nImpropers);
-        memcpy(mt_orig->Improper, mt_add->Improper,
-               sizeof *mt_add->Improper * mt_add->nImpropers); //}}}
-        // ...or just add improper types where missing //{{{
-      } else if (Count_add->ImproperType > 0) {
-        for (int j = 0; j < mt_orig->nImpropers; j++) {
-          for (int k = 0; k < mt_orig->nImpropers; k++) {
-            if (mt_orig->Improper[j][0] == mt_add->Improper[k][0] &&
-                mt_orig->Improper[j][1] == mt_add->Improper[k][1] &&
-                mt_orig->Improper[j][2] == mt_add->Improper[k][2] &&
-                mt_orig->Improper[j][3] == mt_add->Improper[k][3] &&
-                mt_orig->Improper[j][4] == -1 && mt_add->Improper[j][4] != -1) {
-              mt_orig->Improper[j][4] =
-                  mt_add->Improper[j][4] + count_old.ImproperType;
-              break;
-            }
-          }
-        }
-      } //}}}
-    }
-  }
-  // should the original bead types be replaced with 'new' bead types? //{{{
-  if (beads) {
-    // append bead types from Sys_add to Sys_orig
-    Count_orig->BeadType += Count_add->BeadType;
-    Sys_orig->BeadType =
-        realloc(Sys_orig->BeadType, sizeof(BEADTYPE) * Count_orig->BeadType);
-    for (int i = 0; i < Count_add->BeadType; i++) {
-      int new = i + count_old.BeadType;
-      Sys_orig->BeadType[new] = Sys_add.BeadType[i];
-      Sys_orig->BeadType[new].Number = 0;
-    }
-    // change bead types in MoleculeType[].Bead (the two molecules must have
-    // the same number of beads)
-    for (int i = 0; i < Count_orig->MoleculeType; i++) {
-      MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
-      int mtype_add = FindMoleculeType_old(*mt_orig, Sys_add, 1, name);
-      if (mtype_add != -1) {
-        MOLECULETYPE *mt_add = &Sys_add.MoleculeType[mtype_add];
-        for (int j = 0; j < mt_orig->nBeads; j++) {
-          mt_orig->Bead[j] = mt_add->Bead[j] + count_old.BeadType;
-        }
-      }
-    }
-    // change bead types in Bead[].Type
-    for (int i = 0; i < Count_orig->Molecule; i++) {
-      MOLECULE *mol_orig = &Sys_orig->Molecule[i];
-      MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[mol_orig->Type];
-      int mtype_add = FindMoleculeType_old(*mt_orig, Sys_add, 1, name);
-      if (mtype_add != -1) {
-        for (int j = 0; j < mt_orig->nBeads; j++) {
-          int bead = mol_orig->Bead[j], btype = mt_orig->Bead[j],
-              old_btype = Sys_orig->Bead[bead].Type;
-          Sys_orig->Bead[bead].Type = btype;
-          Sys_orig->BeadType[btype].Number++;
-          Sys_orig->BeadType[old_btype].Number--;
-        }
-      }
-    }
-    // remake BeadType[].Index arrays
-    for (int i = 0; i < count_old.BeadType; i++) {
-      free(Sys_orig->BeadType[i].Index);
-    }
-    FillBeadTypeIndex(Sys_orig);
-    PruneSystem(Sys_orig);
-  } //}}}
-  CountBondAngleDihedralImproper(Sys_orig);
-} //}}}
 // fill some System arrays and some such //{{{
 void FillSystemNonessentials(SYSTEM *System) { //{{{
   COUNT *Count = &System->Count;
@@ -2200,14 +2021,12 @@ void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
       MoleculeType->Charge += BeadType[btype].Charge;
     } else {
       MoleculeType->Charge = CHARGE;
-      break;
     }
     // mass
     if (BeadType[btype].Mass != MASS) {
       MoleculeType->Mass += BeadType[btype].Mass;
     } else {
       MoleculeType->Mass = MASS;
-      break;
     }
   }
 } //}}}
@@ -2963,7 +2782,7 @@ void NewBeadType(BEADTYPE *BeadType[], int *number_of_types, char *name,
                  double charge, double mass, double radius) {
   int btype = *number_of_types;
   (*number_of_types)++;
-  *BeadType = realloc(*BeadType, sizeof(BEADTYPE) * (btype + 1));
+  *BeadType = realloc(*BeadType, sizeof **BeadType * (btype + 1));
   strcpy((*BeadType)[btype].Name, name);
   (*BeadType)[btype].Number = 0;
   (*BeadType)[btype].Charge = charge;
@@ -5551,5 +5370,192 @@ void PrintDihedralTypes2(int number_of_dihedrals, PARAMS *dihedral_type) {
     fprintf(stdout, ".theta_0 = %9.5f", dihedral_type[i].b);
     fprintf(stdout, "}\n");
   }
+} //}}}
+// ChangeMolecules_old() //{{{
+/*
+ * Function to add bonds, angles, dihedrals, and/or impropers as well as their
+ * types (creating new ones) to a molecule type, possibly also changing the
+ * bead types in MoleculeType[].Bead array for new ones.
+ */
+/* TODO: do the FindMoleculeType stuff to check all things but name (in
+ *       conjunction with Info -vs_in 1.vtf -f_in FIELD in
+ *       ~/AnalysisTools/build/test-Info)
+ */
+void ChangeMolecules_old(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads,
+                         bool name) {
+  COUNT *Count_orig = &Sys_orig->Count, *Count_add = &Sys_add.Count;
+  COUNT count_old = *Count_orig;
+  // copy bond/angle/dihedral/improper types //{{{
+  if (Count_add->BondType > 0) {
+    Count_orig->BondType += Count_add->BondType;
+    Sys_orig->BondType = realloc(
+        Sys_orig->BondType, sizeof *Sys_orig->BondType * Count_orig->BondType);
+    memcpy(Sys_orig->BondType + count_old.BondType, Sys_add.BondType,
+           sizeof *Sys_orig->BondType * Count_add->BondType);
+  }
+  if (Count_add->AngleType > 0) {
+    Count_orig->AngleType += Count_add->AngleType;
+    Sys_orig->AngleType =
+        realloc(Sys_orig->AngleType,
+                sizeof *Sys_orig->AngleType * Count_orig->AngleType);
+    memcpy(Sys_orig->AngleType + count_old.AngleType, Sys_add.AngleType,
+           sizeof *Sys_orig->AngleType * Count_add->AngleType);
+  }
+  if (Count_add->DihedralType > 0) {
+    Count_orig->DihedralType += Count_add->DihedralType;
+    Sys_orig->DihedralType =
+        realloc(Sys_orig->DihedralType,
+                sizeof *Sys_orig->DihedralType * Count_orig->DihedralType);
+    memcpy(Sys_orig->DihedralType + count_old.DihedralType,
+           Sys_add.DihedralType,
+           sizeof *Sys_orig->DihedralType * Count_add->DihedralType);
+  }
+  if (Count_add->ImproperType > 0) {
+    Count_orig->ImproperType += Count_add->ImproperType;
+    Sys_orig->ImproperType =
+        realloc(Sys_orig->ImproperType,
+                sizeof *Sys_orig->ImproperType * Count_orig->ImproperType);
+    memcpy(Sys_orig->ImproperType + count_old.ImproperType,
+           Sys_add.ImproperType,
+           sizeof *Sys_orig->ImproperType * Count_add->ImproperType);
+  } //}}}
+  for (int i = 0; i < Count_orig->MoleculeType; i++) {
+    MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
+    int type = FindMoleculeType(*Sys_orig, i, Sys_add, 2, name);
+    if (type != -1) {
+      MOLECULETYPE *mt_add = &Sys_add.MoleculeType[type];
+      // add bonds, if there are none in the original molecule type... //{{{
+      if (mt_add->nBonds > 0 && mt_orig->nBonds == 0) {
+        mt_orig->nBonds = mt_add->nBonds;
+        mt_orig->Bond = malloc(sizeof *mt_orig->Bond * mt_orig->nBonds);
+        memcpy(mt_orig->Bond, mt_add->Bond,
+               sizeof *mt_add->Bond * mt_add->nBonds); //}}}
+        // ...or just add bond types where missing //{{{
+      } else if (Count_add->BondType > 0) {
+        for (int j = 0; j < mt_orig->nBonds; j++) {
+          for (int k = 0; k < mt_add->nBonds; k++) {
+            if (mt_orig->Bond[j][0] == mt_add->Bond[k][0] &&
+                mt_orig->Bond[j][1] == mt_add->Bond[k][1] &&
+                mt_orig->Bond[j][2] == -1 && mt_add->Bond[k][2] != -1) {
+              mt_orig->Bond[j][2] = mt_add->Bond[k][2] + count_old.BondType;
+              break;
+            }
+          }
+        }
+      } //}}}
+      // add angles, if there are none in the original molecule type... //{{{
+      if (mt_add->nAngles > 0 && mt_orig->nAngles == 0) {
+        mt_orig->nAngles = mt_add->nAngles;
+        mt_orig->Angle = malloc(sizeof *mt_orig->Angle * mt_orig->nAngles);
+        memcpy(mt_orig->Angle, mt_add->Angle,
+               sizeof *mt_add->Angle * mt_add->nAngles); //}}}
+        // ...or just add angle types where missing //{{{
+      } else if (Count_add->AngleType > 0) {
+        for (int j = 0; j < mt_orig->nAngles; j++) {
+          for (int k = 0; k < mt_orig->nAngles; k++) {
+            if (mt_orig->Angle[j][0] == mt_add->Angle[k][0] &&
+                mt_orig->Angle[j][1] == mt_add->Angle[k][1] &&
+                mt_orig->Angle[j][2] == mt_add->Angle[k][2] &&
+                mt_orig->Angle[j][3] == -1 && mt_add->Angle[k][3] != -1) {
+              mt_orig->Angle[j][3] = mt_add->Angle[k][3] + count_old.AngleType;
+              break;
+            }
+          }
+        }
+      } //}}}
+      // add dihedrals, if there are none in the original molecule type... //{{{
+      if (mt_add->nDihedrals > 0 && mt_orig->nDihedrals == 0) {
+        mt_orig->nDihedrals = mt_add->nDihedrals;
+        mt_orig->Dihedral =
+            malloc(sizeof *mt_orig->Dihedral * mt_orig->nDihedrals);
+        memcpy(mt_orig->Dihedral, mt_add->Dihedral,
+               sizeof *mt_add->Dihedral * mt_add->nDihedrals); //}}}
+        // ...or just add dihedral types where missing //{{{
+      } else if (Count_add->DihedralType > 0) {
+        for (int j = 0; j < mt_orig->nDihedrals; j++) {
+          for (int k = 0; k < mt_orig->nDihedrals; k++) {
+            if (mt_orig->Dihedral[j][0] == mt_add->Dihedral[k][0] &&
+                mt_orig->Dihedral[j][1] == mt_add->Dihedral[k][1] &&
+                mt_orig->Dihedral[j][2] == mt_add->Dihedral[k][2] &&
+                mt_orig->Dihedral[j][3] == mt_add->Dihedral[k][3] &&
+                mt_orig->Dihedral[j][4] == -1 && mt_add->Dihedral[j][4] != -1) {
+              mt_orig->Dihedral[j][4] =
+                  mt_add->Dihedral[j][4] + count_old.DihedralType;
+              break;
+            }
+          }
+        }
+      } //}}}
+      // add impropers, if there are none in the original molecule type... //{{{
+      if (mt_add->nImpropers > 0 && mt_orig->nImpropers == 0) {
+        mt_orig->nImpropers = mt_add->nImpropers;
+        mt_orig->Improper =
+            malloc(sizeof *mt_orig->Improper * mt_orig->nImpropers);
+        memcpy(mt_orig->Improper, mt_add->Improper,
+               sizeof *mt_add->Improper * mt_add->nImpropers); //}}}
+        // ...or just add improper types where missing //{{{
+      } else if (Count_add->ImproperType > 0) {
+        for (int j = 0; j < mt_orig->nImpropers; j++) {
+          for (int k = 0; k < mt_orig->nImpropers; k++) {
+            if (mt_orig->Improper[j][0] == mt_add->Improper[k][0] &&
+                mt_orig->Improper[j][1] == mt_add->Improper[k][1] &&
+                mt_orig->Improper[j][2] == mt_add->Improper[k][2] &&
+                mt_orig->Improper[j][3] == mt_add->Improper[k][3] &&
+                mt_orig->Improper[j][4] == -1 && mt_add->Improper[j][4] != -1) {
+              mt_orig->Improper[j][4] =
+                  mt_add->Improper[j][4] + count_old.ImproperType;
+              break;
+            }
+          }
+        }
+      } //}}}
+    }
+  }
+  // should the original bead types be replaced with 'new' bead types? //{{{
+  if (beads) {
+    // append bead types from Sys_add to Sys_orig
+    Count_orig->BeadType += Count_add->BeadType;
+    Sys_orig->BeadType =
+        realloc(Sys_orig->BeadType, sizeof(BEADTYPE) * Count_orig->BeadType);
+    for (int i = 0; i < Count_add->BeadType; i++) {
+      int new = i + count_old.BeadType;
+      Sys_orig->BeadType[new] = Sys_add.BeadType[i];
+      Sys_orig->BeadType[new].Number = 0;
+    }
+    // change bead types in MoleculeType[].Bead (the two molecules must have
+    // the same number of beads)
+    for (int i = 0; i < Count_orig->MoleculeType; i++) {
+      MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
+      int mtype_add = FindMoleculeType_old(*mt_orig, Sys_add, 1, name);
+      if (mtype_add != -1) {
+        MOLECULETYPE *mt_add = &Sys_add.MoleculeType[mtype_add];
+        for (int j = 0; j < mt_orig->nBeads; j++) {
+          mt_orig->Bead[j] = mt_add->Bead[j] + count_old.BeadType;
+        }
+      }
+    }
+    // change bead types in Bead[].Type
+    for (int i = 0; i < Count_orig->Molecule; i++) {
+      MOLECULE *mol_orig = &Sys_orig->Molecule[i];
+      MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[mol_orig->Type];
+      int mtype_add = FindMoleculeType_old(*mt_orig, Sys_add, 1, name);
+      if (mtype_add != -1) {
+        for (int j = 0; j < mt_orig->nBeads; j++) {
+          int bead = mol_orig->Bead[j], btype = mt_orig->Bead[j],
+              old_btype = Sys_orig->Bead[bead].Type;
+          Sys_orig->Bead[bead].Type = btype;
+          Sys_orig->BeadType[btype].Number++;
+          Sys_orig->BeadType[old_btype].Number--;
+        }
+      }
+    }
+    // remake BeadType[].Index arrays
+    for (int i = 0; i < count_old.BeadType; i++) {
+      free(Sys_orig->BeadType[i].Index);
+    }
+    FillBeadTypeIndex(Sys_orig);
+    PruneSystem(Sys_orig);
+  } //}}}
+  CountBondAngleDihedralImproper(Sys_orig);
 } //}}}
 #endif //}}}
