@@ -392,26 +392,7 @@ void MergeBeadTypes(SYSTEM *System, bool detailed) {
     }
     free(temp);
     //}}}
-    // 5) rename same-named bead types //{{{
-    for (int i = 0; i < (Count->BeadType - 1); i++) {
-      count = 0;
-      for (int j = (i + 1); j < Count->BeadType; j++) {
-        if (strcmp(System->BeadType[i].Name, System->BeadType[j].Name) == 0) {
-          count++;
-          char name[BEAD_NAME];
-          strncpy(name, System->BeadType[j].Name, BEAD_NAME);
-          // shorten name if necessary
-          if (count < 10) {
-            name[BEAD_NAME - 3] = '\0';
-          } else if (count < 100) {
-            name[BEAD_NAME - 4] = '\0';
-          } else if (count < 1000) {
-            name[BEAD_NAME - 5] = '\0';
-          }
-          snprintf(System->BeadType[j].Name, BEAD_NAME, "%s_%d", name, count);
-        }
-      }
-    } //}}}
+    RenameBeadTypes(System);
     // fill array to relabel bead types in arrays //{{{
     for (int i = 0; i < count_bt_old; i++) {
       old_to_new[i] = bt_old_to_new[bt_older_to_old[i]];

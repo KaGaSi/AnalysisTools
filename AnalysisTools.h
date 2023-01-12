@@ -26,6 +26,8 @@
 #define FIELD_FILE 6
 #define CONFIG_FILE 7
 
+void RenameBeadTypes(SYSTEM *System);
+
 VECTOR ToFractional(VECTOR coor, BOX Box);
 void ToFractionalCoor(SYSTEM *System);
 VECTOR FromFractional(VECTOR coor, BOX Box);
