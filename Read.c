@@ -4,7 +4,7 @@
 // TODO test output of snprintf() to get rid of a warning; see
 //      https://stackoverflow.com/questions/51534284/how-to-circumvent-format-truncation-warning-in-gcc
 // TODO do not forget that timesteps are counted only on successful reading
-//      (i.e., when an invalid step is skip while trying to read coordinates,
+//      (i.e., when an invalid step is skipped while trying to read coordinates,
 //      the count doesn't grow)
 
 static char line[LINE], *split[SPL_STR];
@@ -1128,16 +1128,16 @@ SYSTEM VtfReadStruct(char struct_file[], bool detailed) {
         } else { // save line number of the first 'atom default' line //{{{
           default_atom = file_line_count;
           // save values for the default bead type
-          int *values = VtfAtomLineValues();
-          strncpy(bt_def.Name, split[values[0]], BEAD_NAME);
-          if (values[1] != -1) {
-            bt_def.Mass = atof(split[values[1]]);
+          int *value = VtfAtomLineValues();
+          strncpy(bt_def.Name, split[value[0]], BEAD_NAME);
+          if (value[1] != -1) {
+            bt_def.Mass = atof(split[value[1]]);
           }
-          if (values[2] != -1) {
-            bt_def.Charge = atof(split[values[2]]);
+          if (value[2] != -1) {
+            bt_def.Charge = atof(split[value[2]]);
           }
-          if (values[3] != -1) {
-            bt_def.Radius = atof(split[values[3]]);
+          if (value[3] != -1) {
+            bt_def.Radius = atof(split[value[3]]);
           }
         }      //}}}
       } else { // 'a[tom] <id>' line //{{{
@@ -1161,23 +1161,23 @@ disregarding the following line");
           Count->Bead = id + 1; // +1 as bead ids start from 0 in vsf
         }
         // save values from the 'a[tom] <id>' line
-        int *values = VtfAtomLineValues();
-        strncpy(Sys.BeadType[id].Name, split[values[0]], BEAD_NAME);
+        int *value = VtfAtomLineValues();
+        strncpy(Sys.BeadType[id].Name, split[value[0]], BEAD_NAME);
         Sys.BeadType[id].Name[BEAD_NAME-1] = '\0'; // ensure null-termination
-        if (values[1] != -1) {
-          Sys.BeadType[id].Mass = atof(split[values[1]]);
+        if (value[1] != -1) {
+          Sys.BeadType[id].Mass = atof(split[value[1]]);
         }
-        if (values[2] != -1) {
-          Sys.BeadType[id].Charge = atof(split[values[2]]);
+        if (value[2] != -1) {
+          Sys.BeadType[id].Charge = atof(split[value[2]]);
         }
-        if (values[3] != -1) {
-          Sys.BeadType[id].Radius = atof(split[values[3]]);
+        if (value[3] != -1) {
+          Sys.BeadType[id].Radius = atof(split[value[3]]);
         }
         Sys.BeadType[id].Number = 1;
         Sys.Bead[id].Type = id;
         // is the bead in a molecule?
-        if (values[5] > -1) {
-          int resid = atoi(split[values[5]]);
+        if (value[5] > -1) {
+          int resid = atoi(split[value[5]]);
           // highest molecule id?
           if (resid > Count->HighestResid) {
             Sys.MoleculeType =
@@ -1193,7 +1193,11 @@ disregarding the following line");
           }
           MOLECULETYPE *mt_resid = &Sys.MoleculeType[resid];
           if (mt_resid->Number == 0) { // new molecule type
-            strncpy(mt_resid->Name, split[values[4]], MOL_NAME);
+            if (value[4] == -1) {
+              strcpy(mt_resid->Name, "mol");
+            } else {
+              strncpy(mt_resid->Name, split[value[4]], MOL_NAME);
+            }
             mt_resid->Name[MOL_NAME - 1] = '\0'; // null-terminate!
             mt_resid->Number = 1;
             mt_resid->nBeads = 1;
@@ -1234,8 +1238,8 @@ disregarding the following line");
     } else if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) { // c)
       break;
     } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) { // d)
-      strcpy(ERROR_MSG, "encountered a coordinate-like line \
-inside the structure block ");
+      strcpy(ERROR_MSG, "encountered a coordinate-like line"
+             "inside the structure block ");
       PrintErrorFileLine(struct_file, file_line_count, split, words);
       exit(1);
     } else if (ltype != BLANK_LINE && ltype != COMMENT_LINE &&
@@ -1781,39 +1785,31 @@ bool VtfCheckAtomLine() { //{{{
     return false;
   } //}}}
   // check <keyword> <value> pairs
-  bool name = false, resid = false, resname = false;
+  bool name = false;
   for (int i = 2; i < words; i += 2) {
     // is n[ame] keyword present?
     if (split[i][0] == 'n') {
       name = true;
     }
-    int r_id = strcmp(split[i], "resid");     // resid cannot be shortened
-    int r_name = strncmp(split[i], "res", 3); // res[name] can be shortened
-    // is resid keyword present? //{{{
-    if (r_id == 0) {
-      resid = true;
-      // resid must be followed by non-negative integer
-      if (!IsWholeNumber(split[i + 1], &val_i)) {
-        strcpy(ERROR_MSG, "atom line: 'resid' not followed by natural number");
-        return false;
-      }
-    } //}}}
-    // is res[name] keyword present? //{{{
-    if (r_id != 0 && r_name == 0) {
-      resname = true;
+    // error - resid not followed by non-negative integer //{{{
+    if (strcmp(split[i], "resid") == 0 &&
+        !IsWholeNumber(split[i + 1], &val_i)) {
+      strcpy(ERROR_MSG, "atom line: 'resid' not followed by natural number");
+      return false;
     } //}}}
     // error - charge|q //{{{
     if ((strcmp(split[i], "charge") == 0 || split[i][0] == 'q') &&
         !IsRealNumber(split[i + 1], &val_d)) {
       strcpy(ERROR_MSG, "atom line: 'charge|q' not followed by real number ");
       return false; //}}}
-      // error - r[adius] not followed by positive number //{{{
-    } else if (split[i][0] == 'r' && r_name != 0 &&
+    // error - r[adius] not followed by positive number //{{{
+    } else if (split[i][0] == 'r' && // possible r[adius]
+               strncmp(split[i], "res", 3) != 0 && // it's not resid or resname
                !IsPosRealNumber(split[i + 1], &val_d)) {
       strcpy(ERROR_MSG, "atom line: 'r[adius]]]' not followed by \
 positive real number ");
       return false; //}}}
-      // error - m[ass] not followed by positive number //{{{
+    // error - m[ass] not followed by positive number //{{{
     } else if (split[i][0] == 'm' && !IsPosRealNumber(split[i + 1], &val_d)) {
       strcpy(ERROR_MSG, "atom line: 'm[ass]' not followed by \
 positive real number ");
@@ -1823,13 +1819,6 @@ positive real number ");
   // error - missing the mandatory n[ame] keyword or //{{{
   if (!name) {
     strcpy(ERROR_MSG, "atom line: missing 'n[ame]' keyword ");
-    return false;
-  } //}}}
-  // error - if res[name] is present, there must be resid as well //{{{
-  if ((!resid && resname) || (resid && !resname)) {
-    strcpy(ERROR_MSG, "atom line: if 'res[name]' is present, \
-'resid' must be too ");
-    //  ErrorPrintFull(file, file_line_count, split, words);
     return false;
   } //}}}
   // valid atom line
