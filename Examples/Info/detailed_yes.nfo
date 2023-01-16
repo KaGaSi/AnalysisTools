@@ -1,0 +1,104 @@
+ Info detailed.vsf -v --detailed
+System in detailed.vsf:
+
+Counts of
+  Bead Types:     5
+  All Beads:      13
+  Bonded Beads:   4
+  Unbonded Beads: 9
+  Molecule Types: 2
+  Molecules:      2
+  Bonds:          0
+
+BeadType[0] = {.Name =   N, .Number = 5, .Charge = 0.000, .Mass = 1.000, .Radius = n/a}
+BeadType[1] = {.Name = N_1, .Number = 1, .Charge =   n/a, .Mass = 2.000, .Radius = n/a}
+BeadType[2] = {.Name = N_2, .Number = 1, .Charge = 2.000, .Mass =   n/a, .Radius = n/a}
+BeadType[3] = {.Name = N_3, .Number = 2, .Charge =   n/a, .Mass =   n/a, .Radius = n/a}
+BeadType[4] = {.Name =   C, .Number = 4, .Charge = 0.000, .Mass = 1.000, .Radius = n/a}
+
+MoleculeType[0] = {
+  .Name       = mol,
+  .Number     = 1,
+  .nBeads     = 2,
+  .Bead       = {N, N},
+  .nBTypes    = 1
+  .BType      = {N},
+  .Mass       = 2.00000,
+  .Charge     = 0.00000
+}
+MoleculeType[1] = {
+  .Name       = mol_1,
+  .Number     = 1,
+  .nBeads     = 2,
+  .Bead       = {N_3, N_3},
+  .nBTypes    = 1
+  .BType      = {N_3},
+  .Mass       = n/a,
+  .Charge     = n/a
+}
+
+Final system composition:
+
+Counts of
+  Bead Types:     5
+  All Beads:      13
+  Bonded Beads:   4
+  Unbonded Beads: 9
+  Molecule Types: 2
+  Molecules:      2
+  Bonds:          0
+
+BeadType[0] = {.Name =   N, .Number = 5, .Charge = 0.000, .Mass = 1.000, .Radius = n/a}
+BeadType[1] = {.Name = N_1, .Number = 1, .Charge =   n/a, .Mass = 2.000, .Radius = n/a}
+BeadType[2] = {.Name = N_2, .Number = 1, .Charge = 2.000, .Mass =   n/a, .Radius = n/a}
+BeadType[3] = {.Name = N_3, .Number = 2, .Charge =   n/a, .Mass =   n/a, .Radius = n/a}
+BeadType[4] = {.Name =   C, .Number = 4, .Charge = 0.000, .Mass = 1.000, .Radius = n/a}
+
+MoleculeType[0] = {
+  .Name       = mol,
+  .Number     = 1,
+  .nBeads     = 2,
+  .Bead       = {N, N},
+  .nBTypes    = 1
+  .BType      = {N},
+  .Mass       = 2.00000,
+  .Charge     = 0.00000
+}
+MoleculeType[1] = {
+  .Name       = mol_1,
+  .Number     = 1,
+  .nBeads     = 2,
+  .Bead       = {N_3, N_3},
+  .nBTypes    = 1
+  .BType      = {N_3},
+  .Mass       = n/a,
+  .Charge     = n/a
+}
+
+Information about every bead:
+Beads
+<input file id>, <bead type id> (<name>, <charge>, <mass>, <radius>), <molecule id>
+        0, type   0 (       N, q= 0.00, m= 1.00, r=  n/a), molecule: None
+        1, type   0 (       N, q= 0.00, m= 1.00, r=  n/a), molecule: None
+        2, type   0 (       N, q= 0.00, m= 1.00, r=  n/a), molecule: None
+        3, type   1 (     N_1, q=  n/a, m= 2.00, r=  n/a), molecule: None
+        4, type   2 (     N_2, q= 2.00, m=  n/a, r=  n/a), molecule: None
+        5, type   0 (       N, q= 0.00, m= 1.00, r=  n/a), molecule:      1 (0)
+        6, type   0 (       N, q= 0.00, m= 1.00, r=  n/a), molecule:      1 (0)
+        7, type   3 (     N_3, q=  n/a, m=  n/a, r=  n/a), molecule:      2 (1)
+        8, type   3 (     N_3, q=  n/a, m=  n/a, r=  n/a), molecule:      2 (1)
+        9, type   4 (       C, q= 0.00, m= 1.00, r=  n/a), molecule: None
+       10, type   4 (       C, q= 0.00, m= 1.00, r=  n/a), molecule: None
+       11, type   4 (       C, q= 0.00, m= 1.00, r=  n/a), molecule: None
+       12, type   4 (       C, q= 0.00, m= 1.00, r=  n/a), molecule: None
+
+Information about every molecule:
+Molecule   1 (1, mol):
+ BEAD INDICES (2): intramolecular; input file
+     1;     5
+     2;     6
+Molecule   2 (2, mol_1):
+ BEAD INDICES (2): intramolecular; input file
+     1;     7
+     2;     8
+

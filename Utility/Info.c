@@ -6,7 +6,22 @@ void Help(char cmd[50], bool error) { //{{{
   } else {
     ptr = stdout;
     fprintf(ptr, "\
-TO BE ADDED...\n\n");
+Info analyzes the provided input structure file, \
+printing system composition to standard output. It can also \
+modify the system using a second structure file (-i[!] option). \
+Both bead types and molecule types can be modified: when a bead \
+type has unspecified mass, charge, or radius, \
+these values are be taken from the bead type of the same name from \
+the second file; when a molecule type misses bond types, angles, \
+dihedrals, impropers, or their types, these are taken from the molecule type \
+of the same name and number of beads from the second file. If '!' is used, \
+the bead types in the original molecules are changed for bead types from \
+molecules in the second system (for molecules that share the name and \
+number of beads). See the manual or Examples/Info for details and examples. \
+Info can also print the resulting system into an output file of the specified \
+type, including (if possible) coordinates from a different coordinate file. \
+If some information required for the given output file type is missing, \
+'???\' is printed instead.\n\n");
   }
 
   fprintf(ptr, "Usage:\n");
@@ -264,6 +279,22 @@ int main(int argc, char *argv[]) {
   }
   // add extra info to original system
   if (struct_file_extra[0] != '\0') {
+    // add charge, mass, and radius to bead types if possible
+    for (int i = 0; i < System.Count.BeadType; i++) {
+      BEADTYPE *bt = &System.BeadType[i];
+      int type_extra = FindBeadType(bt->Name, Sys_extra);
+      if (type_extra != -1) {
+        if (bt->Charge == CHARGE) {
+          bt->Charge = Sys_extra.BeadType[type_extra].Charge;
+        }
+        if (bt->Mass == MASS) {
+          bt->Mass = Sys_extra.BeadType[type_extra].Mass;
+        }
+        if (bt->Radius == RADIUS) {
+          bt->Radius = Sys_extra.BeadType[type_extra].Radius;
+        }
+      }
+    }
     ChangeMolecules(&System, Sys_extra, change_beads, true);
     CheckSystem(System, struct_file_extra);
   }

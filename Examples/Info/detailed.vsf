@@ -1,0 +1,11 @@
+atom default name N m 1 q 0
+atom  3 name N m 2
+atom  4 name N     q 2
+atom  5 name N m 1 q 0 resid 1
+atom  6 name N m 1 q 0 resid 1
+atom  7 name N         resid 2
+atom  8 name N         resid 2
+atom  9 name C m 1 q 0
+atom 10 name C     q 0
+atom 11 name C m 1
+atom 12 name C
