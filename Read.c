@@ -174,9 +174,56 @@ void RemoveExtraTypes(SYSTEM *System) {
  *    other
  */ //}}}
 void MergeBeadTypes(SYSTEM *System, bool detailed) {
+
   COUNT *Count = &System->Count;
   int count_bt_old = Count->BeadType,
       *old_to_new = malloc(sizeof *old_to_new * count_bt_old);
+
+  // int count_bt_new = count_bt_old;
+  // for (int i = 0; i < count_bt_old; i++) {
+  //   BEADTYPE *bt_i = &System->BeadType[i];
+  //   for (int j = (i+1); j < count_bt_old; j++) {
+  //     BEADTYPE *bt_j = &System->BeadType[j];
+  //     if (bt_j->Number > 0 && SameBeadType(*bt_i, *bt_j)) {
+  //       bt_i->Number += bt_j->Number;
+  //       bt_j->Number = 0;
+  //       old_to_new[i] = j;
+  //       old_to_new[j] = j;
+  //       count_bt_new--;
+  //     }
+  //   }
+  // }
+  //
+  // int count = 0;
+  // for (int i = 0; i < count_bt_old; i++) {
+  //   BEADTYPE *bt_i = &System->BeadType[i];
+  //   if (bt_i->Number > 0) {
+  //     if (count != i) {
+  //       System->BeadType[count] = *bt_i;
+  //       old_to_new[count] = old_to_new[i];
+  //     }
+  //     count++;
+  //   }
+  // }
+  //
+  // // relabel bead types in arrays //{{{
+  // // Bead[].Type
+  // for (int i = 0; i < Count->Bead; i++) {
+  //   int old_type = System->Bead[i].Type;
+  //   System->Bead[i].Type = old_to_new[old_type];
+  // }
+  // // MoleculeType[].Bead[]
+  // for (int i = 0; i < Count->MoleculeType; i++) {
+  //   for (int j = 0; j < System->MoleculeType[i].nBeads; j++) {
+  //     int old_type = System->MoleculeType[i].Bead[j];
+  //     System->MoleculeType[i].Bead[j] = old_to_new[old_type];
+  //   }
+  // } //}}}
+  //
+  // Count->BeadType = count_bt_new;
+  // count_bt_old = count_bt_new;
+  // old_to_new = realloc(old_to_new, sizeof *old_to_new * count_bt_old);
+
   // find the unique bead names //{{{
   int count_bnames = 0;
   char(*bname)[BEAD_NAME] = malloc(sizeof *bname);
@@ -194,7 +241,7 @@ void MergeBeadTypes(SYSTEM *System, bool detailed) {
       bname = realloc(bname, sizeof *bname * count_bnames);
       strncpy(bname[n], System->BeadType[i].Name, BEAD_NAME);
     }
-  }               //}}}
+  } //}}}
   if (detailed) { // use name as well as charge, mass, and radius
     // 1) find charge/mass/radius values for each unique name //{{{
     // arrays values of charge, mass, and radius for each bead type
@@ -323,8 +370,7 @@ void MergeBeadTypes(SYSTEM *System, bool detailed) {
           }
         } //}}}
       }
-    }
-    //}}}
+    } //}}}
     // 3) merge the types, counting the new types //{{{
     BEADTYPE *temp = calloc(Count->BeadType, sizeof *temp);
     int old_bt_count = Count->BeadType, count = 0,
