@@ -300,6 +300,9 @@ void ColourChange(int a, char *colour) {
       ptr = stdout;
     } else if (a == STDERR_FILENO) {
       ptr = stderr;
+    } else {
+      strcpy(ERROR_MSG, "ColourChange - error that should never happen!");
+      exit(1);
     }
     fputs(colour, ptr);
   }

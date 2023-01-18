@@ -12,8 +12,9 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 # c compiler flags
 #set(CMAKE_C_FLAGS "-std=c11 -Wall") # only show errors
-set(CMAKE_C_FLAGS "-std=c11 -Wall -Wno-format-truncation -Werror")
+set(CMAKE_C_FLAGS "-std=c11 -Wall")
 set(CMAKE_C_FLAGS_DEBUG "-ggdb -g") # for -DCMAKE_BUILD_TYPE=Debug
+# set(CMAKE_C_FLAGS_RELEASE "-Werror -O3") # for -DCMAKE_BUILD_TYPE=Release
 set(CMAKE_C_FLAGS_RELEASE "-O3") # for -DCMAKE_BUILD_TYPE=Release
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

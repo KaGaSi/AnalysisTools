@@ -177,52 +177,46 @@ void MergeBeadTypes(SYSTEM *System, bool detailed) {
 
   COUNT *Count = &System->Count;
   int count_bt_old = Count->BeadType,
-      *old_to_new = malloc(sizeof *old_to_new * count_bt_old);
+      *old_to_new = calloc(count_bt_old, sizeof *old_to_new);
 
-  // int count_bt_new = count_bt_old;
-  // for (int i = 0; i < count_bt_old; i++) {
-  //   BEADTYPE *bt_i = &System->BeadType[i];
-  //   for (int j = (i+1); j < count_bt_old; j++) {
-  //     BEADTYPE *bt_j = &System->BeadType[j];
-  //     if (bt_j->Number > 0 && SameBeadType(*bt_i, *bt_j)) {
-  //       bt_i->Number += bt_j->Number;
-  //       bt_j->Number = 0;
-  //       old_to_new[i] = j;
-  //       old_to_new[j] = j;
-  //       count_bt_new--;
-  //     }
-  //   }
-  // }
-  //
-  // int count = 0;
-  // for (int i = 0; i < count_bt_old; i++) {
-  //   BEADTYPE *bt_i = &System->BeadType[i];
-  //   if (bt_i->Number > 0) {
-  //     if (count != i) {
-  //       System->BeadType[count] = *bt_i;
-  //       old_to_new[count] = old_to_new[i];
-  //     }
-  //     count++;
-  //   }
-  // }
-  //
-  // // relabel bead types in arrays //{{{
-  // // Bead[].Type
-  // for (int i = 0; i < Count->Bead; i++) {
-  //   int old_type = System->Bead[i].Type;
-  //   System->Bead[i].Type = old_to_new[old_type];
-  // }
-  // // MoleculeType[].Bead[]
-  // for (int i = 0; i < Count->MoleculeType; i++) {
-  //   for (int j = 0; j < System->MoleculeType[i].nBeads; j++) {
-  //     int old_type = System->MoleculeType[i].Bead[j];
-  //     System->MoleculeType[i].Bead[j] = old_to_new[old_type];
-  //   }
-  // } //}}}
-  //
-  // Count->BeadType = count_bt_new;
-  // count_bt_old = count_bt_new;
-  // old_to_new = realloc(old_to_new, sizeof *old_to_new * count_bt_old);
+  // merge bead types that are definitely the same //{{{
+  int count_bt_new = 1;
+  for (int i = 1; i < count_bt_old; i++) { // 1 as bt[0] remains bt[0]
+    BEADTYPE *bt_old = &System->BeadType[i];
+    bool new = true;
+    for (int j = 0; j < count_bt_new; j++) {
+      BEADTYPE *bt_new = &System->BeadType[j];
+      if (SameBeadType(*bt_old, *bt_new)) {
+        bt_new->Number += bt_old->Number;
+        old_to_new[i] = j;
+        new = false;
+        break;
+      }
+    }
+    if (new) {
+      System->BeadType[count_bt_new] = *bt_old;
+      old_to_new[i] = count_bt_new;
+      count_bt_new++;
+    }
+  } //}}}
+
+  // relabel bead types in arrays //{{{
+  // Bead[].Type
+  for (int i = 0; i < Count->Bead; i++) {
+    int old_type = System->Bead[i].Type;
+    System->Bead[i].Type = old_to_new[old_type];
+  }
+  // MoleculeType[].Bead[]
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    for (int j = 0; j < System->MoleculeType[i].nBeads; j++) {
+      int old_type = System->MoleculeType[i].Bead[j];
+      System->MoleculeType[i].Bead[j] = old_to_new[old_type];
+    }
+  } //}}}
+
+  Count->BeadType = count_bt_new;
+  count_bt_old = count_bt_new;
+  old_to_new = realloc(old_to_new, sizeof *old_to_new * count_bt_old);
 
   // find the unique bead names //{{{
   int count_bnames = 0;
@@ -309,7 +303,7 @@ void MergeBeadTypes(SYSTEM *System, bool detailed) {
       merge[i] = malloc(sizeof *merge[i] * Count->BeadType);
       for (int j = 0; j < Count->BeadType; j++) {
         merge[i][j] = false; // 'i' and 'j' aren't to be merged
-        merge[i][i] = true;  // 'i' and 'i' is to be merged/copied
+        merge[i][i] = true;  // 'i' and 'i' are to be merged/copied
       }
     }
     // assume same-name bead types are to be merged
@@ -1310,7 +1304,7 @@ disregarding the following line");
   } //}}}
   // assign atom default to default beads & count bonded/unbonded beads //{{{
   // find first unused bead type and make it the default
-  int def, count_def = 0;
+  int def = -1, count_def = 0;
   for (int i = 0; i < Count->Bead; i++) {
     if (Sys.BeadType[i].Number == 0) {
       def = i;
@@ -2758,38 +2752,38 @@ int LmpDataReadHeader(char data_file[], FILE *lmp, SYSTEM *System,
         InitBead(&System->Bead[i]);
         InitBeadType(&System->BeadType[i]);
       } //}}}
-      // <int> bonds //{{{
+    // <int> bonds //{{{
     } else if (words > 1 && strcmp(split[1], "bonds") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->Bond = val; //}}}
-      // <int> angles //{{{
+    // <int> angles //{{{
     } else if (words > 1 && strcmp(split[1], "angles") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->Angle = val; //}}}
-      // <int> dihedrals //{{{
+    // <int> dihedrals //{{{
     } else if (words > 1 && strcmp(split[1], "dihedrals") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->Dihedral = val; //}}}
-      // <int> impropers //{{{
+    // <int> impropers //{{{
     } else if (words > 1 && strcmp(split[1], "impropers") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->Improper = val; //}}}
-      // <int> atom types //{{{
+    // <int> atom types //{{{
     } else if (words > 2 && strcmp(split[1], "atom") == 0 &&
                strcmp(split[2], "types") == 0) {
       if (!IsWholeNumber(split[0], &val) || val == 0) {
         goto error;
       }
       lmp_types = val; //}}}
-      // <int> bond types //{{{
+    // <int> bond types //{{{
     } else if (words > 2 && strcmp(split[1], "bond") == 0 &&
                strcmp(split[2], "types") == 0) {
       if (strcmp(split[0], "???") != 0) {
@@ -2804,7 +2798,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp, SYSTEM *System,
         }
       }
       //}}}
-      // <int> angle types //{{{
+    // <int> angle types //{{{
     } else if (words > 2 && strcmp(split[1], "angle") == 0 &&
                strcmp(split[2], "types") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
@@ -2817,7 +2811,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp, SYSTEM *System,
         System->AngleType[i] = InitParams;
       }
       //}}}
-      // <int> dihedral types //{{{
+    // <int> dihedral types //{{{
     } else if (words > 2 && strcmp(split[1], "dihedral") == 0 &&
                strcmp(split[2], "types") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
@@ -2831,7 +2825,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp, SYSTEM *System,
         System->DihedralType[i] = InitParams;
       }
       //}}}
-      // <int> improper types //{{{
+    // <int> improper types //{{{
     } else if (words > 2 && strcmp(split[1], "improper") == 0 &&
                strcmp(split[2], "types") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
@@ -2845,7 +2839,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp, SYSTEM *System,
         System->ImproperType[i] = InitParams;
       }
       //}}}
-      // <double> <double> xlo xhi //{{{
+    // <double> <double> xlo xhi //{{{
     } else if (words > 3 && strcmp(split[2], "xlo") == 0 &&
                strcmp(split[3], "xhi") == 0) {
       double xlo, xhi;
@@ -2853,7 +2847,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp, SYSTEM *System,
         goto error;
       }
       System->Box.OrthoLength.x = xhi - xlo; //}}}
-      // <double> <double> ylo yhi //{{{
+    // <double> <double> ylo yhi //{{{
     } else if (words > 3 && strcmp(split[2], "ylo") == 0 &&
                strcmp(split[3], "yhi") == 0) {
       double ylo, yhi;
@@ -2861,7 +2855,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp, SYSTEM *System,
         goto error;
       }
       System->Box.OrthoLength.y = yhi - ylo; //}}}
-      // <double> <double> zlo zhi //{{{
+    // <double> <double> zlo zhi //{{{
     } else if (words > 3 && strcmp(split[2], "zlo") == 0 &&
                strcmp(split[3], "zhi") == 0) {
       double zlo, zhi;
@@ -2869,7 +2863,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp, SYSTEM *System,
         goto error;
       }
       System->Box.OrthoLength.z = zhi - zlo; //}}}
-      // <double> <double> <double> xy xz yz //{{{
+    // <double> <double> <double> xy xz yz //{{{
     } else if (words > 5 && strcmp(split[3], "xy") == 0 &&
                strcmp(split[4], "xz") == 0 && strcmp(split[5], "yz") == 0) {
       double xy, xz, yz;

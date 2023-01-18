@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
 
   // -i[!] option //{{{
   char struct_file_extra[LINE] = "";
-  int struct_type_extra;
+  int struct_type_extra = -1;
   bool change_beads = false;
   if (FileOption(argc, argv, "-i", struct_file_extra, LINE)) {
     exit(1);
@@ -187,7 +187,7 @@ int main(int argc, char *argv[]) {
   } //}}}
   // input coordinate file (-c option) //{{{
   char coor_file[LINE] = "";
-  int coor_type;
+  int coor_type = -1;
   if (FileOption(argc, argv, "-c", coor_file, LINE)) {
     exit(1);
   }
@@ -219,7 +219,7 @@ int main(int argc, char *argv[]) {
   } //}}}
   // output structure file (-o option) //{{{
   char struct_file_out[LINE] = "";
-  int struct_type_out;
+  int struct_type_out = -1;
   if (FileOption(argc, argv, "-o", struct_file_out, LINE)) {
     exit(1);
   }
