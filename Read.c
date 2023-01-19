@@ -3009,10 +3009,15 @@ void LmpDataReadBody(char data_file[], FILE *lmp, SYSTEM *System, int lmp_types,
     exit(1);
   }
   if (Count->Bond > 0 && !bonds[0]) {
-    strcpy(ERROR_MSG, "Missing Bond Coeffs section \
-from lammps data file");
-    PrintErrorFile(data_file, "\0", "\0");
-    exit(1);
+    strcpy(ERROR_MSG, "Missing Bond Coeffs section from lammps data file; \
+setting all bond type parameters to 0");
+    PrintWarnFile(data_file, "\0", "\0");
+    putc('\n', stderr);
+    for (int i = 0; i < Count->BondType; i++) {
+      System->BondType[i].a = 0;
+      System->BondType[i].b = 0;
+      System->BondType[i].c = 0;
+    }
   }
   if (Count->Bond > 0 && !bonds[1]) {
     strcpy(ERROR_MSG, "Missing Bonds section from lammps data file");
@@ -3020,9 +3025,15 @@ from lammps data file");
     exit(1);
   }
   if (Count->Angle > 0 && !angles[0]) {
-    strcpy(ERROR_MSG, "Missing Angle Coeffs section from lammps data file");
-    PrintErrorFile(data_file, "\0", "\0");
-    exit(1);
+    strcpy(ERROR_MSG, "Missing Angle Coeffs section from lammps data file; \
+setting all angle type parameters to 0");
+    PrintWarnFile(data_file, "\0", "\0");
+    putc('\n', stderr);
+    for (int i = 0; i < Count->AngleType; i++) {
+      System->AngleType[i].a = 0;
+      System->AngleType[i].b = 0;
+      System->AngleType[i].c = 0;
+    }
   }
   if (Count->Angle > 0 && !angles[1]) {
     strcpy(ERROR_MSG, "Missing Angles section from lammps data file");
@@ -3030,9 +3041,15 @@ from lammps data file");
     exit(1);
   }
   if (Count->Dihedral > 0 && !dihedrals[0]) {
-    strcpy(ERROR_MSG, "Missing Dihedral Coeffs section from lammps data file");
-    PrintErrorFile(data_file, "\0", "\0");
-    exit(1);
+    strcpy(ERROR_MSG, "Missing Dihedral Coeffs section from lammps data file; \
+setting all dihedral type parameters to 0");
+    PrintWarnFile(data_file, "\0", "\0");
+    putc('\n', stderr);
+    for (int i = 0; i < Count->DihedralType; i++) {
+      System->DihedralType[i].a = 0;
+      System->DihedralType[i].b = 0;
+      System->DihedralType[i].c = 0;
+    }
   }
   if (Count->Dihedral > 0 && !dihedrals[1]) {
     strcpy(ERROR_MSG, "Missing Dihedrals section from lammps data file");
@@ -3040,9 +3057,15 @@ from lammps data file");
     exit(1);
   }
   if (Count->Improper > 0 && !impropers[0]) {
-    strcpy(ERROR_MSG, "Missing Improper Coeffs section from lammps data file");
-    PrintErrorFile(data_file, "\0", "\0");
-    exit(1);
+    strcpy(ERROR_MSG, "Missing Improper Coeffs section from lammps data file; \
+setting all improper type parameters to 0");
+    PrintWarnFile(data_file, "\0", "\0");
+    putc('\n', stderr);
+    for (int i = 0; i < Count->ImproperType; i++) {
+      System->ImproperType[i].a = 0;
+      System->ImproperType[i].b = 0;
+      System->ImproperType[i].c = 0;
+    }
   }
   if (Count->Improper > 0 && !impropers[1]) {
     strcpy(ERROR_MSG, "Missing Impropers section from lammps data file");
