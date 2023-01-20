@@ -63,7 +63,7 @@ bool SameBeadType(BEADTYPE bt_1, BEADTYPE bt_2);
 int FindBeadType(char name[], SYSTEM System);
 int FindMoleculeName(char name[], SYSTEM System);
 int FindMoleculeType_old(MOLECULETYPE mol, SYSTEM System, int mode, bool name);
-int FindMoleculeType(SYSTEM Sys1, int mt, SYSTEM Sys2, int mode, bool name);
+int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode, bool name);
 
 void FillSystemNonessentials(SYSTEM *System);
 void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType);

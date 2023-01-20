@@ -34,12 +34,12 @@ potentials (https://doi.org/10.1080/09500839008206493).\n\n");
   CommonHelp(error);
 } //}}}
 
-typedef struct element {
+typedef struct element { //{{{
   char Symbol[3];
   int State, Radius, Crystal;
   double Mass, IonizationEnergy, MeltingPoint, BoilingPoint, Density,
       BulkModulus, CohesionEnergy;
-} ELEMENT;
+} ELEMENT; //}}}
 
 // fill element array with info //{{{
 void FillElements(ELEMENT element[]) {
@@ -1088,6 +1088,7 @@ preference order: fcc > bcc > hcp");
   if (B == -1) {
     B = element[el].BulkModulus;
   } //}}}
+ //{{{
   // constants to recalculate stuff into different units
   double kT = k_B * T_ref, // to calculate in J
          eV = kT / e;      // to calculate in eV
@@ -1141,27 +1142,27 @@ preference order: fcc > bcc > hcp");
     exit(1);
   }
 
-//vol_a = vol / n_unit;
+//vol_a = vol / n_unit; //}}}
 
-  // reduced quantities
+  // reduced quantities //{{{
   double vol_a_red = vol_a / vol;
   double E_red = E / (kT * Count->BeadCoor);
   double B_red = B * vol / kT;
 
-  // unneeded reduced quantities //{{{
+  // unneeded reduced quantities
   // double vol_red = vol / a3;
   // double rho_red = Count->BeadCoor / vol_red;
   // double a_red = 1;
   // //}}}
 
-  if (verbose) {
+  if (verbose) { //{{{
     printf("%sInput data for %s (%s):%s\n", Magenta(), species, lattice,
            ColourReset());
     printf("  Molar mass: %e kg/mol\n", Mw);
     printf("  Density: %e kg/m^3\n", rho);
     printf("  Cohesion energy: %e J/mol (%e eV)\n", E_coh, E_coh * Jmol_to_eV);
     printf("  Bulk modulus: %e Pa (%e eV/Å)\n\n", B, B / eVA3_to_Pa);
-  }
+  } //}}}
 
   //// test prints //{{{
   // printf("%sCalculated quantities for %d atoms:%s\n",

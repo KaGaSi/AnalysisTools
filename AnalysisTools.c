@@ -266,14 +266,14 @@ int FindMoleculeName(char name[], SYSTEM System) { //{{{
  *   3 - check everything
  * name = true/false for checking/ignoring molecule name
  */
-int FindMoleculeType(SYSTEM Sys1, int mt, SYSTEM Sys2, int mode, bool name) {
+int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode, bool name) {
   // just to be sure the function's mode parameter is correct //{{{
   if (mode < 0 || mode > 3) {
     strcpy(ERROR_MSG, "FindMoleculeType() - mode parameter must be <0,3>\n");
     PrintError();
     exit(1);
   } //}}}
-  MOLECULETYPE *mt_1 = &Sys1.MoleculeType[mt];
+  MOLECULETYPE *mt_1 = &mt;
   // find the same name
   for (int i = 0; i < Sys2.Count.MoleculeType; i++) {
     MOLECULETYPE *mt_2 = &Sys2.MoleculeType[i];
@@ -1026,10 +1026,6 @@ void PruneSystem(SYSTEM *System) { //{{{
       // create new bead type if it doesn't exist yet in the pruned system
       int old_type = S_old.Bead[i].Type, new_type = -1;
       for (int j = 0; j < Count->BeadType; j++) {
-        // new_type = FindBeadType(S_old.BeadType[old_type].Name, *System);
-        // if (new_type != -1) {
-        //   break;
-        // }
         if (SameBeadType(S_old.BeadType[old_type], System->BeadType[j])) {
           new_type = j;
           break;
@@ -1079,7 +1075,6 @@ void PruneSystem(SYSTEM *System) { //{{{
     MOLECULE *mol_old = &S_old.Molecule[i];
     int old_type = mol_old->Type;
     MOLECULETYPE *mt_old = &S_old.MoleculeType[old_type];
-    // find if the molecule is to be in the pruned system
     int c_bead = 0;
     for (int j = 0; j < mt_old->nBeads; j++) {
       int id = mol_old->Bead[j];
@@ -1088,6 +1083,27 @@ void PruneSystem(SYSTEM *System) { //{{{
       }
     }
     if (c_bead > 0) { // should the molecule be in the pruned system?
+      // create new type for mt_old as some beads may be missing
+      MOLECULETYPE mt_old_new;
+      InitMoleculeType(&mt_old_new);
+      strcpy(mt_old_new.Name, mt_old->Name);
+      mt_old_new.Number = 1;
+      mt_old_new.nBeads = c_bead;
+      mt_old_new.Bead = malloc(sizeof *mt_old_new.Bead * mt_old_new.nBeads);
+      c_bead = 0;
+      // TODO: some array to possibly renumber beads
+      int b_old_to_old_new[mt_old->nBeads];
+      for (int j = 0; j < mt_old->nBeads; j++) {
+        b_old_to_old_new[j] = -1;
+        int id = mol_old->Bead[j];
+        if (S_old.Bead[id].InTimestep) {
+          mt_old_new.Bead[c_bead] = S_old.Bead[id].Type;
+          b_old_to_old_new[j] = c_bead;
+          c_bead++;
+        }
+      }
+      // TODO: check bonds etc. (and use b_old_to_old_new!)
+
       int new_id = Count->Molecule;
       Count->Molecule++;
       System->Molecule =
@@ -1104,31 +1120,16 @@ void PruneSystem(SYSTEM *System) { //{{{
           c_bead++;
         }
       }
-      // is the molecule type already in the pruned system?
-      // 1) temporarily change beadtypes to those in the pruned System
-      //    (everything else must be identical to the S_old molecule type
-      //    because nothing else depends on something outside the MoleculeType)
-      // TODO: not the best solution; used to keep S_old unchanged which
-      //       doesn't matter now, but in principle, S_old shouldn't change...
-      int bkp[mt_old->nBeads];
-      for (int k = 0; k < mt_old->nBeads; k++) {
-        int btype = mt_old->Bead[k];
-        bkp[k] = btype;
-        mt_old->Bead[k] = bt_old_to_new[btype];
-      }
-      // 2) identify molecule type based on all information
-      // int new_type = FindMoleculeType_old(*mt_old, *System, 3, true);
-      int new_type = FindMoleculeType(S_old, old_type, *System, 3, true);
-      // 3) switch the beadtypes back
-      for (int k = 0; k < mt_old->nBeads; k++) {
-        mt_old->Bead[k] = bkp[k];
-      }
+
+      // Is the molecule type already in the pruned system (check based on all
+      // molecule type information)?
+      int new_type = FindMoleculeType(S_old, *mt_old, *System, 3, true);
       if (new_type != -1) { // yes, the molecule type is in the pruned system
         mol_new->Type = new_type;
         System->MoleculeType[new_type].Number++;
       } else { // no, it isn't; create a new one
-        int new_new_type = Count->MoleculeType, c_bond = 0, c_angle = 0,
-            c_dihedral = 0, c_improper = 0;
+        int new_new_type = Count->MoleculeType,
+            c_bond = 0, c_angle = 0, c_dihedral = 0, c_improper = 0;
         // count bonds in the pruned molecule type //{{{
         for (int j = 0; j < mt_old->nBonds; j++) {
           int *id = BondIndices(S_old, i, j);
@@ -1657,7 +1658,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
      * 3) adjust numbers of beads in BeadType[].Number in Sys_orig
      */
     for (int i = 0; i < Count_orig->MoleculeType; i++) {
-      int mtype_add = FindMoleculeType(*Sys_orig, i, Sys_add, 1, name);
+      int mtype_add = FindMoleculeType(*Sys_orig, Sys_orig->MoleculeType[i], Sys_add, 1, name);
       if (mtype_add != -1) {
         MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i],
                      *mt_add = &Sys_add.MoleculeType[mtype_add];
@@ -1718,7 +1719,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
   }                                                    //}}}
   for (int i = 0; i < Count_orig->MoleculeType; i++) { //{{{
     MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
-    int type = FindMoleculeType(*Sys_orig, i, Sys_add, 2, name);
+    int type = FindMoleculeType(*Sys_orig, Sys_orig->MoleculeType[i], Sys_add, 2, name);
     if (type != -1) {
       MOLECULETYPE *mt_add = &Sys_add.MoleculeType[type];
       // add bonds, if there are none in the original molecule type... //{{{

@@ -34,7 +34,6 @@ void InitMoleculeType(MOLECULETYPE *mt) { //{{{
   mt->Mass = MASS;
   mt->Charge = CHARGE;
   mt->InVcf = false;
-  // mt->BType = calloc(1, sizeof *mt->BType);
 } //}}}
 void InitMolecule(MOLECULE *mol) { //{{{
   mol->Type = -1;
