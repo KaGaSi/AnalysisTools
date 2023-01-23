@@ -41,9 +41,9 @@ VECTOR ToFractional(VECTOR coor, BOX Box) { //{{{
             Box.inverse[1][2] * coor.z;
     new.z = Box.inverse[2][0] * coor.x + Box.inverse[2][1] * coor.y +
             Box.inverse[2][2] * coor.z;
-    coor.x = new.x *Box.Length.x;
-    coor.y = new.y *Box.Length.y;
-    coor.z = new.z *Box.Length.z;
+    coor.x = new.x * Box.Length.x;
+    coor.y = new.y * Box.Length.y;
+    coor.z = new.z * Box.Length.z;
   }
   return coor;
 } //}}}
@@ -1964,7 +1964,7 @@ bool TriclinicCellData(BOX *Box, int mode) {
   // calculate angles and tilt vectors or tilt vectors and OrthoLength //{{{
   switch (mode) {
   case 0: // angles & Length given //{{{
-    Box->OrthoLength = Box->Length;
+    Box->Ortho = Box->Length;
     if (Box->alpha != 90 || Box->beta != 90 || Box->gamma != 90) {
       double a = Box->Length.x, b = Box->Length.y, c = Box->Length.z;
       double c_a = cos(Box->alpha * PI / 180), c_b = cos(Box->beta * PI / 180),
@@ -1994,14 +1994,14 @@ bool TriclinicCellData(BOX *Box, int mode) {
       Box->inverse[2][2] = a * b * s_g / vol;
       // orthogonal box size
       // x direaction
-      Box->OrthoLength.x = a;
+      Box->Ortho.x = a;
       // y direaction
       sqr = SQR(b) - SQR(Box->transform[0][1]);
       if (sqr < 0) {
         strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
         return false;
       }
-      Box->OrthoLength.y = sqrt(sqr);
+      Box->Ortho.y = sqrt(sqr);
       // z direaction
       sqr = SQR(c) - SQR(Box->transform[0][2]) - SQR(Box->transform[1][2]);
       if (sqr < 0) {
@@ -2009,18 +2009,18 @@ bool TriclinicCellData(BOX *Box, int mode) {
         PrintError();
         exit(1);
       }
-      Box->OrthoLength.z = sqrt(sqr);
+      Box->Ortho.z = sqrt(sqr);
     }
     break; //}}}
   case 1:  // tilt & OrthoLength given //{{{
-    Box->Length = Box->OrthoLength;
+    Box->Length = Box->Ortho;
     if (Box->transform[0][1] != 0 || Box->transform[0][2] != 0 ||
         Box->transform[1][2] != 0) {
-      double a = Box->OrthoLength.x,
-             b = sqrt(SQR(Box->OrthoLength.y) + SQR(Box->transform[0][1])),
-             c = sqrt(SQR(Box->OrthoLength.z) + SQR(Box->transform[0][2]));
+      double a = Box->Ortho.x,
+             b = sqrt(SQR(Box->Ortho.y) + SQR(Box->transform[0][1])),
+             c = sqrt(SQR(Box->Ortho.z) + SQR(Box->transform[0][2]));
       double c_a = (Box->transform[0][1] * Box->transform[0][2] +
-                    Box->OrthoLength.y * Box->transform[1][2]) /
+                    Box->Ortho.y * Box->transform[1][2]) /
                    (b * c),
              c_b = Box->transform[0][2] / c, c_g = Box->transform[0][1] / b,
              s_g = sin(Box->gamma * PI / 180);
@@ -2052,8 +2052,8 @@ bool TriclinicCellData(BOX *Box, int mode) {
           b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) - c_b * s_g / vol);
       Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
       Box->inverse[2][2] = a * b * s_g / vol;
-    } //}}}
-    break;
+    }
+    break; //}}}
   default:
     strcpy(ERROR_MSG, "TriclinicCellData(): mode parameters must be 0 or 1");
     exit(1);
@@ -3073,9 +3073,9 @@ void PrintBox(BOX Box) { //{{{
     fprintf(stdout, " .beta = %lf,", Box.beta);
     fprintf(stdout, " .gamma = %lf,\n", Box.gamma);
   }
-  fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n", Box.OrthoLength.x,
-                                                         Box.OrthoLength.y,
-                                                         Box.OrthoLength.z);
+  fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n", Box.Ortho.x,
+                                                         Box.Ortho.y,
+                                                         Box.Ortho.z);
   fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
   fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
   fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);

@@ -229,9 +229,9 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
   fprintf(fw, " improper types\n");
   putc('\n', fw); //}}}
   // print box size //{{{
-  fprintf(fw, "0.0 %lf xlo xhi\n", System.Box.OrthoLength.x);
-  fprintf(fw, "0.0 %lf ylo yhi\n", System.Box.OrthoLength.y);
-  fprintf(fw, "0.0 %lf zlo zhi\n", System.Box.OrthoLength.z);
+  fprintf(fw, "0.0 %lf xlo xhi\n", System.Box.Ortho.x);
+  fprintf(fw, "0.0 %lf ylo yhi\n", System.Box.Ortho.y);
+  fprintf(fw, "0.0 %lf zlo zhi\n", System.Box.Ortho.z);
   if (System.Box.alpha != 90 || System.Box.beta != 90 ||
       System.Box.gamma != 90) {
     fprintf(fw, "%lf %lf %lf xy xz yz\n", System.Box.transform[0][1],
