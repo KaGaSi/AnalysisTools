@@ -229,9 +229,9 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
   fprintf(fw, " improper types\n");
   putc('\n', fw); //}}}
   // print box size //{{{
-  fprintf(fw, "0.0 %lf xlo xhi\n", System.Box.Ortho.x);
-  fprintf(fw, "0.0 %lf ylo yhi\n", System.Box.Ortho.y);
-  fprintf(fw, "0.0 %lf zlo zhi\n", System.Box.Ortho.z);
+  fprintf(fw, "0.0 %lf xlo xhi\n", System.Box.OrthoLength.x);
+  fprintf(fw, "0.0 %lf ylo yhi\n", System.Box.OrthoLength.y);
+  fprintf(fw, "0.0 %lf zlo zhi\n", System.Box.OrthoLength.z);
   if (System.Box.alpha != 90 || System.Box.beta != 90 ||
       System.Box.gamma != 90) {
     fprintf(fw, "%lf %lf %lf xy xz yz\n", System.Box.transform[0][1],
@@ -460,19 +460,30 @@ void LtrjWriteCoor(FILE *fr, int step, bool write[], SYSTEM System) {
   }
   // print the step
   if (count > 0) {
-    VECTOR *box = &System.Box.Length;
+    BOX *box = &System.Box;
     fprintf(fr, "ITEM: TIMESTEP\n%d\n", step);
     fprintf(fr, "ITEM: NUMBER OF ATOMS\n%d\n", count);
     // TODO: triclinic box...
-    if (System.Box.Volume == -1) {
+    if (box->Volume == -1) {
       strcpy(ERROR_MSG, "unspecified box dimensions");
       PrintWarning();
     }
-    fprintf(fr, "ITEM: BOX BOUNDS pp pp pp\n");
-    fprintf(fr, "0.0 %lf\n", box->x);
-    fprintf(fr, "0.0 %lf\n", box->y);
-    fprintf(fr, "0.0 %lf\n", box->z);
-    fprintf(fr, "ITEM: ATOMS id element x y z");
+    // orthogonal box
+    if (box->alpha == 90 &&
+        box->beta == 90 &&
+        box->gamma == 90) {
+      fprintf(fr, "ITEM: BOX BOUNDS pp pp pp\n");
+      fprintf(fr, "0.0 %lf\n", box->Length.x);
+      fprintf(fr, "0.0 %lf\n", box->Length.y);
+      fprintf(fr, "0.0 %lf\n", box->Length.z);
+      fprintf(fr, "ITEM: ATOMS id element x y z");
+    } else {
+      fprintf(fr, "ITEM: BOX BOUNDS xy xz yz pp pp pp\n");
+      fprintf(fr, "0.0 %lf %lf\n", box->Bounding.x, box->transform[0][1]);
+      fprintf(fr, "0.0 %lf %lf\n", box->Bounding.y, box->transform[0][2]);
+      fprintf(fr, "0.0 %lf %lf\n", box->Bounding.z, box->transform[1][2]);
+      fprintf(fr, "ITEM: ATOMS id element x y z");
+    }
     if (vel) {
       fprintf(fr, " vx vy vz");
     }

@@ -527,6 +527,10 @@ void MergeMoleculeTypes(SYSTEM *System) {
   for (int i = 0; i < Count->MoleculeType; i++) { //{{{
     bool new = true;
     MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    SortBonds(mt_i->Bond, mt_i->nBonds);
+    SortAngles(mt_i->Angle, mt_i->nAngles);
+    SortDihImp(mt_i->Dihedral, mt_i->nDihedrals);
+    SortDihImp(mt_i->Improper, mt_i->nImpropers);
     int j = 0;
     for (; j < count; j++) {
       MOLECULETYPE *mt_j = &System->MoleculeType[j];
@@ -1084,7 +1088,6 @@ bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
     }
     break;
   }
-  PrintBox(System->Box);
   return true;
 } //}}}
 // SkipTimestep() //{{{
@@ -2847,7 +2850,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp, SYSTEM *System,
       if (!IsRealNumber(split[0], &xlo) || !IsRealNumber(split[1], &xhi)) {
         goto error;
       }
-      System->Box.Ortho.x = xhi - xlo; //}}}
+      System->Box.OrthoLength.x = xhi - xlo; //}}}
     // <double> <double> ylo yhi //{{{
     } else if (words > 3 && strcmp(split[2], "ylo") == 0 &&
                strcmp(split[3], "yhi") == 0) {
@@ -2855,7 +2858,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp, SYSTEM *System,
       if (!IsRealNumber(split[0], &ylo) || !IsRealNumber(split[1], &yhi)) {
         goto error;
       }
-      System->Box.Ortho.y = yhi - ylo; //}}}
+      System->Box.OrthoLength.y = yhi - ylo; //}}}
     // <double> <double> zlo zhi //{{{
     } else if (words > 3 && strcmp(split[2], "zlo") == 0 &&
                strcmp(split[3], "zhi") == 0) {
@@ -2863,7 +2866,7 @@ int LmpDataReadHeader(char data_file[], FILE *lmp, SYSTEM *System,
       if (!IsRealNumber(split[0], &zlo) || !IsRealNumber(split[1], &zhi)) {
         goto error;
       }
-      System->Box.Ortho.z = zhi - zlo; //}}}
+      System->Box.OrthoLength.z = zhi - zlo; //}}}
     // <double> <double> <double> xy xz yz //{{{
     } else if (words > 5 && strcmp(split[3], "xy") == 0 &&
                strcmp(split[4], "xz") == 0 && strcmp(split[5], "yz") == 0) {
@@ -2915,8 +2918,8 @@ in lammps data file header");
     PrintWarnFile(data_file, "\0", "\0");
     putc('\n', stderr);
   }
-  if (System->Box.Ortho.x == -1 || System->Box.Ortho.y == -1 ||
-      System->Box.Ortho.z == -1) {
+  if (System->Box.OrthoLength.x == -1 || System->Box.OrthoLength.y == -1 ||
+      System->Box.OrthoLength.z == -1) {
     strcpy(ERROR_MSG, "missing box size in lammps data file header");
     PrintWarnFile(data_file, "\0", "\0");
     putc('\n', stderr);
@@ -4028,11 +4031,11 @@ bool LtrjReadPBCSection(FILE *f, char file[], BOX *box, int *file_line_count) { 
     from_bound[1].y = Max3(0, 0, tilt[2]);
     from_bound[0].z = 0;
     from_bound[1].z = 0;
-    box->Ortho.x = (bounds[0][1] - from_bound[1].x) -
+    box->OrthoLength.x = (bounds[0][1] - from_bound[1].x) -
                    (bounds[0][0] - from_bound[0].x);
-    box->Ortho.y = (bounds[1][1] - from_bound[1].y) -
+    box->OrthoLength.y = (bounds[1][1] - from_bound[1].y) -
                    (bounds[1][0] - from_bound[0].y);
-    box->Ortho.z = (bounds[2][1] - from_bound[1].z) -
+    box->OrthoLength.z = (bounds[2][1] - from_bound[1].z) -
                    (bounds[2][0] - from_bound[0].z);
     box->transform[0][1] = tilt[0];
     box->transform[0][2] = tilt[1];

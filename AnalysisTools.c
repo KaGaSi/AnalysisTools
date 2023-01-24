@@ -1964,7 +1964,8 @@ bool TriclinicCellData(BOX *Box, int mode) {
   // calculate angles and tilt vectors or tilt vectors and OrthoLength //{{{
   switch (mode) {
   case 0: // angles & Length given //{{{
-    Box->Ortho = Box->Length;
+    Box->OrthoLength = Box->Length;
+    Box->Bounding = Box->Length;
     if (Box->alpha != 90 || Box->beta != 90 || Box->gamma != 90) {
       double a = Box->Length.x, b = Box->Length.y, c = Box->Length.z;
       double c_a = cos(Box->alpha * PI / 180), c_b = cos(Box->beta * PI / 180),
@@ -1994,14 +1995,14 @@ bool TriclinicCellData(BOX *Box, int mode) {
       Box->inverse[2][2] = a * b * s_g / vol;
       // orthogonal box size
       // x direaction
-      Box->Ortho.x = a;
+      Box->OrthoLength.x = a;
       // y direaction
       sqr = SQR(b) - SQR(Box->transform[0][1]);
       if (sqr < 0) {
         strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
         return false;
       }
-      Box->Ortho.y = sqrt(sqr);
+      Box->OrthoLength.y = sqrt(sqr);
       // z direaction
       sqr = SQR(c) - SQR(Box->transform[0][2]) - SQR(Box->transform[1][2]);
       if (sqr < 0) {
@@ -2009,18 +2010,28 @@ bool TriclinicCellData(BOX *Box, int mode) {
         PrintError();
         exit(1);
       }
-      Box->Ortho.z = sqrt(sqr);
+      Box->OrthoLength.z = sqrt(sqr);
+      // see https://docs.lammps.org/Howto_triclinic.html
+      double xy = Box->transform[0][1],
+             xz = Box->transform[0][2],
+             yz = Box->transform[1][2],
+             xyz = Box->transform[0][1] + Box->transform[0][2];
+      Box->Bounding.x = Box->OrthoLength.x -
+                        Max3(0, xy, Max3(0, xz, xyz)) +
+                        Min3(0, xy, Min3(0, xz, xyz));
+      Box->Bounding.y = Box->OrthoLength.y - Min3(0, 0, yz) + Max3(0, 0, yz);
+      Box->Bounding.z = Box->OrthoLength.z;
     }
     break; //}}}
   case 1:  // tilt & OrthoLength given //{{{
-    Box->Length = Box->Ortho;
+    Box->Length = Box->OrthoLength;
     if (Box->transform[0][1] != 0 || Box->transform[0][2] != 0 ||
         Box->transform[1][2] != 0) {
-      double a = Box->Ortho.x,
-             b = sqrt(SQR(Box->Ortho.y) + SQR(Box->transform[0][1])),
-             c = sqrt(SQR(Box->Ortho.z) + SQR(Box->transform[0][2]));
+      double a = Box->OrthoLength.x,
+             b = sqrt(SQR(Box->OrthoLength.y) + SQR(Box->transform[0][1])),
+             c = sqrt(SQR(Box->OrthoLength.z) + SQR(Box->transform[0][2]));
       double c_a = (Box->transform[0][1] * Box->transform[0][2] +
-                    Box->Ortho.y * Box->transform[1][2]) /
+                    Box->OrthoLength.y * Box->transform[1][2]) /
                    (b * c),
              c_b = Box->transform[0][2] / c, c_g = Box->transform[0][1] / b,
              s_g = sin(Box->gamma * PI / 180);
@@ -2058,7 +2069,7 @@ bool TriclinicCellData(BOX *Box, int mode) {
     strcpy(ERROR_MSG, "TriclinicCellData(): mode parameters must be 0 or 1");
     exit(1);
   } //}}}
-  // transformation matrices //{{{
+  // transformation matrices for orthogonal box //{{{
   if (Box->alpha == 90 && Box->beta == 90 && Box->gamma == 90) {
     Box->Volume = Box->Length.x * Box->Length.y * Box->Length.z;
     Box->transform[0][0] = Box->Length.x;
@@ -2068,6 +2079,17 @@ bool TriclinicCellData(BOX *Box, int mode) {
     Box->inverse[1][1] = 1 / Box->Length.y;
     Box->inverse[2][2] = 1 / Box->Length.z;
   } //}}}
+  // maximum size of the the bounding box //{{{
+  // see https://docs.lammps.org/Howto_triclinic.html
+  double xy = Box->transform[0][1],
+         xz = Box->transform[0][2],
+         yz = Box->transform[1][2],
+         xyz = Box->transform[0][1] + Box->transform[0][2];
+  Box->Bounding.x = Box->OrthoLength.x +
+                    Max3(0, xy, Max3(0, xz, xyz)) -
+                    Min3(0, xy, Min3(0, xz, xyz));
+  Box->Bounding.y = Box->OrthoLength.y + Max3(0, 0, yz) - Max3(0, 0, yz);
+  Box->Bounding.z = Box->OrthoLength.z; //}}}
   return true;
 } //}}}
   //}}}
@@ -3073,9 +3095,9 @@ void PrintBox(BOX Box) { //{{{
     fprintf(stdout, " .beta = %lf,", Box.beta);
     fprintf(stdout, " .gamma = %lf,\n", Box.gamma);
   }
-  fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n", Box.Ortho.x,
-                                                         Box.Ortho.y,
-                                                         Box.Ortho.z);
+  fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n", Box.OrthoLength.x,
+                                                         Box.OrthoLength.y,
+                                                         Box.OrthoLength.z);
   fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
   fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
   fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);
