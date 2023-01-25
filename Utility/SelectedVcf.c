@@ -93,6 +93,10 @@ int main(int argc, char *argv[]) {
   if (!InputCoorStruct(argc, argv, in_coor, &coor_type,
                        struct_file, &struct_type)) {
     exit(1);
+  }
+  int start_id = -1;
+  if (coor_type == LTRJ_FILE) {
+    start_id = LtrjLowIndex(in_coor);
   } //}}}
 
   // <output> - output vcf file //{{{
@@ -245,7 +249,7 @@ int main(int argc, char *argv[]) {
     } //}}}
     if (use) { // read and write the timestep, if it should be saved //{{{
       if (!ReadTimestep(coor_type, coor, in_coor, &System, &file_line_count,
-                        stuff)) {
+                        start_id, stuff)) {
         count_coor--;
         break;
       }
@@ -285,7 +289,8 @@ int main(int argc, char *argv[]) {
     } else {
       fsetpos(coor, &position2);
     }
-    ReadTimestep(coor_type, coor, in_coor, &System, &file_line_count, stuff);
+    ReadTimestep(coor_type, coor, in_coor, &System, &file_line_count,
+                 start_id, stuff);
     count_saved++;
     WrapJoinCoordinates(&System, wrap, join);
     WriteTimestep(coor_out_type, out_coor, System, count_coor, stuff, write);

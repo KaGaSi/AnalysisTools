@@ -298,20 +298,20 @@ int main(int argc, char *argv[]) {
     ChangeMolecules(&System, Sys_extra, change_beads, true);
     CheckSystem(System, struct_file_extra);
   }
-  // printf("GREEN\n");
-  // VerboseOutput(System);
-  // PruneSystem(&System);
-  // printf("MAGENTA\n");
-  // VerboseOutput(System);
   // use coordinate from a separate file (-c option)
-  char stuff[LINE];
+  char stuff[LINE]; // for vcf file
+  int start_id = -1; // for lammpstrj file
   if (coor_file[0] != '\0') {
+    if (coor_type == LTRJ_FILE) {
+      start_id = LtrjLowIndex(coor_file);
+    }
     int file_line_count = 0;
     FILE *fr = OpenFile(coor_file, "r");
     for (int i = 0; i < timestep; i++) {
       SkipTimestep(coor_type, fr, coor_file, struct_file, &file_line_count);
     }
-    ReadTimestep(coor_type, fr, coor_file, &System, &file_line_count, stuff);
+    ReadTimestep(coor_type, fr, coor_file, &System, &file_line_count,
+                 start_id, stuff);
     fclose(fr);
   } //}}}
 

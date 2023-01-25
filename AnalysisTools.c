@@ -1234,6 +1234,7 @@ void PruneSystem(SYSTEM *System) { //{{{
         } //}}}
         free(id_old_to_new);
       }
+      FreeMoleculeTypeEssentials(&mt_old_new);
     }
   } //}}}
   FillBeadTypeIndex(System);

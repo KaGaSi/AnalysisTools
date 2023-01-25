@@ -440,7 +440,7 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
   free(bt_old_to_masstype);
   fclose(fw);
 } //}}}
-// LtrjXyzWriteCoor() //{{{
+// LtrjWriteCoor() //{{{
 void LtrjWriteCoor(FILE *fr, int step, bool write[], SYSTEM System) {
   // find out number of beads to save and if velocity/force should be saved
   int count = 0;
@@ -496,7 +496,7 @@ void LtrjWriteCoor(FILE *fr, int step, bool write[], SYSTEM System) {
       BEAD *b = &System.Bead[id];
       if (b->InTimestep && write[id]) {
         int type = b->Type;
-        fprintf(fr, "%8d %8s %8.4f %8.4f %8.4f", id+1, // ltrj id starts at 1
+        fprintf(fr, "%8d %8s %8.4f %8.4f %8.4f", id,
                 System.BeadType[type].Name,
                 b->Position.x, b->Position.y, b->Position.z);
         if (vel) {

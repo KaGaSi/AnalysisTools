@@ -188,7 +188,7 @@ void SortArray(int *array, int length, int mode) {
 
 // ReadLine() //{{{
 bool ReadLine(FILE *fr, int max_char, char *line) {
-  if (!fgets(line, LINE, fr)) {
+  if (!fgets(line, max_char, fr)) {
     return false; // error/EOF
   }
   // if the line is too long, skip the rest of it
