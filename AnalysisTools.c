@@ -1103,6 +1103,21 @@ void PruneSystem(SYSTEM *System) { //{{{
         }
       }
       // TODO: check bonds etc. (and use b_old_to_old_new!)
+      int c_bond = 0;
+      mt_old_new.Bond = malloc(sizeof *mt_old_new.Bond * mt_old->nBonds);
+      for (int j = 0; j < mt_old->nBonds; j++) {
+        int id1 = mt_old->Bond[j][0],
+            id2 = mt_old->Bond[j][1];
+        id1 = b_old_to_old_new[id1];
+        id2 = b_old_to_old_new[id2];
+        if (id1 != -1 && id2 != -1) {
+          mt_old_new.Bond[c_bond][0] = id1;
+          mt_old_new.Bond[c_bond][1] = id2;
+          mt_old_new.Bond[c_bond][2] = mt_old->Bond[j][2];
+          c_bond++;
+        }
+      }
+      mt_old_new.nBonds = c_bond;
 
       int new_id = Count->Molecule;
       Count->Molecule++;
