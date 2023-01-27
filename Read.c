@@ -1035,14 +1035,15 @@ void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join) {
   }
 } //}}}
 // ReadStructure() //{{{
-SYSTEM ReadStructure(int struct_type, char struct_file[], bool detailed) {
+SYSTEM ReadStructure(int struct_type, char struct_file[],
+                     bool detailed, int pbc_xyz) {
   SYSTEM System;
   switch (struct_type) {
     case VSF_FILE:
       System = VtfReadStruct(struct_file, detailed);
       break;
     case XYZ_FILE:
-      System = XyzReadStruct(struct_file);
+      System = XyzReadStruct(struct_file, pbc_xyz);
       break;
     case LTRJ_FILE:
       System = LtrjReadStruct(struct_file);
@@ -4182,34 +4183,53 @@ bool LtrjReadAtomLine(FILE *f, BEAD *b, int bead_count, int *var, int cols) {
 } //}}}
   //}}}
 // Read xyz files //{{{
-SYSTEM XyzReadStruct(char file[]) { //{{{
+SYSTEM XyzReadStruct(char file[], int pbc) { //{{{
   SYSTEM Sys;
   InitSystem(&Sys);
   COUNT *Count = &Sys.Count;
   int file_line_count = 0;
   FILE *fr = OpenFile(file, "r");
   // read number of beads //{{{
+  file_line_count++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(file);
     exit(1);
   }
-  file_line_count++;
   long val;
   if (words == 0 || !IsNaturalNumber(split[0], &val)) {
     strcpy(ERROR_MSG, "wrong first line of an xyz file");
     PrintErrorFileLine(file, file_line_count, split, words);
     exit(1);
-  }
-  file_line_count++; //}}}
+  } //}}}
   Count->Bead = val;
   Count->BeadCoor = val;
   Count->Unbonded = val;
   Count->UnbondedCoor = val;
-  // ignore next line //{{{
+  // read next line, possibly with pbc //{{{
+  file_line_count++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
     ErrorEOF(file);
     exit(1);
-  } //}}}
+  }
+  if (pbc > 0) {
+    VECTOR box;
+    // pbc=column id, tzn. pbc-1 for split element
+    if (words < (pbc+2) || !IsRealNumber(split[pbc-1], &box.x) ||
+                           !IsRealNumber(split[pbc+0], &box.y) ||
+                           !IsRealNumber(split[pbc+1], &box.z)) {
+      strcpy(ERROR_MSG, "missing pbc on the comment line");
+      PrintWarningFileLine(file, file_line_count, split, words);
+    } else {
+      Sys.Box.Length.x = box.x;
+      Sys.Box.Length.y = box.y;
+      Sys.Box.Length.z = box.z;
+      // TODO: add if for the next three numbers as angles angles
+      // if (words > (pbc+4))
+      TriclinicCellData(&Sys.Box, 0);
+    }
+
+  }
+  //}}}
   Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
   // read atoms //{{{
   for (int i = 0; i < Count->Bead; i++) {

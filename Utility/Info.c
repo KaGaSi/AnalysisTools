@@ -1,4 +1,6 @@
 #include "../AnalysisTools.h"
+// TODO: pbc_xyz in ReadTimestep
+
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
   if (error) {
@@ -40,7 +42,9 @@ If some information required for the given output file type is missing, \
   fprintf(ptr, "      -def <bead name>   default bead type"
           " (works with vsf output file)\n");
   fprintf(ptr, "      --mass             define lammps atom types by mass, but"
-          "print per-atom charges in Atoms section (works with data file)\n");
+          " print per-atom charges in Atoms section (works with data file)\n");
+  fprintf(ptr, "      -pbc <int>         position of pbc in xyz file's comment"
+          " line (of the first number)\n");
   fprintf(ptr, "      -v                 more verbose output\n");
   fprintf(ptr, "      -h                 print this help and exit\n");
   fprintf(ptr, "      --version          print version and exit\n");
@@ -80,7 +84,7 @@ int main(int argc, char *argv[]) {
         strcmp(argv[i], "-st") != 0 && strcmp(argv[i], "-def") != 0 &&
         strcmp(argv[i], "--mass") != 0 && strcmp(argv[i], "-v") != 0 &&
         strcmp(argv[i], "-h") != 0 && strcmp(argv[i], "--version") != 0 &&
-        strcmp(argv[i], "--detailed") != 0 ) {
+        strcmp(argv[i], "-pbc") != 0 && strcmp(argv[i], "--detailed") != 0 ) {
 
       ErrorOption(argv[i]);
       Help(argv[0], true);
@@ -258,16 +262,26 @@ int main(int argc, char *argv[]) {
   timestep--; //}}}
   bool detailed = BoolOption(argc, argv, "--detailed");
   bool verbose = BoolOption(argc, argv, "-v");
+  // position of the first number of pbc in xyz file //{{{
+  int pbc_xyz = -1;
+  if (IntegerOption(argc, argv, "-pbc", &pbc_xyz)) {
+    exit(1);
+  }
+  if (pbc_xyz == 0) {
+    strcpy(ERROR_MSG, "position must be a positive number");
+    PrintErrorOption("-pbc");
+  } //}}}
 
   // read information from input file(s) //{{{
-  SYSTEM System = ReadStructure(struct_type, struct_file, detailed);
+  SYSTEM System = ReadStructure(struct_type, struct_file, detailed, pbc_xyz);
   if (verbose) {
     printf("System in %s:\n", struct_file);
     VerboseOutput(System);
   }
   SYSTEM Sys_extra;
   if (struct_file_extra[0] != '\0') {
-    Sys_extra = ReadStructure(struct_type_extra, struct_file_extra, detailed);
+    Sys_extra = ReadStructure(struct_type_extra, struct_file_extra,
+                              detailed, pbc_xyz);
     if (verbose) {
       printf("System in %s:\n", struct_file_extra);
       VerboseOutput(Sys_extra);

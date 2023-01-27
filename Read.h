@@ -27,7 +27,8 @@ void FillMoleculeTypeDihedral(SYSTEM *System, int (*angle)[5], int nbonds);
 void FillMoleculeTypeImproper(SYSTEM *System, int (*angle)[5], int nbonds);
 
 void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join);
-SYSTEM ReadStructure(int struct_type, char struct_file[], bool detailed);
+SYSTEM ReadStructure(int struct_type, char struct_file[],
+                     bool detailed, int pbc_xyz);
 bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
                   int *file_line_count, int start_id, char stuff[]);
 bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],
@@ -110,7 +111,7 @@ int LtrjReadItemAtomsLine(FILE *fr, char file[], int n, int *var_position,
 bool LtrjReadAtomLine(FILE *f, BEAD *b, int bead_count, int *var, int cols);
  //}}}
 // Functions to read xyz files //{{{
-SYSTEM XyzReadStruct(char file[]);
+SYSTEM XyzReadStruct(char file[], int pbc);
 bool XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
                      int *file_line_count);
 bool XyzSkipTimestep(FILE *fr, char file[], int *file_line_count);

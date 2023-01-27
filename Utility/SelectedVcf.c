@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+// TODO: pbc_xyz in ReadTimestep
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -37,6 +38,8 @@ containing all beads of any given type, so the usefulness is very limited \
   fprintf(ptr, "      -x <name(s)>   exclude specified molecule(s)\n");
   fprintf(ptr, "      --last         use only the last step"
           "(-st/-e options are ignored; -n option is not)\n");
+  fprintf(ptr, "      -pbc <int>         position of pbc in xyz file's comment"
+          " line (of the first number)\n");
   CommonHelp(error);
 } //}}}
 
@@ -77,7 +80,7 @@ int main(int argc, char *argv[]) {
         strcmp(argv[i], "--wrap") != 0 && strcmp(argv[i], "-e") != 0 &&
         strcmp(argv[i], "-sk") != 0 && strcmp(argv[i], "-n") != 0 &&
         strcmp(argv[i], "-x") != 0 && strcmp(argv[i], "--version") != 0 &&
-        strcmp(argv[i], "--last") != 0) {
+        strcmp(argv[i], "-pbc") != 0 && strcmp(argv[i], "--last") != 0) {
       ErrorOption(argv[i]);
       Help(argv[0], true);
       exit(1);
@@ -133,13 +136,21 @@ int main(int argc, char *argv[]) {
   int start, end;
   StartEndTime(argc, argv, &start, &end);
   bool last = BoolOption(argc, argv, "--last");
-  //}}}
+  // position of the first number of pbc in xyz file
+  int pbc_xyz = -1;
+  if (IntegerOption(argc, argv, "-pbc", &pbc_xyz)) {
+    exit(1);
+  }
+  if (pbc_xyz == 0) {
+    strcpy(ERROR_MSG, "position must be a positive number");
+    PrintErrorOption("-pbc");
+  } //}}}
 
   if (!silent) {
     PrintCommand(stdout, argc, argv);
   }
 
-  SYSTEM System = ReadStructure(struct_type, struct_file, detailed);
+  SYSTEM System = ReadStructure(struct_type, struct_file, detailed, pbc_xyz);
 
   // <bead names> - names of bead types to save //{{{
   bool *write = calloc(System.Count.Bead, sizeof *write),
