@@ -10,6 +10,405 @@
 static char line[LINE], *split[SPL_STR];
 static int words;
 
+// vtf helper functions to check type of the provided line //{{{
+int VtfCheckCoorOrderedLine() { //{{{
+  double val_d;
+  if (words >= 3 && IsRealNumber(split[0], &val_d) &&
+                    IsRealNumber(split[1], &val_d) &&
+                    IsRealNumber(split[2], &val_d)) {
+    return COOR_LINE_O;
+  }
+  return ERROR_LINE;
+} //}}}
+int VtfCheckCoorIndexedLine() { //{{{
+  long val_i;
+  double val_d;
+  // indexed line (may also be ordered)
+  if (words >= 4 && IsWholeNumber(split[0], &val_i) &&
+                    IsRealNumber(split[1], &val_d) &&
+                    IsRealNumber(split[2], &val_d) &&
+                    IsRealNumber(split[3], &val_d)) {
+    return COOR_LINE;
+  } else {
+    return ERROR_LINE;
+  }
+} //}}}
+int VtfCheckCoordinateLine() { //{{{
+  // indexed line (may also be ordered)
+  if (VtfCheckCoorIndexedLine() == COOR_LINE) {
+    return COOR_LINE;
+  }
+  // definitely ordered line
+  if (VtfCheckCoorOrderedLine() == COOR_LINE_O) {
+    return COOR_LINE_O;
+  }
+  return ERROR_LINE;
+} //}}}
+int VtfCheckTimestepLine() { //{{{
+  // there are several possibilities how the timestep line can look
+  /* ordered timestep:
+   *   1) 't[imestep]'
+   *   2) 't[imestep] o[rdered] ...'
+   *   3) 'o[rdered] ...'
+   */
+  if ((words == 1 && split[0][0] == 't') ||                      // 1)
+      (words > 1 && split[0][0] == 't' && split[1][0] == 'o') || // 2)
+      split[0][0] == 'o') {                                      // 3)
+    return TIME_LINE_O;
+  }
+  /* indexed timestep:
+   *   1) 't[imestep] i[ndexed] ...'
+   *   2) 'i[ndexed] ...'
+   */
+  if ((words > 1 && split[0][0] == 't' && split[1][0] == 'i') || // 1)
+      split[0][0] == 'i') {                                      // 2)
+    return TIME_LINE;
+  }
+  return ERROR_LINE; // not a timestep line
+} //}}}
+int VtfCheckPbcLine() { //{{{
+  // valid line: pbc <x> <y> <z> [<alpha> <beta> <gamm>]
+  // unrecognised line
+  double val;
+  if (words < 4 || strcmp(split[0], "pbc") != 0 ||
+      !IsPosRealNumber(split[1], &val) || !IsPosRealNumber(split[2], &val) ||
+      !IsPosRealNumber(split[3], &val)) {
+    return ERROR_LINE;
+  } else if (words > 6 && IsPosRealNumber(split[4], &val) &&
+             IsPosRealNumber(split[5], &val) &&
+             IsPosRealNumber(split[6], &val)) {
+    return PBC_LINE_ANGLES;
+  } else {
+    return PBC_LINE;
+  }
+} //}}}
+bool VtfCheckAtomLine() { //{{{
+  long val_i;
+  double val_d;
+  // error - line not starting with a[tom] default/<id> //{{{
+  if (split[0][0] != 'a' || (strcmp(split[1], "default") != 0 &&
+                             !IsIntegerNumber(split[1], &val_i))) {
+    return false;
+  } //}}}
+  // error - odd number of strings //{{{
+  if ((words % 2) != 0) {
+    strcpy(ERROR_MSG, "atom line with odd number of strings ");
+    return false;
+  } //}}}
+  // check <keyword> <value> pairs
+  bool name = false;
+  for (int i = 2; i < words; i += 2) {
+    // is n[ame] keyword present?
+    if (split[i][0] == 'n') {
+      name = true;
+    }
+    // error - resid not followed by non-negative integer //{{{
+    if (strcmp(split[i], "resid") == 0 &&
+        !IsWholeNumber(split[i + 1], &val_i)) {
+      strcpy(ERROR_MSG, "atom line: 'resid' not followed by natural number");
+      return false;
+    } //}}}
+    // error - charge|q //{{{
+    if ((strcmp(split[i], "charge") == 0 || split[i][0] == 'q') &&
+        !IsRealNumber(split[i + 1], &val_d)) {
+      strcpy(ERROR_MSG, "atom line: 'charge|q' not followed by real number ");
+      return false; //}}}
+    // error - r[adius] not followed by positive number //{{{
+    } else if (split[i][0] == 'r' && // possible r[adius]
+               strncmp(split[i], "res", 3) != 0 && // it's not resid or resname
+               !IsPosRealNumber(split[i + 1], &val_d)) {
+      strcpy(ERROR_MSG, "atom line: 'r[adius]]]' not followed by \
+positive real number ");
+      return false; //}}}
+    // error - m[ass] not followed by positive number //{{{
+    } else if (split[i][0] == 'm' && !IsPosRealNumber(split[i + 1], &val_d)) {
+      strcpy(ERROR_MSG, "atom line: 'm[ass]' not followed by \
+positive real number ");
+      return false;
+    } //}}}
+  }
+  // error - missing the mandatory n[ame] keyword or //{{{
+  if (!name) {
+    strcpy(ERROR_MSG, "atom line: missing 'n[ame]' keyword ");
+    return false;
+  } //}}}
+  // valid atom line
+  return true;
+} //}}}
+bool VtfCheckBondLine() { //{{{
+  long val_i;
+  // valid line b[ond] '<id>:[  ]<id> anything'
+  // error - only one string or missing 'b[ond]' keyword
+  if (words < 2 || split[0][0] != 'b') {
+    return false;
+  }
+  // two strings - assume '<int>:<int>' and test it
+  if (words == 2) {
+    // ':'-split the second string
+    char index[SPL_STR][SPL_LEN], string[SPL_LEN];
+    strcpy(string, split[1]);
+    int strings = SplitLine_old(index, string, ":");
+    if (strings != 2 || !IsIntegerNumber(index[0], &val_i) || val_i < 0 ||
+        !IsIntegerNumber(index[1], &val_i) || val_i < 0) {
+      strcpy(ERROR_MSG, "bond line: only 'b[ond] <int>:<int>' or \
+'b[ond] <int>: <int>' is valid (for now)\n");
+      return false;
+    }
+  }
+  // more than two strings - assume '<int>: <int>' and test it
+  if (words > 2) {
+    split[1][strlen(split[1]) - 1] = '\0';
+    if (!IsIntegerNumber(split[1], &val_i) || val_i < 0 ||
+        !IsIntegerNumber(split[2], &val_i) || val_i < 0) {
+      strcpy(ERROR_MSG, "bond line: only 'b[ond] <int>:<int>' or \
+'b[ond] <int>: <int>' is valid (for now)\n");
+      return false;
+    }
+  }
+  return true;
+} //}}}
+// VtfCheckLineType() //{{{
+/*
+ * Function returning line type according to the codes in Read.h.
+ */
+int VtfCheckLineType(char file[], int line_count) {
+  ERROR_MSG[0] = '\0'; // clear error message array
+  // blank line
+  if (words == 0) {
+    return BLANK_LINE;
+  }
+  // comment line
+  if (split[0][0] == '#') {
+    return COMMENT_LINE;
+  }
+  // coordinate line
+  int test = VtfCheckCoordinateLine();
+  if (test != ERROR_LINE) {
+    return test;
+  }
+  // timestep line
+  test = VtfCheckTimestepLine();
+  if (test != ERROR_LINE) {
+    return test;
+  }
+  // pbc line
+  test = VtfCheckPbcLine();
+  if (test != ERROR_LINE) {
+    return test;
+  }
+  // atom line (vsf)
+  if (VtfCheckAtomLine()) {
+    return ATOM_LINE;
+  }
+  // bond line (vsf)
+  if (VtfCheckBondLine()) {
+    return BOND_LINE;
+  }
+  if (ERROR_MSG[0] == '\0') {
+    strcpy(ERROR_MSG, "unrecognised line");
+  }
+  return ERROR_LINE;
+} //}}}
+  //}}}
+// lammpstrj helper functions to check type of the provided line //{{{
+// TODO: will there be LtrjCheckCoordinateLine()? ...there must be the array saying where are what values.
+int LtrjCheckCoordinateLine() { //{{{
+  // indexed line (may also be ordered)
+  if (VtfCheckCoorIndexedLine() == COOR_LINE) {
+    return COOR_LINE;
+  }
+  // definitely ordered line
+  if (VtfCheckCoorOrderedLine() == COOR_LINE_O) {
+    return COOR_LINE_O;
+  }
+  return ERROR_LINE;
+} //}}}
+// check if 'ITEM: TIMESTEP' line //{{{
+bool LtrjCheckTimestepLine() {
+  if (words >= 2 &&
+      strcmp(split[0], "ITEM:") == 0 &&
+      strcmp(split[1], "TIMESTEP") == 0) {
+    return true;
+  } else {
+    return false;
+  }
+} //}}}
+// check if 'ITEM: NUMBER OF ATOMS' line //{{{
+bool LtrjCheckNumberAtomLine() {
+  if (words >= 4 &&
+      strcmp(split[0], "ITEM:") == 0 &&
+      strcmp(split[1], "NUMBER") == 0 &&
+      strcmp(split[2], "OF") == 0 &&
+      strcmp(split[3], "ATOMS") == 0) {
+    return true;
+  } else {
+    return false;
+  }
+} //}}}
+// check if 'ITEM: ATOMS ...' line //{{{
+bool LtrjCheckAtomLine() {
+  if (words >= 3 &&
+      strcmp(split[0], "ITEM:") == 0 &&
+      strcmp(split[1], "ATOMS") == 0) {
+    return true;
+  } else {
+    return false;
+  }
+} //}}}
+// check if 'ITEM: BOX BOUNDS <str> <str> <str>' line //{{{
+bool LtrjCheckPbcLine() {
+  if (words >= 6 &&
+      strcmp(split[0], "ITEM:") == 0 &&
+      strcmp(split[1], "BOX") == 0 &&
+      strcmp(split[2], "BOUNDS") == 0) {
+    return true;
+  } else {
+    return false;
+  }
+} //}}}
+// LtrjCheckLineType() //{{{
+/*
+ * Function returning line type according to the codes in Read.h.
+ */
+int LtrjCheckLineType() {
+  // ERROR_MSG[0] = '\0'; // clear error message array
+  // blank line
+  if (words == 0) {
+    return BLANK_LINE;
+  }
+  // // coordinate line
+  // int test = LtrjCheckCoordinateLine();
+  // if (test != ERROR_LINE) {
+  //   return test;
+  // }
+  // ITEM: TIMESTEP
+  if (LtrjCheckTimestepLine()) {
+    return TIME_LINE;
+  }
+  // ITEM: NUMBER OF ATOMS line
+  if (LtrjCheckNumberAtomLine()) {
+    return N_ATOMS_LINE;
+  }
+  // ITEM: BOX BOUNDS line
+  if (LtrjCheckPbcLine()) {
+    return PBC_LINE;
+  }
+  // ITEM: ATOMS line
+  if (LtrjCheckAtomLine()) {
+    return ATOM_LINE;
+  }
+  // if (ERROR_MSG[0] == '\0') {
+  //   strcpy(ERROR_MSG, "unrecognised line");
+  // }
+  return ERROR_LINE;
+} //}}}
+  //}}}
+
+// read number of beads in a xyz timestep //{{{
+int XyzReadNumberOfBeads(FILE *fr, char file[], int count) {
+  fpos_t position;
+  fgetpos(fr, &position); // save position in the file
+  int file_line_count = count;
+  // number of atoms must be the first line of a timestep
+  file_line_count++;
+  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    ErrorEOF(file);
+    exit(1);
+  }
+  long val = -1;
+  if (words == 0 || !IsNaturalNumber(split[0], &val)) {
+    strcpy(ERROR_MSG, "number of atoms must be a non-zero whole number");
+    PrintErrorFileLine(file, file_line_count, split, words);
+  }
+  fsetpos(fr, &position); // restore position in the file
+  return val;
+} //}}}
+// read number of beads in a lammpstrj timestep //{{{
+int LtrjReadNumberOfBeads(FILE *fr, char file[], int count) {
+  fpos_t position;
+  fgetpos(fr, &position); // save position in the file
+  int ltype = -1, file_line_count = count;
+  // read until 'ITEM: NUMBER OF ATOMS' line
+  while (ltype != N_ATOMS_LINE) {
+    file_line_count++;
+    if (!ReadAndSplitLine(fr, LINE, line, &words,
+                          split, SPL_STR, " \t\n")) {
+      return -1; // regular eof - before the first expected 'ITEM:' line
+    }
+    ltype = LtrjCheckLineType();
+  }
+  // read next line, i.e., the number of atoms
+  file_line_count++;
+  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    ErrorEOF(file);
+    return -1;
+  }
+  long val = -1;
+  if (words == 0 || !IsNaturalNumber(split[0], &val)) {
+    strcpy(ERROR_MSG, "number of atoms must be a non-zero whole number");
+    PrintErrorFileLine(file, file_line_count, split, words);
+    return -1;
+  }
+  fsetpos(fr, &position); // restore position in the file
+  return val;
+} //}}}
+// read number of beads in a vtf timestep //{{{
+int VtfReadNumberOfBeads(FILE *fr, char file[], int count) {
+  fpos_t position;
+  fgetpos(fr, &position); // save position in the file
+  int ltype = -1, file_line_count = count;
+  // read until vcf timestep line line
+  while (ltype != TIME_LINE && ltype != TIME_LINE_O) {
+    file_line_count++;
+    if (!ReadAndSplitLine(fr, LINE, line, &words,
+                          split, SPL_STR, " \t\n")) {
+      return -1;
+      ErrorEOF(file);
+      exit(1);
+    }
+    ltype = VtfCheckLineType(file, file_line_count);
+  }
+  // read until the first non-coordinate line
+  int nbeads = -1; // that first non-coordinate line is also counted
+  do {
+    file_line_count++;
+    nbeads++;
+    if (!ReadAndSplitLine(fr, LINE, line, &words,
+                          split, SPL_STR, " \t\n")) {
+      if (feof(fr)) {
+        fsetpos(fr, &position); // restore position in the file
+        return nbeads;
+      }
+      ErrorEOF(file);
+      exit(1);
+    }
+    ltype = VtfCheckLineType(file, file_line_count);
+  } while (ltype == COOR_LINE || ltype == COOR_LINE_O);
+  fsetpos(fr, &position); // restore position in the file
+  return nbeads;
+} //}}}
+// read number of beads in the first timestep of a coordinate file //{{{
+int CoorReadNumberOfBeads(int coor_type, char *file) {
+  FILE *coor = OpenFile(file, "r");
+  int file_line_count = 0, nbeads = -1;
+  switch (coor_type) {
+    case VCF_FILE: {
+      nbeads = VtfReadNumberOfBeads(coor, file, file_line_count);
+      break;
+    }
+    case XYZ_FILE: {
+      nbeads = XyzReadNumberOfBeads(coor, file, file_line_count);
+      break;
+    }
+    case LTRJ_FILE: {
+      nbeads = LtrjReadNumberOfBeads(coor, file, file_line_count);
+      break;
+    }
+  }
+  fclose(coor);
+  return nbeads;
+} //}}}
+
 // RemoveExtraTypes()  //{{{
 /*
  * Remove bead and molecule types with Number=0. It assumes the allocated
@@ -1074,7 +1473,7 @@ bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
                   int *file_line_count, int start_id, char stuff[]) {
   switch (coor_type) {
   case VCF_FILE:
-    if (!VtfReadTimestep(f, file, System, file_line_count, stuff)) {
+    if (!VtfReadTimestep(f, file, System, file_line_count)) {
       return false;
     }
     break;
@@ -1115,6 +1514,117 @@ bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],
       strcpy(ERROR_MSG, "unspecified coordinate file; should never happen!");
       PrintError();
       return false;
+  }
+  return true;
+} //}}}
+
+// process pbc line from a vtf file //{{{
+bool VtfPbcLine(BOX *box, int ltype) {
+  box->Length.x = atof(split[1]);
+  box->Length.y = atof(split[2]);
+  box->Length.z = atof(split[3]);
+  if (ltype == PBC_LINE_ANGLES) {
+    box->alpha = atof(split[4]);
+    box->beta = atof(split[5]);
+    box->gamma = atof(split[6]);
+  } else { // definitely orthogonal box
+    box->alpha = 90;
+    box->beta = 90;
+    box->gamma = 90;
+  }
+  if (!TriclinicCellData(box, 0)) {
+    return false;
+  } else {
+    return true;
+  }
+} //}}}
+// read timestep preamble in a vtf file //{{{
+int VtfReadTimestepPreamble(FILE *fr, char file[], SYSTEM *System,
+                             int *line_count) {
+  start_function:;
+  fpos_t position; // to save file position
+  int ltype = -1, timestep = -1;
+  while (ltype != COOR_LINE && ltype != COOR_LINE_O) {
+    // save file pointer position for when it's the first coordinate line
+    fgetpos(fr, &position);
+    // read the next line
+    (*line_count)++;
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      return -1;
+    }
+    ltype = VtfCheckLineType(file, *line_count);
+    if (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) {
+      BOX box = InitBox;
+      if (!VtfPbcLine(&box, ltype)) {
+        ErrorPrintFull2(file, *line_count, split, words);
+        exit(1);
+      }
+    } else if (ltype == TIME_LINE || ltype == TIME_LINE_O) {
+      // warn: multiple timestep lines //{{{
+      if (timestep != -1) {
+        strcpy(ERROR_MSG, "extra 'timestep' line in a vtf timestep");
+        PrintWarningFileLine(file, *line_count, split, words);
+      } //}}}
+      timestep = ltype;
+    } else if (ltype == ERROR_LINE) {
+      strcpy(ERROR_MSG, "ignoring unrecognised line in a timestep preamble");
+      PrintWarningFileLine(file, *line_count, split, words);
+    }
+  }
+  // error: missing 'timestep' line //{{{
+  if (timestep == -1) {
+    strcpy(ERROR_MSG, "missing 'timestep' line");
+    PrintErrorFile(file, "\0", "\0");
+    exit(1);
+  } //}}}
+  // restore file pointer to before the first coordinate line
+  fsetpos(fr, &position);
+  (*line_count)--; // the first coordinate line will be re-read
+  return timestep;
+} //}}}
+// read indexed coordinate block in a vtf file //{{{
+bool VtfReadCoorBlockIndexed(FILE *fr, char file[], SYSTEM *System,
+                             int *line_count) {
+  COUNT *Count = &System->Count;
+  for (int i = 0; i < Count->BeadCoor; i++) {
+    (*line_count)++;
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      ErrorEOF(file);
+      exit(1);
+    }
+    if (VtfCheckCoorIndexedLine() == ERROR_LINE) {
+      snprintf(ERROR_MSG, LINE, "unrecognized line in constant-size coordinate"
+               " block (%s%d%s-th line from %s%d%s)", ErrYellow(), i+1,
+               ErrRed(), ErrYellow(), Count->BeadCoor, ErrRed());
+      PrintErrorFileLine(file, *line_count, split, words);
+      return false;
+    }
+    int id = atoi(split[0]);
+    BEAD *bead_id = &System->Bead[id];
+    bead_id->Position.x = atof(split[1]);
+    bead_id->Position.y = atof(split[2]);
+    bead_id->Position.z = atof(split[3]);
+    bead_id->InTimestep = true;
+    VECTOR vel;
+    if (words >= 7 && IsRealNumber(split[4], &vel.x) &&
+                      IsRealNumber(split[5], &vel.y) &&
+                      IsRealNumber(split[6], &vel.z)) {
+      bead_id->Velocity.x = vel.x;
+      bead_id->Velocity.y = vel.y;
+      bead_id->Velocity.z = vel.z;
+    } else {
+      bead_id->Velocity.x = 0;
+      bead_id->Velocity.y = 0;
+      bead_id->Velocity.z = 0;
+    }
+    if (bead_id->Molecule == -1) {
+      System->UnbondedCoor[Count->UnbondedCoor] = id;
+      Count->UnbondedCoor++;
+    } else {
+      System->BondedCoor[Count->BondedCoor] = id;
+      Count->BondedCoor++;
+    }
+    System->BeadCoor[i] = id;
   }
   return true;
 } //}}}
@@ -1280,9 +1790,9 @@ disregarding the following line");
         SwapInt(&bond[count_bonds][0], &bond[count_bonds][1]);
       }
       count_bonds++;                                           //}}}
-    } else if (ltype == TIME_LINE_I || ltype == TIME_LINE_O) { // c)
+    } else if (ltype == TIME_LINE || ltype == TIME_LINE_O) { // c)
       break;
-    } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) { // d)
+    } else if (ltype == COOR_LINE || ltype == COOR_LINE_O) { // d)
       strcpy(ERROR_MSG, "encountered a coordinate-like line"
              "inside the structure block ");
       PrintErrorFileLine(struct_file, file_line_count, split, words);
@@ -1369,29 +1879,188 @@ BOX VtfReadPBC(char input[]) {
     int ltype = VtfCheckLineType(input, file_line_count);
     // pbc line //{{{
     if (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) {
-      Box.Length.x = atof(split[1]);
-      Box.Length.y = atof(split[2]);
-      Box.Length.z = atof(split[3]);
-      // angles in pbc line; possibly triclinic cell
-      if (ltype == PBC_LINE_ANGLES) {
-        Box.alpha = atof(split[4]);
-        Box.beta = atof(split[5]);
-        Box.gamma = atof(split[6]);
-      } else { // definitely orthogonal box
-        Box.alpha = 90;
-        Box.beta = 90;
-        Box.gamma = 90;
-      }
+      VtfPbcLine(&Box, ltype);
       break; //}}}
       // coordinate line - return from function //{{{
-    } else if (ltype == COOR_LINE_I || ltype == COOR_LINE_O) {
+    } else if (ltype == COOR_LINE || ltype == COOR_LINE_O) {
       break;
     } //}}}
   };
   fclose(fr);
-  TriclinicCellData(&Box, 0);
   return Box;
 } //}}}
+// VtfReadTimestep() //{{{
+static bool VtfReadTimestep(FILE *fr, char file[], SYSTEM *System,
+                            int *line_count) {
+  int timestep = VtfReadTimestepPreamble(fr, file, System, line_count);
+  if (timestep == -1) {
+    return false;
+  }
+  // set 'not in timestep' to all beads //{{{
+  for (int i = 0; i < (*System).Count.Bead; i++) {
+    System->Bead[i].InTimestep = false;
+  } //}}}
+  // read coordinates
+  COUNT *Count = &System->Count;
+  Count->UnbondedCoor = 0;
+  Count->BondedCoor = 0;
+  if (timestep == TIME_LINE) {
+    if (!VtfReadCoorBlockIndexed(fr, file, System, line_count)) {
+      return false;
+    }
+  }
+  return true; // coordinates read properly
+} //}}}
+#if 0
+// VtfReadTimestep() //{{{
+bool VtfReadTimestep(FILE *fr, char file[], SYSTEM *System,
+                     int *line_count) {
+  start_function:; // return here when a bad line is encountered
+  int test = VtfReadNumberOfBeads(fr, file, *line_count);
+  if (test == -1) {
+    return false;
+  }
+  int timestep = VtfReadTimestepPreamble(fr, file, System, line_count);
+  if (timestep == -1) {
+    return false;
+  }
+  // set 'not in timestep' to all beads //{{{
+  for (int i = 0; i < (*System).Count.Bead; i++) {
+    System->Bead[i].InTimestep = false;
+  } //}}}
+  // read coordinates  //{{{
+  COUNT *Count = &System->Count;
+  Count->BeadCoor = 0;
+  Count->UnbondedCoor = 0;
+  Count->BondedCoor = 0;
+  fpos_t position; // to save file position
+  while (true) {
+    // save file pointer position for when it's the first coordinate line
+    fgetpos(fr, &position);
+    (*line_count)++;
+    // read line & split it via whitespace //{{{
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      if (timestep == TIME_LINE_O && Count->BeadCoor != Count->Bead) {
+        strcpy(ERROR_MSG, "premature end of file; too few beads \
+in an ordered timestep (ignoring this last step)");
+        PrintWarning();
+        WarnPrintFile(file, "\0", "\0");
+        putc('\n', stderr);
+        return false;
+      } else {
+        return true;
+      }
+    } //}}}
+    int ltype = VtfCheckLineType(file, *line_count);
+    int id, indexed = 0;
+    bool warn = false;
+    if (ltype != COOR_LINE && ltype != COOR_LINE_O) {
+      if (ltype != ERROR_LINE) {
+        break;
+      } else { // warn: unrecognised line - read next timestep //{{{
+        strcpy(ERROR_MSG, "unrecognised line in a timestep; \
+using next timestep instead of this one");
+        warn = true;
+      } //}}}
+    } else if (timestep == TIME_LINE) { // 'timestep indexed' coordinate line
+      if (ltype == COOR_LINE) {
+        id = atoi(split[0]);
+        indexed = 1;
+        // warn: bead index is too high - read next timestep //{{{
+        if (id >= Count->Bead) {
+          strcpy(ERROR_MSG, "bead index too high; \
+using next timestep instead of this one");
+          warn = true;
+        } //}}}
+        // warn: repeated bead index - read next timestep //{{{
+        if (System->Bead[id].InTimestep) {
+          strcpy(ERROR_MSG, "multiple bead entries with the same index; \
+using next timestep instead of this one");
+          warn = true;
+        } //}}}
+      } else { // warn: ordered line in indexed timestep - read next one //{{{
+        strcpy(ERROR_MSG, "ordered coordinate line in indexed timestep; \
+using next timestep instead of this one");
+        warn = true;
+      } //}}}
+    } else { // 'timestep ordered' coordinate line
+      // warn: extra bead in ordered timestep - read next timestep //{{{
+      if (Count->BeadCoor == Count->Bead) {
+        strcpy(ERROR_MSG, "too many beads in an ordered timestep; \
+using next timestep instead of this one");
+      } //}}}
+      id = (*System).Count.BeadCoor;
+    }
+    // on warning, skip remaining coordinate lines and read next timestep //{{{
+    if (warn) {
+      PrintWarningFileLine(file, *line_count, split, words);
+      do {
+        fgetpos(fr, &position);
+        (*line_count)++;
+      } while (VtfSkipCoorOrderedLine(fr));
+      fsetpos(fr, &position);
+      (*line_count)--; // the first non-coordinate line will be re-read
+      // VtfSkipTimestep(fr, file, "\0", line_count);
+      goto start_function;
+    } //}}}
+    BEAD *bead_id = &System->Bead[id];
+    bead_id->Position.x = atof(split[0+indexed]);
+    bead_id->Position.y = atof(split[1+indexed]);
+    bead_id->Position.z = atof(split[2+indexed]);
+    bead_id->InTimestep = true;
+    VECTOR vel;
+    if (words >= 7 && IsRealNumber(split[3+indexed], &vel.x) &&
+                      IsRealNumber(split[4+indexed], &vel.y) &&
+                      IsRealNumber(split[5+indexed], &vel.z)) {
+      bead_id->Velocity.x = vel.x;
+      bead_id->Velocity.y = vel.y;
+      bead_id->Velocity.z = vel.z;
+    } else {
+      bead_id->Velocity.x = 0;
+      bead_id->Velocity.y = 0;
+      bead_id->Velocity.z = 0;
+    }
+    if (bead_id->Molecule == -1) {
+      System->UnbondedCoor[Count->UnbondedCoor] = id;
+      Count->UnbondedCoor++;
+    } else {
+      System->BondedCoor[Count->BondedCoor] = id;
+      Count->BondedCoor++;
+    }
+    System->BeadCoor[Count->BeadCoor] = id;
+    Count->BeadCoor++;
+  }
+  // restore file pointer to before the first non-coordinate line
+  fsetpos(fr, &position); //}}}
+  // warn: too few beads in an ordered timestep - read next timestep //{{{
+  if (timestep == TIME_LINE_O && Count->BeadCoor < Count->Bead) {
+    strcpy(ERROR_MSG, "insufficient number of beads for ordered timestep; \
+using next timestep instead of this one");
+    PrintWarning();
+    WarnPrintFile(file, "\0", "\0");
+    fprintf(stderr, "%s, last line of the timestep: %s%d%s\n", ErrCyan(),
+            ErrYellow(), *line_count, ErrColourReset());
+    goto start_function;
+  }                     //}}}
+  (*line_count)--; // the last line will be re-read next time
+  // error - test count of beads incorrect; should never trigger //{{{
+  int count = Count->UnbondedCoor + Count->BondedCoor;
+  if (count != Count->BeadCoor) {
+    strcpy(ERROR_MSG, "unbonded and bonded beads in a coordinate file do not \
+add up properly!");
+    PrintError();
+    ErrorPrintFile(file, "\0", "\0");
+    fprintf(stderr, "%s, unbonded: %s%d%s", ErrRed(), ErrYellow(),
+            Count->UnbondedCoor, ErrRed());
+    fprintf(stderr, ", bonded: %s%d%s", ErrYellow(), Count->BondedCoor,
+            ErrRed());
+    fprintf(stderr, ", sum should be: %s%d%s\n", ErrYellow(), Count->BeadCoor,
+            ErrColourReset());
+  }            //}}}
+  return true; // coordinates read properly
+} //}}}
+#endif
+#if 0
 // VtfReadTimestep() //{{{
 /*
  * Read a single timestep from a vcf/vtf coordinate line - first the preamble
@@ -1659,6 +2328,7 @@ add up properly!");
   }            //}}}
   return true; // coordinates read properly
 } //}}}
+#endif
 // VtfSkipTimestep() //{{{
 /*
  * Discard a single timestep from a vcf/vtf coordinate file. It assumes the
@@ -1666,26 +2336,26 @@ add up properly!");
  * missing, it prints only a warning (and skips the ensuing coordinate lines).
  * Returns false only if a line cannot be read during preamble (e.g., on eof).
  */
-bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
-                     int *file_line_count) {
+bool VtfSkipTimestep(FILE *fr, char file[], char vsf_file[],
+                     int *line_count) {
   // skip preamble - i.e., read until the first number-starting line
   fpos_t position;
   do {
-    (*file_line_count)++;
-    if (!ReadAndSplitLine(vcf, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    (*line_count)++;
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       return false; // EOF during preamble, not a valid timestep
     }
   } while (words == 0 || split[0][0] < '0' || split[0][0] > '9');
   // skip coordinate section - i.e., read until first non-number-starting line
   do {
-    fgetpos(vcf, &position);
-    (*file_line_count)++;
-    if (!ReadAndSplitLine(vcf, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    fgetpos(fr, &position);
+    (*line_count)++;
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       break; // EOF during coordinate block means successfully skipped timestep
     }
   } while (words > 0 && split[0][0] >= '0' && split[0][0] <= '9');
-  (*file_line_count)--;
-  fsetpos(vcf, &position); // return to before that non-number-starting line
+  (*line_count)--;
+  fsetpos(fr, &position); // return to before that non-number-starting line
   return true;
 } //}}}
 // VtfSkipCoorOrderedLine() //{{{
@@ -1704,202 +2374,6 @@ bool VtfSkipCoorOrderedLine(FILE *fr) {
   } else {
     return false;
   }
-} //}}}
-// VtfCheckLineType() //{{{
-/*
- * Function returning line type according to the codes in Read.h.
- */
-int VtfCheckLineType(char file[], int line) {
-  ERROR_MSG[0] = '\0'; // clear error message array
-  // blank line
-  if (words == 0) {
-    return BLANK_LINE;
-  }
-  // comment line
-  if (split[0][0] == '#') {
-    return COMMENT_LINE;
-  }
-  // coordinate line
-  int test = VtfCheckCoordinateLine();
-  if (test != ERROR_LINE) {
-    return test;
-  }
-  // timestep line
-  test = VtfCheckTimestepLine();
-  if (test != ERROR_LINE) {
-    return test;
-  }
-  // pbc line
-  test = VtfCheckPbcLine();
-  if (test != ERROR_LINE) {
-    return test;
-  }
-  // atom line (vsf)
-  if (VtfCheckAtomLine()) {
-    return ATOM_LINE;
-  }
-  // bond line (vsf)
-  if (VtfCheckBondLine()) {
-    return BOND_LINE;
-  }
-  if (ERROR_MSG[0] == '\0') {
-    strcpy(ERROR_MSG, "unrecognised line");
-  }
-  return ERROR_LINE;
-} //}}}
-// Helper functions to check whether provided line is of a given type
-int VtfCheckCoorOrderedLine() { //{{{
-  double val_d;
-  if (words > 2 && IsRealNumber(split[0], &val_d) &&
-      IsRealNumber(split[1], &val_d) && IsRealNumber(split[2], &val_d)) {
-    return COOR_LINE_O;
-  }
-  return ERROR_LINE;
-} //}}}
-int VtfCheckCoorIndexedLine() { //{{{
-  long val_i;
-  double val_d;
-  // indexed line (may also be ordered)
-  if (words > 3 && IsWholeNumber(split[0], &val_i) &&
-      IsRealNumber(split[1], &val_d) && IsRealNumber(split[2], &val_d) &&
-      IsRealNumber(split[3], &val_d)) {
-    return COOR_LINE_I;
-  }
-  return ERROR_LINE;
-} //}}}
-int VtfCheckCoordinateLine() { //{{{
-  // indexed line (may also be ordered)
-  if (VtfCheckCoorIndexedLine() == COOR_LINE_I) {
-    return COOR_LINE_I;
-  }
-  // definitely ordered line
-  if (VtfCheckCoorOrderedLine() == COOR_LINE_O) {
-    return COOR_LINE_O;
-  }
-  return ERROR_LINE;
-} //}}}
-int VtfCheckTimestepLine() { //{{{
-  // there are several possibilities how the timestep line can look
-  /* ordered timestep:
-   *   1) 't[imestep]'
-   *   2) 't[imestep] o[rdered] ...'
-   *   3) 'o[rdered] ...'
-   */
-  if ((words == 1 && split[0][0] == 't') ||                      // 1)
-      (words > 1 && split[0][0] == 't' && split[1][0] == 'o') || // 2)
-      split[0][0] == 'o') {                                      // 3)
-    return TIME_LINE_O;
-  }
-  /* indexed timestep:
-   *   1) 't[imestep] i[ndexed] ...'
-   *   2) 'i[ndexed] ...'
-   */
-  if ((words > 1 && split[0][0] == 't' && split[1][0] == 'i') || // 1)
-      split[0][0] == 'i') {                                      // 2)
-    return TIME_LINE_I;
-  }
-  return ERROR_LINE; // not a timestep line
-} //}}}
-int VtfCheckPbcLine() { //{{{
-  // valid line: pbc <x> <y> <z> [<alpha> <beta> <gamm>]
-  // unrecognised line
-  double val;
-  if (words < 4 || strcmp(split[0], "pbc") != 0 ||
-      !IsPosRealNumber(split[1], &val) || !IsPosRealNumber(split[2], &val) ||
-      !IsPosRealNumber(split[3], &val)) {
-    return ERROR_LINE;
-  } else if (words > 6 && IsPosRealNumber(split[4], &val) &&
-             IsPosRealNumber(split[5], &val) &&
-             IsPosRealNumber(split[6], &val)) {
-    return PBC_LINE_ANGLES;
-  } else {
-    return PBC_LINE;
-  }
-} //}}}
-bool VtfCheckAtomLine() { //{{{
-  long val_i;
-  double val_d;
-  // error - line not starting with a[tom] default/<id> //{{{
-  if (split[0][0] != 'a' || (strcmp(split[1], "default") != 0 &&
-                             !IsIntegerNumber(split[1], &val_i))) {
-    return false;
-  } //}}}
-  // error - odd number of strings //{{{
-  if ((words % 2) != 0) {
-    strcpy(ERROR_MSG, "atom line with odd number of strings ");
-    return false;
-  } //}}}
-  // check <keyword> <value> pairs
-  bool name = false;
-  for (int i = 2; i < words; i += 2) {
-    // is n[ame] keyword present?
-    if (split[i][0] == 'n') {
-      name = true;
-    }
-    // error - resid not followed by non-negative integer //{{{
-    if (strcmp(split[i], "resid") == 0 &&
-        !IsWholeNumber(split[i + 1], &val_i)) {
-      strcpy(ERROR_MSG, "atom line: 'resid' not followed by natural number");
-      return false;
-    } //}}}
-    // error - charge|q //{{{
-    if ((strcmp(split[i], "charge") == 0 || split[i][0] == 'q') &&
-        !IsRealNumber(split[i + 1], &val_d)) {
-      strcpy(ERROR_MSG, "atom line: 'charge|q' not followed by real number ");
-      return false; //}}}
-    // error - r[adius] not followed by positive number //{{{
-    } else if (split[i][0] == 'r' && // possible r[adius]
-               strncmp(split[i], "res", 3) != 0 && // it's not resid or resname
-               !IsPosRealNumber(split[i + 1], &val_d)) {
-      strcpy(ERROR_MSG, "atom line: 'r[adius]]]' not followed by \
-positive real number ");
-      return false; //}}}
-    // error - m[ass] not followed by positive number //{{{
-    } else if (split[i][0] == 'm' && !IsPosRealNumber(split[i + 1], &val_d)) {
-      strcpy(ERROR_MSG, "atom line: 'm[ass]' not followed by \
-positive real number ");
-      return false;
-    } //}}}
-  }
-  // error - missing the mandatory n[ame] keyword or //{{{
-  if (!name) {
-    strcpy(ERROR_MSG, "atom line: missing 'n[ame]' keyword ");
-    return false;
-  } //}}}
-  // valid atom line
-  return true;
-} //}}}
-bool VtfCheckBondLine() { //{{{
-  long val_i;
-  // valid line b[ond] '<id>:[  ]<id> anything'
-  // error - only one string or missing 'b[ond]' keyword
-  if (words < 2 || split[0][0] != 'b') {
-    return false;
-  }
-  // two strings - assume '<int>:<int>' and test it
-  if (words == 2) {
-    // ':'-split the second string
-    char index[SPL_STR][SPL_LEN], string[SPL_LEN];
-    strcpy(string, split[1]);
-    int strings = SplitLine_old(index, string, ":");
-    if (strings != 2 || !IsIntegerNumber(index[0], &val_i) || val_i < 0 ||
-        !IsIntegerNumber(index[1], &val_i) || val_i < 0) {
-      strcpy(ERROR_MSG, "bond line: only 'b[ond] <int>:<int>' or \
-'b[ond] <int>: <int>' is valid (for now)\n");
-      return false;
-    }
-  }
-  // more than two strings - assume '<int>: <int>' and test it
-  if (words > 2) {
-    split[1][strlen(split[1]) - 1] = '\0';
-    if (!IsIntegerNumber(split[1], &val_i) || val_i < 0 ||
-        !IsIntegerNumber(split[2], &val_i) || val_i < 0) {
-      strcpy(ERROR_MSG, "bond line: only 'b[ond] <int>:<int>' or \
-'b[ond] <int>: <int>' is valid (for now)\n");
-      return false;
-    }
-  }
-  return true;
 } //}}}
 // save data from a vsf line
 // VtfAtomLineValues() //{{{
@@ -3785,8 +4259,13 @@ SYSTEM LtrjReadStruct(char file[]) { //{{{
   char vars[max_vars][10];
   LtrjFillItemAtomVariables(max_vars, vars);
   // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
-  file_line_count++;
-  int cols = LtrjReadItemAtomsLine(fr, file, max_vars, position, vars);
+  int cols = 0;
+  if (!LtrjReadItemAtomsLine(fr, file, max_vars, position, vars, &cols,
+                             &file_line_count)) {
+    strcpy(ERROR_MSG, "wrong 'ITEM: ATOMS' line in the first timestep");
+    PrintErrorFile(file, "\0", "\0");
+    exit(1);
+  }
   int start_id = LtrjLowIndex(file);
   // read coordinate lines //{{{
   for (int i = 0; i < Count->Bead; i++) {
@@ -3879,6 +4358,77 @@ BOX LtrjReadPBC(char file[]) { //{{{
   fclose(fr);
   return Box;
 } //}}}
+// read pbc section of lammpstrj timestep preamble //{{{
+bool LtrjReadPBCSection(FILE *f, char file[], BOX *box, int *line_count) {
+  // 1) read until 'ITEM:' line to find box type
+  int ltype = -1;
+  while (ltype != PBC_LINE) {
+    (*line_count)++;
+    if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      ErrorEOF(file);
+      return false;
+    }
+    ltype = LtrjCheckLineType();
+  }
+  // 2) read box dimensions
+  if (strcmp(split[3], "pp") == 0) { // orthogonal box
+    double bounds[3][2];
+    for (int i = 0; i < 3; i++) {
+      (*line_count)++;
+      if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+        ErrorEOF(file);
+        return false;
+      }
+      if (words < 2 || !IsRealNumber(split[0], &bounds[i][0]) ||
+          !IsRealNumber(split[1], &bounds[i][1]) ||
+          bounds[i][1] <= bounds[i][0]) {
+        strcpy(ERROR_MSG, "wrong line in 'ITEM: BOX BOUNDS' section");
+        PrintErrorFileLine(file, *line_count, split, words);
+        return false;
+      }
+    }
+    box->OrthoLength.x = bounds[0][1] - bounds[0][0];
+    box->OrthoLength.y = bounds[1][1] - bounds[1][0];
+    box->OrthoLength.z = bounds[2][1] - bounds[2][0];
+    TriclinicCellData(box, 1);
+  } else if (strcmp(split[3], "xy") == 0) { // triclinic box
+    double bounds[3][2], tilt[3];
+    for (int i = 0; i < 3; i++) {
+      (*line_count)++;
+      if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+        ErrorEOF(file);
+        return false;
+      }
+      if (words < 3 || !IsRealNumber(split[0], &bounds[i][0]) ||
+          !IsRealNumber(split[1], &bounds[i][1]) ||
+          bounds[i][1] <= bounds[i][0] ||
+          !IsRealNumber(split[2], &tilt[i])) {
+        return false;
+      }
+    }
+    // see https://docs.lammps.org/Howto_triclinic.html
+    VECTOR from_bound[2];
+    from_bound[0].x = Min3(0, tilt[0], Min3(0, tilt[1], tilt[0]+tilt[1]));
+    from_bound[1].x = Max3(0, tilt[0], Max3(0, tilt[1], tilt[0]+tilt[1]));
+    from_bound[0].y = Min3(0, 0, tilt[2]);
+    from_bound[1].y = Max3(0, 0, tilt[2]);
+    from_bound[0].z = 0;
+    from_bound[1].z = 0;
+    box->OrthoLength.x = (bounds[0][1] - from_bound[1].x) -
+                   (bounds[0][0] - from_bound[0].x);
+    box->OrthoLength.y = (bounds[1][1] - from_bound[1].y) -
+                   (bounds[1][0] - from_bound[0].y);
+    box->OrthoLength.z = (bounds[2][1] - from_bound[1].z) -
+                   (bounds[2][0] - from_bound[0].z);
+    box->transform[0][1] = tilt[0];
+    box->transform[0][2] = tilt[1];
+    box->transform[1][2] = tilt[2];
+    TriclinicCellData(box, 1);
+  } else { // not '<...> <...> <...> pp/xy ...' line
+    return false;
+  }
+  return true;
+} //}}}
 // read all coordinate lines to check whether ids start at id //{{{
 int LtrjLowIndex(char file[]) {
   int start_id = 1, file_line_count = 0;
@@ -3909,17 +4459,22 @@ int LtrjLowIndex(char file[]) {
       exit(1);
     }
   } //}}}
-  // read ITEM: ATOMS line
-  int max_vars = 11, position[max_vars];
   // generate array with possible variable names
+  int max_vars = 11, position[max_vars];
   char vars[max_vars][10];
   LtrjFillItemAtomVariables(max_vars, vars);
   // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
-  file_line_count++;
-  int cols = LtrjReadItemAtomsLine(fr, file, max_vars, position, vars);
+  int cols = 0;
+  if (!LtrjReadItemAtomsLine(fr, file, max_vars, position, vars, &cols,
+                             &file_line_count)) {
+    strcpy(ERROR_MSG, "wrong 'ITEM: ATOMS' line in the first timestep");
+    PrintErrorFile(file, "\0", "\0");
+    exit(1);
+  }
   // read the coordinate lines
   for (int i = 0; i < count; i++) {
     BEAD line;
+    file_line_count++;
     if (!LtrjReadAtomLine(fr, &line, count, position, cols)) {
       strcpy(ERROR_MSG, "wrong coordinate line");
       PrintErrorFileLine(file, file_line_count, split, words);
@@ -3929,6 +4484,7 @@ int LtrjLowIndex(char file[]) {
           fprintf(stderr, " %s", vars[position[i]]);
         }
       }
+      exit(1);
     }
     if (line.Type == 0) {
       start_id = 0;
@@ -3938,6 +4494,60 @@ int LtrjLowIndex(char file[]) {
   fclose(fr);
   return start_id;
 } //}}}
+// read lammpstrj timestep preamble (excluding 'ITEM: ATOMS ...' line) //{{{
+bool LtrjReadTimestepPreamble(FILE *fr, char file[], SYSTEM *System,
+                              int *line_count) {
+  System->Count.BeadCoor = LtrjReadNumberOfBeads(fr, file, *line_count);
+  if (System->Count.BeadCoor == -1 ||
+      !LtrjReadPBCSection(fr, file, &System->Box, line_count)) {
+    return false;
+  }
+  return true;
+} //}}}
+// read timestep (dump style custom) //{{{
+bool LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
+                      int start_id, int *line_count) {
+  if (!LtrjReadTimestepPreamble(fr, file, System, line_count)) {
+    return false;
+  }
+  // read 'ITEM: ATOMS' //{{{
+  int max_vars = 11, position[max_vars];
+  // generate array with possible variable names
+  char vars[max_vars][10];
+  LtrjFillItemAtomVariables(max_vars, vars);
+  // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
+  int cols = 0;
+  if (!LtrjReadItemAtomsLine(fr, file, max_vars, position, vars, &cols,
+                             line_count)) {
+    strcpy(ERROR_MSG, "wrong 'ITEM: ATOMS' line");
+    return false;
+  }
+  // warning - missing 'id'; skip to next timestep
+  if (position[0] == -1) {
+    strcpy(ERROR_MSG, "'ITEM: ATOMS' line must contain 'id' keywoerd");
+    PrintErrorFileLine(file, *line_count, split, words);
+    return false;
+  } //}}}
+  // read atom lines //{{{
+  for (int i = 0; i < System->Count.BeadCoor; i++) {
+    BEAD line;
+    (*line_count)++;
+    if (!LtrjReadAtomLine(fr, &line, System->Count.Bead, position, cols)) {
+      strcpy(ERROR_MSG, "invalid atom line");
+      PrintErrorFileLine(file, *line_count, split, words);
+      return false;
+    }
+    int id = line.Type - start_id;
+    BEAD *b = &System->Bead[id];
+    b->Position = line.Position;
+    b->Velocity = line.Velocity;
+    b->Force = line.Force;
+    b->InTimestep = true;
+    System->BeadCoor[i] = id;
+  } //}}}
+  return true;
+} //}}}
+#if 0
 // read timestep (dump style custom) //{{{
 bool LtrjReadTimestep(FILE *f, char ltrj_file[], SYSTEM *System,
                       int start_id, int *file_line_count) {
@@ -4016,6 +4626,7 @@ using next timestep instead of this one");
   } //}}}
   return true;
 } //}}}
+#endif
 bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count) { //{{{
   /* read until two 'ITEM: TIMESTEP' lines are found
    * 1) should be the first line read, but who cares...
@@ -4042,74 +4653,11 @@ bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count) { //{{{
   (*file_line_count)--;  // the 'ITEM: TIMESTEP' will be re-read
   return true;
 } //}}}
-bool LtrjReadPBCSection(FILE *f, char file[], BOX *box, int *file_line_count) { //{{{
-  // 1) read 'ITEM:' line to find box type
-  (*file_line_count)++;
-  if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    return false;
-  }
-  // 2) read box dimensions
-  if (strcmp(split[3], "pp") == 0) { // orthogonal box
-    double bounds[3][2];
-    for (int i = 0; i < 3; i++) {
-      (*file_line_count)++;
-      if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
-        ErrorEOF(file);
-        exit(1);
-      }
-      if (words < 2 || !IsRealNumber(split[0], &bounds[i][0]) ||
-          !IsRealNumber(split[1], &bounds[i][1]) ||
-          bounds[i][1] <= bounds[i][0]) {
-        return false;
-      }
-    }
-    box->OrthoLength.x = bounds[0][1] - bounds[0][0];
-    box->OrthoLength.y = bounds[1][1] - bounds[1][0];
-    box->OrthoLength.z = bounds[2][1] - bounds[2][0];
-    TriclinicCellData(box, 1);
-  } else if (strcmp(split[3], "xy") == 0) { // triclinic box
-    double bounds[3][2], tilt[3];
-    for (int i = 0; i < 3; i++) {
-      (*file_line_count)++;
-      if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
-        ErrorEOF(file);
-        exit(1);
-      }
-      if (words < 3 || !IsRealNumber(split[0], &bounds[i][0]) ||
-          !IsRealNumber(split[1], &bounds[i][1]) ||
-          bounds[i][1] <= bounds[i][0] ||
-          !IsRealNumber(split[2], &tilt[i])) {
-        return false;
-      }
-    }
-    // see https://docs.lammps.org/Howto_triclinic.html
-    VECTOR from_bound[2];
-    from_bound[0].x = Min3(0, tilt[0], Min3(0, tilt[1], tilt[0]+tilt[1]));
-    from_bound[1].x = Max3(0, tilt[0], Max3(0, tilt[1], tilt[0]+tilt[1]));
-    from_bound[0].y = Min3(0, 0, tilt[2]);
-    from_bound[1].y = Max3(0, 0, tilt[2]);
-    from_bound[0].z = 0;
-    from_bound[1].z = 0;
-    box->OrthoLength.x = (bounds[0][1] - from_bound[1].x) -
-                   (bounds[0][0] - from_bound[0].x);
-    box->OrthoLength.y = (bounds[1][1] - from_bound[1].y) -
-                   (bounds[1][0] - from_bound[0].y);
-    box->OrthoLength.z = (bounds[2][1] - from_bound[1].z) -
-                   (bounds[2][0] - from_bound[0].z);
-    box->transform[0][1] = tilt[0];
-    box->transform[0][2] = tilt[1];
-    box->transform[1][2] = tilt[2];
-    TriclinicCellData(box, 1);
-  } else { // not '<...> <...> <...> pp/xy ...' line
-    return false;
-  }
-  return true;
-} //}}}
 void LtrjFillItemAtomVariables(int n, char var[n][10]) { //{{{
   // check for the correct maximum number of entries //{{{
   if (n != 11) {
-    strcpy(ERROR_MSG, "CODING: there should be a maximum of 11 entries \
-in ITEM: ATOMS line");
+    strcpy(ERROR_MSG, "CODING: there should be a maximum of 11 entries "
+           "in ITEM: ATOMS line");
     PrintError();
     exit(1);
   } //}}}
@@ -4126,8 +4674,8 @@ in ITEM: ATOMS line");
   strcpy(var[10], "fz");
 } //}}}
 // read ITEM: ATOMS line to find position of variables //{{{
-int LtrjReadItemAtomsLine(FILE *fr, char file[], int n, int *var_position,
-                          char vars[n][10]) {
+bool LtrjReadItemAtomsLine(FILE *fr, char file[], int n, int *var_position,
+                           char vars[n][10], int *cols, int *line_count) {
   // check for the correct maximum number of entries //{{{
   if (n != 11) {
     strcpy(ERROR_MSG, "CODING: there should be a maximum of 11 entries \
@@ -4136,27 +4684,28 @@ in ITEM: ATOMS line");
     exit(1);
   } //}}}
   // read ITEM: ATOMS line //{{{
+  (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
-    exit(1);
+    return false;
   }
   // error: line must be 'ITEMS: ATOMS <at least one more>'
   if (words < 3 || strcmp(split[0], "ITEM:") != 0 ||
       strcmp(split[1], "ATOMS") != 0) {
-    return -1;
+    strcpy(ERROR_MSG, "wrong 'ITEM: ATOMS ...' line");
+    PrintErrorFileLine(file, *line_count, split, words);
+    return false;
   }                                  //}}}
   InitIntArray(var_position, n, -1); // id, x, y, z, vx, vy, vz, fx, fy, fz
-  int cols = 0; // number of entries (columns in an atom line)
   for (int i = 2; i < words; i++) {
     for (int j = 0; j < n; j++) {
       if (strcmp(split[i], vars[j]) == 0) {
         var_position[j] = i - 2;
-        cols = i - 2 + 1;
+        *cols = i - 2 + 1;
         break;
       }
     }
   }
-  return cols;
+  return true;
 } //}}}
 // read and verify an atom line //{{{
 bool LtrjReadAtomLine(FILE *f, BEAD *b, int bead_count, int *var, int cols) {

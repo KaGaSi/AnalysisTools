@@ -41,9 +41,9 @@ VECTOR ToFractional(VECTOR coor, BOX Box) { //{{{
             Box.inverse[1][2] * coor.z;
     new.z = Box.inverse[2][0] * coor.x + Box.inverse[2][1] * coor.y +
             Box.inverse[2][2] * coor.z;
-    coor.x = new.x * Box.Length.x;
-    coor.y = new.y * Box.Length.y;
-    coor.z = new.z * Box.Length.z;
+    coor.x = new.x *Box.Length.x;
+    coor.y = new.y *Box.Length.y;
+    coor.z = new.z *Box.Length.z;
   }
   return coor;
 } //}}}
@@ -266,7 +266,8 @@ int FindMoleculeName(char name[], SYSTEM System) { //{{{
  *   3 - check everything
  * name = true/false for checking/ignoring molecule name
  */
-int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode, bool name) {
+int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode,
+                     bool name) {
   // just to be sure the function's mode parameter is correct //{{{
   if (mode < 0 || mode > 3) {
     strcpy(ERROR_MSG, "FindMoleculeType() - mode parameter must be <0,3>\n");
@@ -1106,8 +1107,7 @@ void PruneSystem(SYSTEM *System) { //{{{
       int c_bond = 0;
       mt_old_new.Bond = malloc(sizeof *mt_old_new.Bond * mt_old->nBonds);
       for (int j = 0; j < mt_old->nBonds; j++) {
-        int id1 = mt_old->Bond[j][0],
-            id2 = mt_old->Bond[j][1];
+        int id1 = mt_old->Bond[j][0], id2 = mt_old->Bond[j][1];
         id1 = b_old_to_old_new[id1];
         id2 = b_old_to_old_new[id2];
         if (id1 != -1 && id2 != -1) {
@@ -1143,8 +1143,8 @@ void PruneSystem(SYSTEM *System) { //{{{
         mol_new->Type = new_type;
         System->MoleculeType[new_type].Number++;
       } else { // no, it isn't; create a new one
-        int new_new_type = Count->MoleculeType,
-            c_bond = 0, c_angle = 0, c_dihedral = 0, c_improper = 0;
+        int new_new_type = Count->MoleculeType, c_bond = 0, c_angle = 0,
+            c_dihedral = 0, c_improper = 0;
         // count bonds in the pruned molecule type //{{{
         for (int j = 0; j < mt_old->nBonds; j++) {
           int *id = BondIndices(S_old, i, j);
@@ -1674,7 +1674,8 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
      * 3) adjust numbers of beads in BeadType[].Number in Sys_orig
      */
     for (int i = 0; i < Count_orig->MoleculeType; i++) {
-      int mtype_add = FindMoleculeType(*Sys_orig, Sys_orig->MoleculeType[i], Sys_add, 1, name);
+      int mtype_add = FindMoleculeType(*Sys_orig, Sys_orig->MoleculeType[i],
+                                       Sys_add, 1, name);
       if (mtype_add != -1) {
         MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i],
                      *mt_add = &Sys_add.MoleculeType[mtype_add];
@@ -1735,7 +1736,8 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
   }                                                    //}}}
   for (int i = 0; i < Count_orig->MoleculeType; i++) { //{{{
     MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i];
-    int type = FindMoleculeType(*Sys_orig, Sys_orig->MoleculeType[i], Sys_add, 2, name);
+    int type = FindMoleculeType(*Sys_orig, Sys_orig->MoleculeType[i], Sys_add,
+                                2, name);
     if (type != -1) {
       MOLECULETYPE *mt_add = &Sys_add.MoleculeType[type];
       // add bonds, if there are none in the original molecule type... //{{{
@@ -2028,12 +2030,10 @@ bool TriclinicCellData(BOX *Box, int mode) {
       }
       Box->OrthoLength.z = sqrt(sqr);
       // see https://docs.lammps.org/Howto_triclinic.html
-      double xy = Box->transform[0][1],
-             xz = Box->transform[0][2],
+      double xy = Box->transform[0][1], xz = Box->transform[0][2],
              yz = Box->transform[1][2],
              xyz = Box->transform[0][1] + Box->transform[0][2];
-      Box->Bounding.x = Box->OrthoLength.x -
-                        Max3(0, xy, Max3(0, xz, xyz)) +
+      Box->Bounding.x = Box->OrthoLength.x - Max3(0, xy, Max3(0, xz, xyz)) +
                         Min3(0, xy, Min3(0, xz, xyz));
       Box->Bounding.y = Box->OrthoLength.y - Min3(0, 0, yz) + Max3(0, 0, yz);
       Box->Bounding.z = Box->OrthoLength.z;
@@ -2097,12 +2097,10 @@ bool TriclinicCellData(BOX *Box, int mode) {
   } //}}}
   // maximum size of the the bounding box //{{{
   // see https://docs.lammps.org/Howto_triclinic.html
-  double xy = Box->transform[0][1],
-         xz = Box->transform[0][2],
+  double xy = Box->transform[0][1], xz = Box->transform[0][2],
          yz = Box->transform[1][2],
          xyz = Box->transform[0][1] + Box->transform[0][2];
-  Box->Bounding.x = Box->OrthoLength.x +
-                    Max3(0, xy, Max3(0, xz, xyz)) -
+  Box->Bounding.x = Box->OrthoLength.x + Max3(0, xy, Max3(0, xz, xyz)) -
                     Min3(0, xy, Min3(0, xz, xyz));
   Box->Bounding.y = Box->OrthoLength.y + Max3(0, 0, yz) - Max3(0, 0, yz);
   Box->Bounding.z = Box->OrthoLength.z; //}}}
@@ -3112,8 +3110,7 @@ void PrintBox(BOX Box) { //{{{
     fprintf(stdout, " .gamma = %lf,\n", Box.gamma);
   }
   fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n", Box.OrthoLength.x,
-                                                         Box.OrthoLength.y,
-                                                         Box.OrthoLength.z);
+          Box.OrthoLength.y, Box.OrthoLength.z);
   fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
   fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
   fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);

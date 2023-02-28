@@ -2,37 +2,37 @@
 char ERROR_MSG[LINE];
 
 // simple messages //{{{
-// print 'WARNING - <ERROR_MSG>' in cyan //{{{
+// print 'WARNING - <ERROR_MSG>\n' in cyan //{{{
 void PrintWarning() {
   fprintf(stderr, "\n  %sWARNING - %s%s\n", ErrCyan(),
           ERROR_MSG, ErrColourReset());
 } //}}}
-// print 'ERROR - <ERROR_MSG>' in red //{{{
+// print 'ERROR - <ERROR_MSG>\n' in red //{{{
 void PrintError() {
   fprintf(stderr, "\n  %sERROR - %s%s\n", ErrRed(),
           ERROR_MSG, ErrColourReset());
 } //}}}
-// print 'WARNING <option> - <ERROR_MSG>' in cyan and yellow //{{{
+// print 'WARNING <option> - <ERROR_MSG>\n' in cyan and yellow //{{{
 void PrintWarningOption(char *opt) {
   fprintf(stderr, "\n  %sWARNING: %s%s%s - %s%s\n", ErrCyan(),
           ErrYellow(), opt, ErrCyan(), ERROR_MSG, ErrColourReset());
 } //}}}
-// print 'ERROR <option> - <ERROR_MSG>' in red and yellow //{{{
+// print 'ERROR <option> - <ERROR_MSG>\n' in red and yellow //{{{
 void PrintErrorOption(char *opt) {
   fprintf(stderr, "\n  %sERROR: %s%s%s - %s%s\n", ErrRed(),
           ErrYellow(), opt, ErrRed(), ERROR_MSG, ErrColourReset());
 } //}}}
-// print 'ERROR - <ERROR_MSG>\nFile <file(s)>' //{{{
+// print 'ERROR - <ERROR_MSG>\nFile <file(s)>\n' //{{{
 void PrintErrorFile(char file1[], char file2[], char file3[]) {
   PrintError();
   ErrorPrintFile(file1, file2, file3);
-//putc('\n', stderr);
+  putc('\n', stderr);
 } //}}}
-// print 'WARNING - <ERROR_MSG>\nFile <file(s)>' //{{{
+// print 'WARNING - <ERROR_MSG>\nFile <file(s)>\n' //{{{
 void PrintWarnFile(char file1[], char file2[], char file3[]) {
   PrintWarning();
   WarnPrintFile(file1, file2, file3);
-//putc('\n', stderr);
+  putc('\n', stderr);
 } //}}}
 // print 'ERROR - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>' //{{{
 void PrintErrorFileLine(char file[], int count,

@@ -96,10 +96,6 @@ int main(int argc, char *argv[]) {
   if (!InputCoorStruct(argc, argv, in_coor, &coor_type,
                        struct_file, &struct_type)) {
     exit(1);
-  }
-  int start_id = -1;
-  if (coor_type == LTRJ_FILE) {
-    start_id = LtrjLowIndex(in_coor);
   } //}}}
 
   // <output> - output vcf file //{{{
@@ -151,6 +147,18 @@ int main(int argc, char *argv[]) {
   }
 
   SYSTEM System = ReadStructure(struct_type, struct_file, detailed, pbc_xyz);
+  bool variable_coor = false;
+  // read number of beads in a non-variable coordinate file
+  if (!variable_coor) {
+    printf("%d ", System.Count.BeadCoor);
+    System.Count.BeadCoor = CoorReadNumberOfBeads(coor_type, in_coor);
+    printf("%d\n", System.Count.BeadCoor);
+  }
+  // in case of lammpstrj file, find if atom ids start at 0
+  int start_id = -1;
+  if (coor_type == LTRJ_FILE) {
+    start_id = LtrjLowIndex(in_coor);
+  }
 
   // <bead names> - names of bead types to save //{{{
   bool *write = calloc(System.Count.Bead, sizeof *write),

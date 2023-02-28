@@ -13,12 +13,13 @@
 #define COMMENT_LINE 1
 #define PBC_LINE 2
 #define PBC_LINE_ANGLES 3
-#define COOR_LINE_I 4
+#define COOR_LINE 4
 #define COOR_LINE_O 5
 #define ATOM_LINE 6
 #define BOND_LINE 7
-#define TIME_LINE_I 8
+#define TIME_LINE 8
 #define TIME_LINE_O 9
+#define N_ATOMS_LINE 10
 
 void FillMoleculeBeads(SYSTEM *System);
 void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[3], int nbonds);
@@ -33,6 +34,7 @@ bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
                   int *file_line_count, int start_id, char stuff[]);
 bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],
                   int *file_line_count);
+int CoorReadNumberOfBeads(int coor_type, char *file);
 
 // Functions to read vtf files //{{{
 
@@ -44,8 +46,8 @@ void MergeMoleculeTypes(SYSTEM *System);
 // Get the first pbc line from a vcf/vsf/vtf coordinate file.
 BOX VtfReadPBC(char input[]);
 // Read a single timestep from a vcf/vtf coordinate file
-bool VtfReadTimestep(FILE *vcf, char vcf_file[],
-                     SYSTEM *System, int *file_line_count, char stuff[]);
+static bool VtfReadTimestep(FILE *vcf, char vcf_file[],
+                            SYSTEM *System, int *file_line_count);
 // Discard a single timestep from a vcf/vtf coordinate file
 bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
                      int *file_line_count);
@@ -54,15 +56,6 @@ bool VtfSkipTimestep_old(FILE *vcf, char vcf_file[], char vsf_file[],
 bool VtfSkipCoorOrderedLine(FILE *fr);
 // Find position of atom line keywords in the provided strtok'd line
 int * VtfAtomLineValues();
-// functions checking validity of line types
-int VtfCheckLineType(char *file, int line);
-int VtfCheckCoorOrderedLine();
-int VtfCheckCoorIndexedLine();
-int VtfCheckCoordinateLine();
-int VtfCheckTimestepLine();
-int VtfCheckPbcLine();
-bool VtfCheckAtomLine();
-bool VtfCheckBondLine();
  //}}}
 // Functions to read FIELD-like files //{{{
 SYSTEM FieldRead(char field_file[]);
@@ -106,8 +99,8 @@ bool LtrjReadTimestep(FILE *f, char ltrj_file[], SYSTEM *System,
 bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count);
 bool LtrjReadPBCSection(FILE *f, char file[], BOX *box, int *file_line_count);
 void LtrjFillItemAtomVariables(int n, char var[n][10]);
-int LtrjReadItemAtomsLine(FILE *fr, char file[], int n, int *var_position,
-                          char vars[n][10]);
+bool LtrjReadItemAtomsLine(FILE *fr, char file[], int n, int *var_position,
+                           char vars[n][10], int *cols, int *line_count);
 bool LtrjReadAtomLine(FILE *f, BEAD *b, int bead_count, int *var, int cols);
  //}}}
 // Functions to read xyz files //{{{

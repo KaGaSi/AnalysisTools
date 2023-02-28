@@ -329,6 +329,11 @@ void InitIntArray (int array[], int n, int val) {
     array[i] = val;
   }
 }
+void InitBoolArray (int array[], int n, bool val) {
+  for (int i = 0; i < n; i++) {
+    array[i] = val;
+  }
+}
 void InitLong2DArray (long *array[], int m, int n, long val) {
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {

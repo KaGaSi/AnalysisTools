@@ -20,9 +20,9 @@
 extern char ERROR_MSG[LINE];
 
 // simple messages //{{{
-// print 'WARNING - <ERROR_MSG>' in cyan
+// print 'WARNING - <ERROR_MSG>\n' in cyan
 void PrintWarning();
-// print 'ERROR - <ERROR_MSG>' in red
+// print 'ERROR - <ERROR_MSG>\n' in red
 void PrintError();
 // print 'WARNING: <option> - <ERROR_MSG>' in cyan and yellow
 void PrintWarningOption(char *opt);
