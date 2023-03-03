@@ -21,6 +21,8 @@
 #define TIME_LINE_O 9
 #define N_ATOMS_LINE 10
 
+// Read lammpstrj file
+
 void FillMoleculeBeads(SYSTEM *System);
 void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[3], int nbonds);
 void FillMoleculeTypeAngles(SYSTEM *System, int (*angle)[4], int nbonds);
@@ -91,19 +93,9 @@ void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
                           int (*diheral)[5], int *file_line_count);
 void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
                           int (*improper)[5], int *file_line_count);
-SYSTEM LtrjReadStruct(char file[]);
 BOX LtrjReadPBC(char file[]);
 int LtrjLowIndex(char file[]);
-static int LtrjReadTimestepPreamble(FILE *fr, char file[], BOX *box,
-                                    int *line_count);
-bool LtrjReadTimestep(FILE *f, char ltrj_file[], SYSTEM *System,
-                      int start_id, int *file_line_count);
 bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count);
-int LtrjReadPBCSection(FILE *f, char file[], BOX *box, int *file_line_count);
-void LtrjFillItemAtomVariables(int n, char var[n][10]);
-bool LtrjReadItemAtomsLine(FILE *fr, char file[], int n, int *var_position,
-                           char vars[n][10], int *cols, int *line_count);
-bool LtrjReadAtomLine(FILE *f, BEAD *b, int bead_count, int *var, int cols);
  //}}}
 // Functions to read xyz files //{{{
 SYSTEM XyzReadStruct(char file[], int pbc);

@@ -352,24 +352,24 @@ int main(int argc, char *argv[]) {
   free(position);
   free(bkp_line_count);
 
-  // reading file from the end //{{{
-  FILE *fr = OpenFile(in_coor, "r");
-  fseek(fr, -1, SEEK_END);
-  char test = fgetc(fr);
-  if (test == '\n') {
-    printf("empty line\n");
-    fseek(fr, -2, SEEK_END);
-  }
-  test = fgetc(fr);
-  printf("%c", test);
-  do {
-    fseek(fr, -2, SEEK_CUR);
-    test = fgetc(fr);
-    printf("%c", test);
-  } while (test != '\n');
-  fgets(in_coor, LINE, fr);
-  printf("%s", in_coor);
-  fclose(fr); //}}}
+  // // reading file from the end //{{{
+  // FILE *fr = OpenFile(in_coor, "r");
+  // fseek(fr, -1, SEEK_END);
+  // char test = fgetc(fr);
+  // if (test == '\n') {
+  //   printf("empty line\n");
+  //   fseek(fr, -2, SEEK_END);
+  // }
+  // test = fgetc(fr);
+  // printf("%c", test);
+  // do {
+  //   fseek(fr, -2, SEEK_CUR);
+  //   test = fgetc(fr);
+  //   printf("%c", test);
+  // } while (test != '\n');
+  // fgets(in_coor, LINE, fr);
+  // printf("%s", in_coor);
+  // fclose(fr); //}}}
 
   return 0;
 }

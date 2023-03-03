@@ -10,6 +10,449 @@
 static char line[LINE], *split[SPL_STR];
 static int words;
 
+/*
+ * Functions to read lammpstrj file (dump style custom) as a coordinate file via
+ * LtrjReadTimestep() and as a structure file via LtrjReadStruct()
+ */
+static int LtrjReadTimestep(FILE *f, char ltrj_file[], SYSTEM *System,
+                            int start_id, int *line_count);
+static SYSTEM LtrjReadStruct(char file[]);
+// Helper functions
+// read timestep preamble, excluding 'ITEM: ATOMS' line
+static int LtrjReadTimestepPreamble(FILE *fr, char file[], BOX *box,
+                                    int *line_count);
+// test if next line is 'ITEM: TIMESTEP', then skip the section
+static int LtrjSkipItemTimestep(FILE *fr, char file[], int *line_count);
+// test if next line is 'ITEM: NUMBER OF ATOMS', then read the section
+static int LtrjReadNumberOfAtoms(FILE *fr, char file[], int *line_count);
+// test if next line is 'ITEM: BOX BOUNDS', then read the section
+static int LtrjReadPBCSection(FILE *f, char file[],
+                              BOX *box, int *line_count);
+// check if words & split contain 'ITEM: TIMESTEP' line
+static bool LtrjCheckTimestepLine();
+// check if words & split contain 'ITEM: NUMBER OF ATOMS' line
+static bool LtrjCheckNumberAtomsLine();
+// check if words & split contain 'ITEM: ATOMS ...' line
+static bool LtrjCheckAtomLine();
+// check if words & split contain 'ITEM: BOX BOUNDS ...' line
+static bool LtrjCheckPbcLine();
+// read 'ITEM: ATOMS ...' line, defining what variables are in which columns
+static int LtrjReadAtomsLine(FILE *fr, char file[], int n, int *var_pos,
+                                 char vars[n][10], int *line_count);
+// read an atom coordinate line
+static int LtrjReadCoorLine(FILE *f, BEAD *b, int b_count, int *var, int cols);
+// fill a helper array with possible variables in 'ITEM: ATOMS ...' line
+static void LtrjFillAtomVariables(int n, char var[n][10]);
+
+// Read a single timestep from lammpstrj file //{{{
+int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
+                      int start_id, int *line_count) {
+  // set 'not in timestep' to all beads //{{{
+  for (int i = 0; i < System->Count.Bead; i++) {
+    System->Bead[i].InTimestep = false;
+  } //}}}
+  System->Count.BeadCoor = LtrjReadTimestepPreamble(fr, file, &System->Box,
+                                                    line_count);
+  if (System->Count.BeadCoor < 0) {
+    return System->Count.BeadCoor ;
+  }
+  // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
+  int max_vars = 11, position[max_vars];
+  char vars[max_vars][10];
+  int cols = LtrjReadAtomsLine(fr, file, max_vars, position, vars,
+                                   line_count);
+  // read atom lines //{{{
+  for (int i = 0; i < System->Count.BeadCoor; i++) {
+    BEAD line;
+    (*line_count)++;
+    if (LtrjReadCoorLine(fr, &line, System->Count.Bead, position, cols) < 0) {
+      strcpy(ERROR_MSG, "invalid atom line");
+      PrintErrorFileLine(file, *line_count, split, words);
+      fprintf(stderr, "%sOrder of variables should be:%s",
+              ErrRed(), ErrYellow());
+      for (int i = 0; i < max_vars; i++) {
+        if (position[i] != -1) {
+          fprintf(stderr, " %s", vars[position[i]]);
+        }
+      }
+      fprintf(stderr, "%s\n", ErrColourReset());
+      return -1;
+    }
+    int id = line.Type - start_id;
+    BEAD *b = &System->Bead[id];
+    b->Position = line.Position;
+    b->Velocity = line.Velocity;
+    b->Force = line.Force;
+    if (b->InTimestep == true) {
+      strcpy(ERROR_MSG, "multiple atoms with the same id");
+      PrintErrorFileLine(file, *line_count, split, words);
+      return -1;
+    }
+    b->InTimestep = true;
+    System->BeadCoor[i] = id;
+  } //}}}
+  return 1;
+} //}}}
+// Use the first lammpstrj timestep as a definition of system structure //{{{
+static SYSTEM LtrjReadStruct(char file[]) {
+  int start_id = LtrjLowIndex(file); // find if atom ids start from 0 or from 1
+  SYSTEM Sys;
+  InitSystem(&Sys);
+  COUNT *Count = &Sys.Count;
+  int line_count = 0;
+  FILE *fr = OpenFile(file, "r");
+  // read preamble, getting number of beads and box dimensions
+  Count->Bead = LtrjReadTimestepPreamble(fr, file, &Sys.Box, &line_count);
+  Count->BeadCoor = Count->Bead;
+  Count->Unbonded = Count->Bead; // lammpstrj contains no bond information
+  Count->UnbondedCoor = Count->Bead;
+  Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
+  Sys.BeadCoor = realloc(Sys.BeadCoor, sizeof *Sys.BeadCoor * Count->BeadCoor);
+  // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
+  int max_vars = 11, position[max_vars];
+  char var[max_vars][10];
+  int cols = LtrjReadAtomsLine(fr, file, max_vars, position, var, &line_count);
+  // error - incorrect 'ITEM: ATOMS ...' line //{{{
+  if (cols < 0) {
+    strcpy(ERROR_MSG, "wrong 'ITEM: ATOMS' line in the first timestep");
+    if (position[0] == -1) {
+      char err[LINE];
+      strcpy(err, ERROR_MSG);
+      snprintf(ERROR_MSG, LINE, "%s (missing 'id' keyword)", err);
+    }
+    PrintErrorFile(file, "\0", "\0");
+    exit(1);
+  } //}}}
+  // read coordinate lines //{{{
+  for (int i = 0; i < Count->Bead; i++) {
+    BEAD line;
+    InitBead(&line);
+    line_count++;
+    // read & check the coordinate line validity //{{{
+    if (LtrjReadCoorLine(fr, &line, Sys.Count.Bead, position, cols) < 0) {
+      strcpy(ERROR_MSG, "wrong coordinate line");
+      PrintErrorFileLine(file, line_count, split, words);
+      fprintf(stderr, "%sOrder of variables should be:%s", ErrRed(), ErrYellow());
+      for (int i = 0; i < max_vars; i++) {
+        if (position[i] != -1) {
+          fprintf(stderr, " %s", var[position[i]]);
+        }
+      }
+      fprintf(stderr, "%s\n", ErrColourReset());
+      exit(1);
+    } //}}}
+    int id = line.Type - start_id; // in lammpstrj, id starts at either 0 or 1
+    BEAD *b = &Sys.Bead[id];
+    InitBead(b);
+    b->Position = line.Position;
+    b->Velocity = line.Velocity;
+    b->InTimestep = true;
+    Sys.BeadCoor[i] = id;
+    // find if the bead type exists based on 'element' variable
+    // (if 'element' is missing, all beads are of the same one type)
+    bool new = true;
+    for (int j = 0; j < Count->BeadType; j++) {
+      BEADTYPE *bt = &Sys.BeadType[j];
+      if (position[1] == -1 || strcmp(split[position[1]], bt->Name) == 0) {
+        bt->Number++;
+        b->Type = j;
+        new = false;
+        break;
+      }
+    }
+    if (new) { // create a new type
+      int type = Count->BeadType;
+      if (position[1] != -1) { // 'element' variable is present
+        NewBeadType(&Sys.BeadType, &Count->BeadType, split[position[1]],
+                    CHARGE, MASS, RADIUS);
+      } else { // 'element' variable is missing
+        NewBeadType(&Sys.BeadType, &Count->BeadType, "bt",
+                    CHARGE, MASS, RADIUS);
+      }
+      BEADTYPE *bt_new = &Sys.BeadType[type];
+      bt_new->Number = 1;
+      b->Type = type;
+    }
+  } //}}}
+  fclose(fr);
+  FillSystemNonessentials(&Sys);
+  for (int i = 0; i < Count->Bead; i++) {
+    Sys.BeadCoor[i] = i;
+    Sys.UnbondedCoor[i] = i;
+  }
+  CheckSystem(Sys, file);
+  return Sys;
+
+} //}}}
+// LtrjReadTimestepPreamble() //{{{
+static int LtrjReadTimestepPreamble(FILE *fr, char file[], BOX *box,
+                             int *line_count) {
+  int test = LtrjSkipItemTimestep(fr, file, line_count);
+  if (test < 0) {
+    return test;
+  }
+  int count = LtrjReadNumberOfAtoms(fr, file, line_count);
+  if (test < 0) {
+    return count;
+  }
+  test = LtrjReadPBCSection(fr, file, box, line_count);
+  if (test < 0) {
+    return test;
+  }
+  return count;
+} //}}}
+static int LtrjSkipItemTimestep(FILE *fr, char file[], int *line_count) { //{{{
+  (*line_count)++;
+  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    // ErrorEOF(file); // proper eof - before the first line of a timestep
+    return -2;
+  }
+  if (!LtrjCheckTimestepLine()) {
+    strcpy(ERROR_MSG, "missing 'ITEM: TIMESTEP' line");
+    PrintErrorFileLine(file, *line_count, split, words);
+    return -1;
+  }
+  // skip the timestep-counting line
+  (*line_count)++;
+  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    ErrorEOF(file);
+    return -2;
+  }
+  return 1;
+} //}}}
+static int LtrjReadNumberOfAtoms(FILE *fr, char file[], int *line_count) { //{{{
+  // read until 'ITEM: NUMBER OF ATOMS' line
+  (*line_count)++;
+  if (!ReadAndSplitLine(fr, LINE, line, &words,
+                        split, SPL_STR, " \t\n")) {
+    ErrorEOF(file);
+    return -2;
+  }
+  if (!LtrjCheckNumberAtomsLine()) {
+    strcpy(ERROR_MSG, "missing 'ITEM: NUMBER OF ATOMS' line");
+    PrintErrorFileLine(file, *line_count, split, words);
+    return -1;
+  }
+  // read next line, i.e., the number of atoms
+  (*line_count)++;
+  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    ErrorEOF(file);
+    return -2;
+  }
+  long val = -1;
+  if (words == 0 || !IsNaturalNumber(split[0], &val)) {
+    strcpy(ERROR_MSG, "number of atoms must be a non-zero whole number");
+    PrintErrorFileLine(file, *line_count, split, words);
+    return -1;
+  }
+  return val;
+} //}}}
+// LtrjReadPBCSection() //{{{
+static int LtrjReadPBCSection(FILE *fr, char file[],
+                              BOX *box, int *line_count) {
+  // 1) read until 'ITEM:' line to find box type
+  (*line_count)++;
+  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    ErrorEOF(file);
+    return -2;
+  }
+  if (!LtrjCheckPbcLine()) {
+    strcpy(ERROR_MSG, "missing 'ITEM: BOX BOUNDS' line");
+    PrintErrorFileLine(file, *line_count, split, words);
+    return -1;
+  }
+  // 2) read box dimensions
+  if (strcmp(split[3], "pp") == 0) { // orthogonal box
+    double bounds[3][2];
+    for (int i = 0; i < 3; i++) {
+      (*line_count)++;
+      if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+        ErrorEOF(file);
+        return -2;
+      }
+      if (words < 2 || !IsRealNumber(split[0], &bounds[i][0]) ||
+          !IsRealNumber(split[1], &bounds[i][1]) ||
+          bounds[i][1] <= bounds[i][0]) {
+        strcpy(ERROR_MSG, "wrong line in 'ITEM: BOX BOUNDS' section");
+        PrintErrorFileLine(file, *line_count, split, words);
+        return -1;
+      }
+    }
+    box->OrthoLength.x = bounds[0][1] - bounds[0][0];
+    box->OrthoLength.y = bounds[1][1] - bounds[1][0];
+    box->OrthoLength.z = bounds[2][1] - bounds[2][0];
+    TriclinicCellData(box, 1);
+  } else if (strcmp(split[3], "xy") == 0) { // triclinic box
+    double bounds[3][2], tilt[3];
+    for (int i = 0; i < 3; i++) {
+      (*line_count)++;
+      if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+        ErrorEOF(file);
+        return -2;
+      }
+      if (words < 3 || !IsRealNumber(split[0], &bounds[i][0]) ||
+          !IsRealNumber(split[1], &bounds[i][1]) ||
+          bounds[i][1] <= bounds[i][0] ||
+          !IsRealNumber(split[2], &tilt[i])) {
+        strcpy(ERROR_MSG, "wrong pbc line");
+        PrintErrorFileLine(file, *line_count, split, words);
+        return -1;
+      }
+    }
+    // see https://docs.lammps.org/Howto_triclinic.html
+    VECTOR from_bound[2];
+    from_bound[0].x = Min3(0, tilt[0], Min3(0, tilt[1], tilt[0]+tilt[1]));
+    from_bound[1].x = Max3(0, tilt[0], Max3(0, tilt[1], tilt[0]+tilt[1]));
+    from_bound[0].y = Min3(0, 0, tilt[2]);
+    from_bound[1].y = Max3(0, 0, tilt[2]);
+    from_bound[0].z = 0;
+    from_bound[1].z = 0;
+    box->OrthoLength.x = (bounds[0][1] - from_bound[1].x) -
+                   (bounds[0][0] - from_bound[0].x);
+    box->OrthoLength.y = (bounds[1][1] - from_bound[1].y) -
+                   (bounds[1][0] - from_bound[0].y);
+    box->OrthoLength.z = (bounds[2][1] - from_bound[1].z) -
+                   (bounds[2][0] - from_bound[0].z);
+    box->transform[0][1] = tilt[0];
+    box->transform[0][2] = tilt[1];
+    box->transform[1][2] = tilt[2];
+    TriclinicCellData(box, 1);
+  } else { // not '<...> <...> <...> pp/xy ...' line
+    strcpy(ERROR_MSG, "wrong ITEM: BOX BOUNDS line");
+    PrintErrorFileLine(file, *line_count, split, words);
+    return -1;
+  }
+  return 1;
+} //}}}
+static bool LtrjCheckTimestepLine() { //{{{
+  if (words >= 2 &&
+      strcmp(split[0], "ITEM:") == 0 &&
+      strcmp(split[1], "TIMESTEP") == 0) {
+    return true;
+  } else {
+    return false;
+  }
+} //}}}
+static bool LtrjCheckNumberAtomsLine() { //{{{
+  if (words >= 4 &&
+      strcmp(split[0], "ITEM:") == 0 &&
+      strcmp(split[1], "NUMBER") == 0 &&
+      strcmp(split[2], "OF") == 0 &&
+      strcmp(split[3], "ATOMS") == 0) {
+    return true;
+  } else {
+    return false;
+  }
+} //}}}
+static bool LtrjCheckAtomLine() { //{{{
+  if (words >= 3 &&
+      strcmp(split[0], "ITEM:") == 0 &&
+      strcmp(split[1], "ATOMS") == 0) {
+    return true;
+  } else {
+    return false;
+  }
+} //}}}
+static bool LtrjCheckPbcLine() { //{{{
+  if (words >= 6 &&
+      strcmp(split[0], "ITEM:") == 0 &&
+      strcmp(split[1], "BOX") == 0 &&
+      strcmp(split[2], "BOUNDS") == 0) {
+    return true;
+  } else {
+    return false;
+  }
+} //}}}
+// LtrjReadAtomsLine() //{{{
+static int LtrjReadAtomsLine(FILE *fr, char file[], int max_vars, int *var_pos,
+                                 char var[max_vars][10], int *line_count) {
+  // check for the correct maximum number of entries //{{{
+  if (max_vars != 11) {
+    strcpy(ERROR_MSG, "CODING: there should be a maximum of 11 entries "
+           "in 'ITEM: ATOMS' line");
+    PrintError();
+    exit(1);
+  } //}}}
+  // generate array with possible variable names
+  LtrjFillAtomVariables(max_vars, var);
+  // read ITEM: ATOMS line //{{{
+  (*line_count)++;
+  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    ErrorEOF(file);
+    return -2;
+  }
+  // error: line must be 'ITEMS: ATOMS <at least one more>'
+  if (words < 3 || strcmp(split[0], "ITEM:") != 0 ||
+                   strcmp(split[1], "ATOMS") != 0) {
+    strcpy(ERROR_MSG, "wrong 'ITEM: ATOMS ...' line");
+    PrintErrorFileLine(file, *line_count, split, words);
+    return -1;
+  }                                  //}}}
+  InitIntArray(var_pos, max_vars, -1); // id, x, y, z, vx, vy, vz, fx, fy, fz
+  int cols = -1;
+  for (int i = 2; i < words; i++) {
+    for (int j = 0; j < max_vars; j++) {
+      if (strcmp(split[i], var[j]) == 0) {
+        var_pos[j] = i - 2;
+        cols = i - 2 + 1;
+        break;
+      }
+    }
+  }
+  if (cols < 0 || var_pos[0] == -1) {
+    strcpy(ERROR_MSG, "wrong 'ITEM: ATOMS' line");
+    return -1;
+  }
+  return cols;
+} //}}}
+// LtrjReadCoorLine() //{{{
+static int LtrjReadCoorLine(FILE *f, BEAD *b, int b_count, int *var, int cols) {
+  if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    return -2;
+  }
+  InitBead(b);
+  long id;
+  if (words < cols || !IsWholeNumber(split[var[0]], &id) ||
+      id > b_count ||
+      (var[2]  != -1 && !IsRealNumber(split[var[2]],  &b->Position.x)) ||
+      (var[3]  != -1 && !IsRealNumber(split[var[3]],  &b->Position.y)) ||
+      (var[4]  != -1 && !IsRealNumber(split[var[4]],  &b->Position.z)) ||
+      (var[5]  != -1 && !IsRealNumber(split[var[5]],  &b->Velocity.x)) ||
+      (var[6]  != -1 && !IsRealNumber(split[var[6]],  &b->Velocity.y)) ||
+      (var[7]  != -1 && !IsRealNumber(split[var[7]],  &b->Velocity.z)) ||
+      (var[8]  != -1 && !IsRealNumber(split[var[8]],  &b->Force.x)) ||
+      (var[9]  != -1 && !IsRealNumber(split[var[9]],  &b->Force.y)) ||
+      (var[10] != -1 && !IsRealNumber(split[var[10]], &b->Force.z))) {
+    return -1;
+  }
+  b->Type = id;
+  return 1;
+} //}}}
+static void LtrjFillAtomVariables(int n, char var[n][10]) { //{{{
+  // check for the correct maximum number of entries //{{{
+  if (n != 11) {
+    strcpy(ERROR_MSG, "CODING: there should be a maximum of 11 entries "
+           "in ITEM: ATOMS line");
+    PrintError();
+    exit(1);
+  } //}}}
+  strcpy(var[0], "id");
+  strcpy(var[1], "element");
+  strcpy(var[2], "x");
+  strcpy(var[3], "y");
+  strcpy(var[4], "z");
+  strcpy(var[5], "vx");
+  strcpy(var[6], "vy");
+  strcpy(var[7], "vz");
+  strcpy(var[8], "fx");
+  strcpy(var[9], "fy");
+  strcpy(var[10], "fz");
+} //}}}
+
+
+
+
+
 // vtf helper functions to check type of the provided line //{{{
 int VtfCheckCoorOrderedLine() { //{{{
   double val_d;
@@ -221,85 +664,6 @@ int LtrjCheckCoordinateLine() { //{{{
   if (VtfCheckCoorOrderedLine() == COOR_LINE_O) {
     return COOR_LINE_O;
   }
-  return ERROR_LINE;
-} //}}}
-// check if 'ITEM: TIMESTEP' line //{{{
-bool LtrjCheckTimestepLine() {
-  if (words >= 2 &&
-      strcmp(split[0], "ITEM:") == 0 &&
-      strcmp(split[1], "TIMESTEP") == 0) {
-    return true;
-  } else {
-    return false;
-  }
-} //}}}
-// check if 'ITEM: NUMBER OF ATOMS' line //{{{
-bool LtrjCheckNumberAtomLine() {
-  if (words >= 4 &&
-      strcmp(split[0], "ITEM:") == 0 &&
-      strcmp(split[1], "NUMBER") == 0 &&
-      strcmp(split[2], "OF") == 0 &&
-      strcmp(split[3], "ATOMS") == 0) {
-    return true;
-  } else {
-    return false;
-  }
-} //}}}
-// check if 'ITEM: ATOMS ...' line //{{{
-bool LtrjCheckAtomLine() {
-  if (words >= 3 &&
-      strcmp(split[0], "ITEM:") == 0 &&
-      strcmp(split[1], "ATOMS") == 0) {
-    return true;
-  } else {
-    return false;
-  }
-} //}}}
-// check if 'ITEM: BOX BOUNDS <str> <str> <str>' line //{{{
-bool LtrjCheckPbcLine() {
-  if (words >= 6 &&
-      strcmp(split[0], "ITEM:") == 0 &&
-      strcmp(split[1], "BOX") == 0 &&
-      strcmp(split[2], "BOUNDS") == 0) {
-    return true;
-  } else {
-    return false;
-  }
-} //}}}
-// LtrjCheckLineType() //{{{
-/*
- * Function returning line type according to the codes in Read.h.
- */
-int LtrjCheckLineType() {
-  // ERROR_MSG[0] = '\0'; // clear error message array
-  // blank line
-  if (words == 0) {
-    return BLANK_LINE;
-  }
-  // // coordinate line
-  // int test = LtrjCheckCoordinateLine();
-  // if (test != ERROR_LINE) {
-  //   return test;
-  // }
-  // ITEM: TIMESTEP
-  if (LtrjCheckTimestepLine()) {
-    return TIME_LINE;
-  }
-  // ITEM: NUMBER OF ATOMS line
-  if (LtrjCheckNumberAtomLine()) {
-    return N_ATOMS_LINE;
-  }
-  // ITEM: BOX BOUNDS line
-  if (LtrjCheckPbcLine()) {
-    return PBC_LINE;
-  }
-  // ITEM: ATOMS line
-  if (LtrjCheckAtomLine()) {
-    return ATOM_LINE;
-  }
-  // if (ERROR_MSG[0] == '\0') {
-  //   strcpy(ERROR_MSG, "unrecognised line");
-  // }
   return ERROR_LINE;
 } //}}}
   //}}}
@@ -1409,12 +1773,12 @@ bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
     }
     break;
   case XYZ_FILE:
-    if (!XyzReadTimestep(f, file, System, file_line_count)) {
+    if (XyzReadTimestep(f, file, System, file_line_count)) {
       return false;
     }
     break;
   case LTRJ_FILE:
-    if (!LtrjReadTimestep(f, file, System, start_id, file_line_count)) {
+    if (LtrjReadTimestep(f, file, System, start_id, file_line_count) < 0) {
       return false;
     }
     break;
@@ -4146,120 +4510,6 @@ void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
   free(found);
 } //}}}
 // lammps trajectory file
-SYSTEM LtrjReadStruct(char file[]) { //{{{
-  SYSTEM Sys;
-  InitSystem(&Sys);
-  COUNT *Count = &Sys.Count;
-  int file_line_count = 0;
-  FILE *fr = OpenFile(file, "r");
-  // skip first three lines and read number of atoms //{{{
-  // 1) ITEM: TIMESTEP
-  // 2) <int>
-  // 3) ITEM: NUMBER OF ATOMS
-  // 4) <int> ...this is used
-  for (int i = 0; i < 4; i++) {
-    file_line_count++;
-    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
-      exit(1);
-    }
-  }
-  long val;
-  if (words == 0 || !IsNaturalNumber(split[0], &val)) {
-    strcpy(ERROR_MSG, "wrong lammpstrj line with number of atoms");
-    PrintErrorFileLine(file, file_line_count, split, words);
-    exit(1);
-  } //}}}
-  Count->Bead = val;
-  Count->BeadCoor = val;
-  Count->Unbonded = val;
-  Count->UnbondedCoor = val;
-  Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
-  Sys.BeadCoor = realloc(Sys.BeadCoor, sizeof *Sys.BeadCoor * Count->BeadCoor);
-  // read pbc //{{{
-  if (LtrjReadPBCSection(fr, file, &Sys.Box, &file_line_count) < 0) {
-    strcpy(ERROR_MSG, "wrong box dimensions line");
-    PrintErrorFile(file, "\0", "\0");
-    fprintf(stderr, "\n%sLine %s%d%s\n", ErrRed(), ErrYellow(), file_line_count,
-            ErrColourReset());
-    exit(1);
-  } //}}}
-  // read ITEM: ATOMS line
-  int max_vars = 11, position[max_vars];
-  // generate array with possible variable names
-  char vars[max_vars][10];
-  LtrjFillItemAtomVariables(max_vars, vars);
-  // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
-  int cols = 0;
-  if (!LtrjReadItemAtomsLine(fr, file, max_vars, position, vars, &cols,
-                             &file_line_count)) {
-    strcpy(ERROR_MSG, "wrong 'ITEM: ATOMS' line in the first timestep");
-    PrintErrorFile(file, "\0", "\0");
-    exit(1);
-  }
-  int start_id = LtrjLowIndex(file);
-  // read coordinate lines //{{{
-  for (int i = 0; i < Count->Bead; i++) {
-    BEAD line;
-    InitBead(&line);
-    file_line_count++;
-    if (!LtrjReadAtomLine(fr, &line, Sys.Count.Bead, position, cols)) {
-      goto wrong_coor_line;
-    }
-    int id = line.Type - start_id; // in lammpstrj, id start at either 0 or 1
-    BEAD *b = &Sys.Bead[id];
-    InitBead(b);
-    b->Position = line.Position;
-    b->Velocity = line.Velocity;
-    b->InTimestep = true;
-    Sys.BeadCoor[i] = id;
-    bool new = true;
-    for (int j = 0; j < Count->BeadType; j++) {
-      BEADTYPE *bt = &Sys.BeadType[j];
-      if (position[1] == -1 || strcmp(split[position[1]], bt->Name) == 0) {
-        bt->Number++;
-        b->Type = j;
-        new = false;
-        break;
-      }
-    }
-    if (new) {
-      int type = Count->BeadType;
-      if (position[1] != -1) {
-        NewBeadType(&Sys.BeadType, &Count->BeadType, split[position[1]], CHARGE,
-                    MASS, RADIUS);
-      } else {
-        NewBeadType(&Sys.BeadType, &Count->BeadType, "bt", CHARGE, MASS,
-                    RADIUS);
-      }
-      // NewBeadType(BEADTYPE **BeadType, int *number_of_types, char *name,
-      // double charge, double mass, double radius)
-      BEADTYPE *bt_new = &Sys.BeadType[type];
-      bt_new->Number = 1;
-      b->Type = type;
-    }
-  } //}}}
-  fclose(fr);
-  FillSystemNonessentials(&Sys);
-  for (int i = 0; i < Count->Bead; i++) {
-    Sys.BeadCoor[i] = i;
-    Sys.UnbondedCoor[i] = i;
-  }
-  CheckSystem(Sys, file);
-  return Sys;
-
-wrong_coor_line:
-  strcpy(ERROR_MSG, "wrong coordinate line");
-  PrintErrorFileLine(file, file_line_count, split, words);
-  fprintf(stderr, "%sOrder of variables:%s", ErrRed(), ErrYellow());
-  for (int i = 0; i < max_vars; i++) {
-    if (position[i] != -1) {
-      fprintf(stderr, " %s", vars[position[i]]);
-    }
-  }
-  fprintf(stderr, "%s\n", ErrColourReset());
-  exit(1);
-} //}}}
 BOX LtrjReadPBC(char file[]) { //{{{
   BOX Box = InitBox;
   FILE *fr = OpenFile(file, "r");
@@ -4297,15 +4547,17 @@ int LtrjLowIndex(char file[]) {
   BOX bin = InitBox; // not used
   int count = LtrjReadTimestepPreamble(fr, file, &bin, &file_line_count);
   // read ITEM: ATOMS line
-  // 1) generate array with possible variable names
   int max_vars = 11, position[max_vars];
   char vars[max_vars][10];
-  LtrjFillItemAtomVariables(max_vars, vars);
-  // 1) find positions of the variables in a coordinate line
-  int cols = 0;
-  if (!LtrjReadItemAtomsLine(fr, file, max_vars, position, vars, &cols,
-                             &file_line_count)) {
+  int cols = LtrjReadAtomsLine(fr, file, max_vars, position,
+                               vars, &file_line_count);
+  if (cols < 0) {
     strcpy(ERROR_MSG, "wrong 'ITEM: ATOMS' line in the first timestep");
+    if (position[0] == -1) {
+      char err[LINE];
+      strcpy(err, ERROR_MSG);
+      snprintf(ERROR_MSG, LINE, "%s (missing 'id' keyword)", err);
+    }
     PrintErrorFile(file, "\0", "\0");
     exit(1);
   }
@@ -4313,7 +4565,7 @@ int LtrjLowIndex(char file[]) {
   for (int i = 0; i < count; i++) {
     BEAD line;
     file_line_count++;
-    if (!LtrjReadAtomLine(fr, &line, count, position, cols)) {
+    if (!LtrjReadCoorLine(fr, &line, count, position, cols)) {
       strcpy(ERROR_MSG, "wrong coordinate line");
       PrintErrorFileLine(file, file_line_count, split, words);
       fprintf(stderr, "%sOrder of variables:%s", ErrRed(), ErrYellow());
@@ -4331,200 +4583,6 @@ int LtrjLowIndex(char file[]) {
   }
   fclose(fr);
   return start_id;
-} //}}}
-// read lammpstrj 'ITEM: TIMESTEP' section //{{{
-int LtrjSkipItemTimestep(FILE *fr, char file[], int *line_count) {
-  (*line_count)++;
-  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    // ErrorEOF(file); // proper eof - before the first line of a timestep
-    return -2;
-  }
-  if (!LtrjCheckTimestepLine()) {
-    strcpy(ERROR_MSG, "missing 'ITEM: TIMESTEP' line");
-    PrintErrorFileLine(file, *line_count, split, words);
-    return -1;
-  }
-  // skip the timestep-counting line
-  (*line_count)++;
-  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
-    return -2;
-  }
-  return 1;
-} //}}}
-// read lammpstrj 'ITEM: NUMBER OF BEADS' section //{{{
-int LtrjReadNumberOfBeads(FILE *fr, char file[], int *line_count) {
-  // read until 'ITEM: NUMBER OF ATOMS' line
-  (*line_count)++;
-  if (!ReadAndSplitLine(fr, LINE, line, &words,
-                        split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
-    return -2;
-  }
-  if (!LtrjCheckNumberAtomLine()) {
-    strcpy(ERROR_MSG, "missing 'ITEM: NUMBER OF ATOMS' line");
-    PrintErrorFileLine(file, *line_count, split, words);
-    return -1;
-  }
-  // read next line, i.e., the number of atoms
-  (*line_count)++;
-  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
-    return -2;
-  }
-  long val = -1;
-  if (words == 0 || !IsNaturalNumber(split[0], &val)) {
-    strcpy(ERROR_MSG, "number of atoms must be a non-zero whole number");
-    PrintErrorFileLine(file, *line_count, split, words);
-    return -1;
-  }
-  return val;
-} //}}}
-// read lammpstrj 'ITEM: BOX BOUNDS' section //{{{
-int LtrjReadPBCSection(FILE *fr, char file[], BOX *box, int *line_count) {
-  // 1) read until 'ITEM:' line to find box type
-  (*line_count)++;
-  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
-    return -2;
-  }
-  if (LtrjCheckLineType() != PBC_LINE) {
-    strcpy(ERROR_MSG, "missing 'ITEM: BOX BOUNDS' line");
-    PrintErrorFileLine(file, *line_count, split, words);
-    return -1;
-  }
-  // 2) read box dimensions
-  if (strcmp(split[3], "pp") == 0) { // orthogonal box
-    double bounds[3][2];
-    for (int i = 0; i < 3; i++) {
-      (*line_count)++;
-      if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-        ErrorEOF(file);
-        return -2;
-      }
-      if (words < 2 || !IsRealNumber(split[0], &bounds[i][0]) ||
-          !IsRealNumber(split[1], &bounds[i][1]) ||
-          bounds[i][1] <= bounds[i][0]) {
-        strcpy(ERROR_MSG, "wrong line in 'ITEM: BOX BOUNDS' section");
-        PrintErrorFileLine(file, *line_count, split, words);
-        return -1;
-      }
-    }
-    box->OrthoLength.x = bounds[0][1] - bounds[0][0];
-    box->OrthoLength.y = bounds[1][1] - bounds[1][0];
-    box->OrthoLength.z = bounds[2][1] - bounds[2][0];
-    TriclinicCellData(box, 1);
-  } else if (strcmp(split[3], "xy") == 0) { // triclinic box
-    double bounds[3][2], tilt[3];
-    for (int i = 0; i < 3; i++) {
-      (*line_count)++;
-      if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-        ErrorEOF(file);
-        return -2;
-      }
-      if (words < 3 || !IsRealNumber(split[0], &bounds[i][0]) ||
-          !IsRealNumber(split[1], &bounds[i][1]) ||
-          bounds[i][1] <= bounds[i][0] ||
-          !IsRealNumber(split[2], &tilt[i])) {
-        strcpy(ERROR_MSG, "wrong pbc line");
-        PrintErrorFileLine(file, *line_count, split, words);
-        return -1;
-      }
-    }
-    // see https://docs.lammps.org/Howto_triclinic.html
-    VECTOR from_bound[2];
-    from_bound[0].x = Min3(0, tilt[0], Min3(0, tilt[1], tilt[0]+tilt[1]));
-    from_bound[1].x = Max3(0, tilt[0], Max3(0, tilt[1], tilt[0]+tilt[1]));
-    from_bound[0].y = Min3(0, 0, tilt[2]);
-    from_bound[1].y = Max3(0, 0, tilt[2]);
-    from_bound[0].z = 0;
-    from_bound[1].z = 0;
-    box->OrthoLength.x = (bounds[0][1] - from_bound[1].x) -
-                   (bounds[0][0] - from_bound[0].x);
-    box->OrthoLength.y = (bounds[1][1] - from_bound[1].y) -
-                   (bounds[1][0] - from_bound[0].y);
-    box->OrthoLength.z = (bounds[2][1] - from_bound[1].z) -
-                   (bounds[2][0] - from_bound[0].z);
-    box->transform[0][1] = tilt[0];
-    box->transform[0][2] = tilt[1];
-    box->transform[1][2] = tilt[2];
-    TriclinicCellData(box, 1);
-  } else { // not '<...> <...> <...> pp/xy ...' line
-    strcpy(ERROR_MSG, "wrong ITEM: BOX BOUNDS line");
-    PrintErrorFileLine(file, *line_count, split, words);
-    return -1;
-  }
-  return 1;
-} //}}}
-// read lammpstrj timestep preamble (excluding 'ITEM: ATOMS ...' line) //{{{
-int LtrjReadTimestepPreamble(FILE *fr, char file[], BOX *box,
-                             int *line_count) {
-  int test = LtrjSkipItemTimestep(fr, file, line_count);
-  if (test < 0) {
-    return test;
-  }
-  int count = LtrjReadNumberOfBeads(fr, file, line_count);
-  if (test < 0) {
-    return count;
-  }
-  test = LtrjReadPBCSection(fr, file, box, line_count);
-  if (test < 0) {
-    return test;
-  }
-  return count;
-} //}}}
-// read timestep (dump style custom) //{{{
-bool LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
-                      int start_id, int *line_count) {
-  System->Count.BeadCoor = LtrjReadTimestepPreamble(fr, file, &System->Box,
-                                                    line_count);
-  if (System->Count.BeadCoor < 0) {
-    return false;
-  } else {}
-  // read 'ITEM: ATOMS' //{{{
-  int max_vars = 11, position[max_vars];
-  // generate array with possible variable names
-  char vars[max_vars][10];
-  LtrjFillItemAtomVariables(max_vars, vars);
-  // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
-  int cols = 0;
-  if (!LtrjReadItemAtomsLine(fr, file, max_vars, position, vars, &cols,
-                             line_count)) {
-    strcpy(ERROR_MSG, "wrong 'ITEM: ATOMS' line");
-    return false;
-  }
-  // warning - missing 'id'; skip to next timestep
-  if (position[0] == -1) {
-    strcpy(ERROR_MSG, "'ITEM: ATOMS' line must contain 'id' keywoerd");
-    PrintErrorFileLine(file, *line_count, split, words);
-    return false;
-  } //}}}
-  // read atom lines //{{{
-  for (int i = 0; i < System->Count.BeadCoor; i++) {
-    BEAD line;
-    (*line_count)++;
-    if (!LtrjReadAtomLine(fr, &line, System->Count.Bead, position, cols)) {
-      strcpy(ERROR_MSG, "invalid atom line");
-      PrintErrorFileLine(file, *line_count, split, words);
-      fprintf(stderr, "%sOrder of variables should be:%s",
-              ErrRed(), ErrYellow());
-      for (int i = 0; i < max_vars; i++) {
-        if (position[i] != -1) {
-          fprintf(stderr, " %s", vars[position[i]]);
-        }
-      }
-      fprintf(stderr, "%s\n", ErrColourReset());
-      return false;
-    }
-    int id = line.Type - start_id;
-    BEAD *b = &System->Bead[id];
-    b->Position = line.Position;
-    b->Velocity = line.Velocity;
-    b->Force = line.Force;
-    b->InTimestep = true;
-    System->BeadCoor[i] = id;
-  } //}}}
-  return true;
 } //}}}
 bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count) { //{{{
   /* read until two 'ITEM: TIMESTEP' lines are found
@@ -4550,83 +4608,6 @@ bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count) { //{{{
   }
   fsetpos(f, &position); // restore the second 'ITEM: TIMESTEP' line
   (*file_line_count)--;  // the 'ITEM: TIMESTEP' will be re-read
-  return true;
-} //}}}
-void LtrjFillItemAtomVariables(int n, char var[n][10]) { //{{{
-  // check for the correct maximum number of entries //{{{
-  if (n != 11) {
-    strcpy(ERROR_MSG, "CODING: there should be a maximum of 11 entries "
-           "in ITEM: ATOMS line");
-    PrintError();
-    exit(1);
-  } //}}}
-  strcpy(var[0], "id");
-  strcpy(var[1], "element");
-  strcpy(var[2], "x");
-  strcpy(var[3], "y");
-  strcpy(var[4], "z");
-  strcpy(var[5], "vx");
-  strcpy(var[6], "vy");
-  strcpy(var[7], "vz");
-  strcpy(var[8], "fx");
-  strcpy(var[9], "fy");
-  strcpy(var[10], "fz");
-} //}}}
-// read ITEM: ATOMS line to find position of variables //{{{
-bool LtrjReadItemAtomsLine(FILE *fr, char file[], int n, int *var_position,
-                           char vars[n][10], int *cols, int *line_count) {
-  // check for the correct maximum number of entries //{{{
-  if (n != 11) {
-    strcpy(ERROR_MSG, "CODING: there should be a maximum of 11 entries \
-in ITEM: ATOMS line");
-    PrintError();
-    exit(1);
-  } //}}}
-  // read ITEM: ATOMS line //{{{
-  (*line_count)++;
-  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    return false;
-  }
-  // error: line must be 'ITEMS: ATOMS <at least one more>'
-  if (words < 3 || strcmp(split[0], "ITEM:") != 0 ||
-      strcmp(split[1], "ATOMS") != 0) {
-    strcpy(ERROR_MSG, "wrong 'ITEM: ATOMS ...' line");
-    PrintErrorFileLine(file, *line_count, split, words);
-    return false;
-  }                                  //}}}
-  InitIntArray(var_position, n, -1); // id, x, y, z, vx, vy, vz, fx, fy, fz
-  for (int i = 2; i < words; i++) {
-    for (int j = 0; j < n; j++) {
-      if (strcmp(split[i], vars[j]) == 0) {
-        var_position[j] = i - 2;
-        *cols = i - 2 + 1;
-        break;
-      }
-    }
-  }
-  return true;
-} //}}}
-// read and verify an atom line //{{{
-bool LtrjReadAtomLine(FILE *f, BEAD *b, int bead_count, int *var, int cols) {
-  if (!ReadAndSplitLine(f, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    return false;
-  }
-  InitBead(b);
-  long id;
-  if (words < cols || !IsWholeNumber(split[var[0]], &id) ||
-      id > bead_count ||
-      (var[2]  != -1 && !IsRealNumber(split[var[2]],  &b->Position.x)) ||
-      (var[3]  != -1 && !IsRealNumber(split[var[3]],  &b->Position.y)) ||
-      (var[4]  != -1 && !IsRealNumber(split[var[4]],  &b->Position.z)) ||
-      (var[5]  != -1 && !IsRealNumber(split[var[5]],  &b->Velocity.x)) ||
-      (var[6]  != -1 && !IsRealNumber(split[var[6]],  &b->Velocity.y)) ||
-      (var[7]  != -1 && !IsRealNumber(split[var[7]],  &b->Velocity.z)) ||
-      (var[8]  != -1 && !IsRealNumber(split[var[8]],  &b->Force.x)) ||
-      (var[9]  != -1 && !IsRealNumber(split[var[9]],  &b->Force.y)) ||
-      (var[10] != -1 && !IsRealNumber(split[var[10]], &b->Force.z))) {
-    return false;
-  }
-  b->Type = id;
   return true;
 } //}}}
   //}}}
