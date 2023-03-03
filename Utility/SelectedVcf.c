@@ -147,13 +147,13 @@ int main(int argc, char *argv[]) {
   }
 
   SYSTEM System = ReadStructure(struct_type, struct_file, detailed, pbc_xyz);
-  bool variable_coor = false;
+  // bool variable_coor = false;
   // read number of beads in a non-variable coordinate file
-  if (!variable_coor) {
-    printf("%d ", System.Count.BeadCoor);
-    System.Count.BeadCoor = CoorReadNumberOfBeads(coor_type, in_coor);
-    printf("%d\n", System.Count.BeadCoor);
-  }
+  // if (!variable_coor) {
+  //   printf("%d ", System.Count.BeadCoor);
+  //   System.Count.BeadCoor = CoorReadNumberOfBeads(coor_type, in_coor);
+  //   printf("%d\n", System.Count.BeadCoor);
+  // }
   // in case of lammpstrj file, find if atom ids start at 0
   int start_id = -1;
   if (coor_type == LTRJ_FILE) {
@@ -222,14 +222,19 @@ int main(int argc, char *argv[]) {
 
   // main loop //{{{
   FILE *coor = OpenFile(in_coor, "r");
-  fpos_t position1, position2; // two file pointers for finding the last step
+  // tfile pointers for finding the last valid step
+  fpos_t *position = calloc(1e6, sizeof *position);
   int n_opt_count = 0,         // count saved steps if -n option is used
       count_coor = 0,          // count steps in the vcf file
       count_saved = 0,         // count steps in output file
-      file_line_count = 0;     // count lines in the vcf file
+      file_line_count = 0,     // count lines in the vcf file
+      *bkp_line_count = calloc(1e6, sizeof *bkp_line_count);      // save line count at fgetpos()
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
   while (true) {
     count_coor++;
+    position = realloc(position, count_coor * sizeof *position);
+    fgetpos(coor, &position[count_coor-1]);
+    bkp_line_count[count_coor-1] = file_line_count;
     // print step info? //{{{
     if (!silent && isatty(STDOUT_FILENO)) {
       if (last) {
@@ -250,14 +255,13 @@ int main(int argc, char *argv[]) {
      *    2) isn't skipped (-sk option); skipping starts counting with 'start'
      */
     if (n_opt_number == -1) {
-      if ((count_coor >= start && (count_coor <= end || end == -1)) && // 1)
+      // definitely not use, if --last option is used
+      if (last) {
+        use = false;
+      } else if ((count_coor >= start && (count_coor <= end || end == -1)) && // 1)
           ((count_coor - start) % skip) == 0) {                        // 2)
         use = true;
       } else {
-        use = false;
-      }
-      // definitely not use, if --last option is used
-      if (last) {
         use = false;
       }
       // -n option is used - save the timestep if it's in the list
@@ -283,12 +287,7 @@ int main(int argc, char *argv[]) {
         break;
       }
     } //}}}
-    // save file position (last two because of --last) //{{{
-    if ((count_coor % 2) == 0) {
-      fgetpos(coor, &position1);
-    } else {
-      fgetpos(coor, &position2);
-    } //}}}
+    // save file position for each step (the last line of the read/skipped step)
     // decide whether to exit the main loop //{{{
     /* break the loop if
      *    1) all timesteps in the -n option are saved (and --last isn't used)
@@ -302,20 +301,33 @@ int main(int argc, char *argv[]) {
   }   //}}}
   // if --last option is used, read & save the last timestep //{{{
   if (last) {
-    // restore file pointer
-    if ((count_coor % 2) == 1) {
-      fsetpos(coor, &position1);
-    } else {
-      fsetpos(coor, &position2);
-    }
-    ReadTimestep(coor_type, coor, in_coor, &System, &file_line_count,
-                 start_id, stuff);
-    count_saved++;
-    WrapJoinCoordinates(&System, wrap, join);
-    WriteTimestep(coor_out_type, out_coor, System, count_coor, stuff, write);
-  } //}}}
-  fclose(coor);
-  if (count_coor == 0) { // error - input file without a valid timestep //{{{
+    /* To through all saved file positions (last to first) and save a the first
+     * valid step encountered.
+     * Start at count_coor-1 as the saved position is the last line before eof.
+     */
+    for (int i = (count_coor-1); i >= 0; i--) {
+      fsetpos(coor, &position[i]);
+      file_line_count = bkp_line_count[i];
+      if (ReadTimestep(coor_type, coor, in_coor, &System, &file_line_count,
+                       start_id, stuff)) {
+        count_saved++;
+        WrapJoinCoordinates(&System, wrap, join);
+        WriteTimestep(coor_out_type, out_coor, System, count_coor, stuff, write);
+        if (!silent) {
+          if (isatty(STDOUT_FILENO)) {
+            fprintf(stdout, "\r                          \r");
+          }
+          fprintf(stdout, "Saved Step: %d\n", i+1);
+          fflush(stdout);
+        }
+        break;
+      } else {
+        snprintf(ERROR_MSG, LINE, "disregarding step %s%d%s", ErrYellow(),
+                 i+1, ErrCyan());
+        PrintWarnFile(in_coor, "\0", "\0");
+      }
+    } //}}}
+  } else if (count_coor == 0) { // error - input file without a valid timestep //{{{
     strcpy(ERROR_MSG, "no valid timestep found");
     PrintError();
     ErrorPrintFile(in_coor, "\0", "\0");
@@ -331,11 +343,33 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "Last Step: %d (saved %d)\n", count_coor, count_saved);
     fflush(stdout);
   } //}}}
+  fclose(coor);
 
   // free memory
   FreeSystem(&System);
   free(stuff);
   free(write);
+  free(position);
+  free(bkp_line_count);
+
+  // reading file from the end //{{{
+  FILE *fr = OpenFile(in_coor, "r");
+  fseek(fr, -1, SEEK_END);
+  char test = fgetc(fr);
+  if (test == '\n') {
+    printf("empty line\n");
+    fseek(fr, -2, SEEK_END);
+  }
+  test = fgetc(fr);
+  printf("%c", test);
+  do {
+    fseek(fr, -2, SEEK_CUR);
+    test = fgetc(fr);
+    printf("%c", test);
+  } while (test != '\n');
+  fgets(in_coor, LINE, fr);
+  printf("%s", in_coor);
+  fclose(fr); //}}}
 
   return 0;
 }

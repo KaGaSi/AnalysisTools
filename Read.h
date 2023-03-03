@@ -94,10 +94,12 @@ void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
 SYSTEM LtrjReadStruct(char file[]);
 BOX LtrjReadPBC(char file[]);
 int LtrjLowIndex(char file[]);
+static int LtrjReadTimestepPreamble(FILE *fr, char file[], BOX *box,
+                                    int *line_count);
 bool LtrjReadTimestep(FILE *f, char ltrj_file[], SYSTEM *System,
                       int start_id, int *file_line_count);
 bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count);
-bool LtrjReadPBCSection(FILE *f, char file[], BOX *box, int *file_line_count);
+int LtrjReadPBCSection(FILE *f, char file[], BOX *box, int *file_line_count);
 void LtrjFillItemAtomVariables(int n, char var[n][10]);
 bool LtrjReadItemAtomsLine(FILE *fr, char file[], int n, int *var_position,
                            char vars[n][10], int *cols, int *line_count);
