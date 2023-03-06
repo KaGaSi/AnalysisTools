@@ -31,9 +31,10 @@ void FillMoleculeTypeImproper(SYSTEM *System, int (*angle)[5], int nbonds);
 
 void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join);
 SYSTEM ReadStructure(int struct_type, char struct_file[],
-                     bool detailed, int pbc_xyz);
-bool ReadTimestep(int coor_type, FILE *f, char file[], SYSTEM *System,
-                  int *file_line_count, int start_id, char stuff[]);
+                     int coor_type, char coor_file[],
+                     bool detailed, int pbc_xyz, int *ltrj_start_id);
+bool ReadTimestep(int coor_type, FILE *fr, char file[], SYSTEM *System,
+                  int *file_line_count, int start_id, bool vtf_var_coor);
 bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],
                   int *file_line_count);
 int CoorReadNumberOfBeads(int coor_type, char *file);
@@ -48,8 +49,8 @@ void MergeMoleculeTypes(SYSTEM *System);
 // Get the first pbc line from a vcf/vsf/vtf coordinate file.
 BOX VtfReadPBC(char input[]);
 // Read a single timestep from a vcf/vtf coordinate file
-static bool VtfReadTimestep(FILE *vcf, char vcf_file[],
-                            SYSTEM *System, int *file_line_count);
+bool VtfReadTimestep(FILE *vcf, char vcf_file[], SYSTEM *System,
+                            int *line_count, bool vtf_var_coor);
 // Discard a single timestep from a vcf/vtf coordinate file
 bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
                      int *file_line_count);
@@ -65,37 +66,29 @@ void FieldReadSpecies(char field_file[], SYSTEM *System);
 void FieldReadMolecules(char field_file[], SYSTEM *System);
  //}}}
 // Functions to read lammps files //{{{
-SYSTEM LmpDataRead(char data_file[]);
-int LmpDataReadHeader(char data_file[], FILE *lmp,
-                      SYSTEM *System, int *file_line_count);
-void LmpDataReadBody(char data_file[], FILE *lmp,
-                     SYSTEM *System, int lmp_types, int *file_line_count);
-void LmpDataReadMasses(FILE *lmp, char data_file[], BEADTYPE name_mass[],
-                       int lmp_types, int *file_line_count);
-void LmpDataReadBondCoeffs(FILE *lmp, char data_file[],
-                           SYSTEM *System, int *file_line_count);
-void LmpDataReadAngleCoeffs(FILE *lmp, char data_file[],
-                            SYSTEM *System, int *file_line_count);
-void LmpDataReadDihedralCoeffs(FILE *lmp, char data_file[],
-                               SYSTEM *System, int *file_line_count);
-void LmpDataReadImproperCoeffs(FILE *lmp, char data_file[],
-                               SYSTEM *System, int *file_line_count);
-void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
-                      BEADTYPE name_mass[], int lmp_types,
-                      int *file_line_count);
-void LmpDataReadVelocities(FILE *lmp, char data_file[],
-                           SYSTEM *System, int *file_line_count);
-void LmpDataReadBonds(FILE *lmp, char data_file[], COUNT Count,
-                      int (*bond)[3], int *file_line_count);
-void LmpDataReadAngles(FILE *lmp, char data_file[], COUNT Count,
-                       int (*angle)[4], int *file_line_count);
-void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
-                          int (*diheral)[5], int *file_line_count);
-void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
-                          int (*improper)[5], int *file_line_count);
-BOX LtrjReadPBC(char file[]);
-int LtrjLowIndex(char file[]);
-bool LtrjSkipTimestep(FILE *f, char ltrj_file[], int *file_line_count);
+// void LmpDataReadMasses(FILE *lmp, char data_file[], BEADTYPE name_mass[],
+//                        int lmp_types, int *file_line_count);
+// void LmpDataReadBondCoeffs(FILE *lmp, char data_file[],
+//                            SYSTEM *System, int *file_line_count);
+// void LmpDataReadAngleCoeffs(FILE *lmp, char data_file[],
+//                             SYSTEM *System, int *file_line_count);
+// void LmpDataReadDihedralCoeffs(FILE *lmp, char data_file[],
+//                                SYSTEM *System, int *file_line_count);
+// void LmpDataReadImproperCoeffs(FILE *lmp, char data_file[],
+//                                SYSTEM *System, int *file_line_count);
+// void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
+//                       BEADTYPE name_mass[], int lmp_types,
+//                       int *file_line_count);
+// void LmpDataReadVelocities(FILE *lmp, char data_file[],
+//                            SYSTEM *System, int *file_line_count);
+// void LmpDataReadBonds(FILE *lmp, char data_file[], COUNT Count,
+//                       int (*bond)[3], int *file_line_count);
+// void LmpDataReadAngles(FILE *lmp, char data_file[], COUNT Count,
+//                        int (*angle)[4], int *file_line_count);
+// void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
+//                           int (*diheral)[5], int *file_line_count);
+// void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
+//                           int (*improper)[5], int *file_line_count);
  //}}}
 // Functions to read xyz files //{{{
 SYSTEM XyzReadStruct(char file[], int pbc);

@@ -89,6 +89,390 @@ void FromFractionalCoor(SYSTEM *System) { //{{{
 } //}}}
   //}}}
 
+// Helper functions for manipulating System structure
+// fill some System arrays and some such
+void FillSystemNonessentials(SYSTEM *System) { //{{{
+  COUNT *Count = &System->Count;
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    FillMoleculeTypeBType(&System->MoleculeType[i]);
+    FillMoleculeTypeChargeMass(&System->MoleculeType[i], System->BeadType);
+  }
+  FillBeadTypeIndex(System);
+  FillMoleculeTypeIndex(System);
+  System->Index_mol = realloc(System->Index_mol, sizeof *System->Index_mol *
+                                                     (Count->HighestResid + 1));
+  for (int i = 0; i <= Count->HighestResid; i++) {
+    System->Index_mol[i] = -1;
+  }
+  for (int i = 0; i < Count->Molecule; i++) {
+    System->Index_mol[System->Molecule[i].Index] = i;
+  }
+  System->BeadCoor =
+      realloc(System->BeadCoor, sizeof *System->BeadCoor * Count->Bead);
+  if (Count->Bonded > 0) {
+    System->Bonded =
+        realloc(System->Bonded, sizeof *System->Bonded * Count->Bonded);
+    System->BondedCoor =
+        realloc(System->BondedCoor, sizeof *System->BondedCoor * Count->Bonded);
+  }
+  if (Count->Unbonded > 0) {
+    System->Unbonded =
+        realloc(System->Unbonded, sizeof *System->Unbonded * Count->Unbonded);
+    System->UnbondedCoor = realloc(
+        System->UnbondedCoor, sizeof *System->UnbondedCoor * Count->Unbonded);
+  }
+  int c_bonded = 0, c_unbonded = 0;
+  for (int i = 0; i < Count->Bead; i++) {
+    if (System->Bead[i].Molecule > -1) {
+      System->Bonded[c_bonded] = i;
+      c_bonded++;
+    } else {
+      System->Unbonded[c_unbonded] = i;
+      c_unbonded++;
+    }
+  }
+  CountBondAngleDihedralImproper(System);
+  // sort bonds, angles, dihedrals, and impropers
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    SortBonds(mt_i->Bond, mt_i->nBonds);
+    SortAngles(mt_i->Angle, mt_i->nAngles);
+    SortDihImp(mt_i->Dihedral, mt_i->nDihedrals);
+    SortDihImp(mt_i->Improper, mt_i->nImpropers);
+  }
+} //}}}
+void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType) { //{{{
+  MoleculeType->nBTypes = 0;
+  MoleculeType->BType = malloc(sizeof *MoleculeType->BType * 1);
+  for (int j = 0; j < MoleculeType->nBeads; j++) {
+    bool new = true;
+    for (int k = 0; k < MoleculeType->nBTypes; k++) {
+      if (MoleculeType->Bead[j] == MoleculeType->BType[k]) {
+        new = false;
+        break;
+      }
+    }
+    if (new) {
+      int type = MoleculeType->nBTypes++;
+      MoleculeType->BType = realloc(MoleculeType->BType,
+                                    sizeof *MoleculeType->BType *
+                                    MoleculeType->nBTypes);
+      MoleculeType->BType[type] = MoleculeType->Bead[j];
+    }
+  }
+} //}}}
+void FillMoleculeTypeChargeMass(MOLECULETYPE *mtype, BEADTYPE btype[]) { //{{{
+  mtype->Mass = 0;
+  mtype->Charge = 0;
+  for (int j = 0; j < mtype->nBeads; j++) {
+    int bt = mtype->Bead[j];
+    // charge
+    if (btype[bt].Charge != CHARGE) {
+      mtype->Charge += btype[bt].Charge;
+    } else {
+      mtype->Charge = CHARGE;
+    }
+    // mass
+    if (btype[bt].Mass != MASS) {
+      mtype->Mass += btype[bt].Mass;
+    } else {
+      mtype->Mass = MASS;
+    }
+  }
+} //}}}
+void FillBeadTypeIndex(SYSTEM *System) { //{{{
+  COUNT *Count = &System->Count;
+  // allocate memory for Index arrays
+  for (int i = 0; i < Count->BeadType; i++) {
+    BEADTYPE *bt_i = &System->BeadType[i];
+    if (bt_i->Number > 0) {
+      bt_i->Index = malloc(sizeof *bt_i->Index * bt_i->Number);
+    }
+  }
+  // fill the Index arrays
+  int *count_id = calloc(Count->BeadType, sizeof *count_id);
+  for (int i = 0; i < Count->Bead; i++) {
+    int type = System->Bead[i].Type;
+    if (System->BeadType[type].Number < count_id[type]) {
+      fprintf(stderr, "...ehm; error count_id[%d]=%d (%d)\n", type,
+              count_id[type], System->BeadType[type].Number);
+    }
+    System->BeadType[type].Index[count_id[type]] = i;
+    count_id[type]++;
+  }
+  free(count_id);
+} //}}}
+void FillMoleculeTypeIndex(SYSTEM *System) { //{{{
+  COUNT *Count = &System->Count;
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    mt_i->Index = malloc(sizeof *mt_i->Index * mt_i->Number);
+  }
+  int *count_id = calloc(Count->MoleculeType, sizeof *count_id);
+  for (int i = 0; i < Count->Molecule; i++) {
+    int type = System->Molecule[i].Type;
+    System->MoleculeType[type].Index[count_id[type]] = i;
+    count_id[type]++;
+  }
+  free(count_id);
+} //}}}
+void CountBondAngleDihedralImproper(SYSTEM *System) { //{{{
+  COUNT *Count = &System->Count;
+  Count->Bond = 0;
+  Count->Angle = 0;
+  Count->Dihedral = 0;
+  Count->Improper = 0;
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    MOLECULETYPE *mt_i = &System->MoleculeType[i];
+    Count->Bond += mt_i->nBonds * mt_i->Number;
+    Count->Angle += mt_i->nAngles * mt_i->Number;
+    Count->Dihedral += mt_i->nDihedrals * mt_i->Number;
+    Count->Improper += mt_i->nImpropers * mt_i->Number;
+  }
+} //}}}
+// fill in BOX structure; mode: 0..knowing angles; 1..knowing tilt vector //{{{
+bool TriclinicCellData(BOX *Box, int mode) {
+  // calculate angles and tilt vectors or tilt vectors and OrthoLength //{{{
+  switch (mode) {
+  case 0: // angles & Length given //{{{
+    Box->OrthoLength = Box->Length;
+    Box->Bounding = Box->Length;
+    if (Box->alpha != 90 || Box->beta != 90 || Box->gamma != 90) {
+      double a = Box->Length.x, b = Box->Length.y, c = Box->Length.z;
+      double c_a = cos(Box->alpha * PI / 180), c_b = cos(Box->beta * PI / 180),
+             c_g = cos(Box->gamma * PI / 180), s_g = sin(Box->gamma * PI / 180);
+      // cell volume
+      double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
+      if (sqr < 0) {
+        strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
+        return false;
+      }
+      Box->Volume = a * b * c * sqrt(sqr);
+      // transformation matrix fractional -> Cartesian coordinates
+      double vol = Box->Volume;
+      Box->transform[0][0] = a;
+      Box->transform[0][1] = b * c_g;
+      Box->transform[1][1] = b * s_g;
+      Box->transform[0][2] = c * c_b;
+      Box->transform[1][2] = c * (c_a - c_b * c_g) / s_g;
+      Box->transform[2][2] = vol / (a * b * s_g);
+      // transformation matrix Cartesian -> fractional coordinates
+      Box->inverse[0][0] = 1 / a;
+      Box->inverse[0][1] = -c_g / (a * s_g);
+      Box->inverse[1][1] = 1 / (b * s_g);
+      Box->inverse[0][2] =
+          b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) - c_b * s_g / vol);
+      Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
+      Box->inverse[2][2] = a * b * s_g / vol;
+      // orthogonal box size
+      // x direaction
+      Box->OrthoLength.x = a;
+      // y direaction
+      sqr = SQR(b) - SQR(Box->transform[0][1]);
+      if (sqr < 0) {
+        strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
+        return false;
+      }
+      Box->OrthoLength.y = sqrt(sqr);
+      // z direaction
+      sqr = SQR(c) - SQR(Box->transform[0][2]) - SQR(Box->transform[1][2]);
+      if (sqr < 0) {
+        strcpy(ERROR_MSG, "wrong simulation box dimensions");
+        PrintError();
+        exit(1);
+      }
+      Box->OrthoLength.z = sqrt(sqr);
+      // see https://docs.lammps.org/Howto_triclinic.html
+      double xy = Box->transform[0][1], xz = Box->transform[0][2],
+             yz = Box->transform[1][2],
+             xyz = Box->transform[0][1] + Box->transform[0][2];
+      Box->Bounding.x = Box->OrthoLength.x - Max3(0, xy, Max3(0, xz, xyz)) +
+                        Min3(0, xy, Min3(0, xz, xyz));
+      Box->Bounding.y = Box->OrthoLength.y - Min3(0, 0, yz) + Max3(0, 0, yz);
+      Box->Bounding.z = Box->OrthoLength.z;
+    }
+    break; //}}}
+  case 1:  // tilt & OrthoLength given //{{{
+    Box->Length = Box->OrthoLength;
+    if (Box->transform[0][1] != 0 || Box->transform[0][2] != 0 ||
+        Box->transform[1][2] != 0) {
+      double a = Box->OrthoLength.x,
+             b = sqrt(SQR(Box->OrthoLength.y) + SQR(Box->transform[0][1])),
+             c = sqrt(SQR(Box->OrthoLength.z) + SQR(Box->transform[0][2]));
+      double c_a = (Box->transform[0][1] * Box->transform[0][2] +
+                    Box->OrthoLength.y * Box->transform[1][2]) /
+                   (b * c),
+             c_b = Box->transform[0][2] / c, c_g = Box->transform[0][1] / b,
+             s_g = sin(Box->gamma * PI / 180);
+      // cell length
+      Box->Length.x = a;
+      Box->Length.y = b;
+      Box->Length.z = c;
+      // cell angles
+      Box->alpha = acos(c_a) / PI * 180;
+      Box->beta = acos(c_b) / PI * 180;
+      Box->gamma = acos(c_g) / PI * 180;
+      // cell volume
+      double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
+      if (sqr < 0) {
+        strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
+        return false;
+      }
+      Box->Volume = a * b * c * sqrt(sqr);
+      // finish transformation matrix fractional -> Cartesian coordinates
+      double vol = Box->Volume;
+      Box->transform[0][0] = a;
+      Box->transform[1][1] = b * s_g;
+      Box->transform[2][2] = vol / (a * b * s_g);
+      // transformation matrix Cartesian -> fractional coordinates
+      Box->inverse[0][0] = 1 / a;
+      Box->inverse[0][1] = -c_g / (a * s_g);
+      Box->inverse[1][1] = 1 / (b * s_g);
+      Box->inverse[0][2] =
+          b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) - c_b * s_g / vol);
+      Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
+      Box->inverse[2][2] = a * b * s_g / vol;
+    }
+    break; //}}}
+  default:
+    strcpy(ERROR_MSG, "TriclinicCellData(): mode parameters must be 0 or 1");
+    exit(1);
+  } //}}}
+  // transformation matrices for orthogonal box //{{{
+  if (Box->alpha == 90 && Box->beta == 90 && Box->gamma == 90) {
+    Box->Volume = Box->Length.x * Box->Length.y * Box->Length.z;
+    Box->transform[0][0] = Box->Length.x;
+    Box->transform[1][1] = Box->Length.y;
+    Box->transform[2][2] = Box->Length.z;
+    Box->inverse[0][0] = 1 / Box->Length.x;
+    Box->inverse[1][1] = 1 / Box->Length.y;
+    Box->inverse[2][2] = 1 / Box->Length.z;
+  } //}}}
+  // maximum size of the the bounding box //{{{
+  // see https://docs.lammps.org/Howto_triclinic.html
+  double xy = Box->transform[0][1], xz = Box->transform[0][2],
+         yz = Box->transform[1][2],
+         xyz = Box->transform[0][1] + Box->transform[0][2];
+  Box->Bounding.x = Box->OrthoLength.x + Max3(0, xy, Max3(0, xz, xyz)) -
+                    Min3(0, xy, Min3(0, xz, xyz));
+  Box->Bounding.y = Box->OrthoLength.y + Max3(0, 0, yz) - Max3(0, 0, yz);
+  Box->Bounding.z = Box->OrthoLength.z; //}}}
+  return true;
+} //}}}
+// sort a bond/angle/dihedral/improper array in an ascending order
+void SortBonds(int (*bond)[3], int num) { //{{{
+  // first, check order in every bond
+  for (int j = 0; j < num; j++) {
+    if (bond[j][0] > bond[j][1]) {
+      SwapInt(&bond[j][0], &bond[j][1]);
+    }
+  }
+  // second, bubble sort bonds
+  for (int j = 0; j < (num - 1); j++) {
+    bool swap = false;
+    for (int k = 0; k < (num - j - 1); k++) {
+      /* swap bonds if
+       * 1) first bead ids are in the wrong order or
+       * 2) first bead ids are fine, but second ids are in the wrong order
+       */
+      if (bond[k][0] > bond[k+1][0] || // 1)
+          (bond[k][0] == bond[k+1][0] && // 2)
+           bond[k][1] > bond[k+1][1])) { // 2)
+        SwapInt(&bond[k][0], &bond[k+1][0]);
+        SwapInt(&bond[k][1], &bond[k+1][1]);
+        SwapInt(&bond[k][2], &bond[k+1][2]);
+        swap = true;
+      }
+    }
+    // if no swap was made, the array is sorted
+    if (!swap) {
+      break;
+    }
+  }
+} //}}}
+void SortAngles(int (*angle)[4], int num) { //{{{
+  // first, check order of the 1st and 3rd id in every angle
+  for (int j = 0; j < num; j++) {
+    if (angle[j][0] > angle[j][2]) {
+      SwapInt(&angle[j][0], &angle[j][2]);
+    }
+  }
+  // second, bubble sort angles
+  for (int j = 0; j < (num - 1); j++) {
+    bool swap = false;
+    for (int k = 0; k < (num - j - 1); k++) {
+      /* swap angles if
+       * 1) first bead ids are in the wrong order or
+       * 2) first bead ids are fine, but second ids are in wrong order or
+       * 3) first and second are fine, but third are in wrong order
+       */
+      if ((angle[k][0] > angle[k+1][0]) || // 1)
+          (angle[k][0] == angle[k+1][0] && // 2)
+           angle[k][1] > angle[k+1][1]) || //
+          (angle[k][0] == angle[k+1][0] && // 3)
+           angle[k][1] == angle[k+1][1] && // 3)
+           angle[k][2] > angle[k+1][2])) { // 3)
+        SwapInt(&angle[k][0], &angle[k+1][0]);
+        SwapInt(&angle[k][1], &angle[k+1][1]);
+        SwapInt(&angle[k][2], &angle[k+1][2]);
+        SwapInt(&angle[k][3], &angle[k+1][3]);
+        swap = true;
+      }
+    }
+    // if no swap was made, the array is sorted
+    if (!swap) {
+      break;
+    }
+  }
+} //}}}
+void SortDihImp(int (*dihimp)[5], int num) { //{{{
+  // first, check order of the 1st and 4th id in every dihedral
+  for (int j = 0; j < num; j++) {
+    if (dihimp[j][0] > dihimp[j][3]) {
+      SwapInt(&dihimp[j][0], &dihimp[j][3]);
+      SwapInt(&dihimp[j][1], &dihimp[j][2]);
+    }
+  }
+  // second, bubble sort dihedrals
+  for (int j = 0; j < (num - 1); j++) {
+    bool swap = false;
+    for (int k = 0; k < (num - j - 1); k++) {
+      /* swap angles if
+       * 1) first bead ids are in the wrong order or
+       * 2) first bead ids are fine, but second ids are in wrong order or
+       * 3) first and second are fine, but third are in wrong order or
+       * 4) only fourth ids are in wrong order
+       */
+      if ((dihimp[k][0] >
+           dihimp[k + 1][0]) || // 1)
+          (dihimp[k][0] == dihimp[k+1][0] && // 2)
+           dihimp[k][1] > dihimp[k+1][1]) || //
+          (dihimp[k][0] == dihimp[k+1][0] && // 3)
+           dihimp[k][1] == dihimp[k+1][1] && //
+           dihimp[k][2] > dihimp[k+1][2]) || //
+          (dihimp[k][0] == dihimp[k+1][0] && // 4)
+           dihimp[k][1] == dihimp[k+1][1] && //
+           dihimp[k][2] == dihimp[k+1][2] && //
+           dihimp[k][3] > dihimp[k+1][3])) { //
+        SwapInt(&dihimp[k][0], &dihimp[k + 1][0]);
+        SwapInt(&dihimp[k][1], &dihimp[k + 1][1]);
+        SwapInt(&dihimp[k][2], &dihimp[k + 1][2]);
+        SwapInt(&dihimp[k][3], &dihimp[k + 1][3]);
+        SwapInt(&dihimp[k][4], &dihimp[k + 1][4]);
+        swap = true;
+      }
+    }
+    // if no swap was made, the array is sorted
+    if (!swap) {
+      break;
+    }
+  }
+} //}}}
+
+
+
+
+
 // InputCoorStruct() //{{{
 /**
  * Function to test whether input coordinate file is vtf or vcf and assign
@@ -708,122 +1092,6 @@ void LinkedList(VECTOR BoxLength, COUNTS Counts, BEAD *Bead, int **Head,
     Dcx[i] = x[i];
     Dcy[i] = y[i];
     Dcz[i] = z[i];
-  }
-} //}}}
-
-// SortBonds() //{{{
-/**
- * Function to sort a bond array. As each bond contains a 2-member array, first
- * check that first bead id is lower than the second. Then sort the bonds
- * according to the index of the first bead in each bond.
- */
-void SortBonds(int (*bond)[3], int num) {
-  // first, check order in every bond
-  for (int j = 0; j < num; j++) {
-    if (bond[j][0] > bond[j][1]) {
-      SwapInt(&bond[j][0], &bond[j][1]);
-    }
-  }
-  // second, bubble sort bonds
-  for (int j = 0; j < (num - 1); j++) {
-    bool swap = false;
-    for (int k = 0; k < (num - j - 1); k++) {
-      if (bond[k][0] >
-              bond[k + 1][0] || // swap if first beads are in wrong order
-          (bond[k][0] == bond[k + 1][0] && // or if they're the same, but second
-                                           // ones are in wrong order
-           bond[k][1] > bond[k + 1][1])) {
-        SwapInt(&bond[k][0], &bond[k + 1][0]);
-        SwapInt(&bond[k][1], &bond[k + 1][1]);
-        SwapInt(&bond[k][2], &bond[k + 1][2]);
-        swap = true;
-      }
-    }
-    // if no swap was made, the array is sorted
-    if (!swap) {
-      break;
-    }
-  }
-} //}}}
-// SortAngles() //{{{
-/**
- * Function to sort an angle array. As each angle contains a 3-member array
- * with the middle number being the 'centre' of the angle (i.e., it must remain
- * in the middle). Sort it so that the first index is lower than the third one
- * and then ascendingly according to the first indices.
- */
-void SortAngles(int (*angle)[4], int num) {
-  // first, check order of the 1st and 3rd id in every angle
-  for (int j = 0; j < num; j++) {
-    if (angle[j][0] > angle[j][2]) {
-      SwapInt(&angle[j][0], &angle[j][2]);
-    }
-  }
-  // second, bubble sort angles
-  for (int j = 0; j < (num - 1); j++) {
-    bool swap = false;
-    for (int k = 0; k < (num - j - 1); k++) {
-      if ((angle[k][0] >
-           angle[k + 1][0]) || // swap if first beads are in wrong order
-          (angle[k][0] == angle[k + 1][0] &&
-           angle[k][1] > angle[k + 1][1]) || // or if they're the same, but 2nd
-                                             // ones are in wrong order
-          (angle[k][0] == angle[k + 1][0] && angle[k][1] == angle[k + 1][1] &&
-           angle[k][2] > angle[k + 1][2])) { // same for 3rd
-        SwapInt(&angle[k][0], &angle[k + 1][0]);
-        SwapInt(&angle[k][1], &angle[k + 1][1]);
-        SwapInt(&angle[k][2], &angle[k + 1][2]);
-        SwapInt(&angle[k][3], &angle[k + 1][3]);
-        swap = true;
-      }
-    }
-    // if no swap was made, the array is sorted
-    if (!swap) {
-      break;
-    }
-  }
-} //}}}
-// SortDihImp() //{{{
-/**
- * Function to sort an angle array. As each angle contains a 3-member array
- * with the middle number being the 'centre' of the angle (i.e., it must remain
- * in the middle). Sort it so that the first index is lower than the third one
- * and then ascendingly according to the first indices.
- */
-void SortDihImp(int (*angle)[5], int num) {
-  // first, check order of the 1st and 4th id in every dihedral
-  for (int j = 0; j < num; j++) {
-    if (angle[j][0] > angle[j][3]) {
-      SwapInt(&angle[j][0], &angle[j][3]);
-      SwapInt(&angle[j][1], &angle[j][2]);
-    }
-  }
-  // second, bubble sort dihedrals
-  for (int j = 0; j < (num - 1); j++) {
-    bool swap = false;
-    for (int k = 0; k < (num - j - 1); k++) {
-      if ((angle[k][0] >
-           angle[k + 1][0]) || // swap if first beads are in wrong order
-          (angle[k][0] == angle[k + 1][0] &&
-           angle[k][1] > angle[k + 1][1]) || // or if they're the same, but 2nd
-                                             // ones are in wrong order
-          (angle[k][0] == angle[k + 1][0] && angle[k][1] == angle[k + 1][1] &&
-           angle[k][2] > angle[k + 1][2]) || // same for 3rd...
-          (angle[k][0] == angle[k + 1][0] && angle[k][1] == angle[k + 1][1] &&
-           angle[k][2] == angle[k + 1][2] &&
-           angle[k][3] > angle[k + 1][3])) { // ...and for 4th.
-        SwapInt(&angle[k][0], &angle[k + 1][0]);
-        SwapInt(&angle[k][1], &angle[k + 1][1]);
-        SwapInt(&angle[k][2], &angle[k + 1][2]);
-        SwapInt(&angle[k][3], &angle[k + 1][3]);
-        SwapInt(&angle[k][4], &angle[k + 1][4]);
-        swap = true;
-      }
-    }
-    // if no swap was made, the array is sorted
-    if (!swap) {
-      break;
-    }
   }
 } //}}}
 
@@ -1831,282 +2099,6 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
   CountBondAngleDihedralImproper(Sys_orig);
   PruneSystem(Sys_orig);
 } //}}}
-// fill some System arrays and some such //{{{
-void FillSystemNonessentials(SYSTEM *System) { //{{{
-  COUNT *Count = &System->Count;
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    FillMoleculeTypeBType(&System->MoleculeType[i]);
-    FillMoleculeTypeChargeMass(&System->MoleculeType[i], System->BeadType);
-  }
-  FillBeadTypeIndex(System);
-  FillMoleculeTypeIndex(System);
-  System->Index_mol = realloc(System->Index_mol, sizeof *System->Index_mol *
-                                                     (Count->HighestResid + 1));
-  for (int i = 0; i <= Count->HighestResid; i++) {
-    System->Index_mol[i] = -1;
-  }
-  for (int i = 0; i < Count->Molecule; i++) {
-    System->Index_mol[System->Molecule[i].Index] = i;
-  }
-  System->BeadCoor =
-      realloc(System->BeadCoor, sizeof *System->BeadCoor * Count->Bead);
-  if (Count->Bonded > 0) {
-    System->Bonded =
-        realloc(System->Bonded, sizeof *System->Bonded * Count->Bonded);
-    System->BondedCoor =
-        realloc(System->BondedCoor, sizeof *System->BondedCoor * Count->Bonded);
-  }
-  if (Count->Unbonded > 0) {
-    System->Unbonded =
-        realloc(System->Unbonded, sizeof *System->Unbonded * Count->Unbonded);
-    System->UnbondedCoor = realloc(
-        System->UnbondedCoor, sizeof *System->UnbondedCoor * Count->Unbonded);
-  }
-  int c_bonded = 0, c_unbonded = 0;
-  for (int i = 0; i < Count->Bead; i++) {
-    if (System->Bead[i].Molecule > -1) {
-      System->Bonded[c_bonded] = i;
-      c_bonded++;
-    } else {
-      System->Unbonded[c_unbonded] = i;
-      c_unbonded++;
-    }
-  }
-  CountBondAngleDihedralImproper(System);
-  // sort bonds, angles, dihedrals, and impropers
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    MOLECULETYPE *mt_i = &System->MoleculeType[i];
-    SortBonds(mt_i->Bond, mt_i->nBonds);
-    SortAngles(mt_i->Angle, mt_i->nAngles);
-    SortDihImp(mt_i->Dihedral, mt_i->nDihedrals);
-    SortDihImp(mt_i->Improper, mt_i->nImpropers);
-  }
-} //}}}
-// molecule type's nBTypes and BType array //{{{
-void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType) {
-  MoleculeType->nBTypes = 0;
-  MoleculeType->BType = malloc(sizeof *MoleculeType->BType * 1);
-  for (int j = 0; j < MoleculeType->nBeads; j++) {
-    bool new = true;
-    for (int k = 0; k < MoleculeType->nBTypes; k++) {
-      if (MoleculeType->Bead[j] == MoleculeType->BType[k]) {
-        new = false;
-        break;
-      }
-    }
-    if (new) {
-      int type = MoleculeType->nBTypes++;
-      MoleculeType->BType =
-          realloc(MoleculeType->BType,
-                  sizeof *MoleculeType->BType * MoleculeType->nBTypes);
-      MoleculeType->BType[type] = MoleculeType->Bead[j];
-    }
-  }
-} //}}}
-// molecule type's Charge and Mass //{{{
-void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
-                                BEADTYPE BeadType[]) {
-  MoleculeType->Mass = 0;
-  MoleculeType->Charge = 0;
-  for (int j = 0; j < MoleculeType->nBeads; j++) {
-    int btype = MoleculeType->Bead[j];
-    // charge
-    if (BeadType[btype].Charge != CHARGE) {
-      MoleculeType->Charge += BeadType[btype].Charge;
-    } else {
-      MoleculeType->Charge = CHARGE;
-    }
-    // mass
-    if (BeadType[btype].Mass != MASS) {
-      MoleculeType->Mass += BeadType[btype].Mass;
-    } else {
-      MoleculeType->Mass = MASS;
-    }
-  }
-} //}}}
-// all bead types' Index array //{{{
-void FillBeadTypeIndex(SYSTEM *System) {
-  COUNT *Count = &System->Count;
-  // allocate memory for Index arrays
-  for (int i = 0; i < Count->BeadType; i++) {
-    BEADTYPE *bt_i = &System->BeadType[i];
-    if (bt_i->Number > 0) {
-      bt_i->Index = malloc(sizeof *bt_i->Index * bt_i->Number);
-    }
-  }
-  // fill the Index arrays
-  int *count_id = calloc(Count->BeadType, sizeof *count_id);
-  for (int i = 0; i < Count->Bead; i++) {
-    int type = System->Bead[i].Type;
-    if (System->BeadType[type].Number < count_id[type]) {
-      fprintf(stderr, "...ehm; error count_id[%d]=%d (%d)\n", type,
-              count_id[type], System->BeadType[type].Number);
-    }
-    System->BeadType[type].Index[count_id[type]] = i;
-    count_id[type]++;
-  }
-  free(count_id);
-} //}}}
-// all molecule types' Index array //{{{
-void FillMoleculeTypeIndex(SYSTEM *System) {
-  COUNT *Count = &System->Count;
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    MOLECULETYPE *mt_i = &System->MoleculeType[i];
-    mt_i->Index = malloc(sizeof *mt_i->Index * mt_i->Number);
-  }
-  int *count_id = calloc(Count->MoleculeType, sizeof *count_id);
-  for (int i = 0; i < Count->Molecule; i++) {
-    int type = System->Molecule[i].Type;
-    System->MoleculeType[type].Index[count_id[type]] = i;
-    count_id[type]++;
-  }
-  free(count_id);
-} //}}}
-void CountBondAngleDihedralImproper(SYSTEM *System) { //{{{
-  COUNT *Count = &System->Count;
-  Count->Bond = 0;
-  Count->Angle = 0;
-  Count->Dihedral = 0;
-  Count->Improper = 0;
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    MOLECULETYPE *mt_i = &System->MoleculeType[i];
-    Count->Bond += mt_i->nBonds * mt_i->Number;
-    Count->Angle += mt_i->nAngles * mt_i->Number;
-    Count->Dihedral += mt_i->nDihedrals * mt_i->Number;
-    Count->Improper += mt_i->nImpropers * mt_i->Number;
-  }
-} //}}}
-// Populate BOX with volume, transform and invert matrices, etc. //{{{
-// mode: 0..knowing angles; 1..knowing tilt vector
-bool TriclinicCellData(BOX *Box, int mode) {
-  // calculate angles and tilt vectors or tilt vectors and OrthoLength //{{{
-  switch (mode) {
-  case 0: // angles & Length given //{{{
-    Box->OrthoLength = Box->Length;
-    Box->Bounding = Box->Length;
-    if (Box->alpha != 90 || Box->beta != 90 || Box->gamma != 90) {
-      double a = Box->Length.x, b = Box->Length.y, c = Box->Length.z;
-      double c_a = cos(Box->alpha * PI / 180), c_b = cos(Box->beta * PI / 180),
-             c_g = cos(Box->gamma * PI / 180), s_g = sin(Box->gamma * PI / 180);
-      // cell volume
-      double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
-      if (sqr < 0) {
-        strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
-        return false;
-      }
-      Box->Volume = a * b * c * sqrt(sqr);
-      // transformation matrix fractional -> Cartesian coordinates
-      double vol = Box->Volume;
-      Box->transform[0][0] = a;
-      Box->transform[0][1] = b * c_g;
-      Box->transform[1][1] = b * s_g;
-      Box->transform[0][2] = c * c_b;
-      Box->transform[1][2] = c * (c_a - c_b * c_g) / s_g;
-      Box->transform[2][2] = vol / (a * b * s_g);
-      // transformation matrix Cartesian -> fractional coordinates
-      Box->inverse[0][0] = 1 / a;
-      Box->inverse[0][1] = -c_g / (a * s_g);
-      Box->inverse[1][1] = 1 / (b * s_g);
-      Box->inverse[0][2] =
-          b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) - c_b * s_g / vol);
-      Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
-      Box->inverse[2][2] = a * b * s_g / vol;
-      // orthogonal box size
-      // x direaction
-      Box->OrthoLength.x = a;
-      // y direaction
-      sqr = SQR(b) - SQR(Box->transform[0][1]);
-      if (sqr < 0) {
-        strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
-        return false;
-      }
-      Box->OrthoLength.y = sqrt(sqr);
-      // z direaction
-      sqr = SQR(c) - SQR(Box->transform[0][2]) - SQR(Box->transform[1][2]);
-      if (sqr < 0) {
-        strcpy(ERROR_MSG, "wrong simulation box dimensions");
-        PrintError();
-        exit(1);
-      }
-      Box->OrthoLength.z = sqrt(sqr);
-      // see https://docs.lammps.org/Howto_triclinic.html
-      double xy = Box->transform[0][1], xz = Box->transform[0][2],
-             yz = Box->transform[1][2],
-             xyz = Box->transform[0][1] + Box->transform[0][2];
-      Box->Bounding.x = Box->OrthoLength.x - Max3(0, xy, Max3(0, xz, xyz)) +
-                        Min3(0, xy, Min3(0, xz, xyz));
-      Box->Bounding.y = Box->OrthoLength.y - Min3(0, 0, yz) + Max3(0, 0, yz);
-      Box->Bounding.z = Box->OrthoLength.z;
-    }
-    break; //}}}
-  case 1:  // tilt & OrthoLength given //{{{
-    Box->Length = Box->OrthoLength;
-    if (Box->transform[0][1] != 0 || Box->transform[0][2] != 0 ||
-        Box->transform[1][2] != 0) {
-      double a = Box->OrthoLength.x,
-             b = sqrt(SQR(Box->OrthoLength.y) + SQR(Box->transform[0][1])),
-             c = sqrt(SQR(Box->OrthoLength.z) + SQR(Box->transform[0][2]));
-      double c_a = (Box->transform[0][1] * Box->transform[0][2] +
-                    Box->OrthoLength.y * Box->transform[1][2]) /
-                   (b * c),
-             c_b = Box->transform[0][2] / c, c_g = Box->transform[0][1] / b,
-             s_g = sin(Box->gamma * PI / 180);
-      // cell length
-      Box->Length.x = a;
-      Box->Length.y = b;
-      Box->Length.z = c;
-      // cell angles
-      Box->alpha = acos(c_a) / PI * 180;
-      Box->beta = acos(c_b) / PI * 180;
-      Box->gamma = acos(c_g) / PI * 180;
-      // cell volume
-      double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
-      if (sqr < 0) {
-        strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
-        return false;
-      }
-      Box->Volume = a * b * c * sqrt(sqr);
-      // finish transformation matrix fractional -> Cartesian coordinates
-      double vol = Box->Volume;
-      Box->transform[0][0] = a;
-      Box->transform[1][1] = b * s_g;
-      Box->transform[2][2] = vol / (a * b * s_g);
-      // transformation matrix Cartesian -> fractional coordinates
-      Box->inverse[0][0] = 1 / a;
-      Box->inverse[0][1] = -c_g / (a * s_g);
-      Box->inverse[1][1] = 1 / (b * s_g);
-      Box->inverse[0][2] =
-          b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) - c_b * s_g / vol);
-      Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
-      Box->inverse[2][2] = a * b * s_g / vol;
-    }
-    break; //}}}
-  default:
-    strcpy(ERROR_MSG, "TriclinicCellData(): mode parameters must be 0 or 1");
-    exit(1);
-  } //}}}
-  // transformation matrices for orthogonal box //{{{
-  if (Box->alpha == 90 && Box->beta == 90 && Box->gamma == 90) {
-    Box->Volume = Box->Length.x * Box->Length.y * Box->Length.z;
-    Box->transform[0][0] = Box->Length.x;
-    Box->transform[1][1] = Box->Length.y;
-    Box->transform[2][2] = Box->Length.z;
-    Box->inverse[0][0] = 1 / Box->Length.x;
-    Box->inverse[1][1] = 1 / Box->Length.y;
-    Box->inverse[2][2] = 1 / Box->Length.z;
-  } //}}}
-  // maximum size of the the bounding box //{{{
-  // see https://docs.lammps.org/Howto_triclinic.html
-  double xy = Box->transform[0][1], xz = Box->transform[0][2],
-         yz = Box->transform[1][2],
-         xyz = Box->transform[0][1] + Box->transform[0][2];
-  Box->Bounding.x = Box->OrthoLength.x + Max3(0, xy, Max3(0, xz, xyz)) -
-                    Min3(0, xy, Min3(0, xz, xyz));
-  Box->Bounding.y = Box->OrthoLength.y + Max3(0, 0, yz) - Max3(0, 0, yz);
-  Box->Bounding.z = Box->OrthoLength.z; //}}}
-  return true;
-} //}}}
-  //}}}
 void CheckSystem(SYSTEM System, char file[]) { //{{{
   COUNT *Count = &System.Count;
   if (Count->Molecule > 0 &&

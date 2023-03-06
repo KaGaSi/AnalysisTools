@@ -26,6 +26,23 @@
 #define FIELD_FILE 6
 #define CONFIG_FILE 7
 
+// Helper functions for manipulating System structure
+// fill in some SYSTEM stutff
+void FillSystemNonessentials(SYSTEM *System);
+void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType);
+void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
+                         BEADTYPE BeadType[]);
+void FillBeadTypeIndex(SYSTEM *System);
+void FillMoleculeTypeIndex(SYSTEM *System);
+void CountBondAngleDihedralImproper(SYSTEM *System);
+bool TriclinicCellData(BOX *Box, int mode);
+// sort a bond/angle/dihedral/improper array in an ascending order
+void SortBonds(int (*bond)[3], int num);
+void SortAngles(int (*angle)[4], int num);
+void SortDihImp(int (*dihimp)[5], int num);
+
+
+
 void RenameBeadTypes(SYSTEM *System);
 
 VECTOR ToFractional(VECTOR coor, BOX Box);
@@ -64,15 +81,6 @@ int FindBeadType(char name[], SYSTEM System);
 int FindMoleculeName(char name[], SYSTEM System);
 int FindMoleculeType_old(MOLECULETYPE mol, SYSTEM System, int mode, bool name);
 int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode, bool name);
-
-void FillSystemNonessentials(SYSTEM *System);
-void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType);
-void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
-                                BEADTYPE BeadType[]);
-void FillBeadTypeIndex(SYSTEM *System);
-void FillMoleculeTypeIndex(SYSTEM *System);
-bool TriclinicCellData(BOX *Box, int mode);
-void CountBondAngleDihedralImproper(SYSTEM *System);
 
 void NewBeadType(BEADTYPE *BeadType[], int *number_of_types, char *name,
                  double charge, double mass, double radius);
@@ -133,10 +141,6 @@ VECTOR Gyration(int n, int *list, COUNTS Counts, BEADTYPE *BeadType,
 void LinkedList(VECTOR BoxLength, COUNTS Counts, BEAD *Bead, int **Head,
                 int **Link, double cell_size, INTVECTOR *n_cells, int *Dcx,
                 int *Dcy, int *Dcz); //}}}
-
-void SortBonds(int (*bond)[3], int num);
-void SortAngles(int (*angle)[4], int num);
-void SortDihImp(int (*dihedral)[5], int num);
 
 SYSTEM CopySystem(SYSTEM Sys_in);
 MOLECULETYPE CopyMoleculeType(MOLECULETYPE mt_old);

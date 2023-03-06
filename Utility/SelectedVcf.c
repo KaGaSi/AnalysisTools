@@ -37,7 +37,7 @@ containing all beads of any given type, so the usefulness is very limited \
           "(if --last option is used, save also the last timestep)\n");
   fprintf(ptr, "      -x <name(s)>   exclude specified molecule(s)\n");
   fprintf(ptr, "      --last         use only the last step"
-          "(-st/-e options are ignored; -n option is not)\n");
+          "(-st/-e/-n options are ignored)\n");
   fprintf(ptr, "      -pbc <int>         position of pbc in xyz file's comment"
           " line (of the first number)\n");
   CommonHelp(error);
@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
   skip++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
   bool join = BoolOption(argc, argv, "--join");
   bool wrap = BoolOption(argc, argv, "--wrap");
-  int start, end;
+  int start = 1, end = -1;
   StartEndTime(argc, argv, &start, &end);
   bool last = BoolOption(argc, argv, "--last");
   // position of the first number of pbc in xyz file
@@ -146,19 +146,11 @@ int main(int argc, char *argv[]) {
     PrintCommand(stdout, argc, argv);
   }
 
-  SYSTEM System = ReadStructure(struct_type, struct_file, detailed, pbc_xyz);
-  // bool variable_coor = false;
-  // read number of beads in a non-variable coordinate file
-  // if (!variable_coor) {
-  //   printf("%d ", System.Count.BeadCoor);
-  //   System.Count.BeadCoor = CoorReadNumberOfBeads(coor_type, in_coor);
-  //   printf("%d\n", System.Count.BeadCoor);
-  // }
-  // in case of lammpstrj file, find if atom ids start at 0
-  int start_id = -1;
-  if (coor_type == LTRJ_FILE) {
-    start_id = LtrjLowIndex(in_coor);
-  }
+  int ltrj_start_id = -1; // for lammpstrj structure file, start ids from 0 or 1
+  bool vtf_var_coor = false; // vtf timesteps with variable number of beads
+                             // TODO: add option for this
+  SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, in_coor,
+                                detailed, pbc_xyz, &ltrj_start_id);
 
   // <bead names> - names of bead types to save //{{{
   bool *write = calloc(System.Count.Bead, sizeof *write),
@@ -272,7 +264,7 @@ int main(int argc, char *argv[]) {
     } //}}}
     if (use) { // read and write the timestep, if it should be saved //{{{
       if (!ReadTimestep(coor_type, coor, in_coor, &System, &file_line_count,
-                        start_id, stuff)) {
+                        ltrj_start_id, vtf_var_coor)) {
         count_coor--;
         break;
       }
@@ -287,29 +279,31 @@ int main(int argc, char *argv[]) {
         break;
       }
     } //}}}
-    // save file position for each step (the last line of the read/skipped step)
-    // decide whether to exit the main loop //{{{
+    // ecide whether to exit the main loop //{{{
     /* break the loop if
      *    1) all timesteps in the -n option are saved (and --last isn't used)
      *    or
      *    2) end timestep was reached (-e option)
      */
-    if ((n_opt_count == n_opt_number && !last) || // 1)
-        count_coor == end) {                      // 2)
+    if (!last && // never break when --last is used
+        (n_opt_count == n_opt_number || // 1)
+        count_coor == end)) { // 2)
       break;
     } //}}}
-  }   //}}}
+  } //}}}
   // if --last option is used, read & save the last timestep //{{{
   if (last) {
     /* To through all saved file positions (last to first) and save a the first
      * valid step encountered.
-     * Start at count_coor-1 as the saved position is the last line before eof.
+     * Start at count_coor as the saved position is at the beginning of the last
+     * timestep to be skipped, and count_coor-- is used beore quitting the while
+     * loop.
      */
-    for (int i = (count_coor-1); i >= 0; i--) {
+    for (int i = (count_coor); i >= 0; i--) {
       fsetpos(coor, &position[i]);
       file_line_count = bkp_line_count[i];
       if (ReadTimestep(coor_type, coor, in_coor, &System, &file_line_count,
-                       start_id, stuff)) {
+                       ltrj_start_id, stuff)) {
         count_saved++;
         WrapJoinCoordinates(&System, wrap, join);
         WriteTimestep(coor_out_type, out_coor, System, count_coor, stuff, write);
@@ -334,7 +328,7 @@ int main(int argc, char *argv[]) {
     fputc('\n', stderr); //}}}
   } else if (start > count_coor) { // warn if no timesteps were written //{{{
     strcpy(ERROR_MSG, "no coordinates written (starting timestep higher"
-           " than the number of timestep)");
+           " than the total number of timesteps)");
     PrintWarning(); //}}}
   } else if (!silent) { // print last step count? //{{{
     if (isatty(STDOUT_FILENO)) {
