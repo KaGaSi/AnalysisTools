@@ -150,7 +150,7 @@ int main(int argc, char *argv[]) {
   bool vtf_var_coor = false; // vtf timesteps with variable number of beads
                              // TODO: add option for this
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, in_coor,
-                                detailed, pbc_xyz, &ltrj_start_id);
+                                detailed, vtf_var_coor, pbc_xyz, &ltrj_start_id);
 
   // <bead names> - names of bead types to save //{{{
   bool *write = calloc(System.Count.Bead, sizeof *write),

@@ -21,18 +21,10 @@
 #define TIME_LINE_O 9
 #define N_ATOMS_LINE 10
 
-// Read lammpstrj file
-
-void FillMoleculeBeads(SYSTEM *System);
-void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[3], int nbonds);
-void FillMoleculeTypeAngles(SYSTEM *System, int (*angle)[4], int nbonds);
-void FillMoleculeTypeDihedral(SYSTEM *System, int (*angle)[5], int nbonds);
-void FillMoleculeTypeImproper(SYSTEM *System, int (*angle)[5], int nbonds);
-
 void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join);
 SYSTEM ReadStructure(int struct_type, char struct_file[],
-                     int coor_type, char coor_file[],
-                     bool detailed, int pbc_xyz, int *ltrj_start_id);
+                     int coor_type, char coor_file[], bool detailed,
+                     bool vtf_coor_var, int pbc_xyz, int *ltrj_start_id);
 bool ReadTimestep(int coor_type, FILE *fr, char file[], SYSTEM *System,
                   int *file_line_count, int start_id, bool vtf_var_coor);
 bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],
@@ -40,25 +32,11 @@ bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],
 int CoorReadNumberOfBeads(int coor_type, char *file);
 
 // Functions to read vtf files //{{{
-
-// Read all information about the system from a vsf/vtf structure file.
-SYSTEM VtfReadStruct(char struct_file[], bool detailed);
-void RemoveExtraTypes(SYSTEM *System);
-void MergeBeadTypes(SYSTEM *System, bool detailed);
-void MergeMoleculeTypes(SYSTEM *System);
-// Get the first pbc line from a vcf/vsf/vtf coordinate file.
-BOX VtfReadPBC(char input[]);
-// Read a single timestep from a vcf/vtf coordinate file
-bool VtfReadTimestep(FILE *vcf, char vcf_file[], SYSTEM *System,
-                            int *line_count, bool vtf_var_coor);
 // Discard a single timestep from a vcf/vtf coordinate file
 bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
                      int *file_line_count);
 bool VtfSkipTimestep_old(FILE *vcf, char vcf_file[], char vsf_file[],
                      int *file_line_count);
-bool VtfSkipCoorOrderedLine(FILE *fr);
-// Find position of atom line keywords in the provided strtok'd line
-int * VtfAtomLineValues();
  //}}}
 // Functions to read FIELD-like files //{{{
 SYSTEM FieldRead(char field_file[]);
@@ -224,5 +202,6 @@ bool VtfReadTimestep_old(FILE *vcf, char vcf_file[], BOX *Box, COUNTS *Counts,
                      int step_count, char stuff[]);
 SYSTEM VtfReadStruct_oldish(char struct_file[], bool detailed);
 SYSTEM VtfReadStruct_old(char struct_file[], bool detailed);
+bool VtfSkipCoorOrderedLine(FILE *fr);
 #endif
 #endif

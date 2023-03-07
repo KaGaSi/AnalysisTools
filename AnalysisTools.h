@@ -35,7 +35,7 @@ void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
 void FillBeadTypeIndex(SYSTEM *System);
 void FillMoleculeTypeIndex(SYSTEM *System);
 void CountBondAngleDihedralImproper(SYSTEM *System);
-bool TriclinicCellData(BOX *Box, int mode);
+// bool TriclinicCellData(BOX *Box, int mode);
 // sort a bond/angle/dihedral/improper array in an ascending order
 void SortBonds(int (*bond)[3], int num);
 void SortAngles(int (*angle)[4], int num);

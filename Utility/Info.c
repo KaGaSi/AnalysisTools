@@ -273,15 +273,17 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // read information from input file(s) //{{{
-  SYSTEM System = ReadStructure(struct_type, struct_file, detailed, pbc_xyz);
+  int ltrj_start_id = -1;
+  SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
+                                detailed, pbc_xyz, &ltrj_start_id);
   if (verbose) {
     printf("System in %s:\n", struct_file);
     VerboseOutput(System);
   }
   SYSTEM Sys_extra;
   if (struct_file_extra[0] != '\0') {
-    Sys_extra = ReadStructure(struct_type_extra, struct_file_extra,
-                              detailed, pbc_xyz);
+    Sys_extra = ReadStructure(struct_type, struct_file, coor_type, coor_file,
+                              detailed, pbc_xyz, &ltrj_start_id);
     if (verbose) {
       printf("System in %s:\n", struct_file_extra);
       VerboseOutput(Sys_extra);
@@ -313,19 +315,19 @@ int main(int argc, char *argv[]) {
     CheckSystem(System, struct_file_extra);
   }
   // use coordinate from a separate file (-c option)
-  char stuff[LINE]; // for vcf file
+  bool vtf_coor_var = false;
   int start_id = -1; // for lammpstrj file
   if (coor_file[0] != '\0') {
-    if (coor_type == LTRJ_FILE) {
-      start_id = LtrjLowIndex(coor_file);
-    }
+    // if (coor_type == LTRJ_FILE) {
+    //   start_id = LtrjLowIndex(coor_file);
+    // }
     int file_line_count = 0;
     FILE *fr = OpenFile(coor_file, "r");
     for (int i = 0; i < timestep; i++) {
       SkipTimestep(coor_type, fr, coor_file, struct_file, &file_line_count);
     }
     ReadTimestep(coor_type, fr, coor_file, &System, &file_line_count,
-                 start_id, stuff);
+                 start_id, vtf_coor_var);
     fclose(fr);
   } //}}}
 
