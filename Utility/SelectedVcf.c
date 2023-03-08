@@ -90,10 +90,10 @@ int main(int argc, char *argv[]) {
   count = 0; // count mandatory arguments
 
   // <input> - input coordinate file //{{{
-  char in_coor[LINE] = "", struct_file[LINE] = "";
+  char coor_file[LINE] = "", struct_file[LINE] = "";
   int coor_type, struct_type = 0;
-  snprintf(in_coor, LINE, "%s", argv[++count]);
-  if (!InputCoorStruct(argc, argv, in_coor, &coor_type,
+  snprintf(coor_file, LINE, "%s", argv[++count]);
+  if (!InputCoorStruct(argc, argv, coor_file, &coor_type,
                        struct_file, &struct_type)) {
     exit(1);
   } //}}}
@@ -149,8 +149,9 @@ int main(int argc, char *argv[]) {
   int ltrj_start_id = -1; // for lammpstrj structure file, start ids from 0 or 1
   bool vtf_var_coor = false; // vtf timesteps with variable number of beads
                              // TODO: add option for this
-  SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, in_coor,
-                                detailed, vtf_var_coor, pbc_xyz, &ltrj_start_id);
+  SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
+                                detailed, vtf_var_coor,
+                                pbc_xyz, &ltrj_start_id);
 
   // <bead names> - names of bead types to save //{{{
   bool *write = calloc(System.Count.Bead, sizeof *write),
@@ -159,7 +160,7 @@ int main(int argc, char *argv[]) {
     int type = FindBeadType(argv[count], System);
     if (type == -1) {
       strcpy(ERROR_MSG, "non-existent bead name");
-      PrintErrorFile(struct_file, in_coor, "\0");
+      PrintErrorFile(struct_file, coor_file, "\0");
       ErrorBeadType(argv[count], System);
       exit(1);
     }
@@ -213,7 +214,7 @@ int main(int argc, char *argv[]) {
   fclose(out); //}}}
 
   // main loop //{{{
-  FILE *coor = OpenFile(in_coor, "r");
+  FILE *coor = OpenFile(coor_file, "r");
   // tfile pointers for finding the last valid step
   fpos_t *position = calloc(1e6, sizeof *position);
   int n_opt_count = 0,         // count saved steps if -n option is used
@@ -263,7 +264,7 @@ int main(int argc, char *argv[]) {
       n_opt_count++;
     } //}}}
     if (use) { // read and write the timestep, if it should be saved //{{{
-      if (!ReadTimestep(coor_type, coor, in_coor, &System, &file_line_count,
+      if (!ReadTimestep(coor_type, coor, coor_file, &System, &file_line_count,
                         ltrj_start_id, vtf_var_coor)) {
         count_coor--;
         break;
@@ -273,7 +274,7 @@ int main(int argc, char *argv[]) {
       WriteTimestep(coor_out_type, out_coor, System, count_coor, stuff, write);
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
-      if (!SkipTimestep(coor_type, coor, in_coor,
+      if (!SkipTimestep(coor_type, coor, coor_file,
                         struct_file, &file_line_count)) {
         count_coor--;
         break;
@@ -302,7 +303,7 @@ int main(int argc, char *argv[]) {
     for (int i = (count_coor); i >= 0; i--) {
       fsetpos(coor, &position[i]);
       file_line_count = bkp_line_count[i];
-      if (ReadTimestep(coor_type, coor, in_coor, &System, &file_line_count,
+      if (ReadTimestep(coor_type, coor, coor_file, &System, &file_line_count,
                        ltrj_start_id, stuff)) {
         count_saved++;
         WrapJoinCoordinates(&System, wrap, join);
@@ -318,13 +319,13 @@ int main(int argc, char *argv[]) {
       } else {
         snprintf(ERROR_MSG, LINE, "disregarding step %s%d%s", ErrYellow(),
                  i+1, ErrCyan());
-        PrintWarnFile(in_coor, "\0", "\0");
+        PrintWarnFile(coor_file, "\0", "\0");
       }
     } //}}}
   } else if (count_coor == 0) { // error - input file without a valid timestep //{{{
     strcpy(ERROR_MSG, "no valid timestep found");
     PrintError();
-    ErrorPrintFile(in_coor, "\0", "\0");
+    ErrorPrintFile(coor_file, "\0", "\0");
     fputc('\n', stderr); //}}}
   } else if (start > count_coor) { // warn if no timesteps were written //{{{
     strcpy(ERROR_MSG, "no coordinates written (starting timestep higher"

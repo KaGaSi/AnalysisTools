@@ -274,16 +274,20 @@ int main(int argc, char *argv[]) {
 
   // read information from input file(s) //{{{
   int ltrj_start_id = -1;
+  bool vtf_var_coor = false; // vtf timesteps with variable number of beads
+                             // TODO: add option for this
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
-                                detailed, pbc_xyz, &ltrj_start_id);
+                                detailed, vtf_var_coor,
+                                pbc_xyz, &ltrj_start_id);
   if (verbose) {
     printf("System in %s:\n", struct_file);
     VerboseOutput(System);
   }
   SYSTEM Sys_extra;
   if (struct_file_extra[0] != '\0') {
-    Sys_extra = ReadStructure(struct_type, struct_file, coor_type, coor_file,
-                              detailed, pbc_xyz, &ltrj_start_id);
+    Sys_extra = ReadStructure(struct_type_extra, struct_file_extra,
+                              coor_type, coor_file, detailed, vtf_var_coor,
+                              pbc_xyz, &ltrj_start_id);
     if (verbose) {
       printf("System in %s:\n", struct_file_extra);
       VerboseOutput(Sys_extra);

@@ -21,61 +21,16 @@
 #define TIME_LINE_O 9
 #define N_ATOMS_LINE 10
 
-void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join);
 SYSTEM ReadStructure(int struct_type, char struct_file[],
                      int coor_type, char coor_file[], bool detailed,
                      bool vtf_coor_var, int pbc_xyz, int *ltrj_start_id);
 bool ReadTimestep(int coor_type, FILE *fr, char file[], SYSTEM *System,
-                  int *file_line_count, int start_id, bool vtf_var_coor);
+                  int *line_count, int start_id, bool vtf_var_coor);
 bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],
-                  int *file_line_count);
-int CoorReadNumberOfBeads(int coor_type, char *file);
+                  int *line_count);
 
-// Functions to read vtf files //{{{
-// Discard a single timestep from a vcf/vtf coordinate file
-bool VtfSkipTimestep(FILE *vcf, char vcf_file[], char vsf_file[],
-                     int *file_line_count);
-bool VtfSkipTimestep_old(FILE *vcf, char vcf_file[], char vsf_file[],
-                     int *file_line_count);
- //}}}
-// Functions to read FIELD-like files //{{{
-SYSTEM FieldRead(char field_file[]);
-void FieldReadSpecies(char field_file[], SYSTEM *System);
-void FieldReadMolecules(char field_file[], SYSTEM *System);
- //}}}
-// Functions to read lammps files //{{{
-// void LmpDataReadMasses(FILE *lmp, char data_file[], BEADTYPE name_mass[],
-//                        int lmp_types, int *file_line_count);
-// void LmpDataReadBondCoeffs(FILE *lmp, char data_file[],
-//                            SYSTEM *System, int *file_line_count);
-// void LmpDataReadAngleCoeffs(FILE *lmp, char data_file[],
-//                             SYSTEM *System, int *file_line_count);
-// void LmpDataReadDihedralCoeffs(FILE *lmp, char data_file[],
-//                                SYSTEM *System, int *file_line_count);
-// void LmpDataReadImproperCoeffs(FILE *lmp, char data_file[],
-//                                SYSTEM *System, int *file_line_count);
-// void LmpDataReadAtoms(FILE *lmp, char data_file[], SYSTEM *System,
-//                       BEADTYPE name_mass[], int lmp_types,
-//                       int *file_line_count);
-// void LmpDataReadVelocities(FILE *lmp, char data_file[],
-//                            SYSTEM *System, int *file_line_count);
-// void LmpDataReadBonds(FILE *lmp, char data_file[], COUNT Count,
-//                       int (*bond)[3], int *file_line_count);
-// void LmpDataReadAngles(FILE *lmp, char data_file[], COUNT Count,
-//                        int (*angle)[4], int *file_line_count);
-// void LmpDataReadDihedrals(FILE *lmp, char data_file[], COUNT Count,
-//                           int (*diheral)[5], int *file_line_count);
-// void LmpDataReadImpropers(FILE *lmp, char data_file[], COUNT Count,
-//                           int (*improper)[5], int *file_line_count);
- //}}}
-// Functions to read xyz files //{{{
-SYSTEM XyzReadStruct(char file[], int pbc);
-bool XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
-                     int *file_line_count);
-bool XyzSkipTimestep(FILE *fr, char file[], int *file_line_count);
-bool XyzSkipCoorLine(FILE *fr);
-bool XyzCheckCoorLine();
- //}}}
+void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join);
+
 
 // helper functions //{{{
 // FillMolMass //{{{
@@ -100,7 +55,7 @@ void FillMolType(int number_of_types, BEADTYPE *BeadType,
                  MOLECULETYPE *MoleculeType[]); //}}}
  //}}}
 
-#if 0
+#if 0 //{{{
 // TODO will be changed - lammps data file
 // ReadLmpData() //{{{
 /*
@@ -203,5 +158,7 @@ bool VtfReadTimestep_old(FILE *vcf, char vcf_file[], BOX *Box, COUNTS *Counts,
 SYSTEM VtfReadStruct_oldish(char struct_file[], bool detailed);
 SYSTEM VtfReadStruct_old(char struct_file[], bool detailed);
 bool VtfSkipCoorOrderedLine(FILE *fr);
-#endif
+bool VtfSkipTimestep_old(FILE *vcf, char vcf_file[], char vsf_file[],
+                     int *file_line_count);
+#endif //}}}
 #endif
