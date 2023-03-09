@@ -33,8 +33,8 @@ void Help(char cmd[50], bool error); //}}}
  */
 void CommonHelp(bool error); //}}}
 
-void CommonOptions(int argc, char *argv[], int length,
-                   bool *verbose, bool *silent, bool *detailed);
+void CommonOptions(int argc, char *argv[], int length, bool *verbose,
+                   bool *silent, bool *detailed, bool *vtf_var_coor);
 void CommonOptions_old(int argc, char *argv[], char vsf_file[], int length,
                    bool *verbose, bool *silent, bool *detailed);
 

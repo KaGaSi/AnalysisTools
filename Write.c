@@ -1,53 +1,33 @@
 #include "Write.h"
 
-// WriteTimestep() //{{{
-void WriteTimestep(int coor_type, char file[], SYSTEM System,
-                   int count_coor, char stuff[], bool write[]) {
-  FILE *f = OpenFile(file, "a");
-  switch (coor_type) {
-    case VCF_FILE:
-      VtfWriteCoorIndexed(f, stuff, write, System);
-      break;
-    case XYZ_FILE:
-      XyzWriteCoor(f, write, stuff, System);
-      break;
-    case LTRJ_FILE:
-      LtrjWriteCoor(f, count_coor, write, System);
-      break;
-    default:
-      strcpy(ERROR_MSG, "Inexistant coor_out_type; should never happen!");
-      PrintError();
-      exit(1);
-  }
-  fclose(f);
-} //}}}
+static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System);
+static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System);
+static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System);
+static void WriteConfig(SYSTEM System, char file[]);
+static void VtfWriteStruct(char file[], SYSTEM System, int type_def);
+static void WriteLmpData(SYSTEM System, char file[], bool mass);
+static void WriteField(SYSTEM System, char file_field[]);
 
-// VtfWriteCoorIndexed() //{{{
-void VtfWriteCoorIndexed(FILE *vcf, char stuff[], bool write[], SYSTEM System) {
-  // print comment at the beginning of a timestep if present in initial vcf file
-  if (stuff[0] != '\0') {
-    fprintf(vcf, "%s\n", stuff);
-  }
+static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System) { //{{{
   // print box size if present //{{{
   BOX *box = &System.Box;
   if (box->Volume != -1) {
-    fprintf(vcf, "pbc %lf %lf %lf", box->Length.x, box->Length.y,
-            box->Length.z);
+    fprintf(fw, "pbc %lf %lf %lf", box->Length.x, box->Length.y, box->Length.z);
     if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {
-      fprintf(vcf, "    %lf %lf %lf", box->alpha, box->beta, box->gamma);
+      fprintf(fw, "    %lf %lf %lf", box->alpha, box->beta, box->gamma);
     }
-    putc('\n', vcf);
-  }
-  //}}}
-  fprintf(vcf, "indexed\n");
+    putc('\n', fw);
+  } //}}}
+  fprintf(fw, "indexed\n");
   bool none = true;
   for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadCoor[i];
     BEAD *bead = &System.Bead[id];
     if (bead->InTimestep && write[id]) {
       none = false;
-      fprintf(vcf, "%8d %8.4f %8.4f %8.4f\n", id, bead->Position.x,
-              bead->Position.y, bead->Position.z);
+      fprintf(fw, "%8d %8.4f %8.4f %8.4f\n", id, bead->Position.x,
+                                                 bead->Position.y,
+                                                 bead->Position.z);
     }
   }
   if (none) {
@@ -55,7 +35,7 @@ void VtfWriteCoorIndexed(FILE *vcf, char stuff[], bool write[], SYSTEM System) {
     PrintWarning();
   }
 } //}}}
-void XyzWriteCoor(FILE *xyz, bool write[], char *stuff, SYSTEM System) { //{{{
+static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System) { //{{{
   // find out number of beads to save
   int count = 0;
   bool none = true; // to make sure there are beads to save
@@ -70,19 +50,109 @@ void XyzWriteCoor(FILE *xyz, bool write[], char *stuff, SYSTEM System) { //{{{
     strcpy(ERROR_MSG, "no beads to save");
     WarnPrintWarning();
   } else {
-    fprintf(xyz, "%d\n%s\n", count, stuff);
+    // TODO: write pbc on the second line?
+    fprintf(fw, "%d\n\n", count);
     for (int i = 0; i < System.Count.BeadCoor; i++) {
       int id = System.BeadCoor[i];
       BEAD *bead = &System.Bead[id];
       if (bead->InTimestep && write[id]) {
         int type = bead->Type;
-        fprintf(xyz, "%8s %8.4f %8.4f %8.4f\n", System.BeadType[type].Name,
+        fprintf(fw, "%8s %8.4f %8.4f %8.4f\n", System.BeadType[type].Name,
                 bead->Position.x, bead->Position.y, bead->Position.z);
       }
     }
   }
 } //}}}
-void VtfWriteStruct(char file[], SYSTEM System, int type_def) { //{{{
+static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{{{
+  // find out number of beads to save and if velocity/force should be saved
+  int count = 0;
+  bool vel = false, force = false;
+  for (int i = 0; i < System.Count.BeadCoor; i++) {
+    int id = System.BeadCoor[i];
+    BEAD *b = &System.Bead[id];
+    if (b->InTimestep && write[id]) {
+      count++;
+      if (b->Velocity.x != 0 || b->Velocity.y != 0 || b->Velocity.z != 0) {
+        vel = true;
+      }
+      if (b->Force.x != 0 || b->Force.y != 0 || b->Force.z != 0) {
+        force = true;
+      }
+    }
+  }
+  // print the step
+  if (count > 0) {
+    BOX *box = &System.Box;
+    fprintf(fw, "ITEM: TIMESTEP\n%d\n", step);
+    fprintf(fw, "ITEM: NUMBER OF ATOMS\n%d\n", count);
+    if (box->Volume == -1) {
+      strcpy(ERROR_MSG, "unspecified box dimensions");
+      PrintWarning();
+    }
+    // orthogonal box
+    if (box->alpha == 90 && box->beta == 90 && box->gamma == 90) {
+      fprintf(fw, "ITEM: BOX BOUNDS pp pp pp\n");
+      fprintf(fw, "0.0 %lf\n", box->Length.x);
+      fprintf(fw, "0.0 %lf\n", box->Length.y);
+      fprintf(fw, "0.0 %lf\n", box->Length.z);
+      fprintf(fw, "ITEM: ATOMS id element x y z");
+    } else {
+      fprintf(fw, "ITEM: BOX BOUNDS xy xz yz pp pp pp\n");
+      fprintf(fw, "0.0 %lf %lf\n", box->Bounding.x, box->transform[0][1]);
+      fprintf(fw, "0.0 %lf %lf\n", box->Bounding.y, box->transform[0][2]);
+      fprintf(fw, "0.0 %lf %lf\n", box->Bounding.z, box->transform[1][2]);
+      fprintf(fw, "ITEM: ATOMS id element x y z");
+    }
+    if (vel) {
+      fprintf(fw, " vx vy vz");
+    }
+    if (force) {
+      fprintf(fw, " fx fy fz");
+    }
+    putc('\n', fw);
+    for (int i = 0; i < System.Count.BeadCoor; i++) {
+      int id = System.BeadCoor[i];
+      BEAD *b = &System.Bead[id];
+      if (b->InTimestep && write[id]) {
+        int type = b->Type;
+        fprintf(fw, "%8d %8s %8.4f %8.4f %8.4f", id,
+                System.BeadType[type].Name,
+                b->Position.x, b->Position.y, b->Position.z);
+        if (vel) {
+          fprintf(fw, " %8.4f %8.4f %8.4f",
+                  b->Velocity.x, b->Velocity.y, b->Velocity.z);
+        }
+        if (force) {
+          fprintf(fw, " %8.4f %8.4f %8.4f", b->Force.x, b->Force.y, b->Force.z);
+        }
+        putc('\n', fw);
+      }
+    }
+  } else {
+    strcpy(ERROR_MSG, "no beads to save");
+    WarnPrintWarning();
+  }
+} //}}}
+static void WriteConfig(SYSTEM System, char file[]) { //{{{
+  FILE *out = OpenFile(file, "w");
+  // TODO: check triclinic box in dl_meso
+  // print CONFIG file initial stuff
+  fprintf(out, "NAME\n 0 1\n"); // not sure what 0 1 is...
+  fprintf(out, "%lf 0.000000 0.000000\n", System.Box.Length.x);
+  fprintf(out, "0.000000 %lf 0.000000\n", System.Box.Length.y);
+  fprintf(out, "0.000000 0.000000 %lf\n", System.Box.Length.z);
+
+  // bead coordinates
+  // unbonded beads must be first (dl_meso requirement)
+  for (int i = 0; i < System.Count.BeadCoor; i++) {
+    int id = System.BeadCoor[i], btype = System.Bead[id].Type;
+    fprintf(out, "%s %d\n", System.BeadType[btype].Name, id + 1);
+    fprintf(out, "%lf %lf %lf\n", System.Bead[id].Position.x,
+            System.Bead[id].Position.y, System.Bead[id].Position.z);
+  }
+  fclose(out);
+} //}}}
+static void VtfWriteStruct(char file[], SYSTEM System, int type_def) { //{{{
   FILE *fw = OpenFile(file, "w");
   COUNT *Count = &System.Count;
   // default bead type //{{{
@@ -114,6 +184,9 @@ void VtfWriteStruct(char file[], SYSTEM System, int type_def) { //{{{
     if (bt->Charge != CHARGE) {
       fprintf(fw, " charge %lf", bt->Charge);
     }
+    if (bt->Radius != RADIUS) {
+      fprintf(fw, " radius %lf", bt->Radius);
+    }
     putc('\n', fw);
   } //}}}
   // print beads //{{{
@@ -137,7 +210,8 @@ void VtfWriteStruct(char file[], SYSTEM System, int type_def) { //{{{
         fprintf(fw, " radius %lf", bt->Radius);
       }
       if (mol != -1) {
-        int mtype = System.Molecule[mol].Type, id = System.Molecule[mol].Index;
+        int mtype = System.Molecule[mol].Type,
+            id = System.Molecule[mol].Index;
         fprintf(fw, " resname %10s ", System.MoleculeType[mtype].Name);
         fprintf(fw, "resid %5d", id);
       }
@@ -157,15 +231,14 @@ void VtfWriteStruct(char file[], SYSTEM System, int type_def) { //{{{
   // close structure file
   fclose(fw);
 } //}}}
-void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
-  FILE *fw = OpenFile(file_lmp, "w");
-  fprintf(fw, "Created via AnalysisTools v%s \
-  (https://github.com/KaGaSi/AnalysisTools)\n\n",
-          VERSION);
+static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
+  FILE *fw = OpenFile(file, "w");
+  fprintf(fw, "Created via AnalysisTools v%s "
+          "(https://github.com/KaGaSi/AnalysisTools)\n\n", VERSION);
   COUNT *Count = &System.Count;
-  PrintCount(*Count);
+  // PrintCount(*Count);
   // count bonds according to Bead[].InTimestep
-  // create new SYSTEM structure to figure out bead types if mass==true //{{{
+  // create new SYSTEM structure to figure out bead types if mass == true //{{{
   int mass_types = 0;
   int *bt_masstype_to_old = calloc(Count->BeadType, sizeof *bt_masstype_to_old);
   int *bt_old_to_masstype = calloc(Count->BeadType, sizeof *bt_old_to_masstype);
@@ -232,10 +305,12 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
   fprintf(fw, "0.0 %lf xlo xhi\n", System.Box.OrthoLength.x);
   fprintf(fw, "0.0 %lf ylo yhi\n", System.Box.OrthoLength.y);
   fprintf(fw, "0.0 %lf zlo zhi\n", System.Box.OrthoLength.z);
-  if (System.Box.alpha != 90 || System.Box.beta != 90 ||
+  if (System.Box.alpha != 90 ||
+      System.Box.beta != 90 ||
       System.Box.gamma != 90) {
     fprintf(fw, "%lf %lf %lf xy xz yz\n", System.Box.transform[0][1],
-            System.Box.transform[0][2], System.Box.transform[1][2]);
+                                          System.Box.transform[0][2],
+                                          System.Box.transform[1][2]);
   }
   putc('\n', fw); //}}}
   // print bead type masses //{{{
@@ -243,9 +318,9 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
   for (int i = 0; i < mass_types; i++) {
     BEADTYPE *bt = &System.BeadType[bt_masstype_to_old[i]];
     if (bt->Mass == MASS) {
-      fprintf(fw, "%5d ??? # %s\n", i+1, bt->Name);
+      fprintf(fw, "%5d ??? # %s\n", i + 1, bt->Name);
     } else {
-      fprintf(fw, "%5d %lf # %s\n", i+1, bt->Mass, bt->Name);
+      fprintf(fw, "%5d %lf # %s\n", i + 1, bt->Mass, bt->Name);
     }
   } //}}}
   // print various coeffs //{{{
@@ -322,8 +397,9 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
       fprintf(fw, "%15f", q);
     }
     // coordinates
-    fprintf(fw, "%15f %15f %15f", bead->Position.x, bead->Position.y,
-            bead->Position.z);
+    fprintf(fw, "%15f %15f %15f", bead->Position.x,
+                                  bead->Position.y,
+                                  bead->Position.z);
     putc('\n', fw);
   } //}}}
   // print velocities (if at least one non-zero) //{{{
@@ -440,86 +516,10 @@ void WriteLmpData(SYSTEM System, char file_lmp[], bool srp, bool mass) { //{{{
   free(bt_old_to_masstype);
   fclose(fw);
 } //}}}
-// LtrjWriteCoor() //{{{
-void LtrjWriteCoor(FILE *fr, int step, bool write[], SYSTEM System) {
-  // find out number of beads to save and if velocity/force should be saved
-  int count = 0;
-  bool vel = false, force = false;
-  for (int i = 0; i < System.Count.BeadCoor; i++) {
-    int id = System.BeadCoor[i];
-    BEAD *b = &System.Bead[id];
-    if (b->InTimestep && write[id]) {
-      count++;
-      if (b->Velocity.x != 0 || b->Velocity.y != 0 || b->Velocity.z != 0) {
-        vel = true;
-      }
-      if (b->Force.x != 0 || b->Force.y != 0 || b->Force.z != 0) {
-        force = true;
-      }
-    }
-  }
-  // print the step
-  if (count > 0) {
-    BOX *box = &System.Box;
-    fprintf(fr, "ITEM: TIMESTEP\n%d\n", step);
-    fprintf(fr, "ITEM: NUMBER OF ATOMS\n%d\n", count);
-    // TODO: triclinic box...
-    if (box->Volume == -1) {
-      strcpy(ERROR_MSG, "unspecified box dimensions");
-      PrintWarning();
-    }
-    // orthogonal box
-    if (box->alpha == 90 &&
-        box->beta == 90 &&
-        box->gamma == 90) {
-      fprintf(fr, "ITEM: BOX BOUNDS pp pp pp\n");
-      fprintf(fr, "0.0 %lf\n", box->Length.x);
-      fprintf(fr, "0.0 %lf\n", box->Length.y);
-      fprintf(fr, "0.0 %lf\n", box->Length.z);
-      fprintf(fr, "ITEM: ATOMS id element x y z");
-    } else {
-      fprintf(fr, "ITEM: BOX BOUNDS xy xz yz pp pp pp\n");
-      fprintf(fr, "0.0 %lf %lf\n", box->Bounding.x, box->transform[0][1]);
-      fprintf(fr, "0.0 %lf %lf\n", box->Bounding.y, box->transform[0][2]);
-      fprintf(fr, "0.0 %lf %lf\n", box->Bounding.z, box->transform[1][2]);
-      fprintf(fr, "ITEM: ATOMS id element x y z");
-    }
-    if (vel) {
-      fprintf(fr, " vx vy vz");
-    }
-    if (force) {
-      fprintf(fr, " fx fy fz");
-    }
-    putc('\n', fr);
-    for (int i = 0; i < System.Count.BeadCoor; i++) {
-      int id = System.BeadCoor[i];
-      BEAD *b = &System.Bead[id];
-      if (b->InTimestep && write[id]) {
-        int type = b->Type;
-        fprintf(fr, "%8d %8s %8.4f %8.4f %8.4f", id,
-                System.BeadType[type].Name,
-                b->Position.x, b->Position.y, b->Position.z);
-        if (vel) {
-          fprintf(fr, " %8.4f %8.4f %8.4f",
-                  b->Velocity.x, b->Velocity.y, b->Velocity.z);
-        }
-        if (force) {
-          fprintf(fr, " %8.4f %8.4f %8.4f",
-                  b->Force.x, b->Force.y, b->Force.z);
-        }
-        putc('\n', fr);
-      }
-    }
-  } else {
-    strcpy(ERROR_MSG, "no beads to save");
-    WarnPrintWarning();
-  }
-} //}}}
-void WriteField(SYSTEM System, char file_field[]) { //{{{
+static void WriteField(SYSTEM System, char file_field[]) { //{{{
   FILE *fw = OpenFile(file_field, "w");
-  fprintf(fw, "Created via AnalysisTools v%s \
-  (https://github.com/KaGaSi/AnalysisTools)\n\n",
-          VERSION);
+  fprintf(fw, "Created via AnalysisTools v%s"
+          "(https://github.com/KaGaSi/AnalysisTools)\n\n", VERSION);
   COUNT *Count = &System.Count;
   // print species section //{{{
   fprintf(fw, "species %d\n", Count->BeadType);
@@ -634,26 +634,52 @@ void WriteField(SYSTEM System, char file_field[]) { //{{{
   } //}}}
   fclose(fw);
 } //}}}
-void WriteConfig(SYSTEM System, char file_config[]) { //{{{
-  FILE *out = OpenFile(file_config, "w");
-  // TODO: check triclinic box in dl_meso
-  // print CONFIG file initial stuff
-  fprintf(out, "NAME\n 0 1\n"); // not sure what 0 1 is...
-  fprintf(out, "%lf 0.000000 0.000000\n", System.Box.Length.x);
-  fprintf(out, "0.000000 %lf 0.000000\n", System.Box.Length.y);
-  fprintf(out, "0.000000 0.000000 %lf\n", System.Box.Length.z);
 
-  // bead coordinates
-  // unbonded beads must be first (dl_meso requirement)
-  for (int i = 0; i < System.Count.BeadCoor; i++) {
-    int id = System.BeadCoor[i], btype = System.Bead[id].Type;
-    fprintf(out, "%s %d\n", System.BeadType[btype].Name, id + 1);
-    fprintf(out, "%lf %lf %lf\n", System.Bead[id].Position.x,
-            System.Bead[id].Position.y, System.Bead[id].Position.z);
+// Write a single timestep to output file based on the file type //{{{
+void WriteTimestep(int coor_type, char file[], SYSTEM System,
+                   int count_step, bool write[]) {
+  FILE *fw = OpenFile(file, "a");
+  switch (coor_type) {
+    case VCF_FILE:
+      VtfWriteCoorIndexed(fw, write, System);
+      break;
+    case XYZ_FILE:
+      XyzWriteCoor(fw, write, System);
+      break;
+    case LTRJ_FILE:
+      LtrjWriteCoor(fw, count_step, write, System);
+      break;
+    default:
+      strcpy(ERROR_MSG, "Inexistant output coor_type; should never happen!");
+      PrintError();
+      exit(1);
   }
-  fclose(out);
+  fclose(fw);
+} //}}}
+// Create a structure file based on the file type (including dl_meso CONFIG) //{{{
+void WriteStructure(int struct_type, char file[], SYSTEM System,
+                    int vsf_def_type, bool lmp_mass) {
+  FILE *fw = OpenFile(file, "w");
+  switch (struct_type) {
+    case VSF_FILE:
+      VtfWriteStruct(file, System, vsf_def_type);
+      break;
+    case LDATA_FILE:
+      WriteLmpData(System, file, lmp_mass);
+      break;
+    case CONFIG_FILE:
+      WriteConfig(System, file);
+    case FIELD_FILE:
+      WriteField(System, file);
+    default:
+      strcpy(ERROR_MSG, "Inexistant output struct_type; should never happen!");
+      PrintError();
+      exit(1);
+  }
+  fclose(fw);
 } //}}}
 
+#if 0  //{{{
 // TODO will change
 // WriteAggregates() //{{{
 /*
@@ -695,412 +721,6 @@ void WriteAggregates(int step_count, char *agg_file, COUNTS Counts,
     }
   } //}}}
 
-  fclose(fw);
-} //}}}
-
-#if 0  //{{{
-// TODO will change
-// WriteField() //{{{
-/*
- * Create a new dl_meso FIELD file
- */
-void WriteField(char *field, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
-                MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
-                PARAMS *bond_type, PARAMS *angle_type, PARAMS *dihedral_type) {
-  // count unbonded beads for each bead type
-  int unbonded[Counts.TypesOfBeads];
-  for (int i = 0; i < Counts.TypesOfBeads; i++) {
-    unbonded[i] = 0;
-  }
-  for (int i = 0; i < Counts.Unbonded; i++) {
-    if (Bead[i].Molecule == -1) {
-      int btype = Bead[i].Type;
-      unbonded[btype]++;
-    }
-  }
-
-  FILE *fw = OpenFile(field, "w");
-  fprintf(fw, "Created by AnalysisTools version %s ", VERSION);
-  fprintf(fw, "(https://github.com/KaGaSi/AnalysisTools/releases)\n");
-  fprintf(fw, "\nspecies %d\n", Counts.TypesOfBeads);
-  for (int i = 0; i < Counts.TypesOfBeads; i++) {
-    fprintf(fw, "%s %lf %lf %d\n", BeadType[i].Name,
-                                   BeadType[i].Mass,
-                                   BeadType[i].Charge,
-                                   unbonded[i]);
-  }
-  fprintf(fw, "\nmolecule %d\n", Counts.TypesOfMolecules);
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    fprintf(fw, "%s\n", MoleculeType[i].Name);
-    fprintf(fw, "nummols %d\n", MoleculeType[i].Number);
-    // error - no beads //{{{
-    if (MoleculeType[i].nBeads < 1) {
-      ErrorPrintError_old();
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "%s", field);
-      ColourChange(STDERR_FILENO, RED);
-      fprintf(stderr, " - molecule ");
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "%s", MoleculeType[i].Name);
-      ColourChange(STDERR_FILENO, RED);
-      fprintf(stderr, " contains no beads\n\n");
-      ColourReset(STDERR_FILENO);
-      exit(1);
-    } //}}}
-    // find first molecule of the given type
-    int mol = -1;
-    for (int j = 0; j < Counts.Molecules; j++) {
-      if (Molecule[j].Type == i) {
-        mol = j;
-        break;
-      }
-    }
-    // error - no molecule of given type //{{{
-    if (MoleculeType[i].Number < 1 || mol == -1) {
-      ErrorPrintError_old();
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "%s", field);
-      ColourChange(STDERR_FILENO, RED);
-      fprintf(stderr, " - molecule ");
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "%s", MoleculeType[i].Name);
-      ColourChange(STDERR_FILENO, RED);
-      fprintf(stderr, " does not exist\n\n");
-      ColourReset(STDERR_FILENO);
-      exit(1);
-    } //}}}
-    /*
-     * print beads with coordinates of the first molecule, changing them so
-     * that the first bead is (0,0,0)
-     */
-    fprintf(fw, "beads %d\n", MoleculeType[i].nBeads);
-    int first = Molecule[mol].Bead[0];
-    for (int j = 0; j < MoleculeType[i].nBeads; j++) {
-      int btype = MoleculeType[i].Bead[j];
-      int bead = Molecule[mol].Bead[j];
-      VECTOR pos;
-      pos.x = Bead[bead].Position.x - Bead[first].Position.x;
-      pos.y = Bead[bead].Position.y - Bead[first].Position.y;
-      pos.z = Bead[bead].Position.z - Bead[first].Position.z;
-      fprintf(fw, "%s %lf %lf %lf\n", BeadType[btype].Name,
-                                      pos.x, pos.y, pos.z);
-    }
-    if (MoleculeType[i].nBonds > 0) {
-      fprintf(fw, "bonds %d\n", MoleculeType[i].nBonds);
-      for (int j = 0; j < MoleculeType[i].nBonds; j++) {
-        fprintf(fw, "harm %d %d ", MoleculeType[i].Bond[j][0]+1,
-                                   MoleculeType[i].Bond[j][1]+1);
-        int bond = MoleculeType[i].Bond[j][2];
-        if (bond != -1) {
-          fprintf(fw, "%lf %lf\n", bond_type[bond].a, bond_type[bond].b);
-        } else {
-          fprintf(fw, "0 0\n");
-        }
-      }
-    }
-    if (MoleculeType[i].nAngles > 0) {
-      fprintf(fw, "angles %d\n", MoleculeType[i].nAngles);
-      for (int j = 0; j < MoleculeType[i].nAngles; j++) {
-        fprintf(fw, "harm %d %d %d ", MoleculeType[i].Angle[j][0],
-                                      MoleculeType[i].Angle[j][1],
-                                      MoleculeType[i].Angle[j][2]);
-        int angle = MoleculeType[i].Angle[j][3];
-        if (angle != -1) {
-          fprintf(fw, "%lf %lf\n", angle_type[angle].a, angle_type[angle].b);
-        } else {
-          fprintf(fw, "0 0\n");
-        }
-      }
-    }
-    if (MoleculeType[i].nDihedrals > 0) {
-      fprintf(fw, "dihedrals %d\n", MoleculeType[i].nDihedrals);
-      for (int j = 0; j < MoleculeType[i].nDihedrals; j++) {
-        fprintf(fw, "harm %d %d %d %d ", MoleculeType[i].Dihedral[j][0],
-                                         MoleculeType[i].Dihedral[j][1],
-                                         MoleculeType[i].Dihedral[j][2],
-                                         MoleculeType[i].Dihedral[j][3]);
-        int dihedral = MoleculeType[i].Dihedral[j][4];
-        if (dihedral != -1) {
-          fprintf(fw, "%lf %lf\n", dihedral_type[dihedral].a,
-                                   dihedral_type[dihedral].b);
-        } else {
-          fprintf(fw, "0 0\n");
-        }
-      }
-    }
-    fprintf(fw, "finish\n");
-  }
-  fclose(fw);
-} //}}}
-// TODO remove
-// WriteCoorIndexed() //{{{
-/**
- * Function writing coordinates to a `.vcf` file. According to the Write flag
- * in BeadType and MoleculeType structures only certain bead types will be
- * saved into the indexed timestep in .vcf file.
- */
-void WriteCoorIndexed(FILE *vcf_file, COUNTS Counts,
-                         BEADTYPE *BeadType, BEAD *Bead,
-                         MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
-                         char *stuff, BOX Box) {
-  // print comment at the beginning of a timestep if present in initial vcf file
-  fprintf(vcf_file, "%s\n", stuff);
-  // print box size
-  fprintf(vcf_file, "pbc %lf %lf %lf  ", Box.Length.x,
-                                         Box.Length.y,
-                                         Box.Length.z);
-  fprintf(vcf_file, "    %lf %lf %lf\n", Box.alpha, Box.beta, Box.gamma);
-  // print 'indexed' on the next
-  fprintf(vcf_file, "indexed\n");
-
-  for (int i = 0; i < Counts.BeadsCoor; i++) {
-    int btype = Bead[i].Type;
-    if (BeadType[btype].Write) {
-      if (Bead[i].Molecule != -1) { // bead in a molecule
-        int mtype = Molecule[Bead[i].Molecule].Type;
-        if (MoleculeType[mtype].Write) {
-          fprintf(vcf_file, "%8d %8.4f %8.4f %8.4f\n", i,
-                                                       Bead[i].Position.x,
-                                                       Bead[i].Position.y,
-                                                       Bead[i].Position.z);
-        }
-      } else { // monomer bead
-        fprintf(vcf_file, "%8d %8.4f %8.4f %8.4f\n", i,
-                                                     Bead[i].Position.x,
-                                                     Bead[i].Position.y,
-                                                     Bead[i].Position.z);
-      }
-    }
-  }
-} //}}}
-// WriteVsf_old //{{{
-void WriteVsf_old(char *input_vsf, COUNTS Counts, BEADTYPE *BeadType, BEAD *Bead,
-              MOLECULETYPE *MoleculeType, MOLECULE *Molecule, bool change) {
-
-  FILE *fw = OpenFile(input_vsf, "w");
-  // TODO integrate InFile & BeadsCoor
-  // find most common type of bead and make it default //{{{
-  int type_def = -1, count = 0;
-  for (int i = 0; i < Counts.TypesOfBeads; i++) {
-    bool use = true;
-    for (int j = 0; j < Counts.TypesOfMolecules; j++) {
-      for (int k = 0; k < MoleculeType[j].nBTypes; k++) {
-        if (MoleculeType[j].BType[k] == i) {
-          use = false;
-        }
-      }
-    }
-    if (use && BeadType[i].Number >= count) {
-      count = BeadType[i].Number;
-      type_def = i;
-    }
-  } //}}}
-  // print default bead type //{{{
-  if (type_def != -1) {
-    fprintf(fw, "atom default name %8s ", BeadType[type_def].Name);
-    fprintf(fw, "mass %lf ", BeadType[type_def].Mass);
-    fprintf(fw, "charge %lf\n", BeadType[type_def].Charge);
-  } //}}}
-  // print beads //{{{
-  for (int i = 0; i < Counts.BeadsCoor; i++) {
-    int btype = Bead[i].Type;
-    int mol = Bead[i].Molecule;
-    // don't print beads with type 'type_def'
-    if (btype != type_def || mol != -1) {
-      fprintf(fw, "atom %7d ", i);
-      if (mol != -1 && change) {
-        int mtype = Molecule[mol].Type;
-        int n = -1;
-        for (int j = 0; j < MoleculeType[mtype].nBeads; j++) {
-          if (i == Molecule[mol].Bead[j]) {
-            n = j;
-            break;
-          }
-        }
-        btype = MoleculeType[mtype].Bead[n];
-        fprintf(fw, "name %8s ", BeadType[btype].Name);
-        fprintf(fw, "mass %lf ", BeadType[btype].Mass);
-        fprintf(fw, "charge %lf", BeadType[btype].Charge);
-      } else {
-        fprintf(fw, "name %8s ", BeadType[btype].Name);
-        fprintf(fw, "mass %lf ", BeadType[btype].Mass);
-        fprintf(fw, "charge %lf", BeadType[btype].Charge);
-      }
-      if (mol != -1) {
-        int mtype = Molecule[mol].Type;
-        fprintf(fw, " resname %10s ", MoleculeType[mtype].Name);
-        fprintf(fw, "resid %5d", mol+1);
-      }
-      putc('\n', fw);
-    // print highest bead id even if it's default type
-    } else if (i == (Counts.BeadsTotal-1)) {
-      fprintf(fw, "atom %7d ", i);
-      fprintf(fw, "name %8s ", BeadType[btype].Name);
-      fprintf(fw, "mass %lf ", BeadType[btype].Mass);
-      fprintf(fw, "charge %lf", BeadType[btype].Charge);
-      putc('\n', fw);
-    }
-  } //}}}
-  // print bonds //{{{
-  putc('\n', fw);
-  for (int i = 0; i < Counts.Molecules; i++) {
-    fprintf(fw, "# resid %d\n", i+1); // in VMD resid start with 1
-    int mol_type = Molecule[i].Type;
-    for (int j = 0; j < MoleculeType[mol_type].nBonds; j++) {
-      int bead1 = MoleculeType[mol_type].Bond[j][0];
-      int bead2 = MoleculeType[mol_type].Bond[j][1];
-      bead1 = Molecule[i].Bead[bead1];
-      bead2 = Molecule[i].Bead[bead2];
-      fprintf(fw, "bond %6d: %6d\n", bead1, bead1);
-    }
-  } //}}}
-  // close structure file
-  fclose(fw);
-} //}}}
-// Append an indexed timestep to a vcf/vtf coordinate file //{{{
-void VtfWriteCoorIndexed_old(FILE *vcf, char stuff[], int InFile[],
-                         COUNTS Counts, BEAD Bead[], BOX Box) {
-  // print comment at the beginning of a timestep if present in initial vcf file
-  if (stuff[0] != '\0') {
-    fprintf(vcf, "%s\n", stuff);
-  }
-  // print box size
-  fprintf(vcf, "pbc %lf %lf %lf  ", Box.Length.x, Box.Length.y, Box.Length.z);
-  fprintf(vcf, "    %lf %lf %lf\n", Box.alpha, Box.beta, Box.gamma);
-  // print 'indexed' on the next
-  fprintf(vcf, "indexed\n");
-
-  bool none = true;
-  for (int i = 0; i < Counts.BeadsCoor; i++) {
-    int id = InFile[i];
-    if (Bead[id].InTimestep) {
-      none = false;
-      fprintf(vcf, "%8d %8.4f %8.4f %8.4f\n", id,
-                                              Bead[id].Position.x,
-                                              Bead[id].Position.y,
-                                              Bead[id].Position.z);
-    }
-  }
-  if (none) {
-    strcpy(ERROR_MSG, "no beads to save");
-    PrintWarning();
-  }
-} //}}}
-// Append a timestep to an xyz file //{{{
-void XyzWriteCoor_old(FILE *xyz, COUNTS Counts, int InFile[],
-                  BEADTYPE *BeadType, BEAD *Bead) {
-  // find out number of beads to save
-  int count = 0;
-  bool none = true; // to make sure there are beads to save
-  PrintCounts_old(Counts);
-  for (int i = 0; i < Counts.BeadsCoor; i++) {
-    int id = InFile[i];
-    if (Bead[id].InTimestep) {
-      none = false;
-      count++;
-    }
-  }
-  if (none) {
-    strcpy(ERROR_MSG, "no beads to save");
-    WarnPrintWarning();
-  } else {
-    fprintf(xyz, "%d\n\n", count);
-    for (int i = 0; i < Counts.BeadsCoor; i++) {
-      int id = InFile[i];
-      if (Bead[id].InTimestep) {
-        int type = Bead[id].Type;
-        fprintf(xyz, "%8s %7.3f %7.3f %7.3f\n", BeadType[type].Name,
-                                                Bead[id].Position.x,
-                                                Bead[id].Position.y,
-                                                Bead[id].Position.z);
-      }
-    }
-  }
-} //}}}
-// Create a new vsf/vtf structure file. //{{{
-void VtfWriteStruct_old(char file[], COUNTS Counts,
-                    BEADTYPE BeadType[], BEAD Bead[],
-                    MOLECULETYPE MoleculeType[], MOLECULE Molecule[]) {
-
-  FILE *fw = OpenFile(file, "w");
-  // TODO integrate InFile & BeadsCoor
-  // find most common type of bead and make it default //{{{
-  int *count = calloc(Counts.TypesOfBeads, sizeof *count);
-  for (int i = 0; i < Counts.BeadsTotal; i++) {
-    if (Bead[i].Molecule == -1) {
-      int type = Bead[i].Type;
-      count[type]++;
-    }
-  }
-  int type_def = -1, max = 0;
-  for (int i = 0; i < Counts.TypesOfBeads; i++) {
-    if (count[i] > max) {
-      max = count[i];
-      type_def = i;
-    }
-  }
-  PrintBeadType2(Counts.TypesOfBeads, BeadType);
-  free(count); //}}}
-  // print default bead type //{{{
-  if (type_def != -1) {
-    fprintf(fw, "atom default name %8s ", BeadType[type_def].Name);
-    fprintf(fw, "mass %lf ", BeadType[type_def].Mass);
-    fprintf(fw, "charge %lf\n", BeadType[type_def].Charge);
-  } //}}}
-  // print beads //{{{
-  for (int i = 0; i < Counts.BeadsTotal; i++) {
-    int btype = Bead[i].Type;
-    int mol = Bead[i].Molecule;
-    // don't print beads with type 'type_def'
-    if (btype != type_def || mol != -1) {
-      fprintf(fw, "atom %7d ", i);
-      if (mol != -1) {
-        int mtype = Molecule[mol].Type;
-        int n = -1;
-        for (int j = 0; j < MoleculeType[mtype].nBeads; j++) {
-          if (i == Molecule[mol].Bead[j]) {
-            n = j;
-            break;
-          }
-        }
-        btype = MoleculeType[mtype].Bead[n];
-        fprintf(fw, "name %8s ", BeadType[btype].Name);
-        fprintf(fw, "mass %lf ", BeadType[btype].Mass);
-        fprintf(fw, "charge %lf", BeadType[btype].Charge);
-      } else {
-        fprintf(fw, "name %8s ", BeadType[btype].Name);
-        fprintf(fw, "mass %lf ", BeadType[btype].Mass);
-        fprintf(fw, "charge %lf", BeadType[btype].Charge);
-      }
-      if (mol != -1) {
-        int mtype = Molecule[mol].Type;
-        fprintf(fw, " resname %10s ", MoleculeType[mtype].Name);
-        fprintf(fw, "resid %5d", mol+1);
-      }
-      putc('\n', fw);
-    // print highest bead id even if it's default type
-    } else if (i == (Counts.BeadsTotal-1)) {
-      fprintf(fw, "atom %7d ", i);
-      fprintf(fw, "name %8s ", BeadType[btype].Name);
-      fprintf(fw, "mass %lf ", BeadType[btype].Mass);
-      fprintf(fw, "charge %lf", BeadType[btype].Charge);
-      putc('\n', fw);
-    }
-  } //}}}
-  // print bonds //{{{
-  putc('\n', fw);
-  for (int i = 0; i < Counts.Molecules; i++) {
-    fprintf(fw, "# resid %d\n", i+1); // in VMD resid start with 1
-    int mol_type = Molecule[i].Type;
-    for (int j = 0; j < MoleculeType[mol_type].nBonds; j++) {
-      int bead1 = MoleculeType[mol_type].Bond[j][0];
-      int bead2 = MoleculeType[mol_type].Bond[j][1];
-      bead1 = Molecule[i].Bead[bead1];
-      bead2 = Molecule[i].Bead[bead2];
-      fprintf(fw, "bond %6d: %6d\n", bead1, bead2);
-    }
-  } //}}}
-  // close structure file
   fclose(fw);
 } //}}}
 #endif //}}}

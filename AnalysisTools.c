@@ -343,6 +343,21 @@ void SortDihImp(int (*dihimp)[5], int num) { //{{{
 
 
 
+// WrapJoinCoordinates() //{{{
+void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join) {
+  if (System->Box.Volume != -1 && (wrap || join)) {
+    // transform coordinates into fractional ones for non-orthogonal box
+    ToFractionalCoor(System);
+    if (wrap) { // wrap coordinates into the simulation box
+      RestorePBC(System);
+    }
+    if (join) { // join molecules by removing periodic boundary conditions
+      RemovePBCMolecules(System);
+    }
+    // transform back to 'normal' coordinates for non-orthogonal box
+    FromFractionalCoor(System);
+  }
+} //}}}
 
 // InputCoorStruct() //{{{
 /**

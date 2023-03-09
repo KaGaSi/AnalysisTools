@@ -84,7 +84,8 @@ int main(int argc, char *argv[]) {
         strcmp(argv[i], "-st") != 0 && strcmp(argv[i], "-def") != 0 &&
         strcmp(argv[i], "--mass") != 0 && strcmp(argv[i], "-v") != 0 &&
         strcmp(argv[i], "-h") != 0 && strcmp(argv[i], "--version") != 0 &&
-        strcmp(argv[i], "-pbc") != 0 && strcmp(argv[i], "--detailed") != 0 ) {
+        strcmp(argv[i], "-pbc") != 0 && strcmp(argv[i], "--detailed") != 0 &&
+        strcmp(argv[i], "--variable")) {
 
       ErrorOption(argv[i]);
       Help(argv[0], true);
@@ -261,6 +262,8 @@ int main(int argc, char *argv[]) {
   }
   timestep--; //}}}
   bool detailed = BoolOption(argc, argv, "--detailed");
+  // vtf timesteps with variable number of beads
+  bool vtf_var_coor = BoolOption(argc, argv, "--variable");
   bool verbose = BoolOption(argc, argv, "-v");
   // position of the first number of pbc in xyz file //{{{
   int pbc_xyz = -1;
@@ -274,8 +277,6 @@ int main(int argc, char *argv[]) {
 
   // read information from input file(s) //{{{
   int ltrj_start_id = -1;
-  bool vtf_var_coor = false; // vtf timesteps with variable number of beads
-                             // TODO: add option for this
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
                                 detailed, vtf_var_coor,
                                 pbc_xyz, &ltrj_start_id);
@@ -335,27 +336,24 @@ int main(int argc, char *argv[]) {
     fclose(fr);
   } //}}}
 
-  WarnChargedSystem(System, struct_file, struct_file_extra, "\0");
-
   // -def option (for vsf output file) //{{{
   bool *def_type = calloc(System.Count.BeadType, sizeof *def_type);
   if (BeadTypeOption(argc, argv, "-def", false, def_type, &System)) {
     exit(1);
   }
-  int default_type = -1;
+  int vsf_def_type = -1;
   for (int i = 0; i < System.Count.BeadType; i++) {
     if (def_type[i]) {
-      default_type = i;
+      vsf_def_type = i;
       break;
     }
   }
   free(def_type); //}}}
-  // use mass only for atom type definition (for data output file)
-  bool mass = BoolOption(argc, argv, "--mass");
+  // use mass only for atom type definition for data output file
+  bool lmp_mass = BoolOption(argc, argv, "--mass");
 
   PruneSystem(&System);
 
-  // print information //{{{
   printf("Final system composition:\n");
   VerboseOutput(System);
   if (verbose) { // -v option
@@ -363,26 +361,17 @@ int main(int argc, char *argv[]) {
     PrintBead(System);
     fprintf(stdout, "\nInformation about every molecule:\n");
     PrintMolecule(System);
-  } //}}}
+  }
 
-  // write output file? //{{{
   if (struct_file_out[0] != '\0') {
-    if (struct_type_out == VSF_FILE) {
-      VtfWriteStruct(struct_file_out, System, default_type);
-    } else if (struct_type_out == LDATA_FILE) {
-      WriteLmpData(System, struct_file_out, false, mass);
-    } else if (struct_type_out == CONFIG_FILE) {
-      WriteConfig(System, struct_file_out);
-    } else if (struct_type_out == FIELD_FILE) {
-      WriteField(System, struct_file_out);
-    }
-  } //}}}
+    WriteStructure(struct_type_out, struct_file_out, System,
+                   vsf_def_type, lmp_mass);
+  }
 
-  // free memory //{{{
   FreeSystem(&System);
   if (struct_file_extra[0] != '\0') {
     FreeSystem(&Sys_extra);
-  } //}}}
+  }
 
   return 0;
 }

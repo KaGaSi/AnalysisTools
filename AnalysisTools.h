@@ -169,6 +169,8 @@ void FreeSystem(SYSTEM *System);
 void FreeMoleculeType(MOLECULETYPE *MoleculeType);
 void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType);
 
+void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join);
+
 #if 0 //{{{
 // TODO remove
 // PrintAggregate() //{{{

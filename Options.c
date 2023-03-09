@@ -30,8 +30,8 @@ and radius to identfy bead types\n");
 /**
  * Function for options common to most of the utilities.
  */
-void CommonOptions(int argc, char *argv[], int length,
-                   bool *verbose, bool *silent, bool *detailed) {
+void CommonOptions(int argc, char *argv[], int length, bool *verbose,
+                   bool *silent, bool *detailed, bool *vtf_var_coor) {
 
   // -v option - verbose output
   *verbose = BoolOption(argc, argv, "-v");

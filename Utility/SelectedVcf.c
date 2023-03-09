@@ -80,7 +80,8 @@ int main(int argc, char *argv[]) {
         strcmp(argv[i], "--wrap") != 0 && strcmp(argv[i], "-e") != 0 &&
         strcmp(argv[i], "-sk") != 0 && strcmp(argv[i], "-n") != 0 &&
         strcmp(argv[i], "-x") != 0 && strcmp(argv[i], "--version") != 0 &&
-        strcmp(argv[i], "-pbc") != 0 && strcmp(argv[i], "--last") != 0) {
+        strcmp(argv[i], "-pbc") != 0 && strcmp(argv[i], "--last") != 0 &&
+        strcmp(argv[i], "--variable")) {
       ErrorOption(argv[i]);
       Help(argv[0], true);
       exit(1);
@@ -120,8 +121,8 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // options before reading system data //{{{
-  bool silent, verbose, detailed;
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed);
+  bool silent, verbose, detailed, vtf_var_coor;
+  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var_coor);
   int skip = 0;
   if (IntegerOption(argc, argv, "-sk", &skip)) {
     exit(1);
@@ -132,6 +133,8 @@ int main(int argc, char *argv[]) {
   int start = 1, end = -1;
   StartEndTime(argc, argv, &start, &end);
   bool last = BoolOption(argc, argv, "--last");
+  // vtf timesteps with variable number of beads
+  // bool vtf_var_coor = BoolOption(argc, argv, "--variable");
   // position of the first number of pbc in xyz file
   int pbc_xyz = -1;
   if (IntegerOption(argc, argv, "-pbc", &pbc_xyz)) {
@@ -147,8 +150,6 @@ int main(int argc, char *argv[]) {
   }
 
   int ltrj_start_id = -1; // for lammpstrj structure file, start ids from 0 or 1
-  bool vtf_var_coor = false; // vtf timesteps with variable number of beads
-                             // TODO: add option for this
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
                                 detailed, vtf_var_coor,
                                 pbc_xyz, &ltrj_start_id);
@@ -222,7 +223,6 @@ int main(int argc, char *argv[]) {
       count_saved = 0,         // count steps in output file
       file_line_count = 0,     // count lines in the vcf file
       *bkp_line_count = calloc(1e6, sizeof *bkp_line_count);      // save line count at fgetpos()
-  char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
   while (true) {
     count_coor++;
     position = realloc(position, count_coor * sizeof *position);
@@ -271,7 +271,7 @@ int main(int argc, char *argv[]) {
       }
       count_saved++;
       WrapJoinCoordinates(&System, wrap, join);
-      WriteTimestep(coor_out_type, out_coor, System, count_coor, stuff, write);
+      WriteTimestep(coor_out_type, out_coor, System, count_coor, write);
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
       if (!SkipTimestep(coor_type, coor, coor_file,
@@ -304,10 +304,10 @@ int main(int argc, char *argv[]) {
       fsetpos(coor, &position[i]);
       file_line_count = bkp_line_count[i];
       if (ReadTimestep(coor_type, coor, coor_file, &System, &file_line_count,
-                       ltrj_start_id, stuff)) {
+                       ltrj_start_id, vtf_var_coor)) {
         count_saved++;
         WrapJoinCoordinates(&System, wrap, join);
-        WriteTimestep(coor_out_type, out_coor, System, count_coor, stuff, write);
+        WriteTimestep(coor_out_type, out_coor, System, count_coor, write);
         if (!silent) {
           if (isatty(STDOUT_FILENO)) {
             fprintf(stdout, "\r                          \r");
@@ -342,7 +342,6 @@ int main(int argc, char *argv[]) {
 
   // free memory
   FreeSystem(&System);
-  free(stuff);
   free(write);
   free(position);
   free(bkp_line_count);
