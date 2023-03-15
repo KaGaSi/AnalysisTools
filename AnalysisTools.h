@@ -26,67 +26,48 @@
 #define FIELD_FILE 6
 #define CONFIG_FILE 7
 
-// Helper functions for manipulating System structure
+// Helper functions for dealing with SYSTEM structure
 // fill in some SYSTEM stutff
-void FillSystemNonessentials(SYSTEM *System);
 void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType);
 void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
-                         BEADTYPE BeadType[]);
+                                BEADTYPE BeadType[]);
 void FillBeadTypeIndex(SYSTEM *System);
 void FillMoleculeTypeIndex(SYSTEM *System);
 void CountBondAngleDihedralImproper(SYSTEM *System);
-// bool TriclinicCellData(BOX *Box, int mode);
-// sort a bond/angle/dihedral/improper array in an ascending order
-void SortBonds(int (*bond)[3], int num);
-void SortAngles(int (*angle)[4], int num);
-void SortDihImp(int (*dihimp)[5], int num);
-
-
-
+// Appends _# to bead types with the same name
 void RenameBeadTypes(SYSTEM *System);
-
-VECTOR ToFractional(VECTOR coor, BOX Box);
-void ToFractionalCoor(SYSTEM *System);
-VECTOR FromFractional(VECTOR coor, BOX Box);
-void FromFractionalCoor(SYSTEM *System);
-
 // get bead indices for bonds/angles/dihedrals (with some error checking)
-int * BondIndices(SYSTEM System, int mol, int bond);
-int * AngleIndices(SYSTEM System, int mol, int angle);
-int * DihedralIndices(SYSTEM System, int mol, int dihed);
-int * ImproperIndices(SYSTEM System, int mol, int dihed);
-
+int *BondIndices(SYSTEM System, int mol, int bond);
+int *AngleIndices(SYSTEM System, int mol, int angle);
+int *DihedralIndices(SYSTEM System, int mol, int dihed);
+int *ImproperIndices(SYSTEM System, int mol, int dihed);
+// enrich molecule types with information from a second System structure
 void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name);
-void ChangeMolecules_old(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name);
+// test whether two bead types are identical
+bool SameBeadType(BEADTYPE bt_1, BEADTYPE bt_2);
+// create new bead/molecule type, realloc'ing the appropriate array
+void NewBeadType(BEADTYPE *BeadType[], int *number_of_types, char name[],
+                 double charge, double mass, double radius);
+void NewMolType(MOLECULETYPE *MoleculeType[], int *n_types, char name[],
+                int n_beads, int n_bonds, int n_angles, int n_dihedrals,
+                int n_impropers);
+
+// identify input coordinate and structure files
+bool InputCoorStruct(int argc, char *argv[], char coor[], int *coor_type,
+                     char struc[], int *struc_type);
+
+
+
+
+
 
 void CheckSystem(SYSTEM System, char file[]);
 
-// InputCoor() //{{{
-/**
- * \brief Function test input coordinate file is correct
- *
- * \param [out] vtf          is the coordinate file vtf or vcf?
- * \param [in]  file_coor    name of coordinate file
- * \param [in]  file_struct  name of structure file
- * \return false if file_coor has wrong extension, true otherwise
- */
-bool InputCoor_old(bool *vtf, char *file_coor, char *file_struct); //}}}
-int InputCoorStruct_old(int argc, char **argv,
-                    char coor[], char vsf[], char lmp[], char field[]);
-bool InputCoorStruct(int argc, char **argv, char coor[], int *coor_type,
-                     char struc[], int *struc_type);
-
-bool SameBeadType(BEADTYPE bt_1, BEADTYPE bt_2);
 int FindBeadType(char name[], SYSTEM System);
 int FindMoleculeName(char name[], SYSTEM System);
 int FindMoleculeType_old(MOLECULETYPE mol, SYSTEM System, int mode, bool name);
 int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode, bool name);
 
-void NewBeadType(BEADTYPE *BeadType[], int *number_of_types, char *name,
-                 double charge, double mass, double radius);
-void NewMolType(MOLECULETYPE *MoleculeType[], int *n_types, char *name,
-                int n_beads, int n_bonds, int n_angles, int n_dihedrals,
-                int n_impropers);
 
 void RemovePBCMolecules(SYSTEM *System);
 void RestorePBC(SYSTEM *System);

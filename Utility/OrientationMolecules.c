@@ -387,7 +387,7 @@ int main(int argc, char *argv[]) {
             unit.x = Bead[id1].Position.x - Bead[id2].Position.x;
             unit.y = Bead[id1].Position.y - Bead[id2].Position.y;
             unit.z = Bead[id1].Position.z - Bead[id2].Position.z;
-            double length = Length(FromFractional(unit, Box));
+            double length = VectorLength(FromFractional(unit, Box));
             unit.x /= length;
             unit.y /= length;
             unit.z /= length;

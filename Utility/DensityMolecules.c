@@ -320,7 +320,7 @@ int main(int argc, char *argv[]) {
           int id = Molecule[i].Bead[j];
 
           VECTOR dist = Distance(Bead[id].Position, com, Box.Length);
-          dist.x = Length(FromFractional(dist, Box));
+          dist.x = VectorLength(FromFractional(dist, Box));
           if (dist.x < max_dist) {
             int k = dist.x / width;
             temp_rho[Bead[id].Type][mtype][k]++;
@@ -330,7 +330,7 @@ int main(int argc, char *argv[]) {
         // monomeric beads //{{{
         for (int j = 0; j < Counts.Unbonded; j++) {
           VECTOR dist = Distance(Bead[j].Position, com, Box.Length);
-          dist.x = Length(FromFractional(dist, Box));
+          dist.x = VectorLength(FromFractional(dist, Box));
           if (dist.x < max_dist) {
             int k = dist.x / width;
             temp_rho[Bead[j].Type][mtype][k]++;

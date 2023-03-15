@@ -364,7 +364,7 @@ three different beads (wrong trio: ");
           n[1].z = u[1].x * v[1].y - u[1].y * v[1].x; //}}}
           // calculate angle between the two normals //{{{
           double scalar = n[0].x * n[1].x + n[0].y * n[1].y + n[0].z * n[1].z,
-                 cosine = scalar / (Length(n[0]) * Length(n[1]));
+                 cosine = scalar / (VectorLength(n[0]) * VectorLength(n[1]));
           // too close to 180 or 0 degrees to call
           if (scalar < 0 && fabs(cosine+1) <= 0.00000001) {
             angle[i][count_angle] = PI - 0.00000001;

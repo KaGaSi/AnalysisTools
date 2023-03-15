@@ -280,7 +280,7 @@ int main(int argc, char *argv[]) {
               VECTOR rij = Distance(Bead[id1].Position, Bead[id2].Position,
                                     Box.Length);
               rij = FromFractional(rij, Box);
-              rij.x = Length(rij);
+              rij.x = VectorLength(rij);
               // count only distances up to half of the shortest box length
               if (rij.x < max_dist) {
                 int l = rij.x / width;

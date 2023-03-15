@@ -340,7 +340,7 @@ int main(int argc, char *argv[]) {
                   if (BeadType[Bead[l].Type].Charge != 0) {
                     VECTOR dist;
                     dist = Distance(Bead[l].Position, point, Box.Length);
-                    double rij = Length(dist);
+                    double rij = VectorLength(dist);
                     double coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                     if (rij < r_c) { // short ranged part
                       temp_elstat[j] += coulomb * (1 - (1 + beta) * exp(-2 * beta * rij));
@@ -360,7 +360,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x - m * Box.Length.x;
                       dist.y = dist_orig.y + m * Box.Length.y;
                       dist.z = dist_orig.z + m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -369,7 +369,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x;
                       dist.y = dist_orig.y + m * Box.Length.y;
                       dist.z = dist_orig.z + m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -378,7 +378,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x + m * Box.Length.x;
                       dist.y = dist_orig.y + m * Box.Length.y;
                       dist.z = dist_orig.z + m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -387,7 +387,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x - m * Box.Length.x;
                       dist.y = dist_orig.y;
                       dist.z = dist_orig.z + m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -396,7 +396,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x;
                       dist.y = dist_orig.y;
                       dist.z = dist_orig.z + m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -405,7 +405,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x + m * Box.Length.x;
                       dist.y = dist_orig.y;
                       dist.z = dist_orig.z + m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -414,7 +414,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x - m * Box.Length.x;
                       dist.y = dist_orig.y - m * Box.Length.y;
                       dist.z = dist_orig.z + m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -423,7 +423,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x;
                       dist.y = dist_orig.y - m * Box.Length.y;
                       dist.z = dist_orig.z + m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -432,7 +432,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x + m * Box.Length.x;
                       dist.y = dist_orig.y - m * Box.Length.y;
                       dist.z = dist_orig.z + m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -442,7 +442,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x - m * Box.Length.x;
                       dist.y = dist_orig.y + m * Box.Length.y;
                       dist.z = dist_orig.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -451,7 +451,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x;
                       dist.y = dist_orig.y + m * Box.Length.y;
                       dist.z = dist_orig.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -460,7 +460,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x + m * Box.Length.x;
                       dist.y = dist_orig.y + m * Box.Length.y;
                       dist.z = dist_orig.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -469,7 +469,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x - m * Box.Length.x;
                       dist.y = dist_orig.y;
                       dist.z = dist_orig.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -478,7 +478,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x + m * Box.Length.x;
                       dist.y = dist_orig.y;
                       dist.z = dist_orig.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -487,7 +487,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x - m * Box.Length.x;
                       dist.y = dist_orig.y - m * Box.Length.y;
                       dist.z = dist_orig.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -496,7 +496,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x;
                       dist.y = dist_orig.y - m * Box.Length.y;
                       dist.z = dist_orig.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -505,7 +505,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x + m * Box.Length.x;
                       dist.y = dist_orig.y - m * Box.Length.y;
                       dist.z = dist_orig.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -515,7 +515,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x - m * Box.Length.x;
                       dist.y = dist_orig.y + m * Box.Length.y;
                       dist.z = dist_orig.z - m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -524,7 +524,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x;
                       dist.y = dist_orig.y + m * Box.Length.y;
                       dist.z = dist_orig.z - m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -533,7 +533,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x + m * Box.Length.x;
                       dist.y = dist_orig.y + m * Box.Length.y;
                       dist.z = dist_orig.z - m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -542,7 +542,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x - m * Box.Length.x;
                       dist.y = dist_orig.y;
                       dist.z = dist_orig.z - m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -551,7 +551,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x;
                       dist.y = dist_orig.y;
                       dist.z = dist_orig.z - m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -560,7 +560,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x + m * Box.Length.x;
                       dist.y = dist_orig.y;
                       dist.z = dist_orig.z - m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -569,7 +569,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x - m * Box.Length.x;
                       dist.y = dist_orig.y - m * Box.Length.y;
                       dist.z = dist_orig.z - m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -578,7 +578,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x;
                       dist.y = dist_orig.y - m * Box.Length.y;
                       dist.z = dist_orig.z - m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;
@@ -587,7 +587,7 @@ int main(int argc, char *argv[]) {
                       dist.x = dist_orig.x + m * Box.Length.x;
                       dist.y = dist_orig.y - m * Box.Length.y;
                       dist.z = dist_orig.z - m * Box.Length.z;
-                      rij = Length(dist);
+                      rij = VectorLength(dist);
                       coulomb = bjerrum * BeadType[Bead[l].Type].Charge / rij;
                       if (rij < max_dist) {
                         temp_elstat[j] += coulomb;

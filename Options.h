@@ -48,7 +48,7 @@ void CommonOptions_old(int argc, char *argv[], char vsf_file[], int length,
  * \param [out] verbose      bool for `-v` option (verbose output)
  * \return `true` or `false` for error on common options
  */
-//void VerboseLongOption(int argc, char **argv, bool *verbose); //}}}
+//void VerboseLongOption(int argc, char *argv[], bool *verbose); //}}}
 
 // SilentOption() //{{{
 /**
@@ -60,7 +60,7 @@ void CommonOptions_old(int argc, char *argv[], char vsf_file[], int length,
  * \param [out] verbose      bool for `-v` option (verbose output)
  * \param [out] silent       bool for this option
  */
-void SilentOption(int argc, char **argv, bool *verbose, bool *silent); //}}}
+void SilentOption(int argc, char *argv[], bool *verbose, bool *silent); //}}}
 
 // VersionOption() //{{{
 /**
@@ -70,7 +70,7 @@ void SilentOption(int argc, char **argv, bool *verbose, bool *silent); //}}}
  * \param [in]  argv         program's arguments
  * \return true/false if option is present/absetn
  */
-bool VersionOption(int argc, char **argv); //}}}
+bool VersionOption(int argc, char *argv[]); //}}}
 
 bool ExcludeOption(int argc, char *argv[], SYSTEM *System);
 
@@ -85,9 +85,9 @@ bool ExcludeOption(int argc, char *argv[], SYSTEM *System);
  * \param [out] MoleculeType information about molecule types
  * \return `true` or `false` error or not error
  */
-bool JoinCoorOption(int argc, char **argv, char *joined_vcf); //}}}
+bool JoinCoorOption(int argc, char *argv[], char *joined_vcf); //}}}
 
-bool BeadTypeOption(int argc, char **argv, char *opt,
+bool BeadTypeOption(int argc, char *argv[], char *opt,
                     bool use, bool flag[], SYSTEM *System);
 
 // BoolOption() //{{{
@@ -99,7 +99,7 @@ bool BeadTypeOption(int argc, char **argv, char *opt,
  * \param [in] opt   option switch (e.g. array containing `-n`)
  * \return `true` if `opt` present, `false` otherwise
  */
-bool BoolOption(int argc, char **argv, char *opt); //}}}
+bool BoolOption(int argc, char *argv[], char *opt); //}}}
 
 // IntegerOption() //{{{
 /**
@@ -111,7 +111,7 @@ bool BoolOption(int argc, char **argv, char *opt); //}}}
  * \param [out] value integer value of given option
  * \return `true` or `false` for error
  */
-bool IntegerOption(int argc, char **argv, char *opt, int *value);
+bool IntegerOption(int argc, char *argv[], char *opt, int *value);
 // }}}
 
 // DoubleOption() //{{{
@@ -124,7 +124,7 @@ bool IntegerOption(int argc, char **argv, char *opt, int *value);
  * \param [out] value double value of given option
  * \return `true` or `false` for error
  */
-bool DoubleOption(int argc, char **argv, char *opt, double *value);
+bool DoubleOption(int argc, char *argv[], char *opt, double *value);
 // }}}
 
 // MultiIntegerOption() //{{{
@@ -138,7 +138,7 @@ bool DoubleOption(int argc, char **argv, char *opt, double *value);
  * \param [out] values array of integer values of given option
  * \return `true` or `false` for error
  */
-bool MultiIntegerOption(int argc, char **argv, char *opt,
+bool MultiIntegerOption(int argc, char *argv[], char *opt,
                         int *count, int *values);
 // }}}
 
@@ -153,7 +153,7 @@ bool MultiIntegerOption(int argc, char **argv, char *opt,
  * \param [out] values array of double values of given option
  * \return `true` or `false` for error
  */
-bool MultiDoubleOption(int argc, char **argv, char *opt,
+bool MultiDoubleOption(int argc, char *argv[], char *opt,
                        int *count, double *values);
 // }}}
 
@@ -170,7 +170,7 @@ bool MultiDoubleOption(int argc, char **argv, char *opt,
  * \param [out] file   file name (first argument of option)
  * \return `true` or `false` for error
  */
-bool FileIntsOption(int argc, char **argv, char *opt, int *values,
+bool FileIntsOption(int argc, char *argv[], char *opt, int *values,
                     int *count, char *file);
  //}}}
 
@@ -185,7 +185,7 @@ bool FileIntsOption(int argc, char **argv, char *opt, int *values,
  * \param [in]  length   maximum name length
  * \return `true` or `false` for error
  */
-bool FileOption(int argc, char **argv, char *opt,
+bool FileOption(int argc, char *argv[], char *opt,
                 char *name, int length); //}}}
 
 // MoleculeTypeOption() //{{{
@@ -200,7 +200,7 @@ bool FileOption(int argc, char **argv, char *opt,
  * \param [in]  MoleculeType information about molecule types
  * \return `true` or `false` for error
  */
-bool MoleculeTypeOption(int argc, char **argv, char *opt, int *moltype,
+bool MoleculeTypeOption(int argc, char *argv[], char *opt, int *moltype,
                         COUNTS counts, MOLECULETYPE **MoleculeType); //}}}
 
 // MoleculeTypeOption2() //{{{
@@ -215,7 +215,7 @@ bool MoleculeTypeOption(int argc, char **argv, char *opt, int *moltype,
  * \param [in]  MoleculeType information about molecule types
  * \return `true` or `false` for error
  */
-bool MoleculeTypeOption2(int argc, char **argv, char *opt, int *moltype,
+bool MoleculeTypeOption2(int argc, char *argv[], char *opt, int *moltype,
                          COUNTS Counts, MOLECULETYPE **MoleculeType); //}}}
 
 // MoleculeTypeIntOption() //{{{
@@ -232,7 +232,7 @@ bool MoleculeTypeOption2(int argc, char **argv, char *opt, int *moltype,
  * \param [in]  MoleculeType information about molecule types
  * \return `true` or `false` for error
  */
-bool MoleculeTypeIntOption(int argc, int i, char **argv, char *opt,
+bool MoleculeTypeIntOption(int argc, int i, char *argv[], char *opt,
                            int *moltype, int *value, COUNTS Counts,
                            MOLECULETYPE *MoleculeType); //}}}
 
@@ -245,7 +245,7 @@ bool MoleculeTypeIntOption(int argc, int i, char **argv, char *opt,
  * \param [in]  start  starting timestep
  * \param [in]  end    ending timestep
  */
-void StartEndTime(int argc, char **argv, int *start, int *end); //}}}
+void StartEndTime(int argc, char *argv[], int *start, int *end); //}}}
 
 // TODO: remove
 // BeadTypeOption() //{{{
@@ -261,7 +261,7 @@ void StartEndTime(int argc, char **argv, int *start, int *end); //}}}
  * \param [out] BeadType     information about bead types
  * \return `true` or `false` error or not error
  */
-bool BeadTypeOption_old(int argc, char **argv, char *opt, bool use,
+bool BeadTypeOption_old(int argc, char *argv[], char *opt, bool use,
                     COUNTS Counts, BEADTYPE **BeadType); //}}}
 // ExcludeOption_old() //{{{
 /**
@@ -273,6 +273,6 @@ bool BeadTypeOption_old(int argc, char **argv, char *opt, bool use,
  * \param [out] MoleculeType information about molecule types
  * \return `true` or `false` error or not error
  */
-bool ExcludeOption_old(int argc, char **argv, COUNTS Counts,
+bool ExcludeOption_old(int argc, char *argv[], COUNTS Counts,
                    MOLECULETYPE **MoleculeType); //}}}
 #endif

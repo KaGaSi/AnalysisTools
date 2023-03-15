@@ -1,8 +1,3 @@
-/**
- * \file
- * \brief Functions reading files.
- */
-
 #ifndef _READ_H_
 #define _READ_H_
 

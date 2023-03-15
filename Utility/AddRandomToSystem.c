@@ -541,7 +541,7 @@ int main(int argc, char *argv[]) {
       random.x = (double)rand() / ((double)RAND_MAX) * 2 - 1; // a number <-1,1>
       random.y = (double)rand() / ((double)RAND_MAX) * 2 - 1;
       random.z = (double)rand() / ((double)RAND_MAX) * 2 - 1;
-      double dist = Length(random);
+      double dist = VectorLength(random);
       random.x /= dist;
       random.y /= dist;
       random.z /= dist;
@@ -864,7 +864,7 @@ int main(int argc, char *argv[]) {
         random.x = (double)rand() / ((double)RAND_MAX) * 2 - 1; // a number <-1,1>
         random.y = (double)rand() / ((double)RAND_MAX) * 2 - 1;
         random.z = (double)rand() / ((double)RAND_MAX) * 2 - 1;
-        dist = Length(random);
+        dist = VectorLength(random);
         random.x /= dist;
         random.y /= dist;
         random.z /= dist;
@@ -940,7 +940,7 @@ int main(int argc, char *argv[]) {
              */
             // TODO huh? That Use wasn't defined above, I think
             if (btype_j < S_orig.Count.BeadType/* && S_orig.BeadType[btype_j].Use*/) {
-              dist = Length(Distance(S_orig.Bead[j].Position,
+              dist = VectorLength(Distance(S_orig.Bead[j].Position,
                                      random, S_orig.Box.Length));
               if (dist < min_dist) {
                 min_dist = dist;

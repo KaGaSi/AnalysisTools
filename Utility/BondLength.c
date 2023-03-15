@@ -296,7 +296,7 @@ int main(int argc, char *argv[]) {
           bond.x = Bead[id1].Position.x - Bead[id2].Position.x;
           bond.y = Bead[id1].Position.y - Bead[id2].Position.y;
           bond.z = Bead[id1].Position.z - Bead[id2].Position.z;
-          bond.x = Length(bond); //}}}
+          bond.x = VectorLength(bond); //}}}
 
           // warn if bond is too long //{{{
           if (warn > -1 && bond.x > warn) {
@@ -382,7 +382,7 @@ int main(int argc, char *argv[]) {
             dist.x = Bead[id1].Position.x - Bead[id2].Position.x;
             dist.y = Bead[id1].Position.y - Bead[id2].Position.y;
             dist.z = Bead[id1].Position.z - Bead[id2].Position.z;
-            dist.x = Length(dist); //}}}
+            dist.x = VectorLength(dist); //}}}
             // distance mins & maxes //{{{
             int pair = j / 2;
             if (dist.x < min_max_d_option[mtype][pair][0]) {

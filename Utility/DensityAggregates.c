@@ -359,7 +359,7 @@ int main(int argc, char *argv[]) {
             // TODO: fractionals!
             VECTOR dist = Distance(Bead[Aggregate[i].Bead[j]].Position,
                                    com, Box.Length);
-            dist.x = Length(dist);
+            dist.x = VectorLength(dist);
 
             if (dist.x < max_dist) {
               int k = dist.x / width;
@@ -373,7 +373,7 @@ int main(int argc, char *argv[]) {
         for (int j = 0; j < Counts.Unbonded; j++) {
           // fractionals!
           VECTOR dist = Distance(Bead[j].Position, com, Box.Length);
-          dist.x = Length(dist);
+          dist.x = VectorLength(dist);
 
           if (dist.x < max_dist) {
             int k = dist.x / width;

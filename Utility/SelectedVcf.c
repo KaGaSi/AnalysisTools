@@ -133,8 +133,6 @@ int main(int argc, char *argv[]) {
   int start = 1, end = -1;
   StartEndTime(argc, argv, &start, &end);
   bool last = BoolOption(argc, argv, "--last");
-  // vtf timesteps with variable number of beads
-  // bool vtf_var_coor = BoolOption(argc, argv, "--variable");
   // position of the first number of pbc in xyz file
   int pbc_xyz = -1;
   if (IntegerOption(argc, argv, "-pbc", &pbc_xyz)) {

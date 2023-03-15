@@ -4,23 +4,23 @@ char ERROR_MSG[LINE];
 // simple messages //{{{
 // print 'WARNING - <ERROR_MSG>\n' in cyan //{{{
 void PrintWarning() {
-  fprintf(stderr, "\n  %sWARNING - %s%s\n", ErrCyan(),
-          ERROR_MSG, ErrColourReset());
+  fprintf(stderr, "\n  %sWARNING - %s%s\n", ErrCyan(), ERROR_MSG,
+          ErrColourReset());
 } //}}}
 // print 'ERROR - <ERROR_MSG>\n' in red //{{{
 void PrintError() {
-  fprintf(stderr, "\n  %sERROR - %s%s\n", ErrRed(),
-          ERROR_MSG, ErrColourReset());
+  fprintf(stderr, "\n  %sERROR - %s%s\n", ErrRed(), ERROR_MSG,
+          ErrColourReset());
 } //}}}
 // print 'WARNING <option> - <ERROR_MSG>\n' in cyan and yellow //{{{
 void PrintWarningOption(char *opt) {
-  fprintf(stderr, "\n  %sWARNING: %s%s%s - %s%s\n", ErrCyan(),
-          ErrYellow(), opt, ErrCyan(), ERROR_MSG, ErrColourReset());
+  fprintf(stderr, "\n  %sWARNING: %s%s%s - %s%s\n", ErrCyan(), ErrYellow(), opt,
+          ErrCyan(), ERROR_MSG, ErrColourReset());
 } //}}}
 // print 'ERROR <option> - <ERROR_MSG>\n' in red and yellow //{{{
 void PrintErrorOption(char *opt) {
-  fprintf(stderr, "\n  %sERROR: %s%s%s - %s%s\n", ErrRed(),
-          ErrYellow(), opt, ErrRed(), ERROR_MSG, ErrColourReset());
+  fprintf(stderr, "\n  %sERROR: %s%s%s - %s%s\n", ErrRed(), ErrYellow(), opt,
+          ErrRed(), ERROR_MSG, ErrColourReset());
 } //}}}
 // print 'ERROR - <ERROR_MSG>\nFile <file(s)>\n' //{{{
 void PrintErrorFile(char file1[], char file2[], char file3[]) {
@@ -35,26 +35,26 @@ void PrintWarnFile(char file1[], char file2[], char file3[]) {
   putc('\n', stderr);
 } //}}}
 // print 'ERROR - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>' //{{{
-void PrintErrorFileLine(char file[], int count,
-                        char *split[SPL_STR], int words) {
+void PrintErrorFileLine(char file[], int count, char *split[SPL_STR],
+                        int words) {
   PrintError();
   ErrorPrintFile(file, "\0", "\0");
   fprintf(stderr, "%s, line %s%d%s:\n", ErrRed(), ErrYellow(), count, ErrRed());
   ErrorPrintLine2(split, words);
 } //}}}
 // print 'WARNING - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>' //{{{
-void PrintWarningFileLine(char file[], int count,
-                          char *split[SPL_STR], int words) {
+void PrintWarningFileLine(char file[], int count, char *split[SPL_STR],
+                          int words) {
   PrintWarning();
   WarnPrintFile(file, "\0", "\0");
-  fprintf(stderr, "%s, line %s%d%s:\n", ErrCyan(), ErrYellow(),
-                                        count, ErrCyan());
+  fprintf(stderr, "%s, line %s%d%s:\n", ErrCyan(), ErrYellow(), count,
+          ErrCyan());
   WarnPrintLine(split, words);
 } //}}}
 // 'File <name> (<optional name>)' in colours //{{{
 void PrintFile(FILE *f, char file1[], char colour[]) {
   fprintf(f, "%sFile %s%s%s", Colour(f, colour), file1, Colour(f, YELLOW),
-                              Colour(f, C_RESET));
+          Colour(f, C_RESET));
 }
 void WarnPrintFile(char file1[], char file2[], char file3[]) {
   fprintf(stderr, "%sFile(s) %s", ErrCyan(), ErrYellow());
@@ -100,10 +100,10 @@ void ErrorPrintFile(char file1[], char file2[], char file3[]) {
   }
   fprintf(stderr, "%s", ErrColourReset());
 }
- //}}}
+//}}}
 // print 'Line: <line>|(blank)' in given colours //{{{
-void PrintLine2(FILE *f, char *split[SPL_STR], int words,
-                char *colour1, char *colour2) {
+void PrintLine2(FILE *f, char *split[SPL_STR], int words, char *colour1,
+                char *colour2) {
   if (words == 0) {
     fprintf(f, "%s(blank)\n%s", Colour(f, colour1), Colour(f, C_RESET));
   } else {
@@ -116,7 +116,7 @@ void PrintLine2(FILE *f, char *split[SPL_STR], int words,
     }
     fputs(Colour(f, C_RESET), f);
     // print line break if the last split[] doesn't end with one
-    if (split[words-1][strlen(split[words-1])-1] != '\n') {
+    if (split[words - 1][strlen(split[words - 1]) - 1] != '\n') {
       putc('\n', f);
     }
   }
@@ -135,7 +135,7 @@ void ErrorEOF(char file1[]) {
   ErrorPrintFile(file1, "\0", "\0");
   putc('\n', stderr);
 } //}}}
- //}}}
+  //}}}
 
 // ErrorArgNumber() //{{{
 /**
@@ -163,11 +163,11 @@ int ErrorExtension(char *file, int number, char extension[][EXTENSION]) {
   PrintError();
   ErrorPrintFile(file, "\0", "\0");
   fprintf(stderr, "%s; allowed extensions:", ErrRed());
-  for (int i = 0; i < (number-1); i++) {
+  for (int i = 0; i < (number - 1); i++) {
     fprintf(stderr, " %s%s%s,", ErrYellow(), extension[i], ErrRed());
   }
-  fprintf(stderr, " %s%s%s\n", ErrYellow(),
-          extension[number-1], ErrColourReset());
+  fprintf(stderr, " %s%s%s\n", ErrYellow(), extension[number - 1],
+          ErrColourReset());
   return -1;
 } //}}}
 
@@ -190,10 +190,10 @@ void ErrorOption(char *option) {
 } //}}}
 
 void ErrorBeadType(char *name, SYSTEM System) { //{{{
-  fprintf(stderr, "%s; illegal name: %s%s%s\n",
-          ErrRed(), ErrYellow(), name, ErrRed());
-  fprintf(stderr, "Possible names:%s %s\n",
-          ErrYellow(), System.BeadType[0].Name);
+  fprintf(stderr, "%s; illegal name: %s%s%s\n", ErrRed(), ErrYellow(), name,
+          ErrRed());
+  fprintf(stderr, "Possible names:%s %s\n", ErrYellow(),
+          System.BeadType[0].Name);
   for (int i = 1; i < System.Count.BeadType; i++) {
     fprintf(stderr, "                %s\n", System.BeadType[i].Name);
   }
@@ -247,8 +247,8 @@ void WarnChargedSystem(SYSTEM System, char file1[], char file2[],
     strcpy(ERROR_MSG, "system with net electric charge");
     PrintWarning();
     WarnPrintFile(file1, file2, file3);
-    fprintf(stderr, "%s; %sq = %lf%s\n", ErrCyan(),
-            ErrYellow(), charge, ErrColourReset());
+    fprintf(stderr, "%s; %sq = %lf%s\n", ErrCyan(), ErrYellow(), charge,
+            ErrColourReset());
   }
 } //}}}
 
@@ -285,8 +285,8 @@ void ErrorStartEnd(int start, int end) {
  * Print a single line from a file in a given colour (or 'blank line' in
  * different colour).
  */
-void PrintLine(char split[SPL_STR][SPL_LEN], int words,
-               int col_line, int col_blank) {
+void PrintLine(char split[SPL_STR][SPL_LEN], int words, int col_line,
+               int col_blank) {
   if (words == 0) {
     fprintf(stderr, "Blank line");
     ColourReset(STDERR_FILENO);
@@ -306,8 +306,8 @@ void PrintLine(char split[SPL_STR][SPL_LEN], int words,
 /*
  * Function to print file name and the line number in colour.
  */
-void PrintFileLine(char *file, int line,
-                   char split[SPL_STR][SPL_LEN], int words) {
+void PrintFileLine(char *file, int line, char split[SPL_STR][SPL_LEN],
+                   int words) {
   ColourChange(STDERR_FILENO, RED);
   fputs("File ", stderr);
   PrintFile(stderr, file, YELLOW);
@@ -331,8 +331,7 @@ void PrintFileLine(char *file, int line,
 /*
  * Function to print file name and the line number in colour.
  */
-void PrintFileLine2(char *file, int line,
-                   char *split[SPL_STR], int words) {
+void PrintFileLine2(char *file, int line, char *split[SPL_STR], int words) {
   ColourChange(STDERR_FILENO, RED);
   fputs("File ", stderr);
   PrintFile(stderr, file, YELLOW);
@@ -354,14 +353,13 @@ void PrintFileLine2(char *file, int line,
 } //}}}
 
 // ErrorPrintFull() //{{{
-void ErrorPrintFull(char *file, int line,
-                    char split[SPL_STR][SPL_LEN], int words) {
+void ErrorPrintFull(char *file, int line, char split[SPL_STR][SPL_LEN],
+                    int words) {
   ErrorPrintError();
   PrintFileLine(file, line, split, words);
 } //}}}
 // ErrorPrintFull2() //{{{
-void ErrorPrintFull2(char *file, int line,
-                    char *split[SPL_STR], int words) {
+void ErrorPrintFull2(char *file, int line, char *split[SPL_STR], int words) {
   ErrorPrintError();
   PrintFileLine2(file, line, split, words);
 } //}}}
@@ -373,7 +371,7 @@ void ErrorPrintFull2(char *file, int line,
 void WarnStopReading(char *vcf_file, int line_count, int step_count,
                      char split[SPL_STR][SPL_LEN], int words) {
   WarnPrintWarning();
-  if (step_count-1 > 0) {
+  if (step_count - 1 > 0) {
     ColourChange(STDERR_FILENO, CYAN);
     fputs("Last step read from file ", stderr);
     PrintFile(stderr, vcf_file, YELLOW);
@@ -392,19 +390,19 @@ void WarnStopReading(char *vcf_file, int line_count, int step_count,
   fprintf(stderr, "%d", line_count);
   ColourChange(STDERR_FILENO, CYAN);
   fputs(":\n", stderr);
-//PrintLine(split, words, YELLOW, CYAN);
+  // PrintLine(split, words, YELLOW, CYAN);
 } //}}}
 // WarnStopReading2() //{{{
 /*
  * Warning when stopping file reading due to some error in the file.
  */
 void WarnStopReading2(char *vcf_file, int line_count, int step_count,
-                     char *split[SPL_STR], int words) {
+                      char *split[SPL_STR], int words) {
   WarnPrintWarning();
-  if (step_count-1 > 0) {
+  if (step_count - 1 > 0) {
     ColourChange(STDERR_FILENO, CYAN);
     fputs("Last step read from file ", stderr);
-//  PrintFile(vcf_file, YELLOW);
+    //  PrintFile(vcf_file, YELLOW);
     ColourChange(STDERR_FILENO, CYAN);
     fputs(": ", stderr);
     ColourChange(STDERR_FILENO, YELLOW);
@@ -412,7 +410,7 @@ void WarnStopReading2(char *vcf_file, int line_count, int step_count,
   } else {
     ColourChange(STDERR_FILENO, CYAN);
     fputs("No valid timestep in file ", stderr);
-//  PrintFile(vcf_file, YELLOW);
+    //  PrintFile(vcf_file, YELLOW);
   }
   ColourChange(STDERR_FILENO, CYAN);
   fprintf(stderr, "; error at line ");
@@ -420,7 +418,7 @@ void WarnStopReading2(char *vcf_file, int line_count, int step_count,
   fprintf(stderr, "%d", line_count);
   ColourChange(STDERR_FILENO, CYAN);
   fputs(":\n", stderr);
-//PrintLine2(split, words, YELLOW, CYAN);
+  // PrintLine2(split, words, YELLOW, CYAN);
 } //}}}
 
 // TODO remove
@@ -455,7 +453,7 @@ bool ErrorDiscard(int start, int step, char *file, FILE *coor) {
     PrintError();
     ErrorPrintFile(file, "\0", "\0");
     fprintf(stderr, "%s, number of timesteps:%s%d%s\n", ErrRed(), ErrYellow(),
-                                                        step, ErrColourReset());
+            step, ErrColourReset());
     return true;
   } else {
     ungetc(test, coor);
@@ -490,7 +488,7 @@ void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file) {
     PrintWarning();
     WarnPrintFile(file, "\0", "\0");
     fprintf(stderr, "%s, %sq = %lf%s\n", ErrCyan(), ErrYellow(), charge,
-                                         ErrColourReset());
+            ErrColourReset());
   }
 } //}}}
 // ErrorBeadType_old() //{{{

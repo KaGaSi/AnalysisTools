@@ -319,7 +319,7 @@ int main(int argc, char *argv[]) {
           v.z = Bead[id3].Position.z - Bead[id2].Position.z;
           // calculate angle between the two vectors
           double scalar = u.x * v.x + u.y * v.y + u.z * v.z;
-          angle[i][count_angle] = acos(scalar / (Length(u) * Length(v)));
+          angle[i][count_angle] = acos(scalar / (VectorLength(u) * VectorLength(v)));
           angle[i][count_angle] *= 180 / PI; // from radians to degrees
 
           // add to average

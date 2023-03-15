@@ -1,5 +1,6 @@
 #include "Write.h"
 
+// STATIC DEFINITIONS
 static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System);
 static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System);
 static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System);
@@ -8,6 +9,7 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def);
 static void WriteLmpData(SYSTEM System, char file[], bool mass);
 static void WriteField(SYSTEM System, char file_field[]);
 
+// STATIC IMPLEMENTATIONS
 static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System) { //{{{
   // print box size if present //{{{
   BOX *box = &System.Box;
@@ -48,7 +50,7 @@ static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System) { //{{{
   }
   if (none) {
     strcpy(ERROR_MSG, "no beads to save");
-    WarnPrintWarning();
+    PrintWarning();
   } else {
     // TODO: write pbc on the second line?
     fprintf(fw, "%d\n\n", count);
@@ -95,14 +97,13 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
       fprintf(fw, "0.0 %lf\n", box->Length.x);
       fprintf(fw, "0.0 %lf\n", box->Length.y);
       fprintf(fw, "0.0 %lf\n", box->Length.z);
-      fprintf(fw, "ITEM: ATOMS id element x y z");
     } else {
       fprintf(fw, "ITEM: BOX BOUNDS xy xz yz pp pp pp\n");
       fprintf(fw, "0.0 %lf %lf\n", box->Bounding.x, box->transform[0][1]);
       fprintf(fw, "0.0 %lf %lf\n", box->Bounding.y, box->transform[0][2]);
       fprintf(fw, "0.0 %lf %lf\n", box->Bounding.z, box->transform[1][2]);
-      fprintf(fw, "ITEM: ATOMS id element x y z");
     }
+    fprintf(fw, "ITEM: ATOMS id element x y z");
     if (vel) {
       fprintf(fw, " vx vy vz");
     }
@@ -498,16 +499,20 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
       for (int j = 0; j < mt_i->nImpropers; j++) {
         count++;
         int *val = ImproperIndices(System, i, j);
-        if (System.Bead[val[0]].InTimestep && System.Bead[val[1]].InTimestep &&
-            System.Bead[val[2]].InTimestep && System.Bead[val[3]].InTimestep) {
+        if (System.Bead[val[0]].InTimestep &&
+            System.Bead[val[1]].InTimestep &&
+            System.Bead[val[2]].InTimestep &&
+            System.Bead[val[3]].InTimestep) {
           fprintf(fw, "%7d", count);
           if (Count->DihedralType > 0) {
             fprintf(fw, "%6d", mt_i->Dihedral[j][4] + 1);
           } else {
             fprintf(fw, "   ???");
           }
-          fprintf(fw, " %5d %5d %5d %5d\n", val[0] + 1, val[1] + 1, val[2] + 1,
-                  val[3] + 1);
+          fprintf(fw, " %5d %5d %5d %5d\n", val[0] + 1,
+                                            val[1] + 1,
+                                            val[2] + 1,
+                                            val[3] + 1);
         }
       }
     }
@@ -688,7 +693,6 @@ void WriteStructure(int struct_type, char file[], SYSTEM System,
 void WriteAggregates(int step_count, char *agg_file, COUNTS Counts,
                      MOLECULETYPE *MoleculeType, BEAD *Bead,
                      AGGREGATE *Aggregate) {
-
   // get number of aggregates to write to agg_file //{{{
   int number_of_aggs = 0;
   for (int i = 0; i < Counts.Aggregates; i++) {
