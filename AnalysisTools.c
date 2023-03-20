@@ -1,11 +1,4 @@
 #include "AnalysisTools.h"
-/*
- * TODO: PrintBeadType() needs to find the longest name and the most number
- * of beads and insert white space accordingly
- */
-// TODO: add detailed switch FindBeadType/FindMoleculeType (check not just name)
-//       ...already done?
-// TODO: split CheckSystem to CheckCount, CheckBeadType, etc.
 
 // STATIC DEFINITIONS
 // functions to transform to/from fractional coordinates
@@ -13,6 +6,16 @@ static VECTOR ToFractional(VECTOR coor, BOX Box);
 static void ToFractionalCoor(SYSTEM *System);
 static VECTOR FromFractional(VECTOR coor, BOX Box);
 static void FromFractionalCoor(SYSTEM *System);
+// remove pbc for molecules by joining the molecules
+static void RemovePBCMolecules(SYSTEM *System);
+// restore pbc by wrapping all coordinates inside the simulation box
+static void RestorePBC(SYSTEM *System);
+// Copy System structure; assumes new unallocated SYSTEM
+static SYSTEM CopySystem(SYSTEM S_in);
+// calculate geometric centre for a list of beads
+static VECTOR GeomCentre(int n, int *list, BEAD *Bead);
+// calculate centre of mass for a list of beads (UNUSED)
+// static VECTOR CentreOfMass(int n, int *list, BEAD *Bead, BEADTYPE *BeadType);
 
 // STATIC IMPLEMENTATIONS
 // transform to/from fractional coordinates
@@ -43,20 +46,24 @@ sqrt(SQR(dist.x)+SQR(dist.y)+SQR(dist.z)));
 static VECTOR ToFractional(VECTOR coor, BOX Box) { //{{{
   if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
     VECTOR new = {0, 0, 0};
-    new.x = Box.inverse[0][0] * coor.x + Box.inverse[0][1] * coor.y +
+    new.x = Box.inverse[0][0] * coor.x +
+            Box.inverse[0][1] * coor.y +
             Box.inverse[0][2] * coor.z;
-    new.y = Box.inverse[1][0] * coor.x + Box.inverse[1][1] * coor.y +
+    new.y = Box.inverse[1][0] * coor.x +
+            Box.inverse[1][1] * coor.y +
             Box.inverse[1][2] * coor.z;
-    new.z = Box.inverse[2][0] * coor.x + Box.inverse[2][1] * coor.y +
+    new.z = Box.inverse[2][0] * coor.x +
+            Box.inverse[2][1] * coor.y +
             Box.inverse[2][2] * coor.z;
-    coor.x = new.x *Box.Length.x;
-    coor.y = new.y *Box.Length.y;
-    coor.z = new.z *Box.Length.z;
+    coor.x = new.x * Box.Length.x;
+    coor.y = new.y * Box.Length.y;
+    coor.z = new.z * Box.Length.z;
   }
   return coor;
 } //}}}
 static void ToFractionalCoor(SYSTEM *System) { //{{{
-  if (System->Box.alpha != 90 || System->Box.beta != 90 ||
+  if (System->Box.alpha != 90 ||
+      System->Box.beta != 90 ||
       System->Box.gamma != 90) {
     for (int i = 0; i < System->Count.Bead; i++) {
       BEAD *bead = &System->Bead[i];
@@ -72,11 +79,14 @@ static VECTOR FromFractional(VECTOR coor, BOX Box) { //{{{
     coor.y /= Box.Length.y;
     coor.z /= Box.Length.z;
     VECTOR new = {0, 0, 0};
-    new.x = Box.transform[0][0] * coor.x + Box.transform[0][1] * coor.y +
+    new.x = Box.transform[0][0] * coor.x +
+            Box.transform[0][1] * coor.y +
             Box.transform[0][2] * coor.z;
-    new.y = Box.transform[1][0] * coor.x + Box.transform[1][1] * coor.y +
+    new.y = Box.transform[1][0] * coor.x +
+            Box.transform[1][1] * coor.y +
             Box.transform[1][2] * coor.z;
-    new.z = Box.transform[2][0] * coor.x + Box.transform[2][1] * coor.y +
+    new.z = Box.transform[2][0] * coor.x +
+            Box.transform[2][1] * coor.y +
             Box.transform[2][2] * coor.z;
     coor.x = new.x;
     coor.y = new.y;
@@ -85,7 +95,8 @@ static VECTOR FromFractional(VECTOR coor, BOX Box) { //{{{
   return coor;
 } //}}}
 static void FromFractionalCoor(SYSTEM *System) { //{{{
-  if (System->Box.alpha != 90 || System->Box.beta != 90 ||
+  if (System->Box.alpha != 90 ||
+      System->Box.beta != 90 ||
       System->Box.gamma != 90) {
     for (int i = 0; i < System->Count.Bead; i++) {
       BEAD *bead = &System->Bead[i];
@@ -95,6 +106,297 @@ static void FromFractionalCoor(SYSTEM *System) { //{{{
     }
   }
 } //}}}
+/*
+ * TODO what about if the molecule has bonds, but is in more 'pieces'; should
+ *      it really just try joining it 1000 times when we know it's impossible?
+ *      There should be some check and then the separate pieces should be
+ *      connected (with a warning issued).
+ */
+// remove pbc for molecules by joining the molecules //{{{
+static void RemovePBCMolecules(SYSTEM *System) {
+  BOX *box = &System->Box;
+  // go through all molecules
+  for (int i = 0; i < System->Count.Molecule; i++) {
+    MOLECULE *mol_i = &System->Molecule[i];
+    MOLECULETYPE *mt_i = &System->MoleculeType[mol_i->Type];
+    // int type = System->Molecule[i].Type;
+    // do nothing if the molecule has no bonds
+    if (mt_i->nBonds == 0) {
+      continue;
+    }
+    for (int j = 0; j < mt_i->nBeads; j++) {
+      int id = mol_i->Bead[j];
+      System->Bead[id].Flag = false; // no beads moved yet
+    }
+    // first bead in the first bond is considered moved
+    for (int j = 0; j < mt_i->nBonds; j++) {
+      int id1 = mt_i->Bond[j][0], // bead position in the molecule
+          id2 = mt_i->Bond[j][1]; //
+      id1 = mol_i->Bead[id1]; // bead index in the System
+      id2 = mol_i->Bead[id2]; //
+      if (System->Bead[id1].InTimestep && System->Bead[id2].InTimestep) {
+        System->Bead[id1].Flag = true;
+        break;
+      }
+    }
+    bool done = false;
+    int test = 0; // if too many loops, just leave the loop with error
+    while (!done && test < 1000) {
+      for (int j = 0; j < mt_i->nBonds; j++) {
+        int id1 = mt_i->Bond[j][0], // bead position in the molecule
+            id2 = mt_i->Bond[j][1]; //
+        id1 = mol_i->Bead[id1]; // bead index in the System
+        id2 = mol_i->Bead[id2]; //
+        BEAD *b_1 = &System->Bead[id1],
+             *b_2 = &System->Bead[id2];
+        if (b_1->InTimestep && b_2->InTimestep) {
+          // move id1, if id2 is moved already
+          if (!b_1->Flag && b_2->Flag) {
+            VECTOR dist = Distance(b_2->Position, b_1->Position,
+                                   box->Length);
+            b_1->Position.x = b_2->Position.x - dist.x;
+            b_1->Position.y = b_2->Position.y - dist.y;
+            b_1->Position.z = b_2->Position.z - dist.z;
+            b_1->Flag = true;
+            // move id2, if id1 was moved already
+          } else if (b_1->Flag && !b_2->Flag) {
+            VECTOR dist = Distance(b_1->Position, b_2->Position,
+                                   box->Length);
+            b_2->Position.x = b_1->Position.x - dist.x;
+            b_2->Position.y = b_1->Position.y - dist.y;
+            b_2->Position.z = b_1->Position.z - dist.z;
+            b_2->Flag = true;
+          }
+        }
+      }
+
+      // break while loop if all beads have moved
+      done = true;
+      for (int j = 1; j < mt_i->nBeads; j++) {
+        int id = mol_i->Bead[j];
+        if (System->Bead[id].InTimestep && !System->Bead[id].Flag) {
+          done = false;
+          break;
+        }
+      }
+      test++;
+    }
+    if (test == 1000) {
+      snprintf(ERROR_MSG, LINE, "unable to join molecule %s%s%s (resid "
+               "%s%d%s)\n     Either all beads are not connected or "
+               "some beads are missing from the timestep", ErrYellow(),
+               mt_i->Name, ErrCyan(), ErrYellow(),
+               i + 1, ErrCyan());
+      PrintWarning();
+    }
+
+    // put molecule's geometric centre into the simulation box //{{{
+    VECTOR cog = GeomCentre(mt_i->nBeads,
+                            mol_i->Bead, System->Bead);
+    // by how many BoxLength's should cog be moved?
+    // for distant molecules - it shouldn't happen, but better safe than sorry
+    INTVECTOR move;
+    move.x = cog.x / box->Length.x;
+    move.y = cog.y / box->Length.y;
+    move.z = cog.z / box->Length.z;
+    if (cog.x < 0) {
+      move.x--;
+    }
+    if (cog.y < 0) {
+      move.y--;
+    }
+    if (cog.z < 0) {
+      move.z--;
+    }
+    for (int j = 0; j < mt_i->nBeads; j++) {
+      int bead = mol_i->Bead[j];
+      System->Bead[bead].Position.x -= move.x * box->Length.x;
+      System->Bead[bead].Position.y -= move.y * box->Length.y;
+      System->Bead[bead].Position.z -= move.z * box->Length.z;
+    } //}}}
+  }
+} //}}}
+// restore pbc by wrapping all coordinates inside the simulation box //{{{
+static void RestorePBC(SYSTEM *System) {
+  for (int i = 0; i < System->Count.BeadCoor; i++) {
+    int id = System->BeadCoor[i];
+    BEAD *bead = &System->Bead[id];
+    BOX *box = &System->Box;
+    // x direction
+    while (bead->Position.x >= box->Length.x) {
+      bead->Position.x -= box->Length.x;
+    }
+    while (bead->Position.x < 0) {
+      bead->Position.x += box->Length.x;
+    }
+    // y direction
+    while (bead->Position.y >= box->Length.y) {
+      bead->Position.y -= box->Length.y;
+    }
+    while (bead->Position.y < 0) {
+      bead->Position.y += box->Length.y;
+    }
+    // z direction
+    while (bead->Position.z >= box->Length.z) {
+      bead->Position.z -= box->Length.z;
+    }
+    while (bead->Position.z < 0) {
+      bead->Position.z += box->Length.z;
+    }
+  }
+} //}}}
+// copy System structure; assumes new unallocated SYSTEM //{{{
+static SYSTEM CopySystem(SYSTEM S_in) {
+  SYSTEM S_out;
+  InitSystem(&S_out);
+  S_out.Box = S_in.Box;
+  if (S_in.Count.Bead > 0) {
+    S_out.Count = S_in.Count;
+    // BeadType //{{{
+    if (S_out.Count.BeadType > 0) {
+      S_out.BeadType = realloc(S_out.BeadType,
+                               sizeof *S_out.BeadType * S_out.Count.BeadType);
+      for (int i = 0; i < S_out.Count.BeadType; i++) {
+        S_out.BeadType[i] = S_in.BeadType[i];
+        if (S_out.BeadType[i].Number > 0) {
+          S_out.BeadType[i].Index = malloc(sizeof *S_out.BeadType[i].Index *
+                                           S_out.BeadType[i].Number);
+          for (int j = 0; j < S_out.BeadType[i].Number; j++) {
+            S_out.BeadType[i].Index[j] = S_in.BeadType[i].Index[j];
+          }
+        }
+      }
+    } else {
+      strcpy(ERROR_MSG, "no bead types to copy; should never happen!");
+      PrintWarning();
+      return S_out;
+    } //}}}
+    // Bead & BeadCoor //{{{
+    S_out.Bead = realloc(S_out.Bead, sizeof(BEAD) * S_out.Count.Bead);
+    S_out.BeadCoor =
+        realloc(S_out.BeadCoor, sizeof *S_out.BeadCoor * S_out.Count.Bead);
+    memcpy(S_out.Bead, S_in.Bead, sizeof(BEAD) * S_in.Count.Bead);
+    memcpy(S_out.BeadCoor, S_in.BeadCoor,
+           sizeof *S_in.BeadCoor * S_in.Count.Bead); //}}}
+    // Bonded & BondedCoor //{{{
+    if (S_out.Count.Bonded > 0) {
+      S_out.Bonded =
+          realloc(S_out.Bonded, sizeof *S_out.Bonded * S_out.Count.Bonded);
+      S_out.BondedCoor = realloc(S_out.BondedCoor,
+                                 sizeof *S_out.BondedCoor * S_out.Count.Bonded);
+      memcpy(S_out.Bonded, S_in.Bonded,
+             sizeof *S_in.Bonded * S_in.Count.Bonded);
+      memcpy(S_out.BondedCoor, S_in.BondedCoor,
+             sizeof *S_in.BondedCoor * S_in.Count.Bonded);
+    } //}}}
+    // Unbonded & UnbondedCoor //{{{
+    if (S_out.Count.Unbonded > 0) {
+      S_out.Unbonded = realloc(S_out.Unbonded,
+                               sizeof *S_out.Unbonded * S_out.Count.Unbonded);
+      S_out.UnbondedCoor =
+          realloc(S_out.UnbondedCoor,
+                  sizeof *S_out.UnbondedCoor * S_out.Count.Unbonded);
+      memcpy(S_out.Unbonded, S_in.Unbonded,
+             sizeof *S_in.Unbonded * S_in.Count.Unbonded);
+      memcpy(S_out.UnbondedCoor, S_in.UnbondedCoor,
+             sizeof *S_in.UnbondedCoor * S_in.Count.Unbonded);
+    } //}}}
+    // MoleculeType //{{{
+    if (S_out.Count.MoleculeType > 0) {
+      S_out.MoleculeType = realloc(
+          S_out.MoleculeType, sizeof(MOLECULETYPE) * S_out.Count.MoleculeType);
+      for (int i = 0; i < S_out.Count.MoleculeType; i++) {
+        S_out.MoleculeType[i] = CopyMoleculeType(S_in.MoleculeType[i]);
+      }
+    } //}}}
+    // Molecule & Index_mol //{{{
+    if (S_out.Count.Molecule > 0) {
+      S_out.Molecule =
+          realloc(S_out.Molecule, sizeof(MOLECULE) * S_out.Count.Molecule);
+      for (int i = 0; i < S_out.Count.Molecule; i++) {
+        S_out.Molecule[i] = S_in.Molecule[i];
+        // Molecule[].Bead array
+        int type = S_out.Molecule[i].Type;
+        if (S_out.MoleculeType[type].nBeads > 0) {
+          S_out.Molecule[i].Bead = malloc(sizeof *S_out.Molecule[i].Bead *
+                                          S_out.MoleculeType[type].nBeads);
+          memcpy(S_out.Molecule[i].Bead, S_in.Molecule[i].Bead,
+                 sizeof *S_in.Molecule[i].Bead *
+                     S_in.MoleculeType[type].nBeads);
+        }
+      }
+      // Index_mol
+      S_out.Index_mol = realloc(S_out.Index_mol,
+                                sizeof *S_out.Index_mol * S_out.Count.Molecule);
+      memcpy(S_out.Index_mol, S_in.Index_mol,
+             sizeof *S_in.Index_mol * S_in.Count.Molecule);
+    } //}}}
+    // BondType //{{{
+    if (S_out.Count.BondType > 0) {
+      S_out.BondType =
+          realloc(S_out.BondType, sizeof(PARAMS) * S_out.Count.BondType);
+      memcpy(S_out.BondType, S_in.BondType,
+             sizeof(PARAMS) * S_in.Count.BondType);
+    } //}}}
+    // AngleType //{{{
+    if (S_out.Count.AngleType > 0) {
+      S_out.AngleType =
+          realloc(S_out.AngleType, sizeof(PARAMS) * S_out.Count.AngleType);
+      memcpy(S_out.AngleType, S_in.AngleType,
+             sizeof(PARAMS) * S_in.Count.AngleType);
+    } //}}}
+    // DihedralType //{{{
+    if (S_out.Count.DihedralType > 0) {
+      S_out.DihedralType = realloc(S_out.DihedralType,
+                                   sizeof(PARAMS) * S_out.Count.DihedralType);
+      memcpy(S_out.DihedralType, S_in.DihedralType,
+             sizeof(PARAMS) * S_in.Count.DihedralType);
+    } //}}}
+    // ImproperType //{{{
+    if (S_out.Count.ImproperType > 0) {
+      S_out.ImproperType = realloc(S_out.ImproperType,
+                                   sizeof(PARAMS) * S_out.Count.ImproperType);
+      memcpy(S_out.ImproperType, S_in.ImproperType,
+             sizeof(PARAMS) * S_in.Count.ImproperType);
+    } //}}}
+  }
+  return S_out;
+} //}}}
+// calculate geometric centre for a list of beads //{{{
+static VECTOR GeomCentre(int n, int *list, BEAD *Bead) {
+  VECTOR cog = {0, 0, 0};
+  int count = 0;
+  for (int i = 0; i < n; i++) {
+    int id = list[i];
+    if (Bead[id].InTimestep) {
+      cog.x += Bead[id].Position.x;
+      cog.y += Bead[id].Position.y;
+      cog.z += Bead[id].Position.z;
+      count++;
+    }
+  }
+  cog.x /= count;
+  cog.y /= count;
+  cog.z /= count;
+  return cog;
+} //}}}
+// calculate centre of mass for a list of beads (UNUSED) //{{{
+// static VECTOR CentreOfMass(int n, int *list, BEAD *Bead, BEADTYPE *BeadType) {
+//   VECTOR com = {0, 0, 0};
+//   double mass = 0;
+//   for (int i = 0; i < n; i++) {
+//     int id = list[i];
+//     int btype = Bead[id].Type;
+//     com.x += Bead[id].Position.x * BeadType[btype].Mass;
+//     com.y += Bead[id].Position.y * BeadType[btype].Mass;
+//     com.z += Bead[id].Position.z * BeadType[btype].Mass;
+//     mass += BeadType[btype].Mass;
+//   }
+//   com.x /= mass;
+//   com.y /= mass;
+//   com.z /= mass;
+//   return com;
+// } //}}}
 
 // Helper functions for dealing with SYSTEM structure
 // fill some System arrays and some such
@@ -637,177 +939,55 @@ bool SameBeadType(BEADTYPE bt_1, BEADTYPE bt_2) {
   }
 } //}}}
 // create new bead/molecule type, realloc'ing the appropriate array
-// NewMolType() //{{{
+// NewBeadType() //{{{
 void NewBeadType(BEADTYPE *BeadType[], int *number_of_types, char name[],
                  double charge, double mass, double radius) {
   int btype = *number_of_types;
   (*number_of_types)++;
   *BeadType = realloc(*BeadType, sizeof **BeadType * (btype + 1));
   strcpy((*BeadType)[btype].Name, name);
-  BeadType[btype]->Number = 0;
-  BeadType[btype]->Charge = charge;
-  BeadType[btype]->Mass = mass;
-  BeadType[btype]->Radius = radius;
+  (*BeadType)[btype].Number = 0;
+  (*BeadType)[btype].Charge = charge;
+  (*BeadType)[btype].Mass = mass;
+  (*BeadType)[btype].Radius = radius;
 }; //}}}
 // NewMolType() //{{{
 void NewMolType(MOLECULETYPE *MoleculeType[], int *n_types, char *name,
                 int n_beads, int n_bonds, int n_angles, int n_dihedrals,
                 int n_impropers) {
   int mtype = (*n_types)++;
-  *MoleculeType = realloc(*MoleculeType, sizeof(MOLECULETYPE) * (*n_types));
+  *MoleculeType = realloc(*MoleculeType, sizeof **MoleculeType * (*n_types));
   // copy new name to MoleculeType[].Name
   strncpy((*MoleculeType)[mtype].Name, name, MOL_NAME);
   // initialize struct members
-  MoleculeType[mtype]->Number = 1;
-  MoleculeType[mtype]->nBeads = n_beads;
-  MoleculeType[mtype]->Bead = calloc(n_beads,
-                                     sizeof *MoleculeType[mtype]->Bead);
-  MoleculeType[mtype]->nBonds = n_bonds;
+  (*MoleculeType)[mtype].Number = 1;
+  (*MoleculeType)[mtype].nBeads = n_beads;
+  (*MoleculeType)[mtype].Bead = calloc(n_beads,
+                                       sizeof *(*MoleculeType)[mtype].Bead);
+  (*MoleculeType)[mtype].nBonds = n_bonds;
   if (n_bonds > 0) {
-    MoleculeType[mtype]->Bond = calloc(n_bonds,
-                                       sizeof *MoleculeType[mtype]->Bond);
+    (*MoleculeType)[mtype].Bond = calloc(n_bonds,
+                                         sizeof *(*MoleculeType)[mtype].Bond);
   }
-  MoleculeType[mtype]->nAngles = n_angles;
+  (*MoleculeType)[mtype].nAngles = n_angles;
   if (n_angles > 0) {
-    MoleculeType[mtype]->Angle = calloc(n_angles,
-                                        sizeof *MoleculeType[mtype]->Angle);
+    (*MoleculeType)[mtype].Angle = calloc(n_angles,
+                                          sizeof *(*MoleculeType)[mtype].Angle);
   }
-  MoleculeType[mtype]->nDihedrals = n_dihedrals;
+  (*MoleculeType)[mtype].nDihedrals = n_dihedrals;
   if (n_dihedrals > 0) {
-    MoleculeType[mtype]->Dihedral =
-      calloc(n_dihedrals, sizeof *MoleculeType[mtype]->Dihedral);
+    (*MoleculeType)[mtype].Dihedral =
+        calloc(n_dihedrals, sizeof *(*MoleculeType)[mtype].Dihedral);
   }
-  MoleculeType[mtype]->nImpropers = n_impropers;
+  (*MoleculeType)[mtype].nImpropers = n_impropers;
   if (n_impropers > 0) {
-    MoleculeType[mtype]->Improper =
-        calloc(n_impropers, sizeof *MoleculeType[mtype]->Improper);
+    (*MoleculeType)[mtype].Improper =
+        calloc(n_impropers, sizeof *(*MoleculeType)[mtype].Improper);
   }
-  MoleculeType[mtype]->nBTypes = 0;
+  (*MoleculeType)[mtype].nBTypes = 0;
 }; //}}}
-
-// identify input coordinate and structure files //{{{
-bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
-                     char struct_file[], int *struct_type) {
-  int ext;
-  char extension[6][EXTENSION];
-  // input structure file (-i option) //{{{
-  if (FileOption(argc, argv, "-i", struct_file, LINE)) {
-    exit(1);
-  }
-  if (struct_file[0] != '\0') { // -i option is present
-    if (strcasecmp(struct_file, "FIELD") == 0) {
-      *struct_type = FIELD_FILE;
-    } else {
-      ext = 6;
-      strcpy(extension[0], ".vsf");
-      strcpy(extension[1], ".vtf");
-      strcpy(extension[2], ".xyz");
-      strcpy(extension[3], ".lammpstrj");
-      strcpy(extension[4], ".data");
-      strcpy(extension[5], ".field");
-      ext = ErrorExtension(struct_file, ext, extension);
-      switch (ext) {
-      case 0:
-        *struct_type = VSF_FILE;
-        break;
-      case 1:
-        *struct_type = VSF_FILE;
-        break;
-      case 2:
-        *struct_type = XYZ_FILE;
-        break;
-      case 3:
-        *struct_type = LTRJ_FILE;
-        break;
-      case 4:
-        *struct_type = LDATA_FILE;
-        break;
-      case 5:
-        *struct_type = FIELD_FILE;
-        break;
-      default: // something wrong; should never happen
-        return false;
-      }
-    }
-  } //}}}
-  // input coordinate file //{{{
-  ext = 4;
-  strcpy(extension[0], ".vcf");
-  strcpy(extension[1], ".vtf");
-  strcpy(extension[2], ".xyz");
-  strcpy(extension[3], ".lammpstrj");
-  ext = ErrorExtension(coor_file, ext, extension);
-  // define coordinate type and possibly vtf structure file
-  switch (ext) {
-  case 0:
-    *coor_type = VCF_FILE;
-    // copy to 'structure' with vsf ending, if 'structure' is empty
-    if (struct_file[0] == '\0') {
-      int last = -1;
-      for (int i = 0; i < strlen(coor_file); i++) {
-        if (coor_file[i] == '.') {
-          last = i;
-        }
-      }
-      strncpy(struct_file, coor_file, last);
-      strcat(struct_file, ".vsf");
-      *struct_type = VSF_FILE;
-    }
-    break;
-  case 1: // vtf full file
-    *coor_type = VCF_FILE;
-    // use also as a 'structure' file, if 'structure' is empty
-    if (struct_file[0] == '\0') {
-      strcpy(struct_file, coor_file);
-      *struct_type = VSF_FILE;
-    }
-    break;
-  case 2: // xyz
-    *coor_type = XYZ_FILE;
-    // use also as a 'structure' file, if 'structure' is empty
-    if (struct_file[0] == '\0') {
-      strcpy(struct_file, coor_file);
-      *struct_type = XYZ_FILE;
-    }
-    break;
-  case 3: // lammpstrj
-    *coor_type = LTRJ_FILE;
-    // use also as a 'structure' file, if 'structure' is empty
-    if (struct_file[0] == '\0') {
-      strcpy(struct_file, coor_file);
-      *struct_type = LTRJ_FILE;
-    }
-    break;
-  default: // something wrong; should never happen
-    return false;
-  } //}}}
-  return true;
-} //}}}
-
-
-
-
-
-
-
-// WrapJoinCoordinates() //{{{
-void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join) {
-  if (System->Box.Volume != -1 && (wrap || join)) {
-    // transform coordinates into fractional ones for non-orthogonal box
-    ToFractionalCoor(System);
-    if (wrap) { // wrap coordinates into the simulation box
-      RestorePBC(System);
-    }
-    if (join) { // join molecules by removing periodic boundary conditions
-      RemovePBCMolecules(System);
-    }
-    // transform back to 'normal' coordinates for non-orthogonal box
-    FromFractionalCoor(System);
-  }
-} //}}}
-
-// TODO: only by name?
-int FindBeadType(char name[], SYSTEM System) { //{{{
+// identify bead type based on name //{{{
+int FindBeadType(char name[], SYSTEM System) {
   int type;
   for (int i = 0; i < System.Count.BeadType; i++) {
     if (strcmp(name, System.BeadType[i].Name) == 0) {
@@ -818,7 +998,8 @@ int FindBeadType(char name[], SYSTEM System) { //{{{
   // name isn't in BeadType struct
   return -1;
 } //}}}
-int FindMoleculeName(char name[], SYSTEM System) { //{{{
+// identify molecule type based on name //{{{
+int FindMoleculeName(char name[], SYSTEM System) {
   int type = -1;
   for (int i = 0; i < System.Count.MoleculeType; i++) {
     if (strcmp(name, System.MoleculeType[i].Name) == 0) {
@@ -829,17 +1010,17 @@ int FindMoleculeName(char name[], SYSTEM System) { //{{{
   // name isn't in MoleculeType struct
   return type;
 } //}}}
-// FindMoleculeType() //{{{
+// identify molecule type based on name only or on other parameters too //{{{
 /*
  * If name==true, then find molecule type according to mode:
  *   0 - check nothing else
  *   1 - check number of beads
- *   2 - check number and identity of beads
+ *   2 - check number and types of beads
  *   3 - check everything
  * name = true/false for checking/ignoring molecule name
  */
-int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode,
-                     bool name) {
+int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2,
+                     int mode, bool name) {
   // just to be sure the function's mode parameter is correct //{{{
   if (mode < 0 || mode > 3) {
     strcpy(ERROR_MSG, "FindMoleculeType() - mode parameter must be <0,3>\n");
@@ -856,13 +1037,14 @@ int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode,
       }
       // check number of beads //{{{
       if (mt_1->nBeads != mt_2->nBeads) {
-        goto end_loop; // not continue to avoid break/continue combo later
+        goto end_loop; // not 'continue;' to avoid break/continue combo later
       } else if (mode == 1) {
         return i;
       } //}}}
       // check bead order //{{{
       for (int j = 0; j < mt_1->nBeads; j++) {
-        int bt_1 = mt_1->Bead[j], bt_2 = mt_2->Bead[j];
+        int bt_1 = mt_1->Bead[j],
+            bt_2 = mt_2->Bead[j];
         if (!SameBeadType(Sys1.BeadType[bt_1], Sys2.BeadType[bt_2])) {
           goto end_loop;
         }
@@ -912,548 +1094,8 @@ int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode,
   }
   return -1;
 } //}}}
-
-/*
- * TODO what about if the molecule has bonds, but is in more 'pieces'; should
- *      it really just try joining it 1000 times when we know it's impossible?
- *      There should be some check and then the separate pieces should be
- *      connected (with a warning issued).
- */
-// RemovePBCMolecules() //{{{
-/**
- * Function to remove periodic boundary conditions from all individual
- * molecules, thus joining them. The function requires orthogonal box, i.e.,
- * for triclinic box, the supplied coordinates must first be transformed.
- */
-void RemovePBCMolecules(SYSTEM *System) {
-  // go through all molecules
-  for (int i = 0; i < (*System).Count.Molecule; i++) {
-    int type = (*System).Molecule[i].Type;
-    // do nothing if the molecule has no bonds
-    if ((*System).MoleculeType[type].nBonds == 0) {
-      continue;
-    }
-    for (int j = 0; j < (*System).MoleculeType[type].nBeads; j++) {
-      int id = (*System).Molecule[i].Bead[j];
-      (*System).Bead[id].Flag = false; // no beads moved yet
-    }
-    // first bead in the first bond is considered moved
-    for (int j = 0; j < (*System).MoleculeType[type].nBonds; j++) {
-      int id1 = (*System).MoleculeType[type].Bond[j][0];
-      id1 = (*System).Molecule[i].Bead[id1];
-      int id2 = (*System).MoleculeType[type].Bond[j][1];
-      id2 = (*System).Molecule[i].Bead[id2];
-      if ((*System).Bead[id1].InTimestep && (*System).Bead[id2].InTimestep) {
-        (*System).Bead[id1].Flag = true;
-        break;
-      }
-    }
-    bool done = false;
-    int test = 0; // if too many loops, just leave the loop with error
-    while (!done && test < 1000) {
-      for (int j = 0; j < (*System).MoleculeType[type].nBonds; j++) {
-        int id1 = (*System).MoleculeType[type].Bond[j][0];
-        id1 = (*System).Molecule[i].Bead[id1];
-        int id2 = (*System).MoleculeType[type].Bond[j][1];
-        id2 = (*System).Molecule[i].Bead[id2];
-        if ((*System).Bead[id1].InTimestep && (*System).Bead[id2].InTimestep) {
-          // move id1, if id2 is moved already
-          if (!(*System).Bead[id1].Flag && (*System).Bead[id2].Flag) {
-            VECTOR dist =
-                Distance((*System).Bead[id2].Position,
-                         (*System).Bead[id1].Position, (*System).Box.Length);
-            (*System).Bead[id1].Position.x =
-                (*System).Bead[id2].Position.x - dist.x;
-            (*System).Bead[id1].Position.y =
-                (*System).Bead[id2].Position.y - dist.y;
-            (*System).Bead[id1].Position.z =
-                (*System).Bead[id2].Position.z - dist.z;
-            (*System).Bead[id1].Flag = true;
-            // move id2, if id1 was moved already
-          } else if ((*System).Bead[id1].Flag && !(*System).Bead[id2].Flag) {
-            VECTOR dist =
-                Distance((*System).Bead[id1].Position,
-                         (*System).Bead[id2].Position, (*System).Box.Length);
-            (*System).Bead[id2].Position.x =
-                (*System).Bead[id1].Position.x - dist.x;
-            (*System).Bead[id2].Position.y =
-                (*System).Bead[id1].Position.y - dist.y;
-            (*System).Bead[id2].Position.z =
-                (*System).Bead[id1].Position.z - dist.z;
-            (*System).Bead[id2].Flag = true;
-          }
-        }
-      }
-
-      // break while loop if all beads have moved
-      done = true;
-      for (int j = 1; j < (*System).MoleculeType[type].nBeads; j++) {
-        int id = (*System).Molecule[i].Bead[j];
-        if ((*System).Bead[id].InTimestep && !(*System).Bead[id].Flag) {
-          done = false;
-          break;
-        }
-      }
-      test++;
-    }
-    if (test == 1000) {
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "\nWarning: unable to 'join' molecule");
-      ColourChange(STDERR_FILENO, CYAN);
-      fprintf(stderr, "%s", (*System).MoleculeType[type].Name);
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, " (resid ");
-      ColourChange(STDERR_FILENO, CYAN);
-      fprintf(stderr, "%d", i + 1);
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, " )\n");
-      fprintf(stderr, "           Maybe not all beads are connected?\n");
-      ColourReset(STDERR_FILENO);
-    }
-
-    // put molecule's geometric centre into the simulation box //{{{
-    VECTOR cog = GeomCentre((*System).MoleculeType[type].nBeads,
-                            (*System).Molecule[i].Bead, (*System).Bead);
-    // by how many BoxLength's should cog be moved?
-    // for distant molecules - it shouldn't happen, but better safe than sorry
-    INTVECTOR move;
-    move.x = cog.x / (*System).Box.Length.x;
-    move.y = cog.y / (*System).Box.Length.y;
-    move.z = cog.z / (*System).Box.Length.z;
-    if (cog.x < 0) {
-      move.x--;
-    }
-    if (cog.y < 0) {
-      move.y--;
-    }
-    if (cog.z < 0) {
-      move.z--;
-    }
-    for (int j = 0; j < (*System).MoleculeType[type].nBeads; j++) {
-      int bead = (*System).Molecule[i].Bead[j];
-      (*System).Bead[bead].Position.x -= move.x * (*System).Box.Length.x;
-      (*System).Bead[bead].Position.y -= move.y * (*System).Box.Length.y;
-      (*System).Bead[bead].Position.z -= move.z * (*System).Box.Length.z;
-    } //}}}
-  }
-} //}}}
-// RestorePBC() //{{{
-/**
- * Function to restore removed periodic boundary conditions. Used also in case
- * of cell linked lists, because they need coordinates <0, BoxLength>.
- */
-void RestorePBC(SYSTEM *System) {
-  for (int i = 0; i < System->Count.BeadCoor; i++) {
-    int id = System->BeadCoor[i];
-    BEAD *bead = &System->Bead[id];
-    BOX *box = &System->Box;
-    // x direction
-    while (bead->Position.x >= box->Length.x) {
-      bead->Position.x -= box->Length.x;
-    }
-    while (bead->Position.x < 0) {
-      bead->Position.x += box->Length.x;
-    }
-    // y direction
-    while (bead->Position.y >= box->Length.y) {
-      bead->Position.y -= box->Length.y;
-    }
-    while (bead->Position.y < 0) {
-      bead->Position.y += box->Length.y;
-    }
-    // z direction
-    while (bead->Position.z >= box->Length.z) {
-      bead->Position.z -= box->Length.z;
-    }
-    while (bead->Position.z < 0) {
-      bead->Position.z += box->Length.z;
-    }
-  }
-} //}}}
-
-// Distance() //{{{
-/**
- * Function calculating distance vector between two beads. It removes
- * periodic boundary conditions and returns x, y, and z distances in the
- * range <-BoxLength/2, BoxLength/2).
- */
-VECTOR Distance(VECTOR id1, VECTOR id2, VECTOR BoxLength) {
-  // distance vector
-  VECTOR rij;
-  rij.x = id1.x - id2.x;
-  rij.y = id1.y - id2.y;
-  rij.z = id1.z - id2.z;
-  // remove periodic boundary conditions in x-direction
-  while (rij.x >= (BoxLength.x / 2))
-    rij.x = rij.x - BoxLength.x;
-  while (rij.x < -(BoxLength.x / 2))
-    rij.x = rij.x + BoxLength.x;
-  // in y-direction
-  while (rij.y >= (BoxLength.y / 2))
-    rij.y = rij.y - BoxLength.y;
-  while (rij.y < -(BoxLength.y / 2))
-    rij.y = rij.y + BoxLength.y;
-  // in z-direction
-  while (rij.z >= (BoxLength.z / 2))
-    rij.z = rij.z - BoxLength.z;
-  while (rij.z < -(BoxLength.z / 2))
-    rij.z = rij.z + BoxLength.z;
-  return rij;
-} //}}}
-// CentreOfMass() //{{{
-/**
- * Function to calculate centre of mass for a given list of beads.
- */
-// TODO: what if bead's mass is undefined? ...return warning 'nothing's
-// calculated'
-// TODO: change for (int n, int list[], SYSTEM *System)
-VECTOR CentreOfMass(int n, int *list, BEAD *Bead, BEADTYPE *BeadType) {
-  VECTOR com = {0, 0, 0};
-  double mass = 0;
-  for (int i = 0; i < n; i++) {
-    int id = list[i];
-    int btype = Bead[id].Type;
-    com.x += Bead[id].Position.x * BeadType[btype].Mass;
-    com.y += Bead[id].Position.y * BeadType[btype].Mass;
-    com.z += Bead[id].Position.z * BeadType[btype].Mass;
-    mass += BeadType[btype].Mass;
-  }
-  com.x /= mass;
-  com.y /= mass;
-  com.z /= mass;
-  return com;
-} //}}}
-// GeomCentre() //{{{
-/**
- * Function to calculate centre of mass for a given list of beads.
- */
-VECTOR GeomCentre(int n, int *list, BEAD *Bead) {
-  VECTOR cog = {0, 0, 0};
-  int count = 0;
-  for (int i = 0; i < n; i++) {
-    int id = list[i];
-    if (Bead[id].InTimestep) {
-      cog.x += Bead[id].Position.x;
-      cog.y += Bead[id].Position.y;
-      cog.z += Bead[id].Position.z;
-      count++;
-    }
-  }
-  cog.x /= count;
-  cog.y /= count;
-  cog.z /= count;
-  return cog;
-} //}}}
-// Gyration() //{{{
-/**
- * Function to calculate the principle moments of the gyration tensor.
- */
-// TODO: change to (int n, int list[], SYSTEM *System)
-VECTOR Gyration(int n, int *list, COUNTS Counts, BEADTYPE *BeadType,
-                BEAD **Bead) {
-  // gyration tensor (3x3 array)
-  // use long double to ensure precision -- previous problem with truncation in
-  // short chains
-  struct Tensor {
-    LONGVECTOR x, y, z;
-  } GyrationTensor = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
-
-  // TODO: shouldn't there be centre of mass?!?
-  VECTOR com = GeomCentre(n, list, *Bead);
-
-  // move centre of mass to [0,0,0] //{{{
-  for (int i = 0; i < n; i++) {
-    (*Bead)[list[i]].Position.x -= com.x;
-    (*Bead)[list[i]].Position.y -= com.y;
-    (*Bead)[list[i]].Position.z -= com.z;
-  } //}}}
-
-  // calculate gyration tensor //{{{
-  for (int i = 0; i < n; i++) {
-    int id = list[i];
-    GyrationTensor.x.x += Bead[id]->Position.x * Bead[id]->Position.x;
-    GyrationTensor.x.y += Bead[id]->Position.x * Bead[id]->Position.y;
-    GyrationTensor.x.z += Bead[id]->Position.x * Bead[id]->Position.z;
-    GyrationTensor.y.y += Bead[id]->Position.y * Bead[id]->Position.y;
-    GyrationTensor.y.z += Bead[id]->Position.y * Bead[id]->Position.z;
-    GyrationTensor.z.z += Bead[id]->Position.z * Bead[id]->Position.z;
-  }
-  GyrationTensor.x.x /= n;
-  GyrationTensor.x.y /= n;
-  GyrationTensor.x.z /= n;
-  GyrationTensor.y.y /= n;
-  GyrationTensor.y.z /= n;
-  GyrationTensor.z.z /= n; //}}}
-
-  // characteristic polynomial:
-  // a_cube * x^3 + b_cube * x^2 + c_cube * x + d_cube = 0
-  long double a_cube = -1;
-  long double b_cube =
-      GyrationTensor.x.x + GyrationTensor.y.y + GyrationTensor.z.z;
-  long double c_cube = -GyrationTensor.x.x * GyrationTensor.y.y -
-                       GyrationTensor.x.x * GyrationTensor.z.z -
-                       GyrationTensor.y.y * GyrationTensor.z.z +
-                       SQR(GyrationTensor.y.z) + SQR(GyrationTensor.x.y) +
-                       SQR(GyrationTensor.x.z);
-  long double d_cube =
-      +GyrationTensor.x.x * GyrationTensor.y.y * GyrationTensor.z.z +
-      2 * GyrationTensor.x.y * GyrationTensor.y.z * GyrationTensor.x.z -
-      SQR(GyrationTensor.x.z) * GyrationTensor.y.y -
-      SQR(GyrationTensor.x.y) * GyrationTensor.z.z -
-      SQR(GyrationTensor.y.z) * GyrationTensor.x.x;
-
-  // first root: either 0 or Newton's iterative method to get it //{{{
-  long double root0 = 0;
-  if (fabsl(d_cube) > 0.0000000001L) {
-    // derivative of char. polynomial: a_deriv * x^2 + b_deriv * x + c_deriv
-    long double a_deriv = 3 * a_cube;
-    long double b_deriv = 2 * b_cube;
-    long double c_deriv = c_cube;
-
-    long double root1 = 1;
-
-    while (fabsl(root0 - root1) > 0.0000000001L) {
-      long double f_root0 = (a_cube * CUBE(root0) + b_cube * SQR(root0) +
-                             c_cube * root0 + d_cube);
-      long double f_deriv_root0 =
-          (a_deriv * SQR(root0) + b_deriv * root0 + c_deriv);
-      root1 = root0 - f_root0 / f_deriv_root0;
-
-      // swap root0 and root1 for the next iteration
-      long double tmp = root0;
-      root0 = root1;
-      root1 = tmp;
-    }
-  } //}}}
-
-  // find parameters of a quadratic equation a_quad*x^2+b_quad*x+c_quad=0 //{{{
-  /*
-   * derived by division:
-   * (x^3+(b_cube/a_cube)*x^2+(c_cube/a_cube)*x+(d_cube/a_cube)):(x-root0)
-   */
-  long double a_quad = 1;
-  long double b_quad = b_cube / a_cube + root0;
-  long double c_quad =
-      SQR(root0) + b_cube / a_cube * root0 + c_cube / a_cube; //}}}
-  // calculate & sort eigenvalues //{{{
-  LONGVECTOR eigen;
-  eigen.x = root0; // found out by Newton's method
-  // roots of the quadratic equation
-  eigen.y = (-b_quad + sqrt(SQR(b_quad) - 4 * a_quad * c_quad)) / (2 * a_quad);
-  eigen.z = (-b_quad - sqrt(SQR(b_quad) - 4 * a_quad * c_quad)) / (2 * a_quad);
-
-  VECTOR eigen2; // change LONGVECTOR to VECTOR
-  eigen2.x = eigen.x;
-  eigen2.y = eigen.y;
-  eigen2.z = eigen.z;
-  eigen2 = SortVector(eigen2); //}}}
-
-  return eigen2;
-} //}}}
-
-// LinkedList() //{{{
-void LinkedList(VECTOR BoxLength, COUNTS Counts, BEAD *Bead, int **Head,
-                int **Link, double cell_size, INTVECTOR *n_cells, int *Dcx,
-                int *Dcy, int *Dcz) {
-  n_cells->x = ceil(BoxLength.x / cell_size),
-  n_cells->y = ceil(BoxLength.y / cell_size),
-  n_cells->z = ceil(BoxLength.z / cell_size);
-  // allocate arrays
-  *Head = malloc(sizeof **Head * n_cells->x * n_cells->y * n_cells->z);
-  *Link = malloc(sizeof **Link * Counts.BeadsCoor);
-  for (int i = 0; i < (n_cells->x * n_cells->y * n_cells->z); i++) {
-    (*Head)[i] = -1;
-  }
-  // sort beads into cells
-  for (int i = 0; i < Counts.BeadsCoor; i++) {
-    int cell = (int)(Bead[i].Position.x / cell_size) +
-               (int)(Bead[i].Position.y / cell_size) * n_cells->x +
-               (int)(Bead[i].Position.z / cell_size) * n_cells->x * n_cells->y;
-    (*Link)[i] = (*Head)[cell];
-    (*Head)[cell] = i;
-  }
-  // coordinates of adjoining cells
-  int x[14] = {0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1};
-  int y[14] = {0, 0, 1, 1, 1, -1, -1, -1, 0, 0, 0, 1, 1, 1};
-  int z[14] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-  for (int i = 0; i < 14; i++) {
-    Dcx[i] = x[i];
-    Dcy[i] = y[i];
-    Dcz[i] = z[i];
-  }
-} //}}}
-
-// manipulate SYSTEM structure //{{{
-// CopySystem() //{{{
-// Assumes unallocated SYSTEM.
-SYSTEM CopySystem(SYSTEM S_in) {
-  SYSTEM S_out;
-  InitSystem(&S_out);
-  S_out.Box = S_in.Box;
-  if (S_in.Count.Bead > 0) {
-    S_out.Count = S_in.Count;
-    // BeadType //{{{
-    if (S_out.Count.BeadType > 0) {
-      S_out.BeadType = realloc(S_out.BeadType,
-                               sizeof *S_out.BeadType * S_out.Count.BeadType);
-      for (int i = 0; i < S_out.Count.BeadType; i++) {
-        S_out.BeadType[i] = S_in.BeadType[i];
-        if (S_out.BeadType[i].Number > 0) {
-          S_out.BeadType[i].Index = malloc(sizeof *S_out.BeadType[i].Index *
-                                           S_out.BeadType[i].Number);
-          for (int j = 0; j < S_out.BeadType[i].Number; j++) {
-            S_out.BeadType[i].Index[j] = S_in.BeadType[i].Index[j];
-          }
-        }
-      }
-    } else {
-      strcpy(ERROR_MSG, "no bead types to copy; should never happen!");
-      PrintWarning();
-      return S_out;
-    } //}}}
-    // Bead & BeadCoor //{{{
-    S_out.Bead = realloc(S_out.Bead, sizeof(BEAD) * S_out.Count.Bead);
-    S_out.BeadCoor =
-        realloc(S_out.BeadCoor, sizeof *S_out.BeadCoor * S_out.Count.Bead);
-    memcpy(S_out.Bead, S_in.Bead, sizeof(BEAD) * S_in.Count.Bead);
-    memcpy(S_out.BeadCoor, S_in.BeadCoor,
-           sizeof *S_in.BeadCoor * S_in.Count.Bead); //}}}
-    // Bonded & BondedCoor //{{{
-    if (S_out.Count.Bonded > 0) {
-      S_out.Bonded =
-          realloc(S_out.Bonded, sizeof *S_out.Bonded * S_out.Count.Bonded);
-      S_out.BondedCoor = realloc(S_out.BondedCoor,
-                                 sizeof *S_out.BondedCoor * S_out.Count.Bonded);
-      memcpy(S_out.Bonded, S_in.Bonded,
-             sizeof *S_in.Bonded * S_in.Count.Bonded);
-      memcpy(S_out.BondedCoor, S_in.BondedCoor,
-             sizeof *S_in.BondedCoor * S_in.Count.Bonded);
-    } //}}}
-    // Unbonded & UnbondedCoor //{{{
-    if (S_out.Count.Unbonded > 0) {
-      S_out.Unbonded = realloc(S_out.Unbonded,
-                               sizeof *S_out.Unbonded * S_out.Count.Unbonded);
-      S_out.UnbondedCoor =
-          realloc(S_out.UnbondedCoor,
-                  sizeof *S_out.UnbondedCoor * S_out.Count.Unbonded);
-      memcpy(S_out.Unbonded, S_in.Unbonded,
-             sizeof *S_in.Unbonded * S_in.Count.Unbonded);
-      memcpy(S_out.UnbondedCoor, S_in.UnbondedCoor,
-             sizeof *S_in.UnbondedCoor * S_in.Count.Unbonded);
-    } //}}}
-    // MoleculeType //{{{
-    if (S_out.Count.MoleculeType > 0) {
-      S_out.MoleculeType = realloc(
-          S_out.MoleculeType, sizeof(MOLECULETYPE) * S_out.Count.MoleculeType);
-      for (int i = 0; i < S_out.Count.MoleculeType; i++) {
-        S_out.MoleculeType[i] = CopyMoleculeType(S_in.MoleculeType[i]);
-      }
-    } //}}}
-    // Molecule & Index_mol //{{{
-    if (S_out.Count.Molecule > 0) {
-      S_out.Molecule =
-          realloc(S_out.Molecule, sizeof(MOLECULE) * S_out.Count.Molecule);
-      for (int i = 0; i < S_out.Count.Molecule; i++) {
-        S_out.Molecule[i] = S_in.Molecule[i];
-        // Molecule[].Bead array
-        int type = S_out.Molecule[i].Type;
-        if (S_out.MoleculeType[type].nBeads > 0) {
-          S_out.Molecule[i].Bead = malloc(sizeof *S_out.Molecule[i].Bead *
-                                          S_out.MoleculeType[type].nBeads);
-          memcpy(S_out.Molecule[i].Bead, S_in.Molecule[i].Bead,
-                 sizeof *S_in.Molecule[i].Bead *
-                     S_in.MoleculeType[type].nBeads);
-        }
-      }
-      // Index_mol
-      S_out.Index_mol = realloc(S_out.Index_mol,
-                                sizeof *S_out.Index_mol * S_out.Count.Molecule);
-      memcpy(S_out.Index_mol, S_in.Index_mol,
-             sizeof *S_in.Index_mol * S_in.Count.Molecule);
-    } //}}}
-    // BondType //{{{
-    if (S_out.Count.BondType > 0) {
-      S_out.BondType =
-          realloc(S_out.BondType, sizeof(PARAMS) * S_out.Count.BondType);
-      memcpy(S_out.BondType, S_in.BondType,
-             sizeof(PARAMS) * S_in.Count.BondType);
-    } //}}}
-    // AngleType //{{{
-    if (S_out.Count.AngleType > 0) {
-      S_out.AngleType =
-          realloc(S_out.AngleType, sizeof(PARAMS) * S_out.Count.AngleType);
-      memcpy(S_out.AngleType, S_in.AngleType,
-             sizeof(PARAMS) * S_in.Count.AngleType);
-    } //}}}
-    // DihedralType //{{{
-    if (S_out.Count.DihedralType > 0) {
-      S_out.DihedralType = realloc(S_out.DihedralType,
-                                   sizeof(PARAMS) * S_out.Count.DihedralType);
-      memcpy(S_out.DihedralType, S_in.DihedralType,
-             sizeof(PARAMS) * S_in.Count.DihedralType);
-    } //}}}
-    // ImproperType //{{{
-    if (S_out.Count.ImproperType > 0) {
-      S_out.ImproperType = realloc(S_out.ImproperType,
-                                   sizeof(PARAMS) * S_out.Count.ImproperType);
-      memcpy(S_out.ImproperType, S_in.ImproperType,
-             sizeof(PARAMS) * S_in.Count.ImproperType);
-    } //}}}
-  }
-  return S_out;
-} //}}}
-MOLECULETYPE CopyMoleculeType(MOLECULETYPE mt_old) { //{{{
-  MOLECULETYPE mt_new = CopyMoleculeTypeEssentials(mt_old);
-  // MoleculeType[].Index array
-  mt_new.Index = malloc(sizeof *mt_new.Index * mt_new.Number);
-  memcpy(mt_new.Index, mt_old.Index, sizeof *mt_old.Index * mt_old.Number);
-  // MoleculeType[].BType array
-  if (mt_new.nBTypes > 0) {
-    mt_new.BType = malloc(sizeof *mt_new.BType * mt_new.nBTypes);
-    memcpy(mt_new.BType, mt_old.BType, sizeof *mt_old.BType * mt_old.nBTypes);
-  }
-  return mt_new;
-} //}}}
-MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old) { //{{{
-  MOLECULETYPE mt_new;
-  mt_new = mt_old;
-  // MoleculeType[].Bead array
-  if (mt_new.nBeads > 0) {
-    mt_new.Bead = malloc(sizeof *mt_new.Bead * mt_new.nBeads);
-    memcpy(mt_new.Bead, mt_old.Bead, sizeof *mt_old.Bead * mt_old.nBeads);
-  } else {
-    // should never happen
-    strcpy(ERROR_MSG, "molecule type without beads");
-    PrintWarning();
-    fprintf(stderr, "%sMolecule %s%s%s\n\n", ErrCyan(), ErrYellow(),
-            mt_new.Name, ErrColourReset());
-  }
-  // MoleculeType[].Bond array
-  if (mt_new.nBonds > 0) {
-    mt_new.Bond = malloc(sizeof *mt_new.Bond * mt_new.nBonds);
-    memcpy(mt_new.Bond, mt_old.Bond, sizeof *mt_old.Bond * mt_old.nBonds);
-  }
-  // MoleculeType[].Angle array
-  if (mt_new.nAngles > 0) {
-    mt_new.Angle = malloc(sizeof *mt_new.Angle * mt_new.nAngles);
-    memcpy(mt_new.Angle, mt_old.Angle, sizeof *mt_old.Angle * mt_old.nAngles);
-  }
-  // MoleculeType[].Dihedral array
-  if (mt_new.nDihedrals > 0) {
-    mt_new.Dihedral = malloc(sizeof *mt_new.Dihedral * mt_new.nDihedrals);
-    memcpy(mt_new.Dihedral, mt_old.Dihedral,
-           sizeof *mt_old.Dihedral * mt_old.nDihedrals);
-  }
-  // MoleculeType[].Improper array
-  if (mt_new.nImpropers > 0) {
-    mt_new.Improper = malloc(sizeof *mt_new.Improper * mt_new.nImpropers);
-    memcpy(mt_new.Improper, mt_old.Improper,
-           sizeof *mt_old.Improper * mt_old.nImpropers);
-  }
-  return mt_new;
-} //}}}
-
-void PruneSystem(SYSTEM *System) { //{{{
+// cleanse System by removing molecule/bead types with .Number=0, etc. //{{{
+void PruneSystem(SYSTEM *System) {
   SYSTEM S_old = CopySystem(*System);
   FreeSystem(System);
   InitSystem(System);
@@ -1904,13 +1546,63 @@ void PruneSystem(SYSTEM *System) { //{{{
   free(b_id_old_to_new);
   free(bt_old_to_new);
 } //}}}
-// ConcatenateSystems() //{{{
+// copy molecule type //{{{
+MOLECULETYPE CopyMoleculeType(MOLECULETYPE mt_old) { //{{{
+  MOLECULETYPE mt_new = CopyMoleculeTypeEssentials(mt_old);
+  // MoleculeType[].Index array
+  mt_new.Index = malloc(sizeof *mt_new.Index * mt_new.Number);
+  memcpy(mt_new.Index, mt_old.Index, sizeof *mt_old.Index * mt_old.Number);
+  // MoleculeType[].BType array
+  if (mt_new.nBTypes > 0) {
+    mt_new.BType = malloc(sizeof *mt_new.BType * mt_new.nBTypes);
+    memcpy(mt_new.BType, mt_old.BType, sizeof *mt_old.BType * mt_old.nBTypes);
+  }
+  return mt_new;
+} //}}}
+MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old) { //{{{
+  MOLECULETYPE mt_new;
+  mt_new = mt_old;
+  // MoleculeType[].Bead array
+  if (mt_new.nBeads > 0) {
+    mt_new.Bead = malloc(sizeof *mt_new.Bead * mt_new.nBeads);
+    memcpy(mt_new.Bead, mt_old.Bead, sizeof *mt_old.Bead * mt_old.nBeads);
+  } else {
+    // should never happen
+    strcpy(ERROR_MSG, "molecule type without beads");
+    PrintWarning();
+    fprintf(stderr, "%sMolecule %s%s%s\n\n", ErrCyan(), ErrYellow(),
+            mt_new.Name, ErrColourReset());
+  }
+  // MoleculeType[].Bond array
+  if (mt_new.nBonds > 0) {
+    mt_new.Bond = malloc(sizeof *mt_new.Bond * mt_new.nBonds);
+    memcpy(mt_new.Bond, mt_old.Bond, sizeof *mt_old.Bond * mt_old.nBonds);
+  }
+  // MoleculeType[].Angle array
+  if (mt_new.nAngles > 0) {
+    mt_new.Angle = malloc(sizeof *mt_new.Angle * mt_new.nAngles);
+    memcpy(mt_new.Angle, mt_old.Angle, sizeof *mt_old.Angle * mt_old.nAngles);
+  }
+  // MoleculeType[].Dihedral array
+  if (mt_new.nDihedrals > 0) {
+    mt_new.Dihedral = malloc(sizeof *mt_new.Dihedral * mt_new.nDihedrals);
+    memcpy(mt_new.Dihedral, mt_old.Dihedral,
+           sizeof *mt_old.Dihedral * mt_old.nDihedrals);
+  }
+  // MoleculeType[].Improper array
+  if (mt_new.nImpropers > 0) {
+    mt_new.Improper = malloc(sizeof *mt_new.Improper * mt_new.nImpropers);
+    memcpy(mt_new.Improper, mt_old.Improper,
+           sizeof *mt_old.Improper * mt_old.nImpropers);
+  }
+  return mt_new;
+} //}}}
+ //}}}
+// concatenateSystems() //{{{
 /*
  * Assumes S_out needs reallocating memory to accommodate S_in.
  */
 // TODO: some warning about S_in being empty
-// TODO: bond/angle/dihedral types - in Bead[].Bond/Angle/Dihedral, the type
-//       must change if S_out and S_in contain types (akin to molecule types)
 void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
   COUNT Count_old = S_out->Count; // copy the original COUNT
   COUNT *Count_out = &S_out->Count, *Count_in = &S_in.Count;
@@ -2019,22 +1711,40 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
       for (int j = 0; j < mt_out->nBeads; j++) {
         mt_out->Bead[j] = mt_in->Bead[j] + Count_old.BeadType;
       }
-      // MoleculeType[].Bond // TODO + Count_old.BondType (like BType)
+      // MoleculeType[].Bond
       if (mt_out->nBonds > 0) {
         mt_out->Bond = calloc(mt_out->nBonds, sizeof *mt_out->Bond);
         memcpy(mt_out->Bond, mt_in->Bond, sizeof *mt_in->Bond * mt_in->nBonds);
+        for (int j = 0; j < mt_out->nBonds; j++) {
+          mt_out->Bond[j][2] += Count_old.BondType;
+        }
       }
-      // MoleculeType[].Angle // TODO + Count_old.AngleType (like BType)
+      // MoleculeType[].Angle
       if (mt_out->nAngles > 0) {
         mt_out->Angle = calloc(mt_out->nAngles, sizeof *mt_out->Angle);
         memcpy(mt_out->Angle, mt_in->Angle,
                sizeof *mt_in->Angle * mt_in->nAngles);
+        for (int j = 0; j < mt_out->nAngles; j++) {
+          mt_out->Angle[j][3] += Count_old.AngleType;
+        }
       }
-      // MoleculeType[].Dihedral // TODO + Count_old.DihedralType (like BType)
+      // MoleculeType[].Dihedral
       if (mt_out->nDihedrals > 0) {
         mt_out->Dihedral = calloc(mt_out->nDihedrals, sizeof *mt_out->Dihedral);
         memcpy(mt_out->Dihedral, mt_in->Dihedral,
                sizeof *mt_in->Dihedral * mt_in->nDihedrals);
+        for (int j = 0; j < mt_out->nDihedrals; j++) {
+          mt_out->Dihedral[j][4] += Count_old.DihedralType;
+        }
+      }
+      // MoleculeType[].Improper
+      if (mt_out->nImpropers > 0) {
+        mt_out->Improper = calloc(mt_out->nImpropers, sizeof *mt_out->Improper);
+        memcpy(mt_out->Improper, mt_in->Improper,
+               sizeof *mt_in->Improper * mt_in->nImpropers);
+        for (int j = 0; j < mt_out->nImpropers; j++) {
+          mt_out->Improper[j][4] += Count_old.ImproperType;
+        }
       }
       // MoleculeType[].BType
       mt_out->BType = calloc(mt_out->nBTypes, sizeof *mt_out->BType);
@@ -2080,8 +1790,8 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
   // BondType //{{{
   if (Count_in->BondType > 0) {
     Count_out->BondType += Count_in->BondType;
-    S_out->BondType =
-        realloc(S_out->BondType, sizeof *S_out->BondType * Count_out->BondType);
+    S_out->BondType = realloc(S_out->BondType,
+                              sizeof *S_out->BondType * Count_out->BondType);
     memcpy(S_out->BondType + Count_old.BondType, S_in.BondType,
            sizeof *S_out->BondType * Count_out->BondType);
   } //}}}
@@ -2096,17 +1806,27 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
   // DihedralType //{{{
   if (Count_in->DihedralType > 0) {
     Count_out->DihedralType += Count_in->DihedralType;
-    S_out->DihedralType =
-        realloc(S_out->DihedralType,
-                sizeof *S_out->DihedralType * Count_out->DihedralType);
+    S_out->DihedralType = realloc(S_out->DihedralType,
+                                  sizeof *S_out->DihedralType *
+                                  Count_out->DihedralType);
     memcpy(S_out->DihedralType + Count_old.DihedralType, S_in.DihedralType,
            sizeof *S_out->DihedralType * Count_out->DihedralType);
   } //}}}
+  // ImproperType //{{{
+  if (Count_in->ImproperType > 0) {
+    Count_out->ImproperType += Count_in->ImproperType;
+    S_out->ImproperType = realloc(S_out->ImproperType,
+                                  sizeof *S_out->ImproperType *
+                                  Count_out->ImproperType);
+    memcpy(S_out->ImproperType + Count_old.ImproperType, S_in.ImproperType,
+           sizeof *S_out->ImproperType * Count_out->ImproperType);
+  } //}}}
 } //}}}
-void CheckSystem(SYSTEM System, char file[]) { //{{{
+// TODO: split CheckSystem to CheckCount, CheckBeadType, etc.
+// check that the System struct doesn't contain an error //{{{
+void CheckSystem(SYSTEM System, char file[]) {
   COUNT *Count = &System.Count;
-  if (Count->Molecule > 0 &&
-      Count->Molecule > (Count->HighestResid + 1)) { //{{{
+  if (Count->Molecule > 0 && Count->Molecule > (Count->HighestResid + 1)) { //{{{
     strcpy(ERROR_MSG, "Count.HighestResid is lower than Count.Molecules");
     PrintError();
     ErrorPrintFile(file, "\0", "\0");
@@ -2450,9 +2170,231 @@ void CheckSystem(SYSTEM System, char file[]) { //{{{
   }
   free(test); //}}}
 } //}}}
-  //}}}
 
-// verbose output (print various structures and some such) //{{{
+// Helper functions for manipulating coordinates
+// wrap coordinates into simulation box and/or join molecules //{{{
+void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join) {
+  if (System->Box.Volume != -1 && (wrap || join)) {
+    // transform coordinates into fractional ones for non-orthogonal box
+    ToFractionalCoor(System);
+    if (wrap) { // wrap coordinates into the simulation box
+      RestorePBC(System);
+    }
+    if (join) { // join molecules by removing periodic boundary conditions
+      RemovePBCMolecules(System);
+    }
+    // transform back to 'normal' coordinates for non-orthogonal box
+    FromFractionalCoor(System);
+  }
+} //}}}
+// distance between two beads; in the range <-BoxLength/2,BoxLength/2) //{{{
+VECTOR Distance(VECTOR id1, VECTOR id2, VECTOR BoxLength) {
+  // distance vector
+  VECTOR rij;
+  rij.x = id1.x - id2.x;
+  rij.y = id1.y - id2.y;
+  rij.z = id1.z - id2.z;
+  // remove periodic boundary conditions in x-direction
+  while (rij.x >= (BoxLength.x / 2))
+    rij.x = rij.x - BoxLength.x;
+  while (rij.x < -(BoxLength.x / 2))
+    rij.x = rij.x + BoxLength.x;
+  // in y-direction
+  while (rij.y >= (BoxLength.y / 2))
+    rij.y = rij.y - BoxLength.y;
+  while (rij.y < -(BoxLength.y / 2))
+    rij.y = rij.y + BoxLength.y;
+  // in z-direction
+  while (rij.z >= (BoxLength.z / 2))
+    rij.z = rij.z - BoxLength.z;
+  while (rij.z < -(BoxLength.z / 2))
+    rij.z = rij.z + BoxLength.z;
+  return rij;
+} //}}}
+
+// identify input coordinate and structure files //{{{
+bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
+                     char struct_file[], int *struct_type) {
+  int ext;
+  char extension[6][EXTENSION];
+  // input structure file (-i option) //{{{
+  if (FileOption(argc, argv, "-i", struct_file, LINE)) {
+    exit(1);
+  }
+  if (struct_file[0] != '\0') { // -i option is present
+    if (strcasecmp(struct_file, "FIELD") == 0) {
+      *struct_type = FIELD_FILE;
+    } else {
+      ext = 6;
+      strcpy(extension[0], ".vsf");
+      strcpy(extension[1], ".vtf");
+      strcpy(extension[2], ".xyz");
+      strcpy(extension[3], ".lammpstrj");
+      strcpy(extension[4], ".data");
+      strcpy(extension[5], ".field");
+      ext = ErrorExtension(struct_file, ext, extension);
+      switch (ext) {
+      case 0:
+        *struct_type = VSF_FILE;
+        break;
+      case 1:
+        *struct_type = VSF_FILE;
+        break;
+      case 2:
+        *struct_type = XYZ_FILE;
+        break;
+      case 3:
+        *struct_type = LTRJ_FILE;
+        break;
+      case 4:
+        *struct_type = LDATA_FILE;
+        break;
+      case 5:
+        *struct_type = FIELD_FILE;
+        break;
+      default: // something wrong; should never happen
+        return false;
+      }
+    }
+  } //}}}
+  // input coordinate file //{{{
+  ext = 4;
+  strcpy(extension[0], ".vcf");
+  strcpy(extension[1], ".vtf");
+  strcpy(extension[2], ".xyz");
+  strcpy(extension[3], ".lammpstrj");
+  ext = ErrorExtension(coor_file, ext, extension);
+  // define coordinate type and possibly vtf structure file
+  switch (ext) {
+  case 0:
+    *coor_type = VCF_FILE;
+    // copy to 'structure' with vsf ending, if 'structure' is empty
+    if (struct_file[0] == '\0') {
+      int last = -1;
+      for (int i = 0; i < strlen(coor_file); i++) {
+        if (coor_file[i] == '.') {
+          last = i;
+        }
+      }
+      strncpy(struct_file, coor_file, last);
+      strcat(struct_file, ".vsf");
+      *struct_type = VSF_FILE;
+    }
+    break;
+  case 1: // vtf full file
+    *coor_type = VCF_FILE;
+    // use also as a 'structure' file, if 'structure' is empty
+    if (struct_file[0] == '\0') {
+      strcpy(struct_file, coor_file);
+      *struct_type = VSF_FILE;
+    }
+    break;
+  case 2: // xyz
+    *coor_type = XYZ_FILE;
+    // use also as a 'structure' file, if 'structure' is empty
+    if (struct_file[0] == '\0') {
+      strcpy(struct_file, coor_file);
+      *struct_type = XYZ_FILE;
+    }
+    break;
+  case 3: // lammpstrj
+    *coor_type = LTRJ_FILE;
+    // use also as a 'structure' file, if 'structure' is empty
+    if (struct_file[0] == '\0') {
+      strcpy(struct_file, coor_file);
+      *struct_type = LTRJ_FILE;
+    }
+    break;
+  default: // something wrong; should never happen
+    return false;
+  } //}}}
+  return true;
+} //}}}
+
+// create a cell-linked list //{{{
+void LinkedList(VECTOR BoxLength, COUNTS Counts, BEAD *Bead, int **Head,
+                int **Link, double cell_size, INTVECTOR *n_cells, int *Dcx,
+                int *Dcy, int *Dcz) {
+  n_cells->x = ceil(BoxLength.x / cell_size),
+  n_cells->y = ceil(BoxLength.y / cell_size),
+  n_cells->z = ceil(BoxLength.z / cell_size);
+  // allocate arrays
+  *Head = malloc(sizeof **Head * n_cells->x * n_cells->y * n_cells->z);
+  *Link = malloc(sizeof **Link * Counts.BeadsCoor);
+  for (int i = 0; i < (n_cells->x * n_cells->y * n_cells->z); i++) {
+    (*Head)[i] = -1;
+  }
+  // sort beads into cells
+  for (int i = 0; i < Counts.BeadsCoor; i++) {
+    int cell = (int)(Bead[i].Position.x / cell_size) +
+               (int)(Bead[i].Position.y / cell_size) * n_cells->x +
+               (int)(Bead[i].Position.z / cell_size) * n_cells->x * n_cells->y;
+    (*Link)[i] = (*Head)[cell];
+    (*Head)[cell] = i;
+  }
+  // coordinates of adjoining cells
+  int x[14] = {0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1};
+  int y[14] = {0, 0, 1, 1, 1, -1, -1, -1, 0, 0, 0, 1, 1, 1};
+  int z[14] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  for (int i = 0; i < 14; i++) {
+    Dcx[i] = x[i];
+    Dcy[i] = y[i];
+    Dcz[i] = z[i];
+  }
+} //}}}
+
+// memory-freeing functions
+void FreeSystem(SYSTEM *System) { //{{{
+  free(System->Index_mol);
+  free(System->BeadCoor);
+  free(System->Bonded);
+  free(System->BondedCoor);
+  free(System->Unbonded);
+  free(System->UnbondedCoor);
+  free(System->Bead);
+  for (int i = 0; i < System->Count.BeadType; i++) {
+    if (System->BeadType[i].Number > 0) {
+      free(System->BeadType[i].Index);
+    }
+  }
+  free(System->BeadType);
+  for (int i = 0; i < System->Count.Molecule; i++) {
+    free(System->Molecule[i].Bead);
+  }
+  free(System->Molecule);
+  for (int i = 0; i < System->Count.MoleculeType; i++) {
+    FreeMoleculeType(&System->MoleculeType[i]);
+  }
+  free(System->MoleculeType);
+  free(System->BondType);
+  free(System->AngleType);
+  free(System->DihedralType);
+  free(System->ImproperType);
+};                                                  //}}}
+void FreeMoleculeType(MOLECULETYPE *MoleculeType) { //{{{
+  FreeMoleculeTypeEssentials(MoleculeType);
+  if (MoleculeType->nBTypes > 0) {
+    free(MoleculeType->BType);
+  }
+  free(MoleculeType->Index);
+} //}}}
+void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) { //{{{
+  free(MoleculeType->Bead);
+  if (MoleculeType->nBonds > 0) {
+    free(MoleculeType->Bond);
+  }
+  if (MoleculeType->nAngles > 0) {
+    free(MoleculeType->Angle);
+  }
+  if (MoleculeType->nDihedrals > 0) {
+    free(MoleculeType->Dihedral);
+  }
+  if (MoleculeType->nImpropers > 0) {
+    free(MoleculeType->Improper);
+  }
+} //}}}
+
+// verbose output (print various structures and some such)
 void VerboseOutput(SYSTEM System) { //{{{
   PrintCount(System.Count);
   PrintBeadType(System);
@@ -2871,62 +2813,112 @@ void PrintByline(FILE *ptr, int argc, char *argv[]) { //{{{
   fprintf(ptr, "# command: ");
   PrintCommand(ptr, argc, argv);
 } //}}}
-  //}}}
 
-// memory-freeing functions //{{{
-void FreeSystem(SYSTEM *System) { //{{{
-  free(System->Index_mol);
-  free(System->BeadCoor);
-  free(System->Bonded);
-  free(System->BondedCoor);
-  free(System->Unbonded);
-  free(System->UnbondedCoor);
-  free(System->Bead);
-  for (int i = 0; i < System->Count.BeadType; i++) {
-    if (System->BeadType[i].Number > 0) {
-      free(System->BeadType[i].Index);
+// TODO: use Jacobi method
+// calculate gyration tensor and various shape descriptors //{{{
+VECTOR Gyration(int n, int *list, COUNTS Counts, BEADTYPE *BeadType,
+                BEAD **Bead) {
+  // gyration tensor (3x3 array)
+  // use long double to ensure precision -- previous problem with truncation in
+  // short chains
+  struct Tensor {
+    LONGVECTOR x, y, z;
+  } GyrationTensor = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+
+  VECTOR cog = GeomCentre(n, list, *Bead);
+
+  // move centre of mass to [0,0,0] //{{{
+  for (int i = 0; i < n; i++) {
+    (*Bead)[list[i]].Position.x -= cog.x;
+    (*Bead)[list[i]].Position.y -= cog.y;
+    (*Bead)[list[i]].Position.z -= cog.z;
+  } //}}}
+
+  // calculate gyration tensor //{{{
+  for (int i = 0; i < n; i++) {
+    int id = list[i];
+    GyrationTensor.x.x += Bead[id]->Position.x * Bead[id]->Position.x;
+    GyrationTensor.x.y += Bead[id]->Position.x * Bead[id]->Position.y;
+    GyrationTensor.x.z += Bead[id]->Position.x * Bead[id]->Position.z;
+    GyrationTensor.y.y += Bead[id]->Position.y * Bead[id]->Position.y;
+    GyrationTensor.y.z += Bead[id]->Position.y * Bead[id]->Position.z;
+    GyrationTensor.z.z += Bead[id]->Position.z * Bead[id]->Position.z;
+  }
+  GyrationTensor.x.x /= n;
+  GyrationTensor.x.y /= n;
+  GyrationTensor.x.z /= n;
+  GyrationTensor.y.y /= n;
+  GyrationTensor.y.z /= n;
+  GyrationTensor.z.z /= n; //}}}
+
+  // characteristic polynomial:
+  // a_cube * x^3 + b_cube * x^2 + c_cube * x + d_cube = 0
+  long double a_cube = -1;
+  long double b_cube =
+      GyrationTensor.x.x + GyrationTensor.y.y + GyrationTensor.z.z;
+  long double c_cube = -GyrationTensor.x.x * GyrationTensor.y.y -
+                       GyrationTensor.x.x * GyrationTensor.z.z -
+                       GyrationTensor.y.y * GyrationTensor.z.z +
+                       SQR(GyrationTensor.y.z) + SQR(GyrationTensor.x.y) +
+                       SQR(GyrationTensor.x.z);
+  long double d_cube =
+      +GyrationTensor.x.x * GyrationTensor.y.y * GyrationTensor.z.z +
+      2 * GyrationTensor.x.y * GyrationTensor.y.z * GyrationTensor.x.z -
+      SQR(GyrationTensor.x.z) * GyrationTensor.y.y -
+      SQR(GyrationTensor.x.y) * GyrationTensor.z.z -
+      SQR(GyrationTensor.y.z) * GyrationTensor.x.x;
+
+  // first root: either 0 or Newton's iterative method to get it //{{{
+  long double root0 = 0;
+  if (fabsl(d_cube) > 0.0000000001L) {
+    // derivative of char. polynomial: a_deriv * x^2 + b_deriv * x + c_deriv
+    long double a_deriv = 3 * a_cube;
+    long double b_deriv = 2 * b_cube;
+    long double c_deriv = c_cube;
+
+    long double root1 = 1;
+
+    while (fabsl(root0 - root1) > 0.0000000001L) {
+      long double f_root0 = (a_cube * CUBE(root0) + b_cube * SQR(root0) +
+                             c_cube * root0 + d_cube);
+      long double f_deriv_root0 =
+          (a_deriv * SQR(root0) + b_deriv * root0 + c_deriv);
+      root1 = root0 - f_root0 / f_deriv_root0;
+
+      // swap root0 and root1 for the next iteration
+      long double tmp = root0;
+      root0 = root1;
+      root1 = tmp;
     }
-  }
-  free(System->BeadType);
-  for (int i = 0; i < System->Count.Molecule; i++) {
-    free(System->Molecule[i].Bead);
-  }
-  free(System->Molecule);
-  for (int i = 0; i < System->Count.MoleculeType; i++) {
-    FreeMoleculeType(&System->MoleculeType[i]);
-  }
-  free(System->MoleculeType);
-  free(System->BondType);
-  free(System->AngleType);
-  free(System->DihedralType);
-  free(System->ImproperType);
-};                                                  //}}}
-void FreeMoleculeType(MOLECULETYPE *MoleculeType) { //{{{
-  FreeMoleculeTypeEssentials(MoleculeType);
-  if (MoleculeType->nBTypes > 0) {
-    free(MoleculeType->BType);
-  }
-  free(MoleculeType->Index);
+  } //}}}
+
+  // find parameters of a quadratic equation a_quad*x^2+b_quad*x+c_quad=0 //{{{
+  /*
+   * derived by division:
+   * (x^3+(b_cube/a_cube)*x^2+(c_cube/a_cube)*x+(d_cube/a_cube)):(x-root0)
+   */
+  long double a_quad = 1;
+  long double b_quad = b_cube / a_cube + root0;
+  long double c_quad =
+      SQR(root0) + b_cube / a_cube * root0 + c_cube / a_cube; //}}}
+  // calculate & sort eigenvalues //{{{
+  LONGVECTOR eigen;
+  eigen.x = root0; // found out by Newton's method
+  // roots of the quadratic equation
+  eigen.y = (-b_quad + sqrt(SQR(b_quad) - 4 * a_quad * c_quad)) / (2 * a_quad);
+  eigen.z = (-b_quad - sqrt(SQR(b_quad) - 4 * a_quad * c_quad)) / (2 * a_quad);
+
+  VECTOR eigen2; // change LONGVECTOR to VECTOR
+  eigen2.x = eigen.x;
+  eigen2.y = eigen.y;
+  eigen2.z = eigen.z;
+  eigen2 = SortVector(eigen2); //}}}
+
+  return eigen2;
 } //}}}
-void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) { //{{{
-  free(MoleculeType->Bead);
-  if (MoleculeType->nBonds > 0) {
-    free(MoleculeType->Bond);
-  }
-  if (MoleculeType->nAngles > 0) {
-    free(MoleculeType->Angle);
-  }
-  if (MoleculeType->nDihedrals > 0) {
-    free(MoleculeType->Dihedral);
-  }
-  if (MoleculeType->nImpropers > 0) {
-    free(MoleculeType->Improper);
-  }
-} //}}}
-  //}}}
 
 #if 0  //{{{
-// TODO exchange Molecule[].Aggregate for something else
+// TODO redo
 // EvaluateContacts() //{{{
 /**
  * Function evaluating contacts for aggregate detection for Aggregate and
@@ -3025,7 +3017,72 @@ void EvaluateContacts(COUNTS *Counts, AGGREGATE **Aggregate,
     (*Counts).Aggregates++;
   } //}}}
 } //}}}
-// TODO redo
+// SortAggStruct() //{{{
+/**
+ * Sort an Aggregate struct using the bubble sort algorithm. The resulting
+ * struct is arranged so that aggregates with the first molecule's lower id
+ * come first.
+ */
+void SortAggStruct(AGGREGATE **Aggregate, COUNTS Counts,
+                   MOLECULE *Molecule, MOLECULETYPE *MoleculeType,
+                   BEAD **Bead, BEADTYPE *BeadType) {
+  for (int i = 0; i < (Counts.Aggregates-1); i++) {
+    bool done = true;
+    for (int j = 0; j < (Counts.Aggregates-i-1); j++) {
+      if ((*Aggregate)[j].Molecule[0] > (*Aggregate)[j+1].Molecule[0]) {
+        SwapInt(&(*Aggregate)[j].nMolecules, &(*Aggregate)[j+1].nMolecules);
+        // switch the whole Aggregate[].Molecule array
+        int mols; // number of molecules in the larger aggregate
+        if ((*Aggregate)[j].nMolecules > (*Aggregate)[j+1].nMolecules) {
+          mols = (*Aggregate)[j].nMolecules;
+        } else {
+          mols = (*Aggregate)[j+1].nMolecules;
+        }
+        for (int k = 0; k < mols; k++) {
+          SwapInt(&(*Aggregate)[j].Molecule[k], &(*Aggregate)[j+1].Molecule[k]);
+        }
+        // switch bonded beads array
+        SwapInt(&(*Aggregate)[j].nBeads, &(*Aggregate)[j+1].nBeads);
+        int beads; // number of beads in the larger aggregate
+        if ((*Aggregate)[j].nBeads > (*Aggregate)[j+1].nBeads) {
+          beads = (*Aggregate)[j].nBeads;
+        } else {
+          beads = (*Aggregate)[j+1].nBeads;
+        }
+        for (int k = 0; k < beads; k++) {
+          SwapInt(&(*Aggregate)[j].Bead[k], &(*Aggregate)[j+1].Bead[k]);
+        }
+        // switch monomer beads array
+        SwapInt(&(*Aggregate)[j].nMonomers, &(*Aggregate)[j+1].nMonomers);
+        int mons; // larger number of monomers of the two aggregates
+        if ((*Aggregate)[j].nMonomers > (*Aggregate)[j+1].nMonomers) {
+          mons = (*Aggregate)[j].nMonomers;
+        } else {
+          mons = (*Aggregate)[j+1].nMonomers;
+        }
+        for (int k = 0; k < mons; k++) {
+          SwapInt(&(*Aggregate)[j].Monomer[k], &(*Aggregate)[j+1].Monomer[k]);
+        }
+        done = false;
+      }
+    }
+    if (done)
+      break;
+  }
+
+  // re-assign aggregate id to every bonded bead in the aggregate, correcting after sorting //{{{
+  for (int i = 0; i < Counts.Aggregates; i++) {
+    for (int j = 0; j < (*Aggregate)[i].nMolecules; j++) {
+      int mol = (*Aggregate)[i].Molecule[j];
+      int mtype = Molecule[mol].Type;
+      for (int k = 0; k < MoleculeType[mtype].nBeads; k++) {
+//      int id = Molecule[mol].Bead[k];
+//      (*Bead)[id].nAggregates = 1;
+//      (*Bead)[id].Aggregatexxx[0] = i;
+      }
+    }
+  } //}}}
+} //}}}
 // RemovePBCAggregates() //{{{
 /**
  * Function to remove periodic boundary conditions from all aggregates,
@@ -3192,85 +3249,6 @@ void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNTS Counts,
     }
   } //}}}
 } //}}}
-// FreeAggregate() //{{{
-/**
- * Free memory allocated for Aggregate struct array. This function makes it
- * easier other arrays to the Aggregate struct in the future
- */
-void FreeAggregate(COUNTS Counts, AGGREGATE **Aggregate) {
-  for (int i = 0; i < Counts.Molecules; i++) {
-    free((*Aggregate)[i].Molecule);
-    free((*Aggregate)[i].Bead);
-    free((*Aggregate)[i].Monomer);
-  }
-  free(*Aggregate);
-} //}}}
-// SortAggStruct() //{{{
-/**
- * Sort an Aggregate struct using the bubble sort algorithm. The resulting
- * struct is arranged so that aggregates with the first molecule's lower id
- * come first.
- */
-void SortAggStruct(AGGREGATE **Aggregate, COUNTS Counts,
-                   MOLECULE *Molecule, MOLECULETYPE *MoleculeType,
-                   BEAD **Bead, BEADTYPE *BeadType) {
-  for (int i = 0; i < (Counts.Aggregates-1); i++) {
-    bool done = true;
-    for (int j = 0; j < (Counts.Aggregates-i-1); j++) {
-      if ((*Aggregate)[j].Molecule[0] > (*Aggregate)[j+1].Molecule[0]) {
-        SwapInt(&(*Aggregate)[j].nMolecules, &(*Aggregate)[j+1].nMolecules);
-        // switch the whole Aggregate[].Molecule array
-        int mols; // number of molecules in the larger aggregate
-        if ((*Aggregate)[j].nMolecules > (*Aggregate)[j+1].nMolecules) {
-          mols = (*Aggregate)[j].nMolecules;
-        } else {
-          mols = (*Aggregate)[j+1].nMolecules;
-        }
-        for (int k = 0; k < mols; k++) {
-          SwapInt(&(*Aggregate)[j].Molecule[k], &(*Aggregate)[j+1].Molecule[k]);
-        }
-        // switch bonded beads array
-        SwapInt(&(*Aggregate)[j].nBeads, &(*Aggregate)[j+1].nBeads);
-        int beads; // number of beads in the larger aggregate
-        if ((*Aggregate)[j].nBeads > (*Aggregate)[j+1].nBeads) {
-          beads = (*Aggregate)[j].nBeads;
-        } else {
-          beads = (*Aggregate)[j+1].nBeads;
-        }
-        for (int k = 0; k < beads; k++) {
-          SwapInt(&(*Aggregate)[j].Bead[k], &(*Aggregate)[j+1].Bead[k]);
-        }
-        // switch monomer beads array
-        SwapInt(&(*Aggregate)[j].nMonomers, &(*Aggregate)[j+1].nMonomers);
-        int mons; // larger number of monomers of the two aggregates
-        if ((*Aggregate)[j].nMonomers > (*Aggregate)[j+1].nMonomers) {
-          mons = (*Aggregate)[j].nMonomers;
-        } else {
-          mons = (*Aggregate)[j+1].nMonomers;
-        }
-        for (int k = 0; k < mons; k++) {
-          SwapInt(&(*Aggregate)[j].Monomer[k], &(*Aggregate)[j+1].Monomer[k]);
-        }
-        done = false;
-      }
-    }
-    if (done)
-      break;
-  }
-
-  // re-assign aggregate id to every bonded bead in the aggregate, correcting after sorting //{{{
-  for (int i = 0; i < Counts.Aggregates; i++) {
-    for (int j = 0; j < (*Aggregate)[i].nMolecules; j++) {
-      int mol = (*Aggregate)[i].Molecule[j];
-      int mtype = Molecule[mol].Type;
-      for (int k = 0; k < MoleculeType[mtype].nBeads; k++) {
-//      int id = Molecule[mol].Bead[k];
-//      (*Bead)[id].nAggregates = 1;
-//      (*Bead)[id].Aggregatexxx[0] = i;
-      }
-    }
-  } //}}}
-} //}}}
 // PrintAggregate() //{{{
 /**
  * Function printing Aggregate structure.
@@ -3315,5 +3293,18 @@ void PrintAggregate(COUNTS Counts, int *Index,
       }
     }
   }
+} //}}}
+// FreeAggregate() //{{{
+/**
+ * Free memory allocated for Aggregate struct array. This function makes it
+ * easier other arrays to the Aggregate struct in the future
+ */
+void FreeAggregate(COUNTS Counts, AGGREGATE **Aggregate) {
+  for (int i = 0; i < Counts.Molecules; i++) {
+    free((*Aggregate)[i].Molecule);
+    free((*Aggregate)[i].Bead);
+    free((*Aggregate)[i].Monomer);
+  }
+  free(*Aggregate);
 } //}}}
 #endif //}}}

@@ -4803,7 +4803,6 @@ SYSTEM ReadStructure(int struct_type, char struct_file[],
   }
   return System;
 } //}}} //}}}
-
 /*
  * Read a single timestep from the provided coordinate file.
  */ //{{{
