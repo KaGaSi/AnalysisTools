@@ -323,9 +323,6 @@ int main(int argc, char *argv[]) {
   bool vtf_coor_var = false;
   int start_id = -1; // for lammpstrj file
   if (coor_file[0] != '\0') {
-    // if (coor_type == LTRJ_FILE) {
-    //   start_id = LtrjLowIndex(coor_file);
-    // }
     int file_line_count = 0;
     FILE *fr = OpenFile(coor_file, "r");
     for (int i = 0; i < timestep; i++) {

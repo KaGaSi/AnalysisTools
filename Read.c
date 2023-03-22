@@ -2440,6 +2440,7 @@ int VtfReadNumberOfBeads(char file[]) { //{{{
     line_count++;
     nbeads++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      fclose(fr);
       return nbeads;
     }
     ltype = VtfCheckLineType(file, line_count);
