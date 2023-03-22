@@ -82,11 +82,6 @@ void LinkedList(VECTOR BoxLength, COUNTS Counts, BEAD *Bead, int **Head,
                 int **Link, double cell_size, INTVECTOR *n_cells, int *Dcx,
                 int *Dcy, int *Dcz);
 
-// memory-freeing functions
-void FreeSystem(SYSTEM *System);
-void FreeMoleculeType(MOLECULETYPE *MoleculeType);
-void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType);
-
 // verbose output (print various structures and some such)
 void VerboseOutput(SYSTEM System);
 void PrintCount(COUNT Count);
@@ -108,6 +103,11 @@ void PrintByline(FILE *ptr, int argc, char *argv[]);
 // calculate gyration tensor and various shape descriptors
 VECTOR Gyration(int n, int *list, COUNTS Counts, BEADTYPE *BeadType,
                 BEAD **Bead);
+
+// memory-freeing functions
+void FreeSystem(SYSTEM *System);
+void FreeMoleculeType(MOLECULETYPE *MoleculeType);
+void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType);
 
 #if 0 //{{{
 // TODO redo

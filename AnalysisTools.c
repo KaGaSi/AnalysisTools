@@ -679,12 +679,12 @@ int *DihedralIndices(SYSTEM System, int mol, int dihed) { //{{{
   } //}}}
   return index;
 } //}}}
-int *ImproperIndices(SYSTEM System, int mol, int dihed) { //{{{
+int *ImproperIndices(SYSTEM System, int mol, int improper) { //{{{
   static int index[8]; // first are 'real' ids, then the intramolecular ones
   int n = 4, type = System.Molecule[mol].Type;
   // intramolecular is
   for (int i = 0; i < n; i++) {
-    index[i + n] = System.MoleculeType[type].Improper[dihed][i];
+    index[i + n] = System.MoleculeType[type].Improper[improper][i];
   }
   // error if wrong intramolecular id //{{{
   bool err = false;
@@ -695,14 +695,14 @@ int *ImproperIndices(SYSTEM System, int mol, int dihed) { //{{{
     }
   }
   if (err) {
-    strcpy(ERROR_MSG, "wrong index in an dihedral; should never happen!");
+    strcpy(ERROR_MSG, "wrong index in an improper; should never happen!");
     PrintError();
     fprintf(stderr, "%sMolecule %s%d%s (%s%s%s with %s%d%s beads),", ErrRed(),
             ErrYellow(), mol, ErrRed(), ErrYellow(),
             System.MoleculeType[type].Name, ErrRed(), ErrYellow(),
             System.MoleculeType[type].nBeads, ErrRed());
-    fprintf(stderr, " intramolecular indices in dihedral %s%d%s:%s",
-            ErrYellow(), dihed, ErrRed(), ErrYellow());
+    fprintf(stderr, " intramolecular indices in improper %s%d%s:%s",
+            ErrYellow(), improper, ErrRed(), ErrYellow());
     for (int i = 0; i < n; i++) {
       fprintf(stderr, " %d", index[i + n]);
     }
@@ -720,11 +720,11 @@ int *ImproperIndices(SYSTEM System, int mol, int dihed) { //{{{
     }
   }
   if (err) {
-    strcpy(ERROR_MSG, "wrong index in a dihedral; should never happen!");
+    strcpy(ERROR_MSG, "wrong index in a improper; should never happen!");
     PrintError();
     fprintf(stderr, "%sMolecule %s%d%s (%s%s%s),", ErrRed(), ErrYellow(), mol,
             ErrRed(), ErrYellow(), System.MoleculeType[type].Name, ErrRed());
-    fprintf(stderr, " indices in dihedral %s%d%s:%s", ErrYellow(), dihed,
+    fprintf(stderr, " indices in improper %s%d%s:%s", ErrYellow(), improper,
             ErrRed(), ErrYellow());
     for (int i = 0; i < n; i++) {
       fprintf(stderr, " %d", index[i]);
@@ -1211,8 +1211,7 @@ void PruneSystem(SYSTEM *System) {
       if (mt_old->nAngles > 0) {
         mt_old_new.Angle = malloc(sizeof *mt_old_new.Angle * mt_old->nAngles);
         for (int j = 0; j < mt_old->nAngles; j++) {
-          int id1 = mt_old->Angle[j][0],
-              id2 = mt_old->Angle[j][1],
+          int id1 = mt_old->Angle[j][0], id2 = mt_old->Angle[j][1],
               id3 = mt_old->Angle[j][2];
           id1 = b_old_to_old_new[id1];
           id2 = b_old_to_old_new[id2];
@@ -1230,13 +1229,11 @@ void PruneSystem(SYSTEM *System) {
       // copy dihedrals to the mt_old_new molecule type
       count = 0;
       if (mt_old->nDihedrals > 0) {
-        mt_old_new.Dihedral = malloc(sizeof *mt_old_new.Dihedral *
-                                     mt_old->nDihedrals);
+        mt_old_new.Dihedral =
+            malloc(sizeof *mt_old_new.Dihedral * mt_old->nDihedrals);
         for (int j = 0; j < mt_old->nDihedrals; j++) {
-          int id1 = mt_old->Dihedral[j][0],
-              id2 = mt_old->Dihedral[j][1],
-              id3 = mt_old->Dihedral[j][2],
-              id4 = mt_old->Dihedral[j][3];
+          int id1 = mt_old->Dihedral[j][0], id2 = mt_old->Dihedral[j][1],
+              id3 = mt_old->Dihedral[j][2], id4 = mt_old->Dihedral[j][3];
           id1 = b_old_to_old_new[id1];
           id2 = b_old_to_old_new[id2];
           id3 = b_old_to_old_new[id3];
@@ -1252,16 +1249,14 @@ void PruneSystem(SYSTEM *System) {
         }
       }
       mt_old_new.nDihedrals = count;
-      // copy dihedrals to the mt_old_new molecule type
+      // copy impropers to the mt_old_new molecule type
       count = 0;
       if (mt_old->nImpropers > 0) {
-        mt_old_new.Improper = malloc(sizeof *mt_old_new.Improper *
-                                     mt_old->nImpropers);
+        mt_old_new.Improper =
+            malloc(sizeof *mt_old_new.Improper * mt_old->nImpropers);
         for (int j = 0; j < mt_old->nImpropers; j++) {
-          int id1 = mt_old->Improper[j][0],
-              id2 = mt_old->Improper[j][1],
-              id3 = mt_old->Improper[j][2],
-              id4 = mt_old->Improper[j][3];
+          int id1 = mt_old->Improper[j][0], id2 = mt_old->Improper[j][1],
+              id3 = mt_old->Improper[j][2], id4 = mt_old->Improper[j][3];
           id1 = b_old_to_old_new[id1];
           id2 = b_old_to_old_new[id2];
           id3 = b_old_to_old_new[id3];
@@ -1280,8 +1275,8 @@ void PruneSystem(SYSTEM *System) {
 
       int new_id = Count->Molecule;
       Count->Molecule++;
-      System->Molecule = realloc(System->Molecule, sizeof(MOLECULE) *
-                                 Count->Molecule);
+      System->Molecule =
+          realloc(System->Molecule, sizeof(MOLECULE) * Count->Molecule);
       MOLECULE *mol_new = &System->Molecule[new_id];
       *mol_new = *mol_old;
       mol_new->Bead = calloc(c_bead, sizeof *mol_new->Bead);
@@ -1305,8 +1300,8 @@ void PruneSystem(SYSTEM *System) {
         mol_new->Type = new_type;
         System->MoleculeType[new_type].Number++;
       } else { // no, it isn't; create a new one
-        int new_new_type = Count->MoleculeType,
-            c_bond = 0, c_angle = 0, c_dihedral = 0, c_improper = 0;
+        int new_new_type = Count->MoleculeType, c_bond = 0, c_angle = 0,
+            c_dihedral = 0, c_improper = 0;
         // count bonds in the pruned molecule type //{{{
         for (int j = 0; j < mt_old->nBonds; j++) {
           int *id = BondIndices(S_old, i, j);
@@ -1429,7 +1424,6 @@ void PruneSystem(SYSTEM *System) {
   if (Count_old->BondType > 0) {
     Count->BondType = 0;
     int *type_old_to_new = calloc(Count_old->BondType, sizeof *type_old_to_new);
-    // printf("%d\n", Count_old->BondType);
     for (int i = 0; i < Count->MoleculeType; i++) {
       MOLECULETYPE *mt_i = &System->MoleculeType[i];
       for (int j = 0; j < mt_i->nBonds; j++) {
@@ -2371,57 +2365,6 @@ void LinkedList(VECTOR BoxLength, COUNTS Counts, BEAD *Bead, int **Head,
   }
 } //}}}
 
-// memory-freeing functions
-void FreeSystem(SYSTEM *System) { //{{{
-  free(System->Index_mol);
-  free(System->BeadCoor);
-  free(System->Bonded);
-  free(System->BondedCoor);
-  free(System->Unbonded);
-  free(System->UnbondedCoor);
-  free(System->Bead);
-  for (int i = 0; i < System->Count.BeadType; i++) {
-    if (System->BeadType[i].Number > 0) {
-      free(System->BeadType[i].Index);
-    }
-  }
-  free(System->BeadType);
-  for (int i = 0; i < System->Count.Molecule; i++) {
-    free(System->Molecule[i].Bead);
-  }
-  free(System->Molecule);
-  for (int i = 0; i < System->Count.MoleculeType; i++) {
-    FreeMoleculeType(&System->MoleculeType[i]);
-  }
-  free(System->MoleculeType);
-  free(System->BondType);
-  free(System->AngleType);
-  free(System->DihedralType);
-  free(System->ImproperType);
-};                                                  //}}}
-void FreeMoleculeType(MOLECULETYPE *MoleculeType) { //{{{
-  FreeMoleculeTypeEssentials(MoleculeType);
-  if (MoleculeType->nBTypes > 0) {
-    free(MoleculeType->BType);
-  }
-  free(MoleculeType->Index);
-} //}}}
-void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) { //{{{
-  free(MoleculeType->Bead);
-  if (MoleculeType->nBonds > 0) {
-    free(MoleculeType->Bond);
-  }
-  if (MoleculeType->nAngles > 0) {
-    free(MoleculeType->Angle);
-  }
-  if (MoleculeType->nDihedrals > 0) {
-    free(MoleculeType->Dihedral);
-  }
-  if (MoleculeType->nImpropers > 0) {
-    free(MoleculeType->Improper);
-  }
-} //}}}
-
 // verbose output (print various structures and some such)
 void VerboseOutput(SYSTEM System) { //{{{
   PrintCount(System.Count);
@@ -2944,6 +2887,57 @@ VECTOR Gyration(int n, int *list, COUNTS Counts, BEADTYPE *BeadType,
   eigen2 = SortVector(eigen2); //}}}
 
   return eigen2;
+} //}}}
+
+// memory-freeing functions
+void FreeSystem(SYSTEM *System) { //{{{
+  free(System->Index_mol);
+  free(System->BeadCoor);
+  free(System->Bonded);
+  free(System->BondedCoor);
+  free(System->Unbonded);
+  free(System->UnbondedCoor);
+  free(System->Bead);
+  for (int i = 0; i < System->Count.BeadType; i++) {
+    if (System->BeadType[i].Number > 0) {
+      free(System->BeadType[i].Index);
+    }
+  }
+  free(System->BeadType);
+  for (int i = 0; i < System->Count.Molecule; i++) {
+    free(System->Molecule[i].Bead);
+  }
+  free(System->Molecule);
+  for (int i = 0; i < System->Count.MoleculeType; i++) {
+    FreeMoleculeType(&System->MoleculeType[i]);
+  }
+  free(System->MoleculeType);
+  free(System->BondType);
+  free(System->AngleType);
+  free(System->DihedralType);
+  free(System->ImproperType);
+};                                                  //}}}
+void FreeMoleculeType(MOLECULETYPE *MoleculeType) { //{{{
+  FreeMoleculeTypeEssentials(MoleculeType);
+  if (MoleculeType->nBTypes > 0) {
+    free(MoleculeType->BType);
+  }
+  free(MoleculeType->Index);
+} //}}}
+void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) { //{{{
+  free(MoleculeType->Bead);
+  if (MoleculeType->nBonds > 0) {
+    free(MoleculeType->Bond);
+  }
+  if (MoleculeType->nAngles > 0) {
+    free(MoleculeType->Angle);
+  }
+  if (MoleculeType->nDihedrals > 0) {
+    free(MoleculeType->Dihedral);
+  }
+  if (MoleculeType->nImpropers > 0) {
+    free(MoleculeType->Improper);
+  }
 } //}}}
 
 #if 0  //{{{

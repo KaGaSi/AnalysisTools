@@ -20,8 +20,7 @@ containing all beads of any given type, so the usefulness is very limited \
   fprintf(ptr, "Usage:\n");
   fprintf(ptr, "   %s <input> <output> <bead(s)> [options]\n\n", cmd);
 
-  fprintf(ptr, "   <input>           input coordinate file \
-(vcf, vtf or xyz format)\n");
+  fprintf(ptr, "   <input>           input coordinate file\n");
   fprintf(ptr, "   <output.vcf>      output coordinate file (vcf format)\n");
   fprintf(ptr, "   <bead(s)>         names of bead types to save"
           " (optional if '--reverse' used)\n");
@@ -30,17 +29,25 @@ containing all beads of any given type, so the usefulness is very limited \
           " specified bead types (use all if no <bead names> are present)\n");
   fprintf(ptr, "      --join         join molecules (remove pbc)\n");
   fprintf(ptr, "      --wrap         wrap coordinates (i.e., apply pbc)\n");
-  fprintf(ptr, "      -st <int>      starting timestep for calculation\n");
-  fprintf(ptr, "      -e <end>       ending timestep for calculation\n");
-  fprintf(ptr, "      -sk <skip>     leave out every 'skip' steps\n");
   fprintf(ptr, "      -n <int(s)>    save only specified timesteps"
-          "(if --last option is used, save also the last timestep)\n");
+          "(--last overrides this option)\n");
   fprintf(ptr, "      -x <name(s)>   exclude specified molecule(s)\n");
   fprintf(ptr, "      --last         use only the last step"
           "(-st/-e/-n options are ignored)\n");
-  fprintf(ptr, "      -pbc <int>         position of pbc in xyz file's comment"
-          " line (of the first number)\n");
-  CommonHelp(error);
+  int common = 11;
+  char option[common][OPT_LENGTH];
+  strcpy(option[ 0], "-st");
+  strcpy(option[ 1], "-e");
+  strcpy(option[ 2], "-sk");
+  strcpy(option[ 3], "-i");
+  strcpy(option[ 4], "--variable");
+  strcpy(option[ 5], "--detailed");
+  strcpy(option[ 6], "-pbc");
+  strcpy(option[ 7], "-v");
+  strcpy(option[ 8], "--silent");
+  strcpy(option[ 9], "-h");
+  strcpy(option[10], "--version");
+  CommonHelp(error, common, option);
 } //}}}
 
 int main(int argc, char *argv[]) {
@@ -120,28 +127,14 @@ int main(int argc, char *argv[]) {
     exit(1);
   } //}}}
 
-  // options before reading system data //{{{
+  // options before reading system data
   bool silent, verbose, detailed, vtf_var_coor;
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var_coor);
-  int skip = 0;
-  if (IntegerOption(argc, argv, "-sk", &skip)) {
-    exit(1);
-  }
-  skip++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
+  int start = 1, end = -1, skip = 0, pbc_xyz = -1;
+  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var_coor,
+                &pbc_xyz, &start, &end, &skip);
   bool join = BoolOption(argc, argv, "--join");
   bool wrap = BoolOption(argc, argv, "--wrap");
-  int start = 1, end = -1;
-  StartEndTime(argc, argv, &start, &end);
   bool last = BoolOption(argc, argv, "--last");
-  // position of the first number of pbc in xyz file
-  int pbc_xyz = -1;
-  if (IntegerOption(argc, argv, "-pbc", &pbc_xyz)) {
-    exit(1);
-  }
-  if (pbc_xyz == 0) {
-    strcpy(ERROR_MSG, "position must be a positive number");
-    PrintErrorOption("-pbc");
-  } //}}}
 
   if (!silent) {
     PrintCommand(stdout, argc, argv);
@@ -214,18 +207,21 @@ int main(int argc, char *argv[]) {
 
   // main loop //{{{
   FILE *coor = OpenFile(coor_file, "r");
-  // tfile pointers for finding the last valid step
-  fpos_t *position = calloc(1e6, sizeof *position);
-  int n_opt_count = 0,         // count saved steps if -n option is used
-      count_coor = 0,          // count steps in the vcf file
-      count_saved = 0,         // count steps in output file
-      file_line_count = 0,     // count lines in the vcf file
-      *bkp_line_count = calloc(1e6, sizeof *bkp_line_count);      // save line count at fgetpos()
+  // file pointers for finding the last valid step
+  fpos_t *position = calloc(1, sizeof *position);
+  // save line count at every fgetpos()
+  int *bkp_line_count = calloc(1, sizeof *bkp_line_count);
+  int n_opt_count = 0,    // count saved steps if -n option is used
+      count_coor = 0,     // count steps in the vcf file
+      count_saved = 0,    // count steps in output file
+      line_count = 0;     // count lines in the vcf file
   while (true) {
     count_coor++;
     position = realloc(position, count_coor * sizeof *position);
     fgetpos(coor, &position[count_coor-1]);
-    bkp_line_count[count_coor-1] = file_line_count;
+    bkp_line_count = realloc(bkp_line_count, count_coor *
+                             sizeof *bkp_line_count);
+    bkp_line_count[count_coor-1] = line_count;
     // print step info? //{{{
     if (!silent && isatty(STDOUT_FILENO)) {
       if (last) {
@@ -262,7 +258,7 @@ int main(int argc, char *argv[]) {
       n_opt_count++;
     } //}}}
     if (use) { // read and write the timestep, if it should be saved //{{{
-      if (!ReadTimestep(coor_type, coor, coor_file, &System, &file_line_count,
+      if (!ReadTimestep(coor_type, coor, coor_file, &System, &line_count,
                         ltrj_start_id, vtf_var_coor)) {
         count_coor--;
         break;
@@ -273,7 +269,7 @@ int main(int argc, char *argv[]) {
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
       if (!SkipTimestep(coor_type, coor, coor_file,
-                        struct_file, &file_line_count)) {
+                        struct_file, &line_count)) {
         count_coor--;
         break;
       }
@@ -300,8 +296,8 @@ int main(int argc, char *argv[]) {
      */
     for (int i = (count_coor); i >= 0; i--) {
       fsetpos(coor, &position[i]);
-      file_line_count = bkp_line_count[i];
-      if (ReadTimestep(coor_type, coor, coor_file, &System, &file_line_count,
+      line_count = bkp_line_count[i];
+      if (ReadTimestep(coor_type, coor, coor_file, &System, &line_count,
                        ltrj_start_id, vtf_var_coor)) {
         count_saved++;
         WrapJoinCoordinates(&System, wrap, join);

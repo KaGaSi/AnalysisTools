@@ -32,22 +32,25 @@ If some information required for the given output file type is missing, \
   fprintf(ptr, "   [options]\n");
   fprintf(ptr, "    input files:\n");
   fprintf(ptr, "      -i[!] <file>       secondary structure file\n");
-  fprintf(ptr, "      --detailed         differentiate bead types"
-          " not just by names (works only with vtf structure file)\n");
   fprintf(ptr, "      -c <file>          input coordinate file\n");
-  fprintf(ptr, "      -st <int>          what timestep to use;"
-          " default: 1; for last, use '0' (works with -x_in or -vc_in)\n");
   fprintf(ptr, "    output files:\n");
   fprintf(ptr, "      -o <file>          output structure file\n");
-  fprintf(ptr, "      -def <bead name>   default bead type"
-          " (works with vsf output file)\n");
-  fprintf(ptr, "      --mass             define lammps atom types by mass, but"
-          " print per-atom charges in Atoms section (works with data file)\n");
-  fprintf(ptr, "      -pbc <int>         position of pbc in xyz file's comment"
-          " line (of the first number)\n");
-  fprintf(ptr, "      -v                 more verbose output\n");
-  fprintf(ptr, "      -h                 print this help and exit\n");
-  fprintf(ptr, "      --version          print version and exit\n");
+  fprintf(ptr, "      -def <bead name>   default bead type "
+          "(output vtf structure file only)\n");
+  fprintf(ptr, "      --mass             define lammps atom types by mass, but "
+          "print per-atom charges in Atoms section (lammps data file)\n");
+  putc('\n', ptr);
+  int common = 8;
+  char option[common][OPT_LENGTH];
+  strcpy(option[0], "-st");
+  strcpy(option[1], "--detailed");
+  strcpy(option[2], "--variable");
+  strcpy(option[3], "-pbc");
+  strcpy(option[4], "-v");
+  strcpy(option[5], "--silent");
+  strcpy(option[6], "-h");
+  strcpy(option[7], "--version");
+  CommonHelp(error, common, option);
 } //}}}
 
 int main(int argc, char *argv[]) {
@@ -255,25 +258,10 @@ int main(int argc, char *argv[]) {
       }
     }
   } //}}}
-  // timestep to use coordinates from (-st option) //{{{
-  int timestep = 1;
-  if (IntegerOption(argc, argv, "-st", &timestep)) {
-    exit(1);
-  }
-  timestep--; //}}}
-  bool detailed = BoolOption(argc, argv, "--detailed");
-  // vtf timesteps with variable number of beads
-  bool vtf_var_coor = BoolOption(argc, argv, "--variable");
-  bool verbose = BoolOption(argc, argv, "-v");
-  // position of the first number of pbc in xyz file //{{{
-  int pbc_xyz = -1;
-  if (IntegerOption(argc, argv, "-pbc", &pbc_xyz)) {
-    exit(1);
-  }
-  if (pbc_xyz == 0) {
-    strcpy(ERROR_MSG, "position must be a positive number");
-    PrintErrorOption("-pbc");
-  } //}}}
+  bool silent, verbose, detailed, vtf_var_coor;
+  int timestep = 1, pbc_xyz = -1, trash = 0;
+  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var_coor,
+                &pbc_xyz, &timestep, &trash, &trash);
 
   // read information from input file(s) //{{{
   int ltrj_start_id = -1;

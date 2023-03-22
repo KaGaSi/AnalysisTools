@@ -1,54 +1,12 @@
 #include "Options.h"
 
-// TODO: make the bool Functions() into ints - -1 for option not present; 0 for
-//       present; 1 for error. Then, use switch(Function()) in utils
+// STATIC DECLARATIONs
+// option for output verbosity (--silent)
+static void SilentOption(int argc, char *argv[], bool *verbose, bool *silent);
 
-// CommonHelp() //{{{
-/**
- * Function to print help for common options, either for `-h` help option
- * or program error.
- */
-void CommonHelp(bool error) {
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-  }
-  fprintf(ptr, "   [standard options]\n");
-  fprintf(ptr, "      -i <name>     input vtf structure file \
-(default: traject.vs)\n");
-  fprintf(ptr, "      --detailed    use name as weel as charge, mass, \
-and radius to identfy bead types\n");
-  fprintf(ptr, "      -v            verbose output\n");
-  fprintf(ptr, "      --silent      no output (overrides verbose option)\n");
-  fprintf(ptr, "      -h            print this help and exit\n");
-  fprintf(ptr, "      --version     print version number and exit\n");
-} //}}}
-
-// CommonOptions() //{{{
-/**
- * Function for options common to most of the utilities.
- */
-void CommonOptions(int argc, char *argv[], int length, bool *verbose,
-                   bool *silent, bool *detailed, bool *vtf_var_coor) {
-
-  // -v option - verbose output
-  *verbose = BoolOption(argc, argv, "-v");
-  // --silent option - silent mode
-  SilentOption(argc, argv, verbose, silent);
-  // --detailed option - base bead types on name, charge, mass, and radius
-  *detailed = BoolOption(argc, argv, "--detailed");
-  // vtf timesteps with variable number of beads
-  *vtf_var_coor = BoolOption(argc, argv, "--variable");
-} //}}}
-
-// SilentOption() //{{{
-/**
- * Option to not print anything to stdout (or at least no system
- * definitions and no Step: #). Overrides verbose option. Argument: `--silent`
- */
-void SilentOption(int argc, char *argv[], bool *verbose, bool *silent) {
+// STATIC IMPLEMENTATIONS
+// option for output verbosity (--silent) //{{{
+static void SilentOption(int argc, char *argv[], bool *verbose, bool *silent) {
   *silent = false;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--silent") == 0) {
@@ -59,10 +17,96 @@ void SilentOption(int argc, char *argv[], bool *verbose, bool *silent) {
   }
 } //}}}
 
-// VersionOption() //{{{
-/**
- * Option to print version number of the program suite.
+// THE VISIBLE FUNCTIONS
+// TODO: add array of options as parameter to CommonHelp() and print only those
+// print help for common options //{{{
+void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
+  FILE *ptr;
+  if (error) {
+    ptr = stderr;
+  } else {
+    ptr = stdout;
+  }
+  for (int i = 0; i < n; i++) {
+    if (strcmp(option[i], "-i") == 0) {
+      fprintf(ptr, "      -i <name>      input structure file if different "
+                   "than the coordinate file\n");
+    } else if (strcmp(option[i], "-st") == 0) {
+      fprintf(ptr, "      -st <int>      starting timestep for calculation\n");
+    } else if (strcmp(option[i], "-e") == 0) {
+      fprintf(ptr, "      -e <end>       ending timestep for calculation\n");
+    } else if (strcmp(option[i], "-sk") == 0) {
+      fprintf(ptr, "      -sk <int>      leave out every 'skip' steps\n");
+    } else if (strcmp(option[i], "--detailed") == 0) {
+      fprintf(ptr, "      --detailed     use name as well as charge, mass, "
+              "and radius to identfy bead types (vtf structure files only)\n");
+    } else if (strcmp(option[i], "--variable") == 0) {
+      fprintf(ptr, "      --variable     vtf coordinate file with indexed "
+              "timesteps with varying number of beads\n");
+    } else if (strcmp(option[i], "-pbc") == 0) {
+      fprintf(ptr, "      -pbc <int>     position of pbc in xyz file's comment"
+              " line (of the first number)\n");
+    } else if (strcmp(option[i], "-v") == 0) {
+      fprintf(ptr, "      -v             verbose output\n");
+    } else if (strcmp(option[i], "--silent") == 0) {
+      fprintf(ptr, "      --silent       no output "
+              "(overrides verbose option)\n");
+    } else if (strcmp(option[i], "-h") == 0) {
+      fprintf(ptr, "      -h             print this help and exit\n");
+    } else if (strcmp(option[i], "--version") == 0) {
+      fprintf(ptr, "      --version      print version number and exit\n");
+    } else {
+      snprintf(ERROR_MSG, LINE, "unknown common option %s%s%s!", ErrYellow(),
+               option[i], ErrRed());
+      PrintError();
+      exit(1);
+    }
+  }
+} //}}}
+
+/*
+ * TODO: add StartEndTime(), VersionOption() and possibly others, utilities
+ *       will take care of which are possible; then make the options from inside
+ *       into static
  */
+// detect options common for most utilities //{{{
+void CommonOptions(int argc, char *argv[], int length, bool *verbose,
+                   bool *silent, bool *detailed, bool *vtf_var_coor,
+                   int *pbc_xyz, int *start, int *end, int *skip) {
+  // -v option - verbose output
+  *verbose = BoolOption(argc, argv, "-v");
+  // --silent option - silent mode
+  SilentOption(argc, argv, verbose, silent);
+  // --detailed option - base bead types on name, charge, mass, and radius
+  *detailed = BoolOption(argc, argv, "--detailed");
+  // vtf timesteps with variable number of beads
+  *vtf_var_coor = BoolOption(argc, argv, "--variable");
+  // starting/ending timestep
+  *start = 1;
+  if (IntegerOption(argc, argv, "-st", start)) {
+    exit(1);
+  }
+  *end = -1;
+  if (IntegerOption(argc, argv, "-e", end)) {
+    exit(1);
+  }
+  ErrorStartEnd(*start, *end);
+  // number of timesteps to skip per one used
+  if (IntegerOption(argc, argv, "-sk", skip)) {
+    exit(1);
+  }
+  (*skip)++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
+  // position of the first number of pbc in xyz file
+  if (IntegerOption(argc, argv, "-pbc", pbc_xyz)) {
+    exit(1);
+  }
+  if (*pbc_xyz == 0) {
+    strcpy(ERROR_MSG, "position must be a positive number");
+    PrintErrorOption("-pbc");
+  }
+} //}}}
+
+// print AnalysisTools version number (--version) //{{{
 bool VersionOption(int argc, char *argv[]) {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--version") == 0) {
@@ -76,11 +120,12 @@ bool VersionOption(int argc, char *argv[]) {
   return false;
 } //}}}
 
-bool ExcludeOption(int argc, char *argv[], SYSTEM *System) { //{{{
-  // set all molecules to use //{{{
-  for (int i = 0; i < (*System).Count.MoleculeType; i++) {
-    (*System).MoleculeType[i].Use = true;
-  } //}}}
+// exclude specified molecule names (-x <mol name(s)>) //{{{
+bool ExcludeOption(int argc, char *argv[], SYSTEM *System) {
+  // set all molecules to use
+  for (int i = 0; i < System->Count.MoleculeType; i++) {
+    System->MoleculeType[i].Use = true;
+  }
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-x") == 0) {
       // wrong argument to -x option //{{{
@@ -108,17 +153,12 @@ bool ExcludeOption(int argc, char *argv[], SYSTEM *System) { //{{{
       }
     }
   }
-
   return false;
 } //}}}
 
-// JoinCoorOption() //{{{
-/**
- * Option whether to join aggregates and save joined coordinates into a
- * specified file. Arguments: `-j <joined.vcf>`
- */
+// TODO: allow others file types, not just vtf/vcf
+// join aggregates, saving the coordinates (-j <filename>) //{{{
 bool JoinCoorOption(int argc, char *argv[], char *joined_vcf) {
-
   joined_vcf[0] = '\0'; // no -j option
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-j") == 0) {
@@ -139,18 +179,12 @@ bool JoinCoorOption(int argc, char *argv[], char *joined_vcf) {
       } //}}}
     }
   }
-
   return false;
 } //}}}
 
-// BeadTypeOption() //{{{
-/**
- * Option to choose which bead types to use for calculation. If the option
- * is absent, all bead types are switched to the specified 'bool use' value.
- */
+// tag which bead types to use (if not present, set to specified value) //{{{
 bool BeadTypeOption(int argc, char *argv[], char *opt,
                     bool use, bool flag[], SYSTEM *System) {
-
   // specify what bead types to use - either specified by 'opt' or use all
   int types = -1;
   for (int i = 1; i < argc; i++) {
@@ -178,10 +212,7 @@ bool BeadTypeOption(int argc, char *argv[], char *opt,
   return false;
 } // }}}
 
-// BoolOption() //{{{
-/**
- * Function for any boolean option (i.e. without argument).
- */
+// general boolean option //{{{
 bool BoolOption(int argc, char *argv[], char *opt) {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
@@ -191,12 +222,8 @@ bool BoolOption(int argc, char *argv[], char *opt) {
   return false;
 } // }}}
 
-// IntegerOption() //{{{
-/**
- * Function for any option with integer argument.
- */
+// general option with one integer argument //{{{
 bool IntegerOption(int argc, char *argv[], char *opt, int *value) {
-
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
       // Error - missing argument
@@ -215,14 +242,10 @@ bool IntegerOption(int argc, char *argv[], char *opt, int *value) {
       *value = val;
     }
   }
-
   return false;
 } //}}}
 
-// DoubleOption() //{{{
-/**
- * Function for any option with double argument.
- */
+// general option with one double argument //{{{
 bool DoubleOption(int argc, char *argv[], char *opt, double *value) {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
@@ -244,10 +267,7 @@ bool DoubleOption(int argc, char *argv[], char *opt, double *value) {
 } //}}}
 
 // TODO: join with IntegerOption and add max number of arguments as a parameter
-// MultiIntegerOption() //{{{
-/**
- * Function for any option with two or more (up to 100) integer arguments.
- */
+// general option with multiple integer arguments (up to 100) //{{{
 bool MultiIntegerOption(int argc, char *argv[], char *opt,
                         int *count, int *values) {
   for (int i = 1; i < argc; i++) {
@@ -280,10 +300,8 @@ bool MultiIntegerOption(int argc, char *argv[], char *opt,
   return false;
 } //}}}
 
-// MultiDoubleOption() //{{{
-/**
- * Function for any option with two or more (up to 100) double arguments.
- */
+// TODO: join with DoubleOption and add max number of arguments as a parameter
+// general option with multiple double arguments (up to 100) //{{{
 bool MultiDoubleOption(int argc, char *argv[], char *opt,
                        int *count, double *values) {
   *count = 0;
@@ -292,15 +310,6 @@ bool MultiDoubleOption(int argc, char *argv[], char *opt,
       int n = 0; // number of arguments
       // read doubles
       int arg = i+1+n;
-      // A = arg < argc; B = argv[arg][0] == '-'; C = IsReal(argv[arg])
-      // A B C | we want | A and ((B and C) or (!B and C)) = A and C
-      // ----------------|------------------------------------------
-      // 1 1 1 | 1       | 1
-      // 1 1 0 | 0       | 0
-      // 1 0 1 | 1       | 1
-      // 0 0 0 | 0       | 0
-      // 0 1 1 | 0       | 0
-      // 0 1 0 | 0       | 0
       while (arg < argc && IsRealNumber(argv[arg], &values[n])) {
         values[n] = atof(argv[arg]);
         n++;
@@ -319,11 +328,7 @@ bool MultiDoubleOption(int argc, char *argv[], char *opt,
   return false;
 } //}}}
 
-// FileIntsOptions() //{{{
-/**
- * Function for any option with a file name and up to 100 integer
- * arguments.
- */
+// general option with filename and integer(s) arguments //{{{
 bool FileIntsOption(int argc, char *argv[], char *opt, int *values,
                     int *count, char *file) {
   int n = 0;
@@ -357,7 +362,7 @@ bool FileIntsOption(int argc, char *argv[], char *opt, int *values,
         }
       }
       if (n == 0) {
-        strcpy(ERROR_MSG, "missing numeric argument");
+        strcpy(ERROR_MSG, "missing numeric argument(s)");
         PrintErrorOption(opt);
         return true;
       }
@@ -367,12 +372,9 @@ bool FileIntsOption(int argc, char *argv[], char *opt, int *values,
   return false;
 } //}}}
 
-// FileOption() //{{{
-/**
- * Generic option for file name. The option is an argument of this function.
- */
-bool FileOption(int argc, char *argv[], char *opt,
-                char *name, int length) {
+// TODO: join with FileIntsOption(), adding max integers (incl. 0) as parameter
+// general option with a filename argument //{{{
+bool FileOption(int argc, char *argv[], char *opt, char *name, int length) {
   name[0] = '\0';
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
@@ -393,55 +395,7 @@ bool FileOption(int argc, char *argv[], char *opt,
   return false;
 } //}}}
 
-// StartEndTime() //{{{
-/**
- * Options for starting and ending timesteps.
- */
-void StartEndTime(int argc, char *argv[], int *start, int *end) {
-  *start = 1;
-  if (IntegerOption(argc, argv, "-st", start)) {
-    exit(1);
-  }
-  *end = -1;
-  if (IntegerOption(argc, argv, "-e", end)) {
-    exit(1);
-  }
-  ErrorStartEnd(*start, *end);
-} //}}}
-
 #if 0
-// CommonOptions_old() //{{{
-/**
- * Function for options common to most of the utilities.
- */
-void CommonOptions_old(int argc, char *argv[], char vsf_file[], int length,
-                   bool *verbose, bool *silent, bool *detailed) {
-  // -i <name> option - input structure file //{{{
-  // test if '-i' option is there
-  char name[LINE] = {'\0'};
-  if (FileOption(argc, argv, "-i", name, length)) {
-    exit(1);
-  }
-  // copy the name if '-i' option is present
-  if (name[0] != '\0') {
-    snprintf(vsf_file, LINE, "%s", name);
-  }
-  // test if structure file ends with '.vsf' or '.vtf'
-  int ext = 2;
-  char extension[2][EXTENSION];
-  strcpy(extension[0], ".vsf");
-  strcpy(extension[1], ".vtf");
-  if (ErrorExtension(vsf_file, ext, extension) == -1) {
-    Help(argv[0], true);
-    exit(1);
-  } //}}}
-  // -v option - verbose output
-  *verbose = BoolOption(argc, argv, "-v");
-  // --silent option - silent mode
-  SilentOption(argc, argv, verbose, silent);
-  // --detailed option - base bead types on name, charge, mass, and radius
-  *detailed = BoolOption(argc, argv, "--detailed");
-} //}}}
 // TODO redo
 // MoleculeTypeOption() //{{{
 /**
@@ -538,102 +492,6 @@ bool MoleculeTypeIntOption(int argc, int i, char *argv[], char *opt,
     }
     *value = atoi(argv[i+2]);
   }
-  return false;
-} //}}}
-// TODO remove
-// BeadTypeOption_old() //{{{
-/**
- * Option to choose which bead types to use for calculation. If the option
- * is absent, all bead types are switched to the specified 'bool use' value.
- */
-bool BeadTypeOption_old(int argc, char *argv[], char *opt, bool use,
-                    COUNTS Counts, BEADTYPE **BeadType) {
-
-  // specify what bead types to use - either specified by 'opt' or use all
-  int types = -1;
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], opt) == 0) {
-      types = i; // positon of the '-bt' argument in command
-      // <type names> - names of bead types to save
-      while (++types < argc && argv[types][0] != '-') {
-        int type = FindBeadType_old(argv[types], Counts, *BeadType);
-        if (type == -1) {
-          ErrorPrintError_old();
-          ColourChange(STDERR_FILENO, YELLOW);
-          fprintf(stderr, "%s", opt);
-          ColourChange(STDERR_FILENO, RED);
-          fprintf(stderr, " - non-existent ");
-          ColourChange(STDERR_FILENO, YELLOW);
-          fprintf(stderr, "%s", argv[types]);
-          ColourChange(STDERR_FILENO, RED);
-          fprintf(stderr, " bead type\n\n");
-          ColourReset(STDERR_FILENO);
-          ErrorBeadType_old(Counts, *BeadType);
-          return true;
-        }
-        (*BeadType)[type].Use = true;
-      }
-    }
-  }
-  if (types == -1) {
-    for (int i = 0; i < Counts.TypesOfBeads; i++) {
-      (*BeadType)[i].Use = use;
-    }
-  }
-
-  return false;
-} // }}}
-// ExcludeOption_old() //{{{
-/**
- * Option to exclude specified molecule types from calculations. Gives
- * specified molecule types `Use = false` and the rest `Use = true`.
- * Arguments: `-x <name(s)>`
- */
-bool ExcludeOption_old(int argc, char *argv[], COUNTS Counts,
-                   MOLECULETYPE **MoleculeType) {
-
-  // set all molecules to use //{{{
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    (*MoleculeType)[i].Use = true;
-  } //}}}
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "-x") == 0) {
-      // wrong argument to -x option //{{{
-      if ((i+1) >= argc || argv[i+1][0] == '-') {
-        ErrorPrintError_old();
-        ColourChange(STDERR_FILENO, YELLOW);
-        fprintf(stderr, "-x");
-        ColourChange(STDERR_FILENO, RED);
-        fprintf(stderr, " - missing an argument (or molecule name beginning with a dash)\n\n");
-        ColourReset(STDERR_FILENO);
-        exit(1);
-      } //}}}
-      // read molecule(s) names
-      int j = 0;
-      while ((i+1+j) < argc && argv[i+1+j][0] != '-') {
-        int type = FindMoleculeType_old(argv[i+1+j], Counts, *MoleculeType);
-        if (type == -1) { // is it in vsf?
-          ErrorPrintError_old();
-          ColourChange(STDERR_FILENO, YELLOW);
-          fprintf(stderr, "-x");
-          ColourChange(STDERR_FILENO, RED);
-          fprintf(stderr, " - non-existent ");
-          ColourChange(STDERR_FILENO, YELLOW);
-          fprintf(stderr, "%s", argv[i+1+j]);
-          ColourChange(STDERR_FILENO, RED);
-          fprintf(stderr, " molecule\n\n");
-          ColourReset(STDERR_FILENO);
-          ErrorMoleculeType_old(Counts, *MoleculeType);
-          return true;
-        } else {
-          // exclude that molecule
-          (*MoleculeType)[type].Use = false;
-        }
-        j++;
-      }
-    }
-  }
-
   return false;
 } //}}}
 #endif

@@ -25,6 +25,7 @@ static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
                             int start_id, int *line_count);
 static int LtrjSkipTimestep(FILE *fr, char file[], int *line_count);
 static SYSTEM LtrjReadStruct(char file[], int *start_id);
+static BOX LtrjReadPBC(char file[]);
 // Helper functions for lammpstrj files
 // read timestep preamble, excluding 'ITEM: ATOMS' line
 static int LtrjReadTimestepPreamble(FILE *fr, char file[], BOX *box,
@@ -355,6 +356,29 @@ static SYSTEM LtrjReadStruct(char file[], int *start_id) {
   CheckSystem(Sys, file);
   return Sys;
 } //}}}
+// read pbc from the preamble of the first timestep
+static BOX LtrjReadPBC(char file[]) {
+  BOX box = InitBox;
+  int line_count = 0;
+  FILE *fr = OpenFile(file, "r");
+  int test = LtrjSkipItemTimestep(fr, file, &line_count);
+  if (test < 0) {
+    if (test == -2) {
+      ErrorEOF(file);
+    }
+  exit(1);
+  }
+  test = LtrjReadNumberOfAtoms(fr, file, &line_count);
+  if (test < 0) {
+    exit(1);
+  }
+  test = LtrjReadPBCSection(fr, file, &box, &line_count);
+  if (test < 0) {
+    exit(1);
+  }
+  return box;
+  fclose(fr);
+}
 // Helper functions for lammpstrj files
 // LtrjReadTimestepPreamble() //{{{
 static int LtrjReadTimestepPreamble(FILE *fr, char file[], BOX *box,
@@ -364,7 +388,7 @@ static int LtrjReadTimestepPreamble(FILE *fr, char file[], BOX *box,
     return test;
   }
   int count = LtrjReadNumberOfAtoms(fr, file, line_count);
-  if (test < 0) {
+  if (count < 0) {
     return count;
   }
   test = LtrjReadPBCSection(fr, file, box, line_count);
@@ -3393,6 +3417,18 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
       System->Bead[i].InTimestep = true;
       System->BeadCoor[i] = i;
       (*line_count)++;
+      VECTOR vel;
+      if (words > 6 && IsRealNumber(split[4], &vel.x) &&
+                       IsRealNumber(split[5], &vel.y) &&
+                       IsRealNumber(split[6], &vel.z)) {
+        System->Bead[i].Velocity.x = vel.x;
+        System->Bead[i].Velocity.y = vel.z;
+        System->Bead[i].Velocity.z = vel.z;
+      } else {
+        System->Bead[i].Velocity.x = 0;
+        System->Bead[i].Velocity.y = 0;
+        System->Bead[i].Velocity.z = 0;
+      }
     } else {
       strcpy(ERROR_MSG, "unrecognized line (insufficient number of valid "
              "coordinate lines)");
@@ -4787,11 +4823,17 @@ SYSTEM ReadStructure(int struct_type, char struct_file[],
   switch (coor_type) {
     case LTRJ_FILE: // find if atom ids start from 0 or 1
       *ltrj_start_id = LtrjLowIndex(coor_file);
+      if (System.Box.Volume == -1) {
+        System.Box = LtrjReadPBC(coor_file);
+      }
       break;
     case VCF_FILE: // find number of beads in the first step
       System.Count.BeadCoor = VtfReadNumberOfBeads(coor_file);
       if (System.Count.BeadCoor < 0) {
         exit(1);
+      }
+      if (System.Box.Volume == -1) {
+        System.Box = VtfReadPBC(coor_file);
       }
       break;
   }
