@@ -268,9 +268,34 @@ int main(int argc, char *argv[]) {
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
                                 detailed, vtf_var_coor,
                                 pbc_xyz, &ltrj_start_id);
+  // use coordinate from a separate file (-c option)
+  if (coor_type != -1) {
+    int line_count = 0;
+    FILE *fr = OpenFile(coor_file, "r");
+    for (int i = 1; i < timestep; i++) { // from 1 as timestep=1 is the first
+      SkipTimestep(coor_type, fr, coor_file, struct_file, &line_count);
+    }
+    ReadTimestep(coor_type, fr, coor_file, &System, &line_count,
+                 ltrj_start_id, false);
+    fclose(fr);
+  } else {
+    // all beads are in the timestep
+    for (int i = 0; i < System.Count.Bead; i++) {
+      System.Bead[i].InTimestep = true;
+    }
+  }
   if (verbose) {
-    printf("System in %s:\n", struct_file);
+    char coor[LINE] = "\0";
+    if (coor_type != -1) {
+      if (snprintf(coor, LINE, " (%s)", coor_file) < 0) {
+        strcpy(ERROR_MSG, "something wrong with snprintf()");
+        PrintErrorFile(coor_file, "\0", "\0");
+        exit(1);
+      }
+    }
+    printf("System in %s%s:\n", struct_file, coor);
     VerboseOutput(System);
+    PrintBead(System);
   }
   SYSTEM Sys_extra;
   if (struct_file_extra[0] != '\0') {
@@ -282,17 +307,13 @@ int main(int argc, char *argv[]) {
       VerboseOutput(Sys_extra);
     }
   }
-  // all beads are in the timestep; revised if coordinates supplied
-  for (int i = 0; i < System.Count.Bead; i++) {
-    System.Bead[i].InTimestep = true;
-  }
   // add extra info to original system
   if (struct_file_extra[0] != '\0') {
     // add charge, mass, and radius to bead types if possible
     for (int i = 0; i < System.Count.BeadType; i++) {
       BEADTYPE *bt = &System.BeadType[i];
       int type_extra = FindBeadType(bt->Name, Sys_extra);
-      if (type_extra != -1) {
+     if (type_extra != -1) {
         if (bt->Charge == CHARGE) {
           bt->Charge = Sys_extra.BeadType[type_extra].Charge;
         }
@@ -307,19 +328,7 @@ int main(int argc, char *argv[]) {
     ChangeMolecules(&System, Sys_extra, change_beads, true);
     CheckSystem(System, struct_file_extra);
   }
-  // use coordinate from a separate file (-c option)
-  bool vtf_coor_var = false;
-  int start_id = -1; // for lammpstrj file
-  if (coor_file[0] != '\0') {
-    int file_line_count = 0;
-    FILE *fr = OpenFile(coor_file, "r");
-    for (int i = 0; i < timestep; i++) {
-      SkipTimestep(coor_type, fr, coor_file, struct_file, &file_line_count);
-    }
-    ReadTimestep(coor_type, fr, coor_file, &System, &file_line_count,
-                 start_id, vtf_coor_var);
-    fclose(fr);
-  } //}}}
+ //}}}
 
   // -def option (for vsf output file) //{{{
   bool *def_type = calloc(System.Count.BeadType, sizeof *def_type);

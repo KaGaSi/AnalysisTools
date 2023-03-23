@@ -34,8 +34,9 @@ void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
 void FillBeadTypeIndex(SYSTEM *System);
 void FillMoleculeTypeIndex(SYSTEM *System);
 void CountBondAngleDihedralImproper(SYSTEM *System);
-// Appends _# to bead types with the same name
+// Appends _# to bead/molecule types with the same name
 void RenameBeadTypes(SYSTEM *System);
+void RenameMoleculeTypes(SYSTEM *System);
 // get bead indices for bonds/angles/dihedrals (with some error checking)
 int *BondIndices(SYSTEM System, int mol, int bond);
 int *AngleIndices(SYSTEM System, int mol, int angle);
