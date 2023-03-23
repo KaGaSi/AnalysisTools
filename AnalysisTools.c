@@ -6,6 +6,8 @@ static VECTOR ToFractional(VECTOR coor, BOX Box);
 static void ToFractionalCoor(SYSTEM *System);
 static VECTOR FromFractional(VECTOR coor, BOX Box);
 static void FromFractionalCoor(SYSTEM *System);
+// test whether all bonds in a molecule are connected
+static bool ConnectedMolecule(MOLECULE mol, SYSTEM System);
 // remove pbc for molecules by joining the molecules
 static void RemovePBCMolecules(SYSTEM *System);
 // restore pbc by wrapping all coordinates inside the simulation box
@@ -98,7 +100,8 @@ static void FromFractionalCoor(SYSTEM *System) { //{{{
     }
   }
 } //}}}
-bool ConnectedMolecule(MOLECULE mol, SYSTEM System) {
+// test whether all bonds in a molecule are connected //{{{
+static bool ConnectedMolecule(MOLECULE mol, SYSTEM System) {
   MOLECULETYPE *mt = &System.MoleculeType[mol.Type];
   if (mt->nBonds == 0) {
     return false;
@@ -131,7 +134,7 @@ bool ConnectedMolecule(MOLECULE mol, SYSTEM System) {
   }
   free(connected);
   return true;
-}
+} //}}}
 /*
  * TODO what about if the molecule has bonds, but is in more 'pieces'; should
  *      it really just try joining it 1000 times when we know it's impossible?

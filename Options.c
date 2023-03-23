@@ -18,7 +18,6 @@ static void SilentOption(int argc, char *argv[], bool *verbose, bool *silent) {
 } //}}}
 
 // THE VISIBLE FUNCTIONS
-// TODO: add array of options as parameter to CommonHelp() and print only those
 // print help for common options //{{{
 void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
   FILE *ptr;
@@ -64,11 +63,6 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
   }
 } //}}}
 
-/*
- * TODO: add StartEndTime(), VersionOption() and possibly others, utilities
- *       will take care of which are possible; then make the options from inside
- *       into static
- */
 // detect options common for most utilities //{{{
 void CommonOptions(int argc, char *argv[], int length, bool *verbose,
                    bool *silent, bool *detailed, bool *vtf_var_coor,
@@ -111,7 +105,7 @@ bool VersionOption(int argc, char *argv[]) {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--version") == 0) {
       fprintf(stdout, "AnalysisTools by Karel Šindelka (KaGaSi), version %s"
-                      " (released %s)\n", VERSION, DATE);
+              " (released %s)\n", VERSION, DATE);
       fprintf(stdout, "Download at https://github.com/KaGaSi/AnalysisTools/"
               "releases/tag/v%s\n", VERSION);
       return true;
@@ -206,6 +200,36 @@ bool BeadTypeOption(int argc, char *argv[], char *opt,
   }
   if (types == -1) {
     for (int i = 0; i < System->Count.BeadType; i++) {
+      flag[i] = use;
+    }
+  }
+  return false;
+} // }}}
+
+// tag which molecule types to use (if not present, set to specified value) //{{{
+bool MoleculeTypeOption(int argc, char *argv[], char *opt,
+                        bool use, bool flag[], SYSTEM System) {
+  // specify what molecule types to use - either specified by 'opt' or use all
+  int types = -1;
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], opt) == 0) {
+      types = i; // positon of the '-bt' argument in command
+      // <type names> - names of bead types to save
+      while (++types < argc && argv[types][0] != '-') {
+        int type = FindMoleculeName(argv[types], System);
+        if (type == -1) {
+          snprintf(ERROR_MSG, LINE, "non-existent bead name %s%s",
+                   ErrYellow(), argv[types]);
+          PrintErrorOption(opt);
+          ErrorMoleculeType(System);
+          return true;
+        }
+        flag[type] = true;
+      }
+    }
+  }
+  if (types == -1) {
+    for (int i = 0; i < System.Count.BeadType; i++) {
       flag[i] = use;
     }
   }
@@ -395,7 +419,7 @@ bool FileOption(int argc, char *argv[], char *opt, char *name, int length) {
   return false;
 } //}}}
 
-#if 0
+#if 0 //{{{
 // TODO redo
 // MoleculeTypeOption() //{{{
 /**
@@ -494,4 +518,4 @@ bool MoleculeTypeIntOption(int argc, int i, char *argv[], char *opt,
   }
   return false;
 } //}}}
-#endif
+#endif //}}}

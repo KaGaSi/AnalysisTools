@@ -31,10 +31,13 @@ bool VersionOption(int argc, char *argv[]);
 // exclude specified molecule names (-x <mol name(s)>)
 bool ExcludeOption(int argc, char *argv[], SYSTEM *System);
 // join aggregates, saving the coordinates (-j <filename>)
-bool JoinCoorOption(int argc, char *argv[], char *joined_vcf); //}}}
+bool JoinCoorOption(int argc, char *argv[], char *joined_vcf);
 // tag which bead types to use (if not present, set to specified value)
 bool BeadTypeOption(int argc, char *argv[], char *opt,
                     bool use, bool flag[], SYSTEM *System);
+// tag which molecule types to use (if not present, set to specified value)
+bool MoleculeTypeOption(int argc, char *argv[], char *opt,
+                        bool use, bool flag[], SYSTEM System);
 
 // general boolean option
 bool BoolOption(int argc, char *argv[], char *opt);

@@ -1,5 +1,4 @@
 #include "../AnalysisTools.h"
-// TODO: pbc_xyz in ReadTimestep
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -193,10 +192,9 @@ int main(int argc, char *argv[]) {
   }
   SortArray(n_opt_save, n_opt_number, 0); //}}}
 
-  // print information - verbose output //{{{
   if (verbose) {
     VerboseOutput(System);
-  } //}}}
+  }
 
   // print initial stuff to output vcf file //{{{
   FILE *out = OpenFile(out_coor, "w");

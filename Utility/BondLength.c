@@ -1,5 +1,4 @@
 #include "../AnalysisTools.h"
-int *InFile;
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -12,28 +11,38 @@ BondLength utility calculates distribution of bond lengths for all bead type \
 pairs in specified molecule type(s). It can also calculate distribution of \
 distances between any two beads in those molecule type(s).\n\n");
   }
-
   fprintf(ptr, "Usage:\n");
   fprintf(ptr, "   %s <input> <width> <output> <mol(s)> [options]\n\n", cmd);
 
-  fprintf(ptr, "   <input>    input coordinate file (vcf or vtf format)\n");
-  fprintf(ptr, "   <width>    width of a single distribution bin\n");
-  fprintf(ptr, "   <output>   output file with the distribution of \
-bond lengths\n");
-  fprintf(ptr, "   <mol(s)>   molecule name(s) to calculate bond lengths for \
-(optional and ignored if '--all' is used)\n");
+  fprintf(ptr, "   <input>              input coordinate file\n");
+  fprintf(ptr, "   <width>              width of a single distribution bin\n");
+  fprintf(ptr, "   <output>             output file with the distribution of "
+          "bond lengths\n");
+  fprintf(ptr, "   <mol(s)>             molecule name(s) to calculate bond "
+          "lengths for (optional and ignored if '--all' is used)\n");
   fprintf(ptr, "   [options]\n");
-  fprintf(ptr, "      --all             use all molecules \
-(overwrites <mol(s)>)\n");
-  fprintf(ptr, "      --joined          specify that <input> contains joined \
-coordinates\n");
-  fprintf(ptr, "      -st <int>         starting timestep for calculation\n");
-  fprintf(ptr, "      -e <end>          ending timestep for calculation\n");
-  fprintf(ptr, "      -d <out> [ints]   write distribution of distances \
-between specified beads to file <out> (if no [ints] are \
-provided, the molecule's first and last bead are used)\n");
+  fprintf(ptr, "      -mol <name(s)>    molecules to calculate distances for"
+          "(if not present, use all molecule types)");
+  fprintf(ptr, "      --joined          specify that <input> contains joined "
+          "coordinates\n");
+  fprintf(ptr, "      -d <file> [ints]  write distribution of distances "
+          "between specified beads to file <out> (if no [ints] are "
+          "provided, the molecule's first and last bead are used)\n");
   fprintf(ptr, "      -w <float>        warn if the length exceeds <float> \n");
-  CommonHelp(error);
+  int common = 11;
+  char option[common][OPT_LENGTH];
+  strcpy(option[ 0], "-st");
+  strcpy(option[ 1], "-e");
+  strcpy(option[ 2], "-sk");
+  strcpy(option[ 3], "-i");
+  strcpy(option[ 4], "--variable");
+  strcpy(option[ 5], "--detailed");
+  strcpy(option[ 6], "-pbc");
+  strcpy(option[ 7], "-v");
+  strcpy(option[ 8], "--silent");
+  strcpy(option[ 9], "-h");
+  strcpy(option[10], "--version");
+  CommonHelp(error, common, option);
 } //}}}
 
 int main(int argc, char *argv[]) {
@@ -56,10 +65,7 @@ int main(int argc, char *argv[]) {
     count++;
   }
 
-  // use all molecules? ...do now to check correct number of arguments
-  bool all = BoolOption(argc, argv, "--all");
-
-  if (count < (req_args-1) || (count == (req_args-1) && !all)) {
+  if (count < (req_args-1) || count == (req_args-1)) {
     ErrorArgNumber(count, req_args);
     Help(argv[0], true);
     exit(1);
@@ -68,17 +74,14 @@ int main(int argc, char *argv[]) {
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] == '-' &&
-        strcmp(argv[i], "-i") != 0 &&
-        strcmp(argv[i], "-v") != 0 &&
-        strcmp(argv[i], "--silent") != 0 &&
-        strcmp(argv[i], "-h") != 0 &&
-        strcmp(argv[i], "--version") != 0 &&
-        strcmp(argv[i], "--all") != 0 &&
-        strcmp(argv[i], "--joined") != 0 &&
-        strcmp(argv[i], "-st") != 0 &&
-        strcmp(argv[i], "-e") != 0 &&
-        strcmp(argv[i], "-d") != 0 &&
-        strcmp(argv[i], "-w") != 0) {
+        strcmp(argv[i], "--all") != 0 && strcmp(argv[i], "--joined") != 0 &&
+        strcmp(argv[i], "-d") != 0 && strcmp(argv[i], "-w") != 0 &&
+        strcmp(argv[i], "-st") != 0 && strcmp(argv[i], "-e") != 0 &&
+        strcmp(argv[i], "-sk") != 0 && strcmp(argv[i], "-i") != 0 &&
+        strcmp(argv[i], "--variable") != 0 && strcmp(argv[i], "-pbc") != 0 &&
+        strcmp(argv[i], "--detailed") != 0 && strcmp(argv[i], "-v") != 0 &&
+        strcmp(argv[i], "--silent") != 0 && strcmp(argv[i], "-h") != 0 &&
+        strcmp(argv[i], "--version") != 0) {
 
       ErrorOption(argv[i]);
       Help(argv[0], true);
@@ -89,82 +92,49 @@ int main(int argc, char *argv[]) {
   count = 0; // count mandatory arguments
 
   // <input> - input coordinate file //{{{
-  char input_coor[LINE] = "", input_vsf[LINE] = "";
-  snprintf(input_coor, LINE, "%s", argv[++count]);
-  // test that <input> filename ends with '.vcf' or '.vtf'
-  bool vtf;
-  if (!InputCoor_old(&vtf, input_coor, input_vsf)) {
-    Help(argv[0], true);
+  char coor_file[LINE] = "", struct_file[LINE] = "";
+  int coor_type, struct_type = 0;
+  snprintf(coor_file, LINE, "%s", argv[++count]);
+  if (!InputCoorStruct(argc, argv, coor_file, &coor_type,
+                       struct_file, &struct_type)) {
     exit(1);
   } //}}}
 
   // <width> - width of a single bin //{{{
   // Error - non-numeric argument
-  if (!IsPosReal_old(argv[++count])) {
+  double width = -1;
+  if (!IsPosRealNumber(argv[++count], &width)) {
     ErrorNaN("<width>");
     Help(argv[0], true);
     exit(1);
-  }
-  double width = atof(argv[count]); //}}}
+  } //}}}
 
   // <output> - file name with bond length distribution //{{{
   char output[LINE] = "";
   snprintf(output, LINE, "%s", argv[++count]); //}}}
 
-  // options before reading system data //{{{
-  bool silent;
-  bool verbose;
-  CommonOptions_old(argc, argv, input_vsf, &verbose, &silent, LINE);
-  int start, end;
-  StartEndTime(argc, argv, &start, &end);
+  // options before reading system data
+  bool silent, verbose, detailed, vtf_var_coor;
+  int start = 1, end = -1, skip = 0, pbc_xyz = -1;
+  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var_coor,
+                &pbc_xyz, &start, &end, &skip);
   // are provided coordinates joined?
-  bool joined = BoolOption(argc, argv, "--joined"); //}}}
+  bool joined = BoolOption(argc, argv, "--joined");
 
-  // print command to stdout //{{{
   if (!silent) {
     PrintCommand(stdout, argc, argv);
-  } //}}}
+  }
 
-  // read information from vtf file(s) //{{{
-  BEADTYPE *BeadType; // structure with info about all bead types
-  MOLECULETYPE *MoleculeType; // structure with info about all molecule types
-  BEAD *Bead; // structure with info about every bead
-  int *Index; // link between indices (i.e., Index[Bead[i].Index]=i)
-  MOLECULE *Molecule; // structure with info about every molecule
-  COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
-  BOX Box = InitBox; // triclinic box dimensions and angles
-  bool indexed; // indexed timestep?
-  int struct_lines; // number of structure lines (relevant for vtf)
-  FullVtfRead(input_vsf, input_coor, false, vtf, &indexed, &struct_lines,
-              &Box, &Counts, &BeadType, &Bead, &Index,
-              &MoleculeType, &Molecule); //}}}
+  int ltrj_start_id = -1; // for lammpstrj structure file, start ids from 0 or 1
+  SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
+                                detailed, vtf_var_coor,
+                                pbc_xyz, &ltrj_start_id);
 
-  // <mol(s)> - names of molecule types to use //{{{
-  if (!all) { // --all option not used
-    while (++count < argc && argv[count][0] != '-') {
-      int type = FindMoleculeType_old(argv[count], Counts, MoleculeType);
-      // error - nonexistent molecule  //{{{
-      if (type == -1) {
-        ErrorPrintError_old();
-        ColourChange(STDERR_FILENO, YELLOW);
-        fprintf(stderr, "%s", input_coor);
-        ColourChange(STDERR_FILENO, RED);
-        fprintf(stderr, " - non-existent molecule type ");
-        ColourChange(STDERR_FILENO, YELLOW);
-        fprintf(stderr, "%s", argv[count]);
-        ColourChange(STDERR_FILENO, RED);
-        fprintf(stderr, "\n");
-        ColourReset(STDERR_FILENO);
-        ErrorMoleculeType_old(Counts, MoleculeType);
-        exit(1);
-      } //}}}
-      MoleculeType[type].Use = true;
-    }
-  } else { // --all option is used
-    for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-      MoleculeType[i].Use = true;
-    }
-  } //}}}
+  // '-mol <name(s)>' option
+  bool *use_moltype = calloc(System.Count.MoleculeType, sizeof *use_moltype);
+  if (!MoleculeTypeOption(argc, argv, "-mol", true, use_moltype, System)) {
+    exit(1);
+  }
 
   // '-d' option - specify bead ids to calculate distance between //{{{
   int bead[100] = {0},
@@ -182,23 +152,15 @@ int main(int argc, char *argv[]) {
   }
   // Error: wrong number of integers //{{{
   if (output_d[0] != '\0' && (number_of_beads%beads_per_set) != 0) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "-d");
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - number of bead ids must be even\n\n");
-    ColourReset(STDERR_FILENO);
+    strcpy(ERROR_MSG, "number of bead indexes must be even");
+    PrintErrorOption("-d");
     exit(1);
   } //}}}
   // Error: same bead ids //{{{
   for (int i = 0; i < number_of_beads; i += 2) {
     if (bead[i] == bead[i+1] || bead[i] == 0 || bead[i+1] == 0) {
-      ErrorPrintError_old();
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "-d");
-      ColourChange(STDERR_FILENO, RED);
-      fprintf(stderr, " - the bead indices must be non-zero and different\n\n");
-      ColourReset(STDERR_FILENO);
+      strcpy(ERROR_MSG, "each pair of bead ids must be non-zero and different");
+      PrintErrorOption("-d");
       exit(1);
     }
   } //}}}
@@ -208,10 +170,9 @@ int main(int argc, char *argv[]) {
 
   int number_of_pairs = number_of_beads / beads_per_set;
 
-  // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
-  } //}}}
+    VerboseOutput(System);
+  }
 
   // '-w' option - bond length warning //{{{
   double warn = -1;
@@ -220,31 +181,29 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // number of bins
-  int bins = Max3(Box.Length.x, Box.Length.y, Box.Length.z) / (2 * width);
+  VECTOR *box = &System.Box.Length;
+  int bins = Max3(box->x, box->y, box->z) / (2 * width);
 
   // arrays for distributions //{{{
-  double *length[Counts.TypesOfMolecules]
-                [Counts.TypesOfBeads][Counts.TypesOfBeads];
-  double min_max[Counts.TypesOfMolecules]
-                [Counts.TypesOfBeads][Counts.TypesOfBeads][2];
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    for (int j = 0; j < Counts.TypesOfBeads; j++) {
-      for (int k = 0; k < Counts.TypesOfBeads; k++) {
+  COUNT *Count = &System.Count;
+  double *length[Count->MoleculeType] [Count->BeadType][Count->BeadType];
+  double min_max[Count->MoleculeType] [Count->BeadType][Count->BeadType][2];
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    for (int j = 0; j < Count->BeadType; j++) {
+      for (int k = 0; k < Count->BeadType; k++) {
         length[i][j][k] = calloc(bins, sizeof *length[i][j][k]);
-        min_max[i][j][k][0] = 10 * Max3(Box.Length.x,
-                                        Box.Length.y, Box.Length.z);
+        min_max[i][j][k][0] = 10 * Max3(box->x, box->y, box->z);
         min_max[i][j][k][1] = 0;
       }
     }
   }
   // extra arrays for -d option
-  double *distance[Counts.TypesOfMolecules][number_of_pairs];
-  double min_max_d_option[Counts.TypesOfMolecules][number_of_pairs][2];
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
+  double *distance[Count->MoleculeType][number_of_pairs];
+  double min_max_d_option[Count->MoleculeType][number_of_pairs][2];
+  for (int i = 0; i < Count->MoleculeType; i++) {
     for (int j = 0; j < number_of_pairs; j++) {
       distance[i][j] = calloc(bins, sizeof *distance[i][j]);
-      min_max_d_option[i][j][0] = 10 * Max3(Box.Length.x,
-                                            Box.Length.y, Box.Length.z);
+      min_max_d_option[i][j][0] = 10 * Max3(box->x, box->y, box->z);
       min_max_d_option[i][j][1] = 0;
     }
   } //}}}
@@ -422,11 +381,11 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // count total number of bonds in molecules //{{{
-  int bonds[Counts.TypesOfMolecules][Counts.TypesOfBeads][Counts.TypesOfBeads];
+  int bonds[Count->MoleculeType][Count->BeadType][Count->BeadType];
   // zeroize the array
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    for (int j = 0; j < Counts.TypesOfBeads; j++) {
-      for (int k = j; k < Counts.TypesOfBeads; k++) {
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    for (int j = 0; j < Count->BeadType; j++) {
+      for (int k = j; k < Count->BeadType; k++) {
         for (int l = 0; l < bins; l++) {
           bonds[i][j][k] = 0;
         }
@@ -434,9 +393,9 @@ int main(int argc, char *argv[]) {
     }
   }
   // count the bonds
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    for (int j = 0; j < Counts.TypesOfBeads; j++) {
-      for (int k = j; k < Counts.TypesOfBeads; k++) {
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    for (int j = 0; j < Count->BeadType; j++) {
+      for (int k = j; k < Count->BeadType; k++) {
         for (int l = 0; l < bins; l++) {
           bonds[i][j][k] += length[i][j][k][l];
         }
@@ -450,7 +409,7 @@ int main(int argc, char *argv[]) {
   // print first line of output file - molecule names and beadtype pairs //{{{
   fprintf(out, "# (1) distance;");
   count = 1;
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
+  for (int i = 0; i < Count->MoleculeType; i++) {
     if (MoleculeType[i].Use) {
       fprintf(out, " %s molecule:", MoleculeType[i].Name);
       for (int j = 0; j < MoleculeType[i].nBTypes; j++) {
@@ -477,7 +436,7 @@ int main(int argc, char *argv[]) {
   // write distribution to output file //{{{
   for (int i = 0; i < bins; i++) {
     fprintf(out, "%7.4f", width*(2*i+1)/2);
-    for (int j = 0; j < Counts.TypesOfMolecules; j++) {
+    for (int j = 0; j < Count->MoleculeType; j++) {
       if (MoleculeType[j].Use) {
         // go over all beadtype pairs in molecule type 'j'
         for (int k = 0; k < MoleculeType[j].nBTypes; k++) {
@@ -504,7 +463,7 @@ int main(int argc, char *argv[]) {
   // legend line
   fprintf(out, "# mins(odd columns)/maxes(even columns) -");
   count = 1;
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
+  for (int i = 0; i < Count->MoleculeType; i++) {
     if (MoleculeType[i].Use) {
       fprintf(out, " %s molecule:", MoleculeType[i].Name);
       for (int j = 0; j < MoleculeType[i].nBTypes; j++) {
@@ -516,7 +475,7 @@ int main(int argc, char *argv[]) {
                                                BeadType[btype2].Name);
             count += 2;
             if (k == (MoleculeType[i].nBTypes-1)) {
-              if (i != (Counts.TypesOfMolecules-1)) {
+              if (i != (Count->MoleculeType-1)) {
                 putc(';', out); // molecule's last bead type pair
               }
             } else {
@@ -530,9 +489,9 @@ int main(int argc, char *argv[]) {
   putc('\n', out);
   // data line
   putc('#', out);
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    for (int j = 0; j < Counts.TypesOfBeads; j++) {
-      for (int k = j; k < Counts.TypesOfBeads; k++) {
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    for (int j = 0; j < Count->BeadType; j++) {
+      for (int k = j; k < Count->BeadType; k++) {
         if (min_max[i][j][k][1] > 0) {
           fprintf(out, " %lf %lf", min_max[i][j][k][0], min_max[i][j][k][1]);
         }
@@ -550,7 +509,7 @@ int main(int argc, char *argv[]) {
     PrintCommand(out, argc, argv);
     // print the first line - molecule names with bead order //{{{
     fprintf(out, "# bead order in molecule(s) -");
-    for (int i = 0; i < Counts.TypesOfMolecules; i++) {
+    for (int i = 0; i < Count->MoleculeType; i++) {
       if (MoleculeType[i].Use) {
         fprintf(out, " %s:", MoleculeType[i].Name);
         for (int j = 0; j < MoleculeType[i].nBeads; j++) {
@@ -565,7 +524,7 @@ int main(int argc, char *argv[]) {
     // print the second line of output file - molecule names and indices with column numbers //{{{
     fprintf(out, "# (1) distance;");
     count = 1;
-    for (int i = 0; i < Counts.TypesOfMolecules; i++) {
+    for (int i = 0; i < Count->MoleculeType; i++) {
       if (MoleculeType[i].Use) {
         fprintf(out, " %s:", MoleculeType[i].Name);
 
@@ -600,7 +559,7 @@ int main(int argc, char *argv[]) {
     // write the distribution to output file //{{{
     for (int i = 0; i < bins; i++) {
       fprintf(out, "%7.4f", width*(2*i+1)/2);
-      for (int j = 0; j < Counts.TypesOfMolecules; j++) {
+      for (int j = 0; j < Count->MoleculeType; j++) {
         if (MoleculeType[j].Use) {
           for (int k = 0; k < number_of_beads; k += beads_per_set) {
             double value = (double)(distance[j][k/2][i]) /
@@ -616,7 +575,7 @@ int main(int argc, char *argv[]) {
     // legend line
     fprintf(out, "# mins(odd columns)/maxes(even columns) -");
     count = 1;
-    for (int i = 0; i < Counts.TypesOfMolecules; i++) {
+    for (int i = 0; i < Count->MoleculeType; i++) {
       if (MoleculeType[i].Use) {
         fprintf(out, " %s:", MoleculeType[i].Name);
         for (int j = 0; j < number_of_beads; j += 2) {
@@ -650,7 +609,7 @@ int main(int argc, char *argv[]) {
 
     // data line
     putc('#', out);
-    for (int i = 0; i < Counts.TypesOfMolecules; i++) {
+    for (int i = 0; i < Count->MoleculeType; i++) {
       if (MoleculeType[i].Use) {
         for (int j = 0; j < number_of_beads; j += beads_per_set) {
           int pair = j / 2;
@@ -667,14 +626,14 @@ int main(int argc, char *argv[]) {
   // free memory - to make valgrind happy //{{{
   FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);
   free(stuff);
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    for (int j = 0; j < Counts.TypesOfBeads; j++) {
-      for (int k = 0; k < Counts.TypesOfBeads; k++) {
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    for (int j = 0; j < Count->BeadType; j++) {
+      for (int k = 0; k < Count->BeadType; k++) {
         free(length[i][j][k]);
       }
     }
   }
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
+  for (int i = 0; i < Count->MoleculeType; i++) {
     for (int j = 0; j < number_of_pairs; j++) {
       free(distance[i][j]);
     }
