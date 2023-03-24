@@ -293,7 +293,7 @@ void InitIntArray (int array[], int n, int val) {
     array[i] = val;
   }
 }
-void InitBoolArray (int array[], int n, bool val) {
+void InitBoolArray (bool array[], int n, bool val) {
   for (int i = 0; i < n; i++) {
     array[i] = val;
   }

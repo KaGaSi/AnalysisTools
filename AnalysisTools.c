@@ -109,10 +109,13 @@ static bool ConnectedMolecule(MOLECULE mol, SYSTEM System) {
   bool *connected = calloc(mt->nBeads, sizeof *connected);
   // find first bead in the first bond present in the timestep
   for (int i = 0; i < mt->nBonds; i++) {
-    int id = mt->Bond[i][0];
-    BEAD *b = &System.Bead[mol.Bead[id]];
-    if (b->InTimestep) {
-      connected[id] = true;
+    int id1 = mt->Bond[i][0],
+        id2 = mt->Bond[i][1];
+    BEAD *b_1 = &System.Bead[mol.Bead[id1]],
+         *b_2 = &System.Bead[mol.Bead[id2]];
+    if (b_1->InTimestep && b_2->InTimestep) {
+      connected[id1] = true;
+      connected[id2] = true;
       break;
     }
   }
@@ -160,7 +163,6 @@ static void RemovePBCMolecules(SYSTEM *System) {
               ErrYellow(), mt_i->Name, ErrCyan());
       PrintWarning();
     } else {
-      // int type = System->Molecule[i].Type;
       // do nothing if the molecule has no bonds
       if (mt_i->nBonds == 0) {
         continue;
@@ -2868,6 +2870,20 @@ void PrintByline(FILE *ptr, int argc, char *argv[]) { //{{{
   fprintf(ptr, "# command: ");
   PrintCommand(ptr, argc, argv);
 } //}}}
+void PrintStep(int *count_coor, int start, bool silent) { //{{{
+  (*count_coor)++;
+  if (!silent && isatty(STDOUT_FILENO)) {
+    if (*count_coor < start) {
+      fprintf(stdout, "\rDiscarding step: %d", *count_coor);
+    } else {
+      if (*count_coor == start) {
+        fprintf(stdout, "\rStarting step: %d    \n", start);
+      }
+      fprintf(stdout, "\rStep: %d", *count_coor);
+    }
+    fflush(stdout);
+  }
+} //}}}
 
 // TODO: use Jacobi method
 // calculate gyration tensor and various shape descriptors //{{{
@@ -3023,7 +3039,6 @@ void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) { //{{{
   }
 } //}}}
 
-#if 0  //{{{
 // TODO redo
 // EvaluateContacts() //{{{
 /**
@@ -3031,8 +3046,7 @@ void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) { //{{{
  * Aggregate-NotSameBeads utilities.
  */
 void EvaluateContacts(COUNTS *Counts, AGGREGATE **Aggregate,
-                      MOLECULE **Molecule,
-                      int contacts, int **contact) {
+                      MOLECULE **Molecule, int contacts, int **contact) {
   // first molecule
   for (int i = 1; i < (*Counts).Molecules; i++) {
     // second molecule
@@ -3123,6 +3137,7 @@ void EvaluateContacts(COUNTS *Counts, AGGREGATE **Aggregate,
     (*Counts).Aggregates++;
   } //}}}
 } //}}}
+// TODO redo
 // SortAggStruct() //{{{
 /**
  * Sort an Aggregate struct using the bubble sort algorithm. The resulting
@@ -3189,6 +3204,8 @@ void SortAggStruct(AGGREGATE **Aggregate, COUNTS Counts,
     }
   } //}}}
 } //}}}
+
+#if 0  //{{{
 // RemovePBCAggregates() //{{{
 /**
  * Function to remove periodic boundary conditions from all aggregates,

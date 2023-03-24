@@ -50,8 +50,8 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
     } else if (strcmp(option[i], "--silent") == 0) {
       fprintf(ptr, "      --silent       no output "
               "(overrides verbose option)\n");
-    } else if (strcmp(option[i], "-h") == 0) {
-      fprintf(ptr, "      -h             print this help and exit\n");
+    } else if (strcmp(option[i], "--help") == 0) {
+      fprintf(ptr, "      --help         print this help and exit\n");
     } else if (strcmp(option[i], "--version") == 0) {
       fprintf(ptr, "      --version      print version number and exit\n");
     } else {
@@ -229,7 +229,7 @@ bool MoleculeTypeOption(int argc, char *argv[], char *opt,
     }
   }
   if (types == -1) {
-    for (int i = 0; i < System.Count.BeadType; i++) {
+    for (int i = 0; i < System.Count.MoleculeType; i++) {
       flag[i] = use;
     }
   }

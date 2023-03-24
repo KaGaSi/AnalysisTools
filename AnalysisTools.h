@@ -100,6 +100,7 @@ void PrintBondTypes(COUNTS Counts, PARAMS *bond_type);
 void PrintAngleTypes(COUNTS Counts, PARAMS *angle_type);
 void PrintBox(BOX Box);
 void PrintByline(FILE *ptr, int argc, char *argv[]);
+void PrintStep(int *count_coor, int start, bool silent);
 
 // calculate gyration tensor and various shape descriptors
 VECTOR Gyration(int n, int *list, COUNTS Counts, BEADTYPE *BeadType,
@@ -110,13 +111,15 @@ void FreeSystem(SYSTEM *System);
 void FreeMoleculeType(MOLECULETYPE *MoleculeType);
 void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType);
 
-#if 0 //{{{
 // TODO redo
 void EvaluateContacts(COUNTS *Counts, AGGREGATE **Aggregate,
                       MOLECULE **Molecule, int contacts, int **contact);
 void SortAggStruct(AGGREGATE **Aggregate, COUNTS Counts, MOLECULE *Molecule,
                    MOLECULETYPE *MoleculeType, BEAD **Bead,
                    BEADTYPE *BeadType);
+
+#if 0 //{{{
+// TODO redo
 void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNTS Counts,
                          VECTOR BoxLength, BEADTYPE *BeadType, BEAD **Bead,
                          MOLECULETYPE *MoleculeType, MOLECULE *Molecule);

@@ -44,18 +44,18 @@ containing all beads of any given type, so the usefulness is very limited \
   strcpy(option[ 6], "-pbc");
   strcpy(option[ 7], "-v");
   strcpy(option[ 8], "--silent");
-  strcpy(option[ 9], "-h");
+  strcpy(option[ 9], "--help");
   strcpy(option[10], "--version");
   CommonHelp(error, common, option);
 } //}}}
 
 int main(int argc, char *argv[]) {
-  // -h/--version options - print stuff and exit //{{{
+  // --help/--version options - print stuff and exit //{{{
   if (VersionOption(argc, argv)) {
     exit(0);
   }
   for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "-h") == 0) {
+    if (strcmp(argv[i], "--help") == 0) {
       Help(argv[0], false);
       exit(0);
     }
@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
     if (argv[i][0] == '-' && strcmp(argv[i], "-l_in") != 0 &&
         strcmp(argv[i], "-i") != 0 && strcmp(argv[i], "-v") != 0 &&
         strcmp(argv[i], "--detailed") != 0 && strcmp(argv[i], "-st") != 0 &&
-        strcmp(argv[i], "--silent") != 0 && strcmp(argv[i], "-h") != 0 &&
+        strcmp(argv[i], "--silent") != 0 && strcmp(argv[i], "--help") != 0 &&
         strcmp(argv[i], "--reverse") != 0 && strcmp(argv[i], "--join") != 0 &&
         strcmp(argv[i], "--wrap") != 0 && strcmp(argv[i], "-e") != 0 &&
         strcmp(argv[i], "-sk") != 0 && strcmp(argv[i], "-n") != 0 &&
@@ -213,24 +213,12 @@ int main(int argc, char *argv[]) {
       count_saved = 0,    // count steps in output file
       line_count = 0;     // count lines in the vcf file
   while (true) {
-    count_coor++;
+    PrintStep(&count_coor, start, silent);
     position = realloc(position, count_coor * sizeof *position);
     fgetpos(coor, &position[count_coor-1]);
     bkp_line_count = realloc(bkp_line_count, count_coor *
                              sizeof *bkp_line_count);
     bkp_line_count[count_coor-1] = line_count;
-    // print step info? //{{{
-    if (!silent && isatty(STDOUT_FILENO)) {
-      if (last || count_coor < start) {
-        fprintf(stdout, "\rDiscarding step: %d", count_coor);
-      } else {
-        if (count_coor == start) {
-          fprintf(stdout, "\rStarting step: %d    \n", start);
-        }
-        fprintf(stdout, "\rStep: %d", count_coor);
-      }
-      fflush(stdout);
-    } //}}}
     // decide whether this timestep is to be saved //{{{
     bool use = false;
     /* no -n option - use if timestep

@@ -47,19 +47,19 @@ If some information required for the given output file type is missing, \
   strcpy(option[3], "-pbc");
   strcpy(option[4], "-v");
   strcpy(option[5], "--silent");
-  strcpy(option[6], "-h");
+  strcpy(option[6], "--help");
   strcpy(option[7], "--version");
   CommonHelp(error, common, option);
 } //}}}
 
 int main(int argc, char *argv[]) {
 
-  // -h/--version options - print stuff and exit //{{{
+  // --help/--version options - print stuff and exit //{{{
   if (VersionOption(argc, argv)) {
     exit(0);
   }
   for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "-h") == 0) {
+    if (strcmp(argv[i], "--help") == 0) {
       Help(argv[0], false);
       exit(0);
     }
@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
         strcmp(argv[i], "-o") != 0 && strcmp(argv[i], "-c") != 0 &&
         strcmp(argv[i], "-st") != 0 && strcmp(argv[i], "-def") != 0 &&
         strcmp(argv[i], "--mass") != 0 && strcmp(argv[i], "-v") != 0 &&
-        strcmp(argv[i], "-h") != 0 && strcmp(argv[i], "--version") != 0 &&
+        strcmp(argv[i], "--help") != 0 && strcmp(argv[i], "--version") != 0 &&
         strcmp(argv[i], "-pbc") != 0 && strcmp(argv[i], "--detailed") != 0 &&
         strcmp(argv[i], "--variable")) {
 

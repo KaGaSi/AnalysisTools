@@ -88,20 +88,20 @@ typedef struct BeadType { //{{{
   double Charge, // charge of every bead of given type
          Mass, // mass of every bead of given type
          Radius; // radius of every bead of the given type
+  bool Flag; // general-purpose flag
 } BEADTYPE;
 void InitBeadType(BEADTYPE *bt); //}}}
 typedef struct Bead { //{{{
   int Type, // type of bead corresponding to index in BeadType struct
-      Molecule, // index number of molecule corresponding to Molecule struct (-1 for monomeric bead)
-      nAggregates; // number of aggregates the bead is in (only monomeric beads can be in more aggregates - allocated memory for 10)
+      Molecule, // id corresponding to Molecule struct (-1 for monomeric bead)
+      Aggregate; // aggregate id the molecule is in (-1 for none)
 
   VECTOR Position, // cartesian coordinates of the bead
          Velocity, // velocity of the bead
          Force; // force acting on the bead
 
-  bool InTimestep; // is the bead in the present timestep?
-//     Use; // general-purpose flag
-  bool Flag; // general-purpose flag
+  bool InTimestep, // is the bead in the present timestep?
+       Flag; // general-purpose flag
 } BEAD;
 void InitBead(BEAD *b); //}}}
 typedef struct MoleculeType { //{{{
@@ -136,7 +136,8 @@ void InitMoleculeType(MOLECULETYPE *mt); //}}}
 typedef struct Molecule { //{{{
   int Type, // type of molecule corresponding to index in MoleculeType struct
       *Bead, // ids of beads in the molecule
-      Index; // resid according to input file
+      Index, // resid according to input file
+      Aggregate; // aggregate id the molecule is in (-1 for none)
 } MOLECULE;
 void InitMolecule(MOLECULE *mol); //}}}
 typedef struct System { //{{{
