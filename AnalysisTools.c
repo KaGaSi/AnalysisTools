@@ -2331,7 +2331,8 @@ bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
   int ext;
   char extension[6][EXTENSION];
   // input structure file (-i option) //{{{
-  if (FileOption(argc, argv, "-i", struct_file, LINE)) {
+  int trash[1]; // number of integers and integer values - unusued
+  if (FileIntegerOption(argc, argv, 0, "-i", trash, trash, struct_file)) {
     exit(1);
   }
   if (struct_file[0] != '\0') { // -i option is present

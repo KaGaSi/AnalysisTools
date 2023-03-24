@@ -166,7 +166,7 @@ int main(int argc, char *argv[]) {
 
   // -f <add> - FIELD-like file with molecules to add //{{{
   char file_add_field[LINE] = "";
-  if (FileOption(argc, argv, "-f", file_add_field, LINE)) {
+  if (FileIntegerOption(argc, argv, "-f", file_add_field, LINE)) {
     exit(1);
   }
   if (file_add_field[0] == '\0') {
@@ -176,7 +176,7 @@ int main(int argc, char *argv[]) {
   // -vtf <vsf> <vcf> - vtf file(s) to use instead of FIELD //{{{
   char file_add_struct[LINE] = "", file_add_coor[LINE] = "";
   // 1) vsf file
-  if (FileOption(argc, argv, "-vtf", file_add_struct, LINE)) {
+  if (FileIntegerOption(argc, argv, "-vtf", file_add_struct, LINE)) {
     exit(1);
   }
   // 2) if vsf file exists, look for vcf
@@ -203,7 +203,7 @@ int main(int argc, char *argv[]) {
             // copy vcf filename to (i+1)th place - required by FileOption()
             snprintf(argv[i+1], LINE, "%s", argv[i+2]);
             // read vcf file name
-            if (FileOption(argc, argv, "-vtf", file_add_coor, LINE)) {
+            if (FileIntegerOption(argc, argv, "-vtf", file_add_coor, LINE)) {
               exit(1);
             }
             // restore vsf filename so the command in unchanged
@@ -236,7 +236,7 @@ int main(int argc, char *argv[]) {
 
   // -offset <x> <y> <z> define offset for -vtf file //{{{
   double offset[100] = {1000000};
-  if (MultiDoubleOption(argc, argv, "-offset", &count, offset)) {
+  if (DoubleOption(argc, argv, "-offset", &count, offset)) {
     exit(1);
   }
   if (count != 3) {
@@ -268,7 +268,7 @@ int main(int argc, char *argv[]) {
 
   // save into xyz file? //{{{
   char file_out_xyz[LINE] = "";
-  if (FileOption(argc, argv, "-xyz", file_out_xyz, LINE)) {
+  if (FileIntegerOption(argc, argv, "-xyz", file_out_xyz, LINE)) {
     exit(1);
   } //}}}
 
@@ -313,7 +313,7 @@ int main(int argc, char *argv[]) {
   // x direction //{{{
   int test = 2;
   double range[2] = {0, 0};
-  if (MultiDoubleOption(argc, argv, "-cx", &test, range)) {
+  if (DoubleOption(argc, argv, "-cx", &test, range)) {
     exit(1);
   }
   if (test != 2) {
@@ -336,7 +336,7 @@ int main(int argc, char *argv[]) {
   // y direction //{{{
   test = 2;
   range[0] = range[1] = 0;
-  if (MultiDoubleOption(argc, argv, "-cy", &test, range)) {
+  if (DoubleOption(argc, argv, "-cy", &test, range)) {
     exit(1);
   }
   if (test != 2) {
@@ -358,7 +358,7 @@ int main(int argc, char *argv[]) {
   // z direction //{{{
   test = 2;
   range[0] = range[1] = 0;
-  if (MultiDoubleOption(argc, argv, "-cz", &test, range)) {
+  if (DoubleOption(argc, argv, "-cz", &test, range)) {
     exit(1);
   }
   if (test != 2) {
@@ -387,7 +387,7 @@ int main(int argc, char *argv[]) {
 
   // define new box size //{{{
   double box_option[100] = {-1};
-  if (MultiDoubleOption(argc, argv, "-b", &count, box_option)) {
+  if (DoubleOption(argc, argv, "-b", &count, box_option)) {
     exit(1);
   }
   if (count != 3) {
@@ -401,7 +401,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   double box_angle_option[100] = {-1};
-  if (MultiDoubleOption(argc, argv, "-ba", &count, box_angle_option)) {
+  if (DoubleOption(argc, argv, "-ba", &count, box_angle_option)) {
     exit(1);
   }
   if (count != 3) {

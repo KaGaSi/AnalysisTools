@@ -2280,7 +2280,7 @@ static int VtfReadCoorBlockIndexed(FILE *fr, char file[], SYSTEM *System,
   for (int i = 0; i < Count->BeadCoor; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      snprintf(ERROR_MSG, LINE, "premature end constant-size indexed "
+      snprintf(ERROR_MSG, LINE, "premature end of constant-size indexed "
                "coordinate block (%s%d%s lines instead of %s%d%s)", ErrYellow(),
                i, ErrRed(), ErrYellow(), Count->BeadCoor, ErrRed());
       PrintErrorFile(file, "\0", "\0");

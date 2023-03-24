@@ -184,7 +184,7 @@ int main(int argc, char *argv[]) {
       beads_per_set = 2; // the numbers must come in pairs
   bead[0] = 1; // default ids
   bead[1] = 2;
-  if (MultiIntegerOption(argc, argv, "-n", &number_of_beads, bead)) {
+  if (IntegerOption(argc, argv, "-n", &number_of_beads, bead)) {
     exit(1);
   }
   for (int i = 0; i < number_of_beads; i++) {

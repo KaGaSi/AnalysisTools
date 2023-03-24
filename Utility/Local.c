@@ -222,7 +222,7 @@ int main(int argc, char *argv[]) {
 
   // '-n' option - specify timestep ids //{{{
   int n_opt_save[100] = {0}, n_opt_number = -1;
-  if (MultiIntegerOption(argc, argv, "-n", &n_opt_number, n_opt_save)) {
+  if (IntegerOption(argc, argv, "-n", &n_opt_number, n_opt_save)) {
     exit(1);
   }
   SortArray(n_opt_save, n_opt_number, 0); //}}}

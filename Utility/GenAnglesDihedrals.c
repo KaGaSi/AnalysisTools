@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
   // options before reading system data //{{{
   // -c option - use a coordinate file //{{{
   char input_coor[LINE] = "";
-  if (FileOption(argc, argv, "-c", input_coor, LINE)) {
+  if (FileIntegerOption(argc, argv, "-c", input_coor, LINE)) {
     exit(1);
   }
   bool vtf = false;

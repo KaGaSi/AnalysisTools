@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
   bool joined = BoolOption(argc, argv, "--joined");
   // write per-agg averages to a file?
   char per_size_file[LINE] = "";
-  if (FileOption(argc, argv, "-ps", per_size_file, LINE)) {
+  if (FileIntegerOption(argc, argv, "-ps", per_size_file, LINE)) {
     exit(0);
   }
   int start, end;
@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
       test = 2;                   //
   range_As[0] = 1;                // by default, use all aggregation numbers
   range_As[1] = Counts.Molecules; //
-  if (MultiIntegerOption(argc, argv, "-n", &test, range_As)) {
+  if (IntegerOption(argc, argv, "-n", &test, range_As)) {
     exit(1);
   }
   if (test != 2) {

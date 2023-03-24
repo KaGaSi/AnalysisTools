@@ -1,5 +1,4 @@
 #include "../AnalysisTools.h"
-// TODO: pbc_xyz in ReadTimestep
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -145,11 +144,13 @@ int main(int argc, char *argv[]) {
   char struct_file_extra[LINE] = "";
   int struct_type_extra = -1;
   bool change_beads = false;
-  if (FileOption(argc, argv, "-i", struct_file_extra, LINE)) {
+  int trash[1]; // some stuff for unused things in options
+  if (FileIntegerOption(argc, argv, 0, "-i", trash, trash, struct_file_extra)) {
     exit(1);
   }
   if (struct_file_extra[0] == '\0') {
-    if (FileOption(argc, argv, "-i!", struct_file_extra, LINE)) {
+    if (FileIntegerOption(argc, argv, 0, "-i!",
+                          trash, trash, struct_file_extra)) {
       exit(1);
     }
     if (struct_file_extra[0] != '\0') {
@@ -196,7 +197,7 @@ int main(int argc, char *argv[]) {
   // input coordinate file (-c option) //{{{
   char coor_file[LINE] = "";
   int coor_type = -1;
-  if (FileOption(argc, argv, "-c", coor_file, LINE)) {
+  if (FileIntegerOption(argc, argv, 0, "-c", trash, trash, coor_file)) {
     exit(1);
   }
   if (coor_file[0] != '\0') {
@@ -228,7 +229,7 @@ int main(int argc, char *argv[]) {
   // output structure file (-o option) //{{{
   char struct_file_out[LINE] = "";
   int struct_type_out = -1;
-  if (FileOption(argc, argv, "-o", struct_file_out, LINE)) {
+  if (FileIntegerOption(argc, argv, 0, "-o", trash, trash, struct_file_out)) {
     exit(1);
   }
   if (struct_file_out[0] != '\0') {
@@ -258,16 +259,15 @@ int main(int argc, char *argv[]) {
       }
     }
   } //}}}
-  bool silent, verbose, detailed, vtf_var_coor;
-  int timestep = 1, pbc_xyz = -1, trash = 0;
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var_coor,
-                &pbc_xyz, &timestep, &trash, &trash);
+  bool silent, verbose, detailed, vtf_var;
+  int timestep = 1, pbc_xyz = -1;
+  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
+                &pbc_xyz, &timestep, trash, trash);
 
   // read information from input file(s) //{{{
   int ltrj_start_id = -1;
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
-                                detailed, vtf_var_coor,
-                                pbc_xyz, &ltrj_start_id);
+                                detailed, vtf_var, pbc_xyz, &ltrj_start_id);
   // use coordinate from a separate file (-c option)
   if (coor_type != -1) {
     int line_count = 0;
@@ -276,7 +276,7 @@ int main(int argc, char *argv[]) {
       SkipTimestep(coor_type, fr, coor_file, struct_file, &line_count);
     }
     ReadTimestep(coor_type, fr, coor_file, &System, &line_count,
-                 ltrj_start_id, false);
+                 ltrj_start_id, vtf_var);
     fclose(fr);
   } else {
     // all beads are in the timestep
@@ -300,7 +300,7 @@ int main(int argc, char *argv[]) {
   SYSTEM Sys_extra;
   if (struct_file_extra[0] != '\0') {
     Sys_extra = ReadStructure(struct_type_extra, struct_file_extra,
-                              coor_type, coor_file, detailed, vtf_var_coor,
+                              coor_type, coor_file, detailed, vtf_var,
                               pbc_xyz, &ltrj_start_id);
     if (verbose) {
       printf("System in %s:\n", struct_file_extra);

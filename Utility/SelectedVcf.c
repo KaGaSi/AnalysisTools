@@ -127,9 +127,9 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // options before reading system data
-  bool silent, verbose, detailed, vtf_var_coor;
+  bool silent, verbose, detailed, vtf_var;
   int start = 1, end = -1, skip = 0, pbc_xyz = -1;
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var_coor,
+  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
                 &pbc_xyz, &start, &end, &skip);
   bool join = BoolOption(argc, argv, "--join");
   bool wrap = BoolOption(argc, argv, "--wrap");
@@ -141,8 +141,7 @@ int main(int argc, char *argv[]) {
 
   int ltrj_start_id = -1; // for lammpstrj structure file, start ids from 0 or 1
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
-                                detailed, vtf_var_coor,
-                                pbc_xyz, &ltrj_start_id);
+                                detailed, vtf_var, pbc_xyz, &ltrj_start_id);
 
   // <bead names> - names of bead types to save //{{{
   bool *write = calloc(System.Count.Bead, sizeof *write),
@@ -187,7 +186,7 @@ int main(int argc, char *argv[]) {
 
   // '-n' option - specify timestep ids //{{{
   int n_opt_save[100] = {0}, n_opt_number = -1;
-  if (MultiIntegerOption(argc, argv, "-n", &n_opt_number, n_opt_save)) {
+  if (IntegerOption(argc, argv, 100, "-n", &n_opt_number, n_opt_save)) {
     exit(1);
   }
   SortArray(n_opt_save, n_opt_number, 0); //}}}
@@ -222,11 +221,11 @@ int main(int argc, char *argv[]) {
     bkp_line_count[count_coor-1] = line_count;
     // print step info? //{{{
     if (!silent && isatty(STDOUT_FILENO)) {
-      if (last) {
+      if (last || count_coor < start) {
         fprintf(stdout, "\rDiscarding step: %d", count_coor);
       } else {
         if (count_coor == start) {
-          fprintf(stdout, "\rStarting step: %d\n", start);
+          fprintf(stdout, "\rStarting step: %d    \n", start);
         }
         fprintf(stdout, "\rStep: %d", count_coor);
       }
@@ -243,8 +242,8 @@ int main(int argc, char *argv[]) {
       // definitely not use, if --last option is used
       if (last) {
         use = false;
-      } else if ((count_coor >= start && (count_coor <= end || end == -1)) && // 1)
-          ((count_coor - start) % skip) == 0) {                        // 2)
+      } else if (count_coor >= start && (count_coor <= end || end == -1) && // 1)
+                 ((count_coor - start) % skip) == 0) {                        // 2)
         use = true;
       } else {
         use = false;
@@ -257,7 +256,7 @@ int main(int argc, char *argv[]) {
     } //}}}
     if (use) { // read and write the timestep, if it should be saved //{{{
       if (!ReadTimestep(coor_type, coor, coor_file, &System, &line_count,
-                        ltrj_start_id, vtf_var_coor)) {
+                        ltrj_start_id, vtf_var)) {
         count_coor--;
         break;
       }
@@ -296,7 +295,7 @@ int main(int argc, char *argv[]) {
       fsetpos(coor, &position[i]);
       line_count = bkp_line_count[i];
       if (ReadTimestep(coor_type, coor, coor_file, &System, &line_count,
-                       ltrj_start_id, vtf_var_coor)) {
+                       ltrj_start_id, vtf_var)) {
         count_saved++;
         WrapJoinCoordinates(&System, wrap, join);
         WriteTimestep(coor_out_type, out_coor, System, count_coor, write);

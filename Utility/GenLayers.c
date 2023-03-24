@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
   double spacing[100]; // 100 in case of too many arguments provided
   spacing[0] = 1;
   spacing[1] = 1;
-  if (MultiDoubleOption(argc, argv, "-s", &test, spacing)) {
+  if (DoubleOption(argc, argv, "-s", &test, spacing)) {
     exit(1);
   }
   if (test != 2) {
@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
 
   // FIELD-like file //{{{
   char input[LINE] = "";
-  if (FileOption(argc, argv, "-f", input, LINE)) {
+  if (FileIntegerOption(argc, argv, "-f", input, LINE)) {
     exit(1);
   }
   if (input[0] == '\0') {

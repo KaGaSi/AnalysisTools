@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
   int range_As[2], test = 2;
   range_As[0] = 1;
   range_As[1] = Counts.Molecules;
-  if (MultiIntegerOption(argc, argv, "-n", &test, range_As)) {
+  if (IntegerOption(argc, argv, "-n", &test, range_As)) {
     exit(1);
   }
   // TODO colours
@@ -223,7 +223,7 @@ int main(int argc, char *argv[]) {
       comp_number_of_sizes = 0, // number of agg sizes
       types[2][2] = {{-1},{-1}}; // [x][0]: mol type; [x][1]: number of mols
   char output_comp[LINE];
-  if (FileIntsOption(argc, argv, "-c", composition, &comp_number_of_sizes, output_comp)) {
+  if (FileIntegerOption(argc, argv, "-c", composition, &comp_number_of_sizes, output_comp)) {
     exit(1);
   }
   if (comp_number_of_sizes > 0) {

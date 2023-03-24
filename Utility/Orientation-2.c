@@ -228,7 +228,7 @@ int main(int argc, char *argv[]) {
   test = 0;
   bead[0] = 1; // default ids for angle
   bead[1] = 2;
-  if (MultiIntegerOption(argc, argv, "-n", &test, bead)) {
+  if (IntegerOption(argc, argv, "-n", &test, bead)) {
     exit(1);
   }
   if (test != 0) { // -n is present

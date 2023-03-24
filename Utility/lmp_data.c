@@ -101,11 +101,11 @@ int main(int argc, char *argv[]) {
   // -f[!] option //{{{
   char input_field[LINE] = "\0";
   bool change_beads = false;
-  if (FileOption(argc, argv, "-f", input_field, LINE)) {
+  if (FileIntegerOption(argc, argv, "-f", input_field, LINE)) {
     exit(1);
   }
   if (input_field[0] == '\0') {
-    if (FileOption(argc, argv, "-f!", input_field, LINE)) {
+    if (FileIntegerOption(argc, argv, "-f!", input_field, LINE)) {
       exit(1);
     }
     if (input_field[0] != '\0') {

@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
 
   // -offset <x> <y> <z> define offset for -vtf file //{{{
   double offset[100] = {0};
-  if (MultiDoubleOption(argc, argv, "-offset", &count, offset)) {
+  if (DoubleOption(argc, argv, "-offset", &count, offset)) {
     exit(1);
   }
   if (count != 0 && count != 3) {
@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
 
   // define new box size //{{{
   double box_option[100] = {-1};
-  if (MultiDoubleOption(argc, argv, "-b", &count, box_option)) {
+  if (DoubleOption(argc, argv, "-b", &count, box_option)) {
     exit(1);
   }
   if (count != 0 && count != 3) {
@@ -180,7 +180,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   double box_angle_option[100] = {-1};
-  if (MultiDoubleOption(argc, argv, "-ba", &count, box_angle_option)) {
+  if (DoubleOption(argc, argv, "-ba", &count, box_angle_option)) {
     exit(1);
   }
   if (count != 0 && count != 3) {

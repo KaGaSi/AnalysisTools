@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
   bead[0] = 1; // default ids for angle
   bead[1] = 2;
   bead[2] = 3;
-  if (MultiIntegerOption(argc, argv, "-n", &number_of_beads, bead)) {
+  if (IntegerOption(argc, argv, "-n", &number_of_beads, bead)) {
     exit(1);
   }
   if (number_of_beads == 0) { // -n is missing
@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
 
   // '-a' option - write angles for all molecules //{{{
   char output[LINE] = "";
-  if (FileOption(argc, argv, "-a", output, LINE)) {
+  if (FileIntegerOption(argc, argv, "-a", output, LINE)) {
     exit(1);
   }
   // write initial stuff to output if '-a' is used

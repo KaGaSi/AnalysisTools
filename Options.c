@@ -77,21 +77,22 @@ void CommonOptions(int argc, char *argv[], int length, bool *verbose,
   *vtf_var_coor = BoolOption(argc, argv, "--variable");
   // starting/ending timestep
   *start = 1;
-  if (IntegerOption(argc, argv, "-st", start)) {
+  int trash; // number of values from IntegerOption(); unused
+  if (IntegerOption(argc, argv, 1, "-st", &trash, start)) {
     exit(1);
   }
   *end = -1;
-  if (IntegerOption(argc, argv, "-e", end)) {
+  if (IntegerOption(argc, argv, 1, "-e", &trash, end)) {
     exit(1);
   }
   ErrorStartEnd(*start, *end);
   // number of timesteps to skip per one used
-  if (IntegerOption(argc, argv, "-sk", skip)) {
+  if (IntegerOption(argc, argv, 1, "-sk", &trash, skip)) {
     exit(1);
   }
   (*skip)++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
   // position of the first number of pbc in xyz file
-  if (IntegerOption(argc, argv, "-pbc", pbc_xyz)) {
+  if (IntegerOption(argc, argv, 1, "-pbc", &trash, pbc_xyz)) {
     exit(1);
   }
   if (*pbc_xyz == 0) {
@@ -150,10 +151,9 @@ bool ExcludeOption(int argc, char *argv[], SYSTEM *System) {
   return false;
 } //}}}
 
-// TODO: allow others file types, not just vtf/vcf
 // join aggregates, saving the coordinates (-j <filename>) //{{{
-bool JoinCoorOption(int argc, char *argv[], char *joined_vcf) {
-  joined_vcf[0] = '\0'; // no -j option
+bool JoinCoorOption(int argc, char *argv[], int *coor_type, char file[]) {
+  file[0] = '\0'; // no -j option
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-j") == 0) {
       // wrong argument to -j option //{{{
@@ -163,14 +163,14 @@ bool JoinCoorOption(int argc, char *argv[], char *joined_vcf) {
         PrintErrorOption("-j");
         return true;
       } //}}}
-      snprintf(joined_vcf, LINE, "%s", argv[i+1]);
-      // test if <joined.vcf> filename ends with '.vcf' //{{{
-      char *dot = strrchr(joined_vcf, '.');
-      if (!dot || (strcmp(dot, ".vcf") && strcmp(dot, ".vtf"))) {
-        strcpy(ERROR_MSG, "file name must have '.vcf' extension");
-        PrintErrorOption("-j");
-        return true;
-      } //}}}
+      snprintf(file, LINE, "%s", argv[i+1]);
+      int ext = 3;
+      char extension[4][EXTENSION];
+      strcpy(extension[0], ".vcf");
+      strcpy(extension[1], ".vtf");
+      strcpy(extension[2], ".xyz");
+      strcpy(extension[3], ".lammpstrj");
+      *coor_type = ErrorExtension(file, ext, extension);
     }
   }
   return false;
@@ -204,7 +204,7 @@ bool BeadTypeOption(int argc, char *argv[], char *opt,
     }
   }
   return false;
-} // }}}
+} //}}}
 
 // tag which molecule types to use (if not present, set to specified value) //{{{
 bool MoleculeTypeOption(int argc, char *argv[], char *opt,
@@ -246,60 +246,15 @@ bool BoolOption(int argc, char *argv[], char *opt) {
   return false;
 } // }}}
 
-// general option with one integer argument //{{{
-bool IntegerOption(int argc, char *argv[], char *opt, int *value) {
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], opt) == 0) {
-      // Error - missing argument
-      if ((i+1) >= argc) {
-        strcpy(ERROR_MSG, "missing numeric argument");
-        PrintErrorOption(opt);
-        return true;
-      }
-      // Error - non-numeric
-      long val;
-      if (!IsIntegerNumber(argv[i+1], &val)) {
-        strcpy(ERROR_MSG, "argument must be non-negative whole number");
-        PrintErrorOption(opt);
-        return true;
-      }
-      *value = val;
-    }
-  }
-  return false;
-} //}}}
-
-// general option with one double argument //{{{
-bool DoubleOption(int argc, char *argv[], char *opt, double *value) {
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], opt) == 0) {
-      // Error - missing argument
-      if ((i+1) >= argc) {
-        strcpy(ERROR_MSG, "missing numeric argument");
-        PrintErrorOption(opt);
-        return true;
-      }
-      // Error - non-numeric
-      if (!IsPosRealNumber(argv[i+1], value)) {
-        strcpy(ERROR_MSG, "argument must be positive number");
-        PrintErrorOption(opt);
-        return true;
-      }
-    }
-  }
-  return false;
-} //}}}
-
-// TODO: join with IntegerOption and add max number of arguments as a parameter
-// general option with multiple integer arguments (up to 100) //{{{
-bool MultiIntegerOption(int argc, char *argv[], char *opt,
-                        int *count, int *values) {
+// general option with multiple integer arguments (up to 'max') //{{{
+bool IntegerOption(int argc, char *argv[], int max,
+                   char *opt, int *count, int *values) {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
       int n = 0; // number of arguments
       // read integers
       int arg = i+1+n;
-      while ((arg) < argc && argv[arg][0] != '-') {
+      while (arg < argc && argv[arg][0] != '-') {
         // Error - non-numeric or missing argument
         long val;
         if (!IsIntegerNumber(argv[arg], &val)) {
@@ -311,8 +266,9 @@ bool MultiIntegerOption(int argc, char *argv[], char *opt,
         n++;
         arg = i+1+n;
         // warning - too many numeric arguments
-        if (n == 100) {
-          strcpy(ERROR_MSG, "too many arguments; only the first 100 used");
+        if (n > max) {
+          snprintf(ERROR_MSG, LINE, "too many arguments; only the first %d "
+                   "used", max);
           PrintErrorOption(opt);
           *count = n;
           return true;
@@ -324,10 +280,9 @@ bool MultiIntegerOption(int argc, char *argv[], char *opt,
   return false;
 } //}}}
 
-// TODO: join with DoubleOption and add max number of arguments as a parameter
-// general option with multiple double arguments (up to 100) //{{{
-bool MultiDoubleOption(int argc, char *argv[], char *opt,
-                       int *count, double *values) {
+// general option with multiple double arguments (up to 'max') //{{{
+bool DoubleOption(int argc, char *argv[], int max,
+                  char *opt, int *count, double *values) {
   *count = 0;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
@@ -339,8 +294,9 @@ bool MultiDoubleOption(int argc, char *argv[], char *opt,
         n++;
         arg = i + 1 + n;
         // warning - too many numeric arguments
-        if (n == 100) {
-          strcpy(ERROR_MSG, "too many arguments; only the first 100 used");
+        if (n > max) {
+          snprintf(ERROR_MSG, LINE, "too many arguments; only the first %d "
+                   "used", max);
           PrintErrorOption(opt);
           *count = n;
           return true;
@@ -353,8 +309,8 @@ bool MultiDoubleOption(int argc, char *argv[], char *opt,
 } //}}}
 
 // general option with filename and integer(s) arguments //{{{
-bool FileIntsOption(int argc, char *argv[], char *opt, int *values,
-                    int *count, char *file) {
+bool FileIntegerOption(int argc, char *argv[], int max, char *opt,
+                       int *values, int *count, char *file) {
   int n = 0;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
@@ -367,28 +323,32 @@ bool FileIntsOption(int argc, char *argv[], char *opt, int *values,
       }
       snprintf(file, LINE, "%s", argv[i+1]);
       // read integers
-      while ((i+2+n) < argc && argv[i+2+n][0] != '-') {
-        // Error - non-numeric or missing argument
-        long val;
-        if (!IsIntegerNumber(argv[i+2+n], &val)) {
-          strcpy(ERROR_MSG, "each argument must be non-negative whole number");
+      if (max == 0) {
+        return false;
+      } else {
+        while ((i+2+n) < argc && argv[i+2+n][0] != '-') {
+          // Error - non-numeric or missing argument
+          long val;
+          if (!IsIntegerNumber(argv[i+2+n], &val)) {
+            strcpy(ERROR_MSG, "each argument must be non-negative whole number");
+            PrintErrorOption(opt);
+            return true;
+          }
+          values[n] = val;
+          n++;
+          // warning - too many numeric arguments
+          if (n == 100) {
+            strcpy(ERROR_MSG, "too many arguments; only the first 100 used");
+            PrintErrorOption(opt);
+            *count = n;
+            return true;
+          }
+        }
+        if (n == 0) {
+          strcpy(ERROR_MSG, "missing numeric argument(s)");
           PrintErrorOption(opt);
           return true;
         }
-        values[n] = val;
-        n++;
-        // warning - too many numeric arguments
-        if (n == 100) {
-          strcpy(ERROR_MSG, "too many arguments; only the first 100 used");
-          PrintErrorOption(opt);
-          *count = n;
-          return true;
-        }
-      }
-      if (n == 0) {
-        strcpy(ERROR_MSG, "missing numeric argument(s)");
-        PrintErrorOption(opt);
-        return true;
       }
     }
   }
@@ -396,9 +356,10 @@ bool FileIntsOption(int argc, char *argv[], char *opt, int *values,
   return false;
 } //}}}
 
-// TODO: join with FileIntsOption(), adding max integers (incl. 0) as parameter
+#if 0 //{{{
+// TODO: remove
 // general option with a filename argument //{{{
-bool FileOption(int argc, char *argv[], char *opt, char *name, int length) {
+bool FileIntegerOption(int argc, char *argv[], char *opt, char *name, int length) {
   name[0] = '\0';
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
@@ -418,9 +379,7 @@ bool FileOption(int argc, char *argv[], char *opt, char *name, int length) {
   }
   return false;
 } //}}}
-
-#if 0 //{{{
-// TODO redo
+// TODO: redo
 // MoleculeTypeOption() //{{{
 /**
  * Generic option for molecule type that can take one
