@@ -128,9 +128,8 @@ typedef struct MoleculeType { //{{{
   double Mass, // total mass of every molecule of given type
          Charge; // total charge of every molecule of given type
 
-  bool InVcf, // is molecule type in vcf file?
-       Use, // should molecule type be used for calculation?
-       Write; // should molecule type be used for calculation?
+  bool InVcf, // is molecule type in vcf file? TODO: useless?
+       Flag; // general-purpose flag
 } MOLECULETYPE;
 void InitMoleculeType(MOLECULETYPE *mt); //}}}
 typedef struct Molecule { //{{{

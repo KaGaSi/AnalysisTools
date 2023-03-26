@@ -217,7 +217,7 @@ void CalculateAggregates(AGGREGATE **Aggregate, COUNTS *Counts, double sqdist,
                 int mtype_j = (*Molecule)[mol_j].Type;
 
                 if (BeadType[btype_i].Use && BeadType[btype_j].Use && // beads must be of specified type
-                    MoleculeType[mtype_i].Use && MoleculeType[mtype_j].Use && // molecules can't be excluded via -x option
+                    MoleculeType[mtype_i].Flag && MoleculeType[mtype_j].Flag && // molecules can't be excluded via -x option
                     (*xm_use_mol)[mol_i] && (*xm_use_mol)[mol_j] && // molecules can't be excluded via -xm option
                     (*Bead)[i].Type != (*Bead)[j].Type) { // do not use pairs of bead with the same type
 
@@ -586,7 +586,7 @@ int main(int argc, char *argv[]) {
 
   // used molecule type = write molecule type -- for now
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    MoleculeType[i].Write = MoleculeType[i].Use;
+    MoleculeType[i].Write = MoleculeType[i].Flag;
   } //}}}
 
   // '-xm' option //{{{
@@ -702,7 +702,7 @@ int main(int argc, char *argv[]) {
       if (Aggregate[i].nMolecules != 1 || xm_use_mol[Aggregate[i].Molecule[0]]) {
         for (int j = 0; j < Aggregate[i].nMolecules; j++) {
           int moltype = Molecule[Aggregate[i].Molecule[j]].Type;
-          if (MoleculeType[moltype].Use) {
+          if (MoleculeType[moltype].Flag) {
             Aggregate[i].Use = true;
             no_excluded_aggs++;
             break;

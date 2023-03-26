@@ -355,7 +355,7 @@ int main(int argc, char *argv[]) {
           int mol = Bead[bead].Molecule;
           int moltype = Molecule[mol].Type;
 
-          if (MoleculeType[moltype].Use) {
+          if (MoleculeType[moltype].Flag) {
             // TODO: fractionals!
             VECTOR dist = Distance(Bead[Aggregate[i].Bead[j]].Position,
                                    com, Box.Length);

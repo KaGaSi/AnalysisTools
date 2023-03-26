@@ -186,7 +186,7 @@ orthogonal box.\n", argv[0]);
     exit(1);
   }
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    MoleculeType[i].Use = use[i];
+    MoleculeType[i].Flag = use[i];
   } //}}}
 
   // set maximum/minimum as half a box length in the given direction //{{{
@@ -352,7 +352,7 @@ orthogonal box.\n", argv[0]);
         continue;
       }
       int mtype = Molecule[mol].Type;
-      if (Bead[i].Molecule != -1 && MoleculeType[mtype].Use && BeadType[btype].Use) {
+      if (Bead[i].Molecule != -1 && MoleculeType[mtype].Flag && BeadType[btype].Use) {
         double coor[3];
         switch(axis) {
           case 'x':

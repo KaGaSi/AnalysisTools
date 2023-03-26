@@ -216,7 +216,7 @@ int main(int argc, char *argv[]) {
       ErrorMoleculeType_old(Counts, MoleculeType);
       exit(1);
     } else {
-      MoleculeType[mol_type].Use = true;
+      MoleculeType[mol_type].Flag = true;
     }
   } //}}}
 
@@ -250,7 +250,7 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < number_of_beads; i++) {
     // Warning - too high id for specific molecule //{{{
     for (int j = 0; j < Counts.TypesOfMolecules; j++) {
-      if (MoleculeType[j].Use && bead[i] > MoleculeType[j].nBeads) {
+      if (MoleculeType[j].Flag && bead[i] > MoleculeType[j].nBeads) {
         if ((i%2) == 1 || bead[i+1] <= MoleculeType[j].nBeads) { // warning if one is higher
           ColourChange(STDERR_FILENO, YELLOW);
           fprintf(stderr, "\nWarning: ");
@@ -338,7 +338,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < Counts.Molecules; i++) {
       int mtype = Molecule[i].Type;
       VECTOR cog = GeomCentre(MoleculeType[mtype].nBeads, Molecule[i].Bead, Bead);
-      if ((cog.z < 10 || cog.z > 34) && MoleculeType[mtype].Use) { // use only specified molecule types
+      if ((cog.z < 10 || cog.z > 34) && MoleculeType[mtype].Flag) { // use only specified molecule types
   number_of_mols[mtype]++;
         for (int j = 0; j < number_of_beads; j += 2) {
           int mbeads = MoleculeType[mtype].nBeads;
@@ -422,7 +422,7 @@ int main(int argc, char *argv[]) {
   fprintf(out, "# columns: (1) Orientation order parameter");
   count = 1;
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    if (MoleculeType[i].Use) {
+    if (MoleculeType[i].Flag) {
       fprintf(out, "\n#          %s:", MoleculeType[i].Name);
       for (int j = 0; j < number_of_beads; j += 2) {
         // are ids right?
@@ -452,7 +452,7 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < bins; i++) {
     fprintf(out, "%7.4f", width*(2*i+1)/2-0.5); // orientation order parameter: <-0.5,1>
     for (int j = 0; j < Counts.TypesOfMolecules; j++) {
-      if (MoleculeType[j].Use) {
+      if (MoleculeType[j].Flag) {
         for (int k = 0; k < number_of_beads; k += 2) {
           switch(test_ids(bead[k], bead[k+1], MoleculeType[j].nBeads)) {
             case 0: // bead[k] & bead[k+1] too high
@@ -480,7 +480,7 @@ int main(int argc, char *argv[]) {
   fprintf(out, "# Average orientation order parameter");
   count = 0;
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    if (MoleculeType[i].Use) {
+    if (MoleculeType[i].Flag) {
       fprintf(out, "\n#    %s:", MoleculeType[i].Name);
       for (int j = 0; j < number_of_beads; j += 2) {
         if (bead[j] < MoleculeType[i].nBeads && bead[j+1] < MoleculeType[i].nBeads) {
@@ -497,7 +497,7 @@ int main(int argc, char *argv[]) {
   // data line
   putc('#', out);
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    if (MoleculeType[i].Use) {
+    if (MoleculeType[i].Flag) {
       for (int j = 0; j < number_of_beads; j += 2) {
         int mbeads = MoleculeType[i].nBeads;
         // check provided ids for given molecule type

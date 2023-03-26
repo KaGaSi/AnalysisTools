@@ -1,5 +1,7 @@
 #include "../AnalysisTools.h"
 
+// TODO: -x option not implemented (needs change in Write.c, I guess)
+
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
   if (error) {
@@ -30,7 +32,7 @@ containing all beads of any given type, so the usefulness is very limited \
   fprintf(ptr, "      --wrap         wrap coordinates (i.e., apply pbc)\n");
   fprintf(ptr, "      -n <int(s)>    save only specified timesteps"
           "(--last overrides this option)\n");
-  fprintf(ptr, "      -x <name(s)>   exclude specified molecule(s)\n");
+  // fprintf(ptr, "      -x <name(s)>   exclude specified molecule(s)\n");
   fprintf(ptr, "      --last         use only the last step"
           "(-st/-e/-n options are ignored)\n");
   int common = 11;
@@ -78,16 +80,15 @@ int main(int argc, char *argv[]) {
 
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' && strcmp(argv[i], "-l_in") != 0 &&
-        strcmp(argv[i], "-i") != 0 && strcmp(argv[i], "-v") != 0 &&
-        strcmp(argv[i], "--detailed") != 0 && strcmp(argv[i], "-st") != 0 &&
-        strcmp(argv[i], "--silent") != 0 && strcmp(argv[i], "--help") != 0 &&
-        strcmp(argv[i], "--reverse") != 0 && strcmp(argv[i], "--join") != 0 &&
-        strcmp(argv[i], "--wrap") != 0 && strcmp(argv[i], "-e") != 0 &&
-        strcmp(argv[i], "-sk") != 0 && strcmp(argv[i], "-n") != 0 &&
-        strcmp(argv[i], "-x") != 0 && strcmp(argv[i], "--version") != 0 &&
-        strcmp(argv[i], "-pbc") != 0 && strcmp(argv[i], "--last") != 0 &&
-        strcmp(argv[i], "--variable")) {
+    if (argv[i][0] == '-' && strcmp(argv[i], "--reverse") != 0 &&
+        strcmp(argv[i], "--join") != 0 && strcmp(argv[i], "--wrap") != 0 &&
+        strcmp(argv[i], "-n") != 0 && // strcmp(argv[i], "-x") != 0 &&
+        strcmp(argv[i], "--last") != 0 && strcmp(argv[i], "-st") != 0 &&
+        strcmp(argv[i], "-e") != 0 && strcmp(argv[i], "-sk") != 0 &&
+        strcmp(argv[i], "-i") != 0 && strcmp(argv[i], "--variable") != 0 &&
+        strcmp(argv[i], "--detailed") != 0 && strcmp(argv[i], "-pbc") != 0 &&
+        strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--silent") != 0 &&
+        strcmp(argv[i], "--help") && strcmp(argv[i], "--version") != 0) {
       ErrorOption(argv[i]);
       Help(argv[0], true);
       exit(1);
@@ -96,7 +97,7 @@ int main(int argc, char *argv[]) {
 
   count = 0; // count mandatory arguments
 
-  // <input> - input coordinate file //{{{
+  // <input> - input coordinate (and structure) file //{{{
   char coor_file[LINE] = "", struct_file[LINE] = "";
   int coor_type, struct_type = 0;
   snprintf(coor_file, LINE, "%s", argv[++count]);
@@ -128,9 +129,9 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data
   bool silent, verbose, detailed, vtf_var;
-  int start = 1, end = -1, skip = 0, pbc_xyz = -1;
+  int start = 1, end = -1, skip = 0, pbc_xyz = -1, ltrj_start_id = -1;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
-                &pbc_xyz, &start, &end, &skip);
+                &pbc_xyz, &ltrj_start_id, &start, &end, &skip);
   bool join = BoolOption(argc, argv, "--join");
   bool wrap = BoolOption(argc, argv, "--wrap");
   bool last = BoolOption(argc, argv, "--last");
@@ -139,7 +140,6 @@ int main(int argc, char *argv[]) {
     PrintCommand(stdout, argc, argv);
   }
 
-  int ltrj_start_id = -1; // for lammpstrj structure file, start ids from 0 or 1
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
                                 detailed, vtf_var, pbc_xyz, &ltrj_start_id);
 
@@ -178,10 +178,6 @@ int main(int argc, char *argv[]) {
   // TODO remove the bool flags from SYSTEM, i.e., also change ExcludeOption()
   if (ExcludeOption(argc, argv, &System)) {
     exit(1);
-  }
-  // copy Use flag to Write (for '-x' option)
-  for (int i = 0; i < System.Count.MoleculeType; i++) {
-    System.MoleculeType[i].Write = System.MoleculeType[i].Use;
   } //}}}
 
   // '-n' option - specify timestep ids //{{{
@@ -203,7 +199,7 @@ int main(int argc, char *argv[]) {
   fclose(out); //}}}
 
   // main loop //{{{
-  FILE *coor = OpenFile(coor_file, "r");
+  FILE *fr = OpenFile(coor_file, "r");
   // file pointers for finding the last valid step
   fpos_t *position = calloc(1, sizeof *position);
   // save line count at every fgetpos()
@@ -215,7 +211,7 @@ int main(int argc, char *argv[]) {
   while (true) {
     PrintStep(&count_coor, start, silent);
     position = realloc(position, count_coor * sizeof *position);
-    fgetpos(coor, &position[count_coor-1]);
+    fgetpos(fr, &position[count_coor-1]);
     bkp_line_count = realloc(bkp_line_count, count_coor *
                              sizeof *bkp_line_count);
     bkp_line_count[count_coor-1] = line_count;
@@ -243,7 +239,7 @@ int main(int argc, char *argv[]) {
       n_opt_count++;
     } //}}}
     if (use) { // read and write the timestep, if it should be saved //{{{
-      if (!ReadTimestep(coor_type, coor, coor_file, &System, &line_count,
+      if (!ReadTimestep(coor_type, fr, coor_file, &System, &line_count,
                         ltrj_start_id, vtf_var)) {
         count_coor--;
         break;
@@ -253,7 +249,7 @@ int main(int argc, char *argv[]) {
       WriteTimestep(coor_out_type, out_coor, System, count_coor, write);
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
-      if (!SkipTimestep(coor_type, coor, coor_file,
+      if (!SkipTimestep(coor_type, fr, coor_file,
                         struct_file, &line_count)) {
         count_coor--;
         break;
@@ -280,9 +276,9 @@ int main(int argc, char *argv[]) {
      * loop.
      */
     for (int i = (count_coor); i >= 0; i--) {
-      fsetpos(coor, &position[i]);
+      fsetpos(fr, &position[i]);
       line_count = bkp_line_count[i];
-      if (ReadTimestep(coor_type, coor, coor_file, &System, &line_count,
+      if (ReadTimestep(coor_type, fr, coor_file, &System, &line_count,
                        ltrj_start_id, vtf_var)) {
         count_saved++;
         WrapJoinCoordinates(&System, wrap, join);
@@ -317,7 +313,7 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "Last Step: %d (saved %d)\n", count_coor, count_saved);
     fflush(stdout);
   } //}}}
-  fclose(coor);
+  fclose(fr);
 
   // free memory
   FreeSystem(&System);

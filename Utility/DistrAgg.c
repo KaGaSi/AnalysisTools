@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
 
   // copy Use flag to Write (for '-x' option)
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    MoleculeType[i].Write = MoleculeType[i].Use;
+    MoleculeType[i].Write = MoleculeType[i].Flag;
   }
 
   // count total number of chains in excluded aggs

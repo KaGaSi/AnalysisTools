@@ -221,7 +221,7 @@ int main(int argc, char *argv[]) {
     }
     // Warning - id too high
     for (int j = 0; j < Counts.TypesOfMolecules; j++) {
-      if (MoleculeType[j].Use && (bead[i] >= MoleculeType[j].nBeads ||
+      if (MoleculeType[j].Flag && (bead[i] >= MoleculeType[j].nBeads ||
                                   bead[i+1] >= MoleculeType[j].nBeads)) {
         ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "\nWarning: ");

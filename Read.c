@@ -101,9 +101,9 @@ static int VtfSkipTimestep(FILE *fr, char file[], char vsf_file[],
 // identify type of a line
 static int VtfCheckLineType(char file[], int line_count);
 // functions to check if a line is of a specific type
-static int VtfCheckCoorOrderedLine();
-static int VtfCheckCoorIndexedLine();
-static int VtfCheckCoordinateLine();
+static int VtfCheckCoorOrderedLine(VECTOR *coor);
+static int VtfCheckCoorIndexedLine(VECTOR *coor, long *index);
+static int VtfCheckCoordinateLine(VECTOR *coor, long *index);
 static int VtfCheckTimestepLine();
 static int VtfCheckPbcLine();
 static bool VtfCheckAtomLine();
@@ -149,7 +149,7 @@ static bool XyzSkipTimestep(FILE *fr, char file[], int *line_count);
 static SYSTEM XyzReadStruct(char file[], int pbc);
 // Helper functions for xyz file
 static bool XyzSkipCoorLine(FILE *fr);
-static bool XyzCheckCoorLine();
+static bool XyzCheckCoorLine(VECTOR *coor);
  //}}}
 /*
  * General helper functions
@@ -366,7 +366,7 @@ static BOX LtrjReadPBC(char file[]) {
     if (test == -2) {
       ErrorEOF(file);
     }
-  exit(1);
+    exit(1);
   }
   test = LtrjReadNumberOfAtoms(fr, file, &line_count);
   if (test < 0) {
@@ -376,8 +376,8 @@ static BOX LtrjReadPBC(char file[]) {
   if (test < 0) {
     exit(1);
   }
-  return box;
   fclose(fr);
+  return box;
 }
 // Helper functions for lammpstrj files
 // LtrjReadTimestepPreamble() //{{{
@@ -1973,7 +1973,9 @@ static int VtfCheckLineType(char file[], int line_count) { //{{{
     return COMMENT_LINE;
   }
   // coordinate line
-  int test = VtfCheckCoordinateLine();
+  VECTOR trash;
+  long trash2;
+  int test = VtfCheckCoordinateLine(&trash, &trash2);
   if (test != ERROR_LINE) {
     return test;
   }
@@ -2029,35 +2031,33 @@ static int *VtfAtomLineValues() {
   }
   return value;
 } //}}}
-static int VtfCheckCoorOrderedLine() { //{{{
-  double val_d;
-  if (words >= 3 && IsRealNumber(split[0], &val_d) &&
-                    IsRealNumber(split[1], &val_d) &&
-                    IsRealNumber(split[2], &val_d)) {
+// TODO: add long id & VECOTR position, so it doesn't have to be done twice
+static int VtfCheckCoorOrderedLine(VECTOR *coor) { //{{{
+  if (words >= 3 && IsRealNumber(split[0], &coor->x) &&
+                    IsRealNumber(split[1], &coor->y) &&
+                    IsRealNumber(split[2], &coor->z)) {
     return COOR_LINE_O;
   }
   return ERROR_LINE;
 } //}}}
-static int VtfCheckCoorIndexedLine() { //{{{
-  long val_i;
-  double val_d;
+static int VtfCheckCoorIndexedLine(VECTOR *coor, long *index) { //{{{
   // indexed line (may also be ordered)
-  if (words >= 4 && IsWholeNumber(split[0], &val_i) &&
-                    IsRealNumber(split[1], &val_d) &&
-                    IsRealNumber(split[2], &val_d) &&
-                    IsRealNumber(split[3], &val_d)) {
+  if (words >= 4 && IsWholeNumber(split[0], index) &&
+                    IsRealNumber(split[1], &coor->x) &&
+                    IsRealNumber(split[2], &coor->y) &&
+                    IsRealNumber(split[3], &coor->z)) {
     return COOR_LINE;
   } else {
     return ERROR_LINE;
   }
 } //}}}
-static int VtfCheckCoordinateLine() { //{{{
+static int VtfCheckCoordinateLine(VECTOR *coor, long *index) { //{{{
   // indexed line (may also be ordered)
-  if (VtfCheckCoorIndexedLine() == COOR_LINE) {
+  if (VtfCheckCoorIndexedLine(coor, index) == COOR_LINE) {
     return COOR_LINE;
   }
   // definitely ordered line
-  if (VtfCheckCoorOrderedLine() == COOR_LINE_O) {
+  if (VtfCheckCoorOrderedLine(coor) == COOR_LINE_O) {
     return COOR_LINE_O;
   }
   return ERROR_LINE;
@@ -2286,23 +2286,28 @@ static int VtfReadCoorBlockIndexed(FILE *fr, char file[], SYSTEM *System,
       PrintErrorFile(file, "\0", "\0");
       return -2;
     }
-    if (VtfCheckCoorIndexedLine() == ERROR_LINE) {
+    VECTOR position;
+    long id;
+    if (VtfCheckCoorIndexedLine(&position, &id) == ERROR_LINE) {
       snprintf(ERROR_MSG, LINE, "unrecognized line in constant-size indexed "
                "coordinate block (%s%d%s-th line from %s%d%s)", ErrYellow(),
                i + 1, ErrRed(), ErrYellow(), Count->BeadCoor, ErrRed());
       PrintErrorFileLine(file, *line_count, split, words);
       return -1;
     }
-    int id = atoi(split[0]);
+    // int id = atoi(split[0]);
     if (id > Count->Bead) {
       strcpy(ERROR_MSG, "bead index is too high");
       PrintErrorFileLine(file, *line_count, split, words);
       return -1;
     }
     BEAD *bead_id = &System->Bead[id];
-    bead_id->Position.x = atof(split[1]);
-    bead_id->Position.y = atof(split[2]);
-    bead_id->Position.z = atof(split[3]);
+    // bead_id->Position.x = atof(split[1]);
+    // bead_id->Position.y = atof(split[2]);
+    // bead_id->Position.z = atof(split[3]);
+    bead_id->Position.x = position.x;
+    bead_id->Position.y = position.y;
+    bead_id->Position.z = position.z;
     if (bead_id->InTimestep) {
       strcpy(ERROR_MSG, "multiple beads with the same id");
       PrintErrorFileLine(file, *line_count, split, words);
@@ -2346,17 +2351,22 @@ static int VtfReadCoorBlockIndexedVar(FILE *fr, char file[], SYSTEM *System,
     PrintErrorFile(file, "\0", "\0");
     return -2;
   }
-  while (VtfCheckCoorIndexedLine() == COOR_LINE) {
-    int id = atoi(split[0]);
+  VECTOR coordinate;
+  long id;
+  while (VtfCheckCoorIndexedLine(&coordinate, &id) == COOR_LINE) {
+    // int id = atoi(split[0]);
     if (id > Count->Bead) {
       strcpy(ERROR_MSG, "bead index is too high");
       PrintErrorFileLine(file, *line_count, split, words);
       return -1;
     }
     BEAD *bead_id = &System->Bead[id];
-    bead_id->Position.x = atof(split[1]);
-    bead_id->Position.y = atof(split[2]);
-    bead_id->Position.z = atof(split[3]);
+    // bead_id->Position.x = atof(split[1]);
+    // bead_id->Position.y = atof(split[2]);
+    // bead_id->Position.z = atof(split[3]);
+    bead_id->Position.x = coordinate.x;
+    bead_id->Position.y = coordinate.y;
+    bead_id->Position.z = coordinate.z;
     if (bead_id->InTimestep) {
       strcpy(ERROR_MSG, "multiple beads with the same id");
       PrintErrorFileLine(file, *line_count, split, words);
@@ -2412,7 +2422,8 @@ static int VtfReadCoorBlockOrdered(FILE *fr, char file[], SYSTEM *System,
       PrintErrorFile(file, "\0", "\0");
       return -2;
     }
-    if (VtfCheckCoorOrderedLine() == ERROR_LINE) {
+    VECTOR coor;
+    if (VtfCheckCoorOrderedLine(&coor) == ERROR_LINE) {
       snprintf(ERROR_MSG, LINE, "unrecognized line in constant-size coordinate"
                " block (%s%d%s-th line from %s%d%s)", ErrYellow(), i + 1,
                ErrRed(), ErrYellow(), Count->BeadCoor, ErrRed());
@@ -2420,9 +2431,9 @@ static int VtfReadCoorBlockOrdered(FILE *fr, char file[], SYSTEM *System,
       return -1;
     }
     BEAD *bead_i = &System->Bead[i];
-    bead_i->Position.x = atof(split[0]);
-    bead_i->Position.y = atof(split[1]);
-    bead_i->Position.z = atof(split[2]);
+    bead_i->Position.x = coor.x;
+    bead_i->Position.y = coor.y;
+    bead_i->Position.z = coor.z;
     bead_i->InTimestep = true;
     VECTOR vel;
     if (words >= 6 && IsRealNumber(split[3], &vel.x) &&
@@ -3333,16 +3344,17 @@ static SYSTEM XyzReadStruct(char file[], int pbc) { //{{{
       ErrorEOF(file);
       exit(1);
     }
-    if (!XyzCheckCoorLine()) {
+    VECTOR coor;
+    if (!XyzCheckCoorLine(&coor)) {
       strcpy(ERROR_MSG, "wrong coordinate line");
       PrintErrorFileLine(file, line_count, split, words);
       exit(1);
     }
     BEAD *b = &Sys.Bead[i];
     InitBead(b);
-    IsRealNumber(split[1], &b->Position.x);
-    IsRealNumber(split[2], &b->Position.y);
-    IsRealNumber(split[3], &b->Position.z);
+    b->Position.x = coor.x;
+    b->Position.y = coor.y;
+    b->Position.z = coor.z;
     b->InTimestep = true;
     // assign bead type or create a new one
     bool new = true;
@@ -3410,10 +3422,11 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
       PrintErrorFileLine(file, *line_count, split, words);
       return -2;
     }
-    if (XyzCheckCoorLine()) {
-      IsRealNumber(split[1], &System->Bead[i].Position.x);
-      IsRealNumber(split[2], &System->Bead[i].Position.y);
-      IsRealNumber(split[3], &System->Bead[i].Position.z);
+    VECTOR coor;
+    if (XyzCheckCoorLine(&coor)) {
+      System->Bead[i].Position.x = coor.x;
+      System->Bead[i].Position.y = coor.y;
+      System->Bead[i].Position.z = coor.z;
       System->Bead[i].InTimestep = true;
       System->BeadCoor[i] = i;
       (*line_count)++;
@@ -3466,13 +3479,13 @@ static bool XyzSkipCoorLine(FILE *fr) { //{{{
   }
   int strings = 4;
   words = SplitLine(strings, split, line, " \t\n");
-  return XyzCheckCoorLine();
+  VECTOR trash;
+  return XyzCheckCoorLine(&trash);
 } //}}}
-static bool XyzCheckCoorLine() { //{{{
-  double val_d;
-  if (words > 3 && IsRealNumber(split[1], &val_d) &&
-                   IsRealNumber(split[2], &val_d) &&
-                   IsRealNumber(split[3], &val_d)) {
+static bool XyzCheckCoorLine(VECTOR *coor) { //{{{
+  if (words > 3 && IsRealNumber(split[1], &coor->x) &&
+                   IsRealNumber(split[2], &coor->y) &&
+                   IsRealNumber(split[3], &coor->z)) {
     return true;
   } else {
     return false;
@@ -4567,7 +4580,7 @@ static void MergeMoleculeTypes(SYSTEM *System) {
   MOLECULETYPE *temp = malloc(sizeof(MOLECULETYPE) * Count->MoleculeType);
   for (int i = 0; i < Count->MoleculeType; i++) {
     temp[i] = CopyMoleculeTypeEssentials(System->MoleculeType[i]);
-    temp[i].Use = false;
+    temp[i].Flag = false;
     FreeMoleculeTypeEssentials(&System->MoleculeType[i]);
   }
   free(System->MoleculeType);
@@ -4577,18 +4590,18 @@ static void MergeMoleculeTypes(SYSTEM *System) {
   // copy the molecule types back in a proper order
   count = 0;
   for (int i = 0; i < Count->MoleculeType; i++) {
-    if (!temp[i].Use) {
+    if (!temp[i].Flag) {
       System->MoleculeType[count] = CopyMoleculeTypeEssentials(temp[i]);
       old_to_new[i] = count;
       count++;
-      temp[i].Use = true;
+      temp[i].Flag = true;
       for (int j = (i + 1); j < Count->MoleculeType; j++) {
         if (strcmp(System->MoleculeType[i].Name, temp[j].Name) == 0 &&
-            !temp[j].Use) {
+            !temp[j].Flag) {
           System->MoleculeType[count] = CopyMoleculeTypeEssentials(temp[j]);
           old_to_new[j] = count;
           count++;
-          temp[j].Use = true;
+          temp[j].Flag = true;
         }
       }
     }
@@ -4822,7 +4835,9 @@ SYSTEM ReadStructure(int struct_type, char struct_file[],
   // read extra stuff from coordinate file if necessary
   switch (coor_type) {
     case LTRJ_FILE: // find if atom ids start from 0 or 1
-      *ltrj_start_id = LtrjLowIndex(coor_file);
+      if (*ltrj_start_id == -1) {
+        *ltrj_start_id = LtrjLowIndex(coor_file);
+      }
       if (System.Box.Volume == -1) {
         System.Box = LtrjReadPBC(coor_file);
       }

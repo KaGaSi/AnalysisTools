@@ -115,9 +115,9 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data
   bool silent, verbose, detailed, vtf_var;
-  int start = 1, end = -1, skip = 0, pbc_xyz = -1;
+  int start = 1, end = -1, skip = 0, pbc_xyz = -1, ltrj_start_id = -1;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
-                &pbc_xyz, &start, &end, &skip);
+                &pbc_xyz, &ltrj_start_id, &start, &end, &skip);
   // are provided coordinates joined?
   bool joined = BoolOption(argc, argv, "--joined");
   if (joined) { // --joined means it is joined, but the opposite is needed
@@ -130,7 +130,6 @@ int main(int argc, char *argv[]) {
     PrintCommand(stdout, argc, argv);
   }
 
-  int ltrj_start_id = -1; // for lammpstrj structure file, start ids from 0 or 1
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
                                 detailed, vtf_var, pbc_xyz, &ltrj_start_id);
 
@@ -216,7 +215,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // open input coordinate file
-  FILE *coor = OpenFile(coor_file, "r");
+  FILE *fr = OpenFile(coor_file, "r");
 
   // main loop //{{{
   int count_coor = 0, count_used = 0, line_count = 0;
@@ -229,7 +228,7 @@ int main(int argc, char *argv[]) {
       use = true;
     }
     if (use) {
-      if (!ReadTimestep(coor_type, coor, coor_file, &System, &line_count,
+      if (!ReadTimestep(coor_type, fr, coor_file, &System, &line_count,
                         ltrj_start_id, vtf_var)) {
         count_coor--;
         break;
@@ -331,16 +330,17 @@ int main(int argc, char *argv[]) {
         }
       } //}}}
     } else {
-      if (!SkipTimestep(coor_type, coor, coor_file, struct_file, &line_count)) {
+      if (!SkipTimestep(coor_type, fr, coor_file, struct_file, &line_count)) {
         count_coor--;
         break;
       }
     }
+    // TODO: isn't this superfluous, considering the 'use' above?
     if (count_coor == end) {
       break;
     }
   }
-  fclose(coor);
+  fclose(fr);
   // print last step?
   if (!silent) {
     if (isatty(STDOUT_FILENO)) {

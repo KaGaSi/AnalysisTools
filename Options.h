@@ -24,7 +24,8 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]);
 // detect options common for most utilities
 void CommonOptions(int argc, char *argv[], int length, bool *verbose,
                    bool *silent, bool *detailed, bool *vtf_var_coor,
-                   int *pbc_xyz, int *start, int *end, int *skip);
+                   int *pbc_xyz, int *ltrj_start_id, int *start,
+                   int *end, int *skip);
 
 // print AnalysisTools version number (--version)
 bool VersionOption(int argc, char *argv[]);

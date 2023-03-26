@@ -45,6 +45,9 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
     } else if (strcmp(option[i], "-pbc") == 0) {
       fprintf(ptr, "      -pbc <int>     position of pbc in xyz file's comment"
               " line (of the first number)\n");
+    } else if (strcmp(option[i], "-ltrj") == 0) {
+      fprintf(ptr, "      -pbc <int>     position of pbc in xyz file's comment"
+              " line (of the first number)\n");
     } else if (strcmp(option[i], "-v") == 0) {
       fprintf(ptr, "      -v             verbose output\n");
     } else if (strcmp(option[i], "--silent") == 0) {
@@ -66,7 +69,8 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
 // detect options common for most utilities //{{{
 void CommonOptions(int argc, char *argv[], int length, bool *verbose,
                    bool *silent, bool *detailed, bool *vtf_var_coor,
-                   int *pbc_xyz, int *start, int *end, int *skip) {
+                   int *pbc_xyz, int *ltrj_start_id, int *start,
+                   int *end, int *skip) {
   // -v option - verbose output
   *verbose = BoolOption(argc, argv, "-v");
   // --silent option - silent mode
@@ -99,6 +103,15 @@ void CommonOptions(int argc, char *argv[], int length, bool *verbose,
     strcpy(ERROR_MSG, "position must be a positive number");
     PrintErrorOption("-pbc");
   }
+  *ltrj_start_id = -1;
+  if (IntegerOption(argc, argv, 1, "-ltrj", &trash, ltrj_start_id)) {
+    exit(1);
+  }
+  if (*ltrj_start_id < -1 || *ltrj_start_id > 1) {
+    strcpy(ERROR_MSG, "argument must be 0 or 1");
+    PrintErrorOption("-ltrj");
+    exit(1);
+  }
 } //}}}
 
 // print AnalysisTools version number (--version) //{{{
@@ -119,7 +132,7 @@ bool VersionOption(int argc, char *argv[]) {
 bool ExcludeOption(int argc, char *argv[], SYSTEM *System) {
   // set all molecules to use
   for (int i = 0; i < System->Count.MoleculeType; i++) {
-    System->MoleculeType[i].Use = true;
+    System->MoleculeType[i].Flag = true;
   }
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-x") == 0) {
@@ -142,7 +155,7 @@ bool ExcludeOption(int argc, char *argv[], SYSTEM *System) {
           return true;
         } else {
           // exclude that molecule
-          (*System).MoleculeType[type].Use = false;
+          System->MoleculeType[type].Flag = false;
         }
         j++;
       }

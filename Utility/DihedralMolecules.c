@@ -156,12 +156,12 @@ int main(int argc, char *argv[]) {
         ErrorMoleculeType_old(Counts, MoleculeType);
         exit(1);
       } else {
-        MoleculeType[mol_type].Use = true;
+        MoleculeType[mol_type].Flag = true;
       }
     }
   } else { // --all option is used
     for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-      MoleculeType[i].Use = true;
+      MoleculeType[i].Flag = true;
     }
   } //}}}
 
@@ -194,7 +194,7 @@ int main(int argc, char *argv[]) {
     bead[i]--; // ids should start with zero
     // Error - too high id for specific molecule //{{{
     for (int j = 0; j < Counts.TypesOfMolecules; j++) {
-      if (MoleculeType[j].Use && bead[i] >= MoleculeType[j].nBeads) {
+      if (MoleculeType[j].Flag && bead[i] >= MoleculeType[j].nBeads) {
         ErrorPrintError_old();
         ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "-n");
@@ -254,7 +254,7 @@ three different beads (wrong trio: ");
     fprintf(out, "# columns: (1) step;");
     int j = 2;
     for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-      if (MoleculeType[i].Use) {
+      if (MoleculeType[i].Flag) {
         int angles_per_mtype = MoleculeType[i].Number * number_of_angles;
         if (angles_per_mtype == 1) {
           fprintf(out, " (%d) %s molecules;", j, MoleculeType[i].Name);
@@ -326,7 +326,7 @@ three different beads (wrong trio: ");
     double angle[Counts.Molecules][number_of_angles];
     for (int i = 0; i < Counts.Molecules; i++) {
       int mol_type = Molecule[i].Type;
-      if (MoleculeType[mol_type].Use) {
+      if (MoleculeType[mol_type].Flag) {
 
         // calculate normal vectors to specified planes
         // first plane is given by 0 1 2 and second plane by 1 2 3
@@ -396,7 +396,7 @@ three different beads (wrong trio: ");
       fprintf(out, "%6d", count_vcf);
       for (int i = 0; i < Counts.Molecules; i++) {
         int mol_type = Molecule[i].Type;
-        if (MoleculeType[mol_type].Use) {
+        if (MoleculeType[mol_type].Flag) {
           for (int j = 0; j < number_of_beads; j += beads_per_angle){
             int count_angle = j / beads_per_angle;
             // write angle between planes, not normals
@@ -440,7 +440,7 @@ three different beads (wrong trio: ");
   fprintf(out, "# columns: (1) angle [deg];");
   int j = 2;
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    if (MoleculeType[i].Use) {
+    if (MoleculeType[i].Flag) {
       if (number_of_angles == 1) {
         fprintf(out, " (%d) %s molecules;", j, MoleculeType[i].Name);
       } else {
@@ -456,7 +456,7 @@ three different beads (wrong trio: ");
   for (int i = 0; i < bins; i++) {
     fprintf(out, "%5.1f", width*(2*i+1)/2);
     for (int j = 0; j < Counts.TypesOfMolecules; j++) {
-      if (MoleculeType[j].Use) {
+      if (MoleculeType[j].Flag) {
         for (int k = 0; k < (number_of_beads/beads_per_angle); k++) {
           double value = (double)(distr[j][k][i]) /
                          (count_step * MoleculeType[j].Number);
@@ -471,7 +471,7 @@ three different beads (wrong trio: ");
   fprintf(out, "# simple averages:");
   j = 1;
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    if (MoleculeType[i].Use) {
+    if (MoleculeType[i].Flag) {
       if ((number_of_beads/beads_per_angle) == 1) {
         fprintf(out, " (%d) %s molecules;", j, MoleculeType[i].Name);
       } else {
@@ -483,7 +483,7 @@ three different beads (wrong trio: ");
   }
   fprintf(out, "\n#");
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    if (MoleculeType[i].Use) {
+    if (MoleculeType[i].Flag) {
       for (int j = 0; j < (number_of_beads/beads_per_angle); j++) {
         double value = avg_angle[i][j] / (count_step * MoleculeType[i].Number);
         fprintf(out, " %7.3f", value);

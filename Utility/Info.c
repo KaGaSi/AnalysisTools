@@ -260,12 +260,11 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
   bool silent, verbose, detailed, vtf_var;
-  int timestep = 1, pbc_xyz = -1;
+  int timestep = 1, pbc_xyz = -1, ltrj_start_id = -1;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
-                &pbc_xyz, &timestep, trash, trash);
+                &pbc_xyz, &ltrj_start_id, &timestep, trash, trash);
 
   // read information from input file(s) //{{{
-  int ltrj_start_id = -1;
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
                                 detailed, vtf_var, pbc_xyz, &ltrj_start_id);
   // use coordinate from a separate file (-c option)

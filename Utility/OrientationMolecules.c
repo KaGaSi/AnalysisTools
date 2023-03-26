@@ -221,11 +221,11 @@ int main(int argc, char *argv[]) {
         ErrorMoleculeType_old(Counts, MoleculeType);
         exit(1);
       } //}}}
-      MoleculeType[mtype].Use = true;
+      MoleculeType[mtype].Flag = true;
     }
   } else { // --all option is used
     for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-      MoleculeType[i].Use = true;
+      MoleculeType[i].Flag = true;
     }
   } //}}}
 
@@ -272,7 +272,7 @@ int main(int argc, char *argv[]) {
     }
     // Warning - id too high
     for (int j = 0; j < Counts.TypesOfMolecules; j++) {
-      if (MoleculeType[j].Use && (bead[i] >= MoleculeType[j].nBeads ||
+      if (MoleculeType[j].Flag && (bead[i] >= MoleculeType[j].nBeads ||
                                   bead[i+1] >= MoleculeType[j].nBeads)) {
         ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "\nWarning: ");
@@ -347,7 +347,7 @@ int main(int argc, char *argv[]) {
     // go through all molecules
     for (int i = 0; i < Counts.Molecules; i++) {
       int mtype = Molecule[i].Type;
-      if (MoleculeType[mtype].Use) { // use only specified molecule types
+      if (MoleculeType[mtype].Flag) { // use only specified molecule types
         for (int j = 0; j < number_of_beads; j += beads_per_set) {
           int pair = j / 2,
               mol_beads = MoleculeType[mtype].nBeads,
@@ -433,7 +433,7 @@ int main(int argc, char *argv[]) {
   fprintf(out, "# columns: (1) Orientation order parameter");
   count = 1;
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    if (MoleculeType[i].Use) {
+    if (MoleculeType[i].Flag) {
       fprintf(out, "\n#          %s:", MoleculeType[i].Name);
       for (int j = 0; j < number_of_beads; j += 2) {
         // TODO: switch was fine; is the if else?
@@ -462,7 +462,7 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < bins; i++) {
     fprintf(out, "%7.4f", width*(2*i+1)/2-0.5); // orientation order parameter: <-0.5,1>
     for (int j = 0; j < Counts.TypesOfMolecules; j++) {
-      if (MoleculeType[j].Use) {
+      if (MoleculeType[j].Flag) {
         for (int k = 0; k < number_of_beads; k += beads_per_set) {
         // TODO: switch was fine; is the if else?
           if (test_ids(bead[k], bead[k+1], MoleculeType[j].nBeads) > 0 &&
@@ -498,7 +498,7 @@ int main(int argc, char *argv[]) {
   fprintf(out, "# Average orientation order parameter");
   count = 0;
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    if (MoleculeType[i].Use) {
+    if (MoleculeType[i].Flag) {
       fprintf(out, "\n#    %s:", MoleculeType[i].Name);
       for (int j = 0; j < number_of_beads; j += beads_per_set) {
         // TODO: the commented if else works; does this one?
@@ -520,7 +520,7 @@ int main(int argc, char *argv[]) {
   // data line
   putc('#', out);
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    if (MoleculeType[i].Use) {
+    if (MoleculeType[i].Flag) {
       for (int j = 0; j < number_of_beads; j += beads_per_set) {
         // check provided ids for given molecule type
         // TODO: again, commented-out if else work, does the other one?

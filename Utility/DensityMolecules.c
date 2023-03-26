@@ -157,11 +157,11 @@ int main(int argc, char *argv[]) {
         ErrorMoleculeType_old(Counts, MoleculeType);
         exit(1);
       } //}}}
-      MoleculeType[type].Use = true;
+      MoleculeType[type].Flag = true;
     }
   } else { // --all option is used
     for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-      MoleculeType[i].Use = true;
+      MoleculeType[i].Flag = true;
     }
   } //}}}
 
@@ -179,7 +179,7 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
     if (mtype > -1) {
-      if (!MoleculeType[mtype].Use) {
+      if (!MoleculeType[mtype].Flag) {
         // warning - this molecule not specified in <mol(s)> //{{{
         ColourChange(STDERR_FILENO, YELLOW);
         fprintf(stderr, "\nWarning: ");
@@ -293,7 +293,7 @@ int main(int argc, char *argv[]) {
     // calculate densities //{{{
     for (int i = 0; i < Counts.Molecules; i++) {
       int mtype = Molecule[i].Type;
-      if (MoleculeType[mtype].Use) {
+      if (MoleculeType[mtype].Flag) {
         // determine centre to calculate densities from //{{{
         VECTOR com;
         if (centre[mtype] == -1 ) { // use molecule's centre of mass
@@ -373,7 +373,7 @@ int main(int argc, char *argv[]) {
 
   // write densities to output file(s) //{{{
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    if (MoleculeType[i].Use) {
+    if (MoleculeType[i].Flag) {
       char str[LINE]; // file name <output_rho><mol_name>.rho
       sprintf(str, "%s%s.rho", output_rho, MoleculeType[i].Name);
       FILE *out = OpenFile(str, "w");

@@ -146,11 +146,11 @@ int main(int argc, char *argv[]) {
         ErrorMoleculeType_old(Counts, MoleculeType);
         exit(1);
       } //}}}
-      MoleculeType[mtype].Use = true;
+      MoleculeType[mtype].Flag = true;
     }
   } else { // --all option is used
     for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-      MoleculeType[i].Use = true;
+      MoleculeType[i].Flag = true;
     }
   } //}}}
 
@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
 
   // write initial stuff to output file //{{{
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    if (MoleculeType[i].Use) {
+    if (MoleculeType[i].Flag) {
       char str[LINE];
       sprintf(str, "%s%s.txt", output, MoleculeType[i].Name);
       FILE *out = OpenFile(str, "w");
@@ -227,7 +227,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < Counts.Molecules; i++) {
       int mtype = Molecule[i].Type;
 
-      if (MoleculeType[mtype].Use) {
+      if (MoleculeType[mtype].Flag) {
         // copy bead ids to a separate array //{{{
         int list[MoleculeType[mtype].nBeads],
             n = 0;
@@ -295,7 +295,7 @@ int main(int argc, char *argv[]) {
 
     // print shape descriptors to output file(s) //{{{
     for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-      if (MoleculeType[i].Use) {
+      if (MoleculeType[i].Flag) {
         char str[LINE];
         sprintf(str, "%s%s.txt", output, MoleculeType[i].Name);
         FILE *out = OpenFile(str, "a");
@@ -338,7 +338,7 @@ int main(int argc, char *argv[]) {
 
   // write simple averages to <output> //{{{
   for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    if (MoleculeType[i].Use) {
+    if (MoleculeType[i].Flag) {
       char str[LINE]; // file name <output><mol_name>.txt
       sprintf(str, "%s%s.txt", output, MoleculeType[i].Name);
       FILE *out = OpenFile(str, "a");
