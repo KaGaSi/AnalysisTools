@@ -18,8 +18,6 @@ distances between any two beads in those molecule type(s).\n\n");
   fprintf(ptr, "   <width>              width of a single distribution bin\n");
   fprintf(ptr, "   <output>             output file with the distribution of "
                "bond lengths\n");
-  fprintf(ptr, "   <mol(s)>             molecule name(s) to calculate bond "
-               "lengths for (optional and ignored if '--all' is used)\n");
   fprintf(ptr, "   [options]\n");
   fprintf(ptr, "      -m <name(s)>      molecules to calculate distances for"
                "(if not present, use all molecule types)");
@@ -29,19 +27,20 @@ distances between any two beads in those molecule type(s).\n\n");
                "between specified beads to file <out> (if no [ints] are "
                "provided, the molecule's first and last bead are used)\n");
   fprintf(ptr, "      -w <float>        warn if the length exceeds <float> \n");
-  int common = 11;
+  int common = 12;
   char option[common][OPT_LENGTH];
-  strcpy(option[0], "-st");
-  strcpy(option[1], "-e");
-  strcpy(option[2], "-sk");
-  strcpy(option[3], "-i");
-  strcpy(option[4], "--variable");
-  strcpy(option[5], "-pbc");
-  strcpy(option[6], "--detailed");
-  strcpy(option[7], "-v");
-  strcpy(option[8], "--silent");
-  strcpy(option[9], "--help");
-  strcpy(option[10], "--version");
+  strcpy(option[ 0], "-st");
+  strcpy(option[ 1], "-e");
+  strcpy(option[ 2], "-sk");
+  strcpy(option[ 3], "-i");
+  strcpy(option[ 4], "--variable");
+  strcpy(option[ 5], "-pbc");
+  strcpy(option[ 6], "-ltrj");
+  strcpy(option[ 7], "--detailed");
+  strcpy(option[ 8], "-v");
+  strcpy(option[ 9], "--silent");
+  strcpy(option[10], "--help");
+  strcpy(option[11], "--version");
   CommonHelp(error, common, option);
 } //}}}
 
@@ -73,15 +72,15 @@ int main(int argc, char *argv[]) {
 
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' && strcmp(argv[i], "--all") != 0 &&
-        strcmp(argv[i], "-m") != 0 && strcmp(argv[i], "--joined") != 0 &&
-        strcmp(argv[i], "-d") != 0 && strcmp(argv[i], "-w") != 0 &&
+    if (argv[i][0] == '-' && strcmp(argv[i], "-m") != 0 &&
+        strcmp(argv[i], "--joined") != 0 && strcmp(argv[i], "-d") != 0 &&
+        strcmp(argv[i], "-w") != 0 &&
         strcmp(argv[i], "-st") != 0 && strcmp(argv[i], "-e") != 0 &&
         strcmp(argv[i], "-sk") != 0 && strcmp(argv[i], "-i") != 0 &&
         strcmp(argv[i], "--variable") != 0 && strcmp(argv[i], "-pbc") != 0 &&
-        strcmp(argv[i], "--detailed") != 0 && strcmp(argv[i], "-v") != 0 &&
-        strcmp(argv[i], "--silent") != 0 && strcmp(argv[i], "-h") != 0 &&
-        strcmp(argv[i], "--version") != 0) {
+        strcmp(argv[i], "-ltrj") != 0 && strcmp(argv[i], "--detailed") != 0 &&
+        strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--silent") != 0 &&
+        strcmp(argv[i], "--help") != 0 && strcmp(argv[i], "--version") != 0) {
 
       ErrorOption(argv[i]);
       Help(argv[0], true);

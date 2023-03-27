@@ -39,16 +39,17 @@ If some information required for the given output file type is missing, \
   fprintf(ptr, "      --mass             define lammps atom types by mass, but "
           "print per-atom charges in Atoms section (lammps data file)\n");
   putc('\n', ptr);
-  int common = 8;
+  int common = 9;
   char option[common][OPT_LENGTH];
   strcpy(option[0], "-st");
-  strcpy(option[1], "--detailed");
-  strcpy(option[2], "--variable");
-  strcpy(option[3], "-pbc");
-  strcpy(option[4], "-v");
-  strcpy(option[5], "--silent");
-  strcpy(option[6], "--help");
-  strcpy(option[7], "--version");
+  strcpy(option[1], "--variable");
+  strcpy(option[2], "-pbc");
+  strcpy(option[3], "-ltrj");
+  strcpy(option[4], "--detailed");
+  strcpy(option[5], "-v");
+  strcpy(option[6], "--silent");
+  strcpy(option[7], "--help");
+  strcpy(option[8], "--version");
   CommonHelp(error, common, option);
 } //}}}
 
@@ -80,15 +81,14 @@ int main(int argc, char *argv[]) {
 
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' && strcmp(argv[i], "--mass") != 0 &&
-        strcmp(argv[i], "-i") != 0 && strcmp(argv[i], "-i!") != 0 &&
-        strcmp(argv[i], "-o") != 0 && strcmp(argv[i], "-c") != 0 &&
-        strcmp(argv[i], "-st") != 0 && strcmp(argv[i], "-def") != 0 &&
-        strcmp(argv[i], "--mass") != 0 && strcmp(argv[i], "-v") != 0 &&
-        strcmp(argv[i], "--help") != 0 && strcmp(argv[i], "--version") != 0 &&
-        strcmp(argv[i], "-pbc") != 0 && strcmp(argv[i], "--detailed") != 0 &&
-        strcmp(argv[i], "--variable")) {
-
+    if (argv[i][0] == '-' && strcmp(argv[i], "-i") != 0 &&
+        strcmp(argv[i], "-i!") != 0 && strcmp(argv[i], "-c") != 0 &&
+        strcmp(argv[i], "-o") != 0 && strcmp(argv[i], "-def") != 0 &&
+        strcmp(argv[i], "--mass") != 0 && strcmp(argv[i], "-st") != 0 &&
+        strcmp(argv[i], "--variable") != 0 && strcmp(argv[i], "-pbc") != 0 &&
+        strcmp(argv[i], "-ltrj") != 0 && strcmp(argv[i], "--detailed") != 0 &&
+        strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--silent") != 0 &&
+        strcmp(argv[i], "--help") != 0 && strcmp(argv[i], "--version") != 0) {
       ErrorOption(argv[i]);
       Help(argv[0], true);
       exit(1);

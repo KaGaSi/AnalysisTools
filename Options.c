@@ -46,8 +46,7 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
       fprintf(ptr, "      -pbc <int>     position of pbc in xyz file's comment"
               " line (of the first number)\n");
     } else if (strcmp(option[i], "-ltrj") == 0) {
-      fprintf(ptr, "      -pbc <int>     position of pbc in xyz file's comment"
-              " line (of the first number)\n");
+      fprintf(ptr, "      -ltrj <int>    does lammpstrj ids go from 0 or 1?\n");
     } else if (strcmp(option[i], "-v") == 0) {
       fprintf(ptr, "      -v             verbose output\n");
     } else if (strcmp(option[i], "--silent") == 0) {

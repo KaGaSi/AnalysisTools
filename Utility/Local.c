@@ -3,12 +3,13 @@
 typedef struct constant {
   // data from lammps/src/update.cpp
   double mvv2e, // convert mv^2 to E (eV)
-         k_B; // Boltzmann constant in eV/K
+         boltz, // Boltzmann constant in eV/K
+         nktv2p;
 } CONST;
 
 // reduced length - CG: Al 3^3, Zr 2^3
 // ...not sure whether this is in any sense right
-static const double red_dist[2] = {3, 2};
+static const double red_dist[2] = {1, 1};
 
 void Help(char cmd[50], bool error) { //{{{
   FILE *ptr;
@@ -30,37 +31,34 @@ void Help(char cmd[50], bool error) { //{{{
           " (in the 1 or both dimensions)\n");
   fprintf(ptr, "   <output>          output file with local variables\n");
   fprintf(ptr, "   [options]\n");
-  fprintf(ptr, "      -n <int(s)>    save only specified timesteps "
-          "(if --last option is used, save also the last timestep)\n");
-  fprintf(ptr, "      --last         use only the last step "
-          "(-st/-e options are ignored; -n option is not)\n");
   fprintf(ptr, "      --metal        assume lammps 'metal' units\n");
   fprintf(ptr, "      --per-step     save a new file for each step"
           "(adds '-<step>.txt' to <output>)\n");
   fprintf(ptr, "      -avg <n>       number of adjacent bins to average\n");
-  int common = 11;
+  int common = 12;
   char option[common][OPT_LENGTH];
   strcpy(option[ 0], "-st");
   strcpy(option[ 1], "-e");
   strcpy(option[ 2], "-sk");
   strcpy(option[ 3], "-i");
   strcpy(option[ 4], "--variable");
-  strcpy(option[ 5], "--detailed");
-  strcpy(option[ 6], "-pbc");
-  strcpy(option[ 7], "-v");
-  strcpy(option[ 8], "--silent");
-  strcpy(option[ 9], "-h");
-  strcpy(option[10], "--version");
+  strcpy(option[ 5], "-pbc");
+  strcpy(option[ 6], "-ltrj");
+  strcpy(option[ 7], "--detailed");
+  strcpy(option[ 8], "-v");
+  strcpy(option[ 9], "--silent");
+  strcpy(option[10], "--help");
+  strcpy(option[11], "--version");
   CommonHelp(error, common, option);
 } //}}}
 
 int main(int argc, char *argv[]) {
-  // -h/--version options - print stuff and exit //{{{
+  // --help/--version options - print stuff and exit //{{{
   if (VersionOption(argc, argv)) {
     exit(0);
   }
   for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "-h") == 0) {
+    if (strcmp(argv[i], "--help") == 0) {
       Help(argv[0], false);
       exit(0);
     }
@@ -81,16 +79,14 @@ int main(int argc, char *argv[]) {
 
   // test if options are given correctly //{{{
   for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' &&
-        strcmp(argv[i], "-i") != 0 && strcmp(argv[i], "-pbc") != 0 &&
-        strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--detailed") != 0 &&
-        strcmp(argv[i], "--silent") != 0 && strcmp(argv[i], "-h") != 0 &&
-        strcmp(argv[i], "--version") != 0 && strcmp(argv[i], "-st") != 0 &&
-        strcmp(argv[i], "-e") != 0 && strcmp(argv[i], "-sk") != 0 &&
-        strcmp(argv[i], "-n") != 0 && strcmp(argv[i], "-x") != 0 &&
-        strcmp(argv[i], "--last") != 0 &&
-        strcmp(argv[i], "--variable") != 0 && strcmp(argv[i], "--metal") != 0 &&
-        strcmp(argv[i], "--per-step") != 0 && strcmp(argv[i], "-avg") != 0) {
+    if (argv[i][0] == '-' && strcmp(argv[i], "--metal") != 0 &&
+        strcmp(argv[i], "--per_step") != 0 && strcmp(argv[i], "-avg") != 0 &&
+        strcmp(argv[i], "-st") != 0 && strcmp(argv[i], "-e") != 0 &&
+        strcmp(argv[i], "-sk") != 0 && strcmp(argv[i], "-i") != 0 &&
+        strcmp(argv[i], "--variable") != 0 && strcmp(argv[i], "-pbc") != 0 &&
+        strcmp(argv[i], "-ltrj") != 0 && strcmp(argv[i], "--detailed") != 0 &&
+        strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--silent") != 0 &&
+        strcmp(argv[i], "--help") != 0 && strcmp(argv[i], "--version") != 0) {
       ErrorOption(argv[i]);
       Help(argv[0], true);
       exit(1);
@@ -111,7 +107,7 @@ int main(int argc, char *argv[]) {
   // <axis> //{{{
   count++;
   bool err = false;
-  int dim[3] = {-1, -1, -1}; // [0]..1/2 for 1D/2D, [0..1]..0, 1, 2 for x, y, z
+  int dim[3] = {-1, -1, -1}; // [0]..1/2 for 1D/2D, [1..2]..0, 1, 2 for x, y, z
   if (argv[count][0] == 'x') {
     dim[1] = 0;
   } else if (argv[count][0] == 'y') {
@@ -161,44 +157,46 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data //{{{
   bool silent, verbose, detailed, vtf_var_coor;
-  int start= 1, end = -1, skip = 0, pbc_xyz = -1;
+  int start= 1, end = -1, skip = 0, pbc_xyz = -1, ltrj_start_id = -1;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var_coor,
-                &pbc_xyz, &start, &end, &skip);
-  // should output coordinates be joined?
-  bool last = BoolOption(argc, argv, "--last");
+                &pbc_xyz, &ltrj_start_id, &start, &end, &skip);
   int style = 0; // reduced units
   if (BoolOption(argc, argv, "--metal")) {
     style = 1; // lammps 'metal' units
   }
   bool per_step = BoolOption(argc, argv, "--per-step");
-  int avg = 0;
-  if (IntegerOption(argc, argv, "-avg", &avg)) {
+  int arr[1] = {0}, trash;
+  if (IntegerOption(argc, argv, 1, "-avg", &trash, arr)) {
     exit(1);
   }
-  //}}}
+  int avg = arr[0]; //}}}
 
   CONST c; //{{{
   if (style == 1) { // lammps metal units
     c.mvv2e = 1.0364269e-4;
-    c.k_B = 8.617343e-5;
+    c.boltz = 8.617343e-5;
+    c.nktv2p = 1.6021765e6;
+    c.nktv2p = 1.6021765e6;
   } else { // reduced units (lammps lj units)
     c.mvv2e = 1;
-    c.k_B = 1;
+    c.boltz = 1;
+    c.nktv2p = 1;
   } //}}}
 
-  // print command to stdout //{{{
   if (!silent) {
     PrintCommand(stdout, argc, argv);
-  } //}}}
+  }
 
-  // TODO: make reading various structure types into a function in Read.c
-  int ltrj_start_id = -1; // for lammpstrj structure file, start ids from 0 or 1
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
                                 detailed, vtf_var_coor,
                                 pbc_xyz, &ltrj_start_id);
+  VECTOR centre;
+  centre.x = System.Box.Length.x / 2;
+  centre.y = System.Box.Length.y / 2;
+  centre.z = System.Box.Length.z / 2;
 
   // number of bins //{{{
-  // TODO: variable box size? For now, assume at most twice the size
+  // TODO: variable box size? For now, assume at most twice the size?
   //       nah, just make the bins variable width based on instantenous box size
   if (System.Box.Volume == -1) {
     strcpy(ERROR_MSG, "missing box dimensions");
@@ -220,17 +218,9 @@ int main(int argc, char *argv[]) {
     width[1] = 2 * Max3(box->Length.x, box->Length.y, box->Length.z) + 1;
   } //}}}
 
-  // '-n' option - specify timestep ids //{{{
-  int n_opt_save[100] = {0}, n_opt_number = -1;
-  if (IntegerOption(argc, argv, "-n", &n_opt_number, n_opt_save)) {
-    exit(1);
-  }
-  SortArray(n_opt_save, n_opt_number, 0); //}}}
-
-  // print information - verbose output //{{{
   if (verbose) {
     VerboseOutput(System);
-  } //}}}
+  }
 
   // warning - unspecified mass //{{{
   for (int i = 0; i < System.Count.BeadType; i++) {
@@ -250,24 +240,23 @@ int main(int argc, char *argv[]) {
 
   // main loop //{{{
   FILE *coor = OpenFile(coor_file, "r");
-  // file pointers for finding the last valid step
-  fpos_t *position = calloc(1, sizeof *position);
-  // save line count at every fgetpos()
-  int *bkp_line_count = calloc(1, sizeof *bkp_line_count);
-  int n_opt_count = 0,         // count saved steps if -n option is used
-      count_coor = 0,          // count steps in the vcf file
-      count_used = 0,         // count steps in output file
-      line_count = 0;     // count lines in the vcf file
+  int count_coor = 0, // count steps in the vcf file
+      count_used = 0, // count steps in output file
+      line_count = 0; // count lines in the vcf file
 
   // when 1D is calculated, only Temp[i][0] is used
   long **bead_count = calloc(bin[0], sizeof **bead_count); // count beads
   double **Temp = calloc(bin[0], sizeof **Temp); // temperature
   double **sum_Temp = calloc(bin[0], sizeof **sum_Temp);
+  double **vir = calloc(bin[0], sizeof **vir); // virial
+  double **sum_vir = calloc(bin[0], sizeof **sum_vir);
   double **sum_beadcount = calloc(bin[0], sizeof **sum_beadcount);
   for (int i = 0; i < bin[0]; i++) {
     bead_count[i] = calloc(bin[1], sizeof *bead_count);
     Temp[i] = calloc(bin[1], sizeof *Temp);
     sum_Temp[i] = calloc(bin[1], sizeof *sum_Temp);
+    vir[i] = calloc(bin[1], sizeof *vir);
+    sum_vir[i] = calloc(bin[1], sizeof *sum_vir);
     sum_beadcount[i] = calloc(bin[1], sizeof *sum_beadcount);
   }
   InitDouble2DArray(sum_Temp, bin[0], bin[1], 0);
@@ -275,49 +264,13 @@ int main(int argc, char *argv[]) {
   // TODO: file to save some global stuff
   FILE *t_out = OpenFile("t.txt", "w");
   while (true) {
-    count_coor++;
-    position = realloc(position, count_coor * sizeof *position);
-    fgetpos(coor, &position[count_coor-1]);
-    bkp_line_count = realloc(bkp_line_count, count_coor *
-                             sizeof *bkp_line_count);
-    bkp_line_count[count_coor-1] = line_count;
-    // print step info? //{{{
-    if (!silent && isatty(STDOUT_FILENO)) {
-      if (last) {
-        fprintf(stdout, "\rDiscarding step: %d", count_coor);
-      } else {
-        if (count_coor == start) {
-          fprintf(stdout, "\rStarting step: %d\n", start);
-        }
-        fprintf(stdout, "\rStep: %d", count_coor);
-      }
-      fflush(stdout);
-    } //}}}
-    // decide whether this timestep is to be used //{{{
+    PrintStep(&count_coor, start, silent);
+    // use every skip-th timestep between start and end
     bool use = false;
-    /* no -n option - use if timestep
-     *    1) is between start (-st option) and end (-e option)
-     *    and
-     *    2) isn't skipped (-sk option); skipping starts counting with 'start'
-     */
-    if (n_opt_number == -1) {
-      if ((count_coor >= start && (count_coor <= end || end == -1)) && // 1)
-          ((count_coor - start) % skip) == 0) {                        // 2)
-        use = true;
-      } else {
-        use = false;
-      }
-      // definitely not use, if --last option is used
-      if (last) {
-        use = false;
-      }
-      // -n option is used - save the timestep if it's in the list
-    } else if (n_opt_count < n_opt_number &&
-               n_opt_save[n_opt_count] == count_coor) {
+    if ((count_coor >= start && (count_coor <= end || end == -1)) &&
+        ((count_coor - start) % skip) == 0) {
       use = true;
-      n_opt_count++;
     }
-    //}}}
     if (use) { // read and write the timestep, if it should be saved //{{{
       if (!ReadTimestep(coor_type, coor, coor_file, &System, &line_count,
                         ltrj_start_id, vtf_var_coor)) {
@@ -336,10 +289,10 @@ int main(int argc, char *argv[]) {
         }
       }
       WrapJoinCoordinates(&System, true, false); // restore pbc
-      // calculate the local properties
       InitLong2DArray(bead_count, bin[0], bin[1], 0);
       InitDouble2DArray(Temp, bin[0], bin[1], 0);
-      double temperature = 0, energy_kin = 0;
+      // calculate the local properties
+      double temperature = 0, energy_kin = 0, virial = 0;
       for (int i = 0; i < System.Count.BeadCoor; i++) {
         int id = System.BeadCoor[i];
         BEAD *b = &System.Bead[id];
@@ -354,24 +307,74 @@ int main(int argc, char *argv[]) {
             pos[j] = b->Position.z / width[j];
           }
         }
+        if (dim[0] == 1) {
+          if (dim[1] == 0) {
+            centre.x = width[0] * (2 * pos[0] + 1) / 2;
+          } else if (dim[1] == 1) {
+            centre.y = width[0] * (2 * pos[0] + 1) / 2;
+          } else if (dim[1] == 2) {
+            centre.z = width[0] * (2 * pos[0] + 1) / 2;
+          }
+        } else { // dim[0] must be 2 (for 2D)
+          if (dim[1] == 0) {
+            centre.x = width[0] * (2 * pos[0] + 1) / 2;
+            if (dim[2] == 1) {
+              centre.y = width[1] * (2 * pos[1] + 1) / 2;
+            } else {
+              centre.z = width[1] * (2 * pos[1] + 1) / 2;
+            }
+          } else if (dim[1] == 1) {
+            centre.y = width[0] * (2 * pos[0] + 1) / 2;
+            if (dim[2] == 0) {
+              centre.x = width[1] * (2 * pos[1] + 1) / 2;
+            } else {
+              centre.z = width[1] * (2 * pos[1] + 1) / 2;
+            }
+          } else { // dim[2] must be 2
+            centre.z = width[0] * (2 * pos[0] + 1) / 2;
+            if (dim[2] == 0) {
+              centre.x = width[1] * (2 * pos[1] + 1) / 2;
+            } else {
+              centre.x = width[1] * (2 * pos[1] + 1) / 2;
+            }
+          }
+        }
+        // printf("xxxxxxxxxx width %lf %lf pos %d %d centre %lf %lf %lf coor "
+        //        "%lf %lf %lf box %lf %lf %lf\n", width[0], width[1],
+        //        pos[0], pos[1], centre.x, centre.y, centre.z,
+        //        b->Position.x, b->Position.y, b->Position.z,
+        //        System.Box.Length.x, System.Box.Length.y, System.Box.Length.z);
         bead_count[pos[0]][pos[1]]++;
         double vel2 = SQR(b->Velocity.x / red_dist[b->Type]) +
                       SQR(b->Velocity.y / red_dist[b->Type]) +
                       SQR(b->Velocity.z / red_dist[b->Type]);
         Temp[pos[0]][pos[1]] += bt->Mass * vel2;
+        vir[pos[0]][pos[1]] += b->Force.x * (b->Position.x - centre.x) +
+                               b->Force.y * (b->Position.y - centre.y) +
+                               b->Force.z * (b->Position.z - centre.z);
+        virial += b->Force.x * (b->Position.x - centre.x) +
+                  b->Force.y * (b->Position.y - centre.y) +
+                  b->Force.z * (b->Position.z - centre.z);
         temperature += bt->Mass * vel2;
         energy_kin += 0.5 * bt->Mass * vel2;
       }
       for (int i = 0; i < bin[0]; i++) {
         for (int j = 0; j < bin[1]; j++) {
-          Temp[i][j] *= c.mvv2e / (3 * c.k_B);
+          Temp[i][j] *= c.mvv2e / (3 * c.boltz);
           sum_Temp[i][j] += Temp[i][j];
+          sum_vir[i][j] += vir[i][j];
           sum_beadcount[i][j] += bead_count[i][j];
         }
       }
-      temperature *= c.mvv2e / (3 * System.Count.BeadCoor * c.k_B);
+      temperature *= c.mvv2e / (3 * System.Count.BeadCoor * c.boltz);
+      double pressure = (temperature * c.boltz * System.Count.BeadCoor +
+                        virial) / (3 * System.Box.Volume) * c.nktv2p;
       energy_kin *= c.mvv2e;
-      fprintf(t_out, "%8d %8.4f %8.4f\n", count_coor, temperature, energy_kin);
+      fprintf(t_out, " %8d", count_coor);
+      fprintf(t_out, " %8.4f", temperature);
+      fprintf(t_out, " %8.4f", virial);
+      fprintf(t_out, " %8.4f", pressure);
+      putc('\n', t_out);
       // int avg = 0; // use data from bins -avg to avg
       // TODO: add some averaging: sum up bins x-avg to x+avg, plot to x
       // save values (if using --pers-step) //{{{
@@ -382,26 +385,32 @@ int main(int argc, char *argv[]) {
           PrintErrorFile(file, "\0", "\0");
           exit(1);
         }
-        FILE *out = OpenFile(file, "w");
+        FILE *fw = OpenFile(file, "w");
         // 1D case //{{{
         if (dim[0] == 1) {
+          double volume = (2 * avg + 1) * width[0];
           char *axis;
           if (dim[1] == 0) {
             axis = "x";
+            volume *= System.Box.Length.y * System.Box.Length.z;
           } else if (dim[1] == 1) {
             axis = "y";
+            volume *= System.Box.Length.x * System.Box.Length.z;
           } else {
             axis = "z";
+            volume *= System.Box.Length.x * System.Box.Length.y;
           }
           count = 0;
-          fprintf(out, "# (%d) %s coordinate", ++count, axis);
-          fprintf(out, "; (%d) temperature", ++count);
-          fprintf(out, "; (%d) avg beads in the bin", ++count);
-          putc('\n', out);
+          fprintf(fw, "# (%d) %s", ++count, axis);
+          fprintf(fw, "; (%d) T", ++count);
+          fprintf(fw, "; (%d) W", ++count);
+          fprintf(fw, "; (%d) P", ++count);
+          fprintf(fw, "; (%d) avg beads in the bin", ++count);
+          putc('\n', fw);
           for (int i = 0; i < bin[0]; i++) {
-            double avg_T = 0;
+            double avg_T = 0, avg_vir = 0;
             int avg_count = 0;
-            for (int j = (i-avg); j <= (i+avg); j++) {
+            for (int j = (i - avg); j <= (i + avg); j++) {
               int k = j;
               if (k < 0) {
                 k = bin[0] + k;
@@ -409,39 +418,60 @@ int main(int argc, char *argv[]) {
                 k = k - bin[0];
               }
               avg_T += Temp[k][0];
+              avg_vir += sum_vir[k][0];
               avg_count += bead_count[k][0];
             }
             int n = 2 * avg + 1;
-            fprintf(out, "%8.4f %8.4f %8.4f\n", width[0]*(2*i+1)/2,
-                    avg_T/avg_count, (double)(avg_count)/(count_used*n));
+            fprintf(fw, " %8.4f", width[0] * (2 * i + 1) / 2);
+            fprintf(fw, " %8.4f", avg_T / avg_count);
+            fprintf(fw, " %8.4f", avg_vir / avg_count);
+            fprintf(fw, " %8.4f", (avg_T  + avg_vir / 3) / volume);
+            fprintf(fw, " %8.4f", (double)(avg_count) / (count_used * n));
           }
         //}}}
         // 2D case //{{{
         } else {
+          double volume = SQR(2 * avg + 1) * width[0] * width[0];
           char *axis[2];
           if (dim[1] == 0) {
             axis[0] = "x";
+            if (dim[2] == 1) {
+              axis[1] = "y";
+              volume *= System.Box.Length.z;
+            } else {
+              axis[1] = "z";
+              volume *= System.Box.Length.y;
+            }
           } else if (dim[1] == 1) {
             axis[0] = "y";
+            if (dim[2] == 0) {
+              axis[1] = "x";
+              volume *= System.Box.Length.z;
+            } else {
+              axis[1] = "z";
+              volume *= System.Box.Length.x;
+            }
           } else {
             axis[0] = "z";
-          }
-          if (dim[2] == 0) {
-            axis[1] = "x";
-          } else if (dim[2] == 1) {
-            axis[1] = "y";
-          } else {
-            axis[1] = "z";
+            if (dim[2] == 2) {
+              axis[1] = "x";
+              volume *= System.Box.Length.y;
+            } else {
+              axis[1] = "y";
+              volume *= System.Box.Length.x;
+            }
           }
           count = 0;
-          fprintf(out, "# (%d) %s coordinate", ++count, axis[0]);
-          fprintf(out, "; (%d) %s coordinate", ++count, axis[1]);
-          fprintf(out, "; (%d) temperature", ++count);
-          fprintf(out, "; (%d) avg beads in the bin", ++count);
-          putc('\n', out);
+          fprintf(fw, "# (%d) %s", ++count, axis[0]);
+          fprintf(fw, "; (%d) %s", ++count, axis[1]);
+          fprintf(fw, "; (%d) T", ++count);
+          fprintf(fw, "; (%d) W", ++count);
+          fprintf(fw, "; (%d) P", ++count);
+          fprintf(fw, "; (%d) avg beads in the bin", ++count);
+          putc('\n', fw);
           for (int i = 0; i < bin[0]; i++) {
             for (int j = 0; j < bin[1]; j++) {
-              double avg_T = 0;
+              double avg_T = 0, avg_vir = 0;
               int avg_count = 0;
               for (int k = (i-avg); k <= (i+avg); k++) {
                 int m = k;
@@ -458,20 +488,24 @@ int main(int argc, char *argv[]) {
                     n = n - bin[1];
                   }
                   avg_T += Temp[m][n];
+                  avg_vir += vir[m][n];
                   avg_count += bead_count[m][n];
                 }
               }
               int n = SQR(2 * avg + 1);
-              fprintf(out, "%8.4f", width[0]*(2*i+1)/2);
-              fprintf(out, " %8.4f", width[1]*(2*j+1)/2);
-              fprintf(out, " %8.4f", avg_T/avg_count);
-              fprintf(out, " %8.4f\n", (double)(avg_count)/n);
+              fprintf(fw, " %8.4f", width[0] * (2 * i + 1) / 2);
+              fprintf(fw, " %8.4f", width[1] * (2 * j + 1) / 2);
+              fprintf(fw, " %8.4f", avg_T / avg_count);
+              fprintf(fw, " %8.4f", avg_vir / avg_count);
+              fprintf(fw, " %8.4f", (avg_T + avg_vir / 3) / volume);
+              fprintf(fw, " %8.4f\n", (double)(avg_count) / n);
+              putc('\n', fw);
             }
-            fprintf(out, "\n");
+            putc('\n', fw);
           }
         }
         //}}}
-        fclose(out);
+        fclose(fw);
       } //}}}
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
@@ -481,71 +515,12 @@ int main(int argc, char *argv[]) {
         break;
       }
     } //}}}
-    // decide whether to exit the main loop //{{{
-    /* break the loop if
-     *    1) all timesteps in the -n option are saved (and --last isn't used)
-     *    or
-     *    2) end timestep was reached (-e option)
-     */
-    if (!last && // never break when --last is used
-        (n_opt_count == n_opt_number || // 1)
-        count_coor == end)) { // 2)
+    if (count_coor == end) {
       break;
-    } //}}}
-  }   //}}}
-  fclose(t_out);
-  // if --last option is used, read & save the last timestep //{{{
-  if (last) {
-    /* To through all saved file positions (last to first) and save a the first
-     * valid step encountered.
-     * Start at count_coor as the saved position is at the beginning of the last
-     * timestep to be skipped, and count_coor-- is used beore quitting the while
-     * loop.
-     */
-    for (int n = (count_coor); n >= 0; n--) {
-      fsetpos(coor, &position[n]);
-      line_count = bkp_line_count[n];
-      if (ReadTimestep(coor_type, coor, coor_file, &System, &line_count,
-                       ltrj_start_id, vtf_var_coor)) {
-        count_used++;
-        WrapJoinCoordinates(&System, true, false); // restore pbc
-        // calculate the local properties
-        InitLong2DArray(bead_count, bin[0], bin[1], 0);
-        InitDouble2DArray(Temp, bin[0], bin[1], 0);
-        double temperature = 0, energy_kin = 0;
-        for (int i = 0; i < System.Count.BeadCoor; i++) {
-          int id = System.BeadCoor[i];
-          BEAD *b = &System.Bead[id];
-          BEADTYPE *bt = &System.BeadType[b->Type];
-          int pos[2] = {0, 0};
-          for (int j = 0; j < 2; j++) {
-            if (dim[j+1] == 0) {
-              pos[j] = b->Position.x / width[j];
-            } else if (dim[j+1] == 1) {
-              pos[j] = b->Position.y / width[j];
-            } else if (dim[j+1] == 2) {
-              pos[j] = b->Position.z / width[j];
-            }
-          }
-          bead_count[pos[0]][pos[1]]++;
-          double vel2 = SQR(b->Velocity.x) +
-                        SQR(b->Velocity.y) +
-                        SQR(b->Velocity.z);
-          Temp[pos[0]][pos[1]] += bt->Mass * vel2;
-          temperature += bt->Mass * vel2;
-          energy_kin += 0.5 * bt->Mass * vel2;
-        }
-        for (int i = 0; i < bin[0]; i++) {
-          for (int j = 0; j < bin[1]; j++) {
-            Temp[i][j] *= c.mvv2e / (3 * c.k_B);
-            sum_Temp[i][j] += Temp[i][j];
-            sum_beadcount[i][j] += bead_count[i][j];
-          }
-        }
-      }
     }
-  } //}}}
-  fclose(coor);
+  }
+  fclose(t_out);
+  fclose(coor); //}}}
   if (count_coor == 0) { // error - input file without a valid timestep //{{{
     strcpy(ERROR_MSG, "no valid timestep found");
     PrintError();
@@ -565,25 +540,31 @@ than the number of timestep)");
 
   // save average (if not using --pers-step) //{{{
   if (!per_step) {
-    FILE *out = OpenFile(out_file, "a");
+    FILE *fw = OpenFile(out_file, "a");
     // 1D case //{{{
     if (dim[0] == 1) {
+      double volume = (2 * avg + 1) * width[0];
       char *axis;
       if (dim[1] == 0) {
         axis = "x";
+        volume *= System.Box.Length.y * System.Box.Length.z;
       } else if (dim[1] == 1) {
         axis = "y";
+        volume *= System.Box.Length.x * System.Box.Length.z;
       } else {
         axis = "z";
+        volume *= System.Box.Length.x * System.Box.Length.y;
       }
       count = 0;
-      fprintf(out, "# (%d) %s coordinate", ++count, axis);
-      fprintf(out, "; (%d) temperature", ++count);
-      fprintf(out, "; (%d) avg beads in the bin", ++count);
-      putc('\n', out);
+      fprintf(fw, "# (%d) %s", ++count, axis);
+      fprintf(fw, "; (%d) T", ++count);
+      fprintf(fw, "; (%d) W", ++count);
+      fprintf(fw, "; (%d) P", ++count);
+      fprintf(fw, "; (%d) avg beads in the bin", ++count);
+      putc('\n', fw);
       // int avg = 1;
       for (int i = 0; i < bin[0]; i++) {
-        double avg_T = 0;
+        double avg_T = 0, avg_vir = 0;
         int avg_count = 0;
         for (int j = (i-avg); j <= (i+avg); j++) {
           int k = j;
@@ -593,49 +574,71 @@ than the number of timestep)");
             k = k - bin[0];
           }
           avg_T += sum_Temp[k][0];
+          avg_vir += sum_vir[k][0];
           avg_count += sum_beadcount[k][0];
         }
         int n = 2 * avg + 1;
-        fprintf(out, "%8.4f %8.4f %8.4f\n", width[0]*(2*i+1)/2,
-                avg_T/avg_count, (double)(avg_count)/(count_used*n));
+        fprintf(fw, " %8.4f", width[0] * (2 * i + 1) / 2);
+        fprintf(fw, " %8.4f", avg_T / avg_count);
+        fprintf(fw, " %8.4f", avg_vir / avg_count);
+        fprintf(fw, " %8.4f", (avg_T + avg_vir / 3) / volume);
+        fprintf(fw, " %8.4f", (double)(avg_count) / (count_used * n));
+        putc('\n', fw);
       }
     //}}}
     // 2D case //{{{
     } else {
+      double volume = SQR(2 * avg + 1) * width[0] * width[0];
       char *axis[2];
       if (dim[1] == 0) {
         axis[0] = "x";
+        if (dim[2] == 1) {
+          axis[1] = "y";
+          volume *= System.Box.Length.z;
+        } else {
+          axis[1] = "z";
+          volume *= System.Box.Length.y;
+        }
       } else if (dim[1] == 1) {
         axis[0] = "y";
+        if (dim[2] == 0) {
+          axis[1] = "x";
+          volume *= System.Box.Length.z;
+        } else {
+          axis[1] = "z";
+          volume *= System.Box.Length.x;
+        }
       } else {
         axis[0] = "z";
-      }
-      if (dim[2] == 0) {
-        axis[1] = "x";
-      } else if (dim[2] == 1) {
-        axis[1] = "y";
-      } else {
-        axis[1] = "z";
+        if (dim[2] == 2) {
+          axis[1] = "x";
+          volume *= System.Box.Length.y;
+        } else {
+          axis[1] = "y";
+          volume *= System.Box.Length.x;
+        }
       }
       count = 0;
-      fprintf(out, "# (%d) %s coordinate", ++count, axis[0]);
-      fprintf(out, "; (%d) %s coordinate", ++count, axis[1]);
-      fprintf(out, "; (%d) temperature", ++count);
-      fprintf(out, "; (%d) avg beads in the bin", ++count);
-      putc('\n', out);
+      fprintf(fw, "# (%d) %s", ++count, axis[0]);
+      fprintf(fw, "; (%d) %s", ++count, axis[1]);
+      fprintf(fw, "; (%d) T", ++count);
+      fprintf(fw, "; (%d) W", ++count);
+      fprintf(fw, "; (%d) P", ++count);
+      fprintf(fw, "; (%d) avg beads in the bin", ++count);
+      putc('\n', fw);
       // int avg = 0;
       for (int i = 0; i < bin[0]; i++) {
         for (int j = 0; j < bin[1]; j++) {
-          double avg_T = 0;
+          double avg_T = 0, avg_vir = 0;
           int avg_count = 0;
-          for (int k = (i-avg); k <= (i+avg); k++) {
+          for (int k = (i - avg); k <= (i + avg); k++) {
             int m = k;
             if (m < 0) {
               m = bin[0] + m;
             } else if (m >= bin[0]) {
               m = m - bin[0];
             }
-            for (int l = (j-avg); l <= (j+avg); l++) {
+            for (int l = (j - avg); l <= (j + avg); l++) {
               int n = l;
               if (n < 0) {
                 n = bin[1] + n;
@@ -643,32 +646,39 @@ than the number of timestep)");
                 n = n - bin[1];
               }
               avg_T += sum_Temp[m][n];
+              avg_vir += sum_vir[m][n];
               avg_count += sum_beadcount[m][n];
             }
           }
           int n = SQR(2 * avg + 1);
-          fprintf(out, "%8.4f", width[0]*(2*i+1)/2);
-          fprintf(out, " %8.4f", width[1]*(2*j+1)/2);
-          fprintf(out, " %8.4f", avg_T/avg_count);
-          fprintf(out, " %8.4f\n", (double)(avg_count)/(count_used*n));
+          fprintf(fw, " %8.4f", width[0] * (2 * i + 1) / 2);
+          fprintf(fw, " %8.4f", width[1] * (2 * j + 1) / 2);
+          fprintf(fw, " %8.4f", avg_T / avg_count);
+          fprintf(fw, " %8.4f", avg_vir / avg_count);
+          fprintf(fw, " %8.4f", (avg_T + avg_vir / 3) / volume);
+          fprintf(fw, " %8.4f\n", (double)(avg_count) / (count_used * n));
         }
-        fprintf(out, "\n");
+        fprintf(fw, "\n");
       }
     } //}}}
-    fclose(out);
+    fclose(fw);
   } //}}}
 
   // free memory //{{{
   for (int i = 0; i < bin[0]; i++) {
     free(bead_count[i]);
     free(Temp[i]);
-    free(sum_beadcount[i]);
     free(sum_Temp[i]);
+    free(vir[i]);
+    free(sum_vir[i]);
+    free(sum_beadcount[i]);
   }
   free(bead_count);
   free(Temp);
-  free(sum_beadcount);
   free(sum_Temp);
+  free(vir);
+  free(sum_vir);
+  free(sum_beadcount);
   FreeSystem(&System);
   //}}}
 
