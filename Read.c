@@ -2855,7 +2855,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
           // find if this bond type already exists
           for (int k = 0; k < Count->BondType; k++) {
             if (System->BondType[k].a == values.a &&
-                System->BondType[k].b == values.b) {
+                System->BondType[k].b == values.b &&
+                System->BondType[k].c == values.c) {
               bond_type = k;
               break;
             }
@@ -2980,7 +2981,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
           // find if this angle type already exists
           for (int k = 0; k < Count->AngleType; k++) {
             if (System->AngleType[k].a == values.a &&
-                System->AngleType[k].b == values.b) {
+                System->AngleType[k].b == values.b &&
+                System->AngleType[k].c == values.c) {
               angle_type = k;
               break;
             }
@@ -2989,9 +2991,9 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
           if (angle_type == -1) {
             angle_type = Count->AngleType;
             Count->AngleType++;
-            System->AngleType =
-                realloc(System->AngleType,
-                        sizeof *System->AngleType * Count->AngleType);
+            System->AngleType = realloc(System->AngleType,
+                                        sizeof *System->AngleType *
+                                        Count->AngleType);
             System->AngleType[angle_type].a = values.a;
             System->AngleType[angle_type].b = values.b;
             System->AngleType[angle_type].c = values.c;

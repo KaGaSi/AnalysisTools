@@ -1,3 +1,0 @@
-Effect of '--detailed' option on detailed.vsf structure file:
-  * with: detailed_yes.nfo (Info detailed.vsf --detailed)
-  * without: detailed_no.nfo (Info detailed.vsf)

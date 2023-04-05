@@ -40,6 +40,7 @@ set(UTILS AddToSystem
           BondLength
           Config
           Config_from_xyz
+          Density2D
           DensityAggregates
           DensityBox
           DensityMolecules

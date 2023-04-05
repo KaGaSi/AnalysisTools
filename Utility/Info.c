@@ -8,21 +8,14 @@ void Help(char cmd[50], bool error) { //{{{
     ptr = stdout;
     fprintf(ptr, "\
 Info analyzes the provided input structure file, \
-printing system composition to standard output. It can also \
-modify the system using a second structure file (-i[!] option). \
-Both bead types and molecule types can be modified: when a bead \
-type has unspecified mass, charge, or radius, \
-these values are be taken from the bead type of the same name from \
-the second file; when a molecule type misses bond types, angles, \
-dihedrals, impropers, or their types, these are taken from the molecule type \
-of the same name and number of beads from the second file. If '!' is used, \
-the bead types in the original molecules are changed for bead types from \
-molecules in the second system (for molecules that share the name and \
-number of beads). See the manual or Examples/Info for details and examples. \
-Info can also print the resulting system into an output file of the specified \
-type, including (if possible) coordinates from a different coordinate file. \
-If some information required for the given output file type is missing, \
-'???\' is printed instead.\n\n");
+printing system composition to standard output and, optionally, producing \
+an output structure file of specified format (-o option). If some information \
+required in the given output file type is missing, \
+'???\' is printed instead. The system from the input file can \
+be modified using a second structure file (-i[!] option) and/or \
+a coordinate file (-c option); see manual and Examples/Info folder for \
+details. \
+\n\n");
   }
 
   fprintf(ptr, "Usage:\n");
@@ -37,7 +30,8 @@ If some information required for the given output file type is missing, \
   fprintf(ptr, "      -def <bead name>   default bead type "
           "(output vtf structure file only)\n");
   fprintf(ptr, "      --mass             define lammps atom types by mass, but "
-          "print per-atom charges in Atoms section (lammps data file)\n");
+          "print per-atom charges in Atoms section "
+          "(output lammps data file only)\n");
   putc('\n', ptr);
   int common = 9;
   char option[common][OPT_LENGTH];
@@ -324,8 +318,9 @@ int main(int argc, char *argv[]) {
         }
       }
     }
-    ChangeMolecules(&System, Sys_extra, change_beads, true);
+    ChangeMolecules(&System, Sys_extra, change_beads, false);
     CheckSystem(System, struct_file_extra);
+    WarnChargedSystem(System, struct_file, struct_file_extra, "\0");
   }
  //}}}
 

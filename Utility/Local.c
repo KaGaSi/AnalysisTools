@@ -176,7 +176,6 @@ int main(int argc, char *argv[]) {
     c.mvv2e = 1.0364269e-4;
     c.boltz = 8.617343e-5;
     c.nktv2p = 1.6021765e6;
-    c.nktv2p = 1.6021765e6;
   } else { // reduced units (lammps lj units)
     c.mvv2e = 1;
     c.boltz = 1;
@@ -339,22 +338,28 @@ int main(int argc, char *argv[]) {
             }
           }
         }
-        // printf("xxxxxxxxxx width %lf %lf pos %d %d centre %lf %lf %lf coor "
-        //        "%lf %lf %lf box %lf %lf %lf\n", width[0], width[1],
+        // printf("width %lf %lf pos %3d %3d centre %7.3f %7.3f %7.3f "
+        //        "box %7.3f %7.3f %7.3f\n", width[0], width[1],
         //        pos[0], pos[1], centre.x, centre.y, centre.z,
-        //        b->Position.x, b->Position.y, b->Position.z,
         //        System.Box.Length.x, System.Box.Length.y, System.Box.Length.z);
+        // printf(" %5d %7.3f %7.3f %7.3f %7.3f %7.3f %7.3f %7.3f %7.3f %7.3f\n",
+        //        id, b->Position.x, b->Position.y, b->Position.z,
+        //        b->Velocity.x, b->Velocity.y, b->Velocity.z,
+        //        b->Force.x, b->Force.y, b->Force.z);
         bead_count[pos[0]][pos[1]]++;
         double vel2 = SQR(b->Velocity.x / red_dist[b->Type]) +
                       SQR(b->Velocity.y / red_dist[b->Type]) +
                       SQR(b->Velocity.z / red_dist[b->Type]);
         Temp[pos[0]][pos[1]] += bt->Mass * vel2;
-        vir[pos[0]][pos[1]] += b->Force.x * (b->Position.x - centre.x) +
-                               b->Force.y * (b->Position.y - centre.y) +
-                               b->Force.z * (b->Position.z - centre.z);
-        virial += b->Force.x * (b->Position.x - centre.x) +
-                  b->Force.y * (b->Position.y - centre.y) +
-                  b->Force.z * (b->Position.z - centre.z);
+        vir[pos[0]][pos[1]] += b->Force.x * (b->Position.x - centre.x + 10) +
+                               b->Force.y * (b->Position.y - centre.y + 11) +
+                               b->Force.z * (b->Position.z - centre.z + 12);
+        centre.x = System.Box.Length.x / 2;
+        centre.y = System.Box.Length.y / 2;
+        centre.z = System.Box.Length.z / 2;
+        virial += b->Force.x * (b->Position.x - centre.x + 10) +
+                  b->Force.y * (b->Position.y - centre.y + 11) +
+                  b->Force.z * (b->Position.z - centre.z + 12);
         temperature += bt->Mass * vel2;
         energy_kin += 0.5 * bt->Mass * vel2;
       }

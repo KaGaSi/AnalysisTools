@@ -7,21 +7,25 @@ void Help(char cmd[50], bool error) { //{{{
   } else {
     ptr = stdout;
     fprintf(ptr, "\
-DensityBox utility calculates number \
-density for all bead types in the direction of specified axis (x, y, or z).\
-The utility works properly only for orthogonal boxes that do not change \
-size \n\n");
+Density2D utility calculates number \
+density for all bead types for a plane perpendicular to the specified axis \
+direction (x, y, or z).\
+\n\n");
   }
 
   fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <width> <output> <axis> [options]\n\n", cmd);
+  fprintf(ptr, "   %s <input> <width> <output> <axis> <options>\n\n", cmd);
 
-  fprintf(ptr, "   <input>    input coordinate file\n");
-  fprintf(ptr, "   <width>    width of a single bin\n");
-  fprintf(ptr, "   <output>   output density file (automatic ending \
-'<axis>.rho' added)\n");
-  fprintf(ptr, "   <axis>     calculate along x, y, or z axis\n");
+  fprintf(ptr, "   <input>           input filename \
+(either vcf or vtf format)\n");
+  fprintf(ptr, "   <width>           width of a single bin \
+(in the two planar directions)\n");
+  fprintf(ptr, "   <output>          output density file \
+(automatic ending '<axis>.rho' added)\n");
+  fprintf(ptr, "   <axis>            calculate in plane perpendicular to x, y, \
+or z axis\n");
   fprintf(ptr, "   <options>\n");
+//fprintf(ptr, "      -n <int>       number of bins to average\n");
   fprintf(ptr, "      -x <name(s)>   exclude specified molecule(s)\n");
   int common = 12;
   char option[common][OPT_LENGTH];
@@ -56,7 +60,7 @@ int main(int argc, char *argv[]) {
 
   // check if correct number of arguments //{{{
   int count = 0;
-  while ((count+1) < argc && argv[count+1][0] != '-') {
+  for (int i = 1; i < argc && argv[count+1][0] != '-'; i++) {
     count++;
   }
 
@@ -74,7 +78,7 @@ int main(int argc, char *argv[]) {
         strcmp(argv[i], "--variable") != 0 && strcmp(argv[i], "-pbc") != 0 &&
         strcmp(argv[i], "-ltrj") != 0 && strcmp(argv[i], "--detailed") != 0 &&
         strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--silent") != 0 &&
-        strcmp(argv[i], "--help") && strcmp(argv[i], "--version") != 0) {
+        strcmp(argv[i], "--help") != 0 && strcmp(argv[i], "--version") != 0) {
       ErrorOption(argv[i]);
       Help(argv[0], true);
       exit(1);
@@ -100,33 +104,10 @@ int main(int argc, char *argv[]) {
     exit(1);
   } //}}}
 
-  // <output> - filename with bead densities //{{{
-  char output_rho[LINE] = "";
-  snprintf(output_rho, LINE, "%s", argv[++count]); //}}}
+  // <output.rho> - filename with bead densities
+  char output_rho[LINE];
+  strcpy(output_rho, argv[++count]);
 
-  // <axis> - x, y, or z //{{{
-  // TODO: WTF? Why while loop when it's just one character?
-  char axis = 'x';
-  while (++count < argc && argv[count][0] != '-') {
-    axis = argv[count][0];
-    // Error - not x/y/z
-    if (axis != 'x' && axis != 'y' && axis != 'z') {
-      strcpy(ERROR_MSG, "<axis> must be 'x', 'y', or 'z'");
-      PrintError();
-      Help(argv[0], true);
-      exit(1);
-    }
-    // add <axis>.rho to the output filename
-    char str[LINE];
-    output_rho[LINE-5] = '\0'; // ensure output_rho isn't too long
-    if (snprintf(str, LINE, "%s%c.rho", output_rho, axis) < 0) {
-      strcpy(ERROR_MSG, "something wrong with snprintf()");
-      exit(1);
-    }
-    strcpy(output_rho, str);
-  } //}}}
-
-  // options before reading system data
   bool silent, verbose, detailed, vtf_var;
   int start = 1, end = -1, skip = 0, pbc_xyz = -1, ltrj_start_id = -1;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
@@ -146,38 +127,58 @@ int main(int argc, char *argv[]) {
     exit(1);
   } //}}}
 
-  // number of bins //{{{
-  if (System.Box.Volume == -1) {
-    strcpy(ERROR_MSG, "missing box dimensions");
-    PrintErrorFile(coor_file, struct_file, "\0");
+  // <axis> - x, y, or z //{{{
+  // TODO: WTF? Why while loop when it's just one character?
+  char axis = 'x';
+  while (++count < argc && argv[count][0] != '-') {
+    axis = argv[count][0];
+    if (axis != 'x' && axis != 'y' && axis != 'z') {
+      strcpy(ERROR_MSG, "<axis> must be 'x', 'y', or 'z'");
+      PrintError();
+      Help(argv[0], true);
+      exit(1);
+    }
+  } //}}}
+
+  // full output file name //{{{
+  char str[LINE];
+  if (snprintf(str, LINE, "%s%c.rho", output_rho, axis) < 0) {
+    strcpy(ERROR_MSG, "something wrong with snprintf()");
     exit(1);
   }
-  double max_dist;
-  switch(axis) {
-   case 'x':
-     max_dist = System.Box.Length.x;
-     break;
-   case 'y':
-     max_dist = System.Box.Length.y;
-     break;
-   case 'z':
-     max_dist = System.Box.Length.z;
-     break;
-  }
-  int bins = ceil(max_dist / width) + 10; //}}}
+  strcpy(output_rho, str); //}}}
 
-  // allocate memory for arrays //{{{
-  long int **rho = malloc(Count->BeadType * sizeof **rho);
-  long int **rho_2 = malloc(Count->BeadType * sizeof **rho_2);
-  long int *n_beads = calloc(Count->BeadType, sizeof *n_beads);
-  for (int i = 0; i < Count->BeadType; i++) {
-    rho[i] = calloc(bins, sizeof *rho[i]);
-    rho_2[i] = calloc(bins, sizeof *rho_2[i]);
-  } //}}}
+  // number of bins //{{{
+  double max_dist[2];
+  if (axis == 'x') {
+    max_dist[0] = System.Box.Length.y;
+    max_dist[1] = System.Box.Length.z;
+  } else if (axis == 'y') {
+    max_dist[0] = System.Box.Length.x;
+    max_dist[1] = System.Box.Length.z;
+  } else {
+    max_dist[0] = System.Box.Length.x;
+    max_dist[1] = System.Box.Length.y;
+  }
+  int bins[2];
+  bins[0] = ceil(max_dist[0] / width);
+  bins[1] = ceil(max_dist[1] / width); //}}}
 
   if (verbose) {
     VerboseOutput(System);
   }
+
+  // allocate memory for density arrays //{{{
+  long int ***rho = malloc(Count->BeadType * sizeof(long int **));
+  long int ***rho_2 = malloc(Count->BeadType * sizeof(long int **));
+  for (int i = 0; i < Count->BeadType; i++) {
+    rho[i] = calloc(bins[0], sizeof(long int *));
+    rho_2[i] = calloc(bins[0], sizeof(long int *));
+    for (int j = 0; j < bins[0]; j++) {
+      rho[i][j] = calloc(bins[1], sizeof(long int));
+      rho_2[i][j] = calloc(bins[1], sizeof(long int));
+    }
+  } //}}}
 
   // main loop //{{{
   FILE *fr = OpenFile(coor_file, "r");
@@ -186,7 +187,6 @@ int main(int argc, char *argv[]) {
       line_count = 0; // count lines in the vcf file
   while (true) {
     PrintStep(&count_coor, start, silent);
-    // use every skip-th timestep between start and end
     bool use = false;
     if (count_coor >= start && (count_coor <= end || end == -1) &&
         ((count_coor - start) % skip) == 0) {
@@ -200,13 +200,15 @@ int main(int argc, char *argv[]) {
       }
       count_used++;
       WrapJoinCoordinates(&System, true, false);
-      // allocate memory for temporary density arrays
-      int **temp_rho = malloc(Count->BeadType * sizeof(int *));
-      // WTF? ...the next line produces error!
-      // int **temp_rho = malloc(Count->BeadType * sizeof **temp_rho);
+
+      // allocate memory for temporary density arrays //{{{
+      int ***temp_rho = malloc(Count->BeadType * sizeof(int **));
       for (int i = 0; i < Count->BeadType; i++) {
-        temp_rho[i] = calloc(bins, sizeof *temp_rho[i]);
-      }
+        temp_rho[i] = calloc(bins[0], sizeof(int *));
+        for (int j = 0; j < bins[0]; j++) {
+          temp_rho[i][j] = calloc(bins[1], sizeof(int));
+        }
+      } //}}}
 
       // calculate densities //{{{
       for (int i = 0; i < Count->BeadCoor; i++) {
@@ -219,39 +221,48 @@ int main(int argc, char *argv[]) {
           use = System.MoleculeType[mtype].Flag;
         }
         if (use) {
-          n_beads[bead->Type]++;
           if (axis == 'x') {
-            int j = bead->Position.x / width;
-            temp_rho[bead->Type][j]++;
-          } else if (axis == 'y') {
             int j = bead->Position.y / width;
-            temp_rho[bead->Type][j]++;
+            int k = bead->Position.z / width;
+            temp_rho[bead->Type][j][k]++;
+          } else if (axis == 'y') {
+            int j = bead->Position.x / width;
+            int k = bead->Position.z / width;
+            temp_rho[bead->Type][j][k]++;
           } else {
-            int j = bead->Position.z / width;
-            temp_rho[bead->Type][j]++;
+            int j = bead->Position.x / width;
+            int k = bead->Position.y / width;
+            temp_rho[bead->Type][j][k]++;
           }
         }
       } //}}}
-      // add from temporary density arrays to global density arrays
+
+      // add from temporary density array to global density arrays //{{{
       for (int j = 0; j < Count->BeadType; j++) {
-        for (int k = 0; k < bins-1; k++) {
-          rho[j][k] += temp_rho[j][k];
-          rho_2[j][k] += SQR(temp_rho[j][k]);
+        for (int k = 0; k < bins[0]; k++) {
+          for (int l = 0; l < bins[1]; l++) {
+            rho[j][k][l] += temp_rho[j][k][l];
+            rho_2[j][k][l] += SQR(temp_rho[j][k][l]);
+          }
         }
-      }
-      // free temporary density array
+      } //}}}
+
+      // free temporary density array //{{{
       for (int i = 0; i < Count->BeadType; i++) {
+        for (int j = 0; j < bins[0]; j++) {
+          free(temp_rho[i][j]);
+        }
         free(temp_rho[i]);
       }
-      free(temp_rho);
+      free(temp_rho); //}}}
     } else {
       if (!SkipTimestep(coor_type, fr, coor_file, struct_file, &line_count)) {
         count_coor--;
         break;
       }
     }
-    // TODO: isn't this superfluous, considering the 'use' above?
-    if (count_coor == end) {
+
+    if (end == count_coor) {
       break;
     }
   }
@@ -266,50 +277,67 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // write densities to output file(s) //{{{
-  // write initial stuff to output density file //{{{
   FILE *fw = OpenFile(output_rho, "w");
   PrintByline(fw, argc, argv);
-  // print bead type names to output file
-  fprintf(fw, "# columns: (1) distance");
-  count = 1;
+
+  // print bead type names to output file //{{{
+  if (axis == 'x') {
+    fprintf(fw, "# columns: (1) y; (2) z;");
+  } else if (axis == 'y') {
+    fprintf(fw, "# columns: (1) x; (2) z;");
+  } else {
+    fprintf(fw, "# columns: (1) x; (2) y;");
+  }
   for (int i = 0; i < Count->BeadType; i++) {
-    if (n_beads[i] != 0) {
-      count++;
-      fprintf(fw, "; (%d) %s", count, System.BeadType[i].Name);
+    fprintf(fw, " (%d) %s", i+3, System.BeadType[i].Name);
+    if (i != (Count->BeadType-1)) {
+      putc(';', fw);
     }
   }
-  putc('\n', fw); //}}}
+  putc('\n', fw);
+//for (int i = 0; i < Count->BeadType; i++) {
+//  fprintf(out, " %d: %s", 4*i+2, BeadType[i].Name);
+//}
+//fprintf(out, "\n# for each molecule type: rdp | stderr | rnp | stderr\n"); //}}}
 
   // calculate rdf
-  double volume = width;
+  double volume = SQR(width);
   if (axis == 'x') {
-    volume *= System.Box.Length.y * System.Box.Length.z;
+    volume *= System.Box.Length.x;
   } else if (axis == 'y') {
-    volume *= System.Box.Length.x * System.Box.Length.z;
+    volume *= System.Box.Length.y;
   } else {
-    volume *= System.Box.Length.x * System.Box.Length.y;
+    volume *= System.Box.Length.z;
   }
-  for (int i = 0; i < bins-1; i++) {
-    fprintf(fw, "%7.3f", width*(2*i+1)/2);
-    for (int j = 0; j < Count->BeadType; j++) {
-      if (n_beads[j] > 0 ){
-        double temp_rho = rho[j][i] / (volume * count_used);
+  for (int i = 0; i < bins[0]; i++) {
+    for (int j = 0; j < bins[1]; j++) {
+      fprintf(fw, " %7.3f", width * (i + 0.5)); // TODO: 2D, check Surface
+      fprintf(fw, " %7.3f", width * (j + 0.5)); // TODO: 2D, check Surface
+      for (int k = 0; k < Count->BeadType; k++) {
+        double temp_rho = 0;
+        temp_rho += rho[k][i][j] / (volume * count);
+        // print average value to output file
         fprintf(fw, " %10f", temp_rho);
       }
+      putc('\n',fw);
     }
     putc('\n',fw);
   }
+
   fclose(fw); //}}}
 
   // free memory - to make valgrind happy //{{{
   FreeSystem(&System);
   for (int i = 0; i < Count->BeadType; i++) {
+    for (int j = 0; j < bins[0]; j++) {
+      free(rho[i][j]);
+      free(rho_2[i][j]);
+    }
     free(rho[i]);
     free(rho_2[i]);
   }
   free(rho_2);
-  free(rho);
-  free(n_beads); //}}}
+  free(rho); //}}}
 
   return 0;
 }

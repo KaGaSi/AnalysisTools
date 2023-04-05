@@ -374,15 +374,15 @@ static SYSTEM CopySystem(SYSTEM S_in) {
     } //}}}
     // BondType //{{{
     if (S_out.Count.BondType > 0) {
-      S_out.BondType =
-          realloc(S_out.BondType, sizeof(PARAMS) * S_out.Count.BondType);
+      S_out.BondType = realloc(S_out.BondType, sizeof *S_out.BondType *
+                               S_out.Count.BondType);
       memcpy(S_out.BondType, S_in.BondType,
              sizeof *S_out.BondType * S_in.Count.BondType);
     } //}}}
     // AngleType //{{{
     if (S_out.Count.AngleType > 0) {
       S_out.AngleType = realloc(S_out.AngleType, sizeof *S_out.AngleType *
-                                                     S_out.Count.AngleType);
+                                S_out.Count.AngleType);
       memcpy(S_out.AngleType, S_in.AngleType,
              sizeof *S_out.AngleType * S_in.Count.AngleType);
     } //}}}
@@ -1537,8 +1537,8 @@ void PruneSystem(SYSTEM *System) {
           if (new) {
             int type = Count->BondType;
             Count->BondType++;
-            System->BondType = realloc(
-                System->BondType, Count->BondType * sizeof *System->BondType);
+            System->BondType = realloc(System->BondType, Count->BondType *
+                                       sizeof *System->BondType);
             System->BondType[type] = S_old.BondType[old_tbond];
             type_old_to_new[old_tbond] = type;
           }
@@ -1561,30 +1561,32 @@ void PruneSystem(SYSTEM *System) {
   // prune angle types //{{{
   if (Count->AngleType > 0) {
     Count->AngleType = 0;
-    int *type_old_to_new =
-        calloc(Count_old->AngleType, sizeof *type_old_to_new);
+    int *type_old_to_new = calloc(Count_old->AngleType,
+                                  sizeof *type_old_to_new);
     for (int i = 0; i < Count->MoleculeType; i++) {
       MOLECULETYPE *mt_i = &System->MoleculeType[i];
       for (int j = 0; j < mt_i->nAngles; j++) {
         int old_tangle = mt_i->Angle[j][3];
         bool new = true;
-        PARAMS *tangle = &S_old.AngleType[old_tangle];
-        for (int k = 0; k < Count->AngleType; k++) {
-          if (tangle->a == System->AngleType[k].a &&
-              tangle->b == System->AngleType[k].b &&
-              tangle->c == System->AngleType[k].c) {
-            mt_i->Angle[j][3] = k;
-            new = false;
-            break;
+        if (old_tangle != -1) {
+          PARAMS *tangle = &S_old.AngleType[old_tangle];
+          for (int k = 0; k < Count->AngleType; k++) {
+            if (fabs(tangle->a-System->AngleType[k].a) < 1e-5 &&
+                fabs(tangle->b-System->AngleType[k].b) < 1e-5 &&
+                fabs(tangle->c-System->AngleType[k].c) < 1e-5)  {
+              mt_i->Angle[j][3] = k;
+              new = false;
+              break;
+            }
           }
-        }
-        if (new) {
-          int type = Count->AngleType;
-          Count->AngleType++;
-          System->AngleType = realloc(
-              System->AngleType, Count->AngleType * sizeof *System->AngleType);
-          System->AngleType[type] = S_old.AngleType[old_tangle];
-          type_old_to_new[old_tangle] = type;
+          if (new) {
+            int type = Count->AngleType;
+            Count->AngleType++;
+            System->AngleType = realloc(System->AngleType, Count->AngleType *
+                                        sizeof *System->AngleType);
+            System->AngleType[type] = S_old.AngleType[old_tangle];
+            type_old_to_new[old_tangle] = type;
+          }
         }
       }
     }
@@ -1592,7 +1594,11 @@ void PruneSystem(SYSTEM *System) {
       MOLECULETYPE *mt_i = &System->MoleculeType[i];
       for (int j = 0; j < mt_i->nAngles; j++) {
         int old_tangle = mt_i->Angle[j][3];
-        mt_i->Angle[j][3] = type_old_to_new[old_tangle];
+        if (old_tangle != -1) {
+          mt_i->Angle[j][3] = type_old_to_new[old_tangle];
+        } else {
+          mt_i->Angle[j][3] = -1;
+        }
       }
     }
     free(type_old_to_new);
@@ -1607,24 +1613,26 @@ void PruneSystem(SYSTEM *System) {
       for (int j = 0; j < mt_i->nDihedrals; j++) {
         int old_tdihed = mt_i->Dihedral[j][4];
         bool new = true;
-        PARAMS *tdihed = &S_old.DihedralType[old_tdihed];
-        for (int k = 0; k < Count->DihedralType; k++) {
-          if (tdihed->a == System->DihedralType[k].a &&
-              tdihed->b == System->DihedralType[k].b &&
-              tdihed->c == System->DihedralType[k].c) {
-            mt_i->Dihedral[j][4] = k;
-            new = false;
-            break;
+        if (old_tdihed != -1) {
+          PARAMS *tdihed = &S_old.DihedralType[old_tdihed];
+          for (int k = 0; k < Count->DihedralType; k++) {
+            if (tdihed->a == System->DihedralType[k].a &&
+                tdihed->b == System->DihedralType[k].b &&
+                tdihed->c == System->DihedralType[k].c) {
+              mt_i->Dihedral[j][4] = k;
+              new = false;
+              break;
+            }
           }
-        }
-        if (new) {
-          int type = Count->DihedralType;
-          Count->DihedralType++;
-          System->DihedralType =
-              realloc(System->DihedralType,
-                      Count->DihedralType * sizeof *System->DihedralType);
-          System->DihedralType[type] = S_old.DihedralType[old_tdihed];
-          type_old_to_new[old_tdihed] = type;
+          if (new) {
+            int type = Count->DihedralType;
+            Count->DihedralType++;
+            System->DihedralType = realloc(System->DihedralType,
+                                           Count->DihedralType *
+                                           sizeof *System->DihedralType);
+            System->DihedralType[type] = S_old.DihedralType[old_tdihed];
+            type_old_to_new[old_tdihed] = type;
+          }
         }
       }
     }
@@ -1632,7 +1640,11 @@ void PruneSystem(SYSTEM *System) {
       MOLECULETYPE *mt_i = &System->MoleculeType[i];
       for (int j = 0; j < mt_i->nDihedrals; j++) {
         int old_tdihed = mt_i->Dihedral[j][4];
-        mt_i->Dihedral[j][4] = type_old_to_new[old_tdihed];
+        if (old_tdihed != -1) {
+          mt_i->Dihedral[j][4] = type_old_to_new[old_tdihed];
+        } else {
+          mt_i->Dihedral[j][4] = -1;
+        }
       }
     }
     free(type_old_to_new);
@@ -1647,24 +1659,26 @@ void PruneSystem(SYSTEM *System) {
       for (int j = 0; j < mt_i->nImpropers; j++) {
         int old_timpro = mt_i->Improper[j][4];
         bool new = true;
-        PARAMS *timpro = &S_old.ImproperType[old_timpro];
-        for (int k = 0; k < Count->ImproperType; k++) {
-          if (timpro->a == System->ImproperType[k].a &&
-              timpro->b == System->ImproperType[k].b &&
-              timpro->c == System->ImproperType[k].c) {
-            mt_i->Improper[j][4] = k;
-            new = false;
-            break;
+        if (old_timpro != -1) {
+          PARAMS *timpro = &S_old.ImproperType[old_timpro];
+          for (int k = 0; k < Count->ImproperType; k++) {
+            if (timpro->a == System->ImproperType[k].a &&
+                timpro->b == System->ImproperType[k].b &&
+                timpro->c == System->ImproperType[k].c) {
+              mt_i->Improper[j][4] = k;
+              new = false;
+              break;
+            }
           }
-        }
-        if (new) {
-          int type = Count->ImproperType;
-          Count->ImproperType++;
-          System->ImproperType =
-              realloc(System->ImproperType,
-                      Count->ImproperType * sizeof *System->ImproperType);
-          System->ImproperType[type] = S_old.ImproperType[old_timpro];
-          type_old_to_new[old_timpro] = type;
+          if (new) {
+            int type = Count->ImproperType;
+            Count->ImproperType++;
+            System->ImproperType =
+                realloc(System->ImproperType,
+                        Count->ImproperType * sizeof *System->ImproperType);
+            System->ImproperType[type] = S_old.ImproperType[old_timpro];
+            type_old_to_new[old_timpro] = type;
+          }
         }
       }
     }
@@ -1672,7 +1686,11 @@ void PruneSystem(SYSTEM *System) {
       MOLECULETYPE *mt_i = &System->MoleculeType[i];
       for (int j = 0; j < mt_i->nImpropers; j++) {
         int old_timpro = mt_i->Improper[j][4];
-        mt_i->Improper[j][4] = type_old_to_new[old_timpro];
+        if (old_timpro != -1) {
+          mt_i->Improper[j][4] = type_old_to_new[old_timpro];
+        } else {
+          mt_i->Improper[j][4] = -1;
+        }
       }
     }
     free(type_old_to_new);
@@ -2813,13 +2831,14 @@ void PrintImproperType(SYSTEM System) { //{{{
 } //}}}
 void PrintBox(BOX Box) { //{{{
   fprintf(stdout, "Box = {\n");
-  fprintf(stdout, "  .Length = (%lf, %lf, %lf)", Box.Length.x, Box.Length.y,
+  fprintf(stdout, "  .Length = (%lf, %lf, %lf),", Box.Length.x, Box.Length.y,
           Box.Length.z);
   if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
-    fprintf(stdout, ",  .alpha = %lf,", Box.alpha);
+    fprintf(stdout, " .alpha = %lf,", Box.alpha);
     fprintf(stdout, " .beta = %lf,", Box.beta);
-    fprintf(stdout, " .gamma = %lf,\n", Box.gamma);
+    fprintf(stdout, " .gamma = %lf,", Box.gamma);
   }
+  putchar('\n');
   fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n", Box.OrthoLength.x,
           Box.OrthoLength.y, Box.OrthoLength.z);
   fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
@@ -2862,7 +2881,7 @@ void PrintBox(BOX Box) { //{{{
     }
     fprintf(stdout, ")\n");
   } //}}}
-  fprintf(stdout, "\n}\n");
+  fprintf(stdout, "}\n");
 } //}}}
 void PrintByline(FILE *ptr, int argc, char *argv[]) { //{{{
   fprintf(ptr, "# Created by AnalysisTools v%s ", VERSION);

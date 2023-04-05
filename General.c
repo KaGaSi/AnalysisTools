@@ -204,7 +204,7 @@ void PrintCommand(FILE *ptr, int argc, char *argv[]) {
   char *split[SPL_STR], str[LINE];
   strcpy(str, argv[0]);
   int words = SplitLine(SPL_STR, split, str, "/");
-  fprintf(ptr, " %s%s", Colour(ptr, WHITE), split[words-1]);
+  fprintf(ptr, "%s%s", Colour(ptr, WHITE), split[words-1]);
   // print the rest of the command
   for (int i = 1; i < argc; i++) {
     fprintf(ptr, " %s", argv[i]);
