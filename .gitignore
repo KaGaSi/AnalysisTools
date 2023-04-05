@@ -18,3 +18,4 @@ tags
 .ccls-cache
 *json
 *bkp
+.gdb_history
