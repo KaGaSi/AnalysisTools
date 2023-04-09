@@ -1,18 +1,17 @@
-Files in.FIELD and in.vtf contain j
-.nfo files show outputs of Info command with various options
+Files in.FIELD and in.vtf contain a small sandbox system, and .nfo files show
+outputs of Info command with various options.
 
 1) simple case: Info <file>
   * files: vtf.nfo
            FIELD.nfo
-  * this command just lists the contents of the given system
-  * use vtf.nfo to compare with the following results
+  * this command lists the contents of the given system in the most simplest way
+  * use vtf.nfo to compare with the following output files
 
 2) using --detailed option: Info in.vtf --detailed
   * file: vtf_detailed.nfo
   * this command identifies bead types (and, consequently, molecule types)
-    according to not just their names, but also according to their mass, charge,
-    and/or radius
-    * compare with vtf.nfo
+    according to not just bead names, but also according to their mass, charge,
+    and radius
 
 3) using -i option: Info in.vtf -i[i] in.FIELD
   * files: opt_i.nfo
@@ -24,7 +23,6 @@ Files in.FIELD and in.vtf contain j
     * using -i! first exchanges beads from in.vtf molecule types with those from
       in.FIELD molecule types (for types with the same number of beads)
       before adding the extra information
-    * in both cases, charge is added to the B beads
 
 4) using -c option: Info in.vtf -c in.vtf
   * file: vtf_coor.nfo
