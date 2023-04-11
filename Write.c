@@ -53,7 +53,15 @@ static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System) { //{{{
     PrintWarning();
   } else {
     // TODO: write pbc on the second line?
-    fprintf(fw, "%d\n\n", count);
+    fprintf(fw, "%d\n", count);
+    BOX *box = &System.Box;
+    if (box->Volume != -1) {
+      fprintf(fw, "%lf %lf %lf", box->Length.x, box->Length.y, box->Length.z);
+      if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {
+        fprintf(fw, " %lf %lf %lf", box->alpha, box->beta, box->gamma);
+      }
+    }
+    putc('\n', fw);
     for (int i = 0; i < System.Count.BeadCoor; i++) {
       int id = System.BeadCoor[i];
       BEAD *bead = &System.Bead[id];
@@ -116,7 +124,7 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
       BEAD *b = &System.Bead[id];
       if (b->InTimestep && write[id]) {
         int type = b->Type;
-        fprintf(fw, "%8d %8s %8.4f %8.4f %8.4f", id,
+        fprintf(fw, "%8d %8s %8.4f %8.4f %8.4f", id + 1,
                 System.BeadType[type].Name,
                 b->Position.x, b->Position.y, b->Position.z);
         if (vel) {
@@ -527,7 +535,7 @@ static void WriteField(SYSTEM System, char file_field[]) { //{{{
           "(https://github.com/KaGaSi/AnalysisTools)\n\n", VERSION);
   COUNT *Count = &System.Count;
   // print species section //{{{
-  fprintf(fw, "species %d\n", Count->BeadType);
+  fprintf(fw, "species %d <name> <m> <q> <# of unbonded>\n", Count->BeadType);
   // count unbonded beads of each type
   int *unbonded = calloc(Count->BeadType, sizeof *unbonded);
   for (int i = 0; i < Count->Unbonded; i++) {
@@ -655,7 +663,7 @@ void WriteTimestep(int coor_type, char file[], SYSTEM System,
       LtrjWriteCoor(fw, count_step, write, System);
       break;
     default:
-      strcpy(ERROR_MSG, "Inexistant output coor_type; should never happen!");
+      strcpy(ERROR_MSG, "Inexistent output coor_type; should never happen!");
       PrintError();
       exit(1);
   }
@@ -674,10 +682,12 @@ void WriteStructure(int struct_type, char file[], SYSTEM System,
       break;
     case CONFIG_FILE:
       WriteConfig(System, file);
+      break;
     case FIELD_FILE:
       WriteField(System, file);
+      break;
     default:
-      strcpy(ERROR_MSG, "Inexistant output struct_type; should never happen!");
+      strcpy(ERROR_MSG, "Inexistent output struct_type; should never happen!");
       PrintError();
       exit(1);
   }

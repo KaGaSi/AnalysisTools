@@ -5,9 +5,9 @@
 
 SYSTEM ReadStructure(int struct_type, char struct_file[],
                      int coor_type, char coor_file[], bool detailed,
-                     bool vtf_coor_var, int pbc_xyz, int *ltrj_start_id);
+                     bool vtf_coor_var, int pbc_xyz);
 bool ReadTimestep(int coor_type, FILE *fr, char file[], SYSTEM *System,
-                  int *line_count, int start_id, bool vtf_var_coor);
+                  int *line_count, bool vtf_var_coor);
 bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],
                   int *line_count);
 

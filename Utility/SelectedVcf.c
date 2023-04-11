@@ -2,7 +2,7 @@
 
 // TODO: -x option not implemented (needs change in Write.c, I guess)
 
-void Help(char cmd[50], bool error) { //{{{
+void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
     ptr = stderr;
@@ -35,65 +35,84 @@ containing all beads of any given type, so the usefulness is very limited \
   // fprintf(ptr, "      -x <name(s)>   exclude specified molecule(s)\n");
   fprintf(ptr, "      --last         use only the last step"
           "(-st/-e/-n options are ignored)\n");
-  int common = 11;
-  char option[common][OPT_LENGTH];
-  strcpy(option[ 0], "-st");
-  strcpy(option[ 1], "-e");
-  strcpy(option[ 2], "-sk");
-  strcpy(option[ 3], "-i");
-  strcpy(option[ 4], "--variable");
-  strcpy(option[ 5], "--detailed");
-  strcpy(option[ 6], "-pbc");
-  strcpy(option[ 7], "-v");
-  strcpy(option[ 8], "--silent");
-  strcpy(option[ 9], "--help");
-  strcpy(option[10], "--version");
-  CommonHelp(error, common, option);
+  CommonHelp(error, n, opt);
 } //}}}
 
 int main(int argc, char *argv[]) {
-  // --help/--version options - print stuff and exit //{{{
-  if (VersionOption(argc, argv)) {
-    exit(0);
-  }
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "--help") == 0) {
-      Help(argv[0], false);
-      exit(0);
+
+  // define options //{{{
+  int common = 11, all = common + 5, count = 0,
+      req_arg = 2; // not count <bead(s)> because --reverse can be used
+  char option[all][OPT_LENGTH];
+  // common options
+  strcpy(option[count++], "-st");
+  strcpy(option[count++], "-e");
+  strcpy(option[count++], "-sk");
+  strcpy(option[count++], "-i");
+  strcpy(option[count++], "--variable");
+  strcpy(option[count++], "-pbc");
+  strcpy(option[count++], "--detailed");
+  strcpy(option[count++], "--verbose");
+  strcpy(option[count++], "--silent");
+  strcpy(option[count++], "--help");
+  strcpy(option[count++], "--version");
+  // extra options
+  strcpy(option[count++], "--reverse");
+  strcpy(option[count++], "--join");
+  strcpy(option[count++], "--wrap");
+  strcpy(option[count++], "-n");
+  strcpy(option[count++], "--last");
+
+  int n = OptionCheck(argc, argv, req_arg, common, all, option);
+  // check for --reverse, if not enough arguments for any bead types
+  if (n == 2) {
+    bool valid = false;
+    for (int i = 3; i < argc; i++) {
+      if (strcmp(argv[i], "--reverse") == 0) {
+        valid = true;
+        break;
+      }
     }
-  }
-  int req_args = 3; //}}}
-
-  // check if correct number of arguments //{{{
-  int count = 0;
-  while ((count + 1) < argc && argv[count + 1][0] != '-') {
-    count++;
-  }
-  // reverse bead type selection? ...do now to check correct number of arguments
-  bool reverse = BoolOption(argc, argv, "--reverse");
-  // possible to omit <bead name(s)> if '--reverse' is used
-  if (count < (req_args - 1) || (count == (req_args - 1) && !reverse)) {
-    ErrorArgNumber(count, req_args);
-    Help(argv[0], true);
-    exit(1);
-  } //}}}
-
-  // test if options are given correctly //{{{
-  for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' && strcmp(argv[i], "--reverse") != 0 &&
-        strcmp(argv[i], "--join") != 0 && strcmp(argv[i], "--wrap") != 0 &&
-        strcmp(argv[i], "-n") != 0 && // strcmp(argv[i], "-x") != 0 &&
-        strcmp(argv[i], "--last") != 0 && strcmp(argv[i], "-st") != 0 &&
-        strcmp(argv[i], "-e") != 0 && strcmp(argv[i], "-sk") != 0 &&
-        strcmp(argv[i], "-i") != 0 && strcmp(argv[i], "--variable") != 0 &&
-        strcmp(argv[i], "--detailed") != 0 && strcmp(argv[i], "-pbc") != 0 &&
-        strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--silent") != 0 &&
-        strcmp(argv[i], "--help") && strcmp(argv[i], "--version") != 0) {
-      ErrorOption(argv[i]);
-      Help(argv[0], true);
+    if (!valid) {
+      strcpy(ERROR_MSG, "not enough arguments or missing '--reverse' option");
+      PrintError();
+      Help(argv[0], true, common, option);
       exit(1);
     }
   } //}}}
+
+  // HelpVersionOption(argc, argv);
+  //
+  // // check if correct number of arguments //{{{
+  // int req_args = 3, count = 0;
+  // while ((count + 1) < argc && argv[count + 1][0] != '-') {
+  //   count++;
+  // }
+  // // reverse bead type selection? ...do now to check correct number of arguments
+  // bool reverse = BoolOption(argc, argv, "--reverse");
+  // // possible to omit <bead name(s)> if '--reverse' is used
+  // if (count < (req_args - 1) || (count == (req_args - 1) && !reverse)) {
+  //   ErrorArgNumber(count, req_args);
+  //   Help(argv[0], true);
+  //   exit(1);
+  // } //}}}
+  //
+  // // test if options are given correctly //{{{
+  // for (int i = 1; i < argc; i++) {
+  //   if (argv[i][0] == '-' && strcmp(argv[i], "--reverse") != 0 &&
+  //       strcmp(argv[i], "--join") != 0 && strcmp(argv[i], "--wrap") != 0 &&
+  //       strcmp(argv[i], "-n") != 0 && // strcmp(argv[i], "-x") != 0 &&
+  //       strcmp(argv[i], "--last") != 0 && strcmp(argv[i], "-st") != 0 &&
+  //       strcmp(argv[i], "-e") != 0 && strcmp(argv[i], "-sk") != 0 &&
+  //       strcmp(argv[i], "-i") != 0 && strcmp(argv[i], "--variable") != 0 &&
+  //       strcmp(argv[i], "--detailed") != 0 && strcmp(argv[i], "-pbc") != 0 &&
+  //       strcmp(argv[i], "--verbose") != 0 && strcmp(argv[i], "--silent") != 0 &&
+  //       strcmp(argv[i], "--help") && strcmp(argv[i], "--version") != 0) {
+  //     ErrorOption(argv[i]);
+  //     Help(argv[0], true);
+  //     exit(1);
+  //   }
+  // } //}}}
 
   count = 0; // count mandatory arguments
 
@@ -123,15 +142,16 @@ int main(int argc, char *argv[]) {
   } else if (coor_out_type == 2) {
     coor_out_type = LTRJ_FILE;
   } else if (coor_out_type == -1) {
-    Help(argv[0], true);
+    Help(argv[0], true, common, option);
     exit(1);
   } //}}}
 
   // options before reading system data
   bool silent, verbose, detailed, vtf_var;
-  int start = 1, end = -1, skip = 0, pbc_xyz = -1, ltrj_start_id = -1;
+  int start = 1, end = -1, skip = 0, pbc_xyz = -1;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
-                &pbc_xyz, &ltrj_start_id, &start, &end, &skip);
+                &pbc_xyz, &start, &end, &skip);
+  bool reverse = BoolOption(argc, argv, "--reverse");
   bool join = BoolOption(argc, argv, "--join");
   bool wrap = BoolOption(argc, argv, "--wrap");
   bool last = BoolOption(argc, argv, "--last");
@@ -141,7 +161,7 @@ int main(int argc, char *argv[]) {
   }
 
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
-                                detailed, vtf_var, pbc_xyz, &ltrj_start_id);
+                                detailed, vtf_var, pbc_xyz);
 
   // <bead names> - names of bead types to save //{{{
   bool *write = calloc(System.Count.Bead, sizeof *write),
@@ -239,8 +259,8 @@ int main(int argc, char *argv[]) {
       n_opt_count++;
     } //}}}
     if (use) { // read and write the timestep, if it should be saved //{{{
-      if (!ReadTimestep(coor_type, fr, coor_file, &System, &line_count,
-                        ltrj_start_id, vtf_var)) {
+      if (!ReadTimestep(coor_type, fr, coor_file, &System,
+                        &line_count, vtf_var)) {
         count_coor--;
         break;
       }
@@ -278,8 +298,8 @@ int main(int argc, char *argv[]) {
     for (int i = (count_coor); i >= 0; i--) {
       fsetpos(fr, &position[i]);
       line_count = bkp_line_count[i];
-      if (ReadTimestep(coor_type, fr, coor_file, &System, &line_count,
-                       ltrj_start_id, vtf_var)) {
+      if (ReadTimestep(coor_type, fr, coor_file, &System,
+                       &line_count, vtf_var)) {
         count_saved++;
         WrapJoinCoordinates(&System, wrap, join);
         WriteTimestep(coor_out_type, out_coor, System, count_coor, write);
@@ -303,7 +323,7 @@ int main(int argc, char *argv[]) {
     ErrorPrintFile(coor_file, "\0", "\0");
     fputc('\n', stderr); //}}}
   } else if (start > count_coor) { // warn if no timesteps were written //{{{
-    strcpy(ERROR_MSG, "no coordinates written (starting timestep higher"
+    strcpy(ERROR_MSG, "no coordinates written (starting timestep is higher"
            " than the total number of timesteps)");
     PrintWarning(); //}}}
   } else if (!silent) { // print last step count? //{{{

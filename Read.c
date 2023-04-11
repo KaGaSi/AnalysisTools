@@ -1,5 +1,8 @@
 #include "Read.h"
 
+// TODO: LmpDataReadDihedralCoeffs() and LmpDataReadImproperCoeffs() should read
+//       up to three numbers, not assuming any format of the potential
+
 // STATIC DEFINITIONS
 // variables to hold a line read via ReadAndSplitLine()
 static char line[LINE], *split[SPL_STR];
@@ -22,9 +25,9 @@ static const int TIME_LINE_O = 9; //}}}
  * LtrjReadStruct()
  */ //{{{
 static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
-                            int start_id, int *line_count);
+                            int *line_count);
 static int LtrjSkipTimestep(FILE *fr, char file[], int *line_count);
-static SYSTEM LtrjReadStruct(char file[], int *start_id);
+static SYSTEM LtrjReadStruct(char file[]);
 static BOX LtrjReadPBC(char file[]);
 // Helper functions for lammpstrj files
 // read timestep preamble, excluding 'ITEM: ATOMS' line
@@ -48,8 +51,7 @@ static int LtrjReadAtomsLine(FILE *fr, char file[], int n, int *var_pos,
 // read an atom coordinate line
 static int LtrjReadCoorLine(FILE *fr, BEAD *b, int b_count, int *var, int cols);
 // fill a helper array with possible variables in 'ITEM: ATOMS ...' line
-static void LtrjFillAtomVariables(int n, char var[n][10]);
-static int LtrjLowIndex(char file[]); //}}}
+static void LtrjFillAtomVariables(int n, char var[n][10]); //}}}
 /* Function to read lammps data file as a structure file */ //{{{
 static SYSTEM LmpDataRead(char file[]);
 // Helper functions for lmpdata file
@@ -187,7 +189,7 @@ static void SortDihImp(int (*dihimp)[5], int n);
 // STATIC IMPLEMENTATIONS
 // lammpstrj //{{{
 // Read a single timestep from lammpstrj file //{{{
-static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System, int start_id,
+static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
                             int *line_count) {
   // set 'not in timestep' to all beads //{{{
   for (int i = 0; i < System->Count.Bead; i++) {
@@ -219,7 +221,7 @@ static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System, int start_id,
       fprintf(stderr, "%s\n", ErrColourReset());
       return -1;
     }
-    int id = line.Type - start_id;
+    int id = line.Type - 1;
     BEAD *b = &System->Bead[id];
     b->Position = line.Position;
     b->Velocity = line.Velocity;
@@ -256,8 +258,7 @@ for (int i = 0; i < 2; i++) {
   return 1;
 } //}}}
 // Use the first lammpstrj timestep as a definition of system composition //{{{
-static SYSTEM LtrjReadStruct(char file[], int *start_id) {
-  *start_id = LtrjLowIndex(file); // find if atom ids start from 0 or from 1
+static SYSTEM LtrjReadStruct(char file[]) {
   SYSTEM Sys;
   InitSystem(&Sys);
   COUNT *Count = &Sys.Count;
@@ -308,7 +309,7 @@ static SYSTEM LtrjReadStruct(char file[], int *start_id) {
       fprintf(stderr, "%s\n", ErrColourReset());
       exit(1);
     }                               //}}}
-    int id = line.Type - *start_id; // in lammpstrj, id starts at either 0 or 1
+    int id = line.Type - 1;
     BEAD *b = &Sys.Bead[id];
     InitBead(b);
     b->Position = line.Position;
@@ -629,55 +630,6 @@ static void LtrjFillAtomVariables(int n, char var[n][10]) { //{{{
   strcpy(var[8], "fx");
   strcpy(var[9], "fy");
   strcpy(var[10], "fz");
-} //}}}
-// read all coordinate lines to check whether ids start at id //{{{
-static int LtrjLowIndex(char file[]) {
-  int start_id = 1, line_count = 0;
-  FILE *fr = OpenFile(file, "r");
-  // read timestep preamble
-  BOX bin = InitBox; // not used
-  int count = LtrjReadTimestepPreamble(fr, file, &bin, &line_count);
-  // read ITEM: ATOMS line
-  int max_vars = 11, position[max_vars];
-  char vars[max_vars][10];
-  int cols =
-      LtrjReadAtomsLine(fr, file, max_vars, position, vars, &line_count);
-  if (cols < 0) {
-    strcpy(ERROR_MSG, "wrong 'ITEM: ATOMS' line in the first timestep");
-    if (position[0] == -1) {
-      char err[LINE];
-      strcpy(err, ERROR_MSG);
-      if (snprintf(ERROR_MSG, LINE, "%s (missing 'id' keyword)", err) < 0) {
-        strcpy(ERROR_MSG, "something wrong with snprintf()");
-        PrintErrorFile(file, "\0", "\0");
-        exit(1);
-      }
-    }
-    PrintErrorFile(file, "\0", "\0");
-    exit(1);
-  }
-  // read the coordinate lines
-  for (int i = 0; i < count; i++) {
-    BEAD line;
-    line_count++;
-    if (!LtrjReadCoorLine(fr, &line, count, position, cols)) {
-      strcpy(ERROR_MSG, "wrong coordinate line");
-      PrintErrorFileLine(file, line_count, split, words);
-      fprintf(stderr, "%sOrder of variables:%s", ErrRed(), ErrYellow());
-      for (int i = 0; i < max_vars; i++) {
-        if (position[i] != -1) {
-          fprintf(stderr, " %s", vars[position[i]]);
-        }
-      }
-      exit(1);
-    }
-    if (line.Type == 0) {
-      start_id = 0;
-      break;
-    }
-  }
-  fclose(fr);
-  return start_id;
 } //}}}
   //}}}
 // lmpdata //{{{
@@ -1272,9 +1224,9 @@ static void LmpDataReadImproperCoeffs(FILE *fr, char file[], SYSTEM *System,
       PrintErrorFileLine(file, *line_count, split, words);
       exit(1);
     } //}}}
-    System->ImproperType[type - 1].a = a;
-    System->ImproperType[type - 1].b = b;
-    System->ImproperType[type - 1].c = c;
+    System->ImproperType[type-1].a = a;
+    System->ImproperType[type-1].b = b;
+    System->ImproperType[type-1].c = c;
   }
 } //}}}
 // read Atoms section //{{{
@@ -4811,7 +4763,7 @@ static void SortDihImp(int (*dihimp)[5], int n) { //{{{
  */ //{{{
 SYSTEM ReadStructure(int struct_type, char struct_file[],
                      int coor_type, char coor_file[], bool detailed,
-                     bool vtf_coor_var, int pbc_xyz, int *ltrj_start_id) {
+                     bool vtf_coor_var, int pbc_xyz) {
   SYSTEM System;
   switch (struct_type) {
   case VSF_FILE:
@@ -4821,7 +4773,7 @@ SYSTEM ReadStructure(int struct_type, char struct_file[],
     System = XyzReadStruct(struct_file, pbc_xyz);
     break;
   case LTRJ_FILE:
-    System = LtrjReadStruct(struct_file, ltrj_start_id);
+    System = LtrjReadStruct(struct_file);
     break;
   case LDATA_FILE:
     System = LmpDataRead(struct_file);
@@ -4837,9 +4789,6 @@ SYSTEM ReadStructure(int struct_type, char struct_file[],
   // read extra stuff from coordinate file if necessary
   switch (coor_type) {
     case LTRJ_FILE: // find if atom ids start from 0 or 1
-      if (*ltrj_start_id == -1) {
-        *ltrj_start_id = LtrjLowIndex(coor_file);
-      }
       if (System.Box.Volume == -1) {
         System.Box = LtrjReadPBC(coor_file);
       }
@@ -4867,7 +4816,7 @@ SYSTEM ReadStructure(int struct_type, char struct_file[],
  * Read a single timestep from the provided coordinate file.
  */ //{{{
 bool ReadTimestep(int coor_type, FILE *fr, char file[], SYSTEM *System,
-                  int *line_count, int start_id, bool vtf_coor_var) {
+                  int *line_count, bool vtf_coor_var) {
   switch (coor_type) {
   case VCF_FILE:
     if (VtfReadTimestep(fr, file, System, line_count, vtf_coor_var) < 0) {
@@ -4880,7 +4829,7 @@ bool ReadTimestep(int coor_type, FILE *fr, char file[], SYSTEM *System,
     }
     break;
   case LTRJ_FILE:
-    if (LtrjReadTimestep(fr, file, System, start_id, line_count) < 0) {
+    if (LtrjReadTimestep(fr, file, System, line_count) < 0) {
       return false;
     }
     break;

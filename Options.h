@@ -18,17 +18,19 @@
 #define OPT_LENGTH 16
 
 // print help - function body in each utility
-void Help(char cmd[50], bool error);
+void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]);
+// version/help printing and initial check of provided options
+int OptionCheck(int argc, char *argv[], int req, int common,
+                int all, char opt[all][OPT_LENGTH]);
+// print version/help and exit
+void HelpVersionOption(int argc, char *argv[]);
 // print help for common options
 void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]);
 // detect options common for most utilities
 void CommonOptions(int argc, char *argv[], int length, bool *verbose,
                    bool *silent, bool *detailed, bool *vtf_var_coor,
-                   int *pbc_xyz, int *ltrj_start_id, int *start,
-                   int *end, int *skip);
+                   int *pbc_xyz, int *start, int *end, int *skip);
 
-// print AnalysisTools version number (--version)
-bool VersionOption(int argc, char *argv[]);
 // exclude specified molecule names (-x <mol name(s)>)
 bool ExcludeOption(int argc, char *argv[], SYSTEM *System);
 // join aggregates, saving the coordinates (-j <filename>)

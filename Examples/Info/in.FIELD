@@ -26,7 +26,7 @@ harm 2 3   4 0.5
 harm 3 4   4 0.5
 angles 2   4 0.5
 harm 1 2 3
-harm 2 3 4
+harm 2 3 4 5 1
 dihedral 1
 harm 1 2 3 4   0.1 0.2 0.3
 improper 1

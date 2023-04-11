@@ -149,8 +149,9 @@
 \newcommand{\vsf}{\texttt{vsf} }
 \newcommand{\vscf}{\texttt{vsf/vcf} }
 \newcommand{\vtf}{\texttt{vtf} }
-\newcommand{\field}{\texttt{FIELD}}
-\newcommand{\data}{\texttt{data}}
+\newcommand{\xyz}{\texttt{xyz} }
+\newcommand{\field}{\texttt{FIELD} }
+\newcommand{\data}{\texttt{data} }
 \newcommand{\ttb}[1]{\textcolor{blue}{\texttt{#1}}}
 \newcommand{\note}[1]{\vspace{-1em}\noindent\footnotesize{#1}}
 \newcommand{\TODO}{\colorbox{yellow}{TODO:}}
@@ -196,9 +197,9 @@
 \setenumerate[1]{label={\arabic*)}}
 \setenumerate[2]{label={\alph*)}, leftmargin=14pt}
 \setenumerate[3]{label={\roman*)}, leftmargin=12pt}
-\setenumerate{leftmargin=*, nosep}
+\setenumerate{leftmargin=*, noitemsep}
 \setitemize[3]{label=$\circ$}
-\setitemize{leftmargin=*, nosep}
+\setitemize{leftmargin=*, noitemsep}
 
 \begin{document}
 
@@ -229,7 +230,6 @@ Version 4.0 (Released \sout{August 18, 2020} at some point, it will be...)
 \end{center}
 \tableofcontents
 \setcounter{page}{1}
-\addcontentsline{toc}{chapter}{Contents}
 \thispagestyle{empty}
 
 \pagestyle{main}

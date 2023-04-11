@@ -1,54 +1,119 @@
 \chapter{Utilities} \label{chap:Utils}
 
-All utilities have command line help with short description when
-\texttt{-h} argument is used. Besides \texttt{-h}, most of the utilities
-have several standard command line options that are the same. The standard
-options can be used with any utility unless stated otherwise.
+All utilities have command line options affecting their behaviour. Most of the
+utilities share several standard command line options.
 
-\vspace{1em}
+The following options are for all utilities and are not described with the
+utilities themselves.\\[1em]
 \noindent
 \begin{tabular}{p{0.14\textwidth}p{0.804\textwidth}}
   \toprule
-  \multicolumn{2}{l}{Standard options} \\
+  \multicolumn{2}{l}{General options common to all utilities}\\
   \midrule
-  \texttt{-i <name>} & use custom structure file instead of
-    \texttt{traject.vsf} (\texttt{vsf} or \texttt{vtf} format) \\
-  \texttt{-v}        & verbose output that provides information about all
-    bead and molecule types \\
-  \texttt{-s}        & run silently, i.e., without any output at all
-    (overrides \texttt{-v} option) \\
-  \texttt{--script}  & no progress output (useful if output is routed to a
-    file) \\
-  \texttt{-h}        & print this help and exit \\
-  \texttt{--version} & print version of the utilities and exit \\
+  \tt{--verbose} & print information about all bead and molecule types to the
+    screen\\
+  \tt{--silent}  & run silently, i.e., without any output at all (overrides
+    \tt{--verbose} option)\\
+  \tt{--help}    & print short description of the utility and usage\\
+  \tt{--version} & print version of the utilities and exit\\
   \bottomrule
-\end{tabular}
+\end{tabular}\\[1em]
 
-\input{AddToSystem}
-\input{Aggregates}
-\input{AngleMolecules}
-\input{Average}
-\input{BondLength}
-\input{Config}
-\input{DensityAggregates}
-\input{DensityBox}
-\input{DensityMolecules}
-\input{DihedralMolecules}
-\input{DistrAgg}
-\input{GenLayers}
-\input{GenSystem}
-\input{GyrationAggregates}
-\input{GyrationMolecules}
+The following options are used by most utilities, and because they affect their
+behaviour, they are also listed in the utilities' descriptions.\\[1em]
+\noindent
+\begin{tabular}{p{0.14\textwidth}p{0.804\textwidth}}
+  \toprule
+  \multicolumn{2}{l}{Options for structure and coordinate input files}\\
+  \midrule
+  \tt{-i <name>}  & use specified structure file, see
+    Section~\ref{sec:StructFile} for possible formats\\
+  \tt{--detailed} & only \vtf structure file: detailed recognition for bead
+    (and, consequently, molecule) types based on the bead names as well as
+    charges, masses, radii \\
+  \tt{--variable} & only \vtf coordinate file: assume
+    indexed timesteps with variable numbers of beads (otherwise, the same number
+    of beads in each timestep is required)\\
+  \tt{-pbc <n>}   & only \xyz file: position of the first box dimension in
+    the file's comment line at the beginning of each timestep\\
+  \tt{-st <n>}    & any coordinate file: start calculations at \tt{n}-th
+    timestep\\
+  \tt{-e <n>}     & any coordinate file: end calculations at \tt{n}-th
+    timestep\\
+  \tt{-sk <n>}    & any coordinate file: skip every \tt{n} timesteps during
+    calculations\\
+  \bottomrule
+\end{tabular}\\[1em]
+
+For \vtf structure files, the bead types are defines solely based on their name;
+the other properties (mass, charge, and radius) are taken from the first
+\tt{a[tom]} line with the bead of that name that contains the appropriate
+keyword. For example, lines
+
+\noindent
+\tt{atom default name A m 1}\\
+\tt{atom 1 name B}\\
+\tt{atom 2 name B m 2}\\
+\tt{atom 3 name A m 2}\\
+\tt{atom 4 name A}\\[-1em]
+
+\noindent
+would define two bead type called \tt{A} and \tt{B} with masses equal to 1 and
+2, respectively. Using the \tt{--detailed} option would split the \tt{A} beads
+into three types: \tt{A} and \tt{A_1} with masses equal to 1 and 2,
+respectively, and \tt{A_2} with undefined mass (it remains undefined because
+there is an ambiguity---should the last bead have mass 1 or 2?). On the other
+hand, the \tt{B} beads would be assigned the same bead type with mass equal to 2
+(there is no ambiguity because only one mass is specified for the \tt{B} beads).
+See \tt{Examples/Info} directory for a more complete example.
+
+For \vtf coordinate file with indexed timesteps, all timesteps are expected to
+have the same number of beads (though not necessarily the same beads). If some
+timesteps contain different number of beads, \tt{--variable} option must be
+used. The option is implemented because without knowing in advance the number of
+beads in a timestep, reading that timestep is slower (significantly so for large
+systems).
+
+Plain \xyz format provides only bead names and coordinates, but the comment line
+at the beginning of every timestep can store extra information.
+Here, only box dimensions are read, but because there are extended \xyz formats
+containing more information, the \tt{-pbc} option is used to specify where the
+box dimensions are (as well as to tell the utility there are box dimensions at
+all). For example, \tt{-pbc 3} must be specified for the following comment line
+
+\tt{something more 10 10 10 90 60 30}.
+
+\noindent
+This would define a paralleloid box with $a=b=c=10$ and angles
+$\alpha=90^\circ$, $\beta=60^\circ$, and $\gamma=30^\circ$. If less than 6
+numbers were provided, only the first three would be used to define a cuboid
+box.
+
+% \input{AddToSystem}
+% \input{Aggregates}
+% \input{AngleMolecules}
+% \input{Average}
+% \input{BondLength}
+% \input{Config}
+% \input{DensityAggregates}
+% \input{DensityBox}
+% \input{DensityMolecules}
+% \input{DihedralMolecules}
+% \input{DistrAgg}
+% \input{GenLayers}
+% \input{GenSystem}
+% \input{GyrationAggregates}
+% \input{GyrationMolecules}
 \input{Info}
-\input{JoinAggregates}
-\input{JoinRuns}
-\input{lmp_data}
-\input{lmp_vtf}
-\input{Orientation}
-\input{PairCorrel}
-\input{PotentialAggregates}
+% \input{JoinAggregates}
+% \input{JoinRuns}
+% \input{lmp_data}
+% \input{lmp_vtf}
+% \input{Orientation}
+% \input{PairCorrel}
+% \input{PotentialAggregates}
 \input{SelectedVcf}
-\input{Surface}
-\input{traject}
-\input{TransformVsf}
-\input{VisualizeAgg}
+% \input{Surface}
+% \input{traject}
+% \input{TransformVsf}
+% \input{VisualizeAgg}

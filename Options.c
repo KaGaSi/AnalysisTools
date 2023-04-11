@@ -1,8 +1,8 @@
 #include "Options.h"
 
 // STATIC DECLARATIONs
-// option for output verbosity (--silent)
 static void SilentOption(int argc, char *argv[], bool *verbose, bool *silent);
+static bool VersionOption(int argc, char *argv[]);
 
 // STATIC IMPLEMENTATIONS
 // option for output verbosity (--silent) //{{{
@@ -16,8 +16,76 @@ static void SilentOption(int argc, char *argv[], bool *verbose, bool *silent) {
     }
   }
 } //}}}
+// print AnalysisTools version number (--version) //{{{
+static bool VersionOption(int argc, char *argv[]) {
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "--version") == 0) {
+      fprintf(stdout, "AnalysisTools by Karel Šindelka (KaGaSi), version %s"
+              " (released %s)\n", VERSION, DATE);
+      fprintf(stdout, "Download at https://github.com/KaGaSi/AnalysisTools/"
+              "releases/tag/v%s\n", VERSION);
+      return true;
+    }
+  }
+  return false;
+} //}}}
 
 // THE VISIBLE FUNCTIONS
+// print version or help and exit (--version and --help options) //{{{
+void HelpVersionOption(int argc, char *argv[]) {
+  if (VersionOption(argc, argv)) {
+    exit(0);
+  }
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "--help") == 0) {
+      // Help(argv[0], false);
+      exit(0);
+    }
+  }
+} //}}}
+
+// version/help printing and initial check of provided options //{{{
+int OptionCheck(int argc, char *argv[], int req, int common,
+                int all, char opt[all][OPT_LENGTH]) {
+  // --version option?
+  if (VersionOption(argc, argv)) {
+    exit(0);
+  }
+  // --help option?
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "--help") == 0) {
+      Help(argv[0], false, common, opt);
+      exit(0);
+    }
+  }
+  // correct number of mandatory options?
+  int count = 0;
+  while ((count + 1) < argc && argv[count + 1][0] != '-') {
+    count++;
+  }
+  if (count < req) {
+    ErrorArgNumber(count, req);
+    Help(argv[0], true, common, opt);
+    exit(1);
+  }
+  // all options exist?
+  for (int i = (count+1); i < argc; i++) {
+    bool valid = false;
+    for (int j = 0; j < all; j++) {
+      if (strcmp(argv[i], opt[j]) == 0) {
+        valid = true;
+        break;
+      }
+    }
+    if (!valid) {
+      ErrorOption(argv[i]);
+      Help(argv[0], true, common, opt);
+      exit(1);
+    }
+  }
+  return count;
+} //}}}
+
 // print help for common options //{{{
 void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
   FILE *ptr;
@@ -47,8 +115,8 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
               " line (of the first number)\n");
     } else if (strcmp(option[i], "-ltrj") == 0) {
       fprintf(ptr, "      -ltrj <int>    does lammpstrj ids go from 0 or 1?\n");
-    } else if (strcmp(option[i], "-v") == 0) {
-      fprintf(ptr, "      -v             verbose output\n");
+    } else if (strcmp(option[i], "--verbose") == 0) {
+      fprintf(ptr, "      --verbose      verbose output\n");
     } else if (strcmp(option[i], "--silent") == 0) {
       fprintf(ptr, "      --silent       no output "
               "(overrides verbose option)\n");
@@ -68,8 +136,7 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
 // detect options common for most utilities //{{{
 void CommonOptions(int argc, char *argv[], int length, bool *verbose,
                    bool *silent, bool *detailed, bool *vtf_var_coor,
-                   int *pbc_xyz, int *ltrj_start_id, int *start,
-                   int *end, int *skip) {
+                   int *pbc_xyz, int *start, int *end, int *skip) {
   // -v option - verbose output
   *verbose = BoolOption(argc, argv, "-v");
   // --silent option - silent mode
@@ -102,29 +169,6 @@ void CommonOptions(int argc, char *argv[], int length, bool *verbose,
     strcpy(ERROR_MSG, "position must be a positive number");
     PrintErrorOption("-pbc");
   }
-  *ltrj_start_id = -1;
-  if (IntegerOption(argc, argv, 1, "-ltrj", &trash, ltrj_start_id)) {
-    exit(1);
-  }
-  if (*ltrj_start_id < -1 || *ltrj_start_id > 1) {
-    strcpy(ERROR_MSG, "argument must be 0 or 1");
-    PrintErrorOption("-ltrj");
-    exit(1);
-  }
-} //}}}
-
-// print AnalysisTools version number (--version) //{{{
-bool VersionOption(int argc, char *argv[]) {
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "--version") == 0) {
-      fprintf(stdout, "AnalysisTools by Karel Šindelka (KaGaSi), version %s"
-              " (released %s)\n", VERSION, DATE);
-      fprintf(stdout, "Download at https://github.com/KaGaSi/AnalysisTools/"
-              "releases/tag/v%s\n", VERSION);
-      return true;
-    }
-  }
-  return false;
 } //}}}
 
 // exclude specified molecule names (-x <mol name(s)>) //{{{

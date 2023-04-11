@@ -1,31 +1,49 @@
 \section{Info} \label{sec:Info}
 
-This simple utility just prints information about the system read from the
-provided structure file. If \texttt{-c} option is used, only beads in the
-provided coordinate file are printed. The information is the same as when
-the verbose option (\texttt{-v}) is used with any other utility. Here, the
-\texttt{-v} option prints detailed informations about every bead and every
-molecule -- this information also contains indices as implemented inside
-the \texttt{AnalysisTools} utilities (i.e., not necessarily consistent with
-the structure file).
+This utility prints the system information read from an input structure file,
+possibly augmenting it with information from another structure file (\tt{-i[!]
+<file>} option) and/or pruning the system to contain only beads from a provided
+coordinate file (\tt{-c} option). \tt{Info} can also write this information into
+a new structure file of the given format (\tt{-o option}).
 
-Usage (\texttt{Info} does not use standard options):
+Allowed output file types are \vtf structure file (with the extension
+\tt{.vsf}), LAMMPS \data file (with the extension \tt{.data}), and DL\_MESO
+FIELD file (called \field or with the extension \tt{.FIELD}). Coordinates (and,
+possibly, velocities) from the coordinate file are also used for output LAMMPS
+\data file.
 
 \vspace{1em}
+Usage:\\
 \noindent
 \texttt{Info <input> <options>}
-
-\vspace{1em}
 \noindent
-\begin{longtable}{p{0.22\textwidth}p{0.724\textwidth}}
+\begin{longtable}{p{0.19\textwidth}p{0.754\textwidth}}
   \toprule
-  \multicolumn{2}{l}{Mandatory argument} \\
+  \multicolumn{2}{l}{Mandatory argument}\\
   \midrule
-  \texttt{<input>} & input structure file (either \texttt{.vsf} or
-    \texttt{.vtf} format) \\
-  \multicolumn{2}{l}{Options} \\
-  \texttt{-c} & input coordinate file in either \texttt{.vcf} or
-    \texttt{.vtf} format (default: None) \\
-  \texttt{-h} & print this help and exit \\
+  \tt{<input>} & input structure file\\
+  \midrule
+  \multicolumn{2}{l}{Options for input files}\\
+  \midrule
+  \tt{-i[!] <file>} & extra input structure file; see \tt{Examples/Info}
+    directory for the effect of \tt{-i} and \tt{-i!} options (default: None)\\
+  \tt{-c <file>}    & input coordinate file (default: None)\\
+  \tt{--detailed}   & only \vtf structure file: specify recognition of bead (and
+    molecule types) according to more than the bead name\\
+  \tt{-pbc <n>}     & only \xyz file: specify position of box dimensions
+    on a comment line (default: no box dimensions)\\
+  \tt{--variable}   & only \vtf coordinate file: specify indexed timesteps with
+    variable number of beads (only affects the results if \tt{-st} is used)\\
+  \tt{-st <n>}      & any coordinate file: use \tt{n}-th timestep\\
+  \midrule
+  \multicolumn{2}{l}{Options for output file}\\
+  \midrule
+  \tt{-o <file>}    & output coordinate file (default: None)\\
+  \tt{-def <bead>}  & only \vtf structure file: use bead type \tt{<bead>} for
+    the \enquote{atom default} line (default:bead type with the most unbonded
+    beads)\\
+  \tt{--mass}       & only \data structure file: define LAMMPS atom types by
+    mass but print per-atom charges in the \tt{Atoms} section (default: atom
+    types are the same as \tt{Info}-recognized bead types)\\
   \bottomrule
 \end{longtable}

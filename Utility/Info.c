@@ -1,6 +1,6 @@
 #include "../AnalysisTools.h"
 
-void Help(char cmd[50], bool error) { //{{{
+void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
     ptr = stderr;
@@ -10,22 +10,20 @@ void Help(char cmd[50], bool error) { //{{{
 Info analyzes the provided input structure file, \
 printing system composition to standard output and, optionally, producing \
 an output structure file of specified format (-o option). If some information \
-required in the given output file type is missing, \
+required in the output file is missing, \
 '???\' is printed instead. The system from the input file can \
 be modified using a second structure file (-i[!] option) and/or \
 a coordinate file (-c option); see manual and Examples/Info folder for \
-details. \
+details.\
 \n\n");
   }
 
   fprintf(ptr, "Usage:\n");
   fprintf(ptr, "   %s <input> [options]\n\n", cmd);
   fprintf(ptr, "   <input>               input structure file\n");
-  fprintf(ptr, "   [options]\n");
   fprintf(ptr, "    input files:\n");
   fprintf(ptr, "      -i[!] <file>       secondary structure file\n");
   fprintf(ptr, "      -c <file>          input coordinate file\n");
-  fprintf(ptr, "    output files:\n");
   fprintf(ptr, "      -o <file>          output structure file\n");
   fprintf(ptr, "      -def <bead name>   default bead type "
           "(output vtf structure file only)\n");
@@ -33,65 +31,36 @@ details. \
           "print per-atom charges in Atoms section "
           "(output lammps data file only)\n");
   putc('\n', ptr);
-  int common = 9;
-  char option[common][OPT_LENGTH];
-  strcpy(option[0], "-st");
-  strcpy(option[1], "--variable");
-  strcpy(option[2], "-pbc");
-  strcpy(option[3], "-ltrj");
-  strcpy(option[4], "--detailed");
-  strcpy(option[5], "-v");
-  strcpy(option[6], "--silent");
-  strcpy(option[7], "--help");
-  strcpy(option[8], "--version");
-  CommonHelp(error, common, option);
+  CommonHelp(error, n, opt);
 } //}}}
 
 int main(int argc, char *argv[]) {
 
-  // --help/--version options - print stuff and exit //{{{
-  if (VersionOption(argc, argv)) {
-    exit(0);
-  }
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "--help") == 0) {
-      Help(argv[0], false);
-      exit(0);
-    }
-  }
-  int req_args = 1; //}}}
+  // define options //{{{
+  int common = 8, all = common + 6, count = 0, req_arg = 1;
+  char option[all][OPT_LENGTH];
+  // common options
+  strcpy(option[count++], "-st");
+  strcpy(option[count++], "--variable");
+  strcpy(option[count++], "-pbc");
+  strcpy(option[count++], "--detailed");
+  strcpy(option[count++], "--verbose");
+  strcpy(option[count++], "--silent");
+  strcpy(option[count++], "--help");
+  strcpy(option[count++], "--version");
+  // extra options
+  strcpy(option[count++], "-i");
+  strcpy(option[count++], "-i!");
+  strcpy(option[count++], "-c");
+  strcpy(option[count++], "-o");
+  strcpy(option[count++], "-def");
+  strcpy(option[count++], "--mass");
 
-  // check if correct number of arguments //{{{
-  int count = 0;
-  while ((count + 1) < argc && argv[count + 1][0] != '-') {
-    count++;
-  }
-
-  if (count < req_args) {
-    ErrorArgNumber(count, req_args);
-    Help(argv[0], true);
-    exit(1);
-  } //}}}
-
-  // test if options are given correctly //{{{
-  for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' && strcmp(argv[i], "-i") != 0 &&
-        strcmp(argv[i], "-i!") != 0 && strcmp(argv[i], "-c") != 0 &&
-        strcmp(argv[i], "-o") != 0 && strcmp(argv[i], "-def") != 0 &&
-        strcmp(argv[i], "--mass") != 0 && strcmp(argv[i], "-st") != 0 &&
-        strcmp(argv[i], "--variable") != 0 && strcmp(argv[i], "-pbc") != 0 &&
-        strcmp(argv[i], "-ltrj") != 0 && strcmp(argv[i], "--detailed") != 0 &&
-        strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--silent") != 0 &&
-        strcmp(argv[i], "--help") != 0 && strcmp(argv[i], "--version") != 0) {
-      ErrorOption(argv[i]);
-      Help(argv[0], true);
-      exit(1);
-    }
-  } //}}}
+  OptionCheck(argc, argv, req_arg, common, all, option); //}}}
 
   count = 0; // count arguments
 
-  // <input> //{{{
+  // <input> input structure file//{{{
   char struct_file[LINE] = "";
   int struct_type;
   snprintf(struct_file, LINE, "%s", argv[++count]);
@@ -254,13 +223,13 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
   bool silent, verbose, detailed, vtf_var;
-  int timestep = 1, pbc_xyz = -1, ltrj_start_id = -1;
+  int timestep = 1, pbc_xyz = -1;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
-                &pbc_xyz, &ltrj_start_id, &timestep, trash, trash);
+                &pbc_xyz, &timestep, trash, trash);
 
   // read information from input file(s) //{{{
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
-                                detailed, vtf_var, pbc_xyz, &ltrj_start_id);
+                                detailed, vtf_var, pbc_xyz);
   // use coordinate from a separate file (-c option)
   if (coor_type != -1) {
     int line_count = 0;
@@ -268,8 +237,7 @@ int main(int argc, char *argv[]) {
     for (int i = 1; i < timestep; i++) { // from 1 as timestep=1 is the first
       SkipTimestep(coor_type, fr, coor_file, struct_file, &line_count);
     }
-    ReadTimestep(coor_type, fr, coor_file, &System, &line_count,
-                 ltrj_start_id, vtf_var);
+    ReadTimestep(coor_type, fr, coor_file, &System, &line_count, vtf_var);
     fclose(fr);
   } else {
     // all beads are in the timestep
@@ -293,8 +261,7 @@ int main(int argc, char *argv[]) {
   SYSTEM Sys_extra;
   if (struct_file_extra[0] != '\0') {
     Sys_extra = ReadStructure(struct_type_extra, struct_file_extra,
-                              coor_type, coor_file, detailed, vtf_var,
-                              pbc_xyz, &ltrj_start_id);
+                              coor_type, coor_file, detailed, vtf_var, pbc_xyz);
     if (verbose) {
       printf("System in %s:\n", struct_file_extra);
       VerboseOutput(Sys_extra);

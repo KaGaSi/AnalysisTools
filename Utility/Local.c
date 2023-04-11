@@ -1,5 +1,10 @@
 #include "../AnalysisTools.h"
 
+typedef struct SC {
+  int n, m, CG;
+  double a, c, eps;
+} SC;
+
 typedef struct constant {
   // data from lammps/src/update.cpp
   double mvv2e, // convert mv^2 to E (eV)
@@ -182,6 +187,22 @@ int main(int argc, char *argv[]) {
     c.nktv2p = 1;
   } //}}}
 
+  SC SC[2];
+  // Al
+  SC[0].n = 6;
+  SC[0].m = 8;
+  SC[0].CG = 3;
+  SC[0].a = 1;      // 4.049Å
+  SC[0].eps = 1;    // 230.5K
+  SC[0].c = 25.398; // dimensionless
+  // Zr
+  SC[1].n = 6;
+  SC[1].m = 8;
+  SC[1].CG = 2;
+  SC[1].a = 1.118795;   // 4.530Å
+  SC[1].eps = 0.850759; // 196.1K
+  SC[1].c = 25.398;     // dimensionless
+
   if (!silent) {
     PrintCommand(stdout, argc, argv);
   }
@@ -290,7 +311,7 @@ int main(int argc, char *argv[]) {
       WrapJoinCoordinates(&System, true, false); // restore pbc
       InitLong2DArray(bead_count, bin[0], bin[1], 0);
       InitDouble2DArray(Temp, bin[0], bin[1], 0);
-      // calculate the local properties
+      // calculate the local properties //{{{
       double temperature = 0, energy_kin = 0, virial = 0;
       for (int i = 0; i < System.Count.BeadCoor; i++) {
         int id = System.BeadCoor[i];
@@ -374,7 +395,7 @@ int main(int argc, char *argv[]) {
       temperature *= c.mvv2e / (3 * System.Count.BeadCoor * c.boltz);
       double pressure = (temperature * c.boltz * System.Count.BeadCoor +
                         virial) / (3 * System.Box.Volume) * c.nktv2p;
-      energy_kin *= c.mvv2e;
+      energy_kin *= c.mvv2e; //}}}
       fprintf(t_out, " %8d", count_coor);
       fprintf(t_out, " %8.4f", temperature);
       fprintf(t_out, " %8.4f", virial);
@@ -512,6 +533,26 @@ int main(int argc, char *argv[]) {
         //}}}
         fclose(fw);
       } //}}}
+      // // calculate SC energy, etc.
+      // // TODO: eventually add to the 'calculate the local properties' loop
+      // long double *e_rep = calloc(System.Count.BeadCoor, sizeof *e_rep),
+      //             *e_rho = calloc(System.Count.BeadCoor, sizeof *e_rho);
+      // for (int i = 0; i < System.Count.BeadCoor; i++) {
+      //   for (int j = 0; j < System.Count.BeadCoor; j++) {
+      //     if (i != j) {
+      //       int id1 = System.BeadCoor[i],
+      //           id2 = System.BeadCoor[j];
+      //       BEAD *b1 = &System.Bead[id1],
+      //            *b2 = &System.Bead[id2];
+      //       BEADTYPE *bt1 = &System.BeadType[b1->Type],
+      //                *bt2 = &System.BeadType[b2->Type];
+      //       VECTOR d = Distance(b1->Position, b2->Position, System.Box.Length);
+      //       d.x = VectorLength(d);
+      //       // TODO: check ml's code
+      //     }
+      //   }
+      // }
+      // free(e_rep);
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
       if (!SkipTimestep(coor_type, coor, coor_file,
@@ -532,8 +573,8 @@ int main(int argc, char *argv[]) {
     ErrorPrintFile(coor_file, "\0", "\0");
     fputc('\n', stderr); //}}}
   } else if (start > count_coor) { // warn if no timesteps were written //{{{
-    strcpy(ERROR_MSG, "no coordinates written (starting timestep higher \
-than the number of timestep)");
+    strcpy(ERROR_MSG, "no timestep used; "
+           "starting timestep is higher than the number of timesteps");
     PrintWarning(); //}}}
   } else if (!silent) { // print last step count? //{{{
     if (isatty(STDOUT_FILENO)) {
