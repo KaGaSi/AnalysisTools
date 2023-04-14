@@ -98,10 +98,11 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   VECTOR bin;
-  // TODO: why '+10'?
-  bin.x = ceil(box->Length.x / width) + 10;
-  bin.y = ceil(box->Length.y / width) + 10;
-  bin.z = ceil(box->Length.z / width) + 10; //}}}
+  // TODO: *3 to assume box change of at most thrice as big
+  //       probably change from width to number of bins per box?
+  bin.x = ceil(box->Length.x / width) * 3;
+  bin.y = ceil(box->Length.y / width) * 3;
+  bin.z = ceil(box->Length.z / width) * 3; //}}}
 
   // allocate memory for arrays //{{{
   long int *n_beads = calloc(Count->BeadType, sizeof *n_beads);

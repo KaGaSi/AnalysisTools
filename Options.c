@@ -72,7 +72,8 @@ int OptionCheck(int argc, char *argv[], int req, int common,
   for (int i = (count+1); i < argc; i++) {
     bool valid = false;
     for (int j = 0; j < all; j++) {
-      if (strcmp(argv[i], opt[j]) == 0) {
+      if (argv[i][0] != '-' || // assumes an argument to some option
+          strcmp(argv[i], opt[j]) == 0) {
         valid = true;
         break;
       }
