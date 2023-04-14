@@ -41,6 +41,9 @@ typedef struct LongVector {
 typedef struct IntVector {
   int x, y, z;
 } INTVECTOR;
+typedef struct LongIntVector {
+  long int x, y, z;
+} LONGINTVECTOR;
 //}}}
 
 double VectorLength(VECTOR a);

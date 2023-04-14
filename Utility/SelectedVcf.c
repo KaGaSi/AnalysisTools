@@ -62,7 +62,6 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "--wrap");
   strcpy(option[count++], "-n");
   strcpy(option[count++], "--last");
-
   int n = OptionCheck(argc, argv, req_arg, common, all, option);
   // check for --reverse, if not enough arguments for any bead types
   if (n == 2) {
@@ -80,39 +79,6 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
   } //}}}
-
-  // HelpVersionOption(argc, argv);
-  //
-  // // check if correct number of arguments //{{{
-  // int req_args = 3, count = 0;
-  // while ((count + 1) < argc && argv[count + 1][0] != '-') {
-  //   count++;
-  // }
-  // // reverse bead type selection? ...do now to check correct number of arguments
-  // bool reverse = BoolOption(argc, argv, "--reverse");
-  // // possible to omit <bead name(s)> if '--reverse' is used
-  // if (count < (req_args - 1) || (count == (req_args - 1) && !reverse)) {
-  //   ErrorArgNumber(count, req_args);
-  //   Help(argv[0], true);
-  //   exit(1);
-  // } //}}}
-  //
-  // // test if options are given correctly //{{{
-  // for (int i = 1; i < argc; i++) {
-  //   if (argv[i][0] == '-' && strcmp(argv[i], "--reverse") != 0 &&
-  //       strcmp(argv[i], "--join") != 0 && strcmp(argv[i], "--wrap") != 0 &&
-  //       strcmp(argv[i], "-n") != 0 && // strcmp(argv[i], "-x") != 0 &&
-  //       strcmp(argv[i], "--last") != 0 && strcmp(argv[i], "-st") != 0 &&
-  //       strcmp(argv[i], "-e") != 0 && strcmp(argv[i], "-sk") != 0 &&
-  //       strcmp(argv[i], "-i") != 0 && strcmp(argv[i], "--variable") != 0 &&
-  //       strcmp(argv[i], "--detailed") != 0 && strcmp(argv[i], "-pbc") != 0 &&
-  //       strcmp(argv[i], "--verbose") != 0 && strcmp(argv[i], "--silent") != 0 &&
-  //       strcmp(argv[i], "--help") && strcmp(argv[i], "--version") != 0) {
-  //     ErrorOption(argv[i]);
-  //     Help(argv[0], true);
-  //     exit(1);
-  //   }
-  // } //}}}
 
   count = 0; // count mandatory arguments
 
