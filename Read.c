@@ -78,7 +78,7 @@ static void LmpDataReadImproperCoeffs(FILE *fr, char file[], SYSTEM *System,
                                       int *line_count);
 static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
                              BEADTYPE name_mass[], int atom_types,
-                             int *line_count);
+                             int *line_count, int mode);
 static void LmpDataReadVelocities(FILE *fr, char file[], SYSTEM *System,
                                   int *line_count);
 static void LmpDataReadBonds(FILE *fr, char file[], COUNT Count, int (*bond)[3],
@@ -936,7 +936,25 @@ static void LmpDataReadBody(FILE *fr, char file[], SYSTEM *System,
       LmpDataReadImproperCoeffs(fr, file, System, line_count);
     } else if (words > 0 && strcmp(split[0], "Atoms") == 0) {
       atoms = true;
-      LmpDataReadAtoms(fr, file, System, name_mass, atom_types, line_count);
+      int mode = 0; // for 'Atoms' or 'Atoms # full'
+      if (words > 2 && split[1][0] == '#') {
+        if (strcmp(split[2], "bond") == 0 ||
+            strcmp(split[2], "angle") == 0) {
+          mode = 1; // for 'Atoms # bond' or 'Atoms # angle'
+        } else if (strcmp(split[2], "atomic") == 0) {
+          mode = 2; // for 'Atoms # atomic'
+        } else if (strcmp(split[2], "molecular") == 0) {
+          mode = 3; // for 'Atoms # molecular'
+        } else if (strcmp(split[2], "charge") == 0) {
+          mode = 4; // for 'Atoms # charge'
+        } else { // for 'Atoms # <something else>'
+          snprintf(ERROR_MSG, LINE, "unsupported atom_style (Atoms section) "
+                   "%s%s; assuming 'full'", ErrYellow(), split[2]);
+          PrintWarnFile(file, "\0", "\0");
+        }
+      }
+      LmpDataReadAtoms(fr, file, System, name_mass, atom_types,
+                       line_count, mode);
     } else if (words > 0 && strcmp(split[0], "Velocities") == 0) {
       LmpDataReadVelocities(fr, file, System, line_count);
     } else if (words > 0 && strcmp(split[0], "Bonds") == 0) {
@@ -1070,6 +1088,8 @@ static void LmpDataReadMasses(FILE *fr, char file[], BEADTYPE name_mass[],
     if (words > 3 && split[2][0] == '#') {
       strncpy(name_mass[type].Name, split[3], BEAD_NAME);
       name_mass[type].Name[BEAD_NAME - 1] = '\0'; // ensure null-termination
+    } else {
+      snprintf(name_mass[type].Name, BEAD_NAME, "bt_%d", i);
     }
   }
 } //}}}
@@ -1230,9 +1250,10 @@ static void LmpDataReadImproperCoeffs(FILE *fr, char file[], SYSTEM *System,
   }
 } //}}}
 // read Atoms section //{{{
+// mode: 0..full; 1..angle/bond; 2..atomic; 3..molecular; 4..charge 
 static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
                              BEADTYPE name_mass[], int atom_types,
-                             int *line_count) {
+                             int *line_count, int mode) {
   COUNT *Count = &System->Count;
   // skip one line
   (*line_count)++;
@@ -1250,9 +1271,10 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
     long id, resid, type;
     double q;
     VECTOR pos;
-    // error - wrong line //{{{
-    if (words < 7 || !IsNaturalNumber(split[0], &id) ||
-        id > Count->Bead ||                   // bead index
+    // check the line is correct & read/assign values //{{{
+    // 'Atoms # full': <bead id> <mol id> <bead type id> <charge> <coordinates>
+    if (mode == 0 && words < 7 ||
+        !IsNaturalNumber(split[0], &id) || id > Count->Bead || // bead index
         !IsIntegerNumber(split[1], &resid) || // molecule index
         !IsWholeNumber(split[2], &type) ||    // bead type (mass-defined)
         (!IsRealNumber(split[3], &q) &&       // bead charge
