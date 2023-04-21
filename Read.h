@@ -24,7 +24,7 @@ bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],
  * \param [out] distance      <distance> parameter from Aggregate command
  * \param [out] contacts      <contacts> parameter from Aggregate command
  */
-void ReadAggCommand(BEADTYPE *BeadType, COUNTS Counts,
+void ReadAggCommand(BEADTYPE *BeadType, COUNT Counts,
                     char *input_coor, char *input_agg,
                     double *distance, int *contacts); //}}}
 // SkipAgg() //{{{
@@ -48,7 +48,7 @@ void SkipAgg(FILE *agg, char *agg_file); //}}}
  * \param [in]  MoleculeType  information about molecule types
  * \param [out] Molecule      information about individual molecules
  */
-void ReadAggregates(FILE *fr, char *agg_file, COUNTS *Counts, AGGREGATE *Aggregate[],
+void ReadAggregates(FILE *fr, char *agg_file, COUNT *Counts, AGGREGATE *Aggregate[],
                     BEADTYPE *BeadType, BEAD *Bead[],
                     MOLECULETYPE *MoleculeType, MOLECULE *Molecule[], int *Index); //}}}
 #endif //}}}

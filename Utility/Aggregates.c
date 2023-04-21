@@ -1,17 +1,12 @@
 #include "Aggregates.h"
 #include "../AnalysisTools.h"
-int *InFile;
 
+// TODO: -sk/-e/-st options
 // TODO: <distance> & <contacts> as options
-// TODO: do -x/-xm options make sense?
-//       fprintf(ptr, "      -x <mol(s)>    exclude specified molecule(s)\n");
-//       fprintf(ptr, "      -xm <mol(s)>   exclude molecules close to "
-//               "specified molecule(s)\n");
 // TODO: fractional - read coor; to fraction; from fractional distance while
 //       calculating
-// TODO: -st/-e options? Only for -j, obviously
 
-void Help(char cmd[50], bool error) { //{{{
+void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
     ptr = stderr;
@@ -40,55 +35,41 @@ can be written to an output '.vcf' file (with indexed timesteps).\n\n");
   fprintf(ptr, "   <bead(s)>    bead names for closeness calculation\n");
   fprintf(ptr, "   [options]\n");
   fprintf(ptr, "      -j <out.vcf>   output file with joined coordinates\n");
-  int common = 11;
-  char option[common][OPT_LENGTH];
-  strcpy(option[3], "-i");
-  strcpy(option[4], "--variable");
-  strcpy(option[5], "-pbc");
-  strcpy(option[6], "--detailed");
-  strcpy(option[7], "-v");
-  strcpy(option[8], "--silent");
-  strcpy(option[9], "--help");
-  strcpy(option[10], "--version");
-  CommonHelp(error, common, option);
+  CommonHelp(error, n, opt);
 } //}}}
 
 // CalculateAggregates() //{{{
-void CalculateAggregates(AGGREGATE **Aggregate, COUNTS *Counts, double sqdist,
-                         int contacts, int *xm_mols, bool **xm_use_mol, BOX Box,
-                         BEADTYPE *BeadType, BEAD **Bead,
-                         MOLECULETYPE *MoleculeType, MOLECULE **Molecule) {
-
-  // zeroize //{{{
-  (*Counts).Aggregates = 0;
-  for (int i = 0; i < (*Counts).Molecules; i++) {
-    (*Aggregate)[i].nMolecules = 0;
-    (*Aggregate)[i].nBeads = 0;
-    (*Aggregate)[i].nMonomers = 0;
-  } //}}}
+void CalculateAggregates(AGGREGATE **Aggregate, SYSTEM *System, double sqdist,
+                         int contacts) {
+  COUNT *Count = &System->Count;
+  Count->Aggregate = 0;
+  // zeroize
+  for (int i = 0; i < Count->Molecule; i++) {
+    Aggregate[i]->nMolecules = 0;
+    Aggregate[i]->nBeads = 0;
+  }
 
   // allocate & zeroize contact[][] (triangular matrix) and moved array //{{{
-  int **contact = malloc(sizeof *contact * (*Counts).Molecules);
-  int *moved = malloc(sizeof *moved * (*Counts).Molecules);
-  for (int i = 0; i < (*Counts).Molecules; i++) {
+  int **contact = malloc(sizeof *contact * Count->Molecule);
+  int *moved = malloc(sizeof *moved * Count->Molecule);
+  for (int i = 0; i < Count->Molecule; i++) {
     contact[i] = malloc(sizeof *contact[i] * (i + 1));
   }
 
   // zeroize arrays
-  for (int i = 0; i < (*Counts).Molecules; i++) {
-    (*Molecule)[i].Aggregate = -1;
+  for (int i = 0; i < Count->Molecule; i++) {
+    System->Molecule[i].Aggregate = -1;
     moved[i] = 0;
     for (int j = 0; j < i; j++)
       contact[i][j] = 0;
   } //}}}
 
-  // create cell-linked list //{{{
+  // create cell-linked list
   double cell_size = sqrt(sqdist);
   INTVECTOR n_cells;
   int *Head, *Link;
   int Dcx[14], Dcy[14], Dcz[14];
-  LinkedList(Box.Length, *Counts, *Bead, &Head, &Link, cell_size, &n_cells, Dcx,
-             Dcy, Dcz); //}}}
+  LinkedList(*System, &Head, &Link, cell_size, &n_cells, Dcx, Dcy, Dcz);
 
   for (int c1z = 0; c1z < n_cells.z; c1z++) { //{{{
     for (int c1y = 0; c1y < n_cells.y; c1y++) {
@@ -426,42 +407,30 @@ void CalculateAggregates(AGGREGATE **Aggregate, COUNTS *Counts, double sqdist,
 
 int main(int argc, char *argv[]) {
 
-  // --help/--version options - print stuff and exit //{{{
-  if (VersionOption(argc, argv)) {
-    exit(0);
-  }
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "--help") == 0) {
-      Help(argv[0], false);
-      exit(0);
-    }
-  }
-  int req_args = 5; //}}}
+  // define options //{{{
+  int common = 11, all = common + 1, count = 0,
+      req_arg = 5;
+  char option[all][OPT_LENGTH];
+  // common options
+  // strcpy(option[count++], "-st");
+  // strcpy(option[count++], "-e");
+  // strcpy(option[count++], "-sk");
 
-  // check if correct number of arguments //{{{
-  int count = 0;
-  while ((count + 1) < argc && argv[count + 1][0] != '-') {
-    count++;
-  }
-
-  if (count < req_args) {
-    ErrorArgNumber(count, req_args);
-    Help(argv[0], true);
-    exit(1);
-  } //}}}
-
-  // test if options are given correctly //{{{
-  for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' && strcmp(argv[i], "-j") != 0 &&
-        strcmp(argv[i], "-i") != 0 && strcmp(argv[i], "--variable") != 0 &&
-        strcmp(argv[i], "-pbc") != 0 && strcmp(argv[i], "--detailed") != 0 &&
-        strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--silent") != 0 &&
-        strcmp(argv[i], "--help") != 0 && strcmp(argv[i], "--version") != 0) {
-      ErrorOption(argv[i]);
-      Help(argv[0], true);
-      exit(1);
-    }
-  } //}}}
+  strcpy(option[count++], "-i");
+  strcpy(option[count++], "--variable");
+  strcpy(option[count++], "-pbc");
+  strcpy(option[count++], "--detailed");
+  strcpy(option[count++], "--verbose");
+  strcpy(option[count++], "--silent");
+  strcpy(option[count++], "--help");
+  strcpy(option[count++], "--version");
+  // extra options
+  strcpy(option[count++], "--reverse");
+  strcpy(option[count++], "--join");
+  strcpy(option[count++], "--wrap");
+  strcpy(option[count++], "-n");
+  strcpy(option[count++], "--last");
+  OptionCheck(argc, argv, req_arg, common, all, option); //}}}
 
   count = 0; // count mandatory arguments
 
@@ -469,8 +438,8 @@ int main(int argc, char *argv[]) {
   char coor_file[LINE] = "", struct_file[LINE] = "";
   int coor_type, struct_type = 0;
   snprintf(coor_file, LINE, "%s", argv[++count]);
-  if (!InputCoorStruct(argc, argv, coor_file, &coor_type, struct_file,
-                       &struct_type)) {
+  if (!InputCoorStruct(argc, argv, coor_file, &coor_type,
+                       struct_file, &struct_type)) {
     exit(1);
   } //}}}
 
@@ -478,13 +447,13 @@ int main(int argc, char *argv[]) {
   double distance;
   if (!IsPosRealNumber(argv[++count], &distance)) {
     ErrorNaN("<distance>");
-    Help(argv[0], true);
+    Help(argv[0], true, common, option);
     exit(1);
   }
   long contacts;
   if (!IsNaturalNumber(argv[++count], &contacts)) {
     ErrorNaN("<contacts>");
-    Help(argv[0], true);
+    Help(argv[0], true, common, option);
     exit(1);
   } //}}}
 
@@ -496,7 +465,7 @@ int main(int argc, char *argv[]) {
   char extension[1][EXTENSION];
   strcpy(extension[0], ".agg");
   if (ErrorExtension(agg_file, ext, extension) == -1) {
-    Help(argv[0], true);
+    Help(argv[0], true, common, option);
     exit(1);
   } //}}}
 
@@ -520,7 +489,7 @@ int main(int argc, char *argv[]) {
 
   int ltrj_start_id = -1; // for lammpstrj structure file, start ids from 0 or 1
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
-                                detailed, vtf_var, pbc_xyz, &ltrj_start_id);
+                                detailed, vtf_var, pbc_xyz);
 
   COUNT *Count = &System.Count;
   // <bead names> - names of bead types to use for closeness calculation //{{{
@@ -586,15 +555,14 @@ int main(int argc, char *argv[]) {
   while (true) {
     PrintStep(&count_coor, 1, silent);
 
-    if (!ReadTimestep(coor_type, fr, coor_file, &System, &line_count,
-                      ltrj_start_id, vtf_var)) {
+    if (!ReadTimestep(coor_type, fr, coor_file, &System,
+                      &line_count, vtf_var)) {
       count_coor--;
       break;
     }
     count_used++;
     WrapJoinCoordinates(&System, true, false);
-    CalculateAggregates(&Aggregate, &Counts, SQR(distance), contacts,
-                        Box, BeadType, &Bead, MoleculeType, &Molecule);
+    CalculateAggregates(&Aggregate, &System, SQR(distance), contacts);
 
     // calculate & write joined coordinatest to <out.vcf> if '-j' option is used
     // //{{{
@@ -609,28 +577,6 @@ int main(int argc, char *argv[]) {
       WriteCoorIndexed(joined, Counts, BeadType, Bead, MoleculeType, Molecule,
                        stuff, Box);
       fclose(joined);
-    } //}}}
-
-    // find the number of aggregates - remove aggregates only of excluded mols
-    // //{{{
-    int no_excluded_aggs = 0;
-    int test_count = 0; // to test that every molecule is in an aggregate
-    for (int i = 0; i < Counts.Aggregates; i++) {
-      Aggregate[i].Use = false;
-
-      test_count += Aggregate[i].nMolecules;
-
-      if (Aggregate[i].nMolecules != 1 ||
-          xm_use_mol[Aggregate[i].Molecule[0]]) {
-        for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-          int moltype = Molecule[Aggregate[i].Molecule[j]].Type;
-          if (MoleculeType[moltype].Use) {
-            Aggregate[i].Use = true;
-            no_excluded_aggs++;
-            break;
-          }
-        }
-      }
     } //}}}
 
     // are all molecules accounted for? //{{{

@@ -45,6 +45,7 @@ typedef struct Count { //{{{
       UnbondedCoor, // total number of monomeric beads in the coordinate file
       Molecule, // total number of molecules
       MoleculeCoor, // total number of molecules in the coordinate file
+      Aggregate, // number of aggregates
       HighestResid, // highest id in a file (discontinuous molecule counting)
       Bond,
       Angle,
@@ -67,6 +68,7 @@ static const COUNT InitCount = {
   .UnbondedCoor = 0,
   .Molecule = 0,
   .MoleculeCoor = 0,
+  .Aggregate = 0,
   .HighestResid = -1,
   .Bond = 0,
   .Angle = 0,
@@ -165,13 +167,14 @@ typedef struct Aggregate { //{{{
       *Molecule, // ids of molecules in aggregate
       nBeads, // number of bonded beads in aggregate
       *Bead, // ids of bonded beads in aggregate
-      nMonomers, // number of monomeric beads in aggregate
-      *Monomer; // ids of monomeric beads in aggregate
+      nMonomers, // that's probably gonna go
+      *Monomer; // that's probably gonna go
 
   double Mass; // total mass of the aggregate
 
   bool Use; // should aggregate be used for calculation?
 } AGGREGATE; //}}}
+#if 0
 // TODO remove
 typedef struct Counts { //{{{
   int TypesOfBeads, // number of bead types
@@ -208,4 +211,5 @@ static const COUNTS InitCounts = {
   .HighestResid = -1,
   .Aggregates = 0,
 }; //}}}
+#endif
 #endif

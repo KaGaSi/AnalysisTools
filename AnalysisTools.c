@@ -109,10 +109,8 @@ static bool ConnectedMolecule(MOLECULE mol, SYSTEM System) {
   bool *connected = calloc(mt->nBeads, sizeof *connected);
   // find first bead in the first bond present in the timestep
   for (int i = 0; i < mt->nBonds; i++) {
-    int id1 = mt->Bond[i][0],
-        id2 = mt->Bond[i][1];
-    BEAD *b_1 = &System.Bead[mol.Bead[id1]],
-         *b_2 = &System.Bead[mol.Bead[id2]];
+    int id1 = mt->Bond[i][0], id2 = mt->Bond[i][1];
+    BEAD *b_1 = &System.Bead[mol.Bead[id1]], *b_2 = &System.Bead[mol.Bead[id2]];
     if (b_1->InTimestep && b_2->InTimestep) {
       connected[id1] = true;
       connected[id2] = true;
@@ -120,10 +118,8 @@ static bool ConnectedMolecule(MOLECULE mol, SYSTEM System) {
     }
   }
   for (int i = 0; i < mt->nBonds; i++) {
-    int id1 = mt->Bond[i][0],
-        id2 = mt->Bond[i][1];
-    BEAD *b_1 = &System.Bead[mol.Bead[id1]],
-         *b_2 = &System.Bead[mol.Bead[id2]];
+    int id1 = mt->Bond[i][0], id2 = mt->Bond[i][1];
+    BEAD *b_1 = &System.Bead[mol.Bead[id1]], *b_2 = &System.Bead[mol.Bead[id2]];
     if (b_1->InTimestep && b_2->InTimestep && connected[id1]) {
       connected[id2] = true;
     }
@@ -158,9 +154,11 @@ static void RemovePBCMolecules(SYSTEM *System) {
     MOLECULE *mol_i = &System->Molecule[i];
     MOLECULETYPE *mt_i = &System->MoleculeType[mol_i->Type];
     if (!ConnectedMolecule(*mol_i, *System)) {
-      snprintf(ERROR_MSG, LINE, "molecule %s%d%s (%s%s%s) does not have all "
-              "beads connected", ErrYellow(), mol_i->Index, ErrCyan(),
-              ErrYellow(), mt_i->Name, ErrCyan());
+      snprintf(ERROR_MSG, LINE,
+               "molecule %s%d%s (%s%s%s) does not have all "
+               "beads connected",
+               ErrYellow(), mol_i->Index, ErrCyan(), ErrYellow(), mt_i->Name,
+               ErrCyan());
       PrintWarning();
     } else {
       // do nothing if the molecule has no bonds
@@ -374,15 +372,15 @@ static SYSTEM CopySystem(SYSTEM S_in) {
     } //}}}
     // BondType //{{{
     if (S_out.Count.BondType > 0) {
-      S_out.BondType = realloc(S_out.BondType, sizeof *S_out.BondType *
-                               S_out.Count.BondType);
+      S_out.BondType = realloc(S_out.BondType,
+                               sizeof *S_out.BondType * S_out.Count.BondType);
       memcpy(S_out.BondType, S_in.BondType,
              sizeof *S_out.BondType * S_in.Count.BondType);
     } //}}}
     // AngleType //{{{
     if (S_out.Count.AngleType > 0) {
       S_out.AngleType = realloc(S_out.AngleType, sizeof *S_out.AngleType *
-                                S_out.Count.AngleType);
+                                                     S_out.Count.AngleType);
       memcpy(S_out.AngleType, S_in.AngleType,
              sizeof *S_out.AngleType * S_in.Count.AngleType);
     } //}}}
@@ -576,8 +574,7 @@ void RenameMoleculeTypes(SYSTEM *System) { //{{{
         } else if (count < 1000) {
           name[MOL_NAME - 5] = '\0';
         }
-        if (snprintf(mt_j->Name, MOL_NAME, "%s_%d", name,
-                     count) < 0) {
+        if (snprintf(mt_j->Name, MOL_NAME, "%s_%d", name, count) < 0) {
           strcpy(ERROR_MSG, "something wrong with snprintf()");
           PrintError();
           exit(1);
@@ -1173,17 +1170,16 @@ void PruneSystem(SYSTEM *System) {
   *Count = *Count_old; // some counts will change later
   // allocate memory for bead count arrays
   System->Bead = realloc(System->Bead, sizeof(BEAD) * Count->Bead);
-  System->BeadCoor = realloc(System->BeadCoor,
-                             sizeof *System->BeadCoor * Count->Bead);
-  System->Bonded = realloc(System->Bonded,
-                           sizeof *System->Bonded * Count->Bonded);
-  System->BondedCoor = realloc(System->BondedCoor,
-                               sizeof *System->BondedCoor * Count->Bonded);
-  System->Unbonded = realloc(System->Unbonded,
-                             sizeof *System->Unbonded * Count->Unbonded);
-  System->UnbondedCoor = realloc(System->UnbondedCoor,
-                                 sizeof *System->UnbondedCoor *
-                                 Count->Unbonded);
+  System->BeadCoor =
+      realloc(System->BeadCoor, sizeof *System->BeadCoor * Count->Bead);
+  System->Bonded =
+      realloc(System->Bonded, sizeof *System->Bonded * Count->Bonded);
+  System->BondedCoor =
+      realloc(System->BondedCoor, sizeof *System->BondedCoor * Count->Bonded);
+  System->Unbonded =
+      realloc(System->Unbonded, sizeof *System->Unbonded * Count->Unbonded);
+  System->UnbondedCoor = realloc(
+      System->UnbondedCoor, sizeof *System->UnbondedCoor * Count->Unbonded);
   // copy Bead/Unbonded/Bonded arrays & create new BeadType array //{{{
   int count_unbonded = 0, count_bonded = 0, count_all = 0;
   // arrays for mapping old bead ids/types to new ones
@@ -1537,8 +1533,8 @@ void PruneSystem(SYSTEM *System) {
           if (new) {
             int type = Count->BondType;
             Count->BondType++;
-            System->BondType = realloc(System->BondType, Count->BondType *
-                                       sizeof *System->BondType);
+            System->BondType = realloc(
+                System->BondType, Count->BondType * sizeof *System->BondType);
             System->BondType[type] = S_old.BondType[old_tbond];
             type_old_to_new[old_tbond] = type;
           }
@@ -1561,8 +1557,8 @@ void PruneSystem(SYSTEM *System) {
   // prune angle types //{{{
   if (Count->AngleType > 0) {
     Count->AngleType = 0;
-    int *type_old_to_new = calloc(Count_old->AngleType,
-                                  sizeof *type_old_to_new);
+    int *type_old_to_new =
+        calloc(Count_old->AngleType, sizeof *type_old_to_new);
     for (int i = 0; i < Count->MoleculeType; i++) {
       MOLECULETYPE *mt_i = &System->MoleculeType[i];
       for (int j = 0; j < mt_i->nAngles; j++) {
@@ -1571,9 +1567,9 @@ void PruneSystem(SYSTEM *System) {
         if (old_tangle != -1) {
           PARAMS *tangle = &S_old.AngleType[old_tangle];
           for (int k = 0; k < Count->AngleType; k++) {
-            if (fabs(tangle->a-System->AngleType[k].a) < 1e-5 &&
-                fabs(tangle->b-System->AngleType[k].b) < 1e-5 &&
-                fabs(tangle->c-System->AngleType[k].c) < 1e-5)  {
+            if (fabs(tangle->a - System->AngleType[k].a) < 1e-5 &&
+                fabs(tangle->b - System->AngleType[k].b) < 1e-5 &&
+                fabs(tangle->c - System->AngleType[k].c) < 1e-5) {
               mt_i->Angle[j][3] = k;
               new = false;
               break;
@@ -1582,8 +1578,9 @@ void PruneSystem(SYSTEM *System) {
           if (new) {
             int type = Count->AngleType;
             Count->AngleType++;
-            System->AngleType = realloc(System->AngleType, Count->AngleType *
-                                        sizeof *System->AngleType);
+            System->AngleType =
+                realloc(System->AngleType,
+                        Count->AngleType * sizeof *System->AngleType);
             System->AngleType[type] = S_old.AngleType[old_tangle];
             type_old_to_new[old_tangle] = type;
           }
@@ -1627,9 +1624,9 @@ void PruneSystem(SYSTEM *System) {
           if (new) {
             int type = Count->DihedralType;
             Count->DihedralType++;
-            System->DihedralType = realloc(System->DihedralType,
-                                           Count->DihedralType *
-                                           sizeof *System->DihedralType);
+            System->DihedralType =
+                realloc(System->DihedralType,
+                        Count->DihedralType * sizeof *System->DihedralType);
             System->DihedralType[type] = S_old.DihedralType[old_tdihed];
             type_old_to_new[old_tdihed] = type;
           }
@@ -1988,7 +1985,7 @@ void CheckSystem(SYSTEM System, char file[]) {
   COUNT *Count = &System.Count;
   if (Count->Molecule > 0 &&
       Count->Molecule > (Count->HighestResid + 1)) { //{{{
-    strcpy(ERROR_MSG, "Count.HighestResid is lower than Count.Molecules");
+    strcpy(ERROR_MSG, "Count.HighestResid is lower than Count.Molecule");
     PrintErrorFile(file, "\0", "\0");
     fprintf(stderr, "%s, Count.HighestResid = %s%d", ErrRed(), ErrYellow(),
             Count->HighestResid);
@@ -2446,23 +2443,25 @@ bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
 } //}}}
 
 // create a cell-linked list //{{{
-void LinkedList(VECTOR BoxLength, COUNTS Counts, BEAD *Bead, int **Head,
-                int **Link, double cell_size, INTVECTOR *n_cells, int *Dcx,
-                int *Dcy, int *Dcz) {
-  n_cells->x = ceil(BoxLength.x / cell_size),
-  n_cells->y = ceil(BoxLength.y / cell_size),
-  n_cells->z = ceil(BoxLength.z / cell_size);
+void LinkedList(SYSTEM System, int **Head, int **Link, double cell_size,
+                INTVECTOR *n_cells, int *Dcx, int *Dcy, int *Dcz) {
+  VECTOR *box = &System.Box.Length;
+  COUNT *Count = &System.Count;
+  n_cells->x = ceil(box->x / cell_size), n_cells->y = ceil(box->y / cell_size),
+  n_cells->z = ceil(box->z / cell_size);
   // allocate arrays
   *Head = malloc(sizeof **Head * n_cells->x * n_cells->y * n_cells->z);
-  *Link = malloc(sizeof **Link * Counts.BeadsCoor);
+  *Link = malloc(sizeof **Link * Count->BeadCoor);
   for (int i = 0; i < (n_cells->x * n_cells->y * n_cells->z); i++) {
     (*Head)[i] = -1;
   }
   // sort beads into cells
-  for (int i = 0; i < Counts.BeadsCoor; i++) {
-    int cell = (int)(Bead[i].Position.x / cell_size) +
-               (int)(Bead[i].Position.y / cell_size) * n_cells->x +
-               (int)(Bead[i].Position.z / cell_size) * n_cells->x * n_cells->y;
+  for (int i = 0; i < Count->BeadCoor; i++) {
+    int id = System.BeadCoor[i];
+    BEAD *bead = &System.Bead[id];
+    int cell = (int)(bead->Position.x / cell_size) +
+               (int)(bead->Position.y / cell_size) * n_cells->x +
+               (int)(bead->Position.z / cell_size) * n_cells->x * n_cells->y;
     (*Link)[i] = (*Head)[cell];
     (*Head)[cell] = i;
   }
@@ -2906,7 +2905,7 @@ void PrintStep(int *count_coor, int start, bool silent) { //{{{
 
 // TODO: use Jacobi method
 // calculate gyration tensor and various shape descriptors //{{{
-VECTOR Gyration(int n, int *list, COUNTS Counts, BEADTYPE *BeadType,
+VECTOR Gyration(int n, int *list, COUNT Counts, BEADTYPE *BeadType,
                 BEAD **Bead) {
   // gyration tensor (3x3 array)
   // use long double to ensure precision -- previous problem with truncation in
@@ -3064,10 +3063,10 @@ void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) { //{{{
  * Function evaluating contacts for aggregate detection for Aggregate and
  * Aggregate-NotSameBeads utilities.
  */
-void EvaluateContacts(COUNTS *Counts, AGGREGATE **Aggregate,
-                      MOLECULE **Molecule, int contacts, int **contact) {
+void EvaluateContacts(COUNT *Counts, AGGREGATE **Aggregate, MOLECULE **Molecule,
+                      int contacts, int **contact) {
   // first molecule
-  for (int i = 1; i < (*Counts).Molecules; i++) {
+  for (int i = 1; i < (*Counts).Molecule; i++) {
     // second molecule
     for (int j = 0; j < i; j++) {
       int agg_i = (*Molecule)[i].Aggregate;
@@ -3076,16 +3075,17 @@ void EvaluateContacts(COUNTS *Counts, AGGREGATE **Aggregate,
       if (contact[i][j] >= contacts) {
         // create new aggregate if 'j' isn'it in any //{{{
         if (agg_j == -1) {
-          agg_j = (*Counts).Aggregates;
+          agg_j = (*Counts).Aggregate;
           (*Molecule)[j].Aggregate = agg_j;
 
           (*Aggregate)[agg_j].nMolecules = 1;
           (*Aggregate)[agg_j].Molecule[0] = j;
 
-          (*Counts).Aggregates++;
+          (*Counts).Aggregate++;
         } //}}}
 
-        // add 'mol_i' to 'agg_j' aggregate (that contains 'mol_j' molecule) if 'i' isn't in an agg //{{{
+        // add 'mol_i' to 'agg_j' aggregate (that contains 'mol_j' molecule) if
+        // 'i' isn't in an agg //{{{
         if (agg_i == -1) {
           int mols = (*Aggregate)[agg_j].nMolecules;
           (*Aggregate)[agg_j].Molecule[mols] = i;
@@ -3094,7 +3094,8 @@ void EvaluateContacts(COUNTS *Counts, AGGREGATE **Aggregate,
           (*Molecule)[i].Aggregate = agg_j;
         } //}}}
 
-        // 'mol_i' and 'mol_j' molecules are in different aggregate => unite aggregates
+        // 'mol_i' and 'mol_j' molecules are in different aggregate => unite
+        // aggregates
         if (agg_i != -1 && agg_j != -1 && agg_i != agg_j) {
 
           // add molecules from aggregate 'agg_i' to 'agg_j' //{{{
@@ -3111,49 +3112,51 @@ void EvaluateContacts(COUNTS *Counts, AGGREGATE **Aggregate,
           } //}}}
 
           // move aggregates with id greater then agg_i to id-1 //{{{
-          for (int k = (agg_i+1); k < (*Counts).Aggregates; k++) {
+          for (int k = (agg_i + 1); k < (*Counts).Aggregate; k++) {
 
-            (*Aggregate)[k-1].nMolecules = (*Aggregate)[k].nMolecules;
+            (*Aggregate)[k - 1].nMolecules = (*Aggregate)[k].nMolecules;
 
             // move every molecule from aggregate 'k' to aggregate 'k-1'
             for (int l = 0; l < (*Aggregate)[k].nMolecules; l++) {
               int mol = (*Aggregate)[k].Molecule[l];
-              (*Aggregate)[k-1].Molecule[l] = mol;
+              (*Aggregate)[k - 1].Molecule[l] = mol;
               (*Molecule)[mol].Aggregate = k - 1;
             }
           } //}}}
 
           // reduce number of aggregates (two aggregates were merged)
-          (*Counts).Aggregates--;
+          (*Counts).Aggregate--;
         } //}}}
-      } else if (agg_j == -1) { // or 'i' and 'j' aren't in contact and 'j' isn't in any aggregate =>  new aggregate for 'j' */ //{{{
-        agg_j = (*Counts).Aggregates;
+      } else if (agg_j ==
+                 -1) { // or 'i' and 'j' aren't in contact and 'j' isn't in any
+                       // aggregate =>  new aggregate for 'j' */ //{{{
+        agg_j = (*Counts).Aggregate;
         (*Molecule)[j].Aggregate = agg_j;
 
         (*Aggregate)[agg_j].nMolecules = 1;
         (*Aggregate)[agg_j].Molecule[0] = j;
 
-        (*Counts).Aggregates++;
+        (*Counts).Aggregate++;
       } //}}}
     }
   }
 
   // check if highest id residue is in aggregate //{{{
   bool test = false;
-  for (int i = 0; i < (*Counts).Aggregates; i++) {
+  for (int i = 0; i < (*Counts).Aggregate; i++) {
     for (int j = 1; j < (*Aggregate)[i].nMolecules; j++) {
-      if ((*Aggregate)[i].Molecule[j] == ((*Counts).Molecules-1)) {
+      if ((*Aggregate)[i].Molecule[j] == ((*Counts).Molecule - 1)) {
         test = 1;
       }
     }
   } //}}}
   // if highest id residue isn't in any aggregate, create separate one //{{{
   if (!test) {
-    int aggs = (*Counts).Aggregates;
+    int aggs = (*Counts).Aggregate;
     (*Aggregate)[aggs].nMolecules = 1;
-    (*Aggregate)[aggs].Molecule[0] = (*Counts).Molecules - 1;
+    (*Aggregate)[aggs].Molecule[0] = (*Counts).Molecule - 1;
 
-    (*Counts).Aggregates++;
+    (*Counts).Aggregate++;
   } //}}}
 } //}}}
 // TODO redo
@@ -3163,45 +3166,46 @@ void EvaluateContacts(COUNTS *Counts, AGGREGATE **Aggregate,
  * struct is arranged so that aggregates with the first molecule's lower id
  * come first.
  */
-void SortAggStruct(AGGREGATE **Aggregate, COUNTS Counts,
-                   MOLECULE *Molecule, MOLECULETYPE *MoleculeType,
-                   BEAD **Bead, BEADTYPE *BeadType) {
-  for (int i = 0; i < (Counts.Aggregates-1); i++) {
+void SortAggStruct(AGGREGATE **Aggregate, COUNT Counts, MOLECULE *Molecule,
+                   MOLECULETYPE *MoleculeType, BEAD **Bead,
+                   BEADTYPE *BeadType) {
+  for (int i = 0; i < (Counts.Aggregate - 1); i++) {
     bool done = true;
-    for (int j = 0; j < (Counts.Aggregates-i-1); j++) {
-      if ((*Aggregate)[j].Molecule[0] > (*Aggregate)[j+1].Molecule[0]) {
-        SwapInt(&(*Aggregate)[j].nMolecules, &(*Aggregate)[j+1].nMolecules);
+    for (int j = 0; j < (Counts.Aggregate - i - 1); j++) {
+      if ((*Aggregate)[j].Molecule[0] > (*Aggregate)[j + 1].Molecule[0]) {
+        SwapInt(&(*Aggregate)[j].nMolecules, &(*Aggregate)[j + 1].nMolecules);
         // switch the whole Aggregate[].Molecule array
         int mols; // number of molecules in the larger aggregate
-        if ((*Aggregate)[j].nMolecules > (*Aggregate)[j+1].nMolecules) {
+        if ((*Aggregate)[j].nMolecules > (*Aggregate)[j + 1].nMolecules) {
           mols = (*Aggregate)[j].nMolecules;
         } else {
-          mols = (*Aggregate)[j+1].nMolecules;
+          mols = (*Aggregate)[j + 1].nMolecules;
         }
         for (int k = 0; k < mols; k++) {
-          SwapInt(&(*Aggregate)[j].Molecule[k], &(*Aggregate)[j+1].Molecule[k]);
+          SwapInt(&(*Aggregate)[j].Molecule[k],
+                  &(*Aggregate)[j + 1].Molecule[k]);
         }
         // switch bonded beads array
-        SwapInt(&(*Aggregate)[j].nBeads, &(*Aggregate)[j+1].nBeads);
+        SwapInt(&(*Aggregate)[j].nBeads, &(*Aggregate)[j + 1].nBeads);
         int beads; // number of beads in the larger aggregate
-        if ((*Aggregate)[j].nBeads > (*Aggregate)[j+1].nBeads) {
+        if ((*Aggregate)[j].nBeads > (*Aggregate)[j + 1].nBeads) {
           beads = (*Aggregate)[j].nBeads;
         } else {
-          beads = (*Aggregate)[j+1].nBeads;
+          beads = (*Aggregate)[j + 1].nBeads;
         }
         for (int k = 0; k < beads; k++) {
-          SwapInt(&(*Aggregate)[j].Bead[k], &(*Aggregate)[j+1].Bead[k]);
+          SwapInt(&(*Aggregate)[j].Bead[k], &(*Aggregate)[j + 1].Bead[k]);
         }
         // switch monomer beads array
-        SwapInt(&(*Aggregate)[j].nMonomers, &(*Aggregate)[j+1].nMonomers);
+        SwapInt(&(*Aggregate)[j].nMonomers, &(*Aggregate)[j + 1].nMonomers);
         int mons; // larger number of monomers of the two aggregates
-        if ((*Aggregate)[j].nMonomers > (*Aggregate)[j+1].nMonomers) {
+        if ((*Aggregate)[j].nMonomers > (*Aggregate)[j + 1].nMonomers) {
           mons = (*Aggregate)[j].nMonomers;
         } else {
-          mons = (*Aggregate)[j+1].nMonomers;
+          mons = (*Aggregate)[j + 1].nMonomers;
         }
         for (int k = 0; k < mons; k++) {
-          SwapInt(&(*Aggregate)[j].Monomer[k], &(*Aggregate)[j+1].Monomer[k]);
+          SwapInt(&(*Aggregate)[j].Monomer[k], &(*Aggregate)[j + 1].Monomer[k]);
         }
         done = false;
       }
@@ -3210,15 +3214,16 @@ void SortAggStruct(AGGREGATE **Aggregate, COUNTS Counts,
       break;
   }
 
-  // re-assign aggregate id to every bonded bead in the aggregate, correcting after sorting //{{{
-  for (int i = 0; i < Counts.Aggregates; i++) {
+  // re-assign aggregate id to every bonded bead in the aggregate, correcting
+  // after sorting //{{{
+  for (int i = 0; i < Counts.Aggregate; i++) {
     for (int j = 0; j < (*Aggregate)[i].nMolecules; j++) {
       int mol = (*Aggregate)[i].Molecule[j];
       int mtype = Molecule[mol].Type;
       for (int k = 0; k < MoleculeType[mtype].nBeads; k++) {
-//      int id = Molecule[mol].Bead[k];
-//      (*Bead)[id].nAggregates = 1;
-//      (*Bead)[id].Aggregatexxx[0] = i;
+        //      int id = Molecule[mol].Bead[k];
+        //      (*Bead)[id].nAggregates = 1;
+        //      (*Bead)[id].Aggregatexxx[0] = i;
       }
     }
   } //}}}
@@ -3230,16 +3235,16 @@ void SortAggStruct(AGGREGATE **Aggregate, COUNTS Counts,
  * Function to remove periodic boundary conditions from all aggregates,
  * thus joining them.
  */
-void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNTS Counts,
+void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNT Counts,
                          VECTOR BoxLength, BEADTYPE *BeadType, BEAD **Bead,
                          MOLECULETYPE *MoleculeType, MOLECULE *Molecule) {
   // helper array indicating whether molecules already moved
-  bool *moved = malloc(sizeof *moved * Counts.Molecules);
+  bool *moved = malloc(sizeof *moved * Counts.Molecule);
   // go through all aggregates larger than unimers and put all molecules together //{{{
-  for (int i = 0; i < Counts.Aggregates; i++) {
+  for (int i = 0; i < Counts.Aggregate; i++) {
 
     // negate moved array, but the first molecule is not to move //{{{
-    for (int j = 1; j < Counts.Molecules; j++) {
+    for (int j = 1; j < Counts.Molecule; j++) {
       moved[j] = false;
     }
     moved[0] = true; //}}}
@@ -3363,7 +3368,7 @@ void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNTS Counts,
   }
   free(moved); //}}}
   // put aggregates' centre of mass into the simulation box //{{{
-  for (int i = 0; i < Counts.Aggregates; i++) {
+  for (int i = 0; i < Counts.Aggregate; i++) {
     VECTOR com = CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead,
                               *Bead, BeadType);
 
@@ -3395,11 +3400,11 @@ void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNTS Counts,
 /**
  * Function printing Aggregate structure.
  */
-void PrintAggregate(COUNTS Counts, int *Index,
+void PrintAggregate(COUNT Counts, int *Index,
                     MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
                     BEAD *Bead, BEADTYPE *BeadType, AGGREGATE *Aggregate) {
-  fprintf(stdout, "Aggregates: %d\n", Counts.Aggregates);
-  for (int i = 0; i < Counts.Aggregates; i++) {
+  fprintf(stdout, "Aggregates: %d\n", Counts.Aggregate);
+  for (int i = 0; i < Counts.Aggregate; i++) {
     // print molecules
     fprintf(stdout, " %d mols:", Aggregate[i].nMolecules);
     for (int j = 0; j < Aggregate[i].nMolecules; j++) {
@@ -3441,8 +3446,8 @@ void PrintAggregate(COUNTS Counts, int *Index,
  * Free memory allocated for Aggregate struct array. This function makes it
  * easier other arrays to the Aggregate struct in the future
  */
-void FreeAggregate(COUNTS Counts, AGGREGATE **Aggregate) {
-  for (int i = 0; i < Counts.Molecules; i++) {
+void FreeAggregate(COUNT Counts, AGGREGATE **Aggregate) {
+  for (int i = 0; i < Counts.Molecule; i++) {
     free((*Aggregate)[i].Molecule);
     free((*Aggregate)[i].Bead);
     free((*Aggregate)[i].Monomer);

@@ -16,7 +16,7 @@ typedef struct constant {
 // ...not sure whether this is in any sense right
 static const double red_dist[2] = {1, 1};
 
-void Help(char cmd[50], bool error) { //{{{
+void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
     ptr = stderr;
@@ -40,63 +40,33 @@ void Help(char cmd[50], bool error) { //{{{
   fprintf(ptr, "      --per-step     save a new file for each step"
           "(adds '-<step>.txt' to <output>)\n");
   fprintf(ptr, "      -avg <n>       number of adjacent bins to average\n");
-  int common = 12;
-  char option[common][OPT_LENGTH];
-  strcpy(option[ 0], "-st");
-  strcpy(option[ 1], "-e");
-  strcpy(option[ 2], "-sk");
-  strcpy(option[ 3], "-i");
-  strcpy(option[ 4], "--variable");
-  strcpy(option[ 5], "-pbc");
-  strcpy(option[ 6], "-ltrj");
-  strcpy(option[ 7], "--detailed");
-  strcpy(option[ 8], "-v");
-  strcpy(option[ 9], "--silent");
-  strcpy(option[10], "--help");
-  strcpy(option[11], "--version");
-  CommonHelp(error, common, option);
+  CommonHelp(error, n, opt);
 } //}}}
 
 int main(int argc, char *argv[]) {
-  // --help/--version options - print stuff and exit //{{{
-  if (VersionOption(argc, argv)) {
-    exit(0);
-  }
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "--help") == 0) {
-      Help(argv[0], false);
-      exit(0);
-    }
-  }
-  int req_args = 4; //}}}
 
-  // check if correct number of arguments //{{{
-  int count = 0;
-  while ((count + 1) < argc && argv[count + 1][0] != '-') {
-    count++;
-  }
-  // possible to omit <bead name(s)> if '--reverse' is used
-  if (count < req_args) {
-    ErrorArgNumber(count, req_args);
-    Help(argv[0], true);
-    exit(1);
-  } //}}}
-
-  // test if options are given correctly //{{{
-  for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' && strcmp(argv[i], "--metal") != 0 &&
-        strcmp(argv[i], "--per_step") != 0 && strcmp(argv[i], "-avg") != 0 &&
-        strcmp(argv[i], "-st") != 0 && strcmp(argv[i], "-e") != 0 &&
-        strcmp(argv[i], "-sk") != 0 && strcmp(argv[i], "-i") != 0 &&
-        strcmp(argv[i], "--variable") != 0 && strcmp(argv[i], "-pbc") != 0 &&
-        strcmp(argv[i], "-ltrj") != 0 && strcmp(argv[i], "--detailed") != 0 &&
-        strcmp(argv[i], "-v") != 0 && strcmp(argv[i], "--silent") != 0 &&
-        strcmp(argv[i], "--help") != 0 && strcmp(argv[i], "--version") != 0) {
-      ErrorOption(argv[i]);
-      Help(argv[0], true);
-      exit(1);
-    }
-  } //}}}
+  // define options //{{{
+  int common = 12, all = common + 3, count = 0,
+      req_arg = 4;
+  char option[all][OPT_LENGTH];
+  // common options
+  strcpy(option[count++], "-st");
+  strcpy(option[count++], "-e");
+  strcpy(option[count++], "-sk");
+  strcpy(option[count++], "-i");
+  strcpy(option[count++], "--variable");
+  strcpy(option[count++], "-pbc");
+  strcpy(option[count++], "-ltrj");
+  strcpy(option[count++], "--detailed");
+  strcpy(option[count++], "--verbose");
+  strcpy(option[count++], "--silent");
+  strcpy(option[count++], "--help");
+  strcpy(option[count++], "--version");
+  // extra options
+  strcpy(option[count++], "--metal");
+  strcpy(option[count++], "--per-step");
+  strcpy(option[count++], "--avg");
+  OptionCheck(argc, argv, req_arg, common, all, option); //}}}
 
   count = 0; // count mandatory arguments
 
@@ -142,7 +112,7 @@ int main(int argc, char *argv[]) {
   if (err) {
     strcpy(ERROR_MSG, "<axis> argument must contain axis labels (x, y, z)");
     PrintError();
-    Help(argv[0], true);
+    Help(argv[0], true, common, option);
   } //}}}
 
   // <width> - width of a single bin //{{{
@@ -150,7 +120,7 @@ int main(int argc, char *argv[]) {
   double width[2];
   if (!IsPosRealNumber(argv[++count], &width[0])) {
     ErrorNaN("<width>");
-    Help(argv[0], true);
+    Help(argv[0], true, common, option);
     exit(1);
   }
   width[1] = width[0]; // TODO: for now
@@ -161,10 +131,10 @@ int main(int argc, char *argv[]) {
   snprintf(out_file, LINE, "%s", argv[++count]);
 
   // options before reading system data //{{{
-  bool silent, verbose, detailed, vtf_var_coor;
-  int start= 1, end = -1, skip = 0, pbc_xyz = -1, ltrj_start_id = -1;
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var_coor,
-                &pbc_xyz, &ltrj_start_id, &start, &end, &skip);
+  bool silent, verbose, detailed, vtf_var;
+  int start= 1, end = -1, skip = 0, pbc_xyz = -1;
+  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
+                &pbc_xyz, &start, &end, &skip);
   int style = 0; // reduced units
   if (BoolOption(argc, argv, "--metal")) {
     style = 1; // lammps 'metal' units
@@ -192,8 +162,10 @@ int main(int argc, char *argv[]) {
   SC[0].n = 6;
   SC[0].m = 8;
   SC[0].CG = 3;
-  SC[0].a = 1;      // 4.049Å
+  // SC[0].a = 1;      // 4.049Å
+  SC[0].a = 4.049;
   SC[0].eps = 1;    // 230.5K
+  SC[0].eps = 1.986e-02;
   SC[0].c = 25.398; // dimensionless
   // Zr
   SC[1].n = 6;
@@ -208,8 +180,7 @@ int main(int argc, char *argv[]) {
   }
 
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
-                                detailed, vtf_var_coor,
-                                pbc_xyz, &ltrj_start_id);
+                                detailed, vtf_var, pbc_xyz);
   VECTOR centre;
   centre.x = System.Box.Length.x / 2;
   centre.y = System.Box.Length.y / 2;
@@ -292,8 +263,8 @@ int main(int argc, char *argv[]) {
       use = true;
     }
     if (use) { // read and write the timestep, if it should be saved //{{{
-      if (!ReadTimestep(coor_type, coor, coor_file, &System, &line_count,
-                        ltrj_start_id, vtf_var_coor)) {
+      if (!ReadTimestep(coor_type, coor, coor_file, &System,
+                        &line_count, vtf_var)) {
         count_coor--;
         break;
       }
@@ -378,9 +349,9 @@ int main(int argc, char *argv[]) {
         centre.x = System.Box.Length.x / 2;
         centre.y = System.Box.Length.y / 2;
         centre.z = System.Box.Length.z / 2;
-        virial += b->Force.x * (b->Position.x - centre.x + 10) +
-                  b->Force.y * (b->Position.y - centre.y + 11) +
-                  b->Force.z * (b->Position.z - centre.z + 12);
+        virial += b->Force.x * b->Position.x +
+                  b->Force.y * b->Position.y +
+                  b->Force.z * b->Position.z;
         temperature += bt->Mass * vel2;
         energy_kin += 0.5 * bt->Mass * vel2;
       }
@@ -398,6 +369,7 @@ int main(int argc, char *argv[]) {
       energy_kin *= c.mvv2e; //}}}
       fprintf(t_out, " %8d", count_coor);
       fprintf(t_out, " %8.4f", temperature);
+      fprintf(t_out, " %8.4f", energy_kin);
       fprintf(t_out, " %8.4f", virial);
       fprintf(t_out, " %8.4f", pressure);
       putc('\n', t_out);

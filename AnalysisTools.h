@@ -79,9 +79,8 @@ bool InputCoorStruct(int argc, char *argv[], char coor[], int *coor_type,
                      char struc[], int *struc_type);
 
 // create a cell-linked list
-void LinkedList(VECTOR BoxLength, COUNTS Counts, BEAD *Bead, int **Head,
-                int **Link, double cell_size, INTVECTOR *n_cells, int *Dcx,
-                int *Dcy, int *Dcz);
+void LinkedList(SYSTEM System, int **Head, int **Link, double cell_size,
+                INTVECTOR *n_cells, int *Dcx, int *Dcy, int *Dcz);
 
 // verbose output (print various structures and some such)
 void VerboseOutput(SYSTEM System);
@@ -95,15 +94,15 @@ void PrintAngleType(SYSTEM System);
 void PrintDihedralType(SYSTEM System);
 void PrintImproperType(SYSTEM System);
 // TODO: use SYSTEM
-void PrintBondTypes(COUNTS Counts, PARAMS *bond_type);
+void PrintBondTypes(COUNT Counts, PARAMS *bond_type);
 // TODO: use SYSTEM
-void PrintAngleTypes(COUNTS Counts, PARAMS *angle_type);
+void PrintAngleTypes(COUNT Counts, PARAMS *angle_type);
 void PrintBox(BOX Box);
 void PrintByline(FILE *ptr, int argc, char *argv[]);
 void PrintStep(int *count_coor, int start, bool silent);
 
 // calculate gyration tensor and various shape descriptors
-VECTOR Gyration(int n, int *list, COUNTS Counts, BEADTYPE *BeadType,
+VECTOR Gyration(int n, int *list, COUNT Counts, BEADTYPE *BeadType,
                 BEAD **Bead);
 
 // memory-freeing functions
@@ -112,20 +111,20 @@ void FreeMoleculeType(MOLECULETYPE *MoleculeType);
 void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType);
 
 // TODO redo
-void EvaluateContacts(COUNTS *Counts, AGGREGATE **Aggregate,
+void EvaluateContacts(COUNT *Counts, AGGREGATE **Aggregate,
                       MOLECULE **Molecule, int contacts, int **contact);
-void SortAggStruct(AGGREGATE **Aggregate, COUNTS Counts, MOLECULE *Molecule,
+void SortAggStruct(AGGREGATE **Aggregate, COUNT Counts, MOLECULE *Molecule,
                    MOLECULETYPE *MoleculeType, BEAD **Bead,
                    BEADTYPE *BeadType);
 
 #if 0 //{{{
 // TODO redo
-void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNTS Counts,
+void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNT Counts,
                          VECTOR BoxLength, BEADTYPE *BeadType, BEAD **Bead,
                          MOLECULETYPE *MoleculeType, MOLECULE *Molecule);
-void PrintAggregate(COUNTS Counts, int *Index, MOLECULETYPE *MoleculeType,
+void PrintAggregate(COUNT Counts, int *Index, MOLECULETYPE *MoleculeType,
                     MOLECULE *Molecule, BEAD *Bead, BEADTYPE *BeadType,
                     AGGREGATE *Aggregate);
-void FreeAggregate(COUNTS Counts, AGGREGATE **Aggregate);
+void FreeAggregate(COUNT Counts, AGGREGATE **Aggregate);
 #endif //}}}
 #endif

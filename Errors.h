@@ -176,7 +176,7 @@ void WarnPrintWarning(); //}}}
  * \param [in] BeadType  informationn about bead types
  * \param [in] file      file name containing the system data
  */
-void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file); //}}}
+void WarnElNeutrality(COUNT Counts, BEADTYPE *BeadType, char *file); //}}}
 // ErrorBeadType_old() //{{{
 /**
  * Error when non-existent bead is used.
@@ -184,7 +184,7 @@ void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file); //}}}
  * \param [in] Counts      numbers of beads, molecules, etc.
  * \param [in] BeadType    information about bead types
  */
-void ErrorBeadType_old(COUNTS Counts, BEADTYPE *BeadType); //}}}
+void ErrorBeadType_old(COUNT Counts, BEADTYPE *BeadType); //}}}
 // ErrorMoleculeType_old() //{{{
 /**
  * Error when non-existent bead is used.
@@ -192,5 +192,5 @@ void ErrorBeadType_old(COUNTS Counts, BEADTYPE *BeadType); //}}}
  * \param [in] Counts        numbers of beads, molecules, etc.
  * \param [in] MoleculeType  information about molecule types
  */
-void ErrorMoleculeType_old(COUNTS Counts, MOLECULETYPE *MoleculeType); //}}}
+void ErrorMoleculeType_old(COUNT Counts, MOLECULETYPE *MoleculeType); //}}}
 #endif

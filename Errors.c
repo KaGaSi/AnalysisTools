@@ -474,9 +474,9 @@ void FilePrintFile(char *file, char *colour) {
 /**
  * Function to warn if the system is not electrically neutral.
  */
-void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file) {
+void WarnElNeutrality(COUNT Counts, BEADTYPE *BeadType, char *file) {
   double charge = 0;
-  for (int i = 0; i < Counts.TypesOfBeads; i++) {
+  for (int i = 0; i < Counts.BeadType; i++) {
     // do nothing if at least one bead type had undefined charge
     if (BeadType[i].Charge == CHARGE) {
       return;
@@ -495,9 +495,9 @@ void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file) {
 /**
  * Error when non-existent bead is used.
  */
-void ErrorBeadType_old(COUNTS Counts, BEADTYPE *BeadType) {
+void ErrorBeadType_old(COUNT Counts, BEADTYPE *BeadType) {
   fprintf(stderr, "       Possible bead names: %s\n", BeadType[0].Name);
-  for (int i = 1; i < Counts.TypesOfBeads; i++) {
+  for (int i = 1; i < Counts.BeadType; i++) {
     fprintf(stderr, "                            %s\n", BeadType[i].Name);
   }
   putc('\n', stderr);
@@ -506,9 +506,9 @@ void ErrorBeadType_old(COUNTS Counts, BEADTYPE *BeadType) {
 /**
  * Error when non-existent molecule is used.
  */
-void ErrorMoleculeType_old(COUNTS Counts, MOLECULETYPE *MoleculeType) {
+void ErrorMoleculeType_old(COUNT Counts, MOLECULETYPE *MoleculeType) {
   fprintf(stderr, "       Possible molecule names: %s\n", MoleculeType[0].Name);
-  for (int i = 1; i < Counts.TypesOfMolecules; i++) {
+  for (int i = 1; i < Counts.MoleculeType; i++) {
     fprintf(stderr, "                            %s\n", MoleculeType[i].Name);
   }
   putc('\n', stderr);
