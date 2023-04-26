@@ -938,15 +938,16 @@ static void LmpDataReadBody(FILE *fr, char file[], SYSTEM *System,
       atoms = true;
       int mode = 0; // for 'Atoms' or 'Atoms # full'
       if (words > 2 && split[1][0] == '#') {
-        if (strcmp(split[2], "bond") == 0 ||
-            strcmp(split[2], "angle") == 0) {
-          mode = 1; // for 'Atoms # bond' or 'Atoms # angle'
+        if (strcmp(split[2], "full") == 0) {
+          mode = 0; // for 'Atoms # bond|angle|molecular'
+        } else if (strcmp(split[2], "bond") == 0 ||
+                   strcmp(split[2], "angle") == 0 ||
+                   strcmp(split[2], "molecular") == 0) {
+          mode = 1; // for 'Atoms # bond|angle|molecular'
         } else if (strcmp(split[2], "atomic") == 0) {
           mode = 2; // for 'Atoms # atomic'
-        } else if (strcmp(split[2], "molecular") == 0) {
-          mode = 3; // for 'Atoms # molecular'
         } else if (strcmp(split[2], "charge") == 0) {
-          mode = 4; // for 'Atoms # charge'
+          mode = 3; // for 'Atoms # charge'
         } else { // for 'Atoms # <something else>'
           snprintf(ERROR_MSG, LINE, "unsupported atom_style (Atoms section) "
                    "%s%s; assuming 'full'", ErrYellow(), split[2]);
@@ -1043,6 +1044,18 @@ static void LmpDataReadBody(FILE *fr, char file[], SYSTEM *System,
     exit(1);
   } //}}}
   Count->MoleculeType = Count->Molecule;
+  /*
+   * Sort beads ascendingly in each MoleculeType (i.e., in each molecule);
+   * necessary because bonds (etc.) are added according to their ascending bead
+   * indexes, and no connction to the MoleculeType[].Bead array is made
+   * TODO: I should rather fill Molecule[].Bead array and only later fill
+   *       MoleculeType[].Bead based on connectivity of the molecule in
+   *       question. Somehow...
+   */
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    MOLECULETYPE *mt = &System->MoleculeType[i];
+    SortArray(mt->Bead, mt->nBeads, 0);
+  }
   CopyMoleculeTypeBeadsToMoleculeBeads(System);
   FillMoleculeTypeBonds(System, bond, Count->Bond);
   FillMoleculeTypeAngles(System, angle, Count->Angle);
@@ -1250,7 +1263,7 @@ static void LmpDataReadImproperCoeffs(FILE *fr, char file[], SYSTEM *System,
   }
 } //}}}
 // read Atoms section //{{{
-// mode: 0..full; 1..angle/bond; 2..atomic; 3..molecular; 4..charge 
+// mode: 0..full; 1..angle/bond; 2..atomic; 3..molecular; 4..charge
 static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
                              BEADTYPE name_mass[], int atom_types,
                              int *line_count, int mode) {
@@ -1273,19 +1286,66 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
     VECTOR pos;
     // check the line is correct & read/assign values //{{{
     // 'Atoms # full': <bead id> <mol id> <bead type id> <charge> <coordinates>
-    if (mode == 0 && words < 7 ||
-        !IsNaturalNumber(split[0], &id) || id > Count->Bead || // bead index
-        !IsIntegerNumber(split[1], &resid) || // molecule index
-        !IsWholeNumber(split[2], &type) ||    // bead type (mass-defined)
-        (!IsRealNumber(split[3], &q) &&       // bead charge
-         strcmp(split[3], "???") != 0) ||     //
-        !IsRealNumber(split[4], &pos.x) ||    // Cartesean coordinates
-        !IsRealNumber(split[5], &pos.y) ||    //
-        !IsRealNumber(split[6], &pos.z)) {    //
-      strcpy(ERROR_MSG, "wrong line in Atoms section");
-      PrintErrorFileLine(file, *line_count, split, words);
-      exit(1);
-    } //}}}
+    if (mode == 0) {
+      if (words < 7 ||
+          !IsNaturalNumber(split[0], &id) || id > Count->Bead || // bead index
+          !IsIntegerNumber(split[1], &resid) || // molecule index
+          !IsWholeNumber(split[2], &type) ||    // bead type (mass-defined)
+          (!IsRealNumber(split[3], &q) &&       // bead charge
+           strcmp(split[3], "???") != 0) ||     //
+          !IsRealNumber(split[4], &pos.x) ||    // Cartesean coordinates
+          !IsRealNumber(split[5], &pos.y) ||    //
+          !IsRealNumber(split[6], &pos.z)) {    //
+        strcpy(ERROR_MSG, "wrong line in Atoms section");
+        PrintErrorFileLine(file, *line_count, split, words);
+        exit(1);
+      }
+    } else if (mode == 1) {
+      // 'Atoms # bond|angle|molecular':
+      // <bead id> <mol id> <bead type id> <coordinates>
+      if (words < 6 ||
+          !IsNaturalNumber(split[0], &id) || id > Count->Bead || // bead index
+          !IsIntegerNumber(split[1], &resid) || // molecule index
+          !IsWholeNumber(split[2], &type) ||    // bead type (mass-defined)
+          !IsRealNumber(split[3], &pos.x) ||    // Cartesean coordinates
+          !IsRealNumber(split[4], &pos.y) ||    //
+          !IsRealNumber(split[5], &pos.z)) {    //
+        strcpy(ERROR_MSG, "wrong line in Atoms section");
+        PrintErrorFileLine(file, *line_count, split, words);
+        exit(1);
+      }
+      q = CHARGE;
+    } else if (mode == 2) {
+      // 'Atoms # atomic': <bead id> <bead type id> <coordinates>
+      if (words < 5 ||
+          !IsNaturalNumber(split[0], &id) || id > Count->Bead || // bead index
+          !IsWholeNumber(split[1], &type) ||    // bead type (mass-defined)
+          !IsRealNumber(split[2], &pos.x) ||    // Cartesean coordinates
+          !IsRealNumber(split[3], &pos.y) ||    //
+          !IsRealNumber(split[4], &pos.z)) {    //
+        strcpy(ERROR_MSG, "wrong line in Atoms section");
+        PrintErrorFileLine(file, *line_count, split, words);
+        exit(1);
+      }
+      resid = 0;
+      q = CHARGE;
+    } else if (mode == 3) {
+      // 'Atoms # charge': <bead id> <bead type id> <charge> <coordinates>
+      if (words < 6 ||
+          !IsNaturalNumber(split[0], &id) || id > Count->Bead || // bead index
+          !IsWholeNumber(split[1], &type) ||    // bead type (mass-defined)
+          (!IsRealNumber(split[2], &q) &&       // bead charge
+           strcmp(split[3], "???") != 0) ||     //
+          !IsRealNumber(split[3], &pos.x) ||    // Cartesean coordinates
+          !IsRealNumber(split[4], &pos.y) ||    //
+          !IsRealNumber(split[5], &pos.z)) {    //
+        strcpy(ERROR_MSG, "wrong line in Atoms section");
+        PrintErrorFileLine(file, *line_count, split, words);
+        exit(1);
+      }
+      resid = 0;
+    }
+      //}}}
     id--;
     type--;
     BEAD *b = &System->Bead[id];
@@ -1328,10 +1388,10 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
       b->Molecule = resid;
       // resid ids may be discontinuous, so define Molecule for all possible ids
       if (resid > Count->HighestResid) {
-        System->MoleculeType =
-            realloc(System->MoleculeType, sizeof(MOLECULETYPE) * (resid + 1));
-        System->Molecule =
-            realloc(System->Molecule, sizeof(MOLECULE) * (resid + 1));
+        System->MoleculeType = realloc(System->MoleculeType,
+                                       sizeof(MOLECULETYPE) * (resid + 1));
+        System->Molecule = realloc(System->Molecule,
+                                   sizeof(MOLECULE) * (resid + 1));
         for (int i = (Count->HighestResid + 1); i <= resid; i++) {
           InitMoleculeType(&System->MoleculeType[i]);
           InitMolecule(&System->Molecule[i]);
@@ -3474,6 +3534,13 @@ static void CopyMoleculeTypeBeadsToMoleculeBeads(SYSTEM *System) { //{{{
   for (int i = 0; i < Count->Molecule; i++) {
     MOLECULETYPE *mt_i = &System->MoleculeType[i];
     MOLECULE *mol_i = &System->Molecule[i];
+    if (mt_i->nBeads == 1) { // remove single-bead molecules
+      mt_i->Number = 0;
+      System->Bead[mt_i->Bead[0]].Molecule = -1;
+      free(mt_i->Bead);
+      Count->Bonded--;
+      Count->Unbonded++;
+    }
     if (mt_i->Number == 1) { // copy beads only if molecule with id 'i' exists
       mol_i->Type = i;
       mol_i->Index = i;

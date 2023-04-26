@@ -8,6 +8,10 @@ static void WriteConfig(SYSTEM System, char file[]);
 static void VtfWriteStruct(char file[], SYSTEM System, int type_def);
 static void WriteLmpData(SYSTEM System, char file[], bool mass);
 static void WriteField(SYSTEM System, char file_field[]);
+static void SimplifyResid(SYSTEM *System);
+
+// TODO: renumber molecules so that the lowest id is 1 while creating new output
+//       structure files
 
 // STATIC IMPLEMENTATIONS
 static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System) { //{{{
@@ -162,8 +166,10 @@ static void WriteConfig(SYSTEM System, char file[]) { //{{{
   fclose(out);
 } //}}}
 static void VtfWriteStruct(char file[], SYSTEM System, int type_def) { //{{{
+  SimplifyResid(&System);
   FILE *fw = OpenFile(file, "w");
   COUNT *Count = &System.Count;
+  BOX *box = &System.Box;
   // default bead type //{{{
   if (type_def == -1) {
     // find most common type of bead and make it default
@@ -236,6 +242,14 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def) { //{{{
       int *bead = BondIndices(System, i, j);
       fprintf(fw, "bond %6d: %6d\n", bead[0], bead[1]);
     }
+  } //}}}
+  // print box size, if present //{{{
+  if (box->Volume != -1) {
+    fprintf(fw, "pbc %lf %lf %lf", box->Length.x, box->Length.y, box->Length.z);
+    if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {
+      fprintf(fw, " %lf %lf %lf", box->alpha, box->beta, box->gamma);
+    }
+    putc('\n', fw);
   } //}}}
   // close structure file
   fclose(fw);
@@ -646,6 +660,17 @@ static void WriteField(SYSTEM System, char file_field[]) { //{{{
     fprintf(fw, "finish\n");
   } //}}}
   fclose(fw);
+} //}}}
+static void SimplifyResid(SYSTEM *System) { //{{{
+  int lowest = 1e6;
+  for (int i = 0; i < System->Count.Molecule; i++) {
+    if (System->Molecule[i].Index < lowest) {
+      lowest = System->Molecule[i].Index;
+    }
+  }
+  for (int i = 0; i < System->Count.Molecule; i++) {
+    System->Molecule[i].Index += -lowest + 1; // start from 1
+  }
 } //}}}
 
 // Write a single timestep to output file based on the file type //{{{
