@@ -5,6 +5,10 @@ typedef struct SC {
   double a, c, eps;
 } SC;
 
+static void WriteData(FILE *fw, double **T, double **KE,
+                      double **P, double **W) {
+}
+
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
@@ -152,7 +156,8 @@ int main(int argc, char *argv[]) {
   double real_m = 1, // mass to real units
          real_E = 1, // energy to real units
          real_l = 1, // length to real units
-         real_T = 1; // temperature to real units
+         real_T = 1, // temperature to real units
+         real_P = 1; // pressure to real units
   // read extra information (if present)
   if (file_extra[0] != '\0') {
     FILE *fr = OpenFile(file_extra, "r");
@@ -173,6 +178,8 @@ int main(int argc, char *argv[]) {
           real_l = val;
         } else if (strcasecmp("Mass", split[0]) == 0) {
           real_m = val;
+        } else if (strcasecmp("Pressure", split[0]) == 0) {
+          real_P = val;
         } else {
           warning:
             strcpy(ERROR_MSG, "unrecognized line");
@@ -234,7 +241,8 @@ int main(int argc, char *argv[]) {
   fprintf(fw, " (%d) T;", ++count);
   fprintf(fw, " (%d) KE;", ++count);
   fprintf(fw, " (%d) P;", ++count);
-  fprintf(fw, " (%d) W", ++count);
+  fprintf(fw, " (%d) W;", ++count);
+  fprintf(fw, " (%d) V", ++count);
   putc('\n', fw);
   fclose(fw);
   //}}}
@@ -359,10 +367,10 @@ int main(int argc, char *argv[]) {
         vir[pos[0]][pos[1]] += b->Force.x * b->Position.x +
                                b->Force.y * b->Position.y +
                                b->Force.z * b->Position.z;
+        energy_kin += 0.5 * bt->Mass * vel2;
         virial += b->Force.x * b->Position.x +
                   b->Force.y * b->Position.y +
                   b->Force.z * b->Position.z;
-        energy_kin += 0.5 * bt->Mass * vel2;
       }
       for (int i = 0; i < bin[0]; i++) {
         for (int j = 0; j < bin[1]; j++) {
@@ -374,15 +382,16 @@ int main(int argc, char *argv[]) {
         }
       }
       temperature = 2 * energy_kin / (3 * Count->BeadCoor - 3);
-      double pressure = (temperature * Count->BeadCoor + virial) /
-                        (3 * System.Box.Volume);
+      double pressure = 2 * energy_kin / (3 * System.Box.Volume);
+      double press_vir = virial / (3 * System.Box.Volume);
       //}}}
       fw = OpenFile(out2_file, "a");
       fprintf(fw, " %8d", count_coor);
-      fprintf(fw, " %8.4f", temperature * real_T);
-      fprintf(fw, " %8.4f", energy_kin * real_E);
-      fprintf(fw, " %8.4f", pressure);
-      fprintf(fw, " %8.4f", virial);
+      fprintf(fw, " %8.3f", temperature * real_T);
+      fprintf(fw, " %8.3f", energy_kin * real_E);
+      fprintf(fw, " %8.3f", pressure * real_P);
+      fprintf(fw, " %8.3f", press_vir * real_P);
+      fprintf(fw, " %8.3f", System.Box.Volume);
       putc('\n', fw);
       fclose(fw);
       // int avg = 0; // use data from bins -avg to avg
@@ -434,12 +443,12 @@ int main(int argc, char *argv[]) {
               avg_count += bead_count[k][0];
             }
             int boxes = (2 * avg + 1);
-            fprintf(fw2, " %8.4f", width[0] * (2 * i + 1) / 2);
-            fprintf(fw2, " %8.4f", avg_T / avg_count * real_T);
-            fprintf(fw2, " %8.4f", avg_KE / boxes * real_E);
-            fprintf(fw2, " %8.4f", (avg_T  + avg_vir / 3) / volume);
-            fprintf(fw2, " %8.4f", avg_vir / avg_count);
-            fprintf(fw2, " %8.4f", (double)(avg_count) / boxes);
+            fprintf(fw2, " %8.3f", width[0] * (2 * i + 1) / 2);
+            fprintf(fw2, " %8.3f", avg_T / avg_count * real_T);
+            fprintf(fw2, " %8.3f", avg_KE / boxes * real_E);
+            fprintf(fw2, " %8.3f", (avg_T  + avg_vir / 3) / volume);
+            fprintf(fw2, " %8.3f", avg_vir / avg_count);
+            fprintf(fw2, " %8.3f", (double)(avg_count) / boxes);
             putc('\n', fw2);
           }
         //}}}
@@ -509,13 +518,13 @@ int main(int argc, char *argv[]) {
                 }
               }
               int boxes = SQR(2 * avg + 1);
-              fprintf(fw2, " %8.4f", width[0] * (2 * i + 1) / 2);
-              fprintf(fw2, " %8.4f", width[1] * (2 * j + 1) / 2);
-              fprintf(fw2, " %8.4f", avg_T / avg_count * real_T);
-              fprintf(fw2, " %8.4f", avg_KE / boxes * real_E);
-              fprintf(fw2, " %8.4f", (avg_T + avg_vir / 3) / volume);
-              fprintf(fw2, " %8.4f", avg_vir / avg_count);
-              fprintf(fw2, " %8.4f\n", (double)(avg_count) / boxes);
+              fprintf(fw2, " %8.3f", width[0] * (2 * i + 1) / 2);
+              fprintf(fw2, " %8.3f", width[1] * (2 * j + 1) / 2);
+              fprintf(fw2, " %8.3f", avg_T / avg_count * real_T);
+              fprintf(fw2, " %8.3f", avg_KE / boxes * real_E);
+              fprintf(fw2, " %8.3f", (avg_T + avg_vir / 3) / volume);
+              fprintf(fw2, " %8.3f", avg_vir / avg_count);
+              fprintf(fw2, " %8.3f\n", (double)(avg_count) / boxes);
               putc('\n', fw2);
             }
             putc('\n', fw2);
@@ -616,12 +625,12 @@ int main(int argc, char *argv[]) {
           avg_count += sum_beadcount[k][0];
         }
         int boxes = (2 * avg + 1) * count_used;
-        fprintf(fw, " %8.4f", width[0] * (2 * i + 1) / 2);
-        fprintf(fw, " %8.4f", avg_T / avg_count * real_T);
-        fprintf(fw, " %8.4f", avg_KE / boxes * real_E);
-        fprintf(fw, " %8.4f", (avg_T + avg_vir / 3) / volume);
-        fprintf(fw, " %8.4f", avg_vir / avg_count);
-        fprintf(fw, " %8.4f", (double)(avg_count) / boxes);
+        fprintf(fw, " %8.3f", width[0] * (2 * i + 1) / 2);
+        fprintf(fw, " %8.3f", avg_T / avg_count * real_T);
+        fprintf(fw, " %8.3f", avg_KE / boxes * real_E);
+        fprintf(fw, " %8.3f", (avg_T + avg_vir / 3) / volume);
+        fprintf(fw, " %8.3f", avg_vir / avg_count);
+        fprintf(fw, " %8.3f", (double)(avg_count) / boxes);
         putc('\n', fw);
       }
     //}}}
@@ -692,13 +701,13 @@ int main(int argc, char *argv[]) {
             }
           }
           int boxes = SQR(2 * avg + 1) * count_used;
-          fprintf(fw, " %8.4f", width[0] * (2 * i + 1) / 2);
-          fprintf(fw, " %8.4f", width[1] * (2 * j + 1) / 2);
-          fprintf(fw, " %8.4f", avg_T / avg_count * real_T);
-          fprintf(fw, " %8.4f", avg_KE / boxes * real_E);
-          fprintf(fw, " %8.4f", (avg_T + avg_vir / 3) / volume);
-          fprintf(fw, " %8.4f", avg_vir / avg_count);
-          fprintf(fw, " %8.4f\n", (double)(avg_count) / boxes);
+          fprintf(fw, " %8.3f", width[0] * (2 * i + 1) / 2);
+          fprintf(fw, " %8.3f", width[1] * (2 * j + 1) / 2);
+          fprintf(fw, " %8.3f", avg_T / avg_count * real_T);
+          fprintf(fw, " %8.3f", avg_KE / boxes * real_E);
+          fprintf(fw, " %8.3f", (avg_T + avg_vir / 3) / volume);
+          fprintf(fw, " %8.3f", avg_vir / avg_count);
+          fprintf(fw, " %8.3f\n", (double)(avg_count) / boxes);
         }
         fprintf(fw, "\n");
       }
