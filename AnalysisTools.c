@@ -2447,7 +2447,8 @@ void LinkedList(SYSTEM System, int **Head, int **Link, double cell_size,
                 INTVECTOR *n_cells, int *Dcx, int *Dcy, int *Dcz) {
   VECTOR *box = &System.Box.Length;
   COUNT *Count = &System.Count;
-  n_cells->x = ceil(box->x / cell_size), n_cells->y = ceil(box->y / cell_size),
+  n_cells->x = ceil(box->x / cell_size);
+  n_cells->y = ceil(box->y / cell_size);
   n_cells->z = ceil(box->z / cell_size);
   // allocate arrays
   *Head = malloc(sizeof **Head * n_cells->x * n_cells->y * n_cells->z);

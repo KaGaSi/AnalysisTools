@@ -139,7 +139,7 @@ void CommonOptions(int argc, char *argv[], int length, bool *verbose,
                    bool *silent, bool *detailed, bool *vtf_var_coor,
                    int *pbc_xyz, int *start, int *end, int *skip) {
   // -v option - verbose output
-  *verbose = BoolOption(argc, argv, "-v");
+  *verbose = BoolOption(argc, argv, "--verbose");
   // --silent option - silent mode
   SilentOption(argc, argv, verbose, silent);
   // --detailed option - base bead types on name, charge, mass, and radius

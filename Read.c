@@ -458,7 +458,7 @@ static int LtrjReadPBCSection(FILE *fr, char file[], BOX *box,
     return -1;
   }
   // 2) read box dimensions
-  if (strcmp(split[3], "pp") == 0) { // orthogonal box
+  if (strcmp(split[3], "pp") == 0 || strcmp(split[3], "ff") == 0) { // orthogonal box
     double bounds[3][2];
     for (int i = 0; i < 3; i++) {
       (*line_count)++;

@@ -1,8 +1,8 @@
 #include "../AnalysisTools.h"
 
 typedef struct SC {
-  int n, m;
-  double a, c, eps;
+  double n, m,
+         a, c, eps;
 } SC;
 
 static void WriteData(FILE *fw, double **T, double **KE,
@@ -38,6 +38,40 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
 } //}}}
 
 int main(int argc, char *argv[]) {
+
+  int CG = 4;
+  double rcut = 12 * CG; // TODO: some stuff to read the value
+  SC sc[2][2]; // TODO: read the values from somewhere or some such
+  // Al-Al
+  sc[0][0].n = 6;
+  sc[0][0].m = 8;
+  sc[0][0].eps = 230.5;
+  sc[0][0].c = 25.398;
+  sc[0][0].a = 4.049;
+  // Zr-Zr
+  sc[1][1].n = 5;
+  sc[1][1].m = 9;
+  sc[1][1].eps = 4437.0;
+  sc[1][1].c = 5.462;
+  sc[1][1].a = 3.203;
+  // Al-Zr
+  sc[0][1].n = (sc[0][0].n + sc[1][1].n) / 2;
+  sc[0][1].m = (sc[0][0].m + sc[1][1].m) / 2;
+  sc[0][1].eps = sqrt(sc[0][0].eps * sc[1][1].eps);
+  sc[0][1].c = -1; // no cross-term in SC
+  sc[0][1].a = sqrt(sc[0][0].a * sc[1][1].a);
+  // Zr-Al
+  sc[1][0].n = sc[0][1].n;
+  sc[1][0].m = sc[0][1].m;
+  sc[1][0].eps = sc[0][1].eps;
+  sc[1][0].c = sc[0][1].c;
+  sc[1][0].a = sc[0][1].a;
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 3; j++) {
+      sc[i][j].eps *= CUBE(CG);
+      sc[i][j].a *= CG;
+    }
+  }
 
   // define options //{{{
   int common = 12, all = common + 3, count = 0,
@@ -147,17 +181,19 @@ int main(int argc, char *argv[]) {
 
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
                                 detailed, vtf_var, pbc_xyz);
-  // // useless as virial doesn't depend on absolute coordinates? //{{{
-  // VECTOR centre;
-  // centre.x = System.Box.Length.x / 2;
-  // centre.y = System.Box.Length.y / 2;
-  // centre.z = System.Box.Length.z / 2; //}}}
 
-  double real_m = 1, // mass to real units
-         real_E = 1, // energy to real units
-         real_l = 1, // length to real units
-         real_T = 1, // temperature to real units
-         real_P = 1; // pressure to real units
+  COUNT *Count = &System.Count;
+
+  for (int i = 0; i < Count->BeadType; i++) {
+    System.BeadType[i].Mass *= CUBE(CG);
+  }
+
+  // basis for reduced units
+  double real_m = 1, // mass
+         real_E = 1, // energy
+         real_l = 1, // length
+         real_T = 1, // temperature
+         real_P = 1; // pressure
   // read extra information (if present)
   if (file_extra[0] != '\0') {
     FILE *fr = OpenFile(file_extra, "r");
@@ -190,7 +226,41 @@ int main(int argc, char *argv[]) {
     fclose(fr);
   }
 
-  COUNT *Count = &System.Count;
+  // TODO: make Count.BeadType-dependent
+  // reduce parameters
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 3; j++) {
+      sc[i][j].a /= real_l;
+      // sc[i][j].eps /= real_E;
+      sc[i][j].eps /= 230.5;
+    }
+  }
+  for (int i = 0; i < Count->BeadType; i++) {
+    System.BeadType[i].Mass /= real_m;
+  }
+  rcut /= real_l;
+
+  // calculate some prefactors for shifted potential //{{{
+  // eps * (a / r_c)^m ...for repulsive part of SC
+  double **rep1 = malloc(Count->BeadType * sizeof **rep1);
+  // m * eps * (a / r_c)^m / r_c ...for repulsive part of SC
+  double **rep2 = malloc(Count->BeadType * sizeof **rep2);
+  // (a / r_c)^n ...for local density
+  double **dd1 = malloc(Count->BeadType * sizeof **dd1);
+  // n * (a / r_c)^n / r_c ...for local density
+  double **dd2 = malloc(Count->BeadType * sizeof **dd2);
+  for (int i = 0; i < Count->BeadType; i++) {
+    rep1[i] = calloc(Count->BeadType, sizeof *rep1);
+    rep2[i] = calloc(Count->BeadType, sizeof *rep2);
+    dd1[i] = calloc(Count->BeadType, sizeof *dd1);
+    dd2[i] = calloc(Count->BeadType, sizeof *dd2);
+    for (int j = 0; j < Count->BeadType; j++) {
+      rep1[i][j] = sc[i][j].eps * pow((sc[i][j].a / rcut), sc[i][j].m);
+      rep2[i][j] = rep1[i][j] * sc[i][j].m / rcut;
+      dd1[i][j] = pow((sc[i][j].a / rcut), sc[i][j].n);
+      dd2[i][j] = rep1[i][j] * sc[i][j].n / rcut;
+    }
+  } //}}}
 
   // number of bins //{{{
   // TODO: variable box size? For now, assume at most twice the size?
@@ -240,9 +310,9 @@ int main(int argc, char *argv[]) {
   fprintf(fw, "# (%d) timestep;", ++count);
   fprintf(fw, " (%d) T;", ++count);
   fprintf(fw, " (%d) KE;", ++count);
-  fprintf(fw, " (%d) P;", ++count);
-  fprintf(fw, " (%d) W;", ++count);
-  fprintf(fw, " (%d) V", ++count);
+  fprintf(fw, " (%d) P(KE);", ++count);
+  fprintf(fw, " (%d) P(W);", ++count);
+  fprintf(fw, " (%d) P(W+KE);", ++count);
   putc('\n', fw);
   fclose(fw);
   //}}}
@@ -288,14 +358,15 @@ int main(int argc, char *argv[]) {
         break;
       }
       count_used++;
+      box = &System.Box;
       // define width based on instantenous box size
       for (int j = 0; j < 2; j++) {
         if (dim[j+1] == 0) {
-          width[j] = System.Box.Length.x / bin[j];
+          width[j] = box->Length.x / bin[j];
         } else if (dim[j+1] == 1) {
-          width[j] = System.Box.Length.y / bin[j];
+          width[j] = box->Length.y / bin[j];
         } else if (dim[j+1] == 2) {
-          width[j] = System.Box.Length.z / bin[j];
+          width[j] = box->Length.z / bin[j];
         }
       }
       WrapJoinCoordinates(&System, true, false); // restore pbc
@@ -318,39 +389,6 @@ int main(int argc, char *argv[]) {
             pos[j] = b->Position.z / width[j];
           }
         }
-        // // useless as virial doesn't depend on absolute coordinates? //{{{
-        // if (dim[0] == 1) {
-        //   if (dim[1] == 0) {
-        //     centre.x = width[0] * (2 * pos[0] + 1) / 2;
-        //   } else if (dim[1] == 1) {
-        //     centre.y = width[0] * (2 * pos[0] + 1) / 2;
-        //   } else if (dim[1] == 2) {
-        //     centre.z = width[0] * (2 * pos[0] + 1) / 2;
-        //   }
-        // } else { // dim[0] must be 2 (for 2D)
-        //   if (dim[1] == 0) {
-        //     centre.x = width[0] * (2 * pos[0] + 1) / 2;
-        //     if (dim[2] == 1) {
-        //       centre.y = width[1] * (2 * pos[1] + 1) / 2;
-        //     } else {
-        //       centre.z = width[1] * (2 * pos[1] + 1) / 2;
-        //     }
-        //   } else if (dim[1] == 1) {
-        //     centre.y = width[0] * (2 * pos[0] + 1) / 2;
-        //     if (dim[2] == 0) {
-        //       centre.x = width[1] * (2 * pos[1] + 1) / 2;
-        //     } else {
-        //       centre.z = width[1] * (2 * pos[1] + 1) / 2;
-        //     }
-        //   } else { // dim[2] must be 2
-        //     centre.z = width[0] * (2 * pos[0] + 1) / 2;
-        //     if (dim[2] == 0) {
-        //       centre.x = width[1] * (2 * pos[1] + 1) / 2;
-        //     } else {
-        //       centre.x = width[1] * (2 * pos[1] + 1) / 2;
-        //     }
-        //   }
-        // } //}}}
         // printf("width %lf %lf pos %3d %3d centre %7.3f %7.3f %7.3f "
         //        "box %7.3f %7.3f %7.3f\n", width[0], width[1],
         //        pos[0], pos[1], centre.x, centre.y, centre.z,
@@ -382,18 +420,317 @@ int main(int argc, char *argv[]) {
         }
       }
       temperature = 2 * energy_kin / (3 * Count->BeadCoor - 3);
-      double pressure = 2 * energy_kin / (3 * System.Box.Volume);
-      double press_vir = virial / (3 * System.Box.Volume);
+      double press_kin = 2 * energy_kin / (3 * box->Volume);
+      double press_vir = virial / (3 * box->Volume);
       //}}}
+      // calculete forces
+      double cell_size = rcut;
+      INTVECTOR n_cells;
+      int *Head, *Link, Dcx[14], Dcy[14], Dcz[14];
+      // access beads in the linked list through BeadCoor[]
+      LinkedList(System, &Head, &Link, cell_size, &n_cells, Dcx, Dcy, Dcz);
+      // // density //{{{
+      // double *density = calloc(Count->Bead, sizeof *density);
+      // for (int c1z = 0; c1z < n_cells.z; c1z++) {
+      //   for (int c1y = 0; c1y < n_cells.y; c1y++) {
+      //     for (int c1x = 0; c1x < n_cells.x; c1x++) {
+      //       // select first cell
+      //       int cell1 = c1x + c1y * n_cells.x + c1z * n_cells.x * n_cells.y;
+      //       // select first bead in the cell 'cell1'
+      //       int i = Head[cell1];
+      //       while (i != -1) {
+      //         for (int k = 0; k < 14; k++) {
+      //           int c2x = c1x + Dcx[k]; //{{{
+      //           int c2y = c1y + Dcy[k];
+      //           int c2z = c1z + Dcz[k];
+      //           // periodic boundary conditions for cells //{{{
+      //           if (c2x >= n_cells.x)
+      //             c2x -= n_cells.x;
+      //           else if (c2x < 0)
+      //             c2x += n_cells.x;
+      //
+      //           if (c2y >= n_cells.y)
+      //             c2y -= n_cells.y;
+      //           else if (c2y < 0)
+      //             c2y += n_cells.y;
+      //
+      //           if (c2z >= n_cells.z)
+      //             c2z -= n_cells.z; //}}}
+      //
+      //           // select second cell
+      //           int cell2 = c2x +
+      //                       c2y * n_cells.x +
+      //                       c2z * n_cells.x * n_cells.y; //}}}
+      //           // select bead in the cell 'cell2' //{{{
+      //           int j;
+      //           if (cell1 == cell2) { // next bead in 'cell1'
+      //             j = Link[i];
+      //           } else { // first bead in 'cell2'
+      //             j = Head[cell2];
+      //           } //}}}
+      //           while (j != -1) {
+      //             BEAD *b_i = &System.Bead[System.BeadCoor[i]],
+      //                  *b_j = &System.Bead[System.BeadCoor[j]];
+      //             VECTOR dist = Distance(b_i->Position, b_j->Position,
+      //                                    box->Length);
+      //             double rij = VectorLength(dist);
+      //             if (rij < rcut) {
+      //               if (rij == 0) {
+      //                 strcpy(ERROR_MSG, "zero bead-bead distance!");
+      //                 PrintError();
+      //                 exit(1);
+      //               }
+      //               int bt_i = b_i->Type,
+      //                   bt_j = b_j->Type;
+      //               // density: (a / r_ij)^n ...
+      //               double a_div_r = sc[bt_i][bt_j].a / rij;
+      //               double tmp = pow(a_div_r, sc[bt_i][bt_j].n);
+      //               // (shifted potential) ... - (a / r_c)^n ...
+      //               tmp -= dd1[bt_i][bt_j];
+      //               // ... + (a / r_c)^n * n / r_c * (r_ij - r_c)
+      //               tmp += dd2[bt_i][bt_j] * (rij - rcut);
+      //               density[System.BeadCoor[i]] += tmp;
+      //               density[System.BeadCoor[j]] += tmp;
+      //             }
+      //             j = Link[j];
+      //           }
+      //         }
+      //         i = Link[i];
+      //       }
+      //     }
+      //   }
+      // } //}}}
+      // density //{{{
+      double *density = calloc(Count->Bead, sizeof *density);
+      for (int i = 0; i < Count->BeadCoor; i++) {
+        for (int j = (i + 1); j < Count->BeadCoor; j++) {
+          BEAD *b_i = &System.Bead[System.BeadCoor[i]],
+               *b_j = &System.Bead[System.BeadCoor[j]];
+          VECTOR dist = Distance(b_i->Position, b_j->Position,
+                                 box->Length);
+          double rij = VectorLength(dist);
+          if (rij < rcut) {
+            if (rij == 0) {
+              strcpy(ERROR_MSG, "zero bead-bead distance!");
+              PrintError();
+              exit(1);
+            }
+            int bt_i = b_i->Type,
+                bt_j = b_j->Type;
+            // density: (a / r_ij)^n ...
+            double a_div_r = sc[bt_i][bt_j].a / rij;
+            double tmp = pow(a_div_r, sc[bt_i][bt_j].n);
+            // (shifted potential) ... - (a / r_c)^n ...
+            tmp -= dd1[bt_i][bt_j];
+            // ... + (a / r_c)^n * n / r_c * (r_ij - r_c)
+            tmp += dd2[bt_i][bt_j] * (rij - rcut);
+            density[System.BeadCoor[i]] += tmp;
+            density[System.BeadCoor[j]] += tmp;
+          }
+        }
+      } //}}}
+      // // forces, energy, virial //{{{
+      // double *u_rep = calloc(Count->Bead, sizeof *u_rep),
+      //        Pxx = 0, Pyy = 0, Pzz = 0;
+      // VECTOR *force = calloc(Count->Bead, sizeof *force);
+      // for (int c1z = 0; c1z < n_cells.z; c1z++) {
+      //   for (int c1y = 0; c1y < n_cells.y; c1y++) {
+      //     for (int c1x = 0; c1x < n_cells.x; c1x++) {
+      //       // select first cell
+      //       int cell1 = c1x + c1y * n_cells.x + c1z * n_cells.x * n_cells.y;
+      //       // select first bead in the cell 'cell1'
+      //       int i = Head[cell1];
+      //       while (i != -1) {
+      //         for (int k = 0; k < 14; k++) {
+      //           int c2x = c1x + Dcx[k]; //{{{
+      //           int c2y = c1y + Dcy[k];
+      //           int c2z = c1z + Dcz[k];
+      //           // periodic boundary conditions for cells //{{{
+      //           if (c2x >= n_cells.x)
+      //             c2x -= n_cells.x;
+      //           else if (c2x < 0)
+      //             c2x += n_cells.x;
+      //
+      //           if (c2y >= n_cells.y)
+      //             c2y -= n_cells.y;
+      //           else if (c2y < 0)
+      //             c2y += n_cells.y;
+      //
+      //           if (c2z >= n_cells.z)
+      //             c2z -= n_cells.z; //}}}
+      //
+      //           // select second cell
+      //           int cell2 = c2x +
+      //                       c2y * n_cells.x +
+      //                       c2z * n_cells.x * n_cells.y; //}}}
+      //           // select bead in the cell 'cell2' //{{{
+      //           int j;
+      //           if (cell1 == cell2) { // next bead in 'cell1'
+      //             j = Link[i];
+      //           } else { // first bead in 'cell2'
+      //             j = Head[cell2];
+      //           } //}}}
+      //           while (j != -1) {
+      //             BEAD *b_i = &System.Bead[System.BeadCoor[i]],
+      //                  *b_j = &System.Bead[System.BeadCoor[j]];
+      //             VECTOR dist = Distance(b_i->Position, b_j->Position,
+      //                                    box->Length);
+      //             double rij = VectorLength(dist);
+      //             if (rij < rcut) {
+      //               if (rij == 0) {
+      //                 strcpy(ERROR_MSG, "zero bead-bead distance!");
+      //                 PrintError();
+      //                 exit(1);
+      //               }
+      //               int bt_i = b_i->Type,
+      //                   bt_j = b_j->Type;
+      //               // helper value of (a / r_ij)^m & (a / r_ij)^n
+      //               double a_div_r = sc[bt_i][bt_j].a / rij;
+      //               double a_div_r_m = pow(a_div_r, sc[bt_i][bt_j].m),
+      //                      a_div_r_n = pow(a_div_r, sc[bt_i][bt_j].n);
+      //               // 1) repulsive potential
+      //               // eps * (a / r_ij)^m ...
+      //               double tmp = sc[bt_i][bt_j].eps * a_div_r_m;
+      //               // (shifted potential) ... - eps * (a / r_c)^m ...
+      //               tmp -= rep1[bt_i][bt_j];
+      //               // ... + eps * (a / r_c)^m * m / r_c * (r_ij - r_c)
+      //               tmp += rep2[bt_i][bt_j] * (rij - rcut);
+      //               // add to per-particle repulsive energy
+      //               u_rep[System.BeadCoor[i]] += tmp;
+      //               u_rep[System.BeadCoor[j]] += tmp;
+      //               // 2) repulsive virial
+      //               // repulsive: -m * eps * (a / r_ij)^m ...
+      //               tmp = -sc[bt_i][bt_j].m * sc[bt_i][bt_j].eps * a_div_r_m;
+      //               // ... + m * eps * (a / r_c)^m / r_c * r_ij
+      //               tmp += rep2[bt_i][bt_j] * rij;
+      //               double w_rep = tmp;
+      //               // 3) density-dependent virial
+      //               // 0.5 * (c_i * eps_ii / sqrt(\rho_i) +
+      //               //        c_j * eps_jj / sqrt(\rho_j) ...
+      //               double c_eps_i = sc[bt_i][bt_i].c * sc[bt_i][bt_i].eps /
+      //                                sqrt(density[i]),
+      //                      c_eps_j = sc[bt_j][bt_j].c * sc[bt_j][bt_j].eps /
+      //                                sqrt(density[j]);
+      //               tmp = 0.5 * (c_eps_i + c_eps_j);
+      //               // ... * (n * (a / r_ij)^n - n * (a / r_c)^n / r_c * r_ij)
+      //               tmp *= sc[bt_i][bt_j].n * a_div_r_n - dd2[bt_i][bt_j] * rij;
+      //               double w_dd = tmp;
+      //               // 4) pairwise forces
+      //               double fij = -(w_rep + w_dd) / SQR(rij);
+      //               // force in axes' directions
+      //               VECTOR f;
+      //               f.x = fij * dist.x;
+      //               f.y = fij * dist.y;
+      //               f.z = fij * dist.z;
+      //               // pressur tensor components
+      //               Pxx += f.x * dist.x;
+      //               Pyy += f.y * dist.y;
+      //               Pzz += f.z * dist.z;
+      //               // per-particle force
+      //               force[System.BeadCoor[i]].x += f.x;
+      //               force[System.BeadCoor[i]].y += f.y;
+      //               force[System.BeadCoor[i]].z += f.z;
+      //               force[System.BeadCoor[j]].x -= f.x;
+      //               force[System.BeadCoor[j]].y -= f.y;
+      //               force[System.BeadCoor[j]].z -= f.z;
+      //             }
+      //             j = Link[j];
+      //           }
+      //         }
+      //         i = Link[i];
+      //       }
+      //     }
+      //   }
+      // } //}}}
+      // forces, energy, virial //{{{
+      double *u_rep = calloc(Count->Bead, sizeof *u_rep),
+             Pxx = 0, Pyy = 0, Pzz = 0;
+      VECTOR *force = calloc(Count->Bead, sizeof *force);
+      for (int i = 0; i < Count->BeadCoor; i++) {
+        for (int j = (i + 1); j < Count->BeadCoor; j++) {
+          BEAD *b_i = &System.Bead[System.BeadCoor[i]],
+               *b_j = &System.Bead[System.BeadCoor[j]];
+          VECTOR dist = Distance(b_i->Position, b_j->Position,
+                                 box->Length);
+          double rij = VectorLength(dist);
+          if (rij < rcut) {
+            if (rij == 0) {
+              strcpy(ERROR_MSG, "zero bead-bead distance!");
+              PrintError();
+              exit(1);
+            }
+            int bt_i = b_i->Type,
+                bt_j = b_j->Type;
+            // helper value of (a / r_ij)^m & (a / r_ij)^n
+            double a_div_r = sc[bt_i][bt_j].a / rij;
+            double a_div_r_m = pow(a_div_r, sc[bt_i][bt_j].m),
+                   a_div_r_n = pow(a_div_r, sc[bt_i][bt_j].n);
+            // 1) repulsive potential
+            // eps * (a / r_ij)^m ...
+            double tmp = sc[bt_i][bt_j].eps * a_div_r_m;
+            // (shifted potential) ... - eps * (a / r_c)^m ...
+            tmp -= rep1[bt_i][bt_j];
+            // ... + eps * (a / r_c)^m * m / r_c * (r_ij - r_c)
+            tmp += rep2[bt_i][bt_j] * (rij - rcut);
+            // add to per-particle repulsive energy
+            u_rep[System.BeadCoor[i]] += tmp;
+            u_rep[System.BeadCoor[j]] += tmp;
+            // 2) repulsive virial
+            // repulsive: -m * eps * (a / r_ij)^m ...
+            tmp = -sc[bt_i][bt_j].m * sc[bt_i][bt_j].eps * a_div_r_m;
+            // ... + m * eps * (a / r_c)^m / r_c * r_ij
+            tmp += rep2[bt_i][bt_j] * rij;
+            double w_rep = tmp;
+            // 3) density-dependent virial
+            // 0.5 * (c_i * eps_ii / sqrt(\rho_i) +
+            //        c_j * eps_jj / sqrt(\rho_j) ...
+            double c_eps_i = sc[bt_i][bt_i].c * sc[bt_i][bt_i].eps /
+                             sqrt(density[i]),
+                   c_eps_j = sc[bt_j][bt_j].c * sc[bt_j][bt_j].eps /
+                             sqrt(density[j]);
+            tmp = 0.5 * (c_eps_i + c_eps_j);
+            // ... * (n * (a / r_ij)^n - n * (a / r_c)^n / r_c * r_ij)
+            tmp *= sc[bt_i][bt_j].n * a_div_r_n - dd2[bt_i][bt_j] * rij;
+            double w_dd = tmp;
+            // 4) pairwise forces
+            double fij = -(w_rep + w_dd) / SQR(rij);
+            // force in axes' directions
+            VECTOR f;
+            f.x = fij * dist.x;
+            f.y = fij * dist.y;
+            f.z = fij * dist.z;
+            // pressur tensor components
+            Pxx += f.x * dist.x;
+            Pyy += f.y * dist.y;
+            Pzz += f.z * dist.z;
+            // per-particle force
+            force[System.BeadCoor[i]].x += f.x;
+            force[System.BeadCoor[i]].y += f.y;
+            force[System.BeadCoor[i]].z += f.z;
+            force[System.BeadCoor[j]].x -= f.x;
+            force[System.BeadCoor[j]].y -= f.y;
+            force[System.BeadCoor[j]].z -= f.z;
+          }
+        }
+      } //}}}
+      printf("\nP: %lf %lf %lf\n", Pxx, Pyy, Pzz);
+      virial = (Pxx + Pyy + Pzz) / 3;
+      press_vir = virial / box->Volume;
+
       fw = OpenFile(out2_file, "a");
       fprintf(fw, " %8d", count_coor);
-      fprintf(fw, " %8.3f", temperature * real_T);
-      fprintf(fw, " %8.3f", energy_kin * real_E);
-      fprintf(fw, " %8.3f", pressure * real_P);
-      fprintf(fw, " %8.3f", press_vir * real_P);
-      fprintf(fw, " %8.3f", System.Box.Volume);
+      fprintf(fw, " %8.3e", temperature * real_T / CUBE(CG));
+      fprintf(fw, " %10.3e", energy_kin * real_E / CUBE(CG));
+      fprintf(fw, " %10.3e", press_kin * real_P);
+      fprintf(fw, " %10.3e", press_vir * real_P);
+      fprintf(fw, " %10.3e", (press_kin + press_vir) * real_P);
       putc('\n', fw);
       fclose(fw);
+
+      free(density);
+      free(u_rep);
+      free(Head);
+      free(Link);
       // int avg = 0; // use data from bins -avg to avg
       // TODO: add some averaging: sum up bins x-avg to x+avg, plot to x
       // save values (if using --pers-step) //{{{
@@ -533,26 +870,6 @@ int main(int argc, char *argv[]) {
         //}}}
         fclose(fw2);
       } //}}}
-      // // calculate SC energy, etc.
-      // // TODO: eventually add to the 'calculate the local properties' loop
-      // long double *e_rep = calloc(Count->BeadCoor, sizeof *e_rep),
-      //             *e_rho = calloc(Count->BeadCoor, sizeof *e_rho);
-      // for (int i = 0; i < Count->BeadCoor; i++) {
-      //   for (int j = 0; j < Count->BeadCoor; j++) {
-      //     if (i != j) {
-      //       int id1 = System.BeadCoor[i],
-      //           id2 = System.BeadCoor[j];
-      //       BEAD *b1 = &System.Bead[id1],
-      //            *b2 = &System.Bead[id2];
-      //       BEADTYPE *bt1 = &System.BeadType[b1->Type],
-      //                *bt2 = &System.BeadType[b2->Type];
-      //       VECTOR d = Distance(b1->Position, b2->Position, System.Box.Length);
-      //       d.x = VectorLength(d);
-      //       // TODO: check ml's code
-      //     }
-      //   }
-      // }
-      // free(e_rep);
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
       if (!SkipTimestep(coor_type, coor, coor_file,
@@ -716,6 +1033,16 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // free memory //{{{
+  for (int i = 0; i < Count->BeadType; i++) {
+    free(rep1[i]);
+    free(rep2[i]);
+    free(dd1[i]);
+    free(dd2[i]);
+  }
+  free(rep1);
+  free(rep2);
+  free(dd1);
+  free(dd2);
   for (int i = 0; i < bin[0]; i++) {
     free(bead_count[i]);
     free(KE[i]);
