@@ -50,8 +50,7 @@ bool IsWholeNumber(char str[], long *val) {
 } //}}}
 
 double VectorLength(VECTOR a) { //{{{
-  double length = sqrt(SQR(a.x) + SQR(a.y) + SQR(a.z));
-  return length;
+  return sqrt(SQR(a.x) + SQR(a.y) + SQR(a.z));
 } //}}}
 
 double Min3(double x, double y, double z) { //{{{

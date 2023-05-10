@@ -171,6 +171,12 @@ int main(int argc, char *argv[]) {
   if (IntegerOption(argc, argv, 100, "-n", &n_opt_number, n_opt_save)) {
     exit(1);
   }
+  // ignore -st/-e/-sk when -n is used
+  if (n_opt_number != -1) {
+    start = 1;
+    end = -1;
+    skip = 0;
+  }
   SortArray(n_opt_save, n_opt_number, 0); //}}}
 
   if (verbose) {
@@ -184,8 +190,8 @@ int main(int argc, char *argv[]) {
   }
   fclose(out); //}}}
 
-  // main loop //{{{
   FILE *fr = OpenFile(coor_file, "r");
+  // main loop //{{{
   // file pointers for finding the last valid step
   fpos_t *position = calloc(1, sizeof *position);
   // save line count at every fgetpos()

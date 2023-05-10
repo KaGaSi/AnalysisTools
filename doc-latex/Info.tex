@@ -3,14 +3,15 @@
 This utility prints the system information read from an input structure file,
 possibly augmenting it with information from another structure file (\tt{-i[!]
 <file>} option) and/or pruning the system to contain only beads from a provided
-coordinate file (\tt{-c} option). \tt{Info} can also write this information into
-a new structure file of the given format (\tt{-o option}).
+coordinate file (\tt{-c} option). For the effects of these options, see the
+\tt{Examples/Info} folder.
 
-Allowed output file types are \vtf structure file (with the extension
-\tt{.vsf}), LAMMPS \data file (with the extension \tt{.data}), and DL\_MESO
-FIELD file (called \field or with the extension \tt{.FIELD}). Coordinates (and,
-possibly, velocities) from the coordinate file are also used for output LAMMPS
-\data file.
+\tt{Info} can also write this information into a new structure file of the given
+format (\tt{-o} option). Allowed output files are \vtf structure file (with the
+extension \tt{.vsf}), LAMMPS \data file (with the extension \tt{.data}), and
+DL\_MESO FIELD file (called \field or with the extension \tt{.FIELD}).
+Coordinates (and, possibly, velocities) from the coordinate file are also used
+for output LAMMPS \data file.
 
 \vspace{1em}
 Usage:\\
@@ -45,5 +46,17 @@ Usage:\\
   \tt{--mass}       & only \data structure file: define LAMMPS atom types by
     mass but print per-atom charges in the \tt{Atoms} section (default: atom
     types are the same as \tt{Info}-recognized bead types)\\
+  \midrule
+  \multicolumn{2}{l}{Other options (see the beginning of 
+                     Chapter~\ref{chap:Utils})}\\
+  \midrule
+  \multicolumn{2}{l}{\tt{-st},
+                     \tt{--variable},
+                     \tt{-pbc},
+                     \tt{--detailed},
+                     \tt{--verbose},
+                     \tt{--silent},
+                     \tt{--help},
+                     \tt{--version}}\\
   \bottomrule
 \end{longtable}

@@ -1,27 +1,27 @@
 \section{SelectedVcf} \label{sec:SelectedVcf}
 
 This utility creates a new coordinate file containing only beads of specified
-types.
+types; any of the \xyz, \vcf, or \tt{lammpstrj} formats can be used as output.
 
 Using \tt{--reverse} switch, the bead types can also be specified in reverse,
 i.e., bead types to be excluded from the output file(s).
 
-Which timesteps are saved can be controlled using \tt{-st} option for
-the first timestep to save and \tt{-e} option for the last timestep to
-save; using \tt{-sk <int>}, \tt{<int>} steps are ignored per one
-step saved. If the option to save only specified timesteps (\tt{-n}) is
-used, \tt{-sk} is ignored. A maximum of 100 steps can be explicitly
-specified using the \tt{-n} option.
+Which timesteps are saved can be controlled using several options: \tt{-st}
+option for the first timestep to save and \tt{-e} option for the last timestep
+to save; \tt{-sk} for the number of ignored steps per one saved (i.e., \tt{-sk
+9} means every 10th timestep is saved). On the other hand, to explicitly specify
+which steps to save, the \tt{-n} option is used; SelectedVcf then ignores the
+\tt{-st}, \tt{-e}, and \tt{-sk} options if present. A maximum of 100 steps can
+be specified for the \tt{-n} option. Finally, using \tt{--last} option saves
+only the last step from the input coordinate file (all the previous options are
+ignored if \tt{--last} is used).
 
-There is also an option to remove periodic boundary conditions (i.e., to join
-molecules). Conversely, the simualation box can be wrapped (i.e., the
-periodic boundary conditions applied). If both \tt{--join} and
-\tt{-w} options are used, the simuation box is first wrapped and then
-the molecules are joined.
-
-Lastly, the \tt{--last} saves to output file(s) only the last step from
-the input coordinate file; it is useful, when only the last timestep is
-required, but the total number of timesteps in the input file is unknown.
+There is also an option to remove periodic boundary conditions for molecules
+(i.e., to join them) via \tt{--join} switch. Conversely, the simulation box can
+be wrapped (i.e., the periodic boundary conditions applied, putting all beads
+inside the box) via \tt{--wrap} switch. If both and \tt{--wrap} and \tt{--join}
+options are used, the simulation box is first wrapped and then the molecules are
+joined.
 
 Usage:
 
@@ -36,7 +36,7 @@ Usage:
   \multicolumn{2}{l}{Mandatory arguments}\\
   \midrule
   \tt{<input>}        & input coordinate file\\
-  \tt{<output.vcf>}   & output coordinate file with\\
+  \tt{<output.vcf>}   & output coordinate file\\
   \tt{<bead type(s)>} & bead type names to save (can be omitted if
     \tt{--reverse} is used)\\
   \toprule
@@ -48,14 +48,25 @@ Usage:
   \tt{--join}    & join molecules by removing periodic boundary conditions\\
   \tt{--wrap}    & wrap simulation box (i.e., apply periodic boundary
     conditions)\\
-  \tt{-st <n>}   & starting timestep for calculation (default: 1)\\
-  \tt{-e <n>}    & ending timestep for calculation (default: none)\\
-  \tt{-sk <n>}   & number of steps skip per one used (default: 0)\\
+  % \tt{-st <n>}   & starting timestep for calculation (default: 1)\\
+  % \tt{-e <n>}    & ending timestep for calculation (default: none)\\
+  % \tt{-sk <n>}   & number of steps skip per one used (default: 0)\\
   \tt{-n <int(s)>} & save only specified timesteps\\
   \tt{--last} & save only the last step\\
-  \tt{-x <name(s)>} & exclude molecules of specified name(s) -- do not
-    use if \tt{<output.vcf>} is further analysed \\
-  \tt{-xyz <name>} & save coordinates to \tt{xyz} file -- does not
-    take into account \tt{-x} option \\
+  \midrule
+  \multicolumn{2}{l}{Other options (see the beginning of 
+                     Chapter~\ref{chap:Utils})}\\
+  \midrule
+  \multicolumn{2}{l}{\tt{-st},
+                     \tt{-e},
+                     \tt{-sk},
+                     \tt{-i},
+                     \tt{--variable},
+                     \tt{-pbc},
+                     \tt{--detailed},
+                     \tt{--verbose},
+                     \tt{--silent},}\\
+  \multicolumn{2}{l}{\tt{--help},
+  \tt{--version}}\\
   \bottomrule
 \end{longtable}

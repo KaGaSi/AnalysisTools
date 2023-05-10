@@ -209,7 +209,7 @@ static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
     BEAD line;
     (*line_count)++;
     if (LtrjReadCoorLine(fr, &line, System->Count.Bead, position, cols) < 0) {
-      strcpy(ERROR_MSG, "invalid atom line");
+      strcpy(ERROR_MSG, "invalid atom line (or not enough atom lines)");
       PrintErrorFileLine(file, *line_count, split, words);
       fprintf(stderr, "%sOrder of variables should be:%s", ErrRed(),
               ErrYellow());
@@ -297,13 +297,15 @@ static SYSTEM LtrjReadStruct(char file[]) {
     line_count++;
     // read & check the coordinate line validity //{{{
     if (LtrjReadCoorLine(fr, &line, Sys.Count.Bead, position, cols) < 0) {
-      strcpy(ERROR_MSG, "wrong coordinate line");
+      strcpy(ERROR_MSG, "invalid atom line (or not enough atom lines)");
       PrintErrorFileLine(file, line_count, split, words);
-      fprintf(stderr, "%sOrder of variables should be:%s", ErrRed(),
-              ErrYellow());
-      for (int i = 0; i < max_vars; i++) {
-        if (position[i] != -1) {
-          fprintf(stderr, " %s", var[position[i]]);
+      if (words > 0 && strcmp(split[0], "ITEM:") != 0) {
+        fprintf(stderr, "%sOrder of variables should be:%s", ErrRed(),
+                ErrYellow());
+        for (int i = 0; i < max_vars; i++) {
+          if (position[i] != -1) {
+            fprintf(stderr, " %s", var[position[i]]);
+          }
         }
       }
       fprintf(stderr, "%s\n", ErrColourReset());

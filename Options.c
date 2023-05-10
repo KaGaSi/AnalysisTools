@@ -150,15 +150,21 @@ void CommonOptions(int argc, char *argv[], int length, bool *verbose,
   *start = 1;
   int trash; // number of values from IntegerOption(); unused
   if (IntegerOption(argc, argv, 1, "-st", &trash, start)) {
+    fprintf(stderr, "%sCommand: %s", ErrRed(), ErrColourReset());
+    PrintCommand(stderr, argc, argv);
     exit(1);
   }
   *end = -1;
   if (IntegerOption(argc, argv, 1, "-e", &trash, end)) {
+    fprintf(stderr, "%sCommand: %s", ErrRed(), ErrColourReset());
+    PrintCommand(stderr, argc, argv);
     exit(1);
   }
   ErrorStartEnd(*start, *end);
   // number of timesteps to skip per one used
   if (IntegerOption(argc, argv, 1, "-sk", &trash, skip)) {
+    fprintf(stderr, "%sCommand: %s", ErrRed(), ErrColourReset());
+    PrintCommand(stderr, argc, argv);
     exit(1);
   }
   (*skip)++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
@@ -330,6 +336,11 @@ bool IntegerOption(int argc, char *argv[], int max,
           *count = n;
           return true;
         }
+      }
+      if (n == 0) {
+        strcpy(ERROR_MSG, "missing argument(s)");
+        PrintErrorOption(opt);
+        return true;
       }
       *count = n;
     }

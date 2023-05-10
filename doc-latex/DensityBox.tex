@@ -1,61 +1,72 @@
 \section{DensityBox} \label{sec:DensityBox}
 
-This utility calculates number density for all bead types in the specified
-direction of the simulation box. The density is calculated from 0 to box
-length in the given direction, that is, the box is \enquote{sliced} into
-blocks with width \texttt{<width>} and numbers of different bead types are
-counted in each of the slices.
+This utility calculates number density for all bead types along all three axes
+directions of the simulation box. The density is calculated from 0 to box length
+in the given direction, that is, the box is \enquote{sliced} into blocks with
+width \tt{<width>} and numbers of different bead types are counted in each of
+the slices.
 
-The utility does not distinguish between beads with the same name in
-different molecules, so if one bead type is in more than one molecule type,
-it's density will be averaged over all molecule types it appears in. In
-this case, however, the \texttt{-x} option can be used to first run the
-utility and exclude one molecule type and then rerun it, excluding the
-other molecule type. Thus, two output files are generated, each missing
-densities from the specified molecule types.
+The utility does not distinguish between beads with the same name in different
+molecules, so if one bead type is in more than one molecule type, its density
+will be averaged over all molecule types it appears in. However, the \tt{-x}
+option can be used to first run the utility without one molecule type and then
+rerun it, excluding the other molecule type. Thus, two output files (per axis)
+are generated, each missing densities from the specified molecule types.
 
 Usage:
 
 \vspace{1em}
 \noindent
-\texttt{DensityBox <input> <width> <output> <axis> <options>}
+\tt{DensityBox <input> <width> <output> <options>}
 
 \noindent
 \begin{longtable}{p{0.24\textwidth}p{0.704\textwidth}}
   \toprule
-  \multicolumn{2}{l}{Mandatory arguments} \\
+  \multicolumn{2}{l}{Mandatory arguments}\\
   \midrule
-  \texttt{<input>} & input coordinate file (either \texttt{vcf} or
-    \texttt{vtf} format) \\
-  \texttt{<width>} & width of each bin of the distribution \\
-  \texttt{<output>} & output file with automatic \texttt{<axis>.rho} ending \\
-  \texttt{<axis>} & direction in which to calculate density: \texttt{x},
-    \texttt{y}, or \texttt{z} \\
+  \tt{<input>} & input coordinate file (either \tt{vcf} or \tt{vtf} format)\\
+  \tt{<width>} & width of each bin of the distribution\\
+  \tt{<output>} & three output files with automatic \tt{-x.rho}, \tt{-y.rho},
+    and \tt{-x.rho} endings\\
   \toprule
-  \multicolumn{2}{l}{Non-standard options} \\
+  \multicolumn{2}{l}{Non-standard options}\\
   \midrule
-  \texttt{-n <int>} & number of bins to average to get smoother density
-    (default: 1) \\
-  \texttt{-st <int>} & starting timestep for calculation (default: 1) \\
-  \texttt{-x <mol name(s)>} & exclude specified molecule type(s) (i.e., do
-    not calculate density for beads in molecules \texttt{<mol name(s)>}) \\
+  \tt{-x <mol name(s)>} & exclude specified molecule type(s) (i.e., do not
+    calculate density for beads in molecules \tt{<mol name(s)>})\\
+      \midrule
+  \multicolumn{2}{l}{Other options (see the beginning of 
+                     Chapter~\ref{chap:Utils})}\\
+  \midrule
+  \multicolumn{2}{l}{\tt{-st},
+                     \tt{-e},
+                     \tt{-sk},
+                     \tt{-i},
+                     \tt{--variable},
+                     \tt{-pbc},
+                     \tt{--detailed},
+                     \tt{--verbose},
+                     \tt{--silent},}\\
+  \multicolumn{2}{l}{\tt{--help},
+                     \tt{--version}}\\
   \bottomrule
 \end{longtable}
 
 \noindent
 Format of output files:
 \begin{enumerate}[nosep,leftmargin=20pt]
-  \item \texttt{<output>} -- bead densities
+  \item \tt{<output>} -- bead densities
     \begin{itemize}[nosep,leftmargin=5pt]
       \item first line: command used to generate the file
       \item second line: column headers
         \begin{itemize}[nosep,leftmargin=5pt]
           \item first is the centre of each bin (governed by
-            \texttt{<width>}); i.e., if \texttt{<width>} is 0.1,
+            \tt{<width>}); i.e., if \tt{<width>} is 0.1,
             then the centre of bin 0 to 0.1 is 0.05, centre of bin 0.1 to
             0.2 is 0.15, etc.
-          \item the rest are for the calculated data: each number
-            corresponds to the density of the specified bead type
+          \item second is same as the first, but in relative length (i.e., 0 to
+            1 instead of 0 to box size)
+          \item the rest are for the calculated data: each column
+            corresponds to the number density of the specified bead type
         \end{itemize}
     \end{itemize}
 \end{enumerate}

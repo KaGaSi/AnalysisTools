@@ -39,9 +39,14 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
 
 int main(int argc, char *argv[]) {
 
-  int CG = 4;
-  double rcut = 12 * CG; // TODO: some stuff to read the value
-  SC sc[2][2]; // TODO: read the values from somewhere or some such
+  char out_traj[LINE] = "out2.lammpstrj";
+  FILE *fw = OpenFile(out_traj, "w");
+  FILE *fw_data = OpenFile("data.txt", "w");
+  fclose(fw);
+  int CG = 4,
+      elements = 2; // Count->BeadType basically
+  double rcut = 12 * CG;
+  SC sc[elements][elements];
   // Al-Al
   sc[0][0].n = 6;
   sc[0][0].m = 8;
@@ -66,8 +71,8 @@ int main(int argc, char *argv[]) {
   sc[1][0].eps = sc[0][1].eps;
   sc[1][0].c = sc[0][1].c;
   sc[1][0].a = sc[0][1].a;
-  for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 3; j++) {
+  for (int i = 0; i < elements; i++) {
+    for (int j = 0; j < elements; j++) {
       sc[i][j].eps *= CUBE(CG);
       sc[i][j].a *= CG;
     }
@@ -187,6 +192,10 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < Count->BeadType; i++) {
     System.BeadType[i].Mass *= CUBE(CG);
   }
+  bool *write = malloc(Count->Bead * sizeof *write);
+  for (int i = 0; i < Count->Bead; i++) {
+    write[i] = true;
+  }
 
   // basis for reduced units
   double real_m = 1, // mass
@@ -226,10 +235,9 @@ int main(int argc, char *argv[]) {
     fclose(fr);
   }
 
-  // TODO: make Count.BeadType-dependent
   // reduce parameters
-  for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 3; j++) {
+  for (int i = 0; i < elements; i++) {
+    for (int j = 0; j < elements; j++) {
       sc[i][j].a /= real_l;
       // sc[i][j].eps /= real_E;
       sc[i][j].eps /= 230.5;
@@ -258,7 +266,7 @@ int main(int argc, char *argv[]) {
       rep1[i][j] = sc[i][j].eps * pow((sc[i][j].a / rcut), sc[i][j].m);
       rep2[i][j] = rep1[i][j] * sc[i][j].m / rcut;
       dd1[i][j] = pow((sc[i][j].a / rcut), sc[i][j].n);
-      dd2[i][j] = rep1[i][j] * sc[i][j].n / rcut;
+      dd2[i][j] = dd1[i][j] * sc[i][j].n / rcut;
     }
   } //}}}
 
@@ -304,7 +312,7 @@ int main(int argc, char *argv[]) {
     PrintByline(out, argc, argv);
     fclose(out);
   }
-  FILE *fw = OpenFile(out2_file, "w");
+  fw = OpenFile(out2_file, "w");
   PrintByline(fw, argc, argv);
   count = 0;
   fprintf(fw, "# (%d) timestep;", ++count);
@@ -313,6 +321,9 @@ int main(int argc, char *argv[]) {
   fprintf(fw, " (%d) P(KE);", ++count);
   fprintf(fw, " (%d) P(W);", ++count);
   fprintf(fw, " (%d) P(W+KE);", ++count);
+  fprintf(fw, " (%d) Pxx;", ++count);
+  fprintf(fw, " (%d) Pyy;", ++count);
+  fprintf(fw, " (%d) Pzz;", ++count);
   putc('\n', fw);
   fclose(fw);
   //}}}
@@ -359,7 +370,7 @@ int main(int argc, char *argv[]) {
       }
       count_used++;
       box = &System.Box;
-      // define width based on instantenous box size
+      // define width based on instantenous box size //{{{
       for (int j = 0; j < 2; j++) {
         if (dim[j+1] == 0) {
           width[j] = box->Length.x / bin[j];
@@ -368,7 +379,7 @@ int main(int argc, char *argv[]) {
         } else if (dim[j+1] == 2) {
           width[j] = box->Length.z / bin[j];
         }
-      }
+      } //}}}
       WrapJoinCoordinates(&System, true, false); // restore pbc
       InitLong2DArray(bead_count, bin[0], bin[1], 0);
       InitDouble2DArray(Temp, bin[0], bin[1], 0);
@@ -424,298 +435,218 @@ int main(int argc, char *argv[]) {
       double press_vir = virial / (3 * box->Volume);
       //}}}
       // calculete forces
-      double cell_size = rcut;
       INTVECTOR n_cells;
       int *Head, *Link, Dcx[14], Dcy[14], Dcz[14];
       // access beads in the linked list through BeadCoor[]
-      LinkedList(System, &Head, &Link, cell_size, &n_cells, Dcx, Dcy, Dcz);
-      // // density //{{{
-      // double *density = calloc(Count->Bead, sizeof *density);
-      // for (int c1z = 0; c1z < n_cells.z; c1z++) {
-      //   for (int c1y = 0; c1y < n_cells.y; c1y++) {
-      //     for (int c1x = 0; c1x < n_cells.x; c1x++) {
-      //       // select first cell
-      //       int cell1 = c1x + c1y * n_cells.x + c1z * n_cells.x * n_cells.y;
-      //       // select first bead in the cell 'cell1'
-      //       int i = Head[cell1];
-      //       while (i != -1) {
-      //         for (int k = 0; k < 14; k++) {
-      //           int c2x = c1x + Dcx[k]; //{{{
-      //           int c2y = c1y + Dcy[k];
-      //           int c2z = c1z + Dcz[k];
-      //           // periodic boundary conditions for cells //{{{
-      //           if (c2x >= n_cells.x)
-      //             c2x -= n_cells.x;
-      //           else if (c2x < 0)
-      //             c2x += n_cells.x;
-      //
-      //           if (c2y >= n_cells.y)
-      //             c2y -= n_cells.y;
-      //           else if (c2y < 0)
-      //             c2y += n_cells.y;
-      //
-      //           if (c2z >= n_cells.z)
-      //             c2z -= n_cells.z; //}}}
-      //
-      //           // select second cell
-      //           int cell2 = c2x +
-      //                       c2y * n_cells.x +
-      //                       c2z * n_cells.x * n_cells.y; //}}}
-      //           // select bead in the cell 'cell2' //{{{
-      //           int j;
-      //           if (cell1 == cell2) { // next bead in 'cell1'
-      //             j = Link[i];
-      //           } else { // first bead in 'cell2'
-      //             j = Head[cell2];
-      //           } //}}}
-      //           while (j != -1) {
-      //             BEAD *b_i = &System.Bead[System.BeadCoor[i]],
-      //                  *b_j = &System.Bead[System.BeadCoor[j]];
-      //             VECTOR dist = Distance(b_i->Position, b_j->Position,
-      //                                    box->Length);
-      //             double rij = VectorLength(dist);
-      //             if (rij < rcut) {
-      //               if (rij == 0) {
-      //                 strcpy(ERROR_MSG, "zero bead-bead distance!");
-      //                 PrintError();
-      //                 exit(1);
-      //               }
-      //               int bt_i = b_i->Type,
-      //                   bt_j = b_j->Type;
-      //               // density: (a / r_ij)^n ...
-      //               double a_div_r = sc[bt_i][bt_j].a / rij;
-      //               double tmp = pow(a_div_r, sc[bt_i][bt_j].n);
-      //               // (shifted potential) ... - (a / r_c)^n ...
-      //               tmp -= dd1[bt_i][bt_j];
-      //               // ... + (a / r_c)^n * n / r_c * (r_ij - r_c)
-      //               tmp += dd2[bt_i][bt_j] * (rij - rcut);
-      //               density[System.BeadCoor[i]] += tmp;
-      //               density[System.BeadCoor[j]] += tmp;
-      //             }
-      //             j = Link[j];
-      //           }
-      //         }
-      //         i = Link[i];
-      //       }
-      //     }
-      //   }
-      // } //}}}
+      LinkedList(System, &Head, &Link, rcut, &n_cells, Dcx, Dcy, Dcz);
       // density //{{{
       double *density = calloc(Count->Bead, sizeof *density);
-      for (int i = 0; i < Count->BeadCoor; i++) {
-        for (int j = (i + 1); j < Count->BeadCoor; j++) {
-          BEAD *b_i = &System.Bead[System.BeadCoor[i]],
-               *b_j = &System.Bead[System.BeadCoor[j]];
-          VECTOR dist = Distance(b_i->Position, b_j->Position,
-                                 box->Length);
-          double rij = VectorLength(dist);
-          if (rij < rcut) {
-            if (rij == 0) {
-              strcpy(ERROR_MSG, "zero bead-bead distance!");
-              PrintError();
-              exit(1);
+      for (int c1z = 0; c1z < n_cells.z; c1z++) {
+        for (int c1y = 0; c1y < n_cells.y; c1y++) {
+          for (int c1x = 0; c1x < n_cells.x; c1x++) {
+            // select first cell
+            int cell1 = c1x + c1y * n_cells.x + c1z * n_cells.x * n_cells.y;
+            // select first bead in the cell 'cell1'
+            int i = Head[cell1];
+            while (i != -1) {
+              for (int k = 0; k < 14; k++) {
+                int c2x = c1x + Dcx[k]; //{{{
+                int c2y = c1y + Dcy[k];
+                int c2z = c1z + Dcz[k];
+                // periodic boundary conditions for cells //{{{
+                if (c2x >= n_cells.x)
+                  c2x -= n_cells.x;
+                else if (c2x < 0)
+                  c2x += n_cells.x;
+
+                if (c2y >= n_cells.y)
+                  c2y -= n_cells.y;
+                else if (c2y < 0)
+                  c2y += n_cells.y;
+
+                if (c2z >= n_cells.z)
+                  c2z -= n_cells.z; //}}}
+
+                // select second cell
+                int cell2 = c2x +
+                            c2y * n_cells.x +
+                            c2z * n_cells.x * n_cells.y; //}}}
+                // select bead in the cell 'cell2' //{{{
+                int j;
+                if (cell1 == cell2) { // next bead in 'cell1'
+                  j = Link[i];
+                } else { // first bead in 'cell2'
+                  j = Head[cell2];
+                } //}}}
+                while (j != -1) {
+                  int id_i = System.BeadCoor[i],
+                      id_j = System.BeadCoor[j];
+                  BEAD *b_i = &System.Bead[id_i],
+                       *b_j = &System.Bead[id_j];
+                  VECTOR dist = Distance(b_i->Position, b_j->Position, box->Length);
+                  double rij = VectorLength(dist);
+                  if (rij < rcut) {
+                    if (rij == 0) {
+                      strcpy(ERROR_MSG, "zero bead-bead distance!");
+                      PrintError();
+                      exit(1);
+                    }
+                    int bt_i = b_i->Type,
+                        bt_j = b_j->Type;
+                    double a = sc[bt_i][bt_j].a;
+                    int n = sc[bt_i][bt_j].n;
+                    // density: (a / r_ij)^n ...
+                    double a_div_r = a / rij;
+                    double tmp = pow(a_div_r, n);
+                    // (shifted potential) ... - (a / r_c)^n ...
+                    tmp -= dd1[bt_i][bt_j];
+                    // ... + (a / r_c)^n * n / r_c * (r_ij - r_c)
+                    tmp += dd2[bt_i][bt_j] * (rij - rcut);
+                    density[id_i] += tmp;
+                    density[id_j] += tmp;
+                    // density[id_i]++;
+                    // density[id_j]++;
+                  }
+                  j = Link[j];
+                }
+              }
+              i = Link[i];
             }
-            int bt_i = b_i->Type,
-                bt_j = b_j->Type;
-            // density: (a / r_ij)^n ...
-            double a_div_r = sc[bt_i][bt_j].a / rij;
-            double tmp = pow(a_div_r, sc[bt_i][bt_j].n);
-            // (shifted potential) ... - (a / r_c)^n ...
-            tmp -= dd1[bt_i][bt_j];
-            // ... + (a / r_c)^n * n / r_c * (r_ij - r_c)
-            tmp += dd2[bt_i][bt_j] * (rij - rcut);
-            density[System.BeadCoor[i]] += tmp;
-            density[System.BeadCoor[j]] += tmp;
           }
         }
       } //}}}
-      // // forces, energy, virial //{{{
-      // double *u_rep = calloc(Count->Bead, sizeof *u_rep),
-      //        Pxx = 0, Pyy = 0, Pzz = 0;
-      // VECTOR *force = calloc(Count->Bead, sizeof *force);
-      // for (int c1z = 0; c1z < n_cells.z; c1z++) {
-      //   for (int c1y = 0; c1y < n_cells.y; c1y++) {
-      //     for (int c1x = 0; c1x < n_cells.x; c1x++) {
-      //       // select first cell
-      //       int cell1 = c1x + c1y * n_cells.x + c1z * n_cells.x * n_cells.y;
-      //       // select first bead in the cell 'cell1'
-      //       int i = Head[cell1];
-      //       while (i != -1) {
-      //         for (int k = 0; k < 14; k++) {
-      //           int c2x = c1x + Dcx[k]; //{{{
-      //           int c2y = c1y + Dcy[k];
-      //           int c2z = c1z + Dcz[k];
-      //           // periodic boundary conditions for cells //{{{
-      //           if (c2x >= n_cells.x)
-      //             c2x -= n_cells.x;
-      //           else if (c2x < 0)
-      //             c2x += n_cells.x;
-      //
-      //           if (c2y >= n_cells.y)
-      //             c2y -= n_cells.y;
-      //           else if (c2y < 0)
-      //             c2y += n_cells.y;
-      //
-      //           if (c2z >= n_cells.z)
-      //             c2z -= n_cells.z; //}}}
-      //
-      //           // select second cell
-      //           int cell2 = c2x +
-      //                       c2y * n_cells.x +
-      //                       c2z * n_cells.x * n_cells.y; //}}}
-      //           // select bead in the cell 'cell2' //{{{
-      //           int j;
-      //           if (cell1 == cell2) { // next bead in 'cell1'
-      //             j = Link[i];
-      //           } else { // first bead in 'cell2'
-      //             j = Head[cell2];
-      //           } //}}}
-      //           while (j != -1) {
-      //             BEAD *b_i = &System.Bead[System.BeadCoor[i]],
-      //                  *b_j = &System.Bead[System.BeadCoor[j]];
-      //             VECTOR dist = Distance(b_i->Position, b_j->Position,
-      //                                    box->Length);
-      //             double rij = VectorLength(dist);
-      //             if (rij < rcut) {
-      //               if (rij == 0) {
-      //                 strcpy(ERROR_MSG, "zero bead-bead distance!");
-      //                 PrintError();
-      //                 exit(1);
-      //               }
-      //               int bt_i = b_i->Type,
-      //                   bt_j = b_j->Type;
-      //               // helper value of (a / r_ij)^m & (a / r_ij)^n
-      //               double a_div_r = sc[bt_i][bt_j].a / rij;
-      //               double a_div_r_m = pow(a_div_r, sc[bt_i][bt_j].m),
-      //                      a_div_r_n = pow(a_div_r, sc[bt_i][bt_j].n);
-      //               // 1) repulsive potential
-      //               // eps * (a / r_ij)^m ...
-      //               double tmp = sc[bt_i][bt_j].eps * a_div_r_m;
-      //               // (shifted potential) ... - eps * (a / r_c)^m ...
-      //               tmp -= rep1[bt_i][bt_j];
-      //               // ... + eps * (a / r_c)^m * m / r_c * (r_ij - r_c)
-      //               tmp += rep2[bt_i][bt_j] * (rij - rcut);
-      //               // add to per-particle repulsive energy
-      //               u_rep[System.BeadCoor[i]] += tmp;
-      //               u_rep[System.BeadCoor[j]] += tmp;
-      //               // 2) repulsive virial
-      //               // repulsive: -m * eps * (a / r_ij)^m ...
-      //               tmp = -sc[bt_i][bt_j].m * sc[bt_i][bt_j].eps * a_div_r_m;
-      //               // ... + m * eps * (a / r_c)^m / r_c * r_ij
-      //               tmp += rep2[bt_i][bt_j] * rij;
-      //               double w_rep = tmp;
-      //               // 3) density-dependent virial
-      //               // 0.5 * (c_i * eps_ii / sqrt(\rho_i) +
-      //               //        c_j * eps_jj / sqrt(\rho_j) ...
-      //               double c_eps_i = sc[bt_i][bt_i].c * sc[bt_i][bt_i].eps /
-      //                                sqrt(density[i]),
-      //                      c_eps_j = sc[bt_j][bt_j].c * sc[bt_j][bt_j].eps /
-      //                                sqrt(density[j]);
-      //               tmp = 0.5 * (c_eps_i + c_eps_j);
-      //               // ... * (n * (a / r_ij)^n - n * (a / r_c)^n / r_c * r_ij)
-      //               tmp *= sc[bt_i][bt_j].n * a_div_r_n - dd2[bt_i][bt_j] * rij;
-      //               double w_dd = tmp;
-      //               // 4) pairwise forces
-      //               double fij = -(w_rep + w_dd) / SQR(rij);
-      //               // force in axes' directions
-      //               VECTOR f;
-      //               f.x = fij * dist.x;
-      //               f.y = fij * dist.y;
-      //               f.z = fij * dist.z;
-      //               // pressur tensor components
-      //               Pxx += f.x * dist.x;
-      //               Pyy += f.y * dist.y;
-      //               Pzz += f.z * dist.z;
-      //               // per-particle force
-      //               force[System.BeadCoor[i]].x += f.x;
-      //               force[System.BeadCoor[i]].y += f.y;
-      //               force[System.BeadCoor[i]].z += f.z;
-      //               force[System.BeadCoor[j]].x -= f.x;
-      //               force[System.BeadCoor[j]].y -= f.y;
-      //               force[System.BeadCoor[j]].z -= f.z;
-      //             }
-      //             j = Link[j];
-      //           }
-      //         }
-      //         i = Link[i];
-      //       }
-      //     }
-      //   }
-      // } //}}}
       // forces, energy, virial //{{{
-      double *u_rep = calloc(Count->Bead, sizeof *u_rep),
+      double *uSC = calloc(Count->Bead, sizeof *uSC),
              Pxx = 0, Pyy = 0, Pzz = 0;
       VECTOR *force = calloc(Count->Bead, sizeof *force);
-      for (int i = 0; i < Count->BeadCoor; i++) {
-        for (int j = (i + 1); j < Count->BeadCoor; j++) {
-          BEAD *b_i = &System.Bead[System.BeadCoor[i]],
-               *b_j = &System.Bead[System.BeadCoor[j]];
-          VECTOR dist = Distance(b_i->Position, b_j->Position,
-                                 box->Length);
-          double rij = VectorLength(dist);
-          if (rij < rcut) {
-            if (rij == 0) {
-              strcpy(ERROR_MSG, "zero bead-bead distance!");
-              PrintError();
-              exit(1);
+      for (int c1z = 0; c1z < n_cells.z; c1z++) {
+        for (int c1y = 0; c1y < n_cells.y; c1y++) {
+          for (int c1x = 0; c1x < n_cells.x; c1x++) {
+            // select first cell
+            int cell1 = c1x + c1y * n_cells.x + c1z * n_cells.x * n_cells.y;
+            // select first bead in the cell 'cell1'
+            int i = Head[cell1];
+            while (i != -1) {
+              for (int k = 0; k < 14; k++) {
+                int c2x = c1x + Dcx[k]; //{{{
+                int c2y = c1y + Dcy[k];
+                int c2z = c1z + Dcz[k];
+                // periodic boundary conditions for cells //{{{
+                if (c2x >= n_cells.x)
+                  c2x -= n_cells.x;
+                else if (c2x < 0)
+                  c2x += n_cells.x;
+
+                if (c2y >= n_cells.y)
+                  c2y -= n_cells.y;
+                else if (c2y < 0)
+                  c2y += n_cells.y;
+
+                if (c2z >= n_cells.z)
+                  c2z -= n_cells.z; //}}}
+
+                // select second cell
+                int cell2 = c2x +
+                            c2y * n_cells.x +
+                            c2z * n_cells.x * n_cells.y; //}}}
+                // select bead in the cell 'cell2' //{{{
+                int j;
+                if (cell1 == cell2) { // next bead in 'cell1'
+                  j = Link[i];
+                } else { // first bead in 'cell2'
+                  j = Head[cell2];
+                } //}}}
+                while (j != -1) {
+                  int id_i = System.BeadCoor[i],
+                      id_j = System.BeadCoor[j];
+                  BEAD *b_i = &System.Bead[id_i],
+                       *b_j = &System.Bead[id_j];
+                  VECTOR dist = Distance(b_i->Position, b_j->Position, box->Length);
+                  double rij = VectorLength(dist);
+                  if (rij < rcut) {
+                    if (rij == 0) {
+                      strcpy(ERROR_MSG, "zero bead-bead distance!");
+                      PrintError();
+                      exit(1);
+                    }
+                    int bt_i = b_i->Type,
+                        bt_j = b_j->Type;
+                    // helper value of (a / r_ij)^m & (a / r_ij)^n
+                    double a_div_r = sc[bt_i][bt_j].a / rij;
+                    double a_div_r_m = pow(a_div_r, sc[bt_i][bt_j].m),
+                           a_div_r_n = pow(a_div_r, sc[bt_i][bt_j].n);
+                    // 1) repulsive energy
+                    // eps * (a / r_ij)^m ...
+                    double tmp = sc[bt_i][bt_j].eps * a_div_r_m;
+                    // (shifted potential) ... - eps * (a / r_c)^m ...
+                    tmp -= rep1[bt_i][bt_j];
+                    // ... + eps * (a / r_c)^m * m / r_c * (r_ij - r_c)
+                    tmp += rep2[bt_i][bt_j] * (rij - rcut);
+                    // add to per-particle repulsive energy
+                    uSC[id_i] += tmp;
+                    uSC[id_j] += tmp;
+                    // u_rep[id_i]++;
+                    // u_rep[id_j]++;
+                    // 2) repulsive virial
+                    // repulsive: -m * eps * (a / r_ij)^m ...
+                    tmp = -sc[bt_i][bt_j].m * sc[bt_i][bt_j].eps * a_div_r_m;
+                    // ... + m * eps * (a / r_c)^m / r_c * r_ij
+                    tmp += rep2[bt_i][bt_j] * rij;
+                    double w_rep = tmp;
+                    // 3) density-dependent virial
+                    // 0.5 * (c_i * eps_ii / sqrt(\rho_i) +
+                    //        c_j * eps_jj / sqrt(\rho_j) ...
+                    double c_eps_i = sc[bt_i][bt_i].c * sc[bt_i][bt_i].eps /
+                                     sqrt(density[id_i]),
+                           c_eps_j = sc[bt_j][bt_j].c * sc[bt_j][bt_j].eps /
+                                     sqrt(density[id_j]);
+                    tmp = 0.5 * (c_eps_i + c_eps_j);
+                    // ... * (n * (a / r_ij)^n - n * (a / r_c)^n / r_c * r_ij)
+                    tmp *= sc[bt_i][bt_j].n * a_div_r_n - dd2[bt_i][bt_j] * rij;
+                    double w_dd = tmp;
+                    // 4) pairwise forces
+                    double fij = -(w_rep + w_dd) / SQR(rij);
+                    // force in axes' directions
+                    VECTOR f;
+                    f.x = fij * dist.x;
+                    f.y = fij * dist.y;
+                    f.z = fij * dist.z;
+                    // pressure tensor components
+                    Pxx += f.x * dist.x;
+                    Pyy += f.y * dist.y;
+                    Pzz += f.z * dist.z;
+                    // per-particle force
+                    force[id_i].x += f.x;
+                    force[id_i].y += f.y;
+                    force[id_i].z += f.z;
+                    force[id_j].x -= f.x;
+                    force[id_j].y -= f.y;
+                    force[id_j].z -= f.z;
+                  }
+                  j = Link[j];
+                }
+              }
+              i = Link[i];
             }
-            int bt_i = b_i->Type,
-                bt_j = b_j->Type;
-            // helper value of (a / r_ij)^m & (a / r_ij)^n
-            double a_div_r = sc[bt_i][bt_j].a / rij;
-            double a_div_r_m = pow(a_div_r, sc[bt_i][bt_j].m),
-                   a_div_r_n = pow(a_div_r, sc[bt_i][bt_j].n);
-            // 1) repulsive potential
-            // eps * (a / r_ij)^m ...
-            double tmp = sc[bt_i][bt_j].eps * a_div_r_m;
-            // (shifted potential) ... - eps * (a / r_c)^m ...
-            tmp -= rep1[bt_i][bt_j];
-            // ... + eps * (a / r_c)^m * m / r_c * (r_ij - r_c)
-            tmp += rep2[bt_i][bt_j] * (rij - rcut);
-            // add to per-particle repulsive energy
-            u_rep[System.BeadCoor[i]] += tmp;
-            u_rep[System.BeadCoor[j]] += tmp;
-            // 2) repulsive virial
-            // repulsive: -m * eps * (a / r_ij)^m ...
-            tmp = -sc[bt_i][bt_j].m * sc[bt_i][bt_j].eps * a_div_r_m;
-            // ... + m * eps * (a / r_c)^m / r_c * r_ij
-            tmp += rep2[bt_i][bt_j] * rij;
-            double w_rep = tmp;
-            // 3) density-dependent virial
-            // 0.5 * (c_i * eps_ii / sqrt(\rho_i) +
-            //        c_j * eps_jj / sqrt(\rho_j) ...
-            double c_eps_i = sc[bt_i][bt_i].c * sc[bt_i][bt_i].eps /
-                             sqrt(density[i]),
-                   c_eps_j = sc[bt_j][bt_j].c * sc[bt_j][bt_j].eps /
-                             sqrt(density[j]);
-            tmp = 0.5 * (c_eps_i + c_eps_j);
-            // ... * (n * (a / r_ij)^n - n * (a / r_c)^n / r_c * r_ij)
-            tmp *= sc[bt_i][bt_j].n * a_div_r_n - dd2[bt_i][bt_j] * rij;
-            double w_dd = tmp;
-            // 4) pairwise forces
-            double fij = -(w_rep + w_dd) / SQR(rij);
-            // force in axes' directions
-            VECTOR f;
-            f.x = fij * dist.x;
-            f.y = fij * dist.y;
-            f.z = fij * dist.z;
-            // pressur tensor components
-            Pxx += f.x * dist.x;
-            Pyy += f.y * dist.y;
-            Pzz += f.z * dist.z;
-            // per-particle force
-            force[System.BeadCoor[i]].x += f.x;
-            force[System.BeadCoor[i]].y += f.y;
-            force[System.BeadCoor[i]].z += f.z;
-            force[System.BeadCoor[j]].x -= f.x;
-            force[System.BeadCoor[j]].y -= f.y;
-            force[System.BeadCoor[j]].z -= f.z;
           }
         }
       } //}}}
-      printf("\nP: %lf %lf %lf\n", Pxx, Pyy, Pzz);
+      for (int i = 0; i < Count->BeadCoor; i++) {
+        int id = System.BeadCoor[i];
+        BEAD *b = &System.Bead[id];
+        int bt = b->Type;
+        double ui = sc[bt][bt].c * sc[bt][bt].eps * sqrt(density[id]);
+        uSC[id] = 0.5 * uSC[id] - ui;
+        b->Force = force[id];
+      }
+      WriteTimestep(LTRJ_FILE, out_traj, System, count_coor, write);
       virial = (Pxx + Pyy + Pzz) / 3;
+      // printf("\nP: %lf %lf %lf %lf\n", Pxx, Pyy, Pzz, virial);
       press_vir = virial / box->Volume;
+      for (int i = 0; i < Count->BeadCoor; i++) {
+        int id = System.BeadCoor[i];
+        fprintf(fw_data, "%d %lf %lf\n", id + 1, uSC[id], density[id]);
+      }
 
       fw = OpenFile(out2_file, "a");
       fprintf(fw, " %8d", count_coor);
@@ -724,11 +655,15 @@ int main(int argc, char *argv[]) {
       fprintf(fw, " %10.3e", press_kin * real_P);
       fprintf(fw, " %10.3e", press_vir * real_P);
       fprintf(fw, " %10.3e", (press_kin + press_vir) * real_P);
+      fprintf(fw, " %10.3e", Pxx);
+      fprintf(fw, " %10.3e", Pyy);
+      fprintf(fw, " %10.3e", Pzz);
       putc('\n', fw);
       fclose(fw);
 
       free(density);
-      free(u_rep);
+      free(uSC);
+      free(force);
       free(Head);
       free(Link);
       // int avg = 0; // use data from bins -avg to avg
@@ -1061,8 +996,10 @@ int main(int argc, char *argv[]) {
   free(vir);
   free(sum_vir);
   free(sum_beadcount);
+  free(write);
   FreeSystem(&System);
   //}}}
 
+  fclose(fw_data);
   return 0;
 }

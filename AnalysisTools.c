@@ -2443,13 +2443,25 @@ bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
 } //}}}
 
 // create a cell-linked list //{{{
-void LinkedList(SYSTEM System, int **Head, int **Link, double cell_size,
+void LinkedList(SYSTEM System, int **Head, int **Link, double rcut,
                 INTVECTOR *n_cells, int *Dcx, int *Dcy, int *Dcz) {
   VECTOR *box = &System.Box.Length;
   COUNT *Count = &System.Count;
-  n_cells->x = ceil(box->x / cell_size);
-  n_cells->y = ceil(box->y / cell_size);
-  n_cells->z = ceil(box->z / cell_size);
+  VECTOR rl;
+  rl.x = box->x / rcut;
+  rl.y = box->y / rcut;
+  rl.z = box->z / rcut;
+  n_cells->x = (int)(rl.x);
+  n_cells->y = (int)(rl.y);
+  n_cells->z = (int)(rl.z);
+  if (n_cells->x < 3 || n_cells->y < 3 || n_cells->z < 3) {
+    strcpy(ERROR_MSG, "cell size too small for cut-off in linked list");
+    PrintError();
+    exit(1);
+  }
+  rl.x = (double)n_cells->x / box->x;
+  rl.y = (double)n_cells->y / box->y;
+  rl.z = (double)n_cells->z / box->z;
   // allocate arrays
   *Head = malloc(sizeof **Head * n_cells->x * n_cells->y * n_cells->z);
   *Link = malloc(sizeof **Link * Count->BeadCoor);
@@ -2460,9 +2472,9 @@ void LinkedList(SYSTEM System, int **Head, int **Link, double cell_size,
   for (int i = 0; i < Count->BeadCoor; i++) {
     int id = System.BeadCoor[i];
     BEAD *bead = &System.Bead[id];
-    int cell = (int)(bead->Position.x / cell_size) +
-               (int)(bead->Position.y / cell_size) * n_cells->x +
-               (int)(bead->Position.z / cell_size) * n_cells->x * n_cells->y;
+    int cell = (int)(bead->Position.x * rl.x) +
+               (int)(bead->Position.y * rl.y) * n_cells->x +
+               (int)(bead->Position.z * rl.z) * n_cells->x * n_cells->y;
     (*Link)[i] = (*Head)[cell];
     (*Head)[cell] = i;
   }
