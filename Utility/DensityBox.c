@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
   // extra options
   strcpy(option[count++], "-x");
   OptionCheck(argc, argv, req_arg, common, all, option);
- //}}}
+  //}}}
 
   count = 0; // count mandatory arguments
 

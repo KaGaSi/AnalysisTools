@@ -1,7 +1,15 @@
 #include "../AnalysisTools.h"
-int *InFile;
 
-void Help(char cmd[50], bool error) { //{{{
+// TODO: moving average
+// TODO: add -st/-e/-sk(?)
+// TODO: modes 1) -bl <int> (block average)
+//               ...prints the average, error, tau
+//             2) -m <int> <out> (moving average into file)
+//               ...prints the moving average into output file and total average
+//               at the file's end
+// TODO: possibility to specify multiple columns
+
+void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
     ptr = stderr;
@@ -24,127 +32,107 @@ be considered a safe estimate for tau.\n\n");
   }
 
   fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <column> <discard> <n_blocks>\n\n", cmd);
+  fprintf(ptr, "   %s <input> <column> <discard>\n\n", cmd);
 
   fprintf(ptr, "   <input>           input filename\n");
   fprintf(ptr, "   <column>          column number in the file to analyse\n");
-  fprintf(ptr, "   <discard>         number of data lines to discard from the file beginning\n");
+  fprintf(ptr, "   <discard>         number of data lines to discard "
+          "from the file beginning\n");
   fprintf(ptr, "   <n_blocks>        number of blocks for binning\n");
   fprintf(ptr, "   <options>\n");
-  fprintf(ptr, "      -h             print this help and exit\n");
-  fprintf(ptr, "      --version      print version number and exit\n");
+  CommonHelp(error, n, opt);
 } //}}}
 
 int main ( int argc, char** argv ) {
 
-  // -h/--version options - print stuff and exit //{{{
-  if (VersionOption(argc, argv)) {
-    exit(0);
-  }
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "-h") == 0) {
-      Help(argv[0], false);
-      exit(0);
-    }
-  }
+  // define options //{{{
+  int common = 3, all = common + 2, count = 0,
+      req_arg = 3; // TODO: will be only two (<input> and <column(s)>)
+  char option[all][OPT_LENGTH];
+  // common options
+  strcpy(option[count++], "--silent");
+  strcpy(option[count++], "--help");
+  strcpy(option[count++], "--version");
+  // extra options
+  strcpy(option[count++], "-b");
+  strcpy(option[count++], "-m");
+  OptionCheck(argc, argv, req_arg, common, all, option);
+  //}}}
 
-  int req_args = 4; //}}}
+  count = 0;
 
-  // check if correct number of arguments //{{{
-  int count = 0;
-  for (int i = 1; i < argc && argv[count+1][0] != '-'; i++) {
-    count++;
-  }
-
-  if (count < req_args) {
-    ErrorArgNumber(count, req_args);
-    Help(argv[0], true);
-    exit(1);
-  } //}}}
-
-  // test if options are given correctly //{{{
-  for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' &&
-        strcmp(argv[i], "--version") != 0 &&
-        strcmp(argv[i], "-h") != 0 ) {
-
-      ErrorOption(argv[i]);
-      Help(argv[0], true);
-      exit(1);
-    }
-  } //}}}
-
-  count = 0; // count mandatory arguments
-
-  // <input> - filename of input file //{{{
+  // <input> - filename of input file
   char input[LINE];
-  strcpy(input, argv[++count]); //}}}
+  strcpy(input, argv[++count]);
 
-  // <column> - column number to analyze //{{{
-  // Error - non-numeric argument
-  if (!IsInteger_old(argv[++count])) {
+  // <column> - column number to analyze
+  long int column;
+  if (!IsNaturalNumber(argv[++count], &column)) {
     ErrorNaN("<column>");
-    Help(argv[0], true);
+    Help(argv[0], true, common, option);
     exit(1);
   }
-  int column = atoi(argv[count]); //}}}
 
-  // <discard> - number of lines to discard from the file beginning //{{{
-  // Error - non-numeric argument
-  if (!IsInteger_old(argv[++count])) {
+  // <discard> - number of lines to discard from the file beginning
+  long int discard = 0;
+  if (!IsWholeNumber(argv[++count], &discard)) {
     ErrorNaN("<discard>");
-    Help(argv[0], true);
+    Help(argv[0], true, common, option);
     exit(1);
   }
-  int discard = atoi(argv[count]); //}}}
 
-  // <n_blocks> - number of blocks for binning //{{{
-  // Error - non-numeric argument
-  if (!IsInteger_old(argv[++count])) {
-    ErrorNaN("<n_blocks>");
-    Help(argv[0], true);
+  // -b option: use block method to get overall average (and stderr and tau)
+  int n_blocks = -1, trash;
+  if (IntegerOption(argc, argv, 1, "-b", &trash, &n_blocks)) {
     exit(1);
   }
-  int n_blocks = atoi(argv[count]); //}}}
+  // -m option: calculate moving average
+  int moving = -1;
+  char output[LINE] = "";
+  if (FileIntegerOption(argc, argv, 1, "-m", &trash, &moving, output)) {
+    exit(1);
+  }
+  // if (moving != -1) {
+  //   strcpy(ERROR_MSG, "not yet implemented!");
+  //   PrintErrorOption("-m");
+  //   exit(1);
+  // }
+
+  if (moving == -1 && n_blocks == -1) {
+    strcpy(ERROR_MSG, "either -m or -b option must be used");
+    PrintError();
+    exit(1);
+  }
 
   double *data = malloc(sizeof *data * 1);
 
   // read data from <input> file //{{{
   FILE *fr = OpenFile(input, "r");
 
-  int test, lines = 0, all_lines = 0;
-  while ((test = getc(fr)) != EOF) {
-    ungetc(test, fr);
+  int data_lines = 0, line_count = 0;
+  while (true) {
 
-    // count data lines, comment, and blank lines in case of error
-    all_lines++;
+    line_count++;
 
-    // get whole line - max 1000 chars //{{{
-    char line[LINE];
-    fgets(line, sizeof(line), fr); //}}}
-
-    char split[SPL_STR][SPL_LEN], delim[8];
-    strcpy(delim, " \t");
-    int words = SplitLine_old(split, line, delim);
+    char line[LINE], *split[SPL_STR];
+    int words;
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      break;
+    }
 
     // if not empty line or comment continue //{{{
-    if (split[0][0] != '#' &&
-        split[0][0] != '\n') {
-      // error - insufficient number of columns
-      // TODO: colours
+    if (words > 0 && split[0][0] != '#') {
+      // error - insufficient number of columns //{{{
       if (words < column) {
-        ErrorPrintError_old();
-        fprintf(stderr, "\033[1;31m");
-        fprintf(stderr, "\033[1;33m%s\033[1;31m - too few columns", input);
-        fprintf(stderr, "\033[0m");
-        ErrorPrintLine(split, words);
+        snprintf(ERROR_MSG, LINE, "too few columns (%s%d%s instead of %s%ld%s)",
+                 ErrYellow(), words, ErrRed(), ErrYellow(), column, ErrRed());
+        PrintErrorFileLine(input, line_count, split, words);
         exit(1);
-      }
-      // number of data lines
-      lines++;
+      } //}}}
+      data_lines++;
       // save the value
-      if (discard < lines) {
-        count = lines - discard - 1;
+      if (discard < data_lines) {
+        count = data_lines - discard - 1;
         data = realloc(data, sizeof *data * (count + 1));
         data[count] = atof(split[column-1]);
       }
@@ -153,61 +141,69 @@ int main ( int argc, char** argv ) {
   fclose(fr); //}}}
 
   // error - <discard> is too large //{{{
-  // TODO colours
-  if (discard >= lines) {
-    ErrorPrintError_old();
-    fprintf(stderr, "\033[1;31m");
-    fprintf(stderr, "\033[1;31m<discard>\033[1;31m - \033[1;33m%d\033[1;31m is too high\n\n", discard);
-    fprintf(stderr, "\033[0m");
-    Help(argv[0], true);
+  if (discard >= data_lines) {
+    if (snprintf(ERROR_MSG, LINE, "number of lines to discard (%s%ld%s) is "
+                 "greater than the number of lines in %s%s%s", ErrYellow(),
+                 discard, ErrRed(), ErrYellow(), input, ErrRed()) < 0) {
+      strcpy(ERROR_MSG, "something wrong with snprintf()");
+      exit(1);
+    }
+    PrintError();
     exit(1);
   } //}}}
 
-  // variables //{{{
-  // number of data points must be dividable by 'n_blocks'
-  int remainder = (lines - discard) % n_blocks;
-  // total number of data points to consider
-  count = lines - discard - remainder;
-  // number of data points per block
-  int data_per_block = count / n_blocks;
-  // allocate array for block averages
-  long double *avg_block = malloc(sizeof *avg_block * n_blocks);
-  memset(avg_block, 0, sizeof *avg_block * n_blocks);
-  // overall averages
-  long double avg_all[2] = {0}; // [0] for avg, [1] for avg of squares //}}}
+  // -b mode //{{{
+  if (n_blocks > -1) {
+    // variables
+    // number of data points must be divisible by 'n_blocks'
+    int remainder = (data_lines - discard) % n_blocks;
+    // total number of data points to consider
+    count = data_lines - discard - remainder;
+    // number of data points per block
+    int data_per_block = count / n_blocks;
+    // allocate array for block averages
+    long double *avg_block = malloc(sizeof *avg_block * n_blocks);
+    memset(avg_block, 0, sizeof *avg_block * n_blocks);
+    // overall averages
+    long double avg_all[2] = {0}; // [0] for avg, [1] for avg of squares
 
-  // calculate averages //{{{
-  int k = remainder; // first datapoint to consider
-  for (int i = 0; i < n_blocks; i++) {
-    for (int j = 0; j < data_per_block; j++) {
-      avg_all[0] += data[k];
-      avg_all[1] += SQR(data[k]);
-      avg_block[i] += data[k++];
+    int k = remainder; // first datapoint to consider
+    for (int i = 0; i < n_blocks; i++) {
+      for (int j = 0; j < data_per_block; j++) {
+        avg_all[0] += data[k];
+        avg_all[1] += SQR(data[k]);
+        avg_block[i] += data[k++];
+      }
     }
-  }
+    avg_all[0] /= count;
+    avg_all[1] /= count;
+    for (int i = 0; i < n_blocks; i++) {
+      avg_block[i] /= data_per_block;
+    }
 
-  avg_all[0] /= count;
-  avg_all[1] /= count;
-  for (int i = 0; i < n_blocks; i++) {
-    avg_block[i] /= data_per_block;
+    // standard deviation for block averages
+    double block_stdev = 0;
+    for (int i = 0; i < n_blocks; i++) {
+      block_stdev += (avg_block[i] - avg_all[0])*(avg_block[i] - avg_all[0]);
+    }
+    block_stdev /= n_blocks - 1;
+    // statistical error
+    double error = sqrt(block_stdev / n_blocks);
+    // approximate integrated autocorrelation time
+    double tau_int = 0.5 * data_per_block * block_stdev /
+                     (avg_all[1] - SQR(avg_all[0]));
+
+    // print number of blocks, average, statistical error, and estimate of tau
+    fprintf(stdout, "%4d %Lf %lf %lf\n", n_blocks, avg_all[0], error, tau_int);
+
+    free(avg_block);
   } //}}}
 
-  // standard deviation for block averages
-  double block_stdev = 0;
-  for (int i = 0; i < n_blocks; i++) {
-    block_stdev += (avg_block[i] - avg_all[0])*(avg_block[i] - avg_all[0]);
+  // -m mode
+  if (moving > -1) {
+
   }
-  block_stdev /= n_blocks - 1;
-  // statistical error
-  double error = sqrt(block_stdev / n_blocks);
-  // approximate integrated autocorrelation time
-  double tau_int = 0.5 * data_per_block * block_stdev / (avg_all[1] - SQR(avg_all[0]));
-
-  // print number of blocks, average, statistical error, and estimate of tau
-  fprintf(stdout, "%4d %Lf %lf %lf\n", n_blocks, avg_all[0], error, tau_int);
-
   free(data);
-  free(avg_block);
 
   return 0;
 }

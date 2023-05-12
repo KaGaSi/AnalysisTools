@@ -378,7 +378,7 @@ bool DoubleOption(int argc, char *argv[], int max,
 
 // general option with filename and integer(s) arguments //{{{
 bool FileIntegerOption(int argc, char *argv[], int max, char *opt,
-                       int *values, int *count, char *file) {
+                       int *count, int *values, char *file) {
   int n = 0;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
@@ -405,8 +405,9 @@ bool FileIntegerOption(int argc, char *argv[], int max, char *opt,
           values[n] = val;
           n++;
           // warning - too many numeric arguments
-          if (n == 100) {
-            strcpy(ERROR_MSG, "too many arguments; only the first 100 used");
+          if (n > max) {
+            snprintf(ERROR_MSG, LINE, "too many arguments; only the first %d "
+                     "used", max);
             PrintErrorOption(opt);
             *count = n;
             return true;
