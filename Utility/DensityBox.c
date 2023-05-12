@@ -1,5 +1,9 @@
 #include "../AnalysisTools.h"
 
+// TODO: possible changing box size: make bins' width variable, keeping their
+//       number, and work in relative coordinates (relative to instantaneous
+//       dimensions) throughout the code
+
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
@@ -231,23 +235,23 @@ int main(int argc, char *argv[]) {
   // write densities to output file(s) //{{{
   for (int ax = 0; ax < 3; ax++) {
     // axis-based variables
-    double volume = width, size;
+    double volume = width, size = -1;
     int n = 0; // number of bins
     char axis;
     if (ax == 0) {
       axis = 'x';
-      volume *= box->Length.y * box->Length.z;
       size = box->Length.x;
+      volume *= box->Length.y * box->Length.z;
       n = bin.x;
     } else if (ax == 1) {
       axis = 'y';
-      volume *= box->Length.x * box->Length.z;
       size = box->Length.y;
+      volume *= box->Length.x * box->Length.z;
       n = bin.y;
     } else {
       axis = 'z';
-      volume *= box->Length.x * box->Length.y;
       size = box->Length.z;
+      volume *= box->Length.x * box->Length.y;
       n = bin.z;
     }
     char file[LINE]; // filename <output>-<axis>.rho
@@ -260,8 +264,8 @@ int main(int argc, char *argv[]) {
     FILE *fw = OpenFile(file, "w");
     PrintByline(fw, argc, argv);
     // print bead type names to output file
-    fprintf(fw, "# columns: (1) absolute distance, (2) relative distance");
-    count = 2;
+    fprintf(fw, "# columns: (1) absolute distance");
+    count = 1;
     for (int i = 0; i < Count->BeadType; i++) {
       if (n_beads[i] != 0) {
         count++;
@@ -272,11 +276,10 @@ int main(int argc, char *argv[]) {
     // write rdf
     for (int i = 0; i < n-1; i++) {
       double dist = width * (2 * i + 1) / 2;
+      fprintf(fw, "%7.3f", dist); // absolute distance
       if (dist > size) { // write only til the max box size
         break;
       }
-      fprintf(fw, "%7.3f", dist); // absolute distance
-      fprintf(fw, "%7.3f", dist/size); // relative distance
       for (int j = 0; j < Count->BeadType; j++) {
         if (n_beads[j] > 0 ){
           double temp_rho = rho[ax][j][i] / (volume * count_used);

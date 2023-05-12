@@ -13,6 +13,10 @@ option can be used to first run the utility without one molecule type and then
 rerun it, excluding the other molecule type. Thus, two output files (per axis)
 are generated, each missing densities from the specified molecule types.
 
+Note that this utility assumes orthogonal box with constant side lengths; in
+case of triclinic box and/or varying box size, undefined behaviour may occur
+(i.e., the utility crashes), and any results will not be reliable.
+
 Usage:
 
 \vspace{1em}
@@ -63,8 +67,6 @@ Format of output files:
             \tt{<width>}); i.e., if \tt{<width>} is 0.1,
             then the centre of bin 0 to 0.1 is 0.05, centre of bin 0.1 to
             0.2 is 0.15, etc.
-          \item second is same as the first, but in relative length (i.e., 0 to
-            1 instead of 0 to box size)
           \item the rest are for the calculated data: each column
             corresponds to the number density of the specified bead type
         \end{itemize}
