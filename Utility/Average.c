@@ -1,12 +1,6 @@
 #include "../AnalysisTools.h"
 
-// TODO: moving average
 // TODO: add -st/-e/-sk(?)
-// TODO: modes 1) -bl <int> (block average)
-//               ...prints the average, error, tau
-//             2) -m <int> <out> (moving average into file)
-//               ...prints the moving average into output file and total average
-//               at the file's end
 // TODO: possibility to specify multiple columns
 
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
@@ -16,6 +10,7 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   } else {
     ptr = stdout;
     fprintf(stdout, "\
+        REWRITE!!!\
 Average uses binning method to analyse data stored in a supplied file. It \
 prints average, statistical error and estimate of integrated autocorrelation \
 time (tau). Empty lines and lines beginning with '#' are skipped. The program \
@@ -32,24 +27,27 @@ be considered a safe estimate for tau.\n\n");
   }
 
   fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <column> <discard>\n\n", cmd);
+  fprintf(ptr, "   %s <input> <column>\n\n", cmd);
 
-  fprintf(ptr, "   <input>           input filename\n");
-  fprintf(ptr, "   <column>          column number in the file to analyse\n");
-  fprintf(ptr, "   <discard>         number of data lines to discard "
-          "from the file beginning\n");
-  fprintf(ptr, "   <n_blocks>        number of blocks for binning\n");
-  fprintf(ptr, "   <options>\n");
+  fprintf(ptr, "   <input>            input filename\n");
+  fprintf(ptr, "   <column>           column number in the file to analyse\n");
+  fprintf(ptr, "   [options]\n");
+  fprintf(ptr, "      -b <int>        block mode - number of blocks "
+          "to split data into\n");
+  fprintf(ptr, "      -m <file> <int> moving mode - output filename and"
+          "number of data points per moving average\n");
   CommonHelp(error, n, opt);
 } //}}}
 
 int main ( int argc, char** argv ) {
 
   // define options //{{{
-  int common = 3, all = common + 2, count = 0,
-      req_arg = 3; // TODO: will be only two (<input> and <column(s)>)
+  int common = 5, all = common + 2, count = 0,
+      req_arg = 2; // TODO: will be only two (<input> and <column(s)>)
   char option[all][OPT_LENGTH];
   // common options
+  strcpy(option[count++], "-st");
+  strcpy(option[count++], "-e");
   strcpy(option[count++], "--silent");
   strcpy(option[count++], "--help");
   strcpy(option[count++], "--version");
@@ -73,38 +71,48 @@ int main ( int argc, char** argv ) {
     exit(1);
   }
 
-  // <discard> - number of lines to discard from the file beginning
-  long int discard = 0;
-  if (!IsWholeNumber(argv[++count], &discard)) {
-    ErrorNaN("<discard>");
-    Help(argv[0], true, common, option);
-    exit(1);
-  }
+  // // <discard> - number of lines to discard from the file beginning
+  // long int start = 0;
+  // if (!IsWholeNumber(argv[++count], &start)) {
+  //   ErrorNaN("<discard>");
+  //   Help(argv[0], true, common, option);
+  //   exit(1);
+  // }
+  // options before reading system data
+  bool silent, rubbish2;
+  int start = 1, end = -1, skip = 0, rubbish;
+  CommonOptions(argc, argv, LINE, &rubbish2, &silent, &rubbish2, &rubbish2,
+                &rubbish, &start, &end, &skip);
+  start--; // discarded steps rather than starting step //TODO: change
+
 
   // -b option: use block method to get overall average (and stderr and tau)
-  int n_blocks = -1, trash;
-  if (IntegerOption(argc, argv, 1, "-b", &trash, &n_blocks)) {
+  int n_blocks = -1;
+  if (IntegerOption(argc, argv, 1, "-b", &rubbish, &n_blocks)) {
     exit(1);
   }
   // -m option: calculate moving average
   int moving = -1;
   char output[LINE] = "";
-  if (FileIntegerOption(argc, argv, 1, "-m", &trash, &moving, output)) {
+  if (FileIntegerOption(argc, argv, 1, "-m", &rubbish, &moving, output)) {
     exit(1);
   }
-  // if (moving != -1) {
-  //   strcpy(ERROR_MSG, "not yet implemented!");
-  //   PrintErrorOption("-m");
-  //   exit(1);
-  // }
-
   if (moving == -1 && n_blocks == -1) {
     strcpy(ERROR_MSG, "either -m or -b option must be used");
     PrintError();
+    Help(argv[0], true, common, option);
     exit(1);
   }
+  if (moving != -1 && end != -1 && (end - start - moving) < 0) {
+    snprintf(ERROR_MSG, LINE, "nothing to compute: %s%d%s-point moving "
+             "average from the total of %s%d%s datapoints", ErrYellow(),
+             moving, ErrRed(), ErrYellow(), end - start, ErrRed());
+    PrintError();
+    Help(argv[0], true, common, option);
+  }
 
-  double *data = malloc(sizeof *data * 1);
+  // array to save the data; realloc'd on the fly
+  double *data = malloc(sizeof *data);
 
   // read data from <input> file //{{{
   FILE *fr = OpenFile(input, "r");
@@ -119,7 +127,6 @@ int main ( int argc, char** argv ) {
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
       break;
     }
-
     // if not empty line or comment continue //{{{
     if (words > 0 && split[0][0] != '#') {
       // error - insufficient number of columns //{{{
@@ -131,20 +138,23 @@ int main ( int argc, char** argv ) {
       } //}}}
       data_lines++;
       // save the value
-      if (discard < data_lines) {
-        count = data_lines - discard - 1;
+      if (start < data_lines) {
+        count = data_lines - start - 1;
         data = realloc(data, sizeof *data * (count + 1));
         data[count] = atof(split[column-1]);
       }
     } //}}}
+    if (end == data_lines) {
+      break;
+    }
   }
   fclose(fr); //}}}
 
   // error - <discard> is too large //{{{
-  if (discard >= data_lines) {
-    if (snprintf(ERROR_MSG, LINE, "number of lines to discard (%s%ld%s) is "
+  if (start >= data_lines) {
+    if (snprintf(ERROR_MSG, LINE, "number of lines to discard (%s%d%s) is "
                  "greater than the number of lines in %s%s%s", ErrYellow(),
-                 discard, ErrRed(), ErrYellow(), input, ErrRed()) < 0) {
+                 start, ErrRed(), ErrYellow(), input, ErrRed()) < 0) {
       strcpy(ERROR_MSG, "something wrong with snprintf()");
       exit(1);
     }
@@ -156,9 +166,9 @@ int main ( int argc, char** argv ) {
   if (n_blocks > -1) {
     // variables
     // number of data points must be divisible by 'n_blocks'
-    int remainder = (data_lines - discard) % n_blocks;
+    int remainder = (data_lines - start) % n_blocks;
     // total number of data points to consider
-    count = data_lines - discard - remainder;
+    count = data_lines - start - remainder;
     // number of data points per block
     int data_per_block = count / n_blocks;
     // allocate array for block averages
@@ -199,10 +209,25 @@ int main ( int argc, char** argv ) {
     free(avg_block);
   } //}}}
 
-  // -m mode
+  // -m mode //{{{
   if (moving > -1) {
-
-  }
+    // number of input datapoints
+    count = data_lines - start;
+    // number of output datapoints
+    int count_out = count - (moving - 1);
+    FILE *fw = OpenFile(output, "w");
+    PrintByline(fw, argc, argv);
+    for (int i = 0; i < count_out; i++) {
+      double tmp = 0;
+      for (int j = 0; j < moving; j++) {
+        tmp += data[i+j];
+      }
+      tmp /= moving;
+      double step = start + i + 1 + 0.5 * (moving - 1);
+      fprintf(fw, "%lf %.3e\n", step, tmp);
+    }
+    fclose(fw);
+  } //}}}
   free(data);
 
   return 0;
