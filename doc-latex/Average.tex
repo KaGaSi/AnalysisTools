@@ -1,24 +1,21 @@
 \section{Average} \label{sec:Average}
 
-This utility uses the binning method to analyse data in a text file. It
-does not use any of the standard options and prints the result only to
-standard output (e.i., screen).
+This utility calculates one of three types of averages based on a used option
+from specified column(s) of data in the input text file (all \tt{\#}-starting
+lines and blank lines are ignored). It either produces an overall average with
+statistical error and an autocorrelation time estimate (\tt{-tau} option),
+block averages (\tt{-b} option), or moving averages (\tt{-m} option). While the
+\tt{-tau} option appends a single line to the output file, either of the
+\tt{-b} or \tt{-m} options creates a new output file with somewhat smoother
+data.
 
-\texttt{Average} calculates average value, statistical error, and estimate
-of autocorrelation time $\tau$. Empty lines and comments (lines beginning
-with \texttt{\#}) are skipped. \texttt{Average} prints four numbers to
-screen: \texttt{<n\_blocks> <average> <std error> <tau estimate>}:
-\begin{longtable}{ll}
-  \toprule
-  \texttt{<n\_blocks>} & number of blocks used for the binning analysis \\
-  \texttt{<average>} & simple arithmetic average \\
-  \texttt{<std error>} & one-$\sigma$ statistical error \\
-  \texttt{<tau estimate>} & estimate of autocorrelation time $\tau$ \\
-  \bottomrule
-\end{longtable}
+The first and last lines used for the average calculation can be controlled
+using the standard \tt{-st} and \tt{-e} options.
+
+\subsection{$\boldsymbol{\tau}$ estimation via -tau option}
 
 The average value of an observable $\mathcal{O}$ is a simple arithmetic
-mean:
+mean,
 \begin{equation} \label{eq:Average} %{{{
   \langle\mathcal{O}\rangle = \frac{1}{N} \sum^N_{i=1} \mathcal{O}_i,
 \end{equation} %}}}
@@ -68,31 +65,90 @@ formula:
   \sigma^2_{\mathcal{O}_i}}.
 \end{equation} %}}}
 
-A way to quickly get $\tau$ estimate is to use a wide range of
-\texttt{<n\_blocks>} values and plot the \texttt{<tau estimate>} values as
-a function of \texttt{<n\_blocks>}. Because the number of data points in
-one block should be significantly larger than
-$\tau$ (e.g., ten times larger), plotting $f(x)=$(number of data lines in
-the file)$/(10x$) will produce an exponential function that intersects the
-\texttt{<tau estimate>} line. A value of \texttt{<tau estimate>} near the
-intersection (but to the left, where the exponential is above \texttt{<tau
-average>}) can be considered a safe estimate of $\tau$.
+The number of blocks, $N_{\mr{B}}$, is supplied as an argument of the \tt{-tau}
+option and Average then appends a single line to the \tt{<output>} file; the
+line starts with $N_{\mr{B}}$ and continues with three values
+($\langle\mathcal{O}\rangle$, $\epsilon$, and $\tau_{\mathcal{O}}$) per every
+data column specified in the Average command.
+
+A way to quickly get a $\tau$ estimate is to use a wide range of $N_{\mr{B}}$
+values and plot $\tau_{\mathcal{O}}$ from equation~\eqref{eq:tau} as a function
+of $N_{\mr{B}}$. Because the number of data points in one block should be
+significantly larger than the autocorrelation time (e.g., ten times larger),
+plotting $f(x)=N/(10x)$ will produce a monotonously decreasing curve that
+intersects the $\tau_{\mathcal{O}}$ vs. $N_{\mr{B}}$ curve. A value of
+$\tau_{\mathcal{O}}$ near the intersection (but to the left, where the
+decreasing curve is above $\tau_{\mathcal{O}}$ vs. $N_{\mr{B}}$ curve) can be
+considered a safe estimate of $\tau$.
+
+\subsection{Block averages via -b option}
+
+Besides estimating the autocorrelation time, the per-block averages can be
+themselves plotted to get (probably) smoother dataset. Using the \tt{-b} option,
+the number of datapoints per block to average, $k$, is supplied, and the utility
+prints the per-block averages from equation~\eqref{eq:BlockAverage} to the
+output file.
+
+This way of averaging could be useful for example with density data produced by
+DensityBox or related utilities; if the bin width supplied to the DensityBox was
+too small, it is (possibly much) faster to block-average the densities rather
+than rerun DensityBox. For this case, specify the first column (distance) along
+with any density columns from the density file.
+
+\subsection{Moving averages via -m option}
+
+More common way to smoothing noisy data is to use the moving (or rolling or
+running) average (or moving mean or rolling mean); this common method does have
+many names.
+
+Similarly to the block-average, the first element of the moving average is a
+simple mean of $k$ values. Unlike with block-average, however, the $k$ values
+for the next element are obtained by ignoring only one value and taking the next
+$k$ values; i.e., $k-1$ values from the previous element of the moving average
+are always reused as opposed to the block-average where the blocks of data are
+not overlapping.
+
+The moving average elements, $\mathcal{O}_{\mr{M},n}$, are defined as
+\begin{equation} \label{eq:MovingAverage}
+  \mathcal{O}_{\mr{M},n} = \frac{1}{k}
+    \sum^{n+k-1}_{n} \mathcal{O}_i.
+\end{equation}
 
 Usage:
 
 \vspace{1em}
 \noindent
-\texttt{Average <input> <column> <discard> <n\_blocks>}
+\tt{Average <input> <output> <column(s)>  <options>}
 
+\vspace{1em}
 \noindent
 \begin{longtable}{p{0.15\textwidth}p{0.794\textwidth}}
   \toprule
   \multicolumn{2}{l}{Mandatory arguments} \\
   \midrule
-  \texttt{<input>} & input text file \\
-  \texttt{<column>} & column number in \texttt{<input>} for data analysis \\
-  \texttt{<discard>} & number of data lines to discard from the beginning of
-    \texttt{<input>} \\
-  \texttt{<n\_blocks>} & number of blocks for binning analysis \\
+  \tt{<input>}     & input text file\\
+  \tt{<output>}    & output text file\\
+  \tt{<column(s)>} & at least one column number from \tt{<input>}\\
+  \midrule
+  \midrule
+  \multicolumn{2}{l}{Options}\\
+  \midrule
+  \tt{-tau <int>} & $\tau$ estimation where \tt{<int>} represents the number of
+                    blocks $N_{\mr{B}}$ \\
+  \tt{-b <int>}   & block-average printing mode where \tt{<int>} represents
+                    the number of datapoints per one block, $k$
+                    (equation~\eqref{eq:BlockAverage})\\
+  \tt{-m <int>}   & moving average mode where \tt{<int>} represents the number
+                    of datapoints per one moving block, $k$
+                    (equation~\eqref{eq:MovingAverage})\\
+  \multicolumn{2}{l}{Other options (see the beginning of 
+                     Chapter~\ref{chap:Utils})}\\
+  \midrule
+  \multicolumn{2}{l}{\tt{-st},
+                     \tt{-e},
+                     \tt{--verbose},
+                     \tt{--silent},
+                     \tt{--help},
+                     \tt{--version}}\\
   \bottomrule
 \end{longtable}

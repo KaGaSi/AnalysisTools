@@ -169,6 +169,7 @@ void CommonOptions(int argc, char *argv[], int length, bool *verbose,
   }
   (*skip)++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
   // position of the first number of pbc in xyz file
+  *pbc_xyz = -1;
   if (IntegerOption(argc, argv, 1, "-pbc", &trash, pbc_xyz)) {
     exit(1);
   }

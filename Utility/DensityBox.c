@@ -14,7 +14,7 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
 DensityBox utility calculates number \
 density for all bead types in the direction of all axes (x, y, and z).\
 The utility works properly only for orthogonal boxes that do not change \
-size. \n\n");
+size.\n\n");
   }
 
   fprintf(ptr, "Usage:\n");
@@ -150,7 +150,15 @@ int main(int argc, char *argv[]) {
         break;
       }
       count_used++;
-      WrapJoinCoordinates(&System, true, false);
+      for (int i = 0; i < Count->BeadCoor; i++) {
+        use = true;
+        int id = System.BeadCoor[i];
+        BEAD *bead = &System.Bead[id];
+        bead->Position.x += box->Length.x / 2;
+        bead->Position.y += box->Length.y / 2;
+        bead->Position.z += box->Length.z / 2;
+      }
+      // WrapJoinCoordinates(&System, true, false);
       // allocate memory for temporary density arrays
       int ***temp_rho = malloc(3 * sizeof(int **));
       for (int i = 0; i < 3; i++) {
@@ -264,7 +272,7 @@ int main(int argc, char *argv[]) {
     FILE *fw = OpenFile(file, "w");
     PrintByline(fw, argc, argv);
     // print bead type names to output file
-    fprintf(fw, "# columns: (1) absolute distance");
+    fprintf(fw, "# columns: (1) distance");
     count = 1;
     for (int i = 0; i < Count->BeadType; i++) {
       if (n_beads[i] != 0) {
@@ -276,10 +284,10 @@ int main(int argc, char *argv[]) {
     // write rdf
     for (int i = 0; i < n-1; i++) {
       double dist = width * (2 * i + 1) / 2;
-      fprintf(fw, "%7.3f", dist); // absolute distance
       if (dist > size) { // write only til the max box size
         break;
       }
+      fprintf(fw, "%7.3f", dist); // absolute distance
       for (int j = 0; j < Count->BeadType; j++) {
         if (n_beads[j] > 0 ){
           double temp_rho = rho[ax][j][i] / (volume * count_used);

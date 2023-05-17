@@ -13,7 +13,7 @@ an output structure file of specified format (-o option). If some information \
 required in the output file is missing, \
 '???\' is printed instead. The system from the input file can \
 be modified using a second structure file (-i[!] option) and/or \
-a coordinate file (-c option); see manual and Examples/Info folder for \
+a coordinate file (-c option); see Examples/Info folder for \
 details.\
 \n\n");
   }

@@ -1,8 +1,5 @@
 #include "../AnalysisTools.h"
 
-// TODO: add -st/-e/-sk(?)
-// TODO: possibility to specify multiple columns
-
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
@@ -10,31 +7,33 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   } else {
     ptr = stdout;
     fprintf(stdout, "\
-        REWRITE!!!\
-Average uses binning method to analyse data stored in a supplied file. It \
-prints average, statistical error and estimate of integrated autocorrelation \
-time (tau). Empty lines and lines beginning with '#' are skipped. The program \
-prints to standart output 4 values: <n_blocks> <simple average> <statistical \
-error> <estimate of tau>.\n\n");
-    fprintf(stdout, "\
-A way to get a reasonable tau estimate is to use a wide range of <n_blocks> \
-and then plot <tau> as a function of <n_blocks>. Since the number of data \
-points in a block has to be larger than tau (e.g., ten times larger), \
-plotting <number of data lines>/10/<n_blocks> vs. <n_blocks> will produce an \
-exponential function that intersects the plotted <tau>. A value of tau near \
-the intersection (but to the left where the exponential is above <tau>) can \
-be considered a safe estimate for tau.\n\n");
+Average utility calculates averages for specified column(s) from the input \
+file (ignoring empty lines and lines beginning with '#'), printing the results \
+to an output file. It has three operation modes based on which of the three \
+options is supplied:\n\
+1) for -tau option, the utility uses binning method to calculate average, \
+statistical error and an estimate of integrated autocorrelation \
+time (tau), outputting the specified number of blocks and three values for \
+each column used: <simple average> <error> <tau> \
+(all on a single line). In this mode, Average appends to the \
+output file instead of rewriting it. See the manual for a way to obtain \
+a reasonable estimate of tau via rerunning the utility several times.\n\
+2) for -b option, the binning method is used to calculate per-block averages.\n\
+3) for -m option, the moving method is used to smoothen the input data.");
   }
 
   fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <column>\n\n", cmd);
+  fprintf(ptr, "   %s <input> <output> <column(s)>\n\n", cmd);
 
-  fprintf(ptr, "   <input>            input filename\n");
-  fprintf(ptr, "   <column>           column number in the file to analyse\n");
+  fprintf(ptr, "   <input>        input filename\n");
+  fprintf(ptr, "   <output>       output filename\n");
+  fprintf(ptr, "   <column(s)>    file column number(s) to analyse\n");
   fprintf(ptr, "   [options]\n");
-  fprintf(ptr, "      -b <int>        block mode - number of blocks "
-          "to split data into\n");
-  fprintf(ptr, "      -m <file> <int> moving mode - output filename and"
+  fprintf(ptr, "      -tau <int>  estimate tau mode - "
+          "number of blocks to split data into\n");
+  fprintf(ptr, "      -b <int>    block mode - "
+          "number of datapoints per block\n");
+  fprintf(ptr, "      -m <int>    moving mode - "
           "number of data points per moving average\n");
   CommonHelp(error, n, opt);
 } //}}}
@@ -42,8 +41,8 @@ be considered a safe estimate for tau.\n\n");
 int main ( int argc, char** argv ) {
 
   // define options //{{{
-  int common = 5, all = common + 2, count = 0,
-      req_arg = 2; // TODO: will be only two (<input> and <column(s)>)
+  int common = 5, all = common + 3, count = 0,
+      req_arg = 3; // TODO: will be only two (<input> and <column(s)>)
   char option[all][OPT_LENGTH];
   // common options
   strcpy(option[count++], "-st");
@@ -52,6 +51,7 @@ int main ( int argc, char** argv ) {
   strcpy(option[count++], "--help");
   strcpy(option[count++], "--version");
   // extra options
+  strcpy(option[count++], "-tau");
   strcpy(option[count++], "-b");
   strcpy(option[count++], "-m");
   OptionCheck(argc, argv, req_arg, common, all, option);
@@ -63,45 +63,62 @@ int main ( int argc, char** argv ) {
   char input[LINE];
   strcpy(input, argv[++count]);
 
-  // <column> - column number to analyze
-  long int column;
-  if (!IsNaturalNumber(argv[++count], &column)) {
-    ErrorNaN("<column>");
-    Help(argv[0], true, common, option);
-    exit(1);
+  char output[LINE] = "";
+  strcpy(output, argv[++count]);
+
+  // <column> - column number(s) to analyze
+  // TODO: warning if multiple times the same column number
+  long int *column = malloc(sizeof *column);
+  int col_count = 0;
+  while (++count < argc && argv[count][0] != '-') {
+    if (!IsNaturalNumber(argv[count], &column[col_count])) {
+      ErrorNaN("<column>");
+      Help(argv[0], true, common, option);
+      exit(1);
+    }
+    col_count++;
+    column = realloc(column, sizeof *column * (col_count + 1));
+  }
+  int col_max = 0;
+  for (int i = 0; i < col_count; i++) {
+    if (column[i] > col_max) {
+      col_max = column[i];
+    }
   }
 
-  // // <discard> - number of lines to discard from the file beginning
-  // long int start = 0;
-  // if (!IsWholeNumber(argv[++count], &start)) {
-  //   ErrorNaN("<discard>");
-  //   Help(argv[0], true, common, option);
-  //   exit(1);
-  // }
-  // options before reading system data
   bool silent, rubbish2;
-  int start = 1, end = -1, skip = 0, rubbish;
+  int start = 1, end = -1, skip = 0, rubbish = 0;
   CommonOptions(argc, argv, LINE, &rubbish2, &silent, &rubbish2, &rubbish2,
                 &rubbish, &start, &end, &skip);
   start--; // discarded steps rather than starting step //TODO: change
 
-
-  // -b option: use block method to get overall average (and stderr and tau)
+  // -tau option: use block method to get overall average (and stderr and tau)
   int n_blocks = -1;
-  if (IntegerOption(argc, argv, 1, "-b", &rubbish, &n_blocks)) {
+  if (IntegerOption(argc, argv, 1, "-tau", &rubbish, &n_blocks)) {
+    exit(1);
+  }
+  // -b option: calculate block averages
+  int data_per_block = -1;
+  if (IntegerOption(argc, argv, 1, "-b", &rubbish, &data_per_block)) {
     exit(1);
   }
   // -m option: calculate moving average
   int moving = -1;
-  char output[LINE] = "";
-  if (FileIntegerOption(argc, argv, 1, "-m", &rubbish, &moving, output)) {
+  if (IntegerOption(argc, argv, 1, "-m", &rubbish, &moving)) {
     exit(1);
   }
-  if (moving == -1 && n_blocks == -1) {
-    strcpy(ERROR_MSG, "either -m or -b option must be used");
+  if (moving == -1 && n_blocks == -1 && data_per_block == -1) {
+    strcpy(ERROR_MSG, "-tau, -b, or -m option must be used");
     PrintError();
     Help(argv[0], true, common, option);
     exit(1);
+  }
+  if ((moving != -1 && n_blocks != -1) ||
+      (moving != -1 && data_per_block != -1) ||
+      (n_blocks != -1 && data_per_block != -1)) {
+    strcpy(ERROR_MSG, "only one of the -tau, -b, and -m option can be used");
+    PrintError();
+    Help(argv[0], true, common, option);
   }
   if (moving != -1 && end != -1 && (end - start - moving) < 0) {
     snprintf(ERROR_MSG, LINE, "nothing to compute: %s%d%s-point moving "
@@ -111,8 +128,15 @@ int main ( int argc, char** argv ) {
     Help(argv[0], true, common, option);
   }
 
+  if (!silent) {
+    PrintCommand(stdout, argc, argv);
+  }
+
   // array to save the data; realloc'd on the fly
-  double *data = malloc(sizeof *data);
+  double **data = malloc(sizeof *data * col_count);
+  for (int i = 0; i < col_count; i++) {
+    data[i] = malloc(sizeof *data[i]);
+  }
 
   // read data from <input> file //{{{
   FILE *fr = OpenFile(input, "r");
@@ -130,18 +154,21 @@ int main ( int argc, char** argv ) {
     // if not empty line or comment continue //{{{
     if (words > 0 && split[0][0] != '#') {
       // error - insufficient number of columns //{{{
-      if (words < column) {
-        snprintf(ERROR_MSG, LINE, "too few columns (%s%d%s instead of %s%ld%s)",
-                 ErrYellow(), words, ErrRed(), ErrYellow(), column, ErrRed());
-        PrintErrorFileLine(input, line_count, split, words);
-        exit(1);
+      if (words < col_max) {
+        snprintf(ERROR_MSG, LINE, "too few columns (%s%d%s instead "
+                 "of %s%d%s); file reading finished", ErrYellow(), words,
+                 ErrCyan(), ErrYellow(), col_max, ErrCyan());
+        PrintWarningFileLine(input, line_count, split, words);
+        break;
       } //}}}
       data_lines++;
       // save the value
       if (start < data_lines) {
         count = data_lines - start - 1;
-        data = realloc(data, sizeof *data * (count + 1));
-        data[count] = atof(split[column-1]);
+        for (int i = 0; i < col_count; i++) {
+          data[i] = realloc(data[i], sizeof *data[i] * (count + 1));
+          data[i][count] = atof(split[column[i]-1]);
+        }
       }
     } //}}}
     if (end == data_lines) {
@@ -162,7 +189,7 @@ int main ( int argc, char** argv ) {
     exit(1);
   } //}}}
 
-  // -b mode //{{{
+  // -tau mode //{{{
   if (n_blocks > -1) {
     // variables
     // number of data points must be divisible by 'n_blocks'
@@ -171,41 +198,112 @@ int main ( int argc, char** argv ) {
     count = data_lines - start - remainder;
     // number of data points per block
     int data_per_block = count / n_blocks;
-    // allocate array for block averages
-    long double *avg_block = malloc(sizeof *avg_block * n_blocks);
-    memset(avg_block, 0, sizeof *avg_block * n_blocks);
+    // block averages
+    long double **avg_block = malloc(sizeof **avg_block * col_count);
     // overall averages
-    long double avg_all[2] = {0}; // [0] for avg, [1] for avg of squares
+    long double **avg_all = malloc(sizeof **avg_all * col_count);
+    for (int i = 0; i < col_count; i++) {
+      avg_block[i] = calloc(n_blocks, sizeof *avg_block[i]);
+      avg_all[i] = calloc(2, sizeof *avg_all[i]); // [0] avg, [1] avg of squares
+    }
 
     int k = remainder; // first datapoint to consider
     for (int i = 0; i < n_blocks; i++) {
       for (int j = 0; j < data_per_block; j++) {
-        avg_all[0] += data[k];
-        avg_all[1] += SQR(data[k]);
-        avg_block[i] += data[k++];
+        for (int col = 0; col < col_count; col++) {
+          avg_all[col][0] += data[col][k];
+          avg_all[col][1] += SQR(data[col][k]);
+          avg_block[col][i] += data[col][k];
+        }
+        k++;
       }
     }
-    avg_all[0] /= count;
-    avg_all[1] /= count;
-    for (int i = 0; i < n_blocks; i++) {
-      avg_block[i] /= data_per_block;
+    for (int col = 0; col < col_count; col++) {
+      avg_all[col][0] /= count;
+      avg_all[col][1] /= count;
+      for (int i = 0; i < n_blocks; i++) {
+        avg_block[col][i] /= data_per_block;
+      }
     }
 
-    // standard deviation for block averages
-    double block_stdev = 0;
-    for (int i = 0; i < n_blocks; i++) {
-      block_stdev += (avg_block[i] - avg_all[0])*(avg_block[i] - avg_all[0]);
+    double *error = calloc(col_count, sizeof *error),
+           *tau_int = calloc(col_count, sizeof *tau_int);
+    for (int col = 0; col < col_count; col++) {
+      // standard deviation for block averages
+      double block_stdev = 0;
+      for (int i = 0; i < n_blocks; i++) {
+        block_stdev += SQR(avg_block[col][i] - avg_all[col][0]);
+      }
+      block_stdev /= n_blocks - 1;
+      // statistical error
+      error[col] = sqrt(block_stdev / n_blocks);
+      // approximate integrated autocorrelation time
+      tau_int[col] = 0.5 * data_per_block * block_stdev /
+                     (avg_all[0][1] - SQR(avg_all[0][0]));
     }
-    block_stdev /= n_blocks - 1;
-    // statistical error
-    double error = sqrt(block_stdev / n_blocks);
-    // approximate integrated autocorrelation time
-    double tau_int = 0.5 * data_per_block * block_stdev /
-                     (avg_all[1] - SQR(avg_all[0]));
 
     // print number of blocks, average, statistical error, and estimate of tau
-    fprintf(stdout, "%4d %Lf %lf %lf\n", n_blocks, avg_all[0], error, tau_int);
+    FILE *fw = OpenFile(output, "a");
+    fprintf(fw, " %6d", n_blocks);
+    for (int col = 0; col < col_count; col++) {
+      fprintf(fw, " %Lf", avg_all[col][0]);
+      fprintf(fw, " %lf", error[0]);
+      fprintf(fw, " %lf", tau_int[0]);
+    }
+    putc('\n', fw);
+    fclose(fw);
 
+    for (int i = 0; i < col_count; i++) {
+      free(avg_block[i]);
+      free(avg_all[i]);
+    }
+    free(avg_block);
+    free(avg_all);
+    free(error);
+    free(tau_int);
+  } //}}}
+
+  // -b mode //{{{
+  if (data_per_block > -1) {
+    // variables
+    // number of data points must be divisible by 'data_per_block'
+    int remainder = (data_lines - start) % data_per_block;
+    // total number of data points to consider
+    count = data_lines - start - remainder;
+    // number of blocks
+    int blocks = count / data_per_block;
+    // block averages
+    long double **avg_block = malloc(sizeof **avg_block * col_count);
+    for (int i = 0; i < col_count; i++) {
+      avg_block[i] = calloc(blocks, sizeof *avg_block[i]);
+    }
+
+    int k = remainder; // first datapoint to consider
+    for (int i = 0; i < blocks; i++) {
+      for (int j = 0; j < data_per_block; j++) {
+        for (int col = 0; col < col_count; col++) {
+          avg_block[col][i] += data[col][k];
+        }
+        k++;
+      }
+    }
+    for (int col = 0; col < col_count; col++) {
+      for (int i = 0; i < blocks; i++) {
+        avg_block[col][i] /= data_per_block;
+      }
+    }
+    FILE *fw = OpenFile(output, "w");
+    for (int i = 0; i < blocks; i++) {
+      for (int col = 0; col < col_count; col++) {
+        fprintf(fw, " %Le", avg_block[col][i]);
+      }
+      putc('\n', fw);
+    }
+    fclose(fw);
+
+    for (int i = 0; i < col_count; i++) {
+      free(avg_block[i]);
+    }
     free(avg_block);
   } //}}}
 
@@ -218,17 +316,23 @@ int main ( int argc, char** argv ) {
     FILE *fw = OpenFile(output, "w");
     PrintByline(fw, argc, argv);
     for (int i = 0; i < count_out; i++) {
-      double tmp = 0;
-      for (int j = 0; j < moving; j++) {
-        tmp += data[i+j];
+      for (int col = 0; col < col_count; col++) {
+        double tmp = 0;
+        for (int j = 0; j < moving; j++) {
+          tmp += data[col][i+j];
+        }
+        tmp /= moving;
+        fprintf(fw, " %e", tmp);
       }
-      tmp /= moving;
-      double step = start + i + 1 + 0.5 * (moving - 1);
-      fprintf(fw, "%lf %.3e\n", step, tmp);
+      putc('\n', fw);
     }
     fclose(fw);
   } //}}}
+  for (int i = 0; i < col_count; i++) {
+    free(data[i]);
+  }
   free(data);
+  free(column);
 
   return 0;
 }

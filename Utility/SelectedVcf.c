@@ -9,13 +9,10 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   } else {
     ptr = stdout;
     fprintf(ptr, "\
-SelectedVcf creates new <output.vcf> file (and possibly xyz file) from \
-<input> containing only selected bead types. Periodic boundary conditions \
+SelectedVcf creates new coordinate file in the extension-specified format \
+that contains only selected bead types. Periodic boundary conditions \
 can be either stripped away or applied (which happens first if both \
-'--join' and '--wrap' options are used). Also, specified molecules can be \
-excluded. However, AnalysisTools utilities can only read coordinate files \
-containing all beads of any given type, so the usefulness is very limited \
-(for, e.g., visualization using vmd).\n\n");
+'--join' and '--wrap' options are used).\n\n");
   }
 
   fprintf(ptr, "Usage:\n");
