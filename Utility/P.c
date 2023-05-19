@@ -1,6 +1,6 @@
 #include "../AnalysisTools.h"
 
-typedef struct SC {
+typedef struct FF {
   double n, m,
          a, c, eps;
 } SC;

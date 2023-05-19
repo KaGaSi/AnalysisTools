@@ -4,6 +4,7 @@
 //       Should I maybe use real units, so it can be reduced via red_E
 //       Or should I add eps keyword to extra file (along with type of
 //       potential, if I ever wanted to add one)
+// TODO: --per-step option?
 
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
@@ -15,28 +16,29 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   }
 
   fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <out> [options]\n\n", cmd);
+  fprintf(ptr, "   %s <input> <width> <output_gl> <output> [options]\n\n", cmd);
 
-  fprintf(ptr, "   <input>           input coordinate file"
-          " (vcf, vtf, lammpstrj, or xyz format)\n");
-  fprintf(ptr, "   <out>             output file\n");
+  fprintf(ptr, "   <input>        input coordinate file\n");
+  fprintf(ptr, "   <width>        width of a single bin\n");
+  fprintf(ptr, "   <output_gl>    output file with global observables\n");
+  fprintf(ptr, "   <output>       output files with local variables "
+          "(automatic endings -x.txt, -y.txt, and -z.txt\n");
   fprintf(ptr, "   [options]\n");
-  fprintf(ptr, "      --per-step     save a new file for each step"
-          "(adds '-<step>.txt' to <out1>)\n");
-  fprintf(ptr, "      -avg <n>       number of adjacent bins to average\n");
-  fprintf(ptr, "      -fx <file>     file with extra information\n");
+  // fprintf(ptr, "      --per-step  save a new file for each step"
+  //         "(adds '-<step>.txt' to <output>)\n");
+  fprintf(ptr, "      -fx <file>  file with extra information\n");
   CommonHelp(error, n, opt);
 } //}}}
 
-typedef struct SC {
+typedef struct FF {
   double n, m,
          a, c, eps,
          rcut,
          rep1, rep2, dd1, dd2;
-} SC;
+} FF;
 
 // calculate some prefactors for the potential //{{{
-void SCPrefactors(SYSTEM System, SC **sc) {
+void SCPrefactors(SYSTEM System, FF **sc) {
 // prefactors for shifted potential
   for (int i = 0; i < System.Count.BeadType; i++) {
     for (int j = 0; j < System.Count.BeadType; j++) {
@@ -55,7 +57,7 @@ void SCPrefactors(SYSTEM System, SC **sc) {
 
 // calculate local density for Sutton-Chen potential //{{{
 void LocalDensitySC(SYSTEM System, int bead1, int bead2,
-                    SC **sc, double *density) {
+                    FF **sc, double *density) {
   BEAD *b_i = &System.Bead[bead1],
        *b_j = &System.Bead[bead2];
   VECTOR dist = Distance(b_i->Position, b_j->Position, System.Box.Length);
@@ -85,7 +87,7 @@ void LocalDensitySC(SYSTEM System, int bead1, int bead2,
 } //}}}
 
 // calculate potential, force and wirial for shifted Sutton-Chen potential //{{{
-void ShiftedSuttonChen(SYSTEM System, int bead1, int bead2, SC **sc,
+void ShiftedSuttonChen(SYSTEM System, int bead1, int bead2, FF **sc,
                        double *density, double *potential, VECTOR *force,
                        double *Pxx, double *Pyy, double *Pzz) {
   BEAD *b_i = &System.Bead[bead1],
@@ -162,7 +164,7 @@ int main(int argc, char *argv[]) {
 
   bool calculate_density = true; // TODO: some switch based on used potential
   int elements = 2; // Count->BeadType basically
-  SC **sc = malloc(sizeof **sc * elements);
+  FF **sc = malloc(sizeof **sc * elements);
   for (int i = 0; i < elements; i++) {
     sc[i] = calloc(elements, sizeof *sc[i]);
   }
@@ -227,9 +229,18 @@ int main(int argc, char *argv[]) {
     exit(1);
   } //}}}
 
+  // <width> - width of a single bin //{{{
+  double width;
+  if (!IsPosRealNumber(argv[++count], &width)) {
+    ErrorNaN("<width>");
+    Help(argv[0], true, common, option);
+    exit(1);
+  } //}}}
+
   // <out1> & <out2>
-  char out1_file[LINE] = "";
-  snprintf(out1_file, LINE, "%s", argv[++count]);
+  char out_global[LINE] = "", out_local[LINE] = "";
+  snprintf(out_global, LINE, "%s", argv[++count]);
+  snprintf(out_local, LINE, "%s", argv[++count]);
 
   // options before reading system data //{{{
   bool silent, verbose, detailed, vtf_var;
@@ -250,12 +261,24 @@ int main(int argc, char *argv[]) {
                                 detailed, vtf_var, pbc_xyz);
 
   COUNT *Count = &System.Count;
+  BOX *box = &System.Box;
 
-  bool *write = malloc(Count->Bead * sizeof *write);
-  for (int i = 0; i < Count->Bead; i++) {
-    write[i] = true;
-  }
+  // number of bins //{{{
+  // error - box size must be specified //{{{
+  if (box->Volume == -1) {
+    strcpy(ERROR_MSG, "missing box dimensions");
+    PrintErrorFile(coor_file, struct_file, "\0"); // TODO add file(s)
+    exit(1);
+  } //}}}
+  VECTOR bin;
+  // TODO: *3 to assume box change of at most thrice as big
+  //       remake to realloc on the fly
+  bin.x = ceil(box->Length.x / width) * 3;
+  bin.y = ceil(box->Length.y / width) * 3;
+  bin.z = ceil(box->Length.z / width) * 3;
+  double n_bins = Max3(bin.x, bin.y, bin.z); //}}}
 
+  // coarse-graining & reducing parameters //{{{
   int CG = 1;
   // basis for reduced units
   double real_m = 1, // mass
@@ -309,7 +332,6 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < Count->BeadType; i++) {
     System.BeadType[i].Mass *= CUBE(CG);
   }
-  // reduce parameters
   for (int i = 0; i < elements; i++) {
     for (int j = 0; j < elements; j++) {
       sc[i][j].a /= real_l;
@@ -320,16 +342,7 @@ int main(int argc, char *argv[]) {
   }
   for (int i = 0; i < Count->BeadType; i++) {
     System.BeadType[i].Mass /= real_m;
-  }
-
-  SCPrefactors(System, sc);
-
-  BOX *box = &System.Box;
-  if (box->Volume == -1) {
-    strcpy(ERROR_MSG, "missing box dimensions");
-    PrintErrorFile(coor_file, struct_file, "\0"); // TODO add file(s)
-    exit(1);
-  }
+  } //}}}
 
   if (verbose) {
     VerboseOutput(System);
@@ -345,7 +358,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // write header to output file //{{{
-  FILE *fw = OpenFile(out1_file, "w");
+  FILE *fw = OpenFile(out_global, "w");
   PrintByline(fw, argc, argv);
   count = 0;
   fprintf(fw, "# (%d) timestep;", ++count);
@@ -360,6 +373,14 @@ int main(int argc, char *argv[]) {
   fprintf(fw, " (%d) W;", ++count);
   putc('\n', fw);
   fclose(fw); //}}}
+
+  SCPrefactors(System, sc);
+
+  // allocate memory for arrays //{{{
+  VECTOR **Temperature = malloc(Count->BeadType * sizeof **Temperature);
+  for (int i = 0; i < Count->BeadType; i++) {
+    Temperature[i] = calloc(n_bins, sizeof Temperature[i]);
+  } //}}}
 
   // main loop //{{{
   FILE *coor = OpenFile(coor_file, "r");
@@ -503,74 +524,6 @@ int main(int argc, char *argv[]) {
                       id_j = System.BeadCoor[j];
                   ShiftedSuttonChen(System, id_i, id_j, sc, density, uSC,
                                     force, &Pxx, &Pyy, &Pzz);
-                  // BEAD *b_i = &System.Bead[id_i],
-                  //      *b_j = &System.Bead[id_j];
-                  // VECTOR dist = Distance(b_i->Position, b_j->Position, box->Length);
-                  // double rij = VectorLength(dist);
-                  // int bt_i = b_i->Type,
-                  //     bt_j = b_j->Type;
-                  // if (rij < sc[bt_i][bt_j].rcut) {
-                  //   if (rij == 0) {
-                  //     strcpy(ERROR_MSG, "zero bead-bead distance!");
-                  //     PrintError();
-                  //     exit(1);
-                  //   }
-                  //   // helper value of (a / r_ij)^m & (a / r_ij)^n
-                  //   double a_div_r = sc[bt_i][bt_j].a / rij;
-                  //   double a_div_r_m = pow(a_div_r, sc[bt_i][bt_j].m),
-                  //          a_div_r_n = pow(a_div_r, sc[bt_i][bt_j].n);
-                  //   // 1) repulsive energy
-                  //   // eps * (a / r_ij)^m ...
-                  //   double tmp = sc[bt_i][bt_j].eps * a_div_r_m;
-                  //   // (shifted potential) ... - eps * (a / r_c)^m ...
-                  //   tmp -= rep1[bt_i][bt_j];
-                  //   // ... + eps * (a / r_c)^m * m / r_c * (r_ij - r_c)
-                  //   tmp += rep2[bt_i][bt_j] * (rij - sc[bt_i][bt_j].rcut);
-                  //   // add to per-particle repulsive energy
-                  //   uSC[id_i] += tmp;
-                  //   uSC[id_j] += tmp;
-                  //   // u_rep[id_i]++;
-                  //   // u_rep[id_j]++;
-                  //   // 2) repulsive virial
-                  //   // repulsive: -m * eps * (a / r_ij)^m ...
-                  //   tmp = -sc[bt_i][bt_j].m * sc[bt_i][bt_j].eps * a_div_r_m;
-                  //   // ... + m * eps * (a / r_c)^m / r_c * r_ij
-                  //   tmp += rep2[bt_i][bt_j] * rij;
-                  //   double w_rep = tmp;
-                  //   // 3) density-dependent virial
-                  //   // 0.5 * (c_i * eps_ii / sqrt(\rho_i) +
-                  //   //        c_j * eps_jj / sqrt(\rho_j) ...
-                  //   double c_eps_i = sc[bt_i][bt_i].c * sc[bt_i][bt_i].eps /
-                  //                    sqrt(density[id_i]),
-                  //          c_eps_j = sc[bt_j][bt_j].c * sc[bt_j][bt_j].eps /
-                  //                    sqrt(density[id_j]);
-                  //   tmp = 0.5 * (c_eps_i + c_eps_j);
-                  //   // ... * (n * (a / r_ij)^n - n * (a / r_c)^n / r_c * r_ij)
-                  //   tmp *= sc[bt_i][bt_j].n * a_div_r_n - dd2[bt_i][bt_j] * rij;
-                  //   double w_dd = tmp;
-                  //   // 4) pairwise forces
-                  //   double fij = -(w_rep + w_dd) / SQR(rij);
-                  //   // force in axes' directions
-                  //   VECTOR f;
-                  //   f.x = fij * dist.x;
-                  //   f.y = fij * dist.y;
-                  //   f.z = fij * dist.z;
-                  //   // pressure tensor components
-                  //   Pxx += f.x * dist.x;
-                  //   Pyy += f.y * dist.y;
-                  //   Pzz += f.z * dist.z;
-                  //   // per-particle force
-                  //   force[id_i].x += f.x;
-                  //   force[id_i].y += f.y;
-                  //   force[id_i].z += f.z;
-                  //   force[id_j].x -= f.x;
-                  //   force[id_j].y -= f.y;
-                  //   force[id_j].z -= f.z;
-                  //   printf("%6d %6d", id_i, id_j);
-                  //   printf(" %lf %lf %lf", dist.x, dist.y, dist.z);
-                  //   printf(" %lf %lf %lf", w_dd, w_rep, fij);
-                  //   printf(" %lf %lf %lf\n", f.x, f.y, f.z);
-                  // }
                   j = Link[j];
                 }
               }
@@ -590,7 +543,7 @@ int main(int argc, char *argv[]) {
       double virial = (Pxx + Pyy + Pzz) / 3;
       double press_vir = virial / box->Volume;
 
-      fw = OpenFile(out1_file, "a");
+      fw = OpenFile(out_global, "a");
       fprintf(fw, " %8d", count_coor);
       fprintf(fw, " %8.3e", temperature * real_T / CUBE(CG));
       fprintf(fw, " %10.3e", energy_kin * real_E / CUBE(CG));
@@ -640,12 +593,15 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // free memory //{{{
-  free(write);
   FreeSystem(&System);
   for (int i = 0; i < elements; i++) {
     free(sc[i]);
   }
   free(sc);
+  for (int i = 0; i < Count->BeadType; i++) {
+    free(Temperature[i]);
+  }
+  free(Temperature);
   //}}}
 
   return 0;

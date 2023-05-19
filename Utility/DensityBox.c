@@ -110,20 +110,17 @@ int main(int argc, char *argv[]) {
   bin.z = ceil(box->Length.z / width) * 3; //}}}
 
   // allocate memory for arrays //{{{
-  long int *n_beads = calloc(Count->BeadType, sizeof *n_beads);
+  // just check if the bead type is at all present in the calculation
+  bool *n_beads = calloc(Count->BeadType, sizeof *n_beads);
+  // TODO: LONGINTVECTOR instead long int [3]?
   long int ***rho = malloc(3 * sizeof ***rho);
-  long int ***rho_2 = malloc(3 * sizeof ***rho_2);
   for (int i = 0; i < 3; i++) {
     rho[i] = malloc(Count->BeadType * sizeof **rho);
-    rho_2[i] = malloc(Count->BeadType * sizeof **rho_2);
   }
   for (int j = 0; j < Count->BeadType; j++) {
     rho[0][j] = calloc(bin.x, sizeof *rho[0][j]);
     rho[1][j] = calloc(bin.y, sizeof *rho[1][j]);
     rho[2][j] = calloc(bin.z, sizeof *rho[2][j]);
-    rho_2[0][j] = calloc(bin.x, sizeof *rho_2[0][j]);
-    rho_2[1][j] = calloc(bin.y, sizeof *rho_2[1][j]);
-    rho_2[2][j] = calloc(bin.z, sizeof *rho_2[2][j]);
   } //}}}
 
   if (verbose) {
@@ -181,7 +178,7 @@ int main(int argc, char *argv[]) {
           use = System.MoleculeType[mtype].Flag;
         }
         if (use) {
-          n_beads[bead->Type]++;
+          n_beads[bead->Type] = true;
           // x direction
           int j = bead->Position.x / width;
           temp_rho[0][bead->Type][j]++;
@@ -198,17 +195,14 @@ int main(int argc, char *argv[]) {
         // x direction
         for (int k = 0; k < bin.x-1; k++) {
           rho[0][j][k] += temp_rho[0][j][k];
-          rho_2[0][j][k] += SQR(temp_rho[0][j][k]);
         }
         // y direction
         for (int k = 0; k < bin.y-1; k++) {
           rho[1][j][k] += temp_rho[1][j][k];
-          rho_2[1][j][k] += SQR(temp_rho[1][j][k]);
         }
         // z direction
         for (int k = 0; k < bin.z-1; k++) {
           rho[2][j][k] += temp_rho[2][j][k];
-          rho_2[2][j][k] += SQR(temp_rho[2][j][k]);
         }
       }
       // free temporary density array
@@ -275,21 +269,21 @@ int main(int argc, char *argv[]) {
     fprintf(fw, "# columns: (1) distance");
     count = 1;
     for (int i = 0; i < Count->BeadType; i++) {
-      if (n_beads[i] != 0) {
+      if (n_beads[i]) {
         count++;
         fprintf(fw, "; (%d) %s", count, System.BeadType[i].Name);
       }
     }
     putc('\n', fw);
     // write rdf
-    for (int i = 0; i < n-1; i++) {
+    for (int i = 0; i < (n - 1); i++) {
       double dist = width * (2 * i + 1) / 2;
       if (dist > size) { // write only til the max box size
         break;
       }
       fprintf(fw, "%7.3f", dist); // absolute distance
       for (int j = 0; j < Count->BeadType; j++) {
-        if (n_beads[j] > 0 ){
+        if (n_beads[j]){
           double temp_rho = rho[ax][j][i] / (volume * count_used);
           fprintf(fw, " %10f", temp_rho);
         }
@@ -304,12 +298,9 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < Count->BeadType; j++) {
       free(rho[i][j]);
-      free(rho_2[i][j]);
     }
     free(rho[i]);
-    free(rho_2[i]);
   }
-  free(rho_2);
   free(rho);
   free(n_beads); //}}}
 
