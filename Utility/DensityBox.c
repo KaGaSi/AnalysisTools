@@ -147,15 +147,7 @@ int main(int argc, char *argv[]) {
         break;
       }
       count_used++;
-      for (int i = 0; i < Count->BeadCoor; i++) {
-        use = true;
-        int id = System.BeadCoor[i];
-        BEAD *bead = &System.Bead[id];
-        bead->Position.x += box->Length.x / 2;
-        bead->Position.y += box->Length.y / 2;
-        bead->Position.z += box->Length.z / 2;
-      }
-      // WrapJoinCoordinates(&System, true, false);
+      WrapJoinCoordinates(&System, true, false);
       // allocate memory for temporary density arrays
       int ***temp_rho = malloc(3 * sizeof(int **));
       for (int i = 0; i < 3; i++) {

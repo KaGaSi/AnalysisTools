@@ -153,10 +153,10 @@ void ShiftedSuttonChen(SYSTEM System, int bead1, int bead2, FF **sc,
     force[bead2].x -= f.x;
     force[bead2].y -= f.y;
     force[bead2].z -= f.z;
-    printf("%6d %6d", bead1, bead2);
-    printf(" %lf %lf %lf", dist.x, dist.y, dist.z);
-    printf(" %lf %lf %lf", w_dd, w_rep, fij);
-    printf(" %lf %lf %lf\n", f.x, f.y, f.z);
+    // printf("%6d %6d", bead1, bead2);
+    // printf(" %lf %lf %lf", dist.x, dist.y, dist.z);
+    // printf(" %lf %lf %lf", w_dd, w_rep, fij);
+    // printf(" %lf %lf %lf\n", f.x, f.y, f.z);
   }
 } //}}}
 
@@ -270,13 +270,13 @@ int main(int argc, char *argv[]) {
     PrintErrorFile(coor_file, struct_file, "\0"); // TODO add file(s)
     exit(1);
   } //}}}
-  VECTOR bin;
+  VECTOR tmp_bin;
   // TODO: *3 to assume box change of at most thrice as big
   //       remake to realloc on the fly
-  bin.x = ceil(box->Length.x / width) * 3;
-  bin.y = ceil(box->Length.y / width) * 3;
-  bin.z = ceil(box->Length.z / width) * 3;
-  double n_bins = Max3(bin.x, bin.y, bin.z); //}}}
+  tmp_bin.x = ceil(box->Length.x / width);
+  tmp_bin.y = ceil(box->Length.y / width);
+  tmp_bin.z = ceil(box->Length.z / width);
+  double n_bins = Max3(tmp_bin.x, tmp_bin.y, tmp_bin.z); //}}}
 
   // coarse-graining & reducing parameters //{{{
   int CG = 1;
@@ -376,11 +376,17 @@ int main(int argc, char *argv[]) {
 
   SCPrefactors(System, sc);
 
-  // allocate memory for arrays //{{{
-  VECTOR **Temperature = malloc(Count->BeadType * sizeof **Temperature);
+  // variables for collecting observables //{{{
+  LONGVECTOR *KEnergy = calloc(Count->Bead, sizeof *KEnergy);
+  LONGINTVECTOR **BeadCount = malloc(Count->BeadType * sizeof **BeadCount);
   for (int i = 0; i < Count->BeadType; i++) {
-    Temperature[i] = calloc(n_bins, sizeof Temperature[i]);
-  } //}}}
+    BeadCount[i] = calloc(n_bins, sizeof *BeadCount[i]);
+  }
+  double temp_sum = 0,
+         press_kin_sum = 0,
+         virial_sum = 0,
+         press_vir_sum = 0;
+  //}}}
 
   // main loop //{{{
   FILE *coor = OpenFile(coor_file, "r");
@@ -405,20 +411,6 @@ int main(int argc, char *argv[]) {
       count_used++;
       box = &System.Box;
       WrapJoinCoordinates(&System, true, false); // restore pbc
-      // calculate kinetic energy //{{{
-      double energy_kin = 0;
-      for (int i = 0; i < Count->BeadCoor; i++) {
-        int id = System.BeadCoor[i];
-        BEAD *b = &System.Bead[id];
-        BEADTYPE *bt = &System.BeadType[b->Type];
-        double vel2 = SQR(b->Velocity.x) +
-                      SQR(b->Velocity.y) +
-                      SQR(b->Velocity.z);
-        energy_kin += 0.5 * bt->Mass * vel2;
-      }
-      double temperature = 2 * energy_kin / (3 * Count->BeadCoor - 3);
-      double press_kin = 2 * energy_kin / box->Volume;
-      //}}}
       // calculete forces
       INTVECTOR n_cells;
       int *Head, *Link, Dcx[14], Dcy[14], Dcz[14];
@@ -426,7 +418,7 @@ int main(int argc, char *argv[]) {
       // TODO: rcut - pass maximum of sc[][].rcut, I guess
       LinkedList(System, &Head, &Link, sc[0][0].rcut, &n_cells, Dcx, Dcy, Dcz);
       // calculate density (if necessary) //{{{
-      double *density = calloc(Count->Bead, sizeof *density);
+      double *loc_dens = calloc(Count->Bead, sizeof *loc_dens);
       if (calculate_density) {
         for (int c1z = 0; c1z < n_cells.z; c1z++) {
           for (int c1y = 0; c1y < n_cells.y; c1y++) {
@@ -468,7 +460,7 @@ int main(int argc, char *argv[]) {
                   while (j != -1) {
                     int id_i = System.BeadCoor[i],
                         id_j = System.BeadCoor[j];
-                    LocalDensitySC(System, id_i, id_j, sc, density);
+                    LocalDensitySC(System, id_i, id_j, sc, loc_dens);
                     j = Link[j];
                   }
                 }
@@ -478,10 +470,12 @@ int main(int argc, char *argv[]) {
           }
         }
       } //}}}
-      // calculate forces, energy, virial //{{{
+      // calculate pair-wise forces, energy, virial //{{{
       double *uSC = calloc(Count->Bead, sizeof *uSC),
-             Pxx = 0, Pyy = 0, Pzz = 0;
+             Pxx = 0, Pyy = 0, Pzz = 0,
+             energy_kin = 0;
       VECTOR *force = calloc(Count->Bead, sizeof *force);
+      bool *test_used = calloc(Count->Bead, sizeof *test_used);
       for (int c1z = 0; c1z < n_cells.z; c1z++) {
         for (int c1y = 0; c1y < n_cells.y; c1y++) {
           for (int c1x = 0; c1x < n_cells.x; c1x++) {
@@ -490,6 +484,7 @@ int main(int argc, char *argv[]) {
             // select first bead in the cell 'cell1'
             int i = Head[cell1];
             while (i != -1) {
+              int id_i = System.BeadCoor[i];
               for (int k = 0; k < 14; k++) {
                 int c2x = c1x + Dcx[k]; //{{{
                 int c2y = c1y + Dcy[k];
@@ -520,9 +515,8 @@ int main(int argc, char *argv[]) {
                   j = Head[cell2];
                 } //}}}
                 while (j != -1) {
-                  int id_i = System.BeadCoor[i],
-                      id_j = System.BeadCoor[j];
-                  ShiftedSuttonChen(System, id_i, id_j, sc, density, uSC,
+                  int id_j = System.BeadCoor[j];
+                  ShiftedSuttonChen(System, id_i, id_j, sc, loc_dens, uSC,
                                     force, &Pxx, &Pyy, &Pzz);
                   j = Link[j];
                 }
@@ -535,14 +529,49 @@ int main(int argc, char *argv[]) {
       for (int i = 0; i < Count->BeadCoor; i++) {
         int id = System.BeadCoor[i];
         BEAD *b = &System.Bead[id];
-        int bt = b->Type;
-        double ui = sc[bt][bt].c * sc[bt][bt].eps * sqrt(density[id]);
+        BEADTYPE *bt = &System.BeadType[b->Type];
+        // kinetic enrgy
+        double vel2 = SQR(b->Velocity.x) +
+                      SQR(b->Velocity.y) +
+                      SQR(b->Velocity.z);
+        double ke = 0.5 * bt->Mass * vel2;
+        energy_kin += ke;
+        // Sutton-Chen potential
+        double ui = sc[b->Type][b->Type].c * sc[b->Type][b->Type].eps *
+                    sqrt(loc_dens[id]);
         uSC[id] = 0.5 * uSC[id] - ui;
+        // copy previously calculated forces
         b->Force = force[id];
+        // bin id in the three directions
+        INTVECTOR bin;
+        bin.x = b->Position.x / width;
+        bin.y = b->Position.y / width;
+        bin.z = b->Position.z / width;
+        // realloc memory if bin is too high
+        if (Max3(bin.x, bin.y, bin.z) >= n_bins) {
+          n_bins += 10;
+          KEnergy = realloc(KEnergy, n_bins * sizeof *KEnergy);
+          for (int j = 0; j < Count->BeadType; j++) {
+            BeadCount[j] = realloc(BeadCount[j], n_bins * sizeof *BeadCount[j]);
+          }
+        }
+        // count beads in bins for density, temperature
+        BeadCount[b->Type][bin.x].x++;
+        BeadCount[b->Type][bin.y].y++;
+        BeadCount[b->Type][bin.z].z++;
+        // kinetic energy for temperature
+        KEnergy[bin.x].x += ke;
       }
-      double virial = (Pxx + Pyy + Pzz) / 3;
-      double press_vir = virial / box->Volume;
 
+      // global observables
+      double temperature = 2 * energy_kin / (3 * Count->BeadCoor - 3);
+      // kinetic pressure (i.e., ideal gas contribution)
+      double press_kin = 2 * energy_kin / box->Volume;
+      // virial from the axes' contributions
+      double virial = (Pxx + Pyy + Pzz) / 3;
+      // virial contribution to pressure
+      double press_vir = virial / box->Volume;
+      // write global values to output file //{{{
       fw = OpenFile(out_global, "a");
       fprintf(fw, " %8d", count_coor);
       fprintf(fw, " %8.3e", temperature * real_T / CUBE(CG));
@@ -555,9 +584,15 @@ int main(int argc, char *argv[]) {
       fprintf(fw, " %10.3e", Pzz);
       fprintf(fw, " %10.3e", virial);
       putc('\n', fw);
-      fclose(fw);
+      fclose(fw); //}}}
 
-      free(density);
+      // add global observables to total sums
+      temp_sum += temperature;
+      press_kin_sum += press_kin;
+      virial_sum += virial;
+      press_vir_sum += press_vir;
+
+      free(loc_dens);
       free(uSC);
       free(force);
       free(Head);
@@ -599,9 +634,10 @@ int main(int argc, char *argv[]) {
   }
   free(sc);
   for (int i = 0; i < Count->BeadType; i++) {
-    free(Temperature[i]);
+    free(BeadCount[i]);
   }
-  free(Temperature);
+  free(BeadCount);
+  free(KEnergy);
   //}}}
 
   return 0;
