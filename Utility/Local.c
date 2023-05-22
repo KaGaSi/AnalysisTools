@@ -4,7 +4,9 @@
 //       Should I maybe use real units, so it can be reduced via red_E
 //       Or should I add eps keyword to extra file (along with type of
 //       potential, if I ever wanted to add one)
-// TODO: --per-step option?
+// TODO: stuff must be calculated relative to centre of mass becaus of the
+//       variable-sized box otherwise which (presumably) gets bigger/smaller
+//       in all directions, leaving the centre of mass roughly the same
 
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
@@ -27,6 +29,8 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   // fprintf(ptr, "      --per-step  save a new file for each step"
   //         "(adds '-<step>.txt' to <output>)\n");
   fprintf(ptr, "      -fx <file>  file with extra information\n");
+  fprintf(ptr, "      --pot       also calculate potential (and pressure via "
+          "virial) ;only shifted Sutton-Chen for now\n");
   CommonHelp(error, n, opt);
 } //}}}
 
@@ -162,8 +166,6 @@ void ShiftedSuttonChen(SYSTEM System, int bead1, int bead2, FF **sc,
 
 int main(int argc, char *argv[]) {
 
-  bool calculate_density = true; // TODO: some switch based on used potential
-  bool calculate_pairwise = false; // TODO: some switch on what to calculate
   int elements = 2; // Count->BeadType basically
   FF **sc = malloc(sizeof **sc * elements);
   for (int i = 0; i < elements; i++) {
@@ -217,6 +219,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "--version");
   // extra options
   strcpy(option[count++], "-fx");
+  strcpy(option[count++], "--pot");
   OptionCheck(argc, argv, req_arg, common, all, option); //}}}
 
   count = 0; // count mandatory arguments
@@ -253,7 +256,12 @@ int main(int argc, char *argv[]) {
   char file_extra[LINE] = "";
   if (FileIntegerOption(argc, argv, 0, "-fx", &trash, &trash, file_extra)) {
     exit(1);
-  } //}}}
+  }
+  // TODO: add potential selection into the extra file; this will depend on it
+  bool calculate_density = true; // for local density-dependent potentials
+  // calculate pair-wise potential, etc.
+  bool calculate_pairwise = BoolOption(argc, argv, "--pot");
+  //}}}
 
   if (!silent) {
     PrintCommand(stdout, argc, argv);
@@ -606,6 +614,7 @@ int main(int argc, char *argv[]) {
       free(loc_dens);
       free(uSC);
       free(force);
+      free(test_used);
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
       if (!SkipTimestep(coor_type, coor, coor_file,
@@ -655,7 +664,9 @@ int main(int argc, char *argv[]) {
   FILE *fwx = OpenFile(fx, "w");
   FILE *fwy = OpenFile(fy, "w");
   FILE *fwz = OpenFile(fz, "w");
-  PrintByline(fw, argc, argv);
+  PrintByline(fwx, argc, argv);
+  PrintByline(fwy, argc, argv);
+  PrintByline(fwz, argc, argv);
   fprintf(fwx, "# columns: (1) distance");
   fprintf(fwy, "# columns: (1) distance");
   fprintf(fwz, "# columns: (1) distance");
@@ -668,7 +679,9 @@ int main(int argc, char *argv[]) {
       fprintf(fwz, "; (%d) %s", count, System.BeadType[i].Name);
     }
   }
-  putc('\n', fw);
+  putc('\n', fwx);
+  putc('\n', fwy);
+  putc('\n', fwz);
   // write rdf
   VECTOR volume;
   volume.x = width * box->Length.y * box->Length.z;
@@ -709,6 +722,7 @@ int main(int argc, char *argv[]) {
   }
   free(BeadCount);
   free(KEnergy);
+  free(bt_in_use);
   //}}}
 
   return 0;
