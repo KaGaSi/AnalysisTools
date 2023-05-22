@@ -163,6 +163,7 @@ void ShiftedSuttonChen(SYSTEM System, int bead1, int bead2, FF **sc,
 int main(int argc, char *argv[]) {
 
   bool calculate_density = true; // TODO: some switch based on used potential
+  bool calculate_pairwise = false; // TODO: some switch on what to calculate
   int elements = 2; // Count->BeadType basically
   FF **sc = malloc(sizeof **sc * elements);
   for (int i = 0; i < elements; i++) {
@@ -237,10 +238,11 @@ int main(int argc, char *argv[]) {
     exit(1);
   } //}}}
 
-  // <out1> & <out2>
+  // <output_gl> & <output>
   char out_global[LINE] = "", out_local[LINE] = "";
   snprintf(out_global, LINE, "%s", argv[++count]);
   snprintf(out_local, LINE, "%s", argv[++count]);
+  out_local[LINE-6] = '\0'; // for adding -<axis>.rho
 
   // options before reading system data //{{{
   bool silent, verbose, detailed, vtf_var;
@@ -379,6 +381,7 @@ int main(int argc, char *argv[]) {
   // variables for collecting observables //{{{
   LONGVECTOR *KEnergy = calloc(Count->Bead, sizeof *KEnergy);
   LONGINTVECTOR **BeadCount = malloc(Count->BeadType * sizeof **BeadCount);
+  bool *bt_in_use = calloc(Count->BeadType, sizeof *bt_in_use);
   for (int i = 0; i < Count->BeadType; i++) {
     BeadCount[i] = calloc(n_bins, sizeof *BeadCount[i]);
   }
@@ -408,18 +411,77 @@ int main(int argc, char *argv[]) {
         count_coor--;
         break;
       }
+      // some variables (may not be used); TODO: clear names
+      double *loc_dens = calloc(Count->Bead, sizeof *loc_dens);
+      double *uSC = calloc(Count->Bead, sizeof *uSC),
+             Pxx = 0, Pyy = 0, Pzz = 0,
+             energy_kin = 0;
+      VECTOR *force = calloc(Count->Bead, sizeof *force);
+      bool *test_used = calloc(Count->Bead, sizeof *test_used);
+
       count_used++;
       box = &System.Box;
       WrapJoinCoordinates(&System, true, false); // restore pbc
-      // calculete forces
-      INTVECTOR n_cells;
-      int *Head, *Link, Dcx[14], Dcy[14], Dcz[14];
-      // access beads in the linked list through BeadCoor[]
-      // TODO: rcut - pass maximum of sc[][].rcut, I guess
-      LinkedList(System, &Head, &Link, sc[0][0].rcut, &n_cells, Dcx, Dcy, Dcz);
-      // calculate density (if necessary) //{{{
-      double *loc_dens = calloc(Count->Bead, sizeof *loc_dens);
-      if (calculate_density) {
+      if (calculate_pairwise) {
+        // calculete forces
+        INTVECTOR n_cells;
+        int *Head, *Link, Dcx[14], Dcy[14], Dcz[14];
+        // access beads in the linked list through BeadCoor[]
+        // TODO: rcut - pass maximum of sc[][].rcut, I guess
+        LinkedList(System, &Head, &Link, sc[0][0].rcut, &n_cells, Dcx, Dcy, Dcz);
+        // calculate density (if necessary) //{{{
+        if (calculate_density) {
+          for (int c1z = 0; c1z < n_cells.z; c1z++) {
+            for (int c1y = 0; c1y < n_cells.y; c1y++) {
+              for (int c1x = 0; c1x < n_cells.x; c1x++) {
+                // select first cell
+                int cell1 = c1x + c1y * n_cells.x + c1z * n_cells.x * n_cells.y;
+                // select first bead in the cell 'cell1'
+                int i = Head[cell1];
+                while (i != -1) {
+                  for (int k = 0; k < 14; k++) {
+                    int c2x = c1x + Dcx[k]; //{{{
+                    int c2y = c1y + Dcy[k];
+                    int c2z = c1z + Dcz[k];
+                    // periodic boundary conditions for cells //{{{
+                    if (c2x >= n_cells.x)
+                      c2x -= n_cells.x;
+                    else if (c2x < 0)
+                      c2x += n_cells.x;
+
+                    if (c2y >= n_cells.y)
+                      c2y -= n_cells.y;
+                    else if (c2y < 0)
+                      c2y += n_cells.y;
+
+                    if (c2z >= n_cells.z)
+                      c2z -= n_cells.z; //}}}
+
+                    // select second cell
+                    int cell2 = c2x +
+                                c2y * n_cells.x +
+                                c2z * n_cells.x * n_cells.y; //}}}
+                    // select bead in the cell 'cell2' //{{{
+                    int j;
+                    if (cell1 == cell2) { // next bead in 'cell1'
+                      j = Link[i];
+                    } else { // first bead in 'cell2'
+                      j = Head[cell2];
+                    } //}}}
+                    while (j != -1) {
+                      int id_i = System.BeadCoor[i],
+                          id_j = System.BeadCoor[j];
+                      LocalDensitySC(System, id_i, id_j, sc, loc_dens);
+                      j = Link[j];
+                    }
+                  }
+                  i = Link[i];
+                }
+              }
+            }
+          }
+        } //}}}
+        // calculate pair-wise forces, energy, virial //{{{
         for (int c1z = 0; c1z < n_cells.z; c1z++) {
           for (int c1y = 0; c1y < n_cells.y; c1y++) {
             for (int c1x = 0; c1x < n_cells.x; c1x++) {
@@ -428,6 +490,7 @@ int main(int argc, char *argv[]) {
               // select first bead in the cell 'cell1'
               int i = Head[cell1];
               while (i != -1) {
+                int id_i = System.BeadCoor[i];
                 for (int k = 0; k < 14; k++) {
                   int c2x = c1x + Dcx[k]; //{{{
                   int c2y = c1y + Dcy[k];
@@ -458,9 +521,9 @@ int main(int argc, char *argv[]) {
                     j = Head[cell2];
                   } //}}}
                   while (j != -1) {
-                    int id_i = System.BeadCoor[i],
-                        id_j = System.BeadCoor[j];
-                    LocalDensitySC(System, id_i, id_j, sc, loc_dens);
+                    int id_j = System.BeadCoor[j];
+                    ShiftedSuttonChen(System, id_i, id_j, sc, loc_dens, uSC,
+                                      force, &Pxx, &Pyy, &Pzz);
                     j = Link[j];
                   }
                 }
@@ -468,64 +531,10 @@ int main(int argc, char *argv[]) {
               }
             }
           }
-        }
-      } //}}}
-      // calculate pair-wise forces, energy, virial //{{{
-      double *uSC = calloc(Count->Bead, sizeof *uSC),
-             Pxx = 0, Pyy = 0, Pzz = 0,
-             energy_kin = 0;
-      VECTOR *force = calloc(Count->Bead, sizeof *force);
-      bool *test_used = calloc(Count->Bead, sizeof *test_used);
-      for (int c1z = 0; c1z < n_cells.z; c1z++) {
-        for (int c1y = 0; c1y < n_cells.y; c1y++) {
-          for (int c1x = 0; c1x < n_cells.x; c1x++) {
-            // select first cell
-            int cell1 = c1x + c1y * n_cells.x + c1z * n_cells.x * n_cells.y;
-            // select first bead in the cell 'cell1'
-            int i = Head[cell1];
-            while (i != -1) {
-              int id_i = System.BeadCoor[i];
-              for (int k = 0; k < 14; k++) {
-                int c2x = c1x + Dcx[k]; //{{{
-                int c2y = c1y + Dcy[k];
-                int c2z = c1z + Dcz[k];
-                // periodic boundary conditions for cells //{{{
-                if (c2x >= n_cells.x)
-                  c2x -= n_cells.x;
-                else if (c2x < 0)
-                  c2x += n_cells.x;
-
-                if (c2y >= n_cells.y)
-                  c2y -= n_cells.y;
-                else if (c2y < 0)
-                  c2y += n_cells.y;
-
-                if (c2z >= n_cells.z)
-                  c2z -= n_cells.z; //}}}
-
-                // select second cell
-                int cell2 = c2x +
-                            c2y * n_cells.x +
-                            c2z * n_cells.x * n_cells.y; //}}}
-                // select bead in the cell 'cell2' //{{{
-                int j;
-                if (cell1 == cell2) { // next bead in 'cell1'
-                  j = Link[i];
-                } else { // first bead in 'cell2'
-                  j = Head[cell2];
-                } //}}}
-                while (j != -1) {
-                  int id_j = System.BeadCoor[j];
-                  ShiftedSuttonChen(System, id_i, id_j, sc, loc_dens, uSC,
-                                    force, &Pxx, &Pyy, &Pzz);
-                  j = Link[j];
-                }
-              }
-              i = Link[i];
-            }
-          }
-        }
-      } //}}}
+        } //}}}
+        free(Head);
+        free(Link);
+      }
       for (int i = 0; i < Count->BeadCoor; i++) {
         int id = System.BeadCoor[i];
         BEAD *b = &System.Bead[id];
@@ -561,6 +570,8 @@ int main(int argc, char *argv[]) {
         BeadCount[b->Type][bin.z].z++;
         // kinetic energy for temperature
         KEnergy[bin.x].x += ke;
+        // specify the given bead type is used
+        bt_in_use[b->Type] = true;
       }
 
       // global observables
@@ -595,8 +606,6 @@ int main(int argc, char *argv[]) {
       free(loc_dens);
       free(uSC);
       free(force);
-      free(Head);
-      free(Link);
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
       if (!SkipTimestep(coor_type, coor, coor_file,
@@ -626,6 +635,68 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "Last Step: %d (used %d)\n", count_coor, count_used);
     fflush(stdout);
   } //}}}
+
+  char fx[LINE], fy[LINE], fz[LINE];
+  if (snprintf(fx, LINE, "%s-x.rho", out_local) < 0) {
+    strcpy(ERROR_MSG, "something wrong with snprintf()");
+    PrintError();
+    exit(1);
+  }
+  if (snprintf(fy, LINE, "%s-y.rho", out_local) < 0) {
+    strcpy(ERROR_MSG, "something wrong with snprintf()");
+    PrintError();
+    exit(1);
+  }
+  if (snprintf(fz, LINE, "%s-z.rho", out_local) < 0) {
+    strcpy(ERROR_MSG, "something wrong with snprintf()");
+    PrintError();
+    exit(1);
+  }
+  FILE *fwx = OpenFile(fx, "w");
+  FILE *fwy = OpenFile(fy, "w");
+  FILE *fwz = OpenFile(fz, "w");
+  PrintByline(fw, argc, argv);
+  fprintf(fwx, "# columns: (1) distance");
+  fprintf(fwy, "# columns: (1) distance");
+  fprintf(fwz, "# columns: (1) distance");
+  count = 1;
+  for (int i = 0; i < Count->BeadType; i++) {
+    if (bt_in_use[i]) {
+      count++;
+      fprintf(fwx, "; (%d) %s", count, System.BeadType[i].Name);
+      fprintf(fwy, "; (%d) %s", count, System.BeadType[i].Name);
+      fprintf(fwz, "; (%d) %s", count, System.BeadType[i].Name);
+    }
+  }
+  putc('\n', fw);
+  // write rdf
+  VECTOR volume;
+  volume.x = width * box->Length.y * box->Length.z;
+  volume.y = box->Length.x * width * box->Length.z;
+  volume.z = box->Length.x * box->Length.y * width;
+  for (int i = 0; i < (n_bins - 1); i++) {
+    double dist = width * (2 * i + 1) / 2;
+    fprintf(fwx, "%7.3f", dist); // absolute distance
+    fprintf(fwy, "%7.3f", dist); // absolute distance
+    fprintf(fwz, "%7.3f", dist); // absolute distance
+    for (int j = 0; j < Count->BeadType; j++) {
+      if (bt_in_use[j]){
+        VECTOR rho;
+        rho.x = BeadCount[j][i].x / (volume.x * count_used);
+        rho.y = BeadCount[j][i].y / (volume.y * count_used);
+        rho.z = BeadCount[j][i].z / (volume.z * count_used);
+        fprintf(fwx, " %10f", rho.x);
+        fprintf(fwy, " %10f", rho.y);
+        fprintf(fwz, " %10f", rho.z);
+      }
+    }
+    putc('\n',fwx);
+    putc('\n',fwy);
+    putc('\n',fwz);
+  }
+  fclose(fwx);
+  fclose(fwy);
+  fclose(fwz);
 
   // free memory //{{{
   FreeSystem(&System);
