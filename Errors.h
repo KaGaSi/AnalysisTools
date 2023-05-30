@@ -111,7 +111,7 @@ void ErrorMoleculeType(SYSTEM System);
  */
 void ErrorPrintLine(char split[SPL_STR][SPL_LEN], int words); //}}}
 
-void ErrorEOF(char file1[]);
+void ErrorEOF(char file[], char msg[]);
 
 void WarnChargedSystem(SYSTEM System, char file1[], char file2[], char file3[]);
 

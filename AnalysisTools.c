@@ -14,8 +14,6 @@ static void RemovePBCMolecules(SYSTEM *System);
 static void RestorePBC(SYSTEM *System);
 // Copy System structure; assumes new unallocated SYSTEM
 static SYSTEM CopySystem(SYSTEM S_in);
-// calculate geometric centre for a list of beads
-static VECTOR GeomCentre(int n, int *list, BEAD *Bead);
 // calculate centre of mass for a list of beads (UNUSED)
 // static VECTOR CentreOfMass(int n, int *list, BEAD *Bead, BEADTYPE *BeadType);
 
@@ -401,42 +399,6 @@ static SYSTEM CopySystem(SYSTEM S_in) {
   }
   return S_out;
 } //}}}
-// calculate geometric centre for a list of beads //{{{
-static VECTOR GeomCentre(int n, int *list, BEAD *Bead) {
-  VECTOR cog = {0, 0, 0};
-  int count = 0;
-  for (int i = 0; i < n; i++) {
-    int id = list[i];
-    if (Bead[id].InTimestep) {
-      cog.x += Bead[id].Position.x;
-      cog.y += Bead[id].Position.y;
-      cog.z += Bead[id].Position.z;
-      count++;
-    }
-  }
-  cog.x /= count;
-  cog.y /= count;
-  cog.z /= count;
-  return cog;
-} //}}}
-// calculate centre of mass for a list of beads (UNUSED) //{{{
-// static VECTOR CentreOfMass(int n, int *list, BEAD *Bead, BEADTYPE *BeadType)
-// {
-//   VECTOR com = {0, 0, 0};
-//   double mass = 0;
-//   for (int i = 0; i < n; i++) {
-//     int id = list[i];
-//     int btype = Bead[id].Type;
-//     com.x += Bead[id].Position.x * BeadType[btype].Mass;
-//     com.y += Bead[id].Position.y * BeadType[btype].Mass;
-//     com.z += Bead[id].Position.z * BeadType[btype].Mass;
-//     mass += BeadType[btype].Mass;
-//   }
-//   com.x /= mass;
-//   com.y /= mass;
-//   com.z /= mass;
-//   return com;
-// } //}}}
 
 // Helper functions for dealing with SYSTEM structure
 // fill some System arrays and some such
@@ -1934,9 +1896,8 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
       }
     }
     Count_out->HighestResid += Count_in->HighestResid;
-    S_out->Index_mol =
-        realloc(S_out->Index_mol,
-                sizeof *S_out->Index_mol * (Count_out->HighestResid + 1));
+    S_out->Index_mol = realloc(S_out->Index_mol, sizeof *S_out->Index_mol *
+                               (Count_out->HighestResid + 1));
     for (int i = 0; i <= Count_out->HighestResid; i++) {
       S_out->Index_mol[i] = -1;
     }
@@ -2340,6 +2301,42 @@ VECTOR Distance(VECTOR id1, VECTOR id2, VECTOR BoxLength) {
   while (rij.z < -(BoxLength.z / 2))
     rij.z = rij.z + BoxLength.z;
   return rij;
+} //}}}
+// calculate centre of mass for a list of beads //{{{
+VECTOR CentreOfMass(int n, int list[], SYSTEM System) {
+  VECTOR com = {0, 0, 0};
+  double mass = 0;
+  for (int i = 0; i < n; i++) {
+    int id = list[i];
+    BEAD *b = &System.Bead[id];
+    BEADTYPE *bt = &System.BeadType[b->Type];
+    com.x += b->Position.x * bt->Mass;
+    com.y += b->Position.y * bt->Mass;
+    com.z += b->Position.z * bt->Mass;
+    mass += bt->Mass;
+  }
+  com.x /= mass;
+  com.y /= mass;
+  com.z /= mass;
+  return com;
+} //}}}
+// calculate geometric centre for a list of beads //{{{
+VECTOR GeomCentre(int n, int *list, BEAD *Bead) {
+  VECTOR cog = {0, 0, 0};
+  int count = 0;
+  for (int i = 0; i < n; i++) {
+    int id = list[i];
+    if (Bead[id].InTimestep) {
+      cog.x += Bead[id].Position.x;
+      cog.y += Bead[id].Position.y;
+      cog.z += Bead[id].Position.z;
+      count++;
+    }
+  }
+  cog.x /= count;
+  cog.y /= count;
+  cog.z /= count;
+  return cog;
 } //}}}
 
 // identify input coordinate and structure files //{{{

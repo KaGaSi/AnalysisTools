@@ -4,9 +4,14 @@
 //       Should I maybe use real units, so it can be reduced via red_E
 //       Or should I add eps keyword to extra file (along with type of
 //       potential, if I ever wanted to add one)
-// TODO: stuff must be calculated relative to centre of mass becaus of the
-//       variable-sized box otherwise which (presumably) gets bigger/smaller
-//       in all directions, leaving the centre of mass roughly the same
+// TODO: add different units in file_extra 'potential' section?
+// TODO: the coarse-graining is inconsistent - mass gets coarse-grained,
+//       but coordinates are assumed to be coarse-grained already
+//       Or does it make sense? The mass is an input - actually, as much an
+//       input as coordinates; shouldn't mass also already be coarse-grained?
+//       then again, so are potential parameters...
+//       Nope; coordinates aren't coarse-grained - their coarse-graining is
+//       inherent, ain't it?
 
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
@@ -31,15 +36,148 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   fprintf(ptr, "      -fx <file>  file with extra information\n");
   fprintf(ptr, "      --pot       also calculate potential (and pressure via "
           "virial) ;only shifted Sutton-Chen for now\n");
+  fprintf(ptr, "       --com       use centre of mass as the coordinate system "
+          "centre; default: geometric centre");
   CommonHelp(error, n, opt);
 } //}}}
 
 typedef struct FF {
-  double n, m,
-         a, c, eps,
+  double n, m, a, c, eps,
          rcut,
          rep1, rep2, dd1, dd2;
 } FF;
+
+// read potential parameters from the extra file //{{{
+// shifted Sutton-Chen potential for one bead type //{{{
+void ShiftedSCParameters(FILE *fr, char file[], int *line_count,
+                         int btype, FF **ff, SYSTEM System) {
+  int n_lines = 4; // number of lines 
+  char line[LINE], *split[SPL_STR];
+  int words;
+  // skip this section if the bead type is unknown //{{{
+  if (btype == -1) {
+    for (int i = 0; i < n_lines; i++) {
+      if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+        ErrorEOF(file, "incomplete 'potential' section");
+        exit(1);
+      }
+    }
+    return;
+  } //}}}
+  bool done = false, mn = false, a = false, c = false, eps = false;
+  while (!done) {
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      ErrorEOF(file, "missing bead type name for a potential");
+      exit(1);
+    }
+    (*line_count)++;
+    if (words > 0) {
+      if (strcasecmp(split[0], "mn") == 0) {
+        long int val[2];
+        if (words < 3 || !IsWholeNumber(split[1], &val[0]) ||
+                         !IsWholeNumber(split[2], &val[1])) {
+          goto error;
+        } else if (mn) {
+          snprintf(ERROR_MSG, LINE, "%sm%s and %sn%s parameters for %s%s%s "
+                   "is specified multiple times; using this line",
+                   ErrYellow(), ErrCyan(), ErrYellow(), ErrCyan(), ErrYellow(),
+                   System.BeadType[btype].Name, ErrCyan());
+          PrintWarningFileLine(file, *line_count, split, words);
+        }
+        if (val[0] > val[1]) {
+          ff[btype][btype].m = val[0];
+          ff[btype][btype].n = val[1];
+        } else {
+          ff[btype][btype].m = val[1];
+          ff[btype][btype].n = val[0];
+        }
+        mn = true;
+      } else if (strcasecmp(split[0], "eps") == 0) {
+        double val;
+        if (words < 2 || !IsRealNumber(split[1], &val)) {
+          goto error;
+        } else if (eps) {
+          snprintf(ERROR_MSG, LINE, "%seps%s parameter for %s%s%s is specified "
+                   "multiple times; using this line", ErrYellow(), ErrCyan(),
+                   ErrYellow(), System.BeadType[btype].Name, ErrCyan());
+          PrintWarningFileLine(file, *line_count, split, words);
+        }
+        ff[btype][btype].eps = val;
+        eps = true;
+      } else if (strcasecmp(split[0], "c") == 0) {
+        double val;
+        if (words < 2 || !IsRealNumber(split[1], &val)) {
+          goto error;
+        } else if (c) {
+          snprintf(ERROR_MSG, LINE, "%sc%s parameter for %s%s%s is specified "
+                   "multiple times; using this line", ErrYellow(), ErrCyan(),
+                   ErrYellow(), System.BeadType[btype].Name, ErrCyan());
+          PrintWarningFileLine(file, *line_count, split, words);
+        }
+        ff[btype][btype].c = val;
+        c = true;
+      } else if (strcasecmp(split[0], "a") == 0) {
+        double val;
+        if (words < 2 || !IsRealNumber(split[1], &val)) {
+          goto error;
+        } else if (a) {
+          snprintf(ERROR_MSG, LINE, "%sa%s parameter for %s%s%s is specified "
+                   "multiple times; using this line", ErrYellow(), ErrCyan(),
+                   ErrYellow(), System.BeadType[btype].Name, ErrCyan());
+          PrintWarningFileLine(file, *line_count, split, words);
+        }
+        ff[btype][btype].a = val;
+        a = true;
+      } else if (strcasecmp(split[0], "finish") == 0) {
+        break;
+      } else if (split[0][0] != '#') {
+        goto error;
+      }
+    }
+    if (mn && eps && c && a) {
+      done = true;
+    }
+  }
+  if (!mn || !eps || !c || !a) {
+    strcpy(ERROR_MSG, "premature end to 'potential' section");
+    PrintErrorFileLine(file, *line_count, split, words);
+    exit(1);
+  }
+  return;
+  error:
+    strcpy(ERROR_MSG, "wrong line for ShiftedSC potential");
+    PrintErrorFileLine(file, *line_count, split, words);
+    exit(1);
+} //}}}
+// read the potential section //{{{
+void PotentialParameters(FILE *fr, char file[], char potential[], FF **ff,
+                         int *line_count, SYSTEM System) {
+  // TODO: use potential[] to determine potential type (only shiftedSC for now)
+  char line[LINE], *split[SPL_STR];
+  int words;
+  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    ErrorEOF(file, "'potential' section with no data");
+    exit(1);
+  }
+  (*line_count)++;
+  while (words > 0 && strcasecmp("finish", split[0]) != 0) {
+    int bt = FindBeadType(split[0], System);
+    if (bt == -1) {
+      snprintf(ERROR_MSG, LINE, "skipping unknown bead type %s%s%s "
+               "in 'potential' section", ErrYellow(), split[0], ErrCyan());
+      PrintWarnFile(file, "\0", "\0");
+    }
+    ShiftedSCParameters(fr, file, line_count, bt, ff, System);
+    // read next line
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      ErrorEOF(file, "incomplete 'potential' section "
+               "(or missing 'finish' keyword)");
+      exit(1);
+    }
+    (*line_count)++;
+  }
+} //}}}
+ //}}}
 
 // calculate some prefactors for the potential //{{{
 void SCPrefactors(SYSTEM System, FF **sc) {
@@ -85,15 +223,13 @@ void LocalDensitySC(SYSTEM System, int bead1, int bead2,
     tmp += sc[bt_i][bt_j].dd2 * (rij - sc[bt_i][bt_j].rcut);
     density[bead1] += tmp;
     density[bead2] += tmp;
-    // density[id_i]++;
-    // density[id_j]++;
   }
 } //}}}
 
 // calculate potential, force and wirial for shifted Sutton-Chen potential //{{{
 void ShiftedSuttonChen(SYSTEM System, int bead1, int bead2, FF **sc,
                        double *density, double *potential, VECTOR *force,
-                       double *Pxx, double *Pyy, double *Pzz) {
+                       double *Pxx, double *Pyy, double *Pzz, double *UCR) {
   BEAD *b_i = &System.Bead[bead1],
        *b_j = &System.Bead[bead2];
   VECTOR dist = Distance(b_i->Position, b_j->Position, System.Box.Length);
@@ -118,6 +254,7 @@ void ShiftedSuttonChen(SYSTEM System, int bead1, int bead2, FF **sc,
     // ... + eps * (a / r_c)^m * m / r_c * (r_ij - r_c)
     tmp += sc[bt_i][bt_j].rep2 * (rij - sc[bt_i][bt_j].rcut);
     // add to per-particle repulsive energy
+    *UCR += tmp;
     potential[bead1] += tmp;
     potential[bead2] += tmp;
     // u_rep[id_i]++;
@@ -147,9 +284,9 @@ void ShiftedSuttonChen(SYSTEM System, int bead1, int bead2, FF **sc,
     f.y = fij * dist.y;
     f.z = fij * dist.z;
     // pressure tensor components
-    *Pxx += f.x * dist.x;
-    *Pyy += f.y * dist.y;
-    *Pzz += f.z * dist.z;
+    *Pxx = f.x * dist.x;
+    *Pyy = f.y * dist.y;
+    *Pzz = f.z * dist.z;
     // per-particle force
     force[bead1].x += f.x;
     force[bead1].y += f.y;
@@ -166,42 +303,8 @@ void ShiftedSuttonChen(SYSTEM System, int bead1, int bead2, FF **sc,
 
 int main(int argc, char *argv[]) {
 
-  int elements = 2; // Count->BeadType basically
-  FF **sc = malloc(sizeof **sc * elements);
-  for (int i = 0; i < elements; i++) {
-    sc[i] = calloc(elements, sizeof *sc[i]);
-  }
-  // Al-Al
-  sc[0][0].n = 6;
-  sc[0][0].m = 8;
-  sc[0][0].eps = 230.5;
-  sc[0][0].c = 25.398;
-  sc[0][0].a = 4.049;
-  sc[0][0].rcut = 1;
-  // Zr-Zr
-  sc[1][1].n = 5;
-  sc[1][1].m = 9;
-  sc[1][1].eps = 4437.0;
-  sc[1][1].c = 5.462;
-  sc[1][1].a = 3.203;
-  sc[0][0].rcut = 1;
-  // Al-Zr
-  sc[0][1].n = (sc[0][0].n + sc[1][1].n) / 2;
-  sc[0][1].m = (sc[0][0].m + sc[1][1].m) / 2;
-  sc[0][1].eps = sqrt(sc[0][0].eps * sc[1][1].eps);
-  sc[0][1].c = -1; // no cross-term in SC
-  sc[0][1].a = sqrt(sc[0][0].a * sc[1][1].a);
-  sc[0][0].rcut = 1;
-  // Zr-Al
-  sc[1][0].n = sc[0][1].n;
-  sc[1][0].m = sc[0][1].m;
-  sc[1][0].eps = sc[0][1].eps;
-  sc[1][0].c = sc[0][1].c;
-  sc[1][0].a = sc[0][1].a;
-  sc[0][0].rcut = 1;
-
   // define options //{{{
-  int common = 12, all = common + 2, count = 0,
+  int common = 12, all = common + 3, count = 0,
       req_arg = 2;
   char option[all][OPT_LENGTH];
   // common options
@@ -220,6 +323,7 @@ int main(int argc, char *argv[]) {
   // extra options
   strcpy(option[count++], "-fx");
   strcpy(option[count++], "--pot");
+  strcpy(option[count++], "--com");
   OptionCheck(argc, argv, req_arg, common, all, option); //}}}
 
   count = 0; // count mandatory arguments
@@ -257,10 +361,12 @@ int main(int argc, char *argv[]) {
   if (FileIntegerOption(argc, argv, 0, "-fx", &trash, &trash, file_extra)) {
     exit(1);
   }
-  // TODO: add potential selection into the extra file; this will depend on it
+  // TODO: based on used potential; i.e., add to the potential reading function
   bool calculate_density = true; // for local density-dependent potentials
   // calculate pair-wise potential, etc.
   bool calculate_pairwise = BoolOption(argc, argv, "--pot");
+  // use centre of mass instead of geometric centre
+  bool use_com = BoolOption(argc, argv, "--com");
   //}}}
 
   if (!silent) {
@@ -280,23 +386,32 @@ int main(int argc, char *argv[]) {
     PrintErrorFile(coor_file, struct_file, "\0"); // TODO add file(s)
     exit(1);
   } //}}}
-  VECTOR tmp_bin;
+  int tmp_bin[3];
   // TODO: *3 to assume box change of at most thrice as big
   //       remake to realloc on the fly
-  tmp_bin.x = ceil(box->Length.x / width);
-  tmp_bin.y = ceil(box->Length.y / width);
-  tmp_bin.z = ceil(box->Length.z / width);
-  double n_bins = Max3(tmp_bin.x, tmp_bin.y, tmp_bin.z); //}}}
+  tmp_bin[0] = ceil(box->Length.x / width);
+  tmp_bin[1] = ceil(box->Length.y / width);
+  tmp_bin[2] = ceil(box->Length.z / width);
+  int n_bins = Max3(tmp_bin[0], tmp_bin[1], tmp_bin[2]) * 2;
+  if ((n_bins % 2) == 1) {
+    n_bins++;
+  }
+  int n_bins_orig = n_bins; //}}}
 
-  // coarse-graining & reducing parameters //{{{
+  FF **sc = malloc(sizeof **sc * Count->BeadType);
+  for (int i = 0; i < Count->BeadType; i++) {
+    sc[i] = calloc(Count->BeadType, sizeof *sc[i]);
+  }
+
+// TODO: generalize the potential, etc.
   int CG = 1;
-  // basis for reduced units
+  char potential[LINE] = ""; // potential type
   double real_m = 1, // mass
          real_E = 1, // energy
          real_l = 1, // length
          real_T = 1, // temperature
          real_P = 1, // pressure
-         rcut = 1;   // cut-off in real units (TODO: I guess?)
+         rcut = 1;   // cut-off in real units (will be reduced by CG & real_l)
   // read extra information (if present) //{{{
   if (file_extra[0] != '\0') {
     FILE *fr = OpenFile(file_extra, "r");
@@ -306,10 +421,13 @@ int main(int argc, char *argv[]) {
       line_count++;
       double val;
       if (words > 1 && split[0][0] != '#') {
-        if (!IsRealNumber(split[1], &val)) {
+        if (strcasecmp("potential", split[0]) == 0) {
+          strcpy(potential, split[1]);
+          PotentialParameters(fr, file_extra, potential,
+                              sc, &line_count, System);
+        } else if (!IsRealNumber(split[1], &val)) {
           goto warning;
-        }
-        if (strncasecmp("Energy", split[0], 2) == 0) {
+        } else if (strncasecmp("Energy", split[0], 2) == 0) {
           real_E = val;
         } else if (strcasecmp("Temperature", split[0]) == 0) {
           real_T = val;
@@ -321,7 +439,7 @@ int main(int argc, char *argv[]) {
           real_P = val;
         } else if (strcasecmp("CG", split[0]) == 0) {
           CG = val;
-        } else if (strcasecmp("rcut", split[0]) == 0) {
+        } else if (strcasecmp("cutoff", split[0]) == 0) {
           rcut = val;
         } else {
           warning:
@@ -332,26 +450,32 @@ int main(int argc, char *argv[]) {
     }
     fclose(fr);
   } //}}}
-  for (int i = 0; i < elements; i++) {
-    for (int j = 0; j < elements; j++) {
-      sc[i][j].eps *= CUBE(CG);
-      sc[i][j].a *= CG;
-      sc[i][j].rcut = rcut * CG;
+// TODO: still only shifted SC
+  // cross-terms for potentials //{{{
+  for (int i = 0; i < (Count->BeadType - 1); i++) {
+    for (int j = (i + 1); j < Count->BeadType; j++) {
+      sc[i][j].n = (sc[i][i].n + sc[j][j].n) / 2;
+      sc[i][j].m = (sc[i][i].m + sc[j][j].m) / 2;
+      sc[i][j].eps = sqrt(sc[i][i].eps * sc[j][j].eps);
+      sc[i][j].c = -1; // no cross-term in SC
+      sc[i][j].a = sqrt(sc[i][i].a * sc[j][j].a);
+      // sc[i][j].rcut = rcut;
+      sc[j][i].n = sc[i][j].n;
+      sc[j][i].m = sc[i][j].m;
+      sc[j][i].eps = sc[i][j].eps;
+      sc[j][i].c = sc[i][j].c;
+      sc[j][i].a = sc[i][j].a;
+      // sc[j][i].rcut = rcut;
     }
-  }
+  } //}}}
+  // coarse-graining of bead mass and potentials //{{{
   for (int i = 0; i < Count->BeadType; i++) {
-    System.BeadType[i].Mass *= CUBE(CG);
-  }
-  for (int i = 0; i < elements; i++) {
-    for (int j = 0; j < elements; j++) {
-      sc[i][j].a /= real_l;
-      // sc[i][j].eps /= real_E;
-      sc[i][j].eps /= 230.5; // TODO: generalize somehow
-      sc[i][j].rcut /= real_l;
+    System.BeadType[i].Mass *= CUBE(CG) / real_m;
+    for (int j = 0; j < Count->BeadType; j++) {
+      sc[i][j].a *= CG / real_l;
+      sc[i][j].eps *= CUBE(CG) / real_T; // TODO: always T?
+      sc[i][j].rcut = rcut * CG / real_l;
     }
-  }
-  for (int i = 0; i < Count->BeadType; i++) {
-    System.BeadType[i].Mass /= real_m;
   } //}}}
 
   if (verbose) {
@@ -374,29 +498,33 @@ int main(int argc, char *argv[]) {
   fprintf(fw, "# (%d) timestep;", ++count);
   fprintf(fw, " (%d) T;", ++count);
   fprintf(fw, " (%d) KE;", ++count);
-  fprintf(fw, " (%d) P(KE);", ++count);
-  fprintf(fw, " (%d) P(W);", ++count);
-  fprintf(fw, " (%d) P(W+KE);", ++count);
-  fprintf(fw, " (%d) Pxx;", ++count);
-  fprintf(fw, " (%d) Pyy;", ++count);
-  fprintf(fw, " (%d) Pzz;", ++count);
-  fprintf(fw, " (%d) W;", ++count);
+  if (calculate_pairwise) {
+    fprintf(fw, " (%d) P(KE);", ++count);
+    fprintf(fw, " (%d) P(W);", ++count);
+    fprintf(fw, " (%d) P(W+KE);", ++count);
+    fprintf(fw, " (%d) Pxx;", ++count);
+    fprintf(fw, " (%d) Pyy;", ++count);
+    fprintf(fw, " (%d) Pzz;", ++count);
+    fprintf(fw, " (%d) W;", ++count);
+    fprintf(fw, " (%d) uCR;", ++count);
+    fprintf(fw, " (%d) uCD;", ++count);
+  }
   putc('\n', fw);
   fclose(fw); //}}}
 
   SCPrefactors(System, sc);
 
   // variables for collecting observables //{{{
-  LONGVECTOR *KEnergy = calloc(Count->Bead, sizeof *KEnergy);
-  LONGINTVECTOR **BeadCount = malloc(Count->BeadType * sizeof **BeadCount);
   bool *bt_in_use = calloc(Count->BeadType, sizeof *bt_in_use);
+  long double (*KEnergy)[3] = calloc(n_bins, sizeof *KEnergy),
+              (*Press_vir)[3] = calloc(n_bins, sizeof *Press_vir);
+  long int (**BeadCount)[3] = malloc(Count->BeadType * sizeof **BeadCount);
   for (int i = 0; i < Count->BeadType; i++) {
     BeadCount[i] = calloc(n_bins, sizeof *BeadCount[i]);
   }
   double temp_sum = 0,
-         press_kin_sum = 0,
-         virial_sum = 0,
-         press_vir_sum = 0;
+         press_kin_sum = 0, virial_sum = 0, press_vir_sum = 0,
+         centre_avg[3] = {0, 0, 0};
   //}}}
 
   // main loop //{{{
@@ -423,14 +551,32 @@ int main(int argc, char *argv[]) {
       double *loc_dens = calloc(Count->Bead, sizeof *loc_dens);
       double *uSC = calloc(Count->Bead, sizeof *uSC),
              Pxx = 0, Pyy = 0, Pzz = 0,
-             energy_kin = 0;
+             energy_kin = 0,
+             UCR = 0, UCD = 0; // TODO: remove?
       VECTOR *force = calloc(Count->Bead, sizeof *force);
       bool *test_used = calloc(Count->Bead, sizeof *test_used);
 
       count_used++;
       box = &System.Box;
+      // TODO: this is for ml's stuff - coordinate centre is in the box centre
+      for (int i = 0; i < Count->BeadCoor; i++) {
+        int id = System.BeadCoor[i];
+        BEAD *b = &System.Bead[id];
+        b->Position.x += box->Length.x / 2;
+        b->Position.y += box->Length.y / 2;
+        b->Position.z += box->Length.z / 2;
+      }
       WrapJoinCoordinates(&System, true, false); // restore pbc
-      if (calculate_pairwise) {
+      VECTOR centre;
+      if (use_com) {
+        centre = CentreOfMass(Count->BeadCoor, System.BeadCoor, System);
+      } else {
+        centre = GeomCentre(Count->BeadCoor, System.BeadCoor, System.Bead);
+      }
+      centre_avg[0] += centre.x;
+      centre_avg[1] += centre.y;
+      centre_avg[2] += centre.z;
+      if (calculate_pairwise) { //{{{
         // calculete forces
         INTVECTOR n_cells;
         int *Head, *Link, Dcx[14], Dcy[14], Dcz[14];
@@ -530,8 +676,36 @@ int main(int argc, char *argv[]) {
                   } //}}}
                   while (j != -1) {
                     int id_j = System.BeadCoor[j];
+                    // bin ids in the three directions //{{{
+                    BEAD *b_i = &System.Bead[id_i];
+                    BEAD *b_j = &System.Bead[id_j];
+                    int bin_i[3], bin_j[3];
+                    // hopefully, bin will always be positive
+                    bin_i[0] = (b_i->Position.x - centre.x) / width +
+                               n_bins_orig / 2;
+                    bin_i[1] = (b_i->Position.y - centre.y) / width +
+                               n_bins_orig / 2;
+                    bin_i[2] = (b_i->Position.z - centre.z) / width +
+                               n_bins_orig / 2;
+                    // hopefully, bin will always be positive
+                    bin_j[0] = (b_j->Position.x - centre.x) / width +
+                               n_bins_orig / 2;
+                    bin_j[1] = (b_j->Position.y - centre.y) / width +
+                               n_bins_orig / 2;
+                    bin_j[2] = (b_j->Position.z - centre.z) / width +
+                               n_bins_orig / 2; //}}}
+                    double pxx_ij = 0, pyy_ij = 0, pzz_ij = 0;
                     ShiftedSuttonChen(System, id_i, id_j, sc, loc_dens, uSC,
-                                      force, &Pxx, &Pyy, &Pzz);
+                                      force, &pxx_ij, &pyy_ij, &pzz_ij, &UCR);
+                    Pxx += pxx_ij;
+                    Pyy += pyy_ij;
+                    Pzz += pzz_ij;
+                    for (int k = 0; k < 3; k++) {
+                      if (bin_i[k] == bin_j[k]) {
+                        double press = pxx_ij + pyy_ij + pzz_ij;
+                        Press_vir[bin_i[k]][k] += press;
+                      }
+                    }
                     j = Link[j];
                   }
                 }
@@ -542,7 +716,7 @@ int main(int argc, char *argv[]) {
         } //}}}
         free(Head);
         free(Link);
-      }
+      } //}}}
       for (int i = 0; i < Count->BeadCoor; i++) {
         int id = System.BeadCoor[i];
         BEAD *b = &System.Bead[id];
@@ -553,31 +727,42 @@ int main(int argc, char *argv[]) {
                       SQR(b->Velocity.z);
         double ke = 0.5 * bt->Mass * vel2;
         energy_kin += ke;
-        // Sutton-Chen potential
-        double ui = sc[b->Type][b->Type].c * sc[b->Type][b->Type].eps *
-                    sqrt(loc_dens[id]);
-        uSC[id] = 0.5 * uSC[id] - ui;
-        // copy previously calculated forces
-        b->Force = force[id];
+        if (calculate_pairwise) {
+          // Sutton-Chen potential
+          double ui = sc[b->Type][b->Type].c * sc[b->Type][b->Type].eps *
+                      sqrt(loc_dens[id]);
+          UCD -= ui;
+          uSC[id] = 0.5 * uSC[id] - ui;
+          // copy previously calculated forces
+          b->Force = force[id];
+        }
         // bin id in the three directions
-        INTVECTOR bin;
-        bin.x = b->Position.x / width;
-        bin.y = b->Position.y / width;
-        bin.z = b->Position.z / width;
-        // realloc memory if bin is too high
-        if (Max3(bin.x, bin.y, bin.z) >= n_bins) {
-          n_bins += 10;
+        int bin[3];
+        // hopefully, bin will always be positive
+        bin[0] = (b->Position.x - centre.x) / width + n_bins_orig / 2;
+        bin[1] = (b->Position.y - centre.y) / width + n_bins_orig / 2;
+        bin[2] = (b->Position.z - centre.z) / width + n_bins_orig / 2;
+
+        // realloc memory if bin is too high //{{{
+        if (Max3(bin[0], bin[1], bin[2]) >= n_bins) {
+          printf("\nchanged: %d", n_bins);
+          n_bins = Max3(bin[0], bin[1], bin[2]) + 1;
+          printf(" -> %d\n", n_bins);
           KEnergy = realloc(KEnergy, n_bins * sizeof *KEnergy);
           for (int j = 0; j < Count->BeadType; j++) {
             BeadCount[j] = realloc(BeadCount[j], n_bins * sizeof *BeadCount[j]);
           }
+        } //}}}
+        // error - negative bin //{{{
+        if (bin[0] < 0 || bin[1] < 0 || bin[2] < 0) {
+          strcpy(ERROR_MSG, "negative bin id; should never happen!");
+          PrintError();
+          exit(1);
+        } //}}}
+        for (int j = 0; j < 3; j++) {
+          BeadCount[b->Type][bin[j]][j]++;
+          KEnergy[bin[j]][j] += ke;
         }
-        // count beads in bins for density, temperature
-        BeadCount[b->Type][bin.x].x++;
-        BeadCount[b->Type][bin.y].y++;
-        BeadCount[b->Type][bin.z].z++;
-        // kinetic energy for temperature
-        KEnergy[bin.x].x += ke;
         // specify the given bead type is used
         bt_in_use[b->Type] = true;
       }
@@ -593,15 +778,19 @@ int main(int argc, char *argv[]) {
       // write global values to output file //{{{
       fw = OpenFile(out_global, "a");
       fprintf(fw, " %8d", count_coor);
-      fprintf(fw, " %8.3e", temperature * real_T / CUBE(CG));
-      fprintf(fw, " %10.3e", energy_kin * real_E / CUBE(CG));
-      fprintf(fw, " %10.3e", press_kin * real_P);
-      fprintf(fw, " %10.3e", press_vir * real_P);
-      fprintf(fw, " %10.3e", (press_kin + press_vir) * real_P);
-      fprintf(fw, " %10.3e", Pxx);
-      fprintf(fw, " %10.3e", Pyy);
-      fprintf(fw, " %10.3e", Pzz);
-      fprintf(fw, " %10.3e", virial);
+      fprintf(fw, " %10.5e", temperature * real_T / CUBE(CG));
+      fprintf(fw, " %10.5e", energy_kin * real_E / CUBE(CG));
+      if (calculate_pairwise) {
+        fprintf(fw, " %10.5e", press_kin * real_P);
+        fprintf(fw, " %10.5e", press_vir * real_P);
+        fprintf(fw, " %10.5e", (press_kin + press_vir) * real_P);
+        fprintf(fw, " %10.5e", Pxx);
+        fprintf(fw, " %10.5e", Pyy);
+        fprintf(fw, " %10.5e", Pzz);
+        fprintf(fw, " %10.5e", virial);
+        fprintf(fw, " %10.5e", UCR / Count->BeadCoor * real_E / CUBE(CG));
+        fprintf(fw, " %10.5e", UCD / Count->BeadCoor * real_E / CUBE(CG));
+      }
       putc('\n', fw);
       fclose(fw); //}}}
 
@@ -645,75 +834,124 @@ int main(int argc, char *argv[]) {
     fflush(stdout);
   } //}}}
 
-  char fx[LINE], fy[LINE], fz[LINE];
-  if (snprintf(fx, LINE, "%s-x.rho", out_local) < 0) {
+  // average centre of mass/geometry
+  centre_avg[0] /= count_used;
+  centre_avg[1] /= count_used;
+  centre_avg[2] /= count_used;
+
+  // print profiles of observables //{{{
+  // open the three files & print headers //{{{
+  char f[3][LINE]; // complete filenames
+  if (snprintf(f[0], LINE, "%s-x.rho", out_local) < 0) {
     strcpy(ERROR_MSG, "something wrong with snprintf()");
     PrintError();
     exit(1);
   }
-  if (snprintf(fy, LINE, "%s-y.rho", out_local) < 0) {
+  if (snprintf(f[1], LINE, "%s-y.rho", out_local) < 0) {
     strcpy(ERROR_MSG, "something wrong with snprintf()");
     PrintError();
     exit(1);
   }
-  if (snprintf(fz, LINE, "%s-z.rho", out_local) < 0) {
+  if (snprintf(f[2], LINE, "%s-z.rho", out_local) < 0) {
     strcpy(ERROR_MSG, "something wrong with snprintf()");
     PrintError();
     exit(1);
   }
-  FILE *fwx = OpenFile(fx, "w");
-  FILE *fwy = OpenFile(fy, "w");
-  FILE *fwz = OpenFile(fz, "w");
-  PrintByline(fwx, argc, argv);
-  PrintByline(fwy, argc, argv);
-  PrintByline(fwz, argc, argv);
-  fprintf(fwx, "# columns: (1) distance");
-  fprintf(fwy, "# columns: (1) distance");
-  fprintf(fwz, "# columns: (1) distance");
-  count = 1;
-  for (int i = 0; i < Count->BeadType; i++) {
-    if (bt_in_use[i]) {
-      count++;
-      fprintf(fwx, "; (%d) %s", count, System.BeadType[i].Name);
-      fprintf(fwy, "; (%d) %s", count, System.BeadType[i].Name);
-      fprintf(fwz, "; (%d) %s", count, System.BeadType[i].Name);
-    }
-  }
-  putc('\n', fwx);
-  putc('\n', fwy);
-  putc('\n', fwz);
-  // write rdf
-  VECTOR volume;
-  volume.x = width * box->Length.y * box->Length.z;
-  volume.y = box->Length.x * width * box->Length.z;
-  volume.z = box->Length.x * box->Length.y * width;
-  for (int i = 0; i < (n_bins - 1); i++) {
-    double dist = width * (2 * i + 1) / 2;
-    fprintf(fwx, "%7.3f", dist); // absolute distance
-    fprintf(fwy, "%7.3f", dist); // absolute distance
-    fprintf(fwz, "%7.3f", dist); // absolute distance
+  FILE *fw2[3];
+  for (int i = 0; i < 3; i++) {
+    fw2[i] = OpenFile(f[i], "w");
+    // print headers
+    PrintByline(fw2[i], argc, argv);
+    fprintf(fw2[i], "# columns: (1) distance");
+    count = 1;
+    fprintf(fw2[i], "; (%d) T", ++count);
+    fprintf(fw2[i], "; (%d) P(KE)", ++count);
+    fprintf(fw2[i], "; (%d) P(W)", ++count);
+    fprintf(fw2[i], "; (%d) P", ++count);
     for (int j = 0; j < Count->BeadType; j++) {
-      if (bt_in_use[j]){
-        VECTOR rho;
-        rho.x = BeadCount[j][i].x / (volume.x * count_used);
-        rho.y = BeadCount[j][i].y / (volume.y * count_used);
-        rho.z = BeadCount[j][i].z / (volume.z * count_used);
-        fprintf(fwx, " %10f", rho.x);
-        fprintf(fwy, " %10f", rho.y);
-        fprintf(fwz, " %10f", rho.z);
+      if (bt_in_use[j]) {
+        count++;
+        fprintf(fw2[i], "; (%d) %s", count, System.BeadType[j].Name);
       }
     }
-    putc('\n',fwx);
-    putc('\n',fwy);
-    putc('\n',fwz);
+    putc('\n', fw2[i]);
+  } //}}}
+  // find first/last non-zero bin in every direction //{{{
+  int non_zero_lo[3] = {-1, -1, -1};
+  for (int i = 0; i < n_bins; i++) {
+    for (int j = 0; j < Count->BeadType; j++) {
+      for (int k = 0; k < 3; k++) {
+        if (non_zero_lo[k] == -1 && BeadCount[j][i][k] > 0) {
+          non_zero_lo[k] = i;
+        }
+      }
+    }
   }
-  fclose(fwx);
-  fclose(fwy);
-  fclose(fwz);
+  int non_zero_hi[3] = {-1, -1, -1};
+  for (int i = (n_bins - 1); i >= 0; i--) {
+    for (int j = 0; j < Count->BeadType; j++) {
+      for (int k = 0; k < 3; k++) {
+        if (non_zero_hi[k] == -1 && BeadCount[j][i][k] > 0) {
+          non_zero_hi[k] = i;
+        }
+      }
+    }
+  } //}}}
+  // helper variables //{{{
+  long int (*BeadCount_tot)[3] = calloc(n_bins, sizeof *BeadCount_tot);
+  for (int i = 0; i < n_bins; i++) {
+    for (int j = 0; j < Count->BeadType; j++) {
+      for (int k = 0; k < 3; k++) {
+        BeadCount_tot[i][k] += BeadCount[j][i][k];
+      }
+    }
+  }
+  double volume[3];
+  volume[0] = width * box->Length.y * box->Length.z;
+  volume[1] = box->Length.x * width * box->Length.z;
+  volume[2] = box->Length.x * box->Length.y * width;
+  //}}}
+  // write profiles //{{{
+  for (int i = 0; i < (n_bins - 1); i++) {
+    double dist = width * (2 * i + 1) / 2;
+    for (int j = 0; j < 3; j++) {
+      if (i >= non_zero_lo[j] && i <= non_zero_hi[j]) {
+        double abs_dist = dist - centre_avg[j] -
+                          width * ( 2 * non_zero_lo[j] + 1) / 2;
+        fprintf(fw2[j], "%7.3f", abs_dist * real_l); // absolute distance
+        // temperature - don't use 'count_used' as both KEnergy & BeadCount_tot
+        // are sums from all the counted steps
+        double temp = 2 * KEnergy[i][j] / (3 * BeadCount_tot[i][j] - 3);
+        fprintf(fw2[j], " %e", temp * real_T / CUBE(CG));
+        if (calculate_pairwise) {
+          // kinetic (ideal gas) pressure
+          double press_kin = 2 * KEnergy[i][j] / (volume[j] * count_used);
+          fprintf(fw2[j], " %e", press_kin * real_P);
+          // virial pressure
+          double press_vir = Press_vir[i][j] / (3 * volume[j] * count_used);
+          fprintf(fw2[j], " %e", press_vir * real_P);
+          // total pressure
+          fprintf(fw2[j], " %e", (press_kin + press_vir) * real_P);
+        }
+        // density
+        for (int k = 0; k < Count->BeadType; k++) {
+          if (bt_in_use[k]){
+            double rho = BeadCount[k][i][j] / (volume[j] * count_used);
+            rho /= CUBE(real_l);
+            fprintf(fw2[j], " %e", rho);
+          }
+        }
+        putc('\n',fw2[j]);
+      }
+    }
+  } //}}}
+  fclose(fw2[0]);
+  fclose(fw2[1]);
+  fclose(fw2[2]); //}}}
 
   // free memory //{{{
   FreeSystem(&System);
-  for (int i = 0; i < elements; i++) {
+  for (int i = 0; i < Count->BeadType; i++) {
     free(sc[i]);
   }
   free(sc);
@@ -722,6 +960,7 @@ int main(int argc, char *argv[]) {
   }
   free(BeadCount);
   free(KEnergy);
+  free(BeadCount_tot);
   free(bt_in_use);
   //}}}
 

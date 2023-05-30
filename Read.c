@@ -367,7 +367,7 @@ static BOX LtrjReadPBC(char file[]) {
   int test = LtrjSkipItemTimestep(fr, file, &line_count);
   if (test < 0) {
     if (test == -2) {
-      ErrorEOF(file);
+      ErrorEOF(file, "wrong 'ITEM: TIMESTEP' section");
     }
     exit(1);
   }
@@ -414,7 +414,7 @@ static int LtrjSkipItemTimestep(FILE *fr, char file[], int *line_count) { //{{{
   // skip the timestep-counting line
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "missing timestep in 'ITEM: TIMESTEP' section");
     return -2;
   }
   return 1;
@@ -423,7 +423,7 @@ static int LtrjReadNumberOfAtoms(FILE *fr, char file[], int *line_count) { //{{{
   // read until 'ITEM: NUMBER OF ATOMS' line
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "missing 'ITEM: NUMBER OF ATOMS' section");
     return -2;
   }
   if (!LtrjCheckNumberAtomsLine()) {
@@ -434,7 +434,7 @@ static int LtrjReadNumberOfAtoms(FILE *fr, char file[], int *line_count) { //{{{
   // read next line, i.e., the number of atoms
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "missing number of atoms");
     return -2;
   }
   long val = -1;
@@ -451,7 +451,7 @@ static int LtrjReadPBCSection(FILE *fr, char file[], BOX *box,
   // 1) read until 'ITEM:' line to find box type
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "missing 'ITEM: BOX BOUNDS' section");
     return -2;
   }
   if (!LtrjCheckPbcLine()) {
@@ -465,7 +465,7 @@ static int LtrjReadPBCSection(FILE *fr, char file[], BOX *box,
     for (int i = 0; i < 3; i++) {
       (*line_count)++;
       if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-        ErrorEOF(file);
+        ErrorEOF(file, "incomplete 'ITEM: BOX BOUNDS' section");
         return -2;
       }
       if (words < 2 || !IsRealNumber(split[0], &bounds[i][0]) ||
@@ -485,7 +485,7 @@ static int LtrjReadPBCSection(FILE *fr, char file[], BOX *box,
     for (int i = 0; i < 3; i++) {
       (*line_count)++;
       if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-        ErrorEOF(file);
+        ErrorEOF(file, "incomplete 'ITEM: BOX BOUNDS' section");
         return -2;
       }
       if (words < 3 || !IsRealNumber(split[0], &bounds[i][0]) ||
@@ -563,7 +563,7 @@ static int LtrjReadAtomsLine(FILE *fr, char file[], int max_vars, int *var_pos,
   // read ITEM: ATOMS line //{{{
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "missing 'ITEM: ATOMS' line");
     return -2;
   }
   // error: line must be 'ITEMS: ATOMS <at least one more>'
@@ -671,7 +671,7 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
   COUNT *Count = &System->Count;
   // ignore the first line (comment) //{{{
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "\0");
     exit(1);
   } //}}}
   *line_count = 1;
@@ -683,7 +683,7 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
     fgetpos(fr, &position);
     // read a line
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
+      ErrorEOF(file, "incomplete lammps data file header");
       exit(1);
     }
     // evaluate the line
@@ -1074,13 +1074,13 @@ static void LmpDataReadMasses(FILE *fr, char file[], BEADTYPE name_mass[],
   // skip one line
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "incomplete 'Masses' section");
     exit(1);
   }
   for (int i = 0; i < atom_types; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
+      ErrorEOF(file, "incomplete 'Masses' section");
       exit(1);
     }
     long type;
@@ -1123,13 +1123,13 @@ static void LmpDataReadBondCoeffs(FILE *fr, char file[], SYSTEM *System,
   // skip one line
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "incomplete 'Bond Coeffs' section");
     exit(1);
   }
   for (int i = 0; i < Count->BondType; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
+      ErrorEOF(file, "incomplete 'Bond Coeffs' section");
       exit(1);
     }
     long type;
@@ -1159,13 +1159,13 @@ static void LmpDataReadAngleCoeffs(FILE *fr, char file[], SYSTEM *System,
   // skip one line
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "incomplete 'Angle Coeffs' section");
     exit(1);
   }
   for (int i = 0; i < Count->AngleType; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
+      ErrorEOF(file, "incomplete 'Angle Coeffs' section");
       exit(1);
     }
     long type;
@@ -1195,13 +1195,13 @@ static void LmpDataReadDihedralCoeffs(FILE *fr, char file[], SYSTEM *System,
   // skip one line
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "incomplete 'Dihedral Coeffs' section");
     exit(1);
   }
   for (int i = 0; i < Count->DihedralType; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
+      ErrorEOF(file, "incomplete 'Dihedral Coeffs' section");
       exit(1);
     }
     long type;
@@ -1236,13 +1236,13 @@ static void LmpDataReadImproperCoeffs(FILE *fr, char file[], SYSTEM *System,
   // skip one line
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "incomplete 'Improper Coeffs' section");
     exit(1);
   }
   for (int i = 0; i < Count->ImproperType; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
+      ErrorEOF(file, "incomplete 'Improper Coeffs' section");
       exit(1);
     }
     long type;
@@ -1273,14 +1273,14 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
   // skip one line
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "incomplete 'Atoms' section");
     exit(1);
   }
   bool warned = false; // to warn of undefined charge only once
   for (int i = 0; i < Count->Bead; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
+      ErrorEOF(file, "incomplete 'Atoms' section");
       exit(1);
     }
     long id, resid, type;
@@ -1428,13 +1428,13 @@ static void LmpDataReadVelocities(FILE *fr, char file[], SYSTEM *System,
   // skip one line
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "incomplete 'Velocities' section");
     exit(1);
   }
   for (int i = 0; i < Count->Bead; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
+      ErrorEOF(file, "incomplete 'Velocities' section");
       exit(1);
     }
     long id;
@@ -1460,14 +1460,14 @@ static void LmpDataReadBonds(FILE *fr, char file[], COUNT Count, int (*bond)[3],
   // skip one line
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "incomplete 'Bonds' section");
     exit(1);
   }
   bool warned = false;
   for (int i = 0; i < Count.Bond; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
+      ErrorEOF(file, "incomplete 'Bonds' section");
       exit(1);
     }
     long id, type, b_id[2];
@@ -1527,13 +1527,13 @@ static void LmpDataReadAngles(FILE *fr, char file[], COUNT Count,
   // skip one line
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "incomplete 'Angles' section");
     exit(1);
   }
   for (int i = 0; i < Count.Angle; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
+      ErrorEOF(file, "incomplete 'Angles' section");
       exit(1);
     }
     long id, type, a_id[3];
@@ -1586,13 +1586,13 @@ static void LmpDataReadDihedrals(FILE *fr, char file[], COUNT Count,
   // skip one line
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "incomplete 'Dihedrals' section");
     exit(1);
   }
   for (int i = 0; i < Count.Dihedral; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
+      ErrorEOF(file, "incomplete 'Dihedrals' section");
       exit(1);
     }
     long id, type, d_id[4];
@@ -1649,13 +1649,13 @@ static void LmpDataReadImpropers(FILE *fr, char file[], COUNT Count,
   // skip one line
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "incomplete 'Impropers' section");
     exit(1);
   }
   for (int i = 0; i < Count.Improper; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
+      ErrorEOF(file, "incomplete 'Impropers' section");
       exit(1);
     }
     long id, type, i_id[4];
@@ -2212,7 +2212,7 @@ static bool VtfCheckBondLine() { //{{{
   }
   // more than two strings - assume '<int>: <int>' and test it
   if (words > 2) {
-    split[1][strlen(split[1]) - 1] = '\0';
+    split[1][strlen(split[1])-1] = '\0';
     if (!IsIntegerNumber(split[1], &val_i) || val_i < 0 ||
         !IsIntegerNumber(split[2], &val_i) || val_i < 0) {
       strcpy(ERROR_MSG, "bond line: only 'b[ond] <int>:<int>' or "
@@ -2582,7 +2582,7 @@ static void FieldReadSpecies(char file[], SYSTEM *System) { //{{{
   }
   // error - missing 'Species' line
   if (!test) {
-    ErrorEOF(file);
+    ErrorEOF(file, "missing 'Species' line");
     exit(1);
   } //}}}
   COUNT *Count = &System->Count;
@@ -2598,7 +2598,7 @@ static void FieldReadSpecies(char file[], SYSTEM *System) { //{{{
   for (int i = 0; i < types; i++) {
     line_count++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
+      ErrorEOF(file, "incomplete 'Species' section");
       exit(1);
     }
     double mass, charge;
@@ -2652,7 +2652,7 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
   }
   // error - missing 'Species' line
   if (!test) {
-    ErrorEOF(file);
+    ErrorEOF(file, "missing 'Species' line");
     exit(1);
   } //}}}
   // read number of types //{{{
@@ -2664,660 +2664,662 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
   } //}}}
   COUNT *Count = &System->Count;
   Count->MoleculeType = val;
-  System->MoleculeType =
-      realloc(System->MoleculeType, sizeof(MOLECULETYPE) * Count->MoleculeType);
-  // read molecule types
-  /*
-   * Order of entries:
-   *   1) <molecule name>
-   *   2) nummol[s] <int>
-   *   3) bead[s] <int>
-   *      <int> lines: <bead name> <x> <y> <z>
-   *   4) bond[s] <int> (optional)
-   *      <int> lines: harm <id1> <id2> <k> <r_0>
-   *   5) angle[s] <int> (optional)
-   *      <int> lines: harm <id1> <id2> <id3> <k> <theta_0>
-   *   6) dihed[rals] <int> (optional)
-   *      <int> lines: harm <id1> <id2> <id3> <id4> <k> <theta_0>
-   *   7) finish keyword
-   */
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    MOLECULETYPE *mt_i = &System->MoleculeType[i];
-    InitMoleculeType(mt_i);
-    // 1) name //{{{
-    line_count++;
-    // read a line //{{{
-    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
-      exit(1);
-    } //}}}
-    if (words == 0) {
-      strcpy(ERROR_MSG, "missing molecule name");
-      PrintErrorFileLine(file, line_count, split, words);
-      exit(1);
-    }
-    strncpy(mt_i->Name, split[0], MOL_NAME);
-    mt_i->Name[MOL_NAME - 1] = '\0'; // null-terminate! //}}}
-    // 2) number of molecules //{{{
-    line_count++;
-    // read a line //{{{
-    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
-      exit(1);
-    } //}}}
-    if (words < 2 || strcasecmp(split[0], "nummols") != 0 ||
-        !IsNaturalNumber(split[1], &val)) {
-      strcpy(ERROR_MSG, "incorrect 'nummols' line in a molecule entry");
-      PrintErrorFileLine(file, line_count, split, words);
-      exit(1);
-    }
-    mt_i->Number = val; //}}}
-    // 3) beads in the molecule //{{{
-    // a) number of beads //{{{
-    line_count++;
-    // read a line //{{{
-    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
-      exit(1);
-    } //}}}
-    if (words < 2 || strncasecmp(split[0], "beads", 4) != 0 ||
-        !IsNaturalNumber(split[1], &val)) {
-      strcpy(ERROR_MSG, "incorrect 'beads' line in a molecule entry");
-      PrintErrorFileLine(file, line_count, split, words);
-      exit(1);
-    }
-    mt_i->nBeads = val; //}}}
-    mt_i->Bead = malloc(sizeof *mt_i->Bead * mt_i->nBeads);
-    VECTOR *coor = malloc(sizeof(VECTOR) * mt_i->nBeads);
-    // b) beads themselves //{{{
-    for (int j = 0; j < mt_i->nBeads; j++) {
+  if (Count->MoleculeType > 0) {
+    System->MoleculeType = realloc(System->MoleculeType,
+                                   sizeof(MOLECULETYPE) * Count->MoleculeType);
+    // read molecule types
+    /*
+     * Order of entries:
+     *   1) <molecule name>
+     *   2) nummol[s] <int>
+     *   3) bead[s] <int>
+     *      <int> lines: <bead name> <x> <y> <z>
+     *   4) bond[s] <int> (optional)
+     *      <int> lines: harm <id1> <id2> <k> <r_0>
+     *   5) angle[s] <int> (optional)
+     *      <int> lines: harm <id1> <id2> <id3> <k> <theta_0>
+     *   6) dihed[rals] <int> (optional)
+     *      <int> lines: harm <id1> <id2> <id3> <id4> <k> <theta_0>
+     *   7) finish keyword
+     */
+    for (int i = 0; i < Count->MoleculeType; i++) {
+      MOLECULETYPE *mt_i = &System->MoleculeType[i];
+      InitMoleculeType(mt_i);
+      // 1) name //{{{
       line_count++;
       // read a line //{{{
       if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-        ErrorEOF(file);
+        ErrorEOF(file, "incomplete 'Molecules' section");
         exit(1);
       } //}}}
-      // error - incorrect line //{{{
-      if (words < 4 || !IsRealNumber(split[1], &coor[j].x) ||
-                       !IsRealNumber(split[2], &coor[j].y) ||
-                       !IsRealNumber(split[3], &coor[j].z)) {
-        strcpy(ERROR_MSG, "incorrect bead coordinate line in a molecule entry");
-        PrintErrorFileLine(file, line_count, split, words);
-        exit(1);
-      } //}}}
-      int btype = FindBeadType(split[0], *System);
-      // error - unknown type //{{{
-      if (btype == -1) {
-        strcpy(ERROR_MSG, "unknown bead in a molecule entry");
-        PrintErrorFileLine(file, line_count, split, words);
-        ErrorBeadType(split[0], *System);
-        exit(1);
-      } //}}}
-      mt_i->Bead[j] = btype;
-    }                                //}}}
-    int count = Count->Bead,         // for filling Molecule[] & Bead[]
-        mol_count = Count->Molecule; //
-    Count->Molecule += mt_i->Number;
-    Count->Bead += mt_i->Number * mt_i->nBeads;
-    Count->Bonded += mt_i->Number * mt_i->nBeads;
-    System->Molecule = realloc(System->Molecule,
-                               sizeof *System->Molecule * Count->Molecule);
-    System->Bead = realloc(System->Bead, sizeof *System->Bead * Count->Bead);
-    System->Bonded = realloc(System->Bonded,
-                             sizeof System->Bonded * Count->Bonded);
-    for (int j = count; j < Count->Bead; j++) {
-      InitBead(&System->Bead[j]);
-    }
-    // c) fill Molecule[] & Bead[] //{{{
-    for (int j = 0; j < mt_i->Number; j++) {
-      MOLECULE *mol = &System->Molecule[mol_count];
-      mol->Type = i;
-      mol->Index = mol_count;
-      mol->Bead = malloc(sizeof *mol->Bead * mt_i->nBeads);
-      for (int k = 0; k < mt_i->nBeads; k++) {
-        BEAD *bead = &System->Bead[count];
-        bead->Type = mt_i->Bead[k];
-        bead->Molecule = mol_count;
-        bead->Position.x = coor[k].x;
-        bead->Position.y = coor[k].y;
-        bead->Position.z = coor[k].z;
-        System->BeadType[bead->Type].Number++;
-        System->Bonded[count - Count->Unbonded] = count;
-        mol->Bead[k] = count;
-        count++;
-      }
-      mol_count++;
-    }
-    // pro forma checks //{{{
-    if (count != Count->Bead) {
-      strcpy(ERROR_MSG, "wrong number of beads; should never happen!");
-      PrintErrorFile(file, "\0", "\0");
-      exit(1);
-    }
-    if (mol_count != Count->Molecule) {
-      strcpy(ERROR_MSG, "wrong number of molecules; should never happen!");
-      PrintErrorFile(file, "\0", "\0");
-      exit(1);
-    } //}}}
-    //}}}
-    free(coor); //}}}
-    // 4) bonds in the molecule (if present) //{{{
-    line_count++;
-    // read a line //{{{
-    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
-      exit(1);
-    } //}}}
-    if (words > 1 && strncasecmp(split[0], "bonds", 4) == 0) {
-      // a) number of bonds //{{{
-      if (!IsNaturalNumber(split[1], &val)) {
-        strcpy(ERROR_MSG, "incorrect 'bonds' line in a molecule entry");
+      if (words == 0) {
+        strcpy(ERROR_MSG, "missing molecule name");
         PrintErrorFileLine(file, line_count, split, words);
         exit(1);
       }
-      mt_i->nBonds = val; //}}}
-      mt_i->Bond = malloc(sizeof *mt_i->Bond * mt_i->nBonds);
-      // b) bonds themselves & bond types //{{{
-      // TODO: for now, only harmonic bonds are considered
-      bool warned = false;
-      for (int j = 0; j < mt_i->nBonds; j++) {
+      strncpy(mt_i->Name, split[0], MOL_NAME);
+      mt_i->Name[MOL_NAME - 1] = '\0'; // null-terminate! //}}}
+      // 2) number of molecules //{{{
+      line_count++;
+      // read a line //{{{
+      if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+        ErrorEOF(file, "incomplete 'Molecules' section");
+        exit(1);
+      } //}}}
+      if (words < 2 || strcasecmp(split[0], "nummols") != 0 ||
+          !IsNaturalNumber(split[1], &val)) {
+        strcpy(ERROR_MSG, "incorrect 'nummols' line in a molecule entry");
+        PrintErrorFileLine(file, line_count, split, words);
+        exit(1);
+      }
+      mt_i->Number = val; //}}}
+      // 3) beads in the molecule //{{{
+      // a) number of beads //{{{
+      line_count++;
+      // read a line //{{{
+      if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+        ErrorEOF(file, "incomplete 'Molecules' section");
+        exit(1);
+      } //}}}
+      if (words < 2 || strncasecmp(split[0], "beads", 4) != 0 ||
+          !IsNaturalNumber(split[1], &val)) {
+        strcpy(ERROR_MSG, "incorrect 'beads' line in a molecule entry");
+        PrintErrorFileLine(file, line_count, split, words);
+        exit(1);
+      }
+      mt_i->nBeads = val; //}}}
+      mt_i->Bead = malloc(sizeof *mt_i->Bead * mt_i->nBeads);
+      VECTOR *coor = malloc(sizeof(VECTOR) * mt_i->nBeads);
+      // b) beads themselves //{{{
+      for (int j = 0; j < mt_i->nBeads; j++) {
         line_count++;
         // read a line //{{{
-        if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR,
-                              " \t\n")) {
-          ErrorEOF(file);
+        if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+          ErrorEOF(file, "incomplete 'Molecules' section");
           exit(1);
         } //}}}
-        long beads[2];
-        PARAMS values = InitParams;
         // error - incorrect line //{{{
-        if (words < 3 || !IsNaturalNumber(split[1], &beads[0]) ||
-            !IsNaturalNumber(split[2], &beads[1]) || beads[0] == beads[1]) {
-          strcpy(ERROR_MSG, "incorrect bond line in a molecule entry");
+        if (words < 4 || !IsRealNumber(split[1], &coor[j].x) ||
+                         !IsRealNumber(split[2], &coor[j].y) ||
+                         !IsRealNumber(split[3], &coor[j].z)) {
+          strcpy(ERROR_MSG, "incorrect bead coordinate line in a molecule entry");
           PrintErrorFileLine(file, line_count, split, words);
           exit(1);
         } //}}}
-        // error - bead index is too high //{{{
-        if (beads[0] > mt_i->nBeads || beads[1] > mt_i->nBeads) {
-          strcpy(ERROR_MSG, "bead index in a bond is too high");
+        int btype = FindBeadType(split[0], *System);
+        // error - unknown type //{{{
+        if (btype == -1) {
+          strcpy(ERROR_MSG, "unknown bead in a molecule entry");
+          PrintErrorFileLine(file, line_count, split, words);
+          ErrorBeadType(split[0], *System);
+          exit(1);
+        } //}}}
+        mt_i->Bead[j] = btype;
+      }                                //}}}
+      int count = Count->Bead,         // for filling Molecule[] & Bead[]
+          mol_count = Count->Molecule; //
+      Count->Molecule += mt_i->Number;
+      Count->Bead += mt_i->Number * mt_i->nBeads;
+      Count->Bonded += mt_i->Number * mt_i->nBeads;
+      System->Molecule = realloc(System->Molecule,
+                                 sizeof *System->Molecule * Count->Molecule);
+      System->Bead = realloc(System->Bead, sizeof *System->Bead * Count->Bead);
+      System->Bonded = realloc(System->Bonded,
+                               sizeof System->Bonded * Count->Bonded);
+      for (int j = count; j < Count->Bead; j++) {
+        InitBead(&System->Bead[j]);
+      }
+      // c) fill Molecule[] & Bead[] //{{{
+      for (int j = 0; j < mt_i->Number; j++) {
+        MOLECULE *mol = &System->Molecule[mol_count];
+        mol->Type = i;
+        mol->Index = mol_count;
+        mol->Bead = malloc(sizeof *mol->Bead * mt_i->nBeads);
+        for (int k = 0; k < mt_i->nBeads; k++) {
+          BEAD *bead = &System->Bead[count];
+          bead->Type = mt_i->Bead[k];
+          bead->Molecule = mol_count;
+          bead->Position.x = coor[k].x;
+          bead->Position.y = coor[k].y;
+          bead->Position.z = coor[k].z;
+          System->BeadType[bead->Type].Number++;
+          System->Bonded[count - Count->Unbonded] = count;
+          mol->Bead[k] = count;
+          count++;
+        }
+        mol_count++;
+      }
+      // pro forma checks //{{{
+      if (count != Count->Bead) {
+        strcpy(ERROR_MSG, "wrong number of beads; should never happen!");
+        PrintErrorFile(file, "\0", "\0");
+        exit(1);
+      }
+      if (mol_count != Count->Molecule) {
+        strcpy(ERROR_MSG, "wrong number of molecules; should never happen!");
+        PrintErrorFile(file, "\0", "\0");
+        exit(1);
+      } //}}}
+      //}}}
+      free(coor); //}}}
+      // 4) bonds in the molecule (if present) //{{{
+      line_count++;
+      // read a line //{{{
+      if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+        ErrorEOF(file, "incomplete 'Molecules' section");
+        exit(1);
+      } //}}}
+      if (words > 1 && strncasecmp(split[0], "bonds", 4) == 0) {
+        // a) number of bonds //{{{
+        if (!IsNaturalNumber(split[1], &val)) {
+          strcpy(ERROR_MSG, "incorrect 'bonds' line in a molecule entry");
           PrintErrorFileLine(file, line_count, split, words);
           exit(1);
-        }                                //}}}
-        mt_i->Bond[j][0] = beads[0] - 1; // in FIELD, bead indices start from 1
-        mt_i->Bond[j][1] = beads[1] - 1; //
-        // read up to three values for bond type
-        if (words > 3) {
-          if (strcmp(split[3], "???") == 0 && !warned) {
-            snprintf(ERROR_MSG, LINE, "undefined bond type (\'???\' in bonds "
-                     "section) in molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintWarnFile(file, "\0", "\0");
-            warned = true;
-          } else if (!IsRealNumber(split[3], &values.a)) {
-            snprintf(ERROR_MSG, LINE, "wrong bond type parameter in "
-                     "molecule %s%s\n", ErrYellow(), mt_i->Name);
+        }
+        mt_i->nBonds = val; //}}}
+        mt_i->Bond = malloc(sizeof *mt_i->Bond * mt_i->nBonds);
+        // b) bonds themselves & bond types //{{{
+        // TODO: for now, only harmonic bonds are considered
+        bool warned = false;
+        for (int j = 0; j < mt_i->nBonds; j++) {
+          line_count++;
+          // read a line //{{{
+          if (!ReadAndSplitLine(fr, LINE, line, &words, split,
+                                SPL_STR, " \t\n")) {
+            ErrorEOF(file, "incomplete 'Molecules' section");
+            exit(1);
+          } //}}}
+          long beads[2];
+          PARAMS values = InitParams;
+          // error - incorrect line //{{{
+          if (words < 3 || !IsNaturalNumber(split[1], &beads[0]) ||
+              !IsNaturalNumber(split[2], &beads[1]) || beads[0] == beads[1]) {
+            strcpy(ERROR_MSG, "incorrect bond line in a molecule entry");
             PrintErrorFileLine(file, line_count, split, words);
             exit(1);
-          }
-        }
-        if (words > 4) {
-          if (strcmp(split[4], "???") == 0 && !warned) {
-            snprintf(ERROR_MSG, LINE, "undefined bond type (\'???\' in bonds "
-                     "section) in molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintWarnFile(file, "\0", "\0");
-            warned = true;
-          } else if (!IsRealNumber(split[4], &values.b)) {
-            snprintf(ERROR_MSG, LINE, "wrong bond type parameter in "
-                     "molecule %s%s\n", ErrYellow(), mt_i->Name);
+          } //}}}
+          // error - bead index is too high //{{{
+          if (beads[0] > mt_i->nBeads || beads[1] > mt_i->nBeads) {
+            strcpy(ERROR_MSG, "bead index in a bond is too high");
             PrintErrorFileLine(file, line_count, split, words);
             exit(1);
-          }
-        }
-        if (words > 5) {
-          if (strcmp(split[5], "???") == 0 && !warned) {
-            snprintf(ERROR_MSG, LINE, "undefined bond type (\'???\' in bonds "
-                     "section) in molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintWarnFile(file, "\0", "\0");
-            warned = true;
-          } else if (!IsRealNumber(split[5], &values.c)) {
-            snprintf(ERROR_MSG, LINE, "wrong bond type parameter in "
-                     "molecule %s%s\n", ErrYellow(), mt_i->Name);
-            PrintErrorFileLine(file, line_count, split, words);
-            exit(1);
-          }
-        }
-        // assign bond type //{{{
-        int bond_type = -1;
-        if (values.a != 0 || values.b != 0 || values.c != 0) {
-          // find if this bond type already exists
-          for (int k = 0; k < Count->BondType; k++) {
-            if (System->BondType[k].a == values.a &&
-                System->BondType[k].b == values.b &&
-                System->BondType[k].c == values.c) {
-              bond_type = k;
-              break;
+          }                                //}}}
+          mt_i->Bond[j][0] = beads[0] - 1; // in FIELD, bead indices start from 1
+          mt_i->Bond[j][1] = beads[1] - 1; //
+          // read up to three values for bond type
+          if (words > 3) {
+            if (strcmp(split[3], "???") == 0 && !warned) {
+              snprintf(ERROR_MSG, LINE, "undefined bond type (\'???\' in bonds "
+                       "section) in molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintWarnFile(file, "\0", "\0");
+              warned = true;
+            } else if (!IsRealNumber(split[3], &values.a)) {
+              snprintf(ERROR_MSG, LINE, "wrong bond type parameter in "
+                       "molecule %s%s\n", ErrYellow(), mt_i->Name);
+              PrintErrorFileLine(file, line_count, split, words);
+              exit(1);
             }
           }
-          // create a new bond type if necessary
-          if (bond_type == -1) {
-            bond_type = Count->BondType;
-            Count->BondType++;
-            System->BondType = realloc(System->BondType,
-                                       sizeof(PARAMS) * Count->BondType);
-            System->BondType[bond_type].a = values.a;
-            System->BondType[bond_type].b = values.b;
-            System->BondType[bond_type].c = values.c;
+          if (words > 4) {
+            if (strcmp(split[4], "???") == 0 && !warned) {
+              snprintf(ERROR_MSG, LINE, "undefined bond type (\'???\' in bonds "
+                       "section) in molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintWarnFile(file, "\0", "\0");
+              warned = true;
+            } else if (!IsRealNumber(split[4], &values.b)) {
+              snprintf(ERROR_MSG, LINE, "wrong bond type parameter in "
+                       "molecule %s%s\n", ErrYellow(), mt_i->Name);
+              PrintErrorFileLine(file, line_count, split, words);
+              exit(1);
+            }
           }
+          if (words > 5) {
+            if (strcmp(split[5], "???") == 0 && !warned) {
+              snprintf(ERROR_MSG, LINE, "undefined bond type (\'???\' in bonds "
+                       "section) in molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintWarnFile(file, "\0", "\0");
+              warned = true;
+            } else if (!IsRealNumber(split[5], &values.c)) {
+              snprintf(ERROR_MSG, LINE, "wrong bond type parameter in "
+                       "molecule %s%s\n", ErrYellow(), mt_i->Name);
+              PrintErrorFileLine(file, line_count, split, words);
+              exit(1);
+            }
+          }
+          // assign bond type //{{{
+          int bond_type = -1;
+          if (values.a != 0 || values.b != 0 || values.c != 0) {
+            // find if this bond type already exists
+            for (int k = 0; k < Count->BondType; k++) {
+              if (System->BondType[k].a == values.a &&
+                  System->BondType[k].b == values.b &&
+                  System->BondType[k].c == values.c) {
+                bond_type = k;
+                break;
+              }
+            }
+            // create a new bond type if necessary
+            if (bond_type == -1) {
+              bond_type = Count->BondType;
+              Count->BondType++;
+              System->BondType = realloc(System->BondType,
+                                         sizeof(PARAMS) * Count->BondType);
+              System->BondType[bond_type].a = values.a;
+              System->BondType[bond_type].b = values.b;
+              System->BondType[bond_type].c = values.c;
+            }
+          } //}}}
+          mt_i->Bond[j][2] = bond_type;
         } //}}}
-        mt_i->Bond[j][2] = bond_type;
-      } //}}}
-    } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
-      continue;
-    } else {
-      snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for "
-               "molecule %s%s", ErrYellow(), mt_i->Name);
-      PrintErrorFileLine(file, line_count, split, words);
-      exit(1);
-    } //}}}
-    // 5) angles in the molecule (if present) //{{{
-    line_count++;
-    // read a line //{{{
-    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
-      exit(1);
-    } //}}}
-    if (words > 1 && strncasecmp(split[0], "angles", 4) == 0) {
-      // a) number of angles //{{{
-      if (!IsNaturalNumber(split[1], &val)) {
-        snprintf(ERROR_MSG, LINE, "incorrect line in 'angles' line for "
+      } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
+        continue;
+      } else {
+        snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for "
                  "molecule %s%s", ErrYellow(), mt_i->Name);
         PrintErrorFileLine(file, line_count, split, words);
         exit(1);
-      }
-      mt_i->nAngles = val; //}}}
-      mt_i->Angle = malloc(sizeof *mt_i->Angle * mt_i->nAngles);
-      // b) angles themselves & angle types //{{{
-      // TODO: for now, only harmonic angles are considered
-      bool warned = false; // to warn of undefined angle type only once
-      for (int j = 0; j < mt_i->nAngles; j++) {
-        line_count++;
-        // read a line //{{{
-        if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR,
-                              " \t\n")) {
-          ErrorEOF(file);
-          exit(1);
-        } //}}}
-        long beads[3];
-        PARAMS values = InitParams;
-        // error - incorrect line //{{{
-        if (words < 4 || !IsNaturalNumber(split[1], &beads[0]) ||
-                         !IsNaturalNumber(split[2], &beads[1]) ||
-                         !IsNaturalNumber(split[3], &beads[2]) ||
-            beads[0] == beads[1] ||
-            beads[0] == beads[2] ||
-            beads[1] == beads[2]) {
-          snprintf(ERROR_MSG, LINE, "incorrect line in an entry for "
+      } //}}}
+      // 5) angles in the molecule (if present) //{{{
+      line_count++;
+      // read a line //{{{
+      if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+        ErrorEOF(file, "incomplete 'Molecules' section");
+        exit(1);
+      } //}}}
+      if (words > 1 && strncasecmp(split[0], "angles", 4) == 0) {
+        // a) number of angles //{{{
+        if (!IsNaturalNumber(split[1], &val)) {
+          snprintf(ERROR_MSG, LINE, "incorrect line in 'angles' line for "
                    "molecule %s%s", ErrYellow(), mt_i->Name);
           PrintErrorFileLine(file, line_count, split, words);
           exit(1);
-        } //}}}
-        // error - bead index is too high //{{{
-        if (beads[0] > mt_i->nBeads || beads[1] > mt_i->nBeads ||
-            beads[2] > mt_i->nBeads) {
-          snprintf(ERROR_MSG, LINE, "bead index in an angle is too high in "
-                   "molecule %s%s", ErrYellow(), mt_i->Name);
-          PrintErrorFileLine(file, line_count, split, words);
-          exit(1);
-        }                                 //}}}
-        mt_i->Angle[j][0] = beads[0] - 1; // in FIELD, bead indices start from 1
-        mt_i->Angle[j][1] = beads[1] - 1; //
-        mt_i->Angle[j][2] = beads[2] - 1; //
-        // read up to three values for angle type
-        if (words > 4) {
-          if (strcmp(split[4], "???") == 0 && !warned) {
-            snprintf(ERROR_MSG, LINE, "undefined angle type (\'???\' in angles "
-                     "section) for molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintWarnFile(file, "\0", "\0");
-            warned = true;
-          } else if (!IsRealNumber(split[4], &values.a)) {
-            snprintf(ERROR_MSG, LINE, "wrong angle parameter in molecule "
-                     "%s%s", ErrYellow(), mt_i->Name);
+        }
+        mt_i->nAngles = val; //}}}
+        mt_i->Angle = malloc(sizeof *mt_i->Angle * mt_i->nAngles);
+        // b) angles themselves & angle types //{{{
+        // TODO: for now, only harmonic angles are considered
+        bool warned = false; // to warn of undefined angle type only once
+        for (int j = 0; j < mt_i->nAngles; j++) {
+          line_count++;
+          // read a line //{{{
+          if (!ReadAndSplitLine(fr, LINE, line, &words, split,
+                                SPL_STR, " \t\n")) {
+            ErrorEOF(file, "incomplete 'Molecules' section");
+            exit(1);
+          } //}}}
+          long beads[3];
+          PARAMS values = InitParams;
+          // error - incorrect line //{{{
+          if (words < 4 || !IsNaturalNumber(split[1], &beads[0]) ||
+                           !IsNaturalNumber(split[2], &beads[1]) ||
+                           !IsNaturalNumber(split[3], &beads[2]) ||
+              beads[0] == beads[1] ||
+              beads[0] == beads[2] ||
+              beads[1] == beads[2]) {
+            snprintf(ERROR_MSG, LINE, "incorrect line in an entry for "
+                     "molecule %s%s", ErrYellow(), mt_i->Name);
             PrintErrorFileLine(file, line_count, split, words);
             exit(1);
-          }
-        }
-        if (words > 5) {
-          if (strcmp(split[5], "???") == 0 && !warned) {
-            snprintf(ERROR_MSG, LINE, "undefined angle type (\'???\' in angles "
-                     "section) for molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintWarnFile(file, "\0", "\0");
-            warned = true;
-          } else if (!IsRealNumber(split[5], &values.b)) {
-            snprintf(ERROR_MSG, LINE, "wrong angle parameter in molecule "
-                     "%s%s", ErrYellow(), mt_i->Name);
+          } //}}}
+          // error - bead index is too high //{{{
+          if (beads[0] > mt_i->nBeads || beads[1] > mt_i->nBeads ||
+              beads[2] > mt_i->nBeads) {
+            snprintf(ERROR_MSG, LINE, "bead index in an angle is too high in "
+                     "molecule %s%s", ErrYellow(), mt_i->Name);
             PrintErrorFileLine(file, line_count, split, words);
             exit(1);
-          }
-        }
-        if (words > 6) {
-          if (strcmp(split[6], "???") == 0 && !warned) {
-            snprintf(ERROR_MSG, LINE, "undefined angle type (\'???\' in angles "
-                     "section) for molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintWarnFile(file, "\0", "\0");
-            warned = true;
-          } else if (!IsRealNumber(split[6], &values.c)) {
-            snprintf(ERROR_MSG, LINE, "wrong angle parameter in molecule "
-                     "%s%s", ErrYellow(), mt_i->Name);
-            PrintErrorFileLine(file, line_count, split, words);
-            exit(1);
-          }
-        }
-        // assign angle type //{{{
-        int angle_type = -1;
-        if (values.a != 0 || values.b != 0 || values.c != 0) {
-          // find if this angle type already exists
-          for (int k = 0; k < Count->AngleType; k++) {
-            if (System->AngleType[k].a == values.a &&
-                System->AngleType[k].b == values.b &&
-                System->AngleType[k].c == values.c) {
-              angle_type = k;
-              break;
+          }                                 //}}}
+          mt_i->Angle[j][0] = beads[0] - 1; // in FIELD, bead indices start from 1
+          mt_i->Angle[j][1] = beads[1] - 1; //
+          mt_i->Angle[j][2] = beads[2] - 1; //
+          // read up to three values for angle type
+          if (words > 4) {
+            if (strcmp(split[4], "???") == 0 && !warned) {
+              snprintf(ERROR_MSG, LINE, "undefined angle type (\'???\' in angles "
+                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintWarnFile(file, "\0", "\0");
+              warned = true;
+            } else if (!IsRealNumber(split[4], &values.a)) {
+              snprintf(ERROR_MSG, LINE, "wrong angle parameter in molecule "
+                       "%s%s", ErrYellow(), mt_i->Name);
+              PrintErrorFileLine(file, line_count, split, words);
+              exit(1);
             }
           }
-          // create a new angle type if necessary
-          if (angle_type == -1) {
-            angle_type = Count->AngleType;
-            Count->AngleType++;
-            System->AngleType = realloc(System->AngleType,
-                                        sizeof *System->AngleType *
-                                        Count->AngleType);
-            System->AngleType[angle_type].a = values.a;
-            System->AngleType[angle_type].b = values.b;
-            System->AngleType[angle_type].c = values.c;
+          if (words > 5) {
+            if (strcmp(split[5], "???") == 0 && !warned) {
+              snprintf(ERROR_MSG, LINE, "undefined angle type (\'???\' in angles "
+                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintWarnFile(file, "\0", "\0");
+              warned = true;
+            } else if (!IsRealNumber(split[5], &values.b)) {
+              snprintf(ERROR_MSG, LINE, "wrong angle parameter in molecule "
+                       "%s%s", ErrYellow(), mt_i->Name);
+              PrintErrorFileLine(file, line_count, split, words);
+              exit(1);
+            }
           }
+          if (words > 6) {
+            if (strcmp(split[6], "???") == 0 && !warned) {
+              snprintf(ERROR_MSG, LINE, "undefined angle type (\'???\' in angles "
+                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintWarnFile(file, "\0", "\0");
+              warned = true;
+            } else if (!IsRealNumber(split[6], &values.c)) {
+              snprintf(ERROR_MSG, LINE, "wrong angle parameter in molecule "
+                       "%s%s", ErrYellow(), mt_i->Name);
+              PrintErrorFileLine(file, line_count, split, words);
+              exit(1);
+            }
+          }
+          // assign angle type //{{{
+          int angle_type = -1;
+          if (values.a != 0 || values.b != 0 || values.c != 0) {
+            // find if this angle type already exists
+            for (int k = 0; k < Count->AngleType; k++) {
+              if (System->AngleType[k].a == values.a &&
+                  System->AngleType[k].b == values.b &&
+                  System->AngleType[k].c == values.c) {
+                angle_type = k;
+                break;
+              }
+            }
+            // create a new angle type if necessary
+            if (angle_type == -1) {
+              angle_type = Count->AngleType;
+              Count->AngleType++;
+              System->AngleType = realloc(System->AngleType,
+                                          sizeof *System->AngleType *
+                                          Count->AngleType);
+              System->AngleType[angle_type].a = values.a;
+              System->AngleType[angle_type].b = values.b;
+              System->AngleType[angle_type].c = values.c;
+            }
+          } //}}}
+          mt_i->Angle[j][3] = angle_type;
         } //}}}
-        mt_i->Angle[j][3] = angle_type;
-      } //}}}
-    } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
-      continue;
-    } else {
-      snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for molecule "
-               "%s%s", ErrYellow(), mt_i->Name);
-      PrintErrorFileLine(file, line_count, split, words);
-      exit(1);
-    } //}}}
-    // 6) dihedrals in the molecule (if present) //{{{
-    line_count++;
-    // read a line //{{{
-    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
-      exit(1);
-    } //}}}
-    if (words > 1 && strncasecmp(split[0], "dihedrals", 5) == 0) {
-      // a) number of dihedrals //{{{
-      if (!IsNaturalNumber(split[1], &val)) {
-        snprintf(ERROR_MSG, LINE, "incorrect 'dihedrals' line for molecule "
+      } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
+        continue;
+      } else {
+        snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for molecule "
                  "%s%s", ErrYellow(), mt_i->Name);
         PrintErrorFileLine(file, line_count, split, words);
         exit(1);
-      }
-      mt_i->nDihedrals = val; //}}}
-      mt_i->Dihedral = malloc(sizeof *mt_i->Dihedral * mt_i->nDihedrals);
-      // b) dihedrals themselves & dihedral types //{{{
-      // TODO: for now, only harmonic dihedrals are considered
-      bool warned = false; // to warn of undefined type only once
-      for (int j = 0; j < mt_i->nDihedrals; j++) {
-        line_count++;
-        // read a line //{{{
-        if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR,
-                              " \t\n")) {
-          ErrorEOF(file);
-          exit(1);
-        } //}}}
-        long beads[4];
-        PARAMS values = InitParams;
-        // error - incorrect line //{{{
-        if (words < 5 || !IsNaturalNumber(split[1], &beads[0]) ||
-            !IsNaturalNumber(split[2], &beads[1]) ||
-            !IsNaturalNumber(split[3], &beads[2]) ||
-            !IsNaturalNumber(split[4], &beads[3]) || beads[0] == beads[1] ||
-            beads[0] == beads[2] ||
-            beads[0] == beads[3] ||
-            beads[1] == beads[2] ||
-            beads[1] == beads[3] ||
-            beads[2] == beads[3]) {
-          snprintf(ERROR_MSG, LINE, "incorrect dihedral line for molecule "
+      } //}}}
+      // 6) dihedrals in the molecule (if present) //{{{
+      line_count++;
+      // read a line //{{{
+      if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+        ErrorEOF(file, "incomplete 'Molecules' section");
+        exit(1);
+      } //}}}
+      if (words > 1 && strncasecmp(split[0], "dihedrals", 5) == 0) {
+        // a) number of dihedrals //{{{
+        if (!IsNaturalNumber(split[1], &val)) {
+          snprintf(ERROR_MSG, LINE, "incorrect 'dihedrals' line for molecule "
                    "%s%s", ErrYellow(), mt_i->Name);
           PrintErrorFileLine(file, line_count, split, words);
           exit(1);
-        } //}}}
-        // error - bead index is too high //{{{
-        if (beads[0] > mt_i->nBeads || beads[1] > mt_i->nBeads ||
-            beads[2] > mt_i->nBeads || beads[3] > mt_i->nBeads) {
-          snprintf(ERROR_MSG, LINE, "bead index in a dihedral is too high for "
-                   "molecule %s%s", ErrYellow(), mt_i->Name);
-          PrintErrorFileLine(file, line_count, split, words);
-          exit(1);
-        }                                    //}}}
-        mt_i->Dihedral[j][0] = beads[0] - 1; // in FIELD, indices start from 1
-        mt_i->Dihedral[j][1] = beads[1] - 1; //
-        mt_i->Dihedral[j][2] = beads[2] - 1; //
-        mt_i->Dihedral[j][3] = beads[3] - 1; //
-        // read up to three values for dihedral type //{{{
-        if (words > 5) {
-          if (strcmp(split[5], "???") == 0 && !warned) {
-            snprintf(ERROR_MSG, LINE, "undefined dihedral type (\'???\' in the "
-                     "section) for molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintWarnFile(file, "\0", "\0");
-            warned = true;
-          } else if (!IsRealNumber(split[5], &values.a)) {
-            snprintf(ERROR_MSG, LINE, "wrong dihedral parameter "
-                     "for molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintErrorFile(file, "\0", "\0");
-            exit(1);
-          }
         }
-        if (words > 6) {
-          if (strcmp(split[6], "???") == 0 && !warned) {
-            snprintf(ERROR_MSG, LINE, "undefined dihedral type (\'???\' in the "
-                     "section) for molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintWarnFile(file, "\0", "\0");
-            warned = true;
-          } else if (!IsRealNumber(split[6], &values.b)) {
-            snprintf(ERROR_MSG, LINE, "wrong dihedral parameter "
-                     "for molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintErrorFile(file, "\0", "\0");
+        mt_i->nDihedrals = val; //}}}
+        mt_i->Dihedral = malloc(sizeof *mt_i->Dihedral * mt_i->nDihedrals);
+        // b) dihedrals themselves & dihedral types //{{{
+        // TODO: for now, only harmonic dihedrals are considered
+        bool warned = false; // to warn of undefined type only once
+        for (int j = 0; j < mt_i->nDihedrals; j++) {
+          line_count++;
+          // read a line //{{{
+          if (!ReadAndSplitLine(fr, LINE, line, &words, split,
+                                SPL_STR, " \t\n")) {
+            ErrorEOF(file, "incomplete 'Molecules' section");
             exit(1);
-          }
-        }
-        if (words > 7) {
-          if (strcmp(split[7], "???") == 0 && !warned) {
-            snprintf(ERROR_MSG, LINE, "undefined dihedral type (\'???\' in the "
-                     "section) for molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintWarnFile(file, "\0", "\0");
-            warned = true;
-          } else if (!IsRealNumber(split[7], &values.c)) {
-            snprintf(ERROR_MSG, LINE, "wrong dihedral parameter "
-                     "for molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintErrorFile(file, "\0", "\0");
+          } //}}}
+          long beads[4];
+          PARAMS values = InitParams;
+          // error - incorrect line //{{{
+          if (words < 5 || !IsNaturalNumber(split[1], &beads[0]) ||
+              !IsNaturalNumber(split[2], &beads[1]) ||
+              !IsNaturalNumber(split[3], &beads[2]) ||
+              !IsNaturalNumber(split[4], &beads[3]) || beads[0] == beads[1] ||
+              beads[0] == beads[2] ||
+              beads[0] == beads[3] ||
+              beads[1] == beads[2] ||
+              beads[1] == beads[3] ||
+              beads[2] == beads[3]) {
+            snprintf(ERROR_MSG, LINE, "incorrect dihedral line for molecule "
+                     "%s%s", ErrYellow(), mt_i->Name);
+            PrintErrorFileLine(file, line_count, split, words);
             exit(1);
-          }
-        } //}}}
-        // assign dihedral type //{{{
-        int dihedral_type = -1;
-        if (values.a != 0 || values.b != 0 || values.c != 0) {
-          // find if this dihedral type already exists
-          for (int k = 0; k < Count->DihedralType; k++) {
-            if (System->DihedralType[k].a == values.a &&
-                System->DihedralType[k].b == values.b &&
-                System->DihedralType[k].c == values.c) {
-              dihedral_type = k;
-              break;
+          } //}}}
+          // error - bead index is too high //{{{
+          if (beads[0] > mt_i->nBeads || beads[1] > mt_i->nBeads ||
+              beads[2] > mt_i->nBeads || beads[3] > mt_i->nBeads) {
+            snprintf(ERROR_MSG, LINE, "bead index in a dihedral is too high for "
+                     "molecule %s%s", ErrYellow(), mt_i->Name);
+            PrintErrorFileLine(file, line_count, split, words);
+            exit(1);
+          }                                    //}}}
+          mt_i->Dihedral[j][0] = beads[0] - 1; // in FIELD, indices start from 1
+          mt_i->Dihedral[j][1] = beads[1] - 1; //
+          mt_i->Dihedral[j][2] = beads[2] - 1; //
+          mt_i->Dihedral[j][3] = beads[3] - 1; //
+          // read up to three values for dihedral type //{{{
+          if (words > 5) {
+            if (strcmp(split[5], "???") == 0 && !warned) {
+              snprintf(ERROR_MSG, LINE, "undefined dihedral type (\'???\' in the "
+                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintWarnFile(file, "\0", "\0");
+              warned = true;
+            } else if (!IsRealNumber(split[5], &values.a)) {
+              snprintf(ERROR_MSG, LINE, "wrong dihedral parameter "
+                       "for molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintErrorFile(file, "\0", "\0");
+              exit(1);
             }
           }
-          // create a new dihedral type if necessary
-          if (dihedral_type == -1) {
-            dihedral_type = Count->DihedralType;
-            Count->DihedralType++;
-            System->DihedralType = realloc(System->DihedralType,
-                                           sizeof(PARAMS) *
-                                           Count->DihedralType);
-            System->DihedralType[dihedral_type] = values;
+          if (words > 6) {
+            if (strcmp(split[6], "???") == 0 && !warned) {
+              snprintf(ERROR_MSG, LINE, "undefined dihedral type (\'???\' in the "
+                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintWarnFile(file, "\0", "\0");
+              warned = true;
+            } else if (!IsRealNumber(split[6], &values.b)) {
+              snprintf(ERROR_MSG, LINE, "wrong dihedral parameter "
+                       "for molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintErrorFile(file, "\0", "\0");
+              exit(1);
+            }
           }
-        }
-        mt_i->Dihedral[j][4] = dihedral_type; //}}}
-      }                                       //}}}
-    } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
-      continue;
-    } else {
-      snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for molecule "
-               "%s%s", ErrYellow(), mt_i->Name);
-      PrintErrorFileLine(file, line_count, split, words);
-      exit(1);
-    } //}}}
-    // 7) impropers in the molecule (if present) //{{{
-    line_count++;
-    // read a line //{{{
-    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
-      exit(1);
-    } //}}}
-    if (words > 1 && strncasecmp(split[0], "impropers", 6) == 0) {
-      // a) number of impropers //{{{
-      if (!IsNaturalNumber(split[1], &val)) {
-        snprintf(ERROR_MSG, LINE, "incorrect 'impropers' line in an entry "
-                 "for molecule %s%s", ErrYellow(), mt_i->Name);
+          if (words > 7) {
+            if (strcmp(split[7], "???") == 0 && !warned) {
+              snprintf(ERROR_MSG, LINE, "undefined dihedral type (\'???\' in the "
+                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintWarnFile(file, "\0", "\0");
+              warned = true;
+            } else if (!IsRealNumber(split[7], &values.c)) {
+              snprintf(ERROR_MSG, LINE, "wrong dihedral parameter "
+                       "for molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintErrorFile(file, "\0", "\0");
+              exit(1);
+            }
+          } //}}}
+          // assign dihedral type //{{{
+          int dihedral_type = -1;
+          if (values.a != 0 || values.b != 0 || values.c != 0) {
+            // find if this dihedral type already exists
+            for (int k = 0; k < Count->DihedralType; k++) {
+              if (System->DihedralType[k].a == values.a &&
+                  System->DihedralType[k].b == values.b &&
+                  System->DihedralType[k].c == values.c) {
+                dihedral_type = k;
+                break;
+              }
+            }
+            // create a new dihedral type if necessary
+            if (dihedral_type == -1) {
+              dihedral_type = Count->DihedralType;
+              Count->DihedralType++;
+              System->DihedralType = realloc(System->DihedralType,
+                                             sizeof(PARAMS) *
+                                             Count->DihedralType);
+              System->DihedralType[dihedral_type] = values;
+            }
+          }
+          mt_i->Dihedral[j][4] = dihedral_type; //}}}
+        }                                       //}}}
+      } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
+        continue;
+      } else {
+        snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for molecule "
+                 "%s%s", ErrYellow(), mt_i->Name);
         PrintErrorFileLine(file, line_count, split, words);
         exit(1);
-      }
-      mt_i->nImpropers = val; //}}}
-      mt_i->Improper = malloc(sizeof *mt_i->Improper * mt_i->nImpropers);
-      // b) impropers themselves & improper types //{{{
-      bool warned = false; // to warn of undefined type only once
-      for (int j = 0; j < mt_i->nImpropers; j++) {
-        line_count++;
-        // read a line //{{{
-        if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR,
-                              " \t\n")) {
-          ErrorEOF(file);
-          exit(1);
-        } //}}}
-        long beads[4];
-        PARAMS values = InitParams;
-        // error - incorrect line //{{{
-        if (words < 5 || !IsNaturalNumber(split[1], &beads[0]) ||
-            !IsNaturalNumber(split[2], &beads[1]) ||
-            !IsNaturalNumber(split[3], &beads[2]) ||
-            !IsNaturalNumber(split[4], &beads[3]) ||
-            beads[0] == beads[1] ||
-            beads[0] == beads[2] ||
-            beads[0] == beads[3] ||
-            beads[1] == beads[2] ||
-            beads[1] == beads[3] ||
-            beads[2] == beads[3]) {
-          snprintf(ERROR_MSG, LINE, "incorrect improper line for molecule "
-                   "%s%s", ErrYellow(), mt_i->Name);
+      } //}}}
+      // 7) impropers in the molecule (if present) //{{{
+      line_count++;
+      // read a line //{{{
+      if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+        ErrorEOF(file, "incomplete 'Molecules' section");
+        exit(1);
+      } //}}}
+      if (words > 1 && strncasecmp(split[0], "impropers", 6) == 0) {
+        // a) number of impropers //{{{
+        if (!IsNaturalNumber(split[1], &val)) {
+          snprintf(ERROR_MSG, LINE, "incorrect 'impropers' line in an entry "
+                   "for molecule %s%s", ErrYellow(), mt_i->Name);
           PrintErrorFileLine(file, line_count, split, words);
           exit(1);
-        } //}}}
-        // error - bead index is too high //{{{
-        if (beads[0] > mt_i->nBeads || beads[1] > mt_i->nBeads ||
-            beads[2] > mt_i->nBeads || beads[3] > mt_i->nBeads) {
-          strcpy(ERROR_MSG, "bead index in a improper is too high");
-          PrintErrorFileLine(file, line_count, split, words);
-          exit(1);
-        }                                    //}}}
-        mt_i->Improper[j][0] = beads[0] - 1; // in FIELD, indices start from 1
-        mt_i->Improper[j][1] = beads[1] - 1; //
-        mt_i->Improper[j][2] = beads[2] - 1; //
-        mt_i->Improper[j][3] = beads[3] - 1; //
-        // read up to three values for improper type //{{{
-        if (words > 5) {
-          if (strcmp(split[5], "???") == 0 && !warned) {
-            snprintf(ERROR_MSG, LINE, "undefined improper type (\'???\' in the "
-                     "section) for molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintWarnFile(file, "\0", "\0");
-            warned = true;
-          } else if (!IsRealNumber(split[5], &values.a)) {
-            snprintf(ERROR_MSG, LINE, "wrong improper parameter "
-                     "for molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintErrorFile(file, "\0", "\0");
-            exit(1);
-          }
         }
-        if (words > 6) {
-          if (strcmp(split[6], "???") == 0 && !warned) {
-            snprintf(ERROR_MSG, LINE, "undefined improper type (\'???\' in the "
-                     "section) for molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintWarnFile(file, "\0", "\0");
-            warned = true;
-          } else if (!IsRealNumber(split[6], &values.b)) {
-            snprintf(ERROR_MSG, LINE, "wrong improper parameter "
-                     "for molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintErrorFile(file, "\0", "\0");
+        mt_i->nImpropers = val; //}}}
+        mt_i->Improper = malloc(sizeof *mt_i->Improper * mt_i->nImpropers);
+        // b) impropers themselves & improper types //{{{
+        bool warned = false; // to warn of undefined type only once
+        for (int j = 0; j < mt_i->nImpropers; j++) {
+          line_count++;
+          // read a line //{{{
+          if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR,
+                                " \t\n")) {
+            ErrorEOF(file, "incomplete 'Molecules' section");
             exit(1);
-          }
-        }
-        if (words > 7) {
-          IsRealNumber(split[7], &values.c);
-          if (strcmp(split[7], "???") == 0 && !warned) {
-            snprintf(ERROR_MSG, LINE, "undefined improper type (\'???\' in the "
-                     "section) for molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintWarnFile(file, "\0", "\0");
-            warned = true;
-          } else if (!IsRealNumber(split[7], &values.c)) {
-            snprintf(ERROR_MSG, LINE, "wrong improper parameter "
-                     "for molecule %s%s", ErrYellow(), mt_i->Name);
-            PrintErrorFile(file, "\0", "\0");
+          } //}}}
+          long beads[4];
+          PARAMS values = InitParams;
+          // error - incorrect line //{{{
+          if (words < 5 || !IsNaturalNumber(split[1], &beads[0]) ||
+              !IsNaturalNumber(split[2], &beads[1]) ||
+              !IsNaturalNumber(split[3], &beads[2]) ||
+              !IsNaturalNumber(split[4], &beads[3]) ||
+              beads[0] == beads[1] ||
+              beads[0] == beads[2] ||
+              beads[0] == beads[3] ||
+              beads[1] == beads[2] ||
+              beads[1] == beads[3] ||
+              beads[2] == beads[3]) {
+            snprintf(ERROR_MSG, LINE, "incorrect improper line for molecule "
+                     "%s%s", ErrYellow(), mt_i->Name);
+            PrintErrorFileLine(file, line_count, split, words);
             exit(1);
-          }
-        } //}}}
-        // assign improper type //{{{
-        int improper_type = -1;
-        if (values.a != 0 || values.b != 0 || values.c != 0) {
-          // find if this improper type already exists
-          for (int k = 0; k < Count->ImproperType; k++) {
-            if (System->ImproperType[k].a == values.a &&
-                System->ImproperType[k].b == values.b &&
-                System->ImproperType[k].c == values.c) {
-              improper_type = k;
-              break;
+          } //}}}
+          // error - bead index is too high //{{{
+          if (beads[0] > mt_i->nBeads || beads[1] > mt_i->nBeads ||
+              beads[2] > mt_i->nBeads || beads[3] > mt_i->nBeads) {
+            strcpy(ERROR_MSG, "bead index in a improper is too high");
+            PrintErrorFileLine(file, line_count, split, words);
+            exit(1);
+          }                                    //}}}
+          mt_i->Improper[j][0] = beads[0] - 1; // in FIELD, indices start from 1
+          mt_i->Improper[j][1] = beads[1] - 1; //
+          mt_i->Improper[j][2] = beads[2] - 1; //
+          mt_i->Improper[j][3] = beads[3] - 1; //
+          // read up to three values for improper type //{{{
+          if (words > 5) {
+            if (strcmp(split[5], "???") == 0 && !warned) {
+              snprintf(ERROR_MSG, LINE, "undefined improper type (\'???\' in the "
+                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintWarnFile(file, "\0", "\0");
+              warned = true;
+            } else if (!IsRealNumber(split[5], &values.a)) {
+              snprintf(ERROR_MSG, LINE, "wrong improper parameter "
+                       "for molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintErrorFile(file, "\0", "\0");
+              exit(1);
             }
           }
-          // create a new improper type if necessary
-          if (improper_type == -1) {
-            improper_type = Count->ImproperType;
-            Count->ImproperType++;
-            System->ImproperType = realloc(System->ImproperType,
-                                           sizeof *System->ImproperType *
-                                           Count->ImproperType);
-            System->ImproperType[improper_type] = values;
+          if (words > 6) {
+            if (strcmp(split[6], "???") == 0 && !warned) {
+              snprintf(ERROR_MSG, LINE, "undefined improper type (\'???\' in the "
+                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintWarnFile(file, "\0", "\0");
+              warned = true;
+            } else if (!IsRealNumber(split[6], &values.b)) {
+              snprintf(ERROR_MSG, LINE, "wrong improper parameter "
+                       "for molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintErrorFile(file, "\0", "\0");
+              exit(1);
+            }
           }
-        }
-        mt_i->Improper[j][4] = improper_type; //}}}
-      }                                       //}}}
-    } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
-      continue;
-    } else {
-      snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for molecule "
-               "%s%s", ErrYellow(), mt_i->Name);
-      PrintErrorFileLine(file, line_count, split, words);
-      exit(1);
-    } //}}}
-    // finish keyword //{{{
-    line_count++;
-    // read a line //{{{
-    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
-      exit(1);
-    } //}}}
-    if (words == 0 || strcasecmp(split[0], "finish") != 0) {
-      snprintf(ERROR_MSG, LINE, "missing 'finish' at the end of an entry for "
-               "molecule %s%s", ErrYellow(), mt_i->Name);
-      PrintErrorFileLine(file, line_count, split, words);
-      exit(1);
-    } //}}}
+          if (words > 7) {
+            IsRealNumber(split[7], &values.c);
+            if (strcmp(split[7], "???") == 0 && !warned) {
+              snprintf(ERROR_MSG, LINE, "undefined improper type (\'???\' in the "
+                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintWarnFile(file, "\0", "\0");
+              warned = true;
+            } else if (!IsRealNumber(split[7], &values.c)) {
+              snprintf(ERROR_MSG, LINE, "wrong improper parameter "
+                       "for molecule %s%s", ErrYellow(), mt_i->Name);
+              PrintErrorFile(file, "\0", "\0");
+              exit(1);
+            }
+          } //}}}
+          // assign improper type //{{{
+          int improper_type = -1;
+          if (values.a != 0 || values.b != 0 || values.c != 0) {
+            // find if this improper type already exists
+            for (int k = 0; k < Count->ImproperType; k++) {
+              if (System->ImproperType[k].a == values.a &&
+                  System->ImproperType[k].b == values.b &&
+                  System->ImproperType[k].c == values.c) {
+                improper_type = k;
+                break;
+              }
+            }
+            // create a new improper type if necessary
+            if (improper_type == -1) {
+              improper_type = Count->ImproperType;
+              Count->ImproperType++;
+              System->ImproperType = realloc(System->ImproperType,
+                                             sizeof *System->ImproperType *
+                                             Count->ImproperType);
+              System->ImproperType[improper_type] = values;
+            }
+          }
+          mt_i->Improper[j][4] = improper_type; //}}}
+        }                                       //}}}
+      } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
+        continue;
+      } else {
+        snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for molecule "
+                 "%s%s", ErrYellow(), mt_i->Name);
+        PrintErrorFileLine(file, line_count, split, words);
+        exit(1);
+      } //}}}
+      // finish keyword //{{{
+      line_count++;
+      // read a line //{{{
+      if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+        ErrorEOF(file, "incomplete 'Molecules' section");
+        exit(1);
+      } //}}}
+      if (words == 0 || strcasecmp(split[0], "finish") != 0) {
+        snprintf(ERROR_MSG, LINE, "missing 'finish' at the end of an entry for "
+                 "molecule %s%s", ErrYellow(), mt_i->Name);
+        PrintErrorFileLine(file, line_count, split, words);
+        exit(1);
+      } //}}}
+    }
+    Count->HighestResid = Count->Molecule;
   }
-  Count->HighestResid = Count->Molecule;
   fclose(fr);
 } //}}}
   //}}}
@@ -3331,7 +3333,7 @@ static SYSTEM XyzReadStruct(char file[], int pbc) { //{{{
   // read number of beads //{{{
   line_count++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "missing number of beads");
     exit(1);
   }
   long val;
@@ -3347,7 +3349,7 @@ static SYSTEM XyzReadStruct(char file[], int pbc) { //{{{
   // read next line, possibly with pbc //{{{
   line_count++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "missing comment line");
     exit(1);
   }
   if (pbc > 0) {
@@ -3379,7 +3381,7 @@ static SYSTEM XyzReadStruct(char file[], int pbc) { //{{{
   for (int i = 0; i < Count->Bead; i++) {
     line_count++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file);
+      ErrorEOF(file, "incomplete timestep");
       exit(1);
     }
     VECTOR coor;
@@ -3446,7 +3448,7 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
   // ignore next line //{{{
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    ErrorEOF(file);
+    ErrorEOF(file, "missing comment line");
     return -2;
   }
   (*line_count)++; //}}}
@@ -4694,16 +4696,18 @@ static void FillSystemNonessentials(SYSTEM *System) { //{{{
   }
   FillBeadTypeIndex(System);
   FillMoleculeTypeIndex(System);
-  System->Index_mol = realloc(System->Index_mol, sizeof *System->Index_mol *
-                                                     (Count->HighestResid + 1));
-  for (int i = 0; i <= Count->HighestResid; i++) {
-    System->Index_mol[i] = -1;
+  if (Count->Molecule > 0) {
+    System->Index_mol = realloc(System->Index_mol, sizeof *System->Index_mol *
+                                (Count->HighestResid + 1));
+    for (int i = 0; i <= Count->HighestResid; i++) {
+      System->Index_mol[i] = -1;
+    }
+    for (int i = 0; i < Count->Molecule; i++) {
+      System->Index_mol[System->Molecule[i].Index] = i;
+    }
   }
-  for (int i = 0; i < Count->Molecule; i++) {
-    System->Index_mol[System->Molecule[i].Index] = i;
-  }
-  System->BeadCoor =
-      realloc(System->BeadCoor, sizeof *System->BeadCoor * Count->Bead);
+  System->BeadCoor = realloc(System->BeadCoor,
+                             sizeof *System->BeadCoor * Count->Bead);
   if (Count->Bonded > 0) {
     System->Bonded =
         realloc(System->Bonded, sizeof *System->Bonded * Count->Bonded);

@@ -73,6 +73,10 @@ void CheckSystem(SYSTEM System, char file[]);
 void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join);
 // distance between two beads; in the range <-BoxLength/2,BoxLength/2)
 VECTOR Distance(VECTOR id1, VECTOR id2, VECTOR BoxLength);
+// calculate centre of mass for a list of beads
+VECTOR CentreOfMass(int n, int list[], SYSTEM System);
+// calculate geometric centre for a list of beads
+VECTOR GeomCentre(int n, int *list, BEAD *Bead);
 
 // identify input coordinate and structure files
 bool InputCoorStruct(int argc, char *argv[], char coor[], int *coor_type,

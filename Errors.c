@@ -129,10 +129,17 @@ void WarnPrintLine(char *split[SPL_STR], int words) {
 }
 //}}}
 // print 'ERROR - premature end of file\n<file>\n' //{{{
-void ErrorEOF(char file1[]) {
-  strcpy(ERROR_MSG, "premature end of file");
+void ErrorEOF(char file[], char msg[]) {
+  if (msg[0] != '\0') {
+    if (strlen(msg) >= (LINE - 24)) {
+      msg[LINE-24] = '\0';
+    }
+    snprintf(ERROR_MSG, LINE, "%s; premature end of file", msg);
+  } else {
+    strcpy(ERROR_MSG, "premature end of file");
+  }
   PrintError();
-  ErrorPrintFile(file1, "\0", "\0");
+  ErrorPrintFile(file, "\0", "\0");
   putc('\n', stderr);
 } //}}}
   //}}}
