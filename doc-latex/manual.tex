@@ -6,12 +6,11 @@
 \Publisher{}
 \end{filecontents*} %}}}
 \documentclass[12pt,a4paper]{report}
-%\usepackage{layouts}
 % used packages %{{{
-% create pdf/a-2u
-%\usepackage[a-2u]{pdfx}
 % utf8 encoding
 \usepackage[utf8]{inputenc}
+% bibliography
+\usepackage[refsection=section,style=chem-angew]{biblatex}
 % paper size
 \usepackage[showframe,lmargin=3cm,rmargin=3cm]{geometry}
 % to include images
@@ -39,8 +38,8 @@
 \usepackage{titleps}
 % to label subfigures
 \usepackage[labelformat=empty]{subcaption}
-% compress citations into [a-z]
-\usepackage{cite}
+% % compress citations into [a-z]
+% \usepackage{cite}
 % list customization
 \usepackage[shortlabels]{enumitem}
 % easy quotation marks
@@ -61,6 +60,11 @@
 \usepackage{soul}
 % clickable links -- hyperref should be the last package listed
 \usepackage{hyperref} %}}}
+
+\addbibresource{bib.bib}
+\DefineBibliographyStrings{english}{%
+  references = {\normalsize References},
+}
 
 % highlighting color (soul package) %{{{
 \definecolor{lightgray}{rgb}{0.9,0.9,0.9}
@@ -237,4 +241,5 @@ Version 4.0 (Released \sout{August 18, 2020} at some point, it will be...)
 \include{InputFiles}
 \include{Utilities}
 % \include{ReadData}
+
 \end{document}

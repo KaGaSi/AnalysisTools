@@ -1,0 +1,167 @@
+\section{Local} \label{sec:Local}
+
+This utility calculates various properties both locally (i.e., average profiles
+along the three principal axes) and globally (i.e., per-timestep averages from
+the whole system), producing four output files (one file per axis with profiles
+along that axis and one file for global averages).
+
+Primarily, the utility calculates kinetice energy and temperature (which
+requires input coordinate file with velocities) and density profiles, but using
+the \tt{--pot} switch, pair-wise potential can be included to calculate
+pressure. For now, only shifted Sutton-Chen potential is implemented (see
+below).
+
+Unlike the DensityBox utility (Section~\ref{sec:DensityBox}), Local takes into
+account changing size of an orthogonal simulation box, calculating the profiles
+along the three axis with respect to the geometric centre of all beads (or the
+centre of mass if \tt{--com} is used); the resulting profiles (averaged over all
+specified timesteps) are printed with 0 at the average geometric centre (or the
+centre of mass).
+
+An extra file can be provided via the \tt{-fx <file>} option. This file defines
+the inter-bead potential to calculate and may contain quantities for reduced
+units or coarse-graining level. The section of potential parameters must start
+with the line \tt{potential <potential>} and end with the \tt{finish} keyword.
+Information for every bead type (named according to the used structure file)
+should be present in this section (extra data for bead types not present in the
+system are ignored). The following is full structure of the \tt{potential}
+section:
+
+\begin{longtable}{ll}
+  \tt{potential <potential>}    & \# potential type to use\\
+  \tt{<global parameter 1>}     & \# parameter(s) identical to all beads\\
+  \tt{...}                      & \\
+  \tt{<global parameter N>}     & \\
+  \tt{<bead>}                   & \# name of the first bead type\\
+  \tt{<parameter 1> <value(s)>} & \# first parameter of \tt{<potential>} for
+                                  bead type\\
+  \tt{...}                      & \ \ \ \ \tt{<bead>} (see below for parameter
+                                  description)\\
+  \tt{<parameter 2> <value(s)>} & \# last parameter for \tt{<potential>} and
+                                  \tt{<bead>}\\
+  \tt{<bead>}                   & \# name of the next bead type\\
+  \tt{<pot_param_1> <value(s)>} & \\
+  \tt{...}                      & \# parameters for the second bead type\\
+  \tt{<pot_param_N> <value(s)>} & \\
+  \tt{finish} & \# end of the potential section \\
+\end{longtable}
+
+Besides the potential, self-explanatory lines with keyword-value pairs may
+specify reduced units---\tt{energy <value>}, \tt{temperature <value>},
+\tt{length <value>}, \tt{mass <value>}, and \tt{pressure <value>}. Provided
+potential parameters are divided by these values to be in reduced units while
+results are multiplied by these values to provide data in real units; input
+coordinates and velocities are assumed to be in reduced units.
+
+Comments (\#-initiated lines) and blank lines in the file are ignored.
+
+\subsection{Sutton-Chen (SC) and shifted SC potentials}
+\TODO implement vanilla Sutton-Chen\ldots
+
+This original density-dependent potential based on embedded atom model was
+developed to study metals\cite{sutton1990} and is defined as
+\begin{equation}\label{eq:SuttonChen}
+  U = u^\text{rep} + u^\text{dd} = \epsilon\sum_i\sum_{j>i}
+    \left(\frac{a}{r_{ij}}\right)^m-c\epsilon\sum_i\sqrt{\rho_i}
+    \mbox{, where }
+    \rho_i=\sum_{j\neq i}\left(\frac{a}{r_{ij}}\right)^n,
+\end{equation}
+where $\epsilon$ is an energy parameter, $a$ is the lattice constant, $c$ is
+dimensionless parameter, $m$ and $n$ are integer parameters ($m>n$), $\rho_i$ is
+local density for bead $i$, $r_{ij}$ is the distance between beads $i$ and $j$.
+The pair-wise repulsive part representing Van der Waals repulsion gives rise to
+force
+\begin{equation}\label{eq:SCfrep}
+f^\text{rep}_{ij} = -\frac{\text{d}u^\text{rep}}{\text{d}r_{ij}} =
+  \frac{\epsilon_{ij}m_{ij}}{r_{ij}}\left(\frac{a_{ij}}{r_{ij}}\right)^{m_{ij}}
+\end{equation}
+and the density-dependent part representing metal bonds to force
+\begin{equation}\label{eq:SCfdd}
+f^\text{dd}_{ij} = -\frac{n_{ij}}{2}
+  \left(\frac{c_i\epsilon_{ii}}{\sqrt{\rho_i}}+
+        \frac{c_j\epsilon_{jj}}{\sqrt{\rho_j}}\right)
+  \left(\frac{a_{ij}}{r_{ij}}\right)^{n_{ij}}.
+\end{equation}
+
+To get potential that is smooth at the cut-off distance, $r_\text{c}$, a
+shifted variant can be used:
+\begin{equation}
+U^\text{sf}=u(r)-u(r_\text{c})
+  -\left.\frac{\text{d}u}{\text{d}r}\right|_{r_\text{c}}(r-r_\text{c}),
+\end{equation}
+where $u(r)$ is the standard SC in Equation\eqref{eq:SuttonChen}. The repulsive
+part is
+\begin{equation}
+u^\text{sf-rep} = \epsilon_{ij}\left(\frac{a_{ij}}{r_{ij}}\right)^{m_{ij}}
+  -\left(\frac{a_{ij}}{r_\text{c}}\right)^{m_{ij}}
+  +m_{ij}\left(\frac{a_{ij}}{r_\text{c}}\right)^{m_{ij}}\frac{r_{ij}-r_\text{c}}{r_\text{c}}
+\end{equation}
+and the local density, $\rho_{ij}$, for the density-dependent part,
+$u^\text{sf-dd}=c\epsilon\sum_i\sqrt{\sum_{j\neq i}\rho_{ij}}$, is
+\begin{equation}
+\rho_{ij} = \left(\frac{a_{ij}}{r_{ij}}\right)^{n_{ij}}
+  -\left(\frac{a_{ij}}{r_\text{c}}\right)^{n_{ij}}
+  +n_{ij}\left(\frac{a_{ij}}{r_\text{c}}\right)^{n_{ij}}\frac{r_{ij}-r_\text{c}}{r_\text{c}}
+\end{equation}
+The repulsive and density-dependent forces can then be written as
+\begin{equation}
+f^\text{sf-rep}_{ij} =
+  \frac{\epsilon_{ij}m_{ij}}{r_{ij}}\left(\frac{a_{ij}}{r_{ij}}\right)^{m_{ij}}
+  +m_{ij}\epsilon_{ij}\left(\frac{a_{ij}}{r_\text{c}}\right)^{m_{ij}}\frac{r_{ij}}{r_\text{c}}
+\end{equation}
+and
+\begin{equation}
+f^\text{sf-dd}_{ij} = 
+  \frac{1}{2}\left(\frac{c_i\epsilon_{ii}}{\sqrt{\rho_i}}+\frac{c_j\epsilon_{jj}}{\sqrt{\rho_j}}\right)
+\left[n_{ij}\left(\frac{a_{ij}}{r_{ij}}\right)^{n_{ij}}
+-n_{ij}\left(\frac{a_{ij}}{r_\text{c}}\right)^{n_{ij}}\frac{r_{ij}}{r_\text{c}}\right]
+\end{equation}
+
+The cross-terms for different bead types are
+\begin{equation}
+  m_{ij} = \frac{m_{ii} + m_{jj}}{2}\text{, }
+  n_{ij} = \frac{n_{ii} + n_{jj}}{2}\text{, and }
+  \epsilon_{ij} = \sqrt{\epsilon{ii}\epsilon_{ij}}.
+\end{equation}
+
+Finally, the quasi-coarse-grained dynamics scheme by Dongare\cite{dongare2014}
+is used, where the coarse-graining level (CG) represents the number of crystal
+unit cells that are reduced into one in each direction; i.e., CG level $i$ means
+$i\times i\times i$ unit cells are represented by a single CG unit cell. The
+potential parameters are then coarse-grained via the following equations, where
+subscript CG represents the coarse-grained parameter and $i$ the CG level,
+\begin{equation}
+  \begin{array}{ll}
+    n_\text{CG}&=n\\
+    m_\text{CG}&=m\\
+    \epsilon_\text{CG}&=i^3\epsilon\\
+    c_\text{CG}&=c\\
+    T_\text{CG}&=i^3T\\
+    a_\text{CG}&=ia\\
+    r_\text{c,CG}&=ir_\text{c}\\
+  \end{array}
+\end{equation}
+
+The following table shows the form of the potential section in the input file
+(\tt{-fx <file>}).
+\begin{longtable}{ll}
+  \toprule
+  \multicolumn{2}{c}{Sutton-Chen potential (use \tt{SuttonChen} as
+    \tt{<potential>})}\\
+  \multicolumn{2}{c}{Shifted Sutton-Chen potential (use \tt{ShiftedSC} as
+    \tt{<potential>})}\\
+  \midrule
+  \multicolumn{2}{c}{2 global parameters:}\\
+  \tt{CG <int>}       & coarse-graining level (see below)\\
+  \tt{cutoff <float>} & cut-off distance, $r_\text{c}$\\
+  \multicolumn{2}{c}{4 lines per bead type:}\\
+  \tt{mn <int> <int>} & $m$ and $n$ parameters; lower number is assigned $n$\\
+  \tt{c <float>}      & dimensionless $c$ parameter\\
+  \tt{eps <float>}    & energy parameter $\epsilon^\star$\\
+  \tt{a <float>}      & lattice constant, $a$\\
+  \bottomrule
+  \multicolumn{2}{l}{$^\star$if in real units, the value must be in
+  Kelvins}\\
+\end{longtable}
+
+\printbibliography[heading=subbibintoc]

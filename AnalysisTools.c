@@ -2350,7 +2350,13 @@ bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
     exit(1);
   }
   if (struct_file[0] != '\0') { // -i option is present
-    if (strcasecmp(struct_file, "FIELD") == 0) {
+    char *file = strrchr(struct_file, '/'); // to test for 'FIELD'
+    if (file) {
+      file++; // point to the first character after '/'
+    } else {
+      file = struct_file;
+    }
+    if (strcasecmp(file, "FIELD") == 0) {
       *struct_type = FIELD_FILE;
     } else {
       ext = 6;

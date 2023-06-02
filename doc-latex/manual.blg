@@ -1,0 +1,35 @@
+[0] Config.pm:307> INFO - This is Biber 2.19
+[0] Config.pm:310> INFO - Logfile is 'manual.blg'
+[62] biber:340> INFO - === Thu Jun  1, 2023, 17:51:50
+[73] Biber.pm:419> INFO - Reading 'manual.bcf'
+[127] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[127] Biber.pm:979> INFO - Found 0 citekeys in bib section 1
+[127] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[127] Biber.pm:979> INFO - Found 0 citekeys in bib section 2
+[127] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[127] Biber.pm:979> INFO - Found 0 citekeys in bib section 3
+[127] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[127] Biber.pm:979> INFO - Found 0 citekeys in bib section 4
+[127] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[127] Biber.pm:979> INFO - Found 0 citekeys in bib section 5
+[127] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[127] Biber.pm:979> INFO - Found 0 citekeys in bib section 6
+[127] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[127] Biber.pm:979> INFO - Found 0 citekeys in bib section 7
+[127] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[127] Biber.pm:979> INFO - Found 2 citekeys in bib section 8
+[128] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[128] Biber.pm:979> INFO - Found 0 citekeys in bib section 9
+[128] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[175] Biber.pm:4419> INFO - Processing section 8
+[184] Biber.pm:4610> INFO - Looking for bibtex file 'bib.bib' for section 8
+[184] bibtex.pm:1713> INFO - LaTeX decoding ...
+[187] bibtex.pm:1519> INFO - Found BibTeX data source 'bib.bib'
+[217] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'variable = shifted' with 'variable = non-ignorable'
+[218] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'normalization = NFD' with 'normalization = prenormalized'
+[218] Biber.pm:4239> INFO - Sorting list 'none/global//global/global' of type 'entry' with template 'none' and locale 'en-US'
+[218] Biber.pm:4245> INFO - No sort tailoring available for locale 'en-US'
+[219] bbl.pm:660> INFO - Writing 'manual.bbl' with encoding 'UTF-8'
+[220] bbl.pm:763> INFO - Output to manual.bbl
+[220] Biber.pm:131> WARN - legacy month field 'MAR' in entry 'sutton1990' is not an integer - this will probably not sort properly.
+[220] Biber.pm:133> INFO - WARNINGS: 1
