@@ -506,7 +506,7 @@ int main(int argc, char *argv[]) {
   // TODO: still only shifted SC
   // cross-terms for potentials //{{{
   double CG = ff_par[10][0][0], // CG level is the same for all beads
-         rcut = ff_par[5][0][0]; // rcut is the same for all beads
+         rcut = ff_par[5][0][0]; // cut-off is the same for all beads
   for (int i = 0; i < (Count->BeadType - 1); i++) {
     for (int j = (i + 1); j < Count->BeadType; j++) {
       ff_par[0][i][j] = (ff_par[0][i][i] + ff_par[0][j][j]) / 2; // m
