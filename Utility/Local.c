@@ -2,7 +2,7 @@
 
 // TODO: add different units in file_extra 'potential' section?
 // TODO: warning if missing parameters
-// TODO: cutoff & CG into potential section of -fx <file>
+// TODO: m & n in real, not natural numbers
 
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
@@ -40,9 +40,9 @@ const static int max_params = 100;
 
 // read potential parameters from the extra file //{{{
 // shifted Sutton-Chen potential for one bead type //{{{
-void ShiftedSCReadParameter();
-void ShiftedSCParameters(FILE *fr, char file[], int *line_count, FF **ff,
-                         SYSTEM System) {
+void ShiftedSCParameters(FILE *fr, char file[], int *line_count,
+                         double **par[max_params], SYSTEM System) {
+  // variables //{{{
   int el_params = 4, // number of parameters for the potential per-element
       gl_params = 2; // number of global parameters for the potential
   // global parameters
@@ -65,192 +65,170 @@ void ShiftedSCParameters(FILE *fr, char file[], int *line_count, FF **ff,
   for (int i = 0; i < el_params; i++) {
     el_done[i] = false;
   }
-
   char line[LINE], *split[SPL_STR];
-  int words = 0;
+  int words = 0; //}}}
   // read global parameters //{{{
-  fpos_t position;
-  fgetpos(fr, &position);
   while (ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    // break the loop? //{{{
-    if (gl_done[0] && gl_done[1] && // CG & cutoff keywords read
-        words != 0 && // not a blank line
-        strcasecmp(split[0], gl[0]) != 0 && // not extra CG line
-        strcasecmp(split[0], gl[1]) != 0 && // not extra cutoff line
-        split[0][0] != '#') { // not a comment
+    (*line_count)++;
+    // break the loop when 'bead' or 'finish' keyword encountered //{{{
+    if (words != 0 && (strcasecmp(split[0], "bead") == 0 ||
+                       strcasecmp(split[0], "finish") == 0)) {
       break;
     } //}}}
-    fgetpos(fr, &position); // may be a line with bead name
-    (*line_count)++;
-    double val;
+    double val = 0;
     if (words > 1 && split[0][0] != '#') {
       // the second word must be a number
       if (!IsRealNumber(split[1], &val)) {
         goto error;
-      } else if (strcasecmp(split[0], gl[0]) == 0) {
-        // warn - multiple 'CG' lines
-        if (gl_done[0]) {
-          if (snprintf(ERROR_MSG, LINE, "%s%s%s parameter in 'ShiftedSC' is "
-                       "specified multiple times; using this line",
-                       ErrYellow(), gl[0], ErrCyan())) {
-            strcpy(ERROR_MSG, "something wrong with snprintf()");
-            PrintErrorFile(file, "\0", "\0");
-            exit(1);
+      } else {
+        int i = 0;
+        for (; i < gl_params; i++) {
+          if (strcasecmp(split[0], gl[i]) == 0) {
+            break;
           }
-          PrintWarningFileLine(file, *line_count, split, words);
         }
-        ff[0][0].CG = val;
-        gl_done[0] = true;
-      } else if (strcasecmp(split[0], gl[1]) == 0) {
-        // warn - multiple 'cutoff' lines
-        if (gl_done[1]) {
-          if (snprintf(ERROR_MSG, LINE, "%s%s%s parameter in 'ShiftedSC' is "
-                       "specified multiple times; using this line",
-                       ErrYellow(), gl[1], ErrCyan())) {
-            strcpy(ERROR_MSG, "something wrong with snprintf()");
-            PrintErrorFile(file, "\0", "\0");
-            exit(1);
-          }
-          PrintWarningFileLine(file, *line_count, split, words);
-        }
-        ff[0][0].rcut = val;
-        gl_done[1] = true;
-      }
-    }
-  }
-  // restore file pointer to the first bead type name
-  fsetpos(fr, &position); //}}}
-  // read parameters for all bead types //{{{
-  while (strcasecmp(split[0], "finish") != 0) {
-    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      ErrorEOF(file, "incomplete 'potential' section "
-                     "(or missing 'finish' keyword)");
-      exit(1);
-    }
-    (*line_count)++;
-    int btype = FindBeadType(split[0], System);
-    // skip section with an unknown bead type //{{{
-    if (btype == -1) {
-      snprintf(ERROR_MSG, LINE, "skipping unknown bead type %s%s%s "
-               "in 'potential' section", ErrYellow(), split[0], ErrCyan());
-      PrintWarningFileLine(file, *line_count, split, words);
-      for (int i = 0; i < el_params; i++) {
-        if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR,
-                              " \t\n")) {
-          ErrorEOF(file, "incomplete 'potential' section "
-                         "(or missing 'finish' keyword)");
-          exit(1);
-        }
-        (*line_count)++;
-      }
-      continue;
-    } //}}}
-    bool mn = false, a = false, c = false, eps = false;
-    fgetpos(fr, &position);
-    // read parameters for bead type 'btype' //{{{
-    while (ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      // break the loop? //{{{
-      if (mn && c && eps && a && // all keywords read
-          words != 0 && // not a blank line
-          strcasecmp(split[0], "mn") != 0 &&  // not extra keyword line
-          strcasecmp(split[0], "c") != 0 &&   //
-          strcasecmp(split[0], "eps") != 0 && //
-          strcasecmp(split[0], "a") != 0 &&   //
-          split[0][0] != '#') { // not a comment
-        break;
-      } //}}}
-      fgetpos(fr, &position);
-      (*line_count)++;
-      if (words > 0) {
-        if (strcasecmp(split[0], "mn") == 0) {
-          long int val[2];
-          if (words < 3 || !IsWholeNumber(split[1], &val[0]) ||
-              !IsWholeNumber(split[2], &val[1])) {
-            goto error;
-          // m & n parameters
-          } else if (mn) {
-            snprintf(ERROR_MSG, LINE, "%sm%s and %sn%s parameters for %s%s%s "
-                     "is specified multiple times; using this line",
-                     ErrYellow(), ErrCyan(), ErrYellow(), ErrCyan(),
-                     ErrYellow(), System.BeadType[btype].Name, ErrCyan());
-            PrintWarningFileLine(file, *line_count, split, words);
-          }
-          if (val[0] > val[1]) {
-            ff[btype][btype].m = val[0];
-            ff[btype][btype].n = val[1];
-          } else {
-            ff[btype][btype].m = val[1];
-            ff[btype][btype].n = val[0];
-          }
-          mn = true;
-        // epsilon parameter
-        } else if (strcasecmp(split[0], "eps") == 0) {
-          double val;
-          if (words < 2 || !IsRealNumber(split[1], &val)) {
-            goto error;
-          } else if (eps) {
-            snprintf(ERROR_MSG, LINE, "%seps%s parameter for %s%s%s is "
-                     "specified multiple times; using this line",
-                     ErrYellow(), ErrCyan(), ErrYellow(),
-                     System.BeadType[btype].Name, ErrCyan());
-            PrintWarningFileLine(file, *line_count, split, words);
-          }
-          ff[btype][btype].eps = val;
-          eps = true;
-        // c parameter
-        } else if (strcasecmp(split[0], "c") == 0) {
-          double val;
-          if (words < 2 || !IsRealNumber(split[1], &val)) {
-            goto error;
-          } else if (c) {
-            snprintf(ERROR_MSG, LINE,
-                     "%sc%s parameter for %s%s%s is specified "
-                     "multiple times; using this line",
-                     ErrYellow(), ErrCyan(), ErrYellow(),
-                     System.BeadType[btype].Name, ErrCyan());
-            PrintWarningFileLine(file, *line_count, split, words);
-          }
-          ff[btype][btype].c = val;
-          c = true;
-        // a parameter
-        } else if (strcasecmp(split[0], "a") == 0) {
-          double val;
-          if (words < 2 || !IsRealNumber(split[1], &val)) {
-            goto error;
-          } else if (a) {
-            snprintf(ERROR_MSG, LINE,
-                     "%sa%s parameter for %s%s%s is specified "
-                     "multiple times; using this line",
-                     ErrYellow(), ErrCyan(), ErrYellow(),
-                     System.BeadType[btype].Name, ErrCyan());
-            PrintWarningFileLine(file, *line_count, split, words);
-          }
-          ff[btype][btype].a = val;
-          a = true;
-        // exit loop when 'finish' line encountered
-        } else if (strcasecmp(split[0], "finish") == 0) {
-          break;
-        // ignore comment line
-        } else if (split[0][0] != '#') {
+        // unrecognized line
+        if (i == gl_params) {
           goto error;
         }
+        // warning - multiply defined parameter
+        if (gl_done[i]) {
+          if (snprintf(ERROR_MSG, LINE, "%s%s%s parameter in 'ShiftedSC' is "
+                       "specified multiple times; using this line",
+                       ErrYellow(), gl[i], ErrCyan()) < 0) {
+            strcpy(ERROR_MSG, "something wrong with snprintf()");
+            PrintErrorFile(file, "\0", "\0");
+            exit(1);
+          }
+          PrintWarningFileLine(file, *line_count, split, words);
+        }
+        gl_done[i] = true;
+        switch (i) {
+        case 0:
+          par[10][0][0] = val; // CG
+          break;
+        case 1:
+          par[5][0][0] = val; // rcut
+          break;
+        }
       }
     }
-    fsetpos(fr, &position); //}}}
-    // error if not all parameters specified //{{{
-    if (!mn || !eps || !c || !a) {
-      strcpy(ERROR_MSG, "premature end to 'potential' section");
-      PrintErrorFileLine(file, *line_count, split, words);
-      exit(1);
-    } //}}}
   } //}}}
+  // read parameters for every bead types //{{{
+  do { // first 'bead <name>' was already read
+    int btype = FindBeadType(split[1], System);
+    // skip section with an unknown bead type //{{{
+    if (btype == -1) {
+      if (snprintf(ERROR_MSG, LINE, "skipping unknown bead type "
+                   "%s%s%s in the 'potential' section", ErrYellow(),
+                   split[1], ErrCyan()) < 0) {
+        strcpy(ERROR_MSG, "something wrong with snprintf()");
+        PrintError();
+        exit(1);
+      }
+      PrintWarningFileLine(file, *line_count, split, words);
+      while (ReadAndSplitLine(fr, LINE, line, &words,
+                              split, SPL_STR, " \t\n")) {
+        (*line_count)++;
+        if (words > 0 && (strcasecmp(split[0], "bead") == 0 ||
+                          strcasecmp(split[0], "finish") == 0)) {
+          break;
+        }
+      } //}}}
+    // read parameters for bead type 'btype' //{{{
+    } else {
+      for (int i = 0; i < el_params; i++) {
+        el_done[i] = false;
+      }
+      while (ReadAndSplitLine(fr, LINE, line, &words,
+                              split, SPL_STR, " \t\n")) {
+        (*line_count)++;
+        // break loop when 'bead' or 'finish' keyword encountered
+        if (words > 0 && (strcasecmp(split[0], "bead") == 0 ||
+                          strcasecmp(split[0], "finish") == 0)) {
+          break;
+        }
+        // ignore blanka and comment lines
+        if (words == 0 || split[0][0] == '#') {
+          continue;
+        }
+        double val = 0;
+        // the second word must be a number
+        if (!IsRealNumber(split[1], &val)) {
+          goto error;
+        } else {
+          // identify keyword
+          int i = 0;
+          for (; i < el_params; i++) {
+            if (strcasecmp(split[0], el[i]) == 0) {
+              break;
+            }
+          }
+          // unrecognized keyword
+          if (i == el_params) {
+            goto error;
+          }
+          // multiply defined keyword
+          if (el_done[i]) {
+            if (snprintf(ERROR_MSG, LINE, "%s%s%s parameter in 'ShiftedSC' "
+                         "for %s%s%s is specified multiple times; "
+                         "using this line", ErrYellow(), el[i],
+                         ErrCyan(), ErrYellow(),
+                         System.BeadType[btype].Name, ErrCyan()) < 0) {
+              strcpy(ERROR_MSG, "something wrong with snprintf()");
+              PrintError();
+              exit(1);
+            }
+            PrintWarningFileLine(file, *line_count, split, words);
+          }
+          el_done[i] = true; // keyword 'i' found
+          // assign value(s)
+          switch (i) {
+            case 0:;
+              long int val2;
+              if (words < 3 || !IsNaturalNumber(split[2], &val2)) {
+                goto error;
+              }
+              if (val > val2) {
+                par[0][btype][btype] = val;  // m
+                par[1][btype][btype] = val2; // n
+              } else {
+                par[0][btype][btype] = val2; // m
+                par[1][btype][btype] = val;  // n
+              }
+              break;
+            case 1:
+              par[2][btype][btype] = val; // a
+              break;
+            case 2:
+              par[3][btype][btype] = val; // c
+              break;
+            case 3:
+              par[4][btype][btype] = val; // epsilon
+              break;
+          }
+        }
+      }
+      // error if not all parameters specified
+      if (!el_done[0] || !el_done[1] || !el_done[2] || !el_done[3]) {
+        strcpy(ERROR_MSG, "premature end to 'potential' section");
+        PrintErrorFileLine(file, *line_count, split, words);
+        exit(1);
+      }
+    }
+  } while (strcasecmp(split[0], "finish") != 0); //}}}
+ //}}}
+  for (int i = 1; i < System.Count.BeadType; i++) {
+    par[ 5][i][i] = par[ 5][0][0];
+    par[10][i][i] = par[10][0][0];
+  }
   return;
   error:
     strcpy(ERROR_MSG, "wrong line for 'ShiftedSC' potential");
     PrintErrorFileLine(file, *line_count, split, words);
     exit(1);
 } //}}}
-  //}}}
+ //}}}
 
 // calculate some prefactors for the potential //{{{
 void SCPrefactors(SYSTEM System, double **par[max_params]) {
@@ -283,10 +261,8 @@ void LocalDensitySC(SYSTEM System, int bead1, int bead2,
   double rij = VectorLength(dist);
   int bt_i = b_i->Type, bt_j = b_j->Type;
   // Sutton-Chen parameters for beads i and j
-  double a = par[2][bt_i][bt_j],
-         n = par[1][bt_i][bt_j],
-         dd1 = par[8][bt_i][bt_j],
-         dd2 = par[9][bt_i][bt_j],
+  double a = par[2][bt_i][bt_j], n = par[1][bt_i][bt_j],
+         dd1 = par[8][bt_i][bt_j], dd2 = par[9][bt_i][bt_j],
          rc = par[5][bt_i][bt_j];
   if (rij < rc) {
     if (rij == 0) {
@@ -310,17 +286,11 @@ void ShiftedSuttonChen(SYSTEM System, int bead1, int bead2,
   double rij = VectorLength(dist);
   int bt_i = b_i->Type, bt_j = b_j->Type;
   // Sutton-Chen parameters
-  double m = par[0][bt_i][bt_j],
-         n = par[1][bt_i][bt_j],
-         a = par[2][bt_i][bt_j],
-         c_ii = par[3][bt_i][bt_i],
-         c_jj = par[3][bt_j][bt_j],
-         eps = par[4][bt_i][bt_j],
-         eps_ii = par[4][bt_i][bt_i],
-         eps_jj = par[4][bt_j][bt_j],
-         rc = par[5][bt_i][bt_j],
-         rep1 = par[6][bt_i][bt_j],
-         rep2 = par[7][bt_i][bt_j],
+  double m = par[0][bt_i][bt_j], n = par[1][bt_i][bt_j], a = par[2][bt_i][bt_j],
+         c_ii = par[3][bt_i][bt_i], c_jj = par[3][bt_j][bt_j],
+         eps = par[4][bt_i][bt_j], eps_ii = par[4][bt_i][bt_i],
+         eps_jj = par[4][bt_j][bt_j], rc = par[5][bt_i][bt_j],
+         rep1 = par[6][bt_i][bt_j], rep2 = par[7][bt_i][bt_j],
          dd2 = par[9][bt_i][bt_j];
   if (rij < rc) {
     if (rij == 0) {
@@ -330,8 +300,7 @@ void ShiftedSuttonChen(SYSTEM System, int bead1, int bead2,
     }
     // helper value of (a / r_ij)^m & (a / r_ij)^n
     double a_div_r = a / rij;
-    double a_div_r_m = pow(a_div_r, m),
-           a_div_r_n = pow(a_div_r, n);
+    double a_div_r_m = pow(a_div_r, m), a_div_r_n = pow(a_div_r, n);
     // 1) repulsive energy
     // eps*(a/r_ij)^m-eps*(a/r_c)^m+eps*(a/r_c)^m*m/r_c*(r_ij-r_c)
     double tmp = eps * a_div_r_m - rep1 + rep2 * (rij - rc);
@@ -450,7 +419,6 @@ int main(int argc, char *argv[]) {
 
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
                                 detailed, vtf_var, pbc_xyz);
-
   COUNT *Count = &System.Count;
   BOX *box = &System.Box;
 
@@ -473,20 +441,21 @@ int main(int argc, char *argv[]) {
   }
   int n_bins_orig = n_bins; //}}}
 
-  FF **sc = malloc(sizeof **sc * Count->BeadType);
-  for (int i = 0; i < Count->BeadType; i++) {
-    sc[i] = calloc(Count->BeadType, sizeof *sc[i]);
+  double **ff_par[max_params];
+  for (int i = 0; i < max_params; i++) {
+    ff_par[i] = calloc(Count->BeadType, sizeof *ff_par);
+    for (int j = 0; j < Count->BeadType; j++) {
+      ff_par[i][j] = calloc(Count->BeadType, sizeof *ff_par);
+    }
   }
 
   // TODO: generalize the potential, etc.
-  int CG = 1;
   char potential[LINE] = ""; // potential type
-  double real_m = 1,         // mass
-      real_E = 1,            // energy
-      real_l = 1,            // length
-      real_T = 1,            // temperature
-      real_P = 1,            // pressure
-      rcut = 1; // cut-off in real units (will be reduced by CG & real_l)
+  double real_m = 1, // mass
+         real_E = 1, // energy
+         real_l = 1, // length
+         real_T = 1, // temperature
+         real_P = 1; // pressure
   // read extra information (if present) //{{{
   if (file_extra[0] != '\0') {
     FILE *fr = OpenFile(file_extra, "r");
@@ -501,9 +470,7 @@ int main(int argc, char *argv[]) {
           if (calculate_pairwise) {
             strcpy(potential, split[1]);
             if (strcasecmp(potential, "ShiftedSC") == 0) {
-              ShiftedSCParameters(fr, file_extra, &line_count, sc, System);
-              CG = sc[0][0].CG; // TODO: make it better?
-              rcut = sc[0][0].rcut; // TODO: make it better?
+              ShiftedSCParameters(fr, file_extra, &line_count, ff_par, System);
             }
           } else {
             do {
@@ -528,9 +495,9 @@ int main(int argc, char *argv[]) {
         } else if (strcasecmp("Pressure", split[0]) == 0) {
           real_P = val;
         } else {
-          warning:
-            strcpy(ERROR_MSG, "unrecognized line");
-            PrintWarningFileLine(file_extra, line_count, split, words);
+        warning:
+          strcpy(ERROR_MSG, "unrecognized line");
+          PrintWarningFileLine(file_extra, line_count, split, words);
         }
       }
     }
@@ -538,29 +505,32 @@ int main(int argc, char *argv[]) {
   } //}}}
   // TODO: still only shifted SC
   // cross-terms for potentials //{{{
+  double CG = ff_par[10][0][0], // CG level is the same for all beads
+         rcut = ff_par[5][0][0]; // rcut is the same for all beads
   for (int i = 0; i < (Count->BeadType - 1); i++) {
     for (int j = (i + 1); j < Count->BeadType; j++) {
-      sc[i][j].n = (sc[i][i].n + sc[j][j].n) / 2;
-      sc[i][j].m = (sc[i][i].m + sc[j][j].m) / 2;
-      sc[i][j].eps = sqrt(sc[i][i].eps * sc[j][j].eps);
-      sc[i][j].c = -1; // no cross-term in SC
-      sc[i][j].a = sqrt(sc[i][i].a * sc[j][j].a);
-      // sc[i][j].rcut = rcut;
-      sc[j][i].n = sc[i][j].n;
-      sc[j][i].m = sc[i][j].m;
-      sc[j][i].eps = sc[i][j].eps;
-      sc[j][i].c = sc[i][j].c;
-      sc[j][i].a = sc[i][j].a;
-      // sc[j][i].rcut = rcut;
+      ff_par[0][i][j] = (ff_par[0][i][i] + ff_par[0][j][j]) / 2; // m
+      ff_par[1][i][j] = (ff_par[1][i][i] + ff_par[1][j][j]) / 2; // n
+      ff_par[2][i][j] = sqrt(ff_par[2][i][i] * ff_par[2][j][j]); // a
+      ff_par[3][i][j] = -1; // no cross-term in SC // c
+      ff_par[4][i][j] = sqrt(ff_par[4][i][i] * ff_par[4][j][j]); // eps
+      ff_par[5][i][j] = rcut; // rcut
+
+      ff_par[0][j][i] = ff_par[0][i][j]; // m
+      ff_par[1][j][i] = ff_par[1][i][j]; // n
+      ff_par[2][j][i] = ff_par[2][i][j]; // a
+      ff_par[3][j][i] = ff_par[3][i][j]; // c
+      ff_par[4][j][i] = ff_par[4][i][j]; // eps
+      ff_par[5][j][i] = ff_par[5][i][j]; // rcut
     }
   } //}}}
   // coarse-graining of bead mass and potentials //{{{
   for (int i = 0; i < Count->BeadType; i++) {
     System.BeadType[i].Mass *= CUBE(CG) / real_m;
     for (int j = 0; j < Count->BeadType; j++) {
-      sc[i][j].a *= CG / real_l;
-      sc[i][j].eps *= CUBE(CG) / real_T; // TODO: always T?
-      sc[i][j].rcut = rcut * CG / real_l;
+      ff_par[2][i][j] *= CG / real_l; // a
+      ff_par[4][i][j] *= CUBE(CG) / real_T; // eps // TODO: always T?
+      ff_par[5][i][j] *= CG / real_l; // rcut
     }
   } //}}}
   // warn if no potential info even if potential is to be calculated //{{{
@@ -597,8 +567,8 @@ int main(int argc, char *argv[]) {
     fprintf(fw, " (%d) Pyy;", ++count);
     fprintf(fw, " (%d) Pzz;", ++count);
     fprintf(fw, " (%d) W;", ++count);
-    fprintf(fw, " (%d) uCR;", ++count);
-    fprintf(fw, " (%d) uCD;", ++count);
+    // fprintf(fw, " (%d) uCR;", ++count);
+    // fprintf(fw, " (%d) uCD;", ++count);
   }
   putc('\n', fw);
   fclose(fw); //}}}
@@ -606,41 +576,20 @@ int main(int argc, char *argv[]) {
   // variables for collecting observables //{{{
   bool *bt_in_use = calloc(Count->BeadType, sizeof *bt_in_use);
   long double(*KEnergy)[3] = calloc(n_bins, sizeof *KEnergy),
-             (*Press_vir)[3] = calloc(n_bins, sizeof *Press_vir);
+       (*Press_vir)[3] = calloc(n_bins, sizeof *Press_vir);
   long int(**BeadCount)[3] = malloc(Count->BeadType * sizeof **BeadCount);
   for (int i = 0; i < Count->BeadType; i++) {
     BeadCount[i] = calloc(n_bins, sizeof *BeadCount[i]);
   }
-  double temp_sum = 0, press_kin_sum = 0, virial_sum = 0, press_vir_sum = 0,
-         centre_avg[3] = {0, 0, 0};
+  // overall system-wide sums
+  double sum_T = 0,                          // temperature
+      sum_KE = 0,                            // kinetic energy
+      sum_W = 0,                             // virial
+      sum_Pxx = 0, sum_Pyy = 0, sum_Pzz = 0, // pressure tensor diagonal
+      sum_PW = 0, sum_PKE = 0,   // virial and KE pressure components
+      sum_P = 0,                 // pressure
+      sum_centre[3] = {0, 0, 0}; // centre of mass/geometry
   //}}}
-
-  double **ff_par[max_params];
-  for (int i = 0; i < max_params; i++) {
-    ff_par[i] = calloc(Count->BeadType, sizeof *ff_par);
-    for (int j = 0; j < Count->BeadType; j++) {
-      ff_par[i][j] = calloc(Count->BeadType, sizeof *ff_par);
-    }
-  }
-  for (int i = 0; i < Count->BeadType; i++) {
-    for (int j = i; j < Count->BeadType; j++) {
-      count = 0;
-      ff_par[ 0][i][j] = sc[i][j].m;
-      ff_par[ 1][i][j] = sc[i][j].n;
-      ff_par[ 2][i][j] = sc[i][j].a;
-      ff_par[ 3][i][j] = sc[i][j].c;
-      ff_par[ 4][i][j] = sc[i][j].eps;
-      ff_par[ 5][i][j] = sc[i][j].rcut;
-      ff_par[ 6][i][j] = sc[i][j].rep1;
-      ff_par[ 7][i][j] = sc[i][j].rep2;
-      ff_par[ 8][i][j] = sc[i][j].dd1;
-      ff_par[ 9][i][j] = sc[i][j].dd2;
-      ff_par[10][i][j] = sc[i][j].CG;
-      for (int k = 0; k < 11; k++) {
-        ff_par[k][j][i] = ff_par[k][i][j];
-      }
-    }
-  }
 
   SCPrefactors(System, ff_par);
 
@@ -665,9 +614,10 @@ int main(int argc, char *argv[]) {
         break;
       }
       // some variables (may not be used); TODO: clear names
-      double *loc_dens = calloc(Count->Bead, sizeof *loc_dens);
-      double *uSC = calloc(Count->Bead, sizeof *uSC), Pxx = 0, Pyy = 0, Pzz = 0,
-             energy_kin = 0, UCR = 0, UCD = 0; // TODO: remove?
+      double *loc_dens = calloc(Count->Bead, sizeof *loc_dens),
+             *uSC = calloc(Count->Bead, sizeof *uSC), Pxx = 0, Pyy = 0, Pzz = 0,
+             energy_kin = 0;
+      double UCR = 0, UCD = 0; // TODO: remove?
       VECTOR *force = calloc(Count->Bead, sizeof *force);
       bool *test_used = calloc(Count->Bead, sizeof *test_used);
 
@@ -688,17 +638,16 @@ int main(int argc, char *argv[]) {
       } else {
         centre = GeomCentre(Count->BeadCoor, System.BeadCoor, System.Bead);
       }
-      centre_avg[0] += centre.x;
-      centre_avg[1] += centre.y;
-      centre_avg[2] += centre.z;
+      sum_centre[0] += centre.x;
+      sum_centre[1] += centre.y;
+      sum_centre[2] += centre.z;
       if (calculate_pairwise) { //{{{
         // calculete forces
         INTVECTOR n_cells;
         int *Head, *Link, Dcx[14], Dcy[14], Dcz[14];
         // access beads in the linked list through BeadCoor[]
-        // TODO: rcut - pass maximum of sc[][].rcut, I guess
-        LinkedList(System, &Head, &Link, sc[0][0].rcut, &n_cells, Dcx, Dcy,
-                   Dcz);
+        // TODO: rcut - pass maximum of ff_par[5][][], I guess
+        LinkedList(System, &Head, &Link, ff_par[5][0][0], &n_cells, Dcx, Dcy, Dcz);
         // calculate density (if necessary) //{{{
         if (calculate_density) {
           for (int c1z = 0; c1z < n_cells.z; c1z++) {
@@ -840,9 +789,10 @@ int main(int argc, char *argv[]) {
         double ke = 0.5 * bt->Mass * vel2;
         energy_kin += ke;
         if (calculate_pairwise) {
-          // Sutton-Chen potential
-          double ui = sc[b->Type][b->Type].c * sc[b->Type][b->Type].eps *
-                      sqrt(loc_dens[id]);
+          // Sutton-Chen parameters
+          double c = ff_par[3][b->Type][b->Type],
+                 eps = ff_par[4][b->Type][b->Type];
+          double ui = c * eps * sqrt(loc_dens[id]);
           UCD -= ui;
           uSC[id] = 0.5 * uSC[id] - ui;
           // copy previously calculated forces
@@ -889,33 +839,39 @@ int main(int argc, char *argv[]) {
       double press_vir = virial / box->Volume;
       // write global values to output file //{{{
       fw = OpenFile(out_global, "a");
-      fprintf(fw, " %8d", count_coor);
-      fprintf(fw, " %10.5e", temperature * real_T / CUBE(CG));
-      fprintf(fw, " %10.5e", energy_kin * real_E / CUBE(CG));
+      fprintf(fw, " %5d", count_coor);
+      fprintf(fw, " %e", temperature * real_T / CUBE(CG));
+      fprintf(fw, " %e", energy_kin * real_E / CUBE(CG));
       if (calculate_pairwise) {
-        fprintf(fw, " %10.5e", press_kin * real_P);
-        fprintf(fw, " %10.5e", press_vir * real_P);
-        fprintf(fw, " %10.5e", (press_kin + press_vir) * real_P);
-        fprintf(fw, " %10.5e", Pxx);
-        fprintf(fw, " %10.5e", Pyy);
-        fprintf(fw, " %10.5e", Pzz);
-        fprintf(fw, " %10.5e", virial);
-        fprintf(fw, " %10.5e", UCR / Count->BeadCoor * real_E / CUBE(CG));
-        fprintf(fw, " %10.5e", UCD / Count->BeadCoor * real_E / CUBE(CG));
+        fprintf(fw, " %e", press_kin * real_P);
+        fprintf(fw, " %e", press_vir * real_P);
+        fprintf(fw, " %e", (press_kin + press_vir) * real_P);
+        fprintf(fw, " %e", Pxx);
+        fprintf(fw, " %e", Pyy);
+        fprintf(fw, " %e", Pzz);
+        fprintf(fw, " %e", virial);
+        // fprintf(fw, " %10.5e", UCR / Count->BeadCoor * real_E / CUBE(CG));
+        // fprintf(fw, " %10.5e", UCD / Count->BeadCoor * real_E / CUBE(CG));
       }
       putc('\n', fw);
       fclose(fw); //}}}
 
-      // add global observables to total sums
-      temp_sum += temperature;
-      press_kin_sum += press_kin;
-      virial_sum += virial;
-      press_vir_sum += press_vir;
+      // add global observables to total sums //{{{
+      sum_T += temperature;
+      sum_KE += energy_kin;
+      sum_PKE += press_kin;
+      sum_W += virial;
+      sum_PW += press_vir;
+      sum_Pxx += Pxx;
+      sum_Pyy += Pyy;
+      sum_Pzz += Pzz;
+      sum_P += press_kin + press_vir; //}}}
 
+      // free memory //{{{
       free(loc_dens);
       free(uSC);
       free(force);
-      free(test_used);
+      free(test_used); //}}}
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
       if (!SkipTimestep(coor_type, coor, coor_file, struct_file, &line_count)) {
@@ -947,9 +903,9 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // average centre of mass/geometry
-  centre_avg[0] /= count_used;
-  centre_avg[1] /= count_used;
-  centre_avg[2] /= count_used;
+  sum_centre[0] /= count_used;
+  sum_centre[1] /= count_used;
+  sum_centre[2] /= count_used;
 
   // print profiles of observables //{{{
   // open the three files & print headers //{{{
@@ -1031,7 +987,7 @@ int main(int argc, char *argv[]) {
     for (int j = 0; j < 3; j++) {
       if (i >= non_zero_lo[j] && i <= non_zero_hi[j]) {
         double abs_dist =
-            dist - centre_avg[j] - width * (2 * non_zero_lo[j] + 1) / 2;
+            dist - sum_centre[j] - width * (2 * non_zero_lo[j] + 1) / 2;
         fprintf(fw2[j], "%7.3f", abs_dist * real_l); // absolute distance
         // temperature - don't use 'count_used' as both KEnergy & BeadCount_tot
         // are sums from all the counted steps
@@ -1063,12 +1019,44 @@ int main(int argc, char *argv[]) {
   fclose(fw2[1]);
   fclose(fw2[2]); //}}}
 
+  // append overall averages to the 'out_global' file //{{{
+  fw = OpenFile(out_global, "a");
+  count = 1;
+  fprintf(fw, "# (%d) T;", count++);
+  fprintf(fw, " (%d) KE;", count++);
+  if (calculate_pairwise) {
+    fprintf(fw, " (%d) P(KE);", count++);
+    fprintf(fw, " (%d) P(W);", count++);
+    fprintf(fw, " (%d) P;", count++);
+    fprintf(fw, " (%d) Pxx;", count++);
+    fprintf(fw, " (%d) Pyy;", count++);
+    fprintf(fw, " (%d) Pzz;", count++);
+    fprintf(fw, " (%d) W;", count++);
+  }
+  putc('\n', fw);
+  fprintf(fw, "      ");
+  fprintf(fw, " %e", sum_T * real_T / CUBE(CG) / count_used);
+  fprintf(fw, " %e", sum_KE * real_E / CUBE(CG) / count_used);
+  if (calculate_pairwise) {
+    fprintf(fw, " %e", sum_PKE * real_P / count_used);
+    fprintf(fw, " %e", sum_PW * real_P / count_used);
+    fprintf(fw, " %e", sum_P * real_P / count_used);
+    fprintf(fw, " %e", sum_Pxx / count_used);
+    fprintf(fw, " %e", sum_Pyy / count_used);
+    fprintf(fw, " %e", sum_Pzz / count_used);
+    fprintf(fw, " %e", sum_W / count_used);
+  }
+  putc('\n', fw);
+  fclose(fw); //}}}
+
   // free memory //{{{
   FreeSystem(&System);
-  for (int i = 0; i < Count->BeadType; i++) {
-    free(sc[i]);
+  for (int i = 0; i < max_params; i++) {
+    for (int j = 0; j < Count->BeadType; j++) {
+      free(ff_par[i][j]);
+    }
+    free(ff_par[i]);
   }
-  free(sc);
   for (int i = 0; i < Count->BeadType; i++) {
     free(BeadCount[i]);
   }
