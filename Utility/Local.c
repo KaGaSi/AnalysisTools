@@ -2,7 +2,6 @@
 
 // TODO: add different units in file_extra 'potential' section?
 // TODO: warning if missing parameters
-// TODO: m & n in real, not natural numbers
 
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
@@ -20,21 +19,17 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   fprintf(ptr, "   <width>        width of a single bin\n");
   fprintf(ptr, "   <output_gl>    output file with global observables\n");
   fprintf(ptr, "   <output>       output files with local variables "
-               "(automatic endings -x.txt, -y.txt, and -z.txt\n");
+          "(automatic endings -x.txt, -y.txt, and -z.txt\n");
   fprintf(ptr, "   [options]\n");
   // fprintf(ptr, "      --per-step  save a new file for each step"
   //         "(adds '-<step>.txt' to <output>)\n");
   fprintf(ptr, "      -fx <file>  file with extra information\n");
   fprintf(ptr, "      --pot       also calculate potential (and pressure via "
-               "virial) ;only shifted Sutton-Chen for now\n");
+          "virial) ;only shifted Sutton-Chen for now\n");
   fprintf(ptr, "      --com       use centre of mass as the coordinate system "
-               "centre; default: geometric centre");
+          "centre; default: geometric centre");
   CommonHelp(error, n, opt);
 } //}}}
-
-typedef struct FF {
-  double n, m, a, c, eps, rcut, rep1, rep2, dd1, dd2, CG;
-} FF;
 
 const static int max_params = 100;
 
@@ -185,8 +180,8 @@ void ShiftedSCParameters(FILE *fr, char file[], int *line_count,
           // assign value(s)
           switch (i) {
             case 0:;
-              long int val2;
-              if (words < 3 || !IsNaturalNumber(split[2], &val2)) {
+              double val2;
+              if (words < 3 || !IsPosRealNumber(split[2], &val2) || val <= 0) {
                 goto error;
               }
               if (val > val2) {
@@ -252,8 +247,9 @@ void SCPrefactors(SYSTEM System, double **par[max_params]) {
   }
 } //}}}
 
-// calculate local density for Sutton-Chen potential //{{{
-void LocalDensitySC(SYSTEM System, int bead1, int bead2,
+// calculate local density for (shifted) Sutton-Chen potential //{{{
+// shifted Sutton-Chen //{{{
+void LocalDensityShiftedSC(SYSTEM System, int bead1, int bead2,
                     double **par[max_params], double *density) {
   // rho = (a / r_ij)^n - (a / r_c)^n + (a / r_c)^n * n / r_c * (r_ij - r_c)
   BEAD *b_i = &System.Bead[bead1], *b_j = &System.Bead[bead2];
@@ -275,8 +271,32 @@ void LocalDensitySC(SYSTEM System, int bead1, int bead2,
     density[bead2] += tmp;
   }
 } //}}}
+// Sutton-Chen //{{{
+void LocalDensitySC(SYSTEM System, int bead1, int bead2,
+                    double **par[max_params], double *density) {
+  // rho = (a / r_ij)^n - (a / r_c)^n + (a / r_c)^n * n / r_c * (r_ij - r_c)
+  BEAD *b_i = &System.Bead[bead1], *b_j = &System.Bead[bead2];
+  VECTOR dist = Distance(b_i->Position, b_j->Position, System.Box.Length);
+  double rij = VectorLength(dist);
+  int bt_i = b_i->Type, bt_j = b_j->Type;
+  // Sutton-Chen parameters for beads i and j
+  double a = par[2][bt_i][bt_j], n = par[1][bt_i][bt_j],
+         rc = par[5][bt_i][bt_j];
+  if (rij < rc) {
+    if (rij == 0) {
+      strcpy(ERROR_MSG, "zero bead-bead distance!");
+      PrintError();
+      exit(1);
+    }
+    double tmp = pow(a / rij, n);
+    density[bead1] += tmp;
+    density[bead2] += tmp;
+  }
+} //}}}
+ //}}}
 
 // calculate potential, force and wirial for shifted Sutton-Chen potential //{{{
+// shifted Sutton-Chen //{{{
 void ShiftedSuttonChen(SYSTEM System, int bead1, int bead2,
                        double **par[max_params], double *density,
                        double *potential, VECTOR *force,
@@ -345,6 +365,76 @@ void ShiftedSuttonChen(SYSTEM System, int bead1, int bead2,
     // printf(" %lf %lf %lf\n", f.x, f.y, f.z);
   }
 } //}}}
+// Sutton-Chen //{{{
+// TODO: check it against ml's notes and remake
+void SuttonChen(SYSTEM System, int bead1, int bead2, double **par[max_params],
+                double *density, double *potential, VECTOR *force,
+                double *Pxx, double *Pyy, double *Pzz, double *UCR) {
+  BEAD *b_i = &System.Bead[bead1], *b_j = &System.Bead[bead2];
+  VECTOR dist = Distance(b_i->Position, b_j->Position, System.Box.Length);
+  double rij = VectorLength(dist);
+  int bt_i = b_i->Type, bt_j = b_j->Type;
+  // Sutton-Chen parameters
+  double m = par[0][bt_i][bt_j], n = par[1][bt_i][bt_j], a = par[2][bt_i][bt_j],
+         c_ii = par[3][bt_i][bt_i], c_jj = par[3][bt_j][bt_j],
+         eps = par[4][bt_i][bt_j], eps_ii = par[4][bt_i][bt_i],
+         eps_jj = par[4][bt_j][bt_j], rc = par[5][bt_i][bt_j],
+         rep1 = par[6][bt_i][bt_j], rep2 = par[7][bt_i][bt_j],
+         dd2 = par[9][bt_i][bt_j];
+  if (rij < rc) {
+    if (rij == 0) {
+      strcpy(ERROR_MSG, "zero bead-bead distance!");
+      PrintError();
+      exit(1);
+    }
+    // helper value of (a / r_ij)^m & (a / r_ij)^n
+    double a_div_r = a / rij;
+    double a_div_r_m = pow(a_div_r, m), a_div_r_n = pow(a_div_r, n);
+    // 1) repulsive energy
+    // eps*(a/r_ij)^m-eps*(a/r_c)^m+eps*(a/r_c)^m*m/r_c*(r_ij-r_c)
+    double tmp = eps * a_div_r_m - rep1 + rep2 * (rij - rc);
+    // add to per-particle repulsive energy
+    *UCR += tmp;
+    potential[bead1] += tmp;
+    potential[bead2] += tmp;
+    // 2) repulsive virial
+    // -m * eps * (a / r_ij)^m + m * eps * (a / r_c)^m / r_c * r_ij
+    tmp = -m * eps * a_div_r_m + rep2 * rij;
+    double w_rep = tmp;
+    // 3) density-dependent virial
+    // 0.5 * (c_i * eps_ii / sqrt(\rho_i) +
+    //        c_j * eps_jj / sqrt(\rho_j) ...
+    double c_eps_i = c_ii * eps_ii / sqrt(density[bead1]),
+           c_eps_j = c_jj * eps_jj / sqrt(density[bead2]);
+    tmp = 0.5 * (c_eps_i + c_eps_j);
+    // ... * (n * (a / r_ij)^n - n * (a / r_c)^n / r_c * r_ij)
+    tmp *= n * a_div_r_n - dd2 * rij;
+    double w_dd = tmp;
+    // 4) pairwise forces
+    double fij = -(w_rep + w_dd) / SQR(rij);
+    // force in axes' directions
+    VECTOR f;
+    f.x = fij * dist.x;
+    f.y = fij * dist.y;
+    f.z = fij * dist.z;
+    // pressure tensor components
+    *Pxx = f.x * dist.x;
+    *Pyy = f.y * dist.y;
+    *Pzz = f.z * dist.z;
+    // per-particle force
+    force[bead1].x += f.x;
+    force[bead1].y += f.y;
+    force[bead1].z += f.z;
+    force[bead2].x -= f.x;
+    force[bead2].y -= f.y;
+    force[bead2].z -= f.z;
+    // printf("%6d %6d", bead1, bead2);
+    // printf(" %lf %lf %lf", dist.x, dist.y, dist.z);
+    // printf(" %lf %lf %lf", w_dd, w_rep, fij);
+    // printf(" %lf %lf %lf\n", f.x, f.y, f.z);
+  }
+} //}}}
+  //}}}
 
 int main(int argc, char *argv[]) {
 
@@ -393,7 +483,7 @@ int main(int argc, char *argv[]) {
   char out_global[LINE] = "", out_local[LINE] = "";
   snprintf(out_global, LINE, "%s", argv[++count]);
   snprintf(out_local, LINE, "%s", argv[++count]);
-  out_local[LINE - 6] = '\0'; // for adding -<axis>.rho
+  out_local[LINE-6] = '\0'; // for adding -<axis>.rho
 
   // options before reading system data //{{{
   bool silent, verbose, detailed, vtf_var;
@@ -455,7 +545,8 @@ int main(int argc, char *argv[]) {
          real_E = 1, // energy
          real_l = 1, // length
          real_T = 1, // temperature
-         real_P = 1; // pressure
+         real_P = 1, // pressure
+         CG = 1;     // coarse-graining level
   // read extra information (if present) //{{{
   if (file_extra[0] != '\0') {
     FILE *fr = OpenFile(file_extra, "r");
@@ -503,40 +594,42 @@ int main(int argc, char *argv[]) {
     }
     fclose(fr);
   } //}}}
-  // TODO: still only shifted SC
   // cross-terms for potentials //{{{
-  double CG = ff_par[10][0][0], // CG level is the same for all beads
-         rcut = ff_par[5][0][0]; // cut-off is the same for all beads
-  for (int i = 0; i < (Count->BeadType - 1); i++) {
-    for (int j = (i + 1); j < Count->BeadType; j++) {
-      ff_par[0][i][j] = (ff_par[0][i][i] + ff_par[0][j][j]) / 2; // m
-      ff_par[1][i][j] = (ff_par[1][i][i] + ff_par[1][j][j]) / 2; // n
-      ff_par[2][i][j] = sqrt(ff_par[2][i][i] * ff_par[2][j][j]); // a
-      ff_par[3][i][j] = -1; // no cross-term in SC // c
-      ff_par[4][i][j] = sqrt(ff_par[4][i][i] * ff_par[4][j][j]); // eps
-      ff_par[5][i][j] = rcut; // rcut
+  // TODO: still only shifted SC
+  if (calculate_pairwise) {
+    CG = ff_par[10][0][0]; // CG level is the same for all beads
+    double rcut = ff_par[5][0][0]; // cut-off is the same for all beads
+    for (int i = 0; i < (Count->BeadType - 1); i++) {
+      for (int j = (i + 1); j < Count->BeadType; j++) {
+        ff_par[0][i][j] = (ff_par[0][i][i] + ff_par[0][j][j]) / 2; // m
+        ff_par[1][i][j] = (ff_par[1][i][i] + ff_par[1][j][j]) / 2; // n
+        ff_par[2][i][j] = sqrt(ff_par[2][i][i] * ff_par[2][j][j]); // a
+        ff_par[3][i][j] = -1; // no cross-term in SC // c
+        ff_par[4][i][j] = sqrt(ff_par[4][i][i] * ff_par[4][j][j]); // eps
+        ff_par[5][i][j] = rcut; // rcut
 
-      ff_par[0][j][i] = ff_par[0][i][j]; // m
-      ff_par[1][j][i] = ff_par[1][i][j]; // n
-      ff_par[2][j][i] = ff_par[2][i][j]; // a
-      ff_par[3][j][i] = ff_par[3][i][j]; // c
-      ff_par[4][j][i] = ff_par[4][i][j]; // eps
-      ff_par[5][j][i] = ff_par[5][i][j]; // rcut
+        ff_par[0][j][i] = ff_par[0][i][j]; // m
+        ff_par[1][j][i] = ff_par[1][i][j]; // n
+        ff_par[2][j][i] = ff_par[2][i][j]; // a
+        ff_par[3][j][i] = ff_par[3][i][j]; // c
+        ff_par[4][j][i] = ff_par[4][i][j]; // eps
+        ff_par[5][j][i] = ff_par[5][i][j]; // rcut
+      }
     }
-  } //}}}
-  // coarse-graining of bead mass and potentials //{{{
-  for (int i = 0; i < Count->BeadType; i++) {
-    System.BeadType[i].Mass *= CUBE(CG) / real_m;
-    for (int j = 0; j < Count->BeadType; j++) {
-      ff_par[2][i][j] *= CG / real_l; // a
-      ff_par[4][i][j] *= CUBE(CG) / real_T; // eps // TODO: always T?
-      ff_par[5][i][j] *= CG / real_l; // rcut
-    }
-  } //}}}
-  // warn if no potential info even if potential is to be calculated //{{{
-  if (calculate_pairwise && potential[0] == '\0') {
-    strcpy(ERROR_MSG, "missing information about potential");
-    PrintWarnFile(file_extra, "\0", "\0");
+    // coarse-graining of bead mass and potentials //{{{
+    for (int i = 0; i < Count->BeadType; i++) {
+      System.BeadType[i].Mass *= CUBE(CG) / real_m;
+      for (int j = 0; j < Count->BeadType; j++) {
+        ff_par[2][i][j] *= CG / real_l; // a
+        ff_par[4][i][j] *= CUBE(CG) / real_T; // eps // TODO: always T?
+        ff_par[5][i][j] *= CG / real_l; // rcut
+      }
+    } //}}}
+    // warn if no potential info even if potential is to be calculated //{{{
+    if (calculate_pairwise && potential[0] == '\0') {
+      strcpy(ERROR_MSG, "missing information about potential");
+      PrintWarnFile(file_extra, "\0", "\0");
+    } //}}}
   } //}}}
 
   if (verbose) {
@@ -591,7 +684,11 @@ int main(int argc, char *argv[]) {
       sum_centre[3] = {0, 0, 0}; // centre of mass/geometry
   //}}}
 
-  SCPrefactors(System, ff_par);
+  // TODO: this is gonna have to be revised; only calculate prefactors for
+  //       shiftedSC (or possibly other potentials - later)
+  if (calculate_pairwise) {
+    SCPrefactors(System, ff_par);
+  }
 
   // main loop //{{{
   FILE *coor = OpenFile(coor_file, "r");
@@ -623,20 +720,15 @@ int main(int argc, char *argv[]) {
 
       count_used++;
       box = &System.Box;
-      // TODO: this is for ml's stuff - coordinate centre is in the box centre
-      for (int i = 0; i < Count->BeadCoor; i++) {
-        int id = System.BeadCoor[i];
-        BEAD *b = &System.Bead[id];
-        b->Position.x += box->Length.x / 2;
-        b->Position.y += box->Length.y / 2;
-        b->Position.z += box->Length.z / 2;
-      }
       WrapJoinCoordinates(&System, true, false); // restore pbc
       VECTOR centre;
       if (use_com) {
         centre = CentreOfMass(Count->BeadCoor, System.BeadCoor, System);
       } else {
         centre = GeomCentre(Count->BeadCoor, System.BeadCoor, System.Bead);
+        // centre.x = box->Length.x / 2;
+        // centre.y = box->Length.y / 2;
+        // centre.z = box->Length.z / 2;
       }
       sum_centre[0] += centre.x;
       sum_centre[1] += centre.y;
@@ -688,7 +780,7 @@ int main(int argc, char *argv[]) {
                     } //}}}
                     while (j != -1) {
                       int id_i = System.BeadCoor[i], id_j = System.BeadCoor[j];
-                      LocalDensitySC(System, id_i, id_j, ff_par, loc_dens);
+                      LocalDensityShiftedSC(System, id_i, id_j, ff_par, loc_dens);
                       j = Link[j];
                     }
                   }

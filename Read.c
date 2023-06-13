@@ -223,7 +223,9 @@ static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
     }
     int id = line.Type - 1;
     BEAD *b = &System->Bead[id];
-    b->Position = line.Position;
+    b->Position.x = line.Position.x - System->Box.Low.x;
+    b->Position.y = line.Position.y - System->Box.Low.y;
+    b->Position.z = line.Position.z - System->Box.Low.z;
     b->Velocity = line.Velocity;
     b->Force = line.Force;
     if (b->InTimestep) {
@@ -479,6 +481,9 @@ static int LtrjReadPBCSection(FILE *fr, char file[], BOX *box,
     box->OrthoLength.x = bounds[0][1] - bounds[0][0];
     box->OrthoLength.y = bounds[1][1] - bounds[1][0];
     box->OrthoLength.z = bounds[2][1] - bounds[2][0];
+    box->Low.x = bounds[0][0];
+    box->Low.y = bounds[1][0];
+    box->Low.z = bounds[2][0];
     TriclinicCellData(box, 1);
   } else if (strcmp(split[3], "xy") == 0) { // triclinic box
     double bounds[3][2], tilt[3];

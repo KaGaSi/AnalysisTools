@@ -1,11 +1,12 @@
 \section{DensityBox} \label{sec:DensityBox}
 
 This utility calculates number density for all bead types along all three axes
-directions of the simulation box. The density is calculated from 0 to box length
-in the given direction, that is, the box is \enquote{sliced} into blocks with
-width \tt{<width>} and numbers of different bead types are counted in each of
-the slices. Or to put it more rigorously, a density profile for a bead type $i$
-along an axis $\alpha$, $\rho(\alpha)$, is calculated as
+directions of the simulation box, generating one file per axis. The density is
+calculated from 0 to box length in the given direction, that is, the box is
+\enquote{sliced} into blocks with width \tt{<width>} (see below), and numbers of
+different bead types are counted in each \enquote{slice}. Or to put it more
+rigorously, a density profile for a bead type $i$ along an axis $\alpha$,
+$\rho(\alpha)$, is calculated as
 \begin{equation}
   \rho_i(\alpha) = \frac{\sum_j\delta(\alpha-\alpha_j^i)}
                    {\Delta\alpha L_\beta L_\gamma},
@@ -17,10 +18,12 @@ axes.
 
 The utility does not distinguish between beads with the same name in different
 molecules, so if one bead type is in more than one molecule type, its density
-will be averaged over all molecule types it appears in. However, the \tt{-x}
-option can be used to first run the utility without one molecule type and then
-rerun it, excluding the other molecule type. Thus, two output files (per axis)
-are generated, each missing densities from the specified molecule types.
+will be averaged over all molecule types it appears in. If one requires
+densities specific to certain molecules containing the same bead types, the
+\tt{-x} option can be used to first run the utility without one molecule type
+and then rerun it, excluding the other molecule type. Thus, two output files
+(per axis) are generated, each missing densities from the specified molecule
+types.
 
 Note that this utility assumes orthogonal box with constant side lengths; in
 case of triclinic box and/or varying box size, undefined behaviour may occur

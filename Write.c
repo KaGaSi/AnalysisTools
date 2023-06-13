@@ -106,9 +106,9 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
     // orthogonal box
     if (box->alpha == 90 && box->beta == 90 && box->gamma == 90) {
       fprintf(fw, "ITEM: BOX BOUNDS pp pp pp\n");
-      fprintf(fw, "0.0 %lf\n", box->Length.x);
-      fprintf(fw, "0.0 %lf\n", box->Length.y);
-      fprintf(fw, "0.0 %lf\n", box->Length.z);
+      fprintf(fw, "%lf %lf\n", box->Low.x, box->Length.x+box->Low.x);
+      fprintf(fw, "%lf %lf\n", box->Low.y, box->Length.y+box->Low.y);
+      fprintf(fw, "%lf %lf\n", box->Low.z, box->Length.z+box->Low.z);
     } else {
       fprintf(fw, "ITEM: BOX BOUNDS xy xz yz pp pp pp\n");
       fprintf(fw, "0.0 %lf %lf\n", box->Bounding.x, box->transform[0][1]);
@@ -130,7 +130,9 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
         int type = b->Type;
         fprintf(fw, "%8d %8s %8.4f %8.4f %8.4f", id + 1,
                 System.BeadType[type].Name,
-                b->Position.x, b->Position.y, b->Position.z);
+                b->Position.x+box->Low.x,
+                b->Position.y+box->Low.y,
+                b->Position.z+box->Low.z);
         if (vel) {
           fprintf(fw, " %8.4f %8.4f %8.4f",
                   b->Velocity.x, b->Velocity.y, b->Velocity.z);
