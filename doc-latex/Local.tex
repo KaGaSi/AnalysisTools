@@ -5,12 +5,13 @@ along the three principal axes) and globally (i.e., per-timestep averages from
 the whole system), producing four output files (one file per axis with profiles
 along that axis and one file for global averages).
 
-Primarily, the utility calculates kinetice energy and temperature (which
-requires input coordinate file with velocities) and density profiles, but using
-the \tt{--pot} switch, pair-wise potential can be included to calculate
-pressure. For now, only shifted Sutton-Chen potential is implemented (see
-below).
+Primarily, the utility calculates kinetic energy and temperature (which requires
+an input coordinate file with velocities and bead types with specified mass;
+otherwise, both observables will be 0) and density profiles, but using the
+\tt{--pot} switch, pair-wise potential can be included to calculate pressure.
+For now, only shifted Sutton-Chen potential is implemented (see below).
 
+\TODO \tt{--com} vs. \tt{--cog} vs. \tt{--cob} vs. default\\
 Unlike the DensityBox utility (Section~\ref{sec:DensityBox}), Local takes into
 account changing size of an orthogonal simulation box, calculating the profiles
 along the three axis with respect to the geometric centre of all beads (or the
@@ -131,19 +132,20 @@ $i\times i\times i$ unit cells are represented by a single CG unit cell. The
 potential parameters are then coarse-grained via the following equations, where
 subscript CG represents the coarse-grained parameter and $i$ the CG level,
 \begin{equation}
-  \begin{array}{ll}
-    n_\text{CG}&=n\\
-    m_\text{CG}&=m\\
-    \epsilon_\text{CG}&=i^3\epsilon\\
-    c_\text{CG}&=c\\
-    T_\text{CG}&=i^3T\\
-    a_\text{CG}&=ia\\
-    r_\text{c,CG}&=ir_\text{c}\\
+  \begin{array}{rcl}
+    n_\text{CG}&\!\!\!=\!\!\!&n\\
+    m_\text{CG}&\!\!\!=\!\!\!&m\\
+    \epsilon_\text{CG}&\!\!\!=\!\!\!&i^3\epsilon\\
+    c_\text{CG}&\!\!\!=\!\!\!&c\\
+    T_\text{CG}&\!\!\!=\!\!\!&i^3T\\
+    a_\text{CG}&\!\!\!=\!\!\!&ia\\
+    r_\text{c,CG}&\!\!\!=\!\!\!&ir_\text{c}\\
   \end{array}
 \end{equation}
 
 The following table shows the form of the potential section in the input file
-(\tt{-fx <file>}).
+(\tt{-fx <file>}). Note that there are variants of the SC potential that have
+real $m$ and $n$ parameters, so the \tt{mn} line accepts real numbers.
 \begin{longtable}{ll}
   \toprule
   \multicolumn{2}{c}{Sutton-Chen potential (use \tt{SuttonChen} as
@@ -151,14 +153,18 @@ The following table shows the form of the potential section in the input file
   \multicolumn{2}{c}{Shifted Sutton-Chen potential (use \tt{ShiftedSC} as
     \tt{<potential>})}\\
   \midrule
-  \multicolumn{2}{c}{2 global parameters:}\\
-  \tt{CG <int>}       & coarse-graining level (see below)\\
-  \tt{cutoff <float>} & cut-off distance, $r_\text{c}$\\
-  \multicolumn{2}{c}{4 lines per bead type:}\\
-  \tt{mn <int> <int>} & $m$ and $n$ parameters; lower number is assigned $n$\\
-  \tt{c <float>}      & dimensionless $c$ parameter\\
-  \tt{eps <float>}    & energy parameter $\epsilon^\star$\\
-  \tt{a <float>}      & lattice constant, $a$\\
+  \multicolumn{2}{c}{2 global parameters:\vspace{-0.7em}}\\
+  \multicolumn{2}{c}{\rule{0.3\textwidth}{0.5pt}}\\
+  \tt{CG <int>}           & coarse-graining level\\
+  \tt{cutoff <float>}     & cut-off distance, $r_\text{c}$\vspace{-0.7em}\\
+  \multicolumn{2}{c}{\rule{0.3\textwidth}{0.5pt}}\\
+  \multicolumn{2}{c}{4 lines per bead type:\vspace{-0.7em}}\\
+  \multicolumn{2}{c}{\rule{0.3\textwidth}{0.5pt}}\\
+  \tt{mn <float> <float>} & $m$ and $n$ parameters;
+                            lower number is assigned $n$\\
+  \tt{c <float>}          & dimensionless $c$ parameter\\
+  \tt{eps <float>}        & energy parameter $\epsilon^\star$\\
+  \tt{a <float>}          & lattice constant, $a$\\
   \bottomrule
   \multicolumn{2}{l}{$^\star$if in real units, the value must be in
   Kelvins}\\

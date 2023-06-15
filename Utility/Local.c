@@ -27,7 +27,9 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   fprintf(ptr, "      --pot       also calculate potential (and pressure via "
           "virial) ;only shifted Sutton-Chen for now\n");
   fprintf(ptr, "      --com       use centre of mass as the coordinate system "
-          "centre; default: geometric centre");
+          "centre; default: geometric centre\n");
+  fprintf(ptr, "      --cob       use simulation box centre as the coordinate "
+          "system centre; default: geometric centre\n");
   CommonHelp(error, n, opt);
 } //}}}
 
@@ -223,6 +225,196 @@ void ShiftedSCParameters(FILE *fr, char file[], int *line_count,
     PrintErrorFileLine(file, *line_count, split, words);
     exit(1);
 } //}}}
+// Sutton-Chen potential for one bead type //{{{
+void SuttonChenParameters(FILE *fr, char file[], int *line_count,
+                         double **par[max_params], SYSTEM System) {
+  // variables //{{{
+  int el_params = 4, // number of parameters for the potential per-element
+      gl_params = 2; // number of global parameters for the potential
+  // global parameters
+  char gl[gl_params][LINE];
+  int count = 0;
+  strcpy(gl[count++], "CG");
+  strcpy(gl[count++], "cutoff");
+  bool gl_done[gl_params];
+  for (int i = 0; i < gl_params; i++) {
+    gl_done[i] = false;
+  }
+  // per-element parameters
+  char el[el_params][LINE];
+  count = 0;
+  strcpy(el[count++], "mn");
+  strcpy(el[count++], "a");
+  strcpy(el[count++], "c");
+  strcpy(el[count++], "eps");
+  bool el_done[el_params];
+  for (int i = 0; i < el_params; i++) {
+    el_done[i] = false;
+  }
+  char line[LINE], *split[SPL_STR];
+  int words = 0; //}}}
+  // read global parameters //{{{
+  while (ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    (*line_count)++;
+    // break the loop when 'bead' or 'finish' keyword encountered //{{{
+    if (words != 0 && (strcasecmp(split[0], "bead") == 0 ||
+                       strcasecmp(split[0], "finish") == 0)) {
+      break;
+    } //}}}
+    double val = 0;
+    if (words > 1 && split[0][0] != '#') {
+      // the second word must be a number
+      if (!IsRealNumber(split[1], &val)) {
+        goto error;
+      } else {
+        int i = 0;
+        for (; i < gl_params; i++) {
+          if (strcasecmp(split[0], gl[i]) == 0) {
+            break;
+          }
+        }
+        // unrecognized line
+        if (i == gl_params) {
+          goto error;
+        }
+        // warning - multiply defined parameter
+        if (gl_done[i]) {
+          if (snprintf(ERROR_MSG, LINE, "%s%s%s parameter in 'ShiftedSC' is "
+                       "specified multiple times; using this line",
+                       ErrYellow(), gl[i], ErrCyan()) < 0) {
+            strcpy(ERROR_MSG, "something wrong with snprintf()");
+            PrintErrorFile(file, "\0", "\0");
+            exit(1);
+          }
+          PrintWarningFileLine(file, *line_count, split, words);
+        }
+        gl_done[i] = true;
+        switch (i) {
+        case 0:
+          par[10][0][0] = val; // CG
+          break;
+        case 1:
+          par[5][0][0] = val; // rcut
+          break;
+        }
+      }
+    }
+  } //}}}
+  // read parameters for every bead types //{{{
+  do { // first 'bead <name>' was already read
+    int btype = FindBeadType(split[1], System);
+    // skip section with an unknown bead type //{{{
+    if (btype == -1) {
+      if (snprintf(ERROR_MSG, LINE, "skipping unknown bead type "
+                   "%s%s%s in the 'potential' section", ErrYellow(),
+                   split[1], ErrCyan()) < 0) {
+        strcpy(ERROR_MSG, "something wrong with snprintf()");
+        PrintError();
+        exit(1);
+      }
+      PrintWarningFileLine(file, *line_count, split, words);
+      while (ReadAndSplitLine(fr, LINE, line, &words,
+                              split, SPL_STR, " \t\n")) {
+        (*line_count)++;
+        if (words > 0 && (strcasecmp(split[0], "bead") == 0 ||
+                          strcasecmp(split[0], "finish") == 0)) {
+          break;
+        }
+      } //}}}
+    // read parameters for bead type 'btype' //{{{
+    } else {
+      for (int i = 0; i < el_params; i++) {
+        el_done[i] = false;
+      }
+      while (ReadAndSplitLine(fr, LINE, line, &words,
+                              split, SPL_STR, " \t\n")) {
+        (*line_count)++;
+        // break loop when 'bead' or 'finish' keyword encountered
+        if (words > 0 && (strcasecmp(split[0], "bead") == 0 ||
+                          strcasecmp(split[0], "finish") == 0)) {
+          break;
+        }
+        // ignore blanka and comment lines
+        if (words == 0 || split[0][0] == '#') {
+          continue;
+        }
+        double val = 0;
+        // the second word must be a number
+        if (!IsRealNumber(split[1], &val)) {
+          goto error;
+        } else {
+          // identify keyword
+          int i = 0;
+          for (; i < el_params; i++) {
+            if (strcasecmp(split[0], el[i]) == 0) {
+              break;
+            }
+          }
+          // unrecognized keyword
+          if (i == el_params) {
+            goto error;
+          }
+          // multiply defined keyword
+          if (el_done[i]) {
+            if (snprintf(ERROR_MSG, LINE, "%s%s%s parameter in 'ShiftedSC' "
+                         "for %s%s%s is specified multiple times; "
+                         "using this line", ErrYellow(), el[i],
+                         ErrCyan(), ErrYellow(),
+                         System.BeadType[btype].Name, ErrCyan()) < 0) {
+              strcpy(ERROR_MSG, "something wrong with snprintf()");
+              PrintError();
+              exit(1);
+            }
+            PrintWarningFileLine(file, *line_count, split, words);
+          }
+          el_done[i] = true; // keyword 'i' found
+          // assign value(s)
+          switch (i) {
+            case 0:;
+              double val2;
+              if (words < 3 || !IsPosRealNumber(split[2], &val2) || val <= 0) {
+                goto error;
+              }
+              if (val > val2) {
+                par[0][btype][btype] = val;  // m
+                par[1][btype][btype] = val2; // n
+              } else {
+                par[0][btype][btype] = val2; // m
+                par[1][btype][btype] = val;  // n
+              }
+              break;
+            case 1:
+              par[2][btype][btype] = val; // a
+              break;
+            case 2:
+              par[3][btype][btype] = val; // c
+              break;
+            case 3:
+              par[4][btype][btype] = val; // epsilon
+              break;
+          }
+        }
+      }
+      // error if not all parameters specified
+      if (!el_done[0] || !el_done[1] || !el_done[2] || !el_done[3]) {
+        strcpy(ERROR_MSG, "premature end to 'potential' section");
+        PrintErrorFileLine(file, *line_count, split, words);
+        exit(1);
+      }
+    }
+  } while (strcasecmp(split[0], "finish") != 0); //}}}
+ //}}}
+  // global variables are the same for all bead types
+  for (int i = 1; i < System.Count.BeadType; i++) {
+    par[ 5][i][i] = par[ 5][0][0]; // rcut
+    par[10][i][i] = par[10][0][0]; // CG
+  }
+  return;
+  error:
+    strcpy(ERROR_MSG, "wrong line for 'ShiftedSC' potential");
+    PrintErrorFileLine(file, *line_count, split, words);
+    exit(1);
+} //}}}
  //}}}
 
 // calculate some prefactors for the potential //{{{
@@ -359,14 +551,10 @@ void ShiftedSuttonChen(SYSTEM System, int bead1, int bead2,
     force[bead2].x -= f.x;
     force[bead2].y -= f.y;
     force[bead2].z -= f.z;
-    // printf("%6d %6d", bead1, bead2);
-    // printf(" %lf %lf %lf", dist.x, dist.y, dist.z);
-    // printf(" %lf %lf %lf", w_dd, w_rep, fij);
-    // printf(" %lf %lf %lf\n", f.x, f.y, f.z);
   }
 } //}}}
 // Sutton-Chen //{{{
-// TODO: check it against ml's notes and remake
+// TODO: needs testing!
 void SuttonChen(SYSTEM System, int bead1, int bead2, double **par[max_params],
                 double *density, double *potential, VECTOR *force,
                 double *Pxx, double *Pyy, double *Pzz, double *UCR) {
@@ -378,9 +566,7 @@ void SuttonChen(SYSTEM System, int bead1, int bead2, double **par[max_params],
   double m = par[0][bt_i][bt_j], n = par[1][bt_i][bt_j], a = par[2][bt_i][bt_j],
          c_ii = par[3][bt_i][bt_i], c_jj = par[3][bt_j][bt_j],
          eps = par[4][bt_i][bt_j], eps_ii = par[4][bt_i][bt_i],
-         eps_jj = par[4][bt_j][bt_j], rc = par[5][bt_i][bt_j],
-         rep1 = par[6][bt_i][bt_j], rep2 = par[7][bt_i][bt_j],
-         dd2 = par[9][bt_i][bt_j];
+         eps_jj = par[4][bt_j][bt_j], rc = par[5][bt_i][bt_j];
   if (rij < rc) {
     if (rij == 0) {
       strcpy(ERROR_MSG, "zero bead-bead distance!");
@@ -391,24 +577,22 @@ void SuttonChen(SYSTEM System, int bead1, int bead2, double **par[max_params],
     double a_div_r = a / rij;
     double a_div_r_m = pow(a_div_r, m), a_div_r_n = pow(a_div_r, n);
     // 1) repulsive energy
-    // eps*(a/r_ij)^m-eps*(a/r_c)^m+eps*(a/r_c)^m*m/r_c*(r_ij-r_c)
-    double tmp = eps * a_div_r_m - rep1 + rep2 * (rij - rc);
+    // eps*(a/r_ij)^m
+    double tmp = eps * a_div_r_m;
     // add to per-particle repulsive energy
     *UCR += tmp;
     potential[bead1] += tmp;
     potential[bead2] += tmp;
     // 2) repulsive virial
-    // -m * eps * (a / r_ij)^m + m * eps * (a / r_c)^m / r_c * r_ij
-    tmp = -m * eps * a_div_r_m + rep2 * rij;
+    // -m * eps * (a / r_ij)^m
+    tmp = -m * eps * a_div_r_m;
     double w_rep = tmp;
     // 3) density-dependent virial
-    // 0.5 * (c_i * eps_ii / sqrt(\rho_i) +
-    //        c_j * eps_jj / sqrt(\rho_j) ...
+    // 0.5 * n * (c_i * eps_ii / sqrt(\rho_i) +
+    //            c_j * eps_jj / sqrt(\rho_j)) * (a / r_ij)^n
     double c_eps_i = c_ii * eps_ii / sqrt(density[bead1]),
            c_eps_j = c_jj * eps_jj / sqrt(density[bead2]);
-    tmp = 0.5 * (c_eps_i + c_eps_j);
-    // ... * (n * (a / r_ij)^n - n * (a / r_c)^n / r_c * r_ij)
-    tmp *= n * a_div_r_n - dd2 * rij;
+    tmp = 0.5 * n * (c_eps_i + c_eps_j) * a_div_r_n;
     double w_dd = tmp;
     // 4) pairwise forces
     double fij = -(w_rep + w_dd) / SQR(rij);
@@ -428,10 +612,6 @@ void SuttonChen(SYSTEM System, int bead1, int bead2, double **par[max_params],
     force[bead2].x -= f.x;
     force[bead2].y -= f.y;
     force[bead2].z -= f.z;
-    // printf("%6d %6d", bead1, bead2);
-    // printf(" %lf %lf %lf", dist.x, dist.y, dist.z);
-    // printf(" %lf %lf %lf", w_dd, w_rep, fij);
-    // printf(" %lf %lf %lf\n", f.x, f.y, f.z);
   }
 } //}}}
   //}}}
@@ -439,7 +619,7 @@ void SuttonChen(SYSTEM System, int bead1, int bead2, double **par[max_params],
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 12, all = common + 3, count = 0, req_arg = 2;
+  int common = 12, all = common + 4, count = 0, req_arg = 2;
   char option[all][OPT_LENGTH];
   // common options
   strcpy(option[count++], "-st");
@@ -458,6 +638,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-fx");
   strcpy(option[count++], "--pot");
   strcpy(option[count++], "--com");
+  strcpy(option[count++], "--cob");
   OptionCheck(argc, argv, req_arg, common, all, option); //}}}
 
   count = 0; // count mandatory arguments
@@ -499,8 +680,13 @@ int main(int argc, char *argv[]) {
   bool calculate_density = true; // for local density-dependent potentials
   // calculate pair-wise potential, etc.
   bool calculate_pairwise = BoolOption(argc, argv, "--pot");
-  // use centre of mass instead of geometric centre
+  // use centre of mass (or centre of box) instead of geometric centre
   bool use_com = BoolOption(argc, argv, "--com");
+  bool use_cob = BoolOption(argc, argv, "--cob");
+  if (use_com && use_cob) {
+    strcpy(ERROR_MSG, "both --com and --cob used; --cob takes precedence");
+    PrintWarning();
+  }
   //}}}
 
   if (!silent) {
@@ -511,6 +697,23 @@ int main(int argc, char *argv[]) {
                                 detailed, vtf_var, pbc_xyz);
   COUNT *Count = &System.Count;
   BOX *box = &System.Box;
+
+  // error - undefined mass when --com option is used //{{{
+  bool mass = true;
+  if (use_com) {
+    for (int i = 0; i < Count->BeadType; i++) {
+      if (System.BeadType[i].Mass == MASS) {
+        mass = false;
+        break;
+      }
+    }
+    if (!mass) {
+      strcpy(ERROR_MSG, "system contains beads with undefined mass; --com "
+             "cannot be used");
+      PrintError();
+      exit(1);
+    }
+  } //}}}
 
   // number of bins //{{{
   // error - box size must be specified //{{{
@@ -525,7 +728,7 @@ int main(int argc, char *argv[]) {
   tmp_bin[0] = ceil(box->Length.x / width);
   tmp_bin[1] = ceil(box->Length.y / width);
   tmp_bin[2] = ceil(box->Length.z / width);
-  int n_bins = Max3(tmp_bin[0], tmp_bin[1], tmp_bin[2]) * 2;
+  int n_bins = Max3(tmp_bin[0], tmp_bin[1], tmp_bin[2]) * 3;
   if ((n_bins % 2) == 1) {
     n_bins++;
   }
@@ -724,11 +927,12 @@ int main(int argc, char *argv[]) {
       VECTOR centre;
       if (use_com) {
         centre = CentreOfMass(Count->BeadCoor, System.BeadCoor, System);
+      } else if (use_cob) {
+        centre.x = box->Length.x / 2;
+        centre.y = box->Length.y / 2;
+        centre.z = box->Length.z / 2;
       } else {
         centre = GeomCentre(Count->BeadCoor, System.BeadCoor, System.Bead);
-        // centre.x = box->Length.x / 2;
-        // centre.y = box->Length.y / 2;
-        // centre.z = box->Length.z / 2;
       }
       sum_centre[0] += centre.x;
       sum_centre[1] += centre.y;
@@ -909,7 +1113,10 @@ int main(int argc, char *argv[]) {
         } //}}}
         // error - negative bin //{{{
         if (bin[0] < 0 || bin[1] < 0 || bin[2] < 0) {
-          strcpy(ERROR_MSG, "negative bin id; should never happen!");
+          snprintf(ERROR_MSG, LINE, "negative bin id; should never happen! "
+                   "# of bins: %s%d %d%s; bin ids: %s%d %d %d%s",
+                   ErrYellow(), n_bins, n_bins_orig, ErrRed(),
+                   ErrYellow(), bin[0], bin[1], bin[2], ErrRed());
           PrintError();
           exit(1);
         } //}}}

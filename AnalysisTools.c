@@ -13,7 +13,8 @@ static void RemovePBCMolecules(SYSTEM *System);
 // restore pbc by wrapping all coordinates inside the simulation box
 static void RestorePBC(SYSTEM *System);
 // Copy System structure; assumes new unallocated SYSTEM
-static SYSTEM CopySystem(SYSTEM S_in);
+// TODO: CopySystem won't be static?
+// static SYSTEM CopySystem(SYSTEM S_in);
 // calculate centre of mass for a list of beads (UNUSED)
 // static VECTOR CentreOfMass(int n, int *list, BEAD *Bead, BEADTYPE *BeadType);
 
@@ -283,7 +284,8 @@ static void RestorePBC(SYSTEM *System) {
   }
 } //}}}
 // copy System structure; assumes new unallocated SYSTEM //{{{
-static SYSTEM CopySystem(SYSTEM S_in) {
+// TODO: CopySystem won't be static?
+SYSTEM CopySystem(SYSTEM S_in) {
   SYSTEM S_out;
   InitSystem(&S_out);
   S_out.Box = S_in.Box;
@@ -490,6 +492,136 @@ void CountBondAngleDihedralImproper(SYSTEM *System) { //{{{
     Count->Dihedral += mt_i->nDihedrals * mt_i->Number;
     Count->Improper += mt_i->nImpropers * mt_i->Number;
   }
+} //}}}
+// fill in BOX structure; mode: 0..knowing angles; 1..knowing tilt vector //{{{
+bool CalculateBoxData(BOX *Box, int mode) {
+  // calculate angles and tilt vectors or tilt vectors and OrthoLength //{{{
+  switch (mode) {
+  case 0: // angles & Length given //{{{
+    Box->OrthoLength = Box->Length;
+    Box->Bounding = Box->Length;
+    if (Box->alpha != 90 || Box->beta != 90 || Box->gamma != 90) {
+      double a = Box->Length.x, b = Box->Length.y, c = Box->Length.z;
+      double c_a = cos(Box->alpha * PI / 180), c_b = cos(Box->beta * PI / 180),
+             c_g = cos(Box->gamma * PI / 180), s_g = sin(Box->gamma * PI / 180);
+      // cell volume
+      double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
+      if (sqr < 0) {
+        strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
+        return false;
+      }
+      Box->Volume = a * b * c * sqrt(sqr);
+      // transformation matrix fractional -> Cartesian coordinates
+      double vol = Box->Volume;
+      Box->transform[0][0] = a;
+      Box->transform[0][1] = b * c_g;
+      Box->transform[1][1] = b * s_g;
+      Box->transform[0][2] = c * c_b;
+      Box->transform[1][2] = c * (c_a - c_b * c_g) / s_g;
+      Box->transform[2][2] = vol / (a * b * s_g);
+      // transformation matrix Cartesian -> fractional coordinates
+      Box->inverse[0][0] = 1 / a;
+      Box->inverse[0][1] = -c_g / (a * s_g);
+      Box->inverse[1][1] = 1 / (b * s_g);
+      Box->inverse[0][2] =
+          b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) - c_b * s_g / vol);
+      Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
+      Box->inverse[2][2] = a * b * s_g / vol;
+      // orthogonal box size
+      // x direaction
+      Box->OrthoLength.x = a;
+      // y direaction
+      sqr = SQR(b) - SQR(Box->transform[0][1]);
+      if (sqr < 0) {
+        strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
+        return false;
+      }
+      Box->OrthoLength.y = sqrt(sqr);
+      // z direaction
+      sqr = SQR(c) - SQR(Box->transform[0][2]) - SQR(Box->transform[1][2]);
+      if (sqr < 0) {
+        strcpy(ERROR_MSG, "wrong simulation box dimensions");
+        PrintError();
+        exit(1);
+      }
+      Box->OrthoLength.z = sqrt(sqr);
+      // see https://docs.lammps.org/Howto_triclinic.html
+      double xy = Box->transform[0][1], xz = Box->transform[0][2],
+             yz = Box->transform[1][2],
+             xyz = Box->transform[0][1] + Box->transform[0][2];
+      Box->Bounding.x = Box->OrthoLength.x - Max3(0, xy, Max3(0, xz, xyz)) +
+                        Min3(0, xy, Min3(0, xz, xyz));
+      Box->Bounding.y = Box->OrthoLength.y - Min3(0, 0, yz) + Max3(0, 0, yz);
+      Box->Bounding.z = Box->OrthoLength.z;
+    }
+    break; //}}}
+  case 1:  // tilt & OrthoLength given //{{{
+    Box->Length = Box->OrthoLength;
+    if (Box->transform[0][1] != 0 || Box->transform[0][2] != 0 ||
+        Box->transform[1][2] != 0) {
+      double a = Box->OrthoLength.x,
+             b = sqrt(SQR(Box->OrthoLength.y) + SQR(Box->transform[0][1])),
+             c = sqrt(SQR(Box->OrthoLength.z) + SQR(Box->transform[0][2]));
+      double c_a = (Box->transform[0][1] * Box->transform[0][2] +
+                    Box->OrthoLength.y * Box->transform[1][2]) /
+                   (b * c),
+             c_b = Box->transform[0][2] / c, c_g = Box->transform[0][1] / b,
+             s_g = sin(Box->gamma * PI / 180);
+      // cell length
+      Box->Length.x = a;
+      Box->Length.y = b;
+      Box->Length.z = c;
+      // cell angles
+      Box->alpha = acos(c_a) / PI * 180;
+      Box->beta = acos(c_b) / PI * 180;
+      Box->gamma = acos(c_g) / PI * 180;
+      // cell volume
+      double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
+      if (sqr < 0) {
+        strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
+        return false;
+      }
+      Box->Volume = a * b * c * sqrt(sqr);
+      // finish transformation matrix fractional -> Cartesian coordinates
+      double vol = Box->Volume;
+      Box->transform[0][0] = a;
+      Box->transform[1][1] = b * s_g;
+      Box->transform[2][2] = vol / (a * b * s_g);
+      // transformation matrix Cartesian -> fractional coordinates
+      Box->inverse[0][0] = 1 / a;
+      Box->inverse[0][1] = -c_g / (a * s_g);
+      Box->inverse[1][1] = 1 / (b * s_g);
+      Box->inverse[0][2] =
+          b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) - c_b * s_g / vol);
+      Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
+      Box->inverse[2][2] = a * b * s_g / vol;
+    }
+    break; //}}}
+  default:
+    strcpy(ERROR_MSG, "TriclinicCellData(): mode parameters must be 0 or 1");
+    PrintError();
+    exit(1);
+  } //}}}
+  // transformation matrices for orthogonal box //{{{
+  if (Box->alpha == 90 && Box->beta == 90 && Box->gamma == 90) {
+    Box->Volume = Box->Length.x * Box->Length.y * Box->Length.z;
+    Box->transform[0][0] = Box->Length.x;
+    Box->transform[1][1] = Box->Length.y;
+    Box->transform[2][2] = Box->Length.z;
+    Box->inverse[0][0] = 1 / Box->Length.x;
+    Box->inverse[1][1] = 1 / Box->Length.y;
+    Box->inverse[2][2] = 1 / Box->Length.z;
+  } //}}}
+  // maximum size of the the bounding box //{{{
+  // see https://docs.lammps.org/Howto_triclinic.html
+  double xy = Box->transform[0][1], xz = Box->transform[0][2],
+         yz = Box->transform[1][2],
+         xyz = Box->transform[0][1] + Box->transform[0][2];
+  Box->Bounding.x = Box->OrthoLength.x + Max3(0, xy, Max3(0, xz, xyz)) -
+                    Min3(0, xy, Min3(0, xz, xyz));
+  Box->Bounding.y = Box->OrthoLength.y + Max3(0, 0, yz) - Max3(0, 0, yz);
+  Box->Bounding.z = Box->OrthoLength.z; //}}}
+  return true;
 } //}}}
 // Appends _# to bead/molecule types with the same name
 void RenameBeadTypes(SYSTEM *System) { //{{{
@@ -1127,7 +1259,8 @@ void PruneSystem(SYSTEM *System) {
   SYSTEM S_old = CopySystem(*System);
   FreeSystem(System);
   InitSystem(System);
-  COUNT *Count = &System->Count, *Count_old = &S_old.Count;
+  COUNT *Count = &System->Count,
+        *Count_old = &S_old.Count;
   System->Box = S_old.Box;
   *Count = *Count_old; // some counts will change later
   // allocate memory for bead count arrays
@@ -1717,7 +1850,7 @@ MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old) { //{{{
   return mt_new;
 } //}}}
   //}}}
-// concatenateSystems() //{{{
+// ConcatenateSystems() //{{{
 /*
  * Assumes S_out needs reallocating memory to accommodate S_in.
  */
@@ -1888,14 +2021,15 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
       int type = mol_in->Type + Count_old.MoleculeType;
       *mol_out = *mol_in;
       mol_out->Type = type;
-      mol_out->Index += Count_old.HighestResid;
+      // destroys infor about S_in molecules' resids, but who cares
+      mol_out->Index = Count_old.HighestResid + i + 1;
       mol_out->Bead =
           malloc(sizeof *mol_out->Bead * S_out->MoleculeType[type].nBeads);
       for (int j = 0; j < S_out->MoleculeType[type].nBeads; j++) {
         mol_out->Bead[j] = mol_in->Bead[j] + Count_old.Bead;
       }
     }
-    Count_out->HighestResid += Count_in->HighestResid;
+    Count_out->HighestResid += Count_in->Molecule;
     S_out->Index_mol = realloc(S_out->Index_mol, sizeof *S_out->Index_mol *
                                (Count_out->HighestResid + 1));
     for (int i = 0; i <= Count_out->HighestResid; i++) {

@@ -170,8 +170,6 @@ static void FillMoleculeTypeAngles(SYSTEM *System, int (*angle)[4], int n);
 static void FillMoleculeTypeDihedral(SYSTEM *System, int (*dihedral)[5], int n);
 // fill MoleculeType[].Improper arrays with data from a separate improper array
 static void FillMoleculeTypeImproper(SYSTEM *System, int (*improper)[5], int n);
-// fill Box structure
-static bool TriclinicCellData(BOX *Box, int mode);
 // remove molecule/bead types with 0 molecules/beads
 static void RemoveExtraTypes(SYSTEM *System);
 // merge identical bead types (based on name only or on other properties too)
@@ -484,7 +482,7 @@ static int LtrjReadPBCSection(FILE *fr, char file[], BOX *box,
     box->Low.x = bounds[0][0];
     box->Low.y = bounds[1][0];
     box->Low.z = bounds[2][0];
-    TriclinicCellData(box, 1);
+    CalculateBoxData(box, 1);
   } else if (strcmp(split[3], "xy") == 0) { // triclinic box
     double bounds[3][2], tilt[3];
     for (int i = 0; i < 3; i++) {
@@ -518,7 +516,7 @@ static int LtrjReadPBCSection(FILE *fr, char file[], BOX *box,
     box->transform[0][1] = tilt[0];
     box->transform[0][2] = tilt[1];
     box->transform[1][2] = tilt[2];
-    TriclinicCellData(box, 1);
+    CalculateBoxData(box, 1);
   } else { // not '<...> <...> <...> pp/xy ...' line
     strcpy(ERROR_MSG, "wrong ITEM: BOX BOUNDS line");
     PrintErrorFileLine(file, *line_count, split, words);
@@ -651,7 +649,7 @@ static SYSTEM LmpDataReadStruct(char file[]) { //{{{
   System.Count.BeadCoor = System.Count.Bead;
   System.Count.UnbondedCoor = System.Count.Unbonded;
   System.Count.BondedCoor = System.Count.Bonded;
-  TriclinicCellData(&System.Box, 1);
+  CalculateBoxData(&System.Box, 1);
   RemoveExtraTypes(&System);
   MergeBeadTypes(&System, true);
   MergeMoleculeTypes(&System);
@@ -2264,7 +2262,7 @@ static bool VtfPbcLine(BOX *box, int ltype) { //{{{
     box->beta = 90;
     box->gamma = 90;
   }
-  if (!TriclinicCellData(box, 0)) {
+  if (!CalculateBoxData(box, 0)) {
     return false;
   } else {
     return true;
@@ -2510,6 +2508,18 @@ int VtfReadNumberOfBeads(char file[]) { //{{{
     }
     ltype = VtfCheckLineType(file, line_count);
   }
+  // test whether next line(s) are pbc
+  fpos_t position;
+  do {
+    line_count++;
+    fgetpos(fr, &position);
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      return -2;
+    }
+    ltype = VtfCheckLineType(file, line_count);
+  } while (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES);
+  fsetpos(fr, &position);
+  line_count--;
   // read until the first non-coordinate line
   int nbeads = -1; // that first non-coordinate line is also counted
   do {
@@ -3377,7 +3387,7 @@ static SYSTEM XyzReadStruct(char file[], int pbc) { //{{{
         Sys.Box.beta = angle[1];
         Sys.Box.gamma = angle[2];
       }
-      TriclinicCellData(&Sys.Box, 0);
+      CalculateBoxData(&Sys.Box, 0);
     }
   }
   //}}}
@@ -3878,136 +3888,6 @@ static void FillMoleculeTypeImproper(SYSTEM *System,
       } //}}}
     }
   }
-} //}}}
-// fill in BOX structure; mode: 0..knowing angles; 1..knowing tilt vector //{{{
-static bool TriclinicCellData(BOX *Box, int mode) {
-  // calculate angles and tilt vectors or tilt vectors and OrthoLength //{{{
-  switch (mode) {
-  case 0: // angles & Length given //{{{
-    Box->OrthoLength = Box->Length;
-    Box->Bounding = Box->Length;
-    if (Box->alpha != 90 || Box->beta != 90 || Box->gamma != 90) {
-      double a = Box->Length.x, b = Box->Length.y, c = Box->Length.z;
-      double c_a = cos(Box->alpha * PI / 180), c_b = cos(Box->beta * PI / 180),
-             c_g = cos(Box->gamma * PI / 180), s_g = sin(Box->gamma * PI / 180);
-      // cell volume
-      double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
-      if (sqr < 0) {
-        strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
-        return false;
-      }
-      Box->Volume = a * b * c * sqrt(sqr);
-      // transformation matrix fractional -> Cartesian coordinates
-      double vol = Box->Volume;
-      Box->transform[0][0] = a;
-      Box->transform[0][1] = b * c_g;
-      Box->transform[1][1] = b * s_g;
-      Box->transform[0][2] = c * c_b;
-      Box->transform[1][2] = c * (c_a - c_b * c_g) / s_g;
-      Box->transform[2][2] = vol / (a * b * s_g);
-      // transformation matrix Cartesian -> fractional coordinates
-      Box->inverse[0][0] = 1 / a;
-      Box->inverse[0][1] = -c_g / (a * s_g);
-      Box->inverse[1][1] = 1 / (b * s_g);
-      Box->inverse[0][2] =
-          b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) - c_b * s_g / vol);
-      Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
-      Box->inverse[2][2] = a * b * s_g / vol;
-      // orthogonal box size
-      // x direaction
-      Box->OrthoLength.x = a;
-      // y direaction
-      sqr = SQR(b) - SQR(Box->transform[0][1]);
-      if (sqr < 0) {
-        strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
-        return false;
-      }
-      Box->OrthoLength.y = sqrt(sqr);
-      // z direaction
-      sqr = SQR(c) - SQR(Box->transform[0][2]) - SQR(Box->transform[1][2]);
-      if (sqr < 0) {
-        strcpy(ERROR_MSG, "wrong simulation box dimensions");
-        PrintError();
-        exit(1);
-      }
-      Box->OrthoLength.z = sqrt(sqr);
-      // see https://docs.lammps.org/Howto_triclinic.html
-      double xy = Box->transform[0][1], xz = Box->transform[0][2],
-             yz = Box->transform[1][2],
-             xyz = Box->transform[0][1] + Box->transform[0][2];
-      Box->Bounding.x = Box->OrthoLength.x - Max3(0, xy, Max3(0, xz, xyz)) +
-                        Min3(0, xy, Min3(0, xz, xyz));
-      Box->Bounding.y = Box->OrthoLength.y - Min3(0, 0, yz) + Max3(0, 0, yz);
-      Box->Bounding.z = Box->OrthoLength.z;
-    }
-    break; //}}}
-  case 1:  // tilt & OrthoLength given //{{{
-    Box->Length = Box->OrthoLength;
-    if (Box->transform[0][1] != 0 || Box->transform[0][2] != 0 ||
-        Box->transform[1][2] != 0) {
-      double a = Box->OrthoLength.x,
-             b = sqrt(SQR(Box->OrthoLength.y) + SQR(Box->transform[0][1])),
-             c = sqrt(SQR(Box->OrthoLength.z) + SQR(Box->transform[0][2]));
-      double c_a = (Box->transform[0][1] * Box->transform[0][2] +
-                    Box->OrthoLength.y * Box->transform[1][2]) /
-                   (b * c),
-             c_b = Box->transform[0][2] / c, c_g = Box->transform[0][1] / b,
-             s_g = sin(Box->gamma * PI / 180);
-      // cell length
-      Box->Length.x = a;
-      Box->Length.y = b;
-      Box->Length.z = c;
-      // cell angles
-      Box->alpha = acos(c_a) / PI * 180;
-      Box->beta = acos(c_b) / PI * 180;
-      Box->gamma = acos(c_g) / PI * 180;
-      // cell volume
-      double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
-      if (sqr < 0) {
-        strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
-        return false;
-      }
-      Box->Volume = a * b * c * sqrt(sqr);
-      // finish transformation matrix fractional -> Cartesian coordinates
-      double vol = Box->Volume;
-      Box->transform[0][0] = a;
-      Box->transform[1][1] = b * s_g;
-      Box->transform[2][2] = vol / (a * b * s_g);
-      // transformation matrix Cartesian -> fractional coordinates
-      Box->inverse[0][0] = 1 / a;
-      Box->inverse[0][1] = -c_g / (a * s_g);
-      Box->inverse[1][1] = 1 / (b * s_g);
-      Box->inverse[0][2] =
-          b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) - c_b * s_g / vol);
-      Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
-      Box->inverse[2][2] = a * b * s_g / vol;
-    }
-    break; //}}}
-  default:
-    strcpy(ERROR_MSG, "TriclinicCellData(): mode parameters must be 0 or 1");
-    PrintError();
-    exit(1);
-  } //}}}
-  // transformation matrices for orthogonal box //{{{
-  if (Box->alpha == 90 && Box->beta == 90 && Box->gamma == 90) {
-    Box->Volume = Box->Length.x * Box->Length.y * Box->Length.z;
-    Box->transform[0][0] = Box->Length.x;
-    Box->transform[1][1] = Box->Length.y;
-    Box->transform[2][2] = Box->Length.z;
-    Box->inverse[0][0] = 1 / Box->Length.x;
-    Box->inverse[1][1] = 1 / Box->Length.y;
-    Box->inverse[2][2] = 1 / Box->Length.z;
-  } //}}}
-  // maximum size of the the bounding box //{{{
-  // see https://docs.lammps.org/Howto_triclinic.html
-  double xy = Box->transform[0][1], xz = Box->transform[0][2],
-         yz = Box->transform[1][2],
-         xyz = Box->transform[0][1] + Box->transform[0][2];
-  Box->Bounding.x = Box->OrthoLength.x + Max3(0, xy, Max3(0, xz, xyz)) -
-                    Min3(0, xy, Min3(0, xz, xyz));
-  Box->Bounding.y = Box->OrthoLength.y + Max3(0, 0, yz) - Max3(0, 0, yz);
-  Box->Bounding.z = Box->OrthoLength.z; //}}}
-  return true;
 } //}}}
 // RemoveExtraTypes() { //{{{
 /*

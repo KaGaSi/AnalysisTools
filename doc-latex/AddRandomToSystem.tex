@@ -1,0 +1,119 @@
+\section{AddRandomToSystem} \label{sec:AddRandomToSystem}
+
+This utility takes an existing system specified by \tt{vtf} file(s) and
+adds new beads into it, placing them either randomly or using provided
+coordinates. The utility requires an input coordinate file containing all
+beads (i.e., all beads defined in the structure file must be present in the
+coordinate). If an incomplete coordinate file is provided,
+\tt{AddRandomToSystem} exhibits undefined behaviour, i.e., it can run without
+problems, exit with an error, or freeze.
+
+The utility reads what is to be added from a
+\tt{FIELD}-like file, placing the new beads and molecules randomly.
+The random coordinates of added beads can be constrained via several
+options; for added molecules, either the molecule's first bead (default
+behaviour) or its geometric centre (\tt{--gc} option) obey the
+constraints. The coordinates of the remaining beads in the molecule are
+governed by the coordinates in the \tt{FIELD}-like file. Therefore,
+not all the molecular beads necessarily obey the constraining rules.
+Molecules are added with a random orientation.
+
+There are two types of constraints which can be combined: place new beads
+(i) specified distance from other beads or (ii) in a specified interval in
+x, y, and/or z directions. In (i), options \tt{-ld} and/or \tt{-hd}
+specify the distance; if present, these must be accompanied by \tt{-bt}
+option.  Then, the new beads are placed at least \tt{-ld <float>} and
+at most \tt{-hd <float>} distance from beads specified by the
+\tt{-bt} option. In (ii), options \tt{-cx}, \tt{-cy}, and
+\tt{-cz} basically change the box size for the added beads; for
+example, \tt{-cx 5 9} would generate x coordinates only in the interval
+$\langle5,9)$. All these options can be combined, but note that
+\tt{AddRandomToSystem} does not perform any sanity checks, that is, if any
+combination of the provided options is impossible to achieve, the utility
+will run forever.
+
+As stated above, the structure and number of added molecules and monomeric
+beads are read from a \tt{FIELD}-like file. This file must contain a
+\tt{species} section followed by a \tt{molecule} section as
+described in the DL\_MESO simulation package. Following is a short
+description of the two sections.
+
+The new unbonded beads appear in the resulting files after
+the unbonded beads from the original system (but before any bonded beads).
+If molecules are added, \tt{AddRandomToSystem} places them at the end.
+
+By default, the new beads are added to the system, increasing the total
+number of beads. However, if \tt{--switch} is used, the new beads
+replace beads in the original system. The replaced beads are either neutral
+beads with the lowest indices (as per ordering in the provided structure
+file) or beads of the type specified using \tt{-xb} option. In both
+cases, the beads to be replaced must be unbonded.
+
+The size of the new simulation box can be changed using the \tt{-b}
+option. There are no constraints on the size of the cuboid box; if the new
+box is small, not all beads from the original system are necesserily inside
+the box (although the added once always are). The origin of the new box
+coincides with the origin of the original box unless \tt{--centre}
+option is used; in that case, the centres of the two boxes coincide.
+
+\tt{AddRandomToSystem} creates \tt{vcf} and \tt{vsf} files containing
+the new system; the coordinates can also be written into an \tt{xyz}
+file.
+
+Several examples of using the utility are provided in the
+\tt{Examples/AddRandomToSystem} directory.
+
+Usage:
+
+\vspace{1em}
+\noindent
+\tt{AddToSystem <input.vcf> <out.vsf> <out.vcf> <options>}
+
+\vspace{1em}
+\noindent
+\begin{longtable}{p{0.235\textwidth}p{0.709\textwidth}}
+  \toprule
+  \multicolumn{2}{l}{Mandatory arguments} \\
+  \midrule
+  \tt{<input.vcf>} & input coordinate file (either \tt{vcf} or
+    \tt{vtf} format) \\
+  \tt{<out.vsf>} & output \tt{vsf} structure file for the new
+    system \\
+  \tt{<out.vcf>} & output \tt{vcf} coordinate file for the new
+    system \\
+  \toprule
+  \multicolumn{2}{l}{Non-standard options} \\
+  \midrule
+  \tt{-st <int>} & \tt{<input.vcf>} timestep to add new beads
+    to (default: 1) \\
+  \tt{-xyz <name>} & also save coordinates to \tt{xyz} file \\
+  \tt{--switch} & replace original beads instead of increasing the
+    total number of beads \\
+  \tt{-b <x> <y> <z>} & side lengths of the new simulation box \\
+  \tt{--centre} & place the original simulation box in the middle of
+    the new one \\
+  \midrule
+  \multicolumn{2}{c}{Random placement} \\
+  \midrule
+  \tt{-f <name>} & \tt{FIELD}-like file specifying additions to the
+    system (default: \tt{FIELD}) \\
+  \tt{-ld <float>} & lowest distance from beads specified by
+    \tt{-bt} option \\
+  \tt{-hd <float>} & highest distance from beads specified by
+    \tt{-bt} option \\
+  \tt{-bt <bead names>} & bead types to use in conjunction with
+    \tt{-ld} and/or \tt{-hd} options \\
+  \tt{-cx <num> <num2>} & constrain x coordinate to interval
+    $\langle num, num2)$ \\
+  \tt{-cy <num> <num2>} & constrain y coordinate to interval
+    $\langle num, num2)$ \\
+  \tt{-cz <num> <num2>} & constrain z coordinate to interval
+    $\langle num, num2)$ \\
+  \tt{--gc} & use molecule's geometric centre for distance check \\
+  \midrule
+  \multicolumn{2}{c}{Provided coordinates} \\
+  \midrule
+  \tt{-vtf <vsf> <vcf>} & add ready-made system from \tt{vtf} files
+    instead of randomly placing beads read from the \tt{FIELD}-like file \\
+  \bottomrule
+\end{longtable}

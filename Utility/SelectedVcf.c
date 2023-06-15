@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   } //}}}
 
-  // <output> - output vcf file //{{{
+  // <output> - output coordinate file //{{{
   char out_coor[LINE] = "";
   snprintf(out_coor, LINE, "%s", argv[++count]);
   // test if <output.vcf> ends with '.vcf'

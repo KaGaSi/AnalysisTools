@@ -34,6 +34,7 @@ void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
 void FillBeadTypeIndex(SYSTEM *System);
 void FillMoleculeTypeIndex(SYSTEM *System);
 void CountBondAngleDihedralImproper(SYSTEM *System);
+bool CalculateBoxData(BOX *Box, int mode);
 // Appends _# to bead/molecule types with the same name
 void RenameBeadTypes(SYSTEM *System);
 void RenameMoleculeTypes(SYSTEM *System);
@@ -59,6 +60,8 @@ int FindMoleculeName(char name[], SYSTEM System);
 // identify molecule type based on name only or on other parameters too
 int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2,
                      int mode, bool name);
+// TODO: CopySystem won't be static?
+SYSTEM CopySystem(SYSTEM S_in);
 // cleanse System by removing molecule/bead types with .Number=0, etc.
 void PruneSystem(SYSTEM *System);
 void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box);

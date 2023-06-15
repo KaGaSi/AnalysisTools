@@ -24,7 +24,7 @@ static const BOX InitBox = {
   .Length = {-1, -1, -1},
   .OrthoLength = {-1, -1, -1},
   .Bounding = {-1, -1, -1},
-  .Low = {-1, -1, -1},
+  .Low = {0, 0, 0},
   .alpha = 90,
   .beta = 90,
   .gamma = 90,
@@ -104,8 +104,8 @@ typedef struct Bead { //{{{
          Velocity, // velocity of the bead
          Force; // force acting on the bead
 
-  bool InTimestep, // is the bead in the present timestep?
-       Flag; // general-purpose flag
+  bool InTimestep; // is the bead in the present timestep?
+  bool Flag; // general-purpose flag; TODO: remove?
 } BEAD;
 void InitBead(BEAD *b); //}}}
 typedef struct MoleculeType { //{{{
