@@ -146,6 +146,7 @@ void CommonOptions(int argc, char *argv[], int length, bool *verbose,
   *detailed = BoolOption(argc, argv, "--detailed");
   // vtf timesteps with variable number of beads
   *vtf_var_coor = BoolOption(argc, argv, "--variable");
+  *vtf_var_coor = true; // TODO: it makes no sense to have this
   // starting/ending timestep
   *start = 1;
   int trash; // number of values from IntegerOption(); unused

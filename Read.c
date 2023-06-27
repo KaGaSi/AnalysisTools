@@ -354,7 +354,8 @@ static SYSTEM LtrjReadStruct(char file[]) {
   FillSystemNonessentials(&Sys);
   for (int i = 0; i < Count->Bead; i++) {
     Sys.BeadCoor[i] = i;
-    Sys.UnbondedCoor[i] = i;
+    // TODO: done in FillSystemNonessentials(), no?
+    // Sys.UnbondedCoor[i] = i;
   }
   CheckSystem(Sys, file);
   return Sys;
@@ -654,17 +655,18 @@ static SYSTEM LmpDataReadStruct(char file[]) { //{{{
   MergeBeadTypes(&System, true);
   MergeMoleculeTypes(&System);
   FillSystemNonessentials(&System);
-  int c_unbonded = 0, c_bonded = 0;
-  for (int i = 0; i < System.Count.Bead; i++) {
-    System.BeadCoor[i] = i;
-    if (System.Bead[i].Molecule == -1) {
-      System.UnbondedCoor[c_unbonded] = i;
-      c_unbonded++;
-    } else {
-      System.BondedCoor[c_bonded] = i;
-      c_bonded++;
-    }
-  }
+  // TODO: this is already done in FillSystemNonessentials(), no?
+  // int c_unbonded = 0, c_bonded = 0;
+  // for (int i = 0; i < System.Count.Bead; i++) {
+  //   System.BeadCoor[i] = i;
+  //   if (System.Bead[i].Molecule == -1) {
+  //     System.UnbondedCoor[c_unbonded] = i;
+  //     c_unbonded++;
+  //   } else {
+  //     System.BondedCoor[c_bonded] = i;
+  //     c_bonded++;
+  //   }
+  // }
   CheckSystem(System, file);
   return System;
 } //}}}
@@ -1883,6 +1885,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
     }
   } //}}}
   fclose(fr);
+  Sys.BeadCoor = realloc(Sys.BeadCoor, Count->Bead * sizeof *Sys.BeadCoor);
   Count->BeadType = Count->Bead;
   Count->MoleculeType = Count->Molecule;
   // error - no default line and too few atom lines //{{{
@@ -2334,16 +2337,12 @@ static int VtfReadCoorBlockIndexed(FILE *fr, char file[], SYSTEM *System,
       PrintErrorFileLine(file, *line_count, split, words);
       return -1;
     }
-    // int id = atoi(split[0]);
     if (id > Count->Bead) {
       strcpy(ERROR_MSG, "bead index is too high");
       PrintErrorFileLine(file, *line_count, split, words);
       return -1;
     }
     BEAD *bead_id = &System->Bead[id];
-    // bead_id->Position.x = atof(split[1]);
-    // bead_id->Position.y = atof(split[2]);
-    // bead_id->Position.z = atof(split[3]);
     bead_id->Position.x = position.x;
     bead_id->Position.y = position.y;
     bead_id->Position.z = position.z;
@@ -2393,16 +2392,12 @@ static int VtfReadCoorBlockIndexedVar(FILE *fr, char file[], SYSTEM *System,
   VECTOR coordinate;
   long id;
   while (VtfCheckCoorIndexedLine(&coordinate, &id) == COOR_LINE) {
-    // int id = atoi(split[0]);
     if (id > Count->Bead) {
       strcpy(ERROR_MSG, "bead index is too high");
       PrintErrorFileLine(file, *line_count, split, words);
       return -1;
     }
     BEAD *bead_id = &System->Bead[id];
-    // bead_id->Position.x = atof(split[1]);
-    // bead_id->Position.y = atof(split[2]);
-    // bead_id->Position.z = atof(split[3]);
     bead_id->Position.x = coordinate.x;
     bead_id->Position.y = coordinate.y;
     bead_id->Position.z = coordinate.z;
@@ -2567,18 +2562,21 @@ static SYSTEM FieldRead(char file[]) { //{{{
   RemoveExtraTypes(&System);
   MergeBeadTypes(&System, true);
   MergeMoleculeTypes(&System);
+  System.BeadCoor = realloc(System.BeadCoor,
+                            Count->Bead * sizeof *System.BeadCoor);
   FillSystemNonessentials(&System);
-  int c_unbonded = 0, c_bonded = 0;
-  for (int i = 0; i < Count->Bead; i++) {
-    System.BeadCoor[i] = i;
-    if (System.Bead[i].Molecule == -1) {
-      System.UnbondedCoor[c_unbonded] = i;
-      c_unbonded++;
-    } else {
-      System.BondedCoor[c_bonded] = i;
-      c_bonded++;
-    }
-  }
+  // TODO: this is in FillSystemNonessentials() already, no?
+  // int c_unbonded = 0, c_bonded = 0;
+  // for (int i = 0; i < Count->Bead; i++) {
+  //   System.BeadCoor[i] = i;
+  //   if (System.Bead[i].Molecule == -1) {
+  //     System.UnbondedCoor[c_unbonded] = i;
+  //     c_unbonded++;
+  //   } else {
+  //     System.BondedCoor[c_bonded] = i;
+  //     c_bonded++;
+  //   }
+  // }
   CheckSystem(System, file);
   return System;
 } //}}}
@@ -3392,6 +3390,7 @@ static SYSTEM XyzReadStruct(char file[], int pbc) { //{{{
   }
   //}}}
   Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
+  Sys.BeadCoor = realloc(Sys.BeadCoor, sizeof *Sys.BeadCoor * Count->Bead);
   // read atoms //{{{
   for (int i = 0; i < Count->Bead; i++) {
     line_count++;
@@ -4591,19 +4590,21 @@ static void FillSystemNonessentials(SYSTEM *System) { //{{{
       System->Index_mol[System->Molecule[i].Index] = i;
     }
   }
-  System->BeadCoor = realloc(System->BeadCoor,
-                             sizeof *System->BeadCoor * Count->Bead);
+  // TODO: this should have been realloc'd already, no?
+  // System->BeadCoor = realloc(System->BeadCoor,
+  //                            sizeof *System->BeadCoor * Count->Bead);
   if (Count->Bonded > 0) {
-    System->Bonded =
-        realloc(System->Bonded, sizeof *System->Bonded * Count->Bonded);
-    System->BondedCoor =
-        realloc(System->BondedCoor, sizeof *System->BondedCoor * Count->Bonded);
+    System->Bonded = realloc(System->Bonded,
+                             sizeof *System->Bonded * Count->Bonded);
+    System->BondedCoor = realloc(System->BondedCoor,
+                                 sizeof *System->BondedCoor * Count->Bonded);
   }
   if (Count->Unbonded > 0) {
-    System->Unbonded =
-        realloc(System->Unbonded, sizeof *System->Unbonded * Count->Unbonded);
-    System->UnbondedCoor = realloc(
-        System->UnbondedCoor, sizeof *System->UnbondedCoor * Count->Unbonded);
+    System->Unbonded = realloc(System->Unbonded,
+                               sizeof *System->Unbonded * Count->Unbonded);
+    System->UnbondedCoor = realloc(System->UnbondedCoor,
+                                   sizeof *System->UnbondedCoor *
+                                   Count->Unbonded);
   }
   int c_bonded = 0, c_unbonded = 0;
   for (int i = 0; i < Count->Bead; i++) {

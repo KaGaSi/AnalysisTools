@@ -11,13 +11,21 @@ otherwise, both observables will be 0) and density profiles, but using the
 \tt{--pot} switch, pair-wise potential can be included to calculate pressure.
 For now, only shifted Sutton-Chen potential is implemented (see below).
 
-\TODO \tt{--com} vs. \tt{--cog} vs. \tt{--cob} vs. default\\
+\TODO the number of bins will be constant!
+
 Unlike the DensityBox utility (Section~\ref{sec:DensityBox}), Local takes into
 account changing size of an orthogonal simulation box, calculating the profiles
-along the three axis with respect to the geometric centre of all beads (or the
-centre of mass if \tt{--com} is used); the resulting profiles (averaged over all
-specified timesteps) are printed with 0 at the average geometric centre (or the
-centre of mass).
+along the three axis with respect to the centre of the box; with option
+\tt{--cog} or \tt{--com}, geometric centre of all beads or the centre of mass,
+respectively, is used instead. While the utility can cope with fairly large size
+changes to the box (getting twice as large in every direction), it should be
+noted that the utility averages each bin of the profile with the total number of
+used steps (i.e., if the box get bigger, the new bins will undercount the beads).
+The resulting profiles have 0 at the specified average centre (either average
+centre of the box, average geometric centre for \tt{--cog} option or average
+centre of mass for \tt{--com} option).
+
+\TODO per-timestep option
 
 An extra file can be provided via the \tt{-fx <file>} option. This file defines
 the inter-bead potential to calculate and may contain quantities for reduced

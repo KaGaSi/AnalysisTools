@@ -36,9 +36,6 @@ provided coordinates are used as is.\n\n");
   fprintf(ptr, "      <out.vsf>      output structure file (vsf format)\n");
   fprintf(ptr, "      <out.vcf>      output coordinate file (vcf format)\n");
   fprintf(ptr, "   [general options]\n");
-  fprintf(ptr, "      -xb <bead name(s)>   replace original beads instead of "
-          "increasing the total number of beads\n");
-  fprintf(ptr, "      -b <x> <y> <z>       size of the new cuboid box\n");
   fprintf(ptr, "      -f <name>            FIELD-like file with molecules "
           "to add (default: FIELD)\n");
   fprintf(ptr, "      -ld <float>          specify lowest distance from "
@@ -47,31 +44,19 @@ provided coordinates are used as is.\n\n");
           "chosen bead types (default: none)\n");
   fprintf(ptr, "      -bt <name(s)>        specify bead types new beads "
           "should be far from/near to (default: none)\n");
-  fprintf(ptr, "      -cx <num> <num2>     constrain x coordinate of "
-          "randomly added beads to interaval (int,int2)\n");
-  fprintf(ptr, "      -cy <num> <num2>     constrain y coordinate of "
-          "randomly added beads to interaval (int,int2)\n");
-  fprintf(ptr, "      -cz <num> <num2>     constrain z coordinate of "
-          "randomly added beads to interaval (int,int2)\n");
-  fprintf(ptr, "      --gc                  use molecule's geometric centre "
-          "for the distance check instead of its first bead\n");
-  fprintf(ptr, "      -sd <int>            seed for the random number "
-          "generator (default: clock-based seed)\n");
-  fprintf(ptr, "      --no-rotate          do not randomly rotate added "
-          "molecules\n");
   CommonHelp(error, n, opt);
 } //}}}
 
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 9, all = common + 12, count = 0,
-      req_arg = 2; // not count <bead(s)> because --reverse can be used
+  int common = 8, all = common + 4, count = 0,
+      req_arg = 3;
   char option[all][OPT_LENGTH];
   // common options
   strcpy(option[count++], "-st");
   strcpy(option[count++], "-i");
-  strcpy(option[count++], "--variable");
+  // strcpy(option[count++], "--variable"); // TODO: makes no sense, I think
   strcpy(option[count++], "-pbc");
   strcpy(option[count++], "--detailed");
   strcpy(option[count++], "--verbose");
@@ -79,18 +64,10 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "--help");
   strcpy(option[count++], "--version");
   // extra options
-  strcpy(option[count++], "-xb");
-  strcpy(option[count++], "-b");
   strcpy(option[count++], "-f");
   strcpy(option[count++], "-ld");
   strcpy(option[count++], "-hd");
   strcpy(option[count++], "-bt");
-  strcpy(option[count++], "-cx");
-  strcpy(option[count++], "-cy");
-  strcpy(option[count++], "-cz");
-  strcpy(option[count++], "--gc");
-  strcpy(option[count++], "-sd");
-  strcpy(option[count++], "--no-rotate");
   OptionCheck(argc, argv, req_arg, common, all, option);
   //}}}
 
@@ -169,100 +146,6 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
   } //}}}
-  // coordinate constraints //{{{
-  // x direction //{{{
-  int test = 0;
-  double range[2] = {0};
-  if (DoubleOption(argc, argv, 2, "-cx", &test, range)) {
-    exit(1);
-  }
-  if (test != 2 && test != 0) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "-cx");
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - two non-negative numbers required");
-    // ColourReset(STDERR_FILENO);
-    Help(argv[0], true, common, option);
-    exit(1);
-  }
-  // make sure first number is smaller
-  if (range[0] > range[1]) {
-    SwapDouble(&range[0], &range[1]);
-  }
-  VECTOR constraint[2];
-  constraint[0].x = range[0];
-  constraint[1].x = range[1]; //}}}
-  // y direction //{{{
-  range[0] = range[1] = 0;
-  test = 2;
-  if (DoubleOption(argc, argv, 2, "-cy", &test, range)) {
-    exit(1);
-  }
-  if (test != 2 && test != 0) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "-cy");
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - two non-negative numbers required");
-    // ColourReset(STDERR_FILENO);
-    Help(argv[0], true, common, option);
-    exit(1);
-  }
-  // make sure first number is smaller
-  if (range[0] > range[1]) {
-    SwapDouble(&range[0], &range[1]);
-  }
-  constraint[0].y = range[0];
-  constraint[1].y = range[1]; //}}}
-  // z direction //{{{
-  range[0] = range[1] = 0;
-  test = 2;
-  if (DoubleOption(argc, argv, 2, "-cz", &test, range)) {
-    exit(1);
-  }
-  if (test != 2 && test != 0) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "-cz");
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - two non-negative numbers required");
-    // ColourReset(STDERR_FILENO);
-    Help(argv[0], true, common, option);
-    exit(1);
-  }
-  // make sure first number is smaller
-  if (range[0] > range[1]) {
-    SwapDouble(&range[0], &range[1]);
-  }
-  constraint[0].z = range[0];
-  constraint[1].z = range[1]; //}}}
-  //}}}
-  // use centre of mass for distance check of new molecules
-  bool com = BoolOption(argc, argv, "--gc");
-  // rotate added molecules?
-  bool no_rot = BoolOption(argc, argv, "--no-rotate");
-  // define new box size //{{{
-  double box_option[3] = {-1, -1, -1};
-  if (DoubleOption(argc, argv, 3, "-b", &test, box_option)) {
-    exit(1);
-  }
-  if (test != 3 && test != 0) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "-b");
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - three non-negative numbers required\n\n");
-    // ColourReset(STDERR_FILENO);
-    Help(argv[0], true, common, option);
-    exit(1);
-  } //}}}
-  // seed for the random number generator //{{{
-  int val[1] = {-1};
-  if (IntegerOption(argc, argv, 1, "-sd", trash, val)) {
-    exit(1);
-  }
-  int seed = val[0]; // -sd not present if -1 //}}}
   //}}}
 
   // print command to stdout //{{{
@@ -273,52 +156,14 @@ int main(int argc, char *argv[]) {
   SYSTEM S_orig = ReadStructure(struct_type, struct_file, coor_type, coor_file,
                                 detailed, vtf_var, pbc_xyz);
 
-  // -xb <name(s)> - specify what bead types to exchange //{{{
-  bool sw = BoolOption(argc, argv, "-xb"); // is -xb present?
-  // error - if -xb is used, input system must be present
-  if (sw && strlen(coor_file) == 0) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "-xb");
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, " - <input> file must be present\n\n");
-    // ColourReset(STDERR_FILENO);
-    Help(argv[0], true, common, option);
-    exit(1);
-  }
-  // which beads to exchange?
-  // TODO probably remake into individual beads?
-  bool *xb_use = calloc(S_orig.Count.BeadType, sizeof *xb_use);
-  if (BeadTypeOption(argc, argv, "-xb", false, xb_use, &S_orig)) {
-    exit(0);
-  }
-  bool all_false = true; // no '-xb' option
-  for (int i = 0; i < S_orig.Count.BeadType; i++) {
-    if (xb_use) {
-      all_false = false; // '-xb' option is present
-    }
-  }
-  // if -xb option is missing, use some neutral beads
-  if (all_false) {
-    for (int i = 0; i < S_orig.Count.BeadType; i++) {
-      if (S_orig.BeadType[i].Charge == 0) {
-        xb_use[i] = true;
-      }
-    }
-  } //}}}
-
   // -bt <name(s)> - specify what bead types to use //{{{
   bool *bt_use_orig = calloc(S_orig.Count.BeadType, sizeof *bt_use_orig);
   if (BeadTypeOption(argc, argv, "-bt", false, bt_use_orig, &S_orig)) {
     exit(0);
   } //}}}
 
-  // seed random number generator //{{{
-  if (seed > -1) {
-    srand(seed);
-  } else {
-    srand(time(0));
-  } //}}}
+  // seed random number generator
+  srand(time(0));
 
   FILE *fr = OpenFile(coor_file, "r");
   int line_count = 0;
@@ -345,125 +190,107 @@ int main(int argc, char *argv[]) {
     S_add.BeadCoor[i] = i;
   }
 
-  SYSTEM S_new;
-  InitSystem(&S_new);
+  // SYSTEM S_new;
+  // InitSystem(&S_new);
 
   // set final box size //{{{
-  /*
-   * i -b isn't used, set box size as the larger of the dimensions from
-   * original and to-be-added systems
-   */
-  S_new.Box = InitBox;
-  S_new.Box.Length.x = 0;
-  S_new.Box.Length.y = 0;
-  S_new.Box.Length.z = 0;
-  if (box_option[0] == -1) {
-    if (S_add.Box.Length.x > S_orig.Box.Length.x) {
-      S_new.Box.Length.x = S_add.Box.Length.x;
-      S_new.Box.Low.x = S_add.Box.Low.x;
-    } else {
-      S_new.Box.Length.x = S_orig.Box.Length.x;
-      S_new.Box.Low.x = S_orig.Box.Low.x;
-    }
-    if (S_add.Box.Length.y > S_orig.Box.Length.y) {
-      S_new.Box.Length.y = S_add.Box.Length.y;
-      S_new.Box.Low.y = S_add.Box.Low.y;
-    } else {
-      S_new.Box.Length.y = S_orig.Box.Length.y;
-      S_new.Box.Low.y = S_orig.Box.Low.y;
-    }
-    if (S_add.Box.Length.z > S_orig.Box.Length.z) {
-      S_new.Box.Length.z = S_add.Box.Length.z;
-      S_new.Box.Low.z = S_add.Box.Low.z;
-    } else {
-      S_new.Box.Length.z = S_orig.Box.Length.z;
-      S_new.Box.Low.z = S_orig.Box.Low.z;
-    }
+  BOX box_n,
+      *box_a = &S_add.Box;
+  box_n = InitBox;
+  if (box_a->Length.x > S_orig.Box.Length.x) {
+    box_n.Length.x = box_a->Length.x;
+    box_n.Low.x = box_a->Low.x;
   } else {
-    S_new.Box = S_orig.Box; // TODO just for now
-    S_new.Box.Length.x = box_option[0];
-    S_new.Box.Length.y = box_option[1];
-    S_new.Box.Length.z = box_option[2];
-    S_new.Box.alpha = 90;
-    S_new.Box.beta = 90;
-    S_new.Box.gamma = 90;
-  } //}}}
-  CalculateBoxData(&S_new.Box, 0);
+    box_n.Length.x = S_orig.Box.Length.x;
+    box_n.Low.x = S_orig.Box.Low.x;
+  }
+  if (box_a->Length.y > S_orig.Box.Length.y) {
+    box_n.Length.y = box_a->Length.y;
+    box_n.Low.y = box_a->Low.y;
+  } else {
+    box_n.Length.y = S_orig.Box.Length.y;
+    box_n.Low.y = S_orig.Box.Low.y;
+  }
+  if (box_a->Length.z > S_orig.Box.Length.z) {
+    box_n.Length.z = box_a->Length.z;
+    box_n.Low.z = box_a->Low.z;
+  } else {
+    box_n.Length.z = S_orig.Box.Length.z;
+    box_n.Low.z = S_orig.Box.Low.z;
+  }
+  CalculateBoxData(&box_n, 0); //}}}
 
-  // define 'box' for additions using constraints (-c{x,y,z} options)//{{{
-  // TODO: also use constraint_box.Low
-  BOX constraint_box = InitBox;
-  if (constraint[1].x != 0) {
-    constraint_box.Length.x = constraint[1].x - constraint[0].x;
+  // minimize box size for adding beads if -hd is used
+  BOX box_r = InitBox;
+  if (highest_dist != -1) {
+    VECTOR max = {0, 0, 0}, min = box_n.Length;
+    for (int i = 0; i < S_orig.Count.BeadCoor; i++) {
+      int id = S_orig.BeadCoor[i];
+      int btype = S_orig.Bead[id].Type;
+      if (bt_use_orig[btype]) {
+        BEAD *bead = &S_orig.Bead[id];
+        if (bead->Position.x < min.x) {
+          min.x = bead->Position.x;
+        }
+        if (bead->Position.y < min.y) {
+          min.y = bead->Position.y;
+        }
+        if (bead->Position.z < min.z) {
+          min.z = bead->Position.z;
+        }
+        if (bead->Position.x > max.x) {
+          max.x = bead->Position.x;
+        }
+        if (bead->Position.y > max.y) {
+          max.y = bead->Position.y;
+        }
+        if (bead->Position.z > max.z) {
+          max.z = bead->Position.z;
+        }
+      }
+    }
+    min.x -= highest_dist;
+    min.y -= highest_dist;
+    min.z -= highest_dist;
+    if (min.x < 0) {
+      min.x = 0;
+    }
+    if (min.y < 0) {
+      min.y = 0;
+    }
+    if (min.z < 0) {
+      min.z = 0;
+    }
+    max.x += highest_dist;
+    max.y += highest_dist;
+    max.z += highest_dist;
+    if (max.x > box_n.Length.x) {
+      max.x = box_n.Length.x;
+    }
+    if (max.y > box_n.Length.y) {
+      max.y = box_n.Length.y;
+    }
+    if (max.z > box_n.Length.z) {
+      max.z = box_n.Length.z;
+    }
+    box_r.Low.x = min.x;
+    box_r.Low.y = min.y;
+    box_r.Low.z = min.z;
+    box_r.Length.x = max.x - min.x;
+    box_r.Length.y = max.y - min.y;
+    box_r.Length.z = max.z - min.z;
+    CalculateBoxData(&box_r, 0);
   } else {
-    constraint_box.Length.x = S_new.Box.Length.x;
+    box_r = box_n;
   }
-  if (constraint[1].y != 0) {
-    constraint_box.Length.y = constraint[1].y - constraint[0].y;
-  } else {
-    constraint_box.Length.y = S_new.Box.Length.y;
-  }
-  if (constraint[1].z != 0) {
-    constraint_box.Length.z = constraint[1].z - constraint[0].z;
-  } else {
-    constraint_box.Length.z = S_new.Box.Length.z;
-  } //}}}
+  PrintBox(box_n);
+  PrintBox(box_r);
 
   // error - no box size (should never trigger) //{{{
-  if (S_new.Box.Volume == -1) {
+  if (box_n.Volume == -1) {
     strcpy(ERROR_MSG, "zero box size for the new system");
     PrintError();
     exit(1);
-  } //}}}
-
-  // check number of exchangeable beads //{{{
-  int can_be_exchanged = 0;
-  for (int i = 0; i < S_orig.Count.Bead; i++) {
-    int btype = S_orig.Bead[i].Type;
-    if (S_orig.Bead[i].Molecule == -1 && xb_use[btype]) {
-      can_be_exchanged++;
-    }
-  }
-  // count beads to be added
-  if (sw && S_add.Count.BeadCoor > can_be_exchanged) {
-    ErrorPrintError_old();
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, "insufficient beads to exchange for new ones\n");
-    fprintf(stderr, "     Exchangeable beads in the original system: ");
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%d\n", can_be_exchanged);
-    ColourChange(STDERR_FILENO, RED);
-    fprintf(stderr, "     Beads to be added: ");
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "%d\n\n", S_add.Count.BeadCoor);
-    // ColourReset(STDERR_FILENO);
-    exit(1);
-  } //}}}
-
-  // if '--gc' is used, put prototypes' geometric centres to (0,0,0) //{{{
-  if (com) {
-    for (int i = 0; i < S_add.Count.Molecule; i++) {
-      int mtype = S_add.Molecule[i].Type;
-      VECTOR geom_centre;
-      geom_centre.x = 0;
-      geom_centre.y = 0;
-      geom_centre.z = 0;
-      for (int j = 0; j < S_add.MoleculeType[mtype].nBeads; j++) {
-        int id = S_add.Molecule[i].Bead[j];
-        geom_centre.x += S_add.Bead[id].Position.x;
-        geom_centre.y += S_add.Bead[id].Position.y;
-        geom_centre.z += S_add.Bead[id].Position.z;
-      }
-      geom_centre.x /= S_add.MoleculeType[mtype].nBeads;
-      geom_centre.y /= S_add.MoleculeType[mtype].nBeads;
-      geom_centre.z /= S_add.MoleculeType[mtype].nBeads;
-      for (int j = 0; j < S_add.MoleculeType[mtype].nBeads; j++) {
-        int id = S_add.Molecule[i].Bead[j];
-        S_add.Bead[id].Position.x -= geom_centre.x;
-        S_add.Bead[id].Position.y -= geom_centre.y;
-        S_add.Bead[id].Position.z -= geom_centre.z;
-      }
-    }
   } //}}}
 
   // print what is to be added //{{{
@@ -472,31 +299,12 @@ int main(int argc, char *argv[]) {
     VerboseOutput(S_add);
   } //}}}
 
-  // decide which beads to exchange //{{{
-  bool *exchange_bead = calloc(S_orig.Count.Bead, sizeof *exchange_bead);
-  count = 0; // counts bead in the original Bead[] struct
-  for (int i = 0; i < S_add.Count.BeadCoor; i++) {
-    for (; count < S_orig.Count.BeadCoor; count++) {
-      int id_orig = S_orig.BeadCoor[count],
-          type = S_orig.Bead[id_orig].Type;
-      if (xb_use[type] && S_orig.Bead[id_orig].Molecule == -1) {
-        exchange_bead[id_orig] = true;
-        break;
-      }
-    }
-    count++; // loop didn't update count because of the break // TODO: needs
-                                                              //       updating?
-  } //}}}
-
-  // join original and added systems (depending on '--switch' mode)
-  if (sw) { // switch old beads for new ones? //{{{
+  // join original and added systems
+  // BOX Box_new = *box_n; // TODO box set up previously; maybe make it a different BOX
+  SYSTEM S_new = CopySystem(S_orig);
+  ConcatenateSystems(&S_new, S_add, box_n);
+  PruneSystem(&S_new);
   //}}}
-  } else { // or add beads to the system? //{{{
-    BOX Box_new = S_new.Box; // TODO box set up previously; maybe make it a different BOX
-    S_new = CopySystem(S_orig);
-    ConcatenateSystems(&S_new, S_add, Box_new);
-    PruneSystem(&S_new);
-  } //}}}
 
   // print new system //{{{
   if (verbose) {
@@ -506,71 +314,61 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // add monomeric beads //{{{
+  int id = S_orig.Count.Bead;
   for (int i = 0; i < S_add.Count.Unbonded; i++) {
     VECTOR random;
     if (lowest_dist != -1 || highest_dist != -1) {
-      double min_dist;
+      double min_dist = 0;
       int tries = 0;
       do {
         tries++;
-        if (tries == 1000000) {
-          ColourChange(STDERR_FILENO, YELLOW);
-          fprintf(stderr, "\nWarning: million attempts");
-          fprintf(stderr, " to place a bead failed. Are the constraints");
-          fprintf(stderr, " (-cx/-cy/-cz options) correct?\n");
-          // ColourReset(STDERR_FILENO);
-        }
         double number = (double)rand() / ((double)RAND_MAX + 1);
-        random.x = number * constraint_box.Length.x + constraint[0].x;
+        random.x = number * box_n.Length.x;
+        // random.x = number * box_r.Length.x + box_r.Low.x;
         number = (double)rand() / ((double)RAND_MAX + 1);
-        random.y = number * constraint_box.Length.y + constraint[0].y;
+        random.y = number * box_n.Length.y;
+        // random.y = number * box_r.Length.y + box_r.Low.y;
         number = (double)rand() / ((double)RAND_MAX + 1);
-        random.z = number * constraint_box.Length.z + constraint[0].z;
+        random.z = number * box_n.Length.z;
+        // random.z = number * box_r.Length.z + box_r.Low.z;
 
-        min_dist = SQR(S_orig.Box.Length.x * 100);
-        for (int j = 0; j < S_orig.Count.BeadCoor; j++) {
-          int btype = S_orig.Bead[j].Type;
-          /*
-           * j can be added monomeric bead, so it's type can be higher than
-           * the number of types
-           */
-          if (btype < S_orig.Count.BeadType) {
-            VECTOR dist;
-            dist = Distance(S_orig.Bead[j].Position, random, S_new.Box.Length);
-            dist.x = SQR(dist.x) + SQR(dist.y) + SQR(dist.z);
-            if (dist.x < min_dist) {
-              min_dist = dist.x;
+        min_dist = SQR(box_n.Length.x) +
+                   SQR(box_n.Length.y) +
+                   SQR(box_n.Length.z); // some high number
+        for (int j = 0; j < S_orig.Count.BeadType; j++) {
+          if (bt_use_orig[j]) {
+            for (int k = 0; k < S_orig.BeadType[j].Number; k++) {
+              int id = S_orig.BeadType[j].Index[k];
+              if (S_orig.Bead[id].InTimestep) {
+                VECTOR dist;
+                dist = Distance(S_orig.Bead[id].Position, random, S_new.Box.Length);
+                dist.x = VectorLength(dist);
+                if (dist.x < min_dist) {
+                  min_dist = dist.x;
+                }
+              }
             }
           }
         }
       } while ((lowest_dist != -1 && lowest_dist >= min_dist) ||
                (highest_dist != -1 && highest_dist <= min_dist));
-    } else { // no -hd/-ld options (i.e., completely random)
+      // printf("\n%d %lf %lf %lf\n", i, random.x, random.y, random.z);
+    } else {
       double number = (double)rand() / ((double)RAND_MAX + 1);
-      random.x = number * constraint_box.Length.x + constraint[0].x;
+      random.x = number * box_n.Length.x;
       number = (double)rand() / ((double)RAND_MAX + 1);
-      random.y = number * constraint_box.Length.y + constraint[0].y;
+      random.y = number * box_n.Length.y;
       number = (double)rand() / ((double)RAND_MAX + 1);
-      random.z = number * constraint_box.Length.z + constraint[0].z;
+      random.z = number * box_n.Length.z;
     }
-
-    // determine index of the added bead
-    int id = -1;
-    if (!sw) { // added beads (no --switch option)
-      id = S_orig.Count.Unbonded + i;
-    }
-    if (id == -1) {
-      ColourChange(STDERR_FILENO, RED);
-      fprintf(stderr, "!!!SOME ERROR!!!");
-      fprintf(stderr, "...very useful.");
-      // ColourReset(STDERR_FILENO);
-      exit(1);
-    }
+      // printf("\nxxx %d %lf %lf %lf\n", i, random.x, random.y, random.z);
 
     // add the new coordinate
     S_new.Bead[id].Position.x = random.x;
     S_new.Bead[id].Position.y = random.y;
     S_new.Bead[id].Position.z = random.z;
+    // printf("\n%d %s\n", id, S_new.BeadType[S_new.Bead[id].Type].Name);
+    id++;
 
     // print number of placed beads? //{{{
     if (!silent && isatty(STDOUT_FILENO)) {
@@ -586,136 +384,39 @@ int main(int argc, char *argv[]) {
     }
     fprintf(stdout, "\rMonomer placed: %d\n", S_add.Count.Unbonded);
   } //}}}
+
   // add molecules //{{{
-  // doesn't depend on --switch option as it's determined by the S_new.Molecule
-  // array established earlier
   for (int i = S_orig.Count.Molecule; i < S_new.Count.Molecule; i++) {
     int mtype = S_new.Molecule[i].Type;
 
-    VECTOR rotated[S_new.MoleculeType[mtype].nBeads];
-    VECTOR random = {0};
+    VECTOR random;
+    double number = (double)rand() / ((double)RAND_MAX + 1);
+    random.x = number * box_n.Length.x;
+    number = (double)rand() / ((double)RAND_MAX + 1);
+    random.y = number * box_n.Length.y;
+    number = (double)rand() / ((double)RAND_MAX + 1);
+    random.z = number * box_n.Length.z;
 
-    // rotate the molecule randomly if desired //{{{
-    if (!no_rot) {
-      // random rotation axis
-      random.x = (double)rand() / ((double)RAND_MAX) * 2 - 1; // a number <-1,1>
-      random.y = (double)rand() / ((double)RAND_MAX) * 2 - 1;
-      random.z = (double)rand() / ((double)RAND_MAX) * 2 - 1;
-      double dist = VectorLength(random);
-      random.x /= dist;
-      random.y /= dist;
-      random.z /= dist;
-      // random rotation angle
-      double angle = (double)rand() / ((double)RAND_MAX) * PI;
-      // create rotation matrix
-      struct Tensor {
-        VECTOR x, y, z;
-      } rot;
-      double c = 1 - cos(angle);
-      rot.x.x = cos(angle) + SQR(random.x) * c;
-      rot.x.y = random.x * random.y * c - random.z * sin(angle);
-      rot.x.z = random.x * random.z * c + random.y * sin(angle);
-
-      rot.y.x = random.x * random.y * c + random.z * sin(angle);
-      rot.y.y = cos(angle) + SQR(random.y) * c;
-      rot.y.z = random.y * random.z * c - random.x * sin(angle);
-
-      rot.z.x = random.x * random.z * c - random.y * sin(angle);
-      rot.z.y = random.y * random.z * c + random.x * sin(angle);
-      rot.z.z = cos(angle) + SQR(random.z) * c;
-      // transform the prototype molecule (rotation matrix * coordinates)
-      for (int j = 0; j < S_new.MoleculeType[mtype].nBeads; j++) {
-        int id = S_new.Molecule[i].Bead[j];
-        rotated[j].x = rot.x.x * S_new.Bead[id].Position.x
-                     + rot.x.y * S_new.Bead[id].Position.y
-                     + rot.x.z * S_new.Bead[id].Position.z;
-        rotated[j].y = rot.y.x * S_new.Bead[id].Position.x
-                     + rot.y.y * S_new.Bead[id].Position.y
-                     + rot.y.z * S_new.Bead[id].Position.z;
-        rotated[j].z = rot.z.x * S_new.Bead[id].Position.x
-                     + rot.z.y * S_new.Bead[id].Position.y
-                     + rot.z.z * S_new.Bead[id].Position.z;
-      }
-    } else { // don't rotate
-      for (int j = 0; j < S_new.MoleculeType[mtype].nBeads; j++) {
-        int id = S_new.Molecule[i].Bead[j];
-        rotated[j].x = S_new.Bead[id].Position.x;
-        rotated[j].y = S_new.Bead[id].Position.y;
-        rotated[j].z = S_new.Bead[id].Position.z;
-      }
-    } //}}}
-
-    // first bead's distance from specified bead typtes is checked //{{{
-    // first bead can have coordinates [0,0,0] or such that the molecule's
-    //   geometric centre is [0,0,0] (if --gc is used)
-    if (lowest_dist != -1 || highest_dist != -1) {
-      int tries = 0;
-      double min_dist;
-      do {
-        tries++;
-        if (tries == 1000000) {
-          ColourChange(STDERR_FILENO, YELLOW);
-          fprintf(stderr, "\nWarning: million attempts");
-          fprintf(stderr, " to place a bead failed. Are the constraints");
-          fprintf(stderr, " (-cx/-cy/-cz options) correct?\n");
-          // ColourReset(STDERR_FILENO);
-        }
-        double number = (double)rand() / ((double)RAND_MAX + 1);
-        random.x = number * constraint_box.Length.x + constraint[0].x;
-        number = (double)rand() / ((double)RAND_MAX + 1);
-        random.y = number * constraint_box.Length.y + constraint[0].y;
-        number = (double)rand() / ((double)RAND_MAX + 1);
-        random.z = number * constraint_box.Length.z + constraint[0].z;
-
-        min_dist = SQR(S_new.Box.Length.x) +
-                   SQR(S_new.Box.Length.y) +
-                   SQR(S_new.Box.Length.z);
-        for (int j = 0; j < S_orig.Count.BeadCoor; j++) {
-          int btype_j = S_orig.Bead[j].Type;
-          /*
-           * j can be added monomeric bead, so it's type can be higher than
-           * the number of types
-           */
-          if (btype_j < S_orig.Count.BeadType) {
-            double dist = VectorLength(Distance(S_orig.Bead[j].Position,
-                                   random, S_orig.Box.Length));
-            if (dist < min_dist) {
-              min_dist = dist;
-            }
-          }
-        }
-      } while ((lowest_dist != -1 && lowest_dist >= min_dist) ||
-               (highest_dist != -1 && highest_dist <= min_dist));
-    } else { // no '-ld' or '-hd' options
-      double number = (double)rand() / ((double)RAND_MAX + 1);
-      random.x = number * constraint_box.Length.x + constraint[0].x;
-      number = (double)rand() / ((double)RAND_MAX + 1);
-      random.y = number * constraint_box.Length.y + constraint[0].y;
-      number = (double)rand() / ((double)RAND_MAX + 1);
-      random.z = number * constraint_box.Length.z + constraint[0].z;
-    } //}}}
-
-    // place the rest of the molecule //{{{
     for (int j = 0; j < S_new.MoleculeType[mtype].nBeads; j++) {
-      int id = S_new.Molecule[i].Bead[j];
-      S_new.Bead[id].Position.x = random.x + rotated[j].x;
-      S_new.Bead[id].Position.y = random.y + rotated[j].y;
-      S_new.Bead[id].Position.z = random.z + rotated[j].z;
-    } //}}}
+      id = S_new.Molecule[i].Bead[j];
+      S_new.Bead[id].Position.x += random.x;
+      S_new.Bead[id].Position.y += random.y;
+      S_new.Bead[id].Position.z += random.z;
+    }
 
-    // print number of placed molecules? //{{{
+    // print number of placed beads? //{{{
     if (!silent && isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\rMolecules placed: %d", i-S_orig.Count.Molecule+1);
     } //}}}
   } //}}}
-  // print total number of placed molecules? //{{{
+  // print total number of placed beads? //{{{
   if (!silent) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
-      fprintf(stdout, "\r                                             \r");
+      fprintf(stdout, "\r                           \r");
     }
-    fprintf(stdout, "Molecules placed: %3d\n", S_add.Count.Molecule);
+    fprintf(stdout, "\rMolecules placed: %d\n", S_add.Count.Molecule);
   } //}}}
 
   // write data to output files //{{{
@@ -746,10 +447,8 @@ int main(int argc, char *argv[]) {
   FreeSystem(&S_orig);
   FreeSystem(&S_add);
   FreeSystem(&S_new);
-  free(write);
-  free(exchange_bead);
-  free(xb_use);
   free(bt_use_orig);
+  free(write);
   //}}}
 
   return 0;

@@ -38,7 +38,7 @@ can be either stripped away or applied (which happens first if both \
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 11, all = common + 5, count = 0,
+  int common = 10, all = common + 5, count = 0,
       req_arg = 2; // not count <bead(s)> because --reverse can be used
   char option[all][OPT_LENGTH];
   // common options
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-e");
   strcpy(option[count++], "-sk");
   strcpy(option[count++], "-i");
-  strcpy(option[count++], "--variable");
+  // strcpy(option[count++], "--variable"); // TODO: makes no sense, I think
   strcpy(option[count++], "-pbc");
   strcpy(option[count++], "--detailed");
   strcpy(option[count++], "--verbose");

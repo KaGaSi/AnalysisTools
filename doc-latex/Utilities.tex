@@ -31,9 +31,9 @@ behaviour, they are also listed in the utilities' descriptions.\\[1em]
   \tt{--detailed} & only \vtf structure file: detailed recognition for bead
     (and, consequently, molecule) types based on the bead names as well as
     charges, masses, radii \\
-  \tt{--variable} & only \vtf coordinate file: assume
-    indexed timesteps with variable numbers of beads (otherwise, the same number
-    of beads in each timestep is required)\\
+  % \tt{--variable} & only \vtf coordinate file: assume
+  %   indexed timesteps with variable numbers of beads (otherwise, the same number
+  %   of beads in each timestep is required)\\
   \tt{-pbc <n>}   & only \xyz file: position of the first box dimension in
     the file's comment line at the beginning of each timestep\\
   \tt{-st <n>}    & any coordinate file: start calculations at \tt{n}-th
@@ -45,9 +45,9 @@ behaviour, they are also listed in the utilities' descriptions.\\[1em]
   \bottomrule
 \end{tabular}\\[1em]
 
-For \vtf structure files, the bead types are defines solely based on their name;
-the other properties (mass, charge, and radius) are taken from the first
-\tt{a[tom]} line with the bead of that name that contains the appropriate
+For \vtf structure files, the bead types are defined solely based on their name
+by default; the other properties (mass, charge, and radius) are taken from the
+first \tt{a[tom]} line with the bead of that name that contains the appropriate
 keyword. For example, lines
 
 \noindent
@@ -67,12 +67,12 @@ hand, the \tt{B} beads would be assigned the same bead type with mass equal to 2
 (there is no ambiguity because only one mass is specified for the \tt{B} beads).
 See \tt{Examples/Info} directory for a more complete example.
 
-For \vtf coordinate file with indexed timesteps, all timesteps are expected to
-have the same number of beads (though not necessarily the same beads). If some
-timesteps contain different number of beads, \tt{--variable} option must be
-used. The option is implemented because without knowing in advance the number of
-beads in a timestep, reading that timestep is slower (significantly so for large
-systems).
+% For \vtf coordinate file with indexed timesteps, all timesteps are expected to
+% have the same number of beads (though not necessarily the same beads). If some
+% timesteps contain different number of beads, \tt{--variable} option must be
+% used. The option is implemented because without knowing in advance the number of
+% beads in a timestep, reading that timestep is slower (significantly so for large
+% systems).
 
 Plain \xyz format provides only bead names and coordinates, but the comment line
 at the beginning of every timestep can store extra information.

@@ -32,7 +32,7 @@ size.\n\n");
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 11, all = common + 1, count = 0,
+  int common = 10, all = common + 1, count = 0,
       req_arg = 3;
   char option[all][OPT_LENGTH];
   // common options
@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-e");
   strcpy(option[count++], "-sk");
   strcpy(option[count++], "-i");
-  strcpy(option[count++], "--variable");
+  // strcpy(option[count++], "--variable"); // TODO: makes no sense, I think
   strcpy(option[count++], "-pbc");
   strcpy(option[count++], "--detailed");
   strcpy(option[count++], "--verbose");

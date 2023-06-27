@@ -319,8 +319,8 @@ SYSTEM CopySystem(SYSTEM S_in) {
            sizeof *S_in.BeadCoor * S_in.Count.Bead); //}}}
     // Bonded & BondedCoor //{{{
     if (S_out.Count.Bonded > 0) {
-      S_out.Bonded =
-          realloc(S_out.Bonded, sizeof *S_out.Bonded * S_out.Count.Bonded);
+      S_out.Bonded = realloc(S_out.Bonded,
+                             sizeof *S_out.Bonded * S_out.Count.Bonded);
       S_out.BondedCoor = realloc(S_out.BondedCoor,
                                  sizeof *S_out.BondedCoor * S_out.Count.Bonded);
       memcpy(S_out.Bonded, S_in.Bonded,
@@ -332,9 +332,9 @@ SYSTEM CopySystem(SYSTEM S_in) {
     if (S_out.Count.Unbonded > 0) {
       S_out.Unbonded = realloc(S_out.Unbonded,
                                sizeof *S_out.Unbonded * S_out.Count.Unbonded);
-      S_out.UnbondedCoor =
-          realloc(S_out.UnbondedCoor,
-                  sizeof *S_out.UnbondedCoor * S_out.Count.Unbonded);
+      S_out.UnbondedCoor = realloc(S_out.UnbondedCoor,
+                                   sizeof *S_out.UnbondedCoor *
+                                   S_out.Count.Unbonded);
       memcpy(S_out.Unbonded, S_in.Unbonded,
              sizeof *S_in.Unbonded * S_in.Count.Unbonded);
       memcpy(S_out.UnbondedCoor, S_in.UnbondedCoor,
@@ -1273,8 +1273,9 @@ void PruneSystem(SYSTEM *System) {
       realloc(System->BondedCoor, sizeof *System->BondedCoor * Count->Bonded);
   System->Unbonded =
       realloc(System->Unbonded, sizeof *System->Unbonded * Count->Unbonded);
-  System->UnbondedCoor = realloc(
-      System->UnbondedCoor, sizeof *System->UnbondedCoor * Count->Unbonded);
+  System->UnbondedCoor = realloc(System->UnbondedCoor,
+                                 sizeof *System->UnbondedCoor *
+                                 Count->Unbonded);
   // copy Bead/Unbonded/Bonded arrays & create new BeadType array //{{{
   int count_unbonded = 0, count_bonded = 0, count_all = 0;
   // arrays for mapping old bead ids/types to new ones
@@ -1881,7 +1882,7 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
     PrintWarning();
     return;
   } //}}}
-  // Bead //{{{
+  // Bead & BeadCoor //{{{
   if (Count_in->Bead > 0) {
     Count_out->Bead += Count_in->Bead;
     S_out->Bead = realloc(S_out->Bead, sizeof(BEAD) * Count_out->Bead);
@@ -1893,23 +1894,27 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
         S_out->Bead[new].Molecule += Count_old.Molecule;
       }
     }
+    Count_out->BeadCoor += Count_in->BeadCoor;
+    S_out->BeadCoor = realloc(S_out->BeadCoor,
+                              sizeof *S_out->BeadCoor * Count_out->Bead);
+    for (int i = 0; i < Count_in->BeadCoor; i++) {
+      int new = i + Count_old.BeadCoor;
+      S_out->BeadCoor[new] = S_in.BeadCoor[i] + Count_old.Bead;
+    }
   } else {
     strcpy(ERROR_MSG, "no beads to add to the system");
     PrintWarning();
     return;
   } //}}}
-  // Bonded //{{{
+  // Bonded & BondedCoor //{{{
   if (Count_in->Bonded > 0) {
     Count_out->Bonded += Count_in->Bonded;
-    S_out->Bonded =
-        realloc(S_out->Bonded, sizeof *S_out->Bonded * Count_out->Bonded);
+    S_out->Bonded = realloc(S_out->Bonded,
+                            sizeof *S_out->Bonded * Count_out->Bonded);
     for (int i = 0; i < Count_in->Bonded; i++) {
       int new = i + Count_old.Bonded;
       S_out->Bonded[new] = S_in.Bonded[i] + Count_old.Bead;
     }
-  } //}}}
-  // BondedCoor //{{{
-  if (Count_in->BondedCoor > 0) {
     Count_out->BondedCoor += Count_in->BondedCoor;
     S_out->BondedCoor = realloc(S_out->BondedCoor,
                                 sizeof *S_out->BondedCoor * Count_out->Bonded);
@@ -1918,34 +1923,22 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
       S_out->BondedCoor[new] = S_in.BondedCoor[i] + Count_old.Bead;
     }
   } //}}}
-  // Unonded //{{{
+  // Unbonded & UnbondedCoor //{{{
   if (Count_in->Unbonded > 0) {
     Count_out->Unbonded += Count_in->Unbonded;
-    S_out->Unbonded =
-        realloc(S_out->Unbonded, sizeof *S_out->Unbonded * Count_out->Unbonded);
+    S_out->Unbonded = realloc(S_out->Unbonded,
+                              sizeof *S_out->Unbonded * Count_out->Unbonded);
     for (int i = 0; i < Count_in->Unbonded; i++) {
       int new = i + Count_old.Unbonded;
       S_out->Unbonded[new] = S_in.Unbonded[i] + Count_old.Bead;
     }
-  } //}}}
-  // UnondedCoor //{{{
-  if (Count_in->UnbondedCoor > 0) {
     Count_out->UnbondedCoor += Count_in->UnbondedCoor;
-    S_out->UnbondedCoor = realloc(
-        S_out->UnbondedCoor, sizeof *S_out->UnbondedCoor * Count_out->Unbonded);
+    S_out->UnbondedCoor = realloc(S_out->UnbondedCoor,
+                                  sizeof *S_out->UnbondedCoor *
+                                  Count_out->Unbonded);
     for (int i = 0; i < Count_in->UnbondedCoor; i++) {
       int new = i + Count_old.UnbondedCoor;
       S_out->UnbondedCoor[new] = S_in.UnbondedCoor[i] + Count_old.Bead;
-    }
-  } //}}}
-  // BeadCoor //{{{
-  if (Count_in->BeadCoor > 0) {
-    Count_out->BeadCoor += Count_in->BeadCoor;
-    S_out->BeadCoor =
-        realloc(S_out->BeadCoor, sizeof *S_out->BeadCoor * Count_out->Bead);
-    for (int i = 0; i < Count_in->BeadCoor; i++) {
-      int new = i + Count_old.BeadCoor;
-      S_out->BeadCoor[new] = S_in.BeadCoor[i] + Count_old.Bead;
     }
   } //}}}
   // MoleculeType //{{{
@@ -2980,14 +2973,9 @@ void PrintImproperType(SYSTEM System) { //{{{
 } //}}}
 void PrintBox(BOX Box) { //{{{
   fprintf(stdout, "Box = {\n");
-  fprintf(stdout, "  .Length = (%lf, %lf, %lf),", Box.Length.x, Box.Length.y,
+  fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x, Box.Length.y,
           Box.Length.z);
-  if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
-    fprintf(stdout, " .alpha = %lf,", Box.alpha);
-    fprintf(stdout, " .beta = %lf,", Box.beta);
-    fprintf(stdout, " .gamma = %lf,", Box.gamma);
-  }
-  putchar('\n');
+  fprintf(stdout, "  .Low = (%lf, %lf, %lf),\n", Box.Low.x, Box.Low.y, Box.Low.z);
   fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n", Box.OrthoLength.x,
           Box.OrthoLength.y, Box.OrthoLength.z);
   fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);

@@ -37,11 +37,11 @@ details.\
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 8, all = common + 6, count = 0, req_arg = 1;
+  int common = 7, all = common + 6, count = 0, req_arg = 1;
   char option[all][OPT_LENGTH];
   // common options
   strcpy(option[count++], "-st");
-  strcpy(option[count++], "--variable");
+  // strcpy(option[count++], "--variable"); // TODO: makes no sense, I think
   strcpy(option[count++], "-pbc");
   strcpy(option[count++], "--detailed");
   strcpy(option[count++], "--verbose");
