@@ -9,21 +9,18 @@ Primarily, the utility calculates kinetic energy and temperature (which requires
 an input coordinate file with velocities and bead types with specified mass;
 otherwise, both observables will be 0) and density profiles, but using the
 \tt{--pot} switch, pair-wise potential can be included to calculate pressure.
-For now, only shifted Sutton-Chen potential is implemented (see below).
-
-\TODO the number of bins will be constant!
+For now, only Sutton-Chen and shifted Sutton-Chen potentials are implemented
+(see below).
 
 Unlike the DensityBox utility (Section~\ref{sec:DensityBox}), Local takes into
 account changing size of an orthogonal simulation box, calculating the profiles
 along the three axis with respect to the centre of the box; with option
-\tt{--cog} or \tt{--com}, geometric centre of all beads or the centre of mass,
-respectively, is used instead. While the utility can cope with fairly large size
-changes to the box (getting twice as large in every direction), it should be
-noted that the utility averages each bin of the profile with the total number of
-used steps (i.e., if the box get bigger, the new bins will undercount the beads).
-The resulting profiles have 0 at the specified average centre (either average
-centre of the box, average geometric centre for \tt{--cog} option or average
-centre of mass for \tt{--com} option).
+\tt{--cog} or \tt{--com}, geometric centre of all beads or their centre of mass,
+respectively, is used instead. The number of bins (governed by the \tt{<width>}
+parameter) is calculated at the first used timestep (which can be specified via
+the \tt{-st} option), and this number remains constant; i.e., if the box gets
+bigger, beads in the outlying regions are not included in the profiles. The
+resulting profiles are written with 0 at the centre of this initial box.
 
 \TODO per-timestep option
 
@@ -37,22 +34,22 @@ system are ignored). The following is full structure of the \tt{potential}
 section:
 
 \begin{longtable}{ll}
-  \tt{potential <potential>}    & \# potential type to use\\
-  \tt{<global parameter 1>}     & \# parameter(s) identical to all beads\\
-  \tt{...}                      & \\
-  \tt{<global parameter N>}     & \\
-  \tt{<bead>}                   & \# name of the first bead type\\
-  \tt{<parameter 1> <value(s)>} & \# first parameter of \tt{<potential>} for
-                                  bead type\\
-  \tt{...}                      & \ \ \ \ \tt{<bead>} (see below for parameter
-                                  description)\\
-  \tt{<parameter 2> <value(s)>} & \# last parameter for \tt{<potential>} and
-                                  \tt{<bead>}\\
-  \tt{<bead>}                   & \# name of the next bead type\\
-  \tt{<pot_param_1> <value(s)>} & \\
-  \tt{...}                      & \# parameters for the second bead type\\
-  \tt{<pot_param_N> <value(s)>} & \\
-  \tt{finish} & \# end of the potential section \\
+  \tt{potential <potential>} & \# potential type to use\\
+  \tt{<global_param_1>}      & \# parameter(s) identical to all beads (see
+                               below\\
+  \tt{...}                   & \ \ \ \ for their description)\\
+  \tt{<global_param_N>}      & \\
+  \tt{bead <name_1>}         & \# name of the first bead type\\
+  \tt{<param_1> <value(s)>}  & \# first parameter of \tt{<potential>} for
+                               bead type\\
+  \tt{...}                   & \ \ \ \ \tt{<name_1>} (see below for parameter
+                               description)\\
+  \tt{<param_N> <value(s)>}  & \# last parameter for \tt{<name_1>}\\
+  \tt{bead <name_2>}         & \# name of the second bead type\\
+  \tt{<param_1> <value(s)>}  & \\
+  \tt{...}                   & \# parameters for the second bead type\\
+  \tt{<param_N> <value(s)>}  & \\
+  \tt{finish}                & \# end of the potential section \\
 \end{longtable}
 
 Besides the potential, self-explanatory lines with keyword-value pairs may
@@ -65,9 +62,8 @@ coordinates and velocities are assumed to be in reduced units.
 Comments (\#-initiated lines) and blank lines in the file are ignored.
 
 \subsection{Sutton-Chen (SC) and shifted SC potentials}
-\TODO implement vanilla Sutton-Chen\ldots
 
-This original density-dependent potential based on embedded atom model was
+The original density-dependent SC potential based on embedded atom model was
 developed to study metals\cite{sutton1990} and is defined as
 \begin{equation}\label{eq:SuttonChen}
   U = u^\text{rep} + u^\text{dd} = \epsilon\sum_i\sum_{j>i}
@@ -78,6 +74,8 @@ developed to study metals\cite{sutton1990} and is defined as
 where $\epsilon$ is an energy parameter, $a$ is the lattice constant, $c$ is
 dimensionless parameter, $m$ and $n$ are integer parameters ($m>n$), $\rho_i$ is
 local density for bead $i$, $r_{ij}$ is the distance between beads $i$ and $j$.
+Note that variants of the SC potential with non-integer $m$ and $n$ parameters
+exist, so the Local utility accepts real values of the parameters.
 The pair-wise repulsive part representing Van der Waals repulsion gives rise to
 force
 \begin{equation}\label{eq:SCfrep}
@@ -130,7 +128,7 @@ The cross-terms for different bead types are
 \begin{equation}
   m_{ij} = \frac{m_{ii} + m_{jj}}{2}\text{, }
   n_{ij} = \frac{n_{ii} + n_{jj}}{2}\text{, and }
-  \epsilon_{ij} = \sqrt{\epsilon{ii}\epsilon_{ij}}.
+  \epsilon_{ij} = \sqrt{\epsilon_{ii}\epsilon_{jj}}.
 \end{equation}
 
 Finally, the quasi-coarse-grained dynamics scheme by Dongare\cite{dongare2014}

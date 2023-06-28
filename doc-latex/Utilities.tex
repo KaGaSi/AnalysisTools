@@ -1,14 +1,13 @@
 \chapter{Utilities} \label{chap:Utils}
 
-All utilities have command line options affecting their behaviour. Most of the
-utilities share several standard command line options.
-
-The following options are for all utilities and are not described with the
-utilities themselves.\\[1em]
+All utilities have command line options affecting their behaviour. The following
+options are common for many utilities, so they are described here rather than at
+the individual utilities where only list of the possible options is
+provided.\\[1em]
 \noindent
 \begin{tabular}{p{0.14\textwidth}p{0.804\textwidth}}
   \toprule
-  \multicolumn{2}{l}{General options common to all utilities}\\
+  \multicolumn{2}{l}{General options}\\
   \midrule
   \tt{--verbose} & print information about all bead and molecule types to the
     screen\\
@@ -16,21 +15,14 @@ utilities themselves.\\[1em]
     \tt{--verbose} option)\\
   \tt{--help}    & print short description of the utility and usage\\
   \tt{--version} & print version of the utilities and exit\\
-  \bottomrule
-\end{tabular}\\[1em]
-
-The following options are used by most utilities, and because they affect their
-behaviour, they are also listed in the utilities' descriptions.\\[1em]
-\noindent
-\begin{tabular}{p{0.14\textwidth}p{0.804\textwidth}}
-  \toprule
+  \midrule
   \multicolumn{2}{l}{Options for structure and coordinate input files}\\
   \midrule
   \tt{-i <name>}  & use specified structure file, see
     Section~\ref{sec:StructFile} for possible formats\\
   \tt{--detailed} & only \vtf structure file: detailed recognition for bead
     (and, consequently, molecule) types based on the bead names as well as
-    charges, masses, radii \\
+    charges, masses, and radii \\
   % \tt{--variable} & only \vtf coordinate file: assume
   %   indexed timesteps with variable numbers of beads (otherwise, the same number
   %   of beads in each timestep is required)\\
@@ -65,7 +57,7 @@ respectively, and \tt{A_2} with undefined mass (it remains undefined because
 there is an ambiguity---should the last bead have mass 1 or 2?). On the other
 hand, the \tt{B} beads would be assigned the same bead type with mass equal to 2
 (there is no ambiguity because only one mass is specified for the \tt{B} beads).
-See \tt{Examples/Info} directory for a more complete example.
+See \tt{Examples/Info} directory for other examples.
 
 % For \vtf coordinate file with indexed timesteps, all timesteps are expected to
 % have the same number of beads (though not necessarily the same beads). If some
@@ -75,13 +67,13 @@ See \tt{Examples/Info} directory for a more complete example.
 % systems).
 
 Plain \xyz format provides only bead names and coordinates, but the comment line
-at the beginning of every timestep can store extra information.
-Here, only box dimensions are read, but because there are extended \xyz formats
-containing more information, the \tt{-pbc} option is used to specify where the
-box dimensions are (as well as to tell the utility there are box dimensions at
-all). For example, \tt{-pbc 3} must be specified for the following comment line
+at the beginning of every timestep can store extra information. Here, only box
+dimensions are read, but because there are extended \xyz formats containing more
+information, the \tt{-pbc} option is used to specify where the box dimensions
+are (as well as to tell the utility there are box dimensions at all). For
+example, \tt{-pbc 3} must be specified for the following comment line
 
-\tt{something more 10 10 10 90 60 30}.
+\tt{other text 10 10 10 90 60 30}.
 
 \noindent
 This would define a paralleloid box with $a=b=c=10$ and angles
