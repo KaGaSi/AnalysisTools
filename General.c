@@ -297,6 +297,13 @@ void InitBoolArray (bool array[], int n, bool val) {
     array[i] = val;
   }
 }
+void InitVecArray (VECTOR array[], int n, bool val) {
+  for (int i = 0; i < n; i++) {
+    array[i].x = val;
+    array[i].y = val;
+    array[i].z = val;
+  }
+}
 void InitLong2DArray (long *array[], int m, int n, long val) {
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {

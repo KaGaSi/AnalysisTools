@@ -98,6 +98,7 @@ FILE *OpenFile(char *file, char *mode);
 // initialize arrays to specified value
 void InitIntArray (int array[], int n, int val);
 void InitBoolArray (bool array[], int n, bool val);
+void InitVecArray (VECTOR array[], int n, bool val);
 void InitLong2DArray (long *array[], int m, int n, long val);
 void InitDouble2DArray (double *array[], int m, int n, double val);
 
