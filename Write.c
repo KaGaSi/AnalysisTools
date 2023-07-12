@@ -327,9 +327,15 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
   fprintf(fw, " improper types\n");
   putc('\n', fw); //}}}
   // print box size //{{{
-  fprintf(fw, "0.0 %lf xlo xhi\n", System.Box.OrthoLength.x);
-  fprintf(fw, "0.0 %lf ylo yhi\n", System.Box.OrthoLength.y);
-  fprintf(fw, "0.0 %lf zlo zhi\n", System.Box.OrthoLength.z);
+  // fprintf(fw, "0.0 %lf xlo xhi\n", System.Box.OrthoLength.x);
+  // fprintf(fw, "0.0 %lf ylo yhi\n", System.Box.OrthoLength.y);
+  // fprintf(fw, "0.0 %lf zlo zhi\n", System.Box.OrthoLength.z);
+  fprintf(fw, "%lf", System.Box.Low.x);
+  fprintf(fw, " %lf xlo xhi\n", System.Box.Low.x + System.Box.OrthoLength.x);
+  fprintf(fw, "%lf", System.Box.Low.y);
+  fprintf(fw, " %lf ylo yhi\n", System.Box.Low.y + System.Box.OrthoLength.y);
+  fprintf(fw, "%lf", System.Box.Low.z);
+  fprintf(fw, " %lf zlo zhi\n", System.Box.Low.z + System.Box.OrthoLength.z);
   if (System.Box.alpha != 90 ||
       System.Box.beta != 90 ||
       System.Box.gamma != 90) {
@@ -349,10 +355,10 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
     }
   } //}}}
   // print various coeffs //{{{
-  fprintf(fw, "\nPair Coeffs\n\n");
-  for (int i = 0; i < Count->BeadType; i++) {
-    fprintf(fw, "%5d ???\n", i + 1);
-  }
+  // fprintf(fw, "\nPair Coeffs\n\n");
+  // for (int i = 0; i < Count->BeadType; i++) {
+  //   fprintf(fw, "%5d ???\n", i + 1);
+  // }
   if (Count->Bond > 0) {
     fprintf(fw, "\nBond Coeffs\n\n");
     if (Count->BondType > 0) {
@@ -407,24 +413,24 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
     // <molecule id (-1 for no molecule)>
     int mol = bead->Molecule;
     if (mol != -1) {
-      fprintf(fw, "%5d", System.Molecule[mol].Index);
+      fprintf(fw, " %5d", System.Molecule[mol].Index);
     } else {
-      fprintf(fw, "%5d", -1);
+      fprintf(fw, " %5d", -1);
     }
     // <bead type id>
-    fprintf(fw, "%5d", bt_old_to_masstype[bead->Type]+1);
+    fprintf(fw, " %5d", bt_old_to_masstype[bead->Type]+1);
     // <charge> from original System as the charge can differ in lmp data file
     int type = bead->Type;
     double q = System.BeadType[type].Charge;
     if (q == CHARGE) {
-      fprintf(fw, "%15s", "???");
+      fprintf(fw, " %15s", "???");
     } else {
-      fprintf(fw, "%15f", q);
+      fprintf(fw, " %15f", q);
     }
     // coordinates
-    fprintf(fw, "%15f %15f %15f", bead->Position.x,
-                                  bead->Position.y,
-                                  bead->Position.z);
+    fprintf(fw, " %15f %15f %15f", bead->Position.x + System.Box.Low.x,
+                                   bead->Position.y + System.Box.Low.y,
+                                   bead->Position.z + System.Box.Low.z);
     putc('\n', fw);
   } //}}}
   // print velocities (if at least one non-zero) //{{{
@@ -437,7 +443,7 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
         id = System.BeadCoor[j];
         vel = &System.Bead[id].Velocity;
         fprintf(fw, "%7d", id + 1);
-        fprintf(fw, "%15f %15f %15f", vel->x, vel->y, vel->z);
+        fprintf(fw, " %15f %15f %15f", vel->x, vel->y, vel->z);
         putc('\n', fw);
       }
       break;
@@ -456,7 +462,7 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
         if (System.Bead[val[0]].InTimestep && System.Bead[val[1]].InTimestep) {
           fprintf(fw, "%7d", count);
           if (Count->BondType > 0) {
-            fprintf(fw, "%6d", mt_i->Bond[j][2] + 1);
+            fprintf(fw, " %6d", mt_i->Bond[j][2] + 1);
           } else {
             fprintf(fw, "   ???");
           }
@@ -479,7 +485,7 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
             System.Bead[val[2]].InTimestep) {
           fprintf(fw, "%7d", count);
           if (Count->AngleType > 0) {
-            fprintf(fw, "%6d", mt_i->Angle[j][3] + 1);
+            fprintf(fw, " %6d", mt_i->Angle[j][3] + 1);
           } else {
             fprintf(fw, "   ???");
           }
@@ -503,7 +509,7 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
             System.Bead[val[2]].InTimestep && System.Bead[val[3]].InTimestep) {
           fprintf(fw, "%7d", count);
           if (Count->DihedralType > 0) {
-            fprintf(fw, "%6d", mt_i->Dihedral[j][4] + 1);
+            fprintf(fw, " %6d", mt_i->Dihedral[j][4] + 1);
           } else {
             fprintf(fw, "   ???");
           }
@@ -529,7 +535,7 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
             System.Bead[val[3]].InTimestep) {
           fprintf(fw, "%7d", count);
           if (Count->DihedralType > 0) {
-            fprintf(fw, "%6d", mt_i->Dihedral[j][4] + 1);
+            fprintf(fw, " %6d", mt_i->Dihedral[j][4] + 1);
           } else {
             fprintf(fw, "   ???");
           }
@@ -683,6 +689,9 @@ void WriteTimestep(int coor_type, char file[], SYSTEM System,
     case VCF_FILE:
       VtfWriteCoorIndexed(fw, write, System);
       break;
+    case VTF_FILE:
+      VtfWriteCoorIndexed(fw, write, System);
+      break;
     case XYZ_FILE:
       XyzWriteCoor(fw, write, System);
       break;
@@ -690,7 +699,8 @@ void WriteTimestep(int coor_type, char file[], SYSTEM System,
       LtrjWriteCoor(fw, count_step, write, System);
       break;
     default:
-      strcpy(ERROR_MSG, "Inexistent output coor_type; should never happen!");
+      snprintf(ERROR_MSG, LINE, "no action specified for output coor_type %s%d",
+               ErrYellow(), coor_type);
       PrintError();
       exit(1);
   }
@@ -702,6 +712,9 @@ void WriteStructure(int struct_type, char file[], SYSTEM System,
   FILE *fw = OpenFile(file, "w");
   switch (struct_type) {
     case VSF_FILE:
+      VtfWriteStruct(file, System, vsf_def_type);
+      break;
+    case VTF_FILE:
       VtfWriteStruct(file, System, vsf_def_type);
       break;
     case LDATA_FILE:

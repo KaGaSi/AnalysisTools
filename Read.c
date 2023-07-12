@@ -52,7 +52,12 @@ static int LtrjReadAtomsLine(FILE *fr, char file[], int n, int *var_pos,
 static int LtrjReadCoorLine(FILE *fr, BEAD *b, int b_count, int *var, int cols);
 // fill a helper array with possible variables in 'ITEM: ATOMS ...' line
 static void LtrjFillAtomVariables(int n, char var[n][10]); //}}}
-/* Function to read lammps data file as a structure file */ //{{{
+/*
+ * Functions to read lammps data file as a structure file (LmpDataReadStruct) or
+ * a coordinate file (LmpDataReadTimestep)
+ */ //{{{
+static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
+                               int *line_count);
 static SYSTEM LmpDataReadStruct(char file[]);
 // Helper functions for lmpdata file
 // read header of the lammps data file
@@ -89,7 +94,7 @@ static void LmpDataReadDihedrals(FILE *fr, char file[], COUNT Count,
                                  int (*dihedral)[5], int *line_count);
 static void LmpDataReadImpropers(FILE *fr, char file[], COUNT Count,
                                  int (*improper)[5], int *line_count);
- //}}}
+//}}}
 /*
  * Functions to read vsf/vtf file as a structure file via VtfReadStruct() and
  * vcf/vtf file as a coordinate file via VtfReadTimestep() and VtfSkipTimestep()
@@ -130,7 +135,7 @@ static int VtfReadCoorBlockOrdered(FILE *fr, char file[], SYSTEM *System,
                                    int *line_count);
 // read the first timestep to count beads in constant-size coordinate block
 static int VtfReadNumberOfBeads(char file[]);
- //}}}
+//}}}
 /*
  * Function to read dl_meso FIELD-like file as a structure file
  */ //{{{
@@ -140,7 +145,7 @@ static SYSTEM FieldRead(char file[]);
 static void FieldReadSpecies(char file[], SYSTEM *System);
 // read Molecules section
 static void FieldReadMolecules(char file[], SYSTEM *System);
-  //}}}
+//}}}
 /*
  * Functions to read xyz file as a coordinate file via XyzReadTimestep() and
  * XyzSkipTimestep() and as a structure file via XyzReadStruct()
@@ -152,7 +157,7 @@ static SYSTEM XyzReadStruct(char file[], int pbc);
 // Helper functions for xyz file
 static bool XyzSkipCoorLine(FILE *fr);
 static bool XyzCheckCoorLine(VECTOR *coor);
- //}}}
+//}}}
 /*
  * General helper functions
  */ //{{{
@@ -172,17 +177,7 @@ static void FillMoleculeTypeDihedral(SYSTEM *System, int (*dihedral)[5], int n);
 static void FillMoleculeTypeImproper(SYSTEM *System, int (*improper)[5], int n);
 // remove molecule/bead types with 0 molecules/beads
 static void RemoveExtraTypes(SYSTEM *System);
-// merge identical bead types (based on name only or on other properties too)
-static void MergeBeadTypes(SYSTEM *System, bool detailed);
-// merge identical molecule types
-static void MergeMoleculeTypes(SYSTEM *System);
-// fill the remaining SYSTEM stuff when all is properly identified
-static void FillSystemNonessentials(SYSTEM *System);
-// sort a bond/angle/dihedral/improper array in an ascending order
-static void SortBonds(int (*bond)[3], int n);
-static void SortAngles(int (*angle)[4], int n);
-static void SortDihImp(int (*dihimp)[5], int n);
- //}}}
+//}}}
 
 // STATIC IMPLEMENTATIONS
 // lammpstrj //{{{
@@ -193,8 +188,8 @@ static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
   for (int i = 0; i < System->Count.Bead; i++) {
     System->Bead[i].InTimestep = false;
   } //}}}
-  System->Count.BeadCoor = LtrjReadTimestepPreamble(fr, file, &System->Box,
-                                                    line_count);
+  System->Count.BeadCoor =
+      LtrjReadTimestepPreamble(fr, file, &System->Box, line_count);
   if (System->Count.BeadCoor < 0) {
     return System->Count.BeadCoor;
   }
@@ -242,19 +237,19 @@ static int LtrjSkipTimestep(FILE *fr, char file[], int *line_count) {
    *   the first should be the first line read, but who cares...
    *   the second is the beginning of the next timestep
    */
-fpos_t position;
-for (int i = 0; i < 2; i++) {
-  do {
-    fgetpos(fr, &position);
-    (*line_count)++;
-    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      return -2;
-    }
-  } while (words < 2 || strcmp(split[0], "ITEM:") != 0 ||
-           strcmp(split[1], "TIMESTEP") != 0);
+  fpos_t position;
+  for (int i = 0; i < 2; i++) {
+    do {
+      fgetpos(fr, &position);
+      (*line_count)++;
+      if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+        return -2;
+      }
+    } while (words < 2 || strcmp(split[0], "ITEM:") != 0 ||
+             strcmp(split[1], "TIMESTEP") != 0);
   }
   fsetpos(fr, &position); // restore the second 'ITEM: TIMESTEP' line
-  (*line_count)--;  // the 'ITEM: TIMESTEP' will be re-read
+  (*line_count)--;        // the 'ITEM: TIMESTEP' will be re-read
   return 1;
 } //}}}
 // Use the first lammpstrj timestep as a definition of system composition //{{{
@@ -310,7 +305,7 @@ static SYSTEM LtrjReadStruct(char file[]) {
       }
       fprintf(stderr, "%s\n", ErrColourReset());
       exit(1);
-    }                               //}}}
+    } //}}}
     int id = line.Type - 1;
     BEAD *b = &Sys.Bead[id];
     InitBead(b);
@@ -339,11 +334,11 @@ static SYSTEM LtrjReadStruct(char file[]) {
     if (new) { // create a new type
       int type = Count->BeadType;
       if (position[1] != -1) { // 'element' variable is present
-        NewBeadType(&Sys.BeadType, &Count->BeadType, split[position[1]],
-                    CHARGE, MASS, RADIUS);
+        NewBeadType(&Sys.BeadType, &Count->BeadType, split[position[1]], CHARGE,
+                    MASS, RADIUS);
       } else { // 'element' variable is missing
-        NewBeadType(&Sys.BeadType, &Count->BeadType, "bt",
-                    CHARGE, MASS, RADIUS);
+        NewBeadType(&Sys.BeadType, &Count->BeadType, "bt", CHARGE, MASS,
+                    RADIUS);
       }
       BEADTYPE *bt_new = &Sys.BeadType[type];
       bt_new->Number = 1;
@@ -360,7 +355,7 @@ static SYSTEM LtrjReadStruct(char file[]) {
   CheckSystem(Sys, file);
   return Sys;
 } //}}}
-// read pbc from the preamble of the first timestep
+// read pbc from the preamble of the first timestep //{{{
 static BOX LtrjReadPBC(char file[]) {
   BOX box = InitBox;
   int line_count = 0;
@@ -382,7 +377,7 @@ static BOX LtrjReadPBC(char file[]) {
   }
   fclose(fr);
   return box;
-}
+} //}}}
 // Helper functions for lammpstrj files
 // LtrjReadTimestepPreamble() //{{{
 static int LtrjReadTimestepPreamble(FILE *fr, char file[], BOX *box,
@@ -461,7 +456,8 @@ static int LtrjReadPBCSection(FILE *fr, char file[], BOX *box,
     return -1;
   }
   // 2) read box dimensions
-  if (strcmp(split[3], "pp") == 0 || strcmp(split[3], "ff") == 0) { // orthogonal box
+  if (strcmp(split[3], "pp") == 0 ||
+      strcmp(split[3], "ff") == 0) { // orthogonal box
     double bounds[3][2];
     for (int i = 0; i < 3; i++) {
       (*line_count)++;
@@ -508,12 +504,12 @@ static int LtrjReadPBCSection(FILE *fr, char file[], BOX *box,
     from_bound[1].y = Max3(0, 0, tilt[2]);
     from_bound[0].z = 0;
     from_bound[1].z = 0;
-    box->OrthoLength.x = (bounds[0][1] - from_bound[1].x) -
-                         (bounds[0][0] - from_bound[0].x);
-    box->OrthoLength.y = (bounds[1][1] - from_bound[1].y) -
-                         (bounds[1][0] - from_bound[0].y);
-    box->OrthoLength.z = (bounds[2][1] - from_bound[1].z) -
-                         (bounds[2][0] - from_bound[0].z);
+    box->OrthoLength.x =
+        (bounds[0][1] - from_bound[1].x) - (bounds[0][0] - from_bound[0].x);
+    box->OrthoLength.y =
+        (bounds[1][1] - from_bound[1].y) - (bounds[1][0] - from_bound[0].y);
+    box->OrthoLength.z =
+        (bounds[2][1] - from_bound[1].z) - (bounds[2][0] - from_bound[0].z);
     box->transform[0][1] = tilt[0];
     box->transform[0][2] = tilt[1];
     box->transform[1][2] = tilt[2];
@@ -527,7 +523,7 @@ static int LtrjReadPBCSection(FILE *fr, char file[], BOX *box,
 } //}}}
 static bool LtrjCheckTimestepLine() { //{{{
   if (words >= 2 && strcmp(split[0], "ITEM:") == 0 &&
-                    strcmp(split[1], "TIMESTEP") == 0) {
+      strcmp(split[1], "TIMESTEP") == 0) {
     return true;
   } else {
     return false;
@@ -535,9 +531,8 @@ static bool LtrjCheckTimestepLine() { //{{{
 } //}}}
 static bool LtrjCheckNumberAtomsLine() { //{{{
   if (words >= 4 && strcmp(split[0], "ITEM:") == 0 &&
-                    strcmp(split[1], "NUMBER") == 0 &&
-                    strcmp(split[2], "OF") == 0 &&
-                    strcmp(split[3], "ATOMS") == 0) {
+      strcmp(split[1], "NUMBER") == 0 && strcmp(split[2], "OF") == 0 &&
+      strcmp(split[3], "ATOMS") == 0) {
     return true;
   } else {
     return false;
@@ -545,8 +540,7 @@ static bool LtrjCheckNumberAtomsLine() { //{{{
 } //}}}
 static bool LtrjCheckPbcLine() { //{{{
   if (words >= 6 && strcmp(split[0], "ITEM:") == 0 &&
-                    strcmp(split[1], "BOX") == 0 &&
-                    strcmp(split[2], "BOUNDS") == 0) {
+      strcmp(split[1], "BOX") == 0 && strcmp(split[2], "BOUNDS") == 0) {
     return true;
   } else {
     return false;
@@ -595,8 +589,8 @@ static int LtrjReadAtomsLine(FILE *fr, char file[], int max_vars, int *var_pos,
   return cols;
 } //}}}
 // LtrjReadCoorLine() //{{{
-static int LtrjReadCoorLine(FILE *fr, BEAD *b, int b_count,
-                            int *var, int cols) {
+static int LtrjReadCoorLine(FILE *fr, BEAD *b, int b_count, int *var,
+                            int cols) {
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
     return -2;
   }
@@ -655,20 +649,248 @@ static SYSTEM LmpDataReadStruct(char file[]) { //{{{
   MergeBeadTypes(&System, true);
   MergeMoleculeTypes(&System);
   FillSystemNonessentials(&System);
-  // TODO: this is already done in FillSystemNonessentials(), no?
-  // int c_unbonded = 0, c_bonded = 0;
-  // for (int i = 0; i < System.Count.Bead; i++) {
-  //   System.BeadCoor[i] = i;
-  //   if (System.Bead[i].Molecule == -1) {
-  //     System.UnbondedCoor[c_unbonded] = i;
-  //     c_unbonded++;
-  //   } else {
-  //     System.BondedCoor[c_bonded] = i;
-  //     c_bonded++;
-  //   }
-  // }
+  System.BeadCoor =
+      realloc(System.BeadCoor, System.Count.Bead * sizeof *System.BeadCoor);
+  // take the data file as a coordinate file as well
+  int c_unbonded = 0, c_bonded = 0;
+  for (int i = 0; i < System.Count.Bead; i++) {
+    System.BeadCoor[i] = i;
+    if (System.Bead[i].Molecule == -1) {
+      System.UnbondedCoor[c_unbonded] = i;
+      c_unbonded++;
+    } else {
+      System.BondedCoor[c_bonded] = i;
+      c_bonded++;
+    }
+  }
+  // make molecule indices go from 1 (just to avoid large numbers) //{{{
+  // 1) find the lowest molecule index
+  int min_id = 1e7;
+  for (int i = 0; i < System.Count.Molecule; i++) {
+    if (System.Molecule[i].Index < min_id) {
+      min_id = System.Molecule[i].Index;
+    }
+  }
+  // 2) subtract the lowest molecule index from molecule indices
+  for (int i = 0; i < System.Count.Molecule; i++) {
+    System.Molecule[i].Index -= min_id - 1; // start from 1, not from 0
+  }                                         //}}}
   CheckSystem(System, file);
   return System;
+} //}}}
+// TODO: make Atoms section type detection (i.e., # <type>) into a function
+// TODO: Atoms & Velocities section can be switched
+// TODO: add Forces section reading
+// read lammps data file as a coordinate file //{{{
+static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
+                               int *line_count) {
+  COUNT *Count = &System->Count;
+  // set 'in timestep' to all beads //{{{
+  for (int i = 0; i < Count->Bead; i++) {
+    System->Bead[i].InTimestep = true;
+  } //}}}
+  // ignore the first line (comment) //{{{
+  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    ErrorEOF(file, "\0");
+    exit(1);
+  } //}}}
+  *line_count = 1;
+  // read numer of atoms & box size //{{{
+  // read until the first capital-letter-starting line
+  fpos_t position;
+  do {
+    (*line_count)++;
+    fgetpos(fr, &position);
+    // read a line
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      ErrorEOF(file, "incomplete lammps data file header");
+      exit(1);
+    }
+    long val;
+    // <int> atoms //{{{
+    if (words > 1 && strcmp(split[1], "atoms") == 0) {
+      if (!IsNaturalNumber(split[0], &val) || val == 0) {
+        goto error;
+      }
+      if (Count->Bead != val) {
+        strcpy(ERROR_MSG, "lammps data file used as a coordinate file "
+               "must contain all beads");
+        PrintErrorFile(file, "\0", "\0");
+        exit(1);
+      } //}}}
+      // <double> <double> xlo xhi //{{{
+    } else if (words > 3 && strcmp(split[2], "xlo") == 0 &&
+               strcmp(split[3], "xhi") == 0) {
+      double xlo, xhi;
+      if (!IsRealNumber(split[0], &xlo) || !IsRealNumber(split[1], &xhi)) {
+        goto error;
+      }
+      System->Box.Low.x = xlo;
+      System->Box.OrthoLength.x = xhi - xlo; //}}}
+      // <double> <double> ylo yhi //{{{
+    } else if (words > 3 && strcmp(split[2], "ylo") == 0 &&
+               strcmp(split[3], "yhi") == 0) {
+      double ylo, yhi;
+      if (!IsRealNumber(split[0], &ylo) || !IsRealNumber(split[1], &yhi)) {
+        goto error;
+      }
+      System->Box.Low.y = ylo;
+      System->Box.OrthoLength.y = yhi - ylo; //}}}
+      // <double> <double> zlo zhi //{{{
+    } else if (words > 3 && strcmp(split[2], "zlo") == 0 &&
+               strcmp(split[3], "zhi") == 0) {
+      double zlo, zhi;
+      if (!IsRealNumber(split[0], &zlo) || !IsRealNumber(split[1], &zhi)) {
+        goto error;
+      }
+      System->Box.Low.z = zlo;
+      System->Box.OrthoLength.z = zhi - zlo; //}}}
+      // <double> <double> <double> xy xz yz //{{{
+    } else if (words > 5 && strcmp(split[3], "xy") == 0 &&
+               strcmp(split[4], "xz") == 0 && strcmp(split[5], "yz") == 0) {
+      double xy, xz, yz;
+      if (!IsRealNumber(split[0], &xy) || !IsRealNumber(split[1], &xz) ||
+          !IsRealNumber(split[2], &yz)) {
+        goto error;
+      }
+      System->Box.transform[0][1] = xy;
+      System->Box.transform[0][2] = xz;
+      System->Box.transform[1][2] = yz;
+    }                                                             //}}}
+  } while (words == 0 || split[0][0] < 'A' || split[0][0] > 'Z');
+  //  return file pointer to before the first capital-letter-starting line
+  fsetpos(fr, &position);
+  (*line_count)--;
+  CalculateBoxData(&System->Box, 1); //}}}
+  // find 'Atoms' section (and skip the next blank line) //{{{
+  do {
+    (*line_count)++;
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      return -2;
+    }
+  } while (words == 0 || strcmp(split[0], "Atoms") != 0);
+  int mode = 0;
+  if (words > 2 && split[1][0] == '#') {
+    if (strcmp(split[2], "full") == 0) {
+      mode = 0; // for 'Atoms # bond|angle|molecular'
+    } else if (strcmp(split[2], "bond") == 0 ||
+               strcmp(split[2], "angle") == 0 ||
+               strcmp(split[2], "molecular") == 0) {
+      mode = 1; // for 'Atoms # bond|angle|molecular'
+    } else if (strcmp(split[2], "atomic") == 0) {
+      mode = 2; // for 'Atoms # atomic'
+    } else if (strcmp(split[2], "charge") == 0) {
+      mode = 3; // for 'Atoms # charge'
+    } else {    // for 'Atoms # <something else>'
+      snprintf(ERROR_MSG, LINE,
+               "unsupported atom_style (Atoms section) "
+               "%s%s; assuming 'full'",
+               ErrYellow(), split[2]);
+      PrintWarnFile(file, "\0", "\0");
+    }
+  }
+  (*line_count)++;
+  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    return -2;
+  } //}}}
+  // read atom lines //{{{
+  for (int i = 0; i < Count->Bead; i++) {
+    (*line_count)++;
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      return -2;
+    }
+    long id;
+    VECTOR pos;
+    if (mode == 0) {
+      if (words < 7 || !IsNaturalNumber(split[0], &id) ||
+          id > Count->Bead ||                // bead index
+          !IsRealNumber(split[4], &pos.x) || // Cartesean coordinates
+          !IsRealNumber(split[5], &pos.y) || //
+          !IsRealNumber(split[6], &pos.z)) { //
+        strcpy(ERROR_MSG, "wrong line in Atoms section");
+        PrintErrorFileLine(file, *line_count, split, words);
+        exit(1);
+      }
+    } else if (mode == 1) {
+      // 'Atoms # bond|angle|molecular':
+      // <bead id> <mol id> <bead type id> <coordinates>
+      if (words < 6 || !IsNaturalNumber(split[0], &id) ||
+          id > Count->Bead ||                // bead index
+          !IsRealNumber(split[3], &pos.x) || // Cartesean coordinates
+          !IsRealNumber(split[4], &pos.y) || //
+          !IsRealNumber(split[5], &pos.z)) { //
+        strcpy(ERROR_MSG, "wrong line in Atoms section");
+        PrintErrorFileLine(file, *line_count, split, words);
+        exit(1);
+      }
+    } else if (mode == 2) {
+      // 'Atoms # atomic': <bead id> <bead type id> <coordinates>
+      if (words < 5 || !IsNaturalNumber(split[0], &id) ||
+          id > Count->Bead ||                // bead index
+          !IsRealNumber(split[2], &pos.x) || // Cartesean coordinates
+          !IsRealNumber(split[3], &pos.y) || //
+          !IsRealNumber(split[4], &pos.z)) { //
+        strcpy(ERROR_MSG, "wrong line in Atoms section");
+        PrintErrorFileLine(file, *line_count, split, words);
+        exit(1);
+      }
+    } else if (mode == 3) {
+      // 'Atoms # charge': <bead id> <bead type id> <charge> <coordinates>
+      if (words < 6 || !IsNaturalNumber(split[0], &id) ||
+          id > Count->Bead ||                // bead index
+          !IsRealNumber(split[3], &pos.x) || // Cartesean coordinates
+          !IsRealNumber(split[4], &pos.y) || //
+          !IsRealNumber(split[5], &pos.z)) { //
+        strcpy(ERROR_MSG, "wrong line in Atoms section");
+        PrintErrorFileLine(file, *line_count, split, words);
+        exit(1);
+      }
+    }
+    id--; // in lammps data file, ids start from 1
+    BEAD *b = &System->Bead[id];
+    b->Position.x = pos.x - System->Box.Low.x;
+    b->Position.y = pos.y - System->Box.Low.y;
+    b->Position.z = pos.z - System->Box.Low.z;
+    System->BeadCoor[i] = id;
+  } //}}}
+  // find 'Velocities' section (and skip the next blank line) //{{{
+  do {
+    (*line_count)++;
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      return -2;
+    }
+  } while (words == 0 || strcmp(split[0], "Velocities") != 0);
+  (*line_count)++;
+  if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    return -2;
+  } //}}}
+  // read velocity lines //{{{
+  for (int i = 0; i < Count->Bead; i++) {
+    (*line_count)++;
+    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+      return -2;
+    }
+    long id;
+    VECTOR vel;
+    // error - wrong line //{{{
+    if (words < 4 || !IsNaturalNumber(split[0], &id) ||
+        id > Count->Bead ||                // bead index
+        !IsRealNumber(split[1], &vel.x) || // bead velocities
+        !IsRealNumber(split[2], &vel.y) || //
+        !IsRealNumber(split[3], &vel.z)) { //
+      strcpy(ERROR_MSG, "wrong line in Velocities section");
+      PrintErrorFileLine(file, *line_count, split, words);
+      exit(1);
+    }     //}}}
+    id--; // in lammps data file, ids start from 1
+    BEAD *b = &System->Bead[id];
+    b->Velocity = vel;
+  } //}}}
+  return 1;
+  error: // unrecognised line //{{{
+    strcpy(ERROR_MSG, "unrecognised line in the file header");
+    PrintErrorFileLine(file, *line_count, split, words);
+    exit(1); //}}}
 } //}}}
 // read header //{{{
 static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
@@ -695,7 +917,7 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
     long val;
     // <int> atoms //{{{
     if (words > 1 && strcmp(split[1], "atoms") == 0) {
-      if (!IsWholeNumber(split[0], &val) || val == 0) {
+      if (!IsNaturalNumber(split[0], &val) || val == 0) {
         goto error;
       }
       Count->Bead = val;
@@ -704,132 +926,139 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
        * so at first, each bead will be its own type
        */
       Count->BeadType = val;
-      System->BeadType = realloc(System->BeadType,
-                                 Count->BeadType * sizeof *System->BeadType);
+      System->BeadType =
+          realloc(System->BeadType, Count->BeadType * sizeof *System->BeadType);
       for (int i = 0; i < Count->Bead; i++) {
         InitBead(&System->Bead[i]);
         InitBeadType(&System->BeadType[i]);
       } //}}}
-    // <int> bonds //{{{
+      // <int> bonds //{{{
     } else if (words > 1 && strcmp(split[1], "bonds") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->Bond = val; //}}}
-    // <int> angles //{{{
+      // <int> angles //{{{
     } else if (words > 1 && strcmp(split[1], "angles") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->Angle = val; //}}}
-    // <int> dihedrals //{{{
+      // <int> dihedrals //{{{
     } else if (words > 1 && strcmp(split[1], "dihedrals") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->Dihedral = val; //}}}
-    // <int> impropers //{{{
+      // <int> impropers //{{{
     } else if (words > 1 && strcmp(split[1], "impropers") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->Improper = val; //}}}
-    // <int> atom types //{{{
+      // <int> atom types //{{{
     } else if (words > 2 && strcmp(split[1], "atom") == 0 &&
-                            strcmp(split[2], "types") == 0) {
-      if (!IsWholeNumber(split[0], &val) || val == 0) {
+               strcmp(split[2], "types") == 0) {
+      if (!IsNaturalNumber(split[0], &val) || val == 0) {
         goto error;
       }
       atom_types = val; //}}}
-    // <int> bond types //{{{
+      // <int> bond types //{{{
     } else if (words > 2 && strcmp(split[1], "bond") == 0 &&
-                            strcmp(split[2], "types") == 0) {
+               strcmp(split[2], "types") == 0) {
       if (strcmp(split[0], "???") != 0) {
         if (!IsWholeNumber(split[0], &val)) {
           goto error;
         }
         Count->BondType = val;
-        System->BondType = realloc(System->BondType,
-                                   Count->BondType * sizeof *System->BondType);
-        for (int i = 0; i < Count->BondType; i++) {
-          System->BondType[i] = InitParams;
+        if (Count->BondType > 0) {
+          System->BondType = realloc(
+              System->BondType, Count->BondType * sizeof *System->BondType);
+          for (int i = 0; i < Count->BondType; i++) {
+            System->BondType[i] = InitParams;
+          }
         }
       }
       //}}}
-    // <int> angle types //{{{
+      // <int> angle types //{{{
     } else if (words > 2 && strcmp(split[1], "angle") == 0 &&
-                            strcmp(split[2], "types") == 0) {
+               strcmp(split[2], "types") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->AngleType = val;
-      System->AngleType = realloc(System->AngleType,
-                                  Count->AngleType * sizeof *System->AngleType);
-      for (int i = 0; i < Count->AngleType; i++) {
-        System->AngleType[i] = InitParams;
+      if (Count->AngleType > 0) {
+        System->AngleType = realloc(
+            System->AngleType, Count->AngleType * sizeof *System->AngleType);
+        for (int i = 0; i < Count->AngleType; i++) {
+          System->AngleType[i] = InitParams;
+        }
       }
       //}}}
-    // <int> dihedral types //{{{
+      // <int> dihedral types //{{{
     } else if (words > 2 && strcmp(split[1], "dihedral") == 0 &&
-                            strcmp(split[2], "types") == 0) {
+               strcmp(split[2], "types") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->DihedralType = val;
-      System->DihedralType = realloc(System->DihedralType, Count->DihedralType *
-                                     sizeof *System->DihedralType);
-      for (int i = 0; i < Count->DihedralType; i++) {
-        System->DihedralType[i] = InitParams;
+      if (Count->DihedralType > 0) {
+        System->DihedralType =
+            realloc(System->DihedralType,
+                    Count->DihedralType * sizeof *System->DihedralType);
+        for (int i = 0; i < Count->DihedralType; i++) {
+          System->DihedralType[i] = InitParams;
+        }
       }
       //}}}
-    // <int> improper types //{{{
+      // <int> improper types //{{{
     } else if (words > 2 && strcmp(split[1], "improper") == 0 &&
-                            strcmp(split[2], "types") == 0) {
+               strcmp(split[2], "types") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->ImproperType = val;
-      System->ImproperType = realloc(System->ImproperType,
-                                     Count->ImproperType *
-                                     sizeof *System->ImproperType);
-      for (int i = 0; i < Count->ImproperType; i++) {
-        System->ImproperType[i] = InitParams;
+      if (Count->ImproperType > 0) {
+        System->ImproperType =
+            realloc(System->ImproperType,
+                    Count->ImproperType * sizeof *System->ImproperType);
+        for (int i = 0; i < Count->ImproperType; i++) {
+          System->ImproperType[i] = InitParams;
+        }
       }
       //}}}
-    // <double> <double> xlo xhi //{{{
+      // <double> <double> xlo xhi //{{{
     } else if (words > 3 && strcmp(split[2], "xlo") == 0 &&
-                            strcmp(split[3], "xhi") == 0) {
+               strcmp(split[3], "xhi") == 0) {
       double xlo, xhi;
-      if (!IsRealNumber(split[0], &xlo) ||
-          !IsRealNumber(split[1], &xhi)) {
+      if (!IsRealNumber(split[0], &xlo) || !IsRealNumber(split[1], &xhi)) {
         goto error;
       }
+      System->Box.Low.x = xlo;
       System->Box.OrthoLength.x = xhi - xlo; //}}}
-    // <double> <double> ylo yhi //{{{
+      // <double> <double> ylo yhi //{{{
     } else if (words > 3 && strcmp(split[2], "ylo") == 0 &&
-                            strcmp(split[3], "yhi") == 0) {
+               strcmp(split[3], "yhi") == 0) {
       double ylo, yhi;
-      if (!IsRealNumber(split[0], &ylo) ||
-          !IsRealNumber(split[1], &yhi)) {
+      if (!IsRealNumber(split[0], &ylo) || !IsRealNumber(split[1], &yhi)) {
         goto error;
       }
+      System->Box.Low.y = ylo;
       System->Box.OrthoLength.y = yhi - ylo; //}}}
-    // <double> <double> zlo zhi //{{{
+      // <double> <double> zlo zhi //{{{
     } else if (words > 3 && strcmp(split[2], "zlo") == 0 &&
-                            strcmp(split[3], "zhi") == 0) {
+               strcmp(split[3], "zhi") == 0) {
       double zlo, zhi;
-      if (!IsRealNumber(split[0], &zlo) ||
-          !IsRealNumber(split[1], &zhi)) {
+      if (!IsRealNumber(split[0], &zlo) || !IsRealNumber(split[1], &zhi)) {
         goto error;
       }
+      System->Box.Low.z = zlo;
       System->Box.OrthoLength.z = zhi - zlo; //}}}
-    // <double> <double> <double> xy xz yz //{{{
+      // <double> <double> <double> xy xz yz //{{{
     } else if (words > 5 && strcmp(split[3], "xy") == 0 &&
-                            strcmp(split[4], "xz") == 0 &&
-                            strcmp(split[5], "yz") == 0) {
+               strcmp(split[4], "xz") == 0 && strcmp(split[5], "yz") == 0) {
       double xy, xz, yz;
-      if (!IsRealNumber(split[0], &xy) ||
-          !IsRealNumber(split[1], &xz) ||
+      if (!IsRealNumber(split[0], &xy) || !IsRealNumber(split[1], &xz) ||
           !IsRealNumber(split[2], &yz)) {
         goto error;
       }
@@ -872,8 +1101,7 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
     PrintWarnFile(file, "\0", "\0");
     putc('\n', stderr);
   }
-  if (System->Box.OrthoLength.x == -1 ||
-      System->Box.OrthoLength.y == -1 ||
+  if (System->Box.OrthoLength.x == -1 || System->Box.OrthoLength.y == -1 ||
       System->Box.OrthoLength.z == -1) {
     strcpy(ERROR_MSG, "missing box size in the file header");
     PrintWarnFile(file, "\0", "\0");
@@ -881,10 +1109,10 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
   }
   //}}}
   return atom_types;
-  error: // unrecognised line //{{{
-    strcpy(ERROR_MSG, "unrecognised line in the file header");
-    PrintErrorFileLine(file, *line_count, split, words);
-    exit(1); //}}}
+error: // unrecognised line //{{{
+  strcpy(ERROR_MSG, "unrecognised line in the file header");
+  PrintErrorFileLine(file, *line_count, split, words);
+  exit(1); //}}}
 } //}}}
 // read body //{{{
 static void LmpDataReadBody(FILE *fr, char file[], SYSTEM *System,
@@ -914,11 +1142,11 @@ static void LmpDataReadBody(FILE *fr, char file[], SYSTEM *System,
     improper = calloc(1, sizeof *improper);
   } //}}}
   // variables to check all sections are present
-  bool atoms = false, // Atoms section
-       bonds[2] = {false, false}, // Bond Coeffs & Bonds sections
-       angles[2] = {false, false}, // Angle Coeffs & Angles sections
-       dihedrals[2] = {false, false}, // Dihedral Coeffs & Dihedrals sections
-       impropers[2] = {false, false}; // Improper Coeffs & Impropers sections
+  bool atoms = false,                // Atoms section
+      bonds[2] = {false, false},     // Bond Coeffs & Bonds sections
+      angles[2] = {false, false},    // Angle Coeffs & Angles sections
+      dihedrals[2] = {false, false}, // Dihedral Coeffs & Dihedrals sections
+      impropers[2] = {false, false}; // Improper Coeffs & Impropers sections
   // read the rest of the file //{{{
   while (ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
     (*line_count)++;
@@ -926,19 +1154,19 @@ static void LmpDataReadBody(FILE *fr, char file[], SYSTEM *System,
     if (words > 0 && strcmp(split[0], "Masses") == 0) {
       LmpDataReadMasses(fr, file, name_mass, atom_types, line_count);
     } else if (words > 1 && strcmp(split[0], "Bond") == 0 &&
-                            strcmp(split[1], "Coeffs") == 0) {
+               strcmp(split[1], "Coeffs") == 0) {
       bonds[0] = true;
       LmpDataReadBondCoeffs(fr, file, System, line_count);
     } else if (words > 1 && strcmp(split[0], "Angle") == 0 &&
-                            strcmp(split[1], "Coeffs") == 0) {
+               strcmp(split[1], "Coeffs") == 0) {
       angles[0] = true;
       LmpDataReadAngleCoeffs(fr, file, System, line_count);
     } else if (words > 1 && strcmp(split[0], "Dihedral") == 0 &&
-                            strcmp(split[1], "Coeffs") == 0) {
+               strcmp(split[1], "Coeffs") == 0) {
       dihedrals[0] = true;
       LmpDataReadDihedralCoeffs(fr, file, System, line_count);
     } else if (words > 1 && strcmp(split[0], "Improper") == 0 &&
-                            strcmp(split[1], "Coeffs") == 0) {
+               strcmp(split[1], "Coeffs") == 0) {
       impropers[0] = true;
       LmpDataReadImproperCoeffs(fr, file, System, line_count);
     } else if (words > 0 && strcmp(split[0], "Atoms") == 0) {
@@ -955,14 +1183,16 @@ static void LmpDataReadBody(FILE *fr, char file[], SYSTEM *System,
           mode = 2; // for 'Atoms # atomic'
         } else if (strcmp(split[2], "charge") == 0) {
           mode = 3; // for 'Atoms # charge'
-        } else { // for 'Atoms # <something else>'
-          snprintf(ERROR_MSG, LINE, "unsupported atom_style (Atoms section) "
-                   "%s%s; assuming 'full'", ErrYellow(), split[2]);
+        } else {    // for 'Atoms # <something else>'
+          snprintf(ERROR_MSG, LINE,
+                   "unsupported atom_style (Atoms section) "
+                   "%s%s; assuming 'full'",
+                   ErrYellow(), split[2]);
           PrintWarnFile(file, "\0", "\0");
         }
       }
-      LmpDataReadAtoms(fr, file, System, name_mass, atom_types,
-                       line_count, mode);
+      LmpDataReadAtoms(fr, file, System, name_mass, atom_types, line_count,
+                       mode);
     } else if (words > 0 && strcmp(split[0], "Velocities") == 0) {
       LmpDataReadVelocities(fr, file, System, line_count);
     } else if (words > 0 && strcmp(split[0], "Bonds") == 0) {
@@ -988,7 +1218,7 @@ static void LmpDataReadBody(FILE *fr, char file[], SYSTEM *System,
   }
   if (Count->Bond > 0 && !bonds[0]) {
     strcpy(ERROR_MSG, "Missing Bond Coeffs section; "
-           "setting all bond type parameters to 0");
+                      "setting all bond type parameters to 0");
     PrintWarnFile(file, "\0", "\0");
     putc('\n', stderr);
     for (int i = 0; i < Count->BondType; i++) {
@@ -1004,7 +1234,7 @@ static void LmpDataReadBody(FILE *fr, char file[], SYSTEM *System,
   }
   if (Count->Angle > 0 && !angles[0]) {
     strcpy(ERROR_MSG, "Missing Angle Coeffs section; "
-           "setting all angle type parameters to 0");
+                      "setting all angle type parameters to 0");
     PrintWarnFile(file, "\0", "\0");
     putc('\n', stderr);
     for (int i = 0; i < Count->AngleType; i++) {
@@ -1020,7 +1250,7 @@ static void LmpDataReadBody(FILE *fr, char file[], SYSTEM *System,
   }
   if (Count->Dihedral > 0 && !dihedrals[0]) {
     strcpy(ERROR_MSG, "Missing Dihedral Coeffs section; "
-           "setting all dihedral type parameters to 0");
+                      "setting all dihedral type parameters to 0");
     PrintWarnFile(file, "\0", "\0");
     putc('\n', stderr);
     for (int i = 0; i < Count->DihedralType; i++) {
@@ -1036,7 +1266,7 @@ static void LmpDataReadBody(FILE *fr, char file[], SYSTEM *System,
   }
   if (Count->Improper > 0 && !impropers[0]) {
     strcpy(ERROR_MSG, "Missing Improper Coeffs section; "
-           "setting all improper type parameters to 0");
+                      "setting all improper type parameters to 0");
     PrintWarnFile(file, "\0", "\0");
     putc('\n', stderr);
     for (int i = 0; i < Count->ImproperType; i++) {
@@ -1142,7 +1372,7 @@ static void LmpDataReadBondCoeffs(FILE *fr, char file[], SYSTEM *System,
     // error - wrong line //{{{
     if (words < 3 || !IsNaturalNumber(split[0], &type) ||
         type > Count->BondType || !IsPosRealNumber(split[1], &a) ||
-                                  !IsPosRealNumber(split[2], &b)) {
+        !IsPosRealNumber(split[2], &b)) {
       strcpy(ERROR_MSG, "wrong line in Bond Coeffs section");
       PrintErrorFileLine(file, *line_count, split, words);
       exit(1);
@@ -1219,7 +1449,7 @@ static void LmpDataReadDihedralCoeffs(FILE *fr, char file[], SYSTEM *System,
         (!IsIntegerNumber(split[2], &b) && labs(b) != 1) ||
         !IsWholeNumber(split[3], &c)) {
       strcpy(ERROR_MSG, "wrong line in Dihedral Coeffs section "
-             "(for now, only harmonic type accepted)");
+                        "(for now, only harmonic type accepted)");
       PrintErrorFileLine(file, *line_count, split, words);
       exit(1);
     } //}}}
@@ -1260,13 +1490,13 @@ static void LmpDataReadImproperCoeffs(FILE *fr, char file[], SYSTEM *System,
         (!IsIntegerNumber(split[2], &b) && labs(b) != 1) ||
         !IsWholeNumber(split[3], &c)) {
       strcpy(ERROR_MSG, "wrong line in Improper Coeffs section "
-             "(for now, only cvff type accepted)");
+                        "(for now, only cvff type accepted)");
       PrintErrorFileLine(file, *line_count, split, words);
       exit(1);
     } //}}}
-    System->ImproperType[type-1].a = a;
-    System->ImproperType[type-1].b = b;
-    System->ImproperType[type-1].c = c;
+    System->ImproperType[type - 1].a = a;
+    System->ImproperType[type - 1].b = b;
+    System->ImproperType[type - 1].c = c;
   }
 } //}}}
 // read Atoms section //{{{
@@ -1294,8 +1524,8 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
     // check the line is correct & read/assign values //{{{
     // 'Atoms # full': <bead id> <mol id> <bead type id> <charge> <coordinates>
     if (mode == 0) {
-      if (words < 7 ||
-          !IsNaturalNumber(split[0], &id) || id > Count->Bead || // bead index
+      if (words < 7 || !IsNaturalNumber(split[0], &id) ||
+          id > Count->Bead ||                   // bead index
           !IsIntegerNumber(split[1], &resid) || // molecule index
           !IsWholeNumber(split[2], &type) ||    // bead type (mass-defined)
           (!IsRealNumber(split[3], &q) &&       // bead charge
@@ -1310,8 +1540,8 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
     } else if (mode == 1) {
       // 'Atoms # bond|angle|molecular':
       // <bead id> <mol id> <bead type id> <coordinates>
-      if (words < 6 ||
-          !IsNaturalNumber(split[0], &id) || id > Count->Bead || // bead index
+      if (words < 6 || !IsNaturalNumber(split[0], &id) ||
+          id > Count->Bead ||                   // bead index
           !IsIntegerNumber(split[1], &resid) || // molecule index
           !IsWholeNumber(split[2], &type) ||    // bead type (mass-defined)
           !IsRealNumber(split[3], &pos.x) ||    // Cartesean coordinates
@@ -1324,12 +1554,12 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
       q = CHARGE;
     } else if (mode == 2) {
       // 'Atoms # atomic': <bead id> <bead type id> <coordinates>
-      if (words < 5 ||
-          !IsNaturalNumber(split[0], &id) || id > Count->Bead || // bead index
-          !IsWholeNumber(split[1], &type) ||    // bead type (mass-defined)
-          !IsRealNumber(split[2], &pos.x) ||    // Cartesean coordinates
-          !IsRealNumber(split[3], &pos.y) ||    //
-          !IsRealNumber(split[4], &pos.z)) {    //
+      if (words < 5 || !IsNaturalNumber(split[0], &id) ||
+          id > Count->Bead ||                // bead index
+          !IsWholeNumber(split[1], &type) || // bead type (mass-defined)
+          !IsRealNumber(split[2], &pos.x) || // Cartesean coordinates
+          !IsRealNumber(split[3], &pos.y) || //
+          !IsRealNumber(split[4], &pos.z)) { //
         strcpy(ERROR_MSG, "wrong line in Atoms section");
         PrintErrorFileLine(file, *line_count, split, words);
         exit(1);
@@ -1338,25 +1568,27 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
       q = CHARGE;
     } else if (mode == 3) {
       // 'Atoms # charge': <bead id> <bead type id> <charge> <coordinates>
-      if (words < 6 ||
-          !IsNaturalNumber(split[0], &id) || id > Count->Bead || // bead index
-          !IsWholeNumber(split[1], &type) ||    // bead type (mass-defined)
-          (!IsRealNumber(split[2], &q) &&       // bead charge
-           strcmp(split[3], "???") != 0) ||     //
-          !IsRealNumber(split[3], &pos.x) ||    // Cartesean coordinates
-          !IsRealNumber(split[4], &pos.y) ||    //
-          !IsRealNumber(split[5], &pos.z)) {    //
+      if (words < 6 || !IsNaturalNumber(split[0], &id) ||
+          id > Count->Bead ||                // bead index
+          !IsWholeNumber(split[1], &type) || // bead type (mass-defined)
+          (!IsRealNumber(split[2], &q) &&    // bead charge
+           strcmp(split[3], "???") != 0) ||  //
+          !IsRealNumber(split[3], &pos.x) || // Cartesean coordinates
+          !IsRealNumber(split[4], &pos.y) || //
+          !IsRealNumber(split[5], &pos.z)) { //
         strcpy(ERROR_MSG, "wrong line in Atoms section");
         PrintErrorFileLine(file, *line_count, split, words);
         exit(1);
       }
       resid = 0;
     }
-      //}}}
-    id--;
-    type--;
+    //}}}
+    id--;   // in lammps data file, bead ids start from 1
+    type--; // in lammps data file, bead type ids start from 1
     BEAD *b = &System->Bead[id];
-    b->Position = pos;
+    b->Position.x = pos.x - System->Box.Low.x;
+    b->Position.y = pos.y - System->Box.Low.y;
+    b->Position.z = pos.z - System->Box.Low.z;
     b->InTimestep = true;
     b->Type = id;
     /*
@@ -1366,9 +1598,10 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
      */
     BEADTYPE *bt = &System->BeadType[id];
     if (type > atom_types) {
-      snprintf(ERROR_MSG, LINE, "bead type is too high; id is %s%ld%s in "
-               "a file with %s%d%s atom types", ErrRed(), type, ErrYellow(),
-               ErrRed(), atom_types, ErrYellow());
+      snprintf(ERROR_MSG, LINE,
+               "bead type is too high; id is %s%ld%s in "
+               "a file with %s%d%s atom types",
+               ErrRed(), type, ErrYellow(), ErrRed(), atom_types, ErrYellow());
       PrintErrorFile(file, "\0", "\0");
       exit(1);
     }
@@ -1395,10 +1628,10 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
       b->Molecule = resid;
       // resid ids may be discontinuous, so define Molecule for all possible ids
       if (resid > Count->HighestResid) {
-        System->MoleculeType = realloc(System->MoleculeType,
-                                       sizeof(MOLECULETYPE) * (resid + 1));
-        System->Molecule = realloc(System->Molecule,
-                                   sizeof(MOLECULE) * (resid + 1));
+        System->MoleculeType =
+            realloc(System->MoleculeType, sizeof(MOLECULETYPE) * (resid + 1));
+        System->Molecule =
+            realloc(System->Molecule, sizeof(MOLECULE) * (resid + 1));
         for (int i = (Count->HighestResid + 1); i <= resid; i++) {
           InitMoleculeType(&System->MoleculeType[i]);
           InitMolecule(&System->Molecule[i]);
@@ -1417,8 +1650,8 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
       } else { // yes, assign the atom to that type
         int bead = mt_resid->nBeads;
         mt_resid->nBeads++;
-        mt_resid->Bead = realloc(mt_resid->Bead,
-                                 sizeof *mt_resid->Bead * mt_resid->nBeads);
+        mt_resid->Bead =
+            realloc(mt_resid->Bead, sizeof *mt_resid->Bead * mt_resid->nBeads);
         mt_resid->Bead[bead] = id;
       }
     } else {
@@ -1445,7 +1678,8 @@ static void LmpDataReadVelocities(FILE *fr, char file[], SYSTEM *System,
     long id;
     VECTOR vel;
     // error - wrong line //{{{
-    if (words < 4 || !IsNaturalNumber(split[0], &id) || id > Count->Bead ||                // bead index
+    if (words < 4 || !IsNaturalNumber(split[0], &id) ||
+        id > Count->Bead ||                // bead index
         !IsRealNumber(split[1], &vel.x) || // bead velocities
         !IsRealNumber(split[2], &vel.y) || //
         !IsRealNumber(split[3], &vel.z)) { //
@@ -1505,25 +1739,25 @@ static void LmpDataReadBonds(FILE *fr, char file[], COUNT Count, int (*bond)[3],
       strcpy(ERROR_MSG, "Repeated bond index");
       goto error;
     } //}}}
-    bond[id-1][0] = b_id[0] - 1;
-    bond[id-1][1] = b_id[1] - 1;
+    bond[id - 1][0] = b_id[0] - 1;
+    bond[id - 1][1] = b_id[1] - 1;
     if (strcmp(split[1], "???") == 0) {
       if (!warned) {
         strcpy(ERROR_MSG, "undefined bond type (\'???\' in Bonds section)");
         PrintWarnFile(file, "\0", "\0");
         warned = true;
       }
-      bond[id-1][2] = -1;
+      bond[id - 1][2] = -1;
     } else {
-      bond[id-1][2] = type - 1;
+      bond[id - 1][2] = type - 1;
     }
-    found[id-1] = true;
+    found[id - 1] = true;
   }
   free(found);
   return;
-  error:
-    PrintErrorFileLine(file, *line_count, split, words);
-    exit(1);
+error:
+  PrintErrorFileLine(file, *line_count, split, words);
+  exit(1);
 } //}}}
 // read Angles section //{{{
 static void LmpDataReadAngles(FILE *fr, char file[], COUNT Count,
@@ -1572,17 +1806,17 @@ static void LmpDataReadAngles(FILE *fr, char file[], COUNT Count,
       strcpy(ERROR_MSG, "Repeated angle index");
       goto error;
     } //}}}
-    angle[id-1][0] = a_id[0] - 1;
-    angle[id-1][1] = a_id[1] - 1;
-    angle[id-1][2] = a_id[2] - 1;
-    angle[id-1][3] = type - 1;
-    found[id-1] = true;
+    angle[id - 1][0] = a_id[0] - 1;
+    angle[id - 1][1] = a_id[1] - 1;
+    angle[id - 1][2] = a_id[2] - 1;
+    angle[id - 1][3] = type - 1;
+    found[id - 1] = true;
   }
   free(found);
   return;
-  error:
-    PrintErrorFileLine(file, *line_count, split, words);
-    exit(1);
+error:
+  PrintErrorFileLine(file, *line_count, split, words);
+  exit(1);
 } //}}}
 // read Dihedrals section //{{{
 static void LmpDataReadDihedrals(FILE *fr, char file[], COUNT Count,
@@ -1634,18 +1868,18 @@ static void LmpDataReadDihedrals(FILE *fr, char file[], COUNT Count,
       strcpy(ERROR_MSG, "Repeated dihedral index");
       goto error;
     } //}}}
-    dihedral[id-1][0] = d_id[0] - 1;
-    dihedral[id-1][1] = d_id[1] - 1;
-    dihedral[id-1][2] = d_id[2] - 1;
-    dihedral[id-1][3] = d_id[3] - 1;
-    dihedral[id-1][4] = type - 1;
-    found[id-1] = true;
+    dihedral[id - 1][0] = d_id[0] - 1;
+    dihedral[id - 1][1] = d_id[1] - 1;
+    dihedral[id - 1][2] = d_id[2] - 1;
+    dihedral[id - 1][3] = d_id[3] - 1;
+    dihedral[id - 1][4] = type - 1;
+    found[id - 1] = true;
   }
   free(found);
   return;
-  error:
-    PrintErrorFileLine(file, *line_count, split, words);
-    exit(1);
+error:
+  PrintErrorFileLine(file, *line_count, split, words);
+  exit(1);
 } //}}}
 // read Impropers section //{{{
 static void LmpDataReadImpropers(FILE *fr, char file[], COUNT Count,
@@ -1693,24 +1927,24 @@ static void LmpDataReadImpropers(FILE *fr, char file[], COUNT Count,
       strcpy(ERROR_MSG, "Same beads in a single improper");
       goto error;
     }
-    if (found[id-1]) {
+    if (found[id - 1]) {
       strcpy(ERROR_MSG, "Repeated improper index");
       goto error;
     } //}}}
-    improper[id-1][0] = i_id[0] - 1;
-    improper[id-1][1] = i_id[1] - 1;
-    improper[id-1][2] = i_id[2] - 1;
-    improper[id-1][3] = i_id[3] - 1;
-    improper[id-1][4] = type - 1;
-    found[id-1] = true;
+    improper[id - 1][0] = i_id[0] - 1;
+    improper[id - 1][1] = i_id[1] - 1;
+    improper[id - 1][2] = i_id[2] - 1;
+    improper[id - 1][3] = i_id[3] - 1;
+    improper[id - 1][4] = type - 1;
+    found[id - 1] = true;
   }
   free(found);
   return;
-  error:
-    PrintErrorFileLine(file, *line_count, split, words);
-    exit(1);
+error:
+  PrintErrorFileLine(file, *line_count, split, words);
+  exit(1);
 } //}}}
- //}}}
+  //}}}
 // vtf //{{{
 // VtfReadStruct() //{{{
 /*
@@ -1725,10 +1959,10 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   COUNT *Count = &Sys.Count;
   FILE *fr = OpenFile(file, "r");
   // define variables and structures and arrays //{{{
-  int line_count = 0,  // total number of lines
-      count_atoms = 0, // number of 'atom <id>'
-      default_atom = 0,// line number of the first 'atom default' line
-      count_bonds = 0; // number of bonds
+  int line_count = 0,   // total number of lines
+      count_atoms = 0,  // number of 'atom <id>'
+      default_atom = 0, // line number of the first 'atom default' line
+      count_bonds = 0;  // number of bonds
   bool warned = false; // has 'a[tom] default' line warning been already issued?
   BEADTYPE bt_def;
   InitBeadType(&bt_def);
@@ -1756,7 +1990,8 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
       if (strcmp(split[1], "default") == 0) { // 'a[tom] default' line
         if (default_atom != 0 && !warned) {   // warn of multiple defaults //{{{
           warned = true;                      // warn only once
-          snprintf(ERROR_MSG, LINE,  "multiple 'a[tom] default' lines"
+          snprintf(ERROR_MSG, LINE,
+                   "multiple 'a[tom] default' lines"
                    "%s, using line %s%d%s as the default line%s\n",
                    ErrCyan(), ErrYellow(), default_atom, ErrCyan(),
                    ErrColourReset());
@@ -1775,7 +2010,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
           if (value[3] != -1) {
             bt_def.Radius = atof(split[value[3]]);
           }
-        } //}}}
+        }      //}}}
       } else { // 'a[tom] <id>' line //{{{
         int id = atoi(split[1]);
         // warning - repeated atom line //{{{
@@ -1798,7 +2033,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
         // save values from the 'a[tom] <id>' line
         int *value = VtfAtomLineValues();
         strncpy(Sys.BeadType[id].Name, split[value[0]], BEAD_NAME);
-        Sys.BeadType[id].Name[BEAD_NAME-1] = '\0'; // ensure null-termination
+        Sys.BeadType[id].Name[BEAD_NAME - 1] = '\0'; // ensure null-termination
         if (value[1] != -1) {
           Sys.BeadType[id].Mass = atof(split[value[1]]);
         }
@@ -1847,7 +2082,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
           }
           Sys.Bead[id].Molecule = resid;
         }
-      } //}}}
+      }                              //}}}
     } else if (ltype == BOND_LINE) { // b) //{{{
       bond = realloc(bond, sizeof *bond * (count_bonds + 1));
       long val;
@@ -1874,7 +2109,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
       break;
     } else if (ltype == COOR_LINE || ltype == COOR_LINE_O) { // d)
       strcpy(ERROR_MSG, "encountered a coordinate-like line"
-             "inside the structure block ");
+                        "inside the structure block ");
       PrintErrorFileLine(file, line_count, split, words);
       exit(1);
     } else if (ltype != BLANK_LINE && ltype != COMMENT_LINE &&
@@ -1891,7 +2126,8 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   // error - no default line and too few atom lines //{{{
   if (default_atom == 0 && count_atoms != Count->Bead) {
     int undefined = Count->Bead - count_atoms;
-    snprintf(ERROR_MSG, LINE,  "not all beads defined ('atom default' line is "
+    snprintf(ERROR_MSG, LINE,
+             "not all beads defined ('atom default' line is "
              "omitted); %s%d%s bead(s) undefined",
              ErrYellow(), undefined, ErrRed());
     PrintErrorFile(file, "\0", "\0");
@@ -1917,7 +2153,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
       count_def++;
     }
     if (Sys.Bead[i].Molecule == -1) { // is 'i' in a molecule?
-      Count->Unbonded++; // unbonded bead
+      Count->Unbonded++;              // unbonded bead
     } else {
       Count->Bonded++; // bonded bead
     }
@@ -1925,7 +2161,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   // just check that it counts the beads correctly
   if (Count->Bead != (Count->Unbonded + Count->Bonded)) {
     strcpy(ERROR_MSG, "something went wrong with bead counting; "
-           "should never happen!");
+                      "should never happen!");
     PrintErrorFile(file, "\0", "\0");
     exit(1);
   } //}}}
@@ -2076,8 +2312,7 @@ static int *VtfAtomLineValues() {
 // TODO: add long id & VECOTR position, so it doesn't have to be done twice
 static int VtfCheckCoorOrderedLine(VECTOR *coor) { //{{{
   if (words >= 3 && IsRealNumber(split[0], &coor->x) &&
-                    IsRealNumber(split[1], &coor->y) &&
-                    IsRealNumber(split[2], &coor->z)) {
+      IsRealNumber(split[1], &coor->y) && IsRealNumber(split[2], &coor->z)) {
     return COOR_LINE_O;
   }
   return ERROR_LINE;
@@ -2085,9 +2320,8 @@ static int VtfCheckCoorOrderedLine(VECTOR *coor) { //{{{
 static int VtfCheckCoorIndexedLine(VECTOR *coor, long *index) { //{{{
   // indexed line (may also be ordered)
   if (words >= 4 && IsWholeNumber(split[0], index) &&
-                    IsRealNumber(split[1], &coor->x) &&
-                    IsRealNumber(split[2], &coor->y) &&
-                    IsRealNumber(split[3], &coor->z)) {
+      IsRealNumber(split[1], &coor->x) && IsRealNumber(split[2], &coor->y) &&
+      IsRealNumber(split[3], &coor->z)) {
     return COOR_LINE;
   } else {
     return ERROR_LINE;
@@ -2131,13 +2365,12 @@ static int VtfCheckPbcLine() { //{{{
   // unrecognised line
   double val;
   if (words < 4 || strcmp(split[0], "pbc") != 0 ||
-      !IsPosRealNumber(split[1], &val) ||
-      !IsPosRealNumber(split[2], &val) ||
+      !IsPosRealNumber(split[1], &val) || !IsPosRealNumber(split[2], &val) ||
       !IsPosRealNumber(split[3], &val)) {
     return ERROR_LINE;
   } else if (words > 6 && IsPosRealNumber(split[4], &val) &&
-                          IsPosRealNumber(split[5], &val) &&
-                          IsPosRealNumber(split[6], &val)) {
+             IsPosRealNumber(split[5], &val) &&
+             IsPosRealNumber(split[6], &val)) {
     return PBC_LINE_ANGLES;
   } else {
     return PBC_LINE;
@@ -2148,7 +2381,7 @@ static bool VtfCheckAtomLine() { //{{{
   double val_d;
   // error - line not starting with a[tom] default/<id> //{{{
   if (split[0][0] != 'a' || (strcmp(split[1], "default") != 0 &&
-      !IsIntegerNumber(split[1], &val_i))) {
+                             !IsIntegerNumber(split[1], &val_i))) {
     return false;
   } //}}}
   // error - odd number of strings //{{{
@@ -2165,26 +2398,26 @@ static bool VtfCheckAtomLine() { //{{{
     }
     // error - resid not followed by non-negative integer //{{{
     if (strcmp(split[i], "resid") == 0 &&
-        !IsWholeNumber(split[i+1], &val_i)) {
+        !IsWholeNumber(split[i + 1], &val_i)) {
       strcpy(ERROR_MSG, "atom line: 'resid' not followed by natural number");
       return false;
     } //}}}
     // error - charge|q //{{{
     if ((strcmp(split[i], "charge") == 0 || split[i][0] == 'q') &&
-        !IsRealNumber(split[i+1], &val_d)) {
+        !IsRealNumber(split[i + 1], &val_d)) {
       strcpy(ERROR_MSG, "atom line: 'charge|q' not followed by real number ");
       return false; //}}}
-    // error - r[adius] not followed by positive number //{{{
+      // error - r[adius] not followed by positive number //{{{
     } else if (split[i][0] == 'r' &&               // possible r[adius]
                strncmp(split[i], "res", 3) != 0 && // it's not resid or resname
-               !IsPosRealNumber(split[i+1], &val_d)) {
+               !IsPosRealNumber(split[i + 1], &val_d)) {
       strcpy(ERROR_MSG, "atom line: 'r[adius]]]' not followed by "
-             "positive real number ");
+                        "positive real number ");
       return false; //}}}
-    // error - m[ass] not followed by positive number //{{{
-    } else if (split[i][0] == 'm' && !IsPosRealNumber(split[i+1], &val_d)) {
+      // error - m[ass] not followed by positive number //{{{
+    } else if (split[i][0] == 'm' && !IsPosRealNumber(split[i + 1], &val_d)) {
       strcpy(ERROR_MSG, "atom line: 'm[ass]' not followed by "
-             "positive real number");
+                        "positive real number");
       return false;
     } //}}}
   }
@@ -2192,7 +2425,7 @@ static bool VtfCheckAtomLine() { //{{{
   if (!name) {
     strcpy(ERROR_MSG, "atom line: missing 'n[ame]' keyword ");
     return false;
-  } //}}}
+  }            //}}}
   return true; // valid atom line
 } //}}}
 static bool VtfCheckBondLine() { //{{{
@@ -2210,19 +2443,19 @@ static bool VtfCheckBondLine() { //{{{
     int strings = SplitLine(2, index, string, ":");
     // int strings = SplitLine_old(index, string, ":");
     if (strings != 2 || !IsIntegerNumber(index[0], &val_i) || val_i < 0 ||
-                        !IsIntegerNumber(index[1], &val_i) || val_i < 0) {
+        !IsIntegerNumber(index[1], &val_i) || val_i < 0) {
       strcpy(ERROR_MSG, "bond line: only 'b[ond] <int>:<int>' or "
-             "'b[ond] <int>: <int>' is valid (for now)");
+                        "'b[ond] <int>: <int>' is valid (for now)");
       return false;
     }
   }
   // more than two strings - assume '<int>: <int>' and test it
   if (words > 2) {
-    split[1][strlen(split[1])-1] = '\0';
+    split[1][strlen(split[1]) - 1] = '\0';
     if (!IsIntegerNumber(split[1], &val_i) || val_i < 0 ||
         !IsIntegerNumber(split[2], &val_i) || val_i < 0) {
       strcpy(ERROR_MSG, "bond line: only 'b[ond] <int>:<int>' or "
-             "'b[ond] <int>: <int>' is valid (for now)");
+                        "'b[ond] <int>: <int>' is valid (for now)");
       return false;
     }
   }
@@ -2244,7 +2477,7 @@ static BOX VtfReadPBC(char file[]) { //{{{
     if (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) {
       VtfPbcLine(&Box, ltype);
       break; //}}}
-    // coordinate line - return from function //{{{
+      // coordinate line - return from function //{{{
     } else if (ltype == COOR_LINE || ltype == COOR_LINE_O) {
       break;
     } //}}}
@@ -2322,18 +2555,22 @@ static int VtfReadCoorBlockIndexed(FILE *fr, char file[], SYSTEM *System,
   for (int i = 0; i < Count->BeadCoor; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      snprintf(ERROR_MSG, LINE, "premature end of constant-size indexed "
-               "coordinate block (%s%d%s lines instead of %s%d%s)", ErrYellow(),
-               i, ErrRed(), ErrYellow(), Count->BeadCoor, ErrRed());
+      snprintf(ERROR_MSG, LINE,
+               "premature end of constant-size indexed "
+               "coordinate block (%s%d%s lines instead of %s%d%s)",
+               ErrYellow(), i, ErrRed(), ErrYellow(), Count->BeadCoor,
+               ErrRed());
       PrintErrorFile(file, "\0", "\0");
       return -2;
     }
     VECTOR position;
     long id;
     if (VtfCheckCoorIndexedLine(&position, &id) == ERROR_LINE) {
-      snprintf(ERROR_MSG, LINE, "unrecognized line in constant-size indexed "
-               "coordinate block (%s%d%s-th line from %s%d%s)", ErrYellow(),
-               i + 1, ErrRed(), ErrYellow(), Count->BeadCoor, ErrRed());
+      snprintf(ERROR_MSG, LINE,
+               "unrecognized line in constant-size indexed "
+               "coordinate block (%s%d%s-th line from %s%d%s)",
+               ErrYellow(), i + 1, ErrRed(), ErrYellow(), Count->BeadCoor,
+               ErrRed());
       PrintErrorFileLine(file, *line_count, split, words);
       return -1;
     }
@@ -2354,8 +2591,7 @@ static int VtfReadCoorBlockIndexed(FILE *fr, char file[], SYSTEM *System,
     bead_id->InTimestep = true;
     VECTOR vel;
     if (words >= 7 && IsRealNumber(split[4], &vel.x) &&
-                      IsRealNumber(split[5], &vel.y) &&
-                      IsRealNumber(split[6], &vel.z)) {
+        IsRealNumber(split[5], &vel.y) && IsRealNumber(split[6], &vel.z)) {
       bead_id->Velocity.x = vel.x;
       bead_id->Velocity.y = vel.y;
       bead_id->Velocity.z = vel.z;
@@ -2384,7 +2620,8 @@ static int VtfReadCoorBlockIndexedVar(FILE *fr, char file[], SYSTEM *System,
   // read the first coordinate line
   (*line_count)++;
   if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-    snprintf(ERROR_MSG, LINE, "premature end of file; "
+    snprintf(ERROR_MSG, LINE,
+             "premature end of file; "
              "no beads in a variable-sized indexed coordinate block");
     PrintErrorFile(file, "\0", "\0");
     return -2;
@@ -2409,8 +2646,7 @@ static int VtfReadCoorBlockIndexedVar(FILE *fr, char file[], SYSTEM *System,
     bead_id->InTimestep = true;
     VECTOR vel;
     if (words >= 7 && IsRealNumber(split[4], &vel.x) &&
-                      IsRealNumber(split[5], &vel.y) &&
-                      IsRealNumber(split[6], &vel.z)) {
+        IsRealNumber(split[5], &vel.y) && IsRealNumber(split[6], &vel.z)) {
       bead_id->Velocity.x = vel.x;
       bead_id->Velocity.y = vel.y;
       bead_id->Velocity.z = vel.z;
@@ -2430,7 +2666,7 @@ static int VtfReadCoorBlockIndexedVar(FILE *fr, char file[], SYSTEM *System,
     Count->BeadCoor++;
     if (Count->BeadCoor > Count->Bead) {
       strcpy(ERROR_MSG, "more beads in a variable-sized indexed "
-             "coordinate block than in the whole system");
+                        "coordinate block than in the whole system");
       return -1;
     }
     // read next line
@@ -2450,17 +2686,20 @@ static int VtfReadCoorBlockOrdered(FILE *fr, char file[], SYSTEM *System,
   for (int i = 0; i < Count->Bead; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      snprintf(ERROR_MSG, LINE, "premature end of ordered "
-               "coordinate block (%s%d%s lines instead of %s%d%s)", ErrYellow(),
-               i, ErrRed(), ErrYellow(), Count->Bead, ErrRed());
+      snprintf(ERROR_MSG, LINE,
+               "premature end of ordered "
+               "coordinate block (%s%d%s lines instead of %s%d%s)",
+               ErrYellow(), i, ErrRed(), ErrYellow(), Count->Bead, ErrRed());
       PrintErrorFile(file, "\0", "\0");
       return -2;
     }
     VECTOR coor;
     if (VtfCheckCoorOrderedLine(&coor) == ERROR_LINE) {
-      snprintf(ERROR_MSG, LINE, "unrecognized line in constant-size coordinate"
-               " block (%s%d%s-th line from %s%d%s)", ErrYellow(), i + 1,
-               ErrRed(), ErrYellow(), Count->BeadCoor, ErrRed());
+      snprintf(ERROR_MSG, LINE,
+               "unrecognized line in constant-size coordinate"
+               " block (%s%d%s-th line from %s%d%s)",
+               ErrYellow(), i + 1, ErrRed(), ErrYellow(), Count->BeadCoor,
+               ErrRed());
       PrintErrorFileLine(file, *line_count, split, words);
       return -1;
     }
@@ -2471,8 +2710,7 @@ static int VtfReadCoorBlockOrdered(FILE *fr, char file[], SYSTEM *System,
     bead_i->InTimestep = true;
     VECTOR vel;
     if (words >= 6 && IsRealNumber(split[3], &vel.x) &&
-                      IsRealNumber(split[4], &vel.y) &&
-                      IsRealNumber(split[5], &vel.z)) {
+        IsRealNumber(split[4], &vel.y) && IsRealNumber(split[5], &vel.z)) {
       bead_i->Velocity.x = vel.x;
       bead_i->Velocity.y = vel.y;
       bead_i->Velocity.z = vel.z;
@@ -2529,7 +2767,7 @@ int VtfReadNumberOfBeads(char file[]) { //{{{
   fclose(fr);
   return nbeads;
 } //}}}
- //}}}
+  //}}}
 // FIELD-like //{{{
 static SYSTEM FieldRead(char file[]) { //{{{
   SYSTEM System;
@@ -2562,8 +2800,8 @@ static SYSTEM FieldRead(char file[]) { //{{{
   RemoveExtraTypes(&System);
   MergeBeadTypes(&System, true);
   MergeMoleculeTypes(&System);
-  System.BeadCoor = realloc(System.BeadCoor,
-                            Count->Bead * sizeof *System.BeadCoor);
+  System.BeadCoor =
+      realloc(System.BeadCoor, Count->Bead * sizeof *System.BeadCoor);
   FillSystemNonessentials(&System);
   // TODO: this is in FillSystemNonessentials() already, no?
   // int c_unbonded = 0, c_bonded = 0;
@@ -2643,8 +2881,8 @@ static void FieldReadSpecies(char file[], SYSTEM *System) { //{{{
         warned = true;
       }
     }
-    NewBeadType(&System->BeadType, &Count->BeadType, split[0],
-                charge, mass, RADIUS);
+    NewBeadType(&System->BeadType, &Count->BeadType, split[0], charge, mass,
+                RADIUS);
     System->BeadType[Count->BeadType - 1].Number = number;
     Count->Bead += number;
     Count->Unbonded += number;
@@ -2747,15 +2985,17 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       for (int j = 0; j < mt_i->nBeads; j++) {
         line_count++;
         // read a line //{{{
-        if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+        if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR,
+                              " \t\n")) {
           ErrorEOF(file, "incomplete 'Molecules' section");
           exit(1);
         } //}}}
         // error - incorrect line //{{{
         if (words < 4 || !IsRealNumber(split[1], &coor[j].x) ||
-                         !IsRealNumber(split[2], &coor[j].y) ||
-                         !IsRealNumber(split[3], &coor[j].z)) {
-          strcpy(ERROR_MSG, "incorrect bead coordinate line in a molecule entry");
+            !IsRealNumber(split[2], &coor[j].y) ||
+            !IsRealNumber(split[3], &coor[j].z)) {
+          strcpy(ERROR_MSG,
+                 "incorrect bead coordinate line in a molecule entry");
           PrintErrorFileLine(file, line_count, split, words);
           exit(1);
         } //}}}
@@ -2774,11 +3014,11 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       Count->Molecule += mt_i->Number;
       Count->Bead += mt_i->Number * mt_i->nBeads;
       Count->Bonded += mt_i->Number * mt_i->nBeads;
-      System->Molecule = realloc(System->Molecule,
-                                 sizeof *System->Molecule * Count->Molecule);
+      System->Molecule =
+          realloc(System->Molecule, sizeof *System->Molecule * Count->Molecule);
       System->Bead = realloc(System->Bead, sizeof *System->Bead * Count->Bead);
-      System->Bonded = realloc(System->Bonded,
-                               sizeof System->Bonded * Count->Bonded);
+      System->Bonded =
+          realloc(System->Bonded, sizeof System->Bonded * Count->Bonded);
       for (int j = count; j < Count->Bead; j++) {
         InitBead(&System->Bead[j]);
       }
@@ -2837,8 +3077,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
         for (int j = 0; j < mt_i->nBonds; j++) {
           line_count++;
           // read a line //{{{
-          if (!ReadAndSplitLine(fr, LINE, line, &words, split,
-                                SPL_STR, " \t\n")) {
+          if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR,
+                                " \t\n")) {
             ErrorEOF(file, "incomplete 'Molecules' section");
             exit(1);
           } //}}}
@@ -2856,45 +3096,58 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
             strcpy(ERROR_MSG, "bead index in a bond is too high");
             PrintErrorFileLine(file, line_count, split, words);
             exit(1);
-          }                                //}}}
-          mt_i->Bond[j][0] = beads[0] - 1; // in FIELD, bead indices start from 1
+          } //}}}
+          mt_i->Bond[j][0] =
+              beads[0] - 1; // in FIELD, bead indices start from 1
           mt_i->Bond[j][1] = beads[1] - 1; //
           // read up to three values for bond type
           if (words > 3) {
             if (strcmp(split[3], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE, "undefined bond type (\'???\' in bonds "
-                       "section) in molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "undefined bond type (\'???\' in bonds "
+                       "section) in molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintWarnFile(file, "\0", "\0");
               warned = true;
             } else if (!IsRealNumber(split[3], &values.a)) {
-              snprintf(ERROR_MSG, LINE, "wrong bond type parameter in "
-                       "molecule %s%s\n", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "wrong bond type parameter in "
+                       "molecule %s%s\n",
+                       ErrYellow(), mt_i->Name);
               PrintErrorFileLine(file, line_count, split, words);
               exit(1);
             }
           }
           if (words > 4) {
             if (strcmp(split[4], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE, "undefined bond type (\'???\' in bonds "
-                       "section) in molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "undefined bond type (\'???\' in bonds "
+                       "section) in molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintWarnFile(file, "\0", "\0");
               warned = true;
             } else if (!IsRealNumber(split[4], &values.b)) {
-              snprintf(ERROR_MSG, LINE, "wrong bond type parameter in "
-                       "molecule %s%s\n", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "wrong bond type parameter in "
+                       "molecule %s%s\n",
+                       ErrYellow(), mt_i->Name);
               PrintErrorFileLine(file, line_count, split, words);
               exit(1);
             }
           }
           if (words > 5) {
             if (strcmp(split[5], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE, "undefined bond type (\'???\' in bonds "
-                       "section) in molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "undefined bond type (\'???\' in bonds "
+                       "section) in molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintWarnFile(file, "\0", "\0");
               warned = true;
             } else if (!IsRealNumber(split[5], &values.c)) {
-              snprintf(ERROR_MSG, LINE, "wrong bond type parameter in "
-                       "molecule %s%s\n", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "wrong bond type parameter in "
+                       "molecule %s%s\n",
+                       ErrYellow(), mt_i->Name);
               PrintErrorFileLine(file, line_count, split, words);
               exit(1);
             }
@@ -2915,8 +3168,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
             if (bond_type == -1) {
               bond_type = Count->BondType;
               Count->BondType++;
-              System->BondType = realloc(System->BondType,
-                                         sizeof(PARAMS) * Count->BondType);
+              System->BondType =
+                  realloc(System->BondType, sizeof(PARAMS) * Count->BondType);
               System->BondType[bond_type].a = values.a;
               System->BondType[bond_type].b = values.b;
               System->BondType[bond_type].c = values.c;
@@ -2927,8 +3180,10 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
         continue;
       } else {
-        snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for "
-                 "molecule %s%s", ErrYellow(), mt_i->Name);
+        snprintf(ERROR_MSG, LINE,
+                 "unrecognised line in an entry for "
+                 "molecule %s%s",
+                 ErrYellow(), mt_i->Name);
         PrintErrorFileLine(file, line_count, split, words);
         exit(1);
       } //}}}
@@ -2942,8 +3197,10 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       if (words > 1 && strncasecmp(split[0], "angles", 4) == 0) {
         // a) number of angles //{{{
         if (!IsNaturalNumber(split[1], &val)) {
-          snprintf(ERROR_MSG, LINE, "incorrect line in 'angles' line for "
-                   "molecule %s%s", ErrYellow(), mt_i->Name);
+          snprintf(ERROR_MSG, LINE,
+                   "incorrect line in 'angles' line for "
+                   "molecule %s%s",
+                   ErrYellow(), mt_i->Name);
           PrintErrorFileLine(file, line_count, split, words);
           exit(1);
         }
@@ -2955,8 +3212,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
         for (int j = 0; j < mt_i->nAngles; j++) {
           line_count++;
           // read a line //{{{
-          if (!ReadAndSplitLine(fr, LINE, line, &words, split,
-                                SPL_STR, " \t\n")) {
+          if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR,
+                                " \t\n")) {
             ErrorEOF(file, "incomplete 'Molecules' section");
             exit(1);
           } //}}}
@@ -2964,63 +3221,78 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
           PARAMS values = InitParams;
           // error - incorrect line //{{{
           if (words < 4 || !IsNaturalNumber(split[1], &beads[0]) ||
-                           !IsNaturalNumber(split[2], &beads[1]) ||
-                           !IsNaturalNumber(split[3], &beads[2]) ||
-              beads[0] == beads[1] ||
-              beads[0] == beads[2] ||
-              beads[1] == beads[2]) {
-            snprintf(ERROR_MSG, LINE, "incorrect line in an entry for "
-                     "molecule %s%s", ErrYellow(), mt_i->Name);
+              !IsNaturalNumber(split[2], &beads[1]) ||
+              !IsNaturalNumber(split[3], &beads[2]) || beads[0] == beads[1] ||
+              beads[0] == beads[2] || beads[1] == beads[2]) {
+            snprintf(ERROR_MSG, LINE,
+                     "incorrect line in an entry for "
+                     "molecule %s%s",
+                     ErrYellow(), mt_i->Name);
             PrintErrorFileLine(file, line_count, split, words);
             exit(1);
           } //}}}
           // error - bead index is too high //{{{
           if (beads[0] > mt_i->nBeads || beads[1] > mt_i->nBeads ||
               beads[2] > mt_i->nBeads) {
-            snprintf(ERROR_MSG, LINE, "bead index in an angle is too high in "
-                     "molecule %s%s", ErrYellow(), mt_i->Name);
+            snprintf(ERROR_MSG, LINE,
+                     "bead index in an angle is too high in "
+                     "molecule %s%s",
+                     ErrYellow(), mt_i->Name);
             PrintErrorFileLine(file, line_count, split, words);
             exit(1);
-          }                                 //}}}
-          mt_i->Angle[j][0] = beads[0] - 1; // in FIELD, bead indices start from 1
+          } //}}}
+          mt_i->Angle[j][0] =
+              beads[0] - 1; // in FIELD, bead indices start from 1
           mt_i->Angle[j][1] = beads[1] - 1; //
           mt_i->Angle[j][2] = beads[2] - 1; //
           // read up to three values for angle type
           if (words > 4) {
             if (strcmp(split[4], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE, "undefined angle type (\'???\' in angles "
-                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "undefined angle type (\'???\' in angles "
+                       "section) for molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintWarnFile(file, "\0", "\0");
               warned = true;
             } else if (!IsRealNumber(split[4], &values.a)) {
-              snprintf(ERROR_MSG, LINE, "wrong angle parameter in molecule "
-                       "%s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "wrong angle parameter in molecule "
+                       "%s%s",
+                       ErrYellow(), mt_i->Name);
               PrintErrorFileLine(file, line_count, split, words);
               exit(1);
             }
           }
           if (words > 5) {
             if (strcmp(split[5], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE, "undefined angle type (\'???\' in angles "
-                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "undefined angle type (\'???\' in angles "
+                       "section) for molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintWarnFile(file, "\0", "\0");
               warned = true;
             } else if (!IsRealNumber(split[5], &values.b)) {
-              snprintf(ERROR_MSG, LINE, "wrong angle parameter in molecule "
-                       "%s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "wrong angle parameter in molecule "
+                       "%s%s",
+                       ErrYellow(), mt_i->Name);
               PrintErrorFileLine(file, line_count, split, words);
               exit(1);
             }
           }
           if (words > 6) {
             if (strcmp(split[6], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE, "undefined angle type (\'???\' in angles "
-                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "undefined angle type (\'???\' in angles "
+                       "section) for molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintWarnFile(file, "\0", "\0");
               warned = true;
             } else if (!IsRealNumber(split[6], &values.c)) {
-              snprintf(ERROR_MSG, LINE, "wrong angle parameter in molecule "
-                       "%s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "wrong angle parameter in molecule "
+                       "%s%s",
+                       ErrYellow(), mt_i->Name);
               PrintErrorFileLine(file, line_count, split, words);
               exit(1);
             }
@@ -3041,9 +3313,9 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
             if (angle_type == -1) {
               angle_type = Count->AngleType;
               Count->AngleType++;
-              System->AngleType = realloc(System->AngleType,
-                                          sizeof *System->AngleType *
-                                          Count->AngleType);
+              System->AngleType =
+                  realloc(System->AngleType,
+                          sizeof *System->AngleType * Count->AngleType);
               System->AngleType[angle_type].a = values.a;
               System->AngleType[angle_type].b = values.b;
               System->AngleType[angle_type].c = values.c;
@@ -3054,8 +3326,10 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
         continue;
       } else {
-        snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for molecule "
-                 "%s%s", ErrYellow(), mt_i->Name);
+        snprintf(ERROR_MSG, LINE,
+                 "unrecognised line in an entry for molecule "
+                 "%s%s",
+                 ErrYellow(), mt_i->Name);
         PrintErrorFileLine(file, line_count, split, words);
         exit(1);
       } //}}}
@@ -3069,8 +3343,10 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       if (words > 1 && strncasecmp(split[0], "dihedrals", 5) == 0) {
         // a) number of dihedrals //{{{
         if (!IsNaturalNumber(split[1], &val)) {
-          snprintf(ERROR_MSG, LINE, "incorrect 'dihedrals' line for molecule "
-                   "%s%s", ErrYellow(), mt_i->Name);
+          snprintf(ERROR_MSG, LINE,
+                   "incorrect 'dihedrals' line for molecule "
+                   "%s%s",
+                   ErrYellow(), mt_i->Name);
           PrintErrorFileLine(file, line_count, split, words);
           exit(1);
         }
@@ -3082,8 +3358,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
         for (int j = 0; j < mt_i->nDihedrals; j++) {
           line_count++;
           // read a line //{{{
-          if (!ReadAndSplitLine(fr, LINE, line, &words, split,
-                                SPL_STR, " \t\n")) {
+          if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR,
+                                " \t\n")) {
             ErrorEOF(file, "incomplete 'Molecules' section");
             exit(1);
           } //}}}
@@ -3094,21 +3370,23 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
               !IsNaturalNumber(split[2], &beads[1]) ||
               !IsNaturalNumber(split[3], &beads[2]) ||
               !IsNaturalNumber(split[4], &beads[3]) || beads[0] == beads[1] ||
-              beads[0] == beads[2] ||
-              beads[0] == beads[3] ||
-              beads[1] == beads[2] ||
-              beads[1] == beads[3] ||
+              beads[0] == beads[2] || beads[0] == beads[3] ||
+              beads[1] == beads[2] || beads[1] == beads[3] ||
               beads[2] == beads[3]) {
-            snprintf(ERROR_MSG, LINE, "incorrect dihedral line for molecule "
-                     "%s%s", ErrYellow(), mt_i->Name);
+            snprintf(ERROR_MSG, LINE,
+                     "incorrect dihedral line for molecule "
+                     "%s%s",
+                     ErrYellow(), mt_i->Name);
             PrintErrorFileLine(file, line_count, split, words);
             exit(1);
           } //}}}
           // error - bead index is too high //{{{
           if (beads[0] > mt_i->nBeads || beads[1] > mt_i->nBeads ||
               beads[2] > mt_i->nBeads || beads[3] > mt_i->nBeads) {
-            snprintf(ERROR_MSG, LINE, "bead index in a dihedral is too high for "
-                     "molecule %s%s", ErrYellow(), mt_i->Name);
+            snprintf(ERROR_MSG, LINE,
+                     "bead index in a dihedral is too high for "
+                     "molecule %s%s",
+                     ErrYellow(), mt_i->Name);
             PrintErrorFileLine(file, line_count, split, words);
             exit(1);
           }                                    //}}}
@@ -3119,39 +3397,51 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
           // read up to three values for dihedral type //{{{
           if (words > 5) {
             if (strcmp(split[5], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE, "undefined dihedral type (\'???\' in the "
-                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "undefined dihedral type (\'???\' in the "
+                       "section) for molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintWarnFile(file, "\0", "\0");
               warned = true;
             } else if (!IsRealNumber(split[5], &values.a)) {
-              snprintf(ERROR_MSG, LINE, "wrong dihedral parameter "
-                       "for molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "wrong dihedral parameter "
+                       "for molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintErrorFile(file, "\0", "\0");
               exit(1);
             }
           }
           if (words > 6) {
             if (strcmp(split[6], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE, "undefined dihedral type (\'???\' in the "
-                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "undefined dihedral type (\'???\' in the "
+                       "section) for molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintWarnFile(file, "\0", "\0");
               warned = true;
             } else if (!IsRealNumber(split[6], &values.b)) {
-              snprintf(ERROR_MSG, LINE, "wrong dihedral parameter "
-                       "for molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "wrong dihedral parameter "
+                       "for molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintErrorFile(file, "\0", "\0");
               exit(1);
             }
           }
           if (words > 7) {
             if (strcmp(split[7], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE, "undefined dihedral type (\'???\' in the "
-                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "undefined dihedral type (\'???\' in the "
+                       "section) for molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintWarnFile(file, "\0", "\0");
               warned = true;
             } else if (!IsRealNumber(split[7], &values.c)) {
-              snprintf(ERROR_MSG, LINE, "wrong dihedral parameter "
-                       "for molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "wrong dihedral parameter "
+                       "for molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintErrorFile(file, "\0", "\0");
               exit(1);
             }
@@ -3172,9 +3462,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
             if (dihedral_type == -1) {
               dihedral_type = Count->DihedralType;
               Count->DihedralType++;
-              System->DihedralType = realloc(System->DihedralType,
-                                             sizeof(PARAMS) *
-                                             Count->DihedralType);
+              System->DihedralType = realloc(
+                  System->DihedralType, sizeof(PARAMS) * Count->DihedralType);
               System->DihedralType[dihedral_type] = values;
             }
           }
@@ -3183,8 +3472,10 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
         continue;
       } else {
-        snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for molecule "
-                 "%s%s", ErrYellow(), mt_i->Name);
+        snprintf(ERROR_MSG, LINE,
+                 "unrecognised line in an entry for molecule "
+                 "%s%s",
+                 ErrYellow(), mt_i->Name);
         PrintErrorFileLine(file, line_count, split, words);
         exit(1);
       } //}}}
@@ -3198,8 +3489,10 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       if (words > 1 && strncasecmp(split[0], "impropers", 6) == 0) {
         // a) number of impropers //{{{
         if (!IsNaturalNumber(split[1], &val)) {
-          snprintf(ERROR_MSG, LINE, "incorrect 'impropers' line in an entry "
-                   "for molecule %s%s", ErrYellow(), mt_i->Name);
+          snprintf(ERROR_MSG, LINE,
+                   "incorrect 'impropers' line in an entry "
+                   "for molecule %s%s",
+                   ErrYellow(), mt_i->Name);
           PrintErrorFileLine(file, line_count, split, words);
           exit(1);
         }
@@ -3221,15 +3514,14 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
           if (words < 5 || !IsNaturalNumber(split[1], &beads[0]) ||
               !IsNaturalNumber(split[2], &beads[1]) ||
               !IsNaturalNumber(split[3], &beads[2]) ||
-              !IsNaturalNumber(split[4], &beads[3]) ||
-              beads[0] == beads[1] ||
-              beads[0] == beads[2] ||
-              beads[0] == beads[3] ||
-              beads[1] == beads[2] ||
-              beads[1] == beads[3] ||
+              !IsNaturalNumber(split[4], &beads[3]) || beads[0] == beads[1] ||
+              beads[0] == beads[2] || beads[0] == beads[3] ||
+              beads[1] == beads[2] || beads[1] == beads[3] ||
               beads[2] == beads[3]) {
-            snprintf(ERROR_MSG, LINE, "incorrect improper line for molecule "
-                     "%s%s", ErrYellow(), mt_i->Name);
+            snprintf(ERROR_MSG, LINE,
+                     "incorrect improper line for molecule "
+                     "%s%s",
+                     ErrYellow(), mt_i->Name);
             PrintErrorFileLine(file, line_count, split, words);
             exit(1);
           } //}}}
@@ -3247,26 +3539,34 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
           // read up to three values for improper type //{{{
           if (words > 5) {
             if (strcmp(split[5], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE, "undefined improper type (\'???\' in the "
-                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "undefined improper type (\'???\' in the "
+                       "section) for molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintWarnFile(file, "\0", "\0");
               warned = true;
             } else if (!IsRealNumber(split[5], &values.a)) {
-              snprintf(ERROR_MSG, LINE, "wrong improper parameter "
-                       "for molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "wrong improper parameter "
+                       "for molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintErrorFile(file, "\0", "\0");
               exit(1);
             }
           }
           if (words > 6) {
             if (strcmp(split[6], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE, "undefined improper type (\'???\' in the "
-                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "undefined improper type (\'???\' in the "
+                       "section) for molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintWarnFile(file, "\0", "\0");
               warned = true;
             } else if (!IsRealNumber(split[6], &values.b)) {
-              snprintf(ERROR_MSG, LINE, "wrong improper parameter "
-                       "for molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "wrong improper parameter "
+                       "for molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintErrorFile(file, "\0", "\0");
               exit(1);
             }
@@ -3274,13 +3574,17 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
           if (words > 7) {
             IsRealNumber(split[7], &values.c);
             if (strcmp(split[7], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE, "undefined improper type (\'???\' in the "
-                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "undefined improper type (\'???\' in the "
+                       "section) for molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintWarnFile(file, "\0", "\0");
               warned = true;
             } else if (!IsRealNumber(split[7], &values.c)) {
-              snprintf(ERROR_MSG, LINE, "wrong improper parameter "
-                       "for molecule %s%s", ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE,
+                       "wrong improper parameter "
+                       "for molecule %s%s",
+                       ErrYellow(), mt_i->Name);
               PrintErrorFile(file, "\0", "\0");
               exit(1);
             }
@@ -3301,9 +3605,9 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
             if (improper_type == -1) {
               improper_type = Count->ImproperType;
               Count->ImproperType++;
-              System->ImproperType = realloc(System->ImproperType,
-                                             sizeof *System->ImproperType *
-                                             Count->ImproperType);
+              System->ImproperType =
+                  realloc(System->ImproperType,
+                          sizeof *System->ImproperType * Count->ImproperType);
               System->ImproperType[improper_type] = values;
             }
           }
@@ -3312,8 +3616,10 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
         continue;
       } else {
-        snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for molecule "
-                 "%s%s", ErrYellow(), mt_i->Name);
+        snprintf(ERROR_MSG, LINE,
+                 "unrecognised line in an entry for molecule "
+                 "%s%s",
+                 ErrYellow(), mt_i->Name);
         PrintErrorFileLine(file, line_count, split, words);
         exit(1);
       } //}}}
@@ -3325,8 +3631,10 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
         exit(1);
       } //}}}
       if (words == 0 || strcasecmp(split[0], "finish") != 0) {
-        snprintf(ERROR_MSG, LINE, "missing 'finish' at the end of an entry for "
-                 "molecule %s%s", ErrYellow(), mt_i->Name);
+        snprintf(ERROR_MSG, LINE,
+                 "missing 'finish' at the end of an entry for "
+                 "molecule %s%s",
+                 ErrYellow(), mt_i->Name);
         PrintErrorFileLine(file, line_count, split, words);
         exit(1);
       } //}}}
@@ -3368,9 +3676,9 @@ static SYSTEM XyzReadStruct(char file[], int pbc) { //{{{
   if (pbc > 0) {
     VECTOR box;
     // pbc=column id, tzn. pbc-1 for split element
-    if (words < (pbc + 2) || !IsRealNumber(split[pbc-1], &box.x) ||
-                             !IsRealNumber(split[pbc+0], &box.y) ||
-                             !IsRealNumber(split[pbc+1], &box.z)) {
+    if (words < (pbc + 2) || !IsRealNumber(split[pbc - 1], &box.x) ||
+        !IsRealNumber(split[pbc + 0], &box.y) ||
+        !IsRealNumber(split[pbc + 1], &box.z)) {
       strcpy(ERROR_MSG, "missing pbc on the comment line");
       PrintWarningFileLine(file, line_count, split, words);
     } else {
@@ -3378,9 +3686,9 @@ static SYSTEM XyzReadStruct(char file[], int pbc) { //{{{
       Sys.Box.Length.y = box.y;
       Sys.Box.Length.z = box.z;
       double angle[3];
-      if (words > (pbc + 4) && IsRealNumber(split[pbc+2], &angle[0]) &&
-                               IsRealNumber(split[pbc+3], &angle[1]) &&
-                               IsRealNumber(split[pbc+4], &angle[2])) {
+      if (words > (pbc + 4) && IsRealNumber(split[pbc + 2], &angle[0]) &&
+          IsRealNumber(split[pbc + 3], &angle[1]) &&
+          IsRealNumber(split[pbc + 4], &angle[2])) {
         Sys.Box.alpha = angle[0];
         Sys.Box.beta = angle[1];
         Sys.Box.gamma = angle[2];
@@ -3453,8 +3761,10 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
     PrintWarningFileLine(file, *line_count, split, words);
     return -1;
   } else if (val > System->Count.Bead) {
-    snprintf(ERROR_MSG, LINE, "too many beads in the timestep (maximum "
-             "number is %s%d%s)", ErrYellow(), System->Count.Bead, ErrRed());
+    snprintf(ERROR_MSG, LINE,
+             "too many beads in the timestep (maximum "
+             "number is %s%d%s)",
+             ErrYellow(), System->Count.Bead, ErrRed());
     PrintErrorFileLine(file, *line_count, split, words);
     return -1;
   }
@@ -3470,9 +3780,11 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
   for (int i = 0; i < System->Count.BeadCoor; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      snprintf(ERROR_MSG, LINE, "premature end of file "
-               "(%s%d%s coordinate lines instead of %s%d%s)", ErrYellow(),
-               i, ErrRed(), ErrYellow(), System->Count.BeadCoor, ErrRed());
+      snprintf(ERROR_MSG, LINE,
+               "premature end of file "
+               "(%s%d%s coordinate lines instead of %s%d%s)",
+               ErrYellow(), i, ErrRed(), ErrYellow(), System->Count.BeadCoor,
+               ErrRed());
       PrintErrorFileLine(file, *line_count, split, words);
       return -2;
     }
@@ -3486,8 +3798,7 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
       (*line_count)++;
       VECTOR vel;
       if (words > 6 && IsRealNumber(split[4], &vel.x) &&
-                       IsRealNumber(split[5], &vel.y) &&
-                       IsRealNumber(split[6], &vel.z)) {
+          IsRealNumber(split[5], &vel.y) && IsRealNumber(split[6], &vel.z)) {
         System->Bead[i].Velocity.x = vel.x;
         System->Bead[i].Velocity.y = vel.z;
         System->Bead[i].Velocity.z = vel.z;
@@ -3498,7 +3809,7 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
       }
     } else {
       strcpy(ERROR_MSG, "unrecognized line (insufficient number of valid "
-             "coordinate lines)");
+                        "coordinate lines)");
       PrintErrorFileLine(file, *line_count, split, words);
       return -1;
     }
@@ -3538,8 +3849,7 @@ static bool XyzSkipCoorLine(FILE *fr) { //{{{
 } //}}}
 static bool XyzCheckCoorLine(VECTOR *coor) { //{{{
   if (words > 3 && IsRealNumber(split[1], &coor->x) &&
-                   IsRealNumber(split[2], &coor->y) &&
-                   IsRealNumber(split[3], &coor->z)) {
+      IsRealNumber(split[2], &coor->y) && IsRealNumber(split[3], &coor->z)) {
     return true;
   } else {
     return false;
@@ -3579,7 +3889,7 @@ static void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[3], int num) {
     // warning - bonded beads in different molecules (skip the bond)  //{{{
     if (mol != System->Bead[id[1]].Molecule || mol == -1) {
       strcpy(ERROR_MSG, "bonded beads in different molecules (or in none); "
-             "discarding this bond");
+                        "discarding this bond");
       PrintWarning();
       fprintf(stderr, "%sBead (molecule):", ErrCyan());
       fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[0], ErrCyan(),
@@ -3595,8 +3905,8 @@ static void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[3], int num) {
     if (bond == 0) { // first bond in a molecule - allocate one memory space
       mt_mol->Bond = malloc(sizeof *mt_mol->Bond);
     } else { // subsequent bonds - add one memory space
-      mt_mol->Bond = realloc(mt_mol->Bond,
-                             sizeof *mt_mol->Bond * mt_mol->nBonds);
+      mt_mol->Bond =
+          realloc(mt_mol->Bond, sizeof *mt_mol->Bond * mt_mol->nBonds);
     }
     mt_mol->Bond[bond][0] = id[0];
     mt_mol->Bond[bond][1] = id[1];
@@ -3652,7 +3962,7 @@ static void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[3], int num) {
         if (mt_i->Bond[j][0] >= mt_i->nBeads ||
             mt_i->Bond[j][1] >= mt_i->nBeads) {
           strcpy(ERROR_MSG, "something went wrong in bead indices in bond; "
-                 "should never happen!");
+                            "should never happen!");
           PrintError();
         }
       }
@@ -3673,7 +3983,7 @@ static void FillMoleculeTypeAngles(SYSTEM *System, int (*angle)[4], int num) {
     if (mol != System->Bead[id[1]].Molecule ||
         mol != System->Bead[id[2]].Molecule || mol == -1) {
       strcpy(ERROR_MSG, "Beads in an angle are in different molecules "
-             "(or in none); discarding this bond");
+                        "(or in none); discarding this bond");
       PrintWarning();
       fprintf(stderr, "%sBead (molecule):", ErrCyan());
       fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[0], ErrCyan(),
@@ -3722,15 +4032,15 @@ static void FillMoleculeTypeAngles(SYSTEM *System, int (*angle)[4], int num) {
           mt_i->Angle[j][1] > mt_i->nBeads ||
           mt_i->Angle[j][2] > mt_i->nBeads) {
         strcpy(ERROR_MSG, "something went wrong in bead indices in angle; "
-               "should never happen!");
+                          "should never happen!");
         PrintWarning();
       } //}}}
     }
   }
 } //}}}
 // FillMoleculeTypeDihedral() //{{{
-static void FillMoleculeTypeDihedral(SYSTEM *System,
-                                     int (*dihedral)[5], int num) {
+static void FillMoleculeTypeDihedral(SYSTEM *System, int (*dihedral)[5],
+                                     int num) {
   COUNT *Count = &System->Count;
   // fill MoleculeType[].Bond array with bead indices
   for (int i = 0; i < num; i++) {
@@ -3745,7 +4055,7 @@ static void FillMoleculeTypeDihedral(SYSTEM *System,
         mol != System->Bead[id[2]].Molecule ||
         mol != System->Bead[id[3]].Molecule || mol == -1) {
       strcpy(ERROR_MSG, "Beads in a dihedral are in different molecules "
-             "(or in none); discarding this bond");
+                        "(or in none); discarding this bond");
       PrintWarning();
       fprintf(stderr, "%sBead (molecule):", ErrCyan());
       fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[0], ErrCyan(),
@@ -3802,15 +4112,15 @@ static void FillMoleculeTypeDihedral(SYSTEM *System,
           mt_i->Dihedral[j][2] > mt_i->nBeads ||
           mt_i->Dihedral[j][3] > mt_i->nBeads) {
         strcpy(ERROR_MSG, "something went wrong in bead indices in dihedral; "
-               "should never happen!");
+                          "should never happen!");
         PrintWarning();
       } //}}}
     }
   }
 } //}}}
 // FillMoleculeTypeImproper() //{{{
-static void FillMoleculeTypeImproper(SYSTEM *System,
-                                     int (*improper)[5], int num) {
+static void FillMoleculeTypeImproper(SYSTEM *System, int (*improper)[5],
+                                     int num) {
   COUNT *Count = &System->Count;
   // fill MoleculeType[].Bond array with bead indices
   for (int i = 0; i < num; i++) {
@@ -3825,7 +4135,7 @@ static void FillMoleculeTypeImproper(SYSTEM *System,
         mol != System->Bead[id[2]].Molecule ||
         mol != System->Bead[id[3]].Molecule || mol == -1) {
       strcpy(ERROR_MSG, "Beads in a dihedral are in different molecules "
-             "(or in none); discarding this bond");
+                        "(or in none); discarding this bond");
       PrintWarning();
       fprintf(stderr, "%sBead (molecule):", ErrCyan());
       fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[0], ErrCyan(),
@@ -3882,7 +4192,7 @@ static void FillMoleculeTypeImproper(SYSTEM *System,
           mt_i->Improper[j][2] > mt_i->nBeads ||
           mt_i->Improper[j][3] > mt_i->nBeads) {
         strcpy(ERROR_MSG, "something went wrong in bead indices in improper; "
-               "should never happen!");
+                          "should never happen!");
         PrintWarning();
       } //}}}
     }
@@ -3982,769 +4292,16 @@ static void RemoveExtraTypes(SYSTEM *System) {
   }
   Count->MoleculeType = count;
 } //}}}
-// MergeBeadTypes() //{{{
-/* Merge bead types either using names only (detailed=false) or using names,
- * charge, mass, and radius (detailed=true). In the simpler case, the values
- * for charge mass, and radius are each taken from the first bead type that has
- * the corresponding value well defined; the more complicated case is described
- * below in some detail.
- * The function assumes BeadType[].Index arrays are unallocated (i.e., nothing
- * is freed for the remaining extra BeadType array elements).
- */
-/* detailed=true description: //{{{
- * First, identify bead types based on name, charge, masse, and radius,
- * e.g., lines
- *   atom 0 n x q 1 m 1
- *   atom 1 n x q 2 m 1
- * will be of two different types. This can create an excess of bead types,
- * so some may have to be merged.
- *
- * What is to be merged:
- * i) If a keyword is missing in one line but present in another, that does
- * not count as a different type, e.g., lines
- *       atom 0 n x q 1 m 1
- *       atom 1 n x     m 1
- *    are of the same type (both with charge +1);
- * ii) however, there can be ambiguities, so e.g., lines
- *        atom 0 n x q 1 m 1
- *        atom 1 n x     m 1
- *        atom 2 n x q 0 m 1
- *     remain three distinct types (atom 1 has undefined charge);
- * iii) but only some lines may be ambiguous, e.g., lines
- *        atom 0 n x q 1 m 1
- *        atom 1 n x     m 1
- *        atom 2 n x q 0 m 1
- *        atom 3 n x q 0
- *      are still three different types (the last two should be considered
- *      the same because there is no ambiguity because all beads have the
- *      same mass)
- * iv) note that sometimes the charge/mass/radius can remain undefined
- *     even though there's only one well defined value; e.g., lines
- *       atom 0 n x q 1 m 1
- *       atom 1 n x     m 1
- *       atom 2 n x q 0 m 1
- *       atom 3 n x q 0
- *       atom 4 n x q 0 m 1 r 1
- *     will make radius well defined (with value 1) only for beads sharing
- *     the type with atom 4 (i.e., atoms 2, 3, and 4), while the first two
- *     atoms will still have undefined radius. What should the radius of
- *     atoms 0 and 1 be when the charge is different/unspecified to that of the
- *     last atom?
- *
- * Merging procedure:
- * 1) for each unique name, find values of charge/mass/radius, noting
- *    ambiguities (i.e., when more than one well defined value exists)
- * 2) create 2D boolean array of size <unique names>*<unique names> to
- *    see what should be merged based on points 1) and 2):
- *    i) pick two bead types sharing a name (or the same bead type twice
- *       if it does not share a name with any other), say 'i' and 'k'.
- *    ii) check every bead type (say 'j') against i and k; if i and
- *        j should be merged (i.e., share a name), check k's value of
- *        diff_q/m/r - if it is a proper value, merge i and j; if not,
- *        merge i and j only if they have the same diff_q/m/r value.
- * 3) merge the types and count the number of unique types
- *    i) create a new type when a diagonal element of the array is true
- *    ii) check the remaining types against and merge those that should
- *        be merge with that new type, making the diagonal element for
- *        that merged type false so that no new type is created when
- *        its time comes in i)
- * 4) reorder the types so that types sharing the name are next to each
- *    other
- */ //}}}
-static void MergeBeadTypes(SYSTEM *System, bool detailed) {
-
-  COUNT *Count = &System->Count;
-  int count_bt_old = Count->BeadType,
-      *old_to_new = calloc(count_bt_old, sizeof *old_to_new);
-
-  // merge bead types that are definitely the same //{{{
-  int count_bt_new = 1;
-  for (int i = 1; i < count_bt_old; i++) { // 1 as bt[0] remains bt[0]
-    BEADTYPE *bt_old = &System->BeadType[i];
-    bool new = true;
-    for (int j = 0; j < count_bt_new; j++) {
-      BEADTYPE *bt_new = &System->BeadType[j];
-      if (SameBeadType(*bt_old, *bt_new)) {
-        bt_new->Number += bt_old->Number;
-        old_to_new[i] = j;
-        new = false;
-        break;
-      }
-    }
-    if (new) {
-      System->BeadType[count_bt_new] = *bt_old;
-      old_to_new[i] = count_bt_new;
-      count_bt_new++;
-    }
-  } //}}}
-
-  // relabel bead types in arrays //{{{
-  // Bead[].Type
-  for (int i = 0; i < Count->Bead; i++) {
-    int old_type = System->Bead[i].Type;
-    System->Bead[i].Type = old_to_new[old_type];
-  }
-  // MoleculeType[].Bead[]
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    for (int j = 0; j < System->MoleculeType[i].nBeads; j++) {
-      int old_type = System->MoleculeType[i].Bead[j];
-      System->MoleculeType[i].Bead[j] = old_to_new[old_type];
-    }
-  } //}}}
-
-  Count->BeadType = count_bt_new;
-  count_bt_old = count_bt_new;
-  old_to_new = realloc(old_to_new, sizeof *old_to_new * count_bt_old);
-
-  // find the unique bead names //{{{
-  int count_bnames = 0;
-  char(*bname)[BEAD_NAME] = malloc(sizeof *bname);
-  for (int i = 0; i < Count->BeadType; i++) {
-    bool new = true;
-    for (int j = 0; j < count_bnames; j++) {
-      if (strcmp(System->BeadType[i].Name, bname[j]) == 0) {
-        new = false;
-        break;
-      }
-    }
-    if (new) {
-      int n = count_bnames;
-      count_bnames++;
-      bname = realloc(bname, sizeof *bname * count_bnames);
-      strncpy(bname[n], System->BeadType[i].Name, BEAD_NAME);
-    }
-  }               //}}}
-  if (detailed) { // use name as well as charge, mass, and radius
-    // 1) find charge/mass/radius values for each unique name //{{{
-    // arrays values of charge, mass, and radius for each bead type
-    double diff_q[count_bnames], diff_m[count_bnames], diff_r[count_bnames];
-    // initialize arrays: assign values from the last type with each name //{{{
-    for (int i = 0; i < count_bnames; i++) {
-      for (int j = 0; j < Count->BeadType; j++) {
-        if (strcmp(bname[i], System->BeadType[j].Name) == 0) {
-          diff_q[i] = System->BeadType[j].Charge;
-          diff_m[i] = System->BeadType[j].Mass;
-          diff_r[i] = System->BeadType[j].Radius;
-          break;
-        }
-      }
-    } //}}}
-    // find the proper values for charge/mass/radius for each type //{{{
-    /*
-     * diff_q/m/r = high ... more than one value for beads with that name
-     * diff_q/m/r = <value> ... exactly that one value;
-     *                          if both proper and undefined values exist
-     *                          (i.e., when there's really one value, but it's
-     *                          not written in each atom line), the proper
-     *                          value is assigned
-     */
-    // high, impossible number to indicate multiple values of charge/mass/radius
-    int high = 1e6;
-    // go through all bead type pairs (including self-pairs)
-    for (int i = 0; i < count_bnames; i++) {
-      for (int j = 0; j < Count->BeadType; j++) {
-        BEADTYPE *bt_j = &System->BeadType[j];
-        // only consider type pairs with the same name
-        if (strcmp(bname[i], bt_j->Name) == 0) {
-          // charge
-          if (diff_q[i] != bt_j->Charge) {
-            if (diff_q[i] != CHARGE && bt_j->Charge != CHARGE) {
-              diff_q[i] = high;
-            } else if (diff_q[i] == CHARGE) {
-              diff_q[i] = bt_j->Charge;
-            }
-          }
-          // mass
-          if (diff_m[i] != bt_j->Mass) {
-            if (diff_m[i] != MASS && bt_j->Mass != MASS) {
-              diff_m[i] = high;
-            } else if (diff_m[i] == MASS) {
-              diff_m[i] = bt_j->Mass;
-            }
-          }
-          // radius
-          if (diff_r[i] != bt_j->Radius) {
-            if (diff_r[i] != RADIUS && bt_j->Radius != RADIUS) {
-              diff_r[i] = high;
-            } else if (diff_r[i] == RADIUS) {
-              diff_r[i] = bt_j->Radius;
-            }
-          }
-        }
-      }
-    } //}}}
-    //}}}
-    // 2) create 2D merge array //{{{
-    // initialize merge array by assuming nothing will be merged
-    bool **merge = malloc(sizeof *merge * Count->BeadType);
-    for (int i = 0; i < Count->BeadType; i++) {
-      merge[i] = malloc(sizeof *merge[i] * Count->BeadType);
-      for (int j = 0; j < Count->BeadType; j++) {
-        merge[i][j] = false; // 'i' and 'j' aren't to be merged
-        merge[i][i] = true;  // 'i' and 'i' are to be merged/copied
-      }
-    }
-    // assume same-name bead types are to be merged
-    for (int i = 0; i < (Count->BeadType - 1); i++) {
-      for (int j = (i + 1); j < Count->BeadType; j++) {
-        if (strcmp(System->BeadType[i].Name, System->BeadType[j].Name) == 0) {
-          merge[i][j] = true;
-        }
-      }
-    }
-    // go through each bead type and compare it to two others
-    for (int i = 0; i < (Count->BeadType - 1); i++) {
-      BEADTYPE *bt_i = &System->BeadType[i];
-      // i)
-      int k = 0;
-      for (; k < count_bnames; k++) {
-        if (strcmp(bname[k], bt_i->Name) == 0) {
-          break;
-        }
-      }
-      // ii)
-      for (int j = (i + 1); j < Count->BeadType; j++) {
-        BEADTYPE *bt_j = &System->BeadType[j];
-        // check charge //{{{
-        if (merge[i][j]) {
-          if (diff_q[k] == high) {
-            if (bt_i->Charge == bt_j->Charge) {
-              merge[i][j] = true;
-            } else {
-              merge[i][j] = false;
-            }
-          } else {
-            merge[i][j] = true;
-          }
-        } //}}}
-        // check mass //{{{
-        if (merge[i][j]) {
-          if (diff_m[k] == high) {
-            if (bt_i->Mass == bt_j->Mass) {
-              merge[i][j] = true;
-            } else {
-              merge[i][j] = false;
-            }
-          } else {
-            merge[i][j] = true;
-          }
-        } //}}}
-        // check radius //{{{
-        if (merge[i][j]) {
-          if (diff_r[k] == high) {
-            if (bt_i->Radius == bt_j->Radius) {
-              merge[i][j] = true;
-            } else {
-              merge[i][j] = false;
-            }
-          } else {
-            merge[i][j] = true;
-          }
-        } //}}}
-      }
-    } //}}}
-    // 3) merge the types, counting the new types //{{{
-    BEADTYPE *temp = calloc(Count->BeadType, sizeof *temp);
-    int old_bt_count = Count->BeadType, count = 0,
-        *bt_older_to_old = calloc(old_bt_count, sizeof *bt_older_to_old);
-    for (int i = 0; i < Count->BeadType; i++) {
-      if (merge[i][i]) { // i)
-        temp[count] = System->BeadType[i];
-        bt_older_to_old[i] = count;
-        for (int j = (i + 1); j < Count->BeadType; j++) {
-          BEADTYPE *bt_j = &System->BeadType[j];
-          if (merge[i][j]) { // ii)
-            temp[count].Number += bt_j->Number;
-            bt_older_to_old[j] = count;
-            if (temp[count].Charge == CHARGE) {
-              temp[count].Charge = bt_j->Charge;
-            }
-            if (temp[count].Mass == MASS) {
-              temp[count].Mass = bt_j->Mass;
-            }
-            if (temp[count].Radius == RADIUS) {
-              temp[count].Radius = bt_j->Radius;
-            }
-            merge[j][j] = false;
-          }
-        }
-        count++;
-      }
-    }
-    for (int i = 0; i < Count->BeadType; i++) {
-      free(merge[i]);
-    }
-    free(merge);
-    Count->BeadType = count; //}}}
-    // 4) reorder the types, placing same-named ones next to each other //{{{
-    // copy all bead types temporarily to bt struct
-    int *bt_old_to_new = malloc(sizeof *bt_old_to_new * Count->BeadType);
-    bool *copied = calloc(Count->BeadType, sizeof *copied);
-    for (int i = 0; i < Count->BeadType; i++) {
-      System->BeadType[i] = temp[i];
-    }
-    // copy the bead types back to temp array in a proper order
-    count = 0;
-    for (int i = 0; i < Count->BeadType; i++) {
-      BEADTYPE *bt_i = &System->BeadType[i];
-      if (!copied[i]) {
-        temp[count] = *bt_i;
-        bt_old_to_new[i] = count;
-        count++;
-        copied[i] = true;
-        for (int j = (i + 1); j < Count->BeadType; j++) {
-          BEADTYPE *bt_j = &System->BeadType[j];
-          if (strcmp(bt_i->Name, bt_j->Name) == 0 && !copied[j]) {
-            temp[count] = *bt_j;
-            bt_old_to_new[j] = count;
-            copied[j] = true;
-            count++;
-          }
-        }
-      }
-    }
-    free(copied);
-    // finally, copy the types from the temporary array back to bt array
-    for (int i = 0; i < Count->BeadType; i++) {
-      System->BeadType[i] = temp[i];
-    }
-    free(temp);
-    //}}}
-    RenameBeadTypes(System);
-    // fill array to relabel bead types in arrays //{{{
-    for (int i = 0; i < count_bt_old; i++) {
-      old_to_new[i] = bt_old_to_new[bt_older_to_old[i]];
-    }
-    free(bt_older_to_old);
-    free(bt_old_to_new); //}}}
-  } else {               // use name only
-    Count->BeadType = count_bnames;
-    // go through old types, creating a new one for each unique name //{{{
-    int count_bt_new = 0;
-    for (int i = 0; i < count_bt_old; i++) {
-      BEADTYPE *bt_i = &System->BeadType[i];
-      bool new = true;
-      int j = 0;
-      for (; j < count_bt_new; j++) {
-        BEADTYPE *bt_j = &System->BeadType[j];
-        if (strcmp(bt_i->Name, bt_j->Name) == 0) {
-          if (i != j) {
-            bt_j->Number += bt_i->Number;
-            // assign charge/mass/radius, if yet undefined
-            if (bt_j->Charge == CHARGE) {
-              bt_j->Charge = bt_i->Charge;
-            }
-            if (bt_j->Mass == MASS) {
-              bt_j->Mass = bt_i->Mass;
-            }
-            if (bt_j->Radius == RADIUS) {
-              bt_j->Radius = bt_i->Radius;
-            }
-          }
-          old_to_new[i] = j;
-          new = false;
-          break;
-        }
-      }
-      if (new) {      // create new type...
-        if (i != j) { // ...unless its id is the same as the old one's
-          strncpy(System->BeadType[count_bt_new].Name, bt_i->Name, BEAD_NAME);
-          System->BeadType[count_bt_new] = *bt_i;
-        }
-        old_to_new[i] = count_bt_new;
-        count_bt_new++;
-      }
-    } //}}}
-  }
-  free(bname);
-  // relabel bead types in arrays //{{{
-  // Bead[].Type
-  for (int i = 0; i < Count->Bead; i++) {
-    int old_type = System->Bead[i].Type;
-    System->Bead[i].Type = old_to_new[old_type];
-  }
-  // MoleculeType[].Bead[]
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    for (int j = 0; j < System->MoleculeType[i].nBeads; j++) {
-      int old_type = System->MoleculeType[i].Bead[j];
-      System->MoleculeType[i].Bead[j] = old_to_new[old_type];
-    }
-  }
-  free(old_to_new); //}}}
-  // warning - test count bead types; should never happen //{{{
-  int *count_test = calloc(Count->BeadType, sizeof *count_test);
-  for (int i = 0; i < Count->Bead; i++) {
-    int type = System->Bead[i].Type;
-    count_test[type]++;
-  }
-  for (int i = 0; i < Count->BeadType; i++) {
-    if (count_test[i] != System->BeadType[i].Number) {
-      strcpy(ERROR_MSG, "something went wrong with bead type differentiation; "
-             "this should never happen!");
-      PrintWarning();
-      fprintf(stderr, "%sBead count for %s%s%s type: %s%d%s and %s%d%s\n",
-              ErrCyan(), ErrYellow(), System->BeadType[i].Name, ErrCyan(),
-              ErrYellow(), System->BeadType[i].Number, ErrCyan(), ErrYellow(),
-              count_test[i], ErrColourReset());
-    }
-  }
-  free(count_test); //}}}
-} //}}}
-// MergeMoleculeTypes() //{{{
-/*
- * Molecules of one type must share:
- * i) molecule name and numbers of beads, bonds, angles, dihedrals,
- *    and impropers
- * ii) order of bead types
- * iii) connectivity
- * iv) same angles, dihedrals & impropers
- */
-static void MergeMoleculeTypes(SYSTEM *System) {
-  COUNT *Count = &System->Count;
-  int count = 0, *old_to_new = calloc(Count->MoleculeType, sizeof *old_to_new);
-  for (int i = 0; i < Count->MoleculeType; i++) { //{{{
-    bool new = true;
-    MOLECULETYPE *mt_i = &System->MoleculeType[i];
-    SortBonds(mt_i->Bond, mt_i->nBonds);
-    SortAngles(mt_i->Angle, mt_i->nAngles);
-    SortDihImp(mt_i->Dihedral, mt_i->nDihedrals);
-    SortDihImp(mt_i->Improper, mt_i->nImpropers);
-    int j = 0;
-    for (; j < count; j++) {
-      MOLECULETYPE *mt_j = &System->MoleculeType[j];
-      // i) check numbers of stuff
-      if (strcmp(mt_i->Name, mt_j->Name) == 0 && mt_i->nBeads == mt_j->nBeads &&
-          mt_i->nAngles == mt_j->nAngles && mt_i->nAngles == mt_j->nAngles &&
-          mt_i->nDihedrals == mt_j->nDihedrals &&
-          mt_i->nImpropers == mt_j->nImpropers) {
-        // ii) check bead order
-        bool same_mol = true; // assume i and j are the same molecule
-        for (int k = 0; k < mt_i->nBeads; k++) {
-          if (mt_i->Bead[k] != mt_j->Bead[k]) {
-            same_mol = false; // i and j aren't the same
-          }
-        }
-        if (!same_mol) {
-          continue;
-        }
-        // iii) check bonds, angles, etc.
-        // bonds
-        for (int k = 0; k < mt_j->nAngles; k++) {
-          if (mt_i->Angle[k][0] != mt_j->Angle[k][0] ||
-              mt_i->Angle[k][1] != mt_j->Angle[k][1]) {
-            same_mol = false; // i and j aren't the same
-            break;
-          }
-        }
-        if (!same_mol) {
-          continue;
-        }
-        // angles
-        for (int k = 0; k < mt_j->nAngles; k++) {
-          if (mt_i->Angle[k][0] != mt_j->Angle[k][0] ||
-              mt_i->Angle[k][1] != mt_j->Angle[k][1] ||
-              mt_i->Angle[k][2] != mt_j->Angle[k][2]) {
-            same_mol = false; // i and j aren't the same
-            break;
-          }
-        }
-        if (!same_mol) {
-          continue;
-        }
-        // dihedrals
-        for (int k = 0; k < mt_j->nDihedrals; k++) {
-          if (mt_i->Dihedral[k][0] != mt_j->Dihedral[k][0] ||
-              mt_i->Dihedral[k][1] != mt_j->Dihedral[k][1] ||
-              mt_i->Dihedral[k][2] != mt_j->Dihedral[k][2] ||
-              mt_i->Dihedral[k][3] != mt_j->Dihedral[k][3]) {
-            same_mol = false; // i and j aren't the same
-            break;
-          }
-        }
-        if (!same_mol) {
-          continue;
-        }
-        // impropers
-        for (int k = 0; k < mt_j->nImpropers; k++) {
-          if (mt_i->Improper[k][0] != mt_j->Improper[k][0] ||
-              mt_i->Improper[k][1] != mt_j->Improper[k][1] ||
-              mt_i->Improper[k][2] != mt_j->Improper[k][2] ||
-              mt_i->Improper[k][3] != mt_j->Improper[k][3]) {
-            same_mol = false; // i and j aren't the same
-            break;
-          }
-        }
-        if (!same_mol) {
-          continue;
-        }
-        // are molecule types i and j the same?
-        if (same_mol) {
-          if (i != j) {
-            mt_j->Number += mt_i->Number;
-            FreeMoleculeTypeEssentials(mt_i);
-          }
-          old_to_new[i] = j;
-          new = false;
-          break;
-        }
-      }
-    }
-    if (new) {      // create new type...
-      if (i != j) { // ...unless its id is the same as the old one's
-        strncpy(System->MoleculeType[count].Name, mt_i->Name, MOL_NAME);
-        System->MoleculeType[count] = CopyMoleculeTypeEssentials(*mt_i);
-        FreeMoleculeTypeEssentials(mt_i);
-      }
-      old_to_new[i] = count;
-      count++;
-    }
-  }
-  Count->MoleculeType = count; //}}}
-  // relabel molecules with proper molecule types //{{{
-  for (int i = 0; i < Count->Molecule; i++) {
-    int old_type = System->Molecule[i].Type;
-    System->Molecule[i].Type = old_to_new[old_type];
-  }
-  free(old_to_new); //}}}
-  // reorder the types, placing same-named ones next to each other //{{{
-  // copy all molecule types to a temporary array & free the original array
-  MOLECULETYPE *temp = malloc(sizeof(MOLECULETYPE) * Count->MoleculeType);
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    temp[i] = CopyMoleculeTypeEssentials(System->MoleculeType[i]);
-    temp[i].Flag = false;
-    FreeMoleculeTypeEssentials(&System->MoleculeType[i]);
-  }
-  free(System->MoleculeType);
-  System->MoleculeType = malloc(sizeof(MOLECULETYPE) * Count->MoleculeType);
-  // array to link old molecule type indices to new ones
-  old_to_new = malloc(sizeof *old_to_new * Count->MoleculeType);
-  // copy the molecule types back in a proper order
-  count = 0;
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    if (!temp[i].Flag) {
-      System->MoleculeType[count] = CopyMoleculeTypeEssentials(temp[i]);
-      old_to_new[i] = count;
-      count++;
-      temp[i].Flag = true;
-      for (int j = (i + 1); j < Count->MoleculeType; j++) {
-        if (strcmp(System->MoleculeType[i].Name, temp[j].Name) == 0 &&
-            !temp[j].Flag) {
-          System->MoleculeType[count] = CopyMoleculeTypeEssentials(temp[j]);
-          old_to_new[j] = count;
-          count++;
-          temp[j].Flag = true;
-        }
-      }
-    }
-  } //}}}
-  // rename same-named molecule types & free the temporary array //{{{
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    count = 0;
-    for (int j = (i + 1); j < Count->MoleculeType; j++) {
-      if (strcmp(System->MoleculeType[i].Name, System->MoleculeType[j].Name) ==
-          0) {
-        count++;
-        char name[MOL_NAME];
-        strncpy(name, System->MoleculeType[j].Name, MOL_NAME);
-        // shorten name if necessary
-        if (count < 10) {
-          name[MOL_NAME - 3] = '\0';
-        } else if (count < 100) {
-          name[MOL_NAME - 4] = '\0';
-        } else if (count < 1000) {
-          name[MOL_NAME - 5] = '\0';
-        }
-        if (snprintf(System->MoleculeType[j].Name, MOL_NAME,
-                     "%s_%d", name, count) < 0) {
-          strcpy(ERROR_MSG, "something wrong with snprintf()");
-          PrintError();
-          exit(1);
-        }
-      }
-    }
-    FreeMoleculeTypeEssentials(&temp[i]);
-  }
-  free(temp); //}}}
-  // relabel molecules with proper molecule types; yep - again //{{{
-  for (int i = 0; i < Count->Molecule; i++) {
-    int old_type = System->Molecule[i].Type;
-    System->Molecule[i].Type = old_to_new[old_type];
-  }
-  free(old_to_new); //}}}
-} //}}}
-static void FillSystemNonessentials(SYSTEM *System) { //{{{
-  COUNT *Count = &System->Count;
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    FillMoleculeTypeBType(&System->MoleculeType[i]);
-    FillMoleculeTypeChargeMass(&System->MoleculeType[i], System->BeadType);
-  }
-  FillBeadTypeIndex(System);
-  FillMoleculeTypeIndex(System);
-  if (Count->Molecule > 0) {
-    System->Index_mol = realloc(System->Index_mol, sizeof *System->Index_mol *
-                                (Count->HighestResid + 1));
-    for (int i = 0; i <= Count->HighestResid; i++) {
-      System->Index_mol[i] = -1;
-    }
-    for (int i = 0; i < Count->Molecule; i++) {
-      System->Index_mol[System->Molecule[i].Index] = i;
-    }
-  }
-  // TODO: this should have been realloc'd already, no?
-  // System->BeadCoor = realloc(System->BeadCoor,
-  //                            sizeof *System->BeadCoor * Count->Bead);
-  if (Count->Bonded > 0) {
-    System->Bonded = realloc(System->Bonded,
-                             sizeof *System->Bonded * Count->Bonded);
-    System->BondedCoor = realloc(System->BondedCoor,
-                                 sizeof *System->BondedCoor * Count->Bonded);
-  }
-  if (Count->Unbonded > 0) {
-    System->Unbonded = realloc(System->Unbonded,
-                               sizeof *System->Unbonded * Count->Unbonded);
-    System->UnbondedCoor = realloc(System->UnbondedCoor,
-                                   sizeof *System->UnbondedCoor *
-                                   Count->Unbonded);
-  }
-  int c_bonded = 0, c_unbonded = 0;
-  for (int i = 0; i < Count->Bead; i++) {
-    if (System->Bead[i].Molecule > -1) {
-      System->Bonded[c_bonded] = i;
-      c_bonded++;
-    } else {
-      System->Unbonded[c_unbonded] = i;
-      c_unbonded++;
-    }
-  }
-  CountBondAngleDihedralImproper(System);
-  // sort bonds, angles, dihedrals, and impropers
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    MOLECULETYPE *mt_i = &System->MoleculeType[i];
-    SortBonds(mt_i->Bond, mt_i->nBonds);
-    SortAngles(mt_i->Angle, mt_i->nAngles);
-    SortDihImp(mt_i->Dihedral, mt_i->nDihedrals);
-    SortDihImp(mt_i->Improper, mt_i->nImpropers);
-  }
-} //}}}
-// sort a bond/angle/dihedral/improper array in an ascending order
-static void SortBonds(int (*bond)[3], int n) { //{{{
-  // first, check order in every bond
-  for (int j = 0; j < n; j++) {
-    if (bond[j][0] > bond[j][1]) {
-      SwapInt(&bond[j][0], &bond[j][1]);
-    }
-  }
-  // second, bubble sort bonds
-  for (int j = 0; j < (n - 1); j++) {
-    bool swap = false;
-    for (int k = 0; k < (n - j - 1); k++) {
-      /* swap bonds if
-       * 1) first bead ids are in the wrong order or
-       * 2) first bead ids are fine, but second ids are in the wrong order
-       */
-      if (bond[k][0] > bond[k+1][0] || // 1)
-          (bond[k][0] == bond[k+1][0] && // 2)
-           bond[k][1] > bond[k+1][1])) { // 2)
-        SwapInt(&bond[k][0], &bond[k+1][0]);
-        SwapInt(&bond[k][1], &bond[k+1][1]);
-        SwapInt(&bond[k][2], &bond[k+1][2]);
-        swap = true;
-      }
-    }
-    // if no swap was made, the array is sorted
-    if (!swap) {
-      break;
-    }
-  }
-} //}}}
-static void SortAngles(int (*angle)[4], int n) { //{{{
-  // first, check order of the 1st and 3rd id in every angle
-  for (int j = 0; j < n; j++) {
-    if (angle[j][0] > angle[j][2]) {
-      SwapInt(&angle[j][0], &angle[j][2]);
-    }
-  }
-  // second, bubble sort angles
-  for (int j = 0; j < (n - 1); j++) {
-    bool swap = false;
-    for (int k = 0; k < (n - j - 1); k++) {
-      /* swap angles if
-       * 1) first bead ids are in the wrong order or
-       * 2) first bead ids are fine, but second ids are in wrong order or
-       * 3) first and second are fine, but third are in wrong order
-       */
-      if ((angle[k][0] > angle[k+1][0]) || // 1)
-          (angle[k][0] == angle[k+1][0] && // 2)
-           angle[k][1] > angle[k+1][1]) || //
-          (angle[k][0] == angle[k+1][0] && // 3)
-           angle[k][1] == angle[k+1][1] && // 3)
-           angle[k][2] > angle[k+1][2])) { // 3)
-        SwapInt(&angle[k][0], &angle[k+1][0]);
-        SwapInt(&angle[k][1], &angle[k+1][1]);
-        SwapInt(&angle[k][2], &angle[k+1][2]);
-        SwapInt(&angle[k][3], &angle[k+1][3]);
-        swap = true;
-      }
-    }
-    // if no swap was made, the array is sorted
-    if (!swap) {
-      break;
-    }
-  }
-} //}}}
-static void SortDihImp(int (*dihimp)[5], int n) { //{{{
-  // first, check order of the 1st and 4th id in every dihedral
-  for (int j = 0; j < n; j++) {
-    if (dihimp[j][0] > dihimp[j][3]) {
-      SwapInt(&dihimp[j][0], &dihimp[j][3]);
-      SwapInt(&dihimp[j][1], &dihimp[j][2]);
-    }
-  }
-  // second, bubble sort dihedrals
-  for (int j = 0; j < (n - 1); j++) {
-    bool swap = false;
-    for (int k = 0; k < (n - j - 1); k++) {
-      /* swap angles if
-       * 1) first bead ids are in the wrong order or
-       * 2) first bead ids are fine, but second ids are in wrong order or
-       * 3) first and second are fine, but third are in wrong order or
-       * 4) only fourth ids are in wrong order
-       */
-      if ((dihimp[k][0] >
-           dihimp[k + 1][0]) || // 1)
-          (dihimp[k][0] == dihimp[k+1][0] && // 2)
-           dihimp[k][1] > dihimp[k+1][1]) || //
-          (dihimp[k][0] == dihimp[k+1][0] && // 3)
-           dihimp[k][1] == dihimp[k+1][1] && //
-           dihimp[k][2] > dihimp[k+1][2]) || //
-          (dihimp[k][0] == dihimp[k+1][0] && // 4)
-           dihimp[k][1] == dihimp[k+1][1] && //
-           dihimp[k][2] == dihimp[k+1][2] && //
-           dihimp[k][3] > dihimp[k+1][3])) { //
-        SwapInt(&dihimp[k][0], &dihimp[k + 1][0]);
-        SwapInt(&dihimp[k][1], &dihimp[k + 1][1]);
-        SwapInt(&dihimp[k][2], &dihimp[k + 1][2]);
-        SwapInt(&dihimp[k][3], &dihimp[k + 1][3]);
-        SwapInt(&dihimp[k][4], &dihimp[k + 1][4]);
-        swap = true;
-      }
-    }
-    // if no swap was made, the array is sorted
-    if (!swap) {
-      break;
-    }
-  }
-} //}}}
- //}}}
+  //}}}
 
 // THE VISIBLE FUNCTIONS
 /*
  * Read the provided structure file and extra info from the
  * provided coordinate file if necessary.
  */ //{{{
-SYSTEM ReadStructure(int struct_type, char struct_file[],
-                     int coor_type, char coor_file[], bool detailed,
-                     bool vtf_coor_var, int pbc_xyz) {
+SYSTEM ReadStructure(int struct_type, char struct_file[], int coor_type,
+                     char coor_file[], bool detailed, bool vtf_coor_var,
+                     int pbc_xyz) {
   SYSTEM System;
   switch (struct_type) {
   case VSF_FILE:
@@ -4769,20 +4326,20 @@ SYSTEM ReadStructure(int struct_type, char struct_file[],
   }
   // read extra stuff from coordinate file if necessary
   switch (coor_type) {
-    case LTRJ_FILE: // find if atom ids start from 0 or 1
-      if (System.Box.Volume == -1) {
-        System.Box = LtrjReadPBC(coor_file);
-      }
-      break;
-    case VCF_FILE: // find number of beads in the first step
-      System.Count.BeadCoor = VtfReadNumberOfBeads(coor_file);
-      if (System.Count.BeadCoor < 0) {
-        exit(1);
-      }
-      if (System.Box.Volume == -1) {
-        System.Box = VtfReadPBC(coor_file);
-      }
-      break;
+  case LTRJ_FILE: // find if atom ids start from 0 or 1
+    if (System.Box.Volume == -1) {
+      System.Box = LtrjReadPBC(coor_file);
+    }
+    break;
+  case VCF_FILE: // find number of beads in the first step
+    System.Count.BeadCoor = VtfReadNumberOfBeads(coor_file);
+    if (System.Count.BeadCoor < 0) {
+      exit(1);
+    }
+    if (System.Box.Volume == -1) {
+      System.Box = VtfReadPBC(coor_file);
+    }
+    break;
   }
   WarnChargedSystem(System, struct_file, "\0", "\0");
   // warn if missing box dimensions (unless it's a pbc-less file type)
@@ -4814,7 +4371,18 @@ bool ReadTimestep(int coor_type, FILE *fr, char file[], SYSTEM *System,
       return false;
     }
     break;
+  case LDATA_FILE:
+    if (LmpDataReadTimestep(fr, file, System, line_count) < 0) {
+      return false;
+    }
+    break;
+  default:
+    snprintf(ERROR_MSG, LINE, "no action specified for coor_type %s%d",
+             ErrYellow(), coor_type);
+    PrintError();
+    exit(1);
   }
+
   return true;
 } //}}}
 /*
@@ -4839,9 +4407,10 @@ bool SkipTimestep(int coor_type, FILE *fr, char file1[], char file2[],
     }
     break;
   default:
-    strcpy(ERROR_MSG, "unspecified coordinate file; should never happen!");
+    snprintf(ERROR_MSG, LINE, "no action specified for coor_type %s%d",
+             ErrYellow(), coor_type);
     PrintError();
-    return false;
+    exit(1);
   }
   return true;
 } //}}}

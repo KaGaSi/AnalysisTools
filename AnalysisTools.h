@@ -18,6 +18,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#define VTF_FILE 0
 #define VSF_FILE 1
 #define VCF_FILE 2
 #define XYZ_FILE 3
@@ -33,8 +34,17 @@ void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
                                 BEADTYPE BeadType[]);
 void FillBeadTypeIndex(SYSTEM *System);
 void FillMoleculeTypeIndex(SYSTEM *System);
+void FillIndexMol(SYSTEM *System);
+void FillBondedUnbonded(SYSTEM *System);
 void CountBondAngleDihedralImproper(SYSTEM *System);
+void SortBonds(int (*bond)[3], int n);
+void SortAngles(int (*angle)[4], int n);
+void SortDihImp(int (*dihimp)[5], int n);
+void FillSystemNonessentials(SYSTEM *System);
 bool CalculateBoxData(BOX *Box, int mode);
+// merge identical bead/molecule types
+void MergeBeadTypes(SYSTEM *System, bool detailed);
+void MergeMoleculeTypes(SYSTEM *System);
 // Appends _# to bead/molecule types with the same name
 void RenameBeadTypes(SYSTEM *System);
 void RenameMoleculeTypes(SYSTEM *System);
@@ -63,6 +73,10 @@ int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2,
 // TODO: CopySystem won't be static?
 SYSTEM CopySystem(SYSTEM S_in);
 // cleanse System by removing molecule/bead types with .Number=0, etc.
+void PruneBondTypes(SYSTEM S_old, SYSTEM *System);
+void PruneAngleTypes(SYSTEM S_old, SYSTEM *System);
+void PruneDihedralTypes(SYSTEM S_old, SYSTEM *System);
+void PruneImproperTypes(SYSTEM S_old, SYSTEM *System);
 void PruneSystem(SYSTEM *System);
 void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box);
 // copy molecule type
@@ -84,6 +98,10 @@ VECTOR GeomCentre(int n, int *list, BEAD *Bead);
 // identify input coordinate and structure files
 bool InputCoorStruct(int argc, char *argv[], char coor[], int *coor_type,
                      char struc[], int *struc_type);
+// identify type of provided structure file (mode=0: input, mode=1 output file)
+int StructureFileType(char name[], int mode);
+int CoordinateFileType(char name[], int mode);
+int FullFileType(char name[], int mode);
 
 // create a cell-linked list
 void LinkedList(SYSTEM System, int **Head, int **Link, double cell_size,

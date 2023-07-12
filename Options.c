@@ -253,14 +253,19 @@ bool BeadTypeOption(int argc, char *argv[], char *opt,
       while (++types < argc && argv[types][0] != '-') {
         int type = FindBeadType(argv[types], *System);
         if (type == -1) {
-          snprintf(ERROR_MSG, LINE, "non-existent bead name %s%s",
-                   ErrYellow(), argv[types]);
+          if (snprintf(ERROR_MSG, LINE, "non-existent bead name %s%s",
+                       ErrYellow(), argv[types]) < 0) {
+            strcpy(ERROR_MSG, "something wrong with snprintf()");
+            PrintError();
+            exit(1);
+          }
           PrintErrorOption(opt);
           ErrorBeadType(argv[types], *System);
           return true;
         }
         flag[type] = true;
       }
+      break;
     }
   }
   if (types == -1) {

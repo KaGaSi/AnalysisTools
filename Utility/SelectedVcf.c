@@ -88,28 +88,12 @@ int main(int argc, char *argv[]) {
     exit(1);
   } //}}}
 
-  // <output> - output coordinate file //{{{
-  char out_coor[LINE] = "";
-  snprintf(out_coor, LINE, "%s", argv[++count]);
-  // test if <output.vcf> ends with '.vcf'
-  int ext = 3;
-  char extension[3][EXTENSION];
-  strcpy(extension[0], ".vcf");
-  strcpy(extension[1], ".xyz");
-  strcpy(extension[2], ".lammpstrj");
-  int coor_out_type = ErrorExtension(out_coor, ext, extension);
-  if (coor_out_type == 0) {
-    coor_out_type = VCF_FILE;
-  } else if (coor_out_type == 1) {
-    coor_out_type = XYZ_FILE;
-  } else if (coor_out_type == 2) {
-    coor_out_type = LTRJ_FILE;
-  } else if (coor_out_type == -1) {
-    Help(argv[0], true, common, option);
-    exit(1);
-  } //}}}
+  // <output> - output coordinate file
+  char coor_out_file[LINE] = "";
+  snprintf(coor_out_file, LINE, "%s", argv[++count]);
+  int coor_out_type = CoordinateFileType(coor_out_file, 1);
 
-  // options before reading system data
+  // options before reading system data //{{{
   bool silent, verbose, detailed, vtf_var;
   int start = 1, end = -1, skip = 0, pbc_xyz = -1;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
@@ -117,7 +101,7 @@ int main(int argc, char *argv[]) {
   bool reverse = BoolOption(argc, argv, "--reverse");
   bool join = BoolOption(argc, argv, "--join");
   bool wrap = BoolOption(argc, argv, "--wrap");
-  bool last = BoolOption(argc, argv, "--last");
+  bool last = BoolOption(argc, argv, "--last"); //}}}
 
   if (!silent) {
     PrintCommand(stdout, argc, argv);
@@ -172,7 +156,7 @@ int main(int argc, char *argv[]) {
   if (n_opt_number != -1) {
     start = 1;
     end = -1;
-    skip = 0;
+    skip = 1;
   }
   SortArray(n_opt_save, n_opt_number, 0); //}}}
 
@@ -180,12 +164,23 @@ int main(int argc, char *argv[]) {
     VerboseOutput(System);
   }
 
-  // print initial stuff to output vcf file //{{{
-  FILE *out = OpenFile(out_coor, "w");
+  // print initial stuff to output coordinate file //{{{
   if (coor_out_type == VCF_FILE) {
+    FILE *out = OpenFile(coor_out_file, "w");
     PrintByline(out, argc, argv);
+    fclose(out);
+  } else if (coor_out_type == VTF_FILE) {
+    WriteStructure(VSF_FILE, coor_out_file, System, -1, false);
+    coor_out_type = VCF_FILE;
+  } else {
+    FILE *out = OpenFile(coor_out_file, "w");
+    fclose(out);
+  } //}}}
+
+  if (coor_type == LDATA_FILE) {
+    start = 1;
+    skip = 1;
   }
-  fclose(out); //}}}
 
   FILE *fr = OpenFile(coor_file, "r");
   // main loop //{{{
@@ -235,7 +230,7 @@ int main(int argc, char *argv[]) {
       }
       count_saved++;
       WrapJoinCoordinates(&System, wrap, join);
-      WriteTimestep(coor_out_type, out_coor, System, count_coor, write);
+      WriteTimestep(coor_out_type, coor_out_file, System, count_coor, write);
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
       if (!SkipTimestep(coor_type, fr, coor_file,
@@ -271,7 +266,7 @@ int main(int argc, char *argv[]) {
                        &line_count, vtf_var)) {
         count_saved++;
         WrapJoinCoordinates(&System, wrap, join);
-        WriteTimestep(coor_out_type, out_coor, System, count_coor, write);
+        WriteTimestep(coor_out_type, coor_out_file, System, count_coor, write);
         if (!silent) {
           if (isatty(STDOUT_FILENO)) {
             fprintf(stdout, "\r                          \r");

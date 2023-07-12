@@ -30,6 +30,8 @@ details.\
   fprintf(ptr, "      --mass             define lammps atom types by mass, but "
           "print per-atom charges in Atoms section "
           "(output lammps data file only)\n");
+  fprintf(ptr, "      -ebt <int>         number of extra bead types "
+          "(output lammps data file only)\n");
   putc('\n', ptr);
   CommonHelp(error, n, opt);
 } //}}}
@@ -37,7 +39,7 @@ details.\
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 7, all = common + 6, count = 0, req_arg = 1;
+  int common = 7, all = common + 7, count = 0, req_arg = 1;
   char option[all][OPT_LENGTH];
   // common options
   strcpy(option[count++], "-st");
@@ -55,50 +57,15 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-o");
   strcpy(option[count++], "-def");
   strcpy(option[count++], "--mass");
+  strcpy(option[count++], "-ebt");
 
   OptionCheck(argc, argv, req_arg, common, all, option); //}}}
 
   count = 0; // count arguments
 
-  // <input> input structure file//{{{
   char struct_file[LINE] = "";
-  int struct_type;
   snprintf(struct_file, LINE, "%s", argv[++count]);
-  if (strcasecmp(struct_file, "FIELD") == 0) {
-    struct_type = FIELD_FILE;
-  } else {
-    int ext = 6;
-    char extension[ext][EXTENSION];
-    strcpy(extension[0], ".vsf");
-    strcpy(extension[1], ".vtf");
-    strcpy(extension[2], ".xyz");
-    strcpy(extension[3], ".lammpstrj");
-    strcpy(extension[4], ".data");
-    strcpy(extension[5], ".field");
-    ext = ErrorExtension(struct_file, ext, extension);
-    switch (ext) {
-      case 0:
-        struct_type = VSF_FILE;
-        break;
-      case 1:
-        struct_type = VSF_FILE;
-        break;
-      case 2:
-        struct_type = XYZ_FILE;
-        break;
-      case 3:
-        struct_type = LTRJ_FILE;
-        break;
-      case 4:
-        struct_type = LDATA_FILE;
-        break;
-      case 5:
-        struct_type = FIELD_FILE;
-        break;
-      default: // wrong extension
-        exit(1);
-    }
-  } //}}}
+  int struct_type = StructureFileType(struct_file, 0);
 
   // print command to stdout
   PrintCommand(stdout, argc, argv);
@@ -121,41 +88,7 @@ int main(int argc, char *argv[]) {
     }
   }
   if (struct_file_extra[0] != '\0') {
-    if (strcasecmp(struct_file_extra, "FIELD") == 0) {
-      struct_type_extra = FIELD_FILE;
-    } else {
-      int ext = 6;
-      char extension[ext][EXTENSION];
-      strcpy(extension[0], ".vsf");
-      strcpy(extension[1], ".vtf");
-      strcpy(extension[2], ".xyz");
-      strcpy(extension[3], ".lammpstrj");
-      strcpy(extension[4], ".data");
-      strcpy(extension[5], ".field");
-      ext = ErrorExtension(struct_file_extra, ext, extension);
-      switch (ext) {
-        case 0:
-          struct_type_extra = VSF_FILE;
-          break;
-        case 1:
-          struct_type_extra = VSF_FILE;
-          break;
-        case 2:
-          struct_type_extra = XYZ_FILE;
-          break;
-        case 3:
-          struct_type_extra = LTRJ_FILE;
-          break;
-        case 4:
-          struct_type_extra = LDATA_FILE;
-          break;
-        case 5:
-          struct_type_extra = FIELD_FILE;
-          break;
-        default: // wrong extension
-          exit(1);
-      }
-    }
+    struct_type_extra = StructureFileType(struct_file_extra, 0);
   } //}}}
   // input coordinate file (-c option) //{{{
   char coor_file[LINE] = "";
@@ -164,30 +97,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   if (coor_file[0] != '\0') {
-    int ext = 4;
-    char extension[ext][EXTENSION];
-    strcpy(extension[0], ".vcf");
-    strcpy(extension[1], ".vtf");
-    strcpy(extension[2], ".xyz");
-    strcpy(extension[3], ".lammpstrj");
-    ext = ErrorExtension(coor_file, ext, extension);
-    // define coordinate type and possibly vtf structure file
-    switch (ext) {
-      case 0:
-        coor_type = VCF_FILE;
-        break;
-      case 1:
-        coor_type = VCF_FILE;
-        break;
-      case 2:
-        coor_type = XYZ_FILE;
-        break;
-      case 3: // lammpstrj
-        coor_type = LTRJ_FILE;
-        break;
-      default: // wrong extenstion
-        exit(1);
-    }
+    coor_type = CoordinateFileType(coor_file, 0);
   } //}}}
   // output structure file (-o option) //{{{
   char struct_file_out[LINE] = "";
@@ -196,36 +106,32 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   if (struct_file_out[0] != '\0') {
-    if (strcasecmp(struct_file_out, "FIELD") == 0) {
-      struct_type_out = FIELD_FILE;
-    } else if (strcasecmp(struct_file_out, "CONFIG") == 0) {
-      struct_type_out = CONFIG_FILE;
-    } else {
-      int ext = 3;
-      char extension[ext][EXTENSION];
-      strcpy(extension[0], ".vsf");
-      strcpy(extension[1], ".data");
-      strcpy(extension[2], ".field");
-      ext = ErrorExtension(struct_file_out, ext, extension);
-      switch (ext) {
-        case 0:
-          struct_type_out = VSF_FILE;
-          break;
-        case 1:
-          struct_type_out = LDATA_FILE;
-          break;
-        case 2:
-          struct_type_out = FIELD_FILE;
-          break;
-        default: // wrong extension
-          exit(1);
+    struct_type_out = StructureFileType(struct_file_out, 1);
+    if (struct_type_out != VSF_FILE &&
+        struct_type_out != LDATA_FILE &&
+        struct_type_out != FIELD_FILE) {
+      strcpy(ERROR_MSG, "accepted output structure file are "
+             "vsf, lammps data, or FIELD file");
+      if (snprintf(ERROR_MSG, LINE, "output file %s%s%s is not in accepted "
+                   "format (vsf, lammps data, or FIELD file)",
+                   ErrYellow(), struct_file_out, ErrRed()) < 0) {
+        strcpy(ERROR_MSG, "something wrong with snprintf()");
+        PrintErrorFile(coor_file, "\0", "\0");
+        exit(1);
       }
+      PrintError();
+      exit(1);
     }
   } //}}}
   bool silent, verbose, detailed, vtf_var;
   int timestep = 1, pbc_xyz = -1;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
                 &pbc_xyz, &timestep, trash, trash);
+  // extra bead types for data output (-ebt option)
+  int extra_types = 0;
+  if (IntegerOption(argc, argv, 1, "-ebt", trash, &extra_types)) {
+    exit(1);
+  }
 
   // read information from input file(s) //{{{
   SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
@@ -319,6 +225,11 @@ int main(int argc, char *argv[]) {
   }
 
   if (struct_file_out[0] != '\0') {
+    if (struct_type_out == LDATA_FILE && extra_types != 0) {
+      for (int i = 0; i < extra_types; i++) {
+        NewBeadType(&System.BeadType, &System.Count.BeadType, "extra", 0, 1, 1);
+      }
+    }
     WriteStructure(struct_type_out, struct_file_out, System,
                    vsf_def_type, lmp_mass);
   }
