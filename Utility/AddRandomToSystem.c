@@ -1,19 +1,10 @@
 #include "../AnalysisTools.h"
 
-// TODO: output file - any struct/output file
-//       Don't forget: if separate vsf/vcf files, one more argument is mandatory
-//       ...actually, what if we have FIELD struct + something else?
-//       ...well, don't allow FIELD since it does generate coordinates; then
-//       again, what if someone wants only that FIELD? Well, let them write it
-//       themselves; it's a simple format!
-//       Write structure only if struct type data, FIELD, vsf/vtf present
-// TODO: not just FIELD file for specifying what to add; actually, I want FIELD
-//       as it simply defines molecule 'prototypes', don't I?
-//       ...switch --coordinates to use provided coordinates? That should be a
-//       separate AddSystemToSystem, no? A separate AddSystemToSystem that
-//       accepts any struct/coordinate file
 // TODO: the '--' for input coordinate file to generate new system?
 //       ...that should be a separate GenSystem, no?
+// TODO: --bonded option as a 'shorthand' for -bt <list> <all> <bonded> <btypes>
+// TODO: -cx|y|z <min> <max> to constrain coordinates for adding beads
+// TODO: rotate the molecules randomly (+ switch --no-rot)
 
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
@@ -49,6 +40,48 @@ provided coordinates are used as is.\n\n");
   //         "(instead of appending to the system)\n");
   fprintf(ptr, "      -s <int>       seed for random number generator\n");
   CommonHelp(error, n, opt);
+} //}}}
+
+// generate random point in a cube (0,length)^3 //{{{
+VECTOR RandomCoordinate(BOX box) {
+  VECTOR random;
+  double number = (double)rand() / ((double)RAND_MAX + 1);
+  random.x = number * box.Length.x + box.Low.x;
+  number = (double)rand() / ((double)RAND_MAX + 1);
+  random.y = number * box.Length.y + box.Low.y;
+  number = (double)rand() / ((double)RAND_MAX + 1);
+  random.z = number * box.Length.z + box.Low.z;
+  return random;
+} //}}}
+
+// generate random point constrained by distance from other beads //{{{
+VECTOR RandomConstrainedCoor(BOX constrain, SYSTEM S_orig,
+                             bool bt_use_orig[], VECTOR box,
+                             double lowest_dist, double highest_dist) {
+  VECTOR random;
+  double min_dist = 0;
+  do {
+    random = RandomCoordinate(constrain);
+    min_dist = SQR(constrain.Length.x) +
+               SQR(constrain.Length.y) +
+               SQR(constrain.Length.z); // a high number
+    for (int j = 0; j < S_orig.Count.BeadType; j++) {
+      if (bt_use_orig[j]) {
+        for (int k = 0; k < S_orig.BeadType[j].Number; k++) {
+          int id = S_orig.BeadType[j].Index[k];
+          if (S_orig.Bead[id].InTimestep) {
+            VECTOR dist = Distance(S_orig.Bead[id].Position, random, box);
+            dist.x = VectorLength(dist);
+            if (dist.x < min_dist) {
+              min_dist = dist.x;
+            }
+          }
+        }
+      }
+    }
+  } while ((lowest_dist != -1 && lowest_dist >= min_dist) ||
+           (highest_dist != -1 && highest_dist <= min_dist));
+  return random;
 } //}}}
 
 int main(int argc, char *argv[]) {
@@ -210,9 +243,10 @@ int main(int argc, char *argv[]) {
   }
   // minimize initial coordinates of added molecules //{{{
   for (int i = 0; i < S_add.Count.Molecule; i++) {
-    int id0 = S_add.Molecule[i].Bead[0],
-        type = S_add.Molecule[i].Type;
-    VECTOR zero = S_add.Bead[id0].Position;
+    int type = S_add.Molecule[i].Type;
+    // int id0 = S_add.Molecule[i].Bead[0];
+    // VECTOR zero = S_add.Bead[id0].Position;
+    VECTOR zero = GeomCentre(S_add.MoleculeType[type].nBeads, S_add.Molecule[i].Bead, S_add.Bead);
     for (int j = 0; j < S_add.MoleculeType[type].nBeads; j++) {
       int id = S_add.Molecule[i].Bead[j];
       S_add.Bead[id].Position.x -= zero.x;
@@ -222,102 +256,31 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // set final box size //{{{
-  BOX box_n,
-      *box_a = &S_add.Box;
-  box_n = InitBox;
-  if (box_a->Length.x > S_orig.Box.Length.x) {
-    box_n.Length.x = box_a->Length.x;
-    box_n.Low.x = box_a->Low.x;
+  BOX box_new,
+      *box_add = &S_add.Box;
+  box_new = InitBox;
+  if (box_add->Length.x > S_orig.Box.Length.x) {
+    box_new.Length.x = box_add->Length.x;
+    box_new.Low.x = box_add->Low.x;
   } else {
-    box_n.Length.x = S_orig.Box.Length.x;
-    box_n.Low.x = S_orig.Box.Low.x;
+    box_new.Length.x = S_orig.Box.Length.x;
+    box_new.Low.x = S_orig.Box.Low.x;
   }
-  if (box_a->Length.y > S_orig.Box.Length.y) {
-    box_n.Length.y = box_a->Length.y;
-    box_n.Low.y = box_a->Low.y;
+  if (box_add->Length.y > S_orig.Box.Length.y) {
+    box_new.Length.y = box_add->Length.y;
+    box_new.Low.y = box_add->Low.y;
   } else {
-    box_n.Length.y = S_orig.Box.Length.y;
-    box_n.Low.y = S_orig.Box.Low.y;
+    box_new.Length.y = S_orig.Box.Length.y;
+    box_new.Low.y = S_orig.Box.Low.y;
   }
-  if (box_a->Length.z > S_orig.Box.Length.z) {
-    box_n.Length.z = box_a->Length.z;
-    box_n.Low.z = box_a->Low.z;
+  if (box_add->Length.z > S_orig.Box.Length.z) {
+    box_new.Length.z = box_add->Length.z;
+    box_new.Low.z = box_add->Low.z;
   } else {
-    box_n.Length.z = S_orig.Box.Length.z;
-    box_n.Low.z = S_orig.Box.Low.z;
+    box_new.Length.z = S_orig.Box.Length.z;
+    box_new.Low.z = S_orig.Box.Low.z;
   }
-  CalculateBoxData(&box_n, 0); //}}}
-
-  // minimize box size for adding beads if -hd is used //{{{
-  BOX box_r = InitBox;
-  if (highest_dist != -1) {
-    VECTOR max = {0, 0, 0}, min = box_n.Length;
-    for (int i = 0; i < S_orig.Count.BeadCoor; i++) {
-      int id = S_orig.BeadCoor[i];
-      int btype = S_orig.Bead[id].Type;
-      if (bt_use_orig[btype]) {
-        BEAD *bead = &S_orig.Bead[id];
-        if (bead->Position.x < min.x) {
-          min.x = bead->Position.x;
-        }
-        if (bead->Position.y < min.y) {
-          min.y = bead->Position.y;
-        }
-        if (bead->Position.z < min.z) {
-          min.z = bead->Position.z;
-        }
-        if (bead->Position.x > max.x) {
-          max.x = bead->Position.x;
-        }
-        if (bead->Position.y > max.y) {
-          max.y = bead->Position.y;
-        }
-        if (bead->Position.z > max.z) {
-          max.z = bead->Position.z;
-        }
-      }
-    }
-    min.x -= highest_dist;
-    min.y -= highest_dist;
-    min.z -= highest_dist;
-    if (min.x < 0) {
-      min.x = 0;
-    }
-    if (min.y < 0) {
-      min.y = 0;
-    }
-    if (min.z < 0) {
-      min.z = 0;
-    }
-    max.x += highest_dist;
-    max.y += highest_dist;
-    max.z += highest_dist;
-    if (max.x > box_n.Length.x) {
-      max.x = box_n.Length.x;
-    }
-    if (max.y > box_n.Length.y) {
-      max.y = box_n.Length.y;
-    }
-    if (max.z > box_n.Length.z) {
-      max.z = box_n.Length.z;
-    }
-    box_r.Low.x = min.x;
-    box_r.Low.y = min.y;
-    box_r.Low.z = min.z;
-    box_r.Length.x = max.x - min.x;
-    box_r.Length.y = max.y - min.y;
-    box_r.Length.z = max.z - min.z;
-    CalculateBoxData(&box_r, 0);
-  } else {
-    box_r = box_n;
-  }
-  // error - no box size (should never trigger) //{{{
-  if (box_n.Volume == -1) {
-    strcpy(ERROR_MSG, "zero box size for the new system");
-    PrintError();
-    exit(1);
-  } //}}}
-  //}}}
+  CalculateBoxData(&box_new, 0); //}}}
 
   // print what is to be added //{{{
   if (verbose) {
@@ -334,7 +297,7 @@ int main(int argc, char *argv[]) {
   // if not switched, concatenate the new (i.e., original) and the added systems
   if (!sw) { // do not switch, append the new system
     S_new = CopySystem(S_orig);
-    ConcatenateSystems(&S_new, S_add, box_n);
+    ConcatenateSystems(&S_new, S_add, box_new);
   } else { // switch, so transform the system
     // error - too few beads to switch //{{{
     if (C_add->Bead > S_orig.BeadType[sw_type].Number) {
@@ -356,8 +319,81 @@ int main(int argc, char *argv[]) {
     }
     PruneSystem(&S_orig);
     S_new = CopySystem(S_orig);
-    ConcatenateSystems(&S_new, S_add, box_n);
+    ConcatenateSystems(&S_new, S_add, box_new);
   } //}}}
+
+  // minimize box size for adding beads if -hd is used //{{{
+  BOX box_hd = InitBox;
+  if (highest_dist != -1) {
+    // find minimum/maximum coordinates of beads for distance check
+    VECTOR max = {0, 0, 0}, min = S_new.Box.Length;
+    for (int j = 0; j < S_orig.Count.BeadType; j++) {
+      if (bt_use_orig[j]) {
+        for (int k = 0; k < S_orig.BeadType[j].Number; k++) {
+          int id = S_orig.BeadType[j].Index[k];
+          BEAD *b = &S_orig.Bead[id];
+          if (b->InTimestep) {
+            if (b->Position.x < min.x) {
+              min.x = b->Position.x;
+            } else if (b->Position.x > max.x) {
+              max.x = b->Position.x;
+            }
+            if (b->Position.y < min.y) {
+              min.y = b->Position.y;
+            } else if (b->Position.y > max.y) {
+              max.y = b->Position.y;
+            }
+            if (b->Position.z < min.z) {
+              min.z = b->Position.z;
+            } else if (b->Position.z > max.z) {
+              max.z = b->Position.z;
+            }
+          }
+        }
+      }
+    }
+    // get the maximum possible coordinate of any added bead
+    max.x += highest_dist;
+    max.y += highest_dist;
+    max.z += highest_dist;
+    if (max.x > S_new.Box.Length.x) {
+      max.x = S_new.Box.Length.x;
+    }
+    if (max.y > S_new.Box.Length.y) {
+      max.y = S_new.Box.Length.y;
+    }
+    if (max.z > S_new.Box.Length.z) {
+      max.z = S_new.Box.Length.z;
+    }
+    // get the minimum possible coordinate of any added bead
+    min.x -= highest_dist;
+    min.y -= highest_dist;
+    min.z -= highest_dist;
+    if (min.x < 0) {
+      min.x = 0;
+    }
+    if (min.y < 0) {
+      min.y = 0;
+    }
+    if (min.z < 0) {
+      min.z = 0;
+    }
+    // define box for the possible coordinates
+    box_hd.Length.x = max.x - min.x;
+    box_hd.Length.y = max.y - min.y;
+    box_hd.Length.z = max.z - min.z;
+    box_hd.Low = min;
+    CalculateBoxData(&box_hd, 0);
+  } else { // if -hd is not used, don't constrain anything
+    box_hd = box_new;
+  }
+  // error - no box size (should never trigger) //{{{
+  if (box_new.Volume == -1) {
+    strcpy(ERROR_MSG, "zero box size for the new system");
+    PrintError();
+    exit(1);
+  } //}}}
+  //}}}
 
   // add monomeric beads //{{{
   int id = S_orig.Count.Bead;
@@ -365,59 +401,16 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < S_add.Count.Unbonded; i++) {
     VECTOR random;
     if (lowest_dist != -1 || highest_dist != -1) {
-      double min_dist = 0;
-      int tries = 0;
-      do {
-        tries++;
-        double number = (double)rand() / ((double)RAND_MAX + 1);
-        random.x = number * box_n.Length.x;
-        // random.x = number * box_r.Length.x + box_r.Low.x;
-        number = (double)rand() / ((double)RAND_MAX + 1);
-        random.y = number * box_n.Length.y;
-        // random.y = number * box_r.Length.y + box_r.Low.y;
-        number = (double)rand() / ((double)RAND_MAX + 1);
-        random.z = number * box_n.Length.z;
-        // random.z = number * box_r.Length.z + box_r.Low.z;
-
-        min_dist = SQR(box_n.Length.x) +
-                   SQR(box_n.Length.y) +
-                   SQR(box_n.Length.z); // some high number
-        for (int j = 0; j < S_orig.Count.BeadType; j++) {
-          if (bt_use_orig[j]) {
-            for (int k = 0; k < S_orig.BeadType[j].Number; k++) {
-              int id = S_orig.BeadType[j].Index[k];
-              if (S_orig.Bead[id].InTimestep) {
-                VECTOR dist;
-                dist = Distance(S_orig.Bead[id].Position,
-                                random, S_new.Box.Length);
-                dist.x = VectorLength(dist);
-                if (dist.x < min_dist) {
-                  min_dist = dist.x;
-                }
-              }
-            }
-          }
-        }
-      } while ((lowest_dist != -1 && lowest_dist >= min_dist) ||
-               (highest_dist != -1 && highest_dist <= min_dist));
+      random = RandomConstrainedCoor(box_hd, S_orig, bt_use_orig,
+                                     S_new.Box.Length, lowest_dist,
+                                     highest_dist);
     } else {
-      double number = (double)rand() / ((double)RAND_MAX + 1);
-      random.x = number * box_n.Length.x;
-      number = (double)rand() / ((double)RAND_MAX + 1);
-      random.y = number * box_n.Length.y;
-      number = (double)rand() / ((double)RAND_MAX + 1);
-      random.z = number * box_n.Length.z;
+      random = RandomCoordinate(box_new);
     }
-      // printf("\nxxx %d %lf %lf %lf\n", i, random.x, random.y, random.z);
 
-    // if (sw) {
-    //   id = add_b_id_to_new_b_id[i];
-    // }
-    // add the new coordinate
     S_new.Bead[id].Position.x = random.x;
     S_new.Bead[id].Position.y = random.y;
     S_new.Bead[id].Position.z = random.z;
-    // printf("\n%d %s\n", id, S_new.BeadType[S_new.Bead[id].Type].Name);
     id++;
 
     // print number of placed beads? //{{{
@@ -440,12 +433,13 @@ int main(int argc, char *argv[]) {
     int mtype = S_new.Molecule[i].Type;
 
     VECTOR random;
-    double number = (double)rand() / ((double)RAND_MAX + 1);
-    random.x = number * box_n.Length.x;
-    number = (double)rand() / ((double)RAND_MAX + 1);
-    random.y = number * box_n.Length.y;
-    number = (double)rand() / ((double)RAND_MAX + 1);
-    random.z = number * box_n.Length.z;
+    if (lowest_dist != -1 || highest_dist != -1) {
+      random = RandomConstrainedCoor(box_hd, S_orig, bt_use_orig,
+                                     S_new.Box.Length, lowest_dist,
+                                     highest_dist);
+    } else {
+      random = RandomCoordinate(box_new);
+    }
 
     for (int j = 0; j < S_new.MoleculeType[mtype].nBeads; j++) {
       int id_add = S_add.Molecule[i-C_orig->Molecule].Bead[j];
