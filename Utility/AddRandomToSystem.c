@@ -34,10 +34,16 @@ provided coordinates are used as is.\n\n");
           "chosen bead types (default: none)\n");
   fprintf(ptr, "      -bt <name(s)>  specify bead types new beads "
           "should be far from/near to (default: none)\n");
+  fprintf(ptr, "      --bonded       use bonded beads for the distance "
+          "condition (overwrites -bt option)\n");
   fprintf(ptr, "      --switch       exchange beads instead of adding them "
           "(by default, bead type with the most beads is used)\n");
-  // fprintf(ptr, "      -xb <name>     unbondedbead(s) to switch new beads for "
-  //         "(instead of appending to the system)\n");
+  fprintf(ptr, "      -cx 2×<float>  constrain x-coordinate to specified "
+          "dimensions\n");
+  fprintf(ptr, "      -cy 2×<float>  constrain y-coordinate to specified "
+          "dimensions\n");
+  fprintf(ptr, "      -cz 2×<float>  constrain z-coordinate to specified "
+          "dimensions\n");
   fprintf(ptr, "      -s <int>       seed for random number generator\n");
   CommonHelp(error, n, opt);
 } //}}}
@@ -56,24 +62,35 @@ VECTOR RandomCoordinate(BOX box) {
 
 // generate random point constrained by distance from other beads //{{{
 VECTOR RandomConstrainedCoor(BOX constrain, SYSTEM S_orig,
-                             bool bt_use_orig[], VECTOR box,
+                             bool bt_use_orig[], bool bonded, VECTOR box,
                              double lowest_dist, double highest_dist) {
   VECTOR random;
   double min_dist = 0;
   do {
     random = RandomCoordinate(constrain);
-    min_dist = SQR(constrain.Length.x) +
-               SQR(constrain.Length.y) +
-               SQR(constrain.Length.z); // a high number
-    for (int j = 0; j < S_orig.Count.BeadType; j++) {
-      if (bt_use_orig[j]) {
-        for (int k = 0; k < S_orig.BeadType[j].Number; k++) {
-          int id = S_orig.BeadType[j].Index[k];
-          if (S_orig.Bead[id].InTimestep) {
-            VECTOR dist = Distance(S_orig.Bead[id].Position, random, box);
-            dist.x = VectorLength(dist);
-            if (dist.x < min_dist) {
-              min_dist = dist.x;
+    min_dist = SQR(constrain.Length.x + constrain.Low.x) +
+               SQR(constrain.Length.y + constrain.Low.y) +
+               SQR(constrain.Length.z + constrain.Low.z); // a high number
+    if (bonded) { // use all bonded beads
+      for (int i = 0; i < S_orig.Count.BondedCoor; i++) {
+        int id = S_orig.BondedCoor[i];
+        VECTOR dist = Distance(S_orig.Bead[id].Position, random, box);
+        dist.x = VectorLength(dist);
+        if (dist.x < min_dist) {
+          min_dist = dist.x;
+        }
+      }
+    } else { // use specified bead types
+      for (int i = 0; i < S_orig.Count.BeadType; i++) {
+        if (bt_use_orig[i]) {
+          for (int j = 0; j < S_orig.BeadType[i].Number; j++) {
+            int id = S_orig.BeadType[i].Index[j];
+            if (S_orig.Bead[id].InTimestep) {
+              VECTOR dist = Distance(S_orig.Bead[id].Position, random, box);
+              dist.x = VectorLength(dist);
+              if (dist.x < min_dist) {
+                min_dist = dist.x;
+              }
             }
           }
         }
@@ -87,7 +104,7 @@ VECTOR RandomConstrainedCoor(BOX constrain, SYSTEM S_orig,
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 8, all = common + 5, count = 0,
+  int common = 8, all = common + 9, count = 0,
       req_arg = 3;
   char option[all][OPT_LENGTH];
   // common options
@@ -104,8 +121,12 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-ld");
   strcpy(option[count++], "-hd");
   strcpy(option[count++], "-bt");
+  strcpy(option[count++], "--bonded");
   // strcpy(option[count++], "-xb");
   strcpy(option[count++], "--switch");
+  strcpy(option[count++], "-cx");
+  strcpy(option[count++], "-cy");
+  strcpy(option[count++], "-cz");
   strcpy(option[count++], "-s");
   OptionCheck(argc, argv, req_arg, common, all, option);
   //}}}
@@ -147,32 +168,63 @@ int main(int argc, char *argv[]) {
   int trash[1]; // some stuff for unused things in options
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
                 &pbc_xyz, &timestep, trash, trash);
-  // lowest and/or highest distance from beads of type specified by '-bt'
-  double lowest_dist = -1;
-  if (DoubleOption(argc, argv, 1, "-ld", trash, &lowest_dist)) {
+  // lowest and/or highest distance from specified beads //{{{
+  double lowest_dist = -1, highest_dist = -1;
+  DoubleOption1(argc, argv, "-ld", &lowest_dist);
+  DoubleOption1(argc, argv, "-hd", &highest_dist);
+  if (lowest_dist != -1 && highest_dist != -1 && lowest_dist >= highest_dist) {
+    strcpy(ERROR_MSG, "highest distance must be higher than lowest distance");
+    PrintErrorOption("-ld/-hd");
+    Help(argv[0], true, common, option);
     exit(1);
   }
-  double highest_dist = -1;
-  if (DoubleOption(argc, argv, 1, "-hd", trash, &highest_dist)) {
-    exit(1);
-  }
-  // error: if '-ld' and/or '-hd' are present, '-bt' must be too //{{{
+  printf("%lf %lf\n", lowest_dist, highest_dist);
+  // error: missing '-bt'/'--bonded' when '-ld' and/or '-hd' are used //{{{
   if (highest_dist != -1 || lowest_dist != -1) {
     bool bt = false;
     for (int i = 0; i < argc; i++) {
-      if (strcmp(argv[i], "-bt") == 0) {
+      if (strcmp(argv[i], "-bt") == 0 || strcmp(argv[i], "--bonded") == 0) {
         bt = true;
       }
     }
     if (!bt) {
-      ErrorPrintError_old();
-      ColourChange(STDERR_FILENO, RED);
-      fprintf(stderr, "if '-ld' and/or '-hd' is used,");
-      fprintf(stderr, "'-bt' must be specified as well\n\n");
-      // ColourReset(STDERR_FILENO);
+      strcpy(ERROR_MSG, "missing mandatory -bt or --bonded options");
+      PrintErrorOption("-ld/-hd");
+      Help(argv[0], true, common, option);
       exit(1);
     }
   } //}}}
+  //}}}
+  // axes constraints (-cx/y/z options) //{{{
+  double cx[2] = {-1, -1}, cy[2] = {-1, -1}, cz[2] = {-1, -1};
+  if (DoubleOption2(argc, argv, "-cx", cx)) {
+    if (cx[0] == cx[1]) {
+      strcpy(ERROR_MSG, "two different distance values required");
+      PrintErrorOption("-cx");
+      exit(1);
+    } else if (cx[0] > cx[1]) {
+      SwapDouble(&cx[0], &cx[1]);
+    }
+  }
+  if (DoubleOption2(argc, argv, "-cy", cy)) {
+    if (cy[0] == cy[1]) {
+      strcpy(ERROR_MSG, "two different distance values required");
+      PrintErrorOption("-cy");
+      exit(1);
+    } else if (cy[0] > cy[1]) {
+      SwapDouble(&cy[0], &cy[1]);
+    }
+  }
+  if (DoubleOption2(argc, argv, "-cz", cz)) {
+    if (cz[0] == cz[1]) {
+      strcpy(ERROR_MSG, "two different distance values required");
+      PrintErrorOption("-cz");
+      exit(1);
+    } else if (cz[0] > cz[1]) {
+      SwapDouble(&cz[0], &cz[1]);
+    }
+  } //}}}
+
   // seed for random number generator (-s option)
   int seed = -1;
   if (IntegerOption(argc, argv, 1, "-s", trash, &seed)) {
@@ -201,11 +253,12 @@ int main(int argc, char *argv[]) {
       }
     }
   } //}}}
-  // -bt <name(s)> - specify what bead types to use //{{{
+  // -bt <name(s)>/--bonded - specify what bead types to use //{{{
   bool *bt_use_orig = calloc(S_orig.Count.BeadType, sizeof *bt_use_orig);
   if (BeadTypeOption(argc, argv, "-bt", false, bt_use_orig, &S_orig)) {
     exit(0);
-  } //}}}
+  }
+  bool bonded = BoolOption(argc, argv, "--bonded"); //}}}
 
   // seed random number generator //{{{
   if (seed != -1) {
@@ -322,78 +375,108 @@ int main(int argc, char *argv[]) {
     ConcatenateSystems(&S_new, S_add, box_new);
   } //}}}
 
-  // minimize box size for adding beads if -hd is used //{{{
-  BOX box_hd = InitBox;
+  // define constrained box for adding beads (-cx/y/z and/or -hd options) //{{{
+  BOX box_constrain = InitBox;
+  box_constrain.Length = S_new.Box.Length;
+  if (cx[0] != -1) {
+    box_constrain.Low.x = cx[0];
+    box_constrain.Length.x = cx[1] - cx[0];
+  }
+  if (cy[0] != -1) {
+    box_constrain.Low.y = cy[0];
+    box_constrain.Length.y = cy[1] - cy[0];
+  }
+  if (cz[0] != -1) {
+    box_constrain.Low.z = cz[0];
+    box_constrain.Length.z = cz[1] - cz[0];
+  }
+  CalculateBoxData(&box_constrain, 0);
+  // minimize box if -hd is used
   if (highest_dist != -1) {
-    // find minimum/maximum coordinates of beads for distance check
-    VECTOR max = {0, 0, 0}, min = S_new.Box.Length;
-    for (int j = 0; j < S_orig.Count.BeadType; j++) {
-      if (bt_use_orig[j]) {
-        for (int k = 0; k < S_orig.BeadType[j].Number; k++) {
-          int id = S_orig.BeadType[j].Index[k];
-          BEAD *b = &S_orig.Bead[id];
-          if (b->InTimestep) {
-            if (b->Position.x < min.x) {
-              min.x = b->Position.x;
-            } else if (b->Position.x > max.x) {
-              max.x = b->Position.x;
-            }
-            if (b->Position.y < min.y) {
-              min.y = b->Position.y;
-            } else if (b->Position.y > max.y) {
-              max.y = b->Position.y;
-            }
-            if (b->Position.z < min.z) {
-              min.z = b->Position.z;
-            } else if (b->Position.z > max.z) {
-              max.z = b->Position.z;
+    // find minimum/maximum coordinates of beads for distance check //{{{
+    VECTOR max = {0, 0, 0}, min = S_orig.Box.Length;
+    if (bonded) { // use all bonded beads
+      for (int i = 0; i < S_orig.Count.BondedCoor; i++) {
+        int id = S_orig.BondedCoor[i];
+        BEAD *b = &S_orig.Bead[id];
+        if (b->InTimestep) {
+          if (b->Position.x < min.x) {
+            min.x = b->Position.x;
+          } else if (b->Position.x > max.x) {
+            max.x = b->Position.x;
+          }
+          if (b->Position.y < min.y) {
+            min.y = b->Position.y;
+          } else if (b->Position.y > max.y) {
+            max.y = b->Position.y;
+          }
+          if (b->Position.z < min.z) {
+            min.z = b->Position.z;
+          } else if (b->Position.z > max.z) {
+            max.z = b->Position.z;
+          }
+        }
+      }
+    } else { // use bead types specified by -bt
+      for (int i = 0; i < S_orig.Count.BeadType; i++) {
+        if (bt_use_orig[i]) {
+          for (int j = 0; j < S_orig.BeadType[i].Number; j++) {
+            int id = S_orig.BeadType[i].Index[j];
+            BEAD *b = &S_orig.Bead[id];
+            if (b->InTimestep) {
+              if (b->Position.x < min.x) {
+                min.x = b->Position.x;
+              } else if (b->Position.x > max.x) {
+                max.x = b->Position.x;
+              }
+              if (b->Position.y < min.y) {
+                min.y = b->Position.y;
+              } else if (b->Position.y > max.y) {
+                max.y = b->Position.y;
+              }
+              if (b->Position.z < min.z) {
+                min.z = b->Position.z;
+              } else if (b->Position.z > max.z) {
+                max.z = b->Position.z;
+              }
             }
           }
         }
       }
-    }
-    // get the maximum possible coordinate of any added bead
+    } //}}}
+    // get the maximum possible coordinate of any added bead //{{{
     max.x += highest_dist;
     max.y += highest_dist;
     max.z += highest_dist;
-    if (max.x > S_new.Box.Length.x) {
-      max.x = S_new.Box.Length.x;
+    if (max.x > (box_constrain.Low.x + box_constrain.Length.x)) {
+      max.x = box_constrain.Low.x + box_constrain.Length.x;
     }
-    if (max.y > S_new.Box.Length.y) {
-      max.y = S_new.Box.Length.y;
+    if (max.y > (box_constrain.Low.y + box_constrain.Length.y)) {
+      max.y = box_constrain.Low.y + box_constrain.Length.y;
     }
-    if (max.z > S_new.Box.Length.z) {
-      max.z = S_new.Box.Length.z;
-    }
-    // get the minimum possible coordinate of any added bead
+    if (max.z > (box_constrain.Low.z + box_constrain.Length.z)) {
+      max.z = box_constrain.Low.z + box_constrain.Length.z;
+    } //}}}
+    // get the minimum possible coordinate of any added bead //{{{
     min.x -= highest_dist;
     min.y -= highest_dist;
     min.z -= highest_dist;
-    if (min.x < 0) {
-      min.x = 0;
+    if (min.x < box_constrain.Low.x) {
+      min.x = box_constrain.Low.x;
     }
-    if (min.y < 0) {
-      min.y = 0;
+    if (min.y < box_constrain.Low.y) {
+      min.y = box_constrain.Low.y;
     }
-    if (min.z < 0) {
-      min.z = 0;
-    }
-    // define box for the possible coordinates
-    box_hd.Length.x = max.x - min.x;
-    box_hd.Length.y = max.y - min.y;
-    box_hd.Length.z = max.z - min.z;
-    box_hd.Low = min;
-    CalculateBoxData(&box_hd, 0);
-  } else { // if -hd is not used, don't constrain anything
-    box_hd = box_new;
-  }
-  // error - no box size (should never trigger) //{{{
-  if (box_new.Volume == -1) {
-    strcpy(ERROR_MSG, "zero box size for the new system");
-    PrintError();
-    exit(1);
+    if (min.z < box_constrain.Low.z) {
+      min.z = box_constrain.Low.z;
+    } //}}}
+    // define the box
+    box_constrain.Length.x = max.x - min.x;
+    box_constrain.Length.y = max.y - min.y;
+    box_constrain.Length.z = max.z - min.z;
+    box_constrain.Low = min;
+    CalculateBoxData(&box_constrain, 0);
   } //}}}
-  //}}}
 
   // add monomeric beads //{{{
   int id = S_orig.Count.Bead;
@@ -401,11 +484,11 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < S_add.Count.Unbonded; i++) {
     VECTOR random;
     if (lowest_dist != -1 || highest_dist != -1) {
-      random = RandomConstrainedCoor(box_hd, S_orig, bt_use_orig,
-                                     S_new.Box.Length, lowest_dist,
-                                     highest_dist);
+      random = RandomConstrainedCoor(box_constrain, S_orig,
+                                     bt_use_orig, bonded, S_new.Box.Length,
+                                     lowest_dist, highest_dist);
     } else {
-      random = RandomCoordinate(box_new);
+      random = RandomCoordinate(box_constrain);
     }
 
     S_new.Bead[id].Position.x = random.x;
@@ -434,11 +517,11 @@ int main(int argc, char *argv[]) {
 
     VECTOR random;
     if (lowest_dist != -1 || highest_dist != -1) {
-      random = RandomConstrainedCoor(box_hd, S_orig, bt_use_orig,
-                                     S_new.Box.Length, lowest_dist,
-                                     highest_dist);
+      random = RandomConstrainedCoor(box_constrain, S_orig,
+                                     bt_use_orig, bonded, S_new.Box.Length,
+                                     lowest_dist, highest_dist);
     } else {
-      random = RandomCoordinate(box_new);
+      random = RandomCoordinate(box_constrain);
     }
 
     for (int j = 0; j < S_new.MoleculeType[mtype].nBeads; j++) {

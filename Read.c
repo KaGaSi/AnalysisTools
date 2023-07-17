@@ -857,7 +857,7 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
   do {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
-      return -2;
+      return 1; // Velocities section is not mandatory
     }
   } while (words == 0 || strcmp(split[0], "Velocities") != 0);
   (*line_count)++;
@@ -1077,31 +1077,8 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
     putc('\n', stderr);
     exit(1);
   }
-  if ((Count->Bond > 0 && Count->BondType == 0) ||
-      (Count->Bond == 0 && Count->BondType > 0)) {
-    strcpy(ERROR_MSG, "missing bonds or bond types in the file header");
-    PrintWarnFile(file, "\0", "\0");
-    putc('\n', stderr);
-  }
-  if ((Count->Angle > 0 && Count->AngleType == 0) ||
-      (Count->Angle == 0 && Count->AngleType > 0)) {
-    strcpy(ERROR_MSG, "missing angles or angle types in the file header");
-    PrintWarnFile(file, "\0", "\0");
-    putc('\n', stderr);
-  }
-  if ((Count->Dihedral > 0 && Count->DihedralType == 0) ||
-      (Count->Dihedral == 0 && Count->DihedralType > 0)) {
-    strcpy(ERROR_MSG, "missing dihedrals or dihedral types in the file header");
-    PrintWarnFile(file, "\0", "\0");
-    putc('\n', stderr);
-  }
-  if ((Count->Improper > 0 && Count->ImproperType == 0) ||
-      (Count->Improper == 0 && Count->ImproperType > 0)) {
-    strcpy(ERROR_MSG, "missing impropers or improper types in the file header");
-    PrintWarnFile(file, "\0", "\0");
-    putc('\n', stderr);
-  }
-  if (System->Box.OrthoLength.x == -1 || System->Box.OrthoLength.y == -1 ||
+  if (System->Box.OrthoLength.x == -1 ||
+      System->Box.OrthoLength.y == -1 ||
       System->Box.OrthoLength.z == -1) {
     strcpy(ERROR_MSG, "missing box size in the file header");
     PrintWarnFile(file, "\0", "\0");
@@ -1453,9 +1430,9 @@ static void LmpDataReadDihedralCoeffs(FILE *fr, char file[], SYSTEM *System,
       PrintErrorFileLine(file, *line_count, split, words);
       exit(1);
     } //}}}
-    System->DihedralType[type - 1].a = a;
-    System->DihedralType[type - 1].b = b;
-    System->DihedralType[type - 1].c = c;
+    System->DihedralType[type-1].a = a;
+    System->DihedralType[type-1].b = b;
+    System->DihedralType[type-1].c = c;
   }
 } //}}}
 // read Improper Coeffs section //{{{

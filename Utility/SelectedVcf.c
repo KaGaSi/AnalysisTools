@@ -177,9 +177,11 @@ int main(int argc, char *argv[]) {
     fclose(out);
   } //}}}
 
+  // for lammps data as a coordinate file, only the one step is used
   if (coor_type == LDATA_FILE) {
     start = 1;
     skip = 1;
+    end = 1;
   }
 
   FILE *fr = OpenFile(coor_file, "r");

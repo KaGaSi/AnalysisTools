@@ -301,30 +301,18 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
   fprintf(fw, "%10d impropers\n", Count->Improper);
   putc('\n', fw);
   fprintf(fw, "%10d atom types\n", Count->BeadType);
-  if (Count->Bond > 0 && Count->BondType == 0) {
-    fprintf(fw, "       ???");
-  } else {
-    fprintf(fw, "%10d", Count->BondType);
+  if (Count->Bond > 0 && Count->BondType > 0) {
+    fprintf(fw, "%10d bond types\n", Count->BondType);
   }
-  fprintf(fw, " bond types\n");
-  if (Count->Angle > 0 && Count->AngleType == 0) {
-    fprintf(fw, "       ???");
-  } else {
-    fprintf(fw, "%10d", Count->AngleType);
+  if (Count->Angle > 0 && Count->AngleType > 0) {
+    fprintf(fw, "%10d angle types\n", Count->AngleType);
   }
-  fprintf(fw, " angle types\n");
-  if (Count->Dihedral > 0 && Count->DihedralType == 0) {
-    fprintf(fw, "       ???");
-  } else {
-    fprintf(fw, "%10d", Count->DihedralType);
+  if (Count->Dihedral > 0 && Count->DihedralType > 0) {
+    fprintf(fw, "%10d dihedral types\n", Count->DihedralType);
   }
-  fprintf(fw, " dihedral types\n");
-  if (Count->Improper > 0 && Count->ImproperType == 0) {
-    fprintf(fw, "       ???");
-  } else {
-    fprintf(fw, "%10d", Count->ImproperType);
+  if (Count->Improper > 0 && Count->ImproperType > 0) {
+    fprintf(fw, "%10d improper types\n", Count->ImproperType);
   }
-  fprintf(fw, " improper types\n");
   putc('\n', fw); //}}}
   // print box size //{{{
   // fprintf(fw, "0.0 %lf xlo xhi\n", System.Box.OrthoLength.x);
@@ -346,65 +334,55 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
   putc('\n', fw); //}}}
   // print bead type masses //{{{
   fprintf(fw, "Masses\n\n");
+  bool print = false;
   for (int i = 0; i < mass_types; i++) {
     BEADTYPE *bt = &System.BeadType[bt_masstype_to_old[i]];
-    if (bt->Mass == MASS) {
-      fprintf(fw, "%5d ??? # %s\n", i + 1, bt->Name);
-    } else {
-      fprintf(fw, "%5d %lf # %s\n", i + 1, bt->Mass, bt->Name);
+    if (bt->Mass != MASS) {
+      print = true;
+      break;
+    }
+  }
+  if (print) {
+    for (int i = 0; i < mass_types; i++) {
+      BEADTYPE *bt = &System.BeadType[bt_masstype_to_old[i]];
+      if (bt->Mass == MASS) {
+        fprintf(fw, "%5d ??? # %s\n", i + 1, bt->Name);
+      } else {
+        fprintf(fw, "%5d %lf # %s\n", i + 1, bt->Mass, bt->Name);
+      }
     }
   } //}}}
   // print various coeffs //{{{
-  // fprintf(fw, "\nPair Coeffs\n\n");
-  // for (int i = 0; i < Count->BeadType; i++) {
-  //   fprintf(fw, "%5d ???\n", i + 1);
-  // }
-  if (Count->Bond > 0) {
+  if (Count->BondType > 0) {
     fprintf(fw, "\nBond Coeffs\n\n");
-    if (Count->BondType > 0) {
-      for (int i = 0; i < Count->BondType; i++) {
-        fprintf(fw, "%5d %lf %lf\n", i + 1, System.BondType[i].a / 2,
-                System.BondType[i].b);
-      }
-    } else {
-      fprintf(fw, "  ???\n");
+    for (int i = 0; i < Count->BondType; i++) {
+      fprintf(fw, "%5d %lf %lf\n", i + 1, System.BondType[i].a / 2,
+              System.BondType[i].b);
     }
   }
-  if (Count->Angle > 0) {
+  if (Count->AngleType > 0) {
     fprintf(fw, "\nAngle Coeffs\n\n");
-    if (Count->AngleType > 0) {
-      for (int i = 0; i < Count->AngleType; i++) {
-        fprintf(fw, "%5d %lf %lf\n", i + 1, System.AngleType[i].a / 2,
-                System.AngleType[i].b);
-      }
-    } else {
-      fprintf(fw, "  ???\n");
+    for (int i = 0; i < Count->AngleType; i++) {
+      fprintf(fw, "%5d %lf %lf\n", i + 1, System.AngleType[i].a / 2,
+              System.AngleType[i].b);
     }
   }
-  if (Count->Dihedral > 0) {
+  if (Count->DihedralType > 0) {
     fprintf(fw, "\nDihedral Coeffs\n\n");
-    if (Count->DihedralType > 0) {
-      for (int i = 0; i < Count->DihedralType; i++) {
-        fprintf(fw, "%5d %lf %lf %lf\n", i + 1, System.DihedralType[i].a / 2,
-                System.DihedralType[i].b, System.DihedralType[i].c);
-      }
-    } else {
-      fprintf(fw, "  ???\n");
+    for (int i = 0; i < Count->DihedralType; i++) {
+      fprintf(fw, "%5d %lf %lf %lf\n", i + 1, System.DihedralType[i].a / 2,
+              System.DihedralType[i].b, System.DihedralType[i].c);
     }
   }
-  if (Count->Improper > 0) {
+  if (Count->ImproperType > 0) {
     fprintf(fw, "\nImproper Coeffs\n\n");
-    if (Count->ImproperType > 0) {
-      for (int i = 0; i < Count->ImproperType; i++) {
-        fprintf(fw, "%5d %lf %lf %lf\n", i + 1, System.ImproperType[i].a / 2,
-                System.ImproperType[i].b, System.ImproperType[i].c);
-      }
-    } else {
-      fprintf(fw, "  ???\n");
+    for (int i = 0; i < Count->ImproperType; i++) {
+      fprintf(fw, "%5d %lf %lf %lf\n", i + 1, System.ImproperType[i].a / 2,
+              System.ImproperType[i].b, System.ImproperType[i].c);
     }
   } //}}}
   // print atoms //{{{
-  fprintf(fw, "\nAtoms\n\n");
+  fprintf(fw, "\nAtoms # full\n\n");
   for (int i = 0; i < Count->BeadCoor; i++) {
     int id = System.BeadCoor[i];
     BEAD *bead = &System.Bead[id];

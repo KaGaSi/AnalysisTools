@@ -49,7 +49,9 @@ bool IntegerOption(int argc, char *argv[], int max,
                    char *opt, int *count, int *values);
 // general option with multiple double arguments (up to 'max')
 bool DoubleOption(int argc, char *argv[], int max,
-                  char *opt, int *count, double *values);
+                  char *opt, int *count, double values[max]);
+bool DoubleOption1(int argc, char *argv[], char *opt, double *value);
+bool DoubleOption2(int argc, char *argv[], char *opt, double value[2]);
 // general option with filename and integer(s) arguments
 bool FileIntegerOption(int argc, char *argv[], int max, char *opt,
                        int *values, int *count, char *file);

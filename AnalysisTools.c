@@ -3892,52 +3892,66 @@ void PrintImproperType(SYSTEM System) { //{{{
 } //}}}
 void PrintBox(BOX Box) { //{{{
   fprintf(stdout, "Box = {\n");
-  fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x, Box.Length.y,
-          Box.Length.z);
-  fprintf(stdout, "  .Low = (%lf, %lf, %lf),\n", Box.Low.x, Box.Low.y, Box.Low.z);
-  fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n", Box.OrthoLength.x,
-          Box.OrthoLength.y, Box.OrthoLength.z);
-  fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
-  fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
-  fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);
+  if (Box.Low.x > 0 || Box.Low.y > 0 || Box.Low.z > 0) {
+    fprintf(stdout, "  .Low = (%lf, %lf, %lf),\n",
+            Box.Low.x, Box.Low.y, Box.Low.z);
+  }
+  fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n",
+          Box.Length.x, Box.Length.y, Box.Length.z);
+  if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
+    fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
+    fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
+    fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);
+  }
   fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
-  // print transform matrix //{{{
-  for (int i = 0; i < 3; i++) {
-    if (i == 0) {
-      fprintf(stdout, "  .transform = (");
-    } else {
-      fprintf(stdout, "               (");
-    }
-    for (int j = 0; j < 3; j++) {
-      if (Box.transform[i][j] >= 0) {
-        putchar(' ');
-      }
-      fprintf(stdout, "%e", Box.transform[i][j]);
-      if (j < 2) {
-        fprintf(stdout, ", ");
-      }
-    }
-    fprintf(stdout, ")\n");
-  } //}}}
-  // print inverse matrix //{{{
-  for (int i = 0; i < 3; i++) {
-    if (i == 0) {
-      fprintf(stdout, "  .inverse = (");
-    } else {
-      fprintf(stdout, "             (");
-    }
-    for (int j = 0; j < 3; j++) {
-      if (Box.inverse[i][j] >= 0) {
-        putchar(' ');
-      }
-      fprintf(stdout, "%e", Box.inverse[i][j]);
-      if (j < 2) {
-        fprintf(stdout, ", ");
-      }
-    }
-    fprintf(stdout, ")\n");
-  } //}}}
   fprintf(stdout, "}\n");
+  // fprintf(stdout, "Box = {\n");
+  // fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x, Box.Length.y,
+  //         Box.Length.z);
+  // fprintf(stdout, "  .Low = (%lf, %lf, %lf),\n", Box.Low.x, Box.Low.y, Box.Low.z);
+  // fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n", Box.OrthoLength.x,
+  //         Box.OrthoLength.y, Box.OrthoLength.z);
+  // fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
+  // fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
+  // fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);
+  // fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
+  // // print transform matrix //{{{
+  // for (int i = 0; i < 3; i++) {
+  //   if (i == 0) {
+  //     fprintf(stdout, "  .transform = (");
+  //   } else {
+  //     fprintf(stdout, "               (");
+  //   }
+  //   for (int j = 0; j < 3; j++) {
+  //     if (Box.transform[i][j] >= 0) {
+  //       putchar(' ');
+  //     }
+  //     fprintf(stdout, "%e", Box.transform[i][j]);
+  //     if (j < 2) {
+  //       fprintf(stdout, ", ");
+  //     }
+  //   }
+  //   fprintf(stdout, ")\n");
+  // } //}}}
+  // // print inverse matrix //{{{
+  // for (int i = 0; i < 3; i++) {
+  //   if (i == 0) {
+  //     fprintf(stdout, "  .inverse = (");
+  //   } else {
+  //     fprintf(stdout, "             (");
+  //   }
+  //   for (int j = 0; j < 3; j++) {
+  //     if (Box.inverse[i][j] >= 0) {
+  //       putchar(' ');
+  //     }
+  //     fprintf(stdout, "%e", Box.inverse[i][j]);
+  //     if (j < 2) {
+  //       fprintf(stdout, ", ");
+  //     }
+  //   }
+  //   fprintf(stdout, ")\n");
+  // } //}}}
+  // fprintf(stdout, "}\n");
 } //}}}
 void PrintByline(FILE *ptr, int argc, char *argv[]) { //{{{
   fprintf(ptr, "# Created by AnalysisTools v%s ", VERSION);

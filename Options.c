@@ -357,30 +357,53 @@ bool IntegerOption(int argc, char *argv[], int max,
 
 // general option with multiple double arguments (up to 'max') //{{{
 bool DoubleOption(int argc, char *argv[], int max,
-                  char *opt, int *count, double *values) {
+                  char *opt, int *count, double values[max]) {
   *count = 0;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
       int n = 0; // number of arguments
       // read doubles
-      int arg = i+1+n;
-      while (arg < argc && IsRealNumber(argv[arg], &values[n])) {
-        values[n] = atof(argv[arg]);
+      int arg = i + 1 + n;
+      double val;
+      while (arg < argc && IsRealNumber(argv[arg], &val)) {
+        values[n] = val;
         n++;
         arg = i + 1 + n;
-        // warning - too many numeric arguments
-        if (n > max) {
-          snprintf(ERROR_MSG, LINE, "too many arguments; only the first %d "
-                   "used", max);
-          PrintErrorOption(opt);
+        if (n == max) {
           *count = n;
           return true;
         }
       }
-      *count = n;
+      return true; // happens when fewer arguments than 'max'
     }
   }
   return false;
+}
+bool DoubleOption1(int argc, char *argv[], char *opt, double *value) {
+  int count = 0;
+  if (DoubleOption(argc, argv, 1, opt, &count, value)) {
+    if (count != 1) {
+      strcpy(ERROR_MSG, "single numeric argument required");
+      PrintErrorOption(opt);
+      exit(1);
+    } else {
+      return true; // option present
+    }
+  }
+  return false; // option not present
+}
+bool DoubleOption2(int argc, char *argv[], char *opt, double value[2]) {
+  int count = 0;
+  if (DoubleOption(argc, argv, 2, opt, &count, value)) {
+    if (count != 2) {
+      strcpy(ERROR_MSG, "two numeric arguments required");
+      PrintErrorOption(opt);
+      exit(1);
+    } else {
+      return true; // option present
+    }
+  }
+  return false; // option not present
 } //}}}
 
 // general option with filename and integer(s) arguments //{{{
