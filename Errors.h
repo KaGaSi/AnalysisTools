@@ -49,6 +49,9 @@ void ErrorPrintLine2(char *split[SPL_STR], int words); // in red
 void WarnPrintLine(char *split[SPL_STR], int words); // in cyan
  //}}}
 
+// snprintf - just to shut up compiler warnings; should never trigger
+void ErrorSnprintf();
+
 void PrintLine(char split[SPL_STR][SPL_LEN], int words,
                int col_line, int col_blank);
 

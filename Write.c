@@ -15,6 +15,7 @@ static void SimplifyResid(SYSTEM *System);
 
 // STATIC IMPLEMENTATIONS
 static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System) { //{{{
+  fprintf(fw, "indexed\n");
   // print box size if present //{{{
   BOX *box = &System.Box;
   if (box->Volume != -1) {
@@ -24,7 +25,6 @@ static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System) { //{{{
     }
     putc('\n', fw);
   } //}}}
-  fprintf(fw, "indexed\n");
   bool none = true;
   for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadCoor[i];
@@ -229,7 +229,11 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def) { //{{{
       if (mol != -1) {
         int mtype = System.Molecule[mol].Type,
             id = System.Molecule[mol].Index;
-        fprintf(fw, " resname %10s ", System.MoleculeType[mtype].Name);
+        char name[8];
+        if (snprintf(name, 8, "%s", System.MoleculeType[mtype].Name) < 0) {
+          ErrorSnprintf();
+        }
+        fprintf(fw, " resname %10s ", name);
         fprintf(fw, "resid %5d", id);
       }
       putc('\n', fw);
@@ -687,7 +691,6 @@ void WriteTimestep(int coor_type, char file[], SYSTEM System,
 // Create a structure file based on the file type (including dl_meso CONFIG) //{{{
 void WriteStructure(int struct_type, char file[], SYSTEM System,
                     int vsf_def_type, bool lmp_mass) {
-  FILE *fw = OpenFile(file, "w");
   switch (struct_type) {
     case VSF_FILE:
       VtfWriteStruct(file, System, vsf_def_type);
@@ -709,7 +712,6 @@ void WriteStructure(int struct_type, char file[], SYSTEM System,
       PrintError();
       exit(1);
   }
-  fclose(fw);
 } //}}}
 
 #if 0  //{{{

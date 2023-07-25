@@ -108,6 +108,7 @@ int main(int argc, char *argv[]) {
   if (struct_file_out[0] != '\0') {
     struct_type_out = StructureFileType(struct_file_out, 1);
     if (struct_type_out != VSF_FILE &&
+        struct_type_out != VTF_FILE &&
         struct_type_out != LDATA_FILE &&
         struct_type_out != FIELD_FILE) {
       strcpy(ERROR_MSG, "accepted output structure file are "
@@ -232,6 +233,12 @@ int main(int argc, char *argv[]) {
     }
     WriteStructure(struct_type_out, struct_file_out, System,
                    vsf_def_type, lmp_mass);
+    if (struct_type_out == VTF_FILE) {
+      bool *write = malloc(sizeof *write * System.Count.Bead);
+      InitBoolArray(write, System.Count.Bead, true);
+      WriteTimestep(struct_type_out, struct_file_out, System, 1, write);
+      free(write);
+    }
   }
 
   FreeSystem(&System);

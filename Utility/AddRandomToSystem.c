@@ -178,7 +178,6 @@ int main(int argc, char *argv[]) {
     Help(argv[0], true, common, option);
     exit(1);
   }
-  printf("%lf %lf\n", lowest_dist, highest_dist);
   // error: missing '-bt'/'--bonded' when '-ld' and/or '-hd' are used //{{{
   if (highest_dist != -1 || lowest_dist != -1) {
     bool bt = false;
@@ -573,6 +572,12 @@ int main(int argc, char *argv[]) {
   FillMoleculeTypeIndex(&S_new);
   // prune the new system just for sure - I'm not sure what it does
   PruneSystem(&S_new); //}}}
+
+  // minimize Molecule indices //{{{
+  for (int i = 0; i < C_new->Molecule; i++) {
+    S_new.Molecule[i].Index = i;
+  }
+  C_new->HighestResid = C_new->Molecule; //}}}
 
   // print new system //{{{
   if (verbose) {

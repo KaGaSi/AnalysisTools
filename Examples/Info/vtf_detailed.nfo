@@ -1,4 +1,4 @@
-Info in.vtf --detailed -v
+Info in.vtf --detailed --verbose
 System in in.vtf:
 
 Counts of

@@ -418,9 +418,9 @@ void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType) { //{{{
     }
     if (new) {
       int type = MoleculeType->nBTypes++;
-      MoleculeType->BType =
-          realloc(MoleculeType->BType,
-                  sizeof *MoleculeType->BType * MoleculeType->nBTypes);
+      MoleculeType->BType = realloc(MoleculeType->BType,
+                                    sizeof *MoleculeType->BType *
+                                    MoleculeType->nBTypes);
       MoleculeType->BType[type] = MoleculeType->Bead[j];
     }
   }
@@ -470,7 +470,9 @@ void FillMoleculeTypeIndex(SYSTEM *System) { //{{{
   COUNT *Count = &System->Count;
   for (int i = 0; i < Count->MoleculeType; i++) {
     MOLECULETYPE *mt_i = &System->MoleculeType[i];
-    mt_i->Index = malloc(sizeof *mt_i->Index * mt_i->Number);
+    if (mt_i->Number > 0) {
+      mt_i->Index = malloc(sizeof *mt_i->Index * mt_i->Number);
+    }
   }
   int *count_id = calloc(Count->MoleculeType, sizeof *count_id);
   for (int i = 0; i < Count->Molecule; i++) {
@@ -2032,7 +2034,6 @@ void PruneBondTypes(SYSTEM S_old, SYSTEM *System) { //{{{
           if (tbond->a == System->BondType[k].a &&
               tbond->b == System->BondType[k].b &&
               tbond->c == System->BondType[k].c) {
-            mt_i->Bond[j][2] = k;
             new = false;
             break;
           }
@@ -2040,8 +2041,9 @@ void PruneBondTypes(SYSTEM S_old, SYSTEM *System) { //{{{
         if (new) {
           int type = Count->BondType;
           Count->BondType++;
-          System->BondType = realloc(
-              System->BondType, Count->BondType * sizeof *System->BondType);
+          System->BondType = realloc(System->BondType,
+                                     Count->BondType *
+                                     sizeof *System->BondType);
           System->BondType[type] = S_old.BondType[old_tbond];
           type_old_to_new[old_tbond] = type;
         }
@@ -2078,7 +2080,6 @@ void PruneAngleTypes(SYSTEM S_old, SYSTEM *System) { //{{{
           if (fabs(tangle->a - System->AngleType[k].a) < 1e-5 &&
               fabs(tangle->b - System->AngleType[k].b) < 1e-5 &&
               fabs(tangle->c - System->AngleType[k].c) < 1e-5) {
-            mt_i->Angle[j][3] = k;
             new = false;
             break;
           }
@@ -2125,7 +2126,6 @@ void PruneDihedralTypes(SYSTEM S_old, SYSTEM *System) { //{{{
           if (tdihed->a == System->DihedralType[k].a &&
               tdihed->b == System->DihedralType[k].b &&
               tdihed->c == System->DihedralType[k].c) {
-            mt_i->Dihedral[j][4] = k;
             new = false;
             break;
           }
@@ -2172,7 +2172,6 @@ void PruneImproperTypes(SYSTEM S_old, SYSTEM *System) { //{{{
           if (timpro->a == System->ImproperType[k].a &&
               timpro->b == System->ImproperType[k].b &&
               timpro->c == System->ImproperType[k].c) {
-            mt_i->Improper[j][4] = k;
             new = false;
             break;
           }
@@ -2584,8 +2583,10 @@ void PruneSystem(SYSTEM *System) {
 MOLECULETYPE CopyMoleculeType(MOLECULETYPE mt_old) { //{{{
   MOLECULETYPE mt_new = CopyMoleculeTypeEssentials(mt_old);
   // MoleculeType[].Index array
-  mt_new.Index = malloc(sizeof *mt_new.Index * mt_new.Number);
-  memcpy(mt_new.Index, mt_old.Index, sizeof *mt_old.Index * mt_old.Number);
+  if (mt_new.Number > 0) {
+    mt_new.Index = malloc(sizeof *mt_new.Index * mt_new.Number);
+    memcpy(mt_new.Index, mt_old.Index, sizeof *mt_old.Index * mt_old.Number);
+  }
   // MoleculeType[].BType array
   if (mt_new.nBTypes > 0) {
     mt_new.BType = malloc(sizeof *mt_new.BType * mt_new.nBTypes);
@@ -3316,7 +3317,7 @@ int StructureFileType(char name[], int mode) { //{{{
     case 0:
       return VSF_FILE;
     case 1:
-      return VSF_FILE;
+      return VTF_FILE;
     case 2:
       return XYZ_FILE;
     case 3:
@@ -3854,8 +3855,8 @@ void PrintBondType(SYSTEM System) { //{{{
   if (System.Count.BondType > 0) {
     fprintf(stdout, "Bond types\n");
     for (int i = 0; i < System.Count.BondType; i++) {
-      fprintf(stdout, "   %lf %lf\n", System.BondType[i].a,
-              System.BondType[i].b);
+      PARAMS *b = &System.BondType[i];
+      fprintf(stdout, "   %lf %lf %lf %lf\n", b->a, b->b, b->c, b->d);
     }
     fprintf(stdout, "\n");
   }
@@ -3864,8 +3865,8 @@ void PrintAngleType(SYSTEM System) { //{{{
   if (System.Count.AngleType > 0) {
     fprintf(stdout, "Angle types\n");
     for (int i = 0; i < System.Count.AngleType; i++) {
-      fprintf(stdout, "   %lf %lf\n", System.AngleType[i].a,
-              System.AngleType[i].b);
+      PARAMS *ang = &System.AngleType[i];
+      fprintf(stdout, "   %lf %lf %lf %lf\n", ang->a, ang->b, ang->c, ang->d);
     }
     fprintf(stdout, "\n");
   }
@@ -3874,8 +3875,8 @@ void PrintDihedralType(SYSTEM System) { //{{{
   if (System.Count.DihedralType > 0) {
     fprintf(stdout, "Dihedral types\n");
     for (int i = 0; i < System.Count.DihedralType; i++) {
-      PARAMS *dihed = &System.DihedralType[i];
-      fprintf(stdout, "   %lf %lf %lf\n", dihed->a, dihed->b, dihed->c);
+      PARAMS *dih = &System.DihedralType[i];
+      fprintf(stdout, "   %lf %lf %lf %lf\n", dih->a, dih->b, dih->c, dih->d);
     }
     fprintf(stdout, "\n");
   }
@@ -3885,7 +3886,7 @@ void PrintImproperType(SYSTEM System) { //{{{
     fprintf(stdout, "Improper types\n");
     for (int i = 0; i < System.Count.ImproperType; i++) {
       PARAMS *imp = &System.ImproperType[i];
-      fprintf(stdout, "   %lf %lf %lf\n", imp->a, imp->b, imp->c);
+      fprintf(stdout, "   %lf %lf %lf %lf\n", imp->a, imp->b, imp->c, imp->d);
     }
     fprintf(stdout, "\n");
   }
@@ -4110,7 +4111,9 @@ void FreeMoleculeType(MOLECULETYPE *MoleculeType) { //{{{
   if (MoleculeType->nBTypes > 0) {
     free(MoleculeType->BType);
   }
-  free(MoleculeType->Index);
+  if (MoleculeType->Number > 0) {
+    free(MoleculeType->Index);
+  }
 } //}}}
 void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) { //{{{
   free(MoleculeType->Bead);

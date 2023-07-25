@@ -8,10 +8,25 @@ coordinate file (\tt{-c} option). For the effects of these options, see the
 
 \tt{Info} can also write this information into a new structure file of the given
 format (\tt{-o} option). Allowed output files are \vtf structure file (with the
-extension \tt{.vsf}), LAMMPS \data file (with the extension \tt{.data}), and
-DL\_MESO FIELD file (called \field or with the extension \tt{.FIELD}).
-Coordinates (and, possibly, velocities) from the coordinate file are also used
-for output LAMMPS \data file.
+extension \tt{.vsf}), LAMMPS \data file (either with the extension \tt{.data} or
+a filename without any recognizable extension), and DL\_MESO FIELD file (called
+\field or with the extension \tt{.FIELD}). Coordinates are also printed to
+output LAMMPS \data or \vtf file. These coordinates are 0 if no coordinate file
+is specified or the input structure file does not contain them. Note that if no
+coordinate file is specified, coordinates of all beads are written (e.g., even
+when only some beads are specified in an input \vtf file; unspecified beads have
+coordinates 0).
+
+There are a few options for the output structure file. For LAMMPS \data file,
+\tt{--mass} can be used to specify atom types by their mass, but print different
+charges in the \tt{Atoms} section (i.e., \tt{Info}-recognized bead types with
+the same mass are aggregated into the same LAMMPS atom types). Furthermore,
+extra atom types (with mass 1) can be added via the \tt{-ebt} option; these
+atoms do not appear in the \tt{Atoms} section of the \data file and can be used
+as, e.g., extra atom type when srp potential (i.e., non-crossing bonds created
+by adding ghost particles between bonded beads) is used. For \vtf/\vsf file,
+\tt{atom default} bead can be specified via the \tt{-def} option; by default,
+the bead type with the most unbonded beads is used as the \tt{atom default}.
 
 \vspace{1em}
 Usage:\\
@@ -29,13 +44,6 @@ Usage:\\
   \tt{-i[!] <file>} & extra input structure file; see \tt{Examples/Info}
     directory for the effect of \tt{-i} and \tt{-i!} options (default: None)\\
   \tt{-c <file>}    & input coordinate file (default: None)\\
-  \tt{--detailed}   & only \vtf structure file: specify recognition of bead (and
-    molecule types) according to more than the bead name\\
-  \tt{-pbc <n>}     & only \xyz file: specify position of box dimensions
-    on a comment line (default: no box dimensions)\\
-  % \tt{--variable}   & only \vtf coordinate file: specify indexed timesteps with
-  %   variable number of beads (only affects the results if \tt{-st} is used)\\
-  \tt{-st <n>}      & any coordinate file: use \tt{n}-th timestep\\
   \midrule
   \multicolumn{2}{l}{Options for output file}\\
   \midrule
@@ -46,12 +54,13 @@ Usage:\\
   \tt{--mass}       & only \data structure file: define LAMMPS atom types by
     mass but print per-atom charges in the \tt{Atoms} section (default: atom
     types are the same as \tt{Info}-recognized bead types)\\
+  \tt{-ebt <int>}   & only \data structure file: number of extra atom types
+                      (for, e.g., srp)\\
   \midrule
   \multicolumn{2}{l}{Other options (see the beginning of 
                      Chapter~\ref{chap:Utils})}\\
   \midrule
   \multicolumn{2}{l}{\tt{-st},
-                     \tt{--variable},
                      \tt{-pbc},
                      \tt{--detailed},
                      \tt{--verbose},

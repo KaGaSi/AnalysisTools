@@ -6,7 +6,7 @@
 #define CHARGE 10000.0 // 'impossible' charge
 #define MASS 0.0 // 'impossible' mass
 #define RADIUS 0.0 // 'impossible' radius
-#define MOL_NAME 9 // maximum molecule name length (with null terminator)
+#define MOL_NAME 17 // maximum molecule name length (with null terminator)
 #define BEAD_NAME 17 // maximum bead name length (with null terminator)
 
 typedef struct Box { //{{{
@@ -78,12 +78,13 @@ static const COUNT InitCount = {
   .Improper = 0,
 }; //}}}
 typedef struct Params { //{{{
-  double a, b, c;
+  double a, b, c, d;
 } PARAMS;
 static const PARAMS InitParams = {
   .a = 0,
   .b = 0,
   .c = 0,
+  .d = 0,
 }; //}}}
 typedef struct BeadType { //{{{
   char Name[BEAD_NAME]; // name of given bead type

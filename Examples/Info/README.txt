@@ -13,16 +13,16 @@ outputs of Info command with various options.
     according to not just bead names, but also according to their mass, charge,
     and radius
 
-3) using -i option: Info in.vtf -i[i] in.FIELD
+3) using -i option: Info in.vtf -i[!] in.FIELD
   * files: opt_i.nfo
            opt_i-excl.nfo
-  * this command adds information from in.FIELD to the information from in.vtf,
-    adding charge and mass to beads with unspecified values and enriching the
-    molecules with bonds, angles, etc.
+  * this command supplements information from in.vtf by information from
+    in.FIELD, adding charge and mass to beads with unspecified values and
+    enriching the molecules with bonds, angles, etc.
     * using just -i changes only molecules that share bead types and bead order
     * using -i! first exchanges beads from in.vtf molecule types with those from
-      in.FIELD molecule types (for types with the same number of beads)
-      before adding the extra information
+      in.FIELD molecule types (for all molecule types with the same number of
+      beads) before adding the extra information
 
 4) using -c option: Info in.vtf -c in.vtf
   * file: vtf_coor.nfo

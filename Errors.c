@@ -144,6 +144,13 @@ void ErrorEOF(char file[], char msg[]) {
 } //}}}
   //}}}
 
+// snprintf - just to shut up compiler warnings; should never trigger //{{{
+void ErrorSnprintf() {
+  strcpy(ERROR_MSG, "something wrong with snprintf()");
+  PrintError();
+  exit(1);
+} //}}}
+
 // ErrorArgNumber() //{{{
 /**
  * Error when insufficient number of arguments
