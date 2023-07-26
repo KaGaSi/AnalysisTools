@@ -94,17 +94,17 @@ int main ( int argc, char** argv ) {
 
   // -tau option: use block method to get overall average (and stderr and tau)
   int n_blocks = -1;
-  if (IntegerOption(argc, argv, 1, "-tau", &rubbish, &n_blocks)) {
+  if (IntegerOption1(argc, argv, "-tau", &n_blocks)) {
     exit(1);
   }
   // -b option: calculate block averages
   int data_per_block = -1;
-  if (IntegerOption(argc, argv, 1, "-b", &rubbish, &data_per_block)) {
+  if (IntegerOption1(argc, argv, "-b", &data_per_block)) {
     exit(1);
   }
   // -m option: calculate moving average
   int moving = -1;
-  if (IntegerOption(argc, argv, 1, "-m", &rubbish, &moving)) {
+  if (IntegerOption1(argc, argv, "-m", &moving)) {
     exit(1);
   }
   if (moving == -1 && n_blocks == -1 && data_per_block == -1) {
@@ -182,8 +182,7 @@ int main ( int argc, char** argv ) {
     if (snprintf(ERROR_MSG, LINE, "number of lines to discard (%s%d%s) is "
                  "greater than the number of lines in %s%s%s", ErrYellow(),
                  start, ErrRed(), ErrYellow(), input, ErrRed()) < 0) {
-      strcpy(ERROR_MSG, "something wrong with snprintf()");
-      exit(1);
+      ErrorSnprintf();
     }
     PrintError();
     exit(1);

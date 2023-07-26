@@ -242,7 +242,7 @@ bool JoinCoorOption(int argc, char *argv[], int *coor_type, char file[]) {
 } //}}}
 
 // tag which bead types to use (if not present, set to specified value) //{{{
-bool BeadTypeOption(int argc, char *argv[], char *opt,
+bool BeadTypeOption(int argc, char *argv[], char opt[],
                     bool use, bool flag[], SYSTEM *System) {
   // specify what bead types to use - either specified by 'opt' or use all
   int types = -1;
@@ -255,9 +255,7 @@ bool BeadTypeOption(int argc, char *argv[], char *opt,
         if (type == -1) {
           if (snprintf(ERROR_MSG, LINE, "non-existent bead name %s%s",
                        ErrYellow(), argv[types]) < 0) {
-            strcpy(ERROR_MSG, "something wrong with snprintf()");
-            PrintError();
-            exit(1);
+            ErrorSnprintf();
           }
           PrintErrorOption(opt);
           ErrorBeadType(argv[types], *System);
@@ -277,7 +275,7 @@ bool BeadTypeOption(int argc, char *argv[], char *opt,
 } //}}}
 
 // tag which molecule types to use (if not present, set to specified value) //{{{
-bool MoleculeTypeOption(int argc, char *argv[], char *opt,
+bool MoleculeTypeOption(int argc, char *argv[], char opt[],
                         bool use, bool flag[], SYSTEM System) {
   // specify what molecule types to use - either specified by 'opt' or use all
   int types = -1;
@@ -307,7 +305,7 @@ bool MoleculeTypeOption(int argc, char *argv[], char *opt,
 } // }}}
 
 // general boolean option //{{{
-bool BoolOption(int argc, char *argv[], char *opt) {
+bool BoolOption(int argc, char *argv[], char opt[]) {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
       return true;
@@ -318,7 +316,7 @@ bool BoolOption(int argc, char *argv[], char *opt) {
 
 // general option with multiple integer arguments (up to 'max') //{{{
 bool IntegerOption(int argc, char *argv[], int max,
-                   char *opt, int *count, int *values) {
+                   char opt[], int *count, int *values) {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
       int n = 0; // number of arguments
@@ -353,11 +351,37 @@ bool IntegerOption(int argc, char *argv[], int max,
     }
   }
   return false;
+}
+bool IntegerOption1(int argc, char *argv[], char opt[], int *value) {
+  int count = 0;
+  if (IntegerOption(argc, argv, 1, opt, &count, value)) {
+    if (count != 1) {
+      strcpy(ERROR_MSG, "single numeric argument required");
+      PrintErrorOption(opt);
+      exit(1);
+    } else {
+      return true; // option present
+    }
+  }
+  return false; // option not present
+}
+bool IntegerOption2(int argc, char *argv[], char opt[], int value[2]) {
+  int count = 0;
+  if (IntegerOption(argc, argv, 2, opt, &count, value)) {
+    if (count != 2) {
+      strcpy(ERROR_MSG, "two numeric arguments required");
+      PrintErrorOption(opt);
+      exit(1);
+    } else {
+      return true; // option present
+    }
+  }
+  return false; // option not present
 } //}}}
 
 // general option with multiple double arguments (up to 'max') //{{{
 bool DoubleOption(int argc, char *argv[], int max,
-                  char *opt, int *count, double values[max]) {
+                  char opt[], int *count, double values[max]) {
   *count = 0;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
@@ -379,7 +403,7 @@ bool DoubleOption(int argc, char *argv[], int max,
   }
   return false;
 }
-bool DoubleOption1(int argc, char *argv[], char *opt, double *value) {
+bool DoubleOption1(int argc, char *argv[], char opt[], double *value) {
   int count = 0;
   if (DoubleOption(argc, argv, 1, opt, &count, value)) {
     if (count != 1) {
@@ -392,7 +416,7 @@ bool DoubleOption1(int argc, char *argv[], char *opt, double *value) {
   }
   return false; // option not present
 }
-bool DoubleOption2(int argc, char *argv[], char *opt, double value[2]) {
+bool DoubleOption2(int argc, char *argv[], char opt[], double value[2]) {
   int count = 0;
   if (DoubleOption(argc, argv, 2, opt, &count, value)) {
     if (count != 2) {
@@ -407,8 +431,8 @@ bool DoubleOption2(int argc, char *argv[], char *opt, double value[2]) {
 } //}}}
 
 // general option with filename and integer(s) arguments //{{{
-bool FileIntegerOption(int argc, char *argv[], int max, char *opt,
-                       int *count, int *values, char *file) {
+bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
+                       int *count, int *values, char file[]) {
   int n = 0;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
@@ -453,12 +477,19 @@ bool FileIntegerOption(int argc, char *argv[], int max, char *opt,
   }
   *count = n;
   return false;
+}
+bool FileOption(int argc, char *argv[], char opt[], char file[]) {
+  int trash;
+  if (FileIntegerOption(argc, argv, 0, opt, &trash, &trash, file)) {
+    return true;
+  }
+  return false;
 } //}}}
 
 #if 0 //{{{
 // TODO: remove
 // general option with a filename argument //{{{
-bool FileIntegerOption(int argc, char *argv[], char *opt, char *name, int length) {
+bool FileIntegerOption(int argc, char *argv[], char opt[], char *name, int length) {
   name[0] = '\0';
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
@@ -470,9 +501,7 @@ bool FileIntegerOption(int argc, char *argv[], char *opt, char *name, int length
         return true;
       }
       if (snprintf(name, LINE, "%s", argv[i+1]) < 0) {
-        strcpy(ERROR_MSG, "something wrong with snprintf");
-        PrintError();
-        return true;
+        ErrorSnprintf();
       }
     }
   }
@@ -484,7 +513,7 @@ bool FileIntegerOption(int argc, char *argv[], char *opt, char *name, int length
  * Generic option for molecule type that can take one
  * argument. The option is an argument of this function.
  */
-bool MoleculeTypeOption(int argc, char *argv[], char *opt, int *moltype,
+bool MoleculeTypeOption(int argc, char *argv[], char opt[], int *moltype,
                         COUNTS Counts, MOLECULETYPE **MoleculeType) {
 
   *moltype = -1;
@@ -514,7 +543,7 @@ bool MoleculeTypeOption(int argc, char *argv[], char *opt, int *moltype,
  * Generic option for molecule types that can take multiple arguments. The
  * option is an argument of this function.
  */
-bool MoleculeTypeOption2(int argc, char *argv[], char *opt, int *moltype,
+bool MoleculeTypeOption2(int argc, char *argv[], char opt[], int *moltype,
                          COUNTS Counts, MOLECULETYPE **MoleculeType) {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
@@ -553,7 +582,7 @@ bool MoleculeTypeOption2(int argc, char *argv[], char *opt, int *moltype,
  * Generic option for a single molecule type followed by a single integer
  * number. The option is an argument of this function.
  */
-bool MoleculeTypeIntOption(int argc, int i, char *argv[], char *opt,
+bool MoleculeTypeIntOption(int argc, int i, char *argv[], char opt[],
                            int *moltype, int *value, COUNTS Counts,
                            MOLECULETYPE *MoleculeType) {
   *moltype = -1;

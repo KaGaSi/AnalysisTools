@@ -1,8 +1,3 @@
-/**
- * \file
- * \brief Options usable in utilities
- */
-
 #ifndef _OPTIONS_H_
 #define _OPTIONS_H_
 
@@ -36,33 +31,36 @@ bool ExcludeOption(int argc, char *argv[], SYSTEM *System);
 // join aggregates, saving the coordinates (-j <filename>)
 bool JoinCoorOption(int argc, char *argv[], int *coor_type, char file[]);
 // tag which bead types to use (if not present, set to specified value)
-bool BeadTypeOption(int argc, char *argv[], char *opt,
+bool BeadTypeOption(int argc, char *argv[], char opt[],
                     bool use, bool flag[], SYSTEM *System);
 // tag which molecule types to use (if not present, set to specified value)
-bool MoleculeTypeOption(int argc, char *argv[], char *opt,
+bool MoleculeTypeOption(int argc, char *argv[], char opt[],
                         bool use, bool flag[], SYSTEM System);
 
 // general boolean option
-bool BoolOption(int argc, char *argv[], char *opt);
+bool BoolOption(int argc, char *argv[], char opt[]);
 // general option with multiple integer arguments (up to 'max')
 bool IntegerOption(int argc, char *argv[], int max,
-                   char *opt, int *count, int *values);
+                   char opt[], int *count, int *values);
+bool IntegerOption1(int argc, char *argv[], char opt[], int *value);
+bool IntegerOption2(int argc, char *argv[], char opt[], int value[2]);
 // general option with multiple double arguments (up to 'max')
 bool DoubleOption(int argc, char *argv[], int max,
-                  char *opt, int *count, double values[max]);
-bool DoubleOption1(int argc, char *argv[], char *opt, double *value);
-bool DoubleOption2(int argc, char *argv[], char *opt, double value[2]);
+                  char opt[], int *count, double values[max]);
+bool DoubleOption1(int argc, char *argv[], char opt[], double *value);
+bool DoubleOption2(int argc, char *argv[], char opt[], double value[2]);
 // general option with filename and integer(s) arguments
-bool FileIntegerOption(int argc, char *argv[], int max, char *opt,
-                       int *values, int *count, char *file);
+bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
+                       int *values, int *count, char file[]);
+bool FileOption(int argc, char *argv[], char opt[], char file[]);
 
 #if 0 //{{{
 // TODO redo
-bool MoleculeTypeOption(int argc, char *argv[], char *opt, int *moltype,
+bool MoleculeTypeOption(int argc, char *argv[], char opt[], int *moltype,
                         COUNTS counts, MOLECULETYPE **MoleculeType);
-bool MoleculeTypeOption2(int argc, char *argv[], char *opt, int *moltype,
+bool MoleculeTypeOption2(int argc, char *argv[], char opt[], int *moltype,
                          COUNTS Counts, MOLECULETYPE **MoleculeType);
-bool MoleculeTypeIntOption(int argc, int i, char *argv[], char *opt,
+bool MoleculeTypeIntOption(int argc, int i, char *argv[], char opt[],
                            int *moltype, int *value, COUNTS Counts,
                            MOLECULETYPE *MoleculeType);
 #endif //}}}

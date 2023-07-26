@@ -277,9 +277,7 @@ static SYSTEM LtrjReadStruct(char file[]) {
       char err[LINE];
       strcpy(err, ERROR_MSG);
       if (snprintf(ERROR_MSG, LINE, "%s (missing 'id' keyword)", err) < 0) {
-        strcpy(ERROR_MSG, "something wrong with snprintf()");
-        PrintErrorFile(file, "\0", "\0");
-        exit(1);
+        ErrorSnprintf();
       }
     }
     PrintErrorFile(file, "\0", "\0");
@@ -794,6 +792,7 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
     return -2;
   } //}}}
   // read atom lines //{{{
+  Count->BeadCoor = Count->Bead;
   for (int i = 0; i < Count->Bead; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
@@ -2755,8 +2754,8 @@ static SYSTEM FieldRead(char file[]) { //{{{
   // fill System.Bead & System.Unbonded //{{{
   if (System.Unbonded > 0) {
     System.Bead = realloc(System.Bead, Count->Bead * sizeof *System.Bead);
-    System.Unbonded =
-        realloc(System.Unbonded, sizeof *System.Unbonded * Count->Unbonded);
+    System.Unbonded = realloc(System.Unbonded,
+                              sizeof *System.Unbonded * Count->Unbonded);
     int count = 0;
     for (int i = 0; i < Count->BeadType; i++) {
       for (int j = 0; j < System.BeadType[i].Number; j++) {

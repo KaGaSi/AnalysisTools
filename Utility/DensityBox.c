@@ -250,9 +250,7 @@ int main(int argc, char *argv[]) {
     }
     char file[LINE]; // filename <output>-<axis>.rho
     if (snprintf(file, LINE, "%s-%c.rho", output_rho, axis) < 0) {
-      strcpy(ERROR_MSG, "something wrong with snprintf()");
-      PrintError();
-      exit(1);
+      ErrorSnprintf();
     }
     // write initial stuff to output density file
     FILE *fw = OpenFile(file, "w");

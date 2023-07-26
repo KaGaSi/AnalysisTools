@@ -265,7 +265,6 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
   fprintf(fw, "Created via AnalysisTools v%s "
           "(https://github.com/KaGaSi/AnalysisTools)\n\n", VERSION);
   COUNT *Count = &System.Count;
-  // PrintCount(*Count);
   // count bonds according to Bead[].InTimestep
   // create new SYSTEM structure to figure out bead types if mass == true //{{{
   int mass_types = 0;
@@ -304,7 +303,8 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
   fprintf(fw, "%10d dihedrals\n", Count->Dihedral);
   fprintf(fw, "%10d impropers\n", Count->Improper);
   putc('\n', fw);
-  fprintf(fw, "%10d atom types\n", Count->BeadType);
+  // add one atom type for extra (possibly srp)
+  fprintf(fw, "%10d atom types\n", Count->BeadType + 1);
   if (Count->Bond > 0 && Count->BondType > 0) {
     fprintf(fw, "%10d bond types\n", Count->BondType);
   }
@@ -355,6 +355,8 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
         fprintf(fw, "%5d %lf # %s\n", i + 1, bt->Mass, bt->Name);
       }
     }
+    // add an extra bead type - just in case srp is required
+    fprintf(fw, "%5d %lf # extra type\n", mass_types + 1, 1.0);
   } //}}}
   // print various coeffs //{{{
   if (Count->BondType > 0) {
@@ -386,6 +388,14 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
     }
   } //}}}
   // print atoms //{{{
+  // if there is 0 molecule index, saved indices will get +1
+  bool zero = false;
+  for (int i = 0; i < Count->Molecule; i++) {
+    if (System.Molecule[i].Index == 0) {
+      zero = true;
+      break;
+    }
+  }
   fprintf(fw, "\nAtoms # full\n\n");
   for (int i = 0; i < Count->BeadCoor; i++) {
     int id = System.BeadCoor[i];
@@ -395,7 +405,11 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
     // <molecule id (-1 for no molecule)>
     int mol = bead->Molecule;
     if (mol != -1) {
-      fprintf(fw, " %5d", System.Molecule[mol].Index);
+      int id = System.Molecule[mol].Index;
+      if (zero) {
+        id++;
+      }
+      fprintf(fw, " %5d", id);
     } else {
       fprintf(fw, " %5d", -1);
     }
@@ -679,6 +693,8 @@ void WriteTimestep(int coor_type, char file[], SYSTEM System,
       break;
     case LTRJ_FILE:
       LtrjWriteCoor(fw, count_step, write, System);
+      break;
+    case LDATA_FILE:
       break;
     default:
       snprintf(ERROR_MSG, LINE, "no action specified for output coor_type %s%d",

@@ -312,15 +312,15 @@ SYSTEM CopySystem(SYSTEM S_in) {
     } //}}}
     // Bead & BeadCoor //{{{
     S_out.Bead = realloc(S_out.Bead, sizeof(BEAD) * S_out.Count.Bead);
-    S_out.BeadCoor = realloc(S_out.BeadCoor,
-                             sizeof *S_out.BeadCoor * S_out.Count.Bead);
+    S_out.BeadCoor =
+        realloc(S_out.BeadCoor, sizeof *S_out.BeadCoor * S_out.Count.Bead);
     memcpy(S_out.Bead, S_in.Bead, sizeof(BEAD) * S_in.Count.Bead);
     memcpy(S_out.BeadCoor, S_in.BeadCoor,
            sizeof *S_in.BeadCoor * S_in.Count.Bead); //}}}
     // Bonded & BondedCoor //{{{
     if (S_out.Count.Bonded > 0) {
-      S_out.Bonded = realloc(S_out.Bonded,
-                             sizeof *S_out.Bonded * S_out.Count.Bonded);
+      S_out.Bonded =
+          realloc(S_out.Bonded, sizeof *S_out.Bonded * S_out.Count.Bonded);
       S_out.BondedCoor = realloc(S_out.BondedCoor,
                                  sizeof *S_out.BondedCoor * S_out.Count.Bonded);
       memcpy(S_out.Bonded, S_in.Bonded,
@@ -332,9 +332,9 @@ SYSTEM CopySystem(SYSTEM S_in) {
     if (S_out.Count.Unbonded > 0) {
       S_out.Unbonded = realloc(S_out.Unbonded,
                                sizeof *S_out.Unbonded * S_out.Count.Unbonded);
-      S_out.UnbondedCoor = realloc(S_out.UnbondedCoor,
-                                   sizeof *S_out.UnbondedCoor *
-                                   S_out.Count.Unbonded);
+      S_out.UnbondedCoor =
+          realloc(S_out.UnbondedCoor,
+                  sizeof *S_out.UnbondedCoor * S_out.Count.Unbonded);
       memcpy(S_out.Unbonded, S_in.Unbonded,
              sizeof *S_in.Unbonded * S_in.Count.Unbonded);
       memcpy(S_out.UnbondedCoor, S_in.UnbondedCoor,
@@ -342,9 +342,9 @@ SYSTEM CopySystem(SYSTEM S_in) {
     } //}}}
     // MoleculeType //{{{
     if (S_out.Count.MoleculeType > 0) {
-      S_out.MoleculeType = realloc(S_out.MoleculeType,
-                                   sizeof *S_out.MoleculeType *
-                                   S_out.Count.MoleculeType);
+      S_out.MoleculeType =
+          realloc(S_out.MoleculeType,
+                  sizeof *S_out.MoleculeType * S_out.Count.MoleculeType);
       for (int i = 0; i < S_out.Count.MoleculeType; i++) {
         S_out.MoleculeType[i] = CopyMoleculeType(S_in.MoleculeType[i]);
       }
@@ -418,9 +418,9 @@ void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType) { //{{{
     }
     if (new) {
       int type = MoleculeType->nBTypes++;
-      MoleculeType->BType = realloc(MoleculeType->BType,
-                                    sizeof *MoleculeType->BType *
-                                    MoleculeType->nBTypes);
+      MoleculeType->BType =
+          realloc(MoleculeType->BType,
+                  sizeof *MoleculeType->BType * MoleculeType->nBTypes);
       MoleculeType->BType[type] = MoleculeType->Bead[j];
     }
   }
@@ -485,9 +485,9 @@ void FillMoleculeTypeIndex(SYSTEM *System) { //{{{
 void FillIndexMol(SYSTEM *System) { //{{{
   COUNT *Count = &System->Count;
   if (Count->Molecule > 0) {
-    System->Index_mol = realloc(System->Index_mol,
-                                sizeof *System->Index_mol *
-                                (Count->HighestResid + 1));
+    System->Index_mol =
+        realloc(System->Index_mol,
+                sizeof *System->Index_mol * (Count->HighestResid + 1));
     for (int i = 0; i <= Count->HighestResid; i++) {
       System->Index_mol[i] = -1;
     }
@@ -499,17 +499,16 @@ void FillIndexMol(SYSTEM *System) { //{{{
 void FillBondedUnbonded(SYSTEM *System) { //{{{
   COUNT *Count = &System->Count;
   if (Count->Bonded > 0) {
-    System->Bonded = realloc(System->Bonded,
-                             sizeof *System->Bonded * Count->Bonded);
-    System->BondedCoor = realloc(System->BondedCoor,
-                                 sizeof *System->BondedCoor * Count->Bonded);
+    System->Bonded =
+        realloc(System->Bonded, sizeof *System->Bonded * Count->Bonded);
+    System->BondedCoor =
+        realloc(System->BondedCoor, sizeof *System->BondedCoor * Count->Bonded);
   }
   if (Count->Unbonded > 0) {
-    System->Unbonded = realloc(System->Unbonded,
-                               sizeof *System->Unbonded * Count->Unbonded);
-    System->UnbondedCoor = realloc(System->UnbondedCoor,
-                                   sizeof *System->UnbondedCoor *
-                                   Count->Unbonded);
+    System->Unbonded =
+        realloc(System->Unbonded, sizeof *System->Unbonded * Count->Unbonded);
+    System->UnbondedCoor = realloc(
+        System->UnbondedCoor, sizeof *System->UnbondedCoor * Count->Unbonded);
   }
   int c_bonded = 0, c_unbonded = 0;
   for (int i = 0; i < Count->Bead; i++) {
@@ -1328,8 +1327,8 @@ void MergeMoleculeTypes(SYSTEM *System) {
     FreeMoleculeTypeEssentials(&System->MoleculeType[i]);
   }
   free(System->MoleculeType);
-  System->MoleculeType = malloc(sizeof *System->MoleculeType *
-                                Count->MoleculeType);
+  System->MoleculeType =
+      malloc(sizeof *System->MoleculeType * Count->MoleculeType);
   // array to link old molecule type indices to new ones
   old_to_new = malloc(sizeof *old_to_new * Count->MoleculeType);
   // copy the molecule types back in a proper order
@@ -1370,9 +1369,7 @@ void MergeMoleculeTypes(SYSTEM *System) {
         }
         if (snprintf(System->MoleculeType[j].Name, MOL_NAME, "%s_%d", name,
                      count) < 0) {
-          strcpy(ERROR_MSG, "something wrong with snprintf()");
-          PrintError();
-          exit(1);
+          ErrorSnprintf();
         }
       }
     }
@@ -1405,9 +1402,7 @@ void RenameBeadTypes(SYSTEM *System) { //{{{
         }
         if (snprintf(System->BeadType[j].Name, BEAD_NAME, "%s_%d", name,
                      count) < 0) {
-          strcpy(ERROR_MSG, "something wrong with snprintf()");
-          PrintError();
-          exit(1);
+          ErrorSnprintf();
         }
       }
     }
@@ -1433,9 +1428,7 @@ void RenameMoleculeTypes(SYSTEM *System) { //{{{
           name[MOL_NAME - 5] = '\0';
         }
         if (snprintf(mt_j->Name, MOL_NAME, "%s_%d", name, count) < 0) {
-          strcpy(ERROR_MSG, "something wrong with snprintf()");
-          PrintError();
-          exit(1);
+          ErrorSnprintf();
         }
       }
     }
@@ -2019,8 +2012,7 @@ int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode,
   return -1;
 } //}}}
 void PruneBondTypes(SYSTEM S_old, SYSTEM *System) { //{{{
-  COUNT *Count = &System->Count,
-        *Count_old = &S_old.Count;
+  COUNT *Count = &System->Count, *Count_old = &S_old.Count;
   Count->BondType = 0;
   int *type_old_to_new = calloc(Count_old->BondType, sizeof *type_old_to_new);
   for (int i = 0; i < Count->MoleculeType; i++) {
@@ -2041,9 +2033,8 @@ void PruneBondTypes(SYSTEM S_old, SYSTEM *System) { //{{{
         if (new) {
           int type = Count->BondType;
           Count->BondType++;
-          System->BondType = realloc(System->BondType,
-                                     Count->BondType *
-                                     sizeof *System->BondType);
+          System->BondType = realloc(
+              System->BondType, Count->BondType * sizeof *System->BondType);
           System->BondType[type] = S_old.BondType[old_tbond];
           type_old_to_new[old_tbond] = type;
         }
@@ -2064,11 +2055,9 @@ void PruneBondTypes(SYSTEM S_old, SYSTEM *System) { //{{{
   free(type_old_to_new);
 } //}}}
 void PruneAngleTypes(SYSTEM S_old, SYSTEM *System) { //{{{
-  COUNT *Count = &System->Count,
-        *Count_old = &S_old.Count;
+  COUNT *Count = &System->Count, *Count_old = &S_old.Count;
   Count->AngleType = 0;
-  int *type_old_to_new =
-      calloc(Count_old->AngleType, sizeof *type_old_to_new);
+  int *type_old_to_new = calloc(Count_old->AngleType, sizeof *type_old_to_new);
   for (int i = 0; i < Count->MoleculeType; i++) {
     MOLECULETYPE *mt_i = &System->MoleculeType[i];
     for (int j = 0; j < mt_i->nAngles; j++) {
@@ -2087,9 +2076,8 @@ void PruneAngleTypes(SYSTEM S_old, SYSTEM *System) { //{{{
         if (new) {
           int type = Count->AngleType;
           Count->AngleType++;
-          System->AngleType =
-              realloc(System->AngleType,
-                      Count->AngleType * sizeof *System->AngleType);
+          System->AngleType = realloc(
+              System->AngleType, Count->AngleType * sizeof *System->AngleType);
           System->AngleType[type] = S_old.AngleType[old_tangle];
           type_old_to_new[old_tangle] = type;
         }
@@ -2110,8 +2098,7 @@ void PruneAngleTypes(SYSTEM S_old, SYSTEM *System) { //{{{
   free(type_old_to_new);
 } //}}}
 void PruneDihedralTypes(SYSTEM S_old, SYSTEM *System) { //{{{
-  COUNT *Count = &System->Count,
-        *Count_old = &S_old.Count;
+  COUNT *Count = &System->Count, *Count_old = &S_old.Count;
   Count->DihedralType = 0;
   int *type_old_to_new =
       calloc(Count_old->DihedralType, sizeof *type_old_to_new);
@@ -2156,8 +2143,7 @@ void PruneDihedralTypes(SYSTEM S_old, SYSTEM *System) { //{{{
   free(type_old_to_new);
 } //}}}
 void PruneImproperTypes(SYSTEM S_old, SYSTEM *System) { //{{{
-  COUNT *Count = &System->Count,
-        *Count_old = &S_old.Count;
+  COUNT *Count = &System->Count, *Count_old = &S_old.Count;
   Count->ImproperType = 0;
   int *type_old_to_new =
       calloc(Count_old->ImproperType, sizeof *type_old_to_new);
@@ -2206,23 +2192,21 @@ void PruneSystem(SYSTEM *System) {
   SYSTEM S_old = CopySystem(*System);
   FreeSystem(System);
   InitSystem(System);
-  COUNT *Count = &System->Count,
-        *Count_old = &S_old.Count;
+  COUNT *Count = &System->Count, *Count_old = &S_old.Count;
   System->Box = S_old.Box;
   *Count = *Count_old; // some counts will change later
   // allocate memory for bead count arrays
   System->Bead = realloc(System->Bead, sizeof(BEAD) * Count->Bead);
-  System->BeadCoor = realloc(System->BeadCoor,
-                             sizeof *System->BeadCoor * Count->Bead);
-  System->Bonded = realloc(System->Bonded,
-                           sizeof *System->Bonded * Count->Bonded);
-  System->BondedCoor = realloc(System->BondedCoor,
-                               sizeof *System->BondedCoor * Count->Bonded);
-  System->Unbonded = realloc(System->Unbonded,
-                             sizeof *System->Unbonded * Count->Unbonded);
-  System->UnbondedCoor = realloc(System->UnbondedCoor,
-                                 sizeof *System->UnbondedCoor *
-                                 Count->Unbonded);
+  System->BeadCoor =
+      realloc(System->BeadCoor, sizeof *System->BeadCoor * Count->Bead);
+  System->Bonded =
+      realloc(System->Bonded, sizeof *System->Bonded * Count->Bonded);
+  System->BondedCoor =
+      realloc(System->BondedCoor, sizeof *System->BondedCoor * Count->Bonded);
+  System->Unbonded =
+      realloc(System->Unbonded, sizeof *System->Unbonded * Count->Unbonded);
+  System->UnbondedCoor = realloc(
+      System->UnbondedCoor, sizeof *System->UnbondedCoor * Count->Unbonded);
   // copy Bead/Unbonded/Bonded arrays & create new BeadType array //{{{
   int count_unbonded = 0, count_bonded = 0, count_all = 0;
   // arrays for mapping old bead ids/types to new ones
@@ -2678,8 +2662,8 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
       }
     }
     Count_out->BeadCoor += Count_in->BeadCoor;
-    S_out->BeadCoor = realloc(S_out->BeadCoor,
-                              sizeof *S_out->BeadCoor * Count_out->Bead);
+    S_out->BeadCoor =
+        realloc(S_out->BeadCoor, sizeof *S_out->BeadCoor * Count_out->Bead);
     for (int i = 0; i < Count_in->BeadCoor; i++) {
       int new = i + Count_old.BeadCoor;
       S_out->BeadCoor[new] = S_in.BeadCoor[i] + Count_old.Bead;
@@ -2692,8 +2676,8 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
   // Bonded & BondedCoor //{{{
   if (Count_in->Bonded > 0) {
     Count_out->Bonded += Count_in->Bonded;
-    S_out->Bonded = realloc(S_out->Bonded,
-                            sizeof *S_out->Bonded * Count_out->Bonded);
+    S_out->Bonded =
+        realloc(S_out->Bonded, sizeof *S_out->Bonded * Count_out->Bonded);
     for (int i = 0; i < Count_in->Bonded; i++) {
       int new = i + Count_old.Bonded;
       S_out->Bonded[new] = S_in.Bonded[i] + Count_old.Bead;
@@ -2709,16 +2693,15 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
   // Unbonded & UnbondedCoor //{{{
   if (Count_in->Unbonded > 0) {
     Count_out->Unbonded += Count_in->Unbonded;
-    S_out->Unbonded = realloc(S_out->Unbonded,
-                              sizeof *S_out->Unbonded * Count_out->Unbonded);
+    S_out->Unbonded =
+        realloc(S_out->Unbonded, sizeof *S_out->Unbonded * Count_out->Unbonded);
     for (int i = 0; i < Count_in->Unbonded; i++) {
       int new = i + Count_old.Unbonded;
       S_out->Unbonded[new] = S_in.Unbonded[i] + Count_old.Bead;
     }
     Count_out->UnbondedCoor += Count_in->UnbondedCoor;
-    S_out->UnbondedCoor = realloc(S_out->UnbondedCoor,
-                                  sizeof *S_out->UnbondedCoor *
-                                  Count_out->Unbonded);
+    S_out->UnbondedCoor = realloc(
+        S_out->UnbondedCoor, sizeof *S_out->UnbondedCoor * Count_out->Unbonded);
     for (int i = 0; i < Count_in->UnbondedCoor; i++) {
       int new = i + Count_old.UnbondedCoor;
       S_out->UnbondedCoor[new] = S_in.UnbondedCoor[i] + Count_old.Bead;
@@ -2806,8 +2789,9 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
       }
     }
     Count_out->HighestResid += Count_in->Molecule;
-    S_out->Index_mol = realloc(S_out->Index_mol, sizeof *S_out->Index_mol *
-                               (Count_out->HighestResid + 1));
+    S_out->Index_mol =
+        realloc(S_out->Index_mol,
+                sizeof *S_out->Index_mol * (Count_out->HighestResid + 1));
     for (int i = 0; i <= Count_out->HighestResid; i++) {
       S_out->Index_mol[i] = -1;
     }
@@ -2818,10 +2802,10 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
   // BondType //{{{
   if (Count_in->BondType > 0) {
     Count_out->BondType += Count_in->BondType;
-    S_out->BondType = realloc(S_out->BondType,
-                              sizeof *S_out->BondType * Count_out->BondType);
+    S_out->BondType =
+        realloc(S_out->BondType, sizeof *S_out->BondType * Count_out->BondType);
     for (int i = Count_old.BondType; i < Count_out->BondType; i++) {
-      S_out->BondType[i] = S_in.BondType[i-Count_old.BondType];
+      S_out->BondType[i] = S_in.BondType[i - Count_old.BondType];
     }
   } //}}}
   // AngleType //{{{
@@ -2830,7 +2814,7 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
     S_out->AngleType = realloc(S_out->AngleType,
                                sizeof *S_out->AngleType * Count_out->AngleType);
     for (int i = Count_old.AngleType; i < Count_out->AngleType; i++) {
-      S_out->AngleType[i] = S_in.AngleType[i-Count_old.AngleType];
+      S_out->AngleType[i] = S_in.AngleType[i - Count_old.AngleType];
     }
   } //}}}
   // DihedralType //{{{
@@ -2840,7 +2824,7 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
         realloc(S_out->DihedralType,
                 sizeof *S_out->DihedralType * Count_out->DihedralType);
     for (int i = Count_old.DihedralType; i < Count_out->DihedralType; i++) {
-      S_out->DihedralType[i] = S_in.DihedralType[i-Count_old.DihedralType];
+      S_out->DihedralType[i] = S_in.DihedralType[i - Count_old.DihedralType];
     }
   } //}}}
   // ImproperType //{{{
@@ -2850,7 +2834,7 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
         realloc(S_out->ImproperType,
                 sizeof *S_out->ImproperType * Count_out->ImproperType);
     for (int i = Count_old.ImproperType; i < Count_out->ImproperType; i++) {
-      S_out->ImproperType[i] = S_in.ImproperType[i-Count_old.ImproperType];
+      S_out->ImproperType[i] = S_in.ImproperType[i - Count_old.ImproperType];
     }
   } //}}}
 } //}}}
@@ -3277,10 +3261,9 @@ bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
       strncpy(struct_file, coor_file, last);
       strcat(struct_file, ".vsf");
       *struct_type = VSF_FILE;
-    } else if (*coor_type == VTF_FILE ||  // use also as a structure file
-               *coor_type == XYZ_FILE ||  //
-               *coor_type == LDATA_FILE ||
-               *coor_type == LTRJ_FILE) { //
+    } else if (*coor_type == VTF_FILE || // use also as a structure file
+               *coor_type == XYZ_FILE || //
+               *coor_type == LDATA_FILE || *coor_type == LTRJ_FILE) { //
       strcpy(struct_file, coor_file);
       *struct_type = *coor_type;
       // *coor_type = VCF_FILE;
@@ -3314,18 +3297,18 @@ int StructureFileType(char name[], int mode) { //{{{
     }
   }
   switch (ext) {
-    case 0:
-      return VSF_FILE;
-    case 1:
-      return VTF_FILE;
-    case 2:
-      return XYZ_FILE;
-    case 3:
-      return LTRJ_FILE;
-    case 4:
-      return LDATA_FILE;
-    case 5:
-      return FIELD_FILE;
+  case 0:
+    return VSF_FILE;
+  case 1:
+    return VTF_FILE;
+  case 2:
+    return XYZ_FILE;
+  case 3:
+    return LTRJ_FILE;
+  case 4:
+    return LDATA_FILE;
+  case 5:
+    return FIELD_FILE;
   }
   // check for FIELD file
   if (strcasecmp(orig, "FIELD") == 0) {
@@ -3369,22 +3352,22 @@ int CoordinateFileType(char name[], int mode) { //{{{
     }
   }
   switch (ext) {
-    case 0:
-      return VCF_FILE;
-    case 1:
-      return VTF_FILE;
-    case 2:
-      return XYZ_FILE;
-    case 3:
-      return LTRJ_FILE;
-    case 4:
-      if (mode == 0) {
-        return LDATA_FILE;
-      } else {
-        strcpy(ERROR_MSG, "lammps data file cannot be output coordinate file");
-        PrintErrorFile(orig, "\0", "\0");
-        exit(1);
-      }
+  case 0:
+    return VCF_FILE;
+  case 1:
+    return VTF_FILE;
+  case 2:
+    return XYZ_FILE;
+  case 3:
+    return LTRJ_FILE;
+  case 4:
+    if (mode == 0) {
+      return LDATA_FILE;
+    } else {
+      strcpy(ERROR_MSG, "lammps data file cannot be output coordinate file");
+      PrintErrorFile(orig, "\0", "\0");
+      exit(1);
+    }
   }
   if (mode == 0) {
     // check for lammpstrj file with 'wrong' extension (only if input file)
@@ -3432,38 +3415,34 @@ int FullFileType(char name[], int mode) {
   }
   // assign proper type
   switch (type) {
-    case 0:
-      type = VCF_FILE;
-      break;
-    case 1:
-      type = VSF_FILE;
-      break;
-    case 2:
-      type = VTF_FILE;
-      break;
-    case 3:
-      type = XYZ_FILE;
-      break;
-    case 4:
-      type = LTRJ_FILE;
-      break;
-    case 5:
-      type = LDATA_FILE;
-      break;
-    case 6:
-      type = FIELD_FILE;
-      break;
+  case 0:
+    type = VCF_FILE;
+    break;
+  case 1:
+    type = VSF_FILE;
+    break;
+  case 2:
+    type = VTF_FILE;
+    break;
+  case 3:
+    type = XYZ_FILE;
+    break;
+  case 4:
+    type = LTRJ_FILE;
+    break;
+  case 5:
+    type = LDATA_FILE;
+    break;
+  case 6:
+    type = FIELD_FILE;
+    break;
   }
   // if correct type, return it
-  if (type == LTRJ_FILE ||
-      type == VTF_FILE ||
+  if (type == LTRJ_FILE || type == VTF_FILE || type == LDATA_FILE ||
       type == XYZ_FILE) {
     return type;
-  // if incorrect type, return -1 (error)
-  } else if (type == VCF_FILE ||
-             type == VSF_FILE ||
-             type == LDATA_FILE ||
-             type == FIELD_FILE) {
+    // if incorrect type, return -1 (error)
+  } else if (type == VCF_FILE || type == VSF_FILE || type == FIELD_FILE) {
     return -1;
   }
   // if type not yet determined, check by other means
@@ -3894,11 +3873,11 @@ void PrintImproperType(SYSTEM System) { //{{{
 void PrintBox(BOX Box) { //{{{
   fprintf(stdout, "Box = {\n");
   if (Box.Low.x > 0 || Box.Low.y > 0 || Box.Low.z > 0) {
-    fprintf(stdout, "  .Low = (%lf, %lf, %lf),\n",
-            Box.Low.x, Box.Low.y, Box.Low.z);
+    fprintf(stdout, "  .Low = (%lf, %lf, %lf),\n", Box.Low.x, Box.Low.y,
+            Box.Low.z);
   }
-  fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n",
-          Box.Length.x, Box.Length.y, Box.Length.z);
+  fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x, Box.Length.y,
+          Box.Length.z);
   if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
     fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
     fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
@@ -3907,10 +3886,12 @@ void PrintBox(BOX Box) { //{{{
   fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
   fprintf(stdout, "}\n");
   // fprintf(stdout, "Box = {\n");
-  // fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x, Box.Length.y,
+  // fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x,
+  // Box.Length.y,
   //         Box.Length.z);
-  // fprintf(stdout, "  .Low = (%lf, %lf, %lf),\n", Box.Low.x, Box.Low.y, Box.Low.z);
-  // fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n", Box.OrthoLength.x,
+  // fprintf(stdout, "  .Low = (%lf, %lf, %lf),\n", Box.Low.x, Box.Low.y,
+  // Box.Low.z); fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n",
+  // Box.OrthoLength.x,
   //         Box.OrthoLength.y, Box.OrthoLength.z);
   // fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
   // fprintf(stdout, "  .beta  = %lf,\n", Box.beta);

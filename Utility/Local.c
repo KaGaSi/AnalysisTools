@@ -95,9 +95,7 @@ void SuttonChenParameters(FILE *fr, char file[], int *line_count,
           if (snprintf(ERROR_MSG, LINE, "%s%s%s Sutton-Chen parameter is "
                        "specified multiple times; using this line",
                        ErrYellow(), gl[i], ErrCyan()) < 0) {
-            strcpy(ERROR_MSG, "something wrong with snprintf()");
-            PrintErrorFile(file, "\0", "\0");
-            exit(1);
+            ErrorSnprintf();
           }
           PrintWarningFileLine(file, *line_count, split, words);
         }
@@ -121,9 +119,7 @@ void SuttonChenParameters(FILE *fr, char file[], int *line_count,
       if (snprintf(ERROR_MSG, LINE, "skipping unknown bead type "
                    "%s%s%s in the 'potential' section", ErrYellow(),
                    split[1], ErrCyan()) < 0) {
-        strcpy(ERROR_MSG, "something wrong with snprintf()");
-        PrintError();
-        exit(1);
+        ErrorSnprintf();
       }
       PrintWarningFileLine(file, *line_count, split, words);
       while (ReadAndSplitLine(fr, LINE, line, &words,
@@ -174,9 +170,7 @@ void SuttonChenParameters(FILE *fr, char file[], int *line_count,
                          "using this line", ErrYellow(), el[i],
                          ErrCyan(), ErrYellow(),
                          System.BeadType[btype].Name, ErrCyan()) < 0) {
-              strcpy(ERROR_MSG, "something wrong with snprintf()");
-              PrintError();
-              exit(1);
+              ErrorSnprintf();
             }
             PrintWarningFileLine(file, *line_count, split, words);
           }
@@ -453,9 +447,8 @@ int main(int argc, char *argv[]) {
   int start = 1, end = -1, skip = 0, pbc_xyz = -1;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
                 &pbc_xyz, &start, &end, &skip);
-  int trash;
   char file_extra[LINE] = "";
-  if (FileIntegerOption(argc, argv, 0, "-fx", &trash, &trash, file_extra)) {
+  if (FileOption(argc, argv, "-fx", file_extra)) {
     exit(1);
   }
   // calculate pair-wise potential, etc.
@@ -966,19 +959,13 @@ int main(int argc, char *argv[]) {
   // open the three files & print headers //{{{
   char f[3][LINE]; // complete filenames
   if (snprintf(f[0], LINE, "%s-x.rho", out_local) < 0) {
-    strcpy(ERROR_MSG, "something wrong with snprintf()");
-    PrintError();
-    exit(1);
+    ErrorSnprintf();
   }
   if (snprintf(f[1], LINE, "%s-y.rho", out_local) < 0) {
-    strcpy(ERROR_MSG, "something wrong with snprintf()");
-    PrintError();
-    exit(1);
+    ErrorSnprintf();
   }
   if (snprintf(f[2], LINE, "%s-z.rho", out_local) < 0) {
-    strcpy(ERROR_MSG, "something wrong with snprintf()");
-    PrintError();
-    exit(1);
+    ErrorSnprintf();
   }
   FILE *fw2[3];
   for (int i = 0; i < 3; i++) {

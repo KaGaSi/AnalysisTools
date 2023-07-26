@@ -1,11 +1,5 @@
 #include "../AnalysisTools.h"
 
-// TODO: the '--' for input coordinate file to generate new system?
-//       ...that should be a separate GenSystem, no?
-// TODO: --bonded option as a 'shorthand' for -bt <list> <all> <bonded> <btypes>
-// TODO: -cx|y|z <min> <max> to constrain coordinates for adding beads
-// TODO: rotate the molecules randomly (+ switch --no-rot)
-
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
@@ -156,8 +150,9 @@ int main(int argc, char *argv[]) {
   char out_file[LINE] = "";
   snprintf(out_file, LINE, "%s", argv[++count]);
   int out_type = FullFileType(out_file, 1);
+  printf("%d\n", out_type);
   if (out_type == -1) {
-    strcpy(ERROR_MSG, "output file must be lammpstrj, xyz, or vtf");
+    strcpy(ERROR_MSG, "output file must be lammpstrj, data, xyz, or vtf");
     PrintErrorFile(out_file, "\0", "\0");
     exit(1);
   } //}}}
@@ -226,7 +221,7 @@ int main(int argc, char *argv[]) {
 
   // seed for random number generator (-s option)
   int seed = -1;
-  if (IntegerOption(argc, argv, 1, "-s", trash, &seed)) {
+  if (IntegerOption1(argc, argv, "-s", &seed)) {
     exit(1);
   }
   // exchange beads instead of appending them?
@@ -355,9 +350,7 @@ int main(int argc, char *argv[]) {
     if (C_add->Bead > S_orig.BeadType[sw_type].Number) {
       if (snprintf(ERROR_MSG, LINE, "not enough %s%s%s beads to switch",
                    ErrYellow(), S_orig.BeadType[sw_type].Name, ErrRed()) < 0) {
-        strcpy(ERROR_MSG, "something wrong with snprintf()");
-        PrintError();
-        exit(1);
+        ErrorSnprintf();
       }
       PrintError();
       exit(1);
@@ -599,16 +592,20 @@ int main(int argc, char *argv[]) {
     }
     WriteStructure(out_type, out_file, S_new, vsf_def_type, false);
     open[0] = 'a';
+  } else if (out_type == LDATA_FILE) {
+    WriteStructure(out_type, out_file, S_new, 0, false);
+  } else {
+    FILE *out = OpenFile(out_file, open);
+    // set all beads to be written
+    bool *write = malloc(sizeof *write * S_new.Count.Bead);
+    for (int i = 0; i < S_new.Count.Bead; i++) {
+      S_new.BeadCoor[i] = i;
+      write[i] = true;
+    }
+    WriteTimestep(out_type, out_file, S_new, 0, write);
+    free(write);
+    fclose(out);
   }
-  FILE *out = OpenFile(out_file, open);
-  // set all beads to be written
-  bool *write = malloc(sizeof *write * S_new.Count.Bead);
-  for (int i = 0; i < S_new.Count.Bead; i++) {
-    S_new.BeadCoor[i] = i;
-    write[i] = true;
-  }
-  WriteTimestep(out_type, out_file, S_new, 0, write);
-  fclose(out);
   //}}}
 
   // free memory - to make valgrind happy //{{{
@@ -616,7 +613,6 @@ int main(int argc, char *argv[]) {
   FreeSystem(&S_add);
   FreeSystem(&S_new);
   free(bt_use_orig);
-  free(write);
   if (sw) {
     free(add_b_id_to_new_b_id);
   }

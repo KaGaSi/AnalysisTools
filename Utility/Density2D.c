@@ -143,8 +143,7 @@ int main(int argc, char *argv[]) {
   // full output file name //{{{
   char str[LINE];
   if (snprintf(str, LINE, "%s%c.rho", output_rho, axis) < 0) {
-    strcpy(ERROR_MSG, "something wrong with snprintf()");
-    exit(1);
+    ErrorSnprintf();
   }
   strcpy(output_rho, str); //}}}
 

@@ -74,13 +74,11 @@ int main(int argc, char *argv[]) {
   char struct_file_extra[LINE] = "";
   int struct_type_extra = -1;
   bool change_beads = false;
-  int trash[1]; // some stuff for unused things in options
-  if (FileIntegerOption(argc, argv, 0, "-i", trash, trash, struct_file_extra)) {
+  if (FileOption(argc, argv, "-i", struct_file_extra)) {
     exit(1);
   }
   if (struct_file_extra[0] == '\0') {
-    if (FileIntegerOption(argc, argv, 0, "-i!",
-                          trash, trash, struct_file_extra)) {
+    if (FileOption(argc, argv, "-i!", struct_file_extra)) {
       exit(1);
     }
     if (struct_file_extra[0] != '\0') {
@@ -93,7 +91,7 @@ int main(int argc, char *argv[]) {
   // input coordinate file (-c option) //{{{
   char coor_file[LINE] = "";
   int coor_type = -1;
-  if (FileIntegerOption(argc, argv, 0, "-c", trash, trash, coor_file)) {
+  if (FileOption(argc, argv, "-c", coor_file)) {
     exit(1);
   }
   if (coor_file[0] != '\0') {
@@ -102,7 +100,7 @@ int main(int argc, char *argv[]) {
   // output structure file (-o option) //{{{
   char struct_file_out[LINE] = "";
   int struct_type_out = -1;
-  if (FileIntegerOption(argc, argv, 0, "-o", trash, trash, struct_file_out)) {
+  if (FileOption(argc, argv, "-o", struct_file_out)) {
     exit(1);
   }
   if (struct_file_out[0] != '\0') {
@@ -116,16 +114,15 @@ int main(int argc, char *argv[]) {
       if (snprintf(ERROR_MSG, LINE, "output file %s%s%s is not in accepted "
                    "format (vsf, lammps data, or FIELD file)",
                    ErrYellow(), struct_file_out, ErrRed()) < 0) {
-        strcpy(ERROR_MSG, "something wrong with snprintf()");
-        PrintErrorFile(coor_file, "\0", "\0");
-        exit(1);
+        ErrorSnprintf();
       }
       PrintError();
       exit(1);
     }
   } //}}}
   bool silent, verbose, detailed, vtf_var;
-  int timestep = 1, pbc_xyz = -1;
+  int timestep = 1, pbc_xyz = -1,
+      trash[1]; // some stuff for unused things in options
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
                 &pbc_xyz, &timestep, trash, trash);
   // extra bead types for data output (-ebt option)
@@ -156,9 +153,7 @@ int main(int argc, char *argv[]) {
     char coor[LINE] = "\0";
     if (coor_type != -1) {
       if (snprintf(coor, LINE, " (%s)", coor_file) < 0) {
-        strcpy(ERROR_MSG, "something wrong with snprintf()");
-        PrintErrorFile(coor_file, "\0", "\0");
-        exit(1);
+        ErrorSnprintf();
       }
     }
     printf("System in %s%s:\n", struct_file, coor);
@@ -225,6 +220,7 @@ int main(int argc, char *argv[]) {
     PrintMolecule(System);
   }
 
+  printf("%d |%s|\n", struct_type_out, struct_file_out);
   if (struct_file_out[0] != '\0') {
     if (struct_type_out == LDATA_FILE && extra_types != 0) {
       for (int i = 0; i < extra_types; i++) {

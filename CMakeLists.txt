@@ -53,9 +53,7 @@ set(UTILS AddToSystem
           Info
           JoinAggregates
 #         JoinRuns
-          LibraryCreateFieldLmpIn
-          lmp_data
-          lmp_vtf
+          Library
           Local
           NumDeriv
           OrientationMolecules
@@ -63,7 +61,7 @@ set(UTILS AddToSystem
           OrientationAggregates
           PairCorrel
           PotentialAggregates
-          SelectedVcf
+          Selected
           SuttonChenParameters
           Surface
           Velocity

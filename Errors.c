@@ -146,7 +146,7 @@ void ErrorEOF(char file[], char msg[]) {
 
 // snprintf - just to shut up compiler warnings; should never trigger //{{{
 void ErrorSnprintf() {
-  strcpy(ERROR_MSG, "something wrong with snprintf()");
+  strcpy(ERROR_MSG, "something went wrong with snprintf()");
   PrintError();
   exit(1);
 } //}}}
