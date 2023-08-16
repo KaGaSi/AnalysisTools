@@ -28,6 +28,9 @@
 #define WHITE   "\033[1;37m"
 #define C_RESET "\033[0m"
 
+extern char line[LINE], *split[SPL_STR];
+extern int words;
+
 // needs to be here so I can use fileno() from a standard library
 int fileno(const FILE *stream);
 
@@ -45,33 +48,26 @@ typedef struct LongIntVector {
   long int x, y, z;
 } LONGINTVECTOR;
 //}}}
-
 double VectorLength(VECTOR a);
-
-// convert string into number if possible //{{{
+// convert string into number if possible
 bool IsRealNumber(char *str, double *val);
 bool IsPosRealNumber(char *str, double *val);
 bool IsIntegerNumber(char *str, long *val);
 bool IsNaturalNumber(char *str, long *val);
 bool IsWholeNumber(char *str, long *val);
- //}}}
-
+// minimum/maximum from three numbers
 double Min3(double x, double y, double z);
 double Max3(double x, double y, double z);
-
-// swapping functions //{{{
+// swap values
 void SwapInt(int *a, int *b);
 void SwapDouble(double *a, double *b);
 void SwapBool(bool *a, bool *b);
-// }}}
 
 void SortArray(int *array, int length, int mode);
 VECTOR SortVector(VECTOR in);
 
-bool ReadLine(FILE *fr, int max_char, char *line);
 int SplitLine(int max_str, char *out[], char *line, const char *delim);
-bool ReadAndSplitLine(FILE *fr, int max_char, char *line, int *words,
-                      char *out[], int max_strings, const char *delim);
+bool ReadAndSplitLine(FILE *fr, int max_strings, const char *delim);
 
 void PrintCommand(FILE *ptr, int argc, char *argv[]);
 

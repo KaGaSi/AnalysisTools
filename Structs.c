@@ -6,7 +6,6 @@ void InitBeadType(BEADTYPE *bt) { //{{{
   bt->Charge = CHARGE;
   bt->Mass = MASS;
   bt->Radius = RADIUS;
-  // bt->Index = calloc(1, sizeof *bt->Index);
 } //}}}
 void InitBead(BEAD *b) { //{{{
   b->Type = -1;

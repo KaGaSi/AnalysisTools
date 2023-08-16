@@ -145,7 +145,7 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
     }
   } else {
     strcpy(ERROR_MSG, "no beads to save");
-    WarnPrintWarning();
+    PrintWarning();
   }
 } //}}}
 static void WriteConfig(SYSTEM System, char file[]) { //{{{
@@ -427,6 +427,11 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
     fprintf(fw, " %15f %15f %15f", bead->Position.x + System.Box.Low.x,
                                    bead->Position.y + System.Box.Low.y,
                                    bead->Position.z + System.Box.Low.z);
+    // molecule name
+    if (mol != -1) {
+      int type = System.Molecule[mol].Type;
+      fprintf(fw, " # %s", System.MoleculeType[type].Name);
+    }
     putc('\n', fw);
   } //}}}
   // print velocities (if at least one non-zero) //{{{

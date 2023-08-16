@@ -63,11 +63,9 @@ void SuttonChenParameters(FILE *fr, char file[], int *line_count,
   bool el_done[el_params];
   for (int i = 0; i < el_params; i++) {
     el_done[i] = false;
-  }
-  char line[LINE], *split[SPL_STR];
-  int words = 0; //}}}
+  } //}}}
   // read global parameters //{{{
-  while (ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+  while (ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
     (*line_count)++;
     // break the loop when 'bead' or 'finish' keyword encountered //{{{
     if (words != 0 && (strcasecmp(split[0], "bead") == 0 ||
@@ -97,7 +95,7 @@ void SuttonChenParameters(FILE *fr, char file[], int *line_count,
                        ErrYellow(), gl[i], ErrCyan()) < 0) {
             ErrorSnprintf();
           }
-          PrintWarningFileLine(file, *line_count, split, words);
+          PrintWarnFileLine(file, *line_count);
         }
         gl_done[i] = true;
         switch (i) {
@@ -121,9 +119,8 @@ void SuttonChenParameters(FILE *fr, char file[], int *line_count,
                    split[1], ErrCyan()) < 0) {
         ErrorSnprintf();
       }
-      PrintWarningFileLine(file, *line_count, split, words);
-      while (ReadAndSplitLine(fr, LINE, line, &words,
-                              split, SPL_STR, " \t\n")) {
+      PrintWarnFileLine(file, *line_count);
+      while (ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
         (*line_count)++;
         if (words > 0 && (strcasecmp(split[0], "bead") == 0 ||
                           strcasecmp(split[0], "finish") == 0)) {
@@ -135,8 +132,7 @@ void SuttonChenParameters(FILE *fr, char file[], int *line_count,
       for (int i = 0; i < el_params; i++) {
         el_done[i] = false;
       }
-      while (ReadAndSplitLine(fr, LINE, line, &words,
-                              split, SPL_STR, " \t\n")) {
+      while (ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
         (*line_count)++;
         // break loop when 'bead' or 'finish' keyword encountered
         if (words > 0 && (strcasecmp(split[0], "bead") == 0 ||
@@ -172,7 +168,7 @@ void SuttonChenParameters(FILE *fr, char file[], int *line_count,
                          System.BeadType[btype].Name, ErrCyan()) < 0) {
               ErrorSnprintf();
             }
-            PrintWarningFileLine(file, *line_count, split, words);
+            PrintWarnFileLine(file, *line_count);
           }
           el_done[i] = true; // keyword 'i' found
           // assign value(s)
@@ -205,12 +201,12 @@ void SuttonChenParameters(FILE *fr, char file[], int *line_count,
       // error if not all parameters specified
       if (!el_done[0] || !el_done[1] || !el_done[2] || !el_done[3]) {
         strcpy(ERROR_MSG, "premature end to 'potential' section");
-        PrintErrorFileLine(file, *line_count, split, words);
+        PrintErrorFileLine(file, *line_count);
         exit(1);
       }
     }
   } while (strcasecmp(split[0], "finish") != 0); //}}}
- //}}}
+  //}}}
   for (int i = 1; i < System.Count.BeadType; i++) {
     par[ 5][i][i] = par[ 5][0][0];
     par[10][i][i] = par[10][0][0];
@@ -218,7 +214,7 @@ void SuttonChenParameters(FILE *fr, char file[], int *line_count,
   return;
   error:
     strcpy(ERROR_MSG, "wrong line for Sutton-Chen potential");
-    PrintErrorFileLine(file, *line_count, split, words);
+    PrintErrorFileLine(file, *line_count);
     exit(1);
 } //}}}
  //}}}
@@ -431,7 +427,7 @@ int main(int argc, char *argv[]) {
   // <width> - width of a single bin //{{{
   double width;
   if (!IsPosRealNumber(argv[++count], &width)) {
-    ErrorNaN("<width>");
+    ErrorOption("<width>");
     Help(argv[0], true, common, option);
     exit(1);
   } //}}}
@@ -443,9 +439,9 @@ int main(int argc, char *argv[]) {
   out_local[LINE-6] = '\0'; // for adding -<axis>.rho
 
   // options before reading system data //{{{
-  bool silent, verbose, detailed, vtf_var;
+  bool silent, verbose, detailed;
   int start = 1, end = -1, skip = 0, pbc_xyz = -1;
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
+  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
                 &pbc_xyz, &start, &end, &skip);
   char file_extra[LINE] = "";
   if (FileOption(argc, argv, "-fx", file_extra)) {
@@ -473,8 +469,8 @@ int main(int argc, char *argv[]) {
     PrintCommand(stdout, argc, argv);
   }
 
-  SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
-                                detailed, vtf_var, pbc_xyz);
+  SYSTEM System = ReadStructure(struct_type, struct_file,
+                                coor_type, coor_file, detailed, pbc_xyz);
   COUNT *Count = &System.Count;
   BOX *box = &System.Box;
 
@@ -516,9 +512,8 @@ int main(int argc, char *argv[]) {
   // read extra information (if present) //{{{
   if (file_extra[0] != '\0') {
     FILE *fr = OpenFile(file_extra, "r");
-    char line[LINE], *split[SPL_STR];
-    int words, line_count = 0;
-    while (ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    int line_count = 0;
+    while (ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
       line_count++;
       double val;
       if (words > 1 && split[0][0] != '#') {
@@ -533,8 +528,7 @@ int main(int argc, char *argv[]) {
             }
           } else {
             do {
-              if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR,
-                                    " \t\n")) {
+              if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
                 ErrorEOF(file_extra, "skipping 'potential' section");
                 exit(1);
               }
@@ -556,7 +550,7 @@ int main(int argc, char *argv[]) {
         } else {
         warning:
           strcpy(ERROR_MSG, "unrecognized line");
-          PrintWarningFileLine(file_extra, line_count, split, words);
+          PrintWarnFileLine(file_extra, line_count);
         }
       }
     }
@@ -676,8 +670,7 @@ int main(int argc, char *argv[]) {
       use = true;
     }
     if (use) { // read and write the timestep, if it should be saved //{{{
-      if (!ReadTimestep(coor_type, coor, coor_file, &System, &line_count,
-                        vtf_var)) {
+      if (!ReadTimestep(coor_type, coor, coor_file, &System, &line_count)) {
         count_coor--;
         break;
       }
@@ -1062,7 +1055,7 @@ int main(int argc, char *argv[]) {
     fprintf(fw, " (%d) W;", count++);
   }
   putc('\n', fw);
-  fprintf(fw, "      ");
+  fprintf(fw, "#     ");
   fprintf(fw, " %e", sum_T * real_T / CUBE(CG) / count_used);
   fprintf(fw, " %e", sum_KE * real_E / CUBE(CG) / count_used);
   if (calculate_pairwise) {

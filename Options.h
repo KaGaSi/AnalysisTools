@@ -23,8 +23,8 @@ void HelpVersionOption(int argc, char *argv[]);
 void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]);
 // detect options common for most utilities
 void CommonOptions(int argc, char *argv[], int length, bool *verbose,
-                   bool *silent, bool *detailed, bool *vtf_var_coor,
-                   int *pbc_xyz, int *start, int *end, int *skip);
+                   bool *silent, bool *detailed, int *pbc_xyz,
+                   int *start, int *end, int *skip);
 
 // exclude specified molecule names (-x <mol name(s)>)
 bool ExcludeOption(int argc, char *argv[], SYSTEM *System);

@@ -6,8 +6,8 @@
 #define CHARGE 10000.0 // 'impossible' charge
 #define MASS 0.0 // 'impossible' mass
 #define RADIUS 0.0 // 'impossible' radius
-#define MOL_NAME 17 // maximum molecule name length (with null terminator)
-#define BEAD_NAME 17 // maximum bead name length (with null terminator)
+#define MOL_NAME 21 // maximum molecule name length (with null terminator)
+#define BEAD_NAME 21 // maximum bead name length (with null terminator)
 
 typedef struct Box { //{{{
   VECTOR Length, // side lengths (a, b, c for triclinic cell)

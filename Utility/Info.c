@@ -120,10 +120,10 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
   } //}}}
-  bool silent, verbose, detailed, vtf_var;
+  bool silent, verbose, detailed;
   int timestep = 1, pbc_xyz = -1,
       trash[1]; // some stuff for unused things in options
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
+  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
                 &pbc_xyz, &timestep, trash, trash);
   // extra bead types for data output (-ebt option)
   int extra_types = 0;
@@ -132,8 +132,8 @@ int main(int argc, char *argv[]) {
   }
 
   // read information from input file(s) //{{{
-  SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
-                                detailed, vtf_var, pbc_xyz);
+  SYSTEM System = ReadStructure(struct_type, struct_file,
+                                coor_type, coor_file, detailed, pbc_xyz);
   // use coordinate from a separate file (-c option)
   if (coor_type != -1) {
     int line_count = 0;
@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
     for (int i = 1; i < timestep; i++) { // from 1 as timestep=1 is the first
       SkipTimestep(coor_type, fr, coor_file, struct_file, &line_count);
     }
-    ReadTimestep(coor_type, fr, coor_file, &System, &line_count, vtf_var);
+    ReadTimestep(coor_type, fr, coor_file, &System, &line_count);
     fclose(fr);
   } else {
     // all beads are in the timestep
@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) {
   SYSTEM Sys_extra;
   if (struct_file_extra[0] != '\0') {
     Sys_extra = ReadStructure(struct_type_extra, struct_file_extra,
-                              coor_type, coor_file, detailed, vtf_var, pbc_xyz);
+                              coor_type, coor_file, detailed, pbc_xyz);
     if (verbose) {
       printf("System in %s:\n", struct_file_extra);
       VerboseOutput(Sys_extra);
@@ -220,7 +220,6 @@ int main(int argc, char *argv[]) {
     PrintMolecule(System);
   }
 
-  printf("%d |%s|\n", struct_type_out, struct_file_out);
   if (struct_file_out[0] != '\0') {
     if (struct_type_out == LDATA_FILE && extra_types != 0) {
       for (int i = 0; i < extra_types; i++) {

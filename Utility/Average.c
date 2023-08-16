@@ -27,7 +27,7 @@ a reasonable estimate of tau via rerunning the utility several times.\n\
 
   fprintf(ptr, "   <input>        input filename\n");
   fprintf(ptr, "   <output>       output filename\n");
-  fprintf(ptr, "   <column(s)>    file column number(s) to analyse\n");
+  fprintf(ptr, "   <column(s)>    column number(s) to analyse\n");
   fprintf(ptr, "   [options]\n");
   fprintf(ptr, "      -tau <int>  estimate tau mode - "
           "number of blocks to split data into\n");
@@ -88,7 +88,7 @@ int main ( int argc, char** argv ) {
 
   bool silent, rubbish2;
   int start = 1, end = -1, skip = 0, rubbish = 0;
-  CommonOptions(argc, argv, LINE, &rubbish2, &silent, &rubbish2, &rubbish2,
+  CommonOptions(argc, argv, LINE, &rubbish2, &silent, &rubbish2,
                 &rubbish, &start, &end, &skip);
   start--; // discarded steps rather than starting step //TODO: change
 
@@ -143,12 +143,8 @@ int main ( int argc, char** argv ) {
 
   int data_lines = 0, line_count = 0;
   while (true) {
-
     line_count++;
-
-    char line[LINE], *split[SPL_STR];
-    int words;
-    if (!ReadAndSplitLine(fr, LINE, line, &words, split, SPL_STR, " \t\n")) {
+    if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
       break;
     }
     // if not empty line or comment continue //{{{
@@ -158,7 +154,7 @@ int main ( int argc, char** argv ) {
         snprintf(ERROR_MSG, LINE, "too few columns (%s%d%s instead "
                  "of %s%d%s); file reading finished", ErrYellow(), words,
                  ErrCyan(), ErrYellow(), col_max, ErrCyan());
-        PrintWarningFileLine(input, line_count, split, words);
+        PrintWarnFileLine(input, line_count);
         break;
       } //}}}
       data_lines++;

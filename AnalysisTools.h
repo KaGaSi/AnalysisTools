@@ -9,14 +9,8 @@
 #include "Read.h"
 #include "Structs.h"
 #include "Write.h"
-#include <math.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
-#include <time.h>
-#include <unistd.h>
+// #include <dirent.h>
+// #include <sys/stat.h>
 
 #define VTF_FILE 0
 #define VSF_FILE 1
@@ -30,10 +24,13 @@
 // Helper functions for dealing with SYSTEM structure
 // fill in some SYSTEM stutff
 void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType);
+void ReFillMoleculeTypeBType(SYSTEM *System);
 void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
                                 BEADTYPE BeadType[]);
 void FillBeadTypeIndex(SYSTEM *System);
+void ReFillBeadTypeIndex(SYSTEM *System);
 void FillMoleculeTypeIndex(SYSTEM *System);
+void ReFillMoleculeTypeIndex(SYSTEM *System);
 void FillIndexMol(SYSTEM *System);
 void FillBondedUnbonded(SYSTEM *System);
 void CountBondAngleDihedralImproper(SYSTEM *System);

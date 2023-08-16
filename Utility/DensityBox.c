@@ -77,17 +77,17 @@ int main(int argc, char *argv[]) {
   output_rho[LINE-6] = '\0'; // for adding -<axis>.rho
 
   // options before reading system data
-  bool silent, verbose, detailed, vtf_var;
+  bool silent, verbose, detailed;
   int start = 1, end = -1, skip = 0, pbc_xyz = -1;
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
+  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
                 &pbc_xyz, &start, &end, &skip);
 
   if (!silent) {
     PrintCommand(stdout, argc, argv);
   }
 
-  SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
-                                detailed, vtf_var, pbc_xyz);
+  SYSTEM System = ReadStructure(struct_type, struct_file,
+                                coor_type, coor_file, detailed, pbc_xyz);
   COUNT *Count = &System.Count;
   BOX *box = &System.Box;
 
@@ -141,8 +141,7 @@ int main(int argc, char *argv[]) {
       use = true;
     }
     if (use) {
-      if (!ReadTimestep(coor_type, fr, coor_file, &System,
-                        &line_count, vtf_var)) {
+      if (!ReadTimestep(coor_type, fr, coor_file, &System, &line_count)) {
         count_coor--;
         break;
       }

@@ -46,7 +46,6 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-e");
   strcpy(option[count++], "-sk");
   strcpy(option[count++], "-i");
-  // strcpy(option[count++], "--variable"); // TODO: makes no sense, I think
   strcpy(option[count++], "-pbc");
   strcpy(option[count++], "--detailed");
   strcpy(option[count++], "--verbose");
@@ -94,9 +93,9 @@ int main(int argc, char *argv[]) {
   int coor_out_type = CoordinateFileType(coor_out_file, 1);
 
   // options before reading system data //{{{
-  bool silent, verbose, detailed, vtf_var;
+  bool silent, verbose, detailed;
   int start = 1, end = -1, skip = 0, pbc_xyz = -1;
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &vtf_var,
+  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
                 &pbc_xyz, &start, &end, &skip);
   bool reverse = BoolOption(argc, argv, "--reverse");
   bool join = BoolOption(argc, argv, "--join");
@@ -107,8 +106,8 @@ int main(int argc, char *argv[]) {
     PrintCommand(stdout, argc, argv);
   }
 
-  SYSTEM System = ReadStructure(struct_type, struct_file, coor_type, coor_file,
-                                detailed, vtf_var, pbc_xyz);
+  SYSTEM System = ReadStructure(struct_type, struct_file,
+                                coor_type, coor_file, detailed, pbc_xyz);
 
   // <bead names> - names of bead types to save //{{{
   bool *write = calloc(System.Count.Bead, sizeof *write),
@@ -225,8 +224,7 @@ int main(int argc, char *argv[]) {
       n_opt_count++;
     } //}}}
     if (use) { // read and write the timestep, if it should be saved //{{{
-      if (!ReadTimestep(coor_type, fr, coor_file, &System,
-                        &line_count, vtf_var)) {
+      if (!ReadTimestep(coor_type, fr, coor_file, &System, &line_count)) {
         count_coor--;
         break;
       }
@@ -264,8 +262,7 @@ int main(int argc, char *argv[]) {
     for (int i = (count_coor); i >= 0; i--) {
       fsetpos(fr, &position[i]);
       line_count = bkp_line_count[i];
-      if (ReadTimestep(coor_type, fr, coor_file, &System,
-                       &line_count, vtf_var)) {
+      if (ReadTimestep(coor_type, fr, coor_file, &System, &line_count)) {
         count_saved++;
         WrapJoinCoordinates(&System, wrap, join);
         WriteTimestep(coor_out_type, coor_out_file, System, count_coor, write);
@@ -285,9 +282,7 @@ int main(int argc, char *argv[]) {
     } //}}}
   } else if (count_coor == 0) { // error - input file without a valid timestep //{{{
     strcpy(ERROR_MSG, "no valid timestep found");
-    PrintError();
-    ErrorPrintFile(coor_file, "\0", "\0");
-    fputc('\n', stderr); //}}}
+    PrintErrorFile(coor_file, "\0", "\0"); //}}}
   } else if (start > count_coor) { // warn if no timesteps were written //{{{
     strcpy(ERROR_MSG, "no coordinates written (starting timestep is higher"
            " than the total number of timesteps)");

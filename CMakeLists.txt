@@ -30,42 +30,12 @@ foreach(library ${LIBRARIES})
   add_library(${library} ${library}.c)
 endforeach(library)
 
-set(UTILS AddToSystem
-          AddSystemToSystem
-          AddRandomToSystem
-          Aggregates
-          Aggregates-NotSameBeads
-          AngleMolecules
+set(UTILS AddRandomToSystem
           Average
-          BondLength
-          Config
-          Config_from_xyz
-          Density2D
-          DensityAggregates
           DensityBox
-          DensityMolecules
-          DihedralMolecules
-          DistrAgg
-          GenLayers
-          GenAnglesDihedrals
-          GyrationAggregates
-          GyrationMolecules
           Info
-          JoinAggregates
-#         JoinRuns
-          Library
           Local
-          NumDeriv
-          OrientationMolecules
-#         Orientation-2
-          OrientationAggregates
-          PairCorrel
-          PotentialAggregates
-          Selected
-          SuttonChenParameters
-          Surface
-          Velocity
-          VisualizeAgg)
+          Selected)
 foreach(utility ${UTILS})
   add_executable(${utility} Utility/${utility}.c)
   target_link_libraries(${utility} ${LIBRARIES} m)

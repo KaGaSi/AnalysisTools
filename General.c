@@ -1,6 +1,11 @@
 #include "General.h"
 #include "Errors.h"
 
+char line[LINE], *split[SPL_STR];
+int words;
+
+static bool ReadLine(FILE *fr, char *line);
+
 // convert string into a number if possible //{{{
 /* Functions to test provided string and convert it to a number type. Note that
  * the conversion stops when it encounters an illegal character, so only the
@@ -48,11 +53,9 @@ bool IsWholeNumber(char str[], long *val) {
     return false;
   }
 } //}}}
-
 double VectorLength(VECTOR a) { //{{{
   return sqrt(SQR(a.x) + SQR(a.y) + SQR(a.z));
 } //}}}
-
 double Min3(double x, double y, double z) { //{{{
   double min;
   if (x > y) {
@@ -83,7 +86,6 @@ double Max3(double x, double y, double z) { //{{{
   }
   return max;
 } //}}}
-
 // swapping functions //{{{
 void SwapInt(int *a, int *b) {
   int swap = *a;
@@ -100,7 +102,6 @@ void SwapBool(bool *a, bool *b) {
   *a = *b;
   *b = swap;
 } //}}}
-
 // Bubble sort an array; mode = 0: ascendingly, mode = 1: descendingly //{{{
 void SortArray(int *array, int length, int mode) {
   if (mode != 0 && mode != 1) {
@@ -157,9 +158,8 @@ VECTOR SortVector(VECTOR in) { //{{{
   }
   return out;
 } //}}}
-
-bool ReadLine(FILE *fr, int max_char, char *line) { //{{{
-  if (!fgets(line, max_char, fr)) {
+bool ReadLine(FILE *fr, char *line) { //{{{
+  if (!fgets(line, LINE, fr)) {
     return false; // error/EOF
   }
   // if the line is too long, skip the rest of it
@@ -185,20 +185,14 @@ int SplitLine(int max_str, char *out[], char line[], const char delim[]) { //{{{
   return words;
 } //}}}
 // ReadAndSplitLine() //{{{
-bool ReadAndSplitLine(FILE *fr, int max_char, char line[], int *words,
-                      char *split[], int max_strings, const char delim[]) {
-  if (!ReadLine(fr, max_char, line)) {
+bool ReadAndSplitLine(FILE *fr, int max_strings, const char delim[]) {
+  if (!ReadLine(fr, line)) {
     return false;
   }
-  *words = SplitLine(max_strings, split, line, delim);
+  words = SplitLine(max_strings, split, line, delim);
   return true;
 } //}}}
-
-// PrintCommand() //{{{
-/*
- * Function to print the used command (at most 30 words).
- */
-void PrintCommand(FILE *ptr, int argc, char *argv[]) {
+void PrintCommand(FILE *ptr, int argc, char *argv[]) { //{{{
   // command may contain whole path - print only the string behind last '/'
   char *split[SPL_STR], str[LINE];
   strcpy(str, argv[0]);
@@ -210,7 +204,6 @@ void PrintCommand(FILE *ptr, int argc, char *argv[]) {
   }
   fprintf(ptr, "%s\n", Colour(ptr, C_RESET));
 } //}}}
-
 // changing the text colour (and making it bold) for cli output //{{{
 char *Colour(FILE *f, char colour[]) {
   if (isatty(fileno(f))) {
@@ -270,22 +263,17 @@ void ColourChange(int a, char *colour) {
   }
 }
  //}}}
-
-// OpenFile() //{{{
-FILE *OpenFile(char *file, char *mode) {
+FILE *OpenFile(char *file, char *mode) { //{{{
   FILE *ptr = fopen(file, mode);
   if (ptr == NULL) {
-    strcpy(ERROR_MSG, "cannot open file");
-    PrintError();
-    ErrorPrintFile(file, "\0", "\0");
-    fputs(Colour(stderr, RED), stderr);
-    perror(" ");
+    snprintf(ERROR_MSG, LINE, "%sERROR - cannot open file %s%s%s",
+             ErrRed(), ErrYellow(), file, ErrRed());
+    perror(ERROR_MSG);
     fputs(Colour(stderr, C_RESET), stderr);
     exit(1);
   }
   return ptr;
 } //}}}
-
 // initialize arrays to specified value //{{{
 void InitIntArray (int array[], int n, int val) {
   for (int i = 0; i < n; i++) {
@@ -318,7 +306,6 @@ void InitDouble2DArray (double *array[], int m, int n, double val) {
     }
   }
 } //}}}
-
 // test whether two arrays are the same //{{{
 bool SameArray(int arr_1[], int arr_2[], int n) {
   for (int i = 0; i < n; i++) {
