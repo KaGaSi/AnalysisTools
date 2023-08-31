@@ -57,3 +57,13 @@ void InitSystem(SYSTEM *System) { //{{{
   System->UnbondedCoor = calloc(1, sizeof System->UnbondedCoor);
   System->BeadCoor =     calloc(1, sizeof System->BeadCoor);
 } //}}}
+void InitAggregate(SYSTEM System, AGGREGATE **Aggregate) {
+  COUNT *Count = &System.Count;
+  *Aggregate = malloc(Count->Molecule * sizeof **Aggregate);
+  for (int i = 0; i < Count->Molecule; i++) {
+    (*Aggregate)[i].Molecule = calloc(Count->Molecule,
+                                      sizeof *Aggregate[i]->Molecule);
+    (*Aggregate)[i].Bead = calloc(Count->Bead,
+                                  sizeof *Aggregate[i]->Bead);
+  }
+}

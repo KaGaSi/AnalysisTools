@@ -1,37 +1,29 @@
 [0] Config.pm:307> INFO - This is Biber 2.19
 [0] Config.pm:310> INFO - Logfile is 'manual.blg'
-[58] biber:340> INFO - === Thu Jun 15, 2023, 16:19:07
-[69] Biber.pm:419> INFO - Reading 'manual.bcf'
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 1
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 2
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 3
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 4
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 5
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 6
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 7
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 8
-[124] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[125] Biber.pm:979> INFO - Found 2 citekeys in bib section 9
-[125] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[125] Biber.pm:979> INFO - Found 0 citekeys in bib section 10
-[125] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[176] Biber.pm:4419> INFO - Processing section 9
-[185] Biber.pm:4610> INFO - Looking for bibtex file 'bib.bib' for section 9
-[186] bibtex.pm:1713> INFO - LaTeX decoding ...
-[189] bibtex.pm:1519> INFO - Found BibTeX data source 'bib.bib'
-[218] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'variable = shifted' with 'variable = non-ignorable'
-[219] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'normalization = NFD' with 'normalization = prenormalized'
-[219] Biber.pm:4239> INFO - Sorting list 'none/global//global/global' of type 'entry' with template 'none' and locale 'en-US'
-[219] Biber.pm:4245> INFO - No sort tailoring available for locale 'en-US'
-[220] bbl.pm:660> INFO - Writing 'manual.bbl' with encoding 'UTF-8'
-[221] bbl.pm:763> INFO - Output to manual.bbl
-[221] Biber.pm:131> WARN - legacy month field 'MAR' in entry 'sutton1990' is not an integer - this will probably not sort properly.
-[221] Biber.pm:133> INFO - WARNINGS: 1
+[57] biber:340> INFO - === Wed Aug 30, 2023, 13:07:45
+[67] Biber.pm:419> INFO - Reading 'manual.bcf'
+[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 1
+[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 2
+[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 3
+[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 4
+[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 5
+[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 6
+[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 7
+[118] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[118] Biber.pm:979> INFO - Found 0 citekeys in bib section 8
+[118] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[118] Biber.pm:979> INFO - Found 0 citekeys in bib section 9
+[118] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[118] Biber.pm:979> INFO - Found 0 citekeys in bib section 10
+[118] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[170] bbl.pm:660> INFO - Writing 'manual.bbl' with encoding 'UTF-8'
+[171] bbl.pm:763> INFO - Output to manual.bbl
+[171] Biber.pm:131> WARN - The file 'manual.bcf' does not contain any citations!
+[171] Biber.pm:133> INFO - WARNINGS: 1

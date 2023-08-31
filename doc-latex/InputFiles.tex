@@ -17,7 +17,7 @@ and/or molecule properties).
 
 For working with aggregates, AnalysisTools' \tt{agg} file format (see below)
 describes their compositions in terms of molecule numbers from a structure file
-used to generate it. Any of the \tt{Aggregates} (\TODO reference) utilities
+used to generate it. Any of the \tt{Aggregates} (\ref{sec:Aggregates}) utilities
 can create the \tt{agg} file.
 
 \section{Structure files}\label{sec:StructFile}
@@ -27,8 +27,8 @@ directory. Utilities load a specific structure using the \tt{-i <file>} option;
 if the option is missing, it is usually assumed the structure file is the same
 as the coordinate file.
 
-\tt{Info} utility (\TODO reference) can convert these formats between each other
-via the \tt{-o <file>} option.
+\tt{Info} utility (Section \ref{sec:Info}) can convert these formats between
+each other via the \tt{-o <file>} option.
 \subsection{VTF format}\label{ssec:StructVtf} %{{{
 See \href{https://github.com/olenz/vtfplugin/wiki/VTF-format}{here} for complete
 description and \tt{in.vtf} and \tt{in.vsf} for example files (a \vtf file
@@ -206,7 +206,6 @@ This coordinate file will be used as a structure file as well unless an extra
 structure file is provided via the \tt{-i <file>} option. %}}}
 
 \section{Aggregate file} \label{sec:AggFile} %{{{
-\TODO rewrite
 
 A \tt{file.agg} is generated using
 \tt{Aggregates} (or \tt{Aggregates-NotSameBeads}) utility. The
@@ -216,25 +215,18 @@ aggregate. It serves as an additional input file for utilities that
 calculate aggregate properties; \tt{agg} file is, therefore, linked to
 the \vcf file that was used to generate it.
 
-The \tt{agg} file is a simple text file. The first line contains the
-command used to generate it -- parts of this command may be necessary for
-subsequent analysis of aggregates. The second line is blank, and from the
-third line, the data for individual timesteps are shown. It follows these
-rules:
+The \tt{agg} file is a simple text file. The first two lines are just comments
+(the second one should contain the command used to generate the file as parts fo
+the command may be used by subsequent aggregate analysis). From third line, the
+data for individual timesteps are shown. It follows these rules:
 
 \begin{itemize}[topsep=0pt,itemsep=0pt]
-  \item each timestep starts with \tt{Step: <int>} (only \tt{Step}
-    keyword is read by the utilities)
-  \item the second line is the number of aggregates in the given
-    timestep and is followed by a blank line
-  \item there are two lines for each aggregate:
-  \begin{enumerate}[topsep=0pt,itemsep=0pt]
-    \item number of molecules in the aggregate followed by their indices
-      taken from the \vsf file (\tt{resid} indices)
-    \item number of monomeric beads in the aggregate followed by their
-      indices taken from the \vsf file (\tt{atom} indices)
-  \end{enumerate}
-  \item no blank or comment lines are allowed inside the aggregate block
+  \item each timestep starts with \tt{Step: <int>}
+  \item the second line is the number of aggregates in the given timestep
+  \item for each aggregate, there is a single line in the format \tt{<size> :
+    <id1> <id2> ... <idsize>}; the \tt{<id\#>} are molecular indices from the
+    input structure file
+  \item no blank or comment lines are allowed
   \item not all molecules present in the \vcf file used to generate
     this file must be present in every timestep
 \end{itemize}
@@ -242,14 +234,17 @@ rules:
 Note that the term aggregate also refers to free chains (i.e., fully
 dissolved chains).
 
-When the keyword \tt{Last} is present instead of \tt{Step}, it
-signalises the end of the \tt{agg} file; no utility will read anything
-beyond this keyword.
+When keywords \tt{Last Step: <int>} are encountered in place of \tt{Step:} line,
+it signalizes the end of the \tt{agg} file; no utility will read anything beyond
+this line.
 
-Besides using this file for further analysis by other utilities, the
-indices can be used in \href{http://www.ks.uiuc.edu/Research/vmd/}{vmd} to
-visualize, e.g., only a specific aggregate by using \tt{resid 1 2 3} in the
-\tt{Selected Atoms} box in vmd.
+If \vtf format is used for the coordinates, the indices from \tt{agg} file can
+be used in \href{http://www.ks.uiuc.edu/Research/vmd/}{vmd} to visualize, e.g.,
+only a specific aggregate by using \tt{resid <id1> ... <id\#>} in the
+\tt{Selected Atoms} box inside the vmd. A bash script
+\tt{scripts/VisualizeAgg.sh} (and the accompanied picture VisualizeAgg.jpg) is a
+rough example of visualizing aggregates by different colours (it takes \vtf and
+\tt{agg} files as command line arguments).
 
 An example of an \tt{agg} file can be found in the \tt{Examples/DistrAgg}
 directory. %}}}

@@ -9,9 +9,14 @@ bool ReadTimestep(int coor_type, FILE *fr, char file[],
                   SYSTEM *System, int *line_count);
 bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],
                   int *line_count);
+int ReadAggregates(FILE *fr, char file[], SYSTEM *System,
+                   AGGREGATE Aggregate[], int *line_count);
 
 #if 0 //{{{
 // TODO will be changed - agg files
+void ReadAggregates(FILE *fr, char *agg_file, COUNT *Counts, AGGREGATE *Aggregate[],
+                    BEADTYPE *BeadType, BEAD *Bead[],
+                    MOLECULETYPE *MoleculeType, MOLECULE *Molecule[], int *Index);
 // ReadAggCommand() //{{{
 /*
  * \brief Function reading Aggregate command from agg file.
@@ -34,21 +39,5 @@ void ReadAggCommand(BEADTYPE *BeadType, COUNT Counts,
  * \param [in] agg_file   agg file name
  */
 void SkipAgg(FILE *agg, char *agg_file); //}}}
-// ReadAggregates() //{{{
-/*
- * \brief Function reading information about aggregates from `.agg` file
- *
- * \param [in]  fr            pointer to open aggregate file
- * \param [in]  agg_file      name of aggregate file
- * \param [in]  Counts        numbers of beads, molecules, etc.
- * \param [in]  BeadType      information about bead types
- * \param [out] Bead          information about individual beads
- * \param [out] Aggregate     information about aggregates
- * \param [in]  MoleculeType  information about molecule types
- * \param [out] Molecule      information about individual molecules
- */
-void ReadAggregates(FILE *fr, char *agg_file, COUNT *Counts, AGGREGATE *Aggregate[],
-                    BEADTYPE *BeadType, BEAD *Bead[],
-                    MOLECULETYPE *MoleculeType, MOLECULE *Molecule[], int *Index); //}}}
 #endif //}}}
 #endif

@@ -163,20 +163,15 @@ typedef struct System { //{{{
       *BeadCoor; // array of internal ids for beads with InTimestep=true
 } SYSTEM;
 void InitSystem(SYSTEM *System); //}}}
-
-// TODO remake/remove?
 typedef struct Aggregate { //{{{
   int nMolecules, // number of molecules in aggregate
       *Molecule, // ids of molecules in aggregate
       nBeads, // number of bonded beads in aggregate
-      *Bead, // ids of bonded beads in aggregate
-      nMonomers, // that's probably gonna go
-      *Monomer; // that's probably gonna go
-
+      *Bead; // ids of bonded beads in aggregate
   double Mass; // total mass of the aggregate
-
-  bool Use; // should aggregate be used for calculation?
-} AGGREGATE; //}}}
+  bool Flag; // should aggregate be used for calculation?
+} AGGREGATE;
+void InitAggregate(SYSTEM System, AGGREGATE **Aggregate); //}}}
 #if 0
 // TODO remove
 typedef struct Counts { //{{{

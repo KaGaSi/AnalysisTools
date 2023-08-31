@@ -735,47 +735,30 @@ void WriteStructure(int struct_type, char file[], SYSTEM System,
   }
 } //}}}
 
-#if 0  //{{{
-// TODO will change
 // WriteAggregates() //{{{
-/*
- * Append aggregate information from a timestep to an .agg file
- */
-void WriteAggregates(int step_count, char *agg_file, COUNTS Counts,
-                     MOLECULETYPE *MoleculeType, BEAD *Bead,
+void WriteAggregates(int step_count, char *agg_file, SYSTEM System,
                      AGGREGATE *Aggregate) {
-  // get number of aggregates to write to agg_file //{{{
+  // get number of aggregates to write to agg_file
   int number_of_aggs = 0;
-  for (int i = 0; i < Counts.Aggregates; i++) {
-    if (Aggregate[i].Use) {
+  for (int i = 0; i < System.Count.Aggregate; i++) {
+    if (Aggregate[i].Flag) {
       number_of_aggs++;
     }
-  } //}}}
-
+  }
   FILE *fw = OpenFile(agg_file, "a");
-
-  // print number of aggregates to agg file //{{{
-  fprintf(fw, "\nStep: %d\n%d\n\n", step_count, number_of_aggs);
+  // print number of aggregates to agg file
+  fprintf(fw, "Step: %d\n%d\n", step_count, number_of_aggs);
   // go through all aggregates
-  for (int i = 0; i < Counts.Aggregates; i++) {
+  for (int i = 0; i < System.Count.Aggregate; i++) {
     // write only those that aren't excluded
-    if (Aggregate[i].Use) {
+    if (Aggregate[i].Flag) {
       // go through all molecules in aggregate 'i'
       fprintf(fw, "%d :", Aggregate[i].nMolecules);
       for (int j = 0; j < Aggregate[i].nMolecules; j++) {
         fprintf(fw, " %d", Aggregate[i].Molecule[j] + 1);
       }
       putc('\n', fw);
-
-      // go through all monomeric beads in aggregate 'i'
-      fprintf(fw, "   %d :", Aggregate[i].nMonomers);
-      for (int j = 0; j < Aggregate[i].nMonomers; j++) {
-        fprintf(fw, " %d", Aggregate[i].Monomer[j]);
-      }
-      putc('\n', fw);
     }
-  } //}}}
-
+  }
   fclose(fw);
 } //}}}
-#endif //}}}

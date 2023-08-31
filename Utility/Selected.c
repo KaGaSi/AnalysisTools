@@ -9,28 +9,26 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   } else {
     ptr = stdout;
     fprintf(ptr, "\
-SelectedVcf creates new coordinate file in the extension-specified format \
-that contains only selected bead types. Periodic boundary conditions \
-can be either stripped away or applied (which happens first if both \
+Selected creates new coordinate file in the extension-specified format \
+that contains specified bead and/or molecule types. Periodic boundary \
+conditions can be either stripped away or applied (which happens first if both \
 '--join' and '--wrap' options are used).\n\n");
   }
 
-  fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <output> <bead(s)> [options]\n\n", cmd);
+  fprintf(ptr, "Usage: %s <input> <output> <bead(s)> [options]\n\n", cmd);
 
-  fprintf(ptr, "   <input>           input coordinate file\n");
-  fprintf(ptr, "   <output.vcf>      output coordinate file (vcf format)\n");
-  fprintf(ptr, "   <bead(s)>         names of bead types to save"
-          " (optional if '--reverse' used)\n");
-  fprintf(ptr, "   [options]\n");
-  fprintf(ptr, "      --reverse      reverse <bead name(s)>, i.e., exclude the"
-          " specified bead types (use all if no <bead names> are present)\n");
-  fprintf(ptr, "      --join         join molecules (remove pbc)\n");
-  fprintf(ptr, "      --wrap         wrap coordinates (i.e., apply pbc)\n");
-  fprintf(ptr, "      -n <int(s)>    save only specified timesteps"
+  fprintf(ptr, "<input>             input coordinate file\n");
+  fprintf(ptr, "<output.vcf>        output coordinate file\n");
+  fprintf(ptr, "[options]\n");
+  fprintf(ptr, "  -bt <bead type>   bead types to exclude\n");
+  fprintf(ptr, "  -mt <mol type>    molecule types to exclude\n");
+  fprintf(ptr, "  --reverse         reverse <bead name(s)>, i.e., save the"
+          " specified bead types (-bt and/or -mt is needed)\n");
+  fprintf(ptr, "  --join            join molecules (remove pbc)\n");
+  fprintf(ptr, "  --wrap            wrap coordinates (i.e., apply pbc)\n");
+  fprintf(ptr, "  -n <int(s)>       save only specified timesteps"
           "(--last overrides this option)\n");
-  // fprintf(ptr, "      -x <name(s)>   exclude specified molecule(s)\n");
-  fprintf(ptr, "      --last         use only the last step"
+  fprintf(ptr, "  --last            use only the last step"
           "(-st/-e/-n options are ignored)\n");
   CommonHelp(error, n, opt);
 } //}}}
@@ -38,8 +36,8 @@ can be either stripped away or applied (which happens first if both \
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 10, all = common + 5, count = 0,
-      req_arg = 2; // not count <bead(s)> because --reverse can be used
+  int common = 10, all = common + 7, count = 0,
+      req_arg = 2;
   char option[all][OPT_LENGTH];
   // common options
   strcpy(option[count++], "-st");
@@ -58,23 +56,9 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "--wrap");
   strcpy(option[count++], "-n");
   strcpy(option[count++], "--last");
-  int n = OptionCheck(argc, argv, req_arg, common, all, option);
-  // check for --reverse, if not enough arguments for any bead types
-  if (n == 2) {
-    bool valid = false;
-    for (int i = 3; i < argc; i++) {
-      if (strcmp(argv[i], "--reverse") == 0) {
-        valid = true;
-        break;
-      }
-    }
-    if (!valid) {
-      strcpy(ERROR_MSG, "not enough arguments or missing '--reverse' option");
-      PrintError();
-      Help(argv[0], true, common, option);
-      exit(1);
-    }
-  } //}}}
+  strcpy(option[count++], "-bt");
+  strcpy(option[count++], "-mt");
+  OptionCheck(argc, argv, req_arg, common, all, option); //}}}
 
   count = 0; // count mandatory arguments
 
@@ -109,35 +93,50 @@ int main(int argc, char *argv[]) {
   SYSTEM System = ReadStructure(struct_type, struct_file,
                                 coor_type, coor_file, detailed, pbc_xyz);
 
-  // <bead names> - names of bead types to save //{{{
-  bool *write = calloc(System.Count.Bead, sizeof *write),
-       *write_bt = calloc(System.Count.BeadType, sizeof *write_bt);
-  while (++count < argc && argv[count][0] != '-') {
-    int type = FindBeadType(argv[count], System);
-    if (type == -1) {
-      strcpy(ERROR_MSG, "non-existent bead name");
-      PrintErrorFile(struct_file, coor_file, "\0");
-      ErrorBeadType(argv[count], System);
-      exit(1);
-    }
-    write_bt[type] = true;
+  // specify beads to save (possibly using -bt and/or -mt options) //{{{
+  // -bt option - which bead types to exclude/use
+  bool *write_bt = malloc(System.Count.BeadType * sizeof *write_bt);
+  InitBoolArray(write_bt, System.Count.BeadType, true);
+  if (reverse) { // save only specified bead types
+    InitBoolArray(write_bt, System.Count.BeadType, false);
+    BeadTypeOption(argc, argv, "-bt", true, write_bt, System);
+  } else { // exclude specifed bead types
+    InitBoolArray(write_bt, System.Count.BeadType, true);
+    BeadTypeOption(argc, argv, "-bt", false, write_bt, System);
   }
-  // if '--reverse' is used, switch Write bools for all bead types
-  if (reverse) {
-    for (int i = 0; i < System.Count.BeadType; i++) {
-      if (write_bt[i]) {
-        write_bt[i] = false;
-      } else {
-        write_bt[i] = true;
-      }
-    }
+  // -mt option - which molecule types to exclude/use
+  bool *write_mt = malloc(System.Count.MoleculeType * sizeof *write_mt);
+  InitBoolArray(write_mt, System.Count.MoleculeType, true);
+  if (reverse) { // save only specified molecule types
+    InitBoolArray(write_mt, System.Count.MoleculeType, false);
+    MoleculeTypeOption(argc, argv, "-mt", true, write_mt, System);
+  } else { // exclude specifed molecule types
+    InitBoolArray(write_mt, System.Count.MoleculeType, true);
+    MoleculeTypeOption(argc, argv, "-mt", false, write_mt, System);
   }
+  // specify beads to save
+  bool *write = malloc(System.Count.Bead * sizeof *write);
+  InitBoolArray(write, System.Count.Bead, false);
   for (int i = 0; i < System.Count.Bead; i++) {
     int type = System.Bead[i].Type;
     if (write_bt[type]) {
       write[i] = true;
     }
   }
+  for (int i = 0; i < System.Count.MoleculeType; i++) {
+    for (int j = 0; j < System.MoleculeType[i].Number; j++) {
+      int mol = System.MoleculeType[i].Index[j];
+      for (int k = 0; k < System.MoleculeType[i].nBeads; k++) {
+        int id = System.Molecule[mol].Bead[k];
+        if (write_mt[i]) {
+          write[id] = true;
+        } else {
+          write[id] = false;
+        }
+      }
+    }
+  }
+  free(write_mt);
   free(write_bt); //}}}
 
   // '-x' option //{{{
@@ -211,8 +210,9 @@ int main(int argc, char *argv[]) {
       // definitely not use, if --last option is used
       if (last) {
         use = false;
-      } else if (count_coor >= start && (count_coor <= end || end == -1) && // 1)
-                 ((count_coor - start) % skip) == 0) {                        // 2)
+      } else if (count_coor >= start &&              // 1)
+                 (count_coor <= end || end == -1) && //
+                 ((count_coor - start) % skip) == 0) { // 2)
         use = true;
       } else {
         use = false;

@@ -172,7 +172,7 @@ void ErrorNaN(char *option) { //{{{
   strcpy(ERROR_MSG, "non-numeric argument");
   PrintErrorOption(option);
 } //}}}
-void ErrorBeadType(char *name, SYSTEM System) { //{{{
+void ErrorBeadType(char name[], SYSTEM System) { //{{{
   fprintf(stderr, "%s; illegal name: %s%s%s\n", ErrRed(), ErrYellow(), name,
           ErrRed());
   fprintf(stderr, "Possible names:%s %s\n", ErrYellow(),
@@ -182,7 +182,9 @@ void ErrorBeadType(char *name, SYSTEM System) { //{{{
   }
   fprintf(stderr, "%s\n", ErrColourReset());
 } //}}}
-void ErrorMoleculeType(SYSTEM System) { //{{{
+void ErrorMoleculeType(char name[], SYSTEM System) { //{{{
+  fprintf(stderr, "%s; illegal name: %s%s%s\n", ErrRed(), ErrYellow(), name,
+          ErrRed());
   fprintf(stderr, "   Possible molecule names: %s\n",
           System.MoleculeType[0].Name);
   for (int i = 1; i < System.Count.MoleculeType; i++) {

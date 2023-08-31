@@ -22,18 +22,17 @@ a reasonable estimate of tau via rerunning the utility several times.\n\
 3) for -m option, the moving method is used to smoothen the input data.");
   }
 
-  fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <output> <column(s)>\n\n", cmd);
+  fprintf(ptr, "Usage: %s <input> <output> <column(s)>\n\n", cmd);
 
-  fprintf(ptr, "   <input>        input filename\n");
-  fprintf(ptr, "   <output>       output filename\n");
-  fprintf(ptr, "   <column(s)>    column number(s) to analyse\n");
-  fprintf(ptr, "   [options]\n");
-  fprintf(ptr, "      -tau <int>  estimate tau mode - "
+  fprintf(ptr, "<input>             input filename\n");
+  fprintf(ptr, "<output>            output filename\n");
+  fprintf(ptr, "<column(s)>         column number(s) to analyse\n");
+  fprintf(ptr, "[options]\n");
+  fprintf(ptr, "  -tau <int>        estimate tau mode - "
           "number of blocks to split data into\n");
-  fprintf(ptr, "      -b <int>    block mode - "
+  fprintf(ptr, "  -b <int>          block mode - "
           "number of datapoints per block\n");
-  fprintf(ptr, "      -m <int>    moving mode - "
+  fprintf(ptr, "  -m <int>          moving mode - "
           "number of data points per moving average\n");
   CommonHelp(error, n, opt);
 } //}}}

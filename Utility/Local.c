@@ -14,23 +14,23 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
     fprintf(ptr, "TEXT TO BE ADDED\n\n");
   }
 
-  fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <width> <out_gl> <out_lc> [options]\n\n", cmd);
+  fprintf(ptr, "Usage: %s <input> <width> <out_gl> <out_lc> "
+          "[options]\n\n", cmd);
 
-  fprintf(ptr, "   <input>        input coordinate file\n");
-  fprintf(ptr, "   <width>        width of a single bin\n");
-  fprintf(ptr, "   <out_gl>       output file with global observables\n");
-  fprintf(ptr, "   <output>       output files with local variables "
+  fprintf(ptr, "<input>             input coordinate file\n");
+  fprintf(ptr, "<width>             width of a single bin\n");
+  fprintf(ptr, "<out_gl>            output file with global observables\n");
+  fprintf(ptr, "<output>            output files with local variables "
           "(three files with automatic endings -x.txt, -y.txt, and -z.txt\n");
-  fprintf(ptr, "   [options]\n");
+  fprintf(ptr, "[options]\n");
   // fprintf(ptr, "      --per-step  save a new file for each step"
   //         "(adds '-<step>.txt' to <output>)\n");
-  fprintf(ptr, "      -fx <file>  file with extra information\n");
-  fprintf(ptr, "      --pot       also calculate potential (and pressure via "
+  fprintf(ptr, "  -fx <file>        file with extra information\n");
+  fprintf(ptr, "  --pot             also calculate potential (and pressure via "
           "virial) ;only shifted Sutton-Chen for now\n");
-  fprintf(ptr, "      --com       use centre of mass as the coordinate system "
+  fprintf(ptr, "  --com             use centre of mass as the coordinate system "
           "centre; default: simulation box centre\n");
-  fprintf(ptr, "      --cog       use geometic centre as the coordinate system "
+  fprintf(ptr, "  --cog             use geometic centre as the coordinate system "
           "centre; default: simulation box centre\n");
   CommonHelp(error, n, opt);
 } //}}}

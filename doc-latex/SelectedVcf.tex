@@ -1,33 +1,29 @@
-\section{SelectedVcf} \label{sec:SelectedVcf}
+\section{Selected} \label{sec:Selected}
 
-This utility creates a new coordinate file containing only beads of specified
-types; any of the \xyz, \vcf, or \tt{lammpstrj} formats can be used as output.
-
-Using \tt{--reverse} switch, the bead types can also be specified in reverse,
-i.e., bead types to be excluded from the output file(s).
+This utility creates a new coordinate file of the \xyz, \vcf, or \tt{lammpstrj}
+format. By default, the utility saves all bead and molecules types, but using
+\tt{-bt} and/or \tt{-mt} option specifies which bead and/or molecule types to
+exclude from the output file. If \tt{--reverse} option is used, the specified
+bead and/or molecule types are instead the only ones that are saved.
 
 Besides the standard \tt{-st}, \tt{-e}, and \tt{-sk} options, which timesteps to
 save can be explicitly specified via the \tt{-n} option that can take a maximum
 of 100 arguments (the \tt{-st}, \tt{-e}, and \tt{-sk} are then ignored). Also,
 using \tt{--last} option saves only the last step from the input coordinate file
 (all the previous options are ignored if \tt{--last} is used). If lammps \data
-file is used as a coordinate file, all the above options are ignored as it by
-definition contains a single timestep.
+file is used as a coordinate file, all the above options are ignored as the
+\data file contains by definition only a single timestep.
 
 There is also an option to remove periodic boundary conditions for molecules
 (i.e., to join them) via \tt{--join} switch. Conversely, the simulation box can
 be wrapped (i.e., the periodic boundary conditions applied, putting all beads
-inside the box) via \tt{--wrap} switch. If both and \tt{--wrap} and \tt{--join}
+inside the box) via \tt{--wrap} switch. If both \tt{--wrap} and \tt{--join}
 options are used, the simulation box is first wrapped and then the molecules are
 joined.
 
-Usage:
-
 \vspace{1em}
 \noindent
-\tt{SelectedVcf <input> <output> <bead type(s)> <options>}
-
-\vspace{1em}
+Usage: \tt{Selected <input> <output> <bead type(s)> <options>}
 \noindent
 \begin{longtable}{p{0.22\textwidth}p{0.724\textwidth}}
   \toprule
@@ -35,22 +31,18 @@ Usage:
   \midrule
   \tt{<input>}        & input coordinate file\\
   \tt{<output>}       & output coordinate file\\
-  \tt{<bead type(s)>} & bead type names to save (can be omitted if
-    \tt{--reverse} is used)\\
   \midrule
   \multicolumn{2}{l}{Options}\\
   \midrule
-  \tt{--reverse} & reverse bead types to save, i.e., exclude \tt{<bead type(s)>}
-    instead of including them; if no \tt{<bead type(s)>} are specified, all bead
-    types are saved\\
-  \tt{--join}    & join molecules by removing periodic boundary conditions\\
-  \tt{--wrap}    & wrap simulation box (i.e., apply periodic boundary
-    conditions)\\
-  % \tt{-st <n>}   & starting timestep for calculation (default: 1)\\
-  % \tt{-e <n>}    & ending timestep for calculation (default: none)\\
-  % \tt{-sk <n>}   & number of steps skip per one used (default: 0)\\
-  \tt{-n <int(s)>} & save only specified timesteps\\
-  \tt{--last} & save only the last step\\
+  \tt{-bt <bead type>} & bead types to exclude\\
+  \tt{-mt <mol type>}  & molecule types to exclude\\
+  \tt{--reverse}       & save only specified types instead of excluding them\\
+  \tt{--join}          & join molecules by removing periodic boundary
+                         conditions\\
+  \tt{--wrap}          & wrap simulation box (i.e., apply periodic boundary
+                         conditions)\\
+  \tt{-n <int(s)>}     & save only specified timesteps\\
+  \tt{--last}          & save only the last step\\
   \midrule
   \multicolumn{2}{l}{Other options (see the beginning of 
                      Chapter~\ref{chap:Utils})}\\

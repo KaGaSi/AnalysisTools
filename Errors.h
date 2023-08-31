@@ -44,7 +44,7 @@ int ErrorExtension(char *file, int number, char extension[][EXTENSION]);
 void ErrorOption(char *option);
 void ErrorNaN(char *option);
 void ErrorBeadType(char name[], SYSTEM System);
-void ErrorMoleculeType(SYSTEM System);
+void ErrorMoleculeType(char name[], SYSTEM System);
 void WarnChargedSystem(SYSTEM System, char file1[], char file2[], char file3[]);
 void ErrorStartEnd(int start, int end);
 

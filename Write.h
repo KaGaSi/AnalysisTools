@@ -7,11 +7,9 @@ void WriteTimestep(int coor_type, char file[], SYSTEM System,
                    int count_step, bool write[]);
 void WriteStructure(int struct_type, char file[], SYSTEM System,
                     int vsf_def_type, bool lmp_mass);
-
+void WriteAggregates(int step_count, char *agg_file, SYSTEM System,
+                     AGGREGATE *Aggregate);
 #if 0 //{{{
 // TODO will change
-void WriteAggregates(int step_count, char *agg_file, COUNTS Counts,
-                     MOLECULETYPE *MoleculeType, BEAD *Bead, AGGREGATE
-                     *Aggregate);
 #endif //}}}
 #endif

@@ -31,8 +31,11 @@ foreach(library ${LIBRARIES})
 endforeach(library)
 
 set(UTILS AddRandomToSystem
+          Aggregates
+          Aggregates-NotSameBeads
           Average
           DensityBox
+          DistrAgg
           Info
           Local
           Selected)

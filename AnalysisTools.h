@@ -133,20 +133,22 @@ void FreeMoleculeType(MOLECULETYPE *MoleculeType);
 void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType);
 
 // TODO redo
-void EvaluateContacts(COUNT *Counts, AGGREGATE **Aggregate,
-                      MOLECULE **Molecule, int contacts, int **contact);
-void SortAggStruct(AGGREGATE **Aggregate, COUNT Counts, MOLECULE *Molecule,
-                   MOLECULETYPE *MoleculeType, BEAD **Bead,
-                   BEADTYPE *BeadType);
+void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
+                      int contacts, int **contact);
+void SortAggStruct(AGGREGATE *Aggregate, SYSTEM System);
 
+// void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNT Counts,
+//                          VECTOR BoxLength, BEADTYPE *BeadType, BEAD *Bead,
+//                          MOLECULETYPE *MoleculeType, MOLECULE *Molecule);
+void RemovePBCAggregates(double distance, AGGREGATE *Aggregate,
+                         SYSTEM *System);
+void FreeAggregate(COUNT Count, AGGREGATE *Aggregate);
+
+void PrintAggregate(SYSTEM System, AGGREGATE Aggregate[]);
 #if 0 //{{{
 // TODO redo
-void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNT Counts,
-                         VECTOR BoxLength, BEADTYPE *BeadType, BEAD **Bead,
-                         MOLECULETYPE *MoleculeType, MOLECULE *Molecule);
 void PrintAggregate(COUNT Counts, int *Index, MOLECULETYPE *MoleculeType,
                     MOLECULE *Molecule, BEAD *Bead, BEADTYPE *BeadType,
                     AGGREGATE *Aggregate);
-void FreeAggregate(COUNT Counts, AGGREGATE **Aggregate);
 #endif //}}}
 #endif

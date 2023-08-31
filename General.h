@@ -10,8 +10,8 @@
 #include <time.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <gsl/gsl_math.h>
 
-#define PI 3.141593 // value of pi
 #define LINE 1024 // maximum length of an array for strings
 #define SPL_STR 32 // maximum number of split strings
 #define SPL_LEN 64 // maximum length of split strings
@@ -69,6 +69,7 @@ VECTOR SortVector(VECTOR in);
 int SplitLine(int max_str, char *out[], char *line, const char *delim);
 bool ReadAndSplitLine(FILE *fr, int max_strings, const char *delim);
 
+char * BareCommand(char cmd[]);
 void PrintCommand(FILE *ptr, int argc, char *argv[]);
 
 // changing the text colour (and making it bold) for cli output //{{{
@@ -92,6 +93,7 @@ void ColourChange(int a, char *colour);
 FILE *OpenFile(char *file, char *mode);
 
 // initialize arrays to specified value
+void InitDoubleArray (double array[], int n, int val);
 void InitIntArray (int array[], int n, int val);
 void InitBoolArray (bool array[], int n, bool val);
 void InitVecArray (VECTOR array[], int n, bool val);

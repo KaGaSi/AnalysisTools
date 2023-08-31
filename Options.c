@@ -47,6 +47,7 @@ void HelpVersionOption(int argc, char *argv[]) {
 // version/help printing and initial check of provided options //{{{
 int OptionCheck(int argc, char *argv[], int req, int common,
                 int all, char opt[all][OPT_LENGTH]) {
+  snprintf(argv[0], LINE, "%s", BareCommand(argv[0]));
   // --version option?
   if (VersionOption(argc, argv)) {
     exit(0);
@@ -99,34 +100,33 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
   }
   for (int i = 0; i < n; i++) {
     if (strcmp(option[i], "-i") == 0) {
-      fprintf(ptr, "      -i <name>      input structure file if different "
+      fprintf(ptr, "  -i <name>         input structure file if different "
                    "than the coordinate file\n");
     } else if (strcmp(option[i], "-st") == 0) {
-      fprintf(ptr, "      -st <int>      starting timestep for calculation\n");
+      fprintf(ptr, "  -st <int>         starting timestep for calculation\n");
     } else if (strcmp(option[i], "-e") == 0) {
-      fprintf(ptr, "      -e <end>       ending timestep for calculation\n");
+      fprintf(ptr, "  -e <end>          ending timestep for calculation\n");
     } else if (strcmp(option[i], "-sk") == 0) {
-      fprintf(ptr, "      -sk <int>      leave out every 'skip' steps\n");
+      fprintf(ptr, "  -sk <int>         leave out every 'skip' steps\n");
     } else if (strcmp(option[i], "--detailed") == 0) {
-      fprintf(ptr, "      --detailed     use name as well as charge, mass, "
+      fprintf(ptr, "  --detailed        use name as well as charge, mass, "
               "and radius to identfy bead types (vtf structure files only)\n");
     } else if (strcmp(option[i], "--variable") == 0) {
-      fprintf(ptr, "      --variable     vtf coordinate file with indexed "
+      fprintf(ptr, "  --variable        vtf coordinate file with indexed "
               "timesteps with varying number of beads\n");
     } else if (strcmp(option[i], "-pbc") == 0) {
-      fprintf(ptr, "      -pbc <int>     position of pbc in xyz file's comment"
+      fprintf(ptr, "  -pbc <int>        position of pbc in xyz file's comment"
               " line (of the first number)\n");
     } else if (strcmp(option[i], "-ltrj") == 0) {
-      fprintf(ptr, "      -ltrj <int>    does lammpstrj ids go from 0 or 1?\n");
+      fprintf(ptr, "  -ltrj <int>       does lammpstrj ids go from 0 or 1?\n");
     } else if (strcmp(option[i], "--verbose") == 0) {
-      fprintf(ptr, "      --verbose      verbose output\n");
+      fprintf(ptr, "  --verbose         verbose output\n");
     } else if (strcmp(option[i], "--silent") == 0) {
-      fprintf(ptr, "      --silent       no output "
-              "(overrides verbose option)\n");
+      fprintf(ptr, "  --silent          no output " "(overrides --verbose)\n");
     } else if (strcmp(option[i], "--help") == 0) {
-      fprintf(ptr, "      --help         print this help and exit\n");
+      fprintf(ptr, "  --help            print this help and exit\n");
     } else if (strcmp(option[i], "--version") == 0) {
-      fprintf(ptr, "      --version      print version number and exit\n");
+      fprintf(ptr, "  --version         print version number and exit\n");
     } else {
       snprintf(ERROR_MSG, LINE, "unknown common option %s%s%s!", ErrYellow(),
                option[i], ErrRed());
@@ -202,7 +202,6 @@ bool ExcludeOption(int argc, char *argv[], SYSTEM *System) {
           snprintf(ERROR_MSG, LINE, "non-existent molecule %s%s",
                    ErrYellow(), argv[i+1+j]);
           PrintErrorOption("-x");
-          ErrorMoleculeType(*System);
           return true;
         } else {
           // exclude that molecule
@@ -240,67 +239,68 @@ bool JoinCoorOption(int argc, char *argv[], int *coor_type, char file[]) {
   return false;
 } //}}}
 
-// tag which bead types to use (if not present, set to specified value) //{{{
-bool BeadTypeOption(int argc, char *argv[], char opt[],
-                    bool use, bool flag[], SYSTEM *System) {
-  // specify what bead types to use - either specified by 'opt' or use all
-  int types = -1;
+// tag bead types with specific value //{{{
+void BeadTypeOption(int argc, char *argv[], char opt[],
+                    bool use, bool flag[], SYSTEM System) {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
-      types = i; // positon of the '-bt' argument in command
-      // <type names> - names of bead types to save
-      while (++types < argc && argv[types][0] != '-') {
-        int type = FindBeadType(argv[types], *System);
-        if (type == -1) {
+      int pos = i;
+      while (++pos < argc && argv[pos][0] != '-') {
+        int btype = FindBeadType(argv[pos], System);
+        if (btype == -1) {
           if (snprintf(ERROR_MSG, LINE, "non-existent bead name %s%s",
-                       ErrYellow(), argv[types]) < 0) {
+                       ErrYellow(), argv[pos]) < 0) {
             ErrorSnprintf();
           }
           PrintErrorOption(opt);
-          ErrorBeadType(argv[types], *System);
-          return true;
+          ErrorBeadType(argv[pos], System);
+          exit(1);
         }
-        flag[type] = true;
+        flag[btype] = use;
+      }
+      if (pos == (i + 1)) {
+        strcpy(ERROR_MSG, "at least one bead type is required");
+        PrintErrorOption(opt);
+        exit(1);
       }
       break;
     }
   }
-  if (types == -1) {
-    for (int i = 0; i < System->Count.BeadType; i++) {
-      flag[i] = use;
-    }
-  }
-  return false;
 } //}}}
-
 // tag which molecule types to use (if not present, set to specified value) //{{{
-bool MoleculeTypeOption(int argc, char *argv[], char opt[],
+void MoleculeTypeOption(int argc, char *argv[], char opt[],
                         bool use, bool flag[], SYSTEM System) {
-  // specify what molecule types to use - either specified by 'opt' or use all
-  int types = -1;
+  bool exists = false;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
-      types = i; // positon of the '-bt' argument in command
-      // <type names> - names of bead types to save
-      while (++types < argc && argv[types][0] != '-') {
-        int type = FindMoleculeName(argv[types], System);
-        if (type == -1) {
-          snprintf(ERROR_MSG, LINE, "non-existent bead name %s%s",
-                   ErrYellow(), argv[types]);
+      exists = true;
+      int pos = i;
+      while (++pos < argc && argv[pos][0] != '-') {
+        int btype = FindMoleculeName(argv[pos], System);
+        if (btype == -1) {
+          if (snprintf(ERROR_MSG, LINE, "non-existent bead name %s%s",
+                       ErrYellow(), argv[pos]) < 0) {
+            ErrorSnprintf();
+          }
           PrintErrorOption(opt);
-          ErrorMoleculeType(System);
-          return true;
+          ErrorMoleculeType(argv[pos], System);
+          exit(1);
         }
-        flag[type] = true;
+        flag[btype] = use;
       }
+      if (pos == (i + 1)) {
+        strcpy(ERROR_MSG, "at least one bead type is required");
+        PrintErrorOption(opt);
+        exit(1);
+      }
+      break;
     }
   }
-  if (types == -1) {
+  if (!exists) {
     for (int i = 0; i < System.Count.MoleculeType; i++) {
       flag[i] = use;
     }
   }
-  return false;
 } // }}}
 
 // general boolean option //{{{
@@ -431,7 +431,7 @@ bool DoubleOption2(int argc, char *argv[], char opt[], double value[2]) {
 
 // general option with filename and integer(s) arguments //{{{
 bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
-                       int *count, int *values, char file[]) {
+                       int *values, int *count, char file[]) {
   int n = 0;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {

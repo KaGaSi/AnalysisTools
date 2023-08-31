@@ -1,28 +1,28 @@
 \section{Aggregates and Aggregates-NotSameBeads} \label{sec:Aggregates}
 
-These utilities determine which molecules belong to which aggregates (or a
-different compact structure) according to a simple criterion: two molecules
-belong to the same aggregate if they share at least a specified number of
-contact pairs. A contact pair is a pair of two beads belonging to different
-molecules which are closer than a specified distance. The information is
-written in \texttt{.agg} text file described in Section~\ref{sec:AggFile}.
+These utilities determine which molecules belong to which aggregates (note that
+\enquote{aggregate} is used for any supramolecular structure) according to a
+simple criterion: two molecules belong to the same aggregate if they share at
+least a specified number of contact pairs. A contact pair is a pair of two beads
+belonging to different molecules which are closer than a specified distance. The
+information is written in \texttt{.agg} text file described in
+Section~\ref{sec:AggFile}.
 
-Note that throughout \texttt{AnalysisTools}, an aggregate refers to any
-structure formed from molecules.
+% The number of contact pairs, the distance, and bead type(s) to use for
+% aggregate determination are all arguments of the utilities.  Any molecule
+% type(s) can be excluded from aggregate determination (\texttt{-x <mol
+% name(s)>} option); they are also excluded from the output \texttt{agg}
+% file).  Moreover, any molecules close to specified molecule(s) can be
+% excluded (\texttt{-xm <mol name(s)>} option); here, \enquote{close} means
+% any of the bead types used in aggregate determination is closer than
+% \texttt{<distance>} to any bead of the specified molecule.
 
-The number of contact pairs, the distance, and bead type(s) to use for
-aggregate determination are all arguments of the utilities.  Any molecule
-type(s) can be excluded from aggregate determination (\texttt{-x <mol
-name(s)>} option); they are also excluded from the output \texttt{agg}
-file).  Moreover, any molecules close to specified molecule(s) can be
-excluded (\texttt{-xm <mol name(s)>} option); here, \enquote{close} means
-any of the bead types used in aggregate determination is closer than
-\texttt{<distance>} to any bead of the specified molecule.
-
-Also, periodic boundary conditions can be removed from whole aggregates and
-the new coordinates saved to an indexed \texttt{vcf} file (\texttt{-j}
-option). Therefore aggregates will not be split by simulation box
-boundaries when, for example, visualizing the molecules with vmd.
+Periodic boundary conditions can be removed from whole aggregates via the
+\tt{-j} option; the aggregate's centre of mass is always inside the simulation
+box. This is useful for visualization (an aggregate will no longer be split by
+the walls of the simulation box, but it may stretch far outside the boundaries
+of the box) as well as for further analysis (the other utilities do not have to
+join the aggregates, possibly speeding up the analysis).
 
 While the \texttt{Aggregates} utility uses all possible pairs of given bead
 types, \texttt{Aggrega}-\texttt{tes-NotSameBeads} does not use same-type pairs. For
@@ -30,41 +30,58 @@ example, if bead types \texttt{A} and \texttt{B} are given,
 \texttt{Aggregates} will use all three possible bead type pairs (i.e.,
 \texttt{A-A}, \texttt{A-B}, and \texttt{B-B}), but
 \texttt{Aggregates-NotSameBeads} will use only \texttt{A-B} bead type
-pairs.
+pairs. Fig~\ref{fig:AggCheck} illustrates the behaviour: using \tt{Aggregates
+... A B} would find one contact pair between molecules 1 and 2 and two contacts
+between molecules 2 and 3, whereas \tt{Aggregates-NotSameBeads ... A
+B} would ignore A-A and B-B pairs, finding no contact pair between
+molecules 1 and 2 and only one between molecules 2 and 3.
 
-Usage:
+\begin{figure}
+  \centering
+  \includegraphics[scale=0.6]{AggregateCheck.jpg}
+  \caption{
+    Simple example of distance checks---three two-bead molecules, where dotted
+    lines represent maximum pair distance (\tt{-d} option) and black arrows show
+    bead pairs.
+  }
+  \label{fig:AggCheck}
+\end{figure}
 
-\noindent
+Note that when \tt{-st}, \tt{-e}, or \tt{-sk} options are used, the resulting
+\tt{agg} file is no longer coupled to the original coordinate file (i.e., they
+cannot be used together for further analysis), but it is coupled to the optional
+output file with joined coordinates (\tt{-j} option).
+
 \vspace{1em}
-\texttt{Aggregates} (or \texttt{Aggregates-NotSameBeads})
-\texttt{<input> <distance> <contacts> <output.agg> <bead type name(s)>
-<options>}
-
-\vspace{1em}
 \noindent
-\begin{longtable}{p{0.25\textwidth}p{0.694\textwidth}}
+Usage: \tt{Aggregates <input> <out.agg> <bead type(s)> [options]}
+\noindent
+\begin{longtable}{p{0.22\textwidth}p{0.724\textwidth}}
   \toprule
-  \multicolumn{2}{l}{Mandatory arguments} \\
+  \multicolumn{2}{l}{Mandatory arguments}\\
   \midrule
-  \texttt{<input>} & input coordinate file (either \texttt{vcf} or
-    \texttt{vtf} format) \\
-  \texttt{<distance>} & minimum distance for two beads to be in contact
-    (thus constituting a contact pair) \\
-  \texttt{<contacts>} & minimum number of contact pairs between two
-    molecules to be in one aggregate \\
-  \texttt{<output.agg>} & output \texttt{agg} file (must end with
-    \texttt{.agg}) with aggregate information \\
-  \texttt{<bead type(s)>} & bead type name(s) to use for determining
-    contact pairs (at least two for \texttt{Aggregates-NotSameBeads}) \\
-  \texttt{<options>} & \\
-  \toprule
-  \multicolumn{2}{l}{Non-standard options} \\
+  \tt{<input>}        & input coordinate file\\
+  \tt{<out.agg>}      & output \tt{agg} file\\
   \midrule
-  \texttt{-x <mol name(s)>} & exclude specified molecule type(s) from
-    aggregate determination (and from the output \texttt{agg} file) \\
-  \texttt{-xm <mol name(s)>} & exclude molecules that are close to
-    specified molecule type(s) \\
-  \texttt{-j <output.vcf>} & output \texttt{vcf} file with coordinates of
-    joined aggregates (i.e., without periodic boundary conditions) \\
+  \multicolumn{2}{l}{Options}\\
+  \midrule
+  \tt{-d}             & maximum distance for contact (default: 1)\\
+  \tt{-c}             & minimum number of contacts (default: 1)\\
+  \tt{-j <file>}      & save coordinates of joined aggregate to
+                        a coordinate file\\
+  \midrule
+  \multicolumn{2}{l}{Other options (see the beginning of 
+                     Chapter~\ref{chap:Utils})}\\
+  \midrule
+  \multicolumn{2}{l}{\tt{-st},
+                     \tt{-e},
+                     \tt{-sk},
+                     \tt{-i},
+                     \tt{-pbc},
+                     \tt{--detailed},
+                     \tt{--verbose},
+                     \tt{--silent},
+                     \tt{--help},
+                     \tt{--version}}\\
   \bottomrule
 \end{longtable}

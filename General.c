@@ -109,15 +109,15 @@ void SortArray(int *array, int length, int mode) {
     PrintError();
     exit(1);
   }
-  for (int i = 0 ; i < (length-1); i++) {
+  for (int i = 0; i < (length - 1); i++) {
     bool done = true;
-    for (int j = 0 ; j < (length-i-1); j++) {
-      if (mode == 0 && array[j] > array[j+1]) {
-        SwapInt(&array[j], &array[j+1]);
+    for (int j = 0; j < (length - i - 1); j++) {
+      if (mode == 0 && array[j] > array[j + 1]) {
+        SwapInt(&array[j], &array[j + 1]);
         done = false;
       }
-      if (mode == 1 && array[j] < array[j+1]) {
-        SwapInt(&array[j], &array[j+1]);
+      if (mode == 1 && array[j] < array[j + 1]) {
+        SwapInt(&array[j], &array[j + 1]);
         done = false;
       }
     }
@@ -163,7 +163,7 @@ bool ReadLine(FILE *fr, char *line) { //{{{
     return false; // error/EOF
   }
   // if the line is too long, skip the rest of it
-  if (strcspn(line, "\n") == (LINE-1)) {
+  if (strcspn(line, "\n") == (LINE - 1)) {
     int test;
     do {
       test = getc(fr);
@@ -192,12 +192,14 @@ bool ReadAndSplitLine(FILE *fr, int max_strings, const char delim[]) {
   words = SplitLine(max_strings, split, line, delim);
   return true;
 } //}}}
+char * BareCommand(char cmd[]) {
+  strcpy(line, cmd);
+  int words = SplitLine(SPL_STR, split, line, "/");
+  return split[words - 1];
+}
 void PrintCommand(FILE *ptr, int argc, char *argv[]) { //{{{
   // command may contain whole path - print only the string behind last '/'
-  char *split[SPL_STR], str[LINE];
-  strcpy(str, argv[0]);
-  int words = SplitLine(SPL_STR, split, str, "/");
-  fprintf(ptr, "%s%s", Colour(ptr, WHITE), split[words-1]);
+  fprintf(ptr, "%s%s", Colour(ptr, WHITE), argv[0]);
   // print the rest of the command
   for (int i = 1; i < argc; i++) {
     fprintf(ptr, " %s", argv[i]);
@@ -213,40 +215,18 @@ char *Colour(FILE *f, char colour[]) {
   }
 }
 // colours for stderr
-char *ErrRed() {
-  return Colour(stderr, RED);
-}
-char *ErrCyan() {
-  return Colour(stderr, CYAN);
-}
-char *ErrYellow() {
-  return Colour(stderr, YELLOW);
-}
-char *ErrColourReset() {
-  return Colour(stderr, C_RESET);
-}
+char *ErrRed() { return Colour(stderr, RED); }
+char *ErrCyan() { return Colour(stderr, CYAN); }
+char *ErrYellow() { return Colour(stderr, YELLOW); }
+char *ErrColourReset() { return Colour(stderr, C_RESET); }
 // colours for stdout
-char *Red() {
-  return Colour(stdout, RED);
-}
-char *Cyan() {
-  return Colour(stdout, CYAN);
-}
-char *Yellow() {
-  return Colour(stdout, YELLOW);
-}
-char *Magenta() {
-  return Colour(stdout, MAGENTA);
-}
-char *Green() {
-  return Colour(stdout, GREEN);
-}
-char *White() {
-  return Colour(stdout, WHITE);
-}
-char *ColourReset() {
-  return Colour(stdout, C_RESET);
-}
+char *Red() { return Colour(stdout, RED); }
+char *Cyan() { return Colour(stdout, CYAN); }
+char *Yellow() { return Colour(stdout, YELLOW); }
+char *Magenta() { return Colour(stdout, MAGENTA); }
+char *Green() { return Colour(stdout, GREEN); }
+char *White() { return Colour(stdout, WHITE); }
+char *ColourReset() { return Colour(stdout, C_RESET); }
 void ColourChange(int a, char *colour) {
   if (isatty(a)) {
     FILE *ptr;
@@ -262,12 +242,12 @@ void ColourChange(int a, char *colour) {
     fputs(colour, ptr);
   }
 }
- //}}}
+//}}}
 FILE *OpenFile(char *file, char *mode) { //{{{
   FILE *ptr = fopen(file, mode);
   if (ptr == NULL) {
-    snprintf(ERROR_MSG, LINE, "%sERROR - cannot open file %s%s%s",
-             ErrRed(), ErrYellow(), file, ErrRed());
+    snprintf(ERROR_MSG, LINE, "%sERROR - cannot open file %s%s%s", ErrRed(),
+             ErrYellow(), file, ErrRed());
     perror(ERROR_MSG);
     fputs(Colour(stderr, C_RESET), stderr);
     exit(1);
@@ -275,31 +255,36 @@ FILE *OpenFile(char *file, char *mode) { //{{{
   return ptr;
 } //}}}
 // initialize arrays to specified value //{{{
-void InitIntArray (int array[], int n, int val) {
+void InitDoubleArray(double array[], int n, int val) {
   for (int i = 0; i < n; i++) {
     array[i] = val;
   }
 }
-void InitBoolArray (bool array[], int n, bool val) {
+void InitIntArray(int array[], int n, int val) {
   for (int i = 0; i < n; i++) {
     array[i] = val;
   }
 }
-void InitVecArray (VECTOR array[], int n, bool val) {
+void InitBoolArray(bool array[], int n, bool val) {
+  for (int i = 0; i < n; i++) {
+    array[i] = val;
+  }
+}
+void InitVecArray(VECTOR array[], int n, bool val) {
   for (int i = 0; i < n; i++) {
     array[i].x = val;
     array[i].y = val;
     array[i].z = val;
   }
 }
-void InitLong2DArray (long *array[], int m, int n, long val) {
+void InitLong2DArray(long *array[], int m, int n, long val) {
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
       array[i][j] = val;
     }
   }
 }
-void InitDouble2DArray (double *array[], int m, int n, double val) {
+void InitDouble2DArray(double *array[], int m, int n, double val) {
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
       array[i][j] = val;

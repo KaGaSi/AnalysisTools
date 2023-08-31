@@ -17,15 +17,14 @@ The utility works properly only for orthogonal boxes that do not change \
 size.\n\n");
   }
 
-  fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <width> <output> <axis> [options]\n\n", cmd);
+  fprintf(ptr, "Usage: %s <input> <width> <output> <axis> [options]\n\n", cmd);
 
-  fprintf(ptr, "   <input>    input coordinate file\n");
-  fprintf(ptr, "   <width>    width of a single bin\n");
-  fprintf(ptr, "   <output>   output density files (automatic ending -x.rho, "
-          "-y.rho, and -z.rho)\n");
-  fprintf(ptr, "   <options>\n");
-  fprintf(ptr, "      -x <name(s)>   exclude specified molecule(s)\n");
+  fprintf(ptr, "<input>             input coordinate file\n");
+  fprintf(ptr, "<width>             width of a single bin\n");
+  fprintf(ptr, "<output>            output density files (automatic ending "
+          "-x.rho, -y.rho, and -z.rho)\n");
+  fprintf(ptr, "<options>\n");
+  fprintf(ptr, "  -x <name(s)>      exclude specified molecule(s)\n");
   CommonHelp(error, n, opt);
 } //}}}
 
@@ -210,7 +209,6 @@ int main(int argc, char *argv[]) {
         break;
       }
     }
-    // TODO: isn't this superfluous, considering the 'use' above?
     if (count_coor == end) {
       break;
     }
