@@ -183,8 +183,8 @@ void ErrorBeadType(char name[], SYSTEM System) { //{{{
   fprintf(stderr, "%s\n", ErrColourReset());
 } //}}}
 void ErrorMoleculeType(char name[], SYSTEM System) { //{{{
-  fprintf(stderr, "%s; illegal name: %s%s%s\n", ErrRed(), ErrYellow(), name,
-          ErrRed());
+  fprintf(stderr, "%s; illegal name: %s%s%s\n",
+          ErrRed(), ErrYellow(), name, ErrRed());
   fprintf(stderr, "   Possible molecule names: %s\n",
           System.MoleculeType[0].Name);
   for (int i = 1; i < System.Count.MoleculeType; i++) {

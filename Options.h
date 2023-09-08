@@ -31,10 +31,10 @@ bool ExcludeOption(int argc, char *argv[], SYSTEM *System);
 // join aggregates, saving the coordinates (-j <filename>)
 bool JoinCoorOption(int argc, char *argv[], int *coor_type, char file[]);
 // tag which bead types to use (if not present, set to specified value)
-void BeadTypeOption(int argc, char *argv[], char opt[],
+bool BeadTypeOption(int argc, char *argv[], char opt[],
                     bool use, bool flag[], SYSTEM System);
 // tag which molecule types to use (if not present, set to specified value)
-void MoleculeTypeOption(int argc, char *argv[], char opt[],
+bool MoleculeTypeOption(int argc, char *argv[], char opt[],
                         bool use, bool flag[], SYSTEM System);
 
 // general boolean option

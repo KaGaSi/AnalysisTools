@@ -33,6 +33,7 @@ void InitMoleculeType(MOLECULETYPE *mt) { //{{{
   mt->Mass = MASS;
   mt->Charge = CHARGE;
   mt->InVcf = false;
+  mt->Flag = false;
 } //}}}
 void InitMolecule(MOLECULE *mol) { //{{{
   mol->Type = -1;
@@ -57,7 +58,7 @@ void InitSystem(SYSTEM *System) { //{{{
   System->UnbondedCoor = calloc(1, sizeof System->UnbondedCoor);
   System->BeadCoor =     calloc(1, sizeof System->BeadCoor);
 } //}}}
-void InitAggregate(SYSTEM System, AGGREGATE **Aggregate) {
+void InitAggregate(SYSTEM System, AGGREGATE **Aggregate) { //{{{
   COUNT *Count = &System.Count;
   *Aggregate = malloc(Count->Molecule * sizeof **Aggregate);
   for (int i = 0; i < Count->Molecule; i++) {
@@ -66,4 +67,4 @@ void InitAggregate(SYSTEM System, AGGREGATE **Aggregate) {
     (*Aggregate)[i].Bead = calloc(Count->Bead,
                                   sizeof *Aggregate[i]->Bead);
   }
-}
+} //}}}

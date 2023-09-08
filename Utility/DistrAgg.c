@@ -102,10 +102,14 @@ int main(int argc, char *argv[]) {
   }
   // '-m' option
   bool *mtype_for_size = calloc(Count->MoleculeType, sizeof *mtype_for_size);
-  MoleculeTypeOption(argc, argv, "-m", true, mtype_for_size, System);
+  if (!MoleculeTypeOption(argc, argv, "-m", true, mtype_for_size, System)) {
+    InitBoolArray(mtype_for_size, Count->MoleculeType, true);
+  }
   // '-only' option
   bool *mtype_for_agg = calloc(Count->MoleculeType, sizeof *mtype_for_agg);
-  MoleculeTypeOption(argc, argv, "-only", true, mtype_for_agg, System);
+  if (!MoleculeTypeOption(argc, argv, "-only", true, mtype_for_agg, System)) {
+    InitBoolArray(mtype_for_agg, Count->MoleculeType, true);
+  }
   // error - molecules specified by -m and -only do not overlap //{{{
   bool overlap = false;
   for (int i = 0; i < Count->MoleculeType; i++) {

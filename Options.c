@@ -122,7 +122,7 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
     } else if (strcmp(option[i], "--verbose") == 0) {
       fprintf(ptr, "  --verbose         verbose output\n");
     } else if (strcmp(option[i], "--silent") == 0) {
-      fprintf(ptr, "  --silent          no output " "(overrides --verbose)\n");
+      fprintf(ptr, "  --silent          no output (overrides --verbose)\n");
     } else if (strcmp(option[i], "--help") == 0) {
       fprintf(ptr, "  --help            print this help and exit\n");
     } else if (strcmp(option[i], "--version") == 0) {
@@ -239,8 +239,8 @@ bool JoinCoorOption(int argc, char *argv[], int *coor_type, char file[]) {
   return false;
 } //}}}
 
-// tag bead types with specific value //{{{
-void BeadTypeOption(int argc, char *argv[], char opt[],
+// tag bead types with true/false (if missing, set all to opposite) //{{{
+bool BeadTypeOption(int argc, char *argv[], char opt[],
                     bool use, bool flag[], SYSTEM System) {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
@@ -263,22 +263,21 @@ void BeadTypeOption(int argc, char *argv[], char opt[],
         PrintErrorOption(opt);
         exit(1);
       }
-      break;
+      return true; // option is present
     }
   }
+  return false; // option is not present
 } //}}}
-// tag which molecule types to use (if not present, set to specified value) //{{{
-void MoleculeTypeOption(int argc, char *argv[], char opt[],
+// tag molecule types with true/false (if missing, set all to opposite) //{{{
+bool MoleculeTypeOption(int argc, char *argv[], char opt[],
                         bool use, bool flag[], SYSTEM System) {
-  bool exists = false;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
-      exists = true;
       int pos = i;
       while (++pos < argc && argv[pos][0] != '-') {
         int btype = FindMoleculeName(argv[pos], System);
         if (btype == -1) {
-          if (snprintf(ERROR_MSG, LINE, "non-existent bead name %s%s",
+          if (snprintf(ERROR_MSG, LINE, "non-existent molecule name %s%s",
                        ErrYellow(), argv[pos]) < 0) {
             ErrorSnprintf();
           }
@@ -293,14 +292,10 @@ void MoleculeTypeOption(int argc, char *argv[], char opt[],
         PrintErrorOption(opt);
         exit(1);
       }
-      break;
+      return true; // option is present
     }
   }
-  if (!exists) {
-    for (int i = 0; i < System.Count.MoleculeType; i++) {
-      flag[i] = use;
-    }
-  }
+  return false; // option is not present
 } // }}}
 
 // general boolean option //{{{

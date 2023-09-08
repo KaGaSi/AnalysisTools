@@ -94,48 +94,53 @@ int main(int argc, char *argv[]) {
                                 coor_type, coor_file, detailed, pbc_xyz);
 
   // specify beads to save (possibly using -bt and/or -mt options) //{{{
-  // -bt option - which bead types to exclude/use
-  bool *write_bt = malloc(System.Count.BeadType * sizeof *write_bt);
-  InitBoolArray(write_bt, System.Count.BeadType, true);
-  if (reverse) { // save only specified bead types
-    InitBoolArray(write_bt, System.Count.BeadType, false);
-    BeadTypeOption(argc, argv, "-bt", true, write_bt, System);
-  } else { // exclude specifed bead types
-    InitBoolArray(write_bt, System.Count.BeadType, true);
-    BeadTypeOption(argc, argv, "-bt", false, write_bt, System);
-  }
-  // -mt option - which molecule types to exclude/use
-  bool *write_mt = malloc(System.Count.MoleculeType * sizeof *write_mt);
-  InitBoolArray(write_mt, System.Count.MoleculeType, true);
-  if (reverse) { // save only specified molecule types
-    InitBoolArray(write_mt, System.Count.MoleculeType, false);
-    MoleculeTypeOption(argc, argv, "-mt", true, write_mt, System);
-  } else { // exclude specifed molecule types
-    InitBoolArray(write_mt, System.Count.MoleculeType, true);
-    MoleculeTypeOption(argc, argv, "-mt", false, write_mt, System);
-  }
-  // specify beads to save
+  /*
+   * reverse=true ... save only the specified species
+   * reverse=false ... exclude the specified species
+   *
+   * First setting all bead/molecule types to !reverse and then adjusting this
+   * if -bt/-mt options are present correctly specifies which
+   * bead/molecule types to save
+   */
+  // auxiliary arrays holding which bead/molecule types to save
+  bool *write_bt = malloc(System.Count.BeadType * sizeof *write_bt),
+       *write_mt = malloc(System.Count.MoleculeType * sizeof *write_mt);
+  // first assume all bead types are saved/excluded based on --reverse option...
+  InitBoolArray(write_bt, System.Count.BeadType, !reverse);
+  // ... then adjust if -bt option is present
+  bool bt_opt = BeadTypeOption(argc, argv, "-bt", reverse, write_bt, System);
+  // first assume all molecule types are saved/excluded...
+  InitBoolArray(write_mt, System.Count.MoleculeType, !reverse);
+  // ... then adjust if -mt option is present
+  bool mt_opt = MoleculeTypeOption(argc, argv, "-mt", reverse, write_mt, System);
+  // array for holding which beads to save/exclude
   bool *write = malloc(System.Count.Bead * sizeof *write);
-  InitBoolArray(write, System.Count.Bead, false);
-  for (int i = 0; i < System.Count.Bead; i++) {
-    int type = System.Bead[i].Type;
-    if (write_bt[type]) {
-      write[i] = true;
-    }
-  }
-  for (int i = 0; i < System.Count.MoleculeType; i++) {
-    for (int j = 0; j < System.MoleculeType[i].Number; j++) {
-      int mol = System.MoleculeType[i].Index[j];
-      for (int k = 0; k < System.MoleculeType[i].nBeads; k++) {
-        int id = System.Molecule[mol].Bead[k];
-        if (write_mt[i]) {
-          write[id] = true;
-        } else {
-          write[id] = false;
+  // first assume all are saved/excluded...
+  InitBoolArray(write, System.Count.Bead, !reverse);
+  // then check possible -mt option...
+  if (mt_opt) {
+    for (int i = 0; i < System.Count.MoleculeType; i++) {
+      for (int j = 0; j < System.MoleculeType[i].Number; j++) {
+        int mol = System.MoleculeType[i].Index[j];
+        for (int k = 0; k < System.MoleculeType[i].nBeads; k++) {
+          int id = System.Molecule[mol].Bead[k];
+          if (write_mt[i]) {
+            write[id] = reverse; // save/exclude based on --reverse
+          }
         }
       }
     }
   }
+  // ... and possible -bt option
+  if (bt_opt) {
+    for (int i = 0; i < System.Count.Bead; i++) {
+      int type = System.Bead[i].Type;
+      if (write_bt[type]) {
+        write[i] = reverse;
+      }
+    }
+  }
+  // free the auxiliary arrays
   free(write_mt);
   free(write_bt); //}}}
 

@@ -635,9 +635,9 @@ int main(int argc, char *argv[]) {
 
   // variables for collecting observables //{{{
   bool *bt_in_use = calloc(Count->BeadType, sizeof *bt_in_use);
-  long double (*KEnergy)[3],
-              (*Press_vir)[3];
-  long int (**BeadCount)[3];
+  long double (*KEnergy)[3] = NULL,
+              (*Press_vir)[3] = NULL;
+  long int (**BeadCount)[3] = NULL;
   // overall system-wide sums
   double sum_T = 0, // temperature
          sum_KE = 0, // kinetic energy
@@ -657,7 +657,7 @@ int main(int argc, char *argv[]) {
       count_used = 0, // count steps in output file
       line_count = 0, // count lines in the vcf file
       n_bins = 0; // number of bins is calculated at the first used timestep
-  double *loc_dens;
+  double *loc_dens = NULL;
   if (calculate_density) {
     loc_dens = calloc(Count->Bead, sizeof *loc_dens);
   }

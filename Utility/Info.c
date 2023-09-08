@@ -20,7 +20,6 @@ details.\
 
   fprintf(ptr, "Usage: %s <input> [options]\n\n", cmd);
   fprintf(ptr, "<input>             input structure file\n");
-  // fprintf(ptr, "    input files:\n");
   fprintf(ptr, "  -i[!] <file>      secondary structure file\n");
   fprintf(ptr, "  -c <file>         input coordinate file\n");
   fprintf(ptr, "  -o <file>         output structure file\n");
@@ -192,8 +191,7 @@ int main(int argc, char *argv[]) {
  //}}}
 
   // -def option (for vsf output file) //{{{
-  bool *def_type = malloc(System.Count.BeadType * sizeof *def_type);
-  InitBoolArray(def_type, System.Count.BeadType, false);
+  bool *def_type = calloc(System.Count.BeadType, sizeof *def_type);
   BeadTypeOption(argc, argv, "-def", false, def_type, System);
   int vsf_def_type = -1;
   for (int i = 0; i < System.Count.BeadType; i++) {

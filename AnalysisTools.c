@@ -353,7 +353,7 @@ SYSTEM CopySystem(SYSTEM S_in) {
     // Molecule & Index_mol //{{{
     if (S_out.Count.Molecule > 0) {
       S_out.Molecule = realloc(S_out.Molecule,
-                               sizeof(MOLECULE) * S_out.Count.Molecule);
+                               sizeof *S_out.Molecule * S_out.Count.Molecule);
       for (int i = 0; i < S_out.Count.Molecule; i++) {
         S_out.Molecule[i] = S_in.Molecule[i];
         // Molecule[].Bead array
@@ -698,10 +698,10 @@ bool CalculateBoxData(BOX *Box, int mode) {
     Box->Bounding = Box->Length;
     if (Box->alpha != 90 || Box->beta != 90 || Box->gamma != 90) {
       double a = Box->Length.x, b = Box->Length.y, c = Box->Length.z;
-      double c_a = cos(Box->alpha * M_PI / 180),
-             c_b = cos(Box->beta * M_PI / 180),
-             c_g = cos(Box->gamma * M_PI / 180),
-             s_g = sin(Box->gamma * M_PI / 180);
+      double c_a = cos(Box->alpha * PI / 180),
+             c_b = cos(Box->beta * PI / 180),
+             c_g = cos(Box->gamma * PI / 180),
+             s_g = sin(Box->gamma * PI / 180);
       // cell volume
       double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
       if (sqr < 0) {
@@ -764,15 +764,15 @@ bool CalculateBoxData(BOX *Box, int mode) {
                     Box->OrthoLength.y * Box->transform[1][2]) /
                    (b * c),
              c_b = Box->transform[0][2] / c, c_g = Box->transform[0][1] / b,
-             s_g = sin(Box->gamma * M_PI / 180);
+             s_g = sin(Box->gamma * PI / 180);
       // cell length
       Box->Length.x = a;
       Box->Length.y = b;
       Box->Length.z = c;
       // cell angles
-      Box->alpha = acos(c_a) / M_PI * 180;
-      Box->beta = acos(c_b) / M_PI * 180;
-      Box->gamma = acos(c_g) / M_PI * 180;
+      Box->alpha = acos(c_a) / PI * 180;
+      Box->beta = acos(c_b) / PI * 180;
+      Box->gamma = acos(c_g) / PI * 180;
       // cell volume
       double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
       if (sqr < 0) {
@@ -819,7 +819,6 @@ bool CalculateBoxData(BOX *Box, int mode) {
                     Min3(0, xy, Min3(0, xz, xyz));
   Box->Bounding.y = Box->OrthoLength.y + Max3(0, 0, yz) - Max3(0, 0, yz);
   Box->Bounding.z = Box->OrthoLength.z; //}}}
-printf("XXXXXXXXX %lf", M_PI);
   return true;
 } //}}}
 // merge identical bead/molecule types
@@ -1904,7 +1903,7 @@ void NewMolType(MOLECULETYPE *MoleculeType[], int *n_types, char *name,
   int mtype = (*n_types)++;
   *MoleculeType = realloc(*MoleculeType, sizeof **MoleculeType * (*n_types));
   // copy new name to MoleculeType[].Name
-  strncpy((*MoleculeType)[mtype].Name, name, MOL_NAME);
+  snprintf((*MoleculeType)[mtype].Name, MOL_NAME, "%s", name);
   // initialize struct members
   (*MoleculeType)[mtype].Number = 1;
   (*MoleculeType)[mtype].nBeads = n_beads;
@@ -3964,55 +3963,55 @@ void PrintBox(BOX Box) { //{{{
   fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
   fprintf(stdout, "}\n");
 
-  fprintf(stdout, "Box = {\n");
-  fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x,
-  Box.Length.y,
-          Box.Length.z);
-  fprintf(stdout, "  .Low = (%lf, %lf, %lf),\n", Box.Low.x, Box.Low.y,
-  Box.Low.z); fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n",
-  Box.OrthoLength.x,
-          Box.OrthoLength.y, Box.OrthoLength.z);
-  fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
-  fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
-  fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);
-  fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
-  // print transform matrix //{{{
-  for (int i = 0; i < 3; i++) {
-    if (i == 0) {
-      fprintf(stdout, "  .transform = (");
-    } else {
-      fprintf(stdout, "               (");
-    }
-    for (int j = 0; j < 3; j++) {
-      if (Box.transform[i][j] >= 0) {
-        putchar(' ');
-      }
-      fprintf(stdout, "%e", Box.transform[i][j]);
-      if (j < 2) {
-        fprintf(stdout, ", ");
-      }
-    }
-    fprintf(stdout, ")\n");
-  } //}}}
-  // print inverse matrix //{{{
-  for (int i = 0; i < 3; i++) {
-    if (i == 0) {
-      fprintf(stdout, "  .inverse = (");
-    } else {
-      fprintf(stdout, "             (");
-    }
-    for (int j = 0; j < 3; j++) {
-      if (Box.inverse[i][j] >= 0) {
-        putchar(' ');
-      }
-      fprintf(stdout, "%e", Box.inverse[i][j]);
-      if (j < 2) {
-        fprintf(stdout, ", ");
-      }
-    }
-    fprintf(stdout, ")\n");
-  } //}}}
-  fprintf(stdout, "}\n");
+  // fprintf(stdout, "Box = {\n");
+  // fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x,
+  // Box.Length.y,
+  //         Box.Length.z);
+  // fprintf(stdout, "  .Low = (%lf, %lf, %lf),\n", Box.Low.x, Box.Low.y,
+  // Box.Low.z); fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n",
+  // Box.OrthoLength.x,
+  //         Box.OrthoLength.y, Box.OrthoLength.z);
+  // fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
+  // fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
+  // fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);
+  // fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
+  // // print transform matrix //{{{
+  // for (int i = 0; i < 3; i++) {
+  //   if (i == 0) {
+  //     fprintf(stdout, "  .transform = (");
+  //   } else {
+  //     fprintf(stdout, "               (");
+  //   }
+  //   for (int j = 0; j < 3; j++) {
+  //     if (Box.transform[i][j] >= 0) {
+  //       putchar(' ');
+  //     }
+  //     fprintf(stdout, "%e", Box.transform[i][j]);
+  //     if (j < 2) {
+  //       fprintf(stdout, ", ");
+  //     }
+  //   }
+  //   fprintf(stdout, ")\n");
+  // } //}}}
+  // // print inverse matrix //{{{
+  // for (int i = 0; i < 3; i++) {
+  //   if (i == 0) {
+  //     fprintf(stdout, "  .inverse = (");
+  //   } else {
+  //     fprintf(stdout, "             (");
+  //   }
+  //   for (int j = 0; j < 3; j++) {
+  //     if (Box.inverse[i][j] >= 0) {
+  //       putchar(' ');
+  //     }
+  //     fprintf(stdout, "%e", Box.inverse[i][j]);
+  //     if (j < 2) {
+  //       fprintf(stdout, ", ");
+  //     }
+  //   }
+  //   fprintf(stdout, ")\n");
+  // } //}}}
+  // fprintf(stdout, "}\n");
 } //}}}
 void PrintByline(FILE *ptr, int argc, char *argv[]) { //{{{
   fprintf(ptr, "# Created by AnalysisTools v%s ", VERSION);

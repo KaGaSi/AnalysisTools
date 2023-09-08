@@ -401,7 +401,7 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
     int id = System.BeadCoor[i];
     BEAD *bead = &System.Bead[id];
     // <bead id>
-    fprintf(fw, "%7d", id+1);
+    fprintf(fw, "%7d", id + 1);
     // <molecule id (-1 for no molecule)>
     int mol = bead->Molecule;
     if (mol != -1) {
@@ -414,7 +414,7 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
       fprintf(fw, " %5d", -1);
     }
     // <bead type id>
-    fprintf(fw, " %5d", bt_old_to_masstype[bead->Type]+1);
+    fprintf(fw, " %5d", bt_old_to_masstype[bead->Type] + 1);
     // <charge> from original System as the charge can differ in lmp data file
     int type = bead->Type;
     double q = System.BeadType[type].Charge;

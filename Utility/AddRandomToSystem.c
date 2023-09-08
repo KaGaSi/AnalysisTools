@@ -73,7 +73,7 @@ VECTOR RandomConstrainedCoor(BOX constrain, SYSTEM S_orig, bool bt_use_orig[],
     min_dist = 1e6;  // simply a high number
     if (mode == 0) { // no distance check
       break;
-    } else if (mode == 1) { // bonded beads
+    } else if (mode == 1) { // use all bonded beads
       for (int i = 0; i < S_orig.Count.BondedCoor; i++) {
         int id = S_orig.BondedCoor[i];
         VECTOR dist = Distance(S_orig.Bead[id].Position, random, box);
@@ -117,7 +117,7 @@ VECTOR RandomConstrainedCoor(BOX constrain, SYSTEM S_orig, bool bt_use_orig[],
 } //}}}
 
 // rotate randomly given collection of beads (e.g., a molecule) //{{{
-VECTOR *RandomRotation(SYSTEM System, int number, int *list) {
+VECTOR * RandomRotation(SYSTEM System, int number, int *list) {
   VECTOR *new_coor = calloc(number, sizeof *new_coor);
 
   // random rotation axis
@@ -130,7 +130,7 @@ VECTOR *RandomRotation(SYSTEM System, int number, int *list) {
   random.y /= dist;
   random.z /= dist;
   // random rotation angle
-  double angle = (double)rand() / ((double)RAND_MAX) * M_PI;
+  double angle = (double)rand() / ((double)RAND_MAX) * PI;
   // create rotation matrix
   struct Tensor {
     VECTOR x, y, z;
@@ -147,7 +147,7 @@ VECTOR *RandomRotation(SYSTEM System, int number, int *list) {
   rot.z.x = random.x * random.z * c - random.y * sin(angle);
   rot.z.y = random.y * random.z * c + random.x * sin(angle);
   rot.z.z = cos(angle) + SQR(random.z) * c;
-
+  // generate the rotated coordinates
   for (int i = 0; i < number; i++) {
     VECTOR *pos = &System.Bead[list[i]].Position;
     new_coor[i].x = rot.x.x * pos->x + rot.x.y * pos->y + rot.x.z * pos->z;
@@ -188,14 +188,13 @@ int main(int argc, char *argv[]) {
   OptionCheck(argc, argv, req_arg, common, all, option);
   //}}}
 
-  count = 0; // count mandatory arguments
-
   // <input> - input coordinate (and structure) file //{{{
+  count = 0; // count mandatory arguments
   char coor_file[LINE] = "", struct_file[LINE] = "";
   int coor_type = -1, struct_type = 0;
   snprintf(coor_file, LINE, "%s", argv[++count]);
-  if (!InputCoorStruct(argc, argv, coor_file, &coor_type, struct_file,
-                       &struct_type)) {
+  if (!InputCoorStruct(argc, argv, coor_file, &coor_type,
+                       struct_file, &struct_type)) {
     exit(1);
   } //}}}
 
@@ -223,8 +222,8 @@ int main(int argc, char *argv[]) {
   bool silent, verbose, detailed;
   int timestep = 1, pbc_xyz = -1;
   int trash[1]; // some stuff for unused things in options
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed, &pbc_xyz,
-                &timestep, trash, trash);
+  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
+                &pbc_xyz, &timestep, trash, trash);
   // print command to stdout //{{{
   if (!silent) {
     PrintCommand(stdout, argc, argv);
@@ -311,8 +310,8 @@ int main(int argc, char *argv[]) {
   bool head = BoolOption(argc, argv, "--head");
   //}}}
 
-  SYSTEM S_orig = ReadStructure(struct_type, struct_file, coor_type, coor_file,
-                                detailed, pbc_xyz);
+  SYSTEM S_orig = ReadStructure(struct_type, struct_file,
+                                coor_type, coor_file, detailed, pbc_xyz);
 
   // find bead type to switch (the most numerous one; solvent, presumably) //{{{
   int sw_type = -1; // type to switch (if --switch is used)
@@ -326,8 +325,7 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
   // -bt <name(s)>/--bonded - specify what bead types to use //{{{
-  bool *bt_use_orig = malloc(S_orig.Count.BeadType * sizeof *bt_use_orig);
-  InitBoolArray(bt_use_orig, S_orig.Count.BeadType, false);
+  bool *bt_use_orig = calloc(S_orig.Count.BeadType, sizeof *bt_use_orig);
   BeadTypeOption(argc, argv, "-bt", true, bt_use_orig, S_orig);
   bool bonded = BoolOption(argc, argv, "--bonded"); //}}}
 
@@ -374,8 +372,8 @@ int main(int argc, char *argv[]) {
       int id0 = S_add.Molecule[i].Bead[0];
       zero = S_add.Bead[id0].Position;
     } else {
-      zero = GeomCentre(S_add.MoleculeType[type].nBeads, S_add.Molecule[i].Bead,
-                        S_add.Bead);
+      zero = GeomCentre(S_add.MoleculeType[type].nBeads,
+                        S_add.Molecule[i].Bead, S_add.Bead);
     }
     for (int j = 0; j < S_add.MoleculeType[type].nBeads; j++) {
       int id = S_add.Molecule[i].Bead[j];
@@ -616,18 +614,18 @@ int main(int argc, char *argv[]) {
     if (no_rot) {
       rot = calloc(S_new.MoleculeType[mtype].nBeads, sizeof *rot);
       for (int j = 0; j < S_new.MoleculeType[mtype].nBeads; j++) {
-        int id_add = S_add.Molecule[i - C_orig->Molecule].Bead[j];
+        int id_add = S_add.Molecule[i-C_orig->Molecule].Bead[j];
         rot[j].x = S_add.Bead[id_add].Position.x;
         rot[j].y = S_add.Bead[id_add].Position.y;
         rot[j].z = S_add.Bead[id_add].Position.z;
       }
     } else {
       rot = RandomRotation(S_add, S_new.MoleculeType[mtype].nBeads,
-                           S_add.Molecule[i - C_orig->Molecule].Bead);
+                           S_add.Molecule[i-C_orig->Molecule].Bead);
     }
-    VECTOR random =
-        RandomConstrainedCoor(box_constrain, S_orig, bt_use_orig, mode,
-                              S_new.Box.Length, lowest_dist, highest_dist);
+    VECTOR random = RandomConstrainedCoor(box_constrain, S_orig,
+                                          bt_use_orig, mode, S_new.Box.Length,
+                                          lowest_dist, highest_dist);
     for (int j = 0; j < S_new.MoleculeType[mtype].nBeads; j++) {
       int id = S_new.Molecule[i].Bead[j];
       S_new.Bead[id].Position.x = rot[j].x + random.x;
@@ -650,6 +648,7 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "\rMolecules placed: %d\n", S_add.Count.Molecule);
   } //}}}
 
+  // remove possible molecule/bead type duplicities from the system
   PruneSystem(&S_new);
 
   // print new system //{{{

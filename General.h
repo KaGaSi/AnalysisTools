@@ -10,8 +10,8 @@
 #include <time.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <gsl/gsl_math.h>
 
+#define PI 3.14159265358979323846264338327950
 #define LINE 1024 // maximum length of an array for strings
 #define SPL_STR 32 // maximum number of split strings
 #define SPL_LEN 64 // maximum length of split strings

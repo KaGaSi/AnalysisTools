@@ -97,8 +97,8 @@ static void LmpDataReadImpropers(FILE *fr, char file[], COUNT Count,
  * vcf/vtf file as a coordinate file via VtfReadTimestep() and VtfSkipTimestep()
  */ //{{{
 static SYSTEM VtfReadStruct(char file[], bool detailed);
-static int VtfReadTimestep(FILE *fr, char file[], SYSTEM *System,
-                           int *line_count);
+static int VtfReadTimestep(FILE *fr, char file[],
+                           SYSTEM *System, int *line_count);
 static int VtfSkipTimestep(FILE *fr, char file[], char vsf_file[],
                            int *line_count);
 // Helper functions for vtf/vsf/vcf files
@@ -646,8 +646,8 @@ static SYSTEM LmpDataReadStruct(char file[]) { //{{{
   MergeBeadTypes(&System, true);
   MergeMoleculeTypes(&System);
   FillSystemNonessentials(&System);
-  System.BeadCoor =
-      realloc(System.BeadCoor, System.Count.Bead * sizeof *System.BeadCoor);
+  System.BeadCoor = realloc(System.BeadCoor,
+                            System.Count.Bead * sizeof *System.BeadCoor);
   // take the data file as a coordinate file as well
   int c_unbonded = 0, c_bonded = 0;
   for (int i = 0; i < System.Count.Bead; i++) {
@@ -885,10 +885,10 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
     b->Velocity = vel;
   } //}}}
   return 1;
-error: // unrecognised line //{{{
-  strcpy(ERROR_MSG, "unrecognised line in the file header");
-  PrintErrorFileLine(file, *line_count);
-  exit(1); //}}}
+  error: // unrecognised line //{{{
+    strcpy(ERROR_MSG, "unrecognised line in the file header");
+    PrintErrorFileLine(file, *line_count);
+    exit(1); //}}}
 } //}}}
 // read header //{{{
 static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
@@ -1075,7 +1075,8 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
     putc('\n', stderr);
     exit(1);
   }
-  if (System->Box.OrthoLength.x == -1 || System->Box.OrthoLength.y == -1 ||
+  if (System->Box.OrthoLength.x == -1 ||
+      System->Box.OrthoLength.y == -1 ||
       System->Box.OrthoLength.z == -1) {
     strcpy(ERROR_MSG, "missing box size in the file header");
     PrintWarnFile(file, "\0", "\0");
@@ -1427,9 +1428,9 @@ static void LmpDataReadDihedralCoeffs(FILE *fr, char file[], SYSTEM *System,
       PrintErrorFileLine(file, *line_count);
       exit(1);
     } //}}}
-    System->DihedralType[type - 1].a = a;
-    System->DihedralType[type - 1].b = b;
-    System->DihedralType[type - 1].c = c;
+    System->DihedralType[type-1].a = a;
+    System->DihedralType[type-1].b = b;
+    System->DihedralType[type-1].c = c;
   }
 } //}}}
 // read Improper Coeffs section //{{{
@@ -1572,8 +1573,7 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
      */
     BEADTYPE *bt = &System->BeadType[id];
     if (type > atom_types) {
-      snprintf(ERROR_MSG, LINE,
-               "bead type is too high; id is %s%ld%s in "
+      snprintf(ERROR_MSG, LINE, "bead type is too high; id is %s%ld%s in "
                "a file with %s%d%s atom types",
                ErrRed(), type, ErrYellow(), ErrRed(), atom_types, ErrYellow());
       PrintErrorFile(file, "\0", "\0");
@@ -1602,10 +1602,10 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
       b->Molecule = resid;
       // resid ids may be discontinuous, so define Molecule for all possible ids
       if (resid > Count->HighestResid) {
-        System->MoleculeType = realloc(
-            System->MoleculeType, (resid + 1) * sizeof *System->MoleculeType);
-        System->Molecule =
-            realloc(System->Molecule, (resid + 1) * sizeof *System->Molecule);
+        System->MoleculeType = realloc(System->MoleculeType, (resid + 1) *
+                                       sizeof *System->MoleculeType);
+        System->Molecule = realloc(System->Molecule, (resid + 1) *
+                                   sizeof *System->Molecule);
         for (int j = (Count->HighestResid + 1); j <= resid; j++) {
           InitMoleculeType(&System->MoleculeType[j]);
           InitMolecule(&System->Molecule[j]);
@@ -1619,7 +1619,8 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
         char name[MOL_NAME] = "mol";
         for (int j = 0; j < words; j++) {
           if (split[j][0] == '#' && words > j) {
-            snprintf(name, MOL_NAME, "%s", split[j + 1]);
+            snprintf(name, MOL_NAME, "%s", split[j+1]);
+            mt_resid->Flag = true;
             break;
           }
         }
@@ -1631,8 +1632,8 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
       } else { // yes, assign the atom to that type
         int bead = mt_resid->nBeads;
         mt_resid->nBeads++;
-        mt_resid->Bead =
-            realloc(mt_resid->Bead, mt_resid->nBeads * sizeof *mt_resid->Bead);
+        mt_resid->Bead = realloc(mt_resid->Bead, mt_resid->nBeads *
+                                 sizeof *mt_resid->Bead);
         mt_resid->Bead[bead] = id;
       }
     } else {
@@ -1981,7 +1982,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
           default_atom = line_count;
           // save values for the default bead type
           int *value = VtfAtomLineValues();
-          strncpy(bt_def.Name, split[value[0]], BEAD_NAME);
+          snprintf(bt_def.Name, BEAD_NAME, "%s", split[value[0]]);
           if (value[1] != -1) {
             bt_def.Mass = atof(split[value[1]]);
           }
@@ -2013,7 +2014,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
         }
         // save values from the 'a[tom] <id>' line
         int *value = VtfAtomLineValues();
-        strncpy(Sys.BeadType[id].Name, split[value[0]], BEAD_NAME);
+        snprintf(Sys.BeadType[id].Name, BEAD_NAME, "%s", split[value[0]]);
         Sys.BeadType[id].Name[BEAD_NAME - 1] = '\0'; // ensure null-termination
         if (value[1] != -1) {
           Sys.BeadType[id].Mass = atof(split[value[1]]);
@@ -2046,8 +2047,10 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
           if (mt_resid->Number == 0) { // new molecule type
             if (value[4] == -1) {
               strcpy(mt_resid->Name, "mol");
+              mt_resid->Flag = false;
             } else {
               strncpy(mt_resid->Name, split[value[4]], MOL_NAME);
+              mt_resid->Flag = true;
             }
             mt_resid->Name[MOL_NAME - 1] = '\0'; // null-terminate!
             mt_resid->Number = 1;
@@ -2158,8 +2161,8 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   return Sys;
 } //}}}
 // VtfReadTimestep() //{{{
-static int VtfReadTimestep(FILE *fr, char file[], SYSTEM *System,
-                           int *line_count) {
+static int VtfReadTimestep(FILE *fr, char file[],
+                           SYSTEM *System, int *line_count) {
   int timestep = VtfReadTimestepPreamble(fr, file, System, line_count);
   if (timestep < 0) {
     return timestep;
@@ -2531,8 +2534,7 @@ static int VtfReadCoorBlockIndexed(FILE *fr, char file[], SYSTEM *System,
   // read the first coordinate line
   (*line_count)++;
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
-    snprintf(ERROR_MSG, LINE,
-             "premature end of file; "
+    snprintf(ERROR_MSG, LINE, "premature end of file; "
              "no beads in an indexed coordinate block");
     PrintErrorFile(file, "\0", "\0");
     return -2;
@@ -2689,8 +2691,8 @@ static SYSTEM FieldRead(char file[]) { //{{{
   // fill System.Bead & System.Unbonded //{{{
   if (Count->Unbonded > 0) {
     System.Bead = realloc(System.Bead, Count->Bead * sizeof *System.Bead);
-    System.Unbonded =
-        realloc(System.Unbonded, sizeof *System.Unbonded * Count->Unbonded);
+    System.Unbonded = realloc(System.Unbonded,
+                              sizeof *System.Unbonded * Count->Unbonded);
     int count = 0;
     for (int i = 0; i < Count->BeadType; i++) {
       for (int j = 0; j < System.BeadType[i].Number; j++) {
@@ -2711,8 +2713,8 @@ static SYSTEM FieldRead(char file[]) { //{{{
   RemoveExtraTypes(&System);
   MergeBeadTypes(&System, true);
   MergeMoleculeTypes(&System);
-  System.BeadCoor =
-      realloc(System.BeadCoor, Count->Bead * sizeof *System.BeadCoor);
+  System.BeadCoor = realloc(System.BeadCoor,
+                            Count->Bead * sizeof *System.BeadCoor);
   FillSystemNonessentials(&System);
   CheckSystem(System, file);
   return System;
@@ -2909,11 +2911,11 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       Count->Molecule += mt_i->Number;
       Count->Bead += mt_i->Number * mt_i->nBeads;
       Count->Bonded += mt_i->Number * mt_i->nBeads;
-      System->Molecule =
-          realloc(System->Molecule, sizeof *System->Molecule * Count->Molecule);
+      System->Molecule = realloc(System->Molecule,
+                                 sizeof *System->Molecule * Count->Molecule);
       System->Bead = realloc(System->Bead, sizeof *System->Bead * Count->Bead);
-      System->Bonded =
-          realloc(System->Bonded, sizeof System->Bonded * Count->Bonded);
+      System->Bonded = realloc(System->Bonded,
+                               sizeof System->Bonded * Count->Bonded);
       for (int j = count; j < Count->Bead; j++) {
         InitBead(&System->Bead[j]);
       }
@@ -2996,51 +2998,39 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
           // read up to three values for bond type
           if (words > 3) {
             if (strcmp(split[3], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE,
-                       "undefined bond type (\'???\' in bonds "
-                       "section) in molecule %s%s",
-                       ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE, "undefined bond type (\'???\' in bonds "
+                       "section) in molecule %s%s", ErrYellow(), mt_i->Name);
               PrintWarnFile(file, "\0", "\0");
               warned = true;
             } else if (!IsRealNumber(split[3], &values.a)) {
-              snprintf(ERROR_MSG, LINE,
-                       "wrong bond type parameter in "
-                       "molecule %s%s\n",
-                       ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE, "wrong bond type parameter in "
+                       "molecule %s%s\n", ErrYellow(), mt_i->Name);
               PrintErrorFileLine(file, line_count);
               exit(1);
             }
           }
           if (words > 4) {
             if (strcmp(split[4], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE,
-                       "undefined bond type (\'???\' in bonds "
-                       "section) in molecule %s%s",
-                       ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE, "undefined bond type (\'???\' in bonds "
+                       "section) in molecule %s%s", ErrYellow(), mt_i->Name);
               PrintWarnFile(file, "\0", "\0");
               warned = true;
             } else if (!IsRealNumber(split[4], &values.b)) {
-              snprintf(ERROR_MSG, LINE,
-                       "wrong bond type parameter in "
-                       "molecule %s%s\n",
-                       ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE, "wrong bond type parameter in "
+                       "molecule %s%s\n", ErrYellow(), mt_i->Name);
               PrintErrorFileLine(file, line_count);
               exit(1);
             }
           }
           if (words > 5) {
             if (strcmp(split[5], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE,
-                       "undefined bond type (\'???\' in bonds "
-                       "section) in molecule %s%s",
-                       ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE, "undefined bond type (\'???\' in bonds "
+                       "section) in molecule %s%s", ErrYellow(), mt_i->Name);
               PrintWarnFile(file, "\0", "\0");
               warned = true;
             } else if (!IsRealNumber(split[5], &values.c)) {
-              snprintf(ERROR_MSG, LINE,
-                       "wrong bond type parameter in "
-                       "molecule %s%s\n",
-                       ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE, "wrong bond type parameter in "
+                       "molecule %s%s\n", ErrYellow(), mt_i->Name);
               PrintErrorFileLine(file, line_count);
               exit(1);
             }
@@ -3061,8 +3051,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
             if (bond_type == -1) {
               bond_type = Count->BondType;
               Count->BondType++;
-              System->BondType =
-                  realloc(System->BondType, sizeof(PARAMS) * Count->BondType);
+              System->BondType = realloc(System->BondType, Count->BondType *
+                                          sizeof *System->BondType);
               System->BondType[bond_type] = InitParams;
               System->BondType[bond_type].a = values.a;
               System->BondType[bond_type].b = values.b;
@@ -3074,10 +3064,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
         continue;
       } else {
-        snprintf(ERROR_MSG, LINE,
-                 "unrecognised line in an entry for "
-                 "molecule %s%s",
-                 ErrYellow(), mt_i->Name);
+        snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for "
+                 "molecule %s%s", ErrYellow(), mt_i->Name);
         PrintErrorFileLine(file, line_count);
         exit(1);
       } //}}}
@@ -3091,10 +3079,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       if (words > 1 && strncasecmp(split[0], "angles", 4) == 0) {
         // a) number of angles //{{{
         if (!IsNaturalNumber(split[1], &val)) {
-          snprintf(ERROR_MSG, LINE,
-                   "incorrect line in 'angles' line for "
-                   "molecule %s%s",
-                   ErrYellow(), mt_i->Name);
+          snprintf(ERROR_MSG, LINE, "incorrect line in 'angles' line for "
+                   "molecule %s%s", ErrYellow(), mt_i->Name);
           PrintErrorFileLine(file, line_count);
           exit(1);
         }
@@ -3206,9 +3192,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
             if (angle_type == -1) {
               angle_type = Count->AngleType;
               Count->AngleType++;
-              System->AngleType =
-                  realloc(System->AngleType,
-                          sizeof *System->AngleType * Count->AngleType);
+              System->AngleType = realloc(System->AngleType, Count->AngleType *
+                                          sizeof *System->AngleType);
               System->AngleType[angle_type] = InitParams;
               System->AngleType[angle_type].a = values.a;
               System->AngleType[angle_type].b = values.b;
@@ -3355,8 +3340,9 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
             if (dihedral_type == -1) {
               dihedral_type = Count->DihedralType;
               Count->DihedralType++;
-              System->DihedralType = realloc(
-                  System->DihedralType, sizeof(PARAMS) * Count->DihedralType);
+              System->DihedralType = realloc(System->DihedralType,
+                                             Count->DihedralType *
+                                             sizeof *System->DihedralType);
               System->DihedralType[dihedral_type] = InitParams;
               System->DihedralType[dihedral_type] = values;
             }
@@ -3366,10 +3352,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
         continue;
       } else {
-        snprintf(ERROR_MSG, LINE,
-                 "unrecognised line in an entry for molecule "
-                 "%s%s",
-                 ErrYellow(), mt_i->Name);
+        snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for molecule "
+                 "%s%s", ErrYellow(), mt_i->Name);
         PrintErrorFileLine(file, line_count);
         exit(1);
       } //}}}
@@ -3411,10 +3395,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
               beads[0] == beads[2] || beads[0] == beads[3] ||
               beads[1] == beads[2] || beads[1] == beads[3] ||
               beads[2] == beads[3]) {
-            snprintf(ERROR_MSG, LINE,
-                     "incorrect improper line for molecule "
-                     "%s%s",
-                     ErrYellow(), mt_i->Name);
+            snprintf(ERROR_MSG, LINE, "incorrect improper line for molecule "
+                     "%s%s", ErrYellow(), mt_i->Name);
             PrintErrorFileLine(file, line_count);
             exit(1);
           } //}}}
@@ -3434,15 +3416,12 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
             if (strcmp(split[5], "???") == 0 && !warned) {
               snprintf(ERROR_MSG, LINE,
                        "undefined improper type (\'???\' in the "
-                       "section) for molecule %s%s",
-                       ErrYellow(), mt_i->Name);
+                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
               PrintWarnFile(file, "\0", "\0");
               warned = true;
             } else if (!IsRealNumber(split[5], &values.a)) {
-              snprintf(ERROR_MSG, LINE,
-                       "wrong improper parameter "
-                       "for molecule %s%s",
-                       ErrYellow(), mt_i->Name);
+              snprintf(ERROR_MSG, LINE, "wrong improper parameter "
+                       "for molecule %s%s", ErrYellow(), mt_i->Name);
               PrintErrorFile(file, "\0", "\0");
               exit(1);
             }
@@ -3498,9 +3477,9 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
             if (improper_type == -1) {
               improper_type = Count->ImproperType;
               Count->ImproperType++;
-              System->ImproperType =
-                  realloc(System->ImproperType,
-                          sizeof *System->ImproperType * Count->ImproperType);
+              System->ImproperType = realloc(System->ImproperType,
+                                             Count->ImproperType *
+                                             sizeof *System->ImproperType);
               System->ImproperType[improper_type] = InitParams;
               System->ImproperType[improper_type] = values;
             }
@@ -3757,7 +3736,7 @@ static void CopyMoleculeTypeBeadsToMoleculeBeads(SYSTEM *System) { //{{{
   for (int i = 0; i < Count->Molecule; i++) {
     MOLECULETYPE *mt_i = &System->MoleculeType[i];
     MOLECULE *mol_i = &System->Molecule[i];
-    if (mt_i->nBeads == 1) { // remove single-bead molecules
+    if (mt_i->nBeads == 1 && !mt_i->Flag) { // remove 'fake' molecules
       mt_i->Number = 0;
       System->Bead[mt_i->Bead[0]].Molecule = -1;
       free(mt_i->Bead);
@@ -3827,6 +3806,11 @@ static void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[3], int num) {
       // 2) a) make lowest index of Bond[][] 0
       //    b) find which indices are present to detect dicontinuities
       int diff = highest - lowest + 1; // +1 to count both highest & lowest ids
+      if (diff < 0) { // never triggers; just to get rid of compiler warning
+        strcpy(ERROR_MSG, "something went worng with bond indices!");
+        PrintError();
+        exit(1);
+      }
       bool *present = calloc(diff, sizeof *present);
       for (int j = 0; j < mt_i->nBonds; j++) {
         int *id0 = &mt_i->Bond[j][0], *id1 = &mt_i->Bond[j][1];
@@ -4248,8 +4232,8 @@ SYSTEM ReadStructure(int struct_type, char struct_file[], int coor_type,
 /*
  * Read a single timestep from the provided coordinate file.
  */ //{{{
-bool ReadTimestep(int coor_type, FILE *fr, char file[], SYSTEM *System,
-                  int *line_count) {
+bool ReadTimestep(int coor_type, FILE *fr, char file[],
+                  SYSTEM *System, int *line_count) {
   switch (coor_type) {
   case VTF_FILE:
   case VCF_FILE:

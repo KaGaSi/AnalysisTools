@@ -112,12 +112,12 @@ void SortArray(int *array, int length, int mode) {
   for (int i = 0; i < (length - 1); i++) {
     bool done = true;
     for (int j = 0; j < (length - i - 1); j++) {
-      if (mode == 0 && array[j] > array[j + 1]) {
-        SwapInt(&array[j], &array[j + 1]);
+      if (mode == 0 && array[j] > array[j+1]) {
+        SwapInt(&array[j], &array[j+1]);
         done = false;
       }
-      if (mode == 1 && array[j] < array[j + 1]) {
-        SwapInt(&array[j], &array[j + 1]);
+      if (mode == 1 && array[j] < array[j+1]) {
+        SwapInt(&array[j], &array[j+1]);
         done = false;
       }
     }
@@ -163,7 +163,7 @@ bool ReadLine(FILE *fr, char *line) { //{{{
     return false; // error/EOF
   }
   // if the line is too long, skip the rest of it
-  if (strcspn(line, "\n") == (LINE - 1)) {
+  if (strcspn(line, "\n") == (LINE-1)) {
     int test;
     do {
       test = getc(fr);
@@ -215,18 +215,40 @@ char *Colour(FILE *f, char colour[]) {
   }
 }
 // colours for stderr
-char *ErrRed() { return Colour(stderr, RED); }
-char *ErrCyan() { return Colour(stderr, CYAN); }
-char *ErrYellow() { return Colour(stderr, YELLOW); }
-char *ErrColourReset() { return Colour(stderr, C_RESET); }
+char *ErrRed() {
+  return Colour(stderr, RED);
+}
+char *ErrCyan() {
+  return Colour(stderr, CYAN);
+}
+char *ErrYellow() {
+  return Colour(stderr, YELLOW);
+}
+char *ErrColourReset() {
+  return Colour(stderr, C_RESET);
+}
 // colours for stdout
-char *Red() { return Colour(stdout, RED); }
-char *Cyan() { return Colour(stdout, CYAN); }
-char *Yellow() { return Colour(stdout, YELLOW); }
-char *Magenta() { return Colour(stdout, MAGENTA); }
-char *Green() { return Colour(stdout, GREEN); }
-char *White() { return Colour(stdout, WHITE); }
-char *ColourReset() { return Colour(stdout, C_RESET); }
+char *Red() {
+  return Colour(stdout, RED);
+}
+char *Cyan() {
+  return Colour(stdout, CYAN);
+}
+char *Yellow() {
+  return Colour(stdout, YELLOW);
+}
+char *Magenta() {
+  return Colour(stdout, MAGENTA);
+}
+char *Green() {
+  return Colour(stdout, GREEN);
+}
+char *White() {
+  return Colour(stdout, WHITE);
+}
+char *ColourReset() {
+  return Colour(stdout, C_RESET);
+}
 void ColourChange(int a, char *colour) {
   if (isatty(a)) {
     FILE *ptr;
@@ -241,13 +263,12 @@ void ColourChange(int a, char *colour) {
     }
     fputs(colour, ptr);
   }
-}
-//}}}
+} //}}}
 FILE *OpenFile(char *file, char *mode) { //{{{
   FILE *ptr = fopen(file, mode);
   if (ptr == NULL) {
-    snprintf(ERROR_MSG, LINE, "%sERROR - cannot open file %s%s%s", ErrRed(),
-             ErrYellow(), file, ErrRed());
+    snprintf(ERROR_MSG, LINE, "%sERROR - cannot open file %s%s%s",
+             ErrRed(), ErrYellow(), file, ErrRed());
     perror(ERROR_MSG);
     fputs(Colour(stderr, C_RESET), stderr);
     exit(1);
