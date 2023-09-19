@@ -146,24 +146,33 @@ int main(int argc, char *argv[]) {
       System.Bead[i].InTimestep = true;
     }
   }
-  if (verbose) {
-    char coor[LINE] = "\0";
+  // print initial system information only if extra file(s) are present
+  if (verbose && (struct_type_extra != -1 || coor_type != -1)) {
+    printf("\n==================================================");
+    printf("\nSystem in %s", struct_file);
     if (coor_type != -1) {
-      if (snprintf(coor, LINE, " (%s)", coor_file) < 0) {
-        ErrorSnprintf();
-      }
+      printf(" (coordinates: %s)", coor_file);
     }
-    printf("System in %s%s:\n", struct_file, coor);
+    printf("\n==================================================\n");
     VerboseOutput(System);
+    fprintf(stdout, "Information about every bead:\n");
     PrintBead(System);
+    fprintf(stdout, "\nInformation about every molecule:\n");
+    PrintMolecule(System);
   }
   SYSTEM Sys_extra;
   if (struct_file_extra[0] != '\0') {
     Sys_extra = ReadStructure(struct_type_extra, struct_file_extra,
                               coor_type, coor_file, detailed, pbc_xyz);
     if (verbose) {
-      printf("System in %s:\n", struct_file_extra);
+      printf("\n==================================================");
+      printf("\nSystem in extra file (%s)", struct_file_extra);
+      printf("\n==================================================\n");
       VerboseOutput(Sys_extra);
+      fprintf(stdout, "Information about every bead:\n");
+      PrintBead(Sys_extra);
+      fprintf(stdout, "\nInformation about every molecule:\n");
+      PrintMolecule(Sys_extra);
     }
   }
   // add extra info to original system
@@ -206,7 +215,14 @@ int main(int argc, char *argv[]) {
 
   PruneSystem(&System);
 
-  printf("Final system composition:\n");
+  // if 
+  printf("\n==================================================");
+  if (struct_type_extra != -1 || coor_type != -1) {
+    printf("\nFinal system composition");
+  } else {
+    printf("\nSystem composition");
+  }
+  printf("\n==================================================\n");
   VerboseOutput(System);
   if (verbose) { // -v option
     fprintf(stdout, "Information about every bead:\n");

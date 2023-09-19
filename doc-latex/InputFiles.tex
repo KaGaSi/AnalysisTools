@@ -74,21 +74,40 @@ well as their properties.
 
 The \tt{species} section is the same as in the \tt{DL_MESO} \field file, but the
 \tt{molecules} section differs slightly. Besides the \tt{beads} part, every
-molecule can have \tt{bonds}, \tt{angles}, and \tt{dihedrals}, but even though
-up to three parameters for potentials are read, AnalysisTools does not recognize
-the potential keywords (\tt{harm}, \tt{cos}, etc.). These potential parameters
-are only used for generating new structure files via the \tt{Info} utility
-(\TODO reference). The \tt{molecules} section can also contain one extra part:
-\tt{impropers} for improper angles which has the same format as the
-\tt{dihedrals} section (this was added because the
+molecule can have \tt{bonds}, \tt{angles}, \tt{dihedrals}, but even though up to
+three parameters for potential parameters are read, AnalysisTools does not
+recognize the potential keywords (\tt{harm}, \tt{cos}, etc.). Moreover, these
+potential parameters are only used for generating new LAMMPS data files via the
+\tt{Info} utility (Section~\ref{sec:Info}). The \tt{molecules} section can also
+contain one extra part: \tt{impropers} for improper angles which has the same
+format as the \tt{dihedrals} section (this was added because the
 \href{https://lammps.sandia.gov/}{LAMMPS molecular dynamics simulator}
 distinguishes between the two).
 
 Note that the \field file does not have to contain \tt{Interactions} section;
 this part is ignored.
 
+However, using this file in conjunction with coordinate files is not
+recommended. Because \field contains only numbers of beads of given types, it is
+not possible to ensure that bead indices in the coordinate file will line up
+with the correct bead types in the \field file. The indices are assigned to the
+beads from \field on the \enquote{first read, first labelled} basis, that is,
+the unbonded bonds are first (in the other of the lines in the \tt{species}
+secion) followed by beads from the molecules. Should one want to check the bead
+index assignments, the \tt{Info} utility can be used to generate, e.g., a \vsf
+file from the \field file.
+
+Nevertheless, the file can be used to supply extra information for bead and
+molecule types for the \tt{Info} utility's \tt{-i[!]} option as these do not
+depend on individual beads but rather on bead and molecule type names (see
+Section~\ref{Info} for details). Moreover, \field is used as an input file to
+add extra species into an existing system (\TODO AddRandomToSystem or some such)
+or creating a new system from scratch (\TODO GenSystem, GenLayers, or some
+such).
+
 To be recognized by AnalysisTools utilities, the file must either be called
-\field or have a \tt{.FIELD} extension. %}}}
+\field or have a \tt{.FIELD} extension.
+%}}}
 \subsection{XYZ format}\label{ssec:StructXyz} %{{{
 This is the simplest and probably best known format, see, e.g.,
 \href{https://openbabel.org/docs/dev/FileFormats/XYZ_cartesian_coordinates_format.html}{here}

@@ -6,7 +6,7 @@
 #define eVA3_to_Pa (e * 1e30)    // eV/Angstrom^3 to Pa
 #define Jmol_to_eV 1.03642755e-5 // J/mol to eV/particle
 
-void Help(char cmd[50], bool error) { //{{{
+void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
     ptr = stderr;
@@ -31,7 +31,7 @@ potentials (https://doi.org/10.1080/09500839008206493).\n\n");
   fprintf(ptr, "      -rho <float>  density (kg/m3)\n");
   fprintf(ptr, "      -a <float>    lattice constant (Å)\n");
   fprintf(ptr, "      --fcc/bcc/hcp crystal lattice\n");
-  CommonHelp(error);
+  CommonHelp(error, n, opt);
 } //}}}
 
 typedef struct element { //{{{
@@ -872,58 +872,39 @@ void FillElements(ELEMENT element[]) {
 } //}}}
 
 int main(int argc, char *argv[]) {
-  // -h/--version options - print stuff and exit //{{{
-  if (VersionOption(argc, argv)) {
-    exit(0);
-  }
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "-h") == 0) {
-      Help(argv[0], false);
-      exit(0);
-    }
-  }
-  int req_args = 2; //}}}
-
-  // check if correct number of arguments //{{{
-  int count = 0;
-  while ((count + 1) < argc && argv[count + 1][0] != '-') {
-    count++;
-  }
-  // reverse bead type selection? ...do now to check correct number of arguments
-  bool reverse = BoolOption(argc, argv, "--reverse");
-  // possible to omit <bead name(s)> if '--reverse' is used
-  if (count < (req_args - 1) || (count == (req_args - 1) && !reverse)) {
-    ErrorArgNumber(count, req_args);
-    Help(argv[0], true);
-    exit(1);
-  } //}}}
-
-  // test if options are given correctly //{{{
-  for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' && strcmp(argv[i], "-m") != 0 &&
-        strcmp(argv[i], "-n") != 0 && strcmp(argv[i], "mu") != 0 &&
-        strcmp(argv[i], "-B") != 0 && strcmp(argv[i], "-E") != 0 &&
-        strcmp(argv[i], "-a") != 0 && strcmp(argv[i], "-mu") != 0 &&
-        strcmp(argv[i], "-rho") != 0 && strcmp(argv[i], "--fcc") != 0 &&
-        strcmp(argv[i], "--bcc") != 0 && strcmp(argv[i], "--hcp") != 0 &&
-        strcmp(argv[i], "-i") != 0 && strcmp(argv[i], "-v") != 0 &&
-        strcmp(argv[i], "--silent") != 0 && strcmp(argv[i], "--detailed") != 0 &&
-        strcmp(argv[i], "--version") != 0 && strcmp(argv[i], "-h") != 0) {
-      ErrorOption(argv[i]);
-      Help(argv[0], true);
-      exit(1);
-    }
-  } //}}}
+  // define options //{{{
+  int common = 7, all = common + 10, count = 0,
+      req_arg = 2;
+  char option[all][OPT_LENGTH];
+  // common options
+  strcpy(option[count++], "-i");
+  strcpy(option[count++], "-pbc");
+  strcpy(option[count++], "--detailed");
+  strcpy(option[count++], "--verbose");
+  strcpy(option[count++], "--silent");
+  strcpy(option[count++], "--help");
+  strcpy(option[count++], "--version");
+  // extra options
+  strcpy(option[count++], "-m");
+  strcpy(option[count++], "-n");
+  strcpy(option[count++], "-mu");
+  strcpy(option[count++], "-B");
+  strcpy(option[count++], "-E");
+  strcpy(option[count++], "-rho");
+  strcpy(option[count++], "-a");
+  strcpy(option[count++], "--fcc");
+  strcpy(option[count++], "--bcc");
+  strcpy(option[count++], "--hcp");
+  OptionCheck(argc, argv, req_arg, common, all, option); //}}}
 
   count = 0; // count mandatory arguments
 
-  // <input> - input coordinate file //{{{
-  char input_coor[LINE] = "", input_vsf[LINE] = "";
+  // <input> - input coordinate (and structure) file //{{{
+  char input_coor[LINE] = "", struct_file[LINE] = "";
+  int coor_type, struct_type = 0;
   snprintf(input_coor, LINE, "%s", argv[++count]);
-  // test that <input> filename ends with '.vcf' or '.vtf'
-  bool vtf;
-  if (!InputCoor_old(&vtf, input_coor, input_vsf)) {
-    Help(argv[0], true);
+  if (!InputCoorStruct(argc, argv, input_coor, &coor_type,
+                       struct_file, &struct_type)) {
     exit(1);
   } //}}}
 
@@ -934,16 +915,18 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data
   bool silent, verbose, detailed;
-  CommonOptions_old(argc, argv, input_vsf, LINE, &verbose, &silent, &detailed);
+  int start = 1, end = -1, skip = 0, pbc_xyz = -1;
+  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
+                &pbc_xyz, &start, &end, &skip);
 
   // '-m' option //{{{
   int m_SC = 6; // no -m option
-  if (IntegerOption(argc, argv, "-m", &m_SC)) {
+  if (IntegerOption1(argc, argv, "-m", &m_SC)) {
     exit(1);
   } //}}}
   // '-n' option //{{{
   int n_SC = -1; // no -n option
-  if (IntegerOption(argc, argv, "-n", &n_SC)) {
+  if (IntegerOption1(argc, argv, "-n", &n_SC)) {
     exit(1);
   }
   if (n_SC != -1 && n_SC <= m_SC) {
@@ -957,23 +940,23 @@ int main(int argc, char *argv[]) {
   // options for element properties //{{{
   double Mw = -1, rho = -1, E_coh = -1, B = -1, a = -1;
   // atomic mass
-  if (DoubleOption(argc, argv, "-mu", &Mw)) {
+  if (DoubleOption1(argc, argv, "-mu", &Mw)) {
     exit(1);
   }
   // bulk modulus
-  if (DoubleOption(argc, argv, "-B", &B)) {
+  if (DoubleOption1(argc, argv, "-B", &B)) {
     exit(1);
   }
   // cohesion energy
-  if (DoubleOption(argc, argv, "-E", &E_coh)) {
+  if (DoubleOption1(argc, argv, "-E", &E_coh)) {
     exit(1);
   }
   // lattice constant
-  if (DoubleOption(argc, argv, "-a", &a)) {
+  if (DoubleOption1(argc, argv, "-a", &a)) {
     exit(1);
   }
   // density
-  if (DoubleOption(argc, argv, "-rho", &rho)) {
+  if (DoubleOption1(argc, argv, "-rho", &rho)) {
     exit(1);
   }
   char lattice[4] = "\0";
@@ -1004,16 +987,8 @@ preference order: fcc > bcc > hcp");
   ELEMENT *element = calloc(n_elements, sizeof *element);
   FillElements(element); //}}}
 
-  // read information from vtf file(s) //{{{
-  SYSTEM System = VtfReadStruct(input_vsf, detailed);
-  VtfReadPBC(input_coor, &System.Box);
-  if (!TriclinicCellData(&System.Box, 0)) {
-    strcpy(ERROR_MSG, "wrong pbc data");
-    PrintError();
-    exit(1);
-  } //}}}
-
-  WarnChargedSystem(System, input_vsf, "\0", "\0");
+  SYSTEM System = ReadStructure(struct_type, struct_file,
+                                coor_type, input_coor, detailed, pbc_xyz);
 
   // read coordinates //{{{
   FILE *vcf = OpenFile(input_coor, "r");
@@ -1021,7 +996,7 @@ preference order: fcc > bcc > hcp");
       file_line_count = 0;                   // count lines in the vcf file
   char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
   count_vcf++;
-  if (!VtfReadTimestep(vcf, input_coor, &System, &file_line_count, stuff)) {
+  if (!ReadTimestep(coor_type, vcf, input_coor, &System, &file_line_count)) {
     count_vcf--;
   }
   fclose(vcf); //}}}
@@ -1193,7 +1168,6 @@ preference order: fcc > bcc > hcp");
   // calculate how much the bulk modulus differs from input data
   double B_calc = n_SC * m_SC * E_red / (18 * vol_a_red);
 
-  ToFractionalCoor(&System);
   // calculate lattice sums, S = sum_{i\neq j}(a/r_ij)^m_SC (and ^n_SC)
   count = 0;
   int values = 10; // TODO: make into option
@@ -1209,7 +1183,6 @@ preference order: fcc > bcc > hcp");
       if (id1 != id2) {
         VECTOR *pos = &System.Bead[id2].Position;
         VECTOR dist = Distance(*first, *pos, System.Box.Length);
-        dist = FromFractional(dist, System.Box);
         double d = sqrt(SQR(dist.x) + SQR(dist.y) + SQR(dist.z));
         // id2, d, pos->x, pos->y, pos->z, dist.x, dist.y, dist.z);
         sum_m += 1 / pow(d, m_SC); // assumes reduced distance, a_red=1

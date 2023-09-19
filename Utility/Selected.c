@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
         int mol = System.MoleculeType[i].Index[j];
         for (int k = 0; k < System.MoleculeType[i].nBeads; k++) {
           int id = System.Molecule[mol].Bead[k];
-          if (write_mt[i]) {
+          if (write_mt[i] == reverse) {
             write[id] = reverse; // save/exclude based on --reverse
           }
         }
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
   if (bt_opt) {
     for (int i = 0; i < System.Count.Bead; i++) {
       int type = System.Bead[i].Type;
-      if (write_bt[type]) {
+      if (write_bt[type] == reverse) {
         write[i] = reverse;
       }
     }

@@ -14,8 +14,8 @@ a filename without any recognizable extension), and DL\_MESO FIELD file (called
 output LAMMPS \data or \vtf file. These coordinates are 0 if no coordinate file
 is specified or the input structure file does not contain them. Note that if no
 coordinate file is specified, coordinates of all beads are written (e.g., even
-when only some beads are specified in an input \vtf file; unspecified beads have
-coordinates 0).
+when only some beads are specified in an input \vtf file's indexed timestep;
+unspecified beads have all coordinates equal to 0).
 
 There are a few options for the output structure file. For LAMMPS \data file,
 \tt{--mass} can be used to specify atom types by their mass, but print different
@@ -25,8 +25,9 @@ extra atom types (with mass 1) can be added via the \tt{-ebt} option; these
 atoms do not appear in the \tt{Atoms} section of the \data file and can be used
 as, e.g., extra atom type when srp potential (i.e., non-crossing bonds created
 by adding ghost particles between bonded beads) is used. For \vtf/\vsf file,
-\tt{atom default} bead can be specified via the \tt{-def} option; by default,
-the bead type with the most unbonded beads is used as the \tt{atom default}.
+\tt{atom default} bead type can be specified via the \tt{-def} option; by
+default, the bead type with the most unbonded beads is used as the \tt{atom
+default} type.
 
 \vspace{1em}
 \noindent

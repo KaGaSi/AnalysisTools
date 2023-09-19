@@ -38,7 +38,8 @@ set(UTILS AddRandomToSystem
           DistrAgg
           Info
           Local
-          Selected)
+          Selected
+          SuttonChenParameters)
 foreach(utility ${UTILS})
   add_executable(${utility} Utility/${utility}.c)
   target_link_libraries(${utility} ${LIBRARIES} m)
