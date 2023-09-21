@@ -37,7 +37,7 @@ $bin/AddToSystem -- $f2.v{s,c}f -b 20 20 20 -gc -f mol.FIELD
 for (( i=0 ; i<9 ; i++ )); do
   f1=a
   f2=b
-  $bin/AddToSystem $f1.vcf $f2.v{s,c}f -i $f1.vsf -ld 6 -bt A B C -gc -f mol.FIELD -sd $i
+  $bin/AddToSystem $f1.vcf $f2.v{s,c}f -i $f1.vsf -ld 6 -bt A B C -gc -f mol.FIELD
   mv $f2.vsf $f1.vsf
   mv $f2.vcf $f1.vcf
 done

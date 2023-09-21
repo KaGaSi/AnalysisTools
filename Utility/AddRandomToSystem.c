@@ -17,7 +17,7 @@ provided coordinates are used as is.\n\n");
   fprintf(ptr, "Usage:\n");
   fprintf(ptr, "   %s <input> <in.field> <output> [options]\n\n", cmd);
 
-  fprintf(ptr, "      <input>        input coordinate file (vcf format)\n");
+  fprintf(ptr, "      <input>        input coordinate file\n");
   fprintf(ptr, "      <in.field>     input FIELD file with species to add\n");
   fprintf(ptr, "      <output>       output structure and coordinate file "
                "(format: xyz, lammpstrj, or vtf)\n");

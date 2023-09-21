@@ -5,17 +5,17 @@ These utilities determine which molecules belong to which aggregates (note that
 simple criterion: two molecules belong to the same aggregate if they share at
 least a specified number of contact pairs. A contact pair is a pair of two beads
 belonging to different molecules which are closer than a specified distance. The
-information is written in \texttt{.agg} text file described in
+information is written into an \tt{.agg} text file described in
 Section~\ref{sec:AggFile}.
 
 % The number of contact pairs, the distance, and bead type(s) to use for
 % aggregate determination are all arguments of the utilities.  Any molecule
-% type(s) can be excluded from aggregate determination (\texttt{-x <mol
-% name(s)>} option); they are also excluded from the output \texttt{agg}
+% type(s) can be excluded from aggregate determination (\tt{-x <mol
+% name(s)>} option); they are also excluded from the output \tt{agg}
 % file).  Moreover, any molecules close to specified molecule(s) can be
-% excluded (\texttt{-xm <mol name(s)>} option); here, \enquote{close} means
+% excluded (\tt{-xm <mol name(s)>} option); here, \enquote{close} means
 % any of the bead types used in aggregate determination is closer than
-% \texttt{<distance>} to any bead of the specified molecule.
+% \tt{<distance>} to any bead of the specified molecule.
 
 Periodic boundary conditions can be removed from whole aggregates via the
 \tt{-j} option; the aggregate's centre of mass is always inside the simulation
@@ -24,12 +24,12 @@ the walls of the simulation box, but it may stretch far outside the boundaries
 of the box) as well as for further analysis (the other utilities do not have to
 join the aggregates, possibly speeding up the analysis).
 
-While the \texttt{Aggregates} utility uses all possible pairs of given bead
-types, \texttt{Aggrega}-\texttt{tes-NotSameBeads} does not use same-type pairs. For
-example, if bead types \texttt{A} and \texttt{B} are given,
-\texttt{Aggregates} will use all three possible bead type pairs (i.e.,
-\texttt{A-A}, \texttt{A-B}, and \texttt{B-B}), but
-\texttt{Aggregates-NotSameBeads} will use only \texttt{A-B} bead type
+While the \tt{Aggregates} utility uses all possible pairs of given bead
+types, \tt{Aggrega}-\tt{tes-NotSameBeads} does not use same-type pairs. For
+example, if bead types \tt{A} and \tt{B} are given,
+\tt{Aggregates} will use all three possible bead type pairs (i.e.,
+\tt{A-A}, \tt{A-B}, and \tt{B-B}), but
+\tt{Aggregates-NotSameBeads} will use only \tt{A-B} bead type
 pairs. Fig~\ref{fig:AggCheck} illustrates the behaviour: using \tt{Aggregates
 ... A B} would find one contact pair between molecules 1 and 2 and two contacts
 between molecules 2 and 3, whereas \tt{Aggregates-NotSameBeads ... A
@@ -38,11 +38,19 @@ molecules 1 and 2 and only one between molecules 2 and 3.
 
 \begin{figure}
   \centering
-  \includegraphics[scale=0.6]{AggregateCheck.jpg}
+  \begin{minipage}{0.45\textwidth}
+    \includegraphics[scale=0.6]{AggregateCheck.jpg}
+  \end{minipage}
+  \begin{minipage}{0.5\textwidth}
+    \tt{Aggregates ... A B}\\
+    \-\hspace{30pt}$\Rightarrow$ 3 contact pairs\\
+    \tt{Aggregates-NotSameBeads ... A B}\\
+    \-\hspace{30pt}$\Rightarrow$ 2 contact pairs\\
+  \end{minipage}
   \caption{
     Simple example of distance checks---three two-bead molecules, where dotted
     lines represent maximum pair distance (\tt{-d} option) and black arrows show
-    bead pairs.
+    contact pairs.
   }
   \label{fig:AggCheck}
 \end{figure}

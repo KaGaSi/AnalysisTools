@@ -198,14 +198,6 @@ static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
     if (LtrjReadCoorLine(fr, &line, System->Count.Bead, position, cols) < 0) {
       strcpy(ERROR_MSG, "invalid atom line (or not enough atom lines)");
       PrintErrorFileLine(file, *line_count);
-      fprintf(stderr, "%sOrder of variables should be:%s", ErrRed(),
-              ErrYellow());
-      for (int i = 0; i < max_vars; i++) {
-        if (position[i] != -1) {
-          fprintf(stderr, " %s", vars[position[i]]);
-        }
-      }
-      fprintf(stderr, "%s\n", ErrColourReset());
       return -1;
     }
     int id = line.Type - 1;
@@ -291,16 +283,6 @@ static SYSTEM LtrjReadStruct(char file[]) {
     if (LtrjReadCoorLine(fr, &line, Sys.Count.Bead, position, cols) < 0) {
       strcpy(ERROR_MSG, "invalid atom line (or not enough atom lines)");
       PrintErrorFileLine(file, line_count);
-      if (words > 0 && strcmp(split[0], "ITEM:") != 0) {
-        fprintf(stderr, "%sOrder of variables should be:%s", ErrRed(),
-                ErrYellow());
-        for (int i = 0; i < max_vars; i++) {
-          if (position[i] != -1) {
-            fprintf(stderr, " %s", var[position[i]]);
-          }
-        }
-      }
-      fprintf(stderr, "%s\n", ErrColourReset());
       exit(1);
     } //}}}
     int id = line.Type - 1;

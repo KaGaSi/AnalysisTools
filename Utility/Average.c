@@ -19,7 +19,7 @@ each column used: <simple average> <error> <tau> \
 output file instead of rewriting it. See the manual for a way to obtain \
 a reasonable estimate of tau via rerunning the utility several times.\n\
 2) for -b option, the binning method is used to calculate per-block averages.\n\
-3) for -m option, the moving method is used to smoothen the input data.");
+3) for -m option, the moving method is used to smoothen the input data.\n\n");
   }
 
   fprintf(ptr, "Usage: %s <input> <output> <column(s)>\n\n", cmd);
@@ -322,6 +322,7 @@ int main ( int argc, char** argv ) {
     }
     fclose(fw);
   } //}}}
+
   for (int i = 0; i < col_count; i++) {
     free(data[i]);
   }

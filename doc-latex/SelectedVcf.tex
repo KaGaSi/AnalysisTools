@@ -1,26 +1,26 @@
 \section{Selected} \label{sec:Selected}
 
-This utility creates a new coordinate file of the \xyz, \vcf, or \tt{lammpstrj}
-format. By default, the utility saves all bead and molecules types, but using
-\tt{-bt} and/or \tt{-mt} option specifies which bead and/or molecule types to
-exclude from the output file. If \tt{--reverse} option is used, the specified
-bead and/or molecule types are instead the only ones that are saved.
-xfs
+This utility creates a new coordinate file of the \xyz, \vtcf, or \tt{lammpstrj}
+format. By default, the utility saves all bead and molecules types (basically
+transforming one coordinate file format into another), but using \tt{-bt} and/or
+\tt{-mt} options specifies which bead and/or molecule types to exclude from the
+output file. If \tt{--reverse} option is used, the specified bead and/or
+molecule types are instead the only ones that are written into the output file.
 
 Besides the standard \tt{-st}, \tt{-e}, and \tt{-sk} options, which timesteps to
 save can be explicitly specified via the \tt{-n} option that can take a maximum
 of 100 arguments (the \tt{-st}, \tt{-e}, and \tt{-sk} are then ignored). Also,
-using \tt{--last} option saves only the last step from the input coordinate file
-(all the previous options are ignored if \tt{--last} is used). If lammps \data
-file is used as a coordinate file, all the above options are ignored as the
-\data file contains by definition only a single timestep.
+using \tt{--last} option saves only the last valid step from the input
+coordinate file (all the previous options are ignored if \tt{--last} is used).
+If lammps \data file is used as a coordinate file, all the above options are
+ignored as the \data file contains by definition only a single timestep.
 
 There is also an option to remove periodic boundary conditions for molecules
-(i.e., to join them) via \tt{--join} switch. Conversely, the simulation box can
-be wrapped (i.e., the periodic boundary conditions applied, putting all beads
-inside the box) via \tt{--wrap} switch. If both \tt{--wrap} and \tt{--join}
-options are used, the simulation box is first wrapped and then the molecules are
-joined.
+(i.e., to join them) via the \tt{--join} switch. Conversely, the simulation box
+can be wrapped (i.e., the periodic boundary conditions applied, putting all
+beads inside the box) via the \tt{--wrap} switch. If both \tt{--wrap} and
+\tt{--join} options are used, the simulation box is first wrapped and then the
+molecules are joined.
 
 \vspace{1em}
 \noindent
