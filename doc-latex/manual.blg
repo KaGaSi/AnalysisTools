@@ -1,29 +1,31 @@
 [0] Config.pm:307> INFO - This is Biber 2.19
 [0] Config.pm:310> INFO - Logfile is 'manual.blg'
-[57] biber:340> INFO - === Wed Aug 30, 2023, 13:07:45
-[67] Biber.pm:419> INFO - Reading 'manual.bcf'
-[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 1
-[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 2
-[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 3
-[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 4
-[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 5
-[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 6
-[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[117] Biber.pm:979> INFO - Found 0 citekeys in bib section 7
-[118] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[118] Biber.pm:979> INFO - Found 0 citekeys in bib section 8
-[118] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[118] Biber.pm:979> INFO - Found 0 citekeys in bib section 9
-[118] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[118] Biber.pm:979> INFO - Found 0 citekeys in bib section 10
-[118] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[170] bbl.pm:660> INFO - Writing 'manual.bbl' with encoding 'UTF-8'
-[171] bbl.pm:763> INFO - Output to manual.bbl
-[171] Biber.pm:131> WARN - The file 'manual.bcf' does not contain any citations!
-[171] Biber.pm:133> INFO - WARNINGS: 1
+[58] biber:340> INFO - === Thu Sep 21, 2023, 23:00:22
+[70] Biber.pm:419> INFO - Reading 'manual.bcf'
+[119] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[119] Biber.pm:979> INFO - Found 0 citekeys in bib section 1
+[119] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[119] Biber.pm:979> INFO - Found 0 citekeys in bib section 2
+[119] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[119] Biber.pm:979> INFO - Found 0 citekeys in bib section 3
+[119] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[119] Biber.pm:979> INFO - Found 0 citekeys in bib section 4
+[119] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[120] Biber.pm:979> INFO - Found 0 citekeys in bib section 5
+[120] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[120] Biber.pm:979> INFO - Found 0 citekeys in bib section 6
+[120] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[120] Biber.pm:979> INFO - Found 0 citekeys in bib section 7
+[120] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[120] Biber.pm:979> INFO - Found 0 citekeys in bib section 8
+[120] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[120] Biber.pm:979> INFO - Found 0 citekeys in bib section 9
+[120] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[120] Biber.pm:979> INFO - Found 0 citekeys in bib section 10
+[120] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[120] Biber.pm:979> INFO - Found 0 citekeys in bib section 11
+[120] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
+[180] bbl.pm:660> INFO - Writing 'manual.bbl' with encoding 'UTF-8'
+[180] bbl.pm:763> INFO - Output to manual.bbl
+[180] Biber.pm:131> WARN - The file 'manual.bcf' does not contain any citations!
+[180] Biber.pm:133> INFO - WARNINGS: 1

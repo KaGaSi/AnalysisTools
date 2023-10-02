@@ -92,7 +92,7 @@ recommended. Because \field contains only numbers of beads of given types, it is
 not possible to ensure that bead indices in the coordinate file will line up
 with the correct bead types in the \field file. The indices are assigned to the
 beads from \field on the \enquote{first read, first labelled} basis, that is,
-the unbonded bonds are first (in the other of the lines in the \tt{species}
+the unbonded bonds are first (in the order of the lines in the \tt{species}
 secion) followed by beads from the molecules. Should one want to check the bead
 index assignments, the \tt{Info} utility can be used to generate, e.g., a \vsf
 file from the \field file.
@@ -100,7 +100,7 @@ file from the \field file.
 Nevertheless, the file can be used to supply extra information for bead and
 molecule types for the \tt{Info} utility's \tt{-i[!]} option as these do not
 depend on individual beads but rather on bead and molecule type names (see
-Section~\ref{Info} for details). Moreover, \field is used as an input file to
+Section~\ref{sec:Info} for details). Moreover, \field is used as an input file to
 add extra species into an existing system (\TODO AddRandomToSystem or some such)
 or creating a new system from scratch (\TODO GenSystem, GenLayers, or some
 such).

@@ -15,7 +15,7 @@ conditions can be either stripped away or applied (which happens first if both \
 '--join' and '--wrap' options are used).\n\n");
   }
 
-  fprintf(ptr, "Usage: %s <input> <output> <bead(s)> [options]\n\n", cmd);
+  fprintf(ptr, "Usage: %s <input> <output> [options]\n\n", cmd);
 
   fprintf(ptr, "<input>             input coordinate file\n");
   fprintf(ptr, "<output.vcf>        output coordinate file\n");
