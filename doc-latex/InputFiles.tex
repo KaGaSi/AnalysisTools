@@ -53,7 +53,7 @@ and/or radius will be of different type.
 
 Different molecule types, on the other hand, are always distinguished based on
 all their characteristics, i.e., name, connectivity, and order of beads (order
-of its \vsf indices). However, molecule types can also be affect by the
+of its \vsf indices). However, molecule types can also be affected by the
 \tt{--detailed} option because of the bead type definition
 
 For the effect of the \tt{--detailed} option, see the \tt{Examples/Info}
@@ -63,7 +63,7 @@ For bond lines, only single bonds are recognized (i.e., \tt{bond
 <index1>:<index2>} format).
 
 Periodic boundary condition can be included as \tt{pbc <x> <y> <z>} for a cuboid
-box or \tt{pbc <a> <b> <c> <alpha> <beta> <gamma>} for a general paralleloid
+box or \tt{pbc <a> <b> <c> <alpha> <beta> <gamma>} for a general rhomboid
 box. %}}}
 \subsection{FIELD format}\label{ssec:StructField} %{{{
 A format similar to the \tt{FIELD} input file for
@@ -93,7 +93,7 @@ not possible to ensure that bead indices in the coordinate file will line up
 with the correct bead types in the \field file. The indices are assigned to the
 beads from \field on the \enquote{first read, first labelled} basis, that is,
 the unbonded bonds are first (in the order of the lines in the \tt{species}
-secion) followed by beads from the molecules. Should one want to check the bead
+section) followed by beads from the molecules. Should one want to check the bead
 index assignments, the \tt{Info} utility can be used to generate, e.g., a \vsf
 file from the \field file.
 
@@ -117,7 +117,7 @@ bead names.
 
 The comment line at the beginning of each timestep can contain periodic boundary
 conditions as \tt{<x> <y> <z>} (cuboid box) or \tt{<a> <b> <c> <alpha> <beta>
-<gamma>} (general paralleloid box); it is similar to the \tt{pbc} keyword in \vtf
+<gamma>} (general rhomboid box); it is similar to the \tt{pbc} keyword in \vtf
 file. To use this box definition, use \tt{-pbc <n>} option where \tt{<n>} is the
 position of the first number on the comment line (e.g., \tt{1} if the comment
 line starts with the box size).
@@ -185,7 +185,7 @@ use any of these formats.
 See \href{https://github.com/olenz/vtfplugin/wiki/VTF-format}{here} for the
 description of a coordinate part of the \vtf format and \tt{in.vtf} and
 \tt{in.vcf} for example files (a \vtf file contains the coordinate part after a
-structure part, and a \vcf file contains only the coordinate part).
+structure part, while a \vcf file contains only the coordinate part).
 
 AnalysisTools recognizes both ordered and indexed timesteps as well as a
 \tt{pbc} line defining box dimensions.
@@ -200,7 +200,7 @@ for the description and \tt{in.xyz} for an example.
 
 The comment line at the beginning of each timestep can contain periodic boundary
 conditions as \tt{<x> <y> <z>} (cuboid box) or \tt{<a> <b> <c> <alpha> <beta>
-<gamma>} (general paralleloid box); it is similar to the \tt{pbc} keyword in \vtf
+<gamma>} (general rhomboid box); it is similar to the \tt{pbc} keyword in \vtf
 file. To use this box definition, use \tt{-pbc <n>} option where \tt{<n>} is the
 position of the first number on the comment line (e.g., \tt{1} if the comment
 line starts with the box size).
@@ -235,7 +235,7 @@ calculate aggregate properties; \tt{agg} file is, therefore, linked to
 the \vcf file that was used to generate it.
 
 The \tt{agg} file is a simple text file. The first two lines are just comments
-(the second one should contain the command used to generate the file as parts fo
+(the second one should contain the command used to generate the file as parts of
 the command may be used by subsequent aggregate analysis). From third line, the
 data for individual timesteps are shown. It follows these rules:
 

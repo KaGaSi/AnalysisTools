@@ -17,7 +17,7 @@ The utility works properly only for orthogonal boxes that do not change \
 size.\n\n");
   }
 
-  fprintf(ptr, "Usage: %s <input> <width> <output> <axis> [options]\n\n", cmd);
+  fprintf(ptr, "Usage: %s <input> <width> <output> [options]\n\n", cmd);
 
   fprintf(ptr, "<input>             input coordinate file\n");
   fprintf(ptr, "<width>             width of a single bin\n");

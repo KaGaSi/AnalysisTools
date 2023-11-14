@@ -174,14 +174,11 @@ int main(int argc, char *argv[]) {
       fprintf(stdout, "\nInformation about every molecule:\n");
       PrintMolecule(Sys_extra);
     }
-  }
-  // add extra info to original system
-  if (struct_file_extra[0] != '\0') {
     // add charge, mass, and radius to bead types if possible
     for (int i = 0; i < System.Count.BeadType; i++) {
       BEADTYPE *bt = &System.BeadType[i];
       int type_extra = FindBeadType(bt->Name, Sys_extra);
-     if (type_extra != -1) {
+      if (type_extra != -1) {
         if (bt->Charge == CHARGE) {
           bt->Charge = Sys_extra.BeadType[type_extra].Charge;
         }
@@ -196,8 +193,7 @@ int main(int argc, char *argv[]) {
     ChangeMolecules(&System, Sys_extra, change_beads, false);
     CheckSystem(System, struct_file_extra);
     WarnChargedSystem(System, struct_file, struct_file_extra, "\0");
-  }
- //}}}
+  } //}}}
 
   // -def option (for vsf output file) //{{{
   bool *def_type = calloc(System.Count.BeadType, sizeof *def_type);
@@ -215,7 +211,6 @@ int main(int argc, char *argv[]) {
 
   PruneSystem(&System);
 
-  // if 
   printf("\n==================================================");
   if (struct_type_extra != -1 || coor_type != -1) {
     printf("\nFinal system composition");

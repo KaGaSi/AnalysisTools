@@ -13,6 +13,17 @@ in which case \tt{Info} would automatically prune the system. If coordinates
 should be read from the input \vtf structure file (and the system potentially
 pruned), just use the \tt{-c} option with that filename.
 
+Using the \tt{-i} option with an extra structure file asigns bead mass, charge,
+and/or radius from the extra file if the bead types in the original file have
+unspecified values; this is done only for bead types that share names. Also, if
+the two structure files share molecules that have the same bead type order
+(which can be initially checked via individual \tt{Info} runs on the two files),
+bond types, angles and angle type can be added to the molecule types in the
+original file. Using \tt{-i!} first exchanges beads in the original molecules
+with those from the extra file (if the molecules have the same number of beads)
+before adding the extra information. See \tt{Examples/Info} folder for examples;
+note that this functionality can give unexpected results.
+
 \tt{Info} can also write this information into a new structure file of the given
 format (\tt{-o} option). Allowed output files are \vtsf file, LAMMPS \data file
 (either with the extension \tt{.data} or a filename without any recognizable

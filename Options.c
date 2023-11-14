@@ -268,7 +268,7 @@ bool BeadTypeOption(int argc, char *argv[], char opt[],
   }
   return false; // option is not present
 } //}}}
-// tag molecule types with true/false (if missing, set all to opposite) //{{{
+// tag molecule types with true/false //{{{
 bool MoleculeTypeOption(int argc, char *argv[], char opt[],
                         bool use, bool flag[], SYSTEM System) {
   for (int i = 1; i < argc; i++) {
@@ -435,12 +435,13 @@ bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
         strcpy(ERROR_MSG, "missing file name "
                "(or the file name begins with a dash)");
         PrintErrorOption(opt);
-        return false;
+        exit(1);
+        // return false;
       }
       snprintf(file, LINE, "%s", argv[i+1]);
       // read integers
       if (max == 0) {
-        return false;
+        return true;
       } else {
         while ((i+2+n) < argc && argv[i+2+n][0] != '-') {
           // Error - non-numeric or missing argument
@@ -448,7 +449,8 @@ bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
           if (!IsIntegerNumber(argv[i+2+n], &val)) {
             strcpy(ERROR_MSG, "each argument must be non-negative whole number");
             PrintErrorOption(opt);
-            return true;
+            exit(1);
+            // return true;
           }
           values[n] = val;
           n++;
@@ -458,19 +460,21 @@ bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
                      "used", max);
             PrintErrorOption(opt);
             *count = n;
-            return true;
+            exit(1);
+            // return true;
           }
         }
         if (n == 0) {
-          strcpy(ERROR_MSG, "missing numeric argument(s)");
+          strcpy(ERROR_MSG, "missing argument(s)");
           PrintErrorOption(opt);
-          return true;
+          exit(1);
+          // return true;
         }
       }
     }
   }
   *count = n;
-  return false;
+  return true;
 }
 bool FileOption(int argc, char *argv[], char opt[], char file[]) {
   int trash;

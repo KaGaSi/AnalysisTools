@@ -28,18 +28,21 @@ all aggregates with given size).\n\n");
   fprintf(ptr, "  -n <size> <size>  use aggregate sizes in a given range\n");
   fprintf(ptr, "  -m <name(s)>      use number of specified molecule type(s) "
           "as aggrete size\n");
+  fprintf(ptr, "  -x <name(s)>      exclude aggregates containing only "
+          "specified molecule(s)\n");
   fprintf(ptr, "  -only <name(s)>   use only aggregates composed of "
           "specified molecule type(s)\n");
   fprintf(ptr, "  -c <file> <size(s)>\n");
-  fprintf(ptr, "                    write composition distribution for "
-          "aggregate size(s) to <file> (automatic ending '-#.txt')\n");
+  fprintf(ptr, "                    write composition distributions for "
+          "aggregate size(s) to two <file>s with automatic endings '-#.txt' "
+          "and '-ratio_#.txt'\n");
   CommonHelp(error, n, opt);
 } //}}}
 
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 8, all = common + 4, count = 0,
+  int common = 8, all = common + 5, count = 0,
       req_arg = 4;
   char option[all][OPT_LENGTH];
   // common options
@@ -54,6 +57,7 @@ int main(int argc, char *argv[]) {
   // extra options
   strcpy(option[count++], "-n");
   strcpy(option[count++], "-m");
+  strcpy(option[count++], "-x");
   strcpy(option[count++], "-only");
   strcpy(option[count++], "-c");
   OptionCheck(argc, argv, req_arg, common, all, option); //}}}
@@ -82,7 +86,9 @@ int main(int argc, char *argv[]) {
   // -c option
   int c_sizes[100] = {0}, c_count;
   char c_file[LINE] = "";
-  FileIntegerOption(argc, argv, 100, "-c", c_sizes, &c_count, c_file);
+  if (!FileIntegerOption(argc, argv, 100, "-c", c_sizes, &c_count, c_file)) {
+    exit(1);
+  }
   //}}}
 
   // print command to stdout
@@ -94,26 +100,26 @@ int main(int argc, char *argv[]) {
                                 -1, "\0", detailed, false);
   COUNT *Count = &System.Count;
 
-  // '-n' option
+  // '-n' option //{{{
   int range_As[2] = {1, Count->Molecule};
   IntegerOption2(argc, argv, "-n", range_As);
   if (range_As[0] > range_As[1]) {
     SwapInt(&range_As[0], &range_As[1]);
-  }
-  // '-m' option
-  bool *mtype_for_size = calloc(Count->MoleculeType, sizeof *mtype_for_size);
-  if (!MoleculeTypeOption(argc, argv, "-m", true, mtype_for_size, System)) {
-    InitBoolArray(mtype_for_size, Count->MoleculeType, true);
-  }
-  // '-only' option
-  bool *mtype_for_agg = calloc(Count->MoleculeType, sizeof *mtype_for_agg);
-  if (!MoleculeTypeOption(argc, argv, "-only", true, mtype_for_agg, System)) {
-    InitBoolArray(mtype_for_agg, Count->MoleculeType, true);
-  }
+  } //}}}
+  // '-m' option //{{{
+  bool *mtype_As = calloc(Count->MoleculeType, sizeof *mtype_As);
+  if (!MoleculeTypeOption(argc, argv, "-m", true, mtype_As, System)) {
+    InitBoolArray(mtype_As, Count->MoleculeType, true);
+  } //}}}
+  // '-only' option //{{{
+  bool *mtype_only_opt = calloc(Count->MoleculeType, sizeof *mtype_only_opt);
+  if (!MoleculeTypeOption(argc, argv, "-only", true, mtype_only_opt, System)) {
+    InitBoolArray(mtype_only_opt, Count->MoleculeType, true);
+  } //}}}
   // error - molecules specified by -m and -only do not overlap //{{{
   bool overlap = false;
   for (int i = 0; i < Count->MoleculeType; i++) {
-    if (mtype_for_size[i] && mtype_for_agg[i]) {
+    if (mtype_As[i] && mtype_only_opt[i]) {
       overlap = true;
       break;
     }
@@ -122,6 +128,37 @@ int main(int argc, char *argv[]) {
     strcpy(ERROR_MSG, "for any aggregate to be used, at least one molecule "
            "must be specified in both options");
     PrintErrorOption("-m/-only");
+    exit(1);
+  } //}}}
+  // '-x' option //{{{
+  bool *mtype_x_opt = calloc(Count->MoleculeType, sizeof *mtype_x_opt);
+  if (!MoleculeTypeOption(argc, argv, "-x", true, mtype_x_opt, System)) {
+  } //}}}
+  // error - molecules specified by -only and -x must differ //{{{
+  overlap = true; // do the two array fully overlap?
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    if (mtype_x_opt[i] != mtype_only_opt[i]) {
+      overlap = false;
+      break;
+    }
+  }
+  if (overlap) {
+    strcpy(ERROR_MSG, "the lists of molecules must be different");
+    PrintErrorOption("-x/-only");
+    exit(1);
+  } //}}}
+  // error - -x specifies all molecules in the system //{{{
+  overlap = true; // are all molecule types specified by -x?
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    if (!mtype_x_opt[i]) {
+      overlap = false;
+      break;
+    }
+  }
+  if (overlap) {
+    strcpy(ERROR_MSG, "with all molecules listed, "
+           "no aggregates would be detected");
+    PrintErrorOption("-x");
     exit(1);
   } //}}}
 
@@ -149,20 +186,30 @@ int main(int argc, char *argv[]) {
     molecules_sum[i] = calloc(Count->MoleculeType, sizeof *molecules_sum[i]);
   }
   // arrays for composition distribution
-  long int ***comp_distr; // [c_size][moltype][number of mols]
-  long int *comp_agg_count;
-  int *link_c_sizes;
+  long int ***comp_distr = NULL; // [c_size][moltype][number of mols]
+  long int ****ratio_distr = NULL; // [c_size][moltype1][moltype2][ratio]
+  long int *comp_agg_count = NULL;
+  int *link_c_sizes = NULL;
+  double width_r = 0.1;
+  double bin_r = Count->Molecule / width_r + 1; // +1 for N/0
   if (c_count > 0) {
     link_c_sizes = malloc(Count->Molecule * sizeof *link_c_sizes);
     InitIntArray(link_c_sizes, Count->Molecule, -1);
     comp_distr = malloc(c_count * sizeof *comp_distr);
+    ratio_distr = malloc(c_count * sizeof *ratio_distr);
     comp_agg_count = calloc(c_count, sizeof *comp_agg_count);
     for (int i = 0; i < c_count; i++) {
       comp_distr[i] = malloc(Count->MoleculeType * sizeof *comp_distr[i]);
+      ratio_distr[i] = malloc(Count->MoleculeType * sizeof *ratio_distr[i]);
       for (int j = 0; j < Count->MoleculeType; j++) {
         // +1 as it goes from no molecules to N molecules in the agg
         comp_distr[i][j] = calloc(Count->Molecule + 1,
                                   sizeof *comp_distr[i][j]);
+        ratio_distr[i][j] = malloc(Count->MoleculeType *
+                                   sizeof *ratio_distr[i][j]);
+        for (int k = 0; k < Count->MoleculeType; k++) {
+          ratio_distr[i][j][k] = calloc(bin_r, sizeof *ratio_distr[i][j][k]);
+        }
       }
       for (int j = 0; j < Count->Molecule; j++) {
         if (j == c_sizes[i]) {
@@ -249,20 +296,23 @@ int main(int argc, char *argv[]) {
       // decide whether to use the aggregate based on used options //{{{
       int size = 0; // -m option-adjusted aggregate size
       double agg_mass = 0; // -m option-adjusted aggregate mass
-      bool composition = true; // acceptable composition (-only option)
+      bool only_opt = true, // acceptable composition (-only option)
+           x_opt = true; // acceptable composition (-x option)
       for (int j = 0; j < Aggregate[i].nMolecules; j++) {
         int mtype = System.Molecule[Aggregate[i].Molecule[j]].Type;
-        if (mtype_for_size[mtype]) {
+        if (mtype_As[mtype]) {
           size++;
           agg_mass += System.MoleculeType[mtype].Mass;
         }
-        if (!mtype_for_agg[mtype]) {
-          composition = false;
-          break;
+        if (!mtype_only_opt[mtype]) {
+          only_opt = false;
+        }
+        if (mtype_x_opt[mtype]) {
+          x_opt = false;
         }
       }
       if (size == 0 || size < range_As[0] || size > range_As[1] ||
-          !composition) {
+          !only_opt || !x_opt) {
         continue;
       } //}}}
       // average aggregate mass during the step
@@ -318,8 +368,8 @@ int main(int argc, char *argv[]) {
         // composition distribution (-c option)
         if (c_count > 0 && link_c_sizes[size] != -1) {
           comp_agg_count[link_c_sizes[size]]++;
-          int comp_aux[Count->MoleculeType];
-          InitIntArray(comp_aux, Count->MoleculeType, 0);
+          double comp_aux[Count->MoleculeType];
+          InitDoubleArray(comp_aux, Count->MoleculeType, 0);
           // count molecule types in the aggregate
           for (int j = 0; j < Aggregate[i].nMolecules; j++) {
             int mtype = System.Molecule[Aggregate[i].Molecule[j]].Type;
@@ -327,7 +377,18 @@ int main(int argc, char *argv[]) {
           }
           // increment the distribution
           for (int j = 0; j < Count->MoleculeType; j++) {
-            comp_distr[link_c_sizes[size]][j][comp_aux[j]]++;
+            int id = link_c_sizes[size];
+            comp_distr[id][j][(int)comp_aux[j]]++;
+            for (int k = (j+1); k < Count->MoleculeType; k++) {
+              double a;
+              if (comp_aux[k] == 0) {
+                a = size;
+              } else {
+                a = comp_aux[j] / comp_aux[k];
+              }
+              a /= width_r;
+              ratio_distr[id][j][k][(int)a]++;
+            }
           }
         }
       }
@@ -478,7 +539,7 @@ int main(int argc, char *argv[]) {
       fprintf(f[i], " %lf", (double)(count_agg[0])/count_step); // <n_agg>
     } else { // zero everywhere if no aggregates found
       fprintf(f[i], " 0.0  0.0  0.0  0.0  0.0  0.0  0.0");
-      for (int i = 0; i < Count->MoleculeType; i++) {
+      for (int j = 0; j < Count->MoleculeType; j++) {
         fprintf(f[i], "  0.0");
       }
     }
@@ -497,24 +558,64 @@ int main(int argc, char *argv[]) {
       }
       fw = OpenFile(file, "w");
       PrintByline(fw, argc, argv);
-      // print legend
+      fprintf(fw, "# total number of aggregates with size %d: %ld\n",
+              c_sizes[i], comp_agg_count[i]);
       fprintf(fw, "# (1) number of molecules of given type;");
       fprintf(fw, " fraction of aggregates with that many molecules of type:");
       for (int j = 0; j < Count->MoleculeType; j++) {
         fprintf(fw, " (%d) %s", j + 2, System.MoleculeType[j].Name);
-        if (j == (Count->MoleculeType - 1)) {
+        if (j != (Count->MoleculeType - 1)) {
           putc(',', fw);
         }
       }
       putc('\n', fw);
-      // print the distribution
-      for (int j = 0; j <= c_sizes[i]; j++) {
-        fprintf(fw, "%3d", j);
-        for (int k = 0; k < Count->MoleculeType; k++) {
-          fprintf(fw, " %lf",
-                  (double)(comp_distr[i][k][j]) / comp_agg_count[i]);
+      if (comp_agg_count[i] > 0) {
+        // print the distribution
+        for (int j = 0; j <= c_sizes[i]; j++) {
+          fprintf(fw, "%3d", j);
+          for (int k = 0; k < Count->MoleculeType; k++) {
+            fprintf(fw, " %lf",
+                    (double)(comp_distr[i][k][j]) / comp_agg_count[i]);
+          }
+          putc('\n', fw);
         }
-        putc('\n', fw);
+      } else {
+        snprintf(ERROR_MSG, LINE, "no aggregates with size %s%d%s found",
+                 ErrYellow(), c_sizes[i], ErrCyan());
+        PrintWarning();
+      }
+      fclose(fw);
+      if (snprintf(file, LINE, "%s-ratio_%03d.txt", c_file, c_sizes[i]) < 0) {
+        ErrorSnprintf();
+      }
+      fw = OpenFile(file, "w");
+      PrintByline(fw, argc, argv);
+      fprintf(fw, "# total number of aggregates with size %d: %ld\n",
+              c_sizes[i], comp_agg_count[i]);
+      fprintf(fw, "# (1) ratio of:");
+      count = 2;
+      for (int j = 0; j < (Count->MoleculeType-1); j++) {
+        for (int k = (j+1); k < Count->MoleculeType; k++) {
+          fprintf(fw, " (%d) %s/%s", count++, System.MoleculeType[j].Name,
+                                              System.MoleculeType[k].Name);
+          if (!(j == (Count->MoleculeType - 2) && k == (j + 1))) {
+            putc(',', fw);
+          }
+        }
+      }
+      putc('\n', fw);
+      if (comp_agg_count[i] > 0) {
+        // print the distribution
+        for (int j = 0; j <= (c_sizes[i] / width_r); j++) {
+          fprintf(fw, "%lf", j * width_r);
+          for (int k = 0; k < Count->MoleculeType; k++) {
+            for (int l = (k + 1); l < Count->MoleculeType; l++) {
+              fprintf(fw, " %lf",
+                      (double)(ratio_distr[i][k][l][j])/comp_agg_count[i]);
+            }
+          }
+          putc('\n', fw);
+        }
       }
       fclose(fw);
     }
@@ -528,20 +629,26 @@ int main(int argc, char *argv[]) {
     free(molecules_sum[i]);
   }
   free(molecules_sum);
-  free(mtype_for_size);
-  free(mtype_for_agg);
+  free(mtype_As);
+  free(mtype_only_opt);
+  free(mtype_x_opt);
   if (c_count > 0) {
     for (int i = 0; i < c_count; i++) {
       for (int j = 0; j < Count->MoleculeType; j++) {
+        for (int k = 0; k < Count->MoleculeType; k++) {
+          free(ratio_distr[i][j][k]);
+        }
         free(comp_distr[i][j]);
+        free(ratio_distr[i][j]);
       }
       free(comp_distr[i]);
+      free(ratio_distr[i]);
     }
     free(comp_distr);
+    free(ratio_distr);
     free(comp_agg_count);
     free(link_c_sizes);
-  }
-  //}}}
+  } //}}}
 
   return 0;
 }

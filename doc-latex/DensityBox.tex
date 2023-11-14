@@ -27,7 +27,7 @@ types.
 
 Note that this utility assumes orthogonal box with constant side lengths; in
 case of triclinic box and/or varying box size, undefined behaviour may occur
-(i.e., the utility crashes or freezes), and any results will not be reliable.
+i.e., the utility may crash or freeze, and any results will not be reliable.
 
 \vspace{1em}
 \noindent
@@ -67,10 +67,11 @@ Usage: \tt{DensityBox <input> <width> <output> <options>}
 \noindent
 Format of output files:
 \begin{enumerate}[nosep,leftmargin=20pt]
-  \item \tt{<output>} -- bead densities
+  \item \tt{<output>} -- bead densities; one file per x-, y-, and z-axis
     \begin{itemize}[nosep,leftmargin=5pt]
-      \item first line: command used to generate the file
-      \item second line: column headers
+      \item first line: AnalysisTools version
+      \item second line: command used to generate the file
+      \item third line: column headers
         \begin{itemize}[nosep,leftmargin=5pt]
           \item first is the centre of each bin (governed by
             \tt{<width>}); i.e., if \tt{<width>} is 0.1,
@@ -79,5 +80,6 @@ Format of output files:
           \item the rest are for the calculated data: each column
             corresponds to the number density of the specified bead type
         \end{itemize}
+    \item the rest of the file are data lines
     \end{itemize}
 \end{enumerate}

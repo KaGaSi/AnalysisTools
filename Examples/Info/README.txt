@@ -19,7 +19,7 @@ outputs of Info command with various options.
   * this command supplements information from in.vtf by information from
     in.FIELD, adding charge and mass to beads with unspecified values and
     enriching the molecules with bonds, angles, etc.
-    * using just -i changes only molecules that share bead types and bead order
+    * using -i changes only molecules that share bead types and bead order
     * using -i! first exchanges beads from in.vtf molecule types with those from
       in.FIELD molecule types (for all molecule types with the same number of
       beads) before adding the extra information
