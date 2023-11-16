@@ -133,6 +133,7 @@ static bool ConnectedMolecule(MOLECULE mol, SYSTEM System) {
   free(connected);
   return true;
 } //}}}
+// remove pbc for molecules by joining the molecules //{{{
 /*
  * TODO what about if the molecule has bonds, but is in more 'pieces'; should
  *      it really just try joining it 1000 times when we know it's impossible?
@@ -145,7 +146,6 @@ static bool ConnectedMolecule(MOLECULE mol, SYSTEM System) {
  *            algorithm along the same lines (go over bond after bond instead of
  *            that while loop)
  */
-// remove pbc for molecules by joining the molecules //{{{
 static void RemovePBCMolecules(SYSTEM *System) {
   BOX *box = &System->Box;
   // go through all molecules
@@ -282,126 +282,6 @@ static void RestorePBC(SYSTEM *System) {
       bead->Position.z += box->Length.z;
     }
   }
-} //}}}
-// copy System structure; assumes new unallocated SYSTEM //{{{
-// TODO: CopySystem won't be static?
-SYSTEM CopySystem(SYSTEM S_in) {
-  SYSTEM S_out;
-  InitSystem(&S_out);
-  S_out.Box = S_in.Box;
-  if (S_in.Count.Bead > 0) {
-    S_out.Count = S_in.Count;
-    // BeadType //{{{
-    if (S_out.Count.BeadType > 0) {
-      S_out.BeadType = realloc(S_out.BeadType,
-                               sizeof *S_out.BeadType * S_out.Count.BeadType);
-      for (int i = 0; i < S_out.Count.BeadType; i++) {
-        BEADTYPE *bt_out = &S_out.BeadType[i],
-                 *bt_in = &S_in.BeadType[i];
-        *bt_out = *bt_in;
-        if (bt_out->Number > 0) {
-          bt_out->Index = malloc(bt_out->Number * sizeof *bt_out->Index);
-          for (int j = 0; j < bt_out->Number; j++) {
-            bt_out->Index[j] = bt_in->Index[j];
-          }
-        }
-      }
-    } else {
-      strcpy(ERROR_MSG, "no bead types to copy; should never happen!");
-      PrintWarning();
-      return S_out;
-    } //}}}
-    // Bead & BeadCoor //{{{
-    S_out.Bead = realloc(S_out.Bead, sizeof(BEAD) * S_out.Count.Bead);
-    S_out.BeadCoor =
-        realloc(S_out.BeadCoor, sizeof *S_out.BeadCoor * S_out.Count.Bead);
-    memcpy(S_out.Bead, S_in.Bead, sizeof(BEAD) * S_in.Count.Bead);
-    memcpy(S_out.BeadCoor, S_in.BeadCoor,
-           sizeof *S_in.BeadCoor * S_in.Count.Bead); //}}}
-    // Bonded & BondedCoor //{{{
-    if (S_out.Count.Bonded > 0) {
-      S_out.Bonded =
-          realloc(S_out.Bonded, sizeof *S_out.Bonded * S_out.Count.Bonded);
-      S_out.BondedCoor = realloc(S_out.BondedCoor,
-                                 sizeof *S_out.BondedCoor * S_out.Count.Bonded);
-      memcpy(S_out.Bonded, S_in.Bonded,
-             sizeof *S_in.Bonded * S_in.Count.Bonded);
-      memcpy(S_out.BondedCoor, S_in.BondedCoor,
-             sizeof *S_in.BondedCoor * S_in.Count.Bonded);
-    } //}}}
-    // Unbonded & UnbondedCoor //{{{
-    if (S_out.Count.Unbonded > 0) {
-      S_out.Unbonded = realloc(S_out.Unbonded,
-                               sizeof *S_out.Unbonded * S_out.Count.Unbonded);
-      S_out.UnbondedCoor =
-          realloc(S_out.UnbondedCoor,
-                  sizeof *S_out.UnbondedCoor * S_out.Count.Unbonded);
-      memcpy(S_out.Unbonded, S_in.Unbonded,
-             sizeof *S_in.Unbonded * S_in.Count.Unbonded);
-      memcpy(S_out.UnbondedCoor, S_in.UnbondedCoor,
-             sizeof *S_in.UnbondedCoor * S_in.Count.Unbonded);
-    } //}}}
-    // MoleculeType //{{{
-    if (S_out.Count.MoleculeType > 0) {
-      S_out.MoleculeType =
-          realloc(S_out.MoleculeType,
-                  sizeof *S_out.MoleculeType * S_out.Count.MoleculeType);
-      for (int i = 0; i < S_out.Count.MoleculeType; i++) {
-        S_out.MoleculeType[i] = CopyMoleculeType(S_in.MoleculeType[i]);
-      }
-    } //}}}
-    // Molecule & Index_mol //{{{
-    if (S_out.Count.Molecule > 0) {
-      S_out.Molecule = realloc(S_out.Molecule,
-                               sizeof *S_out.Molecule * S_out.Count.Molecule);
-      for (int i = 0; i < S_out.Count.Molecule; i++) {
-        S_out.Molecule[i] = S_in.Molecule[i];
-        // Molecule[].Bead array
-        int type = S_out.Molecule[i].Type;
-        if (S_out.MoleculeType[type].nBeads > 0) {
-          S_out.Molecule[i].Bead = malloc(sizeof *S_out.Molecule[i].Bead *
-                                          S_out.MoleculeType[type].nBeads);
-          memcpy(S_out.Molecule[i].Bead, S_in.Molecule[i].Bead,
-                 sizeof *S_in.Molecule[i].Bead *
-                 S_in.MoleculeType[type].nBeads);
-        }
-      }
-      // Index_mol
-      S_out.Index_mol = realloc(S_out.Index_mol,
-                                sizeof *S_out.Index_mol * S_out.Count.Molecule);
-      memcpy(S_out.Index_mol, S_in.Index_mol,
-             sizeof *S_in.Index_mol * S_in.Count.Molecule);
-    } //}}}
-    // BondType //{{{
-    if (S_out.Count.BondType > 0) {
-      S_out.BondType = realloc(S_out.BondType,
-                               sizeof *S_out.BondType * S_out.Count.BondType);
-      memcpy(S_out.BondType, S_in.BondType,
-             sizeof *S_out.BondType * S_in.Count.BondType);
-    } //}}}
-    // AngleType //{{{
-    if (S_out.Count.AngleType > 0) {
-      S_out.AngleType = realloc(S_out.AngleType, sizeof *S_out.AngleType *
-                                                     S_out.Count.AngleType);
-      memcpy(S_out.AngleType, S_in.AngleType,
-             sizeof *S_out.AngleType * S_in.Count.AngleType);
-    } //}}}
-    // DihedralType //{{{
-    if (S_out.Count.DihedralType > 0) {
-      S_out.DihedralType = realloc(S_out.DihedralType,
-                                   sizeof(PARAMS) * S_out.Count.DihedralType);
-      memcpy(S_out.DihedralType, S_in.DihedralType,
-             sizeof *S_out.DihedralType * S_in.Count.DihedralType);
-    } //}}}
-    // ImproperType //{{{
-    if (S_out.Count.ImproperType > 0) {
-      S_out.ImproperType = realloc(S_out.ImproperType,
-                                   sizeof(PARAMS) * S_out.Count.ImproperType);
-      memcpy(S_out.ImproperType, S_in.ImproperType,
-             sizeof *S_out.ImproperType * S_in.Count.ImproperType);
-    } //}}}
-  }
-  return S_out;
 } //}}}
 
 // Helper functions for dealing with SYSTEM structure
@@ -693,112 +573,113 @@ void SortDihImp(int (*dihimp)[5], int n) { //{{{
 bool CalculateBoxData(BOX *Box, int mode) {
   // calculate angles and tilt vectors or tilt vectors and OrthoLength //{{{
   switch (mode) {
-  case 0: // angles & Length given //{{{
-    Box->OrthoLength = Box->Length;
-    Box->Bounding = Box->Length;
-    if (Box->alpha != 90 || Box->beta != 90 || Box->gamma != 90) {
-      double a = Box->Length.x, b = Box->Length.y, c = Box->Length.z;
-      double c_a = cos(Box->alpha * PI / 180),
-             c_b = cos(Box->beta * PI / 180),
-             c_g = cos(Box->gamma * PI / 180),
-             s_g = sin(Box->gamma * PI / 180);
-      // cell volume
-      double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
-      if (sqr < 0) {
-        strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
-        return false;
+    case 0: // angles & Length given //{{{
+      Box->OrthoLength = Box->Length;
+      Box->Volume = Box->Length.x * Box->Length.y *  Box->Length.z;
+      if (Box->alpha != 90 || Box->beta != 90 || Box->gamma != 90) {
+        double a = Box->Length.x, b = Box->Length.y, c = Box->Length.z;
+        double c_a = cos(Box->alpha * PI / 180),
+               c_b = cos(Box->beta * PI / 180),
+               c_g = cos(Box->gamma * PI / 180),
+               s_g = sin(Box->gamma * PI / 180);
+        // cell volume
+        double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
+        if (sqr < 0) {
+          strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
+          return false;
+        }
+        Box->Volume *= sqrt(sqr);
+        // transformation matrix fractional -> Cartesian coordinates
+        double vol = Box->Volume;
+        Box->transform[0][0] = a;
+        Box->transform[0][1] = b * c_g;
+        Box->transform[1][1] = b * s_g;
+        Box->transform[0][2] = c * c_b;
+        Box->transform[1][2] = c * (c_a - c_b * c_g) / s_g;
+        Box->transform[2][2] = vol / (a * b * s_g);
+        // transformation matrix Cartesian -> fractional coordinates
+        Box->inverse[0][0] = 1 / a;
+        Box->inverse[0][1] = -c_g / (a * s_g);
+        Box->inverse[1][1] = 1 / (b * s_g);
+        Box->inverse[0][2] =
+            b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) - c_b * s_g / vol);
+        Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
+        Box->inverse[2][2] = a * b * s_g / vol;
+        // orthogonal box size
+        // x direaction
+        Box->OrthoLength.x = a;
+        // y direaction
+        sqr = SQR(b) - SQR(Box->transform[0][1]);
+        if (sqr < 0) {
+          strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
+          return false;
+        }
+        Box->OrthoLength.y = sqrt(sqr);
+        // z direaction
+        sqr = SQR(c) - SQR(Box->transform[0][2]) - SQR(Box->transform[1][2]);
+        if (sqr < 0) {
+          strcpy(ERROR_MSG, "wrong simulation box dimensions");
+          PrintError();
+          exit(1);
+        }
+        Box->OrthoLength.z = sqrt(sqr);
+        // see https://docs.lammps.org/Howto_triclinic.html
+        double xy = Box->transform[0][1], xz = Box->transform[0][2],
+               yz = Box->transform[1][2],
+               xyz = Box->transform[0][1] + Box->transform[0][2];
+        Box->Bounding.x = Box->OrthoLength.x - Max3(0, xy, Max3(0, xz, xyz)) +
+                          Min3(0, xy, Min3(0, xz, xyz));
+        Box->Bounding.y = Box->OrthoLength.y - Min3(0, 0, yz) + Max3(0, 0, yz);
+        Box->Bounding.z = Box->OrthoLength.z;
       }
-      Box->Volume = a * b * c * sqrt(sqr);
-      // transformation matrix fractional -> Cartesian coordinates
-      double vol = Box->Volume;
-      Box->transform[0][0] = a;
-      Box->transform[0][1] = b * c_g;
-      Box->transform[1][1] = b * s_g;
-      Box->transform[0][2] = c * c_b;
-      Box->transform[1][2] = c * (c_a - c_b * c_g) / s_g;
-      Box->transform[2][2] = vol / (a * b * s_g);
-      // transformation matrix Cartesian -> fractional coordinates
-      Box->inverse[0][0] = 1 / a;
-      Box->inverse[0][1] = -c_g / (a * s_g);
-      Box->inverse[1][1] = 1 / (b * s_g);
-      Box->inverse[0][2] =
-          b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) - c_b * s_g / vol);
-      Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
-      Box->inverse[2][2] = a * b * s_g / vol;
-      // orthogonal box size
-      // x direaction
-      Box->OrthoLength.x = a;
-      // y direaction
-      sqr = SQR(b) - SQR(Box->transform[0][1]);
-      if (sqr < 0) {
-        strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
-        return false;
+      break; //}}}
+    case 1:  // tilt & OrthoLength given //{{{
+      Box->Length = Box->OrthoLength;
+      Box->Volume = Box->Length.x * Box->Length.y *  Box->Length.z;
+      if (Box->transform[0][1] != 0 || Box->transform[0][2] != 0 ||
+          Box->transform[1][2] != 0) {
+        double a = Box->OrthoLength.x,
+               b = sqrt(SQR(Box->OrthoLength.y) + SQR(Box->transform[0][1])),
+               c = sqrt(SQR(Box->OrthoLength.z) + SQR(Box->transform[0][2]));
+        double c_a = (Box->transform[0][1] * Box->transform[0][2] +
+                      Box->OrthoLength.y * Box->transform[1][2]) /
+                     (b * c),
+               c_b = Box->transform[0][2] / c, c_g = Box->transform[0][1] / b,
+               s_g = sin(Box->gamma * PI / 180);
+        // cell length
+        Box->Length.x = a;
+        Box->Length.y = b;
+        Box->Length.z = c;
+        // cell angles
+        Box->alpha = acos(c_a) / PI * 180;
+        Box->beta = acos(c_b) / PI * 180;
+        Box->gamma = acos(c_g) / PI * 180;
+        // cell volume
+        double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
+        if (sqr < 0) {
+          strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
+          return false;
+        }
+        Box->Volume *= sqrt(sqr);
+        // finish transformation matrix fractional -> Cartesian coordinates
+        double vol = Box->Volume;
+        Box->transform[0][0] = a;
+        Box->transform[1][1] = b * s_g;
+        Box->transform[2][2] = vol / (a * b * s_g);
+        // transformation matrix Cartesian -> fractional coordinates
+        Box->inverse[0][0] = 1 / a;
+        Box->inverse[0][1] = -c_g / (a * s_g);
+        Box->inverse[1][1] = 1 / (b * s_g);
+        Box->inverse[0][2] =
+            b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) - c_b * s_g / vol);
+        Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
+        Box->inverse[2][2] = a * b * s_g / vol;
       }
-      Box->OrthoLength.y = sqrt(sqr);
-      // z direaction
-      sqr = SQR(c) - SQR(Box->transform[0][2]) - SQR(Box->transform[1][2]);
-      if (sqr < 0) {
-        strcpy(ERROR_MSG, "wrong simulation box dimensions");
-        PrintError();
-        exit(1);
-      }
-      Box->OrthoLength.z = sqrt(sqr);
-      // see https://docs.lammps.org/Howto_triclinic.html
-      double xy = Box->transform[0][1], xz = Box->transform[0][2],
-             yz = Box->transform[1][2],
-             xyz = Box->transform[0][1] + Box->transform[0][2];
-      Box->Bounding.x = Box->OrthoLength.x - Max3(0, xy, Max3(0, xz, xyz)) +
-                        Min3(0, xy, Min3(0, xz, xyz));
-      Box->Bounding.y = Box->OrthoLength.y - Min3(0, 0, yz) + Max3(0, 0, yz);
-      Box->Bounding.z = Box->OrthoLength.z;
-    }
-    break; //}}}
-  case 1:  // tilt & OrthoLength given //{{{
-    Box->Length = Box->OrthoLength;
-    if (Box->transform[0][1] != 0 || Box->transform[0][2] != 0 ||
-        Box->transform[1][2] != 0) {
-      double a = Box->OrthoLength.x,
-             b = sqrt(SQR(Box->OrthoLength.y) + SQR(Box->transform[0][1])),
-             c = sqrt(SQR(Box->OrthoLength.z) + SQR(Box->transform[0][2]));
-      double c_a = (Box->transform[0][1] * Box->transform[0][2] +
-                    Box->OrthoLength.y * Box->transform[1][2]) /
-                   (b * c),
-             c_b = Box->transform[0][2] / c, c_g = Box->transform[0][1] / b,
-             s_g = sin(Box->gamma * PI / 180);
-      // cell length
-      Box->Length.x = a;
-      Box->Length.y = b;
-      Box->Length.z = c;
-      // cell angles
-      Box->alpha = acos(c_a) / PI * 180;
-      Box->beta = acos(c_b) / PI * 180;
-      Box->gamma = acos(c_g) / PI * 180;
-      // cell volume
-      double sqr = 1 - SQR(c_a) - SQR(c_b) - SQR(c_g) + 2 * c_a * c_b * c_g;
-      if (sqr < 0) {
-        strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
-        return false;
-      }
-      Box->Volume = a * b * c * sqrt(sqr);
-      // finish transformation matrix fractional -> Cartesian coordinates
-      double vol = Box->Volume;
-      Box->transform[0][0] = a;
-      Box->transform[1][1] = b * s_g;
-      Box->transform[2][2] = vol / (a * b * s_g);
-      // transformation matrix Cartesian -> fractional coordinates
-      Box->inverse[0][0] = 1 / a;
-      Box->inverse[0][1] = -c_g / (a * s_g);
-      Box->inverse[1][1] = 1 / (b * s_g);
-      Box->inverse[0][2] =
-          b * c * (c_g * (c_a - c_b * c_g) / (s_g * vol) - c_b * s_g / vol);
-      Box->inverse[1][2] = -a * c * (c_a - c_b * c_g) / (vol * s_g);
-      Box->inverse[2][2] = a * b * s_g / vol;
-    }
-    break; //}}}
-  default:
-    strcpy(ERROR_MSG, "TriclinicCellData(): mode parameters must be 0 or 1");
-    PrintError();
-    exit(1);
+      break; //}}}
+    default:
+      strcpy(ERROR_MSG, "TriclinicCellData(): mode parameters must be 0 or 1");
+      PrintError();
+      exit(1);
   } //}}}
   // transformation matrices for orthogonal box //{{{
   if (Box->alpha == 90 && Box->beta == 90 && Box->gamma == 90) {
@@ -812,13 +693,14 @@ bool CalculateBoxData(BOX *Box, int mode) {
   } //}}}
   // maximum size of the the bounding box //{{{
   // see https://docs.lammps.org/Howto_triclinic.html
-  double xy = Box->transform[0][1], xz = Box->transform[0][2],
+  double xy = Box->transform[0][1],
+         xz = Box->transform[0][2],
          yz = Box->transform[1][2],
          xyz = Box->transform[0][1] + Box->transform[0][2];
-  Box->Bounding.x = Box->OrthoLength.x + Max3(0, xy, Max3(0, xz, xyz)) -
+  Box->Bounding.x = Box->Low.x + Max3(0, xy, Max3(0, xz, xyz)) -
                     Min3(0, xy, Min3(0, xz, xyz));
-  Box->Bounding.y = Box->OrthoLength.y + Max3(0, 0, yz) - Max3(0, 0, yz);
-  Box->Bounding.z = Box->OrthoLength.z; //}}}
+  Box->Bounding.y = Box->Low.y + Max3(0, 0, yz) - Max3(0, 0, yz);
+  Box->Bounding.z = Box->Low.z; //}}}
   return true;
 } //}}}
 // merge identical bead/molecule types
@@ -2079,6 +1961,126 @@ int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode,
   }
   return -1;
 } //}}}
+// copy System structure; assumes new unallocated SYSTEM //{{{
+// TODO: CopySystem won't be static?
+SYSTEM CopySystem(SYSTEM S_in) {
+  SYSTEM S_out;
+  InitSystem(&S_out);
+  S_out.Box = S_in.Box;
+  if (S_in.Count.Bead > 0) {
+    S_out.Count = S_in.Count;
+    // BeadType //{{{
+    if (S_out.Count.BeadType > 0) {
+      S_out.BeadType = realloc(S_out.BeadType,
+                               sizeof *S_out.BeadType * S_out.Count.BeadType);
+      for (int i = 0; i < S_out.Count.BeadType; i++) {
+        BEADTYPE *bt_out = &S_out.BeadType[i],
+                 *bt_in = &S_in.BeadType[i];
+        *bt_out = *bt_in;
+        if (bt_out->Number > 0) {
+          bt_out->Index = malloc(bt_out->Number * sizeof *bt_out->Index);
+          for (int j = 0; j < bt_out->Number; j++) {
+            bt_out->Index[j] = bt_in->Index[j];
+          }
+        }
+      }
+    } else {
+      strcpy(ERROR_MSG, "no bead types to copy; should never happen!");
+      PrintWarning();
+      return S_out;
+    } //}}}
+    // Bead & BeadCoor //{{{
+    S_out.Bead = realloc(S_out.Bead, sizeof(BEAD) * S_out.Count.Bead);
+    S_out.BeadCoor =
+        realloc(S_out.BeadCoor, sizeof *S_out.BeadCoor * S_out.Count.Bead);
+    memcpy(S_out.Bead, S_in.Bead, sizeof(BEAD) * S_in.Count.Bead);
+    memcpy(S_out.BeadCoor, S_in.BeadCoor,
+           sizeof *S_in.BeadCoor * S_in.Count.Bead); //}}}
+    // Bonded & BondedCoor //{{{
+    if (S_out.Count.Bonded > 0) {
+      S_out.Bonded =
+          realloc(S_out.Bonded, sizeof *S_out.Bonded * S_out.Count.Bonded);
+      S_out.BondedCoor = realloc(S_out.BondedCoor,
+                                 sizeof *S_out.BondedCoor * S_out.Count.Bonded);
+      memcpy(S_out.Bonded, S_in.Bonded,
+             sizeof *S_in.Bonded * S_in.Count.Bonded);
+      memcpy(S_out.BondedCoor, S_in.BondedCoor,
+             sizeof *S_in.BondedCoor * S_in.Count.Bonded);
+    } //}}}
+    // Unbonded & UnbondedCoor //{{{
+    if (S_out.Count.Unbonded > 0) {
+      S_out.Unbonded = realloc(S_out.Unbonded,
+                               sizeof *S_out.Unbonded * S_out.Count.Unbonded);
+      S_out.UnbondedCoor =
+          realloc(S_out.UnbondedCoor,
+                  sizeof *S_out.UnbondedCoor * S_out.Count.Unbonded);
+      memcpy(S_out.Unbonded, S_in.Unbonded,
+             sizeof *S_in.Unbonded * S_in.Count.Unbonded);
+      memcpy(S_out.UnbondedCoor, S_in.UnbondedCoor,
+             sizeof *S_in.UnbondedCoor * S_in.Count.Unbonded);
+    } //}}}
+    // MoleculeType //{{{
+    if (S_out.Count.MoleculeType > 0) {
+      S_out.MoleculeType =
+          realloc(S_out.MoleculeType,
+                  sizeof *S_out.MoleculeType * S_out.Count.MoleculeType);
+      for (int i = 0; i < S_out.Count.MoleculeType; i++) {
+        S_out.MoleculeType[i] = CopyMoleculeType(S_in.MoleculeType[i]);
+      }
+    } //}}}
+    // Molecule & Index_mol //{{{
+    if (S_out.Count.Molecule > 0) {
+      S_out.Molecule = realloc(S_out.Molecule,
+                               sizeof *S_out.Molecule * S_out.Count.Molecule);
+      for (int i = 0; i < S_out.Count.Molecule; i++) {
+        S_out.Molecule[i] = S_in.Molecule[i];
+        // Molecule[].Bead array
+        int type = S_out.Molecule[i].Type;
+        if (S_out.MoleculeType[type].nBeads > 0) {
+          S_out.Molecule[i].Bead = malloc(sizeof *S_out.Molecule[i].Bead *
+                                          S_out.MoleculeType[type].nBeads);
+          memcpy(S_out.Molecule[i].Bead, S_in.Molecule[i].Bead,
+                 sizeof *S_in.Molecule[i].Bead *
+                 S_in.MoleculeType[type].nBeads);
+        }
+      }
+      // Index_mol
+      S_out.Index_mol = realloc(S_out.Index_mol,
+                                sizeof *S_out.Index_mol * S_out.Count.Molecule);
+      memcpy(S_out.Index_mol, S_in.Index_mol,
+             sizeof *S_in.Index_mol * S_in.Count.Molecule);
+    } //}}}
+    // BondType //{{{
+    if (S_out.Count.BondType > 0) {
+      S_out.BondType = realloc(S_out.BondType,
+                               sizeof *S_out.BondType * S_out.Count.BondType);
+      memcpy(S_out.BondType, S_in.BondType,
+             sizeof *S_out.BondType * S_in.Count.BondType);
+    } //}}}
+    // AngleType //{{{
+    if (S_out.Count.AngleType > 0) {
+      S_out.AngleType = realloc(S_out.AngleType, sizeof *S_out.AngleType *
+                                                     S_out.Count.AngleType);
+      memcpy(S_out.AngleType, S_in.AngleType,
+             sizeof *S_out.AngleType * S_in.Count.AngleType);
+    } //}}}
+    // DihedralType //{{{
+    if (S_out.Count.DihedralType > 0) {
+      S_out.DihedralType = realloc(S_out.DihedralType,
+                                   sizeof(PARAMS) * S_out.Count.DihedralType);
+      memcpy(S_out.DihedralType, S_in.DihedralType,
+             sizeof *S_out.DihedralType * S_in.Count.DihedralType);
+    } //}}}
+    // ImproperType //{{{
+    if (S_out.Count.ImproperType > 0) {
+      S_out.ImproperType = realloc(S_out.ImproperType,
+                                   sizeof(PARAMS) * S_out.Count.ImproperType);
+      memcpy(S_out.ImproperType, S_in.ImproperType,
+             sizeof *S_out.ImproperType * S_in.Count.ImproperType);
+    } //}}}
+  }
+  return S_out;
+} //}}}
 void PruneBondTypes(SYSTEM S_old, SYSTEM *System) { //{{{
   COUNT *Count = &System->Count, *Count_old = &S_old.Count;
   Count->BondType = 0;
@@ -2722,9 +2724,7 @@ MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old) { //{{{
 } //}}}
   //}}}
 // ConcatenateSystems() //{{{
-/*
- * Assumes S_out needs reallocating memory to accommodate S_in.
- */
+// ...assumes S_out needs reallocating memory to accommodate S_in.
 // TODO: some warning about S_in being empty
 void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
   COUNT Count_old = S_out->Count; // copy the original COUNT
@@ -2915,6 +2915,7 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
       S_out->ImproperType[i] = S_in.ImproperType[i - Count_old.ImproperType];
     }
   } //}}}
+  PruneSystem(S_out);
 } //}}}
 // TODO: split CheckSystem to CheckCount, CheckBeadType, etc.
 // check that the System struct doesn't contain an error //{{{
@@ -3314,6 +3315,23 @@ VECTOR GeomCentre(int n, int *list, BEAD *Bead) {
   cog.z /= count;
   return cog;
 } //}}}
+// Add/subtract Box.Low to coordinates //{{{
+void AddLow(SYSTEM *System) {
+  for (int i = 0; i < System->Count.BeadCoor; i++) {
+    int id = System->BeadCoor[i];
+    System->Bead[id].Position.x += System->Box.Low.x;
+    System->Bead[id].Position.y += System->Box.Low.y;
+    System->Bead[id].Position.z += System->Box.Low.z;
+  }
+}
+void SubtractLow(SYSTEM *System) {
+  for (int i = 0; i < System->Count.BeadCoor; i++) {
+    int id = System->BeadCoor[i];
+    System->Bead[id].Position.x -= System->Box.Low.x;
+    System->Bead[id].Position.y -= System->Box.Low.y;
+    System->Bead[id].Position.z -= System->Box.Low.z;
+  }
+} //}}}
 
 // identify input coordinate and structure files //{{{
 bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
@@ -3375,18 +3393,28 @@ int StructureFileType(char name[], int mode) { //{{{
     }
   }
   switch (ext) {
-  case 0:
-    return VSF_FILE;
-  case 1:
-    return VTF_FILE;
-  case 2:
-    return XYZ_FILE;
-  case 3:
-    return LTRJ_FILE;
-  case 4:
-    return LDATA_FILE;
-  case 5:
-    return FIELD_FILE;
+    case 0:
+      return VSF_FILE;
+    case 1:
+      return VTF_FILE;
+    case 2:
+      if (mode == 1) {
+        strcpy(ERROR_MSG, "xyz format cannot be output structure file");
+        PrintErrorFile(orig, "\0", "\0");
+        exit(1);
+      }
+      return XYZ_FILE;
+    case 3:
+      if (mode == 1) {
+        strcpy(ERROR_MSG, "lammpstrj format cannot be output structure file");
+        PrintErrorFile(orig, "\0", "\0");
+        exit(1);
+      }
+      return LTRJ_FILE;
+    case 4:
+      return LDATA_FILE;
+    case 5:
+      return FIELD_FILE;
   }
   // check for FIELD file
   if (strcasecmp(orig, "FIELD") == 0) {
@@ -3945,16 +3973,12 @@ void PrintImproperType(SYSTEM System) { //{{{
 } //}}}
 void PrintBox(BOX Box) { //{{{
   fprintf(stdout, "Box = {\n");
-  if (Box.Low.x > 0 || Box.Low.y > 0 || Box.Low.z > 0) {
+  if (Box.Low.x != 0 || Box.Low.y != 0 || Box.Low.z != 0) {
     fprintf(stdout, "  .Low = (%lf, %lf, %lf),\n", Box.Low.x, Box.Low.y,
             Box.Low.z);
   }
   fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x, Box.Length.y,
           Box.Length.z);
-  if (Box.Low.x > 0 || Box.Low.y > 0 || Box.Low.z > 0) {
-    fprintf(stdout, "  .Low = (%lf, %lf, %lf),\n", Box.Low.x, Box.Low.y,
-            Box.Low.z);
-  }
   if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
     fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
     fprintf(stdout, "  .beta  = %lf,\n", Box.beta);

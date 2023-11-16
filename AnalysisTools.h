@@ -91,6 +91,9 @@ VECTOR Distance(VECTOR id1, VECTOR id2, VECTOR BoxLength);
 VECTOR CentreOfMass(int n, int list[], SYSTEM System);
 // calculate geometric centre for a list of beads
 VECTOR GeomCentre(int n, int *list, BEAD *Bead);
+// add/subtract Box.Low to/from coordinates
+void AddLow(SYSTEM *System);
+void SubtractLow(SYSTEM *System);
 
 // identify input coordinate and structure files
 bool InputCoorStruct(int argc, char *argv[], char coor[], int *coor_type,

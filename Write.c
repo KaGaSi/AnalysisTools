@@ -55,25 +55,26 @@ static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System) { //{{{
   if (none) {
     strcpy(ERROR_MSG, "no beads to save");
     PrintWarning();
-  } else {
-    // TODO: write pbc on the second line?
-    fprintf(fw, "%d\n", count);
-    BOX *box = &System.Box;
-    if (box->Volume != -1) {
-      fprintf(fw, "%lf %lf %lf", box->Length.x, box->Length.y, box->Length.z);
-      if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {
-        fprintf(fw, " %lf %lf %lf", box->alpha, box->beta, box->gamma);
-      }
+    return;
+  }
+  // write pbc on the second line
+  fprintf(fw, "%d\n", count);
+  BOX *box = &System.Box;
+  if (box->Volume != -1) {
+    fprintf(fw, "%lf %lf %lf", box->Length.x, box->Length.y, box->Length.z);
+    if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {
+      fprintf(fw, " %lf %lf %lf", box->alpha, box->beta, box->gamma);
     }
-    putc('\n', fw);
-    for (int i = 0; i < System.Count.BeadCoor; i++) {
-      int id = System.BeadCoor[i];
-      BEAD *bead = &System.Bead[id];
-      if (bead->InTimestep && write[id]) {
-        int type = bead->Type;
-        fprintf(fw, "%8s %8.4f %8.4f %8.4f\n", System.BeadType[type].Name,
-                bead->Position.x, bead->Position.y, bead->Position.z);
-      }
+  }
+  putc('\n', fw);
+  // write the coodinates
+  for (int i = 0; i < System.Count.BeadCoor; i++) {
+    int id = System.BeadCoor[i];
+    BEAD *bead = &System.Bead[id];
+    if (bead->InTimestep && write[id]) {
+      int type = bead->Type;
+      fprintf(fw, "%8s %8.4f %8.4f %8.4f\n", System.BeadType[type].Name,
+              bead->Position.x, bead->Position.y, bead->Position.z);
     }
   }
 } //}}}
@@ -160,10 +161,12 @@ static void WriteConfig(SYSTEM System, char file[]) { //{{{
   // bead coordinates
   // unbonded beads must be first (dl_meso requirement)
   for (int i = 0; i < System.Count.BeadCoor; i++) {
-    int id = System.BeadCoor[i], btype = System.Bead[id].Type;
+    int id = System.BeadCoor[i],
+        btype = System.Bead[id].Type;
     fprintf(out, "%s %d\n", System.BeadType[btype].Name, id + 1);
     fprintf(out, "%lf %lf %lf\n", System.Bead[id].Position.x,
-            System.Bead[id].Position.y, System.Bead[id].Position.z);
+                                  System.Bead[id].Position.y,
+                                  System.Bead[id].Position.z);
   }
   fclose(out);
 } //}}}
@@ -554,6 +557,13 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
 } //}}}
 static void WriteField(SYSTEM System, char file_field[]) { //{{{
   FILE *fw = OpenFile(file_field, "w");
+  BOX *box = &System.Box;
+  if (box->Volume != -1) {
+    fprintf(fw, "%lf %lf %lf ", box->Length.x, box->Length.y, box->Length.z);
+    if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {
+      fprintf(fw, "%lf %lf %lf ", box->alpha, box->beta, box->gamma);
+    }
+  }
   fprintf(fw, "Created via AnalysisTools v%s"
           "(https://github.com/KaGaSi/AnalysisTools)\n\n", VERSION);
   COUNT *Count = &System.Count;
@@ -688,8 +698,6 @@ void WriteTimestep(int coor_type, char file[], SYSTEM System,
   FILE *fw = OpenFile(file, "a");
   switch (coor_type) {
     case VCF_FILE:
-      VtfWriteCoorIndexed(fw, write, System);
-      break;
     case VTF_FILE:
       VtfWriteCoorIndexed(fw, write, System);
       break;
@@ -714,8 +722,6 @@ void WriteStructure(int struct_type, char file[], SYSTEM System,
                     int vsf_def_type, bool lmp_mass) {
   switch (struct_type) {
     case VSF_FILE:
-      VtfWriteStruct(file, System, vsf_def_type);
-      break;
     case VTF_FILE:
       VtfWriteStruct(file, System, vsf_def_type);
       break;

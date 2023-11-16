@@ -202,9 +202,7 @@ static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
     }
     int id = line.Type - 1;
     BEAD *b = &System->Bead[id];
-    b->Position.x = line.Position.x - System->Box.Low.x;
-    b->Position.y = line.Position.y - System->Box.Low.y;
-    b->Position.z = line.Position.z - System->Box.Low.z;
+    b->Position = line.Position;
     b->Velocity = line.Velocity;
     b->Force = line.Force;
     if (b->InTimestep) {
@@ -215,6 +213,7 @@ static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
     b->InTimestep = true;
     System->BeadCoor[i] = id;
   } //}}}
+  SubtractLow(System);
   return 1;
 } //}}}
 // TODO: skip lines based on the number of atoms?
@@ -866,6 +865,7 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
     BEAD *b = &System->Bead[id];
     b->Velocity = vel;
   } //}}}
+  SubtractLow(System);
   return 1;
   error: // unrecognised line //{{{
     strcpy(ERROR_MSG, "unrecognised line in the file header");
@@ -1543,9 +1543,7 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
     id--;   // in lammps data file, bead ids start from 1
     type--; // in lammps data file, bead type ids start from 1
     BEAD *b = &System->Bead[id];
-    b->Position.x = pos.x - System->Box.Low.x;
-    b->Position.y = pos.y - System->Box.Low.y;
-    b->Position.z = pos.z - System->Box.Low.z;
+    b->Position = pos;
     b->InTimestep = true;
     b->Type = id;
     /*
@@ -3645,18 +3643,14 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
     }
     VECTOR coor;
     if (XyzCheckCoorLine(&coor)) {
-      System->Bead[i].Position.x = coor.x;
-      System->Bead[i].Position.y = coor.y;
-      System->Bead[i].Position.z = coor.z;
+      System->Bead[i].Position = coor;
       System->Bead[i].InTimestep = true;
       System->BeadCoor[i] = i;
       (*line_count)++;
       VECTOR vel;
       if (words > 6 && IsRealNumber(split[4], &vel.x) &&
           IsRealNumber(split[5], &vel.y) && IsRealNumber(split[6], &vel.z)) {
-        System->Bead[i].Velocity.x = vel.x;
-        System->Bead[i].Velocity.y = vel.z;
-        System->Bead[i].Velocity.z = vel.z;
+        System->Bead[i].Velocity = vel;
       } else {
         System->Bead[i].Velocity.x = 0;
         System->Bead[i].Velocity.y = 0;
