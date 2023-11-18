@@ -108,23 +108,40 @@ int main(int argc, char *argv[]) {
       trash, pbc_xyz = -1;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
                 &pbc_xyz, &start, &trash, &trash);
-  // -offset option
-  double temp[3] = {0};
-  VECTOR offset = {0, 0, 0};
-  bool off = false;
-  if (DoubleOption(argc, argv, 3, "-offset", &count, temp)) {
-    if (count != 3) {
-      strcpy(ERROR_MSG, "three numbers required");
-      PrintErrorOption("-offset");
-      exit(1);
+  // // -offset option //{{{
+  // double temp[3] = {0};
+  // VECTOR offset = {0, 0, 0};
+  // // bool off = false;
+  // if (DoubleOption(argc, argv, 3, "-offset", &count, temp)) {
+  //   if (count != 3) {
+  //     strcpy(ERROR_MSG, "three numbers required");
+  //     PrintErrorOption("-offset");
+  //     exit(1);
+  //   }
+  //   // off = true;
+  //   offset.x = temp[0];
+  //   offset.y = temp[1];
+  //   offset.z = temp[2];
+  // } //}}}
+  // -offset option //{{{
+  VECTOR offset = {-11111, -11111, -11111};
+  for (int i = 0; i < argc; i++) {
+    if (strcmp(argv[i], "-offset") == 0) {
+      if (argc < (i + 3) ||
+          (argv[i+1][0] != 'c' && !IsRealNumber(argv[i+1], &offset.x)) ||
+          (argv[i+2][0] != 'c' && !IsRealNumber(argv[i+2], &offset.y)) ||
+          (argv[i+3][0] != 'c' && !IsRealNumber(argv[i+3], &offset.z))) {
+        strcpy(ERROR_MSG, "wrong/missing arguments (either number or 'c')");
+        PrintErrorOption("-offset");
+        exit(1);
+      }
+      break;
     }
-    off = true;
-    offset.x = temp[0];
-    offset.y = temp[1];
-    offset.z = temp[2];
-  }
-  // output box dimensions
+  } //}}}
+  printf("%lf %lf %lf\n", offset.x, offset.y, offset.z);
+  // output box dimensions //{{{
   VECTOR box_opt = {0, 0, 0};
+  double temp[3] = {0};
   if (DoubleOption(argc, argv, 3, "-box", &count, temp)) {
     if (count != 3) {
       strcpy(ERROR_MSG, "three numbers required");
@@ -134,7 +151,7 @@ int main(int argc, char *argv[]) {
     box_opt.x = temp[0];
     box_opt.y = temp[1];
     box_opt.z = temp[2];
-  }
+  } //}}}
   bool centre = BoolOption(argc, argv, "--centre");
   //}}}
 
@@ -177,39 +194,34 @@ int main(int argc, char *argv[]) {
   }
   fclose(fr); //}}}
 
-  VECTOR delta = {0, 0, 0}; // how much move the second system
-  // make first and second systems' centres coincide (--centre option) //{{{
-  if (centre) {
-    BOX *box1 = &Sys_1.Box,
-        *box2 = &Sys_2.Box;
-    VECTOR c1;
-    c1.x = box1->Low.x + 0.5 * box1->Length.x;
-    c1.y = box1->Low.y + 0.5 * box1->Length.y;
-    c1.z = box1->Low.z + 0.5 * box1->Length.z;
-    VECTOR c2;
-    c2.x = box2->Low.x + 0.5 * box2->Length.x;
-    c2.y = box2->Low.y + 0.5 * box2->Length.y;
-    c2.z = box2->Low.z + 0.5 * box2->Length.z;
-    delta.x = c1.x - c2.x;
-    delta.y = c1.y - c2.y;
-    delta.z = c1.z - c2.z;
-  //}}}
-  // or move the second system's coordinates (-offset option) //{{{
-  } else if (off) {
-    delta.x = offset.x;
-    delta.y = offset.y;
-    delta.z = offset.z;
+  // make proper offset if 'c' is used in -offset option //{{{
+  if (offset.x == -11111) {
+    double c1 = Sys_1.Box.Low.x + 0.5 * Sys_1.Box.Length.x,
+           c2 = Sys_2.Box.Low.x + 0.5 * Sys_2.Box.Length.x;
+    offset.x = c1 - c2;
+  }
+  if (offset.y == -11111) {
+    double c1 = Sys_1.Box.Low.y + 0.5 * Sys_1.Box.Length.y,
+           c2 = Sys_2.Box.Low.y + 0.5 * Sys_2.Box.Length.y;
+    offset.y = c1 - c2;
+  }
+  if (offset.z == -11111) {
+    double c1 = Sys_1.Box.Low.z + 0.5 * Sys_1.Box.Length.z,
+           c2 = Sys_2.Box.Low.z + 0.5 * Sys_2.Box.Length.z;
+    offset.z = c1 - c2;
   } //}}}
+
   // move the beads of the second system //{{{
   for (int i = 0; i < Sys_2.Count.Bead; i++) {
     int id = Sys_2.BeadCoor[i];
-    Sys_2.Bead[id].Position.x += delta.x;
-    Sys_2.Bead[id].Position.y += delta.y;
-    Sys_2.Bead[id].Position.z += delta.z;
+    Sys_2.Bead[id].Position.x += offset.x;
+    Sys_2.Bead[id].Position.y += offset.y;
+    Sys_2.Bead[id].Position.z += offset.z;
   }
-  Sys_2.Box.Length.x += delta.x;
-  Sys_2.Box.Length.y += delta.y;
-  Sys_2.Box.Length.z += delta.z;
+  // TODO: I think it should by Low, not Length, right?
+  Sys_2.Box.Low.x += offset.x;
+  Sys_2.Box.Low.y += offset.y;
+  Sys_2.Box.Low.z += offset.z;
   CalculateBoxData(&Sys_2.Box, 0); //}}}
 
   // create output system
@@ -269,6 +281,7 @@ int main(int argc, char *argv[]) {
       c2.x = Sys_out.Box.Low.x + 0.5 * Sys_out.Box.Length.x;
       c2.y = Sys_out.Box.Low.y + 0.5 * Sys_out.Box.Length.y;
       c2.z = Sys_out.Box.Low.z + 0.5 * Sys_out.Box.Length.z;
+      VECTOR delta;
       delta.x = c1.x - c2.x;
       delta.y = c1.y - c2.y;
       delta.z = c1.z - c2.z;
