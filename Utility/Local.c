@@ -613,8 +613,8 @@ int main(int argc, char *argv[]) {
   }
 
   // write header to output file //{{{
-  FILE *fw = OpenFile(out_global, "w");
-  PrintByline(fw, argc, argv);
+  PrintByline(out_global, argc, argv);
+  FILE *fw = OpenFile(out_global, "a");
   count = 0;
   fprintf(fw, "# (%d) timestep;", ++count);
   fprintf(fw, " (%d) T;", ++count);
@@ -962,9 +962,9 @@ int main(int argc, char *argv[]) {
   }
   FILE *fw2[3];
   for (int i = 0; i < 3; i++) {
-    fw2[i] = OpenFile(f[i], "w");
+    PrintByline(f[i], argc, argv);
     // print headers
-    PrintByline(fw2[i], argc, argv);
+    fw2[i] = OpenFile(f[i], "w");
     fprintf(fw2[i], "# columns: (1) distance");
     count = 1;
     fprintf(fw2[i], "; (%d) T", ++count);

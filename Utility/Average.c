@@ -303,12 +303,12 @@ int main ( int argc, char** argv ) {
 
   // -m mode //{{{
   if (moving > -1) {
+    PrintByline(output, argc, argv);
     // number of input datapoints
     count = data_lines - start;
     // number of output datapoints
     int count_out = count - (moving - 1);
-    FILE *fw = OpenFile(output, "w");
-    PrintByline(fw, argc, argv);
+    FILE *fw = OpenFile(output, "a");
     for (int i = 0; i < count_out; i++) {
       for (int col = 0; col < col_count; col++) {
         double tmp = 0;

@@ -230,8 +230,8 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // print the first two lines to output file with per-step averages //{{{
-  FILE *fw = OpenFile(out_avg, "w");
-  PrintByline(fw, argc, argv);
+  PrintByline(out_avg, argc, argv);
+  FILE *fw = OpenFile(out_avg, "a");
   count = 1;
   fprintf(fw, "# column: (%d) step, ", count++);
   fprintf(fw, "(%d) <M>_n, ", count++);
@@ -437,8 +437,8 @@ int main(int argc, char *argv[]) {
   //}}}
 
   // print the first two lines to output file with distributions //{{{
-  fw = OpenFile(out_distr, "w");
-  PrintByline(fw, argc, argv);
+  PrintByline(out_distr, argc, argv);
+  fw = OpenFile(out_distr, "a");
   count = 1;
   fprintf(fw, "# column: ");
   fprintf(fw, "(%d) As, ", count++);
@@ -556,8 +556,8 @@ int main(int argc, char *argv[]) {
       if (snprintf(file, LINE, "%s-%03d.txt", c_file, c_sizes[i]) < 0) {
         ErrorSnprintf();
       }
-      fw = OpenFile(file, "w");
-      PrintByline(fw, argc, argv);
+      PrintByline(file, argc, argv);
+      fw = OpenFile(file, "a");
       fprintf(fw, "# total number of aggregates with size %d: %ld\n",
               c_sizes[i], comp_agg_count[i]);
       fprintf(fw, "# (1) number of molecules of given type;");
@@ -588,8 +588,8 @@ int main(int argc, char *argv[]) {
       if (snprintf(file, LINE, "%s-ratio_%03d.txt", c_file, c_sizes[i]) < 0) {
         ErrorSnprintf();
       }
-      fw = OpenFile(file, "w");
-      PrintByline(fw, argc, argv);
+      PrintByline(file, argc, argv);
+      fw = OpenFile(file, "a");
       fprintf(fw, "# total number of aggregates with size %d: %ld\n",
               c_sizes[i], comp_agg_count[i]);
       fprintf(fw, "# (1) ratio of:");

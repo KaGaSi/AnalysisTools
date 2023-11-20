@@ -169,9 +169,7 @@ int main(int argc, char *argv[]) {
 
   // print initial stuff to output coordinate file //{{{
   if (coor_out_type == VCF_FILE) {
-    FILE *out = OpenFile(coor_out_file, "w");
-    PrintByline(out, argc, argv);
-    fclose(out);
+    PrintByline(coor_out_file, argc, argv);
   } else if (coor_out_type == VTF_FILE) {
     WriteStructure(VSF_FILE, coor_out_file, System, -1, false);
     coor_out_type = VCF_FILE;

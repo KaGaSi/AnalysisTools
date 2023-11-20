@@ -192,7 +192,6 @@ int main(int argc, char *argv[]) {
     }
     ChangeMolecules(&System, Sys_extra, change_beads, false);
     CheckSystem(System, struct_file_extra);
-    WarnChargedSystem(System, struct_file, struct_file_extra, "\0");
   } //}}}
 
   // -def option (for vsf output file) //{{{
@@ -211,6 +210,7 @@ int main(int argc, char *argv[]) {
 
   PruneSystem(&System);
 
+  // print the system information //{{{
   printf("\n==================================================");
   if (struct_type_extra != -1 || coor_type != -1) {
     printf("\nFinal system composition");
@@ -224,13 +224,36 @@ int main(int argc, char *argv[]) {
     PrintBead(System);
     fprintf(stdout, "\nInformation about every molecule:\n");
     PrintMolecule(System);
-  }
+  } //}}}
 
+  // write the output file if required (-o option) //{{{
   if (struct_file_out[0] != '\0') {
     if (struct_type_out == LDATA_FILE && extra_types != 0) {
       for (int i = 0; i < extra_types; i++) {
         NewBeadType(&System.BeadType, &System.Count.BeadType, "extra", 0, 1, 1);
       }
+    }
+    // test if coordinates are present for structure files with coordinates
+    if (struct_type_out == LDATA_FILE || struct_type_out == VTF_FILE) {
+      bool coor = false;
+      for (int i = 0; i < System.Count.BeadCoor; i++) {
+        int id = System.BeadCoor[i];
+        VECTOR *pos = &System.Bead[id].Position;
+        if (fabs(pos->x) > 0.00001 ||
+            fabs(pos->y) > 0.00001 ||
+            fabs(pos->z) > 0.00001) {
+          coor = true;
+          break;
+        }
+      }
+      if (!coor) {
+        strcpy(ERROR_MSG, "no coordinates loaded for lammps/vtf data output");
+        PrintWarnFile(struct_file_out, coor_file, "\0");
+      }
+    }
+    // write byline into vsf/vtf file
+    if (struct_type_out == VTF_FILE || struct_type_out == VSF_FILE) {
+      PrintByline(struct_file_out, argc, argv);
     }
     WriteStructure(struct_type_out, struct_file_out, System,
                    vsf_def_type, lmp_mass);
@@ -240,7 +263,7 @@ int main(int argc, char *argv[]) {
       WriteTimestep(struct_type_out, struct_file_out, System, 1, write);
       free(write);
     }
-  }
+  } //}}}
 
   FreeSystem(&System);
   if (struct_file_extra[0] != '\0') {

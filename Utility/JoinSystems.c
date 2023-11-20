@@ -218,10 +218,9 @@ int main(int argc, char *argv[]) {
     Sys_2.Bead[id].Position.y += offset.y;
     Sys_2.Bead[id].Position.z += offset.z;
   }
-  // TODO: I think it should by Low, not Length, right?
-  Sys_2.Box.Low.x += offset.x;
-  Sys_2.Box.Low.y += offset.y;
-  Sys_2.Box.Low.z += offset.z;
+  Sys_2.Box.Length.x += offset.x;
+  Sys_2.Box.Length.y += offset.y;
+  Sys_2.Box.Length.z += offset.z;
   CalculateBoxData(&Sys_2.Box, 0); //}}}
 
   // create output system
@@ -309,10 +308,9 @@ int main(int argc, char *argv[]) {
 
   // print initial stuff to output coordinate file //{{{
   if (coor_out_type == VCF_FILE) {
-    FILE *out = OpenFile(coor_out_file, "w");
-    PrintByline(out, argc, argv);
-    fclose(out);
+    PrintByline(coor_out_file, argc, argv);
   } else if (coor_out_type == VTF_FILE) {
+    PrintByline(coor_out_file, argc, argv);
     WriteStructure(VSF_FILE, coor_out_file, Sys_out, -1, false);
     coor_out_type = VCF_FILE;
   } else {

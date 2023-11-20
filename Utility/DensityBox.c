@@ -250,8 +250,8 @@ int main(int argc, char *argv[]) {
       ErrorSnprintf();
     }
     // write initial stuff to output density file
-    FILE *fw = OpenFile(file, "w");
-    PrintByline(fw, argc, argv);
+    PrintByline(file, argc, argv);
+    FILE *fw = OpenFile(file, "a");
     // print bead type names to output file
     fprintf(fw, "# columns: (1) distance");
     count = 1;

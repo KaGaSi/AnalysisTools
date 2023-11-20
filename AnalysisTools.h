@@ -123,7 +123,7 @@ void PrintBondTypes(COUNT Counts, PARAMS *bond_type);
 // TODO: use SYSTEM
 void PrintAngleTypes(COUNT Counts, PARAMS *angle_type);
 void PrintBox(BOX Box);
-void PrintByline(FILE *ptr, int argc, char *argv[]);
+void PrintByline(char *file, int argc, char *argv[]);
 void PrintStep(int *count_coor, int start, bool silent);
 
 // calculate gyration tensor and various shape descriptors

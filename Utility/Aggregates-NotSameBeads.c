@@ -284,15 +284,10 @@ int main(int argc, char *argv[]) {
   bool *write = calloc(Count->Bead, sizeof *write);
   InitBoolArray(write, Count->Bead, true);
 
-  // print command to output .agg file //{{{
-  FILE *fw_agg = OpenFile(agg_file, "w");
-  PrintByline(fw_agg, argc, argv);
-  fclose(fw_agg); //}}}
-
+  // print command to output .agg (and, possibly, coordinate) file
+  PrintByline(agg_file, argc, argv);
   if (join_file[0] != '\0') {
-    FILE *fw_coor = OpenFile(join_file, "w");
-    PrintByline(fw_coor, argc, argv);
-    fclose(fw_coor);
+    PrintByline(join_file, argc, argv);
   }
 
   // allocate Aggregate struct //{{{
@@ -365,7 +360,7 @@ int main(int argc, char *argv[]) {
 
   // print last step number to <output.agg> //{{{
   // open output .agg file for appending
-  fw_agg = OpenFile(agg_file, "a");
+  FILE *fw_agg = OpenFile(agg_file, "a");
   fprintf(fw_agg, "Last Step: %d\n", count_coor);
   fclose(fw_agg); //}}}
 

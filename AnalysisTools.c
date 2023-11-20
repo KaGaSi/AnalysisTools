@@ -4037,11 +4037,13 @@ void PrintBox(BOX Box) { //{{{
   // } //}}}
   // fprintf(stdout, "}\n");
 } //}}}
-void PrintByline(FILE *ptr, int argc, char *argv[]) { //{{{
-  fprintf(ptr, "# Created by AnalysisTools v%s ", VERSION);
-  fprintf(ptr, " (https://github.com/KaGaSi/AnalysisTools)\n");
-  fprintf(ptr, "# command: ");
-  PrintCommand(ptr, argc, argv);
+void PrintByline(char file[], int argc, char *argv[]) { //{{{
+  FILE *fw = OpenFile(file, "w");
+  fprintf(fw, "# Created by AnalysisTools v%s ", VERSION);
+  fprintf(fw, " (https://github.com/KaGaSi/AnalysisTools)\n");
+  fprintf(fw, "# command: ");
+  PrintCommand(fw, argc, argv);
+  fclose(fw);
 } //}}}
 void PrintStep(int *count_coor, int start, bool silent) { //{{{
   (*count_coor)++;

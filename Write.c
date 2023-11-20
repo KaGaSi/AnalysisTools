@@ -172,7 +172,7 @@ static void WriteConfig(SYSTEM System, char file[]) { //{{{
 } //}}}
 static void VtfWriteStruct(char file[], SYSTEM System, int type_def) { //{{{
   SimplifyResid(&System);
-  FILE *fw = OpenFile(file, "w");
+  FILE *fw = OpenFile(file, "a");
   COUNT *Count = &System.Count;
   BOX *box = &System.Box;
   // default bead type //{{{

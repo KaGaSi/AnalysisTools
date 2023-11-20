@@ -662,8 +662,7 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < S_new.Count.Bead; i++) {
     write[i] = true;
   }
-  // vsf file
-  char open[2] = "w";
+  // vsf/vtf file
   if (out_type == VTF_FILE) {
     int vsf_def_type = -1;
     count = 0;
@@ -673,13 +672,13 @@ int main(int argc, char *argv[]) {
         vsf_def_type = i;
       }
     }
+    PrintByline(out_file, argc, argv);
     WriteStructure(out_type, out_file, S_new, vsf_def_type, false);
     WriteTimestep(out_type, out_file, S_new, 0, write);
-    open[0] = 'a';
   } else if (out_type == LDATA_FILE) {
     WriteStructure(out_type, out_file, S_new, 0, false);
   } else {
-    FILE *out = OpenFile(out_file, open);
+    FILE *out = OpenFile(out_file, "w");
     // set all beads to be written
     WriteTimestep(out_type, out_file, S_new, 0, write);
     fclose(out);
