@@ -10,11 +10,14 @@
 % utf8 encoding
 \usepackage[utf8]{inputenc}
 % bibliography
-\usepackage[refsection=section,style=chem-angew]{biblatex}
+% \usepackage[refsection=section,style=chem-angew]{biblatex}
 % paper size
-\usepackage[showframe,lmargin=3cm,rmargin=3cm]{geometry}
+% \usepackage[showframe,lmargin=3cm,rmargin=3cm,bmargin=3cm]{geometry}
+\usepackage[showframe,margin=3cm]{geometry}
 % to include images
 \usepackage{graphicx}
+% to draw stuff
+\usepackage{tikz}
 % math stuff
 \usepackage{amsmath}
 % for customizing array fields (such as include \displaystyle in column
@@ -37,7 +40,8 @@
 % custom headers and footers -- replaces fancyhdr
 \usepackage{titleps}
 % to label subfigures
-\usepackage[labelformat=empty]{subcaption}
+% \usepackage[labelformat=empty]{subcaption}
+\usepackage{subcaption}
 % % compress citations into [a-z]
 % \usepackage{cite}
 % list customization
@@ -60,11 +64,14 @@
 \usepackage{soul}
 % clickable links -- hyperref should be the last package listed
 \usepackage{hyperref} %}}}
+\usepackage[nameinlink]{cleveref}
 
-\addbibresource{bib.bib}
-\DefineBibliographyStrings{english}{%
-  references = {\normalsize References},
-}
+\usetikzlibrary{calc}
+
+% \addbibresource{bib.bib}
+% \DefineBibliographyStrings{english}{%
+%   references = {\normalsize References},
+% }
 
 % highlighting color (soul package) %{{{
 \definecolor{lightgray}{rgb}{0.9,0.9,0.9}
@@ -146,6 +153,7 @@
 \renewcommand{\bottomfraction}{0.8}
 \renewcommand{\textfraction}{0.07}
 \renewcommand{\floatpagefraction}{0.7} %}}}
+\newcommand*{\fullref}[1]{\nameref*{#1} (\hyperref[{#1}]{\autoref*{#1}})}
 % some keywords
 \let\tt\useless
 \newcommand{\tt}{\texttt}
@@ -161,7 +169,10 @@
 \newcommand{\ltrj}{\texttt{lammpstrj} }
 \newcommand{\ttb}[1]{\textcolor{blue}{\texttt{#1}}}
 \newcommand{\note}[1]{\vspace{-1em}\noindent\footnotesize{#1}}
-\newcommand{\TODO}{\colorbox{yellow}{TODO:}}
+% yellow highlighting
+\DeclareRobustCommand{\hly}[1]{{\sethlcolor{yellow}\hl{#1}}}
+\soulregister\tt7 % makes it possible to use \tt within hl
+\newcommand{\TODO}[1]{\hly{#1}}
 \newcommand{\hltt}[1]{\tt{\hl{#1}}} % \hl - soul package
 \newcommand{\Ret}{\textbf{return }}
 \newcommand{\CallInit}[1]{\vspace{1em}\tt{#1}\tt{(parameters)}\vspace{-1em}}

@@ -1,4 +1,4 @@
-\section{AddRandomToSystem} \label{sec:AddRandomToSystem}
+\section{JoinSystems} \label{sec:JoinSystems}
 
 This utility takes an existing system and adds new beads read from a \field into
 it, placing them either completely randomly or according to supplied
@@ -6,45 +6,51 @@ constraints.
 
 There are two types of constraints which can be combined: place new beads (i)
 specified distance from other beads or (ii) in a specified interval in x-, y-,
-and/or z-axis directions. In (i), options \tt{-ld} and/or \tt{-hd} specify the
+and/or z-axi directions. In (i), options \tt{-ld} and/or \tt{-hd} specify the
 distance; if present, these must be accompanied by \tt{-bt} option.  Then, the
 new beads are placed at least \tt{-ld <float>} and at most \tt{-hd <float>}
 distance from beads specified by the \tt{-bt} option. In (ii), options \tt{-cx},
 \tt{-cy}, and \tt{-cz} basically change the box size for the added beads; for
-example, \TODO{real vs. relative units} \tt{-cx 5 9} would generate x
+example, (\TODO real vs. relative units) \tt{-cx 5 9} would generate x
 coordinates only in the interval $\langle5,9)$. All these options can be
 combined, but note that \tt{AddRandomToSystem} does not perform any sanity
 checks, that is, if any combination of the provided options is impossible to
 achieve, the utility will run forever.
 
-For added molecules, either the molecule's geometric centre (default behaviour)
-or its first bead (\tt{--head} option) obey the constraints. The coordinates of
-the remaining beads in the molecule are governed by the coordinates in the
-\tt{FIELD} file. Therefore, not all the molecular beads necessarily obey the
-constraining rules. Molecules are added with a random orientation unless the
-\tt{--no-rotate} switch is used.
+\input{JoinSystems-tikz}
 
-\TODO{I guess that's not true? All added beads are at the end, no?
+% \input{JoinSystems-tikz-a}
+% \input{JoinSystems-tikz-b}
+% \input{JoinSystems-tikz-c}
+
+For added molecules, either the molecule's first bead (\TODO whichs default?
+default behaviour) or its geometric centre (\tt{--gc} option\TODO{implement})
+obey the constraints. The coordinates of the remaining beads in the molecule are
+governed by the coordinates in the \tt{FIELD} file. Therefore, not all the
+molecular beads necessarily obey the constraining rules. Molecules are added
+with a random orientation unless the \tt{--no-rotate} switch is used.
+
+\TODO I guess that's not true? All added beads are at the end, no?
 The new unbonded beads appear in the resulting files after
 the unbonded beads from the original system (but before any bonded beads).
-If molecules are added, \tt{AddRandomToSystem}} places them at the end.
+If molecules are added, \tt{AddRandomToSystem} places them at the end.
 
-\TODO{Not true anymore---the opposite is true, in fact (\tt{--add} switch)!
+\TODO Not true anymore---the opposite is true, in fact (\tt{--add} switch)!
 By default, the new beads are added to the system, increasing the total
 number of beads. However, if \tt{--switch} is used, the new beads
 replace beads in the original system. The replaced beads are either neutral
 beads with the lowest indices (as per ordering in the provided structure
 file) or beads of the type specified using \tt{-xb} option. In both
-cases, the beads to be replaced must be unbonded.}
+cases, the beads to be replaced must be unbonded.
 
 The size of the new simulation box can be changed using the \tt{-b} option.
 There are no constraints on the size of the cuboid box; if the new box is small,
 not all beads from the original system are necesserily inside the box (although
-the added once always are). \TODO{Does \tt{--centre} makes sense? I don't think
+the added once always are). (\TODO does \tt{--centre} makes sense? I don't think
 so. Or do I? What about using a pure bilayer box, ensuring the bilayer is in the
 box centre? The origin of the new box coincides with the origin of the original
 box unless \tt{--centre} option is used; in that case, the centres of the two
-boxes coincide.}
+boxes coincide.)
 
 Several examples of using the utility are provided in the
 \tt{Examples/AddRandomToSystem} directory.

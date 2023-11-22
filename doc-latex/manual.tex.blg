@@ -1,0 +1,5 @@
+[0] Config.pm:307> INFO - This is Biber 2.19
+[0] Config.pm:310> INFO - Logfile is 'manual.tex.blg'
+[65] biber:340> INFO - === Mon Nov 20, 2023, 21:22:52
+[123] Utils.pm:410> ERROR - Cannot find 'manual.tex.bcf'!
+[123] Biber.pm:136> INFO - ERRORS: 1

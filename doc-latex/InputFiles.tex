@@ -2,7 +2,7 @@
 
 This section describes several file types used by many of the
 AnalysisTools utilities. Output files for the utilities themselves are
-described in their respective sections in Chapter~\ref{chap:Utils}.
+described in their respective sections in \cref{chap:Utils}.
 
 Input files are divided into two categories: structure and coordinate files. The
 structure files contain information about the system composition, that is,
@@ -17,8 +17,8 @@ and/or molecule properties).
 
 For working with aggregates, AnalysisTools' \tt{agg} file format (see below)
 describes their compositions in terms of molecule numbers from a structure file
-used to generate it. Any of the \tt{Aggregates} (\ref{sec:Aggregates}) utilities
-can create the \tt{agg} file.
+used to generate it. Any of the \tt{Aggregates} (\cref{sec:Aggregates})
+utilities can create the \tt{agg} file.
 
 \section{Structure files}\label{sec:StructFile}
 As structure files, any of the following formats can be used; example files for
@@ -27,7 +27,7 @@ directory. Utilities load a specific structure using the \tt{-i <file>} option;
 if the option is missing, it is usually assumed the structure file is the same
 as the coordinate file.
 
-\tt{Info} utility (Section \ref{sec:Info}) can convert these formats between
+\tt{Info} utility (\cref{sec:Info}) can convert these formats between
 each other via the \tt{-o <file>} option.
 \subsection{VTF format}\label{ssec:StructVtf} %{{{
 See \href{https://github.com/olenz/vtfplugin/wiki/VTF-format}{here} for complete
@@ -78,7 +78,7 @@ molecule can have \tt{bonds}, \tt{angles}, \tt{dihedrals}, but even though up to
 three parameters for potential parameters are read, AnalysisTools does not
 recognize the potential keywords (\tt{harm}, \tt{cos}, etc.). Moreover, these
 potential parameters are only used for generating new LAMMPS data files via the
-\tt{Info} utility (Section~\ref{sec:Info}). The \tt{molecules} section can also
+\tt{Info} utility (\cref{sec:Info}). The \tt{molecules} section can also
 contain one extra part: \tt{impropers} for improper angles which has the same
 format as the \tt{dihedrals} section (this was added because the
 \href{https://lammps.sandia.gov/}{LAMMPS molecular dynamics simulator}
@@ -100,10 +100,10 @@ file from the \field file.
 Nevertheless, the file can be used to supply extra information for bead and
 molecule types for the \tt{Info} utility's \tt{-i[!]} option as these do not
 depend on individual beads but rather on bead and molecule type names (see
-Section~\ref{sec:Info} for details). Moreover, \field is used as an input file to
-add extra species into an existing system (\TODO AddRandomToSystem or some such)
-or creating a new system from scratch (\TODO GenSystem, GenLayers, or some
-such).
+\cref{sec:Info} for details). Moreover, \field is used as an input file
+to add extra species into an existing system or to create a new system from
+scratch via, e.g., \fullref{sec:AddRandomToSystem} or \TODO{ref GenSystem,
+GenLayers, or some such}.
 
 To be recognized by AnalysisTools utilities, the file must either be called
 \field or have a \tt{.FIELD} extension.
@@ -151,7 +151,7 @@ For the \tt{Dihedral Coeffs} and \tt{Improper Coeffs} sections, AnalysisTools
 reads at most three numbers without assuming any specific potential.
 
 All the \tt{Coeffs} sections are used only for generating new structure files
-via the \tt{Info} utility, \TODO reference (specifically, only to generate
+via the utility \fullref{sec:Info}, (specifically, only to generate
 \field and LAMMPS \data files because no other supported file contains this
 information).
 
@@ -178,7 +178,7 @@ directory. These files can be combined with any of the above-described structure
 files (via the \tt{-i <file>} option), but some may be used as both the
 structure and coordinate file.
 
-\tt{SelectedVcf} utility (\TODO reference) can generate any of these file types,
+Utility \fullref{sec:Selected} can generate any of these file types,
 converting between the formats; all utilities that require coordinate file can
 use any of these formats.
 \subsection{VTF format}\label{ssec:CoorVtf} %{{{
