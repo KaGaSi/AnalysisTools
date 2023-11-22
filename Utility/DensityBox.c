@@ -23,7 +23,7 @@ size.\n\n");
   fprintf(ptr, "<width>             width of a single bin\n");
   fprintf(ptr, "<output>            output density files (automatic ending "
           "-x.rho, -y.rho, and -z.rho)\n");
-  fprintf(ptr, "<options>\n");
+  fprintf(ptr, "[options]\n");
   fprintf(ptr, "  -x <name(s)>      exclude specified molecule(s)\n");
   CommonHelp(error, n, opt);
 } //}}}

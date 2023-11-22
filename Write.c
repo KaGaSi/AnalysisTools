@@ -125,11 +125,16 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
     }
     putc('\n', fw);
     for (int i = 0; i < System.Count.BeadCoor; i++) {
-      int id = System.BeadCoor[i];
+      int id = System.BeadCoor[i], id_out;
+      if (System.Count.BeadCoor != System.Count.Bead) {
+        id_out = i;
+      } else {
+        id_out = id;
+      }
       BEAD *b = &System.Bead[id];
       if (b->InTimestep && write[id]) {
         int type = b->Type;
-        fprintf(fw, "%8d %8s %8.4f %8.4f %8.4f", id + 1,
+        fprintf(fw, "%8d %8s %8.4f %8.4f %8.4f", id_out + 1,
                 System.BeadType[type].Name,
                 b->Position.x+box->Low.x,
                 b->Position.y+box->Low.y,

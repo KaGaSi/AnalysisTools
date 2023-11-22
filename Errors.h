@@ -25,6 +25,8 @@ void PrintWarning();
 void PrintError();
 // print 'ERROR: <option> - <ERROR_MSG>' in red and yellow
 void PrintErrorOption(char *opt);
+// print 'WARNING: <option> - <ERROR_MSG>' in cyan and yellow
+void PrintWarnOption(char *opt);
 // print 'ERROR: - <ERROR_MSG>\nFile <file(s)>'
 void PrintErrorFile(char file1[], char file2[], char file3[]);
 // print 'WARNING: - <ERROR_MSG>\nFile <file(s)>'

@@ -1,7 +1,5 @@
 #include "../AnalysisTools.h"
 
-// TODO: final box size is somewhat hard
-
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
@@ -22,10 +20,11 @@ of both systems.\n\n");
   fprintf(ptr, "  -i1 <filename>    structure file for <input1>\n");
   fprintf(ptr, "  -i2 <filename>    structure file for <input2>\n");
   fprintf(ptr, "  -o <filename>     output structure file\n");
-  fprintf(ptr, "  -offset 3x<float> how much offset the second system"
-               " against to the first\n");
-  fprintf(ptr, "  --centre          centre the second system on the first"
-               "(overrides -offset option)\n");
+  fprintf(ptr, "  -offset 3x<float>|c\n"
+          "                    offset of the second system against "
+          "the first ('c' to place it in the centre of the first system)\n");
+  fprintf(ptr, "  --centre          centre the second system on the first "
+          "(overrides -offset option)\n");
   fprintf(ptr, "  -box 3x<float>    output box dimensions (orthogonal)\n");
   CommonHelp(error, n, opt);
 } //}}}
@@ -108,23 +107,8 @@ int main(int argc, char *argv[]) {
       trash, pbc_xyz = -1;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
                 &pbc_xyz, &start, &trash, &trash);
-  // // -offset option //{{{
-  // double temp[3] = {0};
-  // VECTOR offset = {0, 0, 0};
-  // // bool off = false;
-  // if (DoubleOption(argc, argv, 3, "-offset", &count, temp)) {
-  //   if (count != 3) {
-  //     strcpy(ERROR_MSG, "three numbers required");
-  //     PrintErrorOption("-offset");
-  //     exit(1);
-  //   }
-  //   // off = true;
-  //   offset.x = temp[0];
-  //   offset.y = temp[1];
-  //   offset.z = temp[2];
-  // } //}}}
   // -offset option //{{{
-  VECTOR offset = {-11111, -11111, -11111};
+  VECTOR offset = {0, 0, 0};
   for (int i = 0; i < argc; i++) {
     if (strcmp(argv[i], "-offset") == 0) {
       if (argc < (i + 3) ||
@@ -135,6 +119,15 @@ int main(int argc, char *argv[]) {
         PrintErrorOption("-offset");
         exit(1);
       }
+      if (argv[i+1][0] == 'c') {
+        offset.x = -11111;
+      }
+      if (argv[i+2][0] == 'c') {
+        offset.y = -11111;
+      }
+      if (argv[i+3][0] == 'c') {
+        offset.z = -11111;
+      }
       break;
     }
   } //}}}
@@ -143,16 +136,21 @@ int main(int argc, char *argv[]) {
   VECTOR box_opt = {0, 0, 0};
   double temp[3] = {0};
   if (DoubleOption(argc, argv, 3, "-box", &count, temp)) {
-    if (count != 3) {
-      strcpy(ERROR_MSG, "three numbers required");
-      PrintErrorOption("-box");
-      exit(1);
-    }
     box_opt.x = temp[0];
     box_opt.y = temp[1];
     box_opt.z = temp[2];
+    if (count != 3 || box_opt.x <= 0 || box_opt.y <= 0 || box_opt.z <= 0) {
+      strcpy(ERROR_MSG, "three positive numbers required");
+      PrintErrorOption("-box");
+      Help(argv[0], true, common, option);
+      exit(1);
+    }
   } //}}}
   bool centre = BoolOption(argc, argv, "--centre");
+  if (centre && box_opt.x == 0) {
+    strcpy(ERROR_MSG, "no effect when -box option is not used");
+    PrintWarnOption("--centre");
+  }
   //}}}
 
   if (!silent) {
@@ -163,6 +161,8 @@ int main(int argc, char *argv[]) {
                                coor_type_1, coor_file_1, detailed, pbc_xyz);
   SYSTEM Sys_2 = ReadStructure(struct_type_2, struct_file_2,
                                coor_type_2, coor_file_2, detailed, pbc_xyz);
+  BOX *box1 = &Sys_1.Box,
+      *box2 = &Sys_2.Box;
 
   // verbose output describing the two systems to be joined //{{{
   if (verbose) {
@@ -184,7 +184,8 @@ int main(int argc, char *argv[]) {
     PrintErrorFile(coor_file_1, "\0", "\0");
     exit(1);
   }
-  fclose(fr); //}}}
+  fclose(fr);
+  AddLow(&Sys_1); //}}}
   // read second coordinate file //{{{
   fr = OpenFile(coor_file_2, "r");
   if (!ReadTimestep(coor_type_2, fr, coor_file_2, &Sys_2, &line_count)) {
@@ -192,84 +193,82 @@ int main(int argc, char *argv[]) {
     PrintErrorFile(coor_file_2, "\0", "\0");
     exit(1);
   }
-  fclose(fr); //}}}
+  fclose(fr);
+  AddLow(&Sys_2); //}}}
 
-  // make proper offset if 'c' is used in -offset option //{{{
-  if (offset.x == -11111) {
-    double c1 = Sys_1.Box.Low.x + 0.5 * Sys_1.Box.Length.x,
-           c2 = Sys_2.Box.Low.x + 0.5 * Sys_2.Box.Length.x;
-    offset.x = c1 - c2;
+  // make proper offset vector //{{{
+  if (offset.x == -11111) { // a)
+    offset.x = (box1->Low.x + 0.5 * box1->Length.x) -
+               (box2->Low.x + 0.5 * box2->Length.x);
   }
-  if (offset.y == -11111) {
-    double c1 = Sys_1.Box.Low.y + 0.5 * Sys_1.Box.Length.y,
-           c2 = Sys_2.Box.Low.y + 0.5 * Sys_2.Box.Length.y;
-    offset.y = c1 - c2;
+  if (offset.y == -11111) { // a)
+    offset.y = (box1->Low.y + 0.5 * box1->Length.y) -
+               (box2->Low.y + 0.5 * box2->Length.y);
   }
-  if (offset.z == -11111) {
-    double c1 = Sys_1.Box.Low.z + 0.5 * Sys_1.Box.Length.z,
-           c2 = Sys_2.Box.Low.z + 0.5 * Sys_2.Box.Length.z;
-    offset.z = c1 - c2;
+  if (offset.z == -11111) { // a)
+    offset.z = (box1->Low.z + 0.5 * box1->Length.z) -
+               (box2->Low.z + 0.5 * box2->Length.z);
   } //}}}
 
+  printf("offset: %lf %lf %lf\n", offset.x, offset.y, offset.z);
   // move the beads of the second system //{{{
   for (int i = 0; i < Sys_2.Count.Bead; i++) {
     int id = Sys_2.BeadCoor[i];
     Sys_2.Bead[id].Position.x += offset.x;
     Sys_2.Bead[id].Position.y += offset.y;
     Sys_2.Bead[id].Position.z += offset.z;
-  }
-  Sys_2.Box.Length.x += offset.x;
-  Sys_2.Box.Length.y += offset.y;
-  Sys_2.Box.Length.z += offset.z;
-  CalculateBoxData(&Sys_2.Box, 0); //}}}
+  } //}}}
 
   // create output system
   SYSTEM Sys_out = CopySystem(Sys_1);
   // pick box size as the larger dimensions from the initial systems //{{{
-  BOX box_out = InitBox,
-      *box1 = &Sys_1.Box,
-      *box2 = &Sys_2.Box;
+  BOX box_out = InitBox;
+  printf("BOX 1: \n");
+  PrintBox(*box1);
+  printf("BOX 2: \n");
+  PrintBox(*box2);
   // ...assumes orthogonal box
-  // set output Length to maxima of the two systems
-  if (box1->Length.x > box2->Length.x) {
-    box_out.Length.x = box1->Length.x;
-  } else {
-    box_out.Length.x = box2->Length.x;
+  double Low1[3] = {box1->Low.x, box1->Low.y, box1->Low.z},
+         Low2[3] = {box2->Low.x, box2->Low.y, box2->Low.z},
+         Low3[3] = {0, 0, 0}, // output box lower bound
+         Length1[3] = {box1->Length.x, box1->Length.y, box1->Length.z},
+         Length2[3] = {box2->Length.x, box2->Length.y, box2->Length.z},
+         Length3[3] = {0, 0, 0}, // output box sidelengths
+         off[3] = {offset.x, offset.y, offset.z};
+         // off[3] = {-20, offset.y, offset.z};
+  for (int i = 0; i < 3; i++) {
+    if (Low1[i] < (Low2[i] + off[i])) {
+      Low3[i] = Low1[i];
+    } else {
+      Low3[i] = Low2[i] + off[i];
+    }
+    if ((Low1[i] + Length1[i]) > (Low2[i] + Length2[i] + off[i])) {
+      Length3[i] = Low1[i] + Length1[i];
+    } else {
+      Length3[i] = Low2[i] + Length2[i] + off[i];
+    }
+    Length3[i] -= Low3[i];
   }
-  if (box1->Length.y > box2->Length.y) {
-    box_out.Length.y = box1->Length.y;
-  } else {
-    box_out.Length.y = box2->Length.y;
-  }
-  if (box1->Length.z > box2->Length.z) {
-    box_out.Length.z = box1->Length.z;
-  } else {
-    box_out.Length.z = box2->Length.z;
-  }
-  // set out Low to the minima of the two systems
-  if (box1->Low.x < box2->Low.x) {
-    box_out.Low.x = box1->Low.x;
-  } else {
-    box_out.Low.x = box2->Low.x;
-  }
-  if (box1->Low.y < box2->Low.y) {
-    box_out.Low.y = box1->Low.y;
-  } else {
-    box_out.Low.y = box2->Low.y;
-  }
-  if (box1->Low.z < box2->Low.z) {
-    box_out.Low.z = box1->Low.z;
-  } else {
-    box_out.Low.z = box2->Low.z;
-  }
+  // fill output box Low & Length
+  box_out.Length.x = Length3[0];
+  box_out.Length.y = Length3[1];
+  box_out.Length.z = Length3[2];
+  box_out.Low.x = Low3[0];
+  box_out.Low.y = Low3[1];
+  box_out.Low.z = Low3[2];
   // assume orthogonal box
   box_out.alpha = 90;
   box_out.beta = 90;
   box_out.gamma = 90;
   CalculateBoxData(&box_out, 0); //}}}
+  printf("BOX OUT: \n");
+  PrintBox(box_out);
   ConcatenateSystems(&Sys_out, Sys_2, box_out);
+
   // if -box option is present, use it as box size //{{{
   if (box_opt.x != 0) {
+    printf("-box & --centre OPTS\n");
+    PrintBox(Sys_out.Box);
     // put the system into the box centre (-centre option)
     if (centre) {
       VECTOR c1;
@@ -292,10 +291,13 @@ int main(int argc, char *argv[]) {
       }
     }
     Sys_out.Box.Length = box_opt;
-    Sys_out.Box.Low.x = 0;
-    Sys_out.Box.Low.y = 0;
-    Sys_out.Box.Low.z = 0;
+    // Sys_out.Box.Low.x = 0;
+    // Sys_out.Box.Low.y = 0;
+    // Sys_out.Box.Low.z = 0;
     CalculateBoxData(&Sys_out.Box, 0);
+    PrintBox(Sys_out.Box);
+    printf("-box & --centre OPTS\n");
+    AddLow(&Sys_out);
   } //}}}
 
   // verbose output describing the output system //{{{

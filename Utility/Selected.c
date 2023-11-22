@@ -171,6 +171,7 @@ int main(int argc, char *argv[]) {
   if (coor_out_type == VCF_FILE) {
     PrintByline(coor_out_file, argc, argv);
   } else if (coor_out_type == VTF_FILE) {
+    PrintByline(coor_out_file, argc, argv);
     WriteStructure(VSF_FILE, coor_out_file, System, -1, false);
     coor_out_type = VCF_FILE;
   } else {

@@ -20,6 +20,7 @@ details.\
 
   fprintf(ptr, "Usage: %s <input> [options]\n\n", cmd);
   fprintf(ptr, "<input>             input structure file\n");
+  fprintf(ptr, "[options]\n");
   fprintf(ptr, "  -i[!] <file>      secondary structure file\n");
   fprintf(ptr, "  -c <file>         input coordinate file\n");
   fprintf(ptr, "  -o <file>         output structure file\n");

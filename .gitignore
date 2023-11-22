@@ -1,10 +1,11 @@
 test*
-build
+build*
 doc
 docs/doxygen
 docs/_build
 cscope*
-OneTime
+Extra
+CMakeLists_extra.txt
 Testing
 tags
 *aux

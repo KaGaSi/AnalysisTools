@@ -14,34 +14,33 @@ vsf/vcf files (-vtf option). In the first case, new components are placed \
 randomly (with several possible constraints), while in the second case, the \
 provided coordinates are used as is.\n\n");
   }
-  fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <in.field> <output> [options]\n\n", cmd);
+  fprintf(ptr, "Usage: %s <input> <in.field> <output> [options]\n\n", cmd);
 
-  fprintf(ptr, "      <input>        input coordinate file\n");
-  fprintf(ptr, "      <in.field>     input FIELD file with species to add\n");
-  fprintf(ptr, "      <output>       output structure and coordinate file "
+  fprintf(ptr, "<input>             input coordinate file\n");
+  fprintf(ptr, "<in.field>          input FIELD file with species to add\n");
+  fprintf(ptr, "<output>            output structure and coordinate file "
                "(format: xyz, lammpstrj, or vtf)\n");
-  fprintf(ptr, "   [general options]\n");
-  fprintf(ptr, "      -ld <float>    specify lowest distance from "
+  fprintf(ptr, "[options]\n");
+  fprintf(ptr, "  -ld <float>       specify lowest distance from "
                "chosen bead types (default: none)\n");
-  fprintf(ptr, "      -hd <float>    specify highest distance from "
+  fprintf(ptr, "  -hd <float>       specify highest distance from "
                "chosen bead types (default: none)\n");
-  fprintf(ptr, "      -bt <name(s)>  specify bead types new beads "
+  fprintf(ptr, "  -bt <name(s)>     specify bead types new beads "
                "should be far from/near to (default: none)\n");
-  fprintf(ptr, "      --bonded       use bonded beads for the distance "
+  fprintf(ptr, "  --bonded          use bonded beads for the distance "
                "condition (overwrites -bt option)\n");
-  fprintf(ptr, "      --add          add beads instead of exchanging them\n");
-  fprintf(ptr, "      --no-rotate    do not randome rotate added molecules\n");
-  fprintf(ptr, "      --head         use the first bead of a molecule for "
+  fprintf(ptr, "  --add             add beads instead of exchanging them\n");
+  fprintf(ptr, "  --no-rotate       do not randome rotate added molecules\n");
+  fprintf(ptr, "  --head            use the first bead of a molecule for "
                "constraint checks (default: molecule's geometric centre)\n");
-  fprintf(ptr, "      -cx 2×<float>  constrain x-coordinate to specified "
+  fprintf(ptr, "  -cx 2×<float>     constrain x-coordinate to specified "
                "dimensions (in fraction of output box)\n");
-  fprintf(ptr, "      -cy 2×<float>  constrain y-coordinate to specified "
+  fprintf(ptr, "  -cy 2×<float>     constrain y-coordinate to specified "
                "dimensions (in fraction of output box)\n");
-  fprintf(ptr, "      -cz 2×<float>  constrain z-coordinate to specified "
+  fprintf(ptr, "  -cz 2×<float>     constrain z-coordinate to specified "
                "dimensions (in fraction of output box)\n");
-  fprintf(ptr, "      --real         use real coordinates for -cx/-cy/-cz\n");
-  fprintf(ptr, "      -s <int>       seed for random number generator\n");
+  fprintf(ptr, "  --real            use real coordinates for -cx/-cy/-cz\n");
+  fprintf(ptr, "  -s <int>          seed for random number generator\n");
   CommonHelp(error, n, opt);
 } //}}}
 

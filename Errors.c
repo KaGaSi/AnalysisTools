@@ -16,8 +16,13 @@ void PrintError() {
 } //}}}
 // print 'ERROR <option> - <ERROR_MSG>\n' in red and yellow //{{{
 void PrintErrorOption(char *opt) {
-  fprintf(stderr, "\n  %sERROR: %s%s%s - %s%s\n", ErrRed(), ErrYellow(), opt,
-          ErrRed(), ERROR_MSG, ErrColourReset());
+  fprintf(stderr, "\n  %sERROR: %s%s%s - %s%s\n",
+          ErrRed(), ErrYellow(), opt, ErrRed(), ERROR_MSG, ErrColourReset());
+} //}}}
+// print 'WARNING <option> - <ERROR_MSG>\n' in cyan and yellow //{{{
+void PrintWarnOption(char *opt) {
+  fprintf(stderr, "\n  %sWARNING: %s%s%s - %s%s\n",
+          ErrCyan(), ErrYellow(), opt, ErrCyan(), ERROR_MSG, ErrColourReset());
 } //}}}
 // print 'ERROR - <ERROR_MSG>\nFile <file(s)>\n' //{{{
 void PrintErrorFile(char file1[], char file2[], char file3[]) {
