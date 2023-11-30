@@ -99,8 +99,8 @@ void SubtractLow(SYSTEM *System);
 bool InputCoorStruct(int argc, char *argv[], char coor[], int *coor_type,
                      char struc[], int *struc_type);
 // identify type of provided structure file (mode=0: input, mode=1 output file)
-int StructureFileType(char name[], int mode);
-int CoordinateFileType(char name[], int mode);
+int StructureFileType(char name[]);
+int CoordinateFileType(char name[]);
 int FullFileType(char name[], int mode);
 
 // create a cell-linked list

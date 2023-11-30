@@ -37,12 +37,10 @@ details.\
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 7, all = common + 7, count = 0, req_arg = 1;
+  int common = 6, all = common + 7, count = 0, req_arg = 1;
   char option[all][OPT_LENGTH];
   // common options
   strcpy(option[count++], "-st");
-  // strcpy(option[count++], "--variable"); // TODO: makes no sense, I think
-  strcpy(option[count++], "-pbc");
   strcpy(option[count++], "--detailed");
   strcpy(option[count++], "--verbose");
   strcpy(option[count++], "--silent");
@@ -56,14 +54,13 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-def");
   strcpy(option[count++], "--mass");
   strcpy(option[count++], "-ebt");
-
-  OptionCheck(argc, argv, req_arg, common, all, option); //}}}
+  OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
 
   count = 0; // count arguments
 
   char struct_file[LINE] = "";
   snprintf(struct_file, LINE, "%s", argv[++count]);
-  int struct_type = StructureFileType(struct_file, 0);
+  int struct_type = StructureFileType(struct_file);
 
   // print command to stdout
   PrintCommand(stdout, argc, argv);
@@ -84,7 +81,7 @@ int main(int argc, char *argv[]) {
     }
   }
   if (struct_file_extra[0] != '\0') {
-    struct_type_extra = StructureFileType(struct_file_extra, 0);
+    struct_type_extra = StructureFileType(struct_file_extra);
   } //}}}
   // input coordinate file (-c option) //{{{
   char coor_file[LINE] = "";
@@ -93,7 +90,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   if (coor_file[0] != '\0') {
-    coor_type = CoordinateFileType(coor_file, 0);
+    coor_type = CoordinateFileType(coor_file);
   } //}}}
   // output structure file (-o option) //{{{
   char struct_file_out[LINE] = "";
@@ -102,27 +99,13 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   if (struct_file_out[0] != '\0') {
-    struct_type_out = StructureFileType(struct_file_out, 1);
-    if (struct_type_out != VSF_FILE &&
-        struct_type_out != VTF_FILE &&
-        struct_type_out != LDATA_FILE &&
-        struct_type_out != FIELD_FILE) {
-      strcpy(ERROR_MSG, "accepted output structure file are "
-             "vsf, lammps data, or FIELD file");
-      if (snprintf(ERROR_MSG, LINE, "output file %s%s%s is not in accepted "
-                   "format (vsf, lammps data, or FIELD file)",
-                   ErrYellow(), struct_file_out, ErrRed()) < 0) {
-        ErrorSnprintf();
-      }
-      PrintError();
-      exit(1);
-    }
+    struct_type_out = StructureFileType(struct_file_out);
   } //}}}
   bool silent, verbose, detailed;
-  int timestep = 1, pbc_xyz = -1,
+  int timestep = 1,
       trash[1]; // some stuff for unused things in options
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
-                &pbc_xyz, &timestep, trash, trash);
+                &timestep, trash, trash);
   // extra bead types for data output (-ebt option)
   int extra_types = 0;
   if (IntegerOption(argc, argv, 1, "-ebt", trash, &extra_types)) {
@@ -131,7 +114,7 @@ int main(int argc, char *argv[]) {
 
   // read information from input file(s) //{{{
   SYSTEM System = ReadStructure(struct_type, struct_file,
-                                coor_type, coor_file, detailed, pbc_xyz);
+                                coor_type, coor_file, detailed);
   // use coordinate from a separate file (-c option)
   if (coor_type != -1) {
     int line_count = 0;
@@ -149,12 +132,12 @@ int main(int argc, char *argv[]) {
   }
   // print initial system information only if extra file(s) are present
   if (verbose && (struct_type_extra != -1 || coor_type != -1)) {
-    printf("\n==================================================");
+    fprintf(stdout, "\n==================================================");
     printf("\nSystem in %s", struct_file);
     if (coor_type != -1) {
       printf(" (coordinates: %s)", coor_file);
     }
-    printf("\n==================================================\n");
+    fprintf(stdout, "\n==================================================\n");
     VerboseOutput(System);
     fprintf(stdout, "Information about every bead:\n");
     PrintBead(System);
@@ -164,11 +147,11 @@ int main(int argc, char *argv[]) {
   SYSTEM Sys_extra;
   if (struct_file_extra[0] != '\0') {
     Sys_extra = ReadStructure(struct_type_extra, struct_file_extra,
-                              coor_type, coor_file, detailed, pbc_xyz);
+                              coor_type, coor_file, detailed);
     if (verbose) {
-      printf("\n==================================================");
+      fprintf(stdout, "\n==================================================");
       printf("\nSystem in extra file (%s)", struct_file_extra);
-      printf("\n==================================================\n");
+      fprintf(stdout, "\n==================================================\n");
       VerboseOutput(Sys_extra);
       fprintf(stdout, "Information about every bead:\n");
       PrintBead(Sys_extra);
@@ -212,13 +195,13 @@ int main(int argc, char *argv[]) {
   PruneSystem(&System);
 
   // print the system information //{{{
-  printf("\n==================================================");
+  fprintf(stdout, "\n==================================================");
   if (struct_type_extra != -1 || coor_type != -1) {
     printf("\nFinal system composition");
   } else {
     printf("\nSystem composition");
   }
-  printf("\n==================================================\n");
+  fprintf(stdout, "\n==================================================\n");
   VerboseOutput(System);
   if (verbose) { // -v option
     fprintf(stdout, "Information about every bead:\n");
@@ -235,7 +218,9 @@ int main(int argc, char *argv[]) {
       }
     }
     // test if coordinates are present for structure files with coordinates
-    if (struct_type_out == LDATA_FILE || struct_type_out == VTF_FILE) {
+    if (struct_type_out == LDATA_FILE ||
+        struct_type_out == LTRJ_FILE ||
+        struct_type_out == VTF_FILE) {
       bool coor = false;
       for (int i = 0; i < System.Count.BeadCoor; i++) {
         int id = System.BeadCoor[i];
@@ -248,7 +233,7 @@ int main(int argc, char *argv[]) {
         }
       }
       if (!coor) {
-        strcpy(ERROR_MSG, "no coordinates loaded for lammps/vtf data output");
+        strcpy(ERROR_MSG, "no coordinates loaded for lammps/vtf output");
         PrintWarnFile(struct_file_out, coor_file, "\0");
       }
     }

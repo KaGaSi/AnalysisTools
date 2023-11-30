@@ -18,7 +18,7 @@ conditions can be either stripped away or applied (which happens first if both \
   fprintf(ptr, "Usage: %s <input> <output> [options]\n\n", cmd);
 
   fprintf(ptr, "<input>             input coordinate file\n");
-  fprintf(ptr, "<output.vcf>        output coordinate file\n");
+  fprintf(ptr, "<output>            output coordinate file\n");
   fprintf(ptr, "[options]\n");
   fprintf(ptr, "  -bt <bead type>   bead types to exclude\n");
   fprintf(ptr, "  -mt <mol type>    molecule types to exclude\n");
@@ -36,7 +36,7 @@ conditions can be either stripped away or applied (which happens first if both \
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 10, all = common + 7, count = 0,
+  int common = 9, all = common + 7, count = 0,
       req_arg = 2;
   char option[all][OPT_LENGTH];
   // common options
@@ -44,7 +44,6 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-e");
   strcpy(option[count++], "-sk");
   strcpy(option[count++], "-i");
-  strcpy(option[count++], "-pbc");
   strcpy(option[count++], "--detailed");
   strcpy(option[count++], "--verbose");
   strcpy(option[count++], "--silent");
@@ -58,7 +57,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "--last");
   strcpy(option[count++], "-bt");
   strcpy(option[count++], "-mt");
-  OptionCheck(argc, argv, req_arg, common, all, option); //}}}
+  OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
 
   count = 0; // count mandatory arguments
 
@@ -74,13 +73,13 @@ int main(int argc, char *argv[]) {
   // <output> - output coordinate file
   char coor_out_file[LINE] = "";
   snprintf(coor_out_file, LINE, "%s", argv[++count]);
-  int coor_out_type = CoordinateFileType(coor_out_file, 1);
+  int coor_out_type = CoordinateFileType(coor_out_file);
 
   // options before reading system data //{{{
   bool silent, verbose, detailed;
-  int start = 1, end = -1, skip = 0, pbc_xyz = -1;
+  int start = 1, end = -1, skip = 0;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
-                &pbc_xyz, &start, &end, &skip);
+                &start, &end, &skip);
   bool reverse = BoolOption(argc, argv, "--reverse");
   bool join = BoolOption(argc, argv, "--join");
   bool wrap = BoolOption(argc, argv, "--wrap");
@@ -91,7 +90,7 @@ int main(int argc, char *argv[]) {
   }
 
   SYSTEM System = ReadStructure(struct_type, struct_file,
-                                coor_type, coor_file, detailed, pbc_xyz);
+                                coor_type, coor_file, detailed);
 
   // specify beads to save (possibly using -bt and/or -mt options) //{{{
   /*
@@ -228,6 +227,12 @@ int main(int argc, char *argv[]) {
       n_opt_count++;
     } //}}}
     if (use) { // read and write the timestep, if it should be saved //{{{
+      if (coor_out_type == LDATA_FILE && count_saved == 1) {
+        strcpy(ERROR_MSG, "only one timestep can be saved to lammps data file");
+        PrintWarnFile(coor_out_file, "\0", "\0");
+        count_coor--;
+        break;
+      }
       if (!ReadTimestep(coor_type, fr, coor_file, &System, &line_count)) {
         count_coor--;
         break;
@@ -243,7 +248,7 @@ int main(int argc, char *argv[]) {
         break;
       }
     } //}}}
-    // ecide whether to exit the main loop //{{{
+    // decide whether to exit the main loop //{{{
     /* break the loop if
      *    1) all timesteps in the -n option are saved (and --last isn't used)
      *    or
@@ -263,6 +268,7 @@ int main(int argc, char *argv[]) {
      * timestep to be skipped, and count_coor-- is used beore quitting the while
      * loop.
      */
+    count_coor--; // decrement as the last step should be eof
     for (int i = (count_coor); i >= 0; i--) {
       fsetpos(fr, &position[i]);
       line_count = bkp_line_count[i];

@@ -2640,13 +2640,15 @@ void PruneSystem(SYSTEM *System) {
   FillBeadTypeIndex(System);
   FillMoleculeTypeIndex(System);
   // rewrite Index_mol //{{{
-  System->Index_mol = realloc(System->Index_mol, sizeof *System->Index_mol *
-                                                     (Count->HighestResid + 1));
-  for (int i = 0; i <= Count->HighestResid; i++) {
-    System->Index_mol[i] = -1;
-  }
-  for (int i = 0; i < Count->Molecule; i++) {
-    System->Index_mol[System->Molecule[i].Index] = i;
+  if (Count->HighestResid != -1) {
+    System->Index_mol = realloc(System->Index_mol, sizeof *System->Index_mol *
+                                (Count->HighestResid + 1));
+    for (int i = 0; i <= Count->HighestResid; i++) {
+      System->Index_mol[i] = -1;
+    }
+    for (int i = 0; i < Count->Molecule; i++) {
+      System->Index_mol[System->Molecule[i].Index] = i;
+    }
   } //}}}
   // prune bond/angle/dihedral/improper types //{{{
   if (Count_old->BondType > 0) {
@@ -3342,9 +3344,9 @@ bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
     exit(1);
   }
   if (struct_file[0] != '\0') { // -i option is present
-    *struct_type = StructureFileType(struct_file, 0);
+    *struct_type = StructureFileType(struct_file);
   }
-  *coor_type = CoordinateFileType(coor_file, 0);
+  *coor_type = CoordinateFileType(coor_file);
   // set default structure file if -i option not used
   if (struct_file[0] == '\0') {
     if (*coor_type == VCF_FILE) { // use vcf file with .vsf ending
@@ -3357,12 +3359,12 @@ bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
       strncpy(struct_file, coor_file, last);
       strcat(struct_file, ".vsf");
       *struct_type = VSF_FILE;
-    } else if (*coor_type == VTF_FILE || // use also as a structure file
-               *coor_type == XYZ_FILE || //
-               *coor_type == LDATA_FILE || *coor_type == LTRJ_FILE) { //
+    } else if (*coor_type == VTF_FILE ||   //
+               *coor_type == XYZ_FILE ||   // use both as a coordinate and
+               *coor_type == LDATA_FILE || // a structure files
+               *coor_type == LTRJ_FILE) {  //
       strcpy(struct_file, coor_file);
       *struct_type = *coor_type;
-      // *coor_type = VCF_FILE;
     } else {
       strcpy(ERROR_MSG, "missing structure file; should never happen!");
       PrintError();
@@ -3372,7 +3374,12 @@ bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
   return true;
 } //}}}
 // identify type of a provided file (mode=0: input, mode=1 output file)
-int StructureFileType(char name[], int mode) { //{{{
+int StructureFileType(char name[]) { //{{{
+  // a) check for FIELD file
+  if (strcasecmp(name, "FIELD") == 0) {
+    return FIELD_FILE;
+  }
+  // b) check for extension
   // copy the name as it's destroyed by strrchr()
   char orig[LINE];
   snprintf(orig, LINE, "%s", name);
@@ -3398,45 +3405,20 @@ int StructureFileType(char name[], int mode) { //{{{
     case 1:
       return VTF_FILE;
     case 2:
-      if (mode == 1) {
-        strcpy(ERROR_MSG, "xyz format cannot be output structure file");
-        PrintErrorFile(orig, "\0", "\0");
-        exit(1);
-      }
       return XYZ_FILE;
     case 3:
-      if (mode == 1) {
-        strcpy(ERROR_MSG, "lammpstrj format cannot be output structure file");
-        PrintErrorFile(orig, "\0", "\0");
-        exit(1);
-      }
       return LTRJ_FILE;
     case 4:
       return LDATA_FILE;
     case 5:
       return FIELD_FILE;
-  }
-  // check for FIELD file
-  if (strcasecmp(orig, "FIELD") == 0) {
-    return FIELD_FILE;
-  }
-  // check for lammpstrj file with 'wrong' extension (only if input file)
-  if (mode == 0) {
-    FILE *fr = OpenFile(orig, "r");
-    if (!ReadAndSplitLine(fr, 1, " \t\n")) {
-      strcpy(ERROR_MSG, "empty structure file");
-      PrintErrorFile(orig, "\0", "\0");
+    default:
+      strcpy(ERROR_MSG, "Unknown structure file type");
+      PrintErrorFile(name, "\0", "\0");
       exit(1);
-    }
-    fclose(fr);
-    if (strcmp(split[0], "ITEM:") == 0) {
-      return LTRJ_FILE;
-    }
   }
-  // assume the file is lammps data file with 'wrong' extension
-  return LDATA_FILE;
 } //}}}
-int CoordinateFileType(char name[], int mode) { //{{{
+int CoordinateFileType(char name[]) { //{{{
   // copy the name as it's destroyed by strrchr()
   char orig[LINE];
   snprintf(orig, LINE, "%s", name);
@@ -3456,41 +3438,21 @@ int CoordinateFileType(char name[], int mode) { //{{{
     }
   }
   switch (ext) {
-  case 0:
-    return VCF_FILE;
-  case 1:
-    return VTF_FILE;
-  case 2:
-    return XYZ_FILE;
-  case 3:
-    return LTRJ_FILE;
-  case 4:
-    if (mode == 0) {
-      return LDATA_FILE;
-    } else {
-      strcpy(ERROR_MSG, "lammps data file cannot be output coordinate file");
-      PrintErrorFile(orig, "\0", "\0");
-      exit(1);
-    }
-  }
-  if (mode == 0) {
-    // check for lammpstrj file with 'wrong' extension (only if input file)
-    FILE *fr = OpenFile(orig, "r");
-    if (!ReadAndSplitLine(fr, 1, " \t\n")) {
-      strcpy(ERROR_MSG, "empty input coordinate file");
-      PrintErrorFile(orig, "\0", "\0");
-      exit(1);
-    }
-    fclose(fr);
-    if (strcmp(split[0], "ITEM:") == 0) {
+    case 0:
+      return VCF_FILE;
+    case 1:
+      return VTF_FILE;
+    case 2:
+      return XYZ_FILE;
+    case 3:
       return LTRJ_FILE;
-    }
-    // assume the file is lammps data file with 'wrong' extension
-    // only as input file; output coordinate file cannot be lammps data
-    return LDATA_FILE;
+    case 4:
+      return LDATA_FILE;
+    default:
+      strcpy(ERROR_MSG, "Unknown coordinate file type");
+      PrintErrorFile(name, "\0", "\0");
+      exit(1);
   }
-  // assume the file is lammpstrj file with 'wrong' extension
-  return LTRJ_FILE;
 } //}}}
 // check for combined structer/coordinate file (ltrj, xyz, or vtf) //{{{
 int FullFileType(char name[], int mode) {
@@ -3654,7 +3616,9 @@ void PrintCount(COUNT Count) { //{{{
   }
   fprintf(stdout, "  Molecule Types: %d\n", Count.MoleculeType);
   fprintf(stdout, "  Molecules:      %d\n", Count.Molecule);
-  fprintf(stdout, "  HighestResid:   %d", Count.HighestResid);
+  if (Count.Molecule > 0) {
+    fprintf(stdout, "  HighestResid:   %d", Count.HighestResid);
+  }
   if (Count.BondType > 0) {
     fprintf(stdout, "\n  Bond Types:     %d", Count.BondType);
   }

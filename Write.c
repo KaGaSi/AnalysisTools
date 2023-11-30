@@ -346,26 +346,16 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
   putc('\n', fw); //}}}
   // print bead type masses //{{{
   fprintf(fw, "Masses\n\n");
-  bool print = false;
   for (int i = 0; i < mass_types; i++) {
     BEADTYPE *bt = &System.BeadType[bt_masstype_to_old[i]];
-    if (bt->Mass != MASS) {
-      print = true;
-      break;
+    if (bt->Mass == MASS) {
+      fprintf(fw, "%5d ??? # %s\n", i + 1, bt->Name);
+    } else {
+      fprintf(fw, "%5d %lf # %s\n", i + 1, bt->Mass, bt->Name);
     }
   }
-  if (print) {
-    for (int i = 0; i < mass_types; i++) {
-      BEADTYPE *bt = &System.BeadType[bt_masstype_to_old[i]];
-      if (bt->Mass == MASS) {
-        fprintf(fw, "%5d ??? # %s\n", i + 1, bt->Name);
-      } else {
-        fprintf(fw, "%5d %lf # %s\n", i + 1, bt->Mass, bt->Name);
-      }
-    }
-    // add an extra bead type - just in case srp is required
-    fprintf(fw, "%5d %lf # extra type\n", mass_types + 1, 1.0);
-  } //}}}
+  // add an extra bead type - just in case srp is required
+  fprintf(fw, "%5d %lf # extra type\n", mass_types + 1, 1.0); //}}}
   // print various coeffs //{{{
   if (Count->BondType > 0) {
     fprintf(fw, "\nBond Coeffs\n\n");
@@ -713,6 +703,7 @@ void WriteTimestep(int coor_type, char file[], SYSTEM System,
       LtrjWriteCoor(fw, count_step, write, System);
       break;
     case LDATA_FILE:
+      WriteLmpData(System, file, false);
       break;
     default:
       snprintf(ERROR_MSG, LINE, "no action specified for output coor_type %s%d",
@@ -725,6 +716,9 @@ void WriteTimestep(int coor_type, char file[], SYSTEM System,
 // Create a structure file based on the file type (including dl_meso CONFIG) //{{{
 void WriteStructure(int struct_type, char file[], SYSTEM System,
                     int vsf_def_type, bool lmp_mass) {
+  // ensure the output file is new
+  FILE *fw = OpenFile(file, "w");
+  fclose(fw);
   switch (struct_type) {
     case VSF_FILE:
     case VTF_FILE:
@@ -738,6 +732,23 @@ void WriteStructure(int struct_type, char file[], SYSTEM System,
       break;
     case FIELD_FILE:
       WriteField(System, file);
+      break;
+    case LTRJ_FILE:
+      if (System.Count.BeadCoor == 0) {
+        strcpy(ERROR_MSG, "no structure data to save into lammpstrj file "
+               "(no coordinates loaded)");
+        PrintError();
+        exit(1);
+      }
+      bool *write = calloc(System.Count.Bead, sizeof *write);
+      for (int i = 0; i < System.Count.BeadCoor; i++) {
+        int id = System.BeadCoor[i];
+        write[id] = true;
+      }
+      fw = OpenFile(file, "w");
+      LtrjWriteCoor(fw, 0, write, System);
+      fclose(fw);
+      free(write);
       break;
     default:
       strcpy(ERROR_MSG, "Inexistent output struct_type; should never happen!");

@@ -192,7 +192,7 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 10, all = common + 3, count = 0,
+  int common = 9, all = common + 3, count = 0,
       req_arg = 3;
   char option[all][OPT_LENGTH];
   // common options
@@ -200,7 +200,6 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-e");
   strcpy(option[count++], "-sk");
   strcpy(option[count++], "-i");
-  strcpy(option[count++], "-pbc");
   strcpy(option[count++], "--detailed");
   strcpy(option[count++], "--verbose");
   strcpy(option[count++], "--silent");
@@ -210,7 +209,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-d");
   strcpy(option[count++], "-c");
   strcpy(option[count++], "-j");
-  OptionCheck(argc, argv, req_arg, common, all, option); //}}}
+  OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
 
   count = 0; // count mandatory arguments
 
@@ -237,9 +236,9 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data
   bool silent, verbose, detailed;
-  int start = 1, end = -1, skip = 0, pbc_xyz = -1;
+  int start = 1, end = -1, skip = 0;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
-                &pbc_xyz, &start, &end, &skip);
+                &start, &end, &skip);
 
   // -j option - save coordinates of joined aggregates //{{{
   char join_file[LINE];
@@ -260,7 +259,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   SYSTEM System = ReadStructure(struct_type, struct_file,
-                                coor_type, coor_file, detailed, pbc_xyz);
+                                coor_type, coor_file, detailed);
   COUNT *Count = &System.Count;
 
   // <bead names> - names of bead types to use for closeness calculation //{{{

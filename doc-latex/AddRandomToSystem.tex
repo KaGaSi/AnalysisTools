@@ -1,101 +1,176 @@
 \section{AddRandomToSystem} \label{sec:AddRandomToSystem}
 
-This utility takes an existing system and adds new beads read from a \field into
-it, placing them either completely randomly or according to supplied
+This utility takes an existing system and adds new beads (read from a \field
+file) into it, placing them either completely randomly or according to supplied
 constraints.
 
 There are two types of constraints which can be combined: place new beads (i)
 specified distance from other beads or (ii) in a specified interval in x-, y-,
 and/or z-axis directions. In (i), options \tt{-ld} and/or \tt{-hd} specify the
-distance; if present, these must be accompanied by \tt{-bt} option.  Then, the
-new beads are placed at least \tt{-ld <float>} and at most \tt{-hd <float>}
-distance from beads specified by the \tt{-bt} option. In (ii), options \tt{-cx},
-\tt{-cy}, and \tt{-cz} basically change the box size for the added beads; for
-example, \TODO{real vs. relative units} \tt{-cx 5 9} would generate x
-coordinates only in the interval $\langle5,9)$. All these options can be
-combined, but note that \tt{AddRandomToSystem} does not perform any sanity
-checks, that is, if any combination of the provided options is impossible to
-achieve, the utility will run forever.
+distance; if present, these must be accompanied by \tt{-bt} or \tt{--bonded}
+option. The new beads are then placed at least \tt{-ld <float>} and at most
+\tt{-hd <float>} distance from beads specified by the \tt{-bt} option or from
+any bonded bead (\tt{--bonded} option).
+
+In (ii), options \tt{-cx}, \tt{-cy}, and \tt{-cz} basically change the box size
+for the added beads. By default, this constraint is specified in units relative
+to the box dimensions (i.e., allowed values go from 0 to 1); use the \tt{--real}
+option for absolute units. For example, \tt{-cx 0.5 1} would generate x
+coordinates between 50\% and 100\% of the box's x sidelength. All these options
+can be combined, but note that \tt{AddRandomToSystem} does not perform any
+sanity checks; that is, if any combination of the provided options is impossible
+to achieve, the utility will run forever. See \cref{fig:AddRandomToSystem} for
+schematic examples and the \tt{Examples/AddRandomToSystem} folder for other
+examples.
+
+\begin{figure}
+  \centering
+  \begin{subfigure}{0.19\textwidth}
+    \includegraphics[width=0.95\textwidth]{AddRandomToSystem-A-ld.jpg}
+    \caption{}
+  \end{subfigure}
+  \begin{subfigure}{0.19\textwidth}
+    \includegraphics[width=0.95\textwidth]{AddRandomToSystem-A-hd.jpg}
+    \caption{}
+  \end{subfigure}
+  \begin{subfigure}{0.19\textwidth}
+    \includegraphics[width=0.95\textwidth]{AddRandomToSystem-A-ld_hd.jpg}
+    \caption{}
+  \end{subfigure}
+  \begin{subfigure}{0.19\textwidth}
+    \includegraphics[width=0.95\textwidth]{AddRandomToSystem-A-ld_hd_cx.jpg}
+    \caption{}
+  \end{subfigure}
+  \begin{subfigure}{0.19\textwidth}
+    \includegraphics[width=0.95\textwidth]{AddRandomToSystem-A-ld_hd_cx_b.jpg}
+    \caption{}
+  \end{subfigure}
+  \caption{
+    Examples of distance checks: (a) \tt{-ld 3 -bt A B} specifies that any added
+    bead (green) is at least at a distance of three from any \tt{A} or \tt{B}
+    bead (red and blue, respectively); (b) \tt{-hd 4 -bt A B} specifies added
+    beads are at most four units away from any \tt{A} or \tt{B} bead; (c)
+    combines (a) and (b) into \tt{-ld 3 -hd 4 -bt A B}, that is, new beads are
+    added at a distance between three and for from any \tt{A} or \tt{B} bead;
+    (d) combines (c) with axis constraint into \tt{-ld 3 -hd 4 -cx 0.5 1 -bt A
+    B} which constrains the x-coordinate of new beads between 50\% and 100\% of
+    the box's x sidelength; (e) adds \tt{-b 30 25 25} to the options in (d),
+    enlarging the output box.
+  }
+  \label{fig:AddRandomToSystem}
+\end{figure}
+
+\begin{figure}
+  \renewcommand\tabularxcolumn[1]{m{#1}} % to vertically centre figures
+  \begin{tabularx}{\linewidth}{*{5}{>{\centering\arraybackslash}X}}
+    \includegraphics[width=0.19\textwidth]{AddRandomToSystem-A-ld.jpg} &
+    \includegraphics[width=0.19\textwidth]{AddRandomToSystem-A-hd.jpg} &
+    \includegraphics[width=0.19\textwidth]{AddRandomToSystem-A-ld_hd.jpg} &
+    \includegraphics[width=0.19\textwidth]{AddRandomToSystem-A-ld_hd_cx.jpg} &
+    \includegraphics[width=0.19\textwidth]{AddRandomToSystem-A-ld_hd_cx_b.jpg}\\
+    \begin{subfigure}{0.19\textwidth}
+      \caption{}
+    \end{subfigure} &
+    \begin{subfigure}{0.19\textwidth}
+      \caption{}
+    \end{subfigure} &
+    \begin{subfigure}{0.19\textwidth}
+      \caption{}
+    \end{subfigure} &
+    \begin{subfigure}{0.19\textwidth}
+      \caption{}
+    \end{subfigure} &
+    \begin{subfigure}{0.19\textwidth}
+      \caption{}
+    \end{subfigure} \\
+  \end{tabularx}
+  \caption{
+    Examples of distance checks: (a) \tt{-ld 3 -bt A B} specifies that any added
+    bead (green) is at least at a distance of three from any \tt{A} or \tt{B}
+    bead (red and blue, respectively); (b) \tt{-hd 4 -bt A B} specifies added
+    beads are at most four units away from any \tt{A} or \tt{B} bead; (c)
+    combines (a) and (b) into \tt{-ld 3 -hd 4 -bt A B}, that is, new beads are
+    added at a distance between three and for from any \tt{A} or \tt{B} bead;
+    (d) combines (c) with axis constraint into \tt{-ld 3 -hd 4 -cx 0.5 1 -bt A
+    B} which constrains the x-coordinate of new beads between 50\% and 100\% of
+    the box's x sidelength; (e) adds \tt{-b 30 20 25} to the options in (d),
+    changing the box size.
+  }
+  \label{fig:xAddRandomToSystem}
+\end{figure}
 
 For added molecules, either the molecule's geometric centre (default behaviour)
-or its first bead (\tt{--head} option) obey the constraints. The coordinates of
+or its first bead (\tt{--head} option) obey these constraints. The coordinates of
 the remaining beads in the molecule are governed by the coordinates in the
 \tt{FIELD} file. Therefore, not all the molecular beads necessarily obey the
 constraining rules. Molecules are added with a random orientation unless the
 \tt{--no-rotate} switch is used.
 
-\TODO{I guess that's not true? All added beads are at the end, no?
-The new unbonded beads appear in the resulting files after
-the unbonded beads from the original system (but before any bonded beads).
-If molecules are added, \tt{AddRandomToSystem}} places them at the end.
-
-\TODO{Not true anymore---the opposite is true, in fact (\tt{--add} switch)!
-By default, the new beads are added to the system, increasing the total
-number of beads. However, if \tt{--switch} is used, the new beads
-replace beads in the original system. The replaced beads are either neutral
-beads with the lowest indices (as per ordering in the provided structure
-file) or beads of the type specified using \tt{-xb} option. In both
-cases, the beads to be replaced must be unbonded.}
+By default, the new beads are exchanged for beads in the original system; what
+bead type to exchange is either the most numerous one (default behaviour) or
+provided via the \tt{-xb} option. Note that the utility doesn't check whether
+exchanged beads are in a molecule, so a bonded bead may be exchanged, leaving
+only part of the molecule in the new system. If beads are to be added into the
+system rather than switched, use the \tt{--add} option.
 
 The size of the new simulation box can be changed using the \tt{-b} option.
-There are no constraints on the size of the cuboid box; if the new box is small,
-not all beads from the original system are necesserily inside the box (although
-the added once always are). \TODO{Does \tt{--centre} makes sense? I don't think
-so. Or do I? What about using a pure bilayer box, ensuring the bilayer is in the
-box centre? The origin of the new box coincides with the origin of the original
-box unless \tt{--centre} option is used; in that case, the centres of the two
-boxes coincide.}
+Any constraints for placing beads are applied to this box rather than the one in
+the original system. The new system is placed so the centres of the original box
+and the new one coincide. Note that in the end, all coordinates are wrapped into
+the output box (i.e., periodic boundary conditions are applied).
 
 Several examples of using the utility are provided in the
 \tt{Examples/AddRandomToSystem} directory.
 
 \vspace{1em}
 \noindent
-Usage: \tt{AddToSystem <input.vcf> <out.vsf> <out.vcf> <options>}
+Usage: \tt{AddToSystem <input.vcf> <out.vsf> <out.vcf> [options]}
 \noindent
 \begin{longtable}{p{0.235\textwidth}p{0.709\textwidth}}
   \toprule
   \multicolumn{2}{l}{Mandatory arguments} \\
   \midrule
-  \tt{<input.vcf>} & input coordinate file (either \tt{vcf} or
-    \tt{vtf} format) \\
-  \tt{<out.vsf>} & output \tt{vsf} structure file for the new
-    system \\
-  \tt{<out.vcf>} & output \tt{vcf} coordinate file for the new
-    system \\
+  \tt{<input>}    & input coordinate file \\
+  \tt{<in.field>} & input \field structure file for the new system \\
+  \tt{<output>}   & output coordinate file for the new system \\
   \toprule
-  \multicolumn{2}{l}{Non-standard options} \\
+  \multicolumn{2}{l}{options} \\
   \midrule
-  \tt{-st <int>} & \tt{<input.vcf>} timestep to add new beads
-    to (default: 1) \\
-  \tt{-xyz <name>} & also save coordinates to \tt{xyz} file \\
-  \tt{--switch} & replace original beads instead of increasing the
-    total number of beads \\
-  \tt{-b <x> <y> <z>} & side lengths of the new simulation box \\
-  \tt{--centre} & place the original simulation box in the middle of
-    the new one \\
+  \tt{-o <file>}           & \TODO{output structure file; implement} \\
+  \tt{-s <int>}            & seed for random number generator\\
+  \tt{--add}               & replace original beads instead of increasing the
+                             total number of beads \\
+  \tt{-b <x> <y> <z>}      & side lengths of the new simulation box
+                             \TODO{re-implement; probably} \\
+  \tt{--centre}            & place the original simulation box in the middle of
+                             the new one
+                             \TODO{re-implement; probably} \\
+  \tt{--no-rotate}         & do not randomly rotate added molecules \\
+  \tt{-ld <float>}         & lowest distance from beads specified by
+                             \tt{-bt} option \\
+  \tt{-hd <float>}         & highest distance from beads specified by
+                             \tt{-bt} option \\
+  \tt{-bt <bead name(s)>}  & bead types to use in conjunction with
+                             \tt{-ld} and/or \tt{-hd} options \\
+  \tt{--bonded}            & use bonded beads for the distance condition 
+                             (overwrites \tt{-bt} option) \\
+  \tt{--head}              & use molecule's first bead for distance check
+                             (default: molecule's geometric centre) \\
+  \tt{-cx 2<float>}        & constrain x coordinate to interval
+                             $\langle num, num2)$ (units relative to box size)\\
+  \tt{-cy 2<float>}        & constrain y coordinate to interval
+                             $\langle num, num2)$ (units relative to box size)\\
+  \tt{-cz 2<float>}        & constrain z coordinate to interval
+                             $\langle num, num2)$ (units relative to box size)\\
+  \tt{--real}              & use \enquote{real} units instead of relative ones
+                             for \tt{-cx}/\tt{-cy}/\tt{-cz} options\\
   \midrule
-  \multicolumn{2}{c}{Random placement} \\
-  \midrule
-  \tt{-f <name>} & \tt{FIELD} file specifying additions to the
-    system (default: \tt{FIELD}) \\
-  \tt{-ld <float>} & lowest distance from beads specified by
-    \tt{-bt} option \\
-  \tt{-hd <float>} & highest distance from beads specified by
-    \tt{-bt} option \\
-  \tt{-bt <bead names>} & bead types to use in conjunction with
-    \tt{-ld} and/or \tt{-hd} options \\
-  \tt{-cx <num> <num2>} & constrain x coordinate to interval
-    $\langle num, num2)$ \\
-  \tt{-cy <num> <num2>} & constrain y coordinate to interval
-    $\langle num, num2)$ \\
-  \tt{-cz <num> <num2>} & constrain z coordinate to interval
-    $\langle num, num2)$ \\
-  \tt{--gc} & use molecule's geometric centre for distance check \\
-  \midrule
-  \multicolumn{2}{c}{Provided coordinates} \\
-  \midrule
-  \tt{-vtf <vsf> <vcf>} & add ready-made system from \tt{vtf} files
-    instead of randomly placing beads read from the \tt{FIELD} file \\
+  \multicolumn{2}{p{0.948\textwidth}}{\tt{-i},
+                                      \tt{-st},
+                                      \tt{--detailed},
+                                      \tt{--verbose},
+                                      \tt{--silent},
+                                      \tt{--help},
+                                      \tt{--version}}\\
   \bottomrule
 \end{longtable}

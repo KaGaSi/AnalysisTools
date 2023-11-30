@@ -42,6 +42,7 @@
 % to label subfigures
 % \usepackage[labelformat=empty]{subcaption}
 \usepackage{subcaption}
+\usepackage{tabularx}
 % % compress citations into [a-z]
 % \usepackage{cite}
 % list customization
@@ -72,6 +73,9 @@
 % \DefineBibliographyStrings{english}{%
 %   references = {\normalsize References},
 % }
+
+\Crefname{figure}{Figure}{Figures}
+\crefname{figure}{figure}{figures}
 
 % highlighting color (soul package) %{{{
 \definecolor{lightgray}{rgb}{0.9,0.9,0.9}
@@ -172,6 +176,8 @@
 % yellow highlighting
 \DeclareRobustCommand{\hly}[1]{{\sethlcolor{yellow}\hl{#1}}}
 \soulregister\tt7 % makes it possible to use \tt within hl
+\soulregister\vsf7 % makes it possible to use \tt within hl
+\soulregister\vcf7 % makes it possible to use \tt within hl
 \newcommand{\TODO}[1]{\hly{#1}}
 \newcommand{\hltt}[1]{\tt{\hl{#1}}} % \hl - soul package
 \newcommand{\Ret}{\textbf{return }}

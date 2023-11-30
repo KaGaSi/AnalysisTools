@@ -1,107 +1,81 @@
 \section{JoinSystems} \label{sec:JoinSystems}
 
-This utility takes an existing system and adds new beads read from a \field into
-it, placing them either completely randomly or according to supplied
-constraints.
+This utility takes two existing systems and joins them into a single system that
+contains all beads from the two coordinate files.
 
-There are two types of constraints which can be combined: place new beads (i)
-specified distance from other beads or (ii) in a specified interval in x-, y-,
-and/or z-axi directions. In (i), options \tt{-ld} and/or \tt{-hd} specify the
-distance; if present, these must be accompanied by \tt{-bt} option.  Then, the
-new beads are placed at least \tt{-ld <float>} and at most \tt{-hd <float>}
-distance from beads specified by the \tt{-bt} option. In (ii), options \tt{-cx},
-\tt{-cy}, and \tt{-cz} basically change the box size for the added beads; for
-example, (\TODO real vs. relative units) \tt{-cx 5 9} would generate x
-coordinates only in the interval $\langle5,9)$. All these options can be
-combined, but note that \tt{AddRandomToSystem} does not perform any sanity
-checks, that is, if any combination of the provided options is impossible to
-achieve, the utility will run forever.
+The second system can be offset against the first one (\tt{-off} option). In
+each direction, all beads in the second system can be moved by specified
+distance (only positive numbers are allowed) or moved so that the centre of that
+box side is in the centre of the first box's side (use \tt{c} instead of a
+number as an argument). The final box size is defined as the smallest box that
+encompasses the two original boxes after the second one is moved. However, the
+final box size can be redefined via the \tt{-b} option; the centre of the new
+box is aligned with the centre of the original \enquote{smallest encompassing
+box}. Note that no check is done whether the bead coordinates are within the new
+box.
 
 \input{JoinSystems-tikz}
 
-% \input{JoinSystems-tikz-a}
-% \input{JoinSystems-tikz-b}
-% \input{JoinSystems-tikz-c}
+\Cref{fig:JoinSystems} illustrates the above-described behaviour (the red and
+blue lines and balls represent the two original systems while the green lines
+and transparent balls represent the new system). \Cref{fig:JoinSystems-b} shows
+the simplest case when two systems are put into one larger system. In
+\cref{fig:JoinSystems-c}, the final box size is also redefined; the positions of
+the beads is unchanged, only the box size changes. Note that the absolute bead
+coordinates remain unchanged only when the output coordinate file supports
+defining the bounds of the simulation box; e.g., in \ltrj file, the lower and
+upper bounds of the box are defined while for \vtf file, only the sidelengths of
+the box are specified. Should \vtf be used as the output file, the saved
+coordinates would therefore move so the box's origin is in the coordinate
+beginning.
 
-For added molecules, either the molecule's first bead (\TODO whichs default?
-default behaviour) or its geometric centre (\tt{--gc} option\TODO{implement})
-obey the constraints. The coordinates of the remaining beads in the molecule are
-governed by the coordinates in the \tt{FIELD} file. Therefore, not all the
-molecular beads necessarily obey the constraining rules. Molecules are added
-with a random orientation unless the \tt{--no-rotate} switch is used.
+Using the \tt{-off c c c} option in \cref{fig:JoinSystems-d} moves the second
+system (the blue one), so that the centre of its box (in all three dimensions)
+lies on top of the centre of the first system's box (see the arrow in the
+schematic in \cref{fig:JoinSystems-d}); coordinates of only the second system
+are adjusted, changing the relative coordinates of beads from the two original
+systems. If the \tt{-off} and \tt{-b} options are combined (as in
+\cref{fig:JoinSystems-e}), the system created via the \tt{-off} option is then
+assigned a new box size.
 
-\TODO I guess that's not true? All added beads are at the end, no?
-The new unbonded beads appear in the resulting files after
-the unbonded beads from the original system (but before any bonded beads).
-If molecules are added, \tt{AddRandomToSystem} places them at the end.
+These examples are also provided in the \tt{Examples/JoinSystems} directory.
 
-\TODO Not true anymore---the opposite is true, in fact (\tt{--add} switch)!
-By default, the new beads are added to the system, increasing the total
-number of beads. However, if \tt{--switch} is used, the new beads
-replace beads in the original system. The replaced beads are either neutral
-beads with the lowest indices (as per ordering in the provided structure
-file) or beads of the type specified using \tt{-xb} option. In both
-cases, the beads to be replaced must be unbonded.
-
-The size of the new simulation box can be changed using the \tt{-b} option.
-There are no constraints on the size of the cuboid box; if the new box is small,
-not all beads from the original system are necesserily inside the box (although
-the added once always are). (\TODO does \tt{--centre} makes sense? I don't think
-so. Or do I? What about using a pure bilayer box, ensuring the bilayer is in the
-box centre? The origin of the new box coincides with the origin of the original
-box unless \tt{--centre} option is used; in that case, the centres of the two
-boxes coincide.)
-
-Several examples of using the utility are provided in the
-\tt{Examples/AddRandomToSystem} directory.
+The output file can be any file that supports coordinates, and an extra
+structure file can be created via the \tt{-o} option. Note that if an output
+\vcf coordinate file is used, a \vsf structure file (with the same name except
+for the extension) is also created.
 
 \vspace{1em}
 \noindent
-Usage: \tt{AddToSystem <input.vcf> <out.vsf> <out.vcf> <options>}
+Usage: \tt{JoinSystems <input1> <input2> <output> [options]}
 \noindent
-\begin{longtable}{p{0.235\textwidth}p{0.709\textwidth}}
+\begin{longtable}{p{0.319\textwidth}p{0.625\textwidth}}
   \toprule
   \multicolumn{2}{l}{Mandatory arguments} \\
   \midrule
-  \tt{<input.vcf>} & input coordinate file (either \tt{vcf} or
-    \tt{vtf} format) \\
-  \tt{<out.vsf>} & output \tt{vsf} structure file for the new
-    system \\
-  \tt{<out.vcf>} & output \tt{vcf} coordinate file for the new
-    system \\
+  \tt{<input1>} & first input coordinate file \\
+  \tt{<input2>} & second input coordinate file \\
+  \tt{<output>} & output file with the new system \\
   \toprule
-  \multicolumn{2}{l}{Non-standard options} \\
+  \multicolumn{2}{l}{Options} \\
   \midrule
-  \tt{-st <int>} & \tt{<input.vcf>} timestep to add new beads
-    to (default: 1) \\
-  \tt{-xyz <name>} & also save coordinates to \tt{xyz} file \\
-  \tt{--switch} & replace original beads instead of increasing the
-    total number of beads \\
+  \tt{-off <x>|c <y>|c <z>|c} & offset of the second system against the first
+                                (\tt{c} to place it in the middle of the first
+                                system) \\
   \tt{-b <x> <y> <z>} & side lengths of the new simulation box \\
-  \tt{--centre} & place the original simulation box in the middle of
-    the new one \\
+  \tt{-o <file>} & optional output structure file \\
   \midrule
-  \multicolumn{2}{c}{Random placement} \\
+  \multicolumn{2}{l}{Other options (see the beginning of \cref{chap:Utils})}\\
+  \multicolumn{2}{p{0.948\textwidth}}{As two input coordinate/structure files
+    are needed, some options have 1 or 2 appended to specify which file they
+    correspond to}\\
   \midrule
-  \tt{-f <name>} & \tt{FIELD} file specifying additions to the
-    system (default: \tt{FIELD}) \\
-  \tt{-ld <float>} & lowest distance from beads specified by
-    \tt{-bt} option \\
-  \tt{-hd <float>} & highest distance from beads specified by
-    \tt{-bt} option \\
-  \tt{-bt <bead names>} & bead types to use in conjunction with
-    \tt{-ld} and/or \tt{-hd} options \\
-  \tt{-cx <num> <num2>} & constrain x coordinate to interval
-    $\langle num, num2)$ \\
-  \tt{-cy <num> <num2>} & constrain y coordinate to interval
-    $\langle num, num2)$ \\
-  \tt{-cz <num> <num2>} & constrain z coordinate to interval
-    $\langle num, num2)$ \\
-  \tt{--gc} & use molecule's geometric centre for distance check \\
-  \midrule
-  \multicolumn{2}{c}{Provided coordinates} \\
-  \midrule
-  \tt{-vtf <vsf> <vcf>} & add ready-made system from \tt{vtf} files
-    instead of randomly placing beads read from the \tt{FIELD} file \\
+  \multicolumn{2}{p{0.948\textwidth}}{\tt{-i1}/\tt{-i2},
+                                      \tt{-st1}/\tt{-st2},
+                                      \tt{--detailed1}/\tt{--detailed2},
+                                      \tt{--verbose},
+                                      \tt{--silent},
+                                      \tt{--help},
+                                      \tt{--version}}\\
   \bottomrule
 \end{longtable}

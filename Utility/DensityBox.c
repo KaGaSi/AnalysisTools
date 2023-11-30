@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "--version");
   // extra options
   strcpy(option[count++], "-x");
-  OptionCheck(argc, argv, req_arg, common, all, option);
+  OptionCheck(argc, argv, count, req_arg, common, all, option);
   //}}}
 
   count = 0; // count mandatory arguments
@@ -77,16 +77,16 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data
   bool silent, verbose, detailed;
-  int start = 1, end = -1, skip = 0, pbc_xyz = -1;
+  int start = 1, end = -1, skip = 0;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
-                &pbc_xyz, &start, &end, &skip);
+                &start, &end, &skip);
 
   if (!silent) {
     PrintCommand(stdout, argc, argv);
   }
 
   SYSTEM System = ReadStructure(struct_type, struct_file,
-                                coor_type, coor_file, detailed, pbc_xyz);
+                                coor_type, coor_file, detailed);
   COUNT *Count = &System.Count;
   BOX *box = &System.Box;
 

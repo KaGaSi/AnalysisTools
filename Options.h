@@ -15,15 +15,15 @@
 // print help - function body in each utility
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]);
 // version/help printing and initial check of provided options
-int OptionCheck(int argc, char *argv[], int req, int common,
-                int all, char opt[all][OPT_LENGTH]);
+int OptionCheck(int argc, char *argv[], int auto_c, int req,
+                int common, int all, char opt[all][OPT_LENGTH]);
 // print version/help and exit
 void HelpVersionOption(int argc, char *argv[]);
 // print help for common options
 void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]);
 // detect options common for most utilities
 void CommonOptions(int argc, char *argv[], int length, bool *verbose,
-                   bool *silent, bool *detailed, int *pbc_xyz,
+                   bool *silent, bool *detailed,
                    int *start, int *end, int *skip);
 
 // exclude specified molecule names (-x <mol name(s)>)
@@ -49,6 +49,7 @@ bool DoubleOption(int argc, char *argv[], int max,
                   char opt[], int *count, double values[max]);
 bool DoubleOption1(int argc, char *argv[], char opt[], double *value);
 bool DoubleOption2(int argc, char *argv[], char opt[], double value[2]);
+bool DoubleOption3(int argc, char *argv[], char opt[], double value[3]);
 // general option with filename and integer(s) arguments
 bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
                        int *values, int *count, char file[]);

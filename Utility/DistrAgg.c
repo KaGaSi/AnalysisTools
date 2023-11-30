@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-x");
   strcpy(option[count++], "-only");
   strcpy(option[count++], "-c");
-  OptionCheck(argc, argv, req_arg, common, all, option); //}}}
+  OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
 
   // commad line arguments before reading the structure //{{{
   count = 0; // count mandatory arguments
@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
   char struct_file[LINE] = "";
   int struct_type = 0;
   snprintf(struct_file, LINE, "%s", argv[++count]);
-  struct_type = StructureFileType(struct_file, 0);
+  struct_type = StructureFileType(struct_file);
   // <in.agg> - input aggregate file
   char input_agg[LINE] = "";
   snprintf(input_agg, LINE, "%s", argv[++count]);
@@ -80,9 +80,9 @@ int main(int argc, char *argv[]) {
   snprintf(out_avg, LINE, "%s", argv[++count]);
   // options before reading system data
   bool silent, verbose, detailed;
-  int start = 1, end = -1, skip = 0, rubbish;
+  int start = 1, end = -1, skip = 0;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
-                &rubbish, &start, &end, &skip);
+                &start, &end, &skip);
   // -c option
   int c_sizes[100] = {0}, c_count;
   char c_file[LINE] = "";
@@ -96,8 +96,7 @@ int main(int argc, char *argv[]) {
     PrintCommand(stdout, argc, argv);
   }
 
-  SYSTEM System = ReadStructure(struct_type, struct_file,
-                                -1, "\0", detailed, false);
+  SYSTEM System = ReadStructure(struct_type, struct_file, -1, "\0", detailed);
   COUNT *Count = &System.Count;
 
   // '-n' option //{{{

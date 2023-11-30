@@ -45,9 +45,18 @@ void HelpVersionOption(int argc, char *argv[]) {
 } //}}}
 
 // version/help printing and initial check of provided options //{{{
-int OptionCheck(int argc, char *argv[], int req, int common,
-                int all, char opt[all][OPT_LENGTH]) {
+int OptionCheck(int argc, char *argv[], int auto_c, int req,
+                int common, int all, char opt[all][OPT_LENGTH]) {
   snprintf(argv[0], LINE, "%s", BareCommand(argv[0]));
+  // check the manually specified and automatically counted numbers are the same
+  if (auto_c != all) {
+    snprintf(ERROR_MSG, LINE, "bug: wrong numbers of arguments in %s%s%s "
+             "(counted %s%d%s but %s%d%s specified)",
+             ErrYellow(), argv[0], ErrRed(), ErrYellow(), auto_c, ErrRed(),
+             ErrYellow(), all, ErrRed());
+    PrintError();
+    exit(1);
+  }
   // --version option?
   if (VersionOption(argc, argv)) {
     exit(0);
@@ -114,9 +123,6 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
     } else if (strcmp(option[i], "--variable") == 0) {
       fprintf(ptr, "  --variable        vtf coordinate file with indexed "
               "timesteps with varying number of beads\n");
-    } else if (strcmp(option[i], "-pbc") == 0) {
-      fprintf(ptr, "  -pbc <int>        position of pbc in xyz file's comment"
-              " line (of the first number)\n");
     } else if (strcmp(option[i], "-ltrj") == 0) {
       fprintf(ptr, "  -ltrj <int>       does lammpstrj ids go from 0 or 1?\n");
     } else if (strcmp(option[i], "--verbose") == 0) {
@@ -138,7 +144,7 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
 
 // detect options common for most utilities //{{{
 void CommonOptions(int argc, char *argv[], int length, bool *verbose,
-                   bool *silent, bool *detailed, int *pbc_xyz,
+                   bool *silent, bool *detailed,
                    int *start, int *end, int *skip) {
   // -v option - verbose output
   *verbose = BoolOption(argc, argv, "--verbose");
@@ -168,15 +174,6 @@ void CommonOptions(int argc, char *argv[], int length, bool *verbose,
     exit(1);
   }
   (*skip)++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
-  // position of the first number of pbc in xyz file
-  *pbc_xyz = -1;
-  if (IntegerOption(argc, argv, 1, "-pbc", &trash, pbc_xyz)) {
-    exit(1);
-  }
-  if (*pbc_xyz == 0) {
-    strcpy(ERROR_MSG, "position must be a positive number");
-    PrintErrorOption("-pbc");
-  }
 } //}}}
 
 // exclude specified molecule names (-x <mol name(s)>) //{{{
@@ -415,6 +412,19 @@ bool DoubleOption2(int argc, char *argv[], char opt[], double value[2]) {
   if (DoubleOption(argc, argv, 2, opt, &count, value)) {
     if (count != 2) {
       strcpy(ERROR_MSG, "two numeric arguments required");
+      PrintErrorOption(opt);
+      exit(1);
+    } else {
+      return true; // option present
+    }
+  }
+  return false; // option not present
+}
+bool DoubleOption3(int argc, char *argv[], char opt[], double value[3]) {
+  int count = 0;
+  if (DoubleOption(argc, argv, 3, opt, &count, value)) {
+    if (count != 3) {
+      strcpy(ERROR_MSG, "three numeric arguments required");
       PrintErrorOption(opt);
       exit(1);
     } else {

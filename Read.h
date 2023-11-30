@@ -4,7 +4,7 @@
 #include "AnalysisTools.h"
 
 SYSTEM ReadStructure(int struct_type, char struct_file[], int coor_type,
-                     char coor_file[], bool detailed, int pbc_xyz);
+                     char coor_file[], bool detailed);
 bool ReadTimestep(int coor_type, FILE *fr, char file[],
                   SYSTEM *System, int *line_count);
 bool SkipTimestep(int coor_type, FILE *f, char file1[], char file2[],

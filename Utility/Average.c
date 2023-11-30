@@ -53,7 +53,7 @@ int main ( int argc, char** argv ) {
   strcpy(option[count++], "-tau");
   strcpy(option[count++], "-b");
   strcpy(option[count++], "-m");
-  OptionCheck(argc, argv, req_arg, common, all, option);
+  OptionCheck(argc, argv, count, req_arg, common, all, option);
   //}}}
 
   count = 0;
@@ -86,9 +86,9 @@ int main ( int argc, char** argv ) {
   }
 
   bool silent, rubbish2;
-  int start = 1, end = -1, skip = 0, rubbish = 0;
+  int start = 1, end = -1, skip = 0;
   CommonOptions(argc, argv, LINE, &rubbish2, &silent, &rubbish2,
-                &rubbish, &start, &end, &skip);
+                &start, &end, &skip);
   start--; // discarded steps rather than starting step //TODO: change
 
   // -tau option: use block method to get overall average (and stderr and tau)

@@ -198,7 +198,6 @@ char * BareCommand(char cmd[]) {
   return split[words - 1];
 }
 void PrintCommand(FILE *ptr, int argc, char *argv[]) { //{{{
-  // command may contain whole path - print only the string behind last '/'
   fprintf(ptr, "%s%s", Colour(ptr, WHITE), argv[0]);
   // print the rest of the command
   for (int i = 1; i < argc; i++) {

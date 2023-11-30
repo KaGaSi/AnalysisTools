@@ -21,7 +21,7 @@
     \end{tikzpicture}
     \includegraphics[height=80pt]{JoinSystems-fig_a.jpg}
     \caption{
-    }
+    } \label{fig:JoinSystems-a}
   \end{subfigure} %}}}
 
   \begin{subfigure}{0.24\textwidth} %{{{
@@ -54,7 +54,50 @@
 
     \includegraphics[height=80pt]{JoinSystems-fig_b.jpg}
     \caption{
-    }
+    } \label{fig:JoinSystems-b}
+  \end{subfigure} %}}}
+  \begin{subfigure}{0.24\textwidth} %{{{
+    \hspace{-13pt}
+    \begin{tikzpicture}[scale=0.8]
+      \draw[very thick, ->] (0,0) -- (3.8,0) node[anchor=north] {x};
+      \draw[very thick, ->] (0,0) -- (0,3.3) node[anchor=east] {y};
+      % final system
+      \draw[dark-green, local bounding box=new, dashed, thick]
+        (0.2, 0.2) rectangle (3.7, 3.2);
+      \draw[dark-green, local bounding box=new2, thick]
+        (0.95, 0.7) rectangle ++(2.0, 2.0);
+      \fill[dark-green!15!white]
+        ({$(new2.west)$} |- {$(new2.north)$}) rectangle
+        ({$(new2.east)$} |- {$(new2.south)$});
+      \draw[dark-green, dashed]
+        ({$(new.west)$} |- {$(new.north)$}) --
+        ({$(new.east)$} |- {$(new.south)$});
+      \draw[dark-green, dashed]
+        ({$(new.west)$} |- {$(new.south)$}) --
+        ({$(new.east)$} |- {$(new.north)$});
+      \draw[dark-green, dashed, very thick]
+        ({$(new2.west)$} |- {$(new2.north)$}) --
+        ({$(new2.east)$} |- {$(new2.south)$});
+      \draw[dark-green, dashed, very thick]
+        ({$(new2.west)$} |- {$(new2.south)$}) --
+        ({$(new2.east)$} |- {$(new2.north)$});
+      % first system
+      \draw[red, local bounding box=S1, dashed, thick]
+        (1.2,0.2) rectangle (3.7,2.7);
+      % second system
+      \draw[blue, local bounding box=S2, dashed, thick]
+        (0.2,1.2) rectangle (3.2,3.2);
+      % \draw[-latex]
+      %   ({$(new.west)!0.5!(new.east)$} |- {$(new.north)!0.5!(new.south)$}) --
+      %   ({$(new2.west)!0.5!(new2.east)$} |- {$(new2.north)!0.5!(new2.south)$});
+      % \node[dark-green]
+      %   at ({$(new.west)!0.3!(new.east)$} |- {$(new.south)!1.10!(new.north)$})
+      %   {New System};
+    \end{tikzpicture}
+
+    \includegraphics[height=80pt]{JoinSystems-fig_c.jpg}
+    \caption{
+    } \label{fig:JoinSystems-c}
   \end{subfigure} %}}}
   \begin{subfigure}{0.24\textwidth} %{{{
     \hspace{-13pt}
@@ -63,7 +106,7 @@
       \draw[very thick, ->] (0,0) -- (0,3.3) node[anchor=east] {y};
       % final system
       \draw[dark-green, local bounding box=new, very thick]
-        (0.7, 0.2) rectangle (4.2, 2.7);
+        (0.95, 0.2) rectangle ++(3.0, 2.5);
       \fill[dark-green!15!white]
         ({$(new.west)$} |- {$(new.north)$}) rectangle
         ({$(new.east)$} |- {$(new.south)$});
@@ -99,52 +142,9 @@
       %   {New System};
     \end{tikzpicture}
 
-    \includegraphics[height=80pt]{JoinSystems-fig_c.jpg}
-    \caption{
-    }
-  \end{subfigure} %}}}
-  \begin{subfigure}{0.24\textwidth} %{{{
-    \hspace{-13pt}
-    \begin{tikzpicture}[scale=0.8]
-      \draw[very thick, ->] (0,0) -- (3.8,0) node[anchor=north] {x};
-      \draw[very thick, ->] (0,0) -- (0,3.3) node[anchor=east] {y};
-      % final system
-      \draw[dark-green, local bounding box=new, dashed, thick]
-        (0.2, 0.2) rectangle (3.7, 3.2);
-      \draw[dark-green, local bounding box=new2, thick]
-        (0.2, 0.2) rectangle (2.7, 2.2);
-      \fill[dark-green!15!white]
-        ({$(new2.west)$} |- {$(new2.north)$}) rectangle
-        ({$(new2.east)$} |- {$(new2.south)$});
-      \draw[dark-green, dashed]
-        ({$(new.west)$} |- {$(new.north)$}) --
-        ({$(new.east)$} |- {$(new.south)$});
-      \draw[dark-green, dashed]
-        ({$(new.west)$} |- {$(new.south)$}) --
-        ({$(new.east)$} |- {$(new.north)$});
-      \draw[dark-green, dashed, very thick]
-        ({$(new2.west)$} |- {$(new2.north)$}) --
-        ({$(new2.east)$} |- {$(new2.south)$});
-      \draw[dark-green, dashed, very thick]
-        ({$(new2.west)$} |- {$(new2.south)$}) --
-        ({$(new2.east)$} |- {$(new2.north)$});
-      % first system
-      \draw[red, local bounding box=S1, dashed, thick]
-        (1.2,0.2) rectangle (3.7,2.7);
-      % second system
-      \draw[blue, local bounding box=S2, dashed, thick]
-        (0.2,1.2) rectangle (3.2,3.2);
-      \draw[-latex]
-        ({$(new.west)!0.5!(new.east)$} |- {$(new.north)!0.5!(new.south)$}) --
-        ({$(new2.west)!0.5!(new2.east)$} |- {$(new2.north)!0.5!(new2.south)$});
-      % \node[dark-green]
-      %   at ({$(new.west)!0.3!(new.east)$} |- {$(new.south)!1.10!(new.north)$})
-      %   {New System};
-    \end{tikzpicture}
-
     \includegraphics[height=80pt]{JoinSystems-fig_d.jpg}
     \caption{
-    }
+    } \label{fig:JoinSystems-d}
   \end{subfigure} %}}}
   \begin{subfigure}{0.24\textwidth} %{{{
     \hspace{-13pt}
@@ -153,9 +153,9 @@
       \draw[very thick, ->] (0,0) -- (0,3.3) node[anchor=east] {y};
       % final system
       \draw[dark-green, local bounding box=new, dashed, thick]
-        (0.7, 0.2) rectangle (4.2, 2.7);
+        (0.95, 0.2) rectangle ++(3.0, 2.5);
       \draw[dark-green, local bounding box=new2, very thick]
-        (0.7, 0.2) rectangle (2.7, 2.2);
+        (1.45, 0.45) rectangle ++(2.0, 2.0);
       \fill[dark-green!15!white]
         ({$(new2.west)$} |- {$(new2.north)$}) rectangle
         ({$(new2.east)$} |- {$(new2.south)$});
@@ -177,27 +177,21 @@
       % second system
       \draw[blue, local bounding box=S2, dashed, thick]
         (0.2,1.2) rectangle (3.2,3.2);
-      \draw[-latex]
-        ({$(new.west)!0.5!(new.east)$} |- {$(new.north)!0.5!(new.south)$}) --
-        ({$(new2.west)!0.5!(new2.east)$} |- {$(new2.north)!0.5!(new2.south)$});
-      % \node[dark-green]
-      %   at ({$(new.west)!0.3!(new.east)$} |- {$(new.south)!1.10!(new.north)$})
-      %   {New System};
     \end{tikzpicture}
 
     \includegraphics[height=80pt]{JoinSystems-fig_e.jpg}
     \caption{
-    }
+    } \label{fig:JoinSystems-e}
   \end{subfigure} %}}}
   \caption{
-    Schematic representation and corresponding snapshots
-    of \tt{JoinSystems} behaviour. (a) Shows the original systems (offset
-    against each other by the system boxes' lower bounds---see
-    \tt{System1.lammpstrj} and \tt{System2.lammpstrj} in the folder
-    \tt{Examples/JoinSystems}) while the rest shows examples of possible
-    options (green rectangles and transparent balls represent the new systems):
-    (b) no options; (c) \tt{-offset c c c} option; (d) \tt{-box 20 20 20
-    --centre}; (e) \tt{-box 20 20 20 --centre -offset c c c}, i.e., combining
-    (c) and (d).
-  }
+    Schematic representation and corresponding snapshots illustrating
+    \tt{JoinSystems} behaviour. (a) The original systems: \tt{System1.lammpstrj}
+    (red) and \tt{System2.lammpstrj} (blue) in the \tt{Examples/JoinSystems}
+    folder. The rest show examples of possible options (green rectangles and
+    transparent balls represent the new systems): (b) no options; (c) \tt{-b 20
+    20 20} option; (d) \tt{-off c c c}; (e) \tt{-b 20 20 20 -off c c c}, i.e.,
+    combining (c) and (d). These new systems are in the
+    \tt{Examples/JoinSystems} folder as \tt{NewSystem\_\#.lammpstrj}, where
+    \tt{\#} is \tt{b}, \tt{c}, \tt{d}, or \tt{e}.
+  } \label{fig:JoinSystems}
 \end{figure}

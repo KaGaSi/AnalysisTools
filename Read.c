@@ -147,7 +147,7 @@ static void FieldReadMolecules(char file[], SYSTEM *System);
 static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
                            int *line_count);
 static bool XyzSkipTimestep(FILE *fr, char file[], int *line_count);
-static SYSTEM XyzReadStruct(char file[], int pbc);
+static SYSTEM XyzReadStruct(char file[]);
 // Helper functions for xyz file
 static bool XyzSkipCoorLine(FILE *fr);
 static bool XyzCheckCoorLine(VECTOR *coor);
@@ -327,10 +327,10 @@ static SYSTEM LtrjReadStruct(char file[]) {
   FillSystemNonessentials(&Sys);
   for (int i = 0; i < Count->Bead; i++) {
     Sys.BeadCoor[i] = i;
-    // TODO: done in FillSystemNonessentials(), no?
-    // Sys.UnbondedCoor[i] = i;
+    Sys.UnbondedCoor[i] = i;
   }
   CheckSystem(Sys, file);
+  SubtractLow(&Sys);
   return Sys;
 } //}}}
 // read pbc from the preamble of the first timestep //{{{
@@ -3498,7 +3498,7 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
 } //}}}
   //}}}
 // xyz //{{{
-static SYSTEM XyzReadStruct(char file[], int pbc) { //{{{
+static SYSTEM XyzReadStruct(char file[]) { //{{{
   SYSTEM Sys;
   InitSystem(&Sys);
   COUNT *Count = &Sys.Count;
@@ -3525,31 +3525,7 @@ static SYSTEM XyzReadStruct(char file[], int pbc) { //{{{
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
     ErrorEOF(file, "missing comment line");
     exit(1);
-  }
-  if (pbc > 0) {
-    VECTOR box;
-    // pbc=column id, tzn. pbc-1 for split element
-    if (words < (pbc + 2) || !IsRealNumber(split[pbc - 1], &box.x) ||
-        !IsRealNumber(split[pbc + 0], &box.y) ||
-        !IsRealNumber(split[pbc + 1], &box.z)) {
-      strcpy(ERROR_MSG, "missing pbc on the comment line");
-      PrintWarnFileLine(file, line_count);
-    } else {
-      Sys.Box.Length.x = box.x;
-      Sys.Box.Length.y = box.y;
-      Sys.Box.Length.z = box.z;
-      double angle[3];
-      if (words > (pbc + 4) && IsRealNumber(split[pbc + 2], &angle[0]) &&
-          IsRealNumber(split[pbc + 3], &angle[1]) &&
-          IsRealNumber(split[pbc + 4], &angle[2])) {
-        Sys.Box.alpha = angle[0];
-        Sys.Box.beta = angle[1];
-        Sys.Box.gamma = angle[2];
-      }
-      CalculateBoxData(&Sys.Box, 0);
-    }
-  }
-  //}}}
+  } //}}}
   Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
   Sys.BeadCoor = realloc(Sys.BeadCoor, sizeof *Sys.BeadCoor * Count->Bead);
   // read atoms //{{{
@@ -4155,7 +4131,7 @@ static void RemoveExtraTypes(SYSTEM *System) {
  * provided coordinate file if necessary.
  */ //{{{
 SYSTEM ReadStructure(int struct_type, char struct_file[], int coor_type,
-                     char coor_file[], bool detailed, int pbc_xyz) {
+                     char coor_file[], bool detailed) {
   SYSTEM System;
   switch (struct_type) {
   case VTF_FILE:
@@ -4163,7 +4139,7 @@ SYSTEM ReadStructure(int struct_type, char struct_file[], int coor_type,
     System = VtfReadStruct(struct_file, detailed);
     break;
   case XYZ_FILE:
-    System = XyzReadStruct(struct_file, pbc_xyz);
+    System = XyzReadStruct(struct_file);
     break;
   case LTRJ_FILE:
     System = LtrjReadStruct(struct_file);

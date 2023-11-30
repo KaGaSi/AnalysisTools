@@ -16,7 +16,7 @@ provided coordinates are used as is.\n\n");
   }
   fprintf(ptr, "Usage: %s <input> <in.field> <output> [options]\n\n", cmd);
 
-  fprintf(ptr, "<input>             input coordinate file\n");
+  fprintf(ptr, "<input>             input structure/coordinate file\n");
   fprintf(ptr, "<in.field>          input FIELD file with species to add\n");
   fprintf(ptr, "<output>            output structure and coordinate file "
                "(format: xyz, lammpstrj, or vtf)\n");
@@ -29,8 +29,9 @@ provided coordinates are used as is.\n\n");
                "should be far from/near to (default: none)\n");
   fprintf(ptr, "  --bonded          use bonded beads for the distance "
                "condition (overwrites -bt option)\n");
+  fprintf(ptr, "  -xb <bead type>   what bead type to exchange\n");
   fprintf(ptr, "  --add             add beads instead of exchanging them\n");
-  fprintf(ptr, "  --no-rotate       do not randome rotate added molecules\n");
+  fprintf(ptr, "  --no-rotate       do not randomly rotate added molecules\n");
   fprintf(ptr, "  --head            use the first bead of a molecule for "
                "constraint checks (default: molecule's geometric centre)\n");
   fprintf(ptr, "  -cx 2×<float>     constrain x-coordinate to specified "
@@ -40,6 +41,7 @@ provided coordinates are used as is.\n\n");
   fprintf(ptr, "  -cz 2×<float>     constrain z-coordinate to specified "
                "dimensions (in fraction of output box)\n");
   fprintf(ptr, "  --real            use real coordinates for -cx/-cy/-cz\n");
+  fprintf(ptr, "  -b <x> <y> <z>    new box dimensions\n");
   fprintf(ptr, "  -s <int>          seed for random number generator\n");
   CommonHelp(error, n, opt);
 } //}}}
@@ -159,12 +161,11 @@ VECTOR * RandomRotation(SYSTEM System, int number, int *list) {
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 8, all = common + 12, count = 0, req_arg = 3;
+  int common = 7, all = common + 13, count = 0, req_arg = 3;
   char option[all][OPT_LENGTH];
   // common options
   strcpy(option[count++], "-st");
   strcpy(option[count++], "-i");
-  strcpy(option[count++], "-pbc");
   strcpy(option[count++], "--detailed");
   strcpy(option[count++], "--verbose");
   strcpy(option[count++], "--silent");
@@ -175,7 +176,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-hd");
   strcpy(option[count++], "-bt");
   strcpy(option[count++], "--bonded");
-  // strcpy(option[count++], "-xb");
+  strcpy(option[count++], "-xb");
   strcpy(option[count++], "--add");
   strcpy(option[count++], "--no-rotate");
   strcpy(option[count++], "--head");
@@ -183,8 +184,8 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-cy");
   strcpy(option[count++], "-cz");
   strcpy(option[count++], "--real");
-  strcpy(option[count++], "-s");
-  OptionCheck(argc, argv, req_arg, common, all, option);
+  strcpy(option[count++], "-b");
+  OptionCheck(argc, argv, count, req_arg, common, all, option);
   //}}}
 
   // <input> - input coordinate (and structure) file //{{{
@@ -200,7 +201,7 @@ int main(int argc, char *argv[]) {
   // <in.field> - FIELD file with specis to add //{{{
   char field_add_file[LINE] = "";
   snprintf(field_add_file, LINE, "%s", argv[++count]);
-  int field_add_type = StructureFileType(field_add_file, 0);
+  int field_add_type = StructureFileType(field_add_file);
   if (field_add_type != FIELD_FILE) {
     strcpy(ERROR_MSG, "input FIELD file required");
     PrintErrorFile(field_add_file, "\0", "\0");
@@ -210,19 +211,20 @@ int main(int argc, char *argv[]) {
   // <output> - coordinate and structure output file //{{{
   char out_file[LINE] = "";
   snprintf(out_file, LINE, "%s", argv[++count]);
-  int out_type = FullFileType(out_file, 1);
-  if (out_type == -1) {
-    strcpy(ERROR_MSG, "output file must be lammpstrj, data, xyz, or vtf");
-    PrintErrorFile(out_file, "\0", "\0");
-    exit(1);
-  } //}}}
+  // int out_type = FullFileType(out_file, 1);
+  int out_type = CoordinateFileType(out_file);
+  // if (out_type == -1) {
+  //   strcpy(ERROR_MSG, "output file must be lammpstrj, data, xyz, or vtf");
+  //   PrintErrorFile(out_file, "\0", "\0");
+  //   exit(1);
+  // } //}}}
 
   // options before reading system data //{{{
   bool silent, verbose, detailed;
-  int timestep = 1, pbc_xyz = -1;
+  int timestep = 1;
   int trash[1]; // some stuff for unused things in options
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
-                &pbc_xyz, &timestep, trash, trash);
+                &timestep, trash, trash);
   // print command to stdout //{{{
   if (!silent) {
     PrintCommand(stdout, argc, argv);
@@ -296,24 +298,39 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
   } //}}}
-
-  // seed for random number generator (-s option)
-  int seed = -1;
-  if (IntegerOption1(argc, argv, "-s", &seed)) {
-    exit(1);
-  }
   // exchange beads instead of appending them?
   bool add = BoolOption(argc, argv, "--add");
   // do not rotate molecules?
   bool no_rot = BoolOption(argc, argv, "--no-rotate");
   bool head = BoolOption(argc, argv, "--head");
+  // output box dimensions //{{{
+  BOX box_opt = InitBox;
+  double temp[3] = {0};
+  if (DoubleOption(argc, argv, 3, "-b", &count, temp)) {
+    box_opt.Length.x = temp[0];
+    box_opt.Length.y = temp[1];
+    box_opt.Length.z = temp[2];
+    if (count != 3 ||
+        box_opt.Length.x <= 0 ||
+        box_opt.Length.y <= 0 ||
+        box_opt.Length.z <= 0) {
+      strcpy(ERROR_MSG, "three positive numbers required");
+      PrintErrorOption("-b");
+      Help(argv[0], true, common, option);
+      exit(1);
+    }
+  } //}}}
+  // seed for random number generator (-s option)
+  int seed = -1;
+  if (IntegerOption1(argc, argv, "-s", &seed)) {
+    exit(1);
+  }
   //}}}
 
   SYSTEM S_orig = ReadStructure(struct_type, struct_file,
-                                coor_type, coor_file, detailed, pbc_xyz);
-
+                                coor_type, coor_file, detailed);
   // find bead type to switch (the most numerous one; solvent, presumably) //{{{
-  int sw_type = -1; // type to switch (if --switch is used)
+  int sw_type = -1; // type to switch
   if (!add) {
     count = 0;
     for (int i = 0; i < S_orig.Count.BeadType; i++) {
@@ -348,15 +365,34 @@ int main(int argc, char *argv[]) {
 
   // print original system //{{{
   if (verbose && strlen(coor_file) > 0) {
-    fprintf(stdout, "\nORIGINAL SYSTEM\n");
+    fprintf(stdout, "\n==================================================");
+    fprintf(stdout, "\nOriginal system");
+    fprintf(stdout, "\n==================================================\n");
     VerboseOutput(S_orig);
     if (timestep > 1) {
       fprintf(stdout, "\n   Using %d. timestep\n", timestep);
     }
   } //}}}
 
+  // new box if exists //{{{
+  if (box_opt.Length.x != -1) {
+    BOX *box = &S_orig.Box;
+    box_opt.Low.x += box->Low.x + 0.5 * (box->Length.x - box_opt.Length.x);
+    box_opt.Low.y += box->Low.y + 0.5 * (box->Length.y - box_opt.Length.y);
+    box_opt.Low.z += box->Low.z + 0.5 * (box->Length.z - box_opt.Length.z);
+    box_opt.alpha = box_opt.beta = box_opt.gamma = 90;
+    CalculateBoxData(&box_opt, 0);
+    if (verbose) {
+      fprintf(stdout, "\n==================================================");
+      printf("\nNew box");
+      fprintf(stdout, "\n==================================================\n");
+      PrintBox(box_opt);
+    }
+    *box = box_opt;
+  } //}}}
+
   // read input FIELD file defining what to add //{{{
-  SYSTEM S_add = ReadStructure(6, field_add_file, -1, "\0", detailed, pbc_xyz);
+  SYSTEM S_add = ReadStructure(6, field_add_file, -1, "\0", detailed);
   S_add.Count.BeadCoor = S_add.Count.Bead;
   for (int i = 0; i < S_add.Count.Bead; i++) {
     S_add.Bead[i].InTimestep = true;
@@ -432,7 +468,9 @@ int main(int argc, char *argv[]) {
 
   // print what is to be added //{{{
   if (verbose) {
-    fprintf(stdout, "\nBEADS AND MOLECULES TO ADD\n");
+    fprintf(stdout, "\n==================================================");
+    fprintf(stdout, "\nBeads and molecules to add");
+    fprintf(stdout, "\n==================================================\n");
     VerboseOutput(S_add);
   } //}}}
 
@@ -469,19 +507,6 @@ int main(int argc, char *argv[]) {
   // define constrained box for adding beads (-cx/y/z and/or -hd options) //{{{
   BOX box_constrain = InitBox;
   box_constrain.Length = S_new.Box.Length;
-  if (cx[0] != -1) {
-    box_constrain.Low.x = cx[0];
-    box_constrain.Length.x = cx[1] - cx[0];
-  }
-  if (cy[0] != -1) {
-    box_constrain.Low.y = cy[0];
-    box_constrain.Length.y = cy[1] - cy[0];
-  }
-  if (cz[0] != -1) {
-    box_constrain.Low.z = cz[0];
-    box_constrain.Length.z = cz[1] - cz[0];
-  }
-  CalculateBoxData(&box_constrain, 0);
   // minimize box if -hd is used
   if (highest_dist != -1) {
     // find minimum/maximum coordinates of beads for distance check //{{{
@@ -535,39 +560,35 @@ int main(int argc, char *argv[]) {
         }
       }
     } //}}}
-    // get the maximum possible coordinate of any added bead //{{{
+    // the maximum possible coordinate of any added bead
     max.x += highest_dist;
     max.y += highest_dist;
     max.z += highest_dist;
-    if (max.x > (box_constrain.Low.x + box_constrain.Length.x)) {
-      max.x = box_constrain.Low.x + box_constrain.Length.x;
-    }
-    if (max.y > (box_constrain.Low.y + box_constrain.Length.y)) {
-      max.y = box_constrain.Low.y + box_constrain.Length.y;
-    }
-    if (max.z > (box_constrain.Low.z + box_constrain.Length.z)) {
-      max.z = box_constrain.Low.z + box_constrain.Length.z;
-    } //}}}
-    // get the minimum possible coordinate of any added bead //{{{
+    // the minimum possible coordinate of any added bead
     min.x -= highest_dist;
     min.y -= highest_dist;
     min.z -= highest_dist;
-    if (min.x < box_constrain.Low.x) {
-      min.x = box_constrain.Low.x;
-    }
-    if (min.y < box_constrain.Low.y) {
-      min.y = box_constrain.Low.y;
-    }
-    if (min.z < box_constrain.Low.z) {
-      min.z = box_constrain.Low.z;
-    } //}}}
     // define the box
     box_constrain.Length.x = max.x - min.x;
     box_constrain.Length.y = max.y - min.y;
     box_constrain.Length.z = max.z - min.z;
     box_constrain.Low = min;
     CalculateBoxData(&box_constrain, 0);
-  } //}}}
+  }
+  if (cx[0] != -1) {
+    box_constrain.Low.x = cx[0];
+    box_constrain.Length.x = cx[1] - cx[0];
+  }
+  if (cy[0] != -1) {
+    box_constrain.Low.y = cy[0];
+    box_constrain.Length.y = cy[1] - cy[0];
+  }
+  if (cz[0] != -1) {
+    box_constrain.Low.z = cz[0];
+    box_constrain.Length.z = cz[1] - cz[0];
+  }
+  CalculateBoxData(&box_constrain, 0);
+  //}}}
 
   // what beads to check distance from for placing? //{{{
   int mode = 0; // no check
@@ -584,19 +605,19 @@ int main(int argc, char *argv[]) {
 
   // add monomeric beads //{{{
   for (int i = 0; i < S_add.Count.Unbonded; i++) {
-    VECTOR random =
-        RandomConstrainedCoor(box_constrain, S_orig, bt_use_orig, mode,
-                              S_new.Box.Length, lowest_dist, highest_dist);
+    VECTOR random = RandomConstrainedCoor(box_constrain, S_orig, bt_use_orig,
+                                          mode, S_new.Box.Length,
+                                          lowest_dist, highest_dist);
     int id = S_orig.Count.Bead + i;
     S_new.Bead[id].Position.x = random.x;
     S_new.Bead[id].Position.y = random.y;
     S_new.Bead[id].Position.z = random.z;
-    // print number of placed beads? //{{{
+    // print number of placed beads?
     if (!silent && isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\rMonomers placed: %d", i + 1);
-    } //}}}
-  }   //}}}
+    }
+  } //}}}
   // print total number of placed beads? //{{{
   if (!silent) {
     if (isatty(STDOUT_FILENO)) {
@@ -632,12 +653,12 @@ int main(int argc, char *argv[]) {
       S_new.Bead[id].Position.z = rot[j].z + random.z;
     }
     free(rot);
-    // print number of placed molecules? //{{{
+    // print number of placed molecules?
     if (!silent && isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\rMolecules placed: %d", i - S_orig.Count.Molecule + 1);
-    } //}}}
-  }   //}}}
+    }
+  } //}}}
   // print total number of placed molecules? //{{{
   if (!silent) {
     if (isatty(STDOUT_FILENO)) {
@@ -650,16 +671,26 @@ int main(int argc, char *argv[]) {
   // remove possible molecule/bead type duplicities from the system
   PruneSystem(&S_new);
 
-  // print new system //{{{
+  // print information about new system //{{{
   if (verbose) {
-    fprintf(stdout, "\nNEW SYSTEM\n");
+    fprintf(stdout, "\n==================================================");
+    fprintf(stdout, "\nNew system");
+    fprintf(stdout, "\n==================================================\n");
     VerboseOutput(S_new);
   } //}}}
 
-  // write data to output files //{{{
+  WrapJoinCoordinates(&S_new, true, false);
+
+  // write data to output file(s) //{{{
   bool *write = malloc(sizeof *write * S_new.Count.Bead);
   for (int i = 0; i < S_new.Count.Bead; i++) {
     write[i] = true;
+  }
+  // create vsf file if output file is vcf format
+  if (out_type == VCF_FILE) {
+    out_file[strlen(out_file) - 2] = 's';
+    WriteStructure(VSF_FILE, out_file, S_new, -1, false);
+    out_file[strlen(out_file) - 2] = 'c';
   }
   // vsf/vtf file
   if (out_type == VTF_FILE) {

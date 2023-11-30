@@ -49,6 +49,7 @@ void ErrorBeadType(char name[], SYSTEM System);
 void ErrorMoleculeType(char name[], SYSTEM System);
 void WarnChargedSystem(SYSTEM System, char file1[], char file2[], char file3[]);
 void ErrorStartEnd(int start, int end);
+#endif
 
 // // FilePrintFile() //{{{
 // void FilePrintFile(char *file, char *colour); //}}}
@@ -119,4 +120,3 @@ void ErrorStartEnd(int start, int end);
 //  * \param [in] MoleculeType  information about molecule types
 //  */
 // void ErrorMoleculeType_old(COUNT Counts, MOLECULETYPE *MoleculeType); //}}}
-#endif
