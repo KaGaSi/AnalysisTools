@@ -160,7 +160,7 @@ int main(int argc, char *argv[]) {
     end = -1;
     skip = 1;
   }
-  SortArray(n_opt_save, n_opt_number, 0); //}}}
+  SortArrayInt(n_opt_save, n_opt_number, 0); //}}}
 
   if (verbose) {
     VerboseOutput(System);
@@ -170,9 +170,7 @@ int main(int argc, char *argv[]) {
   if (coor_out_type == VCF_FILE) {
     PrintByline(coor_out_file, argc, argv);
   } else if (coor_out_type == VTF_FILE) {
-    PrintByline(coor_out_file, argc, argv);
-    WriteStructure(VSF_FILE, coor_out_file, System, -1, false);
-    coor_out_type = VCF_FILE;
+    WriteStructure(VSF_FILE, coor_out_file, System, -1, false, argc, argv);
   } else {
     FILE *out = OpenFile(coor_out_file, "w");
     fclose(out);

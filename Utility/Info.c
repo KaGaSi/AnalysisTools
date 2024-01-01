@@ -224,10 +224,9 @@ int main(int argc, char *argv[]) {
       bool coor = false;
       for (int i = 0; i < System.Count.BeadCoor; i++) {
         int id = System.BeadCoor[i];
-        VECTOR *pos = &System.Bead[id].Position;
-        if (fabs(pos->x) > 0.00001 ||
-            fabs(pos->y) > 0.00001 ||
-            fabs(pos->z) > 0.00001) {
+        if (fabs(System.Bead[id].Position[0]) > 0.00001 ||
+            fabs(System.Bead[id].Position[1]) > 0.00001 ||
+            fabs(System.Bead[id].Position[2]) > 0.00001) {
           coor = true;
           break;
         }
@@ -237,12 +236,8 @@ int main(int argc, char *argv[]) {
         PrintWarnFile(struct_file_out, coor_file, "\0");
       }
     }
-    // write byline into vsf/vtf file
-    if (struct_type_out == VTF_FILE || struct_type_out == VSF_FILE) {
-      PrintByline(struct_file_out, argc, argv);
-    }
     WriteStructure(struct_type_out, struct_file_out, System,
-                   vsf_def_type, lmp_mass);
+                   vsf_def_type, lmp_mass, argc, argv);
     if (struct_type_out == VTF_FILE) {
       bool *write = malloc(sizeof *write * System.Count.Bead);
       InitBoolArray(write, System.Count.Bead, true);

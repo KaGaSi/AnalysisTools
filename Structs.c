@@ -10,16 +10,13 @@ void InitBeadType(BEADTYPE *bt) { //{{{
 void InitBead(BEAD *b) { //{{{
   b->Type = -1;
   b->Molecule = -1;
+  b->Aggregate = -1;
+  for (int dd = 0; dd < 3; dd++) {
+    b->Position[dd] = 0;
+    b->Velocity[dd] = 0;
+    b->Force[dd] = 0;
+  }
   b->InTimestep = false;
-  b->Position.x = 0;
-  b->Position.y = 0;
-  b->Position.z = 0;
-  b->Velocity.x = 0;
-  b->Velocity.y = 0;
-  b->Velocity.z = 0;
-  b->Force.x = 0;
-  b->Force.y = 0;
-  b->Force.z = 0;
 } //}}}
 void InitMoleculeType(MOLECULETYPE *mt) { //{{{
   mt->Name[0] = '\0';

@@ -105,9 +105,9 @@ static int VtfSkipTimestep(FILE *fr, char file[], char vsf_file[],
 // identify type of a line
 static int VtfCheckLineType(char file[], int line_count);
 // functions to check if a line is of a specific type
-static int VtfCheckCoorOrderedLine(VECTOR *coor);
-static int VtfCheckCoorIndexedLine(VECTOR *coor, long *index);
-static int VtfCheckCoordinateLine(VECTOR *coor, long *index);
+static int VtfCheckCoorOrderedLine(double coor[3]);
+static int VtfCheckCoorIndexedLine(double coor[3], long *index);
+static int VtfCheckCoordinateLine(double coor[3], long *index);
 static int VtfCheckTimestepLine();
 static int VtfCheckPbcLine();
 static bool VtfCheckAtomLine();
@@ -150,7 +150,7 @@ static bool XyzSkipTimestep(FILE *fr, char file[], int *line_count);
 static SYSTEM XyzReadStruct(char file[]);
 // Helper functions for xyz file
 static bool XyzSkipCoorLine(FILE *fr);
-static bool XyzCheckCoorLine(VECTOR *coor);
+static bool XyzCheckCoorLine(double coor[3]);
 //}}}
 /*
  * General helper functions
@@ -202,9 +202,11 @@ static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
     }
     int id = line.Type - 1;
     BEAD *b = &System->Bead[id];
-    b->Position = line.Position;
-    b->Velocity = line.Velocity;
-    b->Force = line.Force;
+    for (int dd = 0; dd < 3; dd++) {
+      b->Position[dd] = line.Position[dd];
+      b->Velocity[dd] = line.Velocity[dd];
+      b->Force[dd] = line.Force[dd];
+    }
     if (b->InTimestep) {
       strcpy(ERROR_MSG, "multiple atoms with the same id");
       PrintErrorFileLine(file, *line_count);
@@ -287,8 +289,11 @@ static SYSTEM LtrjReadStruct(char file[]) {
     int id = line.Type - 1;
     BEAD *b = &Sys.Bead[id];
     InitBead(b);
-    b->Position = line.Position;
-    b->Velocity = line.Velocity;
+    for (int dd = 0; dd < 3; dd++) {
+      b->Position[dd] = line.Position[dd];
+      b->Velocity[dd] = line.Velocity[dd];
+      b->Force[dd] = line.Force[dd];
+    }
     if (b->InTimestep == true) {
       strcpy(ERROR_MSG, "multiple atoms with the same id");
       PrintErrorFileLine(file, line_count);
@@ -436,58 +441,55 @@ static int LtrjReadPBCSection(FILE *fr, char file[], BOX *box,
   // 2) read box dimensions
   if (strcmp(split[3], "pp") == 0 ||
       strcmp(split[3], "ff") == 0) { // orthogonal box
-    double bounds[3][2];
-    for (int i = 0; i < 3; i++) {
+    double bounds[2][3];
+    for (int dd = 0; dd < 3; dd++) {
       (*line_count)++;
       if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
         ErrorEOF(file, "incomplete 'ITEM: BOX BOUNDS' section");
         return -2;
       }
-      if (words < 2 || !IsRealNumber(split[0], &bounds[i][0]) ||
-          !IsRealNumber(split[1], &bounds[i][1]) ||
-          bounds[i][1] <= bounds[i][0]) {
+      if (words < 2 ||
+          !IsRealNumber(split[0], &bounds[0][dd]) ||
+          !IsRealNumber(split[1], &bounds[1][dd]) ||
+          bounds[1][dd] <= bounds[0][dd]) {
         strcpy(ERROR_MSG, "wrong line in 'ITEM: BOX BOUNDS' section");
         PrintErrorFileLine(file, *line_count);
         return -1;
       }
+      box->OrthoLength[dd] = bounds[1][dd] - bounds[0][dd];
+      box->Low[dd] = bounds[0][dd];
     }
-    box->OrthoLength.x = bounds[0][1] - bounds[0][0];
-    box->OrthoLength.y = bounds[1][1] - bounds[1][0];
-    box->OrthoLength.z = bounds[2][1] - bounds[2][0];
-    box->Low.x = bounds[0][0];
-    box->Low.y = bounds[1][0];
-    box->Low.z = bounds[2][0];
     CalculateBoxData(box, 1);
   } else if (strcmp(split[3], "xy") == 0) { // triclinic box
-    double bounds[3][2], tilt[3];
-    for (int i = 0; i < 3; i++) {
+    double bounds[2][3], tilt[3];
+    for (int dd = 0; dd < 3; dd++) {
       (*line_count)++;
       if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
         ErrorEOF(file, "incomplete 'ITEM: BOX BOUNDS' section");
         return -2;
       }
-      if (words < 3 || !IsRealNumber(split[0], &bounds[i][0]) ||
-          !IsRealNumber(split[1], &bounds[i][1]) ||
-          bounds[i][1] <= bounds[i][0] || !IsRealNumber(split[2], &tilt[i])) {
+      if (words < 3 ||
+          !IsRealNumber(split[0], &bounds[0][dd]) ||
+          !IsRealNumber(split[1], &bounds[1][dd]) ||
+          bounds[1][dd] <= bounds[0][dd] ||
+          !IsRealNumber(split[2], &tilt[dd])) {
         strcpy(ERROR_MSG, "wrong pbc line");
         PrintErrorFileLine(file, *line_count);
         return -1;
       }
     }
     // see https://docs.lammps.org/Howto_triclinic.html
-    VECTOR from_bound[2];
-    from_bound[0].x = Min3(0, tilt[0], Min3(0, tilt[1], tilt[0] + tilt[1]));
-    from_bound[1].x = Max3(0, tilt[0], Max3(0, tilt[1], tilt[0] + tilt[1]));
-    from_bound[0].y = Min3(0, 0, tilt[2]);
-    from_bound[1].y = Max3(0, 0, tilt[2]);
-    from_bound[0].z = 0;
-    from_bound[1].z = 0;
-    box->OrthoLength.x =
-        (bounds[0][1] - from_bound[1].x) - (bounds[0][0] - from_bound[0].x);
-    box->OrthoLength.y =
-        (bounds[1][1] - from_bound[1].y) - (bounds[1][0] - from_bound[0].y);
-    box->OrthoLength.z =
-        (bounds[2][1] - from_bound[1].z) - (bounds[2][0] - from_bound[0].z);
+    double from_bound[2][3];
+    from_bound[0][0] = Min3(0, tilt[0], Min3(0, tilt[1], tilt[0] + tilt[1]));
+    from_bound[1][0] = Max3(0, tilt[0], Max3(0, tilt[1], tilt[0] + tilt[1]));
+    from_bound[0][1] = Min3(0, 0, tilt[2]);
+    from_bound[1][1] = Max3(0, 0, tilt[2]);
+    from_bound[0][2] = 0;
+    from_bound[1][2] = 0;
+    for (int dd = 0; dd < 3; dd++) {
+      box->OrthoLength[dd] = (bounds[1][dd] - from_bound[1][dd]) -
+                             (bounds[0][dd] - from_bound[0][dd]);
+    }
     box->transform[0][1] = tilt[0];
     box->transform[0][2] = tilt[1];
     box->transform[1][2] = tilt[2];
@@ -575,15 +577,15 @@ static int LtrjReadCoorLine(FILE *fr, BEAD *b, int b_count, int *var,
   InitBead(b);
   long id;
   if (words < cols || !IsWholeNumber(split[var[0]], &id) || id > b_count ||
-      (var[2] != -1 && !IsRealNumber(split[var[2]], &b->Position.x)) ||
-      (var[3] != -1 && !IsRealNumber(split[var[3]], &b->Position.y)) ||
-      (var[4] != -1 && !IsRealNumber(split[var[4]], &b->Position.z)) ||
-      (var[5] != -1 && !IsRealNumber(split[var[5]], &b->Velocity.x)) ||
-      (var[6] != -1 && !IsRealNumber(split[var[6]], &b->Velocity.y)) ||
-      (var[7] != -1 && !IsRealNumber(split[var[7]], &b->Velocity.z)) ||
-      (var[8] != -1 && !IsRealNumber(split[var[8]], &b->Force.x)) ||
-      (var[9] != -1 && !IsRealNumber(split[var[9]], &b->Force.y)) ||
-      (var[10] != -1 && !IsRealNumber(split[var[10]], &b->Force.z))) {
+      (var[ 2] != -1 && !IsRealNumber(split[var[ 2]], &b->Position[0])) ||
+      (var[ 3] != -1 && !IsRealNumber(split[var[ 3]], &b->Position[1])) ||
+      (var[ 4] != -1 && !IsRealNumber(split[var[ 4]], &b->Position[2])) ||
+      (var[ 5] != -1 && !IsRealNumber(split[var[ 5]], &b->Velocity[0])) ||
+      (var[ 6] != -1 && !IsRealNumber(split[var[ 6]], &b->Velocity[1])) ||
+      (var[ 7] != -1 && !IsRealNumber(split[var[ 7]], &b->Velocity[2])) ||
+      (var[ 8] != -1 && !IsRealNumber(split[var[ 8]], &b->Force[0])) ||
+      (var[ 9] != -1 && !IsRealNumber(split[var[ 9]], &b->Force[1])) ||
+      (var[10] != -1 && !IsRealNumber(split[var[10]], &b->Force[2]))) {
     return -1;
   }
   b->Type = id;
@@ -703,8 +705,8 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
       if (!IsRealNumber(split[0], &xlo) || !IsRealNumber(split[1], &xhi)) {
         goto error;
       }
-      System->Box.Low.x = xlo;
-      System->Box.OrthoLength.x = xhi - xlo; //}}}
+      System->Box.Low[0] = xlo;
+      System->Box.OrthoLength[0] = xhi - xlo; //}}}
       // <double> <double> ylo yhi //{{{
     } else if (words > 3 && strcmp(split[2], "ylo") == 0 &&
                strcmp(split[3], "yhi") == 0) {
@@ -712,8 +714,8 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
       if (!IsRealNumber(split[0], &ylo) || !IsRealNumber(split[1], &yhi)) {
         goto error;
       }
-      System->Box.Low.y = ylo;
-      System->Box.OrthoLength.y = yhi - ylo; //}}}
+      System->Box.Low[1] = ylo;
+      System->Box.OrthoLength[1] = yhi - ylo; //}}}
       // <double> <double> zlo zhi //{{{
     } else if (words > 3 && strcmp(split[2], "zlo") == 0 &&
                strcmp(split[3], "zhi") == 0) {
@@ -721,8 +723,8 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
       if (!IsRealNumber(split[0], &zlo) || !IsRealNumber(split[1], &zhi)) {
         goto error;
       }
-      System->Box.Low.z = zlo;
-      System->Box.OrthoLength.z = zhi - zlo; //}}}
+      System->Box.Low[2] = zlo;
+      System->Box.OrthoLength[2] = zhi - zlo; //}}}
       // <double> <double> <double> xy xz yz //{{{
     } else if (words > 5 && strcmp(split[3], "xy") == 0 &&
                strcmp(split[4], "xz") == 0 && strcmp(split[5], "yz") == 0) {
@@ -779,13 +781,13 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
       return -2;
     }
     long id;
-    VECTOR pos;
+    double pos[3];
     if (mode == 0) {
       if (words < 7 || !IsNaturalNumber(split[0], &id) ||
           id > Count->Bead ||                // bead index
-          !IsRealNumber(split[4], &pos.x) || // Cartesean coordinates
-          !IsRealNumber(split[5], &pos.y) || //
-          !IsRealNumber(split[6], &pos.z)) { //
+          !IsRealNumber(split[4], &pos[0]) || // Cartesean coordinates
+          !IsRealNumber(split[5], &pos[1]) || //
+          !IsRealNumber(split[6], &pos[2])) { //
         strcpy(ERROR_MSG, "wrong line in Atoms section");
         PrintErrorFileLine(file, *line_count);
         exit(1);
@@ -795,9 +797,9 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
       // <bead id> <mol id> <bead type id> <coordinates>
       if (words < 6 || !IsNaturalNumber(split[0], &id) ||
           id > Count->Bead ||                // bead index
-          !IsRealNumber(split[3], &pos.x) || // Cartesean coordinates
-          !IsRealNumber(split[4], &pos.y) || //
-          !IsRealNumber(split[5], &pos.z)) { //
+          !IsRealNumber(split[3], &pos[0]) || // Cartesean coordinates
+          !IsRealNumber(split[4], &pos[1]) || //
+          !IsRealNumber(split[5], &pos[2])) { //
         strcpy(ERROR_MSG, "wrong line in Atoms section");
         PrintErrorFileLine(file, *line_count);
         exit(1);
@@ -806,9 +808,9 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
       // 'Atoms # atomic': <bead id> <bead type id> <coordinates>
       if (words < 5 || !IsNaturalNumber(split[0], &id) ||
           id > Count->Bead ||                // bead index
-          !IsRealNumber(split[2], &pos.x) || // Cartesean coordinates
-          !IsRealNumber(split[3], &pos.y) || //
-          !IsRealNumber(split[4], &pos.z)) { //
+          !IsRealNumber(split[2], &pos[0]) || // Cartesean coordinates
+          !IsRealNumber(split[3], &pos[1]) || //
+          !IsRealNumber(split[4], &pos[2])) { //
         strcpy(ERROR_MSG, "wrong line in Atoms section");
         PrintErrorFileLine(file, *line_count);
         exit(1);
@@ -817,9 +819,9 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
       // 'Atoms # charge': <bead id> <bead type id> <charge> <coordinates>
       if (words < 6 || !IsNaturalNumber(split[0], &id) ||
           id > Count->Bead ||                // bead index
-          !IsRealNumber(split[3], &pos.x) || // Cartesean coordinates
-          !IsRealNumber(split[4], &pos.y) || //
-          !IsRealNumber(split[5], &pos.z)) { //
+          !IsRealNumber(split[3], &pos[0]) || // Cartesean coordinates
+          !IsRealNumber(split[4], &pos[1]) || //
+          !IsRealNumber(split[5], &pos[2])) { //
         strcpy(ERROR_MSG, "wrong line in Atoms section");
         PrintErrorFileLine(file, *line_count);
         exit(1);
@@ -827,9 +829,9 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
     }
     id--; // in lammps data file, ids start from 1
     BEAD *b = &System->Bead[id];
-    b->Position.x = pos.x - System->Box.Low.x;
-    b->Position.y = pos.y - System->Box.Low.y;
-    b->Position.z = pos.z - System->Box.Low.z;
+    for (int dd = 0; dd < 3; dd++) {
+      b->Position[dd] = pos[dd] - System->Box.Low[dd];
+    }
     System->BeadCoor[i] = id;
   } //}}}
   // find 'Velocities' section (and skip the next blank line) //{{{
@@ -850,20 +852,22 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
       return -2;
     }
     long id;
-    VECTOR vel;
+    double vel[3];
     // error - wrong line //{{{
     if (words < 4 || !IsNaturalNumber(split[0], &id) ||
         id > Count->Bead ||                // bead index
-        !IsRealNumber(split[1], &vel.x) || // bead velocities
-        !IsRealNumber(split[2], &vel.y) || //
-        !IsRealNumber(split[3], &vel.z)) { //
+        !IsRealNumber(split[1], &vel[0]) || // bead velocities
+        !IsRealNumber(split[2], &vel[1]) || //
+        !IsRealNumber(split[3], &vel[2])) { //
       strcpy(ERROR_MSG, "wrong line in Velocities section");
       PrintErrorFileLine(file, *line_count);
       exit(1);
     }     //}}}
     id--; // in lammps data file, ids start from 1
     BEAD *b = &System->Bead[id];
-    b->Velocity = vel;
+    for (int dd = 0; dd < 3; dd++) {
+      b->Velocity[dd] = vel[dd];
+    }
   } //}}}
   SubtractLow(System);
   return 1;
@@ -1014,8 +1018,8 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
       if (!IsRealNumber(split[0], &xlo) || !IsRealNumber(split[1], &xhi)) {
         goto error;
       }
-      System->Box.Low.x = xlo;
-      System->Box.OrthoLength.x = xhi - xlo; //}}}
+      System->Box.Low[0] = xlo;
+      System->Box.OrthoLength[0] = xhi - xlo; //}}}
       // <double> <double> ylo yhi //{{{
     } else if (words > 3 && strcmp(split[2], "ylo") == 0 &&
                strcmp(split[3], "yhi") == 0) {
@@ -1023,8 +1027,8 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
       if (!IsRealNumber(split[0], &ylo) || !IsRealNumber(split[1], &yhi)) {
         goto error;
       }
-      System->Box.Low.y = ylo;
-      System->Box.OrthoLength.y = yhi - ylo; //}}}
+      System->Box.Low[1] = ylo;
+      System->Box.OrthoLength[1] = yhi - ylo; //}}}
       // <double> <double> zlo zhi //{{{
     } else if (words > 3 && strcmp(split[2], "zlo") == 0 &&
                strcmp(split[3], "zhi") == 0) {
@@ -1032,8 +1036,8 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
       if (!IsRealNumber(split[0], &zlo) || !IsRealNumber(split[1], &zhi)) {
         goto error;
       }
-      System->Box.Low.z = zlo;
-      System->Box.OrthoLength.z = zhi - zlo; //}}}
+      System->Box.Low[2] = zlo;
+      System->Box.OrthoLength[2] = zhi - zlo; //}}}
       // <double> <double> <double> xy xz yz //{{{
     } else if (words > 5 && strcmp(split[3], "xy") == 0 &&
                strcmp(split[4], "xz") == 0 && strcmp(split[5], "yz") == 0) {
@@ -1057,9 +1061,9 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
     putc('\n', stderr);
     exit(1);
   }
-  if (System->Box.OrthoLength.x == -1 ||
-      System->Box.OrthoLength.y == -1 ||
-      System->Box.OrthoLength.z == -1) {
+  if (System->Box.OrthoLength[0] == -1 ||
+      System->Box.OrthoLength[1] == -1 ||
+      System->Box.OrthoLength[2] == -1) {
     strcpy(ERROR_MSG, "missing box size in the file header");
     PrintWarnFile(file, "\0", "\0");
     putc('\n', stderr);
@@ -1248,7 +1252,7 @@ static void LmpDataReadBody(FILE *fr, char file[], SYSTEM *System,
    */
   for (int i = 0; i < Count->MoleculeType; i++) {
     MOLECULETYPE *mt = &System->MoleculeType[i];
-    SortArray(mt->Bead, mt->nBeads, 0);
+    SortArrayInt(mt->Bead, mt->nBeads, 0);
   }
   CopyMoleculeTypeBeadsToMoleculeBeads(System);
   FillMoleculeTypeBonds(System, bond, Count->Bond);
@@ -1327,9 +1331,11 @@ static void LmpDataReadBondCoeffs(FILE *fr, char file[], SYSTEM *System,
     long type;
     double a, b;
     // error - wrong line //{{{
-    if (words < 3 || !IsNaturalNumber(split[0], &type) ||
-        type > Count->BondType || !IsPosRealNumber(split[1], &a) ||
-        !IsPosRealNumber(split[2], &b)) {
+    if (words < 3 ||
+        !IsNaturalNumber(split[0], &type) ||
+        type > Count->BondType ||
+        !IsRealNumber(split[1], &a) || a < 0 ||
+        !IsRealNumber(split[2], &b) || b < 0) {
       strcpy(ERROR_MSG, "wrong line in Bond Coeffs section");
       PrintErrorFileLine(file, *line_count);
       exit(1);
@@ -1363,9 +1369,11 @@ static void LmpDataReadAngleCoeffs(FILE *fr, char file[], SYSTEM *System,
     long type;
     double a, b;
     // error - wrong line //{{{
-    if (words < 3 || !IsNaturalNumber(split[0], &type) ||
-        type > Count->AngleType || !IsPosRealNumber(split[1], &a) ||
-        !IsPosRealNumber(split[2], &b)) {
+    if (words < 3 ||
+        !IsNaturalNumber(split[0], &type) ||
+        type > Count->AngleType ||
+        !IsRealNumber(split[1], &a) || a < 0 ||
+        !IsRealNumber(split[2], &b) || b < 0) {
       strcpy(ERROR_MSG, "wrong line in Angle Coeffs section");
       PrintErrorFileLine(file, *line_count);
       exit(1);
@@ -1402,7 +1410,8 @@ static void LmpDataReadDihedralCoeffs(FILE *fr, char file[], SYSTEM *System,
     // error - wrong line //{{{
     // see https://docs.lammps.org/dihedral_harmonic.html for details
     if (words < 4 || !IsNaturalNumber(split[0], &type) ||
-        type > Count->DihedralType || !IsRealNumber(split[1], &a) ||
+        type > Count->DihedralType ||
+        !IsRealNumber(split[1], &a) ||
         (!IsIntegerNumber(split[2], &b) && labs(b) != 1) ||
         !IsWholeNumber(split[3], &c)) {
       strcpy(ERROR_MSG, "wrong line in Dihedral Coeffs section "
@@ -1443,7 +1452,8 @@ static void LmpDataReadImproperCoeffs(FILE *fr, char file[], SYSTEM *System,
     // error - wrong line //{{{
     // see https://docs.lammps.org/improper_cvff.html for details
     if (words < 4 || !IsNaturalNumber(split[0], &type) ||
-        type > Count->DihedralType || !IsRealNumber(split[1], &a) ||
+        type > Count->DihedralType ||
+        !IsRealNumber(split[1], &a) ||
         (!IsIntegerNumber(split[2], &b) && labs(b) != 1) ||
         !IsWholeNumber(split[3], &c)) {
       strcpy(ERROR_MSG, "wrong line in Improper Coeffs section "
@@ -1477,7 +1487,7 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
     }
     long id, resid, type;
     double q;
-    VECTOR pos;
+    double pos[3];
     // check the line is correct & read/assign values //{{{
     // 'Atoms # full': <bead id> <mol id> <bead type id> <charge> <coordinates>
     if (mode == 0) {
@@ -1487,9 +1497,9 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
           !IsWholeNumber(split[2], &type) ||    // bead type (mass-defined)
           (!IsRealNumber(split[3], &q) &&       // bead charge
            strcmp(split[3], "???") != 0) ||     //
-          !IsRealNumber(split[4], &pos.x) ||    // Cartesean coordinates
-          !IsRealNumber(split[5], &pos.y) ||    //
-          !IsRealNumber(split[6], &pos.z)) {    //
+          !IsRealNumber(split[4], &pos[0]) ||    // Cartesean coordinates
+          !IsRealNumber(split[5], &pos[1]) ||    //
+          !IsRealNumber(split[6], &pos[2])) {    //
         strcpy(ERROR_MSG, "wrong line in Atoms section");
         PrintErrorFileLine(file, *line_count);
         exit(1);
@@ -1501,9 +1511,9 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
           id > Count->Bead ||                   // bead index
           !IsIntegerNumber(split[1], &resid) || // molecule index
           !IsWholeNumber(split[2], &type) ||    // bead type (mass-defined)
-          !IsRealNumber(split[3], &pos.x) ||    // Cartesean coordinates
-          !IsRealNumber(split[4], &pos.y) ||    //
-          !IsRealNumber(split[5], &pos.z)) {    //
+          !IsRealNumber(split[3], &pos[0]) ||    // Cartesean coordinates
+          !IsRealNumber(split[4], &pos[1]) ||    //
+          !IsRealNumber(split[5], &pos[2])) {    //
         strcpy(ERROR_MSG, "wrong line in Atoms section");
         PrintErrorFileLine(file, *line_count);
         exit(1);
@@ -1514,9 +1524,9 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
       if (words < 5 || !IsNaturalNumber(split[0], &id) ||
           id > Count->Bead ||                // bead index
           !IsWholeNumber(split[1], &type) || // bead type (mass-defined)
-          !IsRealNumber(split[2], &pos.x) || // Cartesean coordinates
-          !IsRealNumber(split[3], &pos.y) || //
-          !IsRealNumber(split[4], &pos.z)) { //
+          !IsRealNumber(split[2], &pos[0]) || // Cartesean coordinates
+          !IsRealNumber(split[3], &pos[1]) || //
+          !IsRealNumber(split[4], &pos[2])) { //
         strcpy(ERROR_MSG, "wrong line in Atoms section");
         PrintErrorFileLine(file, *line_count);
         exit(1);
@@ -1530,9 +1540,9 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
           !IsWholeNumber(split[1], &type) || // bead type (mass-defined)
           (!IsRealNumber(split[2], &q) &&    // bead charge
            strcmp(split[3], "???") != 0) ||  //
-          !IsRealNumber(split[3], &pos.x) || // Cartesean coordinates
-          !IsRealNumber(split[4], &pos.y) || //
-          !IsRealNumber(split[5], &pos.z)) { //
+          !IsRealNumber(split[3], &pos[0]) || // Cartesean coordinates
+          !IsRealNumber(split[4], &pos[1]) || //
+          !IsRealNumber(split[5], &pos[2])) { //
         strcpy(ERROR_MSG, "wrong line in Atoms section");
         PrintErrorFileLine(file, *line_count);
         exit(1);
@@ -1543,7 +1553,9 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
     id--;   // in lammps data file, bead ids start from 1
     type--; // in lammps data file, bead type ids start from 1
     BEAD *b = &System->Bead[id];
-    b->Position = pos;
+    for (int dd = 0; dd < 3; dd++) {
+      b->Position[dd] = pos[dd];
+    }
     b->InTimestep = true;
     b->Type = id;
     /*
@@ -1638,20 +1650,22 @@ static void LmpDataReadVelocities(FILE *fr, char file[], SYSTEM *System,
       exit(1);
     }
     long id;
-    VECTOR vel;
+    double vel[3];
     // error - wrong line //{{{
     if (words < 4 || !IsNaturalNumber(split[0], &id) ||
         id > Count->Bead ||                // bead index
-        !IsRealNumber(split[1], &vel.x) || // bead velocities
-        !IsRealNumber(split[2], &vel.y) || //
-        !IsRealNumber(split[3], &vel.z)) { //
+        !IsRealNumber(split[1], &vel[0]) || // bead velocities
+        !IsRealNumber(split[2], &vel[1]) || //
+        !IsRealNumber(split[3], &vel[2])) { //
       strcpy(ERROR_MSG, "wrong line in Velocities section");
       PrintErrorFileLine(file, *line_count);
       exit(1);
     } //}}}
     id--;
     BEAD *b = &System->Bead[id];
-    b->Velocity = vel;
+    for (int dd = 0; dd < 3; dd++) {
+      b->Velocity[dd] = vel[dd];
+    }
   }
 } //}}}
 // read Bonds section //{{{
@@ -1741,7 +1755,7 @@ static void LmpDataReadAngles(FILE *fr, char file[], COUNT Count,
     // errors //{{{
     // not <int> <int> <int> <int> line
     if (words < 5 || !IsNaturalNumber(split[0], &id) ||
-        !IsNaturalNumber(split[1], &type) ||
+        (!IsNaturalNumber(split[1], &type) && strcmp(split[1], "???") != 0) ||
         !IsNaturalNumber(split[2], &a_id[0]) ||
         !IsNaturalNumber(split[3], &a_id[1]) ||
         !IsNaturalNumber(split[4], &a_id[2])) { //
@@ -2032,7 +2046,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
               strncpy(mt_resid->Name, split[value[4]], MOL_NAME);
               mt_resid->Flag = true;
             }
-            mt_resid->Name[MOL_NAME - 1] = '\0'; // null-terminate!
+            mt_resid->Name[MOL_NAME-1] = '\0'; // null-terminate!
             mt_resid->Number = 1;
             mt_resid->nBeads = 1;
             mt_resid->Bead = malloc(sizeof *mt_resid->Bead);
@@ -2208,9 +2222,9 @@ static int VtfCheckLineType(char file[], int line_count) { //{{{
     return COMMENT_LINE;
   }
   // coordinate line
-  VECTOR trash;
+  double trash[3];
   long trash2;
-  int test = VtfCheckCoordinateLine(&trash, &trash2);
+  int test = VtfCheckCoordinateLine(trash, &trash2);
   if (test != ERROR_LINE) {
     return test;
   }
@@ -2267,24 +2281,27 @@ static int *VtfAtomLineValues() {
   return value;
 } //}}}
 // TODO: add long id & VECOTR position, so it doesn't have to be done twice
-static int VtfCheckCoorOrderedLine(VECTOR *coor) { //{{{
-  if (words >= 3 && IsRealNumber(split[0], &coor->x) &&
-      IsRealNumber(split[1], &coor->y) && IsRealNumber(split[2], &coor->z)) {
+static int VtfCheckCoorOrderedLine(double coor[3]) { //{{{
+  if (words >= 3 &&
+      IsRealNumber(split[0], &coor[0]) &&
+      IsRealNumber(split[1], &coor[1]) &&
+      IsRealNumber(split[2], &coor[2])) {
     return COOR_LINE_O;
   }
   return ERROR_LINE;
 } //}}}
-static int VtfCheckCoorIndexedLine(VECTOR *coor, long *index) { //{{{
+static int VtfCheckCoorIndexedLine(double coor[3], long *index) { //{{{
   // indexed line (may also be ordered)
   if (words >= 4 && IsWholeNumber(split[0], index) &&
-      IsRealNumber(split[1], &coor->x) && IsRealNumber(split[2], &coor->y) &&
-      IsRealNumber(split[3], &coor->z)) {
+      IsRealNumber(split[1], &coor[0]) &&
+      IsRealNumber(split[2], &coor[1]) &&
+      IsRealNumber(split[3], &coor[2])) {
     return COOR_LINE;
   } else {
     return ERROR_LINE;
   }
 } //}}}
-static int VtfCheckCoordinateLine(VECTOR *coor, long *index) { //{{{
+static int VtfCheckCoordinateLine(double coor[3], long *index) { //{{{
   // indexed line (may also be ordered)
   if (VtfCheckCoorIndexedLine(coor, index) == COOR_LINE) {
     return COOR_LINE;
@@ -2443,9 +2460,9 @@ static BOX VtfReadPBC(char file[]) { //{{{
   return Box;
 } //}}}
 static bool VtfPbcLine(BOX *box, int ltype) { //{{{
-  box->Length.x = atof(split[1]);
-  box->Length.y = atof(split[2]);
-  box->Length.z = atof(split[3]);
+  box->Length[0] = atof(split[1]);
+  box->Length[1] = atof(split[2]);
+  box->Length[2] = atof(split[3]);
   if (ltype == PBC_LINE_ANGLES) {
     box->alpha = atof(split[4]);
     box->beta = atof(split[5]);
@@ -2519,34 +2536,34 @@ static int VtfReadCoorBlockIndexed(FILE *fr, char file[], SYSTEM *System,
     PrintErrorFile(file, "\0", "\0");
     return -2;
   }
-  VECTOR coordinate;
+  double coordinate[3];
   long id;
-  while (VtfCheckCoorIndexedLine(&coordinate, &id) == COOR_LINE) {
+  while (VtfCheckCoorIndexedLine(coordinate, &id) == COOR_LINE) {
     if (id > Count->Bead) {
       strcpy(ERROR_MSG, "bead index is too high");
       PrintErrorFileLine(file, *line_count);
       return -1;
     }
     BEAD *bead_id = &System->Bead[id];
-    bead_id->Position.x = coordinate.x;
-    bead_id->Position.y = coordinate.y;
-    bead_id->Position.z = coordinate.z;
+    for (int dd = 0; dd < 3; dd++) {
+      bead_id->Position[dd] = coordinate[dd];
+    }
     if (bead_id->InTimestep) {
       strcpy(ERROR_MSG, "multiple beads with the same id");
       PrintErrorFileLine(file, *line_count);
       return -1;
     }
     bead_id->InTimestep = true;
-    VECTOR vel;
-    if (words >= 7 && IsRealNumber(split[4], &vel.x) &&
-        IsRealNumber(split[5], &vel.y) && IsRealNumber(split[6], &vel.z)) {
-      bead_id->Velocity.x = vel.x;
-      bead_id->Velocity.y = vel.y;
-      bead_id->Velocity.z = vel.z;
+    double vel[3];
+    if (words >= 7 &&
+        IsRealNumber(split[4], &vel[0]) &&
+        IsRealNumber(split[5], &vel[1]) &&
+        IsRealNumber(split[6], &vel[2])) {
+      for (int dd = 0; dd < 3; dd++) {
+        bead_id->Velocity[dd] = vel[dd];
+      }
     } else {
-      bead_id->Velocity.x = 0;
-      bead_id->Velocity.y = 0;
-      bead_id->Velocity.z = 0;
+      bead_id->Velocity[0] = 0;
     }
     if (bead_id->Molecule == -1) {
       System->UnbondedCoor[Count->UnbondedCoor] = id;
@@ -2586,10 +2603,9 @@ static int VtfReadCoorBlockOrdered(FILE *fr, char file[], SYSTEM *System,
       PrintErrorFile(file, "\0", "\0");
       return -2;
     }
-    VECTOR coor;
-    if (VtfCheckCoorOrderedLine(&coor) == ERROR_LINE) {
-      snprintf(ERROR_MSG, LINE,
-               "unrecognized line in constant-size coordinate"
+    double coor[3];
+    if (VtfCheckCoorOrderedLine(coor) == ERROR_LINE) {
+      snprintf(ERROR_MSG, LINE, "unrecognized line in constant-size coordinate"
                " block (%s%d%s-th line from %s%d%s)",
                ErrYellow(), i + 1, ErrRed(), ErrYellow(), Count->BeadCoor,
                ErrRed());
@@ -2597,20 +2613,22 @@ static int VtfReadCoorBlockOrdered(FILE *fr, char file[], SYSTEM *System,
       return -1;
     }
     BEAD *bead_i = &System->Bead[i];
-    bead_i->Position.x = coor.x;
-    bead_i->Position.y = coor.y;
-    bead_i->Position.z = coor.z;
+    for (int dd = 0; dd < 3; dd++) {
+      bead_i->Position[dd] = coor[dd];
+    }
     bead_i->InTimestep = true;
-    VECTOR vel;
-    if (words >= 6 && IsRealNumber(split[3], &vel.x) &&
-        IsRealNumber(split[4], &vel.y) && IsRealNumber(split[5], &vel.z)) {
-      bead_i->Velocity.x = vel.x;
-      bead_i->Velocity.y = vel.y;
-      bead_i->Velocity.z = vel.z;
+    double vel[3];
+    if (words >= 6 &&
+        IsRealNumber(split[3], &vel[0]) &&
+        IsRealNumber(split[4], &vel[1]) &&
+        IsRealNumber(split[5], &vel[2])) {
+      for (int dd = 0; dd < 3; dd++) {
+        bead_i->Velocity[dd] = vel[dd];
+      }
     } else {
-      bead_i->Velocity.x = 0;
-      bead_i->Velocity.y = 0;
-      bead_i->Velocity.z = 0;
+      for (int dd = 0; dd < 3; dd++) {
+        bead_i->Velocity[dd] = 0;
+      }
     }
     if (bead_i->Molecule == -1) {
       System->UnbondedCoor[Count->UnbondedCoor] = i;
@@ -2666,7 +2684,22 @@ static SYSTEM FieldRead(char file[]) { //{{{
   SYSTEM System;
   InitSystem(&System);
   COUNT *Count = &System.Count;
-  // read species
+  // read box dimensions, if present //{{{
+  FILE *fr = OpenFile(file, "r");
+  if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
+    ErrorEOF(file, "empty file");
+    exit(1);
+  }
+  double box[3];
+  if (words > 2 && IsRealNumber(split[0], &box[0]) &&
+                   IsRealNumber(split[1], &box[1]) &&
+                   IsRealNumber(split[2], &box[2])) {
+    System.Box.Length[0] = box[0];
+    System.Box.Length[1] = box[1];
+    System.Box.Length[2] = box[2];
+    CalculateBoxData(&System.Box, 0);
+  }
+  fclose(fr); //}}}
   FieldReadSpecies(file, &System);
   // fill System.Bead & System.Unbonded //{{{
   if (Count->Unbonded > 0) {
@@ -2762,7 +2795,7 @@ static void FieldReadSpecies(char file[], SYSTEM *System) { //{{{
     }
     NewBeadType(&System->BeadType, &Count->BeadType, split[0], charge, mass,
                 RADIUS);
-    System->BeadType[Count->BeadType - 1].Number = number;
+    System->BeadType[Count->BeadType-1].Number = number;
     Count->Bead += number;
     Count->Unbonded += number;
   } //}}}
@@ -2858,7 +2891,7 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       }
       mt_i->nBeads = val; //}}}
       mt_i->Bead = malloc(sizeof *mt_i->Bead * mt_i->nBeads);
-      VECTOR *coor = malloc(sizeof(VECTOR) * mt_i->nBeads);
+      double (*coor)[3] = malloc(sizeof *coor * mt_i->nBeads);
       // b) beads themselves //{{{
       for (int j = 0; j < mt_i->nBeads; j++) {
         line_count++;
@@ -2868,9 +2901,10 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
           exit(1);
         } //}}}
         // error - incorrect line //{{{
-        if (words < 4 || !IsRealNumber(split[1], &coor[j].x) ||
-            !IsRealNumber(split[2], &coor[j].y) ||
-            !IsRealNumber(split[3], &coor[j].z)) {
+        if (words < 4 ||
+            !IsRealNumber(split[1], &coor[j][0]) ||
+            !IsRealNumber(split[2], &coor[j][1]) ||
+            !IsRealNumber(split[3], &coor[j][2])) {
           strcpy(ERROR_MSG,
                  "incorrect bead coordinate line in a molecule entry");
           PrintErrorFileLine(file, line_count);
@@ -2909,9 +2943,9 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
           BEAD *bead = &System->Bead[count];
           bead->Type = mt_i->Bead[k];
           bead->Molecule = mol_count;
-          bead->Position.x = coor[k].x;
-          bead->Position.y = coor[k].y;
-          bead->Position.z = coor[k].z;
+          for (int dd = 0; dd < 3; dd++) {
+            bead->Position[dd] = coor[k][dd];
+          }
           System->BeadType[bead->Type].Number++;
           System->Bonded[count - Count->Unbonded] = count;
           mol->Bead[k] = count;
@@ -2961,8 +2995,10 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
           long beads[2];
           PARAMS values = InitParams;
           // error - incorrect line //{{{
-          if (words < 3 || !IsNaturalNumber(split[1], &beads[0]) ||
-              !IsNaturalNumber(split[2], &beads[1]) || beads[0] == beads[1]) {
+          if (words < 3 ||
+              !IsNaturalNumber(split[1], &beads[0]) ||
+              !IsNaturalNumber(split[2], &beads[1]) ||
+              beads[0] == beads[1]) {
             strcpy(ERROR_MSG, "incorrect bond line in a molecule entry");
             PrintErrorFileLine(file, line_count);
             exit(1);
@@ -3535,17 +3571,17 @@ static SYSTEM XyzReadStruct(char file[]) { //{{{
       ErrorEOF(file, "incomplete timestep");
       exit(1);
     }
-    VECTOR coor;
-    if (!XyzCheckCoorLine(&coor)) {
+    double coor[3];
+    if (!XyzCheckCoorLine(coor)) {
       strcpy(ERROR_MSG, "wrong coordinate line");
       PrintErrorFileLine(file, line_count);
       exit(1);
     }
     BEAD *b = &Sys.Bead[i];
     InitBead(b);
-    b->Position.x = coor.x;
-    b->Position.y = coor.y;
-    b->Position.z = coor.z;
+    for (int dd = 0; dd < 3; dd++) {
+      b->Position[dd] = coor[dd];
+    }
     b->InTimestep = true;
     // assign bead type or create a new one
     bool new = true;
@@ -3617,20 +3653,26 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
       PrintErrorFileLine(file, *line_count);
       return -2;
     }
-    VECTOR coor;
-    if (XyzCheckCoorLine(&coor)) {
-      System->Bead[i].Position = coor;
+    double coor[3];
+    if (XyzCheckCoorLine(coor)) {
+      for (int dd = 0; dd < 3; dd++) {
+        System->Bead[i].Position[dd] = coor[dd];
+      }
       System->Bead[i].InTimestep = true;
       System->BeadCoor[i] = i;
       (*line_count)++;
-      VECTOR vel;
-      if (words > 6 && IsRealNumber(split[4], &vel.x) &&
-          IsRealNumber(split[5], &vel.y) && IsRealNumber(split[6], &vel.z)) {
-        System->Bead[i].Velocity = vel;
+      double vel[3];
+      if (words > 6 &&
+          IsRealNumber(split[4], &vel[0]) &&
+          IsRealNumber(split[5], &vel[1]) &&
+          IsRealNumber(split[6], &vel[2])) {
+        for (int dd = 0; dd < 3; dd++) {
+          System->Bead[i].Velocity[dd] = vel[dd];
+        }
       } else {
-        System->Bead[i].Velocity.x = 0;
-        System->Bead[i].Velocity.y = 0;
-        System->Bead[i].Velocity.z = 0;
+        for (int dd = 0; dd < 3; dd++) {
+          System->Bead[i].Velocity[dd] = 0;
+        }
       }
     } else {
       strcpy(ERROR_MSG, "unrecognized line (insufficient number of valid "
@@ -3670,12 +3712,14 @@ static bool XyzSkipCoorLine(FILE *fr) { //{{{
   }
   int strings = 4;
   words = SplitLine(strings, split, line, " \t\n");
-  VECTOR trash;
-  return XyzCheckCoorLine(&trash);
+  double trash[3];
+  return XyzCheckCoorLine(trash);
 } //}}}
-static bool XyzCheckCoorLine(VECTOR *coor) { //{{{
-  if (words > 3 && IsRealNumber(split[1], &coor->x) &&
-      IsRealNumber(split[2], &coor->y) && IsRealNumber(split[3], &coor->z)) {
+static bool XyzCheckCoorLine(double coor[3]) { //{{{
+  if (words > 3 &&
+      IsRealNumber(split[1], &coor[0]) &&
+      IsRealNumber(split[2], &coor[1]) &&
+      IsRealNumber(split[3], &coor[2])) {
     return true;
   } else {
     return false;

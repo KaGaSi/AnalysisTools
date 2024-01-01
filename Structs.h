@@ -9,12 +9,27 @@
 #define MOL_NAME 21 // maximum molecule name length (with null terminator)
 #define BEAD_NAME 21 // maximum bead name length (with null terminator)
 
+// POINTER TO ARRAY IN STRUCTURE
+// double (*test)[3][3] = &S_orig.Box.transform;
+// printf("%lf %lf %lf\n", (*test)[0][0], (*test)[0][1], (*test)[0][2]);
+// printf("%lf %lf %lf\n", (*test)[1][0], (*test)[1][1], (*test)[1][2]);
+// printf("%lf %lf %lf\n", (*test)[2][0], (*test)[2][1], (*test)[2][2]);
+// printf("%lf %lf %lf\n", S_orig.Box.transform[0][0],
+//                         S_orig.Box.transform[1][0],
+//                         S_orig.Box.transform[2][0]);
+// printf("%lf %lf %lf\n", S_orig.Box.transform[0][1],
+//                         S_orig.Box.transform[1][1],
+//                         S_orig.Box.transform[2][1]);
+// printf("%lf %lf %lf\n", S_orig.Box.transform[0][2],
+//                         S_orig.Box.transform[1][2],
+//                         S_orig.Box.transform[2][2]);
+
 typedef struct Box { //{{{
-  VECTOR Length, // side lengths (a, b, c for triclinic cell)
-         OrthoLength, // orthogonal length (lx, ly, lz in lammps speak)
-         Bounding, // maxium orthogonal length (x_bound, etc. in lammps speak)
-         Low; // lower bound of the simulation box
-  double alpha, beta, gamma, // angles - all 90 for orthogonal box
+  double Length[3],
+         OrthoLength[3],
+         Bounding[3],
+         Low[3],
+         alpha, beta, gamma, // angles - all 90 for orthogonal box
          transform[3][3], // transformation matrix
          inverse[3][3], // inverse of the transformation matrix
          Volume;
@@ -33,12 +48,8 @@ static const BOX InitBox = {
   .Volume = -1,
 }; //}}}
 typedef struct Count { //{{{
-  int BeadType, // number of bead types
-      MoleculeType, // number of molecule types
-      BondType, // number of bond types; -1 if not read from anywhere
-      AngleType, // number of bond types; -1 if not read from anywhere
-      DihedralType, // number of dihedral types; -1 if not read from anywhere
-      ImproperType, // number of dihedral types; -1 if not read from anywhere
+  int BeadType, MoleculeType,
+      BondType, AngleType, DihedralType, ImproperType,
       Bead, // total number of beads in the system (e.g., in vsf file)
       BeadCoor, // number of beads in the coordinate file (e.g., in vcf file)
       Bonded, // total number of beads in all molecules
@@ -49,10 +60,7 @@ typedef struct Count { //{{{
       MoleculeCoor, // total number of molecules in the coordinate file
       Aggregate, // number of aggregates
       HighestResid, // highest id in a file (discontinuous molecule counting)
-      Bond,
-      Angle,
-      Dihedral,
-      Improper;
+      Bond, Angle, Dihedral, Improper;
 } COUNT;
 // Initialize Count
 static const COUNT InitCount = {
@@ -100,11 +108,10 @@ typedef struct Bead { //{{{
   int Type, // type of bead corresponding to index in BeadType struct
       Molecule, // id corresponding to Molecule struct (-1 for monomeric bead)
       Aggregate; // aggregate id the molecule is in (-1 for none)
-
-  VECTOR Position, // cartesian coordinates of the bead
-         Velocity, // velocity of the bead
-         Force; // force acting on the bead
-
+  double Position[3], Velocity[3], Force[3];
+  // VECTOR Position; // cartesian coordinates of the bead
+         // Velocity; // velocity of the bead
+         // Force; // force acting on the bead
   bool InTimestep; // is the bead in the present timestep?
   bool Flag; // general-purpose flag; TODO: remove?
 } BEAD;

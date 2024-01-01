@@ -53,8 +53,8 @@ bool IsWholeNumber(char str[], long *val) {
     return false;
   }
 } //}}}
-double VectorLength(VECTOR a) { //{{{
-  return sqrt(SQR(a.x) + SQR(a.y) + SQR(a.z));
+double VectorLength(double a[3]) { //{{{
+  return sqrt(SQR(a[0]) + SQR(a[1]) + SQR(a[2]));
 } //}}}
 double Min3(double x, double y, double z) { //{{{
   double min;
@@ -103,9 +103,9 @@ void SwapBool(bool *a, bool *b) {
   *b = swap;
 } //}}}
 // Bubble sort an array; mode = 0: ascendingly, mode = 1: descendingly //{{{
-void SortArray(int *array, int length, int mode) {
+void SortArrayInt(int *array, int length, int mode) {
   if (mode != 0 && mode != 1) {
-    strcpy(ERROR_MSG, "SortArray(): use 0 or 1 for sorting mode");
+    strcpy(ERROR_MSG, "SortArrayInt(): use 0 or 1 for sorting mode");
     PrintError();
     exit(1);
   }
@@ -124,39 +124,28 @@ void SortArray(int *array, int length, int mode) {
     if (done)
       break;
   }
-} //}}}
-VECTOR SortVector(VECTOR in) { //{{{
-  VECTOR out;
-  if (in.x < in.y) {
-    if (in.y < in.z) {
-      out.x = in.x;
-      out.y = in.y;
-      out.z = in.z;
-    } else if (in.x < in.z) {
-      out.x = in.x;
-      out.y = in.z;
-      out.z = in.y;
-    } else {
-      out.x = in.z;
-      out.y = in.x;
-      out.z = in.y;
-    }
-  } else {
-    if (in.x < in.z) {
-      out.x = in.y;
-      out.y = in.x;
-      out.z = in.z;
-    } else if (in.y < in.z) {
-      out.x = in.y;
-      out.y = in.z;
-      out.z = in.x;
-    } else {
-      out.x = in.z;
-      out.y = in.y;
-      out.z = in.x;
-    }
+}
+void SortArrayDouble(double *array, int length, int mode) {
+  if (mode != 0 && mode != 1) {
+    strcpy(ERROR_MSG, "SortArrayDouble(): use 0 or 1 for sorting mode");
+    PrintError();
+    exit(1);
   }
-  return out;
+  for (int i = 0; i < (length - 1); i++) {
+    bool done = true;
+    for (int j = 0; j < (length - i - 1); j++) {
+      if (mode == 0 && array[j] > array[j+1]) {
+        SwapDouble(&array[j], &array[j+1]);
+        done = false;
+      }
+      if (mode == 1 && array[j] < array[j+1]) {
+        SwapDouble(&array[j], &array[j+1]);
+        done = false;
+      }
+    }
+    if (done)
+      break;
+  }
 } //}}}
 bool ReadLine(FILE *fr, char *line) { //{{{
   if (!fgets(line, LINE, fr)) {
@@ -311,8 +300,7 @@ void InitDouble2DArray(double *array[], int m, int n, double val) {
     }
   }
 } //}}}
-// test whether two arrays are the same //{{{
-bool SameArray(int arr_1[], int arr_2[], int n) {
+bool SameArrayInt(int arr_1[], int arr_2[], int n) { //{{{
   for (int i = 0; i < n; i++) {
     if (arr_1[i] != arr_2[i]) {
       return false;

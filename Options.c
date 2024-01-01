@@ -70,7 +70,8 @@ int OptionCheck(int argc, char *argv[], int auto_c, int req,
   }
   // correct number of mandatory options?
   int count = 0;
-  while ((count + 1) < argc && argv[count + 1][0] != '-') {
+  while ((count + 1) < argc &&
+         (argv[count+1][0] != '-' || strlen(argv[count+1]) == 1)) {
     count++;
   }
   if (count < req) {
@@ -155,17 +156,9 @@ void CommonOptions(int argc, char *argv[], int length, bool *verbose,
   // starting/ending timestep
   *start = 1;
   int trash; // number of values from IntegerOption(); unused
-  if (IntegerOption(argc, argv, 1, "-st", &trash, start)) {
-    fprintf(stderr, "%sCommand: %s", ErrRed(), ErrColourReset());
-    PrintCommand(stderr, argc, argv);
-    exit(1);
-  }
+  IntegerOption1(argc, argv, "-st", start);
   *end = -1;
-  if (IntegerOption(argc, argv, 1, "-e", &trash, end)) {
-    fprintf(stderr, "%sCommand: %s", ErrRed(), ErrColourReset());
-    PrintCommand(stderr, argc, argv);
-    exit(1);
-  }
+  IntegerOption1(argc, argv, "-e", end);
   ErrorStartEnd(*start, *end);
   // number of timesteps to skip per one used
   if (IntegerOption(argc, argv, 1, "-sk", &trash, skip)) {
@@ -319,7 +312,7 @@ bool IntegerOption(int argc, char *argv[], int max,
         if (!IsIntegerNumber(argv[arg], &val)) {
           strcpy(ERROR_MSG, "each argument must be non-negative whole number");
           PrintErrorOption(opt);
-          return true;
+          exit(1);
         }
         values[n] = val;
         n++;
@@ -328,8 +321,8 @@ bool IntegerOption(int argc, char *argv[], int max,
         if (n > max) {
           snprintf(ERROR_MSG, LINE, "too many arguments; only the first %d "
                    "used", max);
-          PrintErrorOption(opt);
-          *count = n;
+          PrintWarnOption(opt);
+          *count = max;
           return true;
         }
       }
@@ -339,6 +332,7 @@ bool IntegerOption(int argc, char *argv[], int max,
         return true;
       }
       *count = n;
+      return true;
     }
   }
   return false;
@@ -373,23 +367,38 @@ bool IntegerOption2(int argc, char *argv[], char opt[], int value[2]) {
 // general option with multiple double arguments (up to 'max') //{{{
 bool DoubleOption(int argc, char *argv[], int max,
                   char opt[], int *count, double values[max]) {
-  *count = 0;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
       int n = 0; // number of arguments
-      // read doubles
-      int arg = i + 1 + n;
-      double val;
-      while (arg < argc && IsRealNumber(argv[arg], &val)) {
+      // read integers
+      int arg = i+1+n;
+      while (arg < argc && argv[arg][0] != '-') {
+        // Error - non-numeric or missing argument
+        double val;
+        if (!IsRealNumber(argv[arg], &val)) {
+          strcpy(ERROR_MSG, "each argument must be non-negative whole number");
+          PrintErrorOption(opt);
+          return true;
+        }
         values[n] = val;
         n++;
-        arg = i + 1 + n;
-        if (n == max) {
+        arg = i+1+n;
+        // warning - too many numeric arguments
+        if (n > max) {
+          snprintf(ERROR_MSG, LINE, "too many arguments; only the first %d "
+                   "used", max);
+          PrintErrorOption(opt);
           *count = n;
           return true;
         }
       }
-      return true; // happens when fewer arguments than 'max'
+      if (n == 0) {
+        strcpy(ERROR_MSG, "missing argument(s)");
+        PrintErrorOption(opt);
+        return true;
+      }
+      *count = n;
+      return true;
     }
   }
   return false;

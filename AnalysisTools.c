@@ -2,9 +2,9 @@
 
 // STATIC DEFINITIONS
 // functions to transform to/from fractional coordinates
-static VECTOR ToFractional(VECTOR coor, BOX Box);
+static void ToFractional(double coor[3], BOX Box);
 static void ToFractionalCoor(SYSTEM *System);
-static VECTOR FromFractional(VECTOR coor, BOX Box);
+static void FromFractional(double coor[3], BOX Box);
 static void FromFractionalCoor(SYSTEM *System);
 // test whether all bonds in a molecule are connected
 static bool ConnectedMolecule(MOLECULE mol, SYSTEM System);
@@ -12,52 +12,45 @@ static bool ConnectedMolecule(MOLECULE mol, SYSTEM System);
 static void RemovePBCMolecules(SYSTEM *System);
 // restore pbc by wrapping all coordinates inside the simulation box
 static void RestorePBC(SYSTEM *System);
-// Copy System structure; assumes new unallocated SYSTEM
-// TODO: CopySystem won't be static?
-// static SYSTEM CopySystem(SYSTEM S_in);
-// calculate centre of mass for a list of beads (UNUSED)
-// static VECTOR CentreOfMass(int n, int *list, BEAD *Bead, BEADTYPE *BeadType);
 
 // STATIC IMPLEMENTATIONS
 // transform to/from fractional coordinates
 /* HOW TO CALCULATE DISTANCE IN TRICLINIC SYSTEM //{{{
-//VECTOR dist;
-//dist.x = (*Bead)[0].Position.x - (*Bead)[10].Position.x;
-//dist.y = (*Bead)[0].Position.y - (*Bead)[10].Position.y;
-//dist.z = (*Bead)[0].Position.z - (*Bead)[10].Position.z;
-//printf("dist1 = (%lf, %lf, %lf) = %lf\n", dist.x, dist.y, dist.z,
-sqrt(SQR(dist.x)+SQR(dist.y)+SQR(dist.z)));
+//double dist[3];
+//dist[0] = (*Bead)[0].Position[0] - (*Bead)[10].Position[0];
+//dist[1] = (*Bead)[0].Position[1] - (*Bead)[10].Position[1];
+//dist[2] = (*Bead)[0].Position[2] - (*Bead)[10].Position[2];
+//printf("dist1 = (%lf, %lf, %lf) = %lf\n", dist[0], dist[1], dist[2],
+sqrt(SQR(dist[0])+SQR(dist[1])+SQR(dist[2])));
 
-//VECTOR new;
-//new.x = Box.transform[0][0] * dist.x +
-//        Box.transform[0][1] * dist.y +
-//        Box.transform[0][2] * dist.z;
-//new.y = Box.transform[1][0] * dist.x +
-//        Box.transform[1][1] * dist.y +
-//        Box.transform[1][2] * dist.z;
-//new.z = Box.transform[2][0] * dist.x +
-//        Box.transform[2][1] * dist.y +
-//        Box.transform[2][2] * dist.z;
-//dist.x = new.x / a;
-//dist.y = new.y / b;
-//dist.z = new.z / c;
-//printf("dist2 = (%lf, %lf, %lf) = %lf\n", dist.x, dist.y, dist.z,
-sqrt(SQR(dist.x)+SQR(dist.y)+SQR(dist.z)));
+//double new[3];
+//new[0] = Box.transform[0][0] * dist[0] +
+//         Box.transform[0][1] * dist[1] +
+//         Box.transform[0][2] * dist[2];
+//new[1] = Box.transform[1][0] * dist[0] +
+//         Box.transform[1][1] * dist[1] +
+//         Box.transform[1][2] * dist[2];
+//new[2] = Box.transform[2][0] * dist[0] +
+//         Box.transform[2][1] * dist[1] +
+//         Box.transform[2][2] * dist[2];
+//dist[0] = new[0] / a;
+//dist[1] = new[1] / b;
+//dist[2] = new[2] / c;
+//printf("dist2 = (%lf, %lf, %lf) = %lf\n", dist[0], dist[1], dist[2],
+sqrt(SQR(dist[0])+SQR(dist[1])+SQR(dist[2])));
 */ //}}}
-static VECTOR ToFractional(VECTOR coor, BOX Box) { //{{{
+static void ToFractional(double coor[3], BOX Box) { //{{{
   if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
-    VECTOR new = {0, 0, 0};
-    new.x = Box.inverse[0][0] * coor.x + Box.inverse[0][1] * coor.y +
-            Box.inverse[0][2] * coor.z;
-    new.y = Box.inverse[1][0] * coor.x + Box.inverse[1][1] * coor.y +
-            Box.inverse[1][2] * coor.z;
-    new.z = Box.inverse[2][0] * coor.x + Box.inverse[2][1] * coor.y +
-            Box.inverse[2][2] * coor.z;
-    coor.x = new.x *Box.Length.x;
-    coor.y = new.y *Box.Length.y;
-    coor.z = new.z *Box.Length.z;
+    double new[3] = {0, 0, 0};
+    for (int dd = 0; dd < 3; dd++) {
+      new[dd] = Box.inverse[dd][0] * coor[0] +
+                Box.inverse[dd][1] * coor[1] +
+                Box.inverse[dd][2] * coor[2];
+    }
+    for (int dd = 0; dd < 3; dd++) {
+      coor[dd] = new[dd] * Box.Length[dd];
+    }
   }
-  return coor;
 } //}}}
 static void ToFractionalCoor(SYSTEM *System) { //{{{
   if (System->Box.alpha != 90 || System->Box.beta != 90 ||
@@ -65,36 +58,32 @@ static void ToFractionalCoor(SYSTEM *System) { //{{{
     for (int i = 0; i < System->Count.Bead; i++) {
       BEAD *bead = &System->Bead[i];
       if (bead->InTimestep) {
-        bead->Position = ToFractional(bead->Position, System->Box);
+        ToFractional(bead->Position, System->Box);
       }
     }
   }
 } //}}}
-static VECTOR FromFractional(VECTOR coor, BOX Box) { //{{{
+static void FromFractional(double coor[3], BOX Box) { //{{{
   if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
-    coor.x /= Box.Length.x;
-    coor.y /= Box.Length.y;
-    coor.z /= Box.Length.z;
-    VECTOR new = {0, 0, 0};
-    new.x = Box.transform[0][0] * coor.x + Box.transform[0][1] * coor.y +
-            Box.transform[0][2] * coor.z;
-    new.y = Box.transform[1][0] * coor.x + Box.transform[1][1] * coor.y +
-            Box.transform[1][2] * coor.z;
-    new.z = Box.transform[2][0] * coor.x + Box.transform[2][1] * coor.y +
-            Box.transform[2][2] * coor.z;
-    coor.x = new.x;
-    coor.y = new.y;
-    coor.z = new.z;
+    double new[3] = {0, 0, 0};
+    for (int dd = 0; dd < 3; dd++) {
+      new[dd] = Box.transform[dd][0] * coor[0] / Box.Length[dd] +
+                Box.transform[dd][1] * coor[1] / Box.Length[dd] +
+                Box.transform[dd][2] * coor[2] / Box.Length[dd];
+    }
+    for (int dd = 0; dd < 3; dd++) {
+      coor[dd] = new[dd];
+    }
   }
-  return coor;
 } //}}}
 static void FromFractionalCoor(SYSTEM *System) { //{{{
-  if (System->Box.alpha != 90 || System->Box.beta != 90 ||
+  if (System->Box.alpha != 90 ||
+      System->Box.beta != 90 ||
       System->Box.gamma != 90) {
     for (int i = 0; i < System->Count.Bead; i++) {
       BEAD *bead = &System->Bead[i];
       if (bead->InTimestep) {
-        bead->Position = FromFractional(bead->Position, System->Box);
+        FromFractional(bead->Position, System->Box);
       }
     }
   }
@@ -190,18 +179,19 @@ static void RemovePBCMolecules(SYSTEM *System) {
           BEAD *b_1 = &System->Bead[id1], *b_2 = &System->Bead[id2];
           if (b_1->InTimestep && b_2->InTimestep) {
             // move id1, if id2 is moved already
+            double dist[3];
             if (!b_1->Flag && b_2->Flag) {
-              VECTOR dist = Distance(b_2->Position, b_1->Position, box->Length);
-              b_1->Position.x = b_2->Position.x - dist.x;
-              b_1->Position.y = b_2->Position.y - dist.y;
-              b_1->Position.z = b_2->Position.z - dist.z;
+              Distance(b_2->Position, b_1->Position, box->Length, dist);
+              for (int dd = 0; dd < 3; dd++) {
+                b_1->Position[dd] = b_2->Position[dd] - dist[dd];
+              }
               b_1->Flag = true;
               // move id2, if id1 was moved already
             } else if (b_1->Flag && !b_2->Flag) {
-              VECTOR dist = Distance(b_1->Position, b_2->Position, box->Length);
-              b_2->Position.x = b_1->Position.x - dist.x;
-              b_2->Position.y = b_1->Position.y - dist.y;
-              b_2->Position.z = b_1->Position.z - dist.z;
+              Distance(b_1->Position, b_2->Position, box->Length, dist);
+              for (int dd = 0; dd < 3; dd++) {
+                b_2->Position[dd] = b_1->Position[dd] - dist[dd];
+              }
               b_2->Flag = true;
             }
           }
@@ -219,37 +209,30 @@ static void RemovePBCMolecules(SYSTEM *System) {
         test++;
       }
       if (test == 1000) {
-        snprintf(ERROR_MSG, LINE,
-                 "unable to join molecule %s%s%s (resid "
+        snprintf(ERROR_MSG, LINE, "unable to join molecule %s%s%s (resid "
                  "%s%d%s)\n     Either all beads are not connected or "
-                 "some beads are missing from the timestep",
-                 ErrYellow(), mt_i->Name, ErrCyan(), ErrYellow(), i + 1,
-                 ErrCyan());
+                 "some beads are missing from the timestep", ErrYellow(),
+                 mt_i->Name, ErrCyan(), ErrYellow(), i + 1, ErrCyan());
         PrintWarning();
       }
 
       // put molecule's geometric centre into the simulation box //{{{
-      VECTOR cog = GeomCentre(mt_i->nBeads, mol_i->Bead, System->Bead);
+      double cog[3];
+      GeomCentre(mt_i->nBeads, mol_i->Bead, System->Bead, cog);
       // by how many BoxLength's should cog be moved?
       // for distant molecules - it shouldn't happen, but better safe than sorry
-      INTVECTOR move;
-      move.x = cog.x / box->Length.x;
-      move.y = cog.y / box->Length.y;
-      move.z = cog.z / box->Length.z;
-      if (cog.x < 0) {
-        move.x--;
-      }
-      if (cog.y < 0) {
-        move.y--;
-      }
-      if (cog.z < 0) {
-        move.z--;
+      int move[3];
+      for (int dd = 0; dd < 3; dd++) {
+        move[dd] = cog[dd] / box->Length[dd];
+        if (cog[dd] < 0) {
+          move[dd]--;
+        }
       }
       for (int j = 0; j < mt_i->nBeads; j++) {
         int bead = mol_i->Bead[j];
-        System->Bead[bead].Position.x -= move.x * box->Length.x;
-        System->Bead[bead].Position.y -= move.y * box->Length.y;
-        System->Bead[bead].Position.z -= move.z * box->Length.z;
+        for (int dd = 0; dd < 3; dd++) {
+          System->Bead[bead].Position[dd] -= move[dd] * box->Length[dd];
+        }
       } //}}}
     }
   }
@@ -260,26 +243,13 @@ static void RestorePBC(SYSTEM *System) {
     int id = System->BeadCoor[i];
     BEAD *bead = &System->Bead[id];
     BOX *box = &System->Box;
-    // x direction
-    while (bead->Position.x >= box->Length.x) {
-      bead->Position.x -= box->Length.x;
-    }
-    while (bead->Position.x < 0) {
-      bead->Position.x += box->Length.x;
-    }
-    // y direction
-    while (bead->Position.y >= box->Length.y) {
-      bead->Position.y -= box->Length.y;
-    }
-    while (bead->Position.y < 0) {
-      bead->Position.y += box->Length.y;
-    }
-    // z direction
-    while (bead->Position.z >= box->Length.z) {
-      bead->Position.z -= box->Length.z;
-    }
-    while (bead->Position.z < 0) {
-      bead->Position.z += box->Length.z;
+    for (int dd = 0; dd < 3; dd++) {
+      while (bead->Position[dd] >= box->Length[dd]) {
+        bead->Position[dd] -= box->Length[dd];
+      }
+      while (bead->Position[dd] < 0) {
+        bead->Position[dd] += box->Length[dd];
+      }
     }
   }
 } //}}}
@@ -574,10 +544,12 @@ bool CalculateBoxData(BOX *Box, int mode) {
   // calculate angles and tilt vectors or tilt vectors and OrthoLength //{{{
   switch (mode) {
     case 0: // angles & Length given //{{{
-      Box->OrthoLength = Box->Length;
-      Box->Volume = Box->Length.x * Box->Length.y *  Box->Length.z;
+      for (int dd = 0; dd < 3; dd++) {
+        Box->OrthoLength[dd] = Box->Length[dd];
+      }
+      Box->Volume = Box->Length[0] * Box->Length[1] *  Box->Length[2];
       if (Box->alpha != 90 || Box->beta != 90 || Box->gamma != 90) {
-        double a = Box->Length.x, b = Box->Length.y, c = Box->Length.z;
+        double a = Box->Length[0], b = Box->Length[1], c = Box->Length[2];
         double c_a = cos(Box->alpha * PI / 180),
                c_b = cos(Box->beta * PI / 180),
                c_g = cos(Box->gamma * PI / 180),
@@ -607,14 +579,14 @@ bool CalculateBoxData(BOX *Box, int mode) {
         Box->inverse[2][2] = a * b * s_g / vol;
         // orthogonal box size
         // x direaction
-        Box->OrthoLength.x = a;
+        Box->OrthoLength[0] = a;
         // y direaction
         sqr = SQR(b) - SQR(Box->transform[0][1]);
         if (sqr < 0) {
           strcpy(ERROR_MSG, "wrong dimensions for triclinic cell");
           return false;
         }
-        Box->OrthoLength.y = sqrt(sqr);
+        Box->OrthoLength[1] = sqrt(sqr);
         // z direaction
         sqr = SQR(c) - SQR(Box->transform[0][2]) - SQR(Box->transform[1][2]);
         if (sqr < 0) {
@@ -622,34 +594,38 @@ bool CalculateBoxData(BOX *Box, int mode) {
           PrintError();
           exit(1);
         }
-        Box->OrthoLength.z = sqrt(sqr);
+        Box->OrthoLength[2] = sqrt(sqr);
         // see https://docs.lammps.org/Howto_triclinic.html
         double xy = Box->transform[0][1], xz = Box->transform[0][2],
                yz = Box->transform[1][2],
                xyz = Box->transform[0][1] + Box->transform[0][2];
-        Box->Bounding.x = Box->OrthoLength.x - Max3(0, xy, Max3(0, xz, xyz)) +
-                          Min3(0, xy, Min3(0, xz, xyz));
-        Box->Bounding.y = Box->OrthoLength.y - Min3(0, 0, yz) + Max3(0, 0, yz);
-        Box->Bounding.z = Box->OrthoLength.z;
+        Box->Bounding[0] = Box->OrthoLength[0] -
+                           Max3(0, xy, Max3(0, xz, xyz)) +
+                           Min3(0, xy, Min3(0, xz, xyz));
+        Box->Bounding[1] = Box->OrthoLength[1] -
+                           Min3(0, 0, yz) + Max3(0, 0, yz);
+        Box->Bounding[2] = Box->OrthoLength[2];
       }
       break; //}}}
     case 1:  // tilt & OrthoLength given //{{{
-      Box->Length = Box->OrthoLength;
-      Box->Volume = Box->Length.x * Box->Length.y *  Box->Length.z;
+      for (int dd = 0; dd < 3; dd++) {
+        Box->Length[dd] = Box->OrthoLength[dd];
+      }
+      Box->Volume = Box->Length[0] * Box->Length[1] *  Box->Length[2];
       if (Box->transform[0][1] != 0 || Box->transform[0][2] != 0 ||
           Box->transform[1][2] != 0) {
-        double a = Box->OrthoLength.x,
-               b = sqrt(SQR(Box->OrthoLength.y) + SQR(Box->transform[0][1])),
-               c = sqrt(SQR(Box->OrthoLength.z) + SQR(Box->transform[0][2]));
+        double a = Box->OrthoLength[0],
+               b = sqrt(SQR(Box->OrthoLength[1]) + SQR(Box->transform[0][1])),
+               c = sqrt(SQR(Box->OrthoLength[2]) + SQR(Box->transform[0][2]));
         double c_a = (Box->transform[0][1] * Box->transform[0][2] +
-                      Box->OrthoLength.y * Box->transform[1][2]) /
+                      Box->OrthoLength[1] * Box->transform[1][2]) /
                      (b * c),
                c_b = Box->transform[0][2] / c, c_g = Box->transform[0][1] / b,
                s_g = sin(Box->gamma * PI / 180);
         // cell length
-        Box->Length.x = a;
-        Box->Length.y = b;
-        Box->Length.z = c;
+        Box->Length[0] = a;
+        Box->Length[1] = b;
+        Box->Length[2] = c;
         // cell angles
         Box->alpha = acos(c_a) / PI * 180;
         Box->beta = acos(c_b) / PI * 180;
@@ -683,13 +659,13 @@ bool CalculateBoxData(BOX *Box, int mode) {
   } //}}}
   // transformation matrices for orthogonal box //{{{
   if (Box->alpha == 90 && Box->beta == 90 && Box->gamma == 90) {
-    Box->Volume = Box->Length.x * Box->Length.y * Box->Length.z;
-    Box->transform[0][0] = Box->Length.x;
-    Box->transform[1][1] = Box->Length.y;
-    Box->transform[2][2] = Box->Length.z;
-    Box->inverse[0][0] = 1 / Box->Length.x;
-    Box->inverse[1][1] = 1 / Box->Length.y;
-    Box->inverse[2][2] = 1 / Box->Length.z;
+    Box->Volume = Box->Length[0] * Box->Length[1] * Box->Length[2];
+    Box->transform[0][0] = Box->Length[0];
+    Box->transform[1][1] = Box->Length[1];
+    Box->transform[2][2] = Box->Length[2];
+    Box->inverse[0][0] = 1 / Box->Length[0];
+    Box->inverse[1][1] = 1 / Box->Length[1];
+    Box->inverse[2][2] = 1 / Box->Length[2];
   } //}}}
   // maximum size of the the bounding box //{{{
   // see https://docs.lammps.org/Howto_triclinic.html
@@ -697,10 +673,16 @@ bool CalculateBoxData(BOX *Box, int mode) {
          xz = Box->transform[0][2],
          yz = Box->transform[1][2],
          xyz = Box->transform[0][1] + Box->transform[0][2];
-  Box->Bounding.x = Box->Low.x + Max3(0, xy, Max3(0, xz, xyz)) -
+  Box->Bounding[0] = Box->Low[0] + Max3(0, xy, Max3(0, xz, xyz)) -
                     Min3(0, xy, Min3(0, xz, xyz));
-  Box->Bounding.y = Box->Low.y + Max3(0, 0, yz) - Max3(0, 0, yz);
-  Box->Bounding.z = Box->Low.z; //}}}
+  Box->Bounding[1] = Box->Low[1] + Max3(0, 0, yz) - Max3(0, 0, yz);
+  Box->Bounding[2] = Box->Low[2]; //}}}
+  if (Box->Volume == 0) { //{{{
+    strcpy(ERROR_MSG, "not all box dimensions are non-zero:");
+    PrintError();
+    PrintBox(*Box);
+    exit(1);
+  } //}}}
   return true;
 } //}}}
 // merge identical bead/molecule types
@@ -1259,33 +1241,13 @@ void MergeMoleculeTypes(SYSTEM *System) {
         }
       }
     }
-  } //}}}
-  // rename same-named molecule types & free the temporary array //{{{
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    count = 0;
-    for (int j = (i + 1); j < Count->MoleculeType; j++) {
-      if (strcmp(System->MoleculeType[i].Name, System->MoleculeType[j].Name) ==
-          0) {
-        count++;
-        char name[MOL_NAME];
-        strncpy(name, System->MoleculeType[j].Name, MOL_NAME);
-        // shorten name if necessary
-        if (count < 10) {
-          name[MOL_NAME - 3] = '\0';
-        } else if (count < 100) {
-          name[MOL_NAME - 4] = '\0';
-        } else if (count < 1000) {
-          name[MOL_NAME - 5] = '\0';
-        }
-        if (snprintf(System->MoleculeType[j].Name, MOL_NAME, "%s_%d", name,
-                     count) < 0) {
-          ErrorSnprintf();
-        }
-      }
-    }
-    FreeMoleculeTypeEssentials(&temp[i]);
   }
-  free(temp); //}}}
+  // free the temporary array
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    FreeMoleculeTypeEssentials(&temp[i]);
+  } //}}}
+  free(temp);
+  RenameMoleculeTypes(System);
   // relabel molecules with proper molecule types; yep - again //{{{
   for (int i = 0; i < Count->Molecule; i++) {
     int old_type = System->Molecule[i].Type;
@@ -1304,11 +1266,11 @@ void RenameBeadTypes(SYSTEM *System) { //{{{
         strncpy(name, System->BeadType[j].Name, BEAD_NAME);
         // shorten name if necessary
         if (count < 10) {
-          name[BEAD_NAME - 3] = '\0';
+          name[BEAD_NAME-3] = '\0';
         } else if (count < 100) {
-          name[BEAD_NAME - 4] = '\0';
+          name[BEAD_NAME-4] = '\0';
         } else if (count < 1000) {
-          name[BEAD_NAME - 5] = '\0';
+          name[BEAD_NAME-5] = '\0';
         }
         if (snprintf(System->BeadType[j].Name, BEAD_NAME, "%s_%d", name,
                      count) < 0) {
@@ -1330,11 +1292,12 @@ void RenameMoleculeTypes(SYSTEM *System) { //{{{
         strncpy(name, mt_j->Name, MOL_NAME);
         // shorten name if necessary
         if (count < 10) {
-          name[MOL_NAME - 3] = '\0';
+          printf("%d\n", MOL_NAME-3);
+          name[MOL_NAME-3] = '\0';
         } else if (count < 100) {
-          name[MOL_NAME - 4] = '\0';
+          name[MOL_NAME-4] = '\0';
         } else if (count < 1000) {
-          name[MOL_NAME - 5] = '\0';
+          name[MOL_NAME-5] = '\0';
         }
         if (snprintf(mt_j->Name, MOL_NAME, "%s_%d", name, count) < 0) {
           ErrorSnprintf();
@@ -1356,12 +1319,12 @@ int *BondIndices(SYSTEM System, int mol, int bond) { //{{{
   int n = 2, type = System.Molecule[mol].Type;
   // intramolecular id
   for (int i = 0; i < n; i++) {
-    index[i + n] = System.MoleculeType[type].Bond[bond][i];
+    index[i+n] = System.MoleculeType[type].Bond[bond][i];
   }
   // error if wrong intramolecular id //{{{
   bool err = false;
   for (int i = 0; i < n; i++) {
-    if (index[i + n] < 0 || index[i + n] >= System.MoleculeType[type].nBeads) {
+    if (index[i+n] < 0 || index[i+n] >= System.MoleculeType[type].nBeads) {
       err = true;
       break;
     }
@@ -1376,12 +1339,12 @@ int *BondIndices(SYSTEM System, int mol, int bond) { //{{{
     fprintf(stderr, " intramolecular indices in bond %s%d%s:%s", ErrYellow(),
             bond, ErrRed(), ErrYellow());
     for (int i = 0; i < n; i++) {
-      fprintf(stderr, " %d", index[i + n]);
+      fprintf(stderr, " %d", index[i+n]);
     }
     fprintf(stderr, "%s\n", ErrColourReset());
   } //}}}
   for (int i = 0; i < n; i++) {
-    index[i] = System.Molecule[mol].Bead[index[i + n]];
+    index[i] = System.Molecule[mol].Bead[index[i+n]];
   }
   // error if wrong 'true' id //{{{
   err = false;
@@ -1411,12 +1374,12 @@ int *AngleIndices(SYSTEM System, int mol, int angle) { //{{{
   int n = 3, type = System.Molecule[mol].Type;
   // intramolecular is
   for (int i = 0; i < n; i++) {
-    index[i + n] = System.MoleculeType[type].Angle[angle][i];
+    index[i+n] = System.MoleculeType[type].Angle[angle][i];
   }
   // error if wrong intramolecular id //{{{
   bool err = false;
   for (int i = 0; i < n; i++) {
-    if (index[i + n] < 0 || index[i + n] >= System.MoleculeType[type].nBeads) {
+    if (index[i+n] < 0 || index[i+n] >= System.MoleculeType[type].nBeads) {
       err = true;
       break;
     }
@@ -1431,12 +1394,12 @@ int *AngleIndices(SYSTEM System, int mol, int angle) { //{{{
     fprintf(stderr, " intramolecular indices in angle %s%d%s:%s", ErrYellow(),
             angle, ErrRed(), ErrYellow());
     for (int i = 0; i < n; i++) {
-      fprintf(stderr, " %d", index[i + n]);
+      fprintf(stderr, " %d", index[i+n]);
     }
     fprintf(stderr, "%s\n", ErrColourReset());
   } //}}}
   for (int i = 0; i < n; i++) {
-    index[i] = System.Molecule[mol].Bead[index[i + n]];
+    index[i] = System.Molecule[mol].Bead[index[i+n]];
   }
   // error if wrong 'true' id //{{{
   err = false;
@@ -1466,12 +1429,12 @@ int *DihedralIndices(SYSTEM System, int mol, int dihed) { //{{{
   int n = 4, type = System.Molecule[mol].Type;
   // intramolecular is
   for (int i = 0; i < n; i++) {
-    index[i + n] = System.MoleculeType[type].Dihedral[dihed][i];
+    index[i+n] = System.MoleculeType[type].Dihedral[dihed][i];
   }
   // error if wrong intramolecular id //{{{
   bool err = false;
   for (int i = 0; i < n; i++) {
-    if (index[i + n] < 0 || index[i + n] >= System.MoleculeType[type].nBeads) {
+    if (index[i+n] < 0 || index[i+n] >= System.MoleculeType[type].nBeads) {
       err = true;
       break;
     }
@@ -1486,12 +1449,12 @@ int *DihedralIndices(SYSTEM System, int mol, int dihed) { //{{{
     fprintf(stderr, " intramolecular indices in dihedral %s%d%s:%s",
             ErrYellow(), dihed, ErrRed(), ErrYellow());
     for (int i = 0; i < n; i++) {
-      fprintf(stderr, " %d", index[i + n]);
+      fprintf(stderr, " %d", index[i+n]);
     }
     fprintf(stderr, "%s\n", ErrColourReset());
   } //}}}
   for (int i = 0; i < n; i++) {
-    index[i] = System.Molecule[mol].Bead[index[i + n]];
+    index[i] = System.Molecule[mol].Bead[index[i+n]];
   }
   // error if wrong 'true' id //{{{
   err = false;
@@ -1521,12 +1484,12 @@ int *ImproperIndices(SYSTEM System, int mol, int improper) { //{{{
   int n = 4, type = System.Molecule[mol].Type;
   // intramolecular is
   for (int i = 0; i < n; i++) {
-    index[i + n] = System.MoleculeType[type].Improper[improper][i];
+    index[i+n] = System.MoleculeType[type].Improper[improper][i];
   }
   // error if wrong intramolecular id //{{{
   bool err = false;
   for (int i = 0; i < n; i++) {
-    if (index[i + n] < 0 || index[i + n] >= System.MoleculeType[type].nBeads) {
+    if (index[i+n] < 0 || index[i+n] >= System.MoleculeType[type].nBeads) {
       err = true;
       break;
     }
@@ -1541,12 +1504,12 @@ int *ImproperIndices(SYSTEM System, int mol, int improper) { //{{{
     fprintf(stderr, " intramolecular indices in improper %s%d%s:%s",
             ErrYellow(), improper, ErrRed(), ErrYellow());
     for (int i = 0; i < n; i++) {
-      fprintf(stderr, " %d", index[i + n]);
+      fprintf(stderr, " %d", index[i+n]);
     }
     fprintf(stderr, "%s\n", ErrColourReset());
   } //}}}
   for (int i = 0; i < n; i++) {
-    index[i] = System.Molecule[mol].Bead[index[i + n]];
+    index[i] = System.Molecule[mol].Bead[index[i+n]];
   }
   // error if wrong 'true' id //{{{
   err = false;
@@ -1884,18 +1847,22 @@ int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode,
         goto end_loop;
       }
       for (int j = 0; j < mt_1->nBonds; j++) {
-        if (!SameArray(mt_1->Bond[j], mt_2->Bond[j], 2)) {
+        if (!SameArrayInt(mt_1->Bond[j], mt_2->Bond[j], 2)) {
           goto end_loop;
         }
-        if (mt_1->Bond[j][2] != -1 && mt_2->Bond[j][2] != -1) {
-          PARAMS *tbond_1 = &Sys1.BondType[mt_1->Bond[j][2]],
-                 *tbond_2 = &Sys2.BondType[mt_2->Bond[j][2]];
-          if (tbond_1->a != tbond_2->a ||
-              tbond_1->b != tbond_2->b ||
-              tbond_1->c != tbond_2->c ||
-              tbond_1->d != tbond_2->d) {
-            goto end_loop;
+        if (mt_1->Bond[j][2] == mt_2->Bond[j][2]) {
+          if (mt_1->Bond[j][2] != -1) {
+            PARAMS *tbond_1 = &Sys1.BondType[mt_1->Bond[j][2]],
+                   *tbond_2 = &Sys2.BondType[mt_2->Bond[j][2]];
+            if (tbond_1->a != tbond_2->a ||
+                tbond_1->b != tbond_2->b ||
+                tbond_1->c != tbond_2->c ||
+                tbond_1->d != tbond_2->d) {
+              goto end_loop;
+            }
           }
+        } else {
+          goto end_loop;
         }
       } //}}}
       // check angles //{{{
@@ -1903,7 +1870,7 @@ int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode,
         goto end_loop;
       }
       for (int j = 0; j < mt_1->nAngles; j++) {
-        if (!SameArray(mt_1->Angle[j], mt_2->Angle[j], 3)) {
+        if (!SameArrayInt(mt_1->Angle[j], mt_2->Angle[j], 3)) {
           goto end_loop;
         }
         if (mt_1->Angle[j][3] != -1 && mt_2->Angle[j][3] != -1) {
@@ -1922,7 +1889,7 @@ int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode,
         goto end_loop;
       }
       for (int j = 0; j < mt_1->nDihedrals; j++) {
-        if (!SameArray(mt_1->Dihedral[j], mt_2->Dihedral[j], 4)) {
+        if (!SameArrayInt(mt_1->Dihedral[j], mt_2->Dihedral[j], 4)) {
           goto end_loop;
         }
         if (mt_1->Dihedral[j][4] != -1 && mt_2->Dihedral[j][4] != -1) {
@@ -1941,7 +1908,7 @@ int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode,
         goto end_loop;
       }
       for (int j = 0; j < mt_1->nImpropers; j++) {
-        if (!SameArray(mt_1->Improper[j], mt_2->Improper[j], 4)) {
+        if (!SameArrayInt(mt_1->Improper[j], mt_2->Improper[j], 4)) {
           goto end_loop;
         }
         if (mt_1->Improper[j][4] != -1 && mt_1->Improper[j][4] != -1) {
@@ -2520,13 +2487,18 @@ void PruneSystem(SYSTEM *System) {
        * molecule type information)?
        */
       int new_type = FindMoleculeType(S_old, mt_old_new, *System, 3, true);
+      // printf("AAA %d %s %d\n", mt_old_new.Bond[0][2], mt_old_new.Name, new_type);
+      // if (new_type > -1) {
+      //   printf("%d %d\n", mt_old_new.Bond[0][2],
+      //          System->MoleculeType[new_type].Bond[0][2]);
+      // }
       FreeMoleculeTypeEssentials(&mt_old_new);
       if (new_type != -1) { // yes, the molecule type is in the pruned system
         mol_new->Type = new_type;
         System->MoleculeType[new_type].Number++;
       } else { // no, it isn't; create a new one
-        int new_new_type = Count->MoleculeType, c_bond = 0, c_angle = 0,
-            c_dihedral = 0, c_improper = 0;
+        int new_new_type = Count->MoleculeType,
+            c_bond = 0, c_angle = 0, c_dihedral = 0, c_improper = 0;
         // count bonds in the pruned molecule type //{{{
         for (int j = 0; j < mt_old->nBonds; j++) {
           int *id = BondIndices(S_old, i, j);
@@ -3240,6 +3212,42 @@ void CheckSystem(SYSTEM System, char file[]) {
   }
   free(test); //}}}
 } //}}}
+// simplify system for vtf output - remove stuff vtf does not support //{{{
+void VtfSystem(SYSTEM *System) {
+  for (int i = 0; i < System->Count.MoleculeType; i++) {
+    // remove angles
+    if (System->MoleculeType[i].nAngles > 0) {
+      System->MoleculeType[i].nAngles = 0;
+      free(System->MoleculeType[i].Angle);
+    }
+    // remove dihedrals
+    if (System->MoleculeType[i].nDihedrals > 0) {
+      System->MoleculeType[i].nDihedrals = 0;
+      free(System->MoleculeType[i].Dihedral);
+    }
+    // remove impropers
+    if (System->MoleculeType[i].nImpropers > 0) {
+      System->MoleculeType[i].nImpropers = 0;
+      free(System->MoleculeType[i].Improper);
+    }
+    // remove bond types
+    for (int j = 0; j < System->MoleculeType[i].nBonds; j++) {
+      System->MoleculeType[i].Bond[j][2] = -1;
+    }
+    // remove angle types
+    for (int j = 0; j < System->MoleculeType[i].nAngles; j++) {
+      System->MoleculeType[i].Angle[j][3] = -1;
+    }
+    // remove dihedral types
+    for (int j = 0; j < System->MoleculeType[i].nDihedrals; j++) {
+      System->MoleculeType[i].Dihedral[j][4] = -1;
+    }
+    // remove improper types
+    for (int j = 0; j < System->MoleculeType[i].nImpropers; j++) {
+      System->MoleculeType[i].Improper[j][4] = -1;
+    }
+  }
+} //}}}
 
 // Helper functions for manipulating coordinates
 // wrap coordinates into simulation box and/or join molecules //{{{
@@ -3258,80 +3266,72 @@ void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join) {
   }
 } //}}}
 // distance between two beads; in the range <-BoxLength/2,BoxLength/2) //{{{
-VECTOR Distance(VECTOR id1, VECTOR id2, VECTOR BoxLength) {
-  // distance vector
-  VECTOR rij;
-  rij.x = id1.x - id2.x;
-  rij.y = id1.y - id2.y;
-  rij.z = id1.z - id2.z;
+void Distance(double id1[3], double id2[3],
+              double BoxLength[3], double out[3]) {
   // remove periodic boundary conditions in x-direction
-  while (rij.x >= (BoxLength.x / 2))
-    rij.x = rij.x - BoxLength.x;
-  while (rij.x < -(BoxLength.x / 2))
-    rij.x = rij.x + BoxLength.x;
-  // in y-direction
-  while (rij.y >= (BoxLength.y / 2))
-    rij.y = rij.y - BoxLength.y;
-  while (rij.y < -(BoxLength.y / 2))
-    rij.y = rij.y + BoxLength.y;
-  // in z-direction
-  while (rij.z >= (BoxLength.z / 2))
-    rij.z = rij.z - BoxLength.z;
-  while (rij.z < -(BoxLength.z / 2))
-    rij.z = rij.z + BoxLength.z;
-  return rij;
+  for (int dd = 0; dd < 3; dd++) {
+    out[dd] = id1[dd] - id2[dd];
+    while (out[dd] >= (BoxLength[dd] / 2)) {
+      out[dd] -= BoxLength[dd];
+    }
+    while (out[dd] < (-BoxLength[dd] / 2)) {
+      out[dd] += BoxLength[dd];
+    }
+  }
 } //}}}
 // calculate centre of mass for a list of beads //{{{
-VECTOR CentreOfMass(int n, int list[], SYSTEM System) {
-  VECTOR com = {0, 0, 0};
+void CentreOfMass(int n, int list[], SYSTEM System, double com[3]) {
+  for (int dd = 0; dd < 3; dd++) {
+    com[dd] = 0;
+  }
   double mass = 0;
   for (int i = 0; i < n; i++) {
     int id = list[i];
     BEAD *b = &System.Bead[id];
     BEADTYPE *bt = &System.BeadType[b->Type];
-    com.x += b->Position.x * bt->Mass;
-    com.y += b->Position.y * bt->Mass;
-    com.z += b->Position.z * bt->Mass;
+    for (int dd = 0; dd < 3; dd++) {
+      com[dd] += b->Position[dd] * bt->Mass;
+    }
     mass += bt->Mass;
   }
-  com.x /= mass;
-  com.y /= mass;
-  com.z /= mass;
-  return com;
+  for (int dd = 0; dd < 3; dd++) {
+    com[dd] /= mass;
+  }
 } //}}}
 // calculate geometric centre for a list of beads //{{{
-VECTOR GeomCentre(int n, int *list, BEAD *Bead) {
-  VECTOR cog = {0, 0, 0};
+void GeomCentre(int n, int *list, BEAD *Bead, double gc[3]) {
+  for (int dd = 0; dd < 3; dd++) {
+    gc[dd] = 0;
+  }
   int count = 0;
   for (int i = 0; i < n; i++) {
     int id = list[i];
     if (Bead[id].InTimestep) {
-      cog.x += Bead[id].Position.x;
-      cog.y += Bead[id].Position.y;
-      cog.z += Bead[id].Position.z;
+      for (int dd = 0; dd < 3; dd++) {
+        gc[dd] += Bead[id].Position[dd];
+      }
       count++;
     }
   }
-  cog.x /= count;
-  cog.y /= count;
-  cog.z /= count;
-  return cog;
+  for (int dd = 0; dd < 3; dd++) {
+    gc[dd] /= count;
+  }
 } //}}}
 // Add/subtract Box.Low to coordinates //{{{
 void AddLow(SYSTEM *System) {
   for (int i = 0; i < System->Count.BeadCoor; i++) {
     int id = System->BeadCoor[i];
-    System->Bead[id].Position.x += System->Box.Low.x;
-    System->Bead[id].Position.y += System->Box.Low.y;
-    System->Bead[id].Position.z += System->Box.Low.z;
+    for (int dd = 0; dd < 3; dd++) {
+      System->Bead[id].Position[dd] += System->Box.Low[dd];
+    }
   }
 }
 void SubtractLow(SYSTEM *System) {
   for (int i = 0; i < System->Count.BeadCoor; i++) {
     int id = System->BeadCoor[i];
-    System->Bead[id].Position.x -= System->Box.Low.x;
-    System->Bead[id].Position.y -= System->Box.Low.y;
-    System->Bead[id].Position.z -= System->Box.Low.z;
+    for (int dd = 0; dd < 3; dd++) {
+      System->Bead[id].Position[dd] -= System->Box.Low[dd];
+    }
   }
 } //}}}
 
@@ -3454,6 +3454,58 @@ int CoordinateFileType(char name[]) { //{{{
       exit(1);
   }
 } //}}}
+int FileType(char name[]) { //{{{
+  // a) check for FIELD/CONFIG file
+  if (strcasecmp(name, "FIELD") == 0) {
+    return FIELD_FILE;
+  } else if (strcasecmp(name, "CONFIG") == 0) {
+    return CONFIG_FILE;
+  }
+  // b) check for extension
+  // copy the name as it's destroyed by strrchr()
+  char orig[LINE];
+  snprintf(orig, LINE, "%s", name);
+  // check for known extensions
+  int ext = 8;
+  char extension[ext][EXTENSION];
+  strcpy(extension[0], ".vtf");
+  strcpy(extension[1], ".vsf");
+  strcpy(extension[2], ".vcf");
+  strcpy(extension[3], ".xyz");
+  strcpy(extension[4], ".data");
+  strcpy(extension[5], ".lammpstrj");
+  strcpy(extension[6], ".field");
+  strcpy(extension[7], ".config");
+  char *dot = strrchr(name, '.');
+  for (int i = 0; i < ext; i++) {
+    if (dot && strcasecmp(dot, extension[i]) == 0) {
+      ext = i;
+      break;
+    }
+  }
+  switch (ext) {
+    case 0:
+      return VTF_FILE;
+    case 1:
+      return VSF_FILE;
+    case 2:
+      return VCF_FILE;
+    case 3:
+      return XYZ_FILE;
+    case 4:
+      return LDATA_FILE;
+    case 5:
+      return LTRJ_FILE;
+    case 6:
+      return FIELD_FILE;
+    case 7:
+      return CONFIG_FILE;
+    default:
+      strcpy(ERROR_MSG, "Unknown coordinate file type");
+      PrintErrorFile(name, "\0", "\0");
+      exit(1);
+  }
+} //}}}
 // check for combined structer/coordinate file (ltrj, xyz, or vtf) //{{{
 int FullFileType(char name[], int mode) {
   // copy the name as it's destroyed by strrchr()
@@ -3535,37 +3587,35 @@ int FullFileType(char name[], int mode) {
 
 // create a cell-linked list //{{{
 void LinkedList(SYSTEM System, int **Head, int **Link, double rcut,
-                INTVECTOR *n_cells, int *Dcx, int *Dcy, int *Dcz) {
-  VECTOR *box = &System.Box.Length;
+                int n_cells[3], int Dc[14][3]) {
+  double (*box)[3] = &System.Box.Length;
   COUNT *Count = &System.Count;
-  VECTOR rl;
-  rl.x = box->x / rcut;
-  rl.y = box->y / rcut;
-  rl.z = box->z / rcut;
-  n_cells->x = (int)(rl.x);
-  n_cells->y = (int)(rl.y);
-  n_cells->z = (int)(rl.z);
-  if (n_cells->x < 3 || n_cells->y < 3 || n_cells->z < 3) {
+  double rl[3];
+  for (int dd = 0; dd < 3; dd++) {
+    rl[dd] = (*box)[dd] / rcut;
+    n_cells[dd] = (int)(rl[dd]);
+  }
+  if (n_cells[0] < 3 || n_cells[1] < 3 || n_cells[2] < 3) {
     strcpy(ERROR_MSG, "cell size too small for cut-off in linked list");
     PrintError();
     exit(1);
   }
-  rl.x = (double)n_cells->x / box->x;
-  rl.y = (double)n_cells->y / box->y;
-  rl.z = (double)n_cells->z / box->z;
+  for (int dd = 0; dd < 3; dd++) {
+    rl[dd] = (double)n_cells[dd] / (*box)[dd];
+  }
   // allocate arrays
-  *Head = malloc(sizeof **Head * n_cells->x * n_cells->y * n_cells->z);
+  *Head = malloc(sizeof **Head * n_cells[0] * n_cells[1] * n_cells[2]);
   *Link = malloc(sizeof **Link * Count->BeadCoor);
-  for (int i = 0; i < (n_cells->x * n_cells->y * n_cells->z); i++) {
+  for (int i = 0; i < (n_cells[0] * n_cells[1] * n_cells[2]); i++) {
     (*Head)[i] = -1;
   }
   // sort beads into cells
   for (int i = 0; i < Count->BeadCoor; i++) {
     int id = System.BeadCoor[i];
     BEAD *bead = &System.Bead[id];
-    int cell = (int)(bead->Position.x * rl.x) +
-               (int)(bead->Position.y * rl.y) * n_cells->x +
-               (int)(bead->Position.z * rl.z) * n_cells->x * n_cells->y;
+    int cell = (int)(bead->Position[0] * rl[0]) +
+               (int)(bead->Position[1] * rl[1]) * n_cells[0] +
+               (int)(bead->Position[2] * rl[2]) * n_cells[0] * n_cells[1];
     (*Link)[i] = (*Head)[cell];
     (*Head)[cell] = i;
   }
@@ -3574,10 +3624,34 @@ void LinkedList(SYSTEM System, int **Head, int **Link, double rcut,
   int y[14] = {0, 0, 1, 1, 1, -1, -1, -1, 0, 0, 0, 1, 1, 1};
   int z[14] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1};
   for (int i = 0; i < 14; i++) {
-    Dcx[i] = x[i];
-    Dcy[i] = y[i];
-    Dcz[i] = z[i];
+    Dc[i][0] = x[i];
+    Dc[i][1] = y[i];
+    Dc[i][2] = z[i];
   }
+}
+int SelectCell1(int c1[3], int n_cells[3]) {
+  return c1[0] + c1[1] * n_cells[0] + c1[2] * n_cells[0] * n_cells[1];
+}
+int SelectCell2(int c1[3], int n_cells[3], int Dc[14][3], int n) {
+  int c2[3];
+  for (int dd = 0; dd < 3; dd++) {
+    c2[dd] = c1[dd] + Dc[n][dd];
+  }
+  // periodic boundary conditions for cells
+  if (c2[0] >= n_cells[0])
+    c2[0] -= n_cells[0];
+  else if (c2[0] < 0)
+    c2[0] += n_cells[0];
+
+  if (c2[1] >= n_cells[1])
+    c2[1] -= n_cells[1];
+  else if (c2[1] < 0)
+    c2[1] += n_cells[1];
+
+  if (c2[2] >= n_cells[2])
+    c2[2] -= n_cells[2];
+
+  return c2[0] + c2[1] * n_cells[0] + c2[2] * n_cells[0] * n_cells[1];
 } //}}}
 
 // verbose output (print various structures and some such)
@@ -3711,27 +3785,27 @@ void PrintBeadType(SYSTEM System) { //{{{
   // print the information
   for (int i = 0; i < System.Count.BeadType; i++) {
     fprintf(stdout, "BeadType[%*d] = {", types_digits, i);
-    fprintf(stdout, ".Name = %*s, ", longest_name, System.BeadType[i].Name);
-    fprintf(stdout, ".Number = %*d, ", max_number, System.BeadType[i].Number);
+    fprintf(stdout, ".Name = %*s ", longest_name, System.BeadType[i].Name);
+    fprintf(stdout, ".Number = %*d ", max_number, System.BeadType[i].Number);
     // print charge
     fprintf(stdout, ".Charge = ");
     if (System.BeadType[i].Charge != CHARGE) {
-      fprintf(stdout, "%*.*f, ", max_q, precision, System.BeadType[i].Charge);
+      fprintf(stdout, "%*.*f ", max_q, precision, System.BeadType[i].Charge);
     } else {
       for (int j = 0; j < (max_q - 3); j++) {
         putchar(' ');
       }
-      fprintf(stdout, "n/a, ");
+      fprintf(stdout, "n/a ");
     }
     // print mass
     fprintf(stdout, ".Mass = ");
     if (System.BeadType[i].Mass != MASS) {
-      fprintf(stdout, "%*.*f, ", max_m, precision, System.BeadType[i].Mass);
+      fprintf(stdout, "%*.*f ", max_m, precision, System.BeadType[i].Mass);
     } else {
       for (int j = 0; j < (max_m - 3); j++) {
         putchar(' ');
       }
-      fprintf(stdout, "n/a, ");
+      fprintf(stdout, "n/a ");
     }
     fprintf(stdout, ".Radius = ");
     // print radius
@@ -3750,34 +3824,28 @@ void PrintBeadType(SYSTEM System) { //{{{
 void PrintMoleculeType(SYSTEM System) { //{{{
   for (int i = 0; i < System.Count.MoleculeType; i++) {
     fprintf(stdout, "MoleculeType[%d] = {\n", i);
-    fprintf(stdout, "  .Name       = %s,\n", System.MoleculeType[i].Name);
-    fprintf(stdout, "  .Number     = %d,\n", System.MoleculeType[i].Number);
+    fprintf(stdout, "  .Name       = %s\n", System.MoleculeType[i].Name);
+    fprintf(stdout, "  .Number     = %d\n", System.MoleculeType[i].Number);
     // print bead types (list all beads) //{{{
     fprintf(stdout, "  .nBeads     = %d,\n", System.MoleculeType[i].nBeads);
     fprintf(stdout, "  .Bead       = {");
     for (int j = 0; j < System.MoleculeType[i].nBeads; j++) {
-      if (j != 0) {
-        fprintf(stdout, ", ");
-      }
       int type = System.MoleculeType[i].Bead[j];
-      fprintf(stdout, "%s", System.BeadType[type].Name);
+      fprintf(stdout, " %s", System.BeadType[type].Name);
     }
-    fprintf(stdout, "},\n"); //}}}
+    fprintf(stdout, " }\n"); //}}}
     // print bonds if there are any //{{{
     if (System.MoleculeType[i].nBonds > 0) {
       fprintf(stdout, "  .nBonds     = %d,\n", System.MoleculeType[i].nBonds);
       fprintf(stdout, "  .Bond       = {");
       for (int j = 0; j < System.MoleculeType[i].nBonds; j++) {
-        if (j != 0) {
-          fprintf(stdout, ", ");
-        }
-        fprintf(stdout, "%d-%d", System.MoleculeType[i].Bond[j][0] + 1,
+        fprintf(stdout, " %d-%d", System.MoleculeType[i].Bond[j][0] + 1,
                 System.MoleculeType[i].Bond[j][1] + 1);
         if (System.MoleculeType[i].Bond[j][2] != -1) {
-          fprintf(stdout, "(%d)", System.MoleculeType[i].Bond[j][2] + 1);
+          fprintf(stdout, " (%d)", System.MoleculeType[i].Bond[j][2] + 1);
         }
       }
-      fprintf(stdout, "},\n");
+      fprintf(stdout, " }\n");
     } //}}}
     // print angles if there are any //{{{
     if (System.MoleculeType[i].nAngles > 0) {
@@ -3838,17 +3906,14 @@ void PrintMoleculeType(SYSTEM System) { //{{{
     fprintf(stdout, "  .nBTypes    = %d\n", System.MoleculeType[i].nBTypes);
     fprintf(stdout, "  .BType      = {");
     for (int j = 0; j < System.MoleculeType[i].nBTypes; j++) {
-      if (j != 0) {
-        fprintf(stdout, ", ");
-      }
-      fprintf(stdout, "%s",
+      fprintf(stdout, " %s",
               System.BeadType[System.MoleculeType[i].BType[j]].Name);
     } //}}}
     if (System.MoleculeType[i].Mass != MASS) {
-      fprintf(stdout, "},\n  .Mass       = %.5f,\n",
+      fprintf(stdout, " }\n  .Mass       = %.5f\n",
               System.MoleculeType[i].Mass);
     } else {
-      fprintf(stdout, "},\n  .Mass       = n/a,\n");
+      fprintf(stdout, "}\n  .Mass       = n/a\n");
     }
     if (System.MoleculeType[i].Charge != CHARGE) {
       fprintf(stdout, "  .Charge     = %.5f\n}\n",
@@ -3937,69 +4002,19 @@ void PrintImproperType(SYSTEM System) { //{{{
 } //}}}
 void PrintBox(BOX Box) { //{{{
   fprintf(stdout, "Box = {\n");
-  if (Box.Low.x != 0 || Box.Low.y != 0 || Box.Low.z != 0) {
-    fprintf(stdout, "  .Low = (%lf, %lf, %lf),\n", Box.Low.x, Box.Low.y,
-            Box.Low.z);
+  if (Box.Low[0] != 0 || Box.Low[1] != 0 || Box.Low[2] != 0) {
+    fprintf(stdout, "  .Low = ( %lf %lf %lf )\n",
+            Box.Low[0], Box.Low[1], Box.Low[2]);
   }
-  fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x, Box.Length.y,
-          Box.Length.z);
+  fprintf(stdout, "  .Length = ( %lf %lf %lf )\n",
+          Box.Length[0], Box.Length[1], Box.Length[2]);
   if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
-    fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
-    fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
-    fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);
+    fprintf(stdout, "  .alpha = %lf\n", Box.alpha);
+    fprintf(stdout, "  .beta  = %lf\n", Box.beta);
+    fprintf(stdout, "  .gamma = %lf\n", Box.gamma);
   }
-  fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
+  fprintf(stdout, "  .Volume = %lf\n", Box.Volume);
   fprintf(stdout, "}\n");
-
-  // fprintf(stdout, "Box = {\n");
-  // fprintf(stdout, "  .Length = (%lf, %lf, %lf),\n", Box.Length.x,
-  // Box.Length.y,
-  //         Box.Length.z);
-  // fprintf(stdout, "  .Low = (%lf, %lf, %lf),\n", Box.Low.x, Box.Low.y,
-  // Box.Low.z); fprintf(stdout, "  .OrthoLength = (%lf, %lf, %lf),\n",
-  // Box.OrthoLength.x,
-  //         Box.OrthoLength.y, Box.OrthoLength.z);
-  // fprintf(stdout, "  .alpha = %lf,\n", Box.alpha);
-  // fprintf(stdout, "  .beta  = %lf,\n", Box.beta);
-  // fprintf(stdout, "  .gamma = %lf,\n", Box.gamma);
-  // fprintf(stdout, "  .Volume = %lf,\n", Box.Volume);
-  // // print transform matrix //{{{
-  // for (int i = 0; i < 3; i++) {
-  //   if (i == 0) {
-  //     fprintf(stdout, "  .transform = (");
-  //   } else {
-  //     fprintf(stdout, "               (");
-  //   }
-  //   for (int j = 0; j < 3; j++) {
-  //     if (Box.transform[i][j] >= 0) {
-  //       putchar(' ');
-  //     }
-  //     fprintf(stdout, "%e", Box.transform[i][j]);
-  //     if (j < 2) {
-  //       fprintf(stdout, ", ");
-  //     }
-  //   }
-  //   fprintf(stdout, ")\n");
-  // } //}}}
-  // // print inverse matrix //{{{
-  // for (int i = 0; i < 3; i++) {
-  //   if (i == 0) {
-  //     fprintf(stdout, "  .inverse = (");
-  //   } else {
-  //     fprintf(stdout, "             (");
-  //   }
-  //   for (int j = 0; j < 3; j++) {
-  //     if (Box.inverse[i][j] >= 0) {
-  //       putchar(' ');
-  //     }
-  //     fprintf(stdout, "%e", Box.inverse[i][j]);
-  //     if (j < 2) {
-  //       fprintf(stdout, ", ");
-  //     }
-  //   }
-  //   fprintf(stdout, ")\n");
-  // } //}}}
-  // fprintf(stdout, "}\n");
 } //}}}
 void PrintByline(char file[], int argc, char *argv[]) { //{{{
   FILE *fw = OpenFile(file, "w");
@@ -4025,58 +4040,63 @@ void PrintStep(int *count_coor, int start, bool silent) { //{{{
 } //}}}
 
 // TODO: use Jacobi method
+// TODO: use SYSTEM
 // calculate gyration tensor and various shape descriptors //{{{
-VECTOR Gyration(int n, int *list, COUNT Counts, BEADTYPE *BeadType,
-                BEAD **Bead) {
+void Gyration(int n, int *list, COUNT Counts, BEADTYPE *BeadType,
+              BEAD **Bead, double eigen[3]) {
   // gyration tensor (3x3 array)
   // use long double to ensure precision -- previous problem with truncation in
   // short chains
-  struct Tensor {
-    LONGVECTOR x, y, z;
-  } GyrationTensor = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+  // struct Tensor {
+  //   LONGVECTOR x, y, z;
+  // } GyrationTensor = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+  long double GyrationTensor[3][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
 
-  VECTOR cog = GeomCentre(n, list, *Bead);
+  double cog[3];
+  GeomCentre(n, list, *Bead, cog);
 
   // move centre of mass to [0,0,0] //{{{
   for (int i = 0; i < n; i++) {
-    (*Bead)[list[i]].Position.x -= cog.x;
-    (*Bead)[list[i]].Position.y -= cog.y;
-    (*Bead)[list[i]].Position.z -= cog.z;
+    for (int dd = 0; dd < 3; dd++) {
+      (*Bead)[list[i]].Position[dd] -= cog[dd];
+    }
   } //}}}
 
   // calculate gyration tensor //{{{
   for (int i = 0; i < n; i++) {
     int id = list[i];
-    GyrationTensor.x.x += Bead[id]->Position.x * Bead[id]->Position.x;
-    GyrationTensor.x.y += Bead[id]->Position.x * Bead[id]->Position.y;
-    GyrationTensor.x.z += Bead[id]->Position.x * Bead[id]->Position.z;
-    GyrationTensor.y.y += Bead[id]->Position.y * Bead[id]->Position.y;
-    GyrationTensor.y.z += Bead[id]->Position.y * Bead[id]->Position.z;
-    GyrationTensor.z.z += Bead[id]->Position.z * Bead[id]->Position.z;
+    GyrationTensor[0][0] += Bead[id]->Position[0] * Bead[id]->Position[0];
+    GyrationTensor[0][1] += Bead[id]->Position[0] * Bead[id]->Position[1];
+    GyrationTensor[0][2] += Bead[id]->Position[0] * Bead[id]->Position[2];
+    GyrationTensor[1][1] += Bead[id]->Position[1] * Bead[id]->Position[1];
+    GyrationTensor[1][2] += Bead[id]->Position[1] * Bead[id]->Position[2];
+    GyrationTensor[2][2] += Bead[id]->Position[2] * Bead[id]->Position[2];
   }
-  GyrationTensor.x.x /= n;
-  GyrationTensor.x.y /= n;
-  GyrationTensor.x.z /= n;
-  GyrationTensor.y.y /= n;
-  GyrationTensor.y.z /= n;
-  GyrationTensor.z.z /= n; //}}}
+  GyrationTensor[0][0] /= n;
+  GyrationTensor[0][1] /= n;
+  GyrationTensor[0][2] /= n;
+  GyrationTensor[1][1] /= n;
+  GyrationTensor[1][2] /= n;
+  GyrationTensor[2][2] /= n; //}}}
 
   // characteristic polynomial:
   // a_cube * x^3 + b_cube * x^2 + c_cube * x + d_cube = 0
   long double a_cube = -1;
-  long double b_cube =
-      GyrationTensor.x.x + GyrationTensor.y.y + GyrationTensor.z.z;
-  long double c_cube = -GyrationTensor.x.x * GyrationTensor.y.y -
-                       GyrationTensor.x.x * GyrationTensor.z.z -
-                       GyrationTensor.y.y * GyrationTensor.z.z +
-                       SQR(GyrationTensor.y.z) + SQR(GyrationTensor.x.y) +
-                       SQR(GyrationTensor.x.z);
+  long double b_cube = GyrationTensor[0][0] +
+                       GyrationTensor[1][1] +
+                       GyrationTensor[2][2];
+  long double c_cube = -GyrationTensor[0][0] * GyrationTensor[1][1] -
+                       GyrationTensor[0][0] * GyrationTensor[2][2] -
+                       GyrationTensor[1][1] * GyrationTensor[2][2] +
+                       SQR(GyrationTensor[1][2]) +
+                       SQR(GyrationTensor[0][1]) +
+                       SQR(GyrationTensor[0][2]);
   long double d_cube =
-      +GyrationTensor.x.x * GyrationTensor.y.y * GyrationTensor.z.z +
-      2 * GyrationTensor.x.y * GyrationTensor.y.z * GyrationTensor.x.z -
-      SQR(GyrationTensor.x.z) * GyrationTensor.y.y -
-      SQR(GyrationTensor.x.y) * GyrationTensor.z.z -
-      SQR(GyrationTensor.y.z) * GyrationTensor.x.x;
+      +GyrationTensor[0][0] * GyrationTensor[1][1] * GyrationTensor[2][2] +
+      2 * GyrationTensor[0][1] * GyrationTensor[1][2] * GyrationTensor[0][2] -
+      SQR(GyrationTensor[0][2]) * GyrationTensor[1][1] -
+      SQR(GyrationTensor[0][1]) * GyrationTensor[2][2] -
+      SQR(GyrationTensor[1][2]) * GyrationTensor[0][0];
 
   // first root: either 0 or Newton's iterative method to get it //{{{
   long double root0 = 0;
@@ -4111,20 +4131,16 @@ VECTOR Gyration(int n, int *list, COUNT Counts, BEADTYPE *BeadType,
   long double b_quad = b_cube / a_cube + root0;
   long double c_quad =
       SQR(root0) + b_cube / a_cube * root0 + c_cube / a_cube; //}}}
-  // calculate & sort eigenvalues //{{{
-  LONGVECTOR eigen;
-  eigen.x = root0; // found out by Newton's method
+  // calculate & sort eigenvalues
+  long double e[3];
+  e[0] = root0; // found out by Newton's method
   // roots of the quadratic equation
-  eigen.y = (-b_quad + sqrt(SQR(b_quad) - 4 * a_quad * c_quad)) / (2 * a_quad);
-  eigen.z = (-b_quad - sqrt(SQR(b_quad) - 4 * a_quad * c_quad)) / (2 * a_quad);
-
-  VECTOR eigen2; // change LONGVECTOR to VECTOR
-  eigen2.x = eigen.x;
-  eigen2.y = eigen.y;
-  eigen2.z = eigen.z;
-  eigen2 = SortVector(eigen2); //}}}
-
-  return eigen2;
+  e[1] = (-b_quad + sqrt(SQR(b_quad) - 4 * a_quad * c_quad)) / (2 * a_quad);
+  e[2] = (-b_quad - sqrt(SQR(b_quad) - 4 * a_quad * c_quad)) / (2 * a_quad);
+  for (int dd = 0; dd < 3; dd++) {
+    eigen[dd] = e[dd];
+  }
+  SortArrayDouble(eigen, 3, 0);
 } //}}}
 
 // memory-freeing functions
@@ -4314,7 +4330,7 @@ void SortAggStruct(AGGREGATE *Aggregate, SYSTEM System) { //{{{
 void RemovePBCAggregates(double distance, AGGREGATE *Aggregate,
                          SYSTEM *System) {
   COUNT *Count = &System->Count;
-  VECTOR *box = &System->Box.Length;
+  double (*box)[3] = &System->Box.Length;
   // helper array indicating whether molecules already moved
   bool *moved = malloc(sizeof *moved * Count->Molecule);
   // go through all aggregates larger than unimers and put all molecules together //{{{
@@ -4358,67 +4374,38 @@ void RemovePBCAggregates(double distance, AGGREGATE *Aggregate,
                     System->BeadType[b2->Type].Flag) {
 
                   // calculate distance between 'bead1' and 'bead2'
-                  VECTOR dist = Distance(b1->Position, b2->Position, *box);
-                  dist.x = VectorLength(dist);
+                  double dist[3];
+                  Distance(b1->Position, b2->Position, *box, dist);
+                  dist[0] = VectorLength(dist);
 
                   // move 'mol2' (or 'k') if 'bead1' and 'bead2' are in contact
-                  if (dist.x <= distance) {
-
-                    // distance vector between 'bead1' and 'bead2' //{{{
-                    dist.x = b1->Position.x - b2->Position.x;
-                    dist.y = b1->Position.y - b2->Position.y;
-                    dist.z = b1->Position.z - b2->Position.z; //}}}
+                  if (dist[0] <= distance) {
+                    // distance vector between 'bead1' and 'bead2'
+                    for (int dd = 0; dd < 3; dd++) {
+                      dist[dd] = b1->Position[dd] - b2->Position[dd];
+                    }
                     /*
-                     * if 'bead1' and 'bead2' are too far in x-direction,
+                     * if 'bead1' and 'bead2' are too far,
                      * move 'mol2' in x-direction
                      */
-                    while (dist.x > (box->x/2)) { //{{{
-                      for (int n = 0; n < mt2->nBeads; n++) {
-                        int id = molec2->Bead[n];
-                        System->Bead[id].Position.x += box->x;
+                    //{{{
+                    for (int dd = 0; dd < 3; dd++) {
+                      while (dist[dd] > ((*box)[dd] / 2)) {
+                        for (int n = 0; n < mt2->nBeads; n++) {
+                          int id = molec2->Bead[n];
+                          System->Bead[id].Position[dd] += (*box)[dd];
+                        }
+                        dist[dd] = b1->Position[dd] - b2->Position[dd];
                       }
-                      dist.x = b1->Position.x - b2->Position.x;
-                    }
-                    while (dist.x <= -(box->x/2)) {
-                      for (int n = 0; n < mt2->nBeads; n++) {
-                        int id = molec2->Bead[n];
-                        System->Bead[id].Position.x -= box->x;
+                      while (dist[dd] <= -((*box)[dd] / 2)) {
+                        for (int n = 0; n < mt2->nBeads; n++) {
+                          int id = molec2->Bead[n];
+                          System->Bead[id].Position[dd] -= (*box)[dd];
+                        }
+                        dist[dd] = b1->Position[dd] - b2->Position[dd];
                       }
-                      dist.x = b1->Position.x - b2->Position.x;
                     } //}}}
-                    // if 'bead1' and 'bead2' are too far in y-direction, move 'mol2' in y-direction //{{{
-                    while (dist.y > (box->y/2)) {
-                      for (int n = 0; n < mt2->nBeads; n++) {
-                        int id = molec2->Bead[n];
-                        System->Bead[id].Position.y += box->y;
-                      }
-                      dist.y = b1->Position.y - b2->Position.y;
-                    }
-                    while (dist.y <= -(box->y/2)) {
-                      for (int n = 0; n < mt2->nBeads; n++) {
-                        int id = molec2->Bead[n];
-                        System->Bead[id].Position.y -= box->y;
-                      }
-                      dist.y = b1->Position.y - b2->Position.y;
-                    } //}}}
-                    // if 'bead1' and 'bead2' are too far in z-direction, move 'mol2' in x-direction //{{{
-                    while (dist.z > (box->z/2)) {
-                      for (int n = 0; n < mt2->nBeads; n++) {
-                        int id = molec2->Bead[n];
-                        System->Bead[id].Position.z += box->z;
-                      }
-                      dist.z = b1->Position.z - b2->Position.z;
-                    }
-                    while (dist.z <= -(box->z/2)) {
-                      for (int n = 0; n < mt2->nBeads; n++) {
-                        int id = molec2->Bead[n];
-                        System->Bead[id].Position.z -= box->z;
-                      }
-                      dist.z = b1->Position.z - b2->Position.z;
-                    } //}}}
-
                     moved[k] = true;
-
                     // skip remainder of 'mol2' (or 'k')
                     break;
                   }
@@ -4462,29 +4449,23 @@ void RemovePBCAggregates(double distance, AGGREGATE *Aggregate,
   free(moved); //}}}
   // put aggregates' centre of mass into the simulation box //{{{
   for (int i = 0; i < Count->Aggregate; i++) {
-    VECTOR com = CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead, *System);
+    double com[3];
+    CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead, *System, com);
     // by how many BoxLength's should com by moved?
     // for distant aggregates - it shouldn't happen, but better safe than sorry
-    INTVECTOR move;
-    // VECTOR com = {0, 0, 0}; // TODO: see above
-    move.x = com.x / box->x;
-    move.y = com.y / box->y;
-    move.z = com.z / box->z;
-    if (com.x < 0) {
-      move.x--;
-    }
-    if (com.y < 0) {
-      move.y--;
-    }
-    if (com.z < 0) {
-      move.z--;
+    int move[3];
+    for (int dd = 0; dd < 3; dd++) {
+      move[dd] = com[dd] / (*box)[dd];
+      if (com[dd] < 0) {
+        move[dd]--;
+      }
     }
     // move all the beads
     for (int j = 0; j < Aggregate[i].nBeads; j++) {
       int bead = Aggregate[i].Bead[j];
-      System->Bead[bead].Position.x -= move.x * box->x;
-      System->Bead[bead].Position.y -= move.y * box->y;
-      System->Bead[bead].Position.z -= move.z * box->z;
+      for (int dd = 0; dd < 3; dd++) {
+        System->Bead[bead].Position[dd] -= move[dd] * (*box)[dd];
+      }
     }
   } //}}}
 } //}}}

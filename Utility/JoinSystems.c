@@ -17,16 +17,15 @@ of both systems.\n\n");
   fprintf(ptr, "<input2>            second input coordinate file\n");
   fprintf(ptr, "<output>            output structure/coordinate file\n");
   fprintf(ptr, "[options]\n");
-  fprintf(ptr, "  -o <filename>     output structure file\n");
-  fprintf(ptr,
-          "  -off 3×<float>|c  offset of the second system against "
+  fprintf(ptr, "  -o <filename>     output extra structure file\n");
+  fprintf(ptr, "  -off 3×<float>|c  offset of the second system against "
           "the first ('c' to place it in the centre of the first system)\n");
   fprintf(ptr, "  -b 3×<float>      output box dimensions (orthogonal)\n");
   fprintf(ptr, "  -i1/-i2 <file>    structure file for <input1>/<input2>\n");
-  fprintf(ptr, "  --detailed1/--detailed2"
+  fprintf(ptr, "  --detailed1/--detailed2\n"
                "                    detailed bead type recognistion "
                "(vtf input file)\n");
-  fprintf(ptr, "  -pbc1/-pbc2 <file>"
+  fprintf(ptr, "  -pbc1/-pbc2 <file>\n"
                "                    position of pbc in input xyz file's "
                "comment line\n");
   fprintf(ptr, "  -st1/-st2 <int>   starting timestep for the input files\n");
@@ -80,14 +79,14 @@ int main(int argc, char *argv[]) {
   int out_type = CoordinateFileType(out_file); //}}}
 
   // options before reading system data //{{{
-  // output structure file (-o option) //{{{
-  char struct_file_out[LINE] = "";
-  int struct_type_out = -1;
-  if (FileOption(argc, argv, "-o", struct_file_out)) {
+  // output extra file (-o option) //{{{
+  char out2_file[LINE] = "";
+  int out2_type = -1;
+  if (FileOption(argc, argv, "-o", out2_file)) {
     exit(1);
   }
-  if (struct_file_out[0] != '\0') {
-    struct_type_out = StructureFileType(struct_file_out);
+  if (out2_file[0] != '\0') {
+    out2_type = FileType(out2_file);
   } //}}}
   // input structure files (-i1/-i2 options) //{{{
   if (FileOption(argc, argv, "-i1", struct_file_1)) {
@@ -122,37 +121,29 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   // -off option //{{{
-  VECTOR offset = {0, 0, 0};
+  double offset[3] = {0, 0, 0};
   for (int i = 0; i < argc; i++) {
     if (strcmp(argv[i], "-off") == 0) {
       if (argc < (i + 3) ||
-          (argv[i + 1][0] != 'c' && !IsRealNumber(argv[i + 1], &offset.x)) ||
-          (argv[i + 2][0] != 'c' && !IsRealNumber(argv[i + 2], &offset.y)) ||
-          (argv[i + 3][0] != 'c' && !IsRealNumber(argv[i + 3], &offset.z))) {
+          (argv[i+1][0] != 'c' && !IsRealNumber(argv[i + 1], &offset[0])) ||
+          (argv[i+2][0] != 'c' && !IsRealNumber(argv[i + 2], &offset[1])) ||
+          (argv[i+3][0] != 'c' && !IsRealNumber(argv[i + 3], &offset[2]))) {
         strcpy(ERROR_MSG, "wrong/missing arguments (either number or 'c')");
         PrintErrorOption("-off");
         exit(1);
       }
-      if (argv[i + 1][0] == 'c') {
-        offset.x = -11111;
-      }
-      if (argv[i + 2][0] == 'c') {
-        offset.y = -11111;
-      }
-      if (argv[i + 3][0] == 'c') {
-        offset.z = -11111;
+      for (int dd = 0; dd < 3; dd++) {
+        if (argv[i+dd+1][0] == 'c') {
+          offset[dd] = -11111;
+        }
       }
       break;
     }
   } //}}}
   // output box dimensions //{{{
-  VECTOR box_opt = {0, 0, 0};
-  double temp[3] = {0};
-  if (DoubleOption(argc, argv, 3, "-b", &count, temp)) {
-    box_opt.x = temp[0];
-    box_opt.y = temp[1];
-    box_opt.z = temp[2];
-    if (count != 3 || box_opt.x <= 0 || box_opt.y <= 0 || box_opt.z <= 0) {
+  double box_opt[3] = {0, 0, 0};
+  if (DoubleOption3(argc, argv, "-b", box_opt)) {
+    if (box_opt[0] <= 0 || box_opt[1] <= 0 || box_opt[2] <= 0) {
       strcpy(ERROR_MSG, "three positive numbers required");
       PrintErrorOption("-b");
       Help(argv[0], true, common, option);
@@ -215,76 +206,85 @@ int main(int argc, char *argv[]) {
   fclose(fr);
   AddLow(&Sys_2); //}}}
 
-  // make proper offset vector //{{{
-  if (offset.x == -11111) { // a)
-    offset.x = (box1->Low.x + 0.5 * box1->Length.x) -
-               (box2->Low.x + 0.5 * box2->Length.x);
+  // make proper offset vector
+  for (int dd = 0; dd < 3; dd++) {
+    if (offset[dd] == -11111) { // a)
+      offset[dd] = (box1->Low[dd] + 0.5 * box1->Length[dd]) -
+                   (box2->Low[dd] + 0.5 * box2->Length[dd]);
+    }
   }
-  if (offset.y == -11111) { // a)
-    offset.y = (box1->Low.y + 0.5 * box1->Length.y) -
-               (box2->Low.y + 0.5 * box2->Length.y);
-  }
-  if (offset.z == -11111) { // a)
-    offset.z = (box1->Low.z + 0.5 * box1->Length.z) -
-               (box2->Low.z + 0.5 * box2->Length.z);
-  } //}}}
 
   // move the beads of the second system //{{{
   for (int i = 0; i < Sys_2.Count.Bead; i++) {
     int id = Sys_2.BeadCoor[i];
-    Sys_2.Bead[id].Position.x += offset.x;
-    Sys_2.Bead[id].Position.y += offset.y;
-    Sys_2.Bead[id].Position.z += offset.z;
+    Sys_2.Bead[id].Position[0] += offset[0];
+    Sys_2.Bead[id].Position[1] += offset[1];
+    Sys_2.Bead[id].Position[2] += offset[2];
   } //}}}
 
-  // create output system
-  SYSTEM Sys_out = CopySystem(Sys_1);
+  // create output system(s) //{{{
+  SYSTEM S_out1 = CopySystem(Sys_1);
   // pick box size as the larger dimensions from the initial systems //{{{
   BOX box_out = InitBox;
   // ...assumes orthogonal box
-  double Low1[3] = {box1->Low.x, box1->Low.y, box1->Low.z},
-         Low2[3] = {box2->Low.x, box2->Low.y, box2->Low.z},
+  double Low1[3] = {box1->Low[0], box1->Low[1], box1->Low[2]},
+         Low2[3] = {box2->Low[0], box2->Low[1], box2->Low[2]},
          Low3[3] = {0, 0, 0}, // output box lower bound
-      Length1[3] = {box1->Length.x, box1->Length.y, box1->Length.z},
-         Length2[3] = {box2->Length.x, box2->Length.y, box2->Length.z},
-         Length3[3] = {0, 0, 0}, // output box sidelengths
-      off[3] = {offset.x, offset.y, offset.z};
-  // off[3] = {-20, offset.y, offset.z};
-  for (int i = 0; i < 3; i++) {
-    if (Low1[i] < (Low2[i] + off[i])) {
-      Low3[i] = Low1[i];
+      Length1[3] = {box1->Length[0], box1->Length[1], box1->Length[2]},
+         Length2[3] = {box2->Length[0], box2->Length[1], box2->Length[2]},
+         Length3[3] = {0, 0, 0}; // output box sidelengths
+  for (int dd = 0; dd < 3; dd++) {
+    if (Low1[dd] < (Low2[dd] + offset[dd])) {
+      Low3[dd] = Low1[dd];
     } else {
-      Low3[i] = Low2[i] + off[i];
+      Low3[dd] = Low2[dd] + offset[dd];
     }
-    if ((Low1[i] + Length1[i]) > (Low2[i] + Length2[i] + off[i])) {
-      Length3[i] = Low1[i] + Length1[i];
+    if ((Low1[dd] + Length1[dd]) > (Low2[dd] + Length2[dd] + offset[dd])) {
+      Length3[dd] = Low1[dd] + Length1[dd];
     } else {
-      Length3[i] = Low2[i] + Length2[i] + off[i];
+      Length3[dd] = Low2[dd] + Length2[dd] + offset[dd];
     }
-    Length3[i] -= Low3[i];
+    Length3[dd] -= Low3[dd];
   }
   // fill output box Low & Length
-  box_out.Length.x = Length3[0];
-  box_out.Length.y = Length3[1];
-  box_out.Length.z = Length3[2];
-  box_out.Low.x = Low3[0];
-  box_out.Low.y = Low3[1];
-  box_out.Low.z = Low3[2];
+  for (int dd = 0; dd < 3; dd++) {
+    box_out.Length[dd] = Length3[dd];
+    box_out.Low[dd] = Low3[dd];
+  }
   // assume orthogonal box
   box_out.alpha = 90;
   box_out.beta = 90;
   box_out.gamma = 90;
   CalculateBoxData(&box_out, 0); //}}}
-  ConcatenateSystems(&Sys_out, Sys_2, box_out);
+  SYSTEM S_in;
+  SYSTEM S_out2;
+  if (out2_file[0] != '\0') {
+    S_out2 = CopySystem(Sys_1);
+    S_in = CopySystem(Sys_2);
+    if (out2_type == VCF_FILE ||
+        out2_type == VSF_FILE ||
+        out2_type == VTF_FILE) {
+      VtfSystem(&S_out2);
+      VtfSystem(&S_in);
+    }
+    ConcatenateSystems(&S_out2, S_in, box_out);
+  }
+  if (out2_type == VCF_FILE ||
+      out2_type == VSF_FILE ||
+      out2_type == VTF_FILE) {
+    VtfSystem(&S_out1);
+    VtfSystem(&Sys_2);
+  }
+  ConcatenateSystems(&S_out1, Sys_2, box_out); //}}}
 
   // if -b option is present, use it as box size //{{{
-  if (box_opt.x != 0) {
+  if (box_opt[0] != 0) {
     // align the centre of box_opt with the centre of the original output box
-    Sys_out.Box.Low.x += 0.5 * (Sys_out.Box.Length.x - box_opt.x);
-    Sys_out.Box.Low.y += 0.5 * (Sys_out.Box.Length.y - box_opt.y);
-    Sys_out.Box.Low.z += 0.5 * (Sys_out.Box.Length.z - box_opt.z);
-    Sys_out.Box.Length = box_opt;
-    CalculateBoxData(&Sys_out.Box, 0);
+    for (int dd = 0; dd < 3; dd++) {
+      S_out1.Box.Low[dd] += 0.5 * (S_out1.Box.Length[dd] - box_opt[dd]);
+      S_out1.Box.Length[dd] = box_opt[dd];
+    }
+    CalculateBoxData(&S_out1.Box, 0);
   } //}}}
 
   // verbose output describing the output system //{{{
@@ -292,38 +292,52 @@ int main(int argc, char *argv[]) {
     printf("\n==================================================");
     printf("\nNew sytem");
     printf("\n==================================================\n");
-    VerboseOutput(Sys_out);
+    VerboseOutput(S_out1);
   } //}}}
 
+  // write data to output file(s) //{{{
   // make coordinates from 0 to Box.Length (Lows are added if needed)
-  SubtractLow(&Sys_out);
+  SubtractLow(&S_out1);
   // save all beads
-  bool *write = malloc(Sys_out.Count.Bead * sizeof *write);
-  InitBoolArray(write, Sys_out.Count.Bead, true);
-  // if vcf format, write byline & create vsf file
+  bool *write = malloc(S_out1.Count.Bead * sizeof *write);
+  InitBoolArray(write, S_out1.Count.Bead, true);
+  // create vsf file if output file is vcf format
   if (out_type == VCF_FILE) {
     PrintByline(out_file, argc, argv); // byline to vcf file
-    out_file[strlen(out_file) - 2] = 's'; // change file to vsf
-    PrintByline(out_file, argc, argv); // write byline in vsf
-    WriteStructure(VSF_FILE, out_file, Sys_out, -1, false); // write data in vsf
-    out_file[strlen(out_file) - 2] = 'c'; // change file back to vcf
-  // if vtf format, write byline and structure block
+    out_file[strlen(out_file)-2] = 's';
+    WriteStructure(VSF_FILE, out_file, S_out1, -1, false, argc, argv);
+    out_file[strlen(out_file)-2] = 'c';
   } else if (out_type == VTF_FILE) {
-    PrintByline(out_file, argc, argv);
-    WriteStructure(out_type, out_file, Sys_out, -1, false);
+    WriteStructure(out_type, out_file, S_out1, -1, false, argc, argv);
+  } else { // some formats 'append' coordinates, not 'write' them
+    FILE *out = OpenFile(out_file, "w");
+    fclose(out);
   }
-  // write coordinates
-  WriteTimestep(out_type, out_file, Sys_out, 1, write);
-  // create optional output file
-  if (struct_file_out[0] != '\0') {
-    WriteStructure(struct_type_out, struct_file_out, Sys_out, -1, false);
-  }
+  WriteTimestep(out_type, out_file, S_out1, 0, write);
+  if (out2_file[0] != '\0') {
+    if (out2_type == VTF_FILE ||
+        out2_type == VSF_FILE ||
+        out2_type == FIELD_FILE) {
+      WriteStructure(out2_type, out2_file, S_out2, -1, false, argc, argv);
+    }
+    if (out2_type == VTF_FILE ||
+        out2_type == VCF_FILE ||
+        out2_type == LTRJ_FILE ||
+        out2_type == LDATA_FILE ||
+        out2_type == CONFIG_FILE) {
+      WriteTimestep(out2_type, out2_file, S_out2, 0, write);
+    }
+  } //}}}
 
-  // free memory
+  // free memory - to make valgrind happy //{{{
   FreeSystem(&Sys_1);
   FreeSystem(&Sys_2);
-  FreeSystem(&Sys_out);
-  free(write);
+  FreeSystem(&S_out1);
+  if (out2_file[0] != '\0') {
+    FreeSystem(&S_out2);
+    FreeSystem(&S_in);
+  }
+  free(write); //}}}
 
   return 0;
 }

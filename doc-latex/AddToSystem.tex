@@ -1,191 +1,185 @@
 \section{AddToSystem} \label{sec:AddToSystem}
 
-This utility takes an existing system specified by \texttt{vtf} file(s) and
-adds new beads into it, placing them either randomly or using provided
-coordinates. The utility requires an input coordinate file containing all
-beads (i.e., all beads defined in the structure file must be present in the
-coordinate). If an incomplete coordinate file is provided,
-\texttt{AddToSystem} exhibits undefined behaviour, i.e., it can run without
-problems, exit with an error, or freeze.
+This utility takes an existing system (or an empty system, i.e., creates new
+sytem from scratch) and adds new beads (read from a \field file) into it,
+placing them either completely randomly or according to supplied constraints.
 
-The utility has two modes: by default, it reads what is to be added from a
-\texttt{FIELD}-like file, placing the new beads and molecules randomly
-(Subsection~\ref{ssec:random}); if, however, \texttt{-vtf} option is used,
-the utility reads the provided \texttt{vsf} and \texttt{vcf} files, using
-coordinates from those (Subsection~\ref{ssec:vtf}).
+There are two types of constraints which can be combined: place new beads (i)
+specified distance from other beads or (ii) in a specified interval in x-, y-,
+and/or z-axis directions. In (i), options \tt{-ld} and/or \tt{-hd} specify the
+distance; if present, these must be accompanied by \tt{-bt} or \tt{--bonded}
+option. The new beads are then placed at least \tt{-ld <float>} and at most
+\tt{-hd <float>} distance from beads specified by the \tt{-bt} option or from
+any bonded bead (\tt{--bonded} option).
 
-\subsection{Random placement} \label{ssec:random}
+In (ii), options \tt{-cx}, \tt{-cy}, and \tt{-cz} basically change the box size
+for the added beads. By default, this constraint is specified in units relative
+to the box dimensions (i.e., allowed values go from 0 to 1); use the \tt{--real}
+option for absolute units. For example, \tt{-cx 0.5 1} would generate x
+coordinates between 50\% and 100\% of the box's x sidelength. All these options
+can be combined, but note that \tt{AddToSystem} does not perform any
+sanity checks; that is, if any combination of the provided options is impossible
+to achieve, the utility will run forever. See \cref{fig:AddToSystem} for
+schematic examples.
 
-The random coordinates of added beads can be constrained via several
-options; for added molecules, either the molecule's first bead (default
-behaviour) or its geometric centre (\texttt{-gc} option) obey the
-constraints. The coordinates of the remaining beads in the molecule are
-governed by the coordinates in the \texttt{FIELD}-like file. Therefore,
-not all the molecular beads necessarily obey the constraining rules.
-Molecules are added with a random orientation.
+\begin{figure}[b]
+  \renewcommand\tabularxcolumn[1]{m{#1}} % to vertically centre figures
+  \begin{tabularx}{\linewidth}{*{5}{>{\centering\arraybackslash}X}}
+    \includegraphics[width=0.19\textwidth]{AddToSystem-A-ld.jpg} &
+    \includegraphics[width=0.19\textwidth]{AddToSystem-A-hd.jpg} &
+    \includegraphics[width=0.19\textwidth]{AddToSystem-A-ld_hd.jpg} &
+    \includegraphics[width=0.19\textwidth]{AddToSystem-A-ld_hd_cx.jpg} &
+    \includegraphics[width=0.19\textwidth]{AddToSystem-A-ld_hd_cx_b.jpg}\\
+    \begin{subfigure}{0.19\textwidth}
+      \caption{}
+    \end{subfigure} &
+    \begin{subfigure}{0.19\textwidth}
+      \caption{}
+    \end{subfigure} &
+    \begin{subfigure}{0.19\textwidth}
+      \caption{}
+    \end{subfigure} &
+    \begin{subfigure}{0.19\textwidth}
+      \caption{}
+    \end{subfigure} &
+    \begin{subfigure}{0.19\textwidth}
+      \caption{}
+    \end{subfigure} \\
+  \end{tabularx}
+  \caption{
+    Examples of distance checks: (a) \tt{-ld 3 -bt A B} specifies that any added
+    bead (green) is at least at a distance of three from any \tt{A} or \tt{B}
+    bead (red and blue, respectively); (b) \tt{-hd 4 -bt A B} specifies added
+    beads are at most four units away from any \tt{A} or \tt{B} bead; (c)
+    combines (a) and (b) into \tt{-ld 3 -hd 4 -bt A B}, that is, new beads are
+    added at a distance between three and for from any \tt{A} or \tt{B} bead;
+    (d) combines (c) with axis constraint into \tt{-ld 3 -hd 4 -cx 0.5 1 -bt A
+    B} which constrains the x-coordinate of new beads between 50\% and 100\% of
+    the box's x sidelength; (e) adds \tt{-b 30 20 25} to the options in (d),
+    changing the box size.
+  }
+  \label{fig:AddToSystem}
+\end{figure}
 
-There are two types of constraints which can be combined: place new beads
-(i) specified distance from other beads or (ii) in a specified interval in
-x, y, and/or z directions. In (i), options \texttt{-ld} and/or \texttt{-hd}
-specify the distance; if present, these must be accompanied by \texttt{-bt}
-option.  Then, the new beads are placed at least \texttt{-ld <float>} and
-at most \texttt{-hd <float>} distance from beads specified by the
-\texttt{-bt} option. In (ii), options \texttt{-cx}, \texttt{-cy}, and
-\texttt{-cz} basically change the box size for the added beads; for
-example, \texttt{-cx 5 9} would generate x coordinates only in the interval
-$\langle5,9)$. All these options can be combined, but note that
-\texttt{AddToSystem} does not perform any sanity checks, that is, if any
-combination of the provided options is impossible to achieve, the utility
-will run forever.
+For added molecules, either the molecule's geometric centre (default behaviour)
+or its first bead (\tt{--head} option) obey these constraints. The coordinates of
+the remaining beads in the molecule are governed by the coordinates in the
+\tt{FIELD} file. Therefore, not all the molecular beads necessarily obey the
+constraining rules. By default, molecules are added with a random orientation;
+when \tt{--no-rotate} switch is used, the molecules are not rotated, but when
+\tt{-a} option is used, all the molecules are rotated by the three angles
+specified in degrees.
 
-As stated above, the structure and number of added molecules and monomeric
-beads are read from a \texttt{FIELD}-like file. This file must contain a
-\texttt{species} section followed by a \texttt{molecule} section as
-described in the DL\_MESO simulation package. Following is a short
-description of the two sections.
+The $\alpha$, $\beta$, and $\gamma$ angles in the \tt{-a <alpha> <beta> <gamma>}
+represent yaw, pitch, and roll, respectively. To put it in other words, it is an
+intrinsic rotation with Tait-Bryan angles $\alpha$, $\beta$, and $\gamma$ about
+axes $x$, $y$, and $z$, respectively. The rotation matrix, $R$, is, therefore,
+defined as
+\begin{equation}
+  \begin{aligned}
+  R &= R_z(\alpha) R_y(\beta) R_x(\gamma)\\
+    &= \left[
+    \begin{array}{ccc}
+      \cos\alpha & -\sin\alpha & 0\\
+      \sin\alpha &  \cos\alpha & 0\\
+      0          & 0           & 1\\
+    \end{array} \right]
+    \left[
+    \begin{array}{ccc}
+      \cos\beta  & 0           & \sin\beta\\
+      0          & 1           & 0\\
+      -\sin\beta & 0           & \cos\beta\\
+    \end{array} \right]
+    \left[
+    \begin{array}{ccc}
+      1          & 0           & 0\\
+      0          & \cos\gamma  & -\sin\gamma\\
+      0          & \sin\gamma  & \cos\gamma\\
+    \end{array} \right]\\
+    &= \left[
+    \begin{array}{ccc}
+      \cos\alpha\cos\beta &
+        \cos\alpha \sin\beta \sin\gamma - \sin\alpha \cos\gamma &
+        \cos\alpha \sin\beta \cos\gamma + \sin\alpha \sin\gamma \\
+      \sin\alpha\cos\beta &
+        \sin\alpha \sin\beta \sin\gamma + \cos\alpha \cos\gamma &
+        \sin\alpha \sin\beta \cos\gamma - \cos\alpha \sin\gamma \\
+      -\sin\beta & \cos\beta \sin\gamma & \cos\beta \cos\gamma \\
+    \end{array} \right]
+  \end{aligned}
+\end{equation}
 
-The \texttt{species} section contains the number of bead types and their
-properties:
-\begin{verbatim}
-  species <int>
-  <name>  <mass> <charge> <number of unbonded beads>
-\end{verbatim}
-The first line must start with \texttt{species} keyword followed by the
-number of bead types. For each bead type, a single line must contain the
-name of the bead, its mass and charge, and a number of these beads that are
-not in a molecule (i.e., monomeric or unbonded beads). No blank lines are
-allowed in the section.
+By default, the new beads are exchanged for beads in the original system; what
+bead type to exchange is either the most numerous one (default behaviour) or
+provided via the \tt{-xb} option. Note that the utility doesn't check whether
+exchanged beads are in a molecule, so a bonded bead may be exchanged, leaving
+only part of the molecule in the new system. If beads are to be added into the
+system rather than switched, use the \tt{--add} option.
 
-The \texttt{molecule} section, which comes after the \texttt{species}
-section, contains information about structure and numbers of molecules to
-be added:
+The size of the new simulation box can be changed using the \tt{-b} option.
+Any constraints for placing beads are applied to this box rather than the one in
+the original system. The new system is placed so the centres of the original box
+and the new one coincide. Note that in the end, all coordinates are wrapped into
+the output box (i.e., periodic boundary conditions are applied).
 
-\noindent
-\begin{longtable}{ll}
-  \texttt{molecule <int>} & Number of types of molecules \\
-  \texttt{<name>} & Name of the first molecule type \\
-  \texttt{nummols <int>} & Number of \texttt{<name>} molecules \\
-  \texttt{beads <int>} & Number of beads in each \texttt{<name>} \\
-  \texttt{<bead name> <x> <y> <z>} & One line for each of the \texttt{<int>} beads, \\
-  \texttt{...} & \ \ \ \ specifying bead name and its \\
-  \texttt{<bead name> <x> <y> <z>} & \ \ \ \ Cartesian coordinates \\
-  \texttt{bonds <int>} & Number of bonds in \texttt{<name>} \\
-  \texttt{harm <indices> <length> <strength>} & One line for each of the \texttt{<int>} bonds \\
-  \texttt{...} & \ \ \ \ containing two bead indices and \\
-  \texttt{harm <indices> <length> <strength>} & \ \ \ \ bond length and strength \\
-  \texttt{angles <int>} & Number of angles in \texttt{<name>} (optional) \\
-  \texttt{harm <indices> <angle> <strength>} & One line for each of the \texttt{<int>} angles \\
-  \texttt{...} & \ \ \ \ containing three bead indices, \\
-  \texttt{harm <indices> <angle> <strength>} & \ \ \ \ angle and angle strength \\
-  \texttt{...} & Anything beyond here is ignored \\
-  \texttt{finish} & End of \texttt{<name>}'s description \\
-\end{longtable}
+To create a new system instead of adding to an existing one, use \tt{-} instead
+of an \tt{<input>} file. An extra file can be generated via the \tt{-o} option;
+this can be useful to, e.g., generate both \vtf file for visualization and \data
+file for use by LAMMPS.
 
-The \texttt{molecule} keyword specifies the number of molecule types, that
-is the number of \texttt{finish} keywords that must be present. The
-\texttt{<bead name>} must be present in the \texttt{species} section. The
-\texttt{harm} string in the \texttt{bond} and \texttt{angle} lines is
-ignored as \texttt{AddToSystem} assumes harmonic potential for both. The
-indices in \texttt{bond} and \texttt{angle} lines run from 1 to the number
-of beads in the molecules and are ordered according to the \texttt{beads}
-part of the section. Anything else (such as dihedral angles) is ignored.
-While a molecule does not have to have angles, at least one bond per
-molecule is required. If no molecules are to be added, the line
-\texttt{molecule 0} is required. Examples of \texttt{FIELD}-like files are
-in the \texttt{Examples/AddToSystem} directory.
-
-\subsection{Provided coordinates} \label{ssec:vtf}
-
-If \texttt{-vtf} option is used, provided \texttt{vsf} and \texttt{vcf}
-files are read instead of a \texttt{FIELD}-like file. \texttt{AddToSystem}
-incorporates the beads and molecules from these files, using the provided
-coordinates instead of generating new ones.
-
-The \texttt{-vtf} option has priority over default behaviour, that is, if
-it is present, the utility ignores a \texttt{FIELD}-like file as well as
-the constraining options.
-
-The side lengths of the new simulation box are always taken as the higher
-ones from the original system and the system to be added.
-
-\vspace{1em}
-
-In both modes, the new unbonded beads appear in the resulting files after
-the unbonded beads from the original system (but before any bonded beads).
-If molecules are added, \texttt{AddToSystem} places them at the end.
-
-By default, the new beads are added to the system, increasing the total
-number of beads. However, if \texttt{--switch} is used, the new beads
-replace beads in the original system. The replaced beads are either neutral
-beads with the lowest indices (as per ordering in the provided structure
-file) or beads of the type specified using \texttt{-xb} option. In both
-cases, the beads to be replaced must be unbonded.
-
-The size of the new simulation box can be changed using the \texttt{-b}
-option. There are no constraints on the size of the cuboid box; if the new
-box is small, not all beads from the original system are necesserily inside
-the box (although the added once always are). The origin of the new box
-coincides with the origin of the original box unless \texttt{--centre}
-option is used; in that case, the centres of the two boxes coincide.
-
-\texttt{AddToSystem} creates \texttt{vcf} and \texttt{vsf} files containing
-the new system; the coordinates can also be written into an \texttt{xyz}
-file.
-
-Several examples of using the utility are provided in the
-\texttt{Examples/AddToSystem} directory.
-
-Usage:
+Examples of using the utility are provided in the
+\tt{Examples/AddToSystem} folder (including those in
+\cref{fig:AddToSystem}).
 
 \vspace{1em}
 \noindent
-\texttt{AddToSystem <input.vcf> <out.vsf> <out.vcf> <options>}
-
-\vspace{1em}
+Usage: \tt{AddToSystem <input.vcf> <out.vsf> <out.vcf> [options]}
 \noindent
 \begin{longtable}{p{0.235\textwidth}p{0.709\textwidth}}
   \toprule
-  \multicolumn{2}{l}{Mandatory arguments} \\
+  \multicolumn{2}{l}{Mandatory arguments}\\
   \midrule
-  \texttt{<input.vcf>} & input coordinate file (either \texttt{vcf} or
-    \texttt{vtf} format) \\
-  \texttt{<out.vsf>} & output \texttt{vsf} structure file for the new
-    system \\
-  \texttt{<out.vcf>} & output \texttt{vcf} coordinate file for the new
-    system \\
+  \tt{<input>/-}  & input coordinate file (or create a system from scratch)\\
+  \tt{<in.field>} & input \field structure file for the new system\\
+  \tt{<output>}   & output coordinate file for the new system\\
   \toprule
-  \multicolumn{2}{l}{Non-standard options} \\
+  \multicolumn{2}{l}{options} \\
   \midrule
-  \texttt{-st <int>} & \texttt{<input.vcf>} timestep to add new beads
-    to (default: 1) \\
-  \texttt{-xyz <name>} & also save coordinates to \texttt{xyz} file \\
-  \texttt{--switch} & replace original beads instead of increasing the
-    total number of beads \\
-  \texttt{-b <x> <y> <z>} & side lengths of the new simulation box \\
-  \texttt{--centre} & place the original simulation box in the middle of
-    the new one \\
+  \tt{-o <file>}           & extra structure file\\
+  \tt{--add}               & replace original beads instead of increasing the
+                             total number of beads\\
+  \tt{-b <x> <y> <z>}      & side lengths of the new simulation box\\
+  \tt{-a 3$\times$<angle>} & rotate all added by molecules along x-, y-,
+                             and z-axis\\
+  \tt{--no-rotate}         & do not randomly rotate added molecules\\
+  \tt{-ld <float>}         & lowest distance from beads specified by
+                             \tt{-bt} option\\
+  \tt{-hd <float>}         & highest distance from beads specified by
+                             \tt{-bt} option\\
+  \tt{-bt <name(s)>}       & bead types to use in conjunction with
+                             \tt{-ld} and/or \tt{-hd} options\\
+  \tt{--bonded}            & use bonded beads for the distance condition
+                             (overwrites \tt{-bt} option)\\
+  \tt{-xb <name>}          & specify bead type to exchange (default: most
+                             numerous bead type)\\
+  \tt{--head}              & use molecule's first bead for distance check
+                             (default: molecule's geometric centre)\\
+  \tt{-cx 2$\times$<float>}& constrain x coordinate to interval
+                             $\langle num, num2)$ (units relative to box size)\\
+  \tt{-cy 2$\times$<float>}& constrain y coordinate to interval
+                             $\langle num, num2)$ (units relative to box size)\\
+  \tt{-cz 2$\times$<float>}& constrain z coordinate to interval
+                             $\langle num, num2)$ (units relative to box size)\\
+  \tt{--real}              & use \enquote{real} units instead of relative ones
+                             for \tt{-cx}/\tt{-cy}/\tt{-cz} options\\
+  \tt{-s <int>}            & seed for random number generator\\
   \midrule
-  \multicolumn{2}{c}{Random placement} \\
-  \midrule
-  \texttt{-f <name>} & \texttt{FIELD}-like file specifying additions to the
-    system (default: \texttt{FIELD}) \\
-  \texttt{-ld <float>} & lowest distance from beads specified by
-    \texttt{-bt} option \\
-  \texttt{-hd <float>} & highest distance from beads specified by
-    \texttt{-bt} option \\
-  \texttt{-bt <bead names>} & bead types to use in conjunction with
-    \texttt{-ld} and/or \texttt{-hd} options \\
-  \texttt{-cx <num> <num2>} & constrain x coordinate to interval
-    $\langle num, num2)$ \\
-  \texttt{-cy <num> <num2>} & constrain y coordinate to interval
-    $\langle num, num2)$ \\
-  \texttt{-cz <num> <num2>} & constrain z coordinate to interval
-    $\langle num, num2)$ \\
-  \texttt{-gc} & use molecule's geometric centre for distance check \\
-  \midrule
-  \multicolumn{2}{c}{Provided coordinates} \\
-  \midrule
-  \texttt{-vtf <vsf> <vcf>} & add ready-made system from \texttt{vtf} files
-    instead of randomly placing beads read from the \texttt{FIELD}-like file \\
+  \multicolumn{2}{p{0.948\textwidth}}{\tt{-i},
+                                      \tt{-st},
+                                      \tt{--detailed},
+                                      \tt{--verbose},
+                                      \tt{--silent},
+                                      \tt{--help},
+                                      \tt{--version}}\\
   \bottomrule
 \end{longtable}

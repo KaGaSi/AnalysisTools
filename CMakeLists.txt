@@ -30,7 +30,7 @@ foreach(library ${LIBRARIES})
   add_library(${library} ${library}.c)
 endforeach(library)
 
-set(UTILS AddRandomToSystem
+set(UTILS AddToSystem
           Aggregates
           Aggregates-NotSameBeads
           Average

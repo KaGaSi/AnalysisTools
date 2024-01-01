@@ -5,7 +5,8 @@ static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System);
 static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System);
 static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System);
 static void WriteConfig(SYSTEM System, char file[]);
-static void VtfWriteStruct(char file[], SYSTEM System, int type_def);
+static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
+                           int argc, char *argv[]);
 static void WriteLmpData(SYSTEM System, char file[], bool mass);
 static void WriteField(SYSTEM System, char file_field[]);
 static void SimplifyResid(SYSTEM *System);
@@ -19,9 +20,11 @@ static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System) { //{{{
   // print box size if present //{{{
   BOX *box = &System.Box;
   if (box->Volume != -1) {
-    fprintf(fw, "pbc %lf %lf %lf", box->Length.x, box->Length.y, box->Length.z);
+    fprintf(fw, "pbc %lf %lf %lf", box->Length[0],
+                                   box->Length[1],
+                                   box->Length[2]);
     if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {
-      fprintf(fw, "    %lf %lf %lf", box->alpha, box->beta, box->gamma);
+      fprintf(fw, "    %.3f %.3f %.3f", box->alpha, box->beta, box->gamma);
     }
     putc('\n', fw);
   } //}}}
@@ -29,11 +32,11 @@ static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System) { //{{{
   for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadCoor[i];
     BEAD *bead = &System.Bead[id];
-    if (bead->InTimestep && write[id]) {
+    if (write[id]) {
       none = false;
-      fprintf(fw, "%8d %8.4f %8.4f %8.4f\n", id, bead->Position.x,
-                                                 bead->Position.y,
-                                                 bead->Position.z);
+      fprintf(fw, "%8d %8.4f %8.4f %8.4f\n", id, bead->Position[0],
+                                                 bead->Position[1],
+                                                 bead->Position[2]);
     }
   }
   if (none) {
@@ -47,7 +50,7 @@ static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System) { //{{{
   bool none = true; // to make sure there are beads to save
   for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadCoor[i];
-    if (System.Bead[id].InTimestep && write[id]) {
+    if (write[id]) {
       none = false;
       count++;
     }
@@ -61,7 +64,8 @@ static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System) { //{{{
   fprintf(fw, "%d\n", count);
   BOX *box = &System.Box;
   if (box->Volume != -1) {
-    fprintf(fw, "%lf %lf %lf", box->Length.x, box->Length.y, box->Length.z);
+    fprintf(fw, "%.3f %.3f %.3f",
+            box->Length[0], box->Length[1], box->Length[2]);
     if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {
       fprintf(fw, " %lf %lf %lf", box->alpha, box->beta, box->gamma);
     }
@@ -71,10 +75,10 @@ static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System) { //{{{
   for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadCoor[i];
     BEAD *bead = &System.Bead[id];
-    if (bead->InTimestep && write[id]) {
+    if (write[id]) {
       int type = bead->Type;
       fprintf(fw, "%8s %8.4f %8.4f %8.4f\n", System.BeadType[type].Name,
-              bead->Position.x, bead->Position.y, bead->Position.z);
+              bead->Position[0], bead->Position[1], bead->Position[2]);
     }
   }
 } //}}}
@@ -85,12 +89,16 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
   for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadCoor[i];
     BEAD *b = &System.Bead[id];
-    if (b->InTimestep && write[id]) {
+    if (write[id]) {
       count++;
-      if (b->Velocity.x != 0 || b->Velocity.y != 0 || b->Velocity.z != 0) {
+      if (b->Velocity[0] != 0 ||
+          b->Velocity[1] != 0 ||
+          b->Velocity[2] != 0) {
         vel = true;
       }
-      if (b->Force.x != 0 || b->Force.y != 0 || b->Force.z != 0) {
+      if (b->Force[0] != 0 ||
+          b->Force[1] != 0 ||
+          b->Force[2] != 0) {
         force = true;
       }
     }
@@ -107,14 +115,14 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
     // orthogonal box
     if (box->alpha == 90 && box->beta == 90 && box->gamma == 90) {
       fprintf(fw, "ITEM: BOX BOUNDS pp pp pp\n");
-      fprintf(fw, "%lf %lf\n", box->Low.x, box->Length.x+box->Low.x);
-      fprintf(fw, "%lf %lf\n", box->Low.y, box->Length.y+box->Low.y);
-      fprintf(fw, "%lf %lf\n", box->Low.z, box->Length.z+box->Low.z);
+      fprintf(fw, "%.3f %.3f\n", box->Low[0], box->Length[0]+box->Low[0]);
+      fprintf(fw, "%.3f %.3f\n", box->Low[1], box->Length[1]+box->Low[1]);
+      fprintf(fw, "%.3f %.3f\n", box->Low[2], box->Length[2]+box->Low[2]);
     } else {
       fprintf(fw, "ITEM: BOX BOUNDS xy xz yz pp pp pp\n");
-      fprintf(fw, "0.0 %lf %lf\n", box->Bounding.x, box->transform[0][1]);
-      fprintf(fw, "0.0 %lf %lf\n", box->Bounding.y, box->transform[0][2]);
-      fprintf(fw, "0.0 %lf %lf\n", box->Bounding.z, box->transform[1][2]);
+      fprintf(fw, "0.0 %.3f %.3f\n", box->Bounding[0], box->transform[0][1]);
+      fprintf(fw, "0.0 %.3f %.3f\n", box->Bounding[1], box->transform[0][2]);
+      fprintf(fw, "0.0 %.3f %.3f\n", box->Bounding[2], box->transform[1][2]);
     }
     fprintf(fw, "ITEM: ATOMS id element x y z");
     if (vel) {
@@ -132,19 +140,22 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
         id_out = id;
       }
       BEAD *b = &System.Bead[id];
-      if (b->InTimestep && write[id]) {
+      if (write[id]) {
         int type = b->Type;
         fprintf(fw, "%8d %8s %8.4f %8.4f %8.4f", id_out + 1,
                 System.BeadType[type].Name,
-                b->Position.x+box->Low.x,
-                b->Position.y+box->Low.y,
-                b->Position.z+box->Low.z);
+                b->Position[0]+box->Low[0],
+                b->Position[1]+box->Low[1],
+                b->Position[2]+box->Low[2]);
         if (vel) {
-          fprintf(fw, " %8.4f %8.4f %8.4f",
-                  b->Velocity.x, b->Velocity.y, b->Velocity.z);
+          for (int dd = 0; dd < 3; dd++) {
+          fprintf(fw, " %8.4f", b->Velocity[dd]);
+          }
         }
         if (force) {
-          fprintf(fw, " %8.4f %8.4f %8.4f", b->Force.x, b->Force.y, b->Force.z);
+          for (int dd = 0; dd < 3; dd++) {
+            fprintf(fw, " %8.4f", b->Force[dd]);
+          }
         }
         putc('\n', fw);
       }
@@ -159,9 +170,9 @@ static void WriteConfig(SYSTEM System, char file[]) { //{{{
   // TODO: check triclinic box in dl_meso
   // print CONFIG file initial stuff
   fprintf(out, "NAME\n 0 1\n"); // not sure what 0 1 is...
-  fprintf(out, "%lf 0.000000 0.000000\n", System.Box.Length.x);
-  fprintf(out, "0.000000 %lf 0.000000\n", System.Box.Length.y);
-  fprintf(out, "0.000000 0.000000 %lf\n", System.Box.Length.z);
+  fprintf(out, "%.3f 0.000 0.000\n", System.Box.Length[0]);
+  fprintf(out, "0.000 %.3f 0.000\n", System.Box.Length[1]);
+  fprintf(out, "0.000 0.000 %.3f\n", System.Box.Length[2]);
 
   // bead coordinates
   // unbonded beads must be first (dl_meso requirement)
@@ -169,14 +180,17 @@ static void WriteConfig(SYSTEM System, char file[]) { //{{{
     int id = System.BeadCoor[i],
         btype = System.Bead[id].Type;
     fprintf(out, "%s %d\n", System.BeadType[btype].Name, id + 1);
-    fprintf(out, "%lf %lf %lf\n", System.Bead[id].Position.x,
-                                  System.Bead[id].Position.y,
-                                  System.Bead[id].Position.z);
+    fprintf(out, "%lf %lf %lf\n", System.Bead[id].Position[0],
+                                  System.Bead[id].Position[1],
+                                  System.Bead[id].Position[2]);
   }
   fclose(out);
 } //}}}
-static void VtfWriteStruct(char file[], SYSTEM System, int type_def) { //{{{
+// VtfWriteStruct()  //{{{
+static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
+                           int argc, char *argv[]) {
   SimplifyResid(&System);
+  PrintByline(file, argc, argv);
   FILE *fw = OpenFile(file, "a");
   COUNT *Count = &System.Count;
   BOX *box = &System.Box;
@@ -250,16 +264,19 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def) { //{{{
   // print bonds //{{{
   putc('\n', fw);
   for (int i = 0; i < Count->Molecule; i++) {
-    fprintf(fw, "# resid %d\n", i + 1); // in VMD resid start with 1
-    int mol_type = System.Molecule[i].Type;
-    for (int j = 0; j < System.MoleculeType[mol_type].nBonds; j++) {
-      int *bead = BondIndices(System, i, j);
-      fprintf(fw, "bond %6d: %6d\n", bead[0], bead[1]);
+    int mtype = System.Molecule[i].Type;
+    if (System.MoleculeType[mtype].nBonds > 0) {
+      fprintf(fw, "# resid %d\n", i + 1); // in VMD resid start with 1
+      for (int j = 0; j < System.MoleculeType[mtype].nBonds; j++) {
+        int *bead = BondIndices(System, i, j);
+        fprintf(fw, "bond %6d: %6d\n", bead[0], bead[1]);
+      }
     }
   } //}}}
   // print box size, if present //{{{
   if (box->Volume != -1) {
-    fprintf(fw, "pbc %lf %lf %lf", box->Length.x, box->Length.y, box->Length.z);
+    fprintf(fw, "pbc %.3f %.3f %.3f",
+            box->Length[0], box->Length[1], box->Length[2]);
     if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {
       fprintf(fw, " %lf %lf %lf", box->alpha, box->beta, box->gamma);
     }
@@ -311,8 +328,9 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
   fprintf(fw, "%10d dihedrals\n", Count->Dihedral);
   fprintf(fw, "%10d impropers\n", Count->Improper);
   putc('\n', fw);
-  // add one atom type for extra (possibly srp)
-  fprintf(fw, "%10d atom types\n", Count->BeadType + 1);
+  // // add one atom type for extra (possibly srp)
+  // fprintf(fw, "%10d atom types\n", Count->BeadType + 1);
+  fprintf(fw, "%10d atom types\n", Count->BeadType);
   if (Count->Bond > 0 && Count->BondType > 0) {
     fprintf(fw, "%10d bond types\n", Count->BondType);
   }
@@ -330,18 +348,18 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
   // fprintf(fw, "0.0 %lf xlo xhi\n", System.Box.OrthoLength.x);
   // fprintf(fw, "0.0 %lf ylo yhi\n", System.Box.OrthoLength.y);
   // fprintf(fw, "0.0 %lf zlo zhi\n", System.Box.OrthoLength.z);
-  fprintf(fw, "%lf", System.Box.Low.x);
-  fprintf(fw, " %lf xlo xhi\n", System.Box.Low.x + System.Box.OrthoLength.x);
-  fprintf(fw, "%lf", System.Box.Low.y);
-  fprintf(fw, " %lf ylo yhi\n", System.Box.Low.y + System.Box.OrthoLength.y);
-  fprintf(fw, "%lf", System.Box.Low.z);
-  fprintf(fw, " %lf zlo zhi\n", System.Box.Low.z + System.Box.OrthoLength.z);
+  fprintf(fw, "%.3f", System.Box.Low[0]);
+  fprintf(fw, " %.3f xlo xhi\n", System.Box.Low[0] + System.Box.OrthoLength[0]);
+  fprintf(fw, "%.3f", System.Box.Low[1]);
+  fprintf(fw, " %.3f ylo yhi\n", System.Box.Low[1] + System.Box.OrthoLength[1]);
+  fprintf(fw, "%.3f", System.Box.Low[2]);
+  fprintf(fw, " %.3f zlo zhi\n", System.Box.Low[2] + System.Box.OrthoLength[2]);
   if (System.Box.alpha != 90 ||
       System.Box.beta != 90 ||
       System.Box.gamma != 90) {
-    fprintf(fw, "%lf %lf %lf xy xz yz\n", System.Box.transform[0][1],
-                                          System.Box.transform[0][2],
-                                          System.Box.transform[1][2]);
+    fprintf(fw, "%.3f %.3f %.3f xy xz yz\n", System.Box.transform[0][1],
+                                             System.Box.transform[0][2],
+                                             System.Box.transform[1][2]);
   }
   putc('\n', fw); //}}}
   // print bead type masses //{{{
@@ -354,8 +372,8 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
       fprintf(fw, "%5d %lf # %s\n", i + 1, bt->Mass, bt->Name);
     }
   }
-  // add an extra bead type - just in case srp is required
-  fprintf(fw, "%5d %lf # extra type\n", mass_types + 1, 1.0); //}}}
+  // // add an extra bead type - just in case srp is required
+  // fprintf(fw, "%5d %lf # extra type\n", mass_types + 1, 1.0); //}}}
   // print various coeffs //{{{
   if (Count->BondType > 0) {
     fprintf(fw, "\nBond Coeffs\n\n");
@@ -422,9 +440,9 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
       fprintf(fw, " %15f", q);
     }
     // coordinates
-    fprintf(fw, " %15f %15f %15f", bead->Position.x + System.Box.Low.x,
-                                   bead->Position.y + System.Box.Low.y,
-                                   bead->Position.z + System.Box.Low.z);
+    fprintf(fw, " %15f %15f %15f", bead->Position[0] + System.Box.Low[0],
+                                   bead->Position[1] + System.Box.Low[1],
+                                   bead->Position[2] + System.Box.Low[2]);
     // molecule name
     if (mol != -1) {
       int type = System.Molecule[mol].Type;
@@ -435,14 +453,18 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
   // print velocities (if at least one non-zero) //{{{
   for (int i = 0; i < Count->BeadCoor; i++) {
     int id = System.BeadCoor[i];
-    VECTOR *vel = &System.Bead[id].Velocity;
-    if (fabs(vel->x) > 1e-5 || fabs(vel->y) > 1e-5 || fabs(vel->z) > 1e-5) {
+    double (*vel)[3] = &System.Bead[id].Velocity;
+    if (fabs((*vel)[0]) > 1e-5 ||
+        fabs((*vel)[1]) > 1e-5 ||
+        fabs((*vel)[2]) > 1e-5) {
       fprintf(fw, "\nVelocities\n\n");
       for (int j = 0; j < Count->BeadCoor; j++) {
         id = System.BeadCoor[j];
         vel = &System.Bead[id].Velocity;
         fprintf(fw, "%7d", id + 1);
-        fprintf(fw, " %15f %15f %15f", vel->x, vel->y, vel->z);
+        for (int dd = 0; dd < 3; dd++) {
+          fprintf(fw, " %15f", (*vel)[dd]);
+        }
         putc('\n', fw);
       }
       break;
@@ -458,9 +480,11 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
       for (int j = 0; j < mt_i->nBonds; j++) {
         count++;
         int *val = BondIndices(System, i, j);
-        if (System.Bead[val[0]].InTimestep && System.Bead[val[1]].InTimestep) {
+        if (System.Bead[val[0]].InTimestep &&
+            System.Bead[val[1]].InTimestep) {
           fprintf(fw, "%7d", count);
-          if (Count->BondType > 0) {
+          // if (Count->BondType > 0) {
+          if (mt_i->Bond[j][2] != -1 ) {
             fprintf(fw, " %6d", mt_i->Bond[j][2] + 1);
           } else {
             fprintf(fw, "   ???");
@@ -480,7 +504,8 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
       for (int j = 0; j < mt_i->nAngles; j++) {
         count++;
         int *val = AngleIndices(System, i, j);
-        if (System.Bead[val[0]].InTimestep && System.Bead[val[1]].InTimestep &&
+        if (System.Bead[val[0]].InTimestep &&
+            System.Bead[val[1]].InTimestep &&
             System.Bead[val[2]].InTimestep) {
           fprintf(fw, "%7d", count);
           if (Count->AngleType > 0) {
@@ -504,8 +529,10 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
       for (int j = 0; j < mt_i->nDihedrals; j++) {
         count++;
         int *val = DihedralIndices(System, i, j);
-        if (System.Bead[val[0]].InTimestep && System.Bead[val[1]].InTimestep &&
-            System.Bead[val[2]].InTimestep && System.Bead[val[3]].InTimestep) {
+        if (System.Bead[val[0]].InTimestep &&
+            System.Bead[val[1]].InTimestep &&
+            System.Bead[val[2]].InTimestep &&
+            System.Bead[val[3]].InTimestep) {
           fprintf(fw, "%7d", count);
           if (Count->DihedralType > 0) {
             fprintf(fw, " %6d", mt_i->Dihedral[j][4] + 1);
@@ -554,7 +581,8 @@ static void WriteField(SYSTEM System, char file_field[]) { //{{{
   FILE *fw = OpenFile(file_field, "w");
   BOX *box = &System.Box;
   if (box->Volume != -1) {
-    fprintf(fw, "%lf %lf %lf ", box->Length.x, box->Length.y, box->Length.z);
+    fprintf(fw, "%.3f %.3f %.3f ",
+            box->Length[0], box->Length[1], box->Length[2]);
     if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {
       fprintf(fw, "%lf %lf %lf ", box->alpha, box->beta, box->gamma);
     }
@@ -600,9 +628,9 @@ static void WriteField(SYSTEM System, char file_field[]) { //{{{
     for (int j = 0; j < mt_i->nBeads; j++) {
       int id = System.Molecule[mol].Bead[j];
       int bt = mt_i->Bead[j];
-      VECTOR *pos = &System.Bead[id].Position;
-      fprintf(fw, "%16s %8.5f %8.5f %8.5f\n", System.BeadType[bt].Name, pos->x,
-              pos->y, pos->z);
+      double (*pos)[3] = &System.Bead[id].Position;
+      fprintf(fw, "%16s %8.5f %8.5f %8.5f\n", System.BeadType[bt].Name,
+              (*pos)[0], (*pos)[1], (*pos)[2]);
     }
     // bonds (if present)
     if (mt_i->nBonds > 0) {
@@ -715,14 +743,12 @@ void WriteTimestep(int coor_type, char file[], SYSTEM System,
 } //}}}
 // Create a structure file based on the file type (including dl_meso CONFIG) //{{{
 void WriteStructure(int struct_type, char file[], SYSTEM System,
-                    int vsf_def_type, bool lmp_mass) {
+                    int vsf_def_type, bool lmp_mass, int argc, char *argv[]) {
   // ensure the output file is new
-  FILE *fw = OpenFile(file, "w");
-  fclose(fw);
   switch (struct_type) {
     case VSF_FILE:
     case VTF_FILE:
-      VtfWriteStruct(file, System, vsf_def_type);
+      VtfWriteStruct(file, System, vsf_def_type, argc, argv);
       break;
     case LDATA_FILE:
       WriteLmpData(System, file, lmp_mass);
@@ -741,11 +767,8 @@ void WriteStructure(int struct_type, char file[], SYSTEM System,
         exit(1);
       }
       bool *write = calloc(System.Count.Bead, sizeof *write);
-      for (int i = 0; i < System.Count.BeadCoor; i++) {
-        int id = System.BeadCoor[i];
-        write[id] = true;
-      }
-      fw = OpenFile(file, "w");
+      InitBoolArray(write, System.Count.Bead, true);
+      FILE *fw = OpenFile(file, "w");
       LtrjWriteCoor(fw, 0, write, System);
       fclose(fw);
       free(write);

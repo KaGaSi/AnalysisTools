@@ -1,8 +1,0 @@
-Examples from the figure in the manual section for AddRandomToSystem:
-
-Commands to generate the new systems (System1.lammpstrj is the same as in Examples/JoinSystems):
-Figure (a): AddRandomToSystem System1.lammpstrj FIELD fig_a.vtf --add -ld 3 -bt A
-Figure (b): AddRandomToSystem System1.lammpstrj FIELD fig_b.vtf --add -hd 4 -bt A
-Figure (c): AddRandomToSystem System1.lammpstrj FIELD fig_c.vtf --add -ld 3 -hd 4 -bt A
-Figure (d): AddRandomToSystem System1.lammpstrj FIELD fig_d.vtf --add -ld 3 -hd 4 -bt A -cx 0.5 1
-Figure (e): AddRandomToSystem System1.lammpstrj FIELD fig_e.vtf --add -ld 3 -hd 4 -bt A -cx 0.5 1 -b 30 20 25

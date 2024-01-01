@@ -62,46 +62,20 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
 
   // create cell-linked list
   double cell_size = sqrt(sqdist);
-  INTVECTOR n_cells;
-  int *Head, *Link;
-  int Dcx[14], Dcy[14], Dcz[14];
-  LinkedList(*System, &Head, &Link, cell_size, &n_cells, Dcx, Dcy, Dcz);
+  int n_cells[3], *Head, *Link, Dc[14][3];
+  LinkedList(*System, &Head, &Link, cell_size, n_cells, Dc);
 
   // count contacts between all molecules pairs (using cell linked list) //{{{
-  for (int c1z = 0; c1z < n_cells.z; c1z++) {
-    for (int c1y = 0; c1y < n_cells.y; c1y++) {
-      for (int c1x = 0; c1x < n_cells.x; c1x++) {
-
-        // select first cell
-        int cell1 = c1x + c1y * n_cells.x + c1z * n_cells.x * n_cells.y;
-
+  int c1[3];
+  for (c1[2] = 0; c1[2] < n_cells[2]; c1[2]++) {
+    for (c1[1] = 0; c1[1] < n_cells[1]; c1[1]++) {
+      for (c1[0] = 0; c1[0] < n_cells[0]; c1[0]++) {
+        int cell1 = SelectCell1(c1, n_cells);
         // select first bead in the cell 'cell1'
         int i = Head[cell1];
-
         while (i != -1) {
           for (int k = 0; k < 14; k++) {
-            int c2x = c1x + Dcx[k]; //{{{
-            int c2y = c1y + Dcy[k];
-            int c2z = c1z + Dcz[k];
-
-            // periodic boundary conditions for cells
-            if (c2x >= n_cells.x)
-              c2x -= n_cells.x;
-            else if (c2x < 0)
-              c2x += n_cells.x;
-
-            if (c2y >= n_cells.y)
-              c2y -= n_cells.y;
-            else if (c2y < 0)
-              c2y += n_cells.y;
-
-            if (c2z >= n_cells.z)
-              c2z -= n_cells.z;
-
-            // select second cell
-            int cell2 = c2x + c2y * n_cells.x + c2z * n_cells.x * n_cells.y;
-            //}}}
-
+            int cell2 = SelectCell2(c1, n_cells, Dc, k);
             // select bead in the cell 'cell2' //{{{
             int j;
             if (cell1 == cell2) { // next bead in 'cell1'
@@ -121,11 +95,12 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
                     System->BeadType[b_j->Type].Flag) {
                   // TODO: fractionals?
                   // calculate distance between i and j beads
-                  VECTOR rij = Distance(b_i->Position,
-                                        b_j->Position, System->Box.Length);
-                  rij.x = SQR(rij.x) + SQR(rij.y) + SQR(rij.z);
+                  double rij[3];
+                  Distance(b_i->Position, b_j->Position,
+                           System->Box.Length, rij);
+                  rij[0] = SQR(rij[0]) + SQR(rij[1]) + SQR(rij[2]);
                   // are 'i' and 'j' close enough?
-                  if (mol_i != mol_j && rij.x <= sqdist) {
+                  if (mol_i != mol_j && rij[0] <= sqdist) {
                     // xm option
                     if (mol_i > mol_j) {
                       contact[mol_i][mol_j]++;
@@ -148,7 +123,7 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
 
   // sort molecules in aggregates according to ascending ids //{{{
   for (int i = 0; i < System->Count.Aggregate; i++) {
-    SortArray(Aggregate[i].Molecule, Aggregate[i].nMolecules, 0);
+    SortArrayInt(Aggregate[i].Molecule, Aggregate[i].nMolecules, 0);
   } //}}}
 
   // assign bonded beads to Aggregate struct //{{{
@@ -241,10 +216,13 @@ int main(int argc, char *argv[]) {
                 &start, &end, &skip);
 
   // -j option - save coordinates of joined aggregates //{{{
-  char join_file[LINE];
-  int join_type;
-  if (JoinCoorOption(argc, argv, &join_type, join_file)) {
+  char join_file[LINE] = "";
+  int join_type = -1;
+  if (FileOption(argc, argv, "-j", join_file)) {
     exit(1);
+  }
+  if (join_file[0] != '\0') {
+    join_type = CoordinateFileType(join_file);
   } //}}}
 
   // parameters for aggregate check (-d and -c options)
@@ -288,7 +266,14 @@ int main(int argc, char *argv[]) {
   // print command to output .agg (and, possibly, coordinate) file
   PrintByline(agg_file, argc, argv);
   if (join_file[0] != '\0') {
-    PrintByline(join_file, argc, argv);
+    if (join_type == VCF_FILE) {
+      PrintByline(join_file, argc, argv);
+    } else if (join_type == VTF_FILE) {
+      WriteStructure(VSF_FILE, join_file, System, -1, false, argc, argv);
+    } else {
+      FILE *out = OpenFile(join_file, "w");
+      fclose(out);
+    }
   }
 
   // allocate Aggregate struct //{{{

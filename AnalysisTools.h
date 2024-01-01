@@ -81,16 +81,19 @@ MOLECULETYPE CopyMoleculeType(MOLECULETYPE mt_old);
 MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old);
 // check that the System struct doesn't contain an error
 void CheckSystem(SYSTEM System, char file[]);
+// simplify system for vtf output - remove stuff vtf does not support
+void VtfSystem(SYSTEM *System);
 
 // Helper functions for manipulating coordinates
 // wrap coordinates into simulation box and/or join molecules
 void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join);
 // distance between two beads; in the range <-BoxLength/2,BoxLength/2)
-VECTOR Distance(VECTOR id1, VECTOR id2, VECTOR BoxLength);
+void Distance(double id1[3], double id2[3],
+              double BoxLength[3], double out[3]);
 // calculate centre of mass for a list of beads
-VECTOR CentreOfMass(int n, int list[], SYSTEM System);
+void CentreOfMass(int n, int list[], SYSTEM System, double gc[3]);
 // calculate geometric centre for a list of beads
-VECTOR GeomCentre(int n, int *list, BEAD *Bead);
+void GeomCentre(int n, int *list, BEAD *Bead, double gc[3]);
 // add/subtract Box.Low to/from coordinates
 void AddLow(SYSTEM *System);
 void SubtractLow(SYSTEM *System);
@@ -101,11 +104,14 @@ bool InputCoorStruct(int argc, char *argv[], char coor[], int *coor_type,
 // identify type of provided structure file (mode=0: input, mode=1 output file)
 int StructureFileType(char name[]);
 int CoordinateFileType(char name[]);
+int FileType(char name[]);
 int FullFileType(char name[], int mode);
 
 // create a cell-linked list
 void LinkedList(SYSTEM System, int **Head, int **Link, double cell_size,
-                INTVECTOR *n_cells, int *Dcx, int *Dcy, int *Dcz);
+                int n_cells[3], int Dc[14][3]);
+int SelectCell1(int c1[3], int n_cells[3]);
+int SelectCell2(int c1[3], int n_cells[3], int Dc[14][3], int n);
 
 // verbose output (print various structures and some such)
 void VerboseOutput(SYSTEM System);
@@ -127,8 +133,8 @@ void PrintByline(char *file, int argc, char *argv[]);
 void PrintStep(int *count_coor, int start, bool silent);
 
 // calculate gyration tensor and various shape descriptors
-VECTOR Gyration(int n, int *list, COUNT Counts, BEADTYPE *BeadType,
-                BEAD **Bead);
+void Gyration(int n, int *list, COUNT Counts, BEADTYPE *BeadType,
+              BEAD **Bead, double eigen[3]);
 
 // memory-freeing functions
 void FreeSystem(SYSTEM *System);

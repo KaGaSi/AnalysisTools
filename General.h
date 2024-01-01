@@ -48,7 +48,7 @@ typedef struct LongIntVector {
   long int x, y, z;
 } LONGINTVECTOR;
 //}}}
-double VectorLength(VECTOR a);
+double VectorLength(double a[3]);
 // convert string into number if possible
 bool IsRealNumber(char *str, double *val);
 bool IsPosRealNumber(char *str, double *val);
@@ -63,8 +63,8 @@ void SwapInt(int *a, int *b);
 void SwapDouble(double *a, double *b);
 void SwapBool(bool *a, bool *b);
 
-void SortArray(int *array, int length, int mode);
-VECTOR SortVector(VECTOR in);
+void SortArrayInt(int *array, int length, int mode);
+void SortArrayDouble(double *array, int length, int mode);
 
 int SplitLine(int max_str, char *out[], char *line, const char *delim);
 bool ReadAndSplitLine(FILE *fr, int max_strings, const char *delim);
@@ -101,6 +101,6 @@ void InitLong2DArray (long *array[], int m, int n, long val);
 void InitDouble2DArray (double *array[], int m, int n, double val);
 
 // test whether two arrays are the same
-bool SameArray(int arr_1[], int arr_2[], int n);
+bool SameArrayInt(int arr_1[], int arr_2[], int n);
 
 #endif

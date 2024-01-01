@@ -31,7 +31,7 @@ size.\n\n");
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 10, all = common + 1, count = 0,
+  int common = 9, all = common + 1, count = 0,
       req_arg = 3;
   char option[all][OPT_LENGTH];
   // common options
@@ -39,8 +39,6 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-e");
   strcpy(option[count++], "-sk");
   strcpy(option[count++], "-i");
-  // strcpy(option[count++], "--variable"); // TODO: makes no sense, I think
-  strcpy(option[count++], "-pbc");
   strcpy(option[count++], "--detailed");
   strcpy(option[count++], "--verbose");
   strcpy(option[count++], "--silent");
@@ -101,25 +99,24 @@ int main(int argc, char *argv[]) {
     PrintErrorFile(coor_file, struct_file, "\0");
     exit(1);
   }
-  VECTOR bin;
+  double bin[3];
   // TODO: *3 to assume box change of at most thrice as big
   //       probably change from width to number of bins per box?
-  bin.x = ceil(box->Length.x / width) * 3;
-  bin.y = ceil(box->Length.y / width) * 3;
-  bin.z = ceil(box->Length.z / width) * 3; //}}}
+  for (int dd = 0; dd < 3; dd++) {
+    bin[dd] = ceil(box->Length[dd] / width) * 3;
+  } //}}}
 
   // allocate memory for arrays //{{{
   // just check if the bead type is at all present in the calculation
   bool *n_beads = calloc(Count->BeadType, sizeof *n_beads);
-  // TODO: LONGINTVECTOR instead long int [3]?
-  long int ***rho = malloc(3 * sizeof ***rho);
-  for (int i = 0; i < 3; i++) {
-    rho[i] = malloc(Count->BeadType * sizeof **rho);
+  long int **rho[3]; // = malloc(3 * sizeof ***rho);
+  for (int dd = 0; dd < 3; dd++) {
+    rho[dd] = malloc(Count->BeadType * sizeof **rho);
   }
   for (int j = 0; j < Count->BeadType; j++) {
-    rho[0][j] = calloc(bin.x, sizeof *rho[0][j]);
-    rho[1][j] = calloc(bin.y, sizeof *rho[1][j]);
-    rho[2][j] = calloc(bin.z, sizeof *rho[2][j]);
+    for (int dd = 0; dd < 3; dd++) {
+      rho[dd][j] = calloc(bin[dd], sizeof *rho[dd][j]);
+    }
   } //}}}
 
   if (verbose) {
@@ -147,14 +144,12 @@ int main(int argc, char *argv[]) {
       count_used++;
       WrapJoinCoordinates(&System, true, false);
       // allocate memory for temporary density arrays
-      int ***temp_rho = malloc(3 * sizeof(int **));
-      for (int i = 0; i < 3; i++) {
-        temp_rho[i] = malloc(Count->BeadType * sizeof(int *));
-      }
-      for (int i = 0; i < Count->BeadType; i++) {
-        temp_rho[0][i] = calloc(bin.x, sizeof *temp_rho[0][i]);
-        temp_rho[1][i] = calloc(bin.y, sizeof *temp_rho[1][i]);
-        temp_rho[2][i] = calloc(bin.z, sizeof *temp_rho[2][i]);
+      int **temp_rho[3]; // = malloc(3 * sizeof(int **));
+      for (int dd = 0; dd < 3; dd++) {
+        temp_rho[dd] = malloc(Count->BeadType * sizeof *temp_rho[dd]);
+        for (int i = 0; i < Count->BeadType; i++) {
+          temp_rho[dd][i] = calloc(bin[dd], sizeof *temp_rho[dd][i]);
+        }
       }
 
       // calculate densities //{{{
@@ -169,40 +164,28 @@ int main(int argc, char *argv[]) {
         }
         if (use) {
           n_beads[bead->Type] = true;
-          // x direction
-          int j = bead->Position.x / width;
-          temp_rho[0][bead->Type][j]++;
-          // y direction
-          j = bead->Position.y / width;
-          temp_rho[1][bead->Type][j]++;
-          // z direction
-          j = bead->Position.z / width;
-          temp_rho[2][bead->Type][j]++;
+          for (int dd = 0; dd < 3; dd++) {
+            int j = bead->Position[dd] / width;
+            temp_rho[dd][bead->Type][j]++;
+          }
         }
       } //}}}
       // add from temporary density arrays to global density arrays
       for (int j = 0; j < Count->BeadType; j++) {
-        // x direction
-        for (int k = 0; k < bin.x-1; k++) {
-          rho[0][j][k] += temp_rho[0][j][k];
-        }
-        // y direction
-        for (int k = 0; k < bin.y-1; k++) {
-          rho[1][j][k] += temp_rho[1][j][k];
-        }
-        // z direction
-        for (int k = 0; k < bin.z-1; k++) {
-          rho[2][j][k] += temp_rho[2][j][k];
+        for (int dd = 0; dd < 3; dd++) {
+          for (int k = 0; k < bin[dd]-1; k++) {
+            rho[dd][j][k] += temp_rho[dd][j][k];
+          }
         }
       }
       // free temporary density array
-      for (int i = 0; i < 3; i++) {
+      for (int dd = 0; dd < 3; dd++) {
         for (int j = 0; j < Count->BeadType; j++) {
-          free(temp_rho[i][j]);
+          free(temp_rho[dd][j]);
         }
-        free(temp_rho[i]);
+        free(temp_rho[dd]);
       }
-      free(temp_rho);
+      // free(temp_rho);
     } else {
       if (!SkipTimestep(coor_type, fr, coor_file, struct_file, &line_count)) {
         count_coor--;
@@ -231,19 +214,19 @@ int main(int argc, char *argv[]) {
     char axis;
     if (ax == 0) {
       axis = 'x';
-      size = box->Length.x;
-      volume *= box->Length.y * box->Length.z;
-      n = bin.x;
+      size = box->Length[0];
+      volume *= box->Length[1] * box->Length[2];
+      n = bin[0];
     } else if (ax == 1) {
       axis = 'y';
-      size = box->Length.y;
-      volume *= box->Length.x * box->Length.z;
-      n = bin.y;
+      size = box->Length[1];
+      volume *= box->Length[0] * box->Length[2];
+      n = bin[1];
     } else {
       axis = 'z';
-      size = box->Length.z;
-      volume *= box->Length.x * box->Length.y;
-      n = bin.z;
+      size = box->Length[2];
+      volume *= box->Length[0] * box->Length[1];
+      n = bin[2];
     }
     char file[LINE]; // filename <output>-<axis>.rho
     if (snprintf(file, LINE, "%s-%c.rho", output_rho, axis) < 0) {
@@ -282,13 +265,13 @@ int main(int argc, char *argv[]) {
 
   // free memory - to make valgrind happy //{{{
   FreeSystem(&System);
-  for (int i = 0; i < 3; i++) {
+  for (int dd = 0; dd < 3; dd++) {
     for (int j = 0; j < Count->BeadType; j++) {
-      free(rho[i][j]);
+      free(rho[dd][j]);
     }
-    free(rho[i]);
+    free(rho[dd]);
   }
-  free(rho);
+  // free(rho);
   free(n_beads); //}}}
 
   return 0;
