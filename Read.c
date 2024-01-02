@@ -4231,32 +4231,48 @@ SYSTEM ReadStructure(int struct_type, char struct_file[], int coor_type,
 bool ReadTimestep(int coor_type, FILE *fr, char file[],
                   SYSTEM *System, int *line_count) {
   switch (coor_type) {
-  case VTF_FILE:
-  case VCF_FILE:
-    if (VtfReadTimestep(fr, file, System, line_count) < 0) {
-      return false;
-    }
-    break;
-  case XYZ_FILE:
-    if (XyzReadTimestep(fr, file, System, line_count) < 0) {
-      return false;
-    }
-    break;
-  case LTRJ_FILE:
-    if (LtrjReadTimestep(fr, file, System, line_count) < 0) {
-      return false;
-    }
-    break;
-  case LDATA_FILE:
-    if (LmpDataReadTimestep(fr, file, System, line_count) < 0) {
-      return false;
-    }
-    break;
-  default:
-    snprintf(ERROR_MSG, LINE, "no action specified for coor_type %s%d",
-             ErrYellow(), coor_type);
-    PrintError();
-    exit(1);
+    case VTF_FILE:
+    case VCF_FILE:
+      if (VtfReadTimestep(fr, file, System, line_count) < 0) {
+        return false;
+      }
+      break;
+    case XYZ_FILE:
+      if (XyzReadTimestep(fr, file, System, line_count) < 0) {
+        return false;
+      }
+      break;
+    case LTRJ_FILE:;
+      int line = *line_count;
+      if (LtrjReadTimestep(fr, file, System, line_count) < 0) {
+        return false;
+      }
+      // skip this step if it's a first one that contain only zeroes
+      if (line == 0 && System->Count.BeadCoor == System->Count.Bead) {
+        bool zeroes = true;
+        for (int i = 0; i < System->Count.Bead; i++) {
+          if (System->Bead[i].Position[0] != 0 ||
+              System->Bead[i].Position[1] != 0 ||
+              System->Bead[i].Position[2] != 0) {
+            zeroes = false;
+            break;
+          }
+        }
+        if (zeroes && LtrjReadTimestep(fr, file, System, line_count) < 0) {
+          return false;
+        }
+      }
+      break;
+    case LDATA_FILE:
+      if (LmpDataReadTimestep(fr, file, System, line_count) < 0) {
+        return false;
+      }
+      break;
+    default:
+      snprintf(ERROR_MSG, LINE, "no action specified for coor_type %s%d",
+               ErrYellow(), coor_type);
+      PrintError();
+      exit(1);
   }
 
   return true;

@@ -218,9 +218,7 @@ int main(int argc, char *argv[]) {
   // -j option - save coordinates of joined aggregates //{{{
   char join_file[LINE] = "";
   int join_type = -1;
-  if (FileOption(argc, argv, "-j", join_file)) {
-    exit(1);
-  }
+  FileOption(argc, argv, "-j", join_file);
   if (join_file[0] != '\0') {
     join_type = CoordinateFileType(join_file);
   } //}}}

@@ -88,8 +88,7 @@ int main(int argc, char *argv[]) {
   char c_file[LINE] = "";
   if (!FileIntegerOption(argc, argv, 100, "-c", c_sizes, &c_count, c_file)) {
     exit(1);
-  }
-  //}}}
+  } //}}}
 
   // print command to stdout
   if (!silent) {

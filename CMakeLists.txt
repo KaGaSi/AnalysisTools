@@ -38,7 +38,9 @@ set(UTILS AddToSystem
           DistrAgg
           Info
           JoinSystems
-          Selected)
+          Selected
+          Surface
+          VisualizeAgg)
 foreach(utility ${UTILS})
   add_executable(${utility} Utility/${utility}.c)
   target_link_libraries(${utility} ${LIBRARIES} m)

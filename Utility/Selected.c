@@ -189,10 +189,10 @@ int main(int argc, char *argv[]) {
   fpos_t *position = calloc(1, sizeof *position);
   // save line count at every fgetpos()
   int *bkp_line_count = calloc(1, sizeof *bkp_line_count);
-  int n_opt_count = 0,    // count saved steps if -n option is used
-      count_coor = 0,     // count steps in the vcf file
-      count_saved = 0,    // count steps in output file
-      line_count = 0;     // count lines in the vcf file
+  int n_opt_count = 0, // count saved steps if -n option is used
+      count_coor = 0,  // count steps in the vcf file
+      count_saved = 0, // count steps in output file
+      line_count = 0;  // count lines in the coor file
   while (true) {
     PrintStep(&count_coor, start, silent);
     position = realloc(position, count_coor * sizeof *position);

@@ -6,6 +6,7 @@ void InitBeadType(BEADTYPE *bt) { //{{{
   bt->Charge = CHARGE;
   bt->Mass = MASS;
   bt->Radius = RADIUS;
+  bt->Flag = false;
 } //}}}
 void InitBead(BEAD *b) { //{{{
   b->Type = -1;
@@ -61,7 +62,7 @@ void InitAggregate(SYSTEM System, AGGREGATE **Aggregate) { //{{{
   for (int i = 0; i < Count->Molecule; i++) {
     (*Aggregate)[i].Molecule = calloc(Count->Molecule,
                                       sizeof *Aggregate[i]->Molecule);
-    (*Aggregate)[i].Bead = calloc(Count->Bead,
+    (*Aggregate)[i].Bead = calloc(Count->Bonded,
                                   sizeof *Aggregate[i]->Bead);
   }
 } //}}}

@@ -69,13 +69,9 @@ int main(int argc, char *argv[]) {
   char struct_file_extra[LINE] = "";
   int struct_type_extra = -1;
   bool change_beads = false;
-  if (FileOption(argc, argv, "-i", struct_file_extra)) {
-    exit(1);
-  }
+  FileOption(argc, argv, "-i", struct_file_extra);
   if (struct_file_extra[0] == '\0') {
-    if (FileOption(argc, argv, "-i!", struct_file_extra)) {
-      exit(1);
-    }
+    FileOption(argc, argv, "-i!", struct_file_extra);
     if (struct_file_extra[0] != '\0') {
       change_beads = true;
     }
@@ -86,18 +82,14 @@ int main(int argc, char *argv[]) {
   // input coordinate file (-c option) //{{{
   char coor_file[LINE] = "";
   int coor_type = -1;
-  if (FileOption(argc, argv, "-c", coor_file)) {
-    exit(1);
-  }
+  FileOption(argc, argv, "-c", coor_file);
   if (coor_file[0] != '\0') {
     coor_type = CoordinateFileType(coor_file);
   } //}}}
   // output structure file (-o option) //{{{
   char struct_file_out[LINE] = "";
   int struct_type_out = -1;
-  if (FileOption(argc, argv, "-o", struct_file_out)) {
-    exit(1);
-  }
+  FileOption(argc, argv, "-o", struct_file_out);
   if (struct_file_out[0] != '\0') {
     struct_type_out = StructureFileType(struct_file_out);
   } //}}}
@@ -108,9 +100,7 @@ int main(int argc, char *argv[]) {
                 &timestep, trash, trash);
   // extra bead types for data output (-ebt option)
   int extra_types = 0;
-  if (IntegerOption(argc, argv, 1, "-ebt", trash, &extra_types)) {
-    exit(1);
-  }
+  IntegerOption1(argc, argv, "-ebt", &extra_types);
 
   // read information from input file(s) //{{{
   SYSTEM System = ReadStructure(struct_type, struct_file,

@@ -3340,7 +3340,7 @@ bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
                      char struct_file[], int *struct_type) {
   // input structure file (-i option)
   int trash[1]; // number of integers and integer values - unusued
-  if (FileIntegerOption(argc, argv, 0, "-i", trash, trash, struct_file)) {
+  if (!FileIntegerOption(argc, argv, 0, "-i", trash, trash, struct_file)) {
     exit(1);
   }
   if (struct_file[0] != '\0') { // -i option is present
@@ -4333,7 +4333,7 @@ void RemovePBCAggregates(double distance, AGGREGATE *Aggregate,
   double (*box)[3] = &System->Box.Length;
   // helper array indicating whether molecules already moved
   bool *moved = malloc(sizeof *moved * Count->Molecule);
-  // go through all aggregates larger than unimers and put all molecules together //{{{
+  // go through aggregates larger than As=1, knitting together //{{{
   for (int i = 0; i < Count->Aggregate; i++) {
 
     // negate moved array, but the first molecule is not to move //{{{
@@ -4430,21 +4430,11 @@ void RemovePBCAggregates(double distance, AGGREGATE *Aggregate,
       } //}}}
       test++;
     }
-    if (test == 1000) {
-      // TODO: the test? Do I need 1000 tries and whatnot?
-      // ColourChange(STDERR_FILENO, YELLOW);
-      // fprintf(stderr, "\nWarning: unable to 'join' aggregate with these ");
-      // ColourChange(STDERR_FILENO, CYAN);
-      // fprintf(stderr, "%d", Aggregate[i].nMolecules);
-      // ColourChange(STDERR_FILENO, YELLOW);
-      // fprintf(stderr, " molecules:\n");
-      // for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-      //   ColourChange(STDERR_FILENO, CYAN);
-      //   fprintf(stderr, " %d", Aggregate[i].Molecule[j]);
-      // }
-      // fprintf(stderr, "\n");
-      // ColourReset(STDERR_FILENO);
-    }
+    // // TODO: the test? Do I need 1000 tries and whatnot?
+    // if (test == 1000) {
+    //   strcpy(ERROR_MSG, "unable to 'join' aggregate");
+    //   PrintWarning();
+    // }
   }
   free(moved); //}}}
   // put aggregates' centre of mass into the simulation box //{{{

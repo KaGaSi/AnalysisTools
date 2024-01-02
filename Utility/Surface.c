@@ -1,13 +1,16 @@
 #include "../AnalysisTools.h"
-int *InFile;
 
-void Help(char cmd[50], bool error) { //{{{
+// TODO: reinstate molecular condition
+// TODO: impelment -m & -bt options
+
+void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
     ptr = stderr;
   } else {
     ptr = stdout;
     fprintf(ptr, "\
+TODO: CHECK & REWRITE\n\n\
 Surface utility determines the first bead (either from the box's centre or \
 edges) in each square prism defined by the given <width> parameter, thus \
 defining a surface of, e.g., polymer brush or lipid bilayer. The <width> \
@@ -21,188 +24,106 @@ edges or the two surfaces of a lipid bilayer inside the box).\n\n");
   fprintf(ptr, "Usage:\n");
   fprintf(ptr, "   %s <input> <width> <output> <axis> [options]\n\n", cmd);
 
-  fprintf(ptr, "   <input>    input coordinate file (vcf or vtf format)\n");
-  fprintf(ptr, "   <width>    width of a single bin\n");
-  fprintf(ptr, "   <output>   output file\n");
-  fprintf(ptr, "   <axis>     calculate along x, y, or z axis\n");
-  fprintf(ptr, "   <options>\n");
-  fprintf(ptr, "      -in             start from the box's centre \
-instead of edges\n");
-  fprintf(ptr, "      -m <mol(s)>     molecule type(s) to use\n");
-  fprintf(ptr, "      -bt <name(s)>   bead type(s) to use\n");
-  fprintf(ptr, "      -st <int>       starting timestep for calculation\n");
-  fprintf(ptr, "      -e <int>        number of timestep to end with\n");
-  CommonHelp(error);
+  fprintf(ptr, "<input>             input coordinate file\n");
+  fprintf(ptr, "<width>             width of a single bin\n");
+  fprintf(ptr, "<output>            output file\n");
+  fprintf(ptr, "<axis>              calculate along x, y, or z axis\n");
+  fprintf(ptr, "[options]\n");
+  fprintf(ptr, "  --in              start from the box's centre "
+          "instead of edges\n");
+  // fprintf(ptr, "  -m <mol(s)>       molecule type(s) to use\n");
+  // fprintf(ptr, "  -bt <name(s)>     bead type(s) to use\n");
+  CommonHelp(error, n, opt);
 } //}}}
 
 int main(int argc, char *argv[]) {
 
-  // -h/--version options - print stuff and exit //{{{
-  if (VersionOption(argc, argv)) {
-    exit(0);
-  }
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "-h") == 0) {
-      Help(argv[0], false);
-      exit(0);
-    }
-  }
-  int req_args = 4; //}}}
-
-  // check if correct number of arguments //{{{
-  int count = 0;
-  while ((count+1) < argc && argv[count+1][0] != '-') {
-    count++;
-  }
-
-  if (count < req_args) {
-    ErrorArgNumber(count, req_args);
-    Help(argv[0], true);
-    exit(1);
-  } //}}}
-
-  // test if options are given correctly //{{{
-  for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' &&
-        strcmp(argv[i], "-i") != 0 &&
-        strcmp(argv[i], "-v") != 0 &&
-        strcmp(argv[i], "--silent") != 0 &&
-        strcmp(argv[i], "-h") != 0 &&
-        strcmp(argv[i], "--version") != 0 &&
-        strcmp(argv[i], "-in") != 0 &&
-        strcmp(argv[i], "-bt") != 0 &&
-        strcmp(argv[i], "-m") != 0 &&
-        strcmp(argv[i], "-st") != 0 &&
-        strcmp(argv[i], "-e") != 0) {
-
-      ErrorOption(argv[i]);
-      Help(argv[0], true);
-      exit(1);
-    }
-  } //}}}
+  // define options //{{{
+  int common = 9, all = common + 1, count = 0,
+      req_arg = 4;
+  char option[all][OPT_LENGTH];
+  // common options
+  strcpy(option[count++], "-st");
+  strcpy(option[count++], "-e");
+  strcpy(option[count++], "-sk");
+  strcpy(option[count++], "-i");
+  strcpy(option[count++], "--detailed");
+  strcpy(option[count++], "--verbose");
+  strcpy(option[count++], "--silent");
+  strcpy(option[count++], "--help");
+  strcpy(option[count++], "--version");
+  // extra options
+  strcpy(option[count++], "--in");
+  // strcpy(option[count++], "-m");
+  // strcpy(option[count++], "-bt");
+  OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
 
   count = 0; // count mandatory arguments
 
-  // <input> - input coordinate file //{{{
-  char input_coor[LINE] = "", input_vsf[LINE] = "";
-  snprintf(input_coor, LINE, "%s", argv[++count]);
-  // test that <input> filename ends with '.vcf' or '.vtf'
-  bool vtf;
-  if (!InputCoor_old(&vtf, input_coor, input_vsf)) {
-    Help(argv[0], true);
+  // arguments & options before reading system data //{{{
+  // <input> - input coordinate (and structure) file //{{{
+  char coor_file[LINE] = "", struct_file[LINE] = "";
+  int coor_type, struct_type = 0;
+  snprintf(coor_file, LINE, "%s", argv[++count]);
+  if (!InputCoorStruct(argc, argv, coor_file, &coor_type,
+                       struct_file, &struct_type)) {
     exit(1);
   } //}}}
-
   // <width> - width of a single bin //{{{
-  // Error - non-numeric argument
-  if (!IsPosReal_old(argv[++count])) {
+  double width = 0;
+  if (!IsPosRealNumber(argv[++count], &width)) {
     ErrorNaN("<width>");
-    Help(argv[0], true);
+    Help(argv[0], true, common, option);
     exit(1);
-  }
-  double width = atof(argv[count]); //}}}
-
+  } //}}}
   // <output> - output filename //{{{
   char output[LINE] = "";
   snprintf(output, LINE, "%s", argv[++count]); //}}}
-
   // <axis> - x, y, or z //{{{
   char axis = 'x';
   while (++count < argc && argv[count][0] != '-') {
     axis = argv[count][0];
     // Error - not x/y/z
     if (axis != 'x' && axis != 'y' && axis != 'z') {
-      ErrorPrintError_old();
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "<axis>");
-      ColourChange(STDERR_FILENO, RED);
-      fprintf(stderr, " - use 'x', 'y', or 'z'\n\n");
-      ColourReset(STDERR_FILENO);
-      Help(argv[0], true);
+      strcpy(ERROR_MSG, "must be 'x', 'y', or 'z'");
+      PrintErrorOption("<width>");
+      Help(argv[0], true, common, option);
       exit(1);
     }
   } //}}}
+  bool silent, verbose, detailed;
+  int start = 1, end = -1, skip = 0;
+  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
+                &start, &end, &skip);
+  bool in = BoolOption(argc, argv, "--in"); //}}}
 
-  // options before reading system data //{{{
-  bool silent;
-  bool verbose;
-  CommonOptions_old(argc, argv, input_vsf, &verbose, &silent, LINE);
-  int start, end;
-  StartEndTime(argc, argv, &start, &end);
-  // go from box edges to the box centre instead of from centre to edges //{{{
-  bool in = BoolOption(argc, argv, "-in"); //}}}
-  //}}}
-
-  // print command to stdout //{{{
   if (!silent) {
     PrintCommand(stdout, argc, argv);
-  } //}}}
-
-  // read information from vtf file(s) //{{{
-  BEADTYPE *BeadType; // structure with info about all bead types
-  MOLECULETYPE *MoleculeType; // structure with info about all molecule types
-  BEAD *Bead; // structure with info about every bead
-  int *Index; // link between indices (i.e., Index[Bead[i].Index]=i)
-  MOLECULE *Molecule; // structure with info about every molecule
-  COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
-  BOX Box = InitBox; // triclinic box dimensions and angles
-  bool indexed; // indexed timestep?
-  int struct_lines; // number of structure lines (relevant for vtf)
-  FullVtfRead(input_vsf, input_coor, false, vtf, &indexed, &struct_lines,
-              &Box, &Counts, &BeadType, &Bead, &Index,
-              &MoleculeType, &Molecule);
-  // warning - works properly only for orthogonal box
-  if (Box.alpha != 90 ||
-      Box.beta != 90 ||
-      Box.gamma != 90) {
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, "\nWarning: non-orthogonal box; angles - ");
-    ColourChange(STDERR_FILENO, CYAN);
-    fprintf(stderr, "%lf %lf %lf", Box.alpha, Box.beta, Box.gamma);
-    ColourChange(STDERR_FILENO, YELLOW);
-    fprintf(stderr, ".\n         %s works properly only for \
-orthogonal box.\n", argv[0]);
-    ColourReset(STDERR_FILENO);
-  } //}}}
-
-  // '-x' option //{{{
-  if (ExcludeOption_old(argc, argv, Counts, &MoleculeType)) {
-    exit(1);
-  } //}}}
-
-  // -bt <name(s)> - specify what bead types to use //{{{
-  if (BeadTypeOption_old_old(argc, argv, "-bt", true, Counts, &BeadType)) {
-    exit(1);
-  } //}}}
-
-  // -m <name(s)> - specify what molecule types to use //{{{
-//int use = malloc(Counts.TypesOfMolecules * sizeof(int));
-  int use[Counts.TypesOfMolecules];
-  // if -m not present, use all
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    use[i] = 1;
   }
-  if (MoleculeTypeOption2(argc, argv, "-m", use, Counts, &MoleculeType)) {
-    exit(1);
+
+  SYSTEM System = ReadStructure(struct_type, struct_file,
+                                coor_type, coor_file, detailed);
+  COUNT *Count = &System.Count;
+  BOX *Box = &System.Box;
+
+  if (verbose) {
+    VerboseOutput(System);
   }
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    MoleculeType[i].Flag = use[i];
-  } //}}}
 
   // set maximum/minimum as half a box length in the given direction //{{{
   double range[2];
   switch(axis) {
     case 'x':
       range[0] = 0;
-      range[1] = Box.Length.x;
+      range[1] = Box->Length[0];
       break;
     case 'y':
       range[0] = 0;
-      range[1] = Box.Length.y;
+      range[1] = Box->Length[1];
       break;
     case 'z':
       range[0] = 0;
-      range[1] = Box.Length.z;
+      range[1] = Box->Length[2];
       break;
   } //}}}
 
@@ -210,178 +131,153 @@ orthogonal box.\n", argv[0]);
   int bins[2];
   switch(axis) {
     case 'x':
-      bins[0] = Box.Length.y / width + 1;
-      bins[1] = Box.Length.z / width + 1;
+      bins[0] = Box->Length[1] / width + 1;
+      bins[1] = Box->Length[2] / width + 1;
       break;
     case 'y':
-      bins[0] = Box.Length.x / width + 1;
-      bins[1] = Box.Length.z / width + 1;
+      bins[0] = Box->Length[0] / width + 1;
+      bins[1] = Box->Length[2] / width + 1;
       break;
     case 'z':
-      bins[0] = Box.Length.x / width + 1;
-      bins[1] = Box.Length.y / width + 1;
+      bins[0] = Box->Length[0] / width + 1;
+      bins[1] = Box->Length[1] / width + 1;
       break;
   }
+  // TODO: this ensures enough bins when, e.g., vsf file contains pbc smaller
+  //       than the coordinate file - think about how to make it safe...
+  bins[0] += 10;
+  bins[1] += 10;
   //}}}
 
 // TODO: sizeof ...argh!
   // allocate memory for density arrays //{{{
-//double ***surf = calloc(bins[0], sizeof(double **)); // sum
-  double ***surf = calloc(bins[0], sizeof ***surf); // sum
-//int ***values = calloc(bins[0], sizeof(int **)); // number of values
-  int ***values = calloc(bins[0], sizeof ***values); // number of values
+  double ***surf = malloc(bins[0] * sizeof(double **)); // sum
+  int ***values = malloc(bins[0] * sizeof(int **)); // number of values
   for (int i = 0; i < bins[0]; i++) {
-//  surf[i] = calloc(bins[1], sizeof(double *));
-    surf[i] = calloc(bins[1], sizeof **surf[i]);
-//  values[i] = calloc(bins[0], sizeof(int *));
-    values[i] = calloc(bins[0], sizeof **values[i]);
+    surf[i] = malloc(bins[1] * sizeof(double *));
+    values[i] = malloc(bins[0] * sizeof(int *));
     for (int j = 0; j < bins[1]; j++) {
-//    surf[i][j] = calloc(2, sizeof(double));
-      surf[i][j] = calloc(2, sizeof *surf[i][j]);
-//    values[i][j] = calloc(2, sizeof(int));
-      values[i][j] = calloc(2, sizeof *values[i][j]);
+      surf[i][j] = calloc(2, sizeof(double));
+      values[i][j] = calloc(2, sizeof(int));
     }
-  } //}}}
-
-  // print information - verbose output //{{{
-  if (verbose) {
-    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
   } //}}}
 
   // open input coordinate file
-  FILE *vcf = OpenFile(input_coor, "r");
-  SkipVtfStructure(vcf, struct_lines);
-
-  count = SkipCoorSteps(vcf, input_coor, Counts, start, silent);
+  FILE *fr = OpenFile(coor_file, "r");
 
   // main loop //{{{
-  int count_step = 0; // count calculated timesteps
-  int count_vcf = start - 1; // count timesteps from the beginning
-  char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
+  int count_coor = 0, // count calculated timesteps
+      count_used = 0, // count timesteps from the beginning
+      line_count = 0; // count lines in the coor file
   while (true) {
-    count_step++;
-    count_vcf++;
-    // print step? //{{{
-    if (!silent && isatty(STDOUT_FILENO)) {
-      fflush(stdout);
-      fprintf(stdout, "\rStep: %d", count_vcf);
+    PrintStep(&count_coor, start, silent);
+    // decide whether to use this timestep (based on -st/-sk/-e) //{{{
+    bool use = false;
+    if (count_coor >= start &&
+        (count_coor <= end || end == -1) &&
+        ((count_coor - start) % skip) == 0) {
+      use = true;
     } //}}}
-    // read coordinates and wrap box - assumes orthogonal box
-    BOX test = InitBox; // check the box didn't change
-    ReadVcfCoordinates(indexed, input_coor, vcf, &Box,
-                       Counts, Index, &Bead, &stuff);
-    // warning - box size/angles //{{{
-    if (Box.Length.x != test.Length.x ||
-        Box.Length.y != test.Length.y ||
-        Box.Length.z != test.Length.z) {
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "\nWarning: box side lengths changed from ");
-      ColourChange(STDERR_FILENO, CYAN);
-      fprintf(stderr, "%lf %lf %lf", Box.Length.x, Box.Length.y, Box.Length.z);
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, " to ");
-      ColourChange(STDERR_FILENO, CYAN);
-      fprintf(stderr, "%lf %lf %lf", test.Length.x, test.Length.y,
-                                     test.Length.z);
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, ".\n         %s works properly only when the box \
-size is constant.\n", argv[0]);
-      ColourReset(STDERR_FILENO);
-    }
-    if (Box.alpha != 90 ||
-        Box.beta != 90 ||
-        Box.gamma != 90) {
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, "\nWarning: non-orthogonal box; angles - ");
-      ColourChange(STDERR_FILENO, CYAN);
-      fprintf(stderr, "%lf %lf %lf", Box.alpha, Box.beta, Box.gamma);
-      ColourChange(STDERR_FILENO, YELLOW);
-      fprintf(stderr, ".\n         %s works properly only for \
-orthogonal box.\n", argv[0]);
-      ColourReset(STDERR_FILENO);
-    } //}}}
-    RestorePBC(Counts.BeadsCoor, Box, &Bead);
 
-  // TODO: sizeof ...argh!
-    // allocate memory for temporary arrays //{{{
-//  double ***temp = calloc(bins[0], sizeof(double **));
-//  TODO: change to (**temp)[2]
-    double ***temp = calloc(bins[0], sizeof ***temp);
-    for (int i = 0; i < bins[0]; i++) {
-//    temp[i] = calloc(bins[1], sizeof(double *));
-      temp[i] = calloc(bins[1], sizeof **temp[i]);
-      for (int j = 0; j < bins[1]; j++) {
-//      temp[i][j] = calloc(2, sizeof(double));
-        temp[i][j] = calloc(2, sizeof *temp[i][j]);
-        if (!in) {
-          temp[i][j][0] = 0;
-          switch(axis) {
-            case 'x':
-              temp[i][j][1] = Box.Length.x;
-              break;
-            case 'y':
-              temp[i][j][1] = Box.Length.y;
-              break;
-            case 'z':
-              temp[i][j][1] = Box.Length.z;
-              break;
+    if (use) { //{{{
+      if (!ReadTimestep(coor_type, fr, coor_file, &System, &line_count)) {
+        count_coor--;
+        break;
+      }
+      count_used++;
+      WrapJoinCoordinates(&System, true, false);
+    // TODO: sizeof ...argh!
+      // allocate memory for temporary arrays //{{{
+      double ***temp = calloc(bins[0], sizeof(double **));
+      for (int i = 0; i < bins[0]; i++) {
+        temp[i] = calloc(bins[1], sizeof(double *));
+        for (int j = 0; j < bins[1]; j++) {
+          temp[i][j] = calloc(2, sizeof(double));
+          if (!in) {
+            temp[i][j][0] = 0;
+            switch(axis) {
+              case 'x':
+                temp[i][j][1] = Box->Length[0];
+                break;
+              case 'y':
+                temp[i][j][1] = Box->Length[1];
+                break;
+              case 'z':
+                temp[i][j][1] = Box->Length[2];
+                break;
+            }
+          } else {
+            switch(axis) {
+              case 'x':
+                temp[i][j][0] = Box->Length[0];
+                break;
+              case 'y':
+                temp[i][j][0] = Box->Length[1];
+                break;
+              case 'z':
+                temp[i][j][0] = Box->Length[2];
+                break;
+            }
+            temp[i][j][1] = 0;
           }
-        } else {
-          switch(axis) {
-            case 'x':
-              temp[i][j][0] = Box.Length.x;
-              break;
-            case 'y':
-              temp[i][j][0] = Box.Length.y;
-              break;
-            case 'z':
-              temp[i][j][0] = Box.Length.z;
-              break;
-          }
-          temp[i][j][1] = 0;
         }
-      }
-    } //}}}
+      } //}}}
 
-  // TODO: check
-    // calculate surface //{{{
-    for (int i = 0; i < Counts.BeadsCoor; i++) {
-      int btype = Bead[i].Type,
-          mol = Bead[i].Molecule;
-      if (mol == -1) { // consider only beads in molecules
-        continue;
-      }
-      int mtype = Molecule[mol].Type;
-      if (Bead[i].Molecule != -1 && MoleculeType[mtype].Flag && BeadType[btype].Use) {
+    // TODO: check
+      // calculate surface //{{{
+      for (int i = 0; i < Count->BeadCoor; i++) {
+        int id = System.BeadCoor[i];
+        BEAD *b = &System.Bead[id];
+        // int mol = b->Molecule;
+        // if (mol == -1) { // consider only beads in molecules
+        //   continue;
+        // }
+        // BEADTYPE *btype = &System.BeadType[b->Type]; // for -bt
+        // int mtype = System.Molecule[mol].Type;
+        // MOLECULETYPE *mol_type = &System.MoleculeType[mtype]; // for -m
+        // TODO: -m & -bt options: add codition like this
+        //       if (b->Molecule != -1 && mol_type->Flag && btype->Flag)
         double coor[3];
         switch(axis) {
           case 'x':
-            coor[0] = Bead[i].Position.y;
-            coor[1] = Bead[i].Position.z;
-            coor[2] = Bead[i].Position.x;
+            coor[0] = b->Position[1];
+            coor[1] = b->Position[2];
+            coor[2] = b->Position[0];
             break;
           case 'y':
-            coor[0] = Bead[i].Position.x;
-            coor[1] = Bead[i].Position.z;
-            coor[2] = Bead[i].Position.y;
+            coor[0] = b->Position[0];
+            coor[1] = b->Position[2];
+            coor[2] = b->Position[1];
             break;
           case 'z':
-            coor[0] = Bead[i].Position.x;
-            coor[1] = Bead[i].Position.y;
-            coor[2] = Bead[i].Position.z;
+            coor[0] = b->Position[0];
+            coor[1] = b->Position[1];
+            coor[2] = b->Position[2];
             break;
         }
         int bin[2];
         bin[0] = coor[0] / width;
         bin[1] = coor[1] / width;
+        if (bin[0] > bins[0] || bin[1] > bins[1]) {
+          printf("%lf %lf %lf\n", b->Position[0], b->Position[1], b->Position[2]);
+          printf("%d of %d\n", bin[0], bins[0]);
+          printf("%d of %d\n", bin[1], bins[1]);
+          PrintBox(*Box);
+          PrintBox(System.Box);
+        }
         if (!in) { // go from box centre to edges
-          if (coor[2] >= temp[bin[0]][bin[1]][0] && coor[2] >= range[0] && coor[2] <= ((range[0]+range[1])/2)) {
+          if (coor[2] >= temp[bin[0]][bin[1]][0] &&
+              coor[2] >= range[0] &&
+              coor[2] <= ((range[0]+range[1])/2)) {
             temp[bin[0]][bin[1]][0] = coor[2];
           }
-          if (coor[2] <= temp[bin[0]][bin[1]][1] && coor[2] >= ((range[0]+range[1])/2) && coor[2] <= range[1]) {
+          if (coor[2] <= temp[bin[0]][bin[1]][1] &&
+              coor[2] >= ((range[0]+range[1])/2) &&
+              coor[2] <= range[1]) {
             temp[bin[0]][bin[1]][1] = coor[2];
           }
-        } else if (coor[2] >= range[0] && coor[2] <= range[1]) { // go from box edges to centre
+        } else if (coor[2] >= range[0] &&
+                   coor[2] <= range[1]) { // go from box edges to centre
           if (coor[2] <= temp[bin[0]][bin[1]][0]) {
             temp[bin[0]][bin[1]][0] = coor[2];
           }
@@ -389,103 +285,108 @@ orthogonal box.\n", argv[0]);
             temp[bin[0]][bin[1]][1] = coor[2];
           }
         }
-      }
-    } //}}}
+      } //}}}
 
-    // add to sums //{{{
-    for (int i = 0; i < bins[0]; i++) {
-      for (int j = 0; j < bins[1]; j++) {
-        if (!in) {
-          if (temp[i][j][0] > 0) {
-            surf[i][j][0] += temp[i][j][0];
-            values[i][j][0]++;
-          }
-          switch(axis) {
-            case 'x':
-              if (temp[i][j][1] < Box.Length.x) {
-                surf[i][j][1] += temp[i][j][1];
-                values[i][j][1]++;
-              }
-              break;
-            case 'y':
-              if (temp[i][j][1] < Box.Length.y) {
-                surf[i][j][1] += temp[i][j][1];
-                values[i][j][1]++;
-              }
-              break;
-            case 'z':
-              if (temp[i][j][1] < Box.Length.z) {
-                surf[i][j][1] += temp[i][j][1];
-                values[i][j][1]++;
-              }
-              break;
-          }
-        } else {
-          switch(axis) {
-            case 'x':
-              if (temp[i][j][0] != (Box.Length.x/2)) {
-                surf[i][j][0] += temp[i][j][0];
-                values[i][j][0]++;
-              }
-              if (temp[i][j][1] != (Box.Length.x/2)) {
-                surf[i][j][1] += temp[i][j][1];
-                values[i][j][1]++;
-              }
-              break;
-            case 'y':
-              if (temp[i][j][0] != (Box.Length.y/2)) {
-                surf[i][j][0] += temp[i][j][0];
-                values[i][j][0]++;
-              }
-              if (temp[i][j][1] != (Box.Length.y/2)) {
-                surf[i][j][1] += temp[i][j][1];
-                values[i][j][1]++;
-              }
-              break;
-            case 'z':
-              if (temp[i][j][0] < Box.Length.z) {
-                surf[i][j][0] += temp[i][j][0];
-                values[i][j][0]++;
-              }
-              if (temp[i][j][1] > 0) {
-                surf[i][j][1] += temp[i][j][1];
-                values[i][j][1]++;
-              }
-              break;
+      // add to sums //{{{
+      for (int i = 0; i < bins[0]; i++) {
+        for (int j = 0; j < bins[1]; j++) {
+          if (!in) {
+            if (temp[i][j][0] > 0) {
+              surf[i][j][0] += temp[i][j][0];
+              values[i][j][0]++;
+            }
+            switch(axis) {
+              case 'x':
+                if (temp[i][j][1] < Box->Length[0]) {
+                  surf[i][j][1] += temp[i][j][1];
+                  values[i][j][1]++;
+                }
+                break;
+              case 'y':
+                if (temp[i][j][1] < Box->Length[1]) {
+                  surf[i][j][1] += temp[i][j][1];
+                  values[i][j][1]++;
+                }
+                break;
+              case 'z':
+                if (temp[i][j][1] < Box->Length[2]) {
+                  surf[i][j][1] += temp[i][j][1];
+                  values[i][j][1]++;
+                }
+                break;
+            }
+          } else {
+            switch(axis) {
+              case 'x':
+                if (temp[i][j][0] != (Box->Length[0]/2)) {
+                  surf[i][j][0] += temp[i][j][0];
+                  values[i][j][0]++;
+                }
+                if (temp[i][j][1] != (Box->Length[0]/2)) {
+                  surf[i][j][1] += temp[i][j][1];
+                  values[i][j][1]++;
+                }
+                break;
+              case 'y':
+                if (temp[i][j][0] != (Box->Length[1]/2)) {
+                  surf[i][j][0] += temp[i][j][0];
+                  values[i][j][0]++;
+                }
+                if (temp[i][j][1] != (Box->Length[1]/2)) {
+                  surf[i][j][1] += temp[i][j][1];
+                  values[i][j][1]++;
+                }
+                break;
+              case 'z':
+                if (temp[i][j][0] < Box->Length[2]) {
+                  surf[i][j][0] += temp[i][j][0];
+                  values[i][j][0]++;
+                }
+                if (temp[i][j][1] > 0) {
+                  surf[i][j][1] += temp[i][j][1];
+                  values[i][j][1]++;
+                }
+                break;
+            }
           }
         }
+      } //}}}
+
+      // free the temporary array //{{{
+      for (int i = 0; i < bins[0]; i++) {
+        for (int j = 0; j < bins[1]; j++) {
+          free(temp[i][j]);
+        }
+        free(temp[i]);
+      }
+      free(temp); //}}}
+      //}}}
+    } else { //{{{
+      if (!SkipTimestep(coor_type, fr, coor_file,
+                        struct_file, &line_count)) {
+        count_coor--;
+        break;
       }
     } //}}}
-
-    // free the temporary array //{{{
-    for (int i = 0; i < bins[0]; i++) {
-      for (int j = 0; j < bins[1]; j++) {
-        free(temp[i][j]);
-      }
-      free(temp[i]);
-    }
-    free(temp); //}}}
-
-    // exit the while loop if there's no more coordinates or -e step was reached
-    if (LastStep(vcf, NULL) || end == count_vcf) {
+    // exit the main loop if reached user-specied end timestep
+    if (count_coor == end) {
       break;
     }
   }
-  fclose(vcf);
+  fclose(fr);
   // print last step?
   if (!silent) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\r                          \r");
     }
-    fprintf(stdout, "Last Step: %d\n", count_vcf);
+    fprintf(stdout, "Last Step: %d (used %d)\n", count_coor, count_used);
   } //}}}
 
   // write surface to output file //{{{
-  // open output file //{{{
-  FILE *out = OpenFile(output, "w");
-  PrintByline(out, argc, argv);
+  PrintByline(output, argc, argv);
   // print legend
+  FILE *out = OpenFile(output, "w");
   switch(axis) {
     case 'x':
       fprintf(out, "# (1) y coordinate; (2) z coordinate;");
@@ -520,8 +421,7 @@ orthogonal box.\n", argv[0]);
   fclose(out); //}}}
 
   // free memory - to make valgrind happy //{{{
-  FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);
-  free(stuff);
+  FreeSystem(&System);
   for (int i = 0; i < bins[0]; i++) {
     for (int j = 0; j < bins[1]; j++) {
       free(surf[i][j]);

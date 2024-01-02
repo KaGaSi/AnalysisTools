@@ -459,7 +459,7 @@ bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
       snprintf(file, LINE, "%s", argv[i+1]);
       // read integers
       if (max == 0) {
-        return false;
+        return true;
       } else {
         while ((i+2+n) < argc && argv[i+2+n][0] != '-') {
           // Error - non-numeric or missing argument
@@ -467,7 +467,7 @@ bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
           if (!IsIntegerNumber(argv[i+2+n], &val)) {
             strcpy(ERROR_MSG, "each argument must be non-negative whole number");
             PrintErrorOption(opt);
-            return true;
+            exit(1);
           }
           values[n] = val;
           n++;
@@ -477,19 +477,19 @@ bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
                      "used", max);
             PrintErrorOption(opt);
             *count = n;
-            return true;
+            exit(1);
           }
         }
         if (n == 0) {
           strcpy(ERROR_MSG, "missing numeric argument(s)");
           PrintErrorOption(opt);
-          return true;
+          exit(1);
         }
       }
     }
   }
   *count = n;
-  return false;
+  return true;
 }
 bool FileOption(int argc, char *argv[], char opt[], char file[]) {
   int trash;

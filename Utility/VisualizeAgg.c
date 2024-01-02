@@ -1,9 +1,10 @@
 #include "../AnalysisTools.h"
-int *InFile;
-// TODO: reading agg file
+// TODO: create arrays mapping Bead[id] to BeadCoor[i]=id (and for other xCoor?)
 
+// TODO: implement -x, -m, and -only options
+
+// TODO: something with monomeric beads? //{{{
 /*
- * TODO: move monomeric beads towards the aggregate
   // put monomeric beads in contact with their aggregates //{{{
   for (int i = 0; i < Counts.Aggregates; i++) {
     // go through monomeric beads in the aggregate
@@ -290,324 +291,282 @@ int *InFile;
       }
     }
   } //}}}
-*/
+*/ //}}}
 
-void Help(char cmd[50], bool error) { //{{{
+void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
     ptr = stderr;
   } else {
     ptr = stdout;
     fprintf(ptr, "\
-VisualizeAgg writes specified aggregates into a new vcf file. This file does \
-not have to contain all beads of any type, so it cannot be used for further \
-analysis using AnalysisTools utilities.\n\n");
+ExtractAgg writes specified aggregates into a coordinate file, placing each \
+aggregate into its own timestep. This is, therefore, useful only for \
+visualization or further analysis by utilities that do not distinguish \
+per-step aggregates (e.g., Surface).\n\n");
   }
 
-  fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <input.agg> <output> <agg size(s)> \
-[options]\n\n", cmd);
+  fprintf(ptr, "Usage: %s <in.coor> <in.agg> <output> "
+          "<agg size(s)> [options]\n\n", cmd);
 
-  fprintf(ptr, "   <input>         input coordinate file (vcf or vtf format)\n");
-  fprintf(ptr, "   <input.agg>     input agg file\n");
-  fprintf(ptr, "   <output>        output vcf file(s) - one per aggregate size \
-(automatic ending <size>.vcf)\n");
-  fprintf(ptr, "   <agg size(s)>   aggregate size(s) to save\n");
-  fprintf(ptr, "   <options>\n");
-  fprintf(ptr, "      --joined       specify that <input> contains joined \
-coordinates\n");
-  fprintf(ptr, "      -m <name(s)>   agg size means number of <name(s)> \
-molecules in an aggregate\n");
-  fprintf(ptr, "      -x <name(s)>   exclude aggregates containing only \
-specified molecule(s)\n");
-  fprintf(ptr, "      -st <int>      starting timestep for calculation\n");
-  fprintf(ptr, "      -e <end>       ending timestep for calculation\n");
-  CommonHelp(error);
+  fprintf(ptr, "<in.coor>           input coordinate file\n");
+  fprintf(ptr, "<in.agg>            input aggregate file\n");
+  fprintf(ptr, "<output>            output coordinate file\n");
+  fprintf(ptr, "<agg size(s)>       aggregate size(s) to save\n");
+  fprintf(ptr, "[options]\n");
+  fprintf(ptr, "  --join            join aggregates (remove pbc)\n");
+  // fprintf(ptr, "  -m <name(s)>      agg size means number of <name(s)> "
+  //         "molecules in an aggregate\n");
+  // fprintf(ptr, "  -x <name(s)>      exclude aggregates containing only "
+  //         "specified molecule(s)\n");
+  // fprintf(ptr, "  -only <name(s)>   use only aggregates composed of "
+  //         "specified molecule type(s)\n");
+  fprintf(ptr, "  --range           the first two aggregate sizes specify "
+          "a range of aggregate sizes (any following numbers are ignored)\n");
+  CommonHelp(error, n, opt);
 } //}}}
 
 int main(int argc, char *argv[]) {
 
-  // -h/--version options - print stuff and exit //{{{
-  if (VersionOption(argc, argv)) {
-    exit(0);
-  }
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "-h") == 0) {
-      Help(argv[0], false);
-      exit(0);
-    }
-  }
-  int req_args = 4; //}}}
-
-  // check if correct number of arguments //{{{
-  int count = 0;
-  while ((count+1) < argc && argv[count+1][0] != '-') {
-    count++;
-  }
-  if (count < req_args) {
-    ErrorArgNumber(count, req_args);
-    Help(argv[0], true);
-    exit(1);
-  } //}}}
-
-  // test if options are given correctly //{{{
-  for (int i = 1; i < argc; i++) {
-    if (argv[i][0] == '-' &&
-        strcmp(argv[i], "-i") != 0 &&
-        strcmp(argv[i], "-v") != 0 &&
-        strcmp(argv[i], "--silent") != 0 &&
-        strcmp(argv[i], "-h") != 0 &&
-        strcmp(argv[i], "--joined") != 0 &&
-        strcmp(argv[i], "--version") != 0 &&
-        strcmp(argv[i], "-m") != 0 &&
-        strcmp(argv[i], "-x") != 0 &&
-        strcmp(argv[i], "-st") != 0 &&
-        strcmp(argv[i], "-e") != 0) {
-
-      ErrorOption(argv[i]);
-      Help(argv[0], true);
-      exit(1);
-    }
-  } //}}}
+  // define options //{{{
+  int common = 9, all = common + 2, count = 0,
+      req_arg = 4;
+  char option[all][OPT_LENGTH];
+  // common options
+  strcpy(option[count++], "-st");
+  strcpy(option[count++], "-e");
+  strcpy(option[count++], "-sk");
+  strcpy(option[count++], "-i");
+  strcpy(option[count++], "--detailed");
+  strcpy(option[count++], "--verbose");
+  strcpy(option[count++], "--silent");
+  strcpy(option[count++], "--help");
+  strcpy(option[count++], "--version");
+  // extra options
+  strcpy(option[count++], "--join");
+  // strcpy(option[count++], "-m");
+  // strcpy(option[count++], "-x");
+  // strcpy(option[count++], "-only");
+  strcpy(option[count++], "--range");
+  OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
 
   count = 0; // count mandatory arguments
 
-  // <input> - input coordinate file //{{{
-  char input_coor[LINE] = "", input_vsf[LINE] = "";
-  snprintf(input_coor, LINE, "%s", argv[++count]);
-  // test that <input> filename ends with '.vcf' or '.vtf'
-  bool vtf;
-  if (!InputCoor_old(&vtf, input_coor, input_vsf)) {
-    Help(argv[0], true);
+  // arguments & options before reading system data //{{{
+  // <in.coor> - input coordinate (and structure) file //{{{
+  char coor_file[LINE] = "", struct_file[LINE] = "";
+  int coor_type, struct_type = 0;
+  snprintf(coor_file, LINE, "%s", argv[++count]);
+  if (!InputCoorStruct(argc, argv, coor_file, &coor_type,
+                       struct_file, &struct_type)) {
     exit(1);
   } //}}}
-
-  // <input.agg> - input agg file //{{{
-  char input_agg[LINE] = "";
-  snprintf(input_agg, LINE, "%s", argv[++count]);
-  // test if <input.agg> ends with '.agg'
-  int ext = 1;
-  char extension[2][EXTENSION];
-  strcpy(extension[0], ".agg");
-  if (ErrorExtension(input_agg, ext, extension) == -1) {
-    Help(argv[0], true);
+  // <in.agg> - input agg file
+  char in_agg[LINE] = "";
+  snprintf(in_agg, LINE, "%s", argv[++count]);
+  // <output> - coordinate output file
+  char coor_out_file[LINE] = "";
+  snprintf(coor_out_file, LINE, "%s", argv[++count]);
+  int coor_out_type = CoordinateFileType(coor_out_file);
+  if (coor_out_type == LDATA_FILE) {
+    strcpy(ERROR_MSG, "lammps data file not allowed as output coordinate file");
     exit(1);
-  } //}}}
+  }
 
-  // <output> - vcf file(s) for aggregates
-  char output[LINE] = "";
-  snprintf(output, LINE, "%s", argv[++count]);
-
-  // options before reading system data //{{{
-  bool silent;
-  bool verbose;
-  CommonOptions_old(argc, argv, input_vsf, &verbose, &silent, LINE);
+  bool silent, verbose, detailed;
+  int start = 1, end = -1, skip = 0;
+  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
+                &start, &end, &skip);
   // are provided coordinates joined?
-  bool joined = BoolOption(argc, argv, "--joined");
-  int start, end;
-  StartEndTime(argc, argv, &start, &end); //}}}
+  bool join = BoolOption(argc, argv, "--join");
+  bool range = BoolOption(argc, argv, "--range"); //}}}
 
-  // print command to stdout //{{{
   if (!silent) {
     PrintCommand(stdout, argc, argv);
-  } //}}}
-
-  // read information from vtf file(s) //{{{
-  BEADTYPE *BeadType; // structure with info about all bead types
-  MOLECULETYPE *MoleculeType; // structure with info about all molecule types
-  BEAD *Bead; // structure with info about every bead
-  int *Index; // link between indices (i.e., Index[Bead[i].Index]=i)
-  MOLECULE *Molecule; // structure with info about every molecule
-  COUNTS Counts = InitCounts; // structure with number of beads, molecules, etc.
-  BOX Box = InitBox; // triclinic box dimensions and angles
-  bool indexed; // indexed timestep?
-  int struct_lines; // number of structure lines (relevant for vtf)
-  FullVtfRead(input_vsf, input_coor, false, vtf, &indexed, &struct_lines,
-              &Box, &Counts, &BeadType, &Bead, &Index,
-              &MoleculeType, &Molecule); //}}}
-
-  // '-m' option //{{{
-  int specific_moltype_for_size[Counts.TypesOfMolecules];
-  // set all to be used when '-m' option is missing
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    specific_moltype_for_size[i] = 1;
   }
-  if (MoleculeTypeOption2(argc, argv, "-m", specific_moltype_for_size,
-                          Counts, &MoleculeType)) {
-    exit(1);
-  } //}}}
 
-  // '-x' option //{{{
-  if (ExcludeOption_old(argc, argv, Counts, &MoleculeType)) {
-    exit(1);
-  }
-  // copy Use flag to Write (for '-x' option)
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    MoleculeType[i].Write = MoleculeType[i].Flag;
-  } //}}}
+  SYSTEM System = ReadStructure(struct_type, struct_file,
+                                coor_type, coor_file, detailed);
+  COUNT *Count = &System.Count;
 
   // <agg sizes> - aggregate sizes to write //{{{
-  int *agg_sizes = calloc(Counts.Molecules, sizeof *agg_sizes);
+  int *agg_sizes = calloc(Count->Molecule, sizeof *agg_sizes);
   int aggs = 0;
-  while (++count < argc && argv[count][0] != '-') {
-
-    // Error - non-numeric argument //{{{
-    if (!IsInteger_old(argv[count]) || atoi(argv[count]) == 0) {
-      ErrorNaN("<agg sizes>");
+  // use range of aggreate numbers, if --range switch specified
+  if (range) {
+    long val[2];
+    if ((count+2) > argc ||
+        !IsNaturalNumber(argv[count+1], &val[0]) ||
+        !IsNaturalNumber(argv[count+2], &val[1]) ||
+        val[0] == val[1]) {
+      strcpy(ERROR_MSG, "two different positive numbers needed for size range");
+      PrintError();
+      Help(argv[0], true, common, option);
       exit(1);
-    } //}}}
-    agg_sizes[aggs] = atoi(argv[count]);
-    // ensure output string isn't too long for attaching <size>.vcf
-    if (agg_sizes[aggs] < 10) {
-      output[LINE-1-4] = '\0';
-    } else if (agg_sizes[aggs] < 100) {
-      output[LINE-2-4] = '\0';
-    } else if (agg_sizes[aggs] < 1000) {
-      output[LINE-3-4] = '\0';
-    } else if (agg_sizes[aggs] < 10000) {
-      output[LINE-4-4] = '\0';
-    } else {
-      output[LINE-100] = '\0';
     }
-    aggs++; // number of aggregate sizes
+    agg_sizes[0] = val[0];
+    agg_sizes[1] = val[1];
+    if (agg_sizes[0] > agg_sizes[1]) {
+      SwapInt(&agg_sizes[0], &agg_sizes[1]);
+    }
+    aggs = agg_sizes[1] - agg_sizes[0] + 1;
+  } else {
+    while (++count < argc && argv[count][0] != '-') {
+      // Error - non-numeric argument //{{{
+      long val;
+      if (!IsNaturalNumber(argv[count], &val)) {
+        ErrorNaN("<agg size(s)>");
+        Help(argv[0], true, common, option);
+        exit(1);
+      } //}}}
+      agg_sizes[aggs] = atoi(argv[count]);
+      aggs++; // number of aggregate sizes
+    }
   } //}}}
 
-  double distance; // <distance> parameter from Aggregate command
-  int contacts; // <contacts> parameter from Aggregate command - not used here
-  ReadAggCommand(BeadType, Counts, input_coor, input_agg, &distance, &contacts);
-
-  // TODO: will change when the agg format changes (at least when Byline is
-  //       added to Aggregates*)
-  // open input aggregate file and skip the first two lines
-  FILE *agg = OpenFile(input_agg, "r");
-  char line[LINE];
-  // TODO go for while(gets()); approach
-  fgets(line, sizeof line, agg);
-  fgets(line, sizeof line, agg); //}}}
-
-  // write initial stuff to output density file //{{{
-  for (int i = 0; i < aggs; i++) {
-    char str[LINE];
-    snprintf(str, LINE, "%s%d.vcf", output, agg_sizes[i]);
-    FILE *out = OpenFile(str, "w");
-    PrintByline(out, argc, argv);
-    // print agg size and periodic boundary conditions
-    fprintf(out, "# aggregate size: %d\n", agg_sizes[i]);
-    fclose(out);
-  } //}}}
-
-  // allocate Aggregate struct //{{{
-  AGGREGATE *Aggregate = calloc(Counts.Molecules, sizeof (AGGREGATE));
-  for (int i = 0; i < Counts.Molecules; i++) {
-    // assumes all monomeric beads can be near one aggregate;
-    // memory-heavy, but reliable
-    Aggregate[i].Monomer = calloc(Counts.Unbonded, sizeof *Aggregate[i].Monomer);
-    // assumes all bonded beads can be in one aggregate;
-    // memory-heavy, but reliable
-    Aggregate[i].Bead = calloc(Counts.Bonded, sizeof *Aggregate[i].Bead);
-    // maximum of all molecules can be in one aggregate
-    Aggregate[i].Molecule = calloc(Counts.Molecules,
-                                   sizeof *Aggregate[i].Molecule);
-  } //}}}
-
-  // print information - verbose output //{{{
   if (verbose) {
-    VerboseOutput_oldish(Counts, BeadType, Bead, MoleculeType, Molecule);
+    VerboseOutput(System);
+  }
+
+  AGGREGATE *Aggregate;
+  InitAggregate(System, &Aggregate);
+
+  double distance = 1;
+  // open <in.agg> and skip the first two lines //{{{
+  FILE *agg = OpenFile(in_agg, "r");
+  while (getc(agg) != '\n')
+    ;
+  // read Aggregates command if --join is used or...
+  if (join) {
+    ReadAndSplitLine(agg, SPL_STR, " \t\n");
+    // find & flag bead types
+    for (count = 5; count < words && split[count][0] != '-'; count++) {
+      int btype = FindBeadType(split[count], System);
+      if (btype == -1) {
+        snprintf(ERROR_MSG, LINE, "bead type %s%s%s from Aggregate command "
+                 "does not exist in the system",
+                 ErrYellow(), split[count], ErrRed());
+        PrintErrorFile(struct_file, in_agg, "\0");
+        exit(1);
+      }
+      System.BeadType[btype].Flag = true;
+    }
+    for (; count < words; count++) {
+      if (strcmp(split[count], "-d") == 0) {
+        if ((count+1) >= words || !IsRealNumber(split[count+1], &distance)) {
+          strcpy(ERROR_MSG, "wrong distance in Aggregate command "
+                 "(-d option); using 1 for joining the aggregates");
+          PrintWarnFile(in_agg, "\0", "\0");
+          distance = 1;
+        }
+      }
+    }
+  } else { //...skip the command if --join is not used
+    while (getc(agg) != '\n')
+      ;
   } //}}}
+
+  // array for holding which beads to save
+  bool *write = calloc(Count->Bead, sizeof *write);
+
+  // print initial stuff to output coordinate file //{{{
+  if (coor_out_type == VCF_FILE) {
+    PrintByline(coor_out_file, argc, argv);
+  } else if (coor_out_type == VTF_FILE) {
+    WriteStructure(VSF_FILE, coor_out_file, System, -1, false, argc, argv);
+  } else {
+    FILE *out = OpenFile(coor_out_file, "w");
+    fclose(out);
+  }
+  // write empty lammpstrj timestep containing all beads (vmd needs it)
+  if (coor_out_type == LTRJ_FILE) {
+    InitBoolArray(write, Count->Bead, true);
+    Count->BeadCoor = Count->Bead;
+    for (int i = 0; i < Count->Bead; i++) {
+      System.BeadCoor[i] = i;
+    }
+    WriteTimestep(coor_out_type, coor_out_file, System, 0, write);
+  }
+  //}}}
 
   // open input coordinate file
-  FILE *vcf = OpenFile(input_coor, "r");
-  SkipVtfStructure(vcf, struct_lines);
-
-  count = SkipCoorAggSteps(vcf, input_coor, agg,
-                           input_agg, Counts, start, silent);
-
+  FILE *coor = OpenFile(coor_file, "r");
   // main loop //{{{
   count = 0; // count timesteps in the main loop
-  int count_vcf = start - 1; // count timesteps from the beginning
-  char *stuff = calloc(LINE, sizeof *stuff); // array for the timestep preamble
+  int count_step = 0,  // count timesteps from the beginning
+      count_saved = 0, // count steps (i.e., aggregates) in output file
+      coor_line_count = 0,  // count lines in the coor file
+      count_agg_lines = 0;  // count lines in the agg file
   while (true) {
-    count++;
-    count_vcf++;
-    // print step? //{{{
-    if (!silent && isatty(STDOUT_FILENO)) {
-      fflush(stdout);
-      fprintf(stdout, "\rStep: %d", count_vcf);
-    } //}}}
-
-    // TODO: will change (probably)
-    ReadAggregates(agg, input_agg, &Counts, &Aggregate, BeadType, &Bead,
-                   MoleculeType, &Molecule, Index);
-    ReadVcfCoordinates(indexed, input_coor, vcf, &Box,
-                       Counts, Index, &Bead, &stuff);
-    if (!joined) {
-      // transform coordinates into fractional ones for non-orthogonal box
-      ToFractionalCoor(Counts.BeadsCoor, &Bead, Box);
-      RemovePBCMolecules2(Counts, Box, BeadType, &Bead,
-                         MoleculeType, Molecule);
-      RemovePBCAggregates(distance, Aggregate, Counts, Box.Length,
-                          BeadType, &Bead, MoleculeType, Molecule);
-      // transform back to 'normal' coordinates for non-orthogonal box
-      FromFractionalCoor(Counts.BeadsCoor, &Bead, Box);
+    PrintStep(&count_step, start, silent);
+    if (ReadAggregates(agg, in_agg, &System, Aggregate, &count_agg_lines) < 0) {
+      count_step--;
+      break;
     }
-
-    // find correct aggregates and save them //{{{
-    for (int i = 0; i < Counts.Aggregates; i++) {
-      // test if aggregate 'i' should be used //{{{
-      int size = 0;
-      // agg size = number of molecules of type 'specific_moltype_for_size'
-      for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-        int mol_type = Molecule[Aggregate[i].Molecule[j]].Type;
-        if (specific_moltype_for_size[mol_type]) {
-          size++;
-        }
+    // decide whether to use this timestep (based on -st/-sk/-e) //{{{
+    bool use = false;
+    if (count_step >= start &&
+        (count_step <= end || end == -1) &&
+        ((count_step - start) % skip) == 0) {
+      use = true;
+    } //}}}
+    if (use) { //{{{
+      if (!ReadTimestep(coor_type, coor, coor_file,
+                        &System, &coor_line_count)) {
+        count_step--;
+        break;
       }
-      // is 'size' in provided aggregate sizes?
-      int correct_size = -1;
-      for (int j = 0; j < aggs; j++) {
-        if (agg_sizes[j] == size) {
-          correct_size = j;
+      if (join) {
+        WrapJoinCoordinates(&System, false, true);
+        // TODO: distance=1 for now; read agg command (check for -d opt)
+        RemovePBCAggregates(distance, Aggregate, &System);
+      }
+      for (int i = 0; i < Count->Aggregate; i++) {
+        // use the aggregate?
+        use = false;
+        if (range &&
+            Aggregate[i].nMolecules >= agg_sizes[0] &&
+            Aggregate[i].nMolecules <= agg_sizes[1]) {
+          use = true;
+        } else {
+          for (int j = 0; j < aggs; j++) {
+            if (agg_sizes[j] == Aggregate[i].nMolecules) {
+              use = true;
+              break;
+            }
+          }
+        }
+        if (use) {
+          InitBoolArray(write, Count->Bead, false);
+          for (int j = 0; j < Count->BondedCoor; j++) {
+            int id = System.BondedCoor[j];
+            for (int k = 0; k < Aggregate[i].nBeads; k++) {
+              if (Aggregate[i].Bead[k] == id) {
+                if (System.Bead[id].InTimestep) {
+                  write[id] = true;
+                }
+                break;
+              }
+            }
+          }
+          WriteTimestep(coor_out_type, coor_out_file,
+                        System, count_step, write);
+          count_saved++;
         }
       } //}}}
-      // if '-x' is used, dismiss aggs with only specified molecule(s) //{{{
-      bool test = false;
-      for (int j = 0; j < size; j++) {
-        int moltype = Molecule[Aggregate[i].Molecule[j]].Type;
-        if (MoleculeType[moltype].Write) {
-          test = true; // a molecule that shouldn't be in agg 'i' is there
-          break;
-        }
-      }
-      if (!test) { // should the rest of the for loop agg i be skipped?
-        continue;
-      } //}}}
-      // save the aggregate it should be saved
-      if (correct_size != -1) {
-        char str[LINE];
-        snprintf(str, LINE, "%s%d.vcf", output, agg_sizes[correct_size]);
-        FILE *out = OpenFile(str, "r");
-        fprintf(out, "%s\n", stuff);
-        fprintf(out, "pbc %lf %lf %lf", Box.Length.x,
-                                        Box.Length.y,
-                                        Box.Length.z);
-        fprintf(out, "    %lf %lf %lf\n", Box.alpha, Box.beta, Box.gamma);
-        fprintf(out, "indexed\n");
-        for (int j = 0; j < Aggregate[i].nBeads; j++) {
-          int id = Aggregate[i].Bead[j];
-          fprintf(out, "%6d %lf %lf %lf\n", Bead[id].Indexxx,
-                                            Bead[id].Position.x,
-                                            Bead[id].Position.y,
-                                            Bead[id].Position.z);
-        }
-        fclose(out);
+    } else { //{{{
+      if (!SkipTimestep(coor_type, coor, coor_file,
+                        struct_file, &coor_line_count)) {
+        count_step--;
+        break;
       }
     } //}}}
-
-    if (LastStep(vcf, NULL) || end == count_vcf) {
+    // exit the main loop if reached user-specied end timestep
+    if (count_step == end) {
       break;
     }
   }
-  fclose(vcf);
+  fclose(coor);
   fclose(agg);
   // print last step count?
   if (!silent) {
@@ -615,12 +574,16 @@ int main(int argc, char *argv[]) {
       fflush(stdout);
       fprintf(stdout, "\r                          \r");
     }
-    fprintf(stdout, "Last Step: %d\n", count_vcf);
+    fprintf(stdout, "Last Step: %d ", count_step);
+    fprintf(stdout, "(%d aggregates saved)\n", count_saved);
   } //}}}
 
   // free memory - to make valgrind happy //{{{
-  FreeSystemInfo(Counts, &MoleculeType, &Molecule, &BeadType, &Bead, &Index);
-  free(stuff); //}}}
+  FreeAggregate(*Count, Aggregate);
+  FreeSystem(&System);
+  free(write);
+  free(agg_sizes);
+  //}}}
 
   return 0;
 }

@@ -84,13 +84,13 @@ static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System) { //{{{
 } //}}}
 static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{{{
   // find out number of beads to save and if velocity/force should be saved
-  int count = 0;
+  int count_write = 0;
   bool vel = false, force = false;
   for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadCoor[i];
     BEAD *b = &System.Bead[id];
     if (write[id]) {
-      count++;
+      count_write++;
       if (b->Velocity[0] != 0 ||
           b->Velocity[1] != 0 ||
           b->Velocity[2] != 0) {
@@ -104,10 +104,10 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
     }
   }
   // print the step
-  if (count > 0) {
+  if (count_write > 0) {
     BOX *box = &System.Box;
     fprintf(fw, "ITEM: TIMESTEP\n%d\n", step);
-    fprintf(fw, "ITEM: NUMBER OF ATOMS\n%d\n", count);
+    fprintf(fw, "ITEM: NUMBER OF ATOMS\n%d\n", count_write);
     if (box->Volume == -1) {
       strcpy(ERROR_MSG, "unspecified box dimensions");
       PrintWarning();
@@ -131,11 +131,14 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
     if (force) {
       fprintf(fw, " fx fy fz");
     }
+    // fprintf(fw, " mol");
     putc('\n', fw);
+    int count = 0; // count saved beads (used if not all beads are printed)
     for (int i = 0; i < System.Count.BeadCoor; i++) {
       int id = System.BeadCoor[i], id_out;
-      if (System.Count.BeadCoor != System.Count.Bead) {
-        id_out = i;
+      if (count_write != System.Count.Bead) {
+        // id_out = count;
+        id_out = id;
       } else {
         id_out = id;
       }
@@ -157,7 +160,9 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
             fprintf(fw, " %8.4f", b->Force[dd]);
           }
         }
+        // fprintf(fw, " %5d", b->Molecule);
         putc('\n', fw);
+        count++; // increment number of saved beads
       }
     }
   } else {
