@@ -155,17 +155,12 @@ void CommonOptions(int argc, char *argv[], int length, bool *verbose,
   *detailed = BoolOption(argc, argv, "--detailed");
   // starting/ending timestep
   *start = 1;
-  int trash; // number of values from IntegerOption(); unused
   IntegerOption1(argc, argv, "-st", start);
   *end = -1;
   IntegerOption1(argc, argv, "-e", end);
   ErrorStartEnd(*start, *end);
   // number of timesteps to skip per one used
-  if (IntegerOption(argc, argv, 1, "-sk", &trash, skip)) {
-    fprintf(stderr, "%sCommand: %s", ErrRed(), ErrColourReset());
-    PrintCommand(stderr, argc, argv);
-    exit(1);
-  }
+  IntegerOption1(argc, argv, "-sk", skip);
   (*skip)++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
 } //}}}
 

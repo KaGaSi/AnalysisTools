@@ -214,6 +214,7 @@ int main(int argc, char *argv[]) {
   int start = 1, end = -1, skip = 0;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
                 &start, &end, &skip);
+  printf("%d %d %d\n", start, end, skip);
 
   // -j option - save coordinates of joined aggregates //{{{
   char join_file[LINE] = "";
@@ -294,7 +295,7 @@ int main(int argc, char *argv[]) {
       count_used = 0,
       line_count = 0;
   while (true) {
-    PrintStep(&count_coor, 1, silent);
+    PrintStep(&count_coor, start, silent);
     // decide whether this timestep is to be saved
     bool use = false;
     if (count_coor >= start && (count_coor <= end || end == -1) &&
