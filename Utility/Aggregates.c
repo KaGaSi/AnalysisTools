@@ -214,7 +214,6 @@ int main(int argc, char *argv[]) {
   int start = 1, end = -1, skip = 0;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
                 &start, &end, &skip);
-  printf("%d %d %d\n", start, end, skip);
 
   // -j option - save coordinates of joined aggregates //{{{
   char join_file[LINE] = "";
