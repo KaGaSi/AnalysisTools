@@ -420,6 +420,186 @@ int main(int argc, char *argv[]) {
   }
   fclose(out); //}}}
 
+  // calculate total area as a sum of areas of triangles
+  double sum_area[2] = {0, 0};
+  int triangles[2] = {0, 0};
+  count = 0;
+  int bins_true[2];
+  bins_true[0] = System.Box.Length[0] / width + 1;
+  bins_true[1] = System.Box.Length[1] / width + 1;
+  for (int i = 0; i < bins_true[0]; i++) {
+    values[i][bins_true[1]-1][0] = values[i][0][0];
+    values[i][bins_true[1]-1][1] = values[i][0][1];
+    surf[i][bins_true[1]-1][0] = surf[i][0][0];
+    surf[i][bins_true[1]-1][1] = surf[i][0][1];
+  }
+  for (int j = 0; j < bins_true[1]; j++) {
+    values[bins_true[0]-1][j][0] = values[0][j][0];
+    values[bins_true[0]-1][j][1] = values[0][j][1];
+    surf[bins_true[0]-1][j][0] = surf[0][j][0];
+    surf[bins_true[0]-1][j][1] = surf[0][j][1];
+  }
+  for (int i = 0; i < (bins_true[0] - 1); i++) {
+    for (int j = 0; j < (bins_true[1] - 1); j++) {
+      count++;
+      double remainder[2];
+      if (i == (bins_true[0] - 2)) {
+        remainder[0] = System.Box.Length[0] - width * (i + 1);
+      } else {
+        remainder[0] = width;
+      }
+      if (j == (bins_true[1] - 2)) {
+        remainder[1] = System.Box.Length[1] - width * (j + 1);
+      } else {
+        remainder[1] = width;
+      }
+      // printf("%lf %lf\n", remainder[0], remainder[1]);
+      // first surface //{{{
+      // first triangle
+      if (values[i][j][0] > 0 && values[i+1][j][0] > 0 && values[i+1][j+1][0] > 0) {
+        double A[3], B[3], C[3];
+        A[0] = 0;
+        A[1] = 0;
+        A[2] = surf[i][j][0] / values[i][j][0];
+        B[0] = remainder[0];
+        B[1] = 0;
+        B[2] = surf[i+1][j][0] / values[i+1][j][0];
+        C[0] = remainder[0];
+        C[1] = remainder[1];
+        C[2] = surf[i+1][j+1][0] / values[i+1][j+1][0];
+        double AB[3], AC[3], BC[3];
+        for (int dd = 0; dd < 3; dd++) {
+          AB[dd] = B[dd] - A[dd];
+          AC[dd] = C[dd] - A[dd];
+          BC[dd] = C[dd] - B[dd];
+        }
+        double a = 0, b = 0, c = 0;
+        for (int dd = 0; dd < 3; dd++) {
+          a += SQR(BC[dd]);
+          b += SQR(AC[dd]);
+          c += SQR(AB[dd]);
+        }
+        a = sqrt(a);
+        b = sqrt(b);
+        c = sqrt(c);
+        double s = (a + b + c) / 2;
+        double area = sqrt(s * (s - a) * (s - b) * (s - c));
+        sum_area[0] += area;
+        triangles[0]++;
+      }
+      // second triangle
+      if (values[i][j][0] > 0 && values[i][j+1][0] > 0 && values[i+1][j+1][0] > 0) {
+        double A[3], B[3], C[3];
+        A[0] = 0;
+        A[1] = 0;
+        A[2] = surf[i][j][0] / values[i][j][0];
+        B[0] = 0;
+        B[1] = remainder[1];
+        B[2] = surf[i][j+1][0] / values[i][j+1][0];
+        C[0] = remainder[0];
+        C[1] = remainder[1];
+        C[2] = surf[i+1][j+1][0] / values[i+1][j+1][0];
+        double AB[3], AC[3], BC[3];
+        for (int dd = 0; dd < 3; dd++) {
+          AB[dd] = B[dd] - A[dd];
+          AC[dd] = C[dd] - A[dd];
+          BC[dd] = C[dd] - B[dd];
+        }
+        double a = 0, b = 0, c = 0;
+        for (int dd = 0; dd < 3; dd++) {
+          a += SQR(BC[dd]);
+          b += SQR(AC[dd]);
+          c += SQR(AB[dd]);
+        }
+        a = sqrt(a);
+        b = sqrt(b);
+        c = sqrt(c);
+        double s = (a + b + c) / 2;
+        double area = sqrt(s * (s - a) * (s - b) * (s - c));
+        sum_area[0] += area;
+        triangles[0]++;
+      }
+      //}}}
+      // second surface //{{{
+      // first triangle
+      if (values[i][j][1] > 0 && values[i+1][j][1] > 0 && values[i+1][j+1][1] > 0) {
+        double A[3], B[3], C[3];
+        A[0] = 0;
+        A[1] = 0;
+        A[2] = surf[i][j][1] / values[i][j][1];
+        B[0] = remainder[0];
+        B[1] = 0;
+        B[2] = surf[i+1][j][1] / values[i+1][j][1];
+        C[0] = remainder[0];
+        C[1] = remainder[1];
+        C[2] = surf[i+1][j+1][1] / values[i+1][j+1][1];
+        double AB[3], AC[3], BC[3];
+        for (int dd = 0; dd < 3; dd++) {
+          AB[dd] = B[dd] - A[dd];
+          AC[dd] = C[dd] - A[dd];
+          BC[dd] = C[dd] - B[dd];
+        }
+        double a = 0, b = 0, c = 0;
+        for (int dd = 0; dd < 3; dd++) {
+          a += SQR(BC[dd]);
+          b += SQR(AC[dd]);
+          c += SQR(AB[dd]);
+        }
+        a = sqrt(a);
+        b = sqrt(b);
+        c = sqrt(c);
+        double s = (a + b + c) / 2;
+        double area = sqrt(s * (s - a) * (s - b) * (s - c));
+        sum_area[1] += area;
+        triangles[1]++;
+      }
+      // second triangle
+      if (values[i][j][1] > 0 && values[i][j+1][1] > 0 && values[i+1][j+1][1] > 0) {
+        double A[3], B[3], C[3];
+        A[0] = 0;
+        A[1] = 0;
+        A[2] = surf[i][j][1] / values[i][j][1];
+        B[0] = 0;
+        B[1] = remainder[1];
+        B[2] = surf[i][j+1][1] / values[i][j+1][1];
+        C[0] = remainder[0];
+        C[1] = remainder[1];
+        C[2] = surf[i+1][j+1][1] / values[i+1][j+1][1];
+        double AB[3], AC[3], BC[3];
+        for (int dd = 0; dd < 3; dd++) {
+          AB[dd] = B[dd] - A[dd];
+          AC[dd] = C[dd] - A[dd];
+          BC[dd] = C[dd] - B[dd];
+        }
+        double a = 0, b = 0, c = 0;
+        for (int dd = 0; dd < 3; dd++) {
+          a += SQR(BC[dd]);
+          b += SQR(AC[dd]);
+          c += SQR(AB[dd]);
+        }
+        a = sqrt(a);
+        b = sqrt(b);
+        c = sqrt(c);
+        double s = (a + b + c) / 2;
+        double area = sqrt(s * (s - a) * (s - b) * (s - c));
+        sum_area[1] += area;
+        triangles[1]++;
+      }
+      //}}}
+    }
+  }
+
+  // int n_triangles = (bins[0] - 1) * (bins[1] - 1)  * 2;
+  int n_triangles = (bins_true[0] - 1) * (bins_true[1] -1) * 2;
+  double avg_triangle[2];
+  avg_triangle[0] = sum_area[0] / triangles[0];
+  avg_triangle[1] = sum_area[1] / triangles[1];
+  sum_area[0] += avg_triangle[0] * (n_triangles - triangles[0]);
+  sum_area[1] += avg_triangle[1] * (n_triangles - triangles[0]);
+  // printf("area = %lf (from %d triangles out of %d)\n", sum_area[0], triangles[0], n_triangles);
+  // printf("       %lf (from %d triangles out of %d)\n", sum_area[1], triangles[1], n_triangles);
+  printf("%lf %lf\n", sum_area[0], sum_area[1]);
+
   // free memory - to make valgrind happy //{{{
   FreeSystem(&System);
   for (int i = 0; i < bins[0]; i++) {

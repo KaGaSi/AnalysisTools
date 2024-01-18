@@ -8,11 +8,11 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
     ptr = stdout;
     fprintf(ptr, "\
 AddToSystem either creates a system from scratch or adds unbonded beads \
-and/or molecules to an existing system. The new components are defined either \
-by a FIELD-like file (an input file for DL_MESO simulation program) or by \
-vsf/vcf files (-vtf option). In the first case, new components are placed \
-randomly (with several possible constraints), while in the second case, the \
-provided coordinates are used as is.\n\n");
+and/or molecules to an existing system. The new components are defined \
+by a FIELD-like file (an input file for DL_MESO simulation program), and are \
+placed either randomly or according to several possible constraints. These \
+new species can either be added to the system, or specified beads can be \
+exchanged for the new ones.\n\n");
   }
   fprintf(ptr, "Usage: %s <input> <in.field> <output> [options]\n\n", cmd);
 
@@ -227,12 +227,7 @@ int main(int argc, char *argv[]) {
   char out_file[LINE] = "";
   snprintf(out_file, LINE, "%s", argv[++count]);
   // int out_type = FullFileType(out_file, 1);
-  int out_type = CoordinateFileType(out_file);
-  // if (out_type == -1) {
-  //   strcpy(ERROR_MSG, "output file must be lammpstrj, data, xyz, or vtf");
-  //   PrintErrorFile(out_file, "\0", "\0");
-  //   exit(1);
-  // } //}}}
+  int out_type = CoordinateFileType(out_file); //}}}
 
   // options before reading system data //{{{
   bool silent, verbose, detailed;
@@ -247,9 +242,7 @@ int main(int argc, char *argv[]) {
   // output structure file (-o option) //{{{
   char out2_file[LINE] = "";
   int out2_type = -1;
-  if (FileOption(argc, argv, "-o", out2_file)) {
-    exit(1);
-  }
+  FileOption(argc, argv, "-o", out2_file);
   if (out2_file[0] != '\0') {
     out2_type = FileType(out2_file);
   } //}}}
@@ -320,7 +313,7 @@ int main(int argc, char *argv[]) {
         (cz[0] != -1 && cz[0] > 1) || (cz[1] != -1 && cz[1] > 1)) {
       strcpy(ERROR_MSG, "unless --real is used, "
                         "-cx/y/z values must be between 0 and 1");
-      PrintErrorOption("--fraction -cx/y/z");
+      PrintErrorOption("-cx/y/z");
       exit(1);
     }
   } //}}}

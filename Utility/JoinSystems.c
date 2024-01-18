@@ -82,22 +82,16 @@ int main(int argc, char *argv[]) {
   // output extra file (-o option) //{{{
   char out2_file[LINE] = "";
   int out2_type = -1;
-  if (FileOption(argc, argv, "-o", out2_file)) {
-    exit(1);
-  }
+  FileOption(argc, argv, "-o", out2_file);
   if (out2_file[0] != '\0') {
     out2_type = FileType(out2_file);
   } //}}}
   // input structure files (-i1/-i2 options) //{{{
-  if (FileOption(argc, argv, "-i1", struct_file_1)) {
-    exit(1);
-  }
+  FileOption(argc, argv, "-i1", struct_file_1);
   if (struct_file_1[0] != '\0') {
     struct_type_1 = StructureFileType(struct_file_1);
   }
-  if (FileOption(argc, argv, "-i2", struct_file_2)) {
-    exit(1);
-  }
+  FileOption(argc, argv, "-i2", struct_file_2);
   if (struct_file_2[0] != '\0') {
     struct_type_2 = StructureFileType(struct_file_2);
   } //}}}
@@ -110,16 +104,8 @@ int main(int argc, char *argv[]) {
        detailed2 = BoolOption(argc, argv, "--detailed2");
   // -st option for both input systems; copied from CommonOptions()
   int start1 = 1, start2 = 1;
-  if (IntegerOption(argc, argv, 1, "-st1", &trash, &start1)) {
-    fprintf(stderr, "%sCommand: %s", ErrRed(), ErrColourReset());
-    PrintCommand(stderr, argc, argv);
-    exit(1);
-  }
-  if (IntegerOption(argc, argv, 1, "-st2", &trash, &start2)) {
-    fprintf(stderr, "%sCommand: %s", ErrRed(), ErrColourReset());
-    PrintCommand(stderr, argc, argv);
-    exit(1);
-  }
+  IntegerOption1(argc, argv, "-st1", &start1);
+  IntegerOption1(argc, argv, "-st2", &start2);
   // -off option //{{{
   double offset[3] = {0, 0, 0};
   for (int i = 0; i < argc; i++) {

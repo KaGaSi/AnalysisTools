@@ -105,7 +105,6 @@ bool InputCoorStruct(int argc, char *argv[], char coor[], int *coor_type,
 int StructureFileType(char name[]);
 int CoordinateFileType(char name[]);
 int FileType(char name[]);
-int FullFileType(char name[], int mode);
 
 // create a cell-linked list
 void LinkedList(SYSTEM System, int **Head, int **Link, double cell_size,

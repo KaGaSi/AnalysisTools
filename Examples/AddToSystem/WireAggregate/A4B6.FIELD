@@ -4,7 +4,7 @@ species 2
 A  1  0  0
 B  1  0  0
 molecule 1
-A5B5
+A4B6
 nummols 1
 beads 10
 A  0.0  0     0.0

@@ -151,9 +151,7 @@ int main(int argc, char *argv[]) {
 
   // '-n' option - specify timestep ids //{{{
   int n_opt_save[100] = {0}, n_opt_number = -1;
-  if (IntegerOption(argc, argv, 100, "-n", &n_opt_number, n_opt_save)) {
-    exit(1);
-  }
+  IntegerOption(argc, argv, 100, "-n", &n_opt_number, n_opt_save);
   // ignore -st/-e/-sk when -n is used
   if (n_opt_number != -1) {
     start = 1;

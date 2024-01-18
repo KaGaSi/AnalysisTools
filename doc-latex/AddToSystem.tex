@@ -146,12 +146,6 @@ Usage: \tt{AddToSystem <input.vcf> <out.vsf> <out.vcf> [options]}
   \multicolumn{2}{l}{options} \\
   \midrule
   \tt{-o <file>}           & extra structure file\\
-  \tt{--add}               & replace original beads instead of increasing the
-                             total number of beads\\
-  \tt{-b <x> <y> <z>}      & side lengths of the new simulation box\\
-  \tt{-a 3$\times$<angle>} & rotate all added by molecules along x-, y-,
-                             and z-axis\\
-  \tt{--no-rotate}         & do not randomly rotate added molecules\\
   \tt{-ld <float>}         & lowest distance from beads specified by
                              \tt{-bt} option\\
   \tt{-hd <float>}         & highest distance from beads specified by
@@ -162,6 +156,11 @@ Usage: \tt{AddToSystem <input.vcf> <out.vsf> <out.vcf> [options]}
                              (overwrites \tt{-bt} option)\\
   \tt{-xb <name>}          & specify bead type to exchange (default: most
                              numerous bead type)\\
+  \tt{--add}               & replace original beads instead of increasing the
+                             total number of beads\\
+  \tt{--no-rotate}         & do not randomly rotate added molecules\\
+  \tt{-a 3$\times$<angle>} & rotate all added by molecules along x-, y-,
+                             and z-axis\\
   \tt{--head}              & use molecule's first bead for distance check
                              (default: molecule's geometric centre)\\
   \tt{-cx 2$\times$<float>}& constrain x coordinate to interval
@@ -172,6 +171,7 @@ Usage: \tt{AddToSystem <input.vcf> <out.vsf> <out.vcf> [options]}
                              $\langle num, num2)$ (units relative to box size)\\
   \tt{--real}              & use \enquote{real} units instead of relative ones
                              for \tt{-cx}/\tt{-cy}/\tt{-cz} options\\
+  \tt{-b <x> <y> <z>}      & side lengths of the new simulation box\\
   \tt{-s <int>}            & seed for random number generator\\
   \midrule
   \multicolumn{2}{p{0.948\textwidth}}{\tt{-i},

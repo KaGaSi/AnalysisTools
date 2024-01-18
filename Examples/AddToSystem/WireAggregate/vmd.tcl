@@ -12,7 +12,7 @@ pbc box
 
 set mol 0
 set rep 0
-mol modselect   ${rep} ${mol} resname A5B5
+mol modselect   ${rep} ${mol} resname A4B6
 mol modstyle    ${rep} ${mol} CPK 1.0 0.5
 mol modcolor    ${rep} ${mol} Name
 mol modmaterial ${rep} ${mol} Opaque

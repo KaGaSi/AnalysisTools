@@ -3373,7 +3373,6 @@ bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
   }
   return true;
 } //}}}
-// identify type of a provided file (mode=0: input, mode=1 output file)
 int StructureFileType(char name[]) { //{{{
   // a) check for FIELD file
   if (strcasecmp(name, "FIELD") == 0) {
@@ -3505,84 +3504,6 @@ int FileType(char name[]) { //{{{
       PrintErrorFile(name, "\0", "\0");
       exit(1);
   }
-} //}}}
-// check for combined structer/coordinate file (ltrj, xyz, or vtf) //{{{
-int FullFileType(char name[], int mode) {
-  // copy the name as it's destroyed by strrchr()
-  char orig[LINE];
-  snprintf(orig, LINE, "%s", name);
-  // check for known extensions
-  int ext = 7;
-  char extension[ext][EXTENSION];
-  strcpy(extension[0], ".vcf");
-  strcpy(extension[1], ".vsf");
-  strcpy(extension[2], ".vtf");
-  strcpy(extension[3], ".xyz");
-  strcpy(extension[4], ".lammpstrj");
-  strcpy(extension[5], ".data");
-  strcpy(extension[6], ".field");
-  char *dot = strrchr(name, '.');
-  int type = -1;
-  for (int i = 0; i < ext; i++) {
-    if (dot && strcasecmp(dot, extension[i]) == 0) {
-      type = i;
-      break;
-    }
-  }
-  // assign proper type
-  switch (type) {
-  case 0:
-    type = VCF_FILE;
-    break;
-  case 1:
-    type = VSF_FILE;
-    break;
-  case 2:
-    type = VTF_FILE;
-    break;
-  case 3:
-    type = XYZ_FILE;
-    break;
-  case 4:
-    type = LTRJ_FILE;
-    break;
-  case 5:
-    type = LDATA_FILE;
-    break;
-  case 6:
-    type = FIELD_FILE;
-    break;
-  }
-  // if correct type, return it
-  if (type == LTRJ_FILE || type == VTF_FILE || type == LDATA_FILE ||
-      type == XYZ_FILE) {
-    return type;
-    // if incorrect type, return -1 (error)
-  } else if (type == VCF_FILE || type == VSF_FILE || type == FIELD_FILE) {
-    return -1;
-  }
-  // if type not yet determined, check by other means
-  // check for file called FIELD
-  if (strcasecmp(orig, "FIELD") == 0) {
-    return -1;
-  }
-  // check for lammpstrj file with 'wrong' extension (only if input file)
-  if (mode == 0) {
-    FILE *fr = OpenFile(orig, "r");
-    if (!ReadAndSplitLine(fr, 1, " \t\n")) {
-      strcpy(ERROR_MSG, "empty structure file");
-      PrintErrorFile(orig, "\0", "\0");
-      exit(1);
-    }
-    fclose(fr);
-    if (strcmp(split[0], "ITEM:") == 0) {
-      return LTRJ_FILE;
-    } else {
-      return -1;
-    }
-  }
-  // if all else fail, assume lammpstrj file with 'wrong' extension
-  return LTRJ_FILE;
 } //}}}
 
 // create a cell-linked list //{{{

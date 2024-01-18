@@ -1,11 +1,12 @@
 #!/bin/bash
+# requires the commonly used 'bc' utility for doing some calculations
 
 ###############################################################################
 # This scripts creates a wire-like aggregate spanning z-axis of the simulation
 # box. The aggregates is composed of 20 layers of molecules, each layer
-# comprises of 6 A5B5 molecules (defined in the A5B5.FIELD file) arranged in a
+# comprises of 6 A4B6 molecules (defined in the A4B6.FIELD file) arranged in a
 # 6-point star (i.e., 60 degrees apart). The simulation box size is defined at
-# the first line of the A5B5.FIELD file (it's chosen so the layers are 0.8 units
+# the first line of the A4B6.FIELD file (it's chosen so the layers are 0.8 units
 # apart which is fairly reasonable for dissipative particle dynamics)
 #
 # Should a different structure be wanted, the number of layers can be changed in
@@ -36,11 +37,11 @@ for (( i=0; i<20; i++ )); do # go over whole z- coordinate
     # add z- to x- and y-axis constraints
     constraint="-cx 0.49 0.51 -cy 0.49 0.51 -cz ${cz1} ${cz2} --head"
     if [[ ${i} == 0 && ${j} == 0 ]]; then # first molecule creates a new file
-      ${Add} - A5B5.FIELD new.data ${constraint} --no-rotate
+      ${Add} - A4B6.FIELD new.data ${constraint} --no-rotate
     else # other molecules are added to an existing file
       # in each layer, molecules are 60° apart; layers are shifted by 25°
       angle=$(( ${j}*60+${i}*25 ))
-      ${Add} old.data A5B5.FIELD new.data ${constraint} -a ${angle} 0 0 --add
+      ${Add} old.data A4B6.FIELD new.data ${constraint} -a ${angle} 0 0 --add
     fi
     # move new file to be used in the next cycle as an input file
     mv {new,old}.data
