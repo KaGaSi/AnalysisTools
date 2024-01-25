@@ -38,6 +38,7 @@ void SortBonds(int (*bond)[3], int n);
 void SortAngles(int (*angle)[4], int n);
 void SortDihImp(int (*dihimp)[5], int n);
 void FillSystemNonessentials(SYSTEM *System);
+void FillInCoor(SYSTEM *System);
 bool CalculateBoxData(BOX *Box, int mode);
 // merge identical bead/molecule types
 void MergeBeadTypes(SYSTEM *System, bool detailed);

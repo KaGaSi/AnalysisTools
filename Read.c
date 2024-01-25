@@ -1,5 +1,7 @@
 #include "Read.h"
 
+// TODO: use FillInCoor()
+
 // TODO: LmpDataReadDihedralCoeffs() and LmpDataReadImproperCoeffs() should read
 //       up to three numbers, not assuming any format of the potential
 
@@ -2553,7 +2555,6 @@ static int VtfReadCoorBlockIndexed(FILE *fr, char file[], SYSTEM *System,
       PrintErrorFileLine(file, *line_count);
       return -1;
     }
-    bead_id->InTimestep = true;
     double vel[3];
     if (words >= 7 &&
         IsRealNumber(split[4], &vel[0]) &&
@@ -2564,13 +2565,6 @@ static int VtfReadCoorBlockIndexed(FILE *fr, char file[], SYSTEM *System,
       }
     } else {
       bead_id->Velocity[0] = 0;
-    }
-    if (bead_id->Molecule == -1) {
-      System->UnbondedCoor[Count->UnbondedCoor] = id;
-      Count->UnbondedCoor++;
-    } else {
-      System->BondedCoor[Count->BondedCoor] = id;
-      Count->BondedCoor++;
     }
     System->BeadCoor[Count->BeadCoor] = id;
     Count->BeadCoor++;
@@ -2586,6 +2580,7 @@ static int VtfReadCoorBlockIndexed(FILE *fr, char file[], SYSTEM *System,
       break; // 'proper' eof
     }
   }
+  FillInCoor(System);
   fsetpos(fr, &position);
   return 1;
 } //}}}
@@ -2616,7 +2611,6 @@ static int VtfReadCoorBlockOrdered(FILE *fr, char file[], SYSTEM *System,
     for (int dd = 0; dd < 3; dd++) {
       bead_i->Position[dd] = coor[dd];
     }
-    bead_i->InTimestep = true;
     double vel[3];
     if (words >= 6 &&
         IsRealNumber(split[3], &vel[0]) &&
@@ -2630,15 +2624,9 @@ static int VtfReadCoorBlockOrdered(FILE *fr, char file[], SYSTEM *System,
         bead_i->Velocity[dd] = 0;
       }
     }
-    if (bead_i->Molecule == -1) {
-      System->UnbondedCoor[Count->UnbondedCoor] = i;
-      Count->UnbondedCoor++;
-    } else {
-      System->BondedCoor[Count->BondedCoor] = i;
-      Count->BondedCoor++;
-    }
     System->BeadCoor[i] = i;
   }
+  FillInCoor(System);
   return 1;
 } //}}}
 int VtfReadNumberOfBeads(char file[]) { //{{{

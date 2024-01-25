@@ -77,11 +77,11 @@ number of skipped timesteps are taken into account for all the distributions and
 overall averages.
 
 The definition of aggregate size is flexible. If none of \tt{-m}, \tt{-x}, or
-\tt{--only} options is used, aggregate size is the \enquote{true} aggregation
+\tt{-only} options is used, aggregate size is the \enquote{true} aggregation
 number, i.e., the number of all molecules in the aggregate; if \tt{-m} is used,
 aggregate size is the sum of only specified molecule type(s); if \tt{-x} is
 used, aggregates containing only specified molecule type(s) are disregarded; if
-\tt{--only} is used, only aggregates composed of the specified molecule type(s)
+\tt{-only} is used, only aggregates composed of the specified molecule type(s)
 are taken into account. These options can be mixed. For example, consider a
 system containing three aggregates composed of various numbers of three
 different molecule types:
@@ -100,7 +100,7 @@ different molecule types:
 Here is a list of some of the possibilities depending on the option(s)
 used:
 \begin{enumerate}[nosep]
-  \item if none of \tt{-m}, \tt{-x}, \tt{--only} is used, all three aggregates
+  \item if none of \tt{-m}, \tt{-x}, \tt{-only} is used, all three aggregates
     are counted and their sizes are their \enquote{true} aggregation numbers,
     i.e., $A_{\text{S}}=6$, 3, and 1
   \item if \tt{-m Mol\_A Mol\_B} is used, all three aggregates are
@@ -118,18 +118,18 @@ used:
   \item if \tt{-x Mol\_A Mol\_B} is combined with \tt{-m Mol\_A
     Mol\_B}, \tt{DistrAgg} would again detect only \tt{Agg\_1}, but
     its size would be 3
-  \item if \tt{--only Mol\_A Mol\_B} is used, \tt{Agg\_1} is not
+  \item if \tt{-only Mol\_A Mol\_B} is used, \tt{Agg\_1} is not
     counted, because it contains a molecule not specified by
-    \tt{--only}; \tt{DistrAgg} would detect two aggregates
+    \tt{-only}; \tt{DistrAgg} would detect two aggregates
     with sizes: \tt{Agg\_2} -- 3; \tt{Agg\_3} -- 1
-  \item if \tt{--only Mol\_A Mol\_B} is combined with \tt{-m
+  \item if \tt{-only Mol\_A Mol\_B} is combined with \tt{-m
     Mol\_A}, the two detected aggregates have sizes: \tt{Agg\_2} -- 1;
     \tt{Agg\_3} -- 1
-  \item if \tt{--only Mol\_A Mol\_B} is combined with \tt{-x
+  \item if \tt{-only Mol\_A Mol\_B} is combined with \tt{-x
     Mol\_A}, only \tt{Agg\_2} is detected as it is the only one composed of
     only \tt{Mol\_A} and \tt{Mol\_B} molecules and its size would
     be 3
-  \item if \tt{--only Mol\_A Mol\_B} and \tt{-x Mol\_A} are combined
+  \item if \tt{-only Mol\_A Mol\_B} and \tt{-x Mol\_A} are combined
     with \tt{-m Mol\_A}, the size of the one detected aggregate would be 1
 \end{enumerate}
 \vspace{1em}
@@ -148,7 +148,7 @@ ratios, that is \tt{Mol\_A}$/$\tt{Mol\_B}, \tt{Mol\_A}$/$\tt{Mol\_C}, and
 
 Moreover, only a specified range of aggregate sizes can be taken into
 account (\tt{-n <int> <int>} option). These sizes are defined by the
-\tt{-m}, \tt{-x}, and \tt{--only} options as well.
+\tt{-m}, \tt{-x}, and \tt{-only} options as well.
 
 Usage:
 
@@ -174,7 +174,7 @@ Usage:
     aggregate size \\
   \tt{-x <mol name(s)>} & exclude aggregates containing only specified
     mole\-cule(s) \\
-  \tt{--only <mol name(s)>} & use only aggregates composed of specified
+  \tt{-only <mol name(s)>} & use only aggregates composed of specified
     molecule(s) \\
   \tt{-c <file> <int(s)>} & save composition distribution for
     specified aggregate size(s) to \tt{<output>} file \\

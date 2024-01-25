@@ -279,7 +279,7 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
     }
   } //}}}
   // print box size, if present //{{{
-  if (box->Volume != -1) {
+  if (box->Volume != -1 && StructureFileType(file) == VSF_FILE) {
     fprintf(fw, "pbc %.3f %.3f %.3f",
             box->Length[0], box->Length[1], box->Length[2]);
     if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {

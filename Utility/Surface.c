@@ -186,6 +186,70 @@ int main(int argc, char *argv[]) {
       }
       count_used++;
       WrapJoinCoordinates(&System, true, false);
+
+      // copy some beads to have enough beads covering the whole xy area
+      double lo[2], hi[2];
+      lo[0] = (int)(System.Box.Length[0] / width) * width;
+      lo[1] = (int)(System.Box.Length[1] / width) * width;
+      hi[0] = lo[0] + width;
+      hi[1] = lo[1] + width;
+      SYSTEM extra_xy = CopySystem(System);
+      SYSTEM extra_x = CopySystem(System);
+      SYSTEM extra_y = CopySystem(System);
+      extra_xy.Count.BeadCoor = 0;
+      extra_x.Count.BeadCoor = 0;
+      extra_y.Count.BeadCoor = 0;
+      for (int i = 0; i < Count->BeadCoor; i++) {
+        int id = System.BeadCoor[i];
+        extra_xy.Bead[id].InTimestep = false; // TODO: move to the next loop
+        extra_x.Bead[id].InTimestep = false;
+        extra_y.Bead[id].InTimestep = false;
+      }
+      for (int i = 0; i < Count->BeadCoor; i++) {
+        int id = System.BeadCoor[i];
+        double (*pos)[3] = &System.Bead[id].Position;
+        double pbc[2];
+        pbc[0] = (*pos)[0] + System.Box.Length[0];
+        pbc[1] = (*pos)[1] + System.Box.Length[1];
+        if (pbc[0] > lo[0] && pbc[0] < hi[0] &&
+            pbc[1] > lo[1] && pbc[1] < hi[1]) {
+          extra_xy.BeadCoor[extra_xy.Count.BeadCoor] = id;
+          extra_xy.Bead[id].Position[0] = pbc[0];
+          extra_xy.Bead[id].Position[1] = pbc[1];
+          extra_xy.Bead[id].Position[2] = (*pos)[2];
+          extra_xy.Count.BeadCoor++;
+        }
+        if (pbc[0] > lo[0] && pbc[0] < hi[0]) {
+          extra_x.BeadCoor[extra_x.Count.BeadCoor] = id;
+          extra_x.Bead[id].Position[0] = pbc[0];
+          extra_x.Bead[id].Position[1] = (*pos)[1];
+          extra_x.Bead[id].Position[2] = (*pos)[2];
+          extra_x.Count.BeadCoor++;
+        }
+        if (pbc[1] > lo[1] && pbc[1] < hi[1]) {
+          extra_y.BeadCoor[extra_y.Count.BeadCoor] = id;
+          extra_y.Bead[id].Position[0] = (*pos)[0];
+          extra_y.Bead[id].Position[1] = pbc[1];
+          extra_y.Bead[id].Position[2] = (*pos)[2];
+          extra_y.Count.BeadCoor++;
+        }
+      }
+      FillInCoor(&extra_xy);
+      FillInCoor(&extra_x);
+      FillInCoor(&extra_y);
+      SYSTEM full = CopySystem(System);
+      ConcatenateSystems(&full, extra_xy, System.Box);
+      ConcatenateSystems(&full, extra_x, System.Box);
+      ConcatenateSystems(&full, extra_y, System.Box);
+      bool *write = malloc(full.Count.Bead * sizeof *write);
+      InitBoolArray(write, full.Count.Bead, true);
+      WriteStructure(VTF_FILE, "test.vtf", full, -1, false, argc, argv);
+      WriteTimestep(VTF_FILE, "test.vtf", full, count_coor, write);
+      free(write);
+      FreeSystem(&extra_xy);
+      FreeSystem(&extra_x);
+      FreeSystem(&extra_y);
+
     // TODO: sizeof ...argh!
       // allocate memory for temporary arrays //{{{
       double ***temp = calloc(bins[0], sizeof(double **));
@@ -224,10 +288,12 @@ int main(int argc, char *argv[]) {
       } //}}}
 
     // TODO: check
+    // TODO: get rid of the SYSTEM full and just add some other coordinates as
+    //       well: if a bead has 'proper' coordinates, use it several times
       // calculate surface //{{{
-      for (int i = 0; i < Count->BeadCoor; i++) {
-        int id = System.BeadCoor[i];
-        BEAD *b = &System.Bead[id];
+      for (int i = 0; i < full.Count.BeadCoor; i++) {
+        int id = full.BeadCoor[i];
+        BEAD *b = &full.Bead[id];
         // int mol = b->Molecule;
         // if (mol == -1) { // consider only beads in molecules
         //   continue;
@@ -258,6 +324,7 @@ int main(int argc, char *argv[]) {
         int bin[2];
         bin[0] = coor[0] / width;
         bin[1] = coor[1] / width;
+        // TODO: useless check - would only trigger for serious pbc change
         if (bin[0] > bins[0] || bin[1] > bins[1]) {
           printf("%lf %lf %lf\n", b->Position[0], b->Position[1], b->Position[2]);
           printf("%d of %d\n", bin[0], bins[0]);
@@ -360,6 +427,7 @@ int main(int argc, char *argv[]) {
         free(temp[i]);
       }
       free(temp); //}}}
+      FreeSystem(&full);
       //}}}
     } else { //{{{
       if (!SkipTimestep(coor_type, fr, coor_file,
@@ -425,8 +493,24 @@ int main(int argc, char *argv[]) {
   int triangles[2] = {0, 0};
   count = 0;
   int bins_true[2];
+  // printf("%lf %d\n", System.Box.Length[0]/width+1, (int)(System.Box.Length[0]/width+1));
   bins_true[0] = System.Box.Length[0] / width + 1;
   bins_true[1] = System.Box.Length[1] / width + 1;
+  // bins_true[0]--;
+  // bins_true[1]--;
+  // printf("bins_true: %d %d\n", bins_true[0], bins_true[1]);
+  // TODO: no idea why fmod() sometimes returns 'width' (i.e., the divisor)
+  double remainder[2];
+  remainder[0] = fmod(System.Box.Length[0],width);
+  if (fabs(remainder[0]) > 0.001 && fabs(remainder[0]-width) > 0.001) {
+    bins_true[0]++;
+  }
+  remainder[1] = fmod(System.Box.Length[1],width);
+  if (fabs(remainder[1]) > 0.001 && fabs(remainder[1]-width) > 0.001) {
+    bins_true[1]++;
+  }
+  // printf("%lf %lf %lf \n", System.Box.Length[1], width, fmod(System.Box.Length[1],width));
+  // printf("fmod(36,1.8)=%lf %lf\n", fmod(36,1.8), 36/1.8-(int)(36/1.8));
   for (int i = 0; i < bins_true[0]; i++) {
     values[i][bins_true[1]-1][0] = values[i][0][0];
     values[i][bins_true[1]-1][1] = values[i][0][1];
@@ -434,26 +518,16 @@ int main(int argc, char *argv[]) {
     surf[i][bins_true[1]-1][1] = surf[i][0][1];
   }
   for (int j = 0; j < bins_true[1]; j++) {
+    // printf("WTF: %d %d\n", bins_true[0]-1, values[0][j][0]);
     values[bins_true[0]-1][j][0] = values[0][j][0];
     values[bins_true[0]-1][j][1] = values[0][j][1];
     surf[bins_true[0]-1][j][0] = surf[0][j][0];
     surf[bins_true[0]-1][j][1] = surf[0][j][1];
   }
+  // printf("bins_true: %d %d\n", bins_true[0], bins_true[1]);
   for (int i = 0; i < (bins_true[0] - 1); i++) {
     for (int j = 0; j < (bins_true[1] - 1); j++) {
       count++;
-      double remainder[2];
-      if (i == (bins_true[0] - 2)) {
-        remainder[0] = System.Box.Length[0] - width * (i + 1);
-      } else {
-        remainder[0] = width;
-      }
-      if (j == (bins_true[1] - 2)) {
-        remainder[1] = System.Box.Length[1] - width * (j + 1);
-      } else {
-        remainder[1] = width;
-      }
-      // printf("%lf %lf\n", remainder[0], remainder[1]);
       // first surface //{{{
       // first triangle
       if (values[i][j][0] > 0 && values[i+1][j][0] > 0 && values[i+1][j+1][0] > 0) {
@@ -461,12 +535,19 @@ int main(int argc, char *argv[]) {
         A[0] = 0;
         A[1] = 0;
         A[2] = surf[i][j][0] / values[i][j][0];
-        B[0] = remainder[0];
+        // A[2] = 0;
+        B[0] = width;
         B[1] = 0;
         B[2] = surf[i+1][j][0] / values[i+1][j][0];
-        C[0] = remainder[0];
-        C[1] = remainder[1];
+        // B[2] = 0;
+        C[0] = width;
+        C[1] = width;
         C[2] = surf[i+1][j+1][0] / values[i+1][j+1][0];
+        // C[2] = 0;
+        // printf("1st:\n");
+        // printf("%lf %lf %lf\n", A[0], A[1], A[2]);
+        // printf("%lf %lf %lf\n", B[0], B[1], B[2]);
+        // printf("%lf %lf %lf\n", C[0], C[1], C[2]);
         double AB[3], AC[3], BC[3];
         for (int dd = 0; dd < 3; dd++) {
           AB[dd] = B[dd] - A[dd];
@@ -484,6 +565,7 @@ int main(int argc, char *argv[]) {
         c = sqrt(c);
         double s = (a + b + c) / 2;
         double area = sqrt(s * (s - a) * (s - b) * (s - c));
+        // printf(" %lf %lf %lf -> %lf\n", a, b, c, area);
         sum_area[0] += area;
         triangles[0]++;
       }
@@ -493,12 +575,19 @@ int main(int argc, char *argv[]) {
         A[0] = 0;
         A[1] = 0;
         A[2] = surf[i][j][0] / values[i][j][0];
+        // A[2] = 0;
         B[0] = 0;
-        B[1] = remainder[1];
+        B[1] = width;
         B[2] = surf[i][j+1][0] / values[i][j+1][0];
-        C[0] = remainder[0];
-        C[1] = remainder[1];
+        // B[2] = 0;
+        C[0] = width;
+        C[1] = width;
         C[2] = surf[i+1][j+1][0] / values[i+1][j+1][0];
+        // C[2] = 0;
+        // printf("2nd:\n");
+        // printf("%lf %lf %lf\n", A[0], A[1], A[2]);
+        // printf("%lf %lf %lf\n", B[0], B[1], B[2]);
+        // printf("%lf %lf %lf\n", C[0], C[1], C[2]);
         double AB[3], AC[3], BC[3];
         for (int dd = 0; dd < 3; dd++) {
           AB[dd] = B[dd] - A[dd];
@@ -516,6 +605,7 @@ int main(int argc, char *argv[]) {
         c = sqrt(c);
         double s = (a + b + c) / 2;
         double area = sqrt(s * (s - a) * (s - b) * (s - c));
+        // printf(" %lf %lf %lf -> %lf\n", a, b, c, area);
         sum_area[0] += area;
         triangles[0]++;
       }
@@ -527,11 +617,11 @@ int main(int argc, char *argv[]) {
         A[0] = 0;
         A[1] = 0;
         A[2] = surf[i][j][1] / values[i][j][1];
-        B[0] = remainder[0];
+        B[0] = width;
         B[1] = 0;
         B[2] = surf[i+1][j][1] / values[i+1][j][1];
-        C[0] = remainder[0];
-        C[1] = remainder[1];
+        C[0] = width;
+        C[1] = width;
         C[2] = surf[i+1][j+1][1] / values[i+1][j+1][1];
         double AB[3], AC[3], BC[3];
         for (int dd = 0; dd < 3; dd++) {
@@ -560,10 +650,10 @@ int main(int argc, char *argv[]) {
         A[1] = 0;
         A[2] = surf[i][j][1] / values[i][j][1];
         B[0] = 0;
-        B[1] = remainder[1];
+        B[1] = width;
         B[2] = surf[i][j+1][1] / values[i][j+1][1];
-        C[0] = remainder[0];
-        C[1] = remainder[1];
+        C[0] = width;
+        C[1] = width;
         C[2] = surf[i+1][j+1][1] / values[i+1][j+1][1];
         double AB[3], AC[3], BC[3];
         for (int dd = 0; dd < 3; dd++) {
@@ -595,10 +685,15 @@ int main(int argc, char *argv[]) {
   avg_triangle[0] = sum_area[0] / triangles[0];
   avg_triangle[1] = sum_area[1] / triangles[1];
   sum_area[0] += avg_triangle[0] * (n_triangles - triangles[0]);
-  sum_area[1] += avg_triangle[1] * (n_triangles - triangles[0]);
+  sum_area[1] += avg_triangle[1] * (n_triangles - triangles[1]);
   // printf("area = %lf (from %d triangles out of %d)\n", sum_area[0], triangles[0], n_triangles);
   // printf("       %lf (from %d triangles out of %d)\n", sum_area[1], triangles[1], n_triangles);
-  printf("%lf %lf\n", sum_area[0], sum_area[1]);
+  double Length_area = System.Box.Length[0] * System.Box.Length[1];
+  double width_area = (bins_true[0] - 1) * (bins_true[1] - 1) * SQR(width);
+  // printf("Box.Length[0]×Box.Length[1] = %lf\n", Length_area);
+  // printf("SQR(width)×bins_true[0]×bins_true[1] = %lf\n", width_area);
+  // printf("%lf %lf  ", sum_area[0], sum_area[1]);
+  printf("%lf %lf\n", sum_area[0]*Length_area/width_area, sum_area[1]*Length_area/width_area);
 
   // free memory - to make valgrind happy //{{{
   FreeSystem(&System);

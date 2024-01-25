@@ -55,11 +55,10 @@ static void ToFractional(double coor[3], BOX Box) { //{{{
 static void ToFractionalCoor(SYSTEM *System) { //{{{
   if (System->Box.alpha != 90 || System->Box.beta != 90 ||
       System->Box.gamma != 90) {
-    for (int i = 0; i < System->Count.Bead; i++) {
-      BEAD *bead = &System->Bead[i];
-      if (bead->InTimestep) {
-        ToFractional(bead->Position, System->Box);
-      }
+    for (int i = 0; i < System->Count.BeadCoor; i++) {
+      int id = System->BeadCoor[i];
+      BEAD *bead = &System->Bead[id];
+      ToFractional(bead->Position, System->Box);
     }
   }
 } //}}}
@@ -80,11 +79,10 @@ static void FromFractionalCoor(SYSTEM *System) { //{{{
   if (System->Box.alpha != 90 ||
       System->Box.beta != 90 ||
       System->Box.gamma != 90) {
-    for (int i = 0; i < System->Count.Bead; i++) {
-      BEAD *bead = &System->Bead[i];
-      if (bead->InTimestep) {
-        FromFractional(bead->Position, System->Box);
-      }
+    for (int i = 0; i < System->Count.BeadCoor; i++) {
+      int id = System->BeadCoor[i];
+      BEAD *bead = &System->Bead[id];
+      FromFractional(bead->Position, System->Box);
     }
   }
 } //}}}
@@ -131,7 +129,7 @@ static bool ConnectedMolecule(MOLECULE mol, SYSTEM System) {
  *      ...working on it - now, unconnected molecules aren't joined
  *      TODO: maybe split molecule to connected pieces, connect those and place
  *            their centres of mass nearest each other
- *      TODO: check the ConnectedMolecule() and possible make the joining
+ *      TODO: check the ConnectedMolecule() and possibly make the joining
  *            algorithm along the same lines (go over bond after bond instead of
  *            that while loop)
  */
@@ -143,8 +141,7 @@ static void RemovePBCMolecules(SYSTEM *System) {
     MOLECULETYPE *mt_i = &System->MoleculeType[mol_i->Type];
     if (!ConnectedMolecule(*mol_i, *System)) {
       snprintf(ERROR_MSG, LINE,
-               "molecule %s%d%s (%s%s%s) does not have all "
-               "beads connected",
+               "molecule %s%d%s (%s%s%s) does not have all " "beads connected",
                ErrYellow(), mol_i->Index, ErrCyan(), ErrYellow(), mt_i->Name,
                ErrCyan());
       PrintWarning();
@@ -429,6 +426,22 @@ void FillSystemNonessentials(SYSTEM *System) { //{{{
     SortAngles(mt_i->Angle, mt_i->nAngles);
     SortDihImp(mt_i->Dihedral, mt_i->nDihedrals);
     SortDihImp(mt_i->Improper, mt_i->nImpropers);
+  }
+} //}}}
+void FillInCoor(SYSTEM *System) { //{{{
+  COUNT *Count = &System->Count;
+  Count->BondedCoor = 0;
+  Count->UnbondedCoor = 0;
+  for (int i = 0; i < Count->BeadCoor; i++) {
+    int id = System->BeadCoor[i];
+    System->Bead[id].InTimestep = true;
+    if (System->Bead[id].Molecule != -1) {
+      System->BondedCoor[Count->BondedCoor] = id;
+      Count->BondedCoor++;
+    } else {
+      System->UnbondedCoor[Count->UnbondedCoor] = id;
+      Count->UnbondedCoor++;
+    }
   }
 } //}}}
 // sort a bond/angle/dihedral/improper array in an ascending order
@@ -1292,7 +1305,6 @@ void RenameMoleculeTypes(SYSTEM *System) { //{{{
         strncpy(name, mt_j->Name, MOL_NAME);
         // shorten name if necessary
         if (count < 10) {
-          printf("%d\n", MOL_NAME-3);
           name[MOL_NAME-3] = '\0';
         } else if (count < 100) {
           name[MOL_NAME-4] = '\0';
@@ -2229,7 +2241,8 @@ void PruneSystem(SYSTEM *System) {
   SYSTEM S_old = CopySystem(*System);
   FreeSystem(System);
   InitSystem(System);
-  COUNT *Count = &System->Count, *Count_old = &S_old.Count;
+  COUNT *Count = &System->Count,
+        *Count_old = &S_old.Count;
   System->Box = S_old.Box;
   *Count = *Count_old; // some counts will change later
   // allocate memory for bead count arrays
@@ -2284,6 +2297,7 @@ void PruneSystem(SYSTEM *System) {
   int *b_id_old_to_new = calloc(Count_old->Bead, sizeof *b_id_old_to_new),
       *bt_old_to_new = calloc(Count_old->BeadType, sizeof *bt_old_to_new);
   Count->BeadType = 0;
+  // TODO: why use InTimestep instead of BeadCoor?
   for (int i = 0; i < Count_old->Bead; i++) {
     if (S_old.Bead[i].InTimestep) {
       // create new bead type if it doesn't exist yet in the pruned system
