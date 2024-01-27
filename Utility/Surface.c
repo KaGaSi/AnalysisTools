@@ -80,17 +80,27 @@ int main(int argc, char *argv[]) {
   char output[LINE] = "";
   snprintf(output, LINE, "%s", argv[++count]); //}}}
   // <axis> - x, y, or z //{{{
-  char axis = 'x';
-  while (++count < argc && argv[count][0] != '-') {
-    axis = argv[count][0];
-    // Error - not x/y/z
-    if (axis != 'x' && axis != 'y' && axis != 'z') {
-      strcpy(ERROR_MSG, "must be 'x', 'y', or 'z'");
-      PrintErrorOption("<width>");
-      Help(argv[0], true, common, option);
-      exit(1);
-    }
-  } //}}}
+  int axis, // which axis? 0=x, 1=y, 2=z
+      map[2]; // map the remaining two axes based on the 'axis' variable
+  if (argv[++count][0] == 'x' ) {
+    axis = 0;
+    map[0] = 1;
+    map[1] = 2;
+  } else if (argv[count][0] == 'y') {
+    axis = 1;
+    map[0] = 0;
+    map[1] = 2;
+  } else if (argv[count][0] == 'z') {
+    axis = 2;
+    map[0] = 0;
+    map[1] = 1;
+  } else {
+    strcpy(ERROR_MSG, "must be 'x', 'y', or 'z'");
+    PrintErrorOption("<axis>");
+    Help(argv[0], true, common, option);
+    exit(1);
+  }
+  //}}}
   bool silent, verbose, detailed;
   int start = 1, end = -1, skip = 0;
   CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
@@ -110,40 +120,16 @@ int main(int argc, char *argv[]) {
     VerboseOutput(System);
   }
 
-  // set maximum/minimum as half a box length in the given direction //{{{
+  // set maximum/minimum as box length in the given direction
   double range[2];
-  switch(axis) {
-    case 'x':
-      range[0] = 0;
-      range[1] = Box->Length[0];
-      break;
-    case 'y':
-      range[0] = 0;
-      range[1] = Box->Length[1];
-      break;
-    case 'z':
-      range[0] = 0;
-      range[1] = Box->Length[2];
-      break;
-  } //}}}
+  range[0] = 0;
+  range[1] = Box->Length[axis];
 
   // number of bins //{{{
   int bins[2];
-  switch(axis) {
-    case 'x':
-      bins[0] = Box->Length[1] / width + 1;
-      bins[1] = Box->Length[2] / width + 1;
-      break;
-    case 'y':
-      bins[0] = Box->Length[0] / width + 1;
-      bins[1] = Box->Length[2] / width + 1;
-      break;
-    case 'z':
-      bins[0] = Box->Length[0] / width + 1;
-      bins[1] = Box->Length[1] / width + 1;
-      break;
-  }
-  // TODO: this ensures enough bins when, e.g., vsf file contains pbc smaller
+  bins[0] = Box->Length[map[0]] / width + 1;
+  bins[1] = Box->Length[map[1]] / width + 1;
+  // TODO: this ensures enough bins when, e.g., vsf file may contain pbc smaller
   //       than the coordinate file - think about how to make it safe...
   bins[0] += 10;
   bins[1] += 10;
@@ -187,7 +173,7 @@ int main(int argc, char *argv[]) {
       count_used++;
       WrapJoinCoordinates(&System, true, false);
 
-      // copy some beads to have enough beads covering the whole xy area
+      // copy some beads to have enough beads for the (width×bin)^2 area //{{{
       double lo[2], hi[2];
       lo[0] = (int)(System.Box.Length[0] / width) * width;
       lo[1] = (int)(System.Box.Length[1] / width) * width;
@@ -201,12 +187,9 @@ int main(int argc, char *argv[]) {
       extra_y.Count.BeadCoor = 0;
       for (int i = 0; i < Count->BeadCoor; i++) {
         int id = System.BeadCoor[i];
-        extra_xy.Bead[id].InTimestep = false; // TODO: move to the next loop
+        extra_xy.Bead[id].InTimestep = false;
         extra_x.Bead[id].InTimestep = false;
         extra_y.Bead[id].InTimestep = false;
-      }
-      for (int i = 0; i < Count->BeadCoor; i++) {
-        int id = System.BeadCoor[i];
         double (*pos)[3] = &System.Bead[id].Position;
         double pbc[2];
         pbc[0] = (*pos)[0] + System.Box.Length[0];
@@ -241,14 +224,9 @@ int main(int argc, char *argv[]) {
       ConcatenateSystems(&full, extra_xy, System.Box);
       ConcatenateSystems(&full, extra_x, System.Box);
       ConcatenateSystems(&full, extra_y, System.Box);
-      bool *write = malloc(full.Count.Bead * sizeof *write);
-      InitBoolArray(write, full.Count.Bead, true);
-      WriteStructure(VTF_FILE, "test.vtf", full, -1, false, argc, argv);
-      WriteTimestep(VTF_FILE, "test.vtf", full, count_coor, write);
-      free(write);
       FreeSystem(&extra_xy);
       FreeSystem(&extra_x);
-      FreeSystem(&extra_y);
+      FreeSystem(&extra_y); //}}}
 
     // TODO: sizeof ...argh!
       // allocate memory for temporary arrays //{{{
@@ -259,29 +237,9 @@ int main(int argc, char *argv[]) {
           temp[i][j] = calloc(2, sizeof(double));
           if (!in) {
             temp[i][j][0] = 0;
-            switch(axis) {
-              case 'x':
-                temp[i][j][1] = Box->Length[0];
-                break;
-              case 'y':
-                temp[i][j][1] = Box->Length[1];
-                break;
-              case 'z':
-                temp[i][j][1] = Box->Length[2];
-                break;
-            }
+            temp[i][j][1] = Box->Length[axis];
           } else {
-            switch(axis) {
-              case 'x':
-                temp[i][j][0] = Box->Length[0];
-                break;
-              case 'y':
-                temp[i][j][0] = Box->Length[1];
-                break;
-              case 'z':
-                temp[i][j][0] = Box->Length[2];
-                break;
-            }
+            temp[i][j][0] = Box->Length[axis];
             temp[i][j][1] = 0;
           }
         }
@@ -304,23 +262,9 @@ int main(int argc, char *argv[]) {
         // TODO: -m & -bt options: add codition like this
         //       if (b->Molecule != -1 && mol_type->Flag && btype->Flag)
         double coor[3];
-        switch(axis) {
-          case 'x':
-            coor[0] = b->Position[1];
-            coor[1] = b->Position[2];
-            coor[2] = b->Position[0];
-            break;
-          case 'y':
-            coor[0] = b->Position[0];
-            coor[1] = b->Position[2];
-            coor[2] = b->Position[1];
-            break;
-          case 'z':
-            coor[0] = b->Position[0];
-            coor[1] = b->Position[1];
-            coor[2] = b->Position[2];
-            break;
-        }
+        coor[0] = b->Position[map[0]];
+        coor[1] = b->Position[map[1]];
+        coor[2] = b->Position[axis];
         int bin[2];
         bin[0] = coor[0] / width;
         bin[1] = coor[1] / width;
@@ -362,62 +306,233 @@ int main(int argc, char *argv[]) {
               surf[i][j][0] += temp[i][j][0];
               values[i][j][0]++;
             }
-            switch(axis) {
-              case 'x':
-                if (temp[i][j][1] < Box->Length[0]) {
-                  surf[i][j][1] += temp[i][j][1];
-                  values[i][j][1]++;
-                }
-                break;
-              case 'y':
-                if (temp[i][j][1] < Box->Length[1]) {
-                  surf[i][j][1] += temp[i][j][1];
-                  values[i][j][1]++;
-                }
-                break;
-              case 'z':
-                if (temp[i][j][1] < Box->Length[2]) {
-                  surf[i][j][1] += temp[i][j][1];
-                  values[i][j][1]++;
-                }
-                break;
+            if (temp[i][j][1] < Box->Length[axis]) {
+              surf[i][j][1] += temp[i][j][1];
+              values[i][j][1]++;
             }
           } else {
-            switch(axis) {
-              case 'x':
-                if (temp[i][j][0] != (Box->Length[0]/2)) {
-                  surf[i][j][0] += temp[i][j][0];
-                  values[i][j][0]++;
-                }
-                if (temp[i][j][1] != (Box->Length[0]/2)) {
-                  surf[i][j][1] += temp[i][j][1];
-                  values[i][j][1]++;
-                }
-                break;
-              case 'y':
-                if (temp[i][j][0] != (Box->Length[1]/2)) {
-                  surf[i][j][0] += temp[i][j][0];
-                  values[i][j][0]++;
-                }
-                if (temp[i][j][1] != (Box->Length[1]/2)) {
-                  surf[i][j][1] += temp[i][j][1];
-                  values[i][j][1]++;
-                }
-                break;
-              case 'z':
-                if (temp[i][j][0] < Box->Length[2]) {
-                  surf[i][j][0] += temp[i][j][0];
-                  values[i][j][0]++;
-                }
-                if (temp[i][j][1] > 0) {
-                  surf[i][j][1] += temp[i][j][1];
-                  values[i][j][1]++;
-                }
-                break;
+            if (temp[i][j][0] < Box->Length[axis]) {
+              surf[i][j][0] += temp[i][j][0];
+              values[i][j][0]++;
+            }
+            if (temp[i][j][1] > 0) {
+              surf[i][j][1] += temp[i][j][1];
+              values[i][j][1]++;
             }
           }
         }
       } //}}}
+
+      // calculate total area as a sum of areas of triangles //{{{
+      double sum_area[2] = {0, 0};
+      int triangles[2] = {0, 0};
+      count = 0;
+      int bins_true[2];
+      bins_true[0] = System.Box.Length[0] / width + 1;
+      bins_true[1] = System.Box.Length[1] / width + 1;
+      // printf("bins_true: %d %d\n", bins_true[0], bins_true[1]);
+      // TODO: no idea why fmod() sometimes returns 'width' (i.e., the divisor)
+      double remainder[2];
+      remainder[0] = fmod(System.Box.Length[0],width);
+      if (fabs(remainder[0]) > 0.001 && fabs(remainder[0]-width) > 0.001) {
+        bins_true[0]++;
+      }
+      remainder[1] = fmod(System.Box.Length[1],width);
+      if (fabs(remainder[1]) > 0.001 && fabs(remainder[1]-width) > 0.001) {
+        bins_true[1]++;
+      }
+      for (int i = 0; i < bins_true[0]; i++) {
+        temp[i][bins_true[1]-1][0] = temp[i][0][0];
+        temp[i][bins_true[1]-1][1] = temp[i][0][1];
+      }
+      for (int j = 0; j < bins_true[1]; j++) {
+        // printf("WTF: %d %d\n", bins_true[0]-1, values[0][j][0]);
+        temp[bins_true[0]-1][j][0] = temp[0][j][0];
+        temp[bins_true[0]-1][j][1] = temp[0][j][1];
+      }
+      // printf("bins_true: %d %d\n", bins_true[0], bins_true[1]);
+      for (int i = 0; i < (bins_true[0] - 1); i++) {
+        for (int j = 0; j < (bins_true[1] - 1); j++) {
+          count++;
+          // TODO: assumes in=true !!!
+          // first surface //{{{
+          // first triangle
+          if (temp[i][j][0] < Box->Length[axis] &&
+              temp[i+1][j][0] < Box->Length[axis] &&
+              temp[i+1][j+1][0] < Box->Length[axis]) {
+            double A[3], B[3], C[3];
+            A[0] = 0;
+            A[1] = 0;
+            A[2] = temp[i][j][0];
+            // A[2] = 0;
+            B[0] = width;
+            B[1] = 0;
+            B[2] = temp[i+1][j][0];
+            // B[2] = 0;
+            C[0] = width;
+            C[1] = width;
+            C[2] = temp[i+1][j+1][0];
+            // C[2] = 0;
+            // printf("1st:\n");
+            // printf("%lf %lf %lf\n", A[0], A[1], A[2]);
+            // printf("%lf %lf %lf\n", B[0], B[1], B[2]);
+            // printf("%lf %lf %lf\n", C[0], C[1], C[2]);
+            double AB[3], AC[3], BC[3];
+            for (int dd = 0; dd < 3; dd++) {
+              AB[dd] = B[dd] - A[dd];
+              AC[dd] = C[dd] - A[dd];
+              BC[dd] = C[dd] - B[dd];
+            }
+            double a = 0, b = 0, c = 0;
+            for (int dd = 0; dd < 3; dd++) {
+              a += SQR(BC[dd]);
+              b += SQR(AC[dd]);
+              c += SQR(AB[dd]);
+            }
+            a = sqrt(a);
+            b = sqrt(b);
+            c = sqrt(c);
+            double s = (a + b + c) / 2;
+            double area = sqrt(s * (s - a) * (s - b) * (s - c));
+            // printf(" %lf %lf %lf -> %lf\n", a, b, c, area);
+            sum_area[0] += area;
+            triangles[0]++;
+          }
+          // second triangle
+          if (temp[i][j][0] < Box->Length[axis] &&
+              temp[i][j+1][0] < Box->Length[axis] &&
+              temp[i+1][j+1][0] < Box->Length[axis]) {
+            double A[3], B[3], C[3];
+            A[0] = 0;
+            A[1] = 0;
+            A[2] = temp[i][j][0];
+            // A[2] = 0;
+            B[0] = 0;
+            B[1] = width;
+            B[2] = temp[i][j+1][0];
+            // B[2] = 0;
+            C[0] = width;
+            C[1] = width;
+            C[2] = temp[i+1][j+1][0];
+            // C[2] = 0;
+            // printf("2nd:\n");
+            // printf("%lf %lf %lf\n", A[0], A[1], A[2]);
+            // printf("%lf %lf %lf\n", B[0], B[1], B[2]);
+            // printf("%lf %lf %lf\n", C[0], C[1], C[2]);
+            double AB[3], AC[3], BC[3];
+            for (int dd = 0; dd < 3; dd++) {
+              AB[dd] = B[dd] - A[dd];
+              AC[dd] = C[dd] - A[dd];
+              BC[dd] = C[dd] - B[dd];
+            }
+            double a = 0, b = 0, c = 0;
+            for (int dd = 0; dd < 3; dd++) {
+              a += SQR(BC[dd]);
+              b += SQR(AC[dd]);
+              c += SQR(AB[dd]);
+            }
+            a = sqrt(a);
+            b = sqrt(b);
+            c = sqrt(c);
+            double s = (a + b + c) / 2;
+            double area = sqrt(s * (s - a) * (s - b) * (s - c));
+            // printf(" %lf %lf %lf -> %lf\n", a, b, c, area);
+            sum_area[0] += area;
+            triangles[0]++;
+          }
+          //}}}
+          // second surface //{{{
+          // first triangle
+          if (temp[i][j][1] > 0 &&
+              temp[i+1][j][1] > 0 &&
+              temp[i+1][j+1][1] > 0) {
+            double A[3], B[3], C[3];
+            A[0] = 0;
+            A[1] = 0;
+            A[2] = temp[i][j][1];
+            B[0] = width;
+            B[1] = 0;
+            B[2] = temp[i+1][j][1];
+            C[0] = width;
+            C[1] = width;
+            C[2] = temp[i+1][j+1][1];
+            double AB[3], AC[3], BC[3];
+            for (int dd = 0; dd < 3; dd++) {
+              AB[dd] = B[dd] - A[dd];
+              AC[dd] = C[dd] - A[dd];
+              BC[dd] = C[dd] - B[dd];
+            }
+            double a = 0, b = 0, c = 0;
+            for (int dd = 0; dd < 3; dd++) {
+              a += SQR(BC[dd]);
+              b += SQR(AC[dd]);
+              c += SQR(AB[dd]);
+            }
+            a = sqrt(a);
+            b = sqrt(b);
+            c = sqrt(c);
+            double s = (a + b + c) / 2;
+            double area = sqrt(s * (s - a) * (s - b) * (s - c));
+            sum_area[1] += area;
+            triangles[1]++;
+          }
+          // second triangle
+          if (temp[i][j][1] > 0 &&
+              temp[i][j+1][1] > 0 &&
+              temp[i+1][j+1][1] > 0) {
+            double A[3], B[3], C[3];
+            A[0] = 0;
+            A[1] = 0;
+            A[2] = temp[i][j][1];
+            B[0] = 0;
+            B[1] = width;
+            B[2] = temp[i][j+1][1];
+            C[0] = width;
+            C[1] = width;
+            C[2] = temp[i+1][j+1][1];
+            double AB[3], AC[3], BC[3];
+            for (int dd = 0; dd < 3; dd++) {
+              AB[dd] = B[dd] - A[dd];
+              AC[dd] = C[dd] - A[dd];
+              BC[dd] = C[dd] - B[dd];
+            }
+            double a = 0, b = 0, c = 0;
+            for (int dd = 0; dd < 3; dd++) {
+              a += SQR(BC[dd]);
+              b += SQR(AC[dd]);
+              c += SQR(AB[dd]);
+            }
+            a = sqrt(a);
+            b = sqrt(b);
+            c = sqrt(c);
+            double s = (a + b + c) / 2;
+            double area = sqrt(s * (s - a) * (s - b) * (s - c));
+            sum_area[1] += area;
+            triangles[1]++;
+          }
+          //}}}
+        }
+      }
+
+      // int n_triangles = (bins[0] - 1) * (bins[1] - 1)  * 2;
+      int n_triangles = (bins_true[0] - 1) * (bins_true[1] -1) * 2;
+      double avg_triangle[2];
+      avg_triangle[0] = sum_area[0] / triangles[0];
+      avg_triangle[1] = sum_area[1] / triangles[1];
+      sum_area[0] += avg_triangle[0] * (n_triangles - triangles[0]);
+      sum_area[1] += avg_triangle[1] * (n_triangles - triangles[1]);
+      // printf("area = %lf (from %d triangles out of %d)\n",
+      //        sum_area[0], triangles[0], n_triangles);
+      // printf("       %lf (from %d triangles out of %d)\n",
+      //        sum_area[1], triangles[1], n_triangles);
+      double Length_area = System.Box.Length[0] * System.Box.Length[1];
+      double width_area = (bins_true[0] - 1) * (bins_true[1] - 1) * SQR(width);
+      // printf("Box.Length[0]×Box.Length[1] = %lf\n", Length_area);
+      // printf("SQR(width)×bins_true[0]×bins_true[1] = %lf\n", width_area);
+      // printf("%lf %lf  ", sum_area[0], sum_area[1]);
+      printf("%lf %lf\n", sum_area[0]*Length_area/width_area,
+                          sum_area[1]*Length_area/width_area);
+      //}}}
 
       // free the temporary array //{{{
       for (int i = 0; i < bins[0]; i++) {
@@ -426,8 +541,8 @@ int main(int argc, char *argv[]) {
         }
         free(temp[i]);
       }
-      free(temp); //}}}
-      FreeSystem(&full);
+      free(temp);
+      FreeSystem(&full); //}}}
       //}}}
     } else { //{{{
       if (!SkipTimestep(coor_type, fr, coor_file,
@@ -455,17 +570,8 @@ int main(int argc, char *argv[]) {
   PrintByline(output, argc, argv);
   // print legend
   FILE *out = OpenFile(output, "w");
-  switch(axis) {
-    case 'x':
-      fprintf(out, "# (1) y coordinate; (2) z coordinate;");
-      break;
-    case 'y':
-      fprintf(out, "# (1) x coordinate; (2) z coordinate;");
-      break;
-    case 'z':
-      fprintf(out, "# (1) x coordinate; (2) y coordinate;");
-      break;
-  }
+  char a[3] = {'x', 'y', 'z'};
+  fprintf(out, "# (1) %c coordinate; (2) %c coordinate;", a[map[0]], a[map[1]]);
   fprintf(out, " (3) surface 1; (4) surface 2\n");
 
   for (int i = 0; i < bins[0]; i++) {
