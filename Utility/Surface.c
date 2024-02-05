@@ -22,15 +22,16 @@ edges or the two surfaces of a lipid bilayer inside the box).\n\n");
   }
 
   fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <width> <output> <axis> [options]\n\n", cmd);
+  fprintf(ptr, "   %s <input> <width> <out.surf> <axis> [options]\n\n", cmd);
 
   fprintf(ptr, "<input>             input coordinate file\n");
   fprintf(ptr, "<width>             width of a single bin\n");
-  fprintf(ptr, "<output>            output file\n");
+  fprintf(ptr, "<surf.txt>          average surface\n");
+  fprintf(ptr, "<area.txt>          per-timestep areas\n");
   fprintf(ptr, "<axis>              calculate along x, y, or z axis\n");
   fprintf(ptr, "[options]\n");
-  fprintf(ptr, "  --in              start from the box's centre "
-          "instead of edges\n");
+  fprintf(ptr, "  --in              start from the box's edges "
+          "instead of the centre\n");
   // fprintf(ptr, "  -m <mol(s)>       molecule type(s) to use\n");
   // fprintf(ptr, "  -bt <name(s)>     bead type(s) to use\n");
   CommonHelp(error, n, opt);
@@ -76,9 +77,10 @@ int main(int argc, char *argv[]) {
     Help(argv[0], true, common, option);
     exit(1);
   } //}}}
-  // <output> - output filename //{{{
-  char output[LINE] = "";
-  snprintf(output, LINE, "%s", argv[++count]); //}}}
+  char file_surf[LINE] = "";
+  snprintf(file_surf, LINE, "%s", argv[++count]);
+  char file_area[LINE] = "";
+  snprintf(file_area, LINE, "%s", argv[++count]);
   // <axis> - x, y, or z //{{{
   int axis, // which axis? 0=x, 1=y, 2=z
       map[2]; // map the remaining two axes based on the 'axis' variable
@@ -150,6 +152,12 @@ int main(int argc, char *argv[]) {
 
   // open input coordinate file
   FILE *fr = OpenFile(coor_file, "r");
+
+  // write initial stuff to the per-timestep area
+  PrintByline(file_area, argc, argv);
+  FILE *out = OpenFile(file_area, "a");
+  fprintf(out, "# (1) timestep; (2) surface 1; (3) surface 2; "
+          "(4) middle surface\n");
 
   // main loop //{{{
   int count_coor = 0, // count calculated timesteps
@@ -324,13 +332,12 @@ int main(int argc, char *argv[]) {
       } //}}}
 
       // calculate total area as a sum of areas of triangles //{{{
-      double sum_area[2] = {0, 0};
-      int triangles[2] = {0, 0};
+      double sum_area[3] = {0, 0, 0};
+      int triangles[3] = {0, 0, 0};
       count = 0;
       int bins_true[2];
       bins_true[0] = System.Box.Length[0] / width + 1;
       bins_true[1] = System.Box.Length[1] / width + 1;
-      // printf("bins_true: %d %d\n", bins_true[0], bins_true[1]);
       // TODO: no idea why fmod() sometimes returns 'width' (i.e., the divisor)
       double remainder[2];
       remainder[0] = fmod(System.Box.Length[0],width);
@@ -346,11 +353,9 @@ int main(int argc, char *argv[]) {
         temp[i][bins_true[1]-1][1] = temp[i][0][1];
       }
       for (int j = 0; j < bins_true[1]; j++) {
-        // printf("WTF: %d %d\n", bins_true[0]-1, values[0][j][0]);
         temp[bins_true[0]-1][j][0] = temp[0][j][0];
         temp[bins_true[0]-1][j][1] = temp[0][j][1];
       }
-      // printf("bins_true: %d %d\n", bins_true[0], bins_true[1]);
       for (int i = 0; i < (bins_true[0] - 1); i++) {
         for (int j = 0; j < (bins_true[1] - 1); j++) {
           count++;
@@ -360,23 +365,13 @@ int main(int argc, char *argv[]) {
           if (temp[i][j][0] < Box->Length[axis] &&
               temp[i+1][j][0] < Box->Length[axis] &&
               temp[i+1][j+1][0] < Box->Length[axis]) {
-            double A[3], B[3], C[3];
-            A[0] = 0;
-            A[1] = 0;
+            double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
             A[2] = temp[i][j][0];
-            // A[2] = 0;
             B[0] = width;
-            B[1] = 0;
             B[2] = temp[i+1][j][0];
-            // B[2] = 0;
             C[0] = width;
             C[1] = width;
             C[2] = temp[i+1][j+1][0];
-            // C[2] = 0;
-            // printf("1st:\n");
-            // printf("%lf %lf %lf\n", A[0], A[1], A[2]);
-            // printf("%lf %lf %lf\n", B[0], B[1], B[2]);
-            // printf("%lf %lf %lf\n", C[0], C[1], C[2]);
             double AB[3], AC[3], BC[3];
             for (int dd = 0; dd < 3; dd++) {
               AB[dd] = B[dd] - A[dd];
@@ -394,7 +389,6 @@ int main(int argc, char *argv[]) {
             c = sqrt(c);
             double s = (a + b + c) / 2;
             double area = sqrt(s * (s - a) * (s - b) * (s - c));
-            // printf(" %lf %lf %lf -> %lf\n", a, b, c, area);
             sum_area[0] += area;
             triangles[0]++;
           }
@@ -402,23 +396,13 @@ int main(int argc, char *argv[]) {
           if (temp[i][j][0] < Box->Length[axis] &&
               temp[i][j+1][0] < Box->Length[axis] &&
               temp[i+1][j+1][0] < Box->Length[axis]) {
-            double A[3], B[3], C[3];
-            A[0] = 0;
-            A[1] = 0;
+            double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
             A[2] = temp[i][j][0];
-            // A[2] = 0;
-            B[0] = 0;
             B[1] = width;
             B[2] = temp[i][j+1][0];
-            // B[2] = 0;
             C[0] = width;
             C[1] = width;
             C[2] = temp[i+1][j+1][0];
-            // C[2] = 0;
-            // printf("2nd:\n");
-            // printf("%lf %lf %lf\n", A[0], A[1], A[2]);
-            // printf("%lf %lf %lf\n", B[0], B[1], B[2]);
-            // printf("%lf %lf %lf\n", C[0], C[1], C[2]);
             double AB[3], AC[3], BC[3];
             for (int dd = 0; dd < 3; dd++) {
               AB[dd] = B[dd] - A[dd];
@@ -436,7 +420,6 @@ int main(int argc, char *argv[]) {
             c = sqrt(c);
             double s = (a + b + c) / 2;
             double area = sqrt(s * (s - a) * (s - b) * (s - c));
-            // printf(" %lf %lf %lf -> %lf\n", a, b, c, area);
             sum_area[0] += area;
             triangles[0]++;
           }
@@ -446,12 +429,9 @@ int main(int argc, char *argv[]) {
           if (temp[i][j][1] > 0 &&
               temp[i+1][j][1] > 0 &&
               temp[i+1][j+1][1] > 0) {
-            double A[3], B[3], C[3];
-            A[0] = 0;
-            A[1] = 0;
+            double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
             A[2] = temp[i][j][1];
             B[0] = width;
-            B[1] = 0;
             B[2] = temp[i+1][j][1];
             C[0] = width;
             C[1] = width;
@@ -480,11 +460,8 @@ int main(int argc, char *argv[]) {
           if (temp[i][j][1] > 0 &&
               temp[i][j+1][1] > 0 &&
               temp[i+1][j+1][1] > 0) {
-            double A[3], B[3], C[3];
-            A[0] = 0;
-            A[1] = 0;
+            double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
             A[2] = temp[i][j][1];
-            B[0] = 0;
             B[1] = width;
             B[2] = temp[i][j+1][1];
             C[0] = width;
@@ -511,27 +488,95 @@ int main(int argc, char *argv[]) {
             triangles[1]++;
           }
           //}}}
+          // 'middle' surface //{{{
+          // first triangle
+          if (temp[i][j][0] < Box->Length[axis] &&
+              temp[i+1][j][0] < Box->Length[axis] &&
+              temp[i+1][j+1][0] < Box->Length[axis] &&
+              temp[i][j][1] > 0 &&
+              temp[i+1][j][1] > 0 &&
+              temp[i+1][j+1][1] > 0) {
+            double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
+            A[2] = (temp[i][j][0] + temp[i][j][1]) / 2;
+            B[0] = width;
+            B[2] = (temp[i+1][j][0] + temp[i+1][j][1]) / 2;
+            C[0] = width;
+            C[1] = width;
+            C[2] = (temp[i+1][j+1][0] + temp[i+1][j+1][1]) / 2;
+            // C[2] = 0;
+            double AB[3], AC[3], BC[3];
+            for (int dd = 0; dd < 3; dd++) {
+              AB[dd] = B[dd] - A[dd];
+              AC[dd] = C[dd] - A[dd];
+              BC[dd] = C[dd] - B[dd];
+            }
+            double a = 0, b = 0, c = 0;
+            for (int dd = 0; dd < 3; dd++) {
+              a += SQR(BC[dd]);
+              b += SQR(AC[dd]);
+              c += SQR(AB[dd]);
+            }
+            a = sqrt(a);
+            b = sqrt(b);
+            c = sqrt(c);
+            double s = (a + b + c) / 2;
+            double area = sqrt(s * (s - a) * (s - b) * (s - c));
+            sum_area[2] += area;
+            triangles[2]++;
+          }
+          // second triangle
+          if (temp[i][j][0] < Box->Length[axis] &&
+              temp[i][j+1][0] < Box->Length[axis] &&
+              temp[i+1][j+1][0] < Box->Length[axis] &&
+              temp[i][j][1] > 0 &&
+              temp[i][j+1][1] > 0 &&
+              temp[i+1][j+1][1] > 0) {
+            double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
+            A[2] = (temp[i][j][0] + temp[i][j][1]) / 2;
+            B[1] = width;
+            B[2] = (temp[i][j+1][0] + temp[i][j+1][1]) / 2;
+            C[0] = width;
+            C[1] = width;
+            C[2] = (temp[i+1][j+1][0] + temp[i+1][j+1][1]) / 2;
+            double AB[3], AC[3], BC[3];
+            for (int dd = 0; dd < 3; dd++) {
+              AB[dd] = B[dd] - A[dd];
+              AC[dd] = C[dd] - A[dd];
+              BC[dd] = C[dd] - B[dd];
+            }
+            double a = 0, b = 0, c = 0;
+            for (int dd = 0; dd < 3; dd++) {
+              a += SQR(BC[dd]);
+              b += SQR(AC[dd]);
+              c += SQR(AB[dd]);
+            }
+            a = sqrt(a);
+            b = sqrt(b);
+            c = sqrt(c);
+            double s = (a + b + c) / 2;
+            double area = sqrt(s * (s - a) * (s - b) * (s - c));
+            sum_area[2] += area;
+            triangles[2]++;
+          }
+          //}}}
         }
       }
 
       // int n_triangles = (bins[0] - 1) * (bins[1] - 1)  * 2;
       int n_triangles = (bins_true[0] - 1) * (bins_true[1] -1) * 2;
-      double avg_triangle[2];
+      double avg_triangle[3];
       avg_triangle[0] = sum_area[0] / triangles[0];
       avg_triangle[1] = sum_area[1] / triangles[1];
+      avg_triangle[2] = sum_area[2] / triangles[2];
       sum_area[0] += avg_triangle[0] * (n_triangles - triangles[0]);
       sum_area[1] += avg_triangle[1] * (n_triangles - triangles[1]);
-      // printf("area = %lf (from %d triangles out of %d)\n",
-      //        sum_area[0], triangles[0], n_triangles);
-      // printf("       %lf (from %d triangles out of %d)\n",
-      //        sum_area[1], triangles[1], n_triangles);
+      sum_area[2] += avg_triangle[2] * (n_triangles - triangles[2]);
       double Length_area = System.Box.Length[0] * System.Box.Length[1];
       double width_area = (bins_true[0] - 1) * (bins_true[1] - 1) * SQR(width);
-      // printf("Box.Length[0]×Box.Length[1] = %lf\n", Length_area);
-      // printf("SQR(width)×bins_true[0]×bins_true[1] = %lf\n", width_area);
-      // printf("%lf %lf  ", sum_area[0], sum_area[1]);
-      printf("%lf %lf\n", sum_area[0]*Length_area/width_area,
-                          sum_area[1]*Length_area/width_area);
+      fprintf(out, "%d %lf %lf %lf\n", count_coor,
+                                       sum_area[0]*Length_area/width_area,
+                                       sum_area[1]*Length_area/width_area,
+                                       sum_area[2]*Length_area/width_area);
       //}}}
 
       // free the temporary array //{{{
@@ -557,6 +602,7 @@ int main(int argc, char *argv[]) {
     }
   }
   fclose(fr);
+  fclose(out);
   // print last step?
   if (!silent) {
     if (isatty(STDOUT_FILENO)) {
@@ -567,9 +613,9 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // write surface to output file //{{{
-  PrintByline(output, argc, argv);
+  PrintByline(file_surf, argc, argv);
   // print legend
-  FILE *out = OpenFile(output, "w");
+  out = OpenFile(file_surf, "a");
   char a[3] = {'x', 'y', 'z'};
   fprintf(out, "# (1) %c coordinate; (2) %c coordinate;", a[map[0]], a[map[1]]);
   fprintf(out, " (3) surface 1; (4) surface 2\n");
@@ -595,16 +641,12 @@ int main(int argc, char *argv[]) {
   fclose(out); //}}}
 
   // calculate total area as a sum of areas of triangles
-  double sum_area[2] = {0, 0};
-  int triangles[2] = {0, 0};
+  double sum_area[3] = {0, 0, 0};
+  int triangles[3] = {0, 0, 0};
   count = 0;
   int bins_true[2];
-  // printf("%lf %d\n", System.Box.Length[0]/width+1, (int)(System.Box.Length[0]/width+1));
   bins_true[0] = System.Box.Length[0] / width + 1;
   bins_true[1] = System.Box.Length[1] / width + 1;
-  // bins_true[0]--;
-  // bins_true[1]--;
-  // printf("bins_true: %d %d\n", bins_true[0], bins_true[1]);
   // TODO: no idea why fmod() sometimes returns 'width' (i.e., the divisor)
   double remainder[2];
   remainder[0] = fmod(System.Box.Length[0],width);
@@ -615,8 +657,6 @@ int main(int argc, char *argv[]) {
   if (fabs(remainder[1]) > 0.001 && fabs(remainder[1]-width) > 0.001) {
     bins_true[1]++;
   }
-  // printf("%lf %lf %lf \n", System.Box.Length[1], width, fmod(System.Box.Length[1],width));
-  // printf("fmod(36,1.8)=%lf %lf\n", fmod(36,1.8), 36/1.8-(int)(36/1.8));
   for (int i = 0; i < bins_true[0]; i++) {
     values[i][bins_true[1]-1][0] = values[i][0][0];
     values[i][bins_true[1]-1][1] = values[i][0][1];
@@ -624,36 +664,26 @@ int main(int argc, char *argv[]) {
     surf[i][bins_true[1]-1][1] = surf[i][0][1];
   }
   for (int j = 0; j < bins_true[1]; j++) {
-    // printf("WTF: %d %d\n", bins_true[0]-1, values[0][j][0]);
     values[bins_true[0]-1][j][0] = values[0][j][0];
     values[bins_true[0]-1][j][1] = values[0][j][1];
     surf[bins_true[0]-1][j][0] = surf[0][j][0];
     surf[bins_true[0]-1][j][1] = surf[0][j][1];
   }
-  // printf("bins_true: %d %d\n", bins_true[0], bins_true[1]);
   for (int i = 0; i < (bins_true[0] - 1); i++) {
     for (int j = 0; j < (bins_true[1] - 1); j++) {
       count++;
       // first surface //{{{
       // first triangle
-      if (values[i][j][0] > 0 && values[i+1][j][0] > 0 && values[i+1][j+1][0] > 0) {
-        double A[3], B[3], C[3];
-        A[0] = 0;
-        A[1] = 0;
+      if (values[i][j][0] > 0 &&
+          values[i+1][j][0] > 0 &&
+          values[i+1][j+1][0] > 0) {
+        double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
         A[2] = surf[i][j][0] / values[i][j][0];
-        // A[2] = 0;
         B[0] = width;
-        B[1] = 0;
         B[2] = surf[i+1][j][0] / values[i+1][j][0];
-        // B[2] = 0;
         C[0] = width;
         C[1] = width;
         C[2] = surf[i+1][j+1][0] / values[i+1][j+1][0];
-        // C[2] = 0;
-        // printf("1st:\n");
-        // printf("%lf %lf %lf\n", A[0], A[1], A[2]);
-        // printf("%lf %lf %lf\n", B[0], B[1], B[2]);
-        // printf("%lf %lf %lf\n", C[0], C[1], C[2]);
         double AB[3], AC[3], BC[3];
         for (int dd = 0; dd < 3; dd++) {
           AB[dd] = B[dd] - A[dd];
@@ -671,29 +701,21 @@ int main(int argc, char *argv[]) {
         c = sqrt(c);
         double s = (a + b + c) / 2;
         double area = sqrt(s * (s - a) * (s - b) * (s - c));
-        // printf(" %lf %lf %lf -> %lf\n", a, b, c, area);
         sum_area[0] += area;
         triangles[0]++;
       }
       // second triangle
-      if (values[i][j][0] > 0 && values[i][j+1][0] > 0 && values[i+1][j+1][0] > 0) {
-        double A[3], B[3], C[3];
-        A[0] = 0;
-        A[1] = 0;
+      if (values[i][j][0] > 0 &&
+          values[i][j+1][0] > 0 &&
+          values[i+1][j+1][0] > 0) {
+        double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
         A[2] = surf[i][j][0] / values[i][j][0];
-        // A[2] = 0;
         B[0] = 0;
         B[1] = width;
         B[2] = surf[i][j+1][0] / values[i][j+1][0];
-        // B[2] = 0;
         C[0] = width;
         C[1] = width;
         C[2] = surf[i+1][j+1][0] / values[i+1][j+1][0];
-        // C[2] = 0;
-        // printf("2nd:\n");
-        // printf("%lf %lf %lf\n", A[0], A[1], A[2]);
-        // printf("%lf %lf %lf\n", B[0], B[1], B[2]);
-        // printf("%lf %lf %lf\n", C[0], C[1], C[2]);
         double AB[3], AC[3], BC[3];
         for (int dd = 0; dd < 3; dd++) {
           AB[dd] = B[dd] - A[dd];
@@ -711,20 +733,18 @@ int main(int argc, char *argv[]) {
         c = sqrt(c);
         double s = (a + b + c) / 2;
         double area = sqrt(s * (s - a) * (s - b) * (s - c));
-        // printf(" %lf %lf %lf -> %lf\n", a, b, c, area);
         sum_area[0] += area;
         triangles[0]++;
       }
       //}}}
       // second surface //{{{
       // first triangle
-      if (values[i][j][1] > 0 && values[i+1][j][1] > 0 && values[i+1][j+1][1] > 0) {
-        double A[3], B[3], C[3];
-        A[0] = 0;
-        A[1] = 0;
+      if (values[i][j][1] > 0 &&
+          values[i+1][j][1] > 0 &&
+          values[i+1][j+1][1] > 0) {
+        double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
         A[2] = surf[i][j][1] / values[i][j][1];
         B[0] = width;
-        B[1] = 0;
         B[2] = surf[i+1][j][1] / values[i+1][j][1];
         C[0] = width;
         C[1] = width;
@@ -750,12 +770,11 @@ int main(int argc, char *argv[]) {
         triangles[1]++;
       }
       // second triangle
-      if (values[i][j][1] > 0 && values[i][j+1][1] > 0 && values[i+1][j+1][1] > 0) {
-        double A[3], B[3], C[3];
-        A[0] = 0;
-        A[1] = 0;
+      if (values[i][j][1] > 0 &&
+          values[i][j+1][1] > 0 &&
+          values[i+1][j+1][1] > 0) {
+        double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
         A[2] = surf[i][j][1] / values[i][j][1];
-        B[0] = 0;
         B[1] = width;
         B[2] = surf[i][j+1][1] / values[i][j+1][1];
         C[0] = width;
@@ -782,24 +801,108 @@ int main(int argc, char *argv[]) {
         triangles[1]++;
       }
       //}}}
+      // 'middle' surface //{{{
+      // first triangle
+      if (values[i][j][0] > 0 &&
+          values[i+1][j][0] > 0 &&
+          values[i+1][j+1][0] > 0 &&
+          values[i][j][1] > 0 &&
+          values[i+1][j][1] > 0 &&
+          values[i+1][j+1][1] > 0) {
+        double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
+        A[2] =  surf[i][j][0] / values[i][j][0];
+        A[2] += surf[i][j][1] / values[i][j][1];
+        A[2] /= 2;
+        B[0] = width;
+        B[2] =  surf[i+1][j][0] / values[i+1][j][0];
+        B[2] += surf[i+1][j][1] / values[i+1][j][1];
+        B[2] /= 2;
+        C[0] = width;
+        C[1] = width;
+        C[2] =  surf[i+1][j+1][0] / values[i+1][j+1][0];
+        C[2] += surf[i+1][j+1][1] / values[i+1][j+1][1];
+        C[2] /= 2;
+        double AB[3], AC[3], BC[3];
+        for (int dd = 0; dd < 3; dd++) {
+          AB[dd] = B[dd] - A[dd];
+          AC[dd] = C[dd] - A[dd];
+          BC[dd] = C[dd] - B[dd];
+        }
+        double a = 0, b = 0, c = 0;
+        for (int dd = 0; dd < 3; dd++) {
+          a += SQR(BC[dd]);
+          b += SQR(AC[dd]);
+          c += SQR(AB[dd]);
+        }
+        a = sqrt(a);
+        b = sqrt(b);
+        c = sqrt(c);
+        double s = (a + b + c) / 2;
+        double area = sqrt(s * (s - a) * (s - b) * (s - c));
+        sum_area[2] += area;
+        triangles[2]++;
+      }
+      // second triangle
+      if (values[i][j][0] > 0 &&
+          values[i][j+1][0] > 0 &&
+          values[i+1][j+1][0] > 0 &&
+          values[i][j][1] > 0 &&
+          values[i][j+1][1] > 0 &&
+          values[i+1][j+1][1] > 0) {
+        double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
+        A[2] =  surf[i][j][0] / values[i][j][0];
+        A[2] += surf[i][j][1] / values[i][j][1];
+        A[2] /= 2;
+        B[1] = width;
+        B[2] =  surf[i][j+1][0] / values[i][j+1][0];
+        B[2] += surf[i][j+1][1] / values[i][j+1][1];
+        B[2] /= 2;
+        C[0] = width;
+        C[1] = width;
+        C[2] =  surf[i+1][j+1][0] / values[i+1][j+1][0];
+        C[2] += surf[i+1][j+1][1] / values[i+1][j+1][1];
+        C[2] /= 2;
+        double AB[3], AC[3], BC[3];
+        for (int dd = 0; dd < 3; dd++) {
+          AB[dd] = B[dd] - A[dd];
+          AC[dd] = C[dd] - A[dd];
+          BC[dd] = C[dd] - B[dd];
+        }
+        double a = 0, b = 0, c = 0;
+        for (int dd = 0; dd < 3; dd++) {
+          a += SQR(BC[dd]);
+          b += SQR(AC[dd]);
+          c += SQR(AB[dd]);
+        }
+        a = sqrt(a);
+        b = sqrt(b);
+        c = sqrt(c);
+        double s = (a + b + c) / 2;
+        double area = sqrt(s * (s - a) * (s - b) * (s - c));
+        sum_area[2] += area;
+        triangles[2]++;
+      }
+      //}}}
     }
   }
 
   // int n_triangles = (bins[0] - 1) * (bins[1] - 1)  * 2;
   int n_triangles = (bins_true[0] - 1) * (bins_true[1] -1) * 2;
-  double avg_triangle[2];
-  avg_triangle[0] = sum_area[0] / triangles[0];
-  avg_triangle[1] = sum_area[1] / triangles[1];
-  sum_area[0] += avg_triangle[0] * (n_triangles - triangles[0]);
-  sum_area[1] += avg_triangle[1] * (n_triangles - triangles[1]);
-  // printf("area = %lf (from %d triangles out of %d)\n", sum_area[0], triangles[0], n_triangles);
-  // printf("       %lf (from %d triangles out of %d)\n", sum_area[1], triangles[1], n_triangles);
+  double avg_triangle[3];
+  for (int dd = 0; dd < 3; dd++) {
+    avg_triangle[dd] = sum_area[dd] / triangles[dd];
+  }
+  for (int dd = 0; dd < 3; dd++) {
+    sum_area[dd] += avg_triangle[dd] * (n_triangles - triangles[dd]);
+  }
   double Length_area = System.Box.Length[0] * System.Box.Length[1];
   double width_area = (bins_true[0] - 1) * (bins_true[1] - 1) * SQR(width);
-  // printf("Box.Length[0]×Box.Length[1] = %lf\n", Length_area);
-  // printf("SQR(width)×bins_true[0]×bins_true[1] = %lf\n", width_area);
-  // printf("%lf %lf  ", sum_area[0], sum_area[1]);
-  printf("%lf %lf\n", sum_area[0]*Length_area/width_area, sum_area[1]*Length_area/width_area);
+  out = OpenFile(file_area, "a");
+  fprintf(out, "# average: (1) surface 1; (2) surface 2; (3) middle surface\n");
+  fprintf(out, "# %lf %lf %lf\n", sum_area[0]*Length_area/width_area,
+                                  sum_area[1]*Length_area/width_area,
+                                  sum_area[2]*Length_area/width_area);
+  fclose(out);
 
   // free memory - to make valgrind happy //{{{
   FreeSystem(&System);

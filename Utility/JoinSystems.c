@@ -1,5 +1,7 @@
 #include "../AnalysisTools.h"
 
+// TODO: --real switch for the -b and -off options
+
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
@@ -192,13 +194,13 @@ int main(int argc, char *argv[]) {
   fclose(fr);
   AddLow(&Sys_2); //}}}
 
-  // make proper offset vector
+  // make proper offset vector //{{{
   for (int dd = 0; dd < 3; dd++) {
     if (offset[dd] == -11111) { // a)
       offset[dd] = (box1->Low[dd] + 0.5 * box1->Length[dd]) -
                    (box2->Low[dd] + 0.5 * box2->Length[dd]);
     }
-  }
+  } //}}}
 
   // move the beads of the second system //{{{
   for (int i = 0; i < Sys_2.Count.Bead; i++) {

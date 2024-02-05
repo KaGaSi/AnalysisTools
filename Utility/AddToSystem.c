@@ -46,6 +46,8 @@ exchanged for the new ones.\n\n");
                "dimensions (in fraction of output box)\n");
   fprintf(ptr, "  --real            use real coordinates for -cx/-cy/-cz\n");
   fprintf(ptr, "  -b <x> <y> <z>    new box dimensions\n");
+  fprintf(ptr, "  -off 3×<float>    offset of the original system"
+          " (in fraction of input box)\n");
   fprintf(ptr, "  -s <int>          seed for random number generator\n");
   CommonHelp(error, n, opt);
 } //}}}
@@ -169,7 +171,7 @@ void Rotate(SYSTEM System, int number, int *list,
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 7, all = common + 16, count = 0, req_arg = 3;
+  int common = 7, all = common + 17, count = 0, req_arg = 3;
   char option[all][OPT_LENGTH];
   // common options
   strcpy(option[count++], "-st");
@@ -195,6 +197,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-cz");
   strcpy(option[count++], "--real");
   strcpy(option[count++], "-b");
+  strcpy(option[count++], "-off");
   strcpy(option[count++], "-s");
   OptionCheck(argc, argv, count, req_arg, common, all, option);
   //}}}
@@ -333,7 +336,7 @@ int main(int argc, char *argv[]) {
   bool head = BoolOption(argc, argv, "--head");
   // output box dimensions //{{{
   BOX box_opt = InitBox;
-  double temp[3] = {0};
+  double temp[3] = {0, 0, 0};
   if (DoubleOption3(argc, argv, "-b", temp)) {
     box_opt.Length[0] = temp[0];
     box_opt.Length[1] = temp[1];
@@ -348,6 +351,9 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
   } //}}}
+  // -off option
+  double offset[3] = {0, 0, 0};
+  DoubleOption3(argc, argv, "-off", offset);
   // seed for random number generator (-s option)
   int seed = -1;
   IntegerOption1(argc, argv, "-s", &seed);
@@ -463,6 +469,21 @@ int main(int argc, char *argv[]) {
       PrintBox(box_opt);
     }
     *box = box_opt;
+  } //}}}
+
+  // move the beads (-off option) //{{{
+  if (!new) {
+    if (!real) {
+      for (int dd = 0; dd < 3; dd++) {
+        offset[dd] *= S_orig.Box.Length[dd];
+      }
+    }
+    for (int i = 0; i < S_orig.Count.Bead; i++) {
+      int id = S_orig.BeadCoor[i];
+      for (int dd = 0; dd < 3; dd++) {
+        S_orig.Bead[id].Position[dd] += offset[dd];
+      }
+    }
   } //}}}
 
   // minimize initial coordinates of added molecules //{{{
