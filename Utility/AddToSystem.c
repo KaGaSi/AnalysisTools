@@ -44,10 +44,11 @@ exchanged for the new ones.\n\n");
                "dimensions (in fraction of output box)\n");
   fprintf(ptr, "  -cz 2×<float>     constrain z-coordinate to specified "
                "dimensions (in fraction of output box)\n");
-  fprintf(ptr, "  --real            use real coordinates for -cx/-cy/-cz\n");
-  fprintf(ptr, "  -b <x> <y> <z>    new box dimensions\n");
+  fprintf(ptr, "  --real            use real coordinates for "
+          "-cx/-cy/-cz/-off options instead of fractions\n");
+  fprintf(ptr, "  -b <x> <y> <z>    new box dimensions (in real units)\n");
   fprintf(ptr, "  -off 3×<float>    offset of the original system"
-          " (in fraction of input box)\n");
+          " (in fractions of the output box)\n");
   fprintf(ptr, "  -s <int>          seed for random number generator\n");
   CommonHelp(error, n, opt);
 } //}}}
@@ -67,8 +68,8 @@ void RandomCoordinate(BOX box, double random[3]) {
  *   2...specified bead types,
  */
 void RandomConstrainedCoor(BOX constrain, SYSTEM S_orig, bool bt_use_orig[],
-                           int mode, double box[3], double lowest_dist,
-                           double highest_dist, double random[3]) {
+                           int mode, double box[3], bool ld, double lowest_dist,
+                           bool hd, double highest_dist, double random[3]) {
   // VECTOR random;
   double min_dist = 0;
   do {
@@ -117,8 +118,8 @@ void RandomConstrainedCoor(BOX constrain, SYSTEM S_orig, bool bt_use_orig[],
         }
       }
     }
-  } while ((lowest_dist != -1 && lowest_dist >= min_dist) ||
-           (highest_dist != -1 && highest_dist <= min_dist));
+  } while ((ld && lowest_dist >= min_dist) ||
+           (hd && highest_dist <= min_dist));
 } //}}}
 
 // rotate randomly given collection of beads (e.g., a molecule) //{{{
@@ -250,11 +251,19 @@ int main(int argc, char *argv[]) {
     out2_type = FileType(out2_file);
   } //}}}
   // lowest and/or highest distance from specified beads //{{{
-  double lowest_dist = -1, highest_dist = -1;
+  double lowest_dist = 0, highest_dist = 0;
+  bool ld = false, hd = false;
   if (!new) { // only if not generating system from scratch
-    DoubleOption1(argc, argv, "-ld", &lowest_dist);
-    DoubleOption1(argc, argv, "-hd", &highest_dist);
-    if (lowest_dist != -1 && highest_dist != -1 && lowest_dist >= highest_dist) {
+    ld = DoubleOption1(argc, argv, "-ld", &lowest_dist);
+    hd = DoubleOption1(argc, argv, "-hd", &highest_dist);
+    if ((ld && lowest_dist <= 0) || (hd && highest_dist <= 0)) {
+      strcpy(ERROR_MSG, "highest/lowest distance must be positive real number");
+      PrintErrorOption("-ld/-hd");
+      PrintCommand(stderr, argc, argv);
+      Help(argv[0], true, common, option);
+      exit(1);
+    }
+    if (ld && hd && lowest_dist >= highest_dist) {
       strcpy(ERROR_MSG, "highest distance must be higher than lowest distance");
       PrintErrorOption("-ld/-hd");
       PrintCommand(stderr, argc, argv);
@@ -262,7 +271,7 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
     // error: missing -bt and/or --bonded when -ld and/or -hd are used //{{{
-    if (highest_dist != -1 || lowest_dist != -1) {
+    if (hd || ld) {
       bool bt = false;
       for (int i = 0; i < argc; i++) {
         if (strcmp(argv[i], "-bt") == 0 || strcmp(argv[i], "--bonded") == 0) {
@@ -618,7 +627,7 @@ int main(int argc, char *argv[]) {
     box_constrain.Length[dd] = S_out.Box.Length[dd];
   }
   // minimize box if -hd is used
-  if (!new && highest_dist != -1) {
+  if (!new && hd) {
     // find minimum/maximum coordinates of beads for distance check //{{{
     double max[3] = {0, 0, 0}, min[3];
     for (int dd = 0; dd < 3; dd++) {
@@ -702,7 +711,8 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < S_add.Count.Unbonded; i++) {
     double random[3];
     RandomConstrainedCoor(box_constrain, S_orig, bt_use_orig, mode,
-                          S_out.Box.Length, lowest_dist, highest_dist, random);
+                          S_out.Box.Length, ld, lowest_dist,
+                          hd, highest_dist, random);
     int id = S_orig.Count.Bead + i;
     for (int dd = 0; dd < 3; dd++) {
       S_out.Bead[id].Position[dd] = random[dd];
@@ -740,7 +750,8 @@ int main(int argc, char *argv[]) {
     }
     double random[3];
     RandomConstrainedCoor(box_constrain, S_orig, bt_use_orig, mode,
-                          S_out.Box.Length, lowest_dist, highest_dist, random);
+                          S_out.Box.Length, ld, lowest_dist,
+                          hd, highest_dist, random);
     for (int j = 0; j < S_out.MoleculeType[mtype].nBeads; j++) {
       int id = S_out.Molecule[i].Bead[j];
       for (int dd = 0; dd < 3; dd++) {

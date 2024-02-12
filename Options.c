@@ -84,7 +84,9 @@ int OptionCheck(int argc, char *argv[], int auto_c, int req,
   for (int i = (count+1); i < argc; i++) {
     bool valid = false;
     for (int j = 0; j < all; j++) {
+      double value;
       if (argv[i][0] != '-' || // assumes an argument to some option
+          IsRealNumber(argv[i], &value) || // assumes negative numeric argument
           strcmp(argv[i], opt[j]) == 0) {
         valid = true;
         break;
@@ -92,7 +94,7 @@ int OptionCheck(int argc, char *argv[], int auto_c, int req,
     }
     if (!valid) {
       ErrorOption(argv[i]);
-    PrintCommand(stderr, argc, argv);
+      PrintCommand(stderr, argc, argv);
       Help(argv[0], true, common, opt);
       exit(1);
     }
@@ -367,14 +369,8 @@ bool DoubleOption(int argc, char *argv[], int max,
       int n = 0; // number of arguments
       // read integers
       int arg = i+1+n;
-      while (arg < argc && argv[arg][0] != '-') {
-        // Error - non-numeric or missing argument
-        double val;
-        if (!IsRealNumber(argv[arg], &val)) {
-          strcpy(ERROR_MSG, "each argument must be non-negative whole number");
-          PrintErrorOption(opt);
-          return true;
-        }
+      double val;
+      while (arg < argc && IsRealNumber(argv[arg], &val)) {
         values[n] = val;
         n++;
         arg = i+1+n;

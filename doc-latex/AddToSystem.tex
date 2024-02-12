@@ -23,42 +23,50 @@ to achieve, the utility will run forever. See \cref{fig:AddToSystem} for
 schematic examples.
 
 \begin{figure}[b]
-  \renewcommand\tabularxcolumn[1]{m{#1}} % to vertically centre figures
-  \begin{tabularx}{\linewidth}{*{5}{>{\centering\arraybackslash}X}}
-    \includegraphics[width=0.19\textwidth]{AddToSystem-A-ld.jpg} &
-    \includegraphics[width=0.19\textwidth]{AddToSystem-A-hd.jpg} &
-    \includegraphics[width=0.19\textwidth]{AddToSystem-A-ld_hd.jpg} &
-    \includegraphics[width=0.19\textwidth]{AddToSystem-A-ld_hd_cx.jpg} &
-    \includegraphics[width=0.19\textwidth]{AddToSystem-A-ld_hd_cx_b.jpg}\\
-    \begin{subfigure}{0.19\textwidth}
-      \caption{}
-    \end{subfigure} &
-    \begin{subfigure}{0.19\textwidth}
-      \caption{}
-    \end{subfigure} &
-    \begin{subfigure}{0.19\textwidth}
-      \caption{}
-    \end{subfigure} &
-    \begin{subfigure}{0.19\textwidth}
-      \caption{}
-    \end{subfigure} &
-    \begin{subfigure}{0.19\textwidth}
-      \caption{}
-    \end{subfigure} \\
-  \end{tabularx}
+  \centering
+  \begin{subfigure}{0.20\textwidth}
+    \includegraphics[height=0.9\textwidth]{AddToSystem-A-ld.jpg}
+    \caption{}
+  \end{subfigure}
+  \hspace{15pt}
+  \begin{subfigure}{0.20\textwidth}
+    \includegraphics[height=0.9\textwidth]{AddToSystem-A-hd.jpg}
+    \caption{}
+  \end{subfigure}
+  \hspace{15pt}
+  \begin{subfigure}{0.20\textwidth}
+    \includegraphics[height=0.9\textwidth]{AddToSystem-A-ld_hd.jpg}
+    \caption{}
+  \end{subfigure}
+
+  \begin{subfigure}{0.20\textwidth}
+    \includegraphics[height=0.9\textwidth]{AddToSystem-A-ld_hd_cx.jpg}
+    \caption{}
+  \end{subfigure}
+  \hspace{15pt}
+  \begin{subfigure}{0.20\textwidth}
+    \includegraphics[width=1.0\textwidth]{AddToSystem-A-ld_hd_cx_b.jpg}
+    \caption{}
+  \end{subfigure}
+  \hspace{15pt}
+  \begin{subfigure}{0.20\textwidth}
+    \includegraphics[width=1.0\textwidth]{AddToSystem-A-ld_hd_cx_b_off.jpg}
+    \caption{}
+  \end{subfigure}
   \caption{
-    Examples of distance checks: (a) \tt{-ld 3 -bt A B} specifies that any added
-    bead (green) is at least at a distance of three from any \tt{A} or \tt{B}
-    bead (red and blue, respectively); (b) \tt{-hd 4 -bt A B} specifies added
-    beads are at most four units away from any \tt{A} or \tt{B} bead; (c)
-    combines (a) and (b) into \tt{-ld 3 -hd 4 -bt A B}, that is, new beads are
-    added at a distance between three and for from any \tt{A} or \tt{B} bead;
-    (d) combines (c) with axis constraint into \tt{-ld 3 -hd 4 -cx 0.5 1 -bt A
-    B} which constrains the x-coordinate of new beads between 50\% and 100\% of
-    the box's x sidelength; (e) adds \tt{-b 30 20 25} to the options in (d),
-    changing the box size.
-  }
-  \label{fig:AddToSystem}
+    Examples of distance checks (cross-section snapshots): (a) \tt{-ld 3 -bt A
+    B} specifies that any added bead (green) is at least at a distance of three
+    from any \tt{A} or \tt{B} bead (red and blue, respectively); (b) \tt{-hd 4
+    -bt A B} specifies added beads are at most four units away from any \tt{A}
+    or \tt{B} bead; (c) combines (a) and (b) into \tt{-ld 3 -hd 4 -bt A B}, that
+    is, new beads are added at a distance between three and four from any \tt{A}
+    or \tt{B} bead; (d) combines (c) with axis constraint into \tt{-ld 3 -hd 4
+    -cx 0.5 1 -bt A B} which constrains the x-coordinate of new beads between
+    50\% and 100\% of the box's x sidelength; (e) adds \tt{-b 30 20 25} to the
+    options in (d), changing the box size; finally, (f) also moves the original
+    system, adding \tt{-off -0.2 0.2 0}. See \tt{Examples/AddToSystem} directory
+    for source of these examples.
+  }\label{fig:AddToSystem}
 \end{figure}
 
 For added molecules, either the molecule's geometric centre (default behaviour)
@@ -70,7 +78,7 @@ when \tt{--no-rotate} switch is used, the molecules are not rotated, but when
 \tt{-a} option is used, all the molecules are rotated by the three angles
 specified in degrees.
 
-The $\alpha$, $\beta$, and $\gamma$ angles in the \tt{-a <alpha> <beta> <gamma>}
+The $\alpha$, $\beta$, and $\gamma$ angles in \tt{-a <alpha> <beta> <gamma>}
 represent yaw, pitch, and roll, respectively. To put it in other words, it is an
 intrinsic rotation with Tait-Bryan angles $\alpha$, $\beta$, and $\gamma$ about
 axes $x$, $y$, and $z$, respectively. The rotation matrix, $R$, is, therefore,
@@ -119,8 +127,11 @@ system rather than switched, use the \tt{--add} option.
 The size of the new simulation box can be changed using the \tt{-b} option.
 Any constraints for placing beads are applied to this box rather than the one in
 the original system. The new system is placed so the centres of the original box
-and the new one coincide. Note that in the end, all coordinates are wrapped into
-the output box (i.e., periodic boundary conditions are applied).
+and the new one coincide. Note that periodic boundary conditions are not applied
+to the new system, so the beads can be outside the simulation box. If \tt{-off}
+option is used, the beads from the input system are moved by the offset
+specified by the fraction of the output simulation box (or in real units, if
+\tt{--real} is used) before the new beads are added.
 
 To create a new system instead of adding to an existing one, use \tt{-} instead
 of an \tt{<input>} file. An extra file can be generated via the \tt{-o} option;
