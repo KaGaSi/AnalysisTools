@@ -165,6 +165,27 @@ void CommonOptions(int argc, char *argv[], int length, bool *verbose,
   IntegerOption1(argc, argv, "-sk", skip);
   (*skip)++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
 } //}}}
+// detect options common for most utilities //{{{
+COMMON_OPT CommonOptions2(int argc, char *argv[], int length) {
+  COMMON_OPT opt;
+  opt.start = -1;
+  opt.end = -1;
+  opt.skip = 0;
+  // -v option - verbose output
+  opt.verbose = BoolOption(argc, argv, "--verbose");
+  // --silent option - silent mode
+  SilentOption(argc, argv, &opt.verbose, &opt.silent);
+  // --detailed option - base bead types on name, charge, mass, and radius
+  opt.detailed = BoolOption(argc, argv, "--detailed");
+  // starting/ending timestep
+  IntegerOption1(argc, argv, "-st", &opt.start);
+  IntegerOption1(argc, argv, "-e", &opt.end);
+  ErrorStartEnd(opt.start, opt.end);
+  // number of timesteps to skip per one used
+  IntegerOption1(argc, argv, "-sk", &opt.skip);
+  opt.skip++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
+  return opt;
+} //}}}
 
 // exclude specified molecule names (-x <mol name(s)>) //{{{
 bool ExcludeOption(int argc, char *argv[], SYSTEM *System) {
@@ -445,7 +466,7 @@ bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
         strcpy(ERROR_MSG, "missing file name "
                "(or the file name begins with a dash)");
         PrintErrorOption(opt);
-        return false;
+        exit(1);
       }
       snprintf(file, LINE, "%s", argv[i+1]);
       // read integers
@@ -477,10 +498,11 @@ bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
           exit(1);
         }
       }
+      *count = n;
+      return true; // option present
     }
   }
-  *count = n;
-  return true;
+  return false; // option not present
 }
 bool FileOption(int argc, char *argv[], char opt[], char file[]) {
   int trash;

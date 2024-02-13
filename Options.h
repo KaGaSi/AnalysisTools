@@ -12,6 +12,13 @@
 #define DATE "TBD"
 #define OPT_LENGTH 16
 
+typedef struct common_opt {
+  bool verbose, silent, detailed;
+  int start, end, skip;
+  char struct_file[LINE];
+  int struct_type;
+} COMMON_OPT;
+
 // print help - function body in each utility
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]);
 // version/help printing and initial check of provided options
@@ -25,6 +32,7 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]);
 void CommonOptions(int argc, char *argv[], int length, bool *verbose,
                    bool *silent, bool *detailed,
                    int *start, int *end, int *skip);
+COMMON_OPT CommonOptions2(int argc, char *argv[], int length);
 
 // exclude specified molecule names (-x <mol name(s)>)
 bool ExcludeOption(int argc, char *argv[], SYSTEM *System);

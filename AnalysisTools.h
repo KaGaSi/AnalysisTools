@@ -21,6 +21,14 @@
 #define FIELD_FILE 6
 #define CONFIG_FILE 7
 
+typedef struct OPT OPT;
+OPT * opt_create(void);
+
+typedef struct file_type {
+  char name[LINE];
+  int type;
+} FILE_TYPE;
+
 // Helper functions for dealing with SYSTEM structure
 // fill in some SYSTEM stutff
 void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType);

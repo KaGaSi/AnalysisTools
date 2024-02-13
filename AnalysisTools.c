@@ -3353,11 +3353,7 @@ void SubtractLow(SYSTEM *System) {
 bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
                      char struct_file[], int *struct_type) {
   // input structure file (-i option)
-  int trash[1]; // number of integers and integer values - unusued
-  if (!FileIntegerOption(argc, argv, 0, "-i", trash, trash, struct_file)) {
-    exit(1);
-  }
-  if (struct_file[0] != '\0') { // -i option is present
+  if (FileOption(argc, argv, "-i", struct_file)) {
     *struct_type = StructureFileType(struct_file);
   }
   *coor_type = CoordinateFileType(coor_file);
