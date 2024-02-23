@@ -29,9 +29,20 @@ types 'A' and 'B' are given, it considers only 'A-B' pairs.\n\n");
   CommonHelp(error, n, opt);
 } //}}}
 
+// structure for options //{{{
+struct OPT {
+  double distance; // -d
+  int contacts;    // -c
+  FILE_TYPE fout;  // -j
+  COMMON_OPT c;
+};
+OPT * opt_create(void) {
+  return malloc(sizeof(OPT));
+} //}}}
+
 // CalculateAggregates() //{{{
-void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
-                         double sqdist, int contacts) {
+void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
+  double sqdist = SQR(opt.distance);
   COUNT *Count = &System->Count;
   Count->Aggregate = 0;
   // zeroize
@@ -42,17 +53,12 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
 
   // allocate & zeroize contact[][] (triangular matrix) and moved array //{{{
   int **contact = malloc(sizeof *contact * Count->Molecule);
-  int *moved = malloc(sizeof *moved * Count->Molecule);
+  int *moved = calloc(Count->Molecule, sizeof *moved);
   for (int i = 0; i < Count->Molecule; i++) {
-    contact[i] = malloc(sizeof *contact[i] * (i + 1));
+    contact[i] = calloc(i + 1, sizeof *contact[i]);
   }
-
-  // zeroize arrays
   for (int i = 0; i < Count->Molecule; i++) {
     System->Molecule[i].Aggregate = -1;
-    moved[i] = 0;
-    for (int j = 0; j < i; j++)
-      contact[i][j] = 0;
   } //}}}
 
   // create cell-linked list
@@ -115,7 +121,7 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
     }
   } //}}}
 
-  EvaluateContacts(Aggregate, System, contacts, contact);
+  EvaluateContacts(Aggregate, System, opt.contacts, contact);
 
   // sort molecules in aggregates according to ascending ids //{{{
   for (int i = 0; i < System->Count.Aggregate; i++) {
@@ -124,15 +130,16 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
 
   // assign bonded beads to Aggregate struct //{{{
   for (int i = 0; i < System->Count.Aggregate; i++) {
+    AGGREGATE *agg = &Aggregate[i];
     // go through all molecules in aggregate 'i'
-    for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-      int mol = Aggregate[i].Molecule[j];
+    for (int j = 0; j < agg->nMolecules; j++) {
+      int mol = agg->Molecule[j];
       // copy all bead in molecule 'mol' to Aggregate struct
       int mtype = System->Molecule[mol].Type;
       for (int k = 0; k < System->MoleculeType[mtype].nBeads; k++) {
-        int beads = Aggregate[i].nBeads;
-        Aggregate[i].Bead[beads] = System->Molecule[mol].Bead[k];
-        Aggregate[i].nBeads++;
+        int beads = agg->nBeads;
+        agg->Bead[beads] = System->Molecule[mol].Bead[k];
+        agg->nBeads++;
       }
     }
   } //}}}
@@ -183,13 +190,11 @@ int main(int argc, char *argv[]) {
   OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
 
   count = 0; // count mandatory arguments
-
+  OPT *opt = opt_create();
   // <input> - input coordinate file //{{{
-  char coor_file[LINE] = "", struct_file[LINE] = "";
-  int coor_type, struct_type = 0;
-  snprintf(coor_file, LINE, "%s", argv[++count]);
-  if (!InputCoorStruct(argc, argv, coor_file, &coor_type,
-                       struct_file, &struct_type)) {
+  SYS_FILES in = InitSysFiles;
+  snprintf(in.coor.name, LINE, "%s", argv[++count]);
+  if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
 
@@ -206,34 +211,25 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // options before reading system data
-  bool silent, verbose, detailed;
-  int start = 1, end = -1, skip = 0;
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
-                &start, &end, &skip);
+  opt->c = CommonOptions(argc, argv, LINE);
 
   // -j option - save coordinates of joined aggregates //{{{
-  char join_file[LINE] = "";
-  int join_type = -1;
-  if (FileOption(argc, argv, "-j", join_file)) {
-    exit(1);
-  }
-  if (join_file[0] != '\0') {
-    join_type = CoordinateFileType(join_file);
+  opt->fout = InitFile;
+  if (FileOption(argc, argv, "-j", opt->fout.name)) {
+    opt->fout.type = CoordinateFileType(opt->fout.name);
   } //}}}
 
   // parameters for aggregate check (-d and -c options)
-  double distance = 1;
-  DoubleOption1(argc, argv, "-d", &distance);
-  int contacts = 1;
-  IntegerOption1(argc, argv, "-c", &contacts);
+  opt->distance = 1;
+  DoubleOption1(argc, argv, "-d", &opt->distance);
+  opt->contacts = 1;
+  IntegerOption1(argc, argv, "-c", &opt->contacts);
 
-  // print command to stdout //{{{
-  if (!silent) {
+  if (!opt->c.silent) {
     PrintCommand(stdout, argc, argv);
-  } //}}}
+  }
 
-  SYSTEM System = ReadStructure(struct_type, struct_file,
-                                coor_type, coor_file, detailed);
+  SYSTEM System = ReadStructure(in, opt->c.detailed);
   COUNT *Count = &System.Count;
 
   // <bead names> - names of bead types to use for closeness calculation //{{{
@@ -261,13 +257,13 @@ int main(int argc, char *argv[]) {
 
   // print command to output .agg (and, possibly, coordinate) file
   PrintByline(agg_file, argc, argv);
-  if (join_file[0] != '\0') {
-    if (join_type == VCF_FILE) {
-      PrintByline(join_file, argc, argv);
-    } else if (join_type == VTF_FILE) {
-      WriteStructure(VSF_FILE, join_file, System, -1, false, argc, argv);
+  if (opt->fout.name[0] != '\0') {
+    if (opt->fout.type == VCF_FILE) {
+      PrintByline(opt->fout.name, argc, argv);
+    } else if (opt->fout.type == VTF_FILE) {
+      WriteStructure(opt->fout, System, -1, false, argc, argv);
     } else {
-      FILE *out = OpenFile(join_file, "w");
+      FILE *out = OpenFile(opt->fout.name, "w");
       fclose(out);
     }
   }
@@ -275,43 +271,44 @@ int main(int argc, char *argv[]) {
   // allocate Aggregate struct //{{{
   AGGREGATE *Aggregate = malloc(Count->Molecule * sizeof *Aggregate);
   for (int i = 0; i < Count->Molecule; i++) {
+    AGGREGATE *agg = &Aggregate[i];
     // assume all molecules can be in one aggregate
-    Aggregate[i].Molecule = malloc(Count->Molecule *
-                                   sizeof *Aggregate[i].Molecule);
+    agg->Molecule = malloc(Count->Molecule * sizeof *agg->Molecule);
     // assumes all bonded beads can be in one aggregate (memory-heavy)
-    Aggregate[i].Bead = malloc(Count->Bonded * sizeof *Aggregate[i].Bead);
+    agg->Bead = malloc(Count->Bonded * sizeof *agg->Bead);
   } //}}}
 
-  if (verbose) {
+  if (opt->c.verbose) {
     VerboseOutput(System);
   }
 
-  FILE *fr = OpenFile(coor_file, "r");
+  FILE *fr = OpenFile(in.coor.name, "r");
   // main loop //{{{
   int count_coor = 0,
       count_used = 0,
       line_count = 0;
   while (true) {
-    PrintStep(&count_coor, 1, silent);
+    PrintStep(&count_coor, opt->c.start, opt->c.silent);
     // decide whether this timestep is to be saved
     bool use = false;
-    if (count_coor >= start && (count_coor <= end || end == -1) &&
-       ((count_coor - start) % skip) == 0) {
+    if (count_coor >= opt->c.start &&
+        (count_coor <= opt->c.end || opt->c.end == -1) &&
+        ((count_coor - opt->c.start) % opt->c.skip) == 0) {
       use = true;
     }
     if (use) { //{{{
-      if (!ReadTimestep(coor_type, fr, coor_file, &System, &line_count)) {
+      if (!ReadTimestep(in, fr, &System, &line_count)) {
         count_coor--;
         break;
       }
       count_used++;
       WrapJoinCoordinates(&System, true, false);
-      CalculateAggregates(Aggregate, &System, SQR(distance), contacts);
+      CalculateAggregates(Aggregate, &System, *opt);
       // calculate & write joined coordinatest to <out.vcf> if '-j' option is used
-      if (join_file[0] != '\0') {
+      if (opt->fout.name[0] != '\0') {
         WrapJoinCoordinates(&System, false, true);
-        RemovePBCAggregates(distance, Aggregate, &System);
-        WriteTimestep(join_type, join_file, System, count_coor, write);
+        RemovePBCAggregates(opt->distance, Aggregate, &System);
+        WriteTimestep(opt->fout, System, count_coor, write);
       }
 
       for (int i = 0; i < Count->Aggregate; i++) {
@@ -320,18 +317,18 @@ int main(int argc, char *argv[]) {
       WriteAggregates(count_coor, agg_file, System, Aggregate);
       //}}}
     } else { //{{{
-      if (!SkipTimestep(coor_type, fr, coor_file, struct_file, &line_count)) {
+      if (!SkipTimestep(in, fr, &line_count)) {
         count_coor--;
         break;
       }
     } //}}}
     // exit the main loop if reached user-specied end timestep
-    if (count_coor == end) {
+    if (count_coor == opt->c.end) {
       break;
     }
   }
   // print last step count?
-  if (!silent) {
+  if (!opt->c.silent) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\r                          \r");
@@ -340,17 +337,16 @@ int main(int argc, char *argv[]) {
   } //}}}
   fclose(fr);
 
-  // print last step number to <output.agg> //{{{
+  // print last step number to <output.agg>
   // open output .agg file for appending
   FILE *fw_agg = OpenFile(agg_file, "a");
   fprintf(fw_agg, "Last Step: %d\n", count_coor);
-  fclose(fw_agg); //}}}
+  fclose(fw_agg);
 
-  // free memory //{{{
   free(write);
   FreeAggregate(System.Count, Aggregate);
   FreeSystem(&System);
-  //}}}
+  free(opt);
 
   return 0;
 }

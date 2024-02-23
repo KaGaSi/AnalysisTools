@@ -1,8 +1,6 @@
 #ifndef _ANALYSISTOOLS_H_
 #define _ANALYSISTOOLS_H_
 
-#define EXTENSION 16
-
 #include "Errors.h"
 #include "General.h"
 #include "Options.h"
@@ -11,23 +9,6 @@
 #include "Write.h"
 // #include <dirent.h>
 // #include <sys/stat.h>
-
-#define VTF_FILE 0
-#define VSF_FILE 1
-#define VCF_FILE 2
-#define XYZ_FILE 3
-#define LDATA_FILE 4
-#define LTRJ_FILE 5
-#define FIELD_FILE 6
-#define CONFIG_FILE 7
-
-typedef struct OPT OPT;
-OPT * opt_create(void);
-
-typedef struct file_type {
-  char name[LINE];
-  int type;
-} FILE_TYPE;
 
 // Helper functions for dealing with SYSTEM structure
 // fill in some SYSTEM stutff
@@ -108,8 +89,9 @@ void AddLow(SYSTEM *System);
 void SubtractLow(SYSTEM *System);
 
 // identify input coordinate and structure files
-bool InputCoorStruct(int argc, char *argv[], char coor[], int *coor_type,
-                     char struc[], int *struc_type);
+// bool InputCoorStruct(int argc, char *argv[], char coor[], int *coor_type,
+//                      char struc[], int *struc_type);
+bool InputCoorStruct(int argc, char *argv[], SYS_FILES *f);
 // identify type of provided structure file (mode=0: input, mode=1 output file)
 int StructureFileType(char name[]);
 int CoordinateFileType(char name[]);

@@ -146,27 +146,7 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
 } //}}}
 
 // detect options common for most utilities //{{{
-void CommonOptions(int argc, char *argv[], int length, bool *verbose,
-                   bool *silent, bool *detailed,
-                   int *start, int *end, int *skip) {
-  // -v option - verbose output
-  *verbose = BoolOption(argc, argv, "--verbose");
-  // --silent option - silent mode
-  SilentOption(argc, argv, verbose, silent);
-  // --detailed option - base bead types on name, charge, mass, and radius
-  *detailed = BoolOption(argc, argv, "--detailed");
-  // starting/ending timestep
-  *start = 1;
-  IntegerOption1(argc, argv, "-st", start);
-  *end = -1;
-  IntegerOption1(argc, argv, "-e", end);
-  ErrorStartEnd(*start, *end);
-  // number of timesteps to skip per one used
-  IntegerOption1(argc, argv, "-sk", skip);
-  (*skip)++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
-} //}}}
-// detect options common for most utilities //{{{
-COMMON_OPT CommonOptions2(int argc, char *argv[], int length) {
+COMMON_OPT CommonOptions(int argc, char *argv[], int length) {
   COMMON_OPT opt;
   opt.start = -1;
   opt.end = -1;
@@ -178,11 +158,27 @@ COMMON_OPT CommonOptions2(int argc, char *argv[], int length) {
   // --detailed option - base bead types on name, charge, mass, and radius
   opt.detailed = BoolOption(argc, argv, "--detailed");
   // starting/ending timestep
-  IntegerOption1(argc, argv, "-st", &opt.start);
-  IntegerOption1(argc, argv, "-e", &opt.end);
+  if (IntegerOption1(argc, argv, "-st", &opt.start)) {
+    if (opt.start <= 0) {
+      strcpy(ERROR_MSG, "positive number required");
+      PrintErrorOption("-st");
+      exit(1);
+    }
+  } else {
+    opt.start = 1;
+  }
+  if (IntegerOption1(argc, argv, "-e", &opt.end) && opt.end <= 0) {
+    strcpy(ERROR_MSG, "positive number required");
+    PrintErrorOption("-e");
+    exit(1);
+  }
   ErrorStartEnd(opt.start, opt.end);
   // number of timesteps to skip per one used
-  IntegerOption1(argc, argv, "-sk", &opt.skip);
+  if (IntegerOption1(argc, argv, "-sk", &opt.skip) && opt.skip <= 0) {
+    strcpy(ERROR_MSG, "positive number required");
+    PrintErrorOption("-sk");
+    exit(1);
+  }
   opt.skip++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
   return opt;
 } //}}}
@@ -321,17 +317,10 @@ bool IntegerOption(int argc, char *argv[], int max,
                    char opt[], int *count, int *values) {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
-      int n = 0; // number of arguments
-      // read integers
-      int arg = i+1+n;
-      while (arg < argc && argv[arg][0] != '-') {
-        // Error - non-numeric or missing argument
-        long val;
-        if (!IsIntegerNumber(argv[arg], &val)) {
-          strcpy(ERROR_MSG, "each argument must be non-negative whole number");
-          PrintErrorOption(opt);
-          exit(1);
-        }
+      int n = 0, // number of arguments
+          arg = i+1+n; // argument ids in the command
+      long val;
+      while (arg < argc && IsIntegerNumber(argv[arg], &val)) {
         values[n] = val;
         n++;
         arg = i+1+n;

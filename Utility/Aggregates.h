@@ -2,6 +2,5 @@
 #define _AGGREGATES_H_
 #include "../Structs.h"
 
-void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, double sqdist,
-                         int contacts);
+void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt);
 #endif

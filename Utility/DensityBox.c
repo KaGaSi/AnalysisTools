@@ -12,9 +12,9 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
     ptr = stdout;
     fprintf(ptr, "\
 DensityBox utility calculates number \
-density for all bead types in the direction of all axes (x, y, and z).\
-The utility works properly only for orthogonal boxes that do not change \
-size.\n\n");
+density for all bead types in the direction of all axes (x, y, and z). \
+The utility works properly only for orthogonal boxes that do not change size.\
+\n\n");
   }
 
   fprintf(ptr, "Usage: %s <input> <width> <output> [options]\n\n", cmd);
@@ -26,6 +26,14 @@ size.\n\n");
   fprintf(ptr, "[options]\n");
   fprintf(ptr, "  -x <name(s)>      exclude specified molecule(s)\n");
   CommonHelp(error, n, opt);
+} //}}}
+
+// structure for options //{{{
+struct OPT {
+  COMMON_OPT c;
+};
+OPT * opt_create(void) {
+  return malloc(sizeof(OPT));
 } //}}}
 
 int main(int argc, char *argv[]) {
@@ -50,13 +58,11 @@ int main(int argc, char *argv[]) {
   //}}}
 
   count = 0; // count mandatory arguments
-
+  OPT *opt = opt_create();
   // <input> - input coordinate (and structure) file //{{{
-  char coor_file[LINE] = "", struct_file[LINE] = "";
-  int coor_type = -1, struct_type = 0;
-  snprintf(coor_file, LINE, "%s", argv[++count]);
-  if (!InputCoorStruct(argc, argv, coor_file, &coor_type,
-                       struct_file, &struct_type)) {
+  SYS_FILES in = InitSysFiles;
+  snprintf(in.coor.name, LINE, "%s", argv[++count]);
+  if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
 
@@ -69,22 +75,18 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // <outputt> - filename
-  char output_rho[LINE] = "";
-  snprintf(output_rho, LINE, "%s", argv[++count]);
-  output_rho[LINE-6] = '\0'; // for adding -<axis>.rho
+  char fout_rho[LINE] = "";
+  snprintf(fout_rho, LINE, "%s", argv[++count]);
+  fout_rho[LINE-7] = '\0'; // for adding -<axis>.rho
 
   // options before reading system data
-  bool silent, verbose, detailed;
-  int start = 1, end = -1, skip = 0;
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
-                &start, &end, &skip);
+  opt->c = CommonOptions(argc, argv, LINE);
 
-  if (!silent) {
+  if (!opt->c.silent) {
     PrintCommand(stdout, argc, argv);
   }
 
-  SYSTEM System = ReadStructure(struct_type, struct_file,
-                                coor_type, coor_file, detailed);
+  SYSTEM System = ReadStructure(in, opt->c.detailed);
   COUNT *Count = &System.Count;
   BOX *box = &System.Box;
 
@@ -96,7 +98,7 @@ int main(int argc, char *argv[]) {
   // number of bins //{{{
   if (box->Volume == -1) {
     strcpy(ERROR_MSG, "missing box dimensions");
-    PrintErrorFile(coor_file, struct_file, "\0");
+    PrintErrorFile(in.coor.name, in.stru.name, "\0");
     exit(1);
   }
   double bin[3];
@@ -119,25 +121,26 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
 
-  if (verbose) {
+  if (opt->c.verbose) {
     VerboseOutput(System);
   }
 
   // main loop //{{{
-  FILE *fr = OpenFile(coor_file, "r");
+  FILE *fr = OpenFile(in.coor.name, "r");
   int count_coor = 0, // count steps in the vcf file
       count_used = 0, // count steps in output file
       line_count = 0; // count lines in the vcf file
   while (true) {
-    PrintStep(&count_coor, start, silent);
+    PrintStep(&count_coor, opt->c.start, opt->c.silent);
     // use every skip-th timestep between start and end
     bool use = false;
-    if (count_coor >= start && (count_coor <= end || end == -1) &&
-        ((count_coor - start) % skip) == 0) {
+    if (count_coor >= opt->c.start &&
+        (count_coor <= opt->c.end || opt->c.end == -1) &&
+        ((count_coor - opt->c.start) % opt->c.skip) == 0) {
       use = true;
     }
     if (use) {
-      if (!ReadTimestep(coor_type, fr, coor_file, &System, &line_count)) {
+      if (!ReadTimestep(in, fr, &System, &line_count)) {
         count_coor--;
         break;
       }
@@ -185,20 +188,19 @@ int main(int argc, char *argv[]) {
         }
         free(temp_rho[dd]);
       }
-      // free(temp_rho);
     } else {
-      if (!SkipTimestep(coor_type, fr, coor_file, struct_file, &line_count)) {
+      if (!SkipTimestep(in, fr, &line_count)) {
         count_coor--;
         break;
       }
     }
-    if (count_coor == end) {
+    if (count_coor == opt->c.end) {
       break;
     }
   }
   fclose(fr);
   // print last step?
-  if (!silent) {
+  if (!opt->c.silent) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\r                          \r");
@@ -229,7 +231,7 @@ int main(int argc, char *argv[]) {
       n = bin[2];
     }
     char file[LINE]; // filename <output>-<axis>.rho
-    if (snprintf(file, LINE, "%s-%c.rho", output_rho, axis) < 0) {
+    if (snprintf(file, LINE, "%s-%c.rho", fout_rho, axis) < 0) {
       ErrorSnprintf();
     }
     // write initial stuff to output density file
@@ -271,8 +273,8 @@ int main(int argc, char *argv[]) {
     }
     free(rho[dd]);
   }
-  // free(rho);
-  free(n_beads); //}}}
+  free(n_beads);
+  free(opt); //}}}
 
   return 0;
 }

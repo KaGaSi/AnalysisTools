@@ -3314,9 +3314,7 @@ void CentreOfMass(int n, int list[], SYSTEM System, double com[3]) {
 } //}}}
 // calculate geometric centre for a list of beads //{{{
 void GeomCentre(int n, int *list, BEAD *Bead, double gc[3]) {
-  for (int dd = 0; dd < 3; dd++) {
-    gc[dd] = 0;
-  }
+  InitDoubleArray(gc, 3, 0);
   int count = 0;
   for (int i = 0; i < n; i++) {
     int id = list[i];
@@ -3350,31 +3348,30 @@ void SubtractLow(SYSTEM *System) {
 } //}}}
 
 // identify input coordinate and structure files //{{{
-bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
-                     char struct_file[], int *struct_type) {
+bool InputCoorStruct(int argc, char *argv[], SYS_FILES *f) {
   // input structure file (-i option)
-  if (FileOption(argc, argv, "-i", struct_file)) {
-    *struct_type = StructureFileType(struct_file);
+  if (FileOption(argc, argv, "-i", f->stru.name)) {
+    f->stru.type = StructureFileType(f->stru.name);
   }
-  *coor_type = CoordinateFileType(coor_file);
+  f->coor.type = CoordinateFileType(f->coor.name);
   // set default structure file if -i option not used
-  if (struct_file[0] == '\0') {
-    if (*coor_type == VCF_FILE) { // use vcf file with .vsf ending
+  if (f->stru.name[0] == '\0') {
+    if (f->coor.type == VCF_FILE) { // use vcf file with .vsf ending
       int last = -1;
-      for (int i = 0; i < strlen(coor_file); i++) {
-        if (coor_file[i] == '.') {
+      for (int i = 0; i < strlen(f->coor.name); i++) {
+        if (f->coor.name[i] == '.') {
           last = i;
         }
       }
-      strncpy(struct_file, coor_file, last);
-      strcat(struct_file, ".vsf");
-      *struct_type = VSF_FILE;
-    } else if (*coor_type == VTF_FILE ||   //
-               *coor_type == XYZ_FILE ||   // use both as a coordinate and
-               *coor_type == LDATA_FILE || // a structure files
-               *coor_type == LTRJ_FILE) {  //
-      strcpy(struct_file, coor_file);
-      *struct_type = *coor_type;
+      strncpy(f->stru.name, f->coor.name, last);
+      strcat(f->stru.name, ".vsf");
+      f->stru.type = VSF_FILE;
+    } else if (f->coor.type == VTF_FILE ||   //
+               f->coor.type == XYZ_FILE ||   // use both as a coordinate and
+               f->coor.type == LDATA_FILE || // a structure files
+               f->coor.type == LTRJ_FILE) {  //
+      strcpy(f->stru.name, f->coor.name);
+      f->stru.type = f->coor.type;
     } else {
       strcpy(ERROR_MSG, "missing structure file; should never happen!");
       PrintError();
@@ -3383,6 +3380,40 @@ bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
   }
   return true;
 } //}}}
+// // identify input coordinate and structure files //{{{
+// bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
+//                      char struct_file[], int *struct_type) {
+//   // input structure file (-i option)
+//   if (FileOption(argc, argv, "-i", struct_file)) {
+//     *struct_type = StructureFileType(struct_file);
+//   }
+//   *coor_type = CoordinateFileType(coor_file);
+//   // set default structure file if -i option not used
+//   if (struct_file[0] == '\0') {
+//     if (*coor_type == VCF_FILE) { // use vcf file with .vsf ending
+//       int last = -1;
+//       for (int i = 0; i < strlen(coor_file); i++) {
+//         if (coor_file[i] == '.') {
+//           last = i;
+//         }
+//       }
+//       strncpy(struct_file, coor_file, last);
+//       strcat(struct_file, ".vsf");
+//       *struct_type = VSF_FILE;
+//     } else if (*coor_type == VTF_FILE ||   //
+//                *coor_type == XYZ_FILE ||   // use both as a coordinate and
+//                *coor_type == LDATA_FILE || // a structure files
+//                *coor_type == LTRJ_FILE) {  //
+//       strcpy(struct_file, coor_file);
+//       *struct_type = *coor_type;
+//     } else {
+//       strcpy(ERROR_MSG, "missing structure file; should never happen!");
+//       PrintError();
+//       exit(1);
+//     }
+//   }
+//   return true;
+// } //}}}
 int StructureFileType(char name[]) { //{{{
   // a) check for FIELD file
   if (strcasecmp(name, "FIELD") == 0) {

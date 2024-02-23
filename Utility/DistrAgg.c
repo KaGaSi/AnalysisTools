@@ -39,6 +39,14 @@ all aggregates with given size).\n\n");
   CommonHelp(error, n, opt);
 } //}}}
 
+// structure for options //{{{
+struct OPT {
+  COMMON_OPT c;
+};
+OPT * opt_create(void) {
+  return malloc(sizeof(OPT));
+} //}}}
+
 int main(int argc, char *argv[]) {
 
   // define options //{{{
@@ -64,11 +72,11 @@ int main(int argc, char *argv[]) {
 
   // commad line arguments before reading the structure //{{{
   count = 0; // count mandatory arguments
+  OPT *opt = opt_create();
   // <input> - input structure file
-  char struct_file[LINE] = "";
-  int struct_type = 0;
-  snprintf(struct_file, LINE, "%s", argv[++count]);
-  struct_type = StructureFileType(struct_file);
+  SYS_FILES in = InitSysFiles;
+  snprintf(in.stru.name, LINE, "%s", argv[++count]);
+  in.stru.type = StructureFileType(in.stru.name);
   // <in.agg> - input aggregate file
   char input_agg[LINE] = "";
   snprintf(input_agg, LINE, "%s", argv[++count]);
@@ -79,23 +87,19 @@ int main(int argc, char *argv[]) {
   char out_avg[LINE] = "";
   snprintf(out_avg, LINE, "%s", argv[++count]);
   // options before reading system data
-  bool silent, verbose, detailed;
-  int start = 1, end = -1, skip = 0;
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
-                &start, &end, &skip);
+  opt->c = CommonOptions(argc, argv, LINE);
   // -c option
-  int c_sizes[100] = {0}, c_count;
+  int c_sizes[100] = {0}, c_count = 0;
   char c_file[LINE] = "";
-  if (!FileIntegerOption(argc, argv, 100, "-c", c_sizes, &c_count, c_file)) {
-    exit(1);
-  } //}}}
+  FileIntegerOption(argc, argv, 100, "-c", c_sizes, &c_count, c_file);
+  //}}}
 
   // print command to stdout
-  if (!silent) {
+  if (!opt->c.silent) {
     PrintCommand(stdout, argc, argv);
   }
 
-  SYSTEM System = ReadStructure(struct_type, struct_file, -1, "\0", detailed);
+  SYSTEM System = ReadStructure(in, opt->c.detailed);
   COUNT *Count = &System.Count;
 
   // '-n' option //{{{
@@ -163,7 +167,7 @@ int main(int argc, char *argv[]) {
   AGGREGATE *Aggregate;
   InitAggregate(System, &Aggregate);
 
-  if (verbose) {
+  if (opt->c.verbose) {
     VerboseOutput(System);
   }
 
@@ -264,7 +268,7 @@ int main(int argc, char *argv[]) {
    */
   double mass_sum[3][2] = {{0}}, As_sum[3][2] = {{0}};
   while (true) { // cycle ends with 'Last Step' line in agg file
-    PrintStep(&count_step, start, silent);
+    PrintStep(&count_step, opt->c.start, opt->c.silent);
     if (ReadAggregates(fr, input_agg, &System, Aggregate, &agg_lines) < 0) {
       count_step--;
       break;
@@ -272,8 +276,9 @@ int main(int argc, char *argv[]) {
 
     // decide whether this timestep is to be used for averages and distributions
     bool use = false;
-    if (count_step >= start && (count_step <= end || end == -1) &&
-       ((count_step - start) % skip) == 0) {
+    if (count_step >= opt->c.start &&
+        (count_step <= opt->c.end || opt->c.end == -1) &&
+        ((count_step - opt->c.start) % opt->c.skip) == 0) {
       use = true;
     }
     if (use) {
@@ -423,7 +428,7 @@ int main(int argc, char *argv[]) {
   }
   fclose(fr);
   // print last step //{{{
-  if (!silent) {
+  if (!opt->c.silent) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\r                          \r");
@@ -456,10 +461,10 @@ int main(int argc, char *argv[]) {
   // print distributions to output file //{{{
   fw = OpenFile(out_distr, "a");
 
-  if (end == -1) {
-    count_step = count_step - start + 1;
+  if (opt->c.end == -1) {
+    count_step = count_step - opt->c.start + 1;
   } else {
-    count_step = count_step - (start - 1) - (end - 1);
+    count_step = count_step - (opt->c.start - 1) - (opt->c.end - 1);
   }
 
   // normalization factors
@@ -646,7 +651,8 @@ int main(int argc, char *argv[]) {
     free(ratio_distr);
     free(comp_agg_count);
     free(link_c_sizes);
-  } //}}}
+  }
+  free(opt); //}}}
 
   return 0;
 }

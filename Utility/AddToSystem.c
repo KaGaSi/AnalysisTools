@@ -9,7 +9,7 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
     fprintf(ptr, "\
 AddToSystem either creates a system from scratch or adds unbonded beads \
 and/or molecules to an existing system. The new components are defined \
-by a FIELD-like file (an input file for DL_MESO simulation program), and are \
+by a FIELD-like file (an input file for DL_MESO simulation program) and are \
 placed either randomly or according to several possible constraints. These \
 new species can either be added to the system, or specified beads can be \
 exchanged for the new ones.\n\n");
@@ -55,11 +55,19 @@ exchanged for the new ones.\n\n");
 
 // structure for options //{{{
 struct OPT {
-  bool ld, hd;         // -ld/-hd
-  double ldist, hdist; //
-  bool real;           // --real
-  FILE_TYPE fout;      // -o
-  double axis[3][2];   // -cx/-cy/-cz
+  bool ld, hd;            // -ld/-hd
+  double ldist, hdist,    //
+         angle[3],        // -a
+         axis[3][2],      // -cx/-cy/-cz
+         off[3];          // -off
+  bool *bt_use_orig,      // -bt
+       *sw_type,          // -xb
+       new,               // generate new system from scratch?
+       real, add, no_rot, // --real/--add/--no-rotate
+       bonded, head;      // --bonded/--head
+  BOX box;                // -b (then constrained 'box' via -cx/-cy/-cz)
+  int seed;               // -s
+  FILE_TYPE fout;         // -o
   COMMON_OPT c;
 };
 OPT * opt_create(void) {
@@ -69,7 +77,7 @@ OPT * opt_create(void) {
 // generate random point in a cube (0,length)^3 //{{{
 void RandomCoordinate(BOX box, double random[3]) {
   for (int dd = 0; dd < 3; dd++) {
-    double number = (double)rand() / ((double)RAND_MAX + 1);
+    double number = (double)(rand()) / ((double)(RAND_MAX) + 1);
     random[dd] = number * box.Length[dd] + box.Low[dd];
   }
 } //}}}
@@ -80,17 +88,17 @@ void RandomCoordinate(BOX box, double random[3]) {
  *   1...all bonded beads
  *   2...specified bead types,
  */
-void RandomConstrainedCoor(BOX constrain, SYSTEM S_orig, bool bt_use_orig[],
-                           int mode, double box[3], OPT opt, double random[3]) {
-  // VECTOR random;
+void RandomConstrainedCoor(SYSTEM S_orig, int mode, double box[3],
+                           OPT opt, double random[3]) {
+  COUNT *C_orig = &S_orig.Count;
   double min_dist = 0;
   do {
-    RandomCoordinate(constrain, random);
+    RandomCoordinate(opt.box, random);
     min_dist = 1e6;  // simply a high number
     if (mode == 0) { // no distance check
       break;
     } else if (mode == 1) { // use all bonded beads
-      for (int i = 0; i < S_orig.Count.BondedCoor; i++) {
+      for (int i = 0; i < C_orig->BondedCoor; i++) {
         int id = S_orig.BondedCoor[i];
         double dist[3];
         Distance(S_orig.Bead[id].Position, random, box, dist);
@@ -100,13 +108,14 @@ void RandomConstrainedCoor(BOX constrain, SYSTEM S_orig, bool bt_use_orig[],
         }
       }
     } else if (mode == 2) { // use specified bead types
-      for (int i = 0; i < S_orig.Count.BeadType; i++) {
-        if (bt_use_orig[i]) {
+      for (int i = 0; i < C_orig->BeadType; i++) {
+        if (opt.bt_use_orig[i]) {
           for (int j = 0; j < S_orig.BeadType[i].Number; j++) {
             int id = S_orig.BeadType[i].Index[j];
-            if (S_orig.Bead[id].InTimestep) {
+            BEAD *b = &S_orig.Bead[id];
+            if (b->InTimestep) {
               double dist[3];
-              Distance(S_orig.Bead[id].Position, random, box, dist);
+              Distance(b->Position, random, box, dist);
               dist[0] = VectorLength(dist);
               if (dist[0] < min_dist) {
                 min_dist = dist[0];
@@ -116,13 +125,12 @@ void RandomConstrainedCoor(BOX constrain, SYSTEM S_orig, bool bt_use_orig[],
         }
       }
     } else if (mode == 3) { // use first bead of each molecule
-      for (int i = 0; i < S_orig.Count.Molecule; i++) {
+      for (int i = 0; i < C_orig->Molecule; i++) {
         int id = S_orig.Molecule[i].Bead[0];
-        // BEAD *b = &S_orig.Bead[id];
-        // printf("%d %s\n", id, S_orig.BeadType[b->Type].Name);
-        if (S_orig.Bead[id].InTimestep) {
+        BEAD *b = &S_orig.Bead[id];
+        if (b->InTimestep) {
           double dist[3];
-          Distance(S_orig.Bead[id].Position, random, box, dist);
+          Distance(b->Position, random, box, dist);
           dist[0] = VectorLength(dist);
           if (dist[0] < min_dist) {
             min_dist = dist[0];
@@ -140,7 +148,7 @@ void Rotate(SYSTEM System, int number, int *list,
   // random rotation axis
   double random[3];
   for (int dd = 0; dd < 3; dd++) {
-    random[dd] = (double)rand() / ((double)RAND_MAX) * 2 - 1; // a number <-1,1>
+    random[dd] = (double)(rand()) / (double)(RAND_MAX) * 2 - 1; // number <-1,1>
   }
   double dist = VectorLength(random);
   for (int dd = 0; dd < 3; dd++) {
@@ -155,9 +163,9 @@ void Rotate(SYSTEM System, int number, int *list,
     gamma = rot_angle[2] / 180 * PI;
   // ...or random
   } else {
-    alpha = (double)rand() / ((double)RAND_MAX) * PI;
-    beta  = (double)rand() / ((double)RAND_MAX) * PI;
-    gamma = (double)rand() / ((double)RAND_MAX) * PI;
+    alpha = (double)(rand()) / (double)(RAND_MAX) * PI;
+    beta  = (double)(rand()) / (double)(RAND_MAX) * PI;
+    gamma = (double)(rand()) / (double)(RAND_MAX) * PI;
   }
   double rot[3][3];
   rot[0][0] = cos(alpha) * cos(beta);
@@ -215,76 +223,72 @@ int main(int argc, char *argv[]) {
   OptionCheck(argc, argv, count, req_arg, common, all, option);
   //}}}
 
-  OPT *opt1 = opt_create();
-  // <input> - input coordinate (and structure) file //{{{
   count = 0; // count mandatory arguments
-  char coor_file[LINE] = "", struct_file[LINE] = "";
-  int coor_type = -1, struct_type = 0;
-  bool new = true; // create new system from scratch?
+  OPT *opt = opt_create();
+  // <input> - input coordinate (and structure) file //{{{
+  SYS_FILES in = InitSysFiles;
+  opt->new = true; // create new system from scratch?
   if (argv[++count][0] != '-') {
-    snprintf(coor_file, LINE, "%s", argv[count]);
-    new = false;
-    if (!InputCoorStruct(argc, argv, coor_file, &coor_type,
-                         struct_file, &struct_type)) {
+    snprintf(in.coor.name, LINE, "%s", argv[count]);
+    opt->new = false;
+    if (!InputCoorStruct(argc, argv, &in)) {
       exit(1);
     }
   } //}}}
-  strcpy(opt1->c.struct_file, struct_file);
-  opt1->c.struct_type = struct_type;
 
   // <in.field> - FIELD file with specis to add //{{{
-  char field_add_file[LINE] = "";
-  snprintf(field_add_file, LINE, "%s", argv[++count]);
-  int field_add_type = StructureFileType(field_add_file);
-  if (field_add_type != FIELD_FILE) {
+  SYS_FILES field = InitSysFiles;
+  snprintf(field.stru.name, LINE, "%s", argv[++count]);
+  field.stru.type = StructureFileType(field.stru.name);
+  if (field.stru.type != FIELD_FILE) {
     strcpy(ERROR_MSG, "input FIELD file required");
-    PrintErrorFile(field_add_file, "\0", "\0");
+    PrintErrorFile(field.stru.name, "\0", "\0");
     exit(1);
   } //}}}
 
-  // <output> - coordinate and structure output file //{{{
-  char out_file[LINE] = "";
-  snprintf(out_file, LINE, "%s", argv[++count]);
-  // int out_type = FullFileType(out_file, 1);
-  int out_type = CoordinateFileType(out_file); //}}}
+  // <output> - coordinate and structure output file
+  FILE_TYPE fout = InitFile;
+  snprintf(fout.name, LINE, "%s", argv[++count]);
+  fout.type = CoordinateFileType(fout.name);
 
   // options before reading system data //{{{
-  opt1->c = CommonOptions2(argc, argv, LINE);
-  if (!opt1->c.silent) {
+  opt->c = CommonOptions(argc, argv, LINE);
+  if (!opt->c.silent) {
     PrintCommand(stdout, argc, argv);
   }
-  // output structure file (-o option) //{{{
-  opt1->fout.name[0] = '\0';
-  if (FileOption(argc, argv, "-o", opt1->fout.name)) {
-    opt1->fout.type = FileType(opt1->fout.name);
-  } //}}}
+  // output structure file (-o option)
+  opt->fout.name[0] = '\0';
+  if (FileOption(argc, argv, "-o", opt->fout.name)) {
+    opt->fout.type = FileType(opt->fout.name);
+  }
   // lowest and/or highest distance from specified beads //{{{
-  opt1->ld = false;
-  opt1->hd = false;
-  if (!new) { // only if not generating system from scratch
-    opt1->ld = DoubleOption1(argc, argv, "-ld", &opt1->ldist);
-    opt1->hd = DoubleOption1(argc, argv, "-hd", &opt1->hdist);
+  opt->ld = false;
+  opt->hd = false;
+  if (!opt->new) { // only if not generating system from scratch
+    opt->ld = DoubleOption1(argc, argv, "-ld", &opt->ldist);
+    opt->hd = DoubleOption1(argc, argv, "-hd", &opt->hdist);
   }
   // errors for -ld/-hd options //{{{
-  if ((opt1->ld && opt1->ldist <= 0) || (opt1->hd && opt1->hdist <= 0)) {
+  if ((opt->ld && opt->ldist <= 0) || (opt->hd && opt->hdist <= 0)) {
     strcpy(ERROR_MSG, "highest/lowest distance must be positive real number");
     PrintErrorOption("-ld/-hd");
     PrintCommand(stderr, argc, argv);
     Help(argv[0], true, common, option);
     exit(1);
   }
-  if (opt1->ld && opt1->hd && opt1->ldist >= opt1->hdist) {
+  if (opt->ld && opt->hd && opt->ldist >= opt->hdist) {
     strcpy(ERROR_MSG, "highest distance must be higher than lowest distance");
     PrintErrorOption("-ld/-hd");
     PrintCommand(stderr, argc, argv);
     Help(argv[0], true, common, option);
     exit(1);
   }
-  if (opt1->hd || opt1->ld) {
+  if (opt->hd || opt->ld) {
     bool bt = false;
     for (int i = 0; i < argc; i++) {
       if (strcmp(argv[i], "-bt") == 0 || strcmp(argv[i], "--bonded") == 0) {
         bt = true;
+        break;
       }
     }
     if (!bt) {
@@ -295,12 +299,12 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
   //}}}
-  opt1->real = BoolOption(argc, argv, "--real");
+  opt->real = BoolOption(argc, argv, "--real");
   // axes constraints (-cx/y/z options) //{{{
   for (int dd = 0; dd < 3; dd++) {
-    opt1->axis[dd][0] = -1;
-    opt1->axis[dd][1] = -1;
-    char str[5];
+    opt->axis[dd][0] = -1;
+    opt->axis[dd][1] = -1;
+    char str[4];
     switch (dd) {
       case 0:
         strcpy(str, "-cx");
@@ -312,18 +316,22 @@ int main(int argc, char *argv[]) {
         strcpy(str, "-cz");
         break;
     }
-    if (DoubleOption2(argc, argv, str, opt1->axis[dd])) {
-      if (opt1->axis[dd][0] == opt1->axis[dd][1]) {
+    if (DoubleOption2(argc, argv, str, opt->axis[dd])) {
+      if (opt->axis[dd][0] < 0 || opt->axis[dd][1] < 0) {
+        strcpy(ERROR_MSG, "two non-negative numbers required");
+        PrintErrorOption("-cx/-cy/-cz");
+        exit(1);
+      } else if (opt->axis[dd][0] == opt->axis[dd][1]) {
         strcpy(ERROR_MSG, "two different distance values required");
         PrintErrorOption("-cx/-cy/-cz");
         exit(1);
-      } else if (opt1->axis[dd][0] > opt1->axis[dd][1]) {
-        SwapDouble(&opt1->axis[dd][0], &opt1->axis[dd][1]);
+      } else if (opt->axis[dd][0] > opt->axis[dd][1]) {
+        SwapDouble(&opt->axis[dd][0], &opt->axis[dd][1]);
       }
     }
-    if (!opt1->real) {
-      if ((opt1->axis[dd][0] != -1 && opt1->axis[dd][0] > 1) ||
-          (opt1->axis[dd][1] != -1 && opt1->axis[dd][1] > 1)) {
+    if (!opt->real) {
+      if ((opt->axis[dd][0] != -1 && opt->axis[dd][0] > 1) ||
+          (opt->axis[dd][1] != -1 && opt->axis[dd][1] > 1)) {
         strcpy(ERROR_MSG, "unless --real is used, "
                           "-cx/y/z values must be between 0 and 1");
         PrintErrorOption(str);
@@ -332,30 +340,30 @@ int main(int argc, char *argv[]) {
     } //}}}
   }
   // exchange beads instead of appending them?
-  bool add = BoolOption(argc, argv, "--add");
+  opt->add = BoolOption(argc, argv, "--add");
   // always add, if generating the system from scratch
-  if (new) {
-    add = true;
+  if (opt->new) {
+    opt->add = true;
   }
   // do not rotate molecules?
-  bool no_rot = BoolOption(argc, argv, "--no-rotate");
+  opt->no_rot = BoolOption(argc, argv, "--no-rotate");
   // output box dimensions //{{{
-  double angle[3] = {0};
-  if (DoubleOption3(argc, argv, "-a", angle)) {
-    no_rot = false;
+  InitDoubleArray(opt->angle, 3, 0);
+  if (DoubleOption3(argc, argv, "-a", opt->angle)) {
+    opt->no_rot = false;
   } //}}}
-  bool head = BoolOption(argc, argv, "--head");
+  opt->head = BoolOption(argc, argv, "--head");
   // output box dimensions //{{{
-  BOX box_opt = InitBox;
+  opt->box = InitBox;
   double temp[3] = {0, 0, 0};
   if (DoubleOption3(argc, argv, "-b", temp)) {
-    box_opt.Length[0] = temp[0];
-    box_opt.Length[1] = temp[1];
-    box_opt.Length[2] = temp[2];
+    opt->box.Length[0] = temp[0];
+    opt->box.Length[1] = temp[1];
+    opt->box.Length[2] = temp[2];
     if (count != 3 ||
-        box_opt.Length[0] <= 0 ||
-        box_opt.Length[1] <= 0 ||
-        box_opt.Length[2] <= 0) {
+        opt->box.Length[0] <= 0 ||
+        opt->box.Length[1] <= 0 ||
+        opt->box.Length[2] <= 0) {
       strcpy(ERROR_MSG, "three positive numbers required");
       PrintErrorOption("-b");
       Help(argv[0], true, common, option);
@@ -363,13 +371,13 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
   // -off option
-  double offset[3] = {0, 0, 0};
-  DoubleOption3(argc, argv, "-off", offset);
+  InitDoubleArray(opt->off, 3, 0);
+  DoubleOption3(argc, argv, "-off", opt->off);
   // seed for random number generator (-s option)
-  int seed = -1;
-  IntegerOption1(argc, argv, "-s", &seed);
+  opt->seed = -1;
+  IntegerOption1(argc, argv, "-s", &opt->seed);
   // warn about options with no effect //{{{
-  if (new) {
+  if (opt->new) {
     for (int i = 1; i < argc; i++) {
       if (strcmp(argv[i], "-bt") == 0 ||
           strcmp(argv[i], "-ld") == 0 ||
@@ -388,120 +396,131 @@ int main(int argc, char *argv[]) {
 
   SYSTEM S_orig;
   BOX *box = &S_orig.Box;
-  if (new) {
+  if (opt->new) {
     InitSystem(&S_orig);
   } else {
-    S_orig = ReadStructure(struct_type, struct_file,
-                           coor_type, coor_file, opt1->c.detailed);
+    S_orig = ReadStructure(in, opt->c.detailed);
   }
+  COUNT *C_orig = &S_orig.Count;
 
   // find bead type to switch (the most numerous one; solvent, probably) //{{{
-  bool *sw_type = NULL;
-  if (!add) {
-    sw_type = calloc(S_orig.Count.BeadType, sizeof *sw_type);
+  opt->sw_type = NULL;
+  if (!opt->add) {
+    opt->sw_type = calloc(C_orig->BeadType, sizeof opt->sw_type);
     // if -xb option not present, take the most numerous bead type
-    if (!BeadTypeOption(argc, argv, "-xb", true, sw_type, S_orig)) {
+    if (!BeadTypeOption(argc, argv, "-xb", true, opt->sw_type, S_orig)) {
       count = 0;
       int bt = 0;
-      for (int i = 0; i < S_orig.Count.BeadType; i++) {
+      for (int i = 0; i < C_orig->BeadType; i++) {
         if (S_orig.BeadType[i].Number > count) {
           count = S_orig.BeadType[i].Number;
         }
       }
-      sw_type[bt] = true;
+      opt->sw_type[bt] = true;
     }
   } //}}}
 
   // -bt <name(s)>/--bonded - specify what bead types to use //{{{
-  bool *bt_use_orig = NULL;
-  bool bonded = false;
-  if (!new) {
-    bt_use_orig = calloc(S_orig.Count.BeadType, sizeof *bt_use_orig);
-    bonded = BoolOption(argc, argv, "--bonded");
-    BeadTypeOption(argc, argv, "-bt", true, bt_use_orig, S_orig);
+  opt->bt_use_orig = NULL;
+  opt->bonded = false;
+  if (!opt->new) {
+    opt->bt_use_orig = calloc(C_orig->BeadType, sizeof opt->bt_use_orig);
+    opt->bonded = BoolOption(argc, argv, "--bonded");
+    BeadTypeOption(argc, argv, "-bt", true, opt->bt_use_orig, S_orig);
   } //}}}
 
   // seed random number generator //{{{
-  if (seed != -1) {
-    srand(seed);
+  if (opt->seed != -1) {
+    srand(opt->seed);
   } else {
     srand(time(0));
   } //}}}
 
   // read input coordinates //{{{
-  if (coor_file[0] != '\0') {
-    FILE *fr = OpenFile(coor_file, "r");
+  if (in.coor.name[0] != '\0') {
+    FILE *fr = OpenFile(in.coor.name, "r");
     int line_count = 0;
-    if (coor_type != LDATA_FILE) {
-      for (int i = 1; i < opt1->c.start; i++) { // from 1 as start=1 is the first
-        SkipTimestep(coor_type, fr, coor_file, struct_file, &line_count);
+    if (in.coor.type != LDATA_FILE) {
+      for (int i = 1; i < opt->c.start; i++) { // from 1 as start=1 is the first
+        if (!SkipTimestep(in, fr, &line_count)) {
+          strcpy(ERROR_MSG, "couldn't skip");
+          PrintError();
+          exit(1);
+        }
       }
     }
-    ReadTimestep(coor_type, fr, coor_file, &S_orig, &line_count);
+    if (!ReadTimestep(in, fr, &S_orig, &line_count)) {
+      strcpy(ERROR_MSG, "no coordinate data (starting step may be too high)");
+      PrintErrorFile(in.coor.name, "\0", "\0");
+      exit(1);
+    }
     fclose(fr);
   } //}}}
 
   // read input FIELD file defining what to add //{{{
-  SYSTEM S_add = ReadStructure(6, field_add_file, -1, "\0", opt1->c.detailed);
-  S_add.Count.BeadCoor = S_add.Count.Bead;
-  for (int i = 0; i < S_add.Count.Bead; i++) {
+  SYSTEM S_add = ReadStructure(field, opt->c.detailed);
+  COUNT *C_add = &S_add.Count;
+  C_add->BeadCoor = C_add->Bead;
+  for (int i = 0; i < C_add->Bead; i++) {
     S_add.Bead[i].InTimestep = true;
     S_add.BeadCoor[i] = i;
   }
-  if (new) {
+  if (opt->new) {
     S_orig.Box = S_add.Box;
   } //}}}
 
   // print original system (if there is any) //{{{
-  if (opt1->c.verbose && !new) {
+  if (opt->c.verbose && !opt->new) {
     fprintf(stdout, "\n==================================================");
     fprintf(stdout, "\nOriginal system");
     fprintf(stdout, "\n==================================================\n");
     VerboseOutput(S_orig);
-    if (opt1->c.start > 1) {
-      fprintf(stdout, "\n   Using %d. timestep\n", opt1->c.start);
+    if (opt->c.start > 1) {
+      fprintf(stdout, "\n   Using %d. timestep\n", opt->c.start);
     }
   } //}}}
 
   // new box if exists //{{{
-  if (box_opt.Length[0] != -1) {
-    if (!new) {
+  if (opt->box.Length[0] != -1) {
+    if (!opt->new) {
       for (int dd = 0; dd < 3; dd++) {
-        box_opt.Low[dd] += box->Low[dd] +
-                           0.5 * (box->Length[dd] - box_opt.Length[dd]);
+        opt->box.Low[dd] += box->Low[dd] +
+                            0.5 * (box->Length[dd] - opt->box.Length[dd]);
       }
     }
-    box_opt.alpha = box_opt.beta = box_opt.gamma = 90;
-    CalculateBoxData(&box_opt, 0);
-    if (opt1->c.verbose) {
+    opt->box.alpha = 90;
+    opt->box.beta = 90;
+    opt->box.gamma = 90;
+    CalculateBoxData(&opt->box, 0);
+    if (opt->c.verbose) {
       fprintf(stdout, "\n==================================================");
       printf("\nNew box");
       fprintf(stdout, "\n==================================================\n");
-      PrintBox(box_opt);
+      PrintBox(opt->box);
     }
-    *box = box_opt;
+    *box = opt->box;
   } //}}}
 
   // move the beads (-off option) //{{{
-  if (!new) {
-    if (!opt1->real) {
+  if (!opt->new) {
+    if (!opt->real) { // transform offset to 'real' units if necessary
       for (int dd = 0; dd < 3; dd++) {
-        offset[dd] *= S_orig.Box.Length[dd];
+        opt->off[dd] *= S_orig.Box.Length[dd];
       }
     }
-    for (int i = 0; i < S_orig.Count.Bead; i++) {
+    for (int i = 0; i < C_orig->Bead; i++) {
       int id = S_orig.BeadCoor[i];
       for (int dd = 0; dd < 3; dd++) {
-        S_orig.Bead[id].Position[dd] += offset[dd];
+        S_orig.Bead[id].Position[dd] += opt->off[dd];
       }
     }
   } //}}}
 
   // minimize initial coordinates of added molecules //{{{
-  for (int i = 0; i < S_add.Count.Molecule; i++) {
+  for (int i = 0; i < C_add->Molecule; i++) {
     int type = S_add.Molecule[i].Type;
     double zero[3];
-    if (head) {
+    if (opt->head) {
       int id0 = S_add.Molecule[i].Bead[0];
       for (int dd = 0; dd < 3; dd++) {
         zero[dd] = S_add.Bead[id0].Position[dd];
@@ -519,19 +538,18 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // recalculate possible fractional constraints into true dimensions //{{{
-  if (!opt1->real) {
+  if (!opt->real) {
     for (int dd = 0; dd < 3; dd++) {
-      if (opt1->axis[dd][0] != -1) {
-        opt1->axis[dd][0] *= box->Length[dd];
-      }
-      if (opt1->axis[dd][1] != -1) {
-        opt1->axis[dd][1] *= box->Length[dd];
+      for (int i = 0; i < 2; i++) {
+        if (opt->axis[dd][i] != -1) {
+          opt->axis[dd][i] *= box->Length[dd];
+        }
       }
     }
   } //}}}
 
   // print what is to be added //{{{
-  if (opt1->c.verbose) {
+  if (opt->c.verbose) {
     fprintf(stdout, "\n==================================================");
     fprintf(stdout, "\nBeads and molecules to add");
     fprintf(stdout, "\n==================================================\n");
@@ -542,28 +560,26 @@ int main(int argc, char *argv[]) {
   SYSTEM S_out;
   SYSTEM S_out2;
   SYSTEM S_add2;
-  if (opt1->fout.name[0] != '\0') {
+  if (opt->fout.name[0] != '\0') {
     S_add2 = CopySystem(S_add);
   }
-  COUNT *C_orig = &S_orig.Count;
   COUNT *C_out = &S_out.Count;
-  COUNT *C_add = &S_add.Count;
   // if not switched, concatenate the new (i.e., original) and the added systems
-  if (add) { // do not switch, append the new system
-    if (opt1->fout.name[0] != '\0') {
+  if (opt->add) { // do not switch, append the new system
+    if (opt->fout.name[0] != '\0') {
       S_out2 = CopySystem(S_orig);
-      if (opt1->fout.type == VCF_FILE ||
-          opt1->fout.type == VSF_FILE ||
-          opt1->fout.type == VTF_FILE) {
+      if (opt->fout.type == VCF_FILE ||
+          opt->fout.type == VSF_FILE ||
+          opt->fout.type == VTF_FILE) {
         VtfSystem(&S_out2);
         VtfSystem(&S_add2);
       }
       ConcatenateSystems(&S_out2, S_add2, S_orig.Box);
     }
     S_out = CopySystem(S_orig);
-    if (out_type == VCF_FILE ||
-        out_type == VSF_FILE ||
-        out_type == VTF_FILE) {
+    if (fout.type == VCF_FILE ||
+        fout.type == VSF_FILE ||
+        fout.type == VTF_FILE) {
       VtfSystem(&S_out);
       VtfSystem(&S_add);
     }
@@ -573,7 +589,7 @@ int main(int argc, char *argv[]) {
     // first, count number of beads that can be exchanged
     count = 0;
     for (int i = 0; i < C_orig->BeadType; i++) {
-      if (sw_type[i]) {
+      if (opt->sw_type[i]) {
         count += S_orig.BeadType[i].Number;
       }
     }
@@ -585,7 +601,7 @@ int main(int argc, char *argv[]) {
     } //}}}
     for (int i = 0; i < C_add->Bead; i++) {
       for (int j = 0; j < C_orig->BeadType; j++) {
-        if (sw_type[i] && S_orig.BeadType[i].Number > 0) {
+        if (opt->sw_type[i] && S_orig.BeadType[i].Number > 0) {
           count = S_orig.BeadType[i].Number - 1;
           int id = S_orig.BeadType[i].Index[count];
           S_orig.Bead[id].InTimestep = false;
@@ -595,18 +611,18 @@ int main(int argc, char *argv[]) {
       }
     }
     PruneSystem(&S_orig);
-    if (opt1->fout.name[0] != '\0') {
+    if (opt->fout.name[0] != '\0') {
       S_out2 = CopySystem(S_orig);
-      if (opt1->fout.type == VCF_FILE ||
-          opt1->fout.type == VSF_FILE ||
-          opt1->fout.type == VTF_FILE) {
+      if (opt->fout.type == VCF_FILE ||
+          opt->fout.type == VSF_FILE ||
+          opt->fout.type == VTF_FILE) {
         VtfSystem(&S_out2);
         VtfSystem(&S_add2);
       }
       ConcatenateSystems(&S_out2, S_add2, S_orig.Box);
     }
     S_out = CopySystem(S_orig);
-    if (out_type == VCF_FILE || out_type == VSF_FILE || out_type == VTF_FILE) {
+    if (fout.type == VCF_FILE || fout.type == VSF_FILE || fout.type == VTF_FILE) {
       VtfSystem(&S_out);
       VtfSystem(&S_add);
     }
@@ -614,19 +630,19 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // define constrained box for adding beads (-cx/y/z and/or -hd options) //{{{
-  BOX box_constrain = InitBox;
+  opt->box = InitBox;
   for (int dd = 0; dd < 3; dd++) {
-    box_constrain.Length[dd] = S_out.Box.Length[dd];
+    opt->box.Length[dd] = S_out.Box.Length[dd];
   }
   // minimize box if -hd is used
-  if (!new && opt1->hd) {
+  if (!opt->new && opt->hd) {
     // find minimum/maximum coordinates of beads for distance check //{{{
     double max[3] = {0, 0, 0}, min[3];
     for (int dd = 0; dd < 3; dd++) {
       min[dd] = S_orig.Box.Length[dd];
     }
-    if (bonded) { // use all bonded beads
-      for (int i = 0; i < S_orig.Count.BondedCoor; i++) {
+    if (opt->bonded) { // use all bonded beads
+      for (int i = 0; i < C_orig->BondedCoor; i++) {
         int id = S_orig.BondedCoor[i];
         BEAD *b = &S_orig.Bead[id];
         for (int dd = 0; dd < 3; dd++) {
@@ -638,8 +654,8 @@ int main(int argc, char *argv[]) {
         }
       }
     } else { // use bead types specified by -bt
-      for (int i = 0; i < S_orig.Count.BeadType; i++) {
-        if (bt_use_orig[i]) {
+      for (int i = 0; i < C_orig->BeadType; i++) {
+        if (opt->bt_use_orig[i]) {
           for (int j = 0; j < S_orig.BeadType[i].Number; j++) {
             int id = S_orig.BeadType[i].Index[j];
             BEAD *b = &S_orig.Bead[id];
@@ -659,33 +675,33 @@ int main(int argc, char *argv[]) {
     } //}}}
     // the maximum/minimum possible coordinate of any added bead
     for (int dd = 0; dd < 3; dd++) {
-      max[dd] += opt1->hdist;
-      min[dd] -= opt1->hdist;
+      max[dd] += opt->hdist;
+      min[dd] -= opt->hdist;
     }
     // define the box
     for (int dd = 0; dd < 3; dd++) {
-      box_constrain.Length[dd] = max[dd] - min[dd];
-      box_constrain.Low[dd] = min[dd];
+      opt->box.Length[dd] = max[dd] - min[dd];
+      opt->box.Low[dd] = min[dd];
     }
-    CalculateBoxData(&box_constrain, 0);
+    CalculateBoxData(&opt->box, 0);
   }
   for (int dd = 0; dd < 3; dd++) {
-    if (opt1->axis[dd][0] != -1) {
-      box_constrain.Low[dd] = opt1->axis[dd][0];
-      box_constrain.Length[dd] = opt1->axis[dd][1] - opt1->axis[dd][0];
+    if (opt->axis[dd][0] != -1) {
+      opt->box.Low[dd] = opt->axis[dd][0];
+      opt->box.Length[dd] = opt->axis[dd][1] - opt->axis[dd][0];
     }
   }
-  CalculateBoxData(&box_constrain, 0);
+  CalculateBoxData(&opt->box, 0);
   //}}}
 
   // what beads to check distance from for placing? //{{{
   int mode = 0; // no check
-  if (!new) {
-    if (bonded) { // all bonded beads
+  if (!opt->new) {
+    if (opt->bonded) { // all bonded beads
       mode = 1;
     } else { // possibly some speficied bead type(s)
       for (int i = 0; i < C_orig->BeadType; i++) {
-        if (bt_use_orig[i]) { // yes, some specified bead type(s)
+        if (opt->bt_use_orig[i]) { // yes, some specified bead type(s)
           mode = 2;
           break;
         }
@@ -694,121 +710,117 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // add monomeric beads //{{{
-  for (int i = 0; i < S_add.Count.Unbonded; i++) {
+  for (int i = 0; i < C_add->Unbonded; i++) {
     double random[3];
-    RandomConstrainedCoor(box_constrain, S_orig, bt_use_orig, mode,
-                          S_out.Box.Length, *opt1, random);
-    int id = S_orig.Count.Bead + i;
+    RandomConstrainedCoor(S_orig, mode, S_out.Box.Length, *opt, random);
+    int id = C_orig->Bead + i;
     for (int dd = 0; dd < 3; dd++) {
       S_out.Bead[id].Position[dd] = random[dd];
     }
     // print number of placed beads?
-    if (!opt1->c.silent && isatty(STDOUT_FILENO)) {
+    if (!opt->c.silent && isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\rMonomers placed: %d", i + 1);
     }
   } //}}}
   // print total number of placed beads? //{{{
-  if (!opt1->c.silent) {
+  if (!opt->c.silent && C_add->Unbonded > 0) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\r                           \r");
     }
-    fprintf(stdout, "\rMonomer placed: %d\n", S_add.Count.Unbonded);
+    fprintf(stdout, "\rMonomers placed: %d\n", C_add->Unbonded);
   } //}}}
 
   // add molecules //{{{
-  for (int i = C_orig->Molecule; i < C_out->Molecule; i++) {
-    int mtype = S_out.Molecule[i].Type;
+  for (int i = 0; i < C_add->Molecule; i++) {
+    int mtype = S_out.Molecule[C_orig->Molecule+i].Type;
     double (*rot)[3];
     rot = calloc(S_out.MoleculeType[mtype].nBeads, sizeof *rot);
-    if (no_rot) {
+    if (opt->no_rot) {
       for (int j = 0; j < S_out.MoleculeType[mtype].nBeads; j++) {
-        int id_add = S_add.Molecule[i-C_orig->Molecule].Bead[j];
+        int id_add = S_add.Molecule[i].Bead[j];
         for (int dd = 0; dd < 3; dd++) {
           rot[j][dd] = S_add.Bead[id_add].Position[dd];
         }
       }
     } else {
       Rotate(S_add, S_out.MoleculeType[mtype].nBeads,
-             S_add.Molecule[i-C_orig->Molecule].Bead, angle, rot);
+             S_add.Molecule[i].Bead, opt->angle, rot);
     }
     double random[3];
-    RandomConstrainedCoor(box_constrain, S_orig, bt_use_orig, mode,
-                          S_out.Box.Length, *opt1, random);
+    RandomConstrainedCoor(S_orig, mode, S_out.Box.Length, *opt, random);
     for (int j = 0; j < S_out.MoleculeType[mtype].nBeads; j++) {
-      int id = S_out.Molecule[i].Bead[j];
+      int id = S_out.Molecule[C_orig->Molecule+i].Bead[j];
       for (int dd = 0; dd < 3; dd++) {
         S_out.Bead[id].Position[dd] = rot[j][dd] + random[dd];
       }
     }
     free(rot);
     // print number of placed molecules?
-    if (!opt1->c.silent && isatty(STDOUT_FILENO)) {
+    if (!opt->c.silent && isatty(STDOUT_FILENO)) {
       fflush(stdout);
-      fprintf(stdout, "\rMolecules placed: %d", i - S_orig.Count.Molecule + 1);
+      fprintf(stdout, "\rMolecules placed: %d", i + 1);
     }
   } //}}}
   // print total number of placed molecules? //{{{
-  if (!opt1->c.silent) {
+  if (!opt->c.silent && C_add->Molecule > 0) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\r                           \r");
     }
-    fprintf(stdout, "\rMolecules placed: %d\n", S_add.Count.Molecule);
+    fprintf(stdout, "\rMolecules placed: %d\n", C_add->Molecule);
   } //}}}
 
   // copy coordinates to the second system (for -o option) //{{{
-  if (opt1->fout.name[0] != '\0') {
+  if (opt->fout.name[0] != '\0') {
     for (int i = 0; i < C_out->Bead; i++) {
       S_out2.Bead[i] = S_out.Bead[i];
     }
   } //}}}
 
   // print information about new system //{{{
-  if (opt1->c.verbose) {
+  if (opt->c.verbose) {
     fprintf(stdout, "\n==================================================");
-    fprintf(stdout, "\nNew system (%s)", out_file);
+    fprintf(stdout, "\nNew system (%s)", fout.name);
     fprintf(stdout, "\n==================================================\n");
     VerboseOutput(S_out);
-    if (opt1->fout.name[0] != '\0') {
+    if (opt->fout.name[0] != '\0') {
       fprintf(stdout, "\n==================================================");
-      fprintf(stdout, "\nNew system (%s)", opt1->fout.name);
+      fprintf(stdout, "\nNew system (%s)", opt->fout.name);
       fprintf(stdout, "\n==================================================\n");
       VerboseOutput(S_out2);
     }
   } //}}}
 
-  // WrapJoinCoordinates(&S_out, true, false);
-
   // write data to output file(s) //{{{
-  bool *write = malloc(sizeof *write * S_out.Count.Bead);
-  InitBoolArray(write, S_out.Count.Bead, true);
+  bool *write = malloc(sizeof *write * C_out->Bead);
+  InitBoolArray(write, C_out->Bead, true);
   // create vsf file if output file is vcf format
-  if (out_type == VCF_FILE) {
-    PrintByline(out_file, argc, argv); // byline to vcf file
-    out_file[strlen(out_file)-2] = 's';
-    WriteStructure(VSF_FILE, out_file, S_out, -1, false, argc, argv);
-    out_file[strlen(out_file)-2] = 'c';
-  } else if (out_type == VTF_FILE) {
-    WriteStructure(out_type, out_file, S_out, -1, false, argc, argv);
+  if (fout.type == VCF_FILE) {
+    PrintByline(fout.name, argc, argv); // byline to vcf file
+    fout.name[strlen(fout.name)-2] = 's';
+    WriteStructure(fout, S_out, -1, false, argc, argv);
+    fout.name[strlen(fout.name)-2] = 'c';
+  } else if (fout.type == VTF_FILE) {
+    WriteStructure(fout, S_out, -1, false, argc, argv);
   } else { // some formats 'append' coordinates, not 'write' them
-    FILE *out = OpenFile(out_file, "w");
+    FILE *out = OpenFile(fout.name, "w");
     fclose(out);
   }
-  WriteTimestep(out_type, out_file, S_out, 0, write);
-  if (opt1->fout.name[0] != '\0') {
-    if (opt1->fout.type == VTF_FILE ||
-        opt1->fout.type == VSF_FILE ||
-        opt1->fout.type == FIELD_FILE) {
-      WriteStructure(opt1->fout.type, opt1->fout.name, S_out2, -1, false, argc, argv);
+  WriteTimestep(fout, S_out, 0, write);
+  if (opt->fout.name[0] != '\0') {
+    if (opt->fout.type == VTF_FILE ||
+        opt->fout.type == VSF_FILE ||
+        opt->fout.type == FIELD_FILE) {
+      WriteStructure(opt->fout, S_out2, -1, false, argc, argv);
     }
-    if (opt1->fout.type == VTF_FILE ||
-        opt1->fout.type == VCF_FILE ||
-        opt1->fout.type == LTRJ_FILE ||
-        opt1->fout.type == LDATA_FILE ||
-        opt1->fout.type == CONFIG_FILE) {
-      WriteTimestep(opt1->fout.type, opt1->fout.name, S_out2, 0, write);
+    if (opt->fout.type == VTF_FILE ||
+        opt->fout.type == VCF_FILE ||
+        opt->fout.type == LTRJ_FILE ||
+        opt->fout.type == LDATA_FILE ||
+        opt->fout.type == CONFIG_FILE) {
+      WriteTimestep(opt->fout, S_out2, 0, write);
     }
   } //}}}
 
@@ -816,16 +828,16 @@ int main(int argc, char *argv[]) {
   FreeSystem(&S_orig);
   FreeSystem(&S_add);
   FreeSystem(&S_out);
-  if (opt1->fout.name[0] != '\0') {
+  if (opt->fout.name[0] != '\0') {
     FreeSystem(&S_out2);
     FreeSystem(&S_add2);
   }
-  if (!new) {
-    free(bt_use_orig);
-    free(sw_type);
+  if (!opt->new) {
+    free(opt->bt_use_orig);
+    free(opt->sw_type);
   }
   free(write);
-  free(opt1); //}}}
+  free(opt); //}}}
 
   return 0;
 }

@@ -33,6 +33,19 @@ conditions can be either stripped away or applied (which happens first if both \
   CommonHelp(error, n, opt);
 } //}}}
 
+// structure for options //{{{
+struct OPT {
+  bool bt, mt,               // -bt/-mt
+       reverse,              // --reverse
+       join, wrap, last;     // --join --wrap --last
+  int n_save[100], n_number; // -n
+  FILE_TYPE fout;            // -o
+  COMMON_OPT c;
+};
+OPT * opt_create(void) {
+  return malloc(sizeof(OPT));
+} //}}}
+
 int main(int argc, char *argv[]) {
 
   // define options //{{{
@@ -60,37 +73,32 @@ int main(int argc, char *argv[]) {
   OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
 
   count = 0; // count mandatory arguments
-
+  OPT *opt = opt_create();
   // <input> - input coordinate (and structure) file //{{{
-  char coor_file[LINE] = "", struct_file[LINE] = "";
-  int coor_type, struct_type = 0;
-  snprintf(coor_file, LINE, "%s", argv[++count]);
-  if (!InputCoorStruct(argc, argv, coor_file, &coor_type,
-                       struct_file, &struct_type)) {
+  SYS_FILES in = InitSysFiles;
+  snprintf(in.coor.name, LINE, "%s", argv[++count]);
+  if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
 
   // <output> - output coordinate file
-  char coor_out_file[LINE] = "";
-  snprintf(coor_out_file, LINE, "%s", argv[++count]);
-  int coor_out_type = CoordinateFileType(coor_out_file);
+  FILE_TYPE fout;
+  snprintf(fout.name, LINE, "%s", argv[++count]);
+  fout.type = CoordinateFileType(fout.name);
 
   // options before reading system data //{{{
-  bool silent, verbose, detailed;
-  int start = 1, end = -1, skip = 0;
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
-                &start, &end, &skip);
-  bool reverse = BoolOption(argc, argv, "--reverse");
-  bool join = BoolOption(argc, argv, "--join");
-  bool wrap = BoolOption(argc, argv, "--wrap");
-  bool last = BoolOption(argc, argv, "--last"); //}}}
+  opt->c = CommonOptions(argc, argv, LINE);
+  opt->reverse = BoolOption(argc, argv, "--reverse");
+  opt->join = BoolOption(argc, argv, "--join");
+  opt->wrap = BoolOption(argc, argv, "--wrap");
+  opt->last = BoolOption(argc, argv, "--last"); //}}}
 
-  if (!silent) {
+  if (!opt->c.silent) {
     PrintCommand(stdout, argc, argv);
   }
 
-  SYSTEM System = ReadStructure(struct_type, struct_file,
-                                coor_type, coor_file, detailed);
+  SYSTEM System = ReadStructure(in, opt->c.detailed);
+  COUNT *Count = &System.Count;
 
   // specify beads to save (possibly using -bt and/or -mt options) //{{{
   /*
@@ -102,40 +110,42 @@ int main(int argc, char *argv[]) {
    * bead/molecule types to save
    */
   // auxiliary arrays holding which bead/molecule types to save
-  bool *write_bt = malloc(System.Count.BeadType * sizeof *write_bt),
-       *write_mt = malloc(System.Count.MoleculeType * sizeof *write_mt);
+  bool *write_bt = malloc(Count->BeadType * sizeof *write_bt),
+       *write_mt = malloc(Count->MoleculeType * sizeof *write_mt);
   // first assume all bead types are saved/excluded based on --reverse option...
-  InitBoolArray(write_bt, System.Count.BeadType, !reverse);
+  InitBoolArray(write_bt, Count->BeadType, !opt->reverse);
   // ... then adjust if -bt option is present
-  bool bt_opt = BeadTypeOption(argc, argv, "-bt", reverse, write_bt, System);
+  opt->bt = BeadTypeOption(argc, argv, "-bt", opt->reverse, write_bt, System);
   // first assume all molecule types are saved/excluded...
-  InitBoolArray(write_mt, System.Count.MoleculeType, !reverse);
+  InitBoolArray(write_mt, Count->MoleculeType, !opt->reverse);
   // ... then adjust if -mt option is present
-  bool mt_opt = MoleculeTypeOption(argc, argv, "-mt", reverse, write_mt, System);
+  opt->mt = MoleculeTypeOption(argc, argv, "-mt", opt->reverse,
+                               write_mt, System);
   // array for holding which beads to save/exclude
-  bool *write = malloc(System.Count.Bead * sizeof *write);
+  bool *write = malloc(Count->Bead * sizeof *write);
   // first assume all are saved/excluded...
-  InitBoolArray(write, System.Count.Bead, !reverse);
+  InitBoolArray(write, Count->Bead, !opt->reverse);
   // then check possible -mt option...
-  if (mt_opt) {
-    for (int i = 0; i < System.Count.MoleculeType; i++) {
-      for (int j = 0; j < System.MoleculeType[i].Number; j++) {
-        int mol = System.MoleculeType[i].Index[j];
-        for (int k = 0; k < System.MoleculeType[i].nBeads; k++) {
+  if (opt->mt) {
+    for (int i = 0; i < Count->MoleculeType; i++) {
+      MOLECULETYPE *mt = &System.MoleculeType[i];
+      for (int j = 0; j < mt->Number; j++) {
+        int mol = mt->Index[j];
+        for (int k = 0; k < mt->nBeads; k++) {
           int id = System.Molecule[mol].Bead[k];
-          if (write_mt[i] == reverse) {
-            write[id] = reverse; // save/exclude based on --reverse
+          if (write_mt[i] == opt->reverse) {
+            write[id] = opt->reverse; // save/exclude based on --reverse
           }
         }
       }
     }
   }
   // ... and possible -bt option
-  if (bt_opt) {
-    for (int i = 0; i < System.Count.Bead; i++) {
+  if (opt->bt) {
+    for (int i = 0; i < Count->Bead; i++) {
       int type = System.Bead[i].Type;
-      if (write_bt[type] == reverse) {
-        write[i] = reverse;
+      if (write_bt[type] == opt->reverse) {
+        write[i] = opt->reverse;
       }
     }
   }
@@ -150,38 +160,39 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // '-n' option - specify timestep ids //{{{
-  int n_opt_save[100] = {0}, n_opt_number = -1;
-  IntegerOption(argc, argv, 100, "-n", &n_opt_number, n_opt_save);
+  opt->n_number = -1;
+  InitIntArray(opt->n_save, 100, 0);
+  IntegerOption(argc, argv, 100, "-n", &opt->n_number, opt->n_save);
   // ignore -st/-e/-sk when -n is used
-  if (n_opt_number != -1) {
-    start = 1;
-    end = -1;
-    skip = 1;
+  if (opt->n_number != -1) {
+    opt->c.start = 1;
+    opt->c.end = -1;
+    opt->c.skip = 1;
   }
-  SortArrayInt(n_opt_save, n_opt_number, 0); //}}}
+  SortArrayInt(opt->n_save, opt->n_number, 0); //}}}
 
-  if (verbose) {
+  if (opt->c.verbose) {
     VerboseOutput(System);
   }
 
   // print initial stuff to output coordinate file //{{{
-  if (coor_out_type == VCF_FILE) {
-    PrintByline(coor_out_file, argc, argv);
-  } else if (coor_out_type == VTF_FILE) {
-    WriteStructure(VSF_FILE, coor_out_file, System, -1, false, argc, argv);
+  if (fout.type == VCF_FILE) {
+    PrintByline(fout.name, argc, argv);
+  } else if (fout.type == VTF_FILE) {
+    WriteStructure(fout, System, -1, false, argc, argv);
   } else {
-    FILE *out = OpenFile(coor_out_file, "w");
+    FILE *out = OpenFile(fout.name, "w");
     fclose(out);
   } //}}}
 
   // for lammps data as a coordinate file, only the one step is used
-  if (coor_type == LDATA_FILE) {
-    start = 1;
-    skip = 1;
-    end = 1;
+  if (in.coor.type == LDATA_FILE) {
+    opt->c.start = 1;
+    opt->c.skip = 1;
+    opt->c.end = 1;
   }
 
-  FILE *fr = OpenFile(coor_file, "r");
+  FILE *fr = OpenFile(in.coor.name, "r");
   // main loop //{{{
   // file pointers for finding the last valid step
   fpos_t *position = calloc(1, sizeof *position);
@@ -192,7 +203,14 @@ int main(int argc, char *argv[]) {
       count_saved = 0, // count steps in output file
       line_count = 0;  // count lines in the coor file
   while (true) {
-    PrintStep(&count_coor, start, silent);
+    if (opt->last) {
+      if (!opt->c.silent && isatty(STDOUT_FILENO)) {
+        count_coor++;
+        fprintf(stdout, "\rDiscarding step: %d", count_coor);
+      }
+    } else {
+      PrintStep(&count_coor, opt->c.start, opt->c.silent);
+    }
     position = realloc(position, count_coor * sizeof *position);
     fgetpos(fr, &position[count_coor-1]);
     bkp_line_count = realloc(bkp_line_count, count_coor *
@@ -205,41 +223,40 @@ int main(int argc, char *argv[]) {
      *    and
      *    2) isn't skipped (-sk option); skipping starts counting with 'start'
      */
-    if (n_opt_number == -1) {
+    if (opt->n_number == -1) {
       // definitely not use, if --last option is used
-      if (last) {
+      if (opt->last) {
         use = false;
-      } else if (count_coor >= start &&              // 1)
-                 (count_coor <= end || end == -1) && //
-                 ((count_coor - start) % skip) == 0) { // 2)
+      } else if (count_coor >= opt->c.start &&              // 1)
+                 (count_coor <= opt->c.end || opt->c.end == -1) && //
+                 ((count_coor - opt->c.start) % opt->c.skip) == 0) { // 2)
         use = true;
       } else {
         use = false;
       }
       // -n option is used - save the timestep if it's in the list
-    } else if (n_opt_count < n_opt_number &&
-               n_opt_save[n_opt_count] == count_coor) {
+    } else if (n_opt_count < opt->n_number &&
+               opt->n_save[n_opt_count] == count_coor) {
       use = true;
       n_opt_count++;
     } //}}}
     if (use) { // read and write the timestep, if it should be saved //{{{
-      if (coor_out_type == LDATA_FILE && count_saved == 1) {
+      if (fout.type == LDATA_FILE && count_saved == 1) {
         strcpy(ERROR_MSG, "only one timestep can be saved to lammps data file");
-        PrintWarnFile(coor_out_file, "\0", "\0");
+        PrintWarnFile(fout.name, "\0", "\0");
         count_coor--;
         break;
       }
-      if (!ReadTimestep(coor_type, fr, coor_file, &System, &line_count)) {
+      if (!ReadTimestep(in, fr, &System, &line_count)) {
         count_coor--;
         break;
       }
       count_saved++;
-      WrapJoinCoordinates(&System, wrap, join);
-      WriteTimestep(coor_out_type, coor_out_file, System, count_coor, write);
+      WrapJoinCoordinates(&System, opt->wrap, opt->join);
+      WriteTimestep(fout, System, count_coor, write);
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
-      if (!SkipTimestep(coor_type, fr, coor_file,
-                        struct_file, &line_count)) {
+      if (!SkipTimestep(in, fr, &line_count)) {
         count_coor--;
         break;
       }
@@ -250,14 +267,14 @@ int main(int argc, char *argv[]) {
      *    or
      *    2) end timestep was reached (-e option)
      */
-    if (!last && // never break when --last is used
-        (n_opt_count == n_opt_number || // 1)
-        count_coor == end)) { // 2)
+    if (!opt->last && // never break when --last is used
+        (n_opt_count == opt->n_number || // 1)
+         count_coor == opt->c.end)) {    // 2)
       break;
     } //}}}
   } //}}}
   // if --last option is used, read & save the last timestep //{{{
-  if (last) {
+  if (opt->last) {
     /* To through all saved file positions (last to first) and save a the first
      * valid step encountered.
      * Start at count_coor as the saved position is at the beginning of the last
@@ -268,11 +285,11 @@ int main(int argc, char *argv[]) {
     for (int i = (count_coor); i >= 0; i--) {
       fsetpos(fr, &position[i]);
       line_count = bkp_line_count[i];
-      if (ReadTimestep(coor_type, fr, coor_file, &System, &line_count)) {
+      if (ReadTimestep(in, fr, &System, &line_count)) {
         count_saved++;
-        WrapJoinCoordinates(&System, wrap, join);
-        WriteTimestep(coor_out_type, coor_out_file, System, count_coor, write);
-        if (!silent) {
+        WrapJoinCoordinates(&System, opt->wrap, opt->join);
+        WriteTimestep(fout, System, count_coor, write);
+        if (!opt->c.silent) {
           if (isatty(STDOUT_FILENO)) {
             fprintf(stdout, "\r                          \r");
           }
@@ -282,18 +299,18 @@ int main(int argc, char *argv[]) {
         break;
       } else {
         snprintf(ERROR_MSG, LINE, "disregarding step %s%d%s", ErrYellow(),
-                 i+1, ErrCyan());
-        PrintWarnFile(coor_file, "\0", "\0");
+                 i + 1, ErrCyan());
+        PrintWarnFile(in.coor.name, "\0", "\0");
       }
     } //}}}
   } else if (count_coor == 0) { // error - input file without a valid timestep //{{{
     strcpy(ERROR_MSG, "no valid timestep found");
-    PrintErrorFile(coor_file, "\0", "\0"); //}}}
-  } else if (start > count_coor) { // warn if no timesteps were written //{{{
+    PrintErrorFile(in.coor.name, "\0", "\0"); //}}}
+  } else if (opt->c.start > count_coor) { // warn if no timesteps were written //{{{
     strcpy(ERROR_MSG, "no coordinates written (starting timestep is higher"
            " than the total number of timesteps)");
     PrintWarning(); //}}}
-  } else if (!silent) { // print last step count? //{{{
+  } else if (!opt->c.silent) { // print last step count? //{{{
     if (isatty(STDOUT_FILENO)) {
       fprintf(stdout, "\r                          \r");
     }
@@ -307,6 +324,7 @@ int main(int argc, char *argv[]) {
   free(write);
   free(position);
   free(bkp_line_count);
+  free(opt);
 
   // // reading file from the end //{{{
   // FILE *fr = OpenFile(in_coor, "r");

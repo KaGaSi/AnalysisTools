@@ -115,14 +115,14 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
     // orthogonal box
     if (box->alpha == 90 && box->beta == 90 && box->gamma == 90) {
       fprintf(fw, "ITEM: BOX BOUNDS pp pp pp\n");
-      fprintf(fw, "%.3f %.3f\n", box->Low[0], box->Length[0]+box->Low[0]);
-      fprintf(fw, "%.3f %.3f\n", box->Low[1], box->Length[1]+box->Low[1]);
-      fprintf(fw, "%.3f %.3f\n", box->Low[2], box->Length[2]+box->Low[2]);
+      fprintf(fw, "%lf %lf\n", box->Low[0], box->Length[0]+box->Low[0]);
+      fprintf(fw, "%lf %lf\n", box->Low[1], box->Length[1]+box->Low[1]);
+      fprintf(fw, "%lf %lf\n", box->Low[2], box->Length[2]+box->Low[2]);
     } else {
       fprintf(fw, "ITEM: BOX BOUNDS xy xz yz pp pp pp\n");
-      fprintf(fw, "0.0 %.3f %.3f\n", box->Bounding[0], box->transform[0][1]);
-      fprintf(fw, "0.0 %.3f %.3f\n", box->Bounding[1], box->transform[0][2]);
-      fprintf(fw, "0.0 %.3f %.3f\n", box->Bounding[2], box->transform[1][2]);
+      fprintf(fw, "0.0 %lf %lf\n", box->Bounding[0], box->transform[0][1]);
+      fprintf(fw, "0.0 %lf %lf\n", box->Bounding[1], box->transform[0][2]);
+      fprintf(fw, "0.0 %lf %lf\n", box->Bounding[2], box->transform[1][2]);
     }
     fprintf(fw, "ITEM: ATOMS id element x y z");
     if (vel) {
@@ -137,8 +137,7 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
     for (int i = 0; i < System.Count.BeadCoor; i++) {
       int id = System.BeadCoor[i], id_out;
       if (count_write != System.Count.Bead) {
-        // id_out = count;
-        id_out = id;
+        id_out = count;
       } else {
         id_out = id;
       }
@@ -721,10 +720,9 @@ static void SimplifyResid(SYSTEM *System) { //{{{
 } //}}}
 
 // Write a single timestep to output file based on the file type //{{{
-void WriteTimestep(int coor_type, char file[], SYSTEM System,
-                   int count_step, bool write[]) {
-  FILE *fw = OpenFile(file, "a");
-  switch (coor_type) {
+void WriteTimestep(FILE_TYPE f, SYSTEM System, int count_step, bool write[]) {
+  FILE *fw = OpenFile(f.name, "a");
+  switch (f.type) {
     case VCF_FILE:
     case VTF_FILE:
       VtfWriteCoorIndexed(fw, write, System);
@@ -736,33 +734,33 @@ void WriteTimestep(int coor_type, char file[], SYSTEM System,
       LtrjWriteCoor(fw, count_step, write, System);
       break;
     case LDATA_FILE:
-      WriteLmpData(System, file, false);
+      WriteLmpData(System, f.name, false);
       break;
     default:
       snprintf(ERROR_MSG, LINE, "no action specified for output coor_type %s%d",
-               ErrYellow(), coor_type);
+               ErrYellow(), f.type);
       PrintError();
       exit(1);
   }
   fclose(fw);
 } //}}}
 // Create a structure file based on the file type (including dl_meso CONFIG) //{{{
-void WriteStructure(int struct_type, char file[], SYSTEM System,
-                    int vsf_def_type, bool lmp_mass, int argc, char *argv[]) {
+void WriteStructure(FILE_TYPE f, SYSTEM System, int vsf_def_type,
+                    bool lmp_mass, int argc, char *argv[]) {
   // ensure the output file is new
-  switch (struct_type) {
+  switch (f.type) {
     case VSF_FILE:
     case VTF_FILE:
-      VtfWriteStruct(file, System, vsf_def_type, argc, argv);
+      VtfWriteStruct(f.name, System, vsf_def_type, argc, argv);
       break;
     case LDATA_FILE:
-      WriteLmpData(System, file, lmp_mass);
+      WriteLmpData(System, f.name, lmp_mass);
       break;
     case CONFIG_FILE:
-      WriteConfig(System, file);
+      WriteConfig(System, f.name);
       break;
     case FIELD_FILE:
-      WriteField(System, file);
+      WriteField(System, f.name);
       break;
     case LTRJ_FILE:
       if (System.Count.BeadCoor == 0) {
@@ -773,7 +771,7 @@ void WriteStructure(int struct_type, char file[], SYSTEM System,
       }
       bool *write = calloc(System.Count.Bead, sizeof *write);
       InitBoolArray(write, System.Count.Bead, true);
-      FILE *fw = OpenFile(file, "w");
+      FILE *fw = OpenFile(f.name, "w");
       LtrjWriteCoor(fw, 0, write, System);
       fclose(fw);
       free(write);

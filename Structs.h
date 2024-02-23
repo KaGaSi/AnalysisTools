@@ -3,11 +3,51 @@
 
 #include "General.h"
 
+#define VERSION "4.0"
+#define DATE "TBD"
+#define OPT_LENGTH 16
+
 #define CHARGE 10000.0 // 'impossible' charge
 #define MASS 0.0 // 'impossible' mass
 #define RADIUS 0.0 // 'impossible' radius
 #define MOL_NAME 21 // maximum molecule name length (with null terminator)
 #define BEAD_NAME 21 // maximum bead name length (with null terminator)
+
+#define EXTENSION 16 // maximum length of filename extension
+// filetypes' ids
+#define VTF_FILE 0
+#define VSF_FILE 1
+#define VCF_FILE 2
+#define XYZ_FILE 3
+#define LDATA_FILE 4
+#define LTRJ_FILE 5
+#define FIELD_FILE 6
+#define CONFIG_FILE 7
+
+typedef struct OPT OPT;
+OPT * opt_create(void);
+
+typedef struct file_type {
+  char name[LINE];
+  int type;
+} FILE_TYPE;
+static const FILE_TYPE InitFile = {
+  .name = "",
+  .type = -1,
+};
+
+typedef struct common_opt {
+  bool verbose, silent, detailed;
+  int start, end, skip;
+} COMMON_OPT;
+
+typedef struct sys_files {
+  FILE_TYPE coor, stru;
+} SYS_FILES;
+static const SYS_FILES InitSysFiles = {
+  .coor = InitFile,
+  .stru = InitFile,
+};
 
 // POINTER TO ARRAY IN STRUCTURE
 // double (*test)[3][3] = &S_orig.Box.transform;

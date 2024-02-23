@@ -7,14 +7,12 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   } else {
     ptr = stdout;
     fprintf(ptr, "\
-Info analyzes the provided input structure file, \
-printing system composition to standard output and, optionally, producing \
-an output structure file of specified format (-o option). If some information \
-required in the output file is missing, \
-'???\' is printed instead. The system from the input file can \
-be modified using a second structure file (-i[!] option) and/or \
-a coordinate file (-c option); see Examples/Info folder for \
-details.\
+Info analyzes the provided input structure file, printing system composition \
+to standard output and, optionally, producing an output structure file \
+of specified format (-o option). If some information required in the output \
+file is missing, '???\' is printed instead. The system from the input file \
+can be modified using a second structure file (-i[!] option) and/or \
+a coordinate file (-c option); see Examples/Info folder for details.\
 \n\n");
   }
 
@@ -32,6 +30,17 @@ details.\
   fprintf(ptr, "  -ebt <int>        number of extra bead types "
           "(output lammps data file only)\n");
   CommonHelp(error, n, opt);
+} //}}}
+
+// structure for options //{{{
+struct OPT {
+  int vsf_def, ebt;          // -def -ebt
+  bool lmp_mass;             // --mass
+  FILE_TYPE fout;            // -o
+  COMMON_OPT c;
+};
+OPT * opt_create(void) {
+  return malloc(sizeof(OPT));
 } //}}}
 
 int main(int argc, char *argv[]) {
@@ -57,62 +66,51 @@ int main(int argc, char *argv[]) {
   OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
 
   count = 0; // count arguments
+  OPT *opt = opt_create();
+  SYS_FILES in = InitSysFiles;
+  snprintf(in.stru.name, LINE, "%s", argv[++count]);
+  in.stru.type = StructureFileType(in.stru.name);
 
-  char struct_file[LINE] = "";
-  snprintf(struct_file, LINE, "%s", argv[++count]);
-  int struct_type = StructureFileType(struct_file);
-
-  // print command to stdout
   PrintCommand(stdout, argc, argv);
 
   // -i[!] option //{{{
-  char struct_file_extra[LINE] = "";
-  int struct_type_extra = -1;
+  SYS_FILES extra = InitSysFiles;
   bool change_beads = false;
-  FileOption(argc, argv, "-i", struct_file_extra);
-  if (struct_file_extra[0] == '\0') {
-    FileOption(argc, argv, "-i!", struct_file_extra);
-    if (struct_file_extra[0] != '\0') {
+  if (!FileOption(argc, argv, "-i", extra.stru.name)) { // -i present?
+    if (!FileOption(argc, argv, "-i!", extra.stru.name)) { // -i! present?
       change_beads = true;
     }
   }
-  if (struct_file_extra[0] != '\0') {
-    struct_type_extra = StructureFileType(struct_file_extra);
+  if (extra.stru.name[0] != '\0') {
+    extra.stru.type = StructureFileType(extra.stru.name);
   } //}}}
   // input coordinate file (-c option) //{{{
-  char coor_file[LINE] = "";
-  int coor_type = -1;
-  FileOption(argc, argv, "-c", coor_file);
-  if (coor_file[0] != '\0') {
-    coor_type = CoordinateFileType(coor_file);
+  FileOption(argc, argv, "-c", in.coor.name);
+  if (in.coor.name[0] != '\0') {
+    in.coor.type = CoordinateFileType(in.coor.name);
+    extra.coor = in.coor;
   } //}}}
   // output structure file (-o option) //{{{
-  char struct_file_out[LINE] = "";
-  int struct_type_out = -1;
-  FileOption(argc, argv, "-o", struct_file_out);
-  if (struct_file_out[0] != '\0') {
-    struct_type_out = StructureFileType(struct_file_out);
+  opt->fout = InitFile;
+  FileOption(argc, argv, "-o", opt->fout.name);
+  if (opt->fout.name[0] != '\0') {
+    opt->fout.type = StructureFileType(opt->fout.name);
   } //}}}
-  bool silent, verbose, detailed;
-  int timestep = 1,
-      trash[1]; // some stuff for unused things in options
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
-                &timestep, trash, trash);
+  opt->c = CommonOptions(argc, argv, LINE);
   // extra bead types for data output (-ebt option)
-  int extra_types = 0;
-  IntegerOption1(argc, argv, "-ebt", &extra_types);
+  opt->ebt = 0;
+  IntegerOption1(argc, argv, "-ebt", &opt->ebt);
 
   // read information from input file(s) //{{{
-  SYSTEM System = ReadStructure(struct_type, struct_file,
-                                coor_type, coor_file, detailed);
+  SYSTEM System = ReadStructure(in, opt->c.detailed);
   // use coordinate from a separate file (-c option)
-  if (coor_type != -1) {
+  if (in.coor.type != -1) {
     int line_count = 0;
-    FILE *fr = OpenFile(coor_file, "r");
-    for (int i = 1; i < timestep; i++) { // from 1 as timestep=1 is the first
-      SkipTimestep(coor_type, fr, coor_file, struct_file, &line_count);
+    FILE *fr = OpenFile(in.coor.name, "r");
+    for (int i = 1; i < opt->c.start; i++) { // from 1 as timestep=1 is the first
+      SkipTimestep(in, fr, &line_count);
     }
-    ReadTimestep(coor_type, fr, coor_file, &System, &line_count);
+    ReadTimestep(in, fr, &System, &line_count);
     fclose(fr);
   } else {
     // all beads are in the timestep
@@ -121,11 +119,11 @@ int main(int argc, char *argv[]) {
     }
   }
   // print initial system information only if extra file(s) are present
-  if (verbose && (struct_type_extra != -1 || coor_type != -1)) {
+  if (opt->c.verbose && (extra.stru.type != -1 || in.coor.type != -1)) {
     fprintf(stdout, "\n==================================================");
-    printf("\nSystem in %s", struct_file);
-    if (coor_type != -1) {
-      printf(" (coordinates: %s)", coor_file);
+    printf("\nSystem in %s", in.stru.name);
+    if (in.coor.type != -1) {
+      printf(" (coordinates: %s)", in.coor.name);
     }
     fprintf(stdout, "\n==================================================\n");
     VerboseOutput(System);
@@ -135,12 +133,11 @@ int main(int argc, char *argv[]) {
     PrintMolecule(System);
   }
   SYSTEM Sys_extra;
-  if (struct_file_extra[0] != '\0') {
-    Sys_extra = ReadStructure(struct_type_extra, struct_file_extra,
-                              coor_type, coor_file, detailed);
-    if (verbose) {
+  if (extra.stru.name[0] != '\0') {
+    Sys_extra = ReadStructure(extra, opt->c.detailed);
+    if (opt->c.verbose) {
       fprintf(stdout, "\n==================================================");
-      printf("\nSystem in extra file (%s)", struct_file_extra);
+      printf("\nSystem in extra file (%s)", extra.stru.name);
       fprintf(stdout, "\n==================================================\n");
       VerboseOutput(Sys_extra);
       fprintf(stdout, "Information about every bead:\n");
@@ -165,35 +162,35 @@ int main(int argc, char *argv[]) {
       }
     }
     ChangeMolecules(&System, Sys_extra, change_beads, false);
-    CheckSystem(System, struct_file_extra);
+    CheckSystem(System, extra.stru.name);
   } //}}}
 
   // -def option (for vsf output file) //{{{
   bool *def_type = calloc(System.Count.BeadType, sizeof *def_type);
   BeadTypeOption(argc, argv, "-def", false, def_type, System);
-  int vsf_def_type = -1;
+  opt->vsf_def = -1;
   for (int i = 0; i < System.Count.BeadType; i++) {
     if (def_type[i]) {
-      vsf_def_type = i;
+      opt->vsf_def = i;
       break;
     }
   }
   free(def_type); //}}}
   // use mass only for atom type definition for data output file
-  bool lmp_mass = BoolOption(argc, argv, "--mass");
+  opt->lmp_mass = BoolOption(argc, argv, "--mass");
 
   PruneSystem(&System);
 
   // print the system information //{{{
   fprintf(stdout, "\n==================================================");
-  if (struct_type_extra != -1 || coor_type != -1) {
+  if (extra.stru.type != -1 || in.coor.type != -1) {
     printf("\nFinal system composition");
   } else {
     printf("\nSystem composition");
   }
   fprintf(stdout, "\n==================================================\n");
   VerboseOutput(System);
-  if (verbose) { // -v option
+  if (opt->c.verbose) { // -v option
     fprintf(stdout, "Information about every bead:\n");
     PrintBead(System);
     fprintf(stdout, "\nInformation about every molecule:\n");
@@ -201,16 +198,16 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // write the output file if required (-o option) //{{{
-  if (struct_file_out[0] != '\0') {
-    if (struct_type_out == LDATA_FILE && extra_types != 0) {
-      for (int i = 0; i < extra_types; i++) {
+  if (opt->fout.name[0] != '\0') {
+    if (opt->fout.type == LDATA_FILE && opt->ebt != 0) {
+      for (int i = 0; i < opt->ebt; i++) {
         NewBeadType(&System.BeadType, &System.Count.BeadType, "extra", 0, 1, 1);
       }
     }
     // test if coordinates are present for structure files with coordinates
-    if (struct_type_out == LDATA_FILE ||
-        struct_type_out == LTRJ_FILE ||
-        struct_type_out == VTF_FILE) {
+    if (opt->fout.type == LDATA_FILE ||
+        opt->fout.type == LTRJ_FILE ||
+        opt->fout.type == VTF_FILE) {
       bool coor = false;
       for (int i = 0; i < System.Count.BeadCoor; i++) {
         int id = System.BeadCoor[i];
@@ -223,23 +220,23 @@ int main(int argc, char *argv[]) {
       }
       if (!coor) {
         strcpy(ERROR_MSG, "no coordinates loaded for lammps/vtf output");
-        PrintWarnFile(struct_file_out, coor_file, "\0");
+        PrintWarnFile(opt->fout.name, in.coor.name, "\0");
       }
     }
-    WriteStructure(struct_type_out, struct_file_out, System,
-                   vsf_def_type, lmp_mass, argc, argv);
-    if (struct_type_out == VTF_FILE) {
+    WriteStructure(opt->fout, System, opt->vsf_def, opt->lmp_mass, argc, argv);
+    if (opt->fout.type == VTF_FILE) {
       bool *write = malloc(sizeof *write * System.Count.Bead);
       InitBoolArray(write, System.Count.Bead, true);
-      WriteTimestep(struct_type_out, struct_file_out, System, 1, write);
+      WriteTimestep(opt->fout, System, 1, write);
       free(write);
     }
   } //}}}
 
   FreeSystem(&System);
-  if (struct_file_extra[0] != '\0') {
+  if (extra.stru.name[0] != '\0') {
     FreeSystem(&Sys_extra);
   }
+  free(opt);
 
   return 0;
 }

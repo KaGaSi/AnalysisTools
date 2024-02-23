@@ -22,7 +22,8 @@ edges or the two surfaces of a lipid bilayer inside the box).\n\n");
   }
 
   fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <width> <out.surf> <axis> [options]\n\n", cmd);
+  fprintf(ptr, "   %s <input> <width> <surf.txt> <area.txt> "
+          "<axis> [options]\n\n", cmd);
 
   fprintf(ptr, "<input>             input coordinate file\n");
   fprintf(ptr, "<width>             width of a single bin\n");
@@ -37,11 +38,21 @@ edges or the two surfaces of a lipid bilayer inside the box).\n\n");
   CommonHelp(error, n, opt);
 } //}}}
 
+// structure for options //{{{
+struct OPT {
+  bool in;        // --in
+  FILE_TYPE fout; // -o
+  COMMON_OPT c;
+};
+OPT * opt_create(void) {
+  return malloc(sizeof(OPT));
+} //}}}
+
 int main(int argc, char *argv[]) {
 
   // define options //{{{
   int common = 9, all = common + 1, count = 0,
-      req_arg = 4;
+      req_arg = 5;
   char option[all][OPT_LENGTH];
   // common options
   strcpy(option[count++], "-st");
@@ -60,25 +71,25 @@ int main(int argc, char *argv[]) {
   OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
 
   count = 0; // count mandatory arguments
-
+  OPT *opt = opt_create();
   // arguments & options before reading system data //{{{
-  // <input> - input coordinate (and structure) file //{{{
-  char coor_file[LINE] = "", struct_file[LINE] = "";
-  int coor_type, struct_type = 0;
-  snprintf(coor_file, LINE, "%s", argv[++count]);
-  if (!InputCoorStruct(argc, argv, coor_file, &coor_type,
-                       struct_file, &struct_type)) {
+  // <input> - input coordinate (and structure) file
+  SYS_FILES in = InitSysFiles;
+  snprintf(in.coor.name, LINE, "%s", argv[++count]);
+  if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
-  } //}}}
-  // <width> - width of a single bin //{{{
+  }
+  // <width> - width of a single bin
   double width = 0;
   if (!IsPosRealNumber(argv[++count], &width)) {
     ErrorNaN("<width>");
     Help(argv[0], true, common, option);
     exit(1);
-  } //}}}
+  }
+  // <surf.txt> - output file with averaged surface coordinates
   char file_surf[LINE] = "";
   snprintf(file_surf, LINE, "%s", argv[++count]);
+  // <area.txt> - output file with average area
   char file_area[LINE] = "";
   snprintf(file_area, LINE, "%s", argv[++count]);
   // <axis> - x, y, or z //{{{
@@ -103,22 +114,18 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   //}}}
-  bool silent, verbose, detailed;
-  int start = 1, end = -1, skip = 0;
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
-                &start, &end, &skip);
-  bool in = BoolOption(argc, argv, "--in"); //}}}
+  opt->c = CommonOptions(argc, argv, LINE);
+  opt->in = BoolOption(argc, argv, "--in"); //}}}
 
-  if (!silent) {
+  if (!opt->c.silent) {
     PrintCommand(stdout, argc, argv);
   }
 
-  SYSTEM System = ReadStructure(struct_type, struct_file,
-                                coor_type, coor_file, detailed);
+  SYSTEM System = ReadStructure(in, opt->c.detailed);
   COUNT *Count = &System.Count;
   BOX *Box = &System.Box;
 
-  if (verbose) {
+  if (opt->c.verbose) {
     VerboseOutput(System);
   }
 
@@ -137,7 +144,6 @@ int main(int argc, char *argv[]) {
   bins[1] += 10;
   //}}}
 
-// TODO: sizeof ...argh!
   // allocate memory for density arrays //{{{
   double ***surf = malloc(bins[0] * sizeof(double **)); // sum
   int ***values = malloc(bins[0] * sizeof(int **)); // number of values
@@ -151,7 +157,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // open input coordinate file
-  FILE *fr = OpenFile(coor_file, "r");
+  FILE *fr = OpenFile(in.coor.name, "r");
 
   // write initial stuff to the per-timestep area
   PrintByline(file_area, argc, argv);
@@ -164,17 +170,17 @@ int main(int argc, char *argv[]) {
       count_used = 0, // count timesteps from the beginning
       line_count = 0; // count lines in the coor file
   while (true) {
-    PrintStep(&count_coor, start, silent);
+    PrintStep(&count_coor, opt->c.start, opt->c.silent);
     // decide whether to use this timestep (based on -st/-sk/-e) //{{{
     bool use = false;
-    if (count_coor >= start &&
-        (count_coor <= end || end == -1) &&
-        ((count_coor - start) % skip) == 0) {
+    if (count_coor >= opt->c.start &&
+        (count_coor <= opt->c.end || opt->c.end == -1) &&
+        ((count_coor - opt->c.start) % opt->c.skip) == 0) {
       use = true;
     } //}}}
 
     if (use) { //{{{
-      if (!ReadTimestep(coor_type, fr, coor_file, &System, &line_count)) {
+      if (!ReadTimestep(in, fr, &System, &line_count)) {
         count_coor--;
         break;
       }
@@ -236,14 +242,13 @@ int main(int argc, char *argv[]) {
       FreeSystem(&extra_x);
       FreeSystem(&extra_y); //}}}
 
-    // TODO: sizeof ...argh!
       // allocate memory for temporary arrays //{{{
       double ***temp = calloc(bins[0], sizeof(double **));
       for (int i = 0; i < bins[0]; i++) {
         temp[i] = calloc(bins[1], sizeof(double *));
         for (int j = 0; j < bins[1]; j++) {
           temp[i][j] = calloc(2, sizeof(double));
-          if (!in) {
+          if (!opt->in) {
             temp[i][j][0] = 0;
             temp[i][j][1] = Box->Length[axis];
           } else {
@@ -284,7 +289,7 @@ int main(int argc, char *argv[]) {
           PrintBox(*Box);
           PrintBox(System.Box);
         }
-        if (!in) { // go from box centre to edges
+        if (!opt->in) { // go from box centre to edges
           if (coor[2] >= temp[bin[0]][bin[1]][0] &&
               coor[2] >= range[0] &&
               coor[2] <= ((range[0]+range[1])/2)) {
@@ -297,6 +302,9 @@ int main(int argc, char *argv[]) {
           }
         } else if (coor[2] >= range[0] &&
                    coor[2] <= range[1]) { // go from box edges to centre
+          // if (bin[1] == 32 && bin[0] == 32) {
+          //   printf("bin 36: %d %lf %lf %lf\n", id, coor[0], coor[1], coor[2]);
+          // }
           if (coor[2] <= temp[bin[0]][bin[1]][0]) {
             temp[bin[0]][bin[1]][0] = coor[2];
           }
@@ -309,7 +317,7 @@ int main(int argc, char *argv[]) {
       // add to sums //{{{
       for (int i = 0; i < bins[0]; i++) {
         for (int j = 0; j < bins[1]; j++) {
-          if (!in) {
+          if (!opt->in) {
             if (temp[i][j][0] > 0) {
               surf[i][j][0] += temp[i][j][0];
               values[i][j][0]++;
@@ -335,19 +343,30 @@ int main(int argc, char *argv[]) {
       double sum_area[3] = {0, 0, 0};
       int triangles[3] = {0, 0, 0};
       count = 0;
+      // TODO: is the bins_true correct? E.g., Box 10, width a) = 1.0, b) = 1.1
+      //       a) bins_true = 11
+      //       b) bins_true = 12
+      //       a) last temp with data: temp[9]
+      //       b) last temp with data: temp[10]
+      //       ...is that so & is that right?
+      //       ...consider we're using the SYSTEM full; so I thinks it's right
       int bins_true[2];
       bins_true[0] = System.Box.Length[0] / width + 1;
       bins_true[1] = System.Box.Length[1] / width + 1;
-      // TODO: no idea why fmod() sometimes returns 'width' (i.e., the divisor)
+      // printf("%d\n", bins_true[0]);
       double remainder[2];
       remainder[0] = fmod(System.Box.Length[0],width);
+      // TODO: no idea why fmod() sometimes returns 'width' (i.e., the divisor)
       if (fabs(remainder[0]) > 0.001 && fabs(remainder[0]-width) > 0.001) {
         bins_true[0]++;
       }
+      // printf("%lf %lf\n", fabs(remainder[0]), fabs(remainder[0]-width));
       remainder[1] = fmod(System.Box.Length[1],width);
       if (fabs(remainder[1]) > 0.001 && fabs(remainder[1]-width) > 0.001) {
         bins_true[1]++;
       }
+      // printf("%d %lf %lf %d %lf\n", bins_true[0], System.Box.Length[0], width,
+      //        (int)(System.Box.Length[0]/width), System.Box.Length[0]/width);
       for (int i = 0; i < bins_true[0]; i++) {
         temp[i][bins_true[1]-1][0] = temp[i][0][0];
         temp[i][bins_true[1]-1][1] = temp[i][0][1];
@@ -367,11 +386,14 @@ int main(int argc, char *argv[]) {
               temp[i+1][j+1][0] < Box->Length[axis]) {
             double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
             A[2] = temp[i][j][0];
+            // A[2] = 0;
             B[0] = width;
             B[2] = temp[i+1][j][0];
+            // B[2] = 0;
             C[0] = width;
             C[1] = width;
             C[2] = temp[i+1][j+1][0];
+            // C[2] = 0;
             double AB[3], AC[3], BC[3];
             for (int dd = 0; dd < 3; dd++) {
               AB[dd] = B[dd] - A[dd];
@@ -398,11 +420,14 @@ int main(int argc, char *argv[]) {
               temp[i+1][j+1][0] < Box->Length[axis]) {
             double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
             A[2] = temp[i][j][0];
+            // A[2] = 0;
             B[1] = width;
             B[2] = temp[i][j+1][0];
+            // B[2] = 0;
             C[0] = width;
             C[1] = width;
             C[2] = temp[i+1][j+1][0];
+            // C[2] = 0;
             double AB[3], AC[3], BC[3];
             for (int dd = 0; dd < 3; dd++) {
               AB[dd] = B[dd] - A[dd];
@@ -563,7 +588,7 @@ int main(int argc, char *argv[]) {
       }
 
       // int n_triangles = (bins[0] - 1) * (bins[1] - 1)  * 2;
-      int n_triangles = (bins_true[0] - 1) * (bins_true[1] -1) * 2;
+      int n_triangles = (bins_true[0] - 1) * (bins_true[1] - 1) * 2;
       double avg_triangle[3];
       avg_triangle[0] = sum_area[0] / triangles[0];
       avg_triangle[1] = sum_area[1] / triangles[1];
@@ -590,21 +615,20 @@ int main(int argc, char *argv[]) {
       FreeSystem(&full); //}}}
       //}}}
     } else { //{{{
-      if (!SkipTimestep(coor_type, fr, coor_file,
-                        struct_file, &line_count)) {
+      if (!SkipTimestep(in, fr, &line_count)) {
         count_coor--;
         break;
       }
     } //}}}
     // exit the main loop if reached user-specied end timestep
-    if (count_coor == end) {
+    if (count_coor == opt->c.end) {
       break;
     }
   }
   fclose(fr);
   fclose(out);
   // print last step?
-  if (!silent) {
+  if (!opt->c.silent) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\r                          \r");
@@ -644,6 +668,16 @@ int main(int argc, char *argv[]) {
   double sum_area[3] = {0, 0, 0};
   int triangles[3] = {0, 0, 0};
   count = 0;
+  // TODO: is the bins_true correct? E.g., Box 36, width a) = 1.0, b) = 1.1
+  //       a) bins_true = 36 / 1 + 1 = 37
+  //       b) bins_true = 36 / 1.1 + 1 = 33, than + 1 from fmod = 34
+  //       a) last temp with data: coor 35-36, i.e. temp[36]
+  //       b) last temp with data: coor 35.2-36, i.e. temp[32]
+  //       ...is that so & is that right?
+  //       ...consider we're using the SYSTEM full; so I think it's right
+  //       ...although temp[33] is empty
+  //       ...from ~/FA-bilayer/Hair-C16/36_to_32/3 &
+  // Surface test.lammpstrj 1.1 surf.txt area.txt z --in -st 2 -e 6 -sk 20 --silent
   int bins_true[2];
   bins_true[0] = System.Box.Length[0] / width + 1;
   bins_true[1] = System.Box.Length[1] / width + 1;
@@ -662,6 +696,7 @@ int main(int argc, char *argv[]) {
     values[i][bins_true[1]-1][1] = values[i][0][1];
     surf[i][bins_true[1]-1][0] = surf[i][0][0];
     surf[i][bins_true[1]-1][1] = surf[i][0][1];
+    // printf("%d %d\n", i, values[i][bins_true[1]-1][0]);
   }
   for (int j = 0; j < bins_true[1]; j++) {
     values[bins_true[0]-1][j][0] = values[0][j][0];
@@ -887,7 +922,7 @@ int main(int argc, char *argv[]) {
   }
 
   // int n_triangles = (bins[0] - 1) * (bins[1] - 1)  * 2;
-  int n_triangles = (bins_true[0] - 1) * (bins_true[1] -1) * 2;
+  int n_triangles = (bins_true[0] - 1) * (bins_true[1] - 1) * 2;
   double avg_triangle[3];
   for (int dd = 0; dd < 3; dd++) {
     avg_triangle[dd] = sum_area[dd] / triangles[dd];
@@ -904,7 +939,6 @@ int main(int argc, char *argv[]) {
                                   sum_area[2]*Length_area/width_area);
   fclose(out);
 
-  // free memory - to make valgrind happy //{{{
   FreeSystem(&System);
   for (int i = 0; i < bins[0]; i++) {
     for (int j = 0; j < bins[1]; j++) {
@@ -915,7 +949,8 @@ int main(int argc, char *argv[]) {
     free(values[i]);
   }
   free(surf);
-  free(values); //}}}
+  free(values);
+  free(opt);
 
   return 0;
 }

@@ -4162,25 +4162,24 @@ static void RemoveExtraTypes(SYSTEM *System) {
  * Read the provided structure file and extra info from the
  * provided coordinate file if necessary.
  */ //{{{
-SYSTEM ReadStructure(int struct_type, char struct_file[], int coor_type,
-                     char coor_file[], bool detailed) {
+SYSTEM ReadStructure(SYS_FILES f, bool detailed) {
   SYSTEM System;
-  switch (struct_type) {
+  switch (f.stru.type) {
   case VTF_FILE:
   case VSF_FILE:
-    System = VtfReadStruct(struct_file, detailed);
+    System = VtfReadStruct(f.stru.name, detailed);
     break;
   case XYZ_FILE:
-    System = XyzReadStruct(struct_file);
+    System = XyzReadStruct(f.stru.name);
     break;
   case LTRJ_FILE:
-    System = LtrjReadStruct(struct_file);
+    System = LtrjReadStruct(f.stru.name);
     break;
   case LDATA_FILE:
-    System = LmpDataReadStruct(struct_file);
+    System = LmpDataReadStruct(f.stru.name);
     break;
   case FIELD_FILE:
-    System = FieldRead(struct_file);
+    System = FieldRead(f.stru.name);
     break;
   default:
     strcpy(ERROR_MSG, "unspecified structure file; should never happen!");
@@ -4188,51 +4187,50 @@ SYSTEM ReadStructure(int struct_type, char struct_file[], int coor_type,
     exit(1);
   }
   // read extra stuff from coordinate file if necessary
-  switch (coor_type) {
+  switch (f.coor.type) {
   case LTRJ_FILE: // find if atom ids start from 0 or 1
     if (System.Box.Volume == -1) {
-      System.Box = LtrjReadPBC(coor_file);
+      System.Box = LtrjReadPBC(f.coor.name);
     }
     break;
   case VCF_FILE: // find number of beads in the first step
-    System.Count.BeadCoor = VtfReadNumberOfBeads(coor_file);
+    System.Count.BeadCoor = VtfReadNumberOfBeads(f.coor.name);
     if (System.Count.BeadCoor < 0) {
       exit(1);
     }
     if (System.Box.Volume == -1) {
-      System.Box = VtfReadPBC(coor_file);
+      System.Box = VtfReadPBC(f.coor.name);
     }
     break;
   }
-  WarnChargedSystem(System, struct_file, "\0", "\0");
+  WarnChargedSystem(System, f.stru.name, "\0", "\0");
   // warn if missing box dimensions (unless it's a pbc-less file type)
-  if (System.Box.Volume == -1 && struct_type != VSF_FILE &&
-      struct_type != FIELD_FILE && struct_type != XYZ_FILE) {
+  if (System.Box.Volume == -1 && f.stru.type != VSF_FILE &&
+      f.stru.type != FIELD_FILE && f.stru.type != XYZ_FILE) {
     strcpy(ERROR_MSG, "unspecified box dimensions in structure definition");
-    PrintWarnFile(struct_file, "\0", "\0");
+    PrintWarnFile(f.stru.name, "\0", "\0");
   }
   return System;
 } //}}} //}}}
 /*
  * Read a single timestep from the provided coordinate file.
  */ //{{{
-bool ReadTimestep(int coor_type, FILE *fr, char file[],
-                  SYSTEM *System, int *line_count) {
-  switch (coor_type) {
+bool ReadTimestep(SYS_FILES f, FILE *fr, SYSTEM *System, int *line_count) {
+  switch (f.coor.type) {
     case VTF_FILE:
     case VCF_FILE:
-      if (VtfReadTimestep(fr, file, System, line_count) < 0) {
+      if (VtfReadTimestep(fr, f.coor.name, System, line_count) < 0) {
         return false;
       }
       break;
     case XYZ_FILE:
-      if (XyzReadTimestep(fr, file, System, line_count) < 0) {
+      if (XyzReadTimestep(fr, f.coor.name, System, line_count) < 0) {
         return false;
       }
       break;
     case LTRJ_FILE:;
       int line = *line_count;
-      if (LtrjReadTimestep(fr, file, System, line_count) < 0) {
+      if (LtrjReadTimestep(fr, f.coor.name, System, line_count) < 0) {
         return false;
       }
       // skip this step if it's a first one that contain only zeroes
@@ -4246,50 +4244,49 @@ bool ReadTimestep(int coor_type, FILE *fr, char file[],
             break;
           }
         }
-        if (zeroes && LtrjReadTimestep(fr, file, System, line_count) < 0) {
+        if (zeroes &&
+            LtrjReadTimestep(fr, f.coor.name, System, line_count) < 0) {
           return false;
         }
       }
       break;
     case LDATA_FILE:
-      if (LmpDataReadTimestep(fr, file, System, line_count) < 0) {
+      if (LmpDataReadTimestep(fr, f.coor.name, System, line_count) < 0) {
         return false;
       }
       break;
     default:
       snprintf(ERROR_MSG, LINE, "no action specified for coor_type %s%d",
-               ErrYellow(), coor_type);
+               ErrYellow(), f.coor.type);
       PrintError();
       exit(1);
   }
-
   return true;
 } //}}}
 /*
  * Skip a single timestep from the provided coordinate file.
  */ //{{{
-bool SkipTimestep(int coor_type, FILE *fr, char file1[], char file2[],
-                  int *line_count) {
-  switch (coor_type) {
+bool SkipTimestep(SYS_FILES f, FILE *fr, int *line_count) {
+  switch (f.coor.type) {
   case VTF_FILE:
   case VCF_FILE:
-    if (VtfSkipTimestep(fr, file1, file2, line_count) < 0) {
+    if (VtfSkipTimestep(fr, f.coor.name, f.stru.name, line_count) < 0) {
       return false;
     }
     break;
   case XYZ_FILE:
-    if (!XyzSkipTimestep(fr, file1, line_count)) {
+    if (!XyzSkipTimestep(fr, f.coor.name, line_count)) {
       return false;
     }
     break;
   case LTRJ_FILE:
-    if (LtrjSkipTimestep(fr, file1, line_count) < 0) {
+    if (LtrjSkipTimestep(fr, f.coor.name, line_count) < 0) {
       return false;
     }
     break;
   default:
     snprintf(ERROR_MSG, LINE, "no action specified for coor_type %s%d",
-             ErrYellow(), coor_type);
+             ErrYellow(), f.coor.type);
     PrintError();
     exit(1);
   }
