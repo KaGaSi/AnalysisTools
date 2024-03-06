@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
   char out_avg[LINE] = "";
   snprintf(out_avg, LINE, "%s", argv[++count]);
   // options before reading system data
-  opt->c = CommonOptions(argc, argv, LINE);
+  opt->c = CommonOptions(argc, argv, LINE, in);
   // -c option
   int c_sizes[100] = {0}, c_count = 0;
   char c_file[LINE] = "";

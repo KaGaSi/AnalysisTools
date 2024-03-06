@@ -36,11 +36,6 @@ static const FILE_TYPE InitFile = {
   .type = -1,
 };
 
-typedef struct common_opt {
-  bool verbose, silent, detailed;
-  int start, end, skip;
-} COMMON_OPT;
-
 typedef struct sys_files {
   FILE_TYPE coor, stru;
 } SYS_FILES;
@@ -48,6 +43,11 @@ static const SYS_FILES InitSysFiles = {
   .coor = InitFile,
   .stru = InitFile,
 };
+
+typedef struct common_opt {
+  bool verbose, silent, detailed;
+  int start, end, skip;
+} COMMON_OPT;
 
 // POINTER TO ARRAY IN STRUCTURE
 // double (*test)[3][3] = &S_orig.Box.transform;

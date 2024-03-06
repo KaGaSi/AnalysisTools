@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
   fout_rho[LINE-7] = '\0'; // for adding -<axis>.rho
 
   // options before reading system data
-  opt->c = CommonOptions(argc, argv, LINE);
+  opt->c = CommonOptions(argc, argv, LINE, in);
 
   if (!opt->c.silent) {
     PrintCommand(stdout, argc, argv);

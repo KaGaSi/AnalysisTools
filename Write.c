@@ -719,6 +719,34 @@ static void SimplifyResid(SYSTEM *System) { //{{{
   }
 } //}}}
 
+// write structure and/or coordinates to a new file (can be any format) //{{{
+void WriteOutput(SYSTEM System, bool write[], FILE_TYPE fw,
+                 int argc, char *argv[]) {
+  if (fw.type == VCF_FILE) { // create vsf file if output file is vcf format
+    PrintByline(fw.name, argc, argv); // byline to vcf file
+    fw.name[strlen(fw.name)-2] = 's';
+    fw.type = VSF_FILE;
+    WriteStructure(fw, System, -1, false, argc, argv);
+    fw.name[strlen(fw.name)-2] = 'c';
+    fw.type = VCF_FILE;
+  } else if (fw.type == VTF_FILE ||
+             fw.type == FIELD_FILE ||
+             fw.type == CONFIG_FILE) {
+    WriteStructure(fw, System, -1, false, argc, argv);
+  }
+  // write coordinates if the file is of coordinate type
+  if (fw.type == VTF_FILE ||
+      fw.type == VCF_FILE ||
+      fw.type == XYZ_FILE ||
+      fw.type == LTRJ_FILE) {
+    // ensure it's a new file if the coordinate file is usually appended
+    if (fw.type != VTF_FILE) {
+      FILE *out = OpenFile(fw.name, "w");
+      fclose(out);
+    }
+    WriteTimestep(fw, System, 1, write);
+  }
+} //}}}
 // Write a single timestep to output file based on the file type //{{{
 void WriteTimestep(FILE_TYPE f, SYSTEM System, int count_step, bool write[]) {
   FILE *fw = OpenFile(f.name, "a");

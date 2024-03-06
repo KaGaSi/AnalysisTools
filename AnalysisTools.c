@@ -1232,8 +1232,8 @@ void MergeMoleculeTypes(SYSTEM *System) {
     FreeMoleculeTypeEssentials(&System->MoleculeType[i]);
   }
   free(System->MoleculeType);
-  System->MoleculeType =
-      malloc(sizeof *System->MoleculeType * Count->MoleculeType);
+  System->MoleculeType = malloc(sizeof *System->MoleculeType *
+                                Count->MoleculeType);
   // array to link old molecule type indices to new ones
   old_to_new = malloc(sizeof *old_to_new * Count->MoleculeType);
   // copy the molecule types back in a proper order

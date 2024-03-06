@@ -21,7 +21,7 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]);
 // void CommonOptions(int argc, char *argv[], int length, bool *verbose,
 //                    bool *silent, bool *detailed,
 //                    int *start, int *end, int *skip);
-COMMON_OPT CommonOptions(int argc, char *argv[], int length);
+COMMON_OPT CommonOptions(int argc, char *argv[], int length, SYS_FILES f);
 
 // exclude specified molecule names (-x <mol name(s)>)
 bool ExcludeOption(int argc, char *argv[], SYSTEM *System);

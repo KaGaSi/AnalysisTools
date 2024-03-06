@@ -146,7 +146,7 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
 } //}}}
 
 // detect options common for most utilities //{{{
-COMMON_OPT CommonOptions(int argc, char *argv[], int length) {
+COMMON_OPT CommonOptions(int argc, char *argv[], int length, SYS_FILES f) {
   COMMON_OPT opt;
   opt.start = -1;
   opt.end = -1;
@@ -180,6 +180,11 @@ COMMON_OPT CommonOptions(int argc, char *argv[], int length) {
     exit(1);
   }
   opt.skip++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
+  if (f.coor.type == LDATA_FILE) {
+    opt.start = 1;
+    opt.skip = 1;
+    opt.end = 1;
+  }
   return opt;
 } //}}}
 

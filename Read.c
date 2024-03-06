@@ -4268,27 +4268,32 @@ bool ReadTimestep(SYS_FILES f, FILE *fr, SYSTEM *System, int *line_count) {
  */ //{{{
 bool SkipTimestep(SYS_FILES f, FILE *fr, int *line_count) {
   switch (f.coor.type) {
-  case VTF_FILE:
-  case VCF_FILE:
-    if (VtfSkipTimestep(fr, f.coor.name, f.stru.name, line_count) < 0) {
+    case VTF_FILE:
+    case VCF_FILE:
+      if (VtfSkipTimestep(fr, f.coor.name, f.stru.name, line_count) < 0) {
+        return false;
+      }
+      break;
+    case XYZ_FILE:
+      if (!XyzSkipTimestep(fr, f.coor.name, line_count)) {
+        return false;
+      }
+      break;
+    case LTRJ_FILE:
+      if (LtrjSkipTimestep(fr, f.coor.name, line_count) < 0) {
+        return false;
+      }
+      break;
+    case LDATA_FILE:
+      strcpy(ERROR_MSG, "lammps data file contains only one step; "
+             "should never trigger!");
+      PrintWarnFile(f.coor.name, "\0", "\0");
       return false;
-    }
-    break;
-  case XYZ_FILE:
-    if (!XyzSkipTimestep(fr, f.coor.name, line_count)) {
-      return false;
-    }
-    break;
-  case LTRJ_FILE:
-    if (LtrjSkipTimestep(fr, f.coor.name, line_count) < 0) {
-      return false;
-    }
-    break;
-  default:
-    snprintf(ERROR_MSG, LINE, "no action specified for coor_type %s%d",
-             ErrYellow(), f.coor.type);
-    PrintError();
-    exit(1);
+    default:
+      snprintf(ERROR_MSG, LINE, "no action specified for coor_type %s%d",
+               ErrYellow(), f.coor.type);
+      PrintError();
+      exit(1);
   }
   return true;
 } //}}}

@@ -24,7 +24,7 @@ of both systems.\n\n");
           "the first ('c' to place it in the centre of the first system)\n");
   fprintf(ptr, "  -b 3×<float>      output box dimensions (orthogonal)\n");
   fprintf(ptr, "  -i1/-i2 <file>    structure file for <input1>/<input2>\n");
-  fprintf(ptr, "  --detailed1/--detailed2\n"
+  fprintf(ptr, "  --detailed[0]/--detailed[1]\n"
                "                    detailed bead type recognistion "
                "(vtf input file)\n");
   fprintf(ptr, "  -st1/-st2 <int>   starting timestep for the input files\n");
@@ -33,8 +33,8 @@ of both systems.\n\n");
 
 // structure for options //{{{
 struct OPT {
-  bool detailed1, detailed2; // --detailed1 --detailed2
-  int start1, start2;        // -st1 -st2
+  bool detailed[2];          // --detailed[0] --detailed[1]
+  int start[2];              // -st1 -st2
   double off[3], box[3];     // -off -b
   FILE_TYPE fout;            // -o
   COMMON_OPT c;
@@ -59,8 +59,8 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-b");
   strcpy(option[count++], "-i1");
   strcpy(option[count++], "-i2");
-  strcpy(option[count++], "--detailed1");
-  strcpy(option[count++], "--detailed2");
+  strcpy(option[count++], "--detailed[0]");
+  strcpy(option[count++], "--detailed[1]");
   strcpy(option[count++], "-st1");
   strcpy(option[count++], "-st2");
   OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
@@ -68,17 +68,14 @@ int main(int argc, char *argv[]) {
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
   // input/output files //{{{
-  // <input1> - first input coordinate file
-  SYS_FILES in1 = InitSysFiles;
-  snprintf(in1.coor.name, LINE, "%s", argv[++count]);
-  if (!InputCoorStruct(argc, argv, &in1)) {
-    exit(1);
-  }
-  // <input2> - first input coordinate file
-  SYS_FILES in2 = InitSysFiles;
-  snprintf(in2.coor.name, LINE, "%s", argv[++count]);
-  if (!InputCoorStruct(argc, argv, &in2)) {
-    exit(1);
+  // <input1> <input2> - input coordinate (and structure) files
+  SYS_FILES in[2];
+  for (int s = 0; s < 2; s++) {
+    in[s] = InitSysFiles;
+    snprintf(in[s].coor.name, LINE, "%s", argv[++count]);
+    if (!InputCoorStruct(argc, argv, &in[s])) {
+      exit(1);
+    }
   }
   // <output> - output coordinate file
   FILE_TYPE fout = InitFile;
@@ -93,20 +90,20 @@ int main(int argc, char *argv[]) {
     opt->fout.type = FileType(opt->fout.name);
   } //}}}
   // input structure files (-i1/-i2 options) //{{{
-  if (FileOption(argc, argv, "-i1", in1.stru.name)) {
-    in1.stru.type = StructureFileType(in1.stru.name);
+  if (FileOption(argc, argv, "-i1", in[0].stru.name)) {
+    in[0].stru.type = StructureFileType(in[0].stru.name);
   }
-  if (FileOption(argc, argv, "-i2", in2.stru.name)) {
-    in2.stru.type = StructureFileType(in2.stru.name);
+  if (FileOption(argc, argv, "-i2", in[1].stru.name)) {
+    in[1].stru.type = StructureFileType(in[1].stru.name);
   } //}}}
-  opt->c = CommonOptions(argc, argv, LINE);
+  opt->c = CommonOptions(argc, argv, LINE, in[0]);
   // --detailed option for both input systems; copied from CommonOptions()
-  opt->detailed1 = BoolOption(argc, argv, "--detailed1"),
-  opt->detailed2 = BoolOption(argc, argv, "--detailed2");
+  opt->detailed[0] = BoolOption(argc, argv, "--detailed1"),
+  opt->detailed[1] = BoolOption(argc, argv, "--detailed2");
   // -st option for both input systems; copied from CommonOptions()
-  opt->start1 = 1, opt->start2 = 1;
-  IntegerOption1(argc, argv, "-st1", &opt->start1);
-  IntegerOption1(argc, argv, "-st2", &opt->start2);
+  opt->start[0] = 1, opt->start[1] = 1;
+  IntegerOption1(argc, argv, "-st1", &opt->start[0]);
+  IntegerOption1(argc, argv, "-st2", &opt->start[1]);
   // -off option //{{{
   InitDoubleArray(opt->off, 3, 0);
   for (int i = 0; i < argc; i++) {
@@ -137,87 +134,81 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
   } //}}}
+  // only one timestep is in lammps data file
+  for (int s = 0; s < 2; s++) {
+    if (in[s].coor.type == LDATA_FILE) {
+      opt->start[s] = 1;
+    }
+  }
   //}}}
 
   if (!opt->c.silent) {
     PrintCommand(stdout, argc, argv);
   }
 
-  SYSTEM Sys_1 = ReadStructure(in1, opt->detailed1);
-  SYSTEM Sys_2 = ReadStructure(in2, opt->detailed2);
-  BOX *box1 = &Sys_1.Box, *box2 = &Sys_2.Box;
+  SYSTEM Sys[2];
+  BOX *box[2] = {NULL, NULL};
+  for (int s = 0; s < 2; s++) {
+    Sys[s] = ReadStructure(in[s], opt->detailed[s]);
+    box[s] = &(Sys[s].Box);
+  }
 
   // verbose output describing the two systems to be joined //{{{
   if (opt->c.verbose) {
     printf("\n==================================================");
     printf("\nFirst sytem");
     printf("\n==================================================\n");
-    VerboseOutput(Sys_1);
+    VerboseOutput(Sys[0]);
     printf("\n==================================================");
     printf("\nSecond sytem");
     printf("\n==================================================\n");
-    VerboseOutput(Sys_2);
+    VerboseOutput(Sys[1]);
   } //}}}
 
-  // read coordinate file //{{{
-  // first coordinate file
-  FILE *fr = OpenFile(in1.coor.name, "r");
-  int line_count = 0; // count lines in the vcf file
-  for (int i = 0; i < (opt->start1 - 1); i++) {
-    if (!SkipTimestep(in1, fr, &line_count)) {
-      break;
+  // read coordinate files //{{{
+  for (int s = 0; s < 2; s++) {
+    FILE *fr = OpenFile(in[s].coor.name, "r");
+    int line_count = 0; // count lines in the vcf file
+    for (int i = 1; i < opt->start[s]; i++) {
+      if (!SkipTimestep(in[s], fr, &line_count)) {
+        break;
+      }
     }
-  }
-  if (!ReadTimestep(in1, fr, &Sys_1, &line_count)) {
-    strcpy(ERROR_MSG, "no valid timestep");
-    PrintErrorFile(in1.coor.name, "\0", "\0");
-    exit(1);
-  }
-  fclose(fr);
-  // make the two systems be correctly oriented with respect to each other
-  AddLow(&Sys_1);
-  // second coordinate file
-  fr = OpenFile(in2.coor.name, "r");
-  for (int i = 0; i < (opt->start2 - 1); i++) {
-    if (!SkipTimestep(in2, fr, &line_count)) {
-      break;
+    if (!ReadTimestep(in[s], fr, &Sys[s], &line_count)) {
+      strcpy(ERROR_MSG, "no valid timestep; maybe starting step is too high?");
+      PrintErrorFile(in[s].coor.name, "\0", "\0");
+      exit(1);
     }
-  }
-  if (!ReadTimestep(in2, fr, &Sys_2, &line_count)) {
-    strcpy(ERROR_MSG, "no valid timestep");
-    PrintErrorFile(in2.coor.name, "\0", "\0");
-    exit(1);
-  }
-  fclose(fr);
-  // make the two systems be correctly oriented with respect to each other
-  AddLow(&Sys_2); //}}}
+    fclose(fr);
+    // make the two systems be correctly oriented with respect to each other
+    AddLow(&Sys[s]);
+  } //}}}
 
   // make proper offset vector //{{{
   for (int dd = 0; dd < 3; dd++) {
     if (opt->off[dd] == -11111) { // a)
-      opt->off[dd] = (box1->Low[dd] + 0.5 * box1->Length[dd]) -
-                        (box2->Low[dd] + 0.5 * box2->Length[dd]);
+      opt->off[dd] = (box[0]->Low[dd] + 0.5 * box[0]->Length[dd]) -
+                     (box[1]->Low[dd] + 0.5 * box[1]->Length[dd]);
     }
   } //}}}
 
   // move the beads of the second system //{{{
-  for (int i = 0; i < Sys_2.Count.Bead; i++) {
-    int id = Sys_2.BeadCoor[i];
-    Sys_2.Bead[id].Position[0] += opt->off[0];
-    Sys_2.Bead[id].Position[1] += opt->off[1];
-    Sys_2.Bead[id].Position[2] += opt->off[2];
+  for (int i = 0; i < Sys[1].Count.Bead; i++) {
+    int id = Sys[1].BeadCoor[i];
+    Sys[1].Bead[id].Position[0] += opt->off[0];
+    Sys[1].Bead[id].Position[1] += opt->off[1];
+    Sys[1].Bead[id].Position[2] += opt->off[2];
   } //}}}
 
   // create output system(s) //{{{
-  SYSTEM S_out1 = CopySystem(Sys_1);
   // pick box size as the larger dimensions from the initial systems //{{{
   BOX box_out = InitBox;
   // ...assumes orthogonal box
-  double Low1[3] = {box1->Low[0], box1->Low[1], box1->Low[2]},
-         Low2[3] = {box2->Low[0], box2->Low[1], box2->Low[2]},
+  double Low1[3] = {box[0]->Low[0], box[0]->Low[1], box[0]->Low[2]},
+         Low2[3] = {box[1]->Low[0], box[1]->Low[1], box[1]->Low[2]},
          Low3[3] = {0, 0, 0}, // output box lower bound
-      Length1[3] = {box1->Length[0], box1->Length[1], box1->Length[2]},
-         Length2[3] = {box2->Length[0], box2->Length[1], box2->Length[2]},
+         Length1[3] = {box[0]->Length[0], box[0]->Length[1], box[0]->Length[2]},
+         Length2[3] = {box[1]->Length[0], box[1]->Length[1], box[1]->Length[2]},
          Length3[3] = {0, 0, 0}; // output box sidelengths
   for (int dd = 0; dd < 3; dd++) {
     if (Low1[dd] < (Low2[dd] + opt->off[dd])) {
@@ -242,35 +233,41 @@ int main(int argc, char *argv[]) {
   box_out.beta = 90;
   box_out.gamma = 90;
   CalculateBoxData(&box_out, 0); //}}}
-  SYSTEM S_in;
-  SYSTEM S_out2;
+  // main output file
+  SYSTEM S_in = CopySystem(Sys[1]),
+         S_out = CopySystem(Sys[0]);
+  if (fout.type == VCF_FILE ||
+      fout.type == VSF_FILE ||
+      fout.type == VTF_FILE) {
+    VtfSystem(&S_out);
+    VtfSystem(&S_in);
+  }
+  ConcatenateSystems(&S_out, S_in, box_out);
+  FreeSystem(&S_in);
+  // optional output file
+  SYSTEM S_out_opt;
   if (opt->fout.name[0] != '\0') {
-    S_out2 = CopySystem(Sys_1);
-    S_in = CopySystem(Sys_2);
+    S_in = CopySystem(Sys[1]);
+    S_out_opt = CopySystem(Sys[0]);
     if (opt->fout.type == VCF_FILE ||
         opt->fout.type == VSF_FILE ||
         opt->fout.type == VTF_FILE) {
-      VtfSystem(&S_out2);
+      VtfSystem(&S_out_opt);
       VtfSystem(&S_in);
     }
-    ConcatenateSystems(&S_out2, S_in, box_out);
+    ConcatenateSystems(&S_out_opt, S_in, box_out);
+    FreeSystem(&S_in);
   }
-  if (opt->fout.type == VCF_FILE ||
-      opt->fout.type == VSF_FILE ||
-      opt->fout.type == VTF_FILE) {
-    VtfSystem(&S_out1);
-    VtfSystem(&Sys_2);
-  }
-  ConcatenateSystems(&S_out1, Sys_2, box_out); //}}}
+  //}}}
 
   // if -b option is present, use it as box size //{{{
   if (opt->box[0] != 0) {
     // align the centre of box_opt with the centre of the original output box
     for (int dd = 0; dd < 3; dd++) {
-      S_out1.Box.Low[dd] += 0.5 * (S_out1.Box.Length[dd] - opt->box[dd]);
-      S_out1.Box.Length[dd] = opt->box[dd];
+      S_out.Box.Low[dd] += 0.5 * (S_out.Box.Length[dd] - opt->box[dd]);
+      S_out.Box.Length[dd] = opt->box[dd];
     }
-    CalculateBoxData(&S_out1.Box, 0);
+    CalculateBoxData(&S_out.Box, 0);
   } //}}}
 
   // verbose output describing the output system //{{{
@@ -278,51 +275,28 @@ int main(int argc, char *argv[]) {
     printf("\n==================================================");
     printf("\nNew sytem");
     printf("\n==================================================\n");
-    VerboseOutput(S_out1);
+    VerboseOutput(S_out);
   } //}}}
 
   // write data to output file(s) //{{{
-  // make coordinates from 0 to Box.Length (Lows are added if needed)
-  SubtractLow(&S_out1);
+  // make coordinates from 0 to Box.Length
+  SubtractLow(&S_out);
   // save all beads
-  bool *write = malloc(S_out1.Count.Bead * sizeof *write);
-  InitBoolArray(write, S_out1.Count.Bead, true);
-  // create vsf file if output file is vcf format
-  if (fout.type == VCF_FILE) {
-    PrintByline(fout.name, argc, argv); // byline to vcf file
-    fout.name[strlen(fout.name)-2] = 's';
-    fout.type = VSF_FILE;
-    WriteStructure(fout, S_out1, -1, false, argc, argv);
-    fout.name[strlen(fout.name)-2] = 'c';
-    fout.type = VCF_FILE;
-  } else if (fout.type == VTF_FILE) {
-    WriteStructure(fout, S_out1, -1, false, argc, argv);
-  } else { // some formats 'append' coordinates, not 'write' them
-    FILE *out = OpenFile(fout.name, "w");
-    fclose(out);
-  }
-  WriteTimestep(fout, S_out1, 1, write);
+  bool *write = malloc(S_out.Count.Bead * sizeof *write);
+  InitBoolArray(write, S_out.Count.Bead, true);
+  // write to main output file
+  WriteOutput(S_out, write, fout, argc, argv);
   if (opt->fout.name[0] != '\0') {
-    if (opt->fout.type == VTF_FILE ||
-        opt->fout.type == VSF_FILE ||
-        opt->fout.type == FIELD_FILE) {
-      WriteStructure(opt->fout, S_out2, -1, false, argc, argv);
-    }
-    if (opt->fout.type == VTF_FILE ||
-        opt->fout.type == VCF_FILE ||
-        opt->fout.type == LTRJ_FILE ||
-        opt->fout.type == LDATA_FILE ||
-        opt->fout.type == CONFIG_FILE) {
-      WriteTimestep(opt->fout, S_out2, 0, write);
-    }
+    // make coordinates from 0 to Box.Length
+    SubtractLow(&S_out_opt);
+    WriteOutput(S_out_opt, write, opt->fout, argc, argv);
   } //}}}
 
-  FreeSystem(&Sys_1);
-  FreeSystem(&Sys_2);
-  FreeSystem(&S_out1);
+  FreeSystem(&Sys[0]);
+  FreeSystem(&Sys[1]);
+  FreeSystem(&S_out);
   if (opt->fout.name[0] != '\0') {
-    FreeSystem(&S_out2);
-    FreeSystem(&S_in);
+    FreeSystem(&S_out_opt);
   }
   free(write);
   free(opt);

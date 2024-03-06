@@ -3,6 +3,8 @@
 
 #include "AnalysisTools.h"
 
+void WriteOutput(SYSTEM System, bool write[], FILE_TYPE fw,
+                 int argc, char *argv[]);
 void WriteTimestep(FILE_TYPE f, SYSTEM System, int count_step, bool write[]);
 void WriteStructure(FILE_TYPE f, SYSTEM System, int vsf_def_type,
                     bool lmp_mass, int argc, char *argv[]);

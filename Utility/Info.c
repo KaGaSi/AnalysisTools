@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
   if (opt->fout.name[0] != '\0') {
     opt->fout.type = StructureFileType(opt->fout.name);
   } //}}}
-  opt->c = CommonOptions(argc, argv, LINE);
+  opt->c = CommonOptions(argc, argv, LINE, in);
   // extra bead types for data output (-ebt option)
   opt->ebt = 0;
   IntegerOption1(argc, argv, "-ebt", &opt->ebt);

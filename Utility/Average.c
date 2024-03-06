@@ -93,7 +93,8 @@ int main ( int argc, char** argv ) {
     }
   }
 
-  opt->c = CommonOptions(argc, argv, LINE);
+  SYS_FILES trash; // unused
+  opt->c = CommonOptions(argc, argv, LINE, trash);
   opt->c.start--; // discarded steps rather than starting step //TODO: change
 
   // -tau option: use block method to get overall average (and stderr and tau)

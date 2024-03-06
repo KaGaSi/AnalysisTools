@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
   fout.type = CoordinateFileType(fout.name);
 
   // options before reading system data //{{{
-  opt->c = CommonOptions(argc, argv, LINE);
+  opt->c = CommonOptions(argc, argv, LINE, in);
   opt->reverse = BoolOption(argc, argv, "--reverse");
   opt->join = BoolOption(argc, argv, "--join");
   opt->wrap = BoolOption(argc, argv, "--wrap");
@@ -180,17 +180,10 @@ int main(int argc, char *argv[]) {
     PrintByline(fout.name, argc, argv);
   } else if (fout.type == VTF_FILE) {
     WriteStructure(fout, System, -1, false, argc, argv);
-  } else {
+  } else { // ensure it's a new file
     FILE *out = OpenFile(fout.name, "w");
     fclose(out);
   } //}}}
-
-  // for lammps data as a coordinate file, only the one step is used
-  if (in.coor.type == LDATA_FILE) {
-    opt->c.start = 1;
-    opt->c.skip = 1;
-    opt->c.end = 1;
-  }
 
   FILE *fr = OpenFile(in.coor.name, "r");
   // main loop //{{{

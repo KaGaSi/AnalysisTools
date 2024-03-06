@@ -252,7 +252,7 @@ int main(int argc, char *argv[]) {
   fout.type = CoordinateFileType(fout.name);
 
   // options before reading system data //{{{
-  opt->c = CommonOptions(argc, argv, LINE);
+  opt->c = CommonOptions(argc, argv, LINE, in);
   if (!opt->c.silent) {
     PrintCommand(stdout, argc, argv);
   }
@@ -440,13 +440,11 @@ int main(int argc, char *argv[]) {
   if (in.coor.name[0] != '\0') {
     FILE *fr = OpenFile(in.coor.name, "r");
     int line_count = 0;
-    if (in.coor.type != LDATA_FILE) {
-      for (int i = 1; i < opt->c.start; i++) { // from 1 as start=1 is the first
-        if (!SkipTimestep(in, fr, &line_count)) {
-          strcpy(ERROR_MSG, "couldn't skip");
-          PrintError();
-          exit(1);
-        }
+    for (int i = 1; i < opt->c.start; i++) { // from 1 as start=1 is the first
+      if (!SkipTimestep(in, fr, &line_count)) {
+        strcpy(ERROR_MSG, "couldn't skip");
+        PrintError();
+        exit(1);
       }
     }
     if (!ReadTimestep(in, fr, &S_orig, &line_count)) {

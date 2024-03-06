@@ -1,8 +1,6 @@
 #include "../AnalysisTools.h"
 // TODO: create arrays mapping Bead[id] to BeadCoor[i]=id (and for other xCoor?)
-
 // TODO: implement -x, -m, and -only options
-
 // TODO: something with monomeric beads? //{{{
 /*
   // put monomeric beads in contact with their aggregates //{{{
@@ -326,6 +324,16 @@ per-step aggregates (e.g., Surface).\n\n");
   CommonHelp(error, n, opt);
 } //}}}
 
+// structure for options //{{{
+struct OPT {
+  bool join, range;   // --join --range
+  FILE_TYPE fout;     // -o
+  COMMON_OPT c;
+};
+OPT * opt_create(void) {
+  return malloc(sizeof(OPT));
+} //}}}
+
 int main(int argc, char *argv[]) {
 
   // define options //{{{
@@ -351,49 +359,43 @@ int main(int argc, char *argv[]) {
   OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
 
   count = 0; // count mandatory arguments
-
+  OPT *opt = opt_create();
   // arguments & options before reading system data //{{{
-  // <in.coor> - input coordinate (and structure) file //{{{
-  char coor_file[LINE] = "", struct_file[LINE] = "";
-  int coor_type, struct_type = 0;
-  snprintf(coor_file, LINE, "%s", argv[++count]);
-  if (!InputCoorStruct(argc, argv, coor_file, &coor_type,
-                       struct_file, &struct_type)) {
+  // <in.coor> - input coordinate (and structure) file
+  SYS_FILES in = InitSysFiles;
+  snprintf(in.coor.name, LINE, "%s", argv[++count]);
+  if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
-  } //}}}
+  }
   // <in.agg> - input agg file
   char in_agg[LINE] = "";
   snprintf(in_agg, LINE, "%s", argv[++count]);
-  // <output> - coordinate output file
-  char coor_out_file[LINE] = "";
-  snprintf(coor_out_file, LINE, "%s", argv[++count]);
-  int coor_out_type = CoordinateFileType(coor_out_file);
-  if (coor_out_type == LDATA_FILE) {
+  // <output> - output coordinate file
+  FILE_TYPE fout;
+  snprintf(fout.name, LINE, "%s", argv[++count]);
+  fout.type = CoordinateFileType(fout.name);
+  if (fout.type == LDATA_FILE) {
     strcpy(ERROR_MSG, "lammps data file not allowed as output coordinate file");
     exit(1);
   }
 
-  bool silent, verbose, detailed;
-  int start = 1, end = -1, skip = 0;
-  CommonOptions(argc, argv, LINE, &verbose, &silent, &detailed,
-                &start, &end, &skip);
+  opt->c = CommonOptions(argc, argv, LINE);
   // are provided coordinates joined?
-  bool join = BoolOption(argc, argv, "--join");
-  bool range = BoolOption(argc, argv, "--range"); //}}}
+  opt->join = BoolOption(argc, argv, "--join");
+  opt->range = BoolOption(argc, argv, "--range"); //}}}
 
-  if (!silent) {
+  if (!opt->c.silent) {
     PrintCommand(stdout, argc, argv);
   }
 
-  SYSTEM System = ReadStructure(struct_type, struct_file,
-                                coor_type, coor_file, detailed);
+  SYSTEM System = ReadStructure(in, opt->c.detailed);
   COUNT *Count = &System.Count;
 
   // <agg sizes> - aggregate sizes to write //{{{
   int *agg_sizes = calloc(Count->Molecule, sizeof *agg_sizes);
   int aggs = 0;
   // use range of aggreate numbers, if --range switch specified
-  if (range) {
+  if (opt->range) {
     long val[2];
     if ((count+2) > argc ||
         !IsNaturalNumber(argv[count+1], &val[0]) ||
@@ -424,7 +426,7 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
 
-  if (verbose) {
+  if (opt->c.verbose) {
     VerboseOutput(System);
   }
 
@@ -437,7 +439,7 @@ int main(int argc, char *argv[]) {
   while (getc(agg) != '\n')
     ;
   // read Aggregates command if --join is used or...
-  if (join) {
+  if (opt->join) {
     ReadAndSplitLine(agg, SPL_STR, " \t\n");
     // find & flag bead types
     for (count = 5; count < words && split[count][0] != '-'; count++) {
@@ -446,7 +448,7 @@ int main(int argc, char *argv[]) {
         snprintf(ERROR_MSG, LINE, "bead type %s%s%s from Aggregate command "
                  "does not exist in the system",
                  ErrYellow(), split[count], ErrRed());
-        PrintErrorFile(struct_file, in_agg, "\0");
+        PrintErrorFile(in.stru.name, in_agg, "\0");
         exit(1);
       }
       System.BeadType[btype].Flag = true;
@@ -470,27 +472,27 @@ int main(int argc, char *argv[]) {
   bool *write = calloc(Count->Bead, sizeof *write);
 
   // print initial stuff to output coordinate file //{{{
-  if (coor_out_type == VCF_FILE) {
-    PrintByline(coor_out_file, argc, argv);
-  } else if (coor_out_type == VTF_FILE) {
-    WriteStructure(VSF_FILE, coor_out_file, System, -1, false, argc, argv);
+  if (fout.type == VCF_FILE) {
+    PrintByline(fout.name, argc, argv);
+  } else if (fout.type == VTF_FILE) {
+    WriteStructure(fout, System, -1, false, argc, argv);
   } else {
-    FILE *out = OpenFile(coor_out_file, "w");
+    FILE *out = OpenFile(fout.name, "w");
     fclose(out);
   }
   // write empty lammpstrj timestep containing all beads (vmd needs it)
-  if (coor_out_type == LTRJ_FILE) {
+  if (fout.type == LTRJ_FILE) {
     InitBoolArray(write, Count->Bead, true);
     Count->BeadCoor = Count->Bead;
     for (int i = 0; i < Count->Bead; i++) {
       System.BeadCoor[i] = i;
     }
-    WriteTimestep(coor_out_type, coor_out_file, System, 0, write);
+    WriteTimestep(fout, System, 0, write);
   }
   //}}}
 
   // open input coordinate file
-  FILE *coor = OpenFile(coor_file, "r");
+  FILE *coor = OpenFile(in.coor.name, "r");
   // main loop //{{{
   count = 0; // count timesteps in the main loop
   int count_step = 0,  // count timesteps from the beginning
@@ -498,25 +500,24 @@ int main(int argc, char *argv[]) {
       coor_line_count = 0,  // count lines in the coor file
       count_agg_lines = 0;  // count lines in the agg file
   while (true) {
-    PrintStep(&count_step, start, silent);
+    PrintStep(&count_step, opt->c.start, opt->c.silent);
     if (ReadAggregates(agg, in_agg, &System, Aggregate, &count_agg_lines) < 0) {
       count_step--;
       break;
     }
     // decide whether to use this timestep (based on -st/-sk/-e) //{{{
     bool use = false;
-    if (count_step >= start &&
-        (count_step <= end || end == -1) &&
-        ((count_step - start) % skip) == 0) {
+    if (count_step >= opt->c.start &&
+        (count_step <= opt->c.end || opt->c.end == -1) &&
+        ((count_step - opt->c.start) % opt->c.skip) == 0) {
       use = true;
     } //}}}
     if (use) { //{{{
-      if (!ReadTimestep(coor_type, coor, coor_file,
-                        &System, &coor_line_count)) {
+      if (!ReadTimestep(in, coor, &System, &coor_line_count)) {
         count_step--;
         break;
       }
-      if (join) {
+      if (opt->join) {
         WrapJoinCoordinates(&System, false, true);
         // TODO: distance=1 for now; read agg command (check for -d opt)
         RemovePBCAggregates(distance, Aggregate, &System);
@@ -524,7 +525,7 @@ int main(int argc, char *argv[]) {
       for (int i = 0; i < Count->Aggregate; i++) {
         // use the aggregate?
         use = false;
-        if (range &&
+        if (opt->range &&
             Aggregate[i].nMolecules >= agg_sizes[0] &&
             Aggregate[i].nMolecules <= agg_sizes[1]) {
           use = true;
@@ -549,27 +550,25 @@ int main(int argc, char *argv[]) {
               }
             }
           }
-          WriteTimestep(coor_out_type, coor_out_file,
-                        System, count_step, write);
+          WriteTimestep(fout, System, count_step, write);
           count_saved++;
         }
       } //}}}
     } else { //{{{
-      if (!SkipTimestep(coor_type, coor, coor_file,
-                        struct_file, &coor_line_count)) {
+      if (!SkipTimestep(in, coor, &coor_line_count)) {
         count_step--;
         break;
       }
     } //}}}
     // exit the main loop if reached user-specied end timestep
-    if (count_step == end) {
+    if (count_step == opt->c.end) {
       break;
     }
   }
   fclose(coor);
   fclose(agg);
   // print last step count?
-  if (!silent) {
+  if (!opt->c.silent) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\r                          \r");

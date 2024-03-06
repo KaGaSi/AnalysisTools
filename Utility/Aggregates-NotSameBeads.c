@@ -211,7 +211,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // options before reading system data
-  opt->c = CommonOptions(argc, argv, LINE);
+  opt->c = CommonOptions(argc, argv, LINE, in);
 
   // -j option - save coordinates of joined aggregates //{{{
   opt->fout = InitFile;
