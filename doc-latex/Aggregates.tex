@@ -22,19 +22,18 @@ Periodic boundary conditions can be removed from whole aggregates via the
 box. This is useful for visualization (an aggregate will no longer be split by
 the walls of the simulation box, but it may stretch far outside the boundaries
 of the box) as well as for further analysis (the other utilities do not have to
-join the aggregates, possibly speeding up the analysis).
+join the aggregates, possibly greatly speeding up subsequent analyses).
 
-While the \tt{Aggregates} utility uses all possible pairs of given bead
-types, \tt{Aggrega}-\tt{tes-NotSameBeads} does not use same-type pairs. For
-example, if bead types \tt{A} and \tt{B} are given,
-\tt{Aggregates} will use all three possible bead type pairs (i.e.,
-\tt{A-A}, \tt{A-B}, and \tt{B-B}), but
-\tt{Aggregates-NotSameBeads} will use only \tt{A-B} bead type
-pairs. Fig~\ref{fig:AggCheck} illustrates the behaviour: using \tt{Aggregates
-... A B} would find one contact pair between molecules 1 and 2 and two contacts
-between molecules 2 and 3, whereas \tt{Aggregates-NotSameBeads ... A
-B} would ignore A-A and B-B pairs, finding no contact pair between
-molecules 1 and 2 and only one between molecules 2 and 3.
+While the \tt{Aggregates} utility uses all possible pairs of given bead types,
+\tt{Aggrega}-\tt{tes-NotSameBeads} does not use same-type pairs. For example, if
+bead types \tt{A} and \tt{B} are given, \tt{Aggregates} will use all three
+possible bead type pairs (i.e., \tt{A-A}, \tt{A-B}, and \tt{B-B}), but
+\tt{Aggregates-NotSameBeads} will use only \tt{A-B} bead type pairs.
+Fig~\ref{fig:AggCheck} illustrates the behaviour: using \tt{Aggregates ... A B}
+would find one contact pair between molecules 1 and 2 and two contacts between
+molecules 2 and 3, whereas \tt{Aggregates-NotSameBeads ... A B} would ignore A-A
+and B-B pairs, finding no contact pair between molecules 1 and 2 and only one
+between molecules 2 and 3.
 
 \begin{figure}
   \centering
@@ -50,14 +49,14 @@ molecules 1 and 2 and only one between molecules 2 and 3.
   \caption{
     Simple example of distance checks---three two-bead molecules, where dotted
     lines represent maximum pair distance (\tt{-d} option) and black arrows show
-    contact pairs.
+    contact pairs. Note the same bead can be a part of multiple pairs.
   }
   \label{fig:AggCheck}
 \end{figure}
 
 Note that when \tt{-st}, \tt{-e}, or \tt{-sk} options are used, the resulting
 \tt{agg} file is no longer coupled to the original coordinate file (i.e., they
-cannot be used together for further analysis), but it is coupled to the optional
+cannot be used together for further analyses), but it is coupled to the optional
 output file with joined coordinates (\tt{-j} option).
 
 \vspace{1em}

@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
   SYS_FILES extra = InitSysFiles;
   bool change_beads = false;
   if (!FileOption(argc, argv, "-i", extra.stru.name)) { // -i present?
-    if (!FileOption(argc, argv, "-i!", extra.stru.name)) { // -i! present?
+    if (FileOption(argc, argv, "-i!", extra.stru.name)) { // -i! present?
       change_beads = true;
     }
   }
@@ -226,9 +226,12 @@ int main(int argc, char *argv[]) {
     WriteStructure(opt->fout, System, opt->vsf_def, opt->lmp_mass, argc, argv);
     if (opt->fout.type == VTF_FILE) {
       bool *write = malloc(sizeof *write * System.Count.Bead);
+      // TODO if (BeadCoor == 0)
       InitBoolArray(write, System.Count.Bead, true);
       WriteTimestep(opt->fout, System, 1, write);
       free(write);
+      // else
+      // write array according to BeadCoor array
     }
   } //}}}
 

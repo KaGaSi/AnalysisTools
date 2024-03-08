@@ -1579,6 +1579,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
       if (mtype_add != -1) {
         MOLECULETYPE *mt_orig = &Sys_orig->MoleculeType[i],
                      *mt_add = &Sys_add.MoleculeType[mtype_add];
+        strcpy(mt_orig->Name, mt_add->Name);
         for (int j = 0; j < mt_orig->nBeads; j++) {
           int bt_orig = mt_orig->Bead[j];
           mt_orig->Bead[j] = mt_add->Bead[j] + count_old.BeadType; // 1)
@@ -1936,7 +1937,7 @@ int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode,
       }         //}}}
       return i; // assumes mode=3, obviously
     }
-  end_loop:;
+    end_loop:;
   }
   return -1;
 } //}}}
@@ -3789,7 +3790,7 @@ void PrintMoleculeType(SYSTEM System) { //{{{
     fprintf(stdout, "  .Name       = %s\n", System.MoleculeType[i].Name);
     fprintf(stdout, "  .Number     = %d\n", System.MoleculeType[i].Number);
     // print bead types (list all beads) //{{{
-    fprintf(stdout, "  .nBeads     = %d,\n", System.MoleculeType[i].nBeads);
+    fprintf(stdout, "  .nBeads     = %d\n", System.MoleculeType[i].nBeads);
     fprintf(stdout, "  .Bead       = {");
     for (int j = 0; j < System.MoleculeType[i].nBeads; j++) {
       int type = System.MoleculeType[i].Bead[j];
@@ -3798,7 +3799,7 @@ void PrintMoleculeType(SYSTEM System) { //{{{
     fprintf(stdout, " }\n"); //}}}
     // print bonds if there are any //{{{
     if (System.MoleculeType[i].nBonds > 0) {
-      fprintf(stdout, "  .nBonds     = %d,\n", System.MoleculeType[i].nBonds);
+      fprintf(stdout, "  .nBonds     = %d\n", System.MoleculeType[i].nBonds);
       fprintf(stdout, "  .Bond       = {");
       for (int j = 0; j < System.MoleculeType[i].nBonds; j++) {
         fprintf(stdout, " %d-%d", System.MoleculeType[i].Bond[j][0] + 1,
@@ -3811,43 +3812,37 @@ void PrintMoleculeType(SYSTEM System) { //{{{
     } //}}}
     // print angles if there are any //{{{
     if (System.MoleculeType[i].nAngles > 0) {
-      fprintf(stdout, "  .nAngles    = %d,\n", System.MoleculeType[i].nAngles);
+      fprintf(stdout, "  .nAngles    = %d\n", System.MoleculeType[i].nAngles);
       fprintf(stdout, "  .Angle      = {");
       for (int j = 0; j < System.MoleculeType[i].nAngles; j++) {
-        if (j != 0) {
-          fprintf(stdout, ", ");
-        }
-        fprintf(stdout, "%d-%d-%d", System.MoleculeType[i].Angle[j][0] + 1,
+        fprintf(stdout, " %d-%d-%d", System.MoleculeType[i].Angle[j][0] + 1,
                 System.MoleculeType[i].Angle[j][1] + 1,
                 System.MoleculeType[i].Angle[j][2] + 1);
         if (System.MoleculeType[i].Angle[j][3] != -1) {
-          fprintf(stdout, "(%d)", System.MoleculeType[i].Angle[j][3] + 1);
+          fprintf(stdout, " (%d)", System.MoleculeType[i].Angle[j][3] + 1);
         }
       }
-      fprintf(stdout, "},\n");
+      fprintf(stdout, " }\n");
     } //}}}
     // print dihedrals if there are any //{{{
     if (System.MoleculeType[i].nDihedrals > 0) {
-      fprintf(stdout, "  .nDihedrals = %d,\n  .Dihedral   = {",
+      fprintf(stdout, "  .nDihedrals = %d\n  .Dihedral   = {",
               System.MoleculeType[i].nDihedrals);
       for (int j = 0; j < System.MoleculeType[i].nDihedrals; j++) {
-        if (j != 0) {
-          fprintf(stdout, ", ");
-        }
-        fprintf(stdout, "%d-%d-%d-%d",
+        fprintf(stdout, " %d-%d-%d-%d",
                 System.MoleculeType[i].Dihedral[j][0] + 1,
                 System.MoleculeType[i].Dihedral[j][1] + 1,
                 System.MoleculeType[i].Dihedral[j][2] + 1,
                 System.MoleculeType[i].Dihedral[j][3] + 1);
         if (System.MoleculeType[i].Dihedral[j][4] != -1) {
-          fprintf(stdout, "(%d)", System.MoleculeType[i].Dihedral[j][4] + 1);
+          fprintf(stdout, " (%d)", System.MoleculeType[i].Dihedral[j][4] + 1);
         }
       }
-      fprintf(stdout, "},\n");
+      fprintf(stdout, " }\n");
     } //}}}
     // print impropers if there are any //{{{
     if (System.MoleculeType[i].nImpropers > 0) {
-      fprintf(stdout, "  .nImpropers = %d,\n  .Improper   = {",
+      fprintf(stdout, "  .nImpropers = %d\n  .Improper   = { ",
               System.MoleculeType[i].nImpropers);
       for (int j = 0; j < System.MoleculeType[i].nImpropers; j++) {
         if (j != 0) {
@@ -3862,7 +3857,7 @@ void PrintMoleculeType(SYSTEM System) { //{{{
           fprintf(stdout, "(%d)", System.MoleculeType[i].Improper[j][4] + 1);
         }
       }
-      fprintf(stdout, "},\n");
+      fprintf(stdout, " }\n");
     } //}}}
     // print bead types (just the which are present) //{{{
     fprintf(stdout, "  .nBTypes    = %d\n", System.MoleculeType[i].nBTypes);
@@ -3870,12 +3865,13 @@ void PrintMoleculeType(SYSTEM System) { //{{{
     for (int j = 0; j < System.MoleculeType[i].nBTypes; j++) {
       fprintf(stdout, " %s",
               System.BeadType[System.MoleculeType[i].BType[j]].Name);
-    } //}}}
+    }
+    fprintf(stdout, " }\n"); //}}}
     if (System.MoleculeType[i].Mass != MASS) {
-      fprintf(stdout, " }\n  .Mass       = %.5f\n",
+      fprintf(stdout, "  .Mass       = %.5f\n",
               System.MoleculeType[i].Mass);
     } else {
-      fprintf(stdout, "}\n  .Mass       = n/a\n");
+      fprintf(stdout, "  .Mass       = n/a\n");
     }
     if (System.MoleculeType[i].Charge != CHARGE) {
       fprintf(stdout, "  .Charge     = %.5f\n}\n",

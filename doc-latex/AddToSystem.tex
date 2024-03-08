@@ -16,11 +16,12 @@ In (ii), options \tt{-cx}, \tt{-cy}, and \tt{-cz} basically change the box size
 for the added beads. By default, this constraint is specified in units relative
 to the box dimensions (i.e., allowed values go from 0 to 1); use the \tt{--real}
 option for absolute units. For example, \tt{-cx 0.5 1} would generate x
-coordinates between 50\% and 100\% of the box's x sidelength. All these options
-can be combined, but note that \tt{AddToSystem} does not perform any
-sanity checks; that is, if any combination of the provided options is impossible
-to achieve, the utility will run forever. See \cref{fig:AddToSystem} for
-schematic examples.
+coordinates between 50\% and 100\% of the box's x sidelength.
+
+All these options can be combined, but note that \tt{AddToSystem} does not
+perform any sanity checks; that is, if any combination of the provided options
+is impossible to achieve, the utility may run forever. See
+\cref{fig:AddToSystem} for schematic examples.
 
 \begin{figure}[b]
   \centering
@@ -64,19 +65,20 @@ schematic examples.
     -cx 0.5 1 -bt A B} which constrains the x-coordinate of new beads between
     50\% and 100\% of the box's x sidelength; (e) adds \tt{-b 30 20 25} to the
     options in (d), changing the box size; finally, (f) also moves the original
-    system, adding \tt{-off -0.2 0.2 0}. See \tt{Examples/AddToSystem} directory
-    for source of these examples.
+    system, adding \tt{-off -0.2 0.2 0}. See \tt{Examples/AddToSystem/Manual}
+    folder for source of these examples.
   }\label{fig:AddToSystem}
 \end{figure}
 
 For added molecules, either the molecule's geometric centre (default behaviour)
-or its first bead (\tt{--head} option) obey these constraints. The coordinates of
-the remaining beads in the molecule are governed by the coordinates in the
-\tt{FIELD} file. Therefore, not all the molecular beads necessarily obey the
-constraining rules. By default, molecules are added with a random orientation;
-when \tt{--no-rotate} switch is used, the molecules are not rotated, but when
-\tt{-a} option is used, all the molecules are rotated by the three angles
-specified in degrees.
+or its first bead (\tt{--head} option) obey these constraints. The coordinates
+of the remaining beads in the molecule are governed by the coordinates in the
+input \tt{FIELD} file. Therefore, not all the molecular beads necessarily obey
+the constraining rules.
+
+By default, molecules are added with a random orientation; when \tt{--no-rotate}
+switch is used, the molecules are not rotated, but when \tt{-a} option is used,
+all the molecules are rotated by the three angles specified in degrees.
 
 The $\alpha$, $\beta$, and $\gamma$ angles in \tt{-a <alpha> <beta> <gamma>}
 represent yaw, pitch, and roll, respectively. To put it in other words, it is an
@@ -124,23 +126,25 @@ exchanged beads are in a molecule, so a bonded bead may be exchanged, leaving
 only part of the molecule in the new system. If beads are to be added into the
 system rather than switched, use the \tt{--add} option.
 
-The size of the new simulation box can be changed using the \tt{-b} option.
-Any constraints for placing beads are applied to this box rather than the one in
-the original system. The new system is placed so the centres of the original box
-and the new one coincide. Note that periodic boundary conditions are not applied
-to the new system, so the beads can be outside the simulation box. If \tt{-off}
-option is used, the beads from the input system are moved by the offset
-specified by the fraction of the output simulation box (or in real units, if
-\tt{--real} is used) before the new beads are added.
+The size of the new simulation box can be changed using the \tt{-b} option (the
+new size must be in absolute units, i.e., it is unaffected by the \tt{--real}
+option). Any constraints for placing beads are applied to this box rather than
+the one in the original system. By default, the new system is placed so the
+centres of the original box and the new one coincide. Note that periodic
+boundary conditions are not applied to the new system, so the beads can be
+outside the simulation box. If \tt{-off} option is used, the beads from the
+input system are instead moved by the offset specified by the fraction of the
+output simulation box (or in real units, if \tt{--real} is used) before the new
+beads are added.
 
 To create a new system instead of adding to an existing one, use \tt{-} instead
 of an \tt{<input>} file. An extra file can be generated via the \tt{-o} option;
 this can be useful to, e.g., generate both \vtf file for visualization and \data
 file for use by LAMMPS.
 
-Examples of using the utility are provided in the
-\tt{Examples/AddToSystem} folder (including those in
-\cref{fig:AddToSystem}).
+Examples of using the utility (such as how to generate a bilayer or wire-like
+aggregate) are provided in the \tt{Examples/AddToSystem} folder (including those
+in \cref{fig:AddToSystem}).
 
 \vspace{1em}
 \noindent
@@ -169,6 +173,8 @@ Usage: \tt{AddToSystem <input.vcf> <out.vsf> <out.vcf> [options]}
                              numerous bead type)\\
   \tt{--add}               & replace original beads instead of increasing the
                              total number of beads\\
+  \tt{--real}              & use real coordinates for -cx/-cy/-cz/-off options
+                             instead of fractions of input box size\\
   \tt{--no-rotate}         & do not randomly rotate added molecules\\
   \tt{-a 3$\times$<angle>} & rotate all added by molecules along x-, y-,
                              and z-axis\\

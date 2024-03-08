@@ -15,32 +15,32 @@ Counts of
   Bond Types:     1
   Bonds:          1
 
-BeadType[0] = {.Name = A, .Number = 11, .Charge = 0.000, .Mass = 1.000, .Radius =   n/a}
-BeadType[1] = {.Name = B, .Number =  4, .Charge = 0.000, .Mass = 1.000, .Radius = 1.000}
+BeadType[0] = {.Name = A .Number = 11 .Charge = 0.000 .Mass = 1.000 .Radius =   n/a}
+BeadType[1] = {.Name = B .Number =  4 .Charge = 0.000 .Mass = 1.000 .Radius = 1.000}
 
 Bond types
    4.000000 0.500000 0.000000 0.000000
 
 MoleculeType[0] = {
-  .Name       = mol,
-  .Number     = 1,
-  .nBeads     = 2,
-  .Bead       = {A, A},
-  .nBonds     = 1,
-  .Bond       = {1-2(1)},
+  .Name       = mol
+  .Number     = 1
+  .nBeads     = 2
+  .Bead       = { A A }
+  .nBonds     = 1
+  .Bond       = { 1-2 (1) }
   .nBTypes    = 1
-  .BType      = {A},
-  .Mass       = 2.00000,
+  .BType      = { A }
+  .Mass       = 2.00000
   .Charge     = 0.00000
 }
 MoleculeType[1] = {
-  .Name       = mol_1,
-  .Number     = 1,
-  .nBeads     = 4,
-  .Bead       = {A, A, A, A},
+  .Name       = mol_1
+  .Number     = 1
+  .nBeads     = 4
+  .Bead       = { A A A A }
   .nBTypes    = 1
-  .BType      = {A},
-  .Mass       = 4.00000,
+  .BType      = { A }
+  .Mass       = 4.00000
   .Charge     = 0.00000
 }
 

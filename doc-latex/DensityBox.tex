@@ -1,6 +1,6 @@
 \section{DensityBox} \label{sec:DensityBox}
 
-This utility calculates number density for all bead types along all three axes
+This utility calculates number density for all bead types along all three axis
 directions of the simulation box, generating one file per axis. The density is
 calculated from 0 to box length in the given direction, that is, the box is
 \enquote{sliced} into blocks with width \tt{<width>}, and numbers of different
@@ -26,7 +26,7 @@ and then rerun it, excluding the other molecule type. Thus, two output files
 types.
 
 Note that this utility assumes orthogonal box with constant side lengths; in
-case of triclinic box and/or varying box size, undefined behaviour may occur
+case of triclinic box and/or varying box size, undefined behaviour may occur,
 i.e., the utility may crash or freeze, and any results will not be reliable.
 
 \vspace{1em}
@@ -40,7 +40,7 @@ Usage: \tt{DensityBox <input> <width> <output> [options]}
   \tt{<input>} & input coordinate file (either \tt{vcf} or \tt{vtf} format)\\
   \tt{<width>} & width of each bin of the distribution\\
   \tt{<output>} & three output files with automatic \tt{-x.rho}, \tt{-y.rho},
-    and \tt{-x.rho} endings\\
+    and \tt{-z.rho} endings\\
   \toprule
   \multicolumn{2}{l}{Options}\\
   \midrule

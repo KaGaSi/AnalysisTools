@@ -1,6 +1,6 @@
 \section{Info} \label{sec:Info}
 
-This utility prints the system information read from an input structure file,
+This utility prints system information read from an input structure file,
 possibly augmenting it with information from another structure file (\tt{-i[!]
 <file>} option) and/or pruning the system to contain only beads from a provided
 coordinate file (\tt{-c} option). For the effects of these options, see the
@@ -8,31 +8,34 @@ coordinate file (\tt{-c} option). For the effects of these options, see the
 
 Note that using LAMMPS \data, \ltrj or \xyz input structure file automatically
 reads coordinates in those files, but using \vtf does not. This is because a
-\vtf timestep does not necessarily contain all beads defined in the \vtf file,
-in which case \tt{Info} would automatically prune the system. If coordinates
-should be read from the input \vtf structure file (and the system potentially
-pruned), just use the \tt{-c} option with that filename.
+\vtf timestep does not necessarily contain all beads defined in the \vtf
+structure section. If coordinates should be read from the input \vtf structure
+file (and the system potentially pruned), just use the \tt{-c} option with that
+filename.
 
 Using the \tt{-i} option with an extra structure file asigns bead mass, charge,
 and/or radius from the extra file if the bead types in the original file have
 unspecified values; this is done only for bead types that share names. Also, if
 the two structure files share molecules that have the same bead type order
 (which can be initially checked via individual \tt{Info} runs on the two files),
-bond types, angles and angle type can be added to the molecule types in the
+bond types, angles, and angle type can be added to the molecule types in the
 original file. Using \tt{-i!} first exchanges beads in the original molecules
 with those from the extra file (if the molecules have the same number of beads)
 before adding the extra information. See \tt{Examples/Info} folder for examples;
 note that this functionality can give unexpected results.
 
-\tt{Info} can also write this information into a new structure file of the given
-format (\tt{-o} option). Allowed output files are \vtsf file, LAMMPS \data file
-(either with the extension \tt{.data} or a filename without any recognizable
-extension), and DL\_MESO FIELD file (called \field or with the extension
-\tt{.FIELD}).
+\tt{Info} can also write this information into a new file (\tt{-o} option) of
+any format. Note that only one timestep is read and, therefore, saved. Also, if
+no coordinates are read (i.e., neither \tt{-c} option nor a structure file with
+coordinates is used), any coordinate output file would contain no beads.
+% Allowed output files are \vtsf file, LAMMPS \data file (either with the
+% extension \tt{.data} or a filename without any recognizable
+% extension), and DL\_MESO FIELD file (called \field or with the extension
+% \tt{.FIELD}).
 
-Coordinates are printed to output files that support them, i.e., LAMMPS \data or
-\vtf file. These coordinates are 0 if no coordinate file is specified or the
-input structure file does not contain them.
+% Coordinates are printed to output files that support them, i.e., LAMMPS \data or
+% \vtf file. These coordinates are 0 if no coordinate file is specified or the
+% input structure file does not contain them.
 
 There are a few options for the output structure file. For LAMMPS \data file,
 \tt{--mass} can be used to specify LAMMPS atom types by their mass, but print

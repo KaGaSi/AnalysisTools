@@ -20,9 +20,9 @@ Counts of
   Dihedrals:      1
   Impropers:      1
 
-BeadType[0] = {.Name = A, .Number = 7, .Charge = 0.000, .Mass = 1.000, .Radius = n/a}
-BeadType[1] = {.Name = B, .Number = 4, .Charge = 0.000, .Mass = 1.000, .Radius = n/a}
-BeadType[2] = {.Name = C, .Number = 4, .Charge = 0.000, .Mass = 1.000, .Radius = n/a}
+BeadType[0] = {.Name = A .Number = 7 .Charge = 0.000 .Mass = 1.000 .Radius = n/a}
+BeadType[1] = {.Name = B .Number = 4 .Charge = 0.000 .Mass = 1.000 .Radius = n/a}
+BeadType[2] = {.Name = C .Number = 4 .Charge = 0.000 .Mass = 1.000 .Radius = n/a}
 
 Bond types
    4.000000 0.500000 0.000000 0.000000
@@ -34,33 +34,33 @@ Dihedral types
    0.100000 0.200000 0.300000 0.000000
 
 MoleculeType[0] = {
-  .Name       = A2,
-  .Number     = 1,
-  .nBeads     = 2,
-  .Bead       = {A, A},
-  .nBonds     = 1,
-  .Bond       = {1-2(1)},
+  .Name       = A2
+  .Number     = 1
+  .nBeads     = 2
+  .Bead       = { A A }
+  .nBonds     = 1
+  .Bond       = { 1-2 (1) }
   .nBTypes    = 1
-  .BType      = {A},
-  .Mass       = 2.00000,
+  .BType      = { A }
+  .Mass       = 2.00000
   .Charge     = 0.00000
 }
 MoleculeType[1] = {
-  .Name       = B4,
-  .Number     = 1,
-  .nBeads     = 4,
-  .Bead       = {C, C, C, C},
-  .nBonds     = 3,
-  .Bond       = {1-2(1), 2-3(1), 3-4(1)},
-  .nAngles    = 2,
-  .Angle      = {1-2-3, 2-3-4(1)},
-  .nDihedrals = 1,
-  .Dihedral   = {1-2-3-4(1)},
-  .nImpropers = 1,
-  .Improper   = {1-3-4-2},
+  .Name       = C4
+  .Number     = 1
+  .nBeads     = 4
+  .Bead       = { C C C C }
+  .nBonds     = 3
+  .Bond       = { 1-2 (1) 2-3 (1) 3-4 (1) }
+  .nAngles    = 2
+  .Angle      = { 1-2-3 2-3-4 (1) }
+  .nDihedrals = 1
+  .Dihedral   = { 1-2-3-4 (1) }
+  .nImpropers = 1
+  .Improper   = { 1-3-4-2 }
   .nBTypes    = 1
-  .BType      = {C},
-  .Mass       = 4.00000,
+  .BType      = { C }
+  .Mass       = 4.00000
   .Charge     = 0.00000
 }
 

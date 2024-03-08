@@ -14,30 +14,30 @@ Counts of
   HighestResid:   2
   Bonds:          0
 
-BeadType[0] = {.Name =   A, .Number = 5, .Charge = 0.000, .Mass = 1.000, .Radius =   n/a}
-BeadType[1] = {.Name = A_1, .Number = 1, .Charge =   n/a, .Mass = 2.000, .Radius =   n/a}
-BeadType[2] = {.Name = A_2, .Number = 1, .Charge = 2.000, .Mass =   n/a, .Radius =   n/a}
-BeadType[3] = {.Name = A_3, .Number = 4, .Charge =   n/a, .Mass =   n/a, .Radius =   n/a}
-BeadType[4] = {.Name =   B, .Number = 4, .Charge =   n/a, .Mass = 1.000, .Radius = 1.000}
+BeadType[0] = {.Name =   A .Number = 5 .Charge = 0.000 .Mass = 1.000 .Radius =   n/a}
+BeadType[1] = {.Name = A_1 .Number = 1 .Charge =   n/a .Mass = 2.000 .Radius =   n/a}
+BeadType[2] = {.Name = A_2 .Number = 1 .Charge = 2.000 .Mass =   n/a .Radius =   n/a}
+BeadType[3] = {.Name = A_3 .Number = 4 .Charge =   n/a .Mass =   n/a .Radius =   n/a}
+BeadType[4] = {.Name =   B .Number = 4 .Charge =   n/a .Mass = 1.000 .Radius = 1.000}
 
 MoleculeType[0] = {
-  .Name       = mol,
-  .Number     = 1,
-  .nBeads     = 2,
-  .Bead       = {A, A},
+  .Name       = mol
+  .Number     = 1
+  .nBeads     = 2
+  .Bead       = { A A }
   .nBTypes    = 1
-  .BType      = {A},
-  .Mass       = 2.00000,
+  .BType      = { A }
+  .Mass       = 2.00000
   .Charge     = 0.00000
 }
 MoleculeType[1] = {
-  .Name       = mol_1,
-  .Number     = 1,
-  .nBeads     = 4,
-  .Bead       = {A_3, A_3, A_3, A_3},
+  .Name       = mol_1
+  .Number     = 1
+  .nBeads     = 4
+  .Bead       = { A_3 A_3 A_3 A_3 }
   .nBTypes    = 1
-  .BType      = {A_3},
-  .Mass       = n/a,
+  .BType      = { A_3 }
+  .Mass       = n/a
   .Charge     = n/a
 }
 
