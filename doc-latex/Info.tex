@@ -21,13 +21,12 @@ the two structure files share molecules that have the same bead type order
 bond types, angles, and angle type can be added to the molecule types in the
 original file. Using \tt{-i!} first exchanges beads in the original molecules
 with those from the extra file (if the molecules have the same number of beads)
-before adding the extra information. See \tt{Examples/Info} folder for examples;
-note that this functionality can give unexpected results.
+before adding the extra information. See \tt{Examples/Info} folder for examples.
 
 \tt{Info} can also write this information into a new file (\tt{-o} option) of
 any format. Note that only one timestep is read and, therefore, saved. Also, if
 no coordinates are read (i.e., neither \tt{-c} option nor a structure file with
-coordinates is used), any coordinate output file would contain no beads.
+coordinates is used), all coordinates in an output file would be 0.
 % Allowed output files are \vtsf file, LAMMPS \data file (either with the
 % extension \tt{.data} or a filename without any recognizable
 % extension), and DL\_MESO FIELD file (called \field or with the extension

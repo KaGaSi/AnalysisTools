@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "--version");
   // extra options
   strcpy(option[count++], "-x");
-  OptionCheck(argc, argv, count, req_arg, common, all, option);
+  OptionCheck(argc, argv, count, req_arg, common, all, option, true);
   //}}}
 
   count = 0; // count mandatory arguments

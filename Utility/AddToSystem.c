@@ -220,7 +220,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-b");
   strcpy(option[count++], "-off");
   strcpy(option[count++], "-s");
-  OptionCheck(argc, argv, count, req_arg, common, all, option);
+  OptionCheck(argc, argv, count, req_arg, common, all, option, true);
   //}}}
 
   count = 0; // count mandatory arguments

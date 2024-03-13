@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "--in");
   // strcpy(option[count++], "-m");
   // strcpy(option[count++], "-bt");
-  OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
+  OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   //}}}
-  opt->c = CommonOptions(argc, argv, LINE);
+  opt->c = CommonOptions(argc, argv, LINE, in);
   opt->in = BoolOption(argc, argv, "--in"); //}}}
 
   if (!opt->c.silent) {

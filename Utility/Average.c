@@ -62,7 +62,7 @@ int main ( int argc, char** argv ) {
   strcpy(option[count++], "-tau");
   strcpy(option[count++], "-b");
   strcpy(option[count++], "-m");
-  OptionCheck(argc, argv, count, req_arg, common, all, option);
+  OptionCheck(argc, argv, count, req_arg, common, all, option, true);
   //}}}
 
   count = 0;

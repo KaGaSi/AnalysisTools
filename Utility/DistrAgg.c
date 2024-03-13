@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-x");
   strcpy(option[count++], "-only");
   strcpy(option[count++], "-c");
-  OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
+  OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   // commad line arguments before reading the structure //{{{
   count = 0; // count mandatory arguments

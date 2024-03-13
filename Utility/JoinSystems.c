@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "--detailed[1]");
   strcpy(option[count++], "-st1");
   strcpy(option[count++], "-st2");
-  OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
+  OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -285,11 +285,11 @@ int main(int argc, char *argv[]) {
   bool *write = malloc(S_out.Count.Bead * sizeof *write);
   InitBoolArray(write, S_out.Count.Bead, true);
   // write to main output file
-  WriteOutput(S_out, write, fout, argc, argv);
+  WriteOutput(S_out, write, fout, false, -1, argc, argv);
   if (opt->fout.name[0] != '\0') {
     // make coordinates from 0 to Box.Length
     SubtractLow(&S_out_opt);
-    WriteOutput(S_out_opt, write, opt->fout, argc, argv);
+    WriteOutput(S_out_opt, write, opt->fout, false, -1, argc, argv);
   } //}}}
 
   FreeSystem(&Sys[0]);

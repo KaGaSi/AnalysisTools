@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-d");
   strcpy(option[count++], "-c");
   strcpy(option[count++], "-j");
-  OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
+  OptionCheck(argc, argv, count, req_arg, common, all, option, false); //}}}
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();

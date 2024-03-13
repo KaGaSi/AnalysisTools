@@ -45,8 +45,8 @@ void HelpVersionOption(int argc, char *argv[]) {
 } //}}}
 
 // version/help printing and initial check of provided options //{{{
-int OptionCheck(int argc, char *argv[], int auto_c, int req,
-                int common, int all, char opt[all][OPT_LENGTH]) {
+int OptionCheck(int argc, char *argv[], int auto_c, int req, int common,
+                int all, char opt[all][OPT_LENGTH], bool check_extra) {
   snprintf(argv[0], LINE, "%s", BareCommand(argv[0]));
   // check the manually specified and automatically counted numbers are the same
   if (auto_c != all) {
@@ -98,6 +98,22 @@ int OptionCheck(int argc, char *argv[], int auto_c, int req,
       Help(argv[0], true, common, opt);
       exit(1);
     }
+  }
+  // warn if extra arguments (between required ones and options)
+  if (check_extra && req != count) {
+    char extra[LINE] = "\0";
+    for (int i = (req + 1); i <= count; i++) {
+      char cpy[LINE];
+      strcpy(cpy, extra);
+      if (snprintf(extra, LINE, "%s %s", cpy, argv[i]) < 0) {
+        ErrorSnprintf();
+      }
+    }
+    if (snprintf(ERROR_MSG, LINE, "command line arguments%s%s%s have no effect",
+                 ErrYellow(), extra, ErrCyan()) < 0) {
+      ErrorSnprintf();
+    }
+    PrintWarning();
   }
   return count;
 } //}}}

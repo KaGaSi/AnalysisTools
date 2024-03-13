@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "--last");
   strcpy(option[count++], "-bt");
   strcpy(option[count++], "-mt");
-  OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
+  OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -297,9 +297,11 @@ int main(int argc, char *argv[]) {
       }
     } //}}}
   } else if (count_coor == 0) { // error - input file without a valid timestep //{{{
+    remove(fout.name);
     strcpy(ERROR_MSG, "no valid timestep found");
     PrintErrorFile(in.coor.name, "\0", "\0"); //}}}
   } else if (opt->c.start > count_coor) { // warn if no timesteps were written //{{{
+    remove(fout.name);
     strcpy(ERROR_MSG, "no coordinates written (starting timestep is higher"
            " than the total number of timesteps)");
     PrintWarning(); //}}}

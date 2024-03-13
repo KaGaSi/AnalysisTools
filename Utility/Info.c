@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-def");
   strcpy(option[count++], "--mass");
   strcpy(option[count++], "-ebt");
-  OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
+  OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   count = 0; // count arguments
   OPT *opt = opt_create();
@@ -90,11 +90,11 @@ int main(int argc, char *argv[]) {
     in.coor.type = CoordinateFileType(in.coor.name);
     extra.coor = in.coor;
   } //}}}
-  // output structure file (-o option) //{{{
+  // output file (-o option) //{{{
   opt->fout = InitFile;
   FileOption(argc, argv, "-o", opt->fout.name);
   if (opt->fout.name[0] != '\0') {
-    opt->fout.type = StructureFileType(opt->fout.name);
+    opt->fout.type = FileType(opt->fout.name);
   } //}}}
   opt->c = CommonOptions(argc, argv, LINE, in);
   // extra bead types for data output (-ebt option)
@@ -103,6 +103,7 @@ int main(int argc, char *argv[]) {
 
   // read information from input file(s) //{{{
   SYSTEM System = ReadStructure(in, opt->c.detailed);
+  COUNT *Count = &System.Count;
   // use coordinate from a separate file (-c option)
   if (in.coor.type != -1) {
     int line_count = 0;
@@ -114,7 +115,7 @@ int main(int argc, char *argv[]) {
     fclose(fr);
   } else {
     // all beads are in the timestep
-    for (int i = 0; i < System.Count.Bead; i++) {
+    for (int i = 0; i < Count->Bead; i++) {
       System.Bead[i].InTimestep = true;
     }
   }
@@ -146,7 +147,7 @@ int main(int argc, char *argv[]) {
       PrintMolecule(Sys_extra);
     }
     // add charge, mass, and radius to bead types if possible
-    for (int i = 0; i < System.Count.BeadType; i++) {
+    for (int i = 0; i < Count->BeadType; i++) {
       BEADTYPE *bt = &System.BeadType[i];
       int type_extra = FindBeadType(bt->Name, Sys_extra);
       if (type_extra != -1) {
@@ -166,10 +167,10 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // -def option (for vsf output file) //{{{
-  bool *def_type = calloc(System.Count.BeadType, sizeof *def_type);
+  bool *def_type = calloc(Count->BeadType, sizeof *def_type);
   BeadTypeOption(argc, argv, "-def", false, def_type, System);
   opt->vsf_def = -1;
-  for (int i = 0; i < System.Count.BeadType; i++) {
+  for (int i = 0; i < Count->BeadType; i++) {
     if (def_type[i]) {
       opt->vsf_def = i;
       break;
@@ -199,40 +200,11 @@ int main(int argc, char *argv[]) {
 
   // write the output file if required (-o option) //{{{
   if (opt->fout.name[0] != '\0') {
-    if (opt->fout.type == LDATA_FILE && opt->ebt != 0) {
-      for (int i = 0; i < opt->ebt; i++) {
-        NewBeadType(&System.BeadType, &System.Count.BeadType, "extra", 0, 1, 1);
-      }
-    }
-    // test if coordinates are present for structure files with coordinates
-    if (opt->fout.type == LDATA_FILE ||
-        opt->fout.type == LTRJ_FILE ||
-        opt->fout.type == VTF_FILE) {
-      bool coor = false;
-      for (int i = 0; i < System.Count.BeadCoor; i++) {
-        int id = System.BeadCoor[i];
-        if (fabs(System.Bead[id].Position[0]) > 0.00001 ||
-            fabs(System.Bead[id].Position[1]) > 0.00001 ||
-            fabs(System.Bead[id].Position[2]) > 0.00001) {
-          coor = true;
-          break;
-        }
-      }
-      if (!coor) {
-        strcpy(ERROR_MSG, "no coordinates loaded for lammps/vtf output");
-        PrintWarnFile(opt->fout.name, in.coor.name, "\0");
-      }
-    }
-    WriteStructure(opt->fout, System, opt->vsf_def, opt->lmp_mass, argc, argv);
-    if (opt->fout.type == VTF_FILE) {
-      bool *write = malloc(sizeof *write * System.Count.Bead);
-      // TODO if (BeadCoor == 0)
-      InitBoolArray(write, System.Count.Bead, true);
-      WriteTimestep(opt->fout, System, 1, write);
-      free(write);
-      // else
-      // write array according to BeadCoor array
-    }
+    bool *write = malloc(sizeof *write * Count->Bead);
+    InitBoolArray(write, Count->Bead, true);
+    WriteOutput(System, write, opt->fout, opt->lmp_mass, opt->vsf_def,
+                argc, argv);
+    free(write);
   } //}}}
 
   FreeSystem(&System);

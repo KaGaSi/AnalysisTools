@@ -356,7 +356,7 @@ int main(int argc, char *argv[]) {
   // strcpy(option[count++], "-x");
   // strcpy(option[count++], "-only");
   strcpy(option[count++], "--range");
-  OptionCheck(argc, argv, count, req_arg, common, all, option); //}}}
+  OptionCheck(argc, argv, count, req_arg, common, all, option, false); //}}}
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -379,7 +379,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  opt->c = CommonOptions(argc, argv, LINE);
+  opt->c = CommonOptions(argc, argv, LINE, in);
   // are provided coordinates joined?
   opt->join = BoolOption(argc, argv, "--join");
   opt->range = BoolOption(argc, argv, "--range"); //}}}

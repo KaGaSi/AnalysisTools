@@ -721,18 +721,19 @@ static void SimplifyResid(SYSTEM *System) { //{{{
 
 // write structure and/or coordinates to a new file (can be any format) //{{{
 void WriteOutput(SYSTEM System, bool write[], FILE_TYPE fw,
-                 int argc, char *argv[]) {
+                 bool lmp_mass, bool vsf_def, int argc, char *argv[]) {
   if (fw.type == VCF_FILE) { // create vsf file if output file is vcf format
     PrintByline(fw.name, argc, argv); // byline to vcf file
     fw.name[strlen(fw.name)-2] = 's';
     fw.type = VSF_FILE;
-    WriteStructure(fw, System, -1, false, argc, argv);
+    WriteStructure(fw, System, vsf_def, false, argc, argv);
     fw.name[strlen(fw.name)-2] = 'c';
     fw.type = VCF_FILE;
   } else if (fw.type == VTF_FILE ||
              fw.type == FIELD_FILE ||
-             fw.type == CONFIG_FILE) {
-    WriteStructure(fw, System, -1, false, argc, argv);
+             fw.type == CONFIG_FILE ||
+             fw.type == LDATA_FILE) {
+    WriteStructure(fw, System, vsf_def, false, argc, argv);
   }
   // write coordinates if the file is of coordinate type
   if (fw.type == VTF_FILE ||
