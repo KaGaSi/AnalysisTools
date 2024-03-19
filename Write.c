@@ -721,7 +721,7 @@ static void SimplifyResid(SYSTEM *System) { //{{{
 
 // write structure and/or coordinates to a new file (can be any format) //{{{
 void WriteOutput(SYSTEM System, bool write[], FILE_TYPE fw,
-                 bool lmp_mass, bool vsf_def, int argc, char *argv[]) {
+                 bool lmp_mass, int vsf_def, int argc, char *argv[]) {
   if (fw.type == VCF_FILE) { // create vsf file if output file is vcf format
     PrintByline(fw.name, argc, argv); // byline to vcf file
     fw.name[strlen(fw.name)-2] = 's';
