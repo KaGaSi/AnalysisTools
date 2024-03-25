@@ -82,17 +82,33 @@ Usage: \tt{Surface <input> <width> <surf.txt> <area.txt> <axis> [options]}
 \noindent
 Format of output files:
 \begin{enumerate}[nosep,leftmargin=20pt]
-  \item \tt{<output>} -- 3D coordinates
+  \item \tt{<surf.txt>} -- 3D coordinates
     \begin{itemize}[nosep,leftmargin=5pt]
-      \item first line: command used to generate the file
-      \item second line: column headers
+      \item first line: AnalysisTools version
+      \item second line: command used to generate the file
+      \item third line: column headers
         \begin{itemize}[nosep,leftmargin=5pt]
           \item first two numbers represent the centre of each square
-            (being the coordinates on the sliced up plane); i.e., if \tt{<width>} is 1,
-            then the centre of the first square is 0.5 0.5, the centre of
+            (being the coordinates on the sliced up plane); i.e., if
+            \tt{<width>} is 1, then the centre of the first square is 0.5 0.5,
+            the centre of
             the second one is 0.5 1.5, etc.
           \item the second two numbers are coordinates of the surface in
             the third dimension, i.e., along the chosen axis
         \end{itemize}
+        \item data lines follow
+    \end{itemize}
+  \item \tt{<area.txt>} -- per-timestep areas (calculated as a sum of triangles)
+    \begin{itemize}[nosep,leftmargin=5pt]
+      \item first line: AnalysisTools version
+      \item second line: command used to generate the file
+      \item third line: column headers
+        \begin{itemize}[nosep,leftmargin=5pt]
+          \item first is simulation timestep
+          \item the rest are areas of the top, bottom, and central surfaces
+        \end{itemize}
+        \item data lines follow
+        \item second to last line: column headers for overall averages
+        \item last line: the overall averages
     \end{itemize}
 \end{enumerate}

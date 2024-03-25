@@ -1,5 +1,66 @@
 #include "../AnalysisTools.h"
 
+// TODO: 'central' average surface
+// TODO: overall averages to <surf.txt>?
+
+double calc_area(double A[3], double B[3], double C[3]) {
+  double AB[3], AC[3], BC[3];
+  for (int dd = 0; dd < 3; dd++) {
+    AB[dd] = B[dd] - A[dd];
+    AC[dd] = C[dd] - A[dd];
+    BC[dd] = C[dd] - B[dd];
+  }
+  double a = 0, b = 0, c = 0;
+  for (int dd = 0; dd < 3; dd++) {
+    a += SQR(BC[dd]);
+    b += SQR(AC[dd]);
+    c += SQR(AB[dd]);
+  }
+  a = sqrt(a);
+  b = sqrt(b);
+  c = sqrt(c);
+  double s = (a + b + c) / 2;
+  return sqrt(s * (s - a) * (s - b) * (s - c));
+}
+
+void calc_4points_2(double points[4][2], double width,
+                  double *sum_area, int *triangles) {
+  if (points[0][1] > 0 &&
+      points[1][1] > 0) {
+    double A[3] = {0, 0, 0},
+           B[3],
+           C[3] = {width, width, 0};
+    A[2] = points[0][0] / points[0][1];
+    C[2] = points[1][0] / points[1][1];
+    if (points[2][1] > 0) {
+      B[0] = width;
+      B[1] = 0;
+      B[2] = points[2][0] / points[2][1];
+      *sum_area += calc_area(A, B, C);
+      *triangles += 1;
+    }
+    if (points[3][1] > 0) {
+      B[0] = width;
+      B[1] = 0;
+      B[2] = points[3][0] / points[3][1];
+      *sum_area += calc_area(A, B, C);
+      *triangles += 1;
+    }
+  }
+}
+
+void calc_4points(double A[3], double B[3], double C[3], double D[3],
+                  double *sum_area, int *triangles) {
+  if (A[0] != -1 && B[0] != -1 && D[0] != -1) {
+    *sum_area += calc_area(A, B, D);
+    (*triangles)++;
+  }
+  if (A[0] != -1 && C[0] != -1 && D[0] != -1) {
+    *sum_area += calc_area(A, C, D);
+    (*triangles)++;
+  }
+}
+
 // TODO: reinstate molecular condition
 // TODO: impelment -m & -bt options
 // TODO: calculate proper per-timestep area even when box size changes
@@ -141,8 +202,8 @@ int main(int argc, char *argv[]) {
 
   // number of bins //{{{
   int bins[2];
-  bins[0] = sidelength[0] / width + 2;
-  bins[1] = sidelength[1] / width + 2;
+  bins[0] = sidelength[0] / width * 10;
+  bins[1] = sidelength[1] / width * 10;
   // for calculation of area - TODO: change
   int bins_true[2];
   bins_true[0] = sidelength[0] / width + 1;
@@ -168,13 +229,18 @@ int main(int argc, char *argv[]) {
   } else {
     hi[1] = lo[1];
   } //}}}
+  int bins_orig[2], bins_true_orig[2];
+  bins_orig[0] = bins[0];
+  bins_orig[1] = bins[1];
+  bins_true_orig[0] = bins_true[0];
+  bins_true_orig[1] = bins_true[1];
 
   // allocate memory for density arrays //{{{
   double ***surf = malloc(bins[0] * sizeof(double **)); // sum
   int ***values = malloc(bins[0] * sizeof(int **)); // number of values
   for (int i = 0; i < bins[0]; i++) {
     surf[i] = malloc(bins[1] * sizeof(double *));
-    values[i] = malloc(bins[0] * sizeof(int *));
+    values[i] = malloc(bins[1] * sizeof(int *));
     for (int j = 0; j < bins[1]; j++) {
       surf[i][j] = calloc(2, sizeof(double));
       values[i][j] = calloc(2, sizeof(int));
@@ -197,7 +263,8 @@ int main(int argc, char *argv[]) {
   // main loop //{{{
   int count_coor = 0, // count calculated timesteps
       count_used = 0, // count timesteps from the beginning
-      line_count = 0; // count lines in the coor file
+      line_count = 0, // count lines in the coor file
+      max_bin[2] = {0, 0}; // highest bin ids (i.e., number of bins to write)
   bool warn_box_change = false;
   while (true) {
     PrintStep(&count_coor, opt->c.start, opt->c.silent);
@@ -217,23 +284,60 @@ int main(int argc, char *argv[]) {
       count_used++;
       WrapJoinCoordinates(&System, true, false);
 
-      // warn once if box size changed
+      // warn once if box size changed //{{{
       if (!warn_box_change &&
           (fabs(sidelength[0] - System.Box.Length[map[0]]) > 0.00001 ||
            fabs(sidelength[1] - System.Box.Length[map[1]]) > 0.00001 ||
            fabs(sidelength[2] - System.Box.Length[axis]) > 0.00001)) {
-        strcpy(ERROR_MSG, "box size changed; "
-               "only coordinates inside the original box are used");
+        strcpy(ERROR_MSG, "box size changed; only coordinates inside the "
+               "original box are used for surface averaging");
         PrintWarning();
         warn_box_change = true;
+      } //}}}
+      // number of bins //{{{
+      sidelength[0] = System.Box.Length[map[0]];
+      sidelength[1] = System.Box.Length[map[1]];
+      sidelength[2] = System.Box.Length[axis];
+
+      range[0] = 0;
+      range[1] = sidelength[2];
+
+      bins[0] = sidelength[0] / width + 2;
+      bins[1] = sidelength[1] / width + 2;
+      // for calculation of area - TODO: change
+      bins_true[0] = sidelength[0] / width + 1;
+      bins_true[1] = sidelength[0] / width + 1;
+      // *1000 to ensure width is integer as otherwise it can wreak havoc
+      if ((fmod(sidelength[0] * 1000, width * 1000) / 1000) > 0.001) {
+        bins_true[0]++;
       }
+      if ((fmod(sidelength[1] * 1000, width * 1000) / 1000) > 0.001) {
+        bins_true[1]++;
+      }
+      // find lowest and highest coordinates for the topmost bins
+      // double lo[2], hi[2];
+      lo[0] = (int)(sidelength[0] / width) * width;
+      lo[1] = (int)(sidelength[1] / width) * width;
+      if (fabs(lo[0]-sidelength[0]) > 0.00001) {
+        hi[0] = lo[0] + width;
+      } else {
+        hi[0] = lo[0];
+      }
+      if (fabs(lo[1]-sidelength[1]) > 0.00001) {
+        hi[1] = lo[1] + width;
+      } else {
+        hi[1] = lo[1];
+      } //}}}
 
       // allocate memory for temporary arrays //{{{
       double ***temp = calloc(bins[0], sizeof(double **));
+      bool ***temp2 = calloc(bins[0], sizeof(bool **));
       for (int i = 0; i < bins[0]; i++) {
         temp[i] = calloc(bins[1], sizeof(double *));
+        temp2[i] = calloc(bins[1], sizeof(bool *));
         for (int j = 0; j < bins[1]; j++) {
           temp[i][j] = calloc(2, sizeof(double));
+          temp2[i][j] = calloc(2, sizeof(bool));
           if (!opt->in) {
             temp[i][j][0] = 0;
             temp[i][j][1] = sidelength[2];
@@ -265,6 +369,12 @@ int main(int argc, char *argv[]) {
         int bin[2];
         bin[0] = coor[0] / width;
         bin[1] = coor[1] / width;
+        if (bin[0] > max_bin[0]) {
+          max_bin[0] = bin[0];
+        }
+        if (bin[1] > max_bin[1]) {
+          max_bin[1] = bin[1];
+        }
         // printf("%d (%d) %d (%d)\n", bin[0], bins[0], bin[1], bins[1]);
         // error if box got bigger
         if (bin[0] < bins[0] && bin[1] < bins[1]) {
@@ -277,92 +387,144 @@ int main(int argc, char *argv[]) {
                 coor[2] >= range[0] &&
                 coor[2] <= ((range[0] + range[1])/2)) {
               temp[bin[0]][bin[1]][0] = coor[2];
+              temp2[bin[0]][bin[1]][0] = true;
             }
             if (coor[2] <= temp[bin[0]][bin[1]][1] &&
                 coor[2] >= ((range[0] + range[1])/2) &&
                 coor[2] <= range[1]) {
               temp[bin[0]][bin[1]][1] = coor[2];
+              temp2[bin[0]][bin[1]][1] = true;
             }
             if (pbc[0] > lo[0] && pbc[0] < hi[0] &&
                 pbc[1] > lo[1] && pbc[1] < hi[1]) {
               bin[0] = pbc[0] / width;
               bin[1] = pbc[1] / width;
+              if (bin[0] > max_bin[0]) {
+                max_bin[0] = bin[0];
+              }
+              if (bin[1] > max_bin[1]) {
+                max_bin[1] = bin[1];
+              }
               if (coor[2] >= temp[bin[0]][bin[1]][0] &&
                   coor[2] >= range[0] &&
                   coor[2] <= ((range[0] + range[1])/2)) {
                 temp[bin[0]][bin[1]][0] = coor[2];
-              }
-              if (coor[2] <= temp[bin[0]][bin[1]][1] &&
-                  coor[2] >= ((range[0]+range[1])/2) &&
-                  coor[2] <= range[1]) {
-                temp[bin[0]][bin[1]][1] = coor[2];
-              }
-            }
-            if (pbc[0] > lo[0] && pbc[0] < hi[0]) {
-              bin[0] = pbc[0] / width;
-              bin[1] = coor[1] / width;
-              if (coor[2] >= temp[bin[0]][bin[1]][0] &&
-                  coor[2] >= range[0] &&
-                  coor[2] <= ((range[0]+range[1])/2)) {
-                temp[bin[0]][bin[1]][0] = coor[2];
+                temp2[bin[0]][bin[1]][0] = true;
               }
               if (coor[2] <= temp[bin[0]][bin[1]][1] &&
                   coor[2] >= ((range[0] + range[1])/2) &&
                   coor[2] <= range[1]) {
                 temp[bin[0]][bin[1]][1] = coor[2];
+                temp2[bin[0]][bin[1]][1] = true;
+              }
+            }
+            if (pbc[0] > lo[0] && pbc[0] < hi[0]) {
+              bin[0] = pbc[0] / width;
+              bin[1] = coor[1] / width;
+              if (bin[0] > max_bin[0]) {
+                max_bin[0] = bin[0];
+              }
+              if (bin[1] > max_bin[1]) {
+                max_bin[1] = bin[1];
+              }
+              if (coor[2] >= temp[bin[0]][bin[1]][0] &&
+                  coor[2] >= range[0] &&
+                  coor[2] <= ((range[0] + range[1])/2)) {
+                temp[bin[0]][bin[1]][0] = coor[2];
+                temp2[bin[0]][bin[1]][0] = true;
+              }
+              if (coor[2] <= temp[bin[0]][bin[1]][1] &&
+                  coor[2] >= ((range[0] + range[1])/2) &&
+                  coor[2] <= range[1]) {
+                temp[bin[0]][bin[1]][1] = coor[2];
+                temp2[bin[0]][bin[1]][1] = true;
               }
             }
             if (pbc[1] > lo[1] && pbc[1] < hi[1]) {
               bin[0] = coor[0] / width;
               bin[1] = pbc[1] / width;
+              if (bin[0] > max_bin[0]) {
+                max_bin[0] = bin[0];
+              }
+              if (bin[1] > max_bin[1]) {
+                max_bin[1] = bin[1];
+              }
               if (coor[2] >= temp[bin[0]][bin[1]][0] &&
                   coor[2] >= range[0] &&
                   coor[2] <= ((range[0] + range[1])/2)) {
                 temp[bin[0]][bin[1]][0] = coor[2];
+                temp2[bin[0]][bin[1]][0] = true;
               }
               if (coor[2] <= temp[bin[0]][bin[1]][1] &&
-                  coor[2] >= ((range[0]+range[1])/2) &&
+                  coor[2] >= ((range[0] + range[1])/2) &&
                   coor[2] <= range[1]) {
                 temp[bin[0]][bin[1]][1] = coor[2];
+                temp2[bin[0]][bin[1]][1] = true;
               }
             }
           } else if (coor[2] >= range[0] &&
                      coor[2] <= range[1]) { // go from box edges to centre
             if (coor[2] <= temp[bin[0]][bin[1]][0]) {
               temp[bin[0]][bin[1]][0] = coor[2];
+              temp2[bin[0]][bin[1]][0] = true;
             }
             if (coor[2] >= temp[bin[0]][bin[1]][1]) {
               temp[bin[0]][bin[1]][1] = coor[2];
+              temp2[bin[0]][bin[1]][1] = true;
             }
             if (pbc[0] > lo[0] && pbc[0] < hi[0] &&
                 pbc[1] > lo[1] && pbc[1] < hi[1]) {
               bin[0] = pbc[0] / width;
               bin[1] = pbc[1] / width;
+              if (bin[0] > max_bin[0]) {
+                max_bin[0] = bin[0];
+              }
+              if (bin[1] > max_bin[1]) {
+                max_bin[1] = bin[1];
+              }
               if (coor[2] <= temp[bin[0]][bin[1]][0]) {
                 temp[bin[0]][bin[1]][0] = coor[2];
+                temp2[bin[0]][bin[1]][0] = true;
               }
               if (coor[2] >= temp[bin[0]][bin[1]][1]) {
                 temp[bin[0]][bin[1]][1] = coor[2];
+                temp2[bin[0]][bin[1]][1] = true;
               }
             }
             if (pbc[0] > lo[0] && pbc[0] < hi[0]) {
               bin[0] = pbc[0] / width;
               bin[1] = coor[1] / width;
+              if (bin[0] > max_bin[0]) {
+                max_bin[0] = bin[0];
+              }
+              if (bin[1] > max_bin[1]) {
+                max_bin[1] = bin[1];
+              }
               if (coor[2] <= temp[bin[0]][bin[1]][0]) {
                 temp[bin[0]][bin[1]][0] = coor[2];
+                temp2[bin[0]][bin[1]][0] = true;
               }
               if (coor[2] >= temp[bin[0]][bin[1]][1]) {
                 temp[bin[0]][bin[1]][1] = coor[2];
+                temp2[bin[0]][bin[1]][1] = true;
               }
             }
             if (pbc[1] > lo[1] && pbc[1] < hi[1]) {
               bin[0] = coor[0] / width;
               bin[1] = pbc[1] / width;
+              if (bin[0] > max_bin[0]) {
+                max_bin[0] = bin[0];
+              }
+              if (bin[1] > max_bin[1]) {
+                max_bin[1] = bin[1];
+              }
               if (coor[2] <= temp[bin[0]][bin[1]][0]) {
                 temp[bin[0]][bin[1]][0] = coor[2];
+                temp2[bin[0]][bin[1]][0] = true;
               }
               if (coor[2] >= temp[bin[0]][bin[1]][1]) {
                 temp[bin[0]][bin[1]][1] = coor[2];
+                temp2[bin[0]][bin[1]][1] = true;
               }
             }
           }
@@ -379,24 +541,13 @@ int main(int argc, char *argv[]) {
       // add to sums //{{{
       for (int i = 0; i < bins[0]; i++) {
         for (int j = 0; j < bins[1]; j++) {
-          if (!opt->in) {
-            if (temp[i][j][0] > 0) {
-              surf[i][j][0] += temp[i][j][0];
-              values[i][j][0]++;
-            }
-            if (temp[i][j][1] < sidelength[2]) {
-              surf[i][j][1] += temp[i][j][1];
-              values[i][j][1]++;
-            }
-          } else {
-            if (temp[i][j][0] < sidelength[2]) {
-              surf[i][j][0] += temp[i][j][0];
-              values[i][j][0]++;
-            }
-            if (temp[i][j][1] > 0) {
-              surf[i][j][1] += temp[i][j][1];
-              values[i][j][1]++;
-            }
+          if (temp2[i][j][0]) {
+            surf[i][j][0] += temp[i][j][0];
+            values[i][j][0]++;
+          }
+          if (temp2[i][j][1]) {
+            surf[i][j][1] += temp[i][j][1];
+            values[i][j][1]++;
           }
         }
       } //}}}
@@ -407,219 +558,64 @@ int main(int argc, char *argv[]) {
       for (int i = 0; i < bins_true[0]; i++) {
         temp[i][bins_true[1]-1][0] = temp[i][0][0];
         temp[i][bins_true[1]-1][1] = temp[i][0][1];
+        temp2[i][bins_true[1]-1][0] = temp2[i][0][0];
+        temp2[i][bins_true[1]-1][1] = temp2[i][0][1];
       }
       for (int j = 0; j < bins_true[1]; j++) {
         temp[bins_true[0]-1][j][0] = temp[0][j][0];
         temp[bins_true[0]-1][j][1] = temp[0][j][1];
+        temp2[bins_true[0]-1][j][0] = temp2[0][j][0];
+        temp2[bins_true[0]-1][j][1] = temp2[0][j][1];
       }
       count = 0;
       for (int i = 0; i < (bins_true[0] - 1); i++) {
         for (int j = 0; j < (bins_true[1] - 1); j++) {
           count++;
-          // TODO: assumes in=true !!!
-          // first surface //{{{
-          // first triangle
-          if (temp[i][j][0] < sidelength[2] &&
-              temp[i+1][j][0] < sidelength[2] &&
-              temp[i+1][j+1][0] < sidelength[2]) {
-            double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
-            A[2] = temp[i][j][0];
-            // A[2] = 0;
-            B[0] = width;
-            B[2] = temp[i+1][j][0];
-            // B[2] = 0;
-            C[0] = width;
-            C[1] = width;
-            C[2] = temp[i+1][j+1][0];
-            // C[2] = 0;
-            double AB[3], AC[3], BC[3];
-            for (int dd = 0; dd < 3; dd++) {
-              AB[dd] = B[dd] - A[dd];
-              AC[dd] = C[dd] - A[dd];
-              BC[dd] = C[dd] - B[dd];
+          // top and bottom surfaces //{{{
+          double A[3] = {-1}, B[3] = {-1}, C[3] = {-1}, D[3] = {-1};
+          for (int aa = 0; aa < 2; aa++) {
+            if (temp2[i][j][aa] && temp2[i+1][j+1][aa]) {
+              A[0] = A[1] = 0;
+              A[2] = temp[i][j][aa];
+              D[0] = D[1] = width;
+              D[2] = temp[i+1][j+1][aa];
+              if (temp2[i+1][j][aa]) {
+                B[0] = width;
+                B[1] = 0;
+                B[2] = temp[i+1][j][aa];
+              }
+              if (temp2[i][j+1][aa]) {
+                C[0] = 0;
+                C[1] = width;
+                C[2] = temp[i][j+1][aa];
+              }
+              calc_4points(A, B, C, D, &sum_area[aa], &triangles[aa]);
             }
-            double a = 0, b = 0, c = 0;
-            for (int dd = 0; dd < 3; dd++) {
-              a += SQR(BC[dd]);
-              b += SQR(AC[dd]);
-              c += SQR(AB[dd]);
-            }
-            a = sqrt(a);
-            b = sqrt(b);
-            c = sqrt(c);
-            double s = (a + b + c) / 2;
-            double area = sqrt(s * (s - a) * (s - b) * (s - c));
-            sum_area[0] += area;
-            triangles[0]++;
-          }
-          // second triangle
-          if (temp[i][j][0] < sidelength[2] &&
-              temp[i][j+1][0] < sidelength[2] &&
-              temp[i+1][j+1][0] < sidelength[2]) {
-            double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
-            A[2] = temp[i][j][0];
-            // A[2] = 0;
-            B[1] = width;
-            B[2] = temp[i][j+1][0];
-            // B[2] = 0;
-            C[0] = width;
-            C[1] = width;
-            C[2] = temp[i+1][j+1][0];
-            // C[2] = 0;
-            double AB[3], AC[3], BC[3];
-            for (int dd = 0; dd < 3; dd++) {
-              AB[dd] = B[dd] - A[dd];
-              AC[dd] = C[dd] - A[dd];
-              BC[dd] = C[dd] - B[dd];
-            }
-            double a = 0, b = 0, c = 0;
-            for (int dd = 0; dd < 3; dd++) {
-              a += SQR(BC[dd]);
-              b += SQR(AC[dd]);
-              c += SQR(AB[dd]);
-            }
-            a = sqrt(a);
-            b = sqrt(b);
-            c = sqrt(c);
-            double s = (a + b + c) / 2;
-            double area = sqrt(s * (s - a) * (s - b) * (s - c));
-            sum_area[0] += area;
-            triangles[0]++;
-          }
-          //}}}
-          // second surface //{{{
-          // first triangle
-          if (temp[i][j][1] > 0 &&
-              temp[i+1][j][1] > 0 &&
-              temp[i+1][j+1][1] > 0) {
-            double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
-            A[2] = temp[i][j][1];
-            B[0] = width;
-            B[2] = temp[i+1][j][1];
-            C[0] = width;
-            C[1] = width;
-            C[2] = temp[i+1][j+1][1];
-            double AB[3], AC[3], BC[3];
-            for (int dd = 0; dd < 3; dd++) {
-              AB[dd] = B[dd] - A[dd];
-              AC[dd] = C[dd] - A[dd];
-              BC[dd] = C[dd] - B[dd];
-            }
-            double a = 0, b = 0, c = 0;
-            for (int dd = 0; dd < 3; dd++) {
-              a += SQR(BC[dd]);
-              b += SQR(AC[dd]);
-              c += SQR(AB[dd]);
-            }
-            a = sqrt(a);
-            b = sqrt(b);
-            c = sqrt(c);
-            double s = (a + b + c) / 2;
-            double area = sqrt(s * (s - a) * (s - b) * (s - c));
-            sum_area[1] += area;
-            triangles[1]++;
-          }
-          // second triangle
-          if (temp[i][j][1] > 0 &&
-              temp[i][j+1][1] > 0 &&
-              temp[i+1][j+1][1] > 0) {
-            double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
-            A[2] = temp[i][j][1];
-            B[1] = width;
-            B[2] = temp[i][j+1][1];
-            C[0] = width;
-            C[1] = width;
-            C[2] = temp[i+1][j+1][1];
-            double AB[3], AC[3], BC[3];
-            for (int dd = 0; dd < 3; dd++) {
-              AB[dd] = B[dd] - A[dd];
-              AC[dd] = C[dd] - A[dd];
-              BC[dd] = C[dd] - B[dd];
-            }
-            double a = 0, b = 0, c = 0;
-            for (int dd = 0; dd < 3; dd++) {
-              a += SQR(BC[dd]);
-              b += SQR(AC[dd]);
-              c += SQR(AB[dd]);
-            }
-            a = sqrt(a);
-            b = sqrt(b);
-            c = sqrt(c);
-            double s = (a + b + c) / 2;
-            double area = sqrt(s * (s - a) * (s - b) * (s - c));
-            sum_area[1] += area;
-            triangles[1]++;
-          }
-          //}}}
+          } //}}}
           // 'middle' surface //{{{
-          // first triangle
-          if (temp[i][j][0] < sidelength[2] &&
-              temp[i+1][j][0] < sidelength[2] &&
-              temp[i+1][j+1][0] < sidelength[2] &&
-              temp[i][j][1] > 0 &&
-              temp[i+1][j][1] > 0 &&
-              temp[i+1][j+1][1] > 0) {
-            double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
-            A[2] = (temp[i][j][0] + temp[i][j][1]) / 2;
-            B[0] = width;
-            B[2] = (temp[i+1][j][0] + temp[i+1][j][1]) / 2;
-            C[0] = width;
-            C[1] = width;
-            C[2] = (temp[i+1][j+1][0] + temp[i+1][j+1][1]) / 2;
-            // C[2] = 0;
-            double AB[3], AC[3], BC[3];
-            for (int dd = 0; dd < 3; dd++) {
-              AB[dd] = B[dd] - A[dd];
-              AC[dd] = C[dd] - A[dd];
-              BC[dd] = C[dd] - B[dd];
+          A[0] = B[0] = C[0] = D[0] = -1;
+          if (temp2[i][j][0] && temp2[i][j][1] &&
+              temp2[i+1][j+1][0] && temp2[i+1][j+1][1]) {
+            A[0] = A[1] = 0;
+            A[2] = (temp[i][j][0] +
+                    temp[i][j][1]) / 2;
+            D[0] = D[1] = width;
+            D[2] = (temp[i+1][j+1][0] +
+                    temp[i+1][j+1][1]) / 2;
+
+            if (temp2[i+1][j][0] && temp2[i+1][j][1]) {
+              B[0] = width;
+              B[1] = 0;
+              B[2] = (temp[i+1][j][0] +
+                      temp[i+1][j][1]) / 2;
             }
-            double a = 0, b = 0, c = 0;
-            for (int dd = 0; dd < 3; dd++) {
-              a += SQR(BC[dd]);
-              b += SQR(AC[dd]);
-              c += SQR(AB[dd]);
+            if (temp2[i][j+1][0] && temp2[i][j+1][1]) {
+              C[0] = width;
+              C[1] = 0;
+              C[2] = (temp[i][j+1][0] +
+                      temp[i][j+1][1]) / 2;
             }
-            a = sqrt(a);
-            b = sqrt(b);
-            c = sqrt(c);
-            double s = (a + b + c) / 2;
-            double area = sqrt(s * (s - a) * (s - b) * (s - c));
-            sum_area[2] += area;
-            triangles[2]++;
-          }
-          // second triangle
-          if (temp[i][j][0] < sidelength[2] &&
-              temp[i][j+1][0] < sidelength[2] &&
-              temp[i+1][j+1][0] < sidelength[2] &&
-              temp[i][j][1] > 0 &&
-              temp[i][j+1][1] > 0 &&
-              temp[i+1][j+1][1] > 0) {
-            double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
-            A[2] = (temp[i][j][0] + temp[i][j][1]) / 2;
-            B[1] = width;
-            B[2] = (temp[i][j+1][0] + temp[i][j+1][1]) / 2;
-            C[0] = width;
-            C[1] = width;
-            C[2] = (temp[i+1][j+1][0] + temp[i+1][j+1][1]) / 2;
-            double AB[3], AC[3], BC[3];
-            for (int dd = 0; dd < 3; dd++) {
-              AB[dd] = B[dd] - A[dd];
-              AC[dd] = C[dd] - A[dd];
-              BC[dd] = C[dd] - B[dd];
-            }
-            double a = 0, b = 0, c = 0;
-            for (int dd = 0; dd < 3; dd++) {
-              a += SQR(BC[dd]);
-              b += SQR(AC[dd]);
-              c += SQR(AB[dd]);
-            }
-            a = sqrt(a);
-            b = sqrt(b);
-            c = sqrt(c);
-            double s = (a + b + c) / 2;
-            double area = sqrt(s * (s - a) * (s - b) * (s - c));
-            sum_area[2] += area;
-            triangles[2]++;
+            calc_4points(A, B, C, D, &sum_area[2], &triangles[2]);
           }
           //}}}
         }
@@ -646,10 +642,13 @@ int main(int argc, char *argv[]) {
       for (int i = 0; i < bins[0]; i++) {
         for (int j = 0; j < bins[1]; j++) {
           free(temp[i][j]);
+          free(temp2[i][j]);
         }
         free(temp[i]);
+        free(temp2[i]);
       }
-      free(temp); //}}}
+      free(temp);
+      free(temp2); //}}}
       //}}}
     } else { //{{{
       if (!SkipTimestep(in, fr, &line_count)) {
@@ -706,16 +705,6 @@ int main(int argc, char *argv[]) {
   double sum_area[3] = {0, 0, 0};
   int triangles[3] = {0, 0, 0};
   count = 0;
-  // TODO: is the bins_true correct? E.g., Box 36, width a) = 1.0, b) = 1.1
-  //       a) bins_true = 36 / 1 + 1 = 37
-  //       b) bins_true = 36 / 1.1 + 1 = 33, than + 1 from fmod = 34
-  //       a) last temp with data: coor 35-36, i.e. temp[36]
-  //       b) last temp with data: coor 35.2-36, i.e. temp[32]
-  //       ...is that so & is that right?
-  //       ...consider we're using the SYSTEM full; so I think it's right
-  //       ...although temp[33] is empty
-  //       ...from ~/FA-bilayer/Hair-C16/36_to_32/3 &
-  // Surface test.lammpstrj 1.1 surf.txt area.txt z --in -st 2 -e 6 -sk 20 --silent
   for (int i = 0; i < bins_true[0]; i++) {
     values[i][bins_true[1]-1][0] = values[i][0][0];
     values[i][bins_true[1]-1][1] = values[i][0][1];
@@ -731,215 +720,53 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < (bins_true[0] - 1); i++) {
     for (int j = 0; j < (bins_true[1] - 1); j++) {
       count++;
-      // first surface //{{{
-      // first triangle
-      if (values[i][j][0] > 0 &&
-          values[i+1][j][0] > 0 &&
-          values[i+1][j+1][0] > 0) {
-        double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
-        A[2] = surf[i][j][0] / values[i][j][0];
-        B[0] = width;
-        B[2] = surf[i+1][j][0] / values[i+1][j][0];
-        C[0] = width;
-        C[1] = width;
-        C[2] = surf[i+1][j+1][0] / values[i+1][j+1][0];
-        double AB[3], AC[3], BC[3];
-        for (int dd = 0; dd < 3; dd++) {
-          AB[dd] = B[dd] - A[dd];
-          AC[dd] = C[dd] - A[dd];
-          BC[dd] = C[dd] - B[dd];
+      // top and bottom surfaces //{{{
+      double A[3] = {-1}, B[3] = {-1}, C[3] = {-1}, D[3] = {-1};
+      for (int aa = 0; aa < 2; aa++) {
+        if (values[i][j][aa] > 0 && values[i+1][j+1][aa] > 0) {
+          A[0] = A[1] = 0;
+          A[2] = surf[i][j][aa] / values[i][j][aa];
+          D[0] = D[1] = width;
+          D[2] = surf[i+1][j+1][aa] / values[i][j][aa];
+          if (values[i+1][j][aa] > 0) {
+            B[0] = width;
+            B[1] = 0;
+            B[2] = surf[i+1][j][aa] / values[i+1][j][aa];
+          }
+          if (values[i][j+1][aa] > 0) {
+            C[0] = 0;
+            C[1] = width;
+            C[2] = surf[i][j+1][aa] / values[i][j+1][aa];
+          }
+          calc_4points(A, B, C, D, &sum_area[aa], &triangles[aa]);
         }
-        double a = 0, b = 0, c = 0;
-        for (int dd = 0; dd < 3; dd++) {
-          a += SQR(BC[dd]);
-          b += SQR(AC[dd]);
-          c += SQR(AB[dd]);
-        }
-        a = sqrt(a);
-        b = sqrt(b);
-        c = sqrt(c);
-        double s = (a + b + c) / 2;
-        double area = sqrt(s * (s - a) * (s - b) * (s - c));
-        sum_area[0] += area;
-        triangles[0]++;
-      }
-      // second triangle
-      if (values[i][j][0] > 0 &&
-          values[i][j+1][0] > 0 &&
-          values[i+1][j+1][0] > 0) {
-        double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
-        A[2] = surf[i][j][0] / values[i][j][0];
-        B[0] = 0;
-        B[1] = width;
-        B[2] = surf[i][j+1][0] / values[i][j+1][0];
-        C[0] = width;
-        C[1] = width;
-        C[2] = surf[i+1][j+1][0] / values[i+1][j+1][0];
-        double AB[3], AC[3], BC[3];
-        for (int dd = 0; dd < 3; dd++) {
-          AB[dd] = B[dd] - A[dd];
-          AC[dd] = C[dd] - A[dd];
-          BC[dd] = C[dd] - B[dd];
-        }
-        double a = 0, b = 0, c = 0;
-        for (int dd = 0; dd < 3; dd++) {
-          a += SQR(BC[dd]);
-          b += SQR(AC[dd]);
-          c += SQR(AB[dd]);
-        }
-        a = sqrt(a);
-        b = sqrt(b);
-        c = sqrt(c);
-        double s = (a + b + c) / 2;
-        double area = sqrt(s * (s - a) * (s - b) * (s - c));
-        sum_area[0] += area;
-        triangles[0]++;
-      }
-      //}}}
-      // second surface //{{{
-      // first triangle
-      if (values[i][j][1] > 0 &&
-          values[i+1][j][1] > 0 &&
-          values[i+1][j+1][1] > 0) {
-        double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
-        A[2] = surf[i][j][1] / values[i][j][1];
-        B[0] = width;
-        B[2] = surf[i+1][j][1] / values[i+1][j][1];
-        C[0] = width;
-        C[1] = width;
-        C[2] = surf[i+1][j+1][1] / values[i+1][j+1][1];
-        double AB[3], AC[3], BC[3];
-        for (int dd = 0; dd < 3; dd++) {
-          AB[dd] = B[dd] - A[dd];
-          AC[dd] = C[dd] - A[dd];
-          BC[dd] = C[dd] - B[dd];
-        }
-        double a = 0, b = 0, c = 0;
-        for (int dd = 0; dd < 3; dd++) {
-          a += SQR(BC[dd]);
-          b += SQR(AC[dd]);
-          c += SQR(AB[dd]);
-        }
-        a = sqrt(a);
-        b = sqrt(b);
-        c = sqrt(c);
-        double s = (a + b + c) / 2;
-        double area = sqrt(s * (s - a) * (s - b) * (s - c));
-        sum_area[1] += area;
-        triangles[1]++;
-      }
-      // second triangle
-      if (values[i][j][1] > 0 &&
-          values[i][j+1][1] > 0 &&
-          values[i+1][j+1][1] > 0) {
-        double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
-        A[2] = surf[i][j][1] / values[i][j][1];
-        B[1] = width;
-        B[2] = surf[i][j+1][1] / values[i][j+1][1];
-        C[0] = width;
-        C[1] = width;
-        C[2] = surf[i+1][j+1][1] / values[i+1][j+1][1];
-        double AB[3], AC[3], BC[3];
-        for (int dd = 0; dd < 3; dd++) {
-          AB[dd] = B[dd] - A[dd];
-          AC[dd] = C[dd] - A[dd];
-          BC[dd] = C[dd] - B[dd];
-        }
-        double a = 0, b = 0, c = 0;
-        for (int dd = 0; dd < 3; dd++) {
-          a += SQR(BC[dd]);
-          b += SQR(AC[dd]);
-          c += SQR(AB[dd]);
-        }
-        a = sqrt(a);
-        b = sqrt(b);
-        c = sqrt(c);
-        double s = (a + b + c) / 2;
-        double area = sqrt(s * (s - a) * (s - b) * (s - c));
-        sum_area[1] += area;
-        triangles[1]++;
-      }
-      //}}}
+      } //}}}
       // 'middle' surface //{{{
-      // first triangle
-      if (values[i][j][0] > 0 &&
-          values[i+1][j][0] > 0 &&
-          values[i+1][j+1][0] > 0 &&
-          values[i][j][1] > 0 &&
-          values[i+1][j][1] > 0 &&
-          values[i+1][j+1][1] > 0) {
-        double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
-        A[2] =  surf[i][j][0] / values[i][j][0];
-        A[2] += surf[i][j][1] / values[i][j][1];
-        A[2] /= 2;
-        B[0] = width;
-        B[2] =  surf[i+1][j][0] / values[i+1][j][0];
-        B[2] += surf[i+1][j][1] / values[i+1][j][1];
-        B[2] /= 2;
-        C[0] = width;
-        C[1] = width;
-        C[2] =  surf[i+1][j+1][0] / values[i+1][j+1][0];
-        C[2] += surf[i+1][j+1][1] / values[i+1][j+1][1];
-        C[2] /= 2;
-        double AB[3], AC[3], BC[3];
-        for (int dd = 0; dd < 3; dd++) {
-          AB[dd] = B[dd] - A[dd];
-          AC[dd] = C[dd] - A[dd];
-          BC[dd] = C[dd] - B[dd];
+      A[0] = B[0] = C[0] = D[0] = -1;
+      if (values[i][j][0] > 0 && values[i][j][1] > 0 &&
+          values[i+1][j+1][0] > 0 && values[i+1][j+1][1] > 0) {
+          // values[i+1][j][0] > 0 &&
+          // values[i+1][j][1] > 0 &&
+        A[0] = A[1] = 0;
+        A[2] = (surf[i][j][0] / values[i][j][0] +
+                surf[i][j][1] / values[i][j][1]) / 2;
+        D[0] = D[1] = width;
+        D[2] = (surf[i+1][j+1][0] / values[i+1][j+1][0] +
+                surf[i+1][j+1][1] / values[i+1][j+1][1]) / 2;
+
+        if (values[i+1][j][0] > 0 && values[i+1][j][1] > 0) {
+          B[0] = width;
+          B[1] = 0;
+          B[2] = (surf[i+1][j][0] / values[i+1][j][0] +
+                  surf[i+1][j][1] / values[i+1][j][1]) / 2;
         }
-        double a = 0, b = 0, c = 0;
-        for (int dd = 0; dd < 3; dd++) {
-          a += SQR(BC[dd]);
-          b += SQR(AC[dd]);
-          c += SQR(AB[dd]);
+        if (values[i][j+1][0] > 0 && values[i][j+1][1] > 0) {
+          C[0] = width;
+          C[1] = 0;
+          C[2] = (surf[i][j+1][0] / values[i][j+1][0] +
+                  surf[i][j+1][1] / values[i][j+1][1]) / 2;
         }
-        a = sqrt(a);
-        b = sqrt(b);
-        c = sqrt(c);
-        double s = (a + b + c) / 2;
-        double area = sqrt(s * (s - a) * (s - b) * (s - c));
-        sum_area[2] += area;
-        triangles[2]++;
-      }
-      // second triangle
-      if (values[i][j][0] > 0 &&
-          values[i][j+1][0] > 0 &&
-          values[i+1][j+1][0] > 0 &&
-          values[i][j][1] > 0 &&
-          values[i][j+1][1] > 0 &&
-          values[i+1][j+1][1] > 0) {
-        double A[3] = {0, 0, 0}, B[3] = {0, 0, 0}, C[3] = {0, 0, 0};
-        A[2] =  surf[i][j][0] / values[i][j][0];
-        A[2] += surf[i][j][1] / values[i][j][1];
-        A[2] /= 2;
-        B[1] = width;
-        B[2] =  surf[i][j+1][0] / values[i][j+1][0];
-        B[2] += surf[i][j+1][1] / values[i][j+1][1];
-        B[2] /= 2;
-        C[0] = width;
-        C[1] = width;
-        C[2] =  surf[i+1][j+1][0] / values[i+1][j+1][0];
-        C[2] += surf[i+1][j+1][1] / values[i+1][j+1][1];
-        C[2] /= 2;
-        double AB[3], AC[3], BC[3];
-        for (int dd = 0; dd < 3; dd++) {
-          AB[dd] = B[dd] - A[dd];
-          AC[dd] = C[dd] - A[dd];
-          BC[dd] = C[dd] - B[dd];
-        }
-        double a = 0, b = 0, c = 0;
-        for (int dd = 0; dd < 3; dd++) {
-          a += SQR(BC[dd]);
-          b += SQR(AC[dd]);
-          c += SQR(AB[dd]);
-        }
-        a = sqrt(a);
-        b = sqrt(b);
-        c = sqrt(c);
-        double s = (a + b + c) / 2;
-        double area = sqrt(s * (s - a) * (s - b) * (s - c));
-        sum_area[2] += area;
-        triangles[2]++;
+        calc_4points(A, B, C, D, &sum_area[2], &triangles[2]);
       }
       //}}}
     }
@@ -964,8 +791,8 @@ int main(int argc, char *argv[]) {
   fclose(out);
 
   FreeSystem(&System);
-  for (int i = 0; i < bins[0]; i++) {
-    for (int j = 0; j < bins[1]; j++) {
+  for (int i = 0; i < bins_orig[0]; i++) {
+    for (int j = 0; j < bins_orig[1]; j++) {
       free(surf[i][j]);
       free(values[i][j]);
     }
