@@ -4262,8 +4262,7 @@ void SortAggStruct(AGGREGATE *Aggregate, SYSTEM System) { //{{{
           mols = Aggregate[j+1].nMolecules;
         }
         for (int k = 0; k < mols; k++) {
-          SwapInt(&Aggregate[j].Molecule[k],
-                  &Aggregate[j+1].Molecule[k]);
+          SwapInt(&Aggregate[j].Molecule[k], &Aggregate[j+1].Molecule[k]);
         }
         // switch bonded beads array
         SwapInt(&Aggregate[j].nBeads, &Aggregate[j+1].nBeads);
@@ -4284,117 +4283,262 @@ void SortAggStruct(AGGREGATE *Aggregate, SYSTEM System) { //{{{
   }
 } //}}}
 
+// // RemovePBCAggregates() //{{{
+// void RemovePBCAggregates(double distance, AGGREGATE *Aggregate,
+//                          SYSTEM *System) {
+//   COUNT *Count = &System->Count;
+//   double (*box)[3] = &System->Box.Length;
+//   // helper array indicating whether molecules already moved
+//   bool *moved = malloc(sizeof *moved * Count->Molecule);
+//   // go through aggregates larger than As=1, knitting together //{{{
+//   for (int i = 0; i < Count->Aggregate; i++) {
+
+//     // negate moved array, but the first molecule is not to move
+//     // for (int j = 1; j < Count->Molecule; j++) {
+//     //   moved[j] = false;
+//     // }
+//     InitBoolArray(moved, Count->Molecule, false);
+//     moved[0] = true;
+
+//     // TODO: what about a kindo of linked list instead of nested loop?
+//     //       first, moved[i=0]=true; then go over j=1..n mols until j gets
+//     //       moved, then i=j and go back to going over j? would result in one
+//     //       loop many times, but it should be less than two full loops, right?
+//     //       Possibly also creating another array connecting joined molecules
+//     //       with their ids to avoid going over 1..n for j but rather over the
+//     //       list of un-moved mols...
+
+//     bool done = false;
+//     int test = 0; // if too many loops, just exit with error
+//     while (!done && test < 1000) {
+
+//       // go through all molecule pairs
+//       for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+//         // TODO: what about if (moved[j]) here as opposed to down for speed-up?
+//         for (int k = 0; k < Aggregate[i].nMolecules; k++) {
+
+//           // use only moved molecule 'mol1' and unmoved molecule 'mol2'
+//           // TODO: what about else if (!moved[j] && moved[k]) for speed-up?
+//           if (moved[j] && !moved[k]) { // automatically follows that j != k
+//             int mol1 = Aggregate[i].Molecule[j],
+//                 mol2 = Aggregate[i].Molecule[k];
+//             MOLECULE *molec1 = &System->Molecule[mol1],
+//                      *molec2 = &System->Molecule[mol2];
+//             MOLECULETYPE *mt1 = &System->MoleculeType[molec1->Type],
+//                          *mt2 = &System->MoleculeType[molec2->Type];
+
+//             // go through all bead pairs in the two molecules
+//             for (int l = 0; l < mt1->nBeads; l++) {
+//               for (int m = 0; m < mt2->nBeads; m++) {
+//                 int bead1 = System->Molecule[mol1].Bead[l],
+//                     bead2 = System->Molecule[mol2].Bead[m];
+//                 BEAD *b1 = &System->Bead[bead1],
+//                      *b2 = &System->Bead[bead2];
+//                 /*
+//                  * Use only bead types that were used to assign molecules to
+//                  * aggregates
+//                  */
+//                 if (System->BeadType[b1->Type].Flag &&
+//                     System->BeadType[b2->Type].Flag) {
+
+//                   // calculate distance between 'bead1' and 'bead2'
+//                   double dist[3];
+//                   Distance(b1->Position, b2->Position, *box, dist);
+//                   dist[0] = VectorLength(dist);
+
+//                   // move 'mol2' (or 'k') if 'bead1' and 'bead2' are in contact
+//                   if (dist[0] <= distance) {
+//                     // distance vector between 'bead1' and 'bead2'
+//                     for (int dd = 0; dd < 3; dd++) {
+//                       dist[dd] = b1->Position[dd] - b2->Position[dd];
+//                     }
+//                     /*
+//                      * if 'bead1' and 'bead2' are too far,
+//                      * move 'mol2' in x-direction
+//                      */
+//                     //{{{
+//                     for (int dd = 0; dd < 3; dd++) {
+//                       while (dist[dd] > ((*box)[dd] / 2)) {
+//                         for (int n = 0; n < mt2->nBeads; n++) {
+//                           int id = molec2->Bead[n];
+//                           System->Bead[id].Position[dd] += (*box)[dd];
+//                         }
+//                         dist[dd] = b1->Position[dd] - b2->Position[dd];
+//                       }
+//                       while (dist[dd] <= -((*box)[dd] / 2)) {
+//                         for (int n = 0; n < mt2->nBeads; n++) {
+//                           int id = molec2->Bead[n];
+//                           System->Bead[id].Position[dd] -= (*box)[dd];
+//                         }
+//                         dist[dd] = b1->Position[dd] - b2->Position[dd];
+//                       }
+//                     } //}}}
+//                     moved[k] = true;
+//                     // skip remainder of 'mol2' (or 'k')
+//                     break;
+//                   }
+//                 }
+//               }
+//               // if molekule 'k' (or 'mol2') has been moved, skip also remainder of molecules 'mol1'
+//               if (moved[k]) {
+//                 break;
+//               }
+//             }
+//           }
+//         }
+//       }
+
+//       // check if all molecules have moved //{{{
+//       done = true;
+//       for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+//         if (!moved[j]) {
+//           done = false;
+//           break;
+//         }
+//       } //}}}
+//       test++;
+//     }
+//     // if (test > 1) {
+//     //   printf("test: %d\n", test);
+//     // }
+//     // // TODO: the test? Do I need 1000 tries and whatnot?
+//     // if (test == 1000) {
+//     //   strcpy(ERROR_MSG, "unable to 'join' aggregate");
+//     //   PrintWarning();
+//     // }
+//   }
+//   free(moved); //}}}
+//   // put aggregates' centre of mass into the simulation box //{{{
+//   for (int i = 0; i < Count->Aggregate; i++) {
+//     double com[3];
+//     CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead, *System, com);
+//     // by how many BoxLength's should com by moved?
+//     // for distant aggregates - it shouldn't happen, but better safe than sorry
+//     int move[3];
+//     for (int dd = 0; dd < 3; dd++) {
+//       move[dd] = com[dd] / (*box)[dd];
+//       if (com[dd] < 0) {
+//         move[dd]--;
+//       }
+//     }
+//     // move all the beads
+//     for (int j = 0; j < Aggregate[i].nBeads; j++) {
+//       int bead = Aggregate[i].Bead[j];
+//       for (int dd = 0; dd < 3; dd++) {
+//         System->Bead[bead].Position[dd] -= move[dd] * (*box)[dd];
+//       }
+//     }
+//   } //}}}
+// } //}}}
 // RemovePBCAggregates() //{{{
 void RemovePBCAggregates(double distance, AGGREGATE *Aggregate,
                          SYSTEM *System) {
   COUNT *Count = &System->Count;
+
+  int **mol_eligible_beads = malloc(Count->MoleculeType * sizeof(int *));
+  int *count_eligible_beads = malloc(Count->MoleculeType *
+                                     sizeof *count_eligible_beads);
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    MOLECULETYPE *mt = &System->MoleculeType[i];
+    mol_eligible_beads[i] = malloc(mt->nBeads * sizeof(int));
+    count_eligible_beads[i] = 0;
+    for (int j = 0; j < mt->nBeads; j++) {
+      if (System->BeadType[mt->Bead[j]].Flag) {
+        mol_eligible_beads[i][count_eligible_beads[i]] = j;
+        count_eligible_beads[i]++;
+      }
+    }
+  }
+
   double (*box)[3] = &System->Box.Length;
   // helper array indicating whether molecules already moved
-  bool *moved = malloc(sizeof *moved * Count->Molecule);
+  int *list_moved = calloc(Count->Molecule, sizeof *list_moved),
+      *list_unmoved = calloc(Count->Molecule, sizeof *list_unmoved);
   // go through aggregates larger than As=1, knitting together //{{{
   for (int i = 0; i < Count->Aggregate; i++) {
-
-    // negate moved array, but the first molecule is not to move //{{{
-    for (int j = 1; j < Count->Molecule; j++) {
-      moved[j] = false;
+    int count_moved = 0,
+    count_unmoved = Aggregate[i].nMolecules - 1;
+    // set first molecule as already moved
+    list_moved[count_moved++] = 0;
+    // set all other molecules as unmoved
+    for (int j = 0; j < (Aggregate[i].nMolecules - 1); j++) {
+      list_unmoved[j] = j + 1;
     }
-    moved[0] = true; //}}}
-
-    bool done = false;
-    int test = 0; // if too many loops, just exit with error
-    while (!done && test < 1000) {
-
+    while (count_unmoved > 0) {
       // go through all molecule pairs
-      for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-        for (int k = 0; k < Aggregate[i].nMolecules; k++) {
-
+      for (int jj = 0; jj < count_moved; jj++) {
+        int j = list_moved[jj];
+        for (int kk = 0; kk < count_unmoved; kk++) {
+          int k = list_unmoved[kk];
+          bool moved = false;
           // use only moved molecule 'mol1' and unmoved molecule 'mol2'
-          if (moved[j] && !moved[k]) { // automatically follows that j != k
-            int mol1 = Aggregate[i].Molecule[j],
-                mol2 = Aggregate[i].Molecule[k];
-            MOLECULE *molec1 = &System->Molecule[mol1],
-                     *molec2 = &System->Molecule[mol2];
-            MOLECULETYPE *mt1 = &System->MoleculeType[molec1->Type],
-                         *mt2 = &System->MoleculeType[molec2->Type];
+          int mol1 = Aggregate[i].Molecule[j],
+              mol2 = Aggregate[i].Molecule[k];
+          int mtype1 = System->Molecule[mol1].Type,
+              mtype2 = System->Molecule[mol2].Type;
 
-            // go through all bead pairs in the two molecules
-            for (int l = 0; l < mt1->nBeads; l++) {
-              for (int m = 0; m < mt2->nBeads; m++) {
-                int bead1 = System->Molecule[mol1].Bead[l],
-                    bead2 = System->Molecule[mol2].Bead[m];
-                BEAD *b1 = &System->Bead[bead1],
-                     *b2 = &System->Bead[bead2];
-                /*
-                 * Use only bead types that were used to assign molecules to
-                 * aggregates
-                 */
-                if (System->BeadType[b1->Type].Flag &&
-                    System->BeadType[b2->Type].Flag) {
-
-                  // calculate distance between 'bead1' and 'bead2'
-                  double dist[3];
-                  Distance(b1->Position, b2->Position, *box, dist);
-                  dist[0] = VectorLength(dist);
-
-                  // move 'mol2' (or 'k') if 'bead1' and 'bead2' are in contact
-                  if (dist[0] <= distance) {
-                    // distance vector between 'bead1' and 'bead2'
-                    for (int dd = 0; dd < 3; dd++) {
-                      dist[dd] = b1->Position[dd] - b2->Position[dd];
-                    }
-                    /*
-                     * if 'bead1' and 'bead2' are too far,
-                     * move 'mol2' in x-direction
-                     */
-                    //{{{
-                    for (int dd = 0; dd < 3; dd++) {
-                      while (dist[dd] > ((*box)[dd] / 2)) {
-                        for (int n = 0; n < mt2->nBeads; n++) {
-                          int id = molec2->Bead[n];
-                          System->Bead[id].Position[dd] += (*box)[dd];
-                        }
-                        dist[dd] = b1->Position[dd] - b2->Position[dd];
-                      }
-                      while (dist[dd] <= -((*box)[dd] / 2)) {
-                        for (int n = 0; n < mt2->nBeads; n++) {
-                          int id = molec2->Bead[n];
-                          System->Bead[id].Position[dd] -= (*box)[dd];
-                        }
-                        dist[dd] = b1->Position[dd] - b2->Position[dd];
-                      }
-                    } //}}}
-                    moved[k] = true;
-                    // skip remainder of 'mol2' (or 'k')
-                    break;
-                  }
+          // go through all bead pairs in the two molecules
+          for (int ll = 0; ll < count_eligible_beads[mtype1]; ll++) {
+            int l = mol_eligible_beads[mtype1][ll];
+            int bead1 = System->Molecule[mol1].Bead[l];
+            BEAD *b1 = &System->Bead[bead1];
+            for (int mm = 0; mm < count_eligible_beads[mtype2]; mm++) {
+              int m = mol_eligible_beads[mtype2][mm];
+              int bead2 = System->Molecule[mol2].Bead[m];
+              BEAD *b2 = &System->Bead[bead2];
+              // calculate distance between 'bead1' and 'bead2'
+              double dist[3];
+              Distance(b1->Position, b2->Position, *box, dist);
+              dist[0] = VectorLength(dist);
+              // move 'mol2' (or 'k') if 'bead1' and 'bead2' are in contact
+              if (dist[0] <= distance) {
+                // distance vector between 'bead1' and 'bead2'
+                for (int dd = 0; dd < 3; dd++) {
+                  dist[dd] = b1->Position[dd] - b2->Position[dd];
                 }
-              }
-              // if molekule 'k' (or 'mol2') has been moved, skip also remainder of molecules 'mol1'
-              if (moved[k]) {
+                // if 'bead1' and 'bead2' are too far, move 'mol2' //{{{
+                for (int dd = 0; dd < 3; dd++) {
+                  while (dist[dd] > ((*box)[dd] / 2)) {
+                    for (int n = 0; n < System->MoleculeType[mtype2].nBeads; n++) {
+                      int id = System->Molecule[mol2].Bead[n];
+                      System->Bead[id].Position[dd] += (*box)[dd];
+                    }
+                    dist[dd] = b1->Position[dd] - b2->Position[dd];
+                  }
+                  while (dist[dd] <= -((*box)[dd] / 2)) {
+                    for (int n = 0; n < System->MoleculeType[mtype2].nBeads; n++) {
+                      int id = System->Molecule[mol2].Bead[n];
+                      System->Bead[id].Position[dd] -= (*box)[dd];
+                    }
+                    dist[dd] = b1->Position[dd] - b2->Position[dd];
+                  }
+                } //}}}
+                moved = true;
+                for (int x = kk; x < count_unmoved; x++) {
+                  list_unmoved[x] = list_unmoved[x+1];
+                }
+                count_unmoved--;
+                list_moved[count_moved++] = k;
+                // skip remainder of 'mol2' (or 'k')
                 break;
               }
+            }
+            if (moved) {
+              break;
             }
           }
         }
       }
-
-      // check if all molecules have moved //{{{
-      done = true;
-      for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-        if (!moved[j]) {
-          done = false;
-          break;
-        }
-      } //}}}
-      test++;
     }
-    // // TODO: the test? Do I need 1000 tries and whatnot?
-    // if (test == 1000) {
-    //   strcpy(ERROR_MSG, "unable to 'join' aggregate");
-    //   PrintWarning();
-    // }
+  } //}}}
+  // free(moved);
+  free(list_moved);
+  free(list_unmoved);
+  free(count_eligible_beads);
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    free(mol_eligible_beads[i]);
   }
-  free(moved); //}}}
+  free(mol_eligible_beads);
   // put aggregates' centre of mass into the simulation box //{{{
   for (int i = 0; i < Count->Aggregate; i++) {
     double com[3];

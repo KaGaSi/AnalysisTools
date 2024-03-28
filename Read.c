@@ -151,7 +151,6 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
 static bool XyzSkipTimestep(FILE *fr, char file[], int *line_count);
 static SYSTEM XyzReadStruct(char file[]);
 // Helper functions for xyz file
-static bool XyzSkipCoorLine(FILE *fr);
 static bool XyzCheckCoorLine(double coor[3]);
 //}}}
 /*
@@ -3615,8 +3614,7 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
     return -1;
   } else if (val > System->Count.Bead) {
     snprintf(ERROR_MSG, LINE,
-             "too many beads in the timestep (maximum "
-             "number is %s%d%s)",
+             "too many beads in the timestep (maximum number is %s%d%s)",
              ErrYellow(), System->Count.Bead, ErrRed());
     PrintErrorFileLine(file, *line_count);
     return -1;
@@ -3675,33 +3673,28 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
   } //}}}
   return true;
 } //}}}
-// TODO: skip lines based on the number of atoms?
 static bool XyzSkipTimestep(FILE *fr, char file[], int *line_count) { //{{{
-  fpos_t position;
-  // skip the first two lines (number of beads + comment line)
-  for (int i = 0; i < 2; i++) {
-    (*line_count)++;
-    if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
-      return false;
-    }
-  }
-  // skip xyz coordinate lines
-  do {
-    fgetpos(fr, &position);
-    (*line_count)++;
-  } while (XyzSkipCoorLine(fr));
-  (*line_count)--;
-  fsetpos(fr, &position);
-  return true;
-} //}}}
-static bool XyzSkipCoorLine(FILE *fr) { //{{{
+  (*line_count)++;
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
-    return false; // error/EOF
+    return -2;
   }
-  int strings = 4;
-  words = SplitLine(strings, split, line, " \t\n");
-  double trash[3];
-  return XyzCheckCoorLine(trash);
+  long val;
+  if (words == 0 || !IsNaturalNumber(split[0], &val)) {
+    strcpy(ERROR_MSG, "wrong first line of an xyz timestep");
+    PrintWarnFileLine(file, *line_count);
+    return -1;
+  }
+  (*line_count)++;
+  if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
+    return -2;
+  }
+  for (int i = 0; i < val; i++) {
+    (*line_count)++;
+    char a;
+    while ((a = getc(fr) != '\n') && a != EOF)
+      ;
+  }
+  return true;
 } //}}}
 static bool XyzCheckCoorLine(double coor[3]) { //{{{
   if (words > 3 &&
@@ -3710,6 +3703,7 @@ static bool XyzCheckCoorLine(double coor[3]) { //{{{
       IsRealNumber(split[3], &coor[2])) {
     return true;
   } else {
+    printf("OK\n");
     return false;
   }
 } //}}}
