@@ -23,39 +23,15 @@ double calc_area(double A[3], double B[3], double C[3]) {
   return sqrt(s * (s - a) * (s - b) * (s - c));
 }
 
-void calc_4points_2(double points[4][2], double width,
-                  double *sum_area, int *triangles) {
-  if (points[0][1] > 0 &&
-      points[1][1] > 0) {
-    double A[3] = {0, 0, 0},
-           B[3],
-           C[3] = {width, width, 0};
-    A[2] = points[0][0] / points[0][1];
-    C[2] = points[1][0] / points[1][1];
-    if (points[2][1] > 0) {
-      B[0] = width;
-      B[1] = 0;
-      B[2] = points[2][0] / points[2][1];
-      *sum_area += calc_area(A, B, C);
-      *triangles += 1;
-    }
-    if (points[3][1] > 0) {
-      B[0] = width;
-      B[1] = 0;
-      B[2] = points[3][0] / points[3][1];
-      *sum_area += calc_area(A, B, C);
-      *triangles += 1;
-    }
-  }
-}
-
 void calc_4points(double A[3], double B[3], double C[3], double D[3],
                   double *sum_area, int *triangles) {
   if (A[0] != -1 && B[0] != -1 && D[0] != -1) {
+    // printf("area: %lf\n", calc_area(A, B, D));
     *sum_area += calc_area(A, B, D);
     (*triangles)++;
   }
   if (A[0] != -1 && C[0] != -1 && D[0] != -1) {
+    // printf("area: %lf\n", calc_area(A, C, D));
     *sum_area += calc_area(A, C, D);
     (*triangles)++;
   }
@@ -201,20 +177,20 @@ int main(int argc, char *argv[]) {
   range[1] = sidelength[2];
 
   // number of bins //{{{
-  int bins[2];
-  bins[0] = sidelength[0] / width * 10;
-  bins[1] = sidelength[1] / width * 10;
-  // for calculation of area - TODO: change
-  int bins_true[2];
-  bins_true[0] = sidelength[0] / width + 1;
-  bins_true[1] = sidelength[0] / width + 1;
-  // *1000 to ensure width is integer as otherwise it can wreak havoc
-  if ((fmod(sidelength[0] * 1000, width * 1000) / 1000) > 0.001) {
-    bins_true[0]++;
-  }
-  if ((fmod(sidelength[1] * 1000, width * 1000) / 1000) > 0.001) {
-    bins_true[1]++;
-  }
+  int bins_alloc[2];
+  bins_alloc[0] = sidelength[0] / width * 10;
+  bins_alloc[1] = sidelength[1] / width * 10;
+  // // for calculation of area - TODO: change
+  // int bins_true[2];
+  // bins_true[0] = sidelength[0] / width + 1;
+  // bins_true[1] = sidelength[0] / width + 1;
+  // // *1000 to ensure width is integer as otherwise it can wreak havoc
+  // if ((fmod(sidelength[0] * 1000, width * 1000) / 1000) > 0.001) {
+  //   bins_true[0]++;
+  // }
+  // if ((fmod(sidelength[1] * 1000, width * 1000) / 1000) > 0.001) {
+  //   bins_true[1]++;
+  // }
   // find lowest and highest coordinates for the topmost bins
   double lo[2], hi[2];
   lo[0] = (int)(sidelength[0] / width) * width;
@@ -229,19 +205,14 @@ int main(int argc, char *argv[]) {
   } else {
     hi[1] = lo[1];
   } //}}}
-  int bins_orig[2], bins_true_orig[2];
-  bins_orig[0] = bins[0];
-  bins_orig[1] = bins[1];
-  bins_true_orig[0] = bins_true[0];
-  bins_true_orig[1] = bins_true[1];
 
   // allocate memory for density arrays //{{{
-  double ***surf = malloc(bins[0] * sizeof(double **)); // sum
-  int ***values = malloc(bins[0] * sizeof(int **)); // number of values
-  for (int i = 0; i < bins[0]; i++) {
-    surf[i] = malloc(bins[1] * sizeof(double *));
-    values[i] = malloc(bins[1] * sizeof(int *));
-    for (int j = 0; j < bins[1]; j++) {
+  double ***surf = malloc(bins_alloc[0] * sizeof(double **)); // sum
+  int ***values = malloc(bins_alloc[0] * sizeof(int **)); // number of values
+  for (int i = 0; i < bins_alloc[0]; i++) {
+    surf[i] = malloc(bins_alloc[1] * sizeof(double *));
+    values[i] = malloc(bins_alloc[1] * sizeof(int *));
+    for (int j = 0; j < bins_alloc[1]; j++) {
       surf[i][j] = calloc(2, sizeof(double));
       values[i][j] = calloc(2, sizeof(int));
     }
@@ -299,43 +270,49 @@ int main(int argc, char *argv[]) {
       sidelength[1] = System.Box.Length[map[1]];
       sidelength[2] = System.Box.Length[axis];
 
+      // TODO: why range?
       range[0] = 0;
       range[1] = sidelength[2];
 
-      bins[0] = sidelength[0] / width + 2;
-      bins[1] = sidelength[1] / width + 2;
-      // for calculation of area - TODO: change
-      bins_true[0] = sidelength[0] / width + 1;
-      bins_true[1] = sidelength[0] / width + 1;
+      /*
+       * Recalculate number of bins for this timestep, considering that
+       *   1) Box.Length might have changed
+       *   2) area calculation requires one more because for the highest bin id,
+       *      0th's value for surface is used
+       */
+      int bins_step[2];
+      bins_step[0] = sidelength[0] / width + 1;
+      bins_step[1] = sidelength[1] / width + 1;
       // *1000 to ensure width is integer as otherwise it can wreak havoc
       if ((fmod(sidelength[0] * 1000, width * 1000) / 1000) > 0.001) {
-        bins_true[0]++;
+        bins_step[0]++;
       }
       if ((fmod(sidelength[1] * 1000, width * 1000) / 1000) > 0.001) {
-        bins_true[1]++;
+        bins_step[1]++;
       }
-      // find lowest and highest coordinates for the topmost bins
-      // double lo[2], hi[2];
+      /*
+      * Find lowest and highest coordinates for the topmost bins; these are used
+      * to use beads from a periodic image should the highest bin be less wide
+      * than 'width'
+      */
       lo[0] = (int)(sidelength[0] / width) * width;
       lo[1] = (int)(sidelength[1] / width) * width;
-      if (fabs(lo[0]-sidelength[0]) > 0.00001) {
-        hi[0] = lo[0] + width;
-      } else {
-        hi[0] = lo[0];
+      for (int aa = 0; aa < 2; aa++) {
+        if (fabs(lo[aa]-sidelength[aa]) > 0.00001) {
+          hi[aa] = lo[aa] + width;
+        } else {
+          hi[aa] = lo[aa];
+        }
       }
-      if (fabs(lo[1]-sidelength[1]) > 0.00001) {
-        hi[1] = lo[1] + width;
-      } else {
-        hi[1] = lo[1];
-      } //}}}
+      //}}}
 
       // allocate memory for temporary arrays //{{{
-      double ***temp = calloc(bins[0], sizeof(double **));
-      bool ***temp2 = calloc(bins[0], sizeof(bool **));
-      for (int i = 0; i < bins[0]; i++) {
-        temp[i] = calloc(bins[1], sizeof(double *));
-        temp2[i] = calloc(bins[1], sizeof(bool *));
-        for (int j = 0; j < bins[1]; j++) {
+      double ***temp = calloc(bins_step[0], sizeof(double **));
+      bool ***temp2 = calloc(bins_step[0], sizeof(bool **));
+      for (int i = 0; i < bins_step[0]; i++) {
+        temp[i] = calloc(bins_step[1], sizeof(double *));
+        temp2[i] = calloc(bins_step[1], sizeof(bool *));
+        for (int j = 0; j < bins_step[1]; j++) {
           temp[i][j] = calloc(2, sizeof(double));
           temp2[i][j] = calloc(2, sizeof(bool));
           if (!opt->in) {
@@ -349,7 +326,6 @@ int main(int argc, char *argv[]) {
       } //}}}
 
       // calculate surface //{{{
-      int count_out = 0;
       for (int i = 0; i < Count->BeadCoor; i++) {
         int id = System.BeadCoor[i];
         BEAD *b = &System.Bead[id];
@@ -377,12 +353,33 @@ int main(int argc, char *argv[]) {
         }
         // printf("%d (%d) %d (%d)\n", bin[0], bins[0], bin[1], bins[1]);
         // error if box got bigger
-        if (bin[0] < bins[0] && bin[1] < bins[1]) {
-          double pbc[2];
-          pbc[0] = coor[0] + sidelength[0];
-          pbc[1] = coor[1] + sidelength[1];
+        double pbc[2];
+        pbc[0] = coor[0] + sidelength[0];
+        pbc[1] = coor[1] + sidelength[1];
 
-          if (!opt->in) { // go from box centre to edges
+        if (!opt->in) { // go from box centre to edges
+          if (coor[2] >= temp[bin[0]][bin[1]][0] &&
+              coor[2] >= range[0] &&
+              coor[2] <= ((range[0] + range[1])/2)) {
+            temp[bin[0]][bin[1]][0] = coor[2];
+            temp2[bin[0]][bin[1]][0] = true;
+          }
+          if (coor[2] <= temp[bin[0]][bin[1]][1] &&
+              coor[2] >= ((range[0] + range[1])/2) &&
+              coor[2] <= range[1]) {
+            temp[bin[0]][bin[1]][1] = coor[2];
+            temp2[bin[0]][bin[1]][1] = true;
+          }
+          if (pbc[0] > lo[0] && pbc[0] < hi[0] &&
+              pbc[1] > lo[1] && pbc[1] < hi[1]) {
+            bin[0] = pbc[0] / width;
+            bin[1] = pbc[1] / width;
+            if (bin[0] > max_bin[0]) {
+              max_bin[0] = bin[0];
+            }
+            if (bin[1] > max_bin[1]) {
+              max_bin[1] = bin[1];
+            }
             if (coor[2] >= temp[bin[0]][bin[1]][0] &&
                 coor[2] >= range[0] &&
                 coor[2] <= ((range[0] + range[1])/2)) {
@@ -395,75 +392,71 @@ int main(int argc, char *argv[]) {
               temp[bin[0]][bin[1]][1] = coor[2];
               temp2[bin[0]][bin[1]][1] = true;
             }
-            if (pbc[0] > lo[0] && pbc[0] < hi[0] &&
-                pbc[1] > lo[1] && pbc[1] < hi[1]) {
-              bin[0] = pbc[0] / width;
-              bin[1] = pbc[1] / width;
-              if (bin[0] > max_bin[0]) {
-                max_bin[0] = bin[0];
-              }
-              if (bin[1] > max_bin[1]) {
-                max_bin[1] = bin[1];
-              }
-              if (coor[2] >= temp[bin[0]][bin[1]][0] &&
-                  coor[2] >= range[0] &&
-                  coor[2] <= ((range[0] + range[1])/2)) {
-                temp[bin[0]][bin[1]][0] = coor[2];
-                temp2[bin[0]][bin[1]][0] = true;
-              }
-              if (coor[2] <= temp[bin[0]][bin[1]][1] &&
-                  coor[2] >= ((range[0] + range[1])/2) &&
-                  coor[2] <= range[1]) {
-                temp[bin[0]][bin[1]][1] = coor[2];
-                temp2[bin[0]][bin[1]][1] = true;
-              }
+          }
+          if (pbc[0] > lo[0] && pbc[0] < hi[0]) {
+            bin[0] = pbc[0] / width;
+            bin[1] = coor[1] / width;
+            if (bin[0] > max_bin[0]) {
+              max_bin[0] = bin[0];
             }
-            if (pbc[0] > lo[0] && pbc[0] < hi[0]) {
-              bin[0] = pbc[0] / width;
-              bin[1] = coor[1] / width;
-              if (bin[0] > max_bin[0]) {
-                max_bin[0] = bin[0];
-              }
-              if (bin[1] > max_bin[1]) {
-                max_bin[1] = bin[1];
-              }
-              if (coor[2] >= temp[bin[0]][bin[1]][0] &&
-                  coor[2] >= range[0] &&
-                  coor[2] <= ((range[0] + range[1])/2)) {
-                temp[bin[0]][bin[1]][0] = coor[2];
-                temp2[bin[0]][bin[1]][0] = true;
-              }
-              if (coor[2] <= temp[bin[0]][bin[1]][1] &&
-                  coor[2] >= ((range[0] + range[1])/2) &&
-                  coor[2] <= range[1]) {
-                temp[bin[0]][bin[1]][1] = coor[2];
-                temp2[bin[0]][bin[1]][1] = true;
-              }
+            if (bin[1] > max_bin[1]) {
+              max_bin[1] = bin[1];
             }
-            if (pbc[1] > lo[1] && pbc[1] < hi[1]) {
-              bin[0] = coor[0] / width;
-              bin[1] = pbc[1] / width;
-              if (bin[0] > max_bin[0]) {
-                max_bin[0] = bin[0];
-              }
-              if (bin[1] > max_bin[1]) {
-                max_bin[1] = bin[1];
-              }
-              if (coor[2] >= temp[bin[0]][bin[1]][0] &&
-                  coor[2] >= range[0] &&
-                  coor[2] <= ((range[0] + range[1])/2)) {
-                temp[bin[0]][bin[1]][0] = coor[2];
-                temp2[bin[0]][bin[1]][0] = true;
-              }
-              if (coor[2] <= temp[bin[0]][bin[1]][1] &&
-                  coor[2] >= ((range[0] + range[1])/2) &&
-                  coor[2] <= range[1]) {
-                temp[bin[0]][bin[1]][1] = coor[2];
-                temp2[bin[0]][bin[1]][1] = true;
-              }
+            if (coor[2] >= temp[bin[0]][bin[1]][0] &&
+                coor[2] >= range[0] &&
+                coor[2] <= ((range[0] + range[1])/2)) {
+              temp[bin[0]][bin[1]][0] = coor[2];
+              temp2[bin[0]][bin[1]][0] = true;
             }
-          } else if (coor[2] >= range[0] &&
-                     coor[2] <= range[1]) { // go from box edges to centre
+            if (coor[2] <= temp[bin[0]][bin[1]][1] &&
+                coor[2] >= ((range[0] + range[1])/2) &&
+                coor[2] <= range[1]) {
+              temp[bin[0]][bin[1]][1] = coor[2];
+              temp2[bin[0]][bin[1]][1] = true;
+            }
+          }
+          if (pbc[1] > lo[1] && pbc[1] < hi[1]) {
+            bin[0] = coor[0] / width;
+            bin[1] = pbc[1] / width;
+            if (bin[0] > max_bin[0]) {
+              max_bin[0] = bin[0];
+            }
+            if (bin[1] > max_bin[1]) {
+              max_bin[1] = bin[1];
+            }
+            if (coor[2] >= temp[bin[0]][bin[1]][0] &&
+                coor[2] >= range[0] &&
+                coor[2] <= ((range[0] + range[1])/2)) {
+              temp[bin[0]][bin[1]][0] = coor[2];
+              temp2[bin[0]][bin[1]][0] = true;
+            }
+            if (coor[2] <= temp[bin[0]][bin[1]][1] &&
+                coor[2] >= ((range[0] + range[1])/2) &&
+                coor[2] <= range[1]) {
+              temp[bin[0]][bin[1]][1] = coor[2];
+              temp2[bin[0]][bin[1]][1] = true;
+            }
+          }
+        } else if (coor[2] >= range[0] &&
+                   coor[2] <= range[1]) { // go from box edges to centre
+          if (coor[2] <= temp[bin[0]][bin[1]][0]) {
+            temp[bin[0]][bin[1]][0] = coor[2];
+            temp2[bin[0]][bin[1]][0] = true;
+          }
+          if (coor[2] >= temp[bin[0]][bin[1]][1]) {
+            temp[bin[0]][bin[1]][1] = coor[2];
+            temp2[bin[0]][bin[1]][1] = true;
+          }
+          if (pbc[0] > lo[0] && pbc[0] < hi[0] &&
+              pbc[1] > lo[1] && pbc[1] < hi[1]) {
+            bin[0] = pbc[0] / width;
+            bin[1] = pbc[1] / width;
+            if (bin[0] > max_bin[0]) {
+              max_bin[0] = bin[0];
+            }
+            if (bin[1] > max_bin[1]) {
+              max_bin[1] = bin[1];
+            }
             if (coor[2] <= temp[bin[0]][bin[1]][0]) {
               temp[bin[0]][bin[1]][0] = coor[2];
               temp2[bin[0]][bin[1]][0] = true;
@@ -472,75 +465,49 @@ int main(int argc, char *argv[]) {
               temp[bin[0]][bin[1]][1] = coor[2];
               temp2[bin[0]][bin[1]][1] = true;
             }
-            if (pbc[0] > lo[0] && pbc[0] < hi[0] &&
-                pbc[1] > lo[1] && pbc[1] < hi[1]) {
-              bin[0] = pbc[0] / width;
-              bin[1] = pbc[1] / width;
-              if (bin[0] > max_bin[0]) {
-                max_bin[0] = bin[0];
-              }
-              if (bin[1] > max_bin[1]) {
-                max_bin[1] = bin[1];
-              }
-              if (coor[2] <= temp[bin[0]][bin[1]][0]) {
-                temp[bin[0]][bin[1]][0] = coor[2];
-                temp2[bin[0]][bin[1]][0] = true;
-              }
-              if (coor[2] >= temp[bin[0]][bin[1]][1]) {
-                temp[bin[0]][bin[1]][1] = coor[2];
-                temp2[bin[0]][bin[1]][1] = true;
-              }
+          }
+          if (pbc[0] > lo[0] && pbc[0] < hi[0]) {
+            bin[0] = pbc[0] / width;
+            bin[1] = coor[1] / width;
+            if (bin[0] > max_bin[0]) {
+              max_bin[0] = bin[0];
             }
-            if (pbc[0] > lo[0] && pbc[0] < hi[0]) {
-              bin[0] = pbc[0] / width;
-              bin[1] = coor[1] / width;
-              if (bin[0] > max_bin[0]) {
-                max_bin[0] = bin[0];
-              }
-              if (bin[1] > max_bin[1]) {
-                max_bin[1] = bin[1];
-              }
-              if (coor[2] <= temp[bin[0]][bin[1]][0]) {
-                temp[bin[0]][bin[1]][0] = coor[2];
-                temp2[bin[0]][bin[1]][0] = true;
-              }
-              if (coor[2] >= temp[bin[0]][bin[1]][1]) {
-                temp[bin[0]][bin[1]][1] = coor[2];
-                temp2[bin[0]][bin[1]][1] = true;
-              }
+            if (bin[1] > max_bin[1]) {
+              max_bin[1] = bin[1];
             }
-            if (pbc[1] > lo[1] && pbc[1] < hi[1]) {
-              bin[0] = coor[0] / width;
-              bin[1] = pbc[1] / width;
-              if (bin[0] > max_bin[0]) {
-                max_bin[0] = bin[0];
-              }
-              if (bin[1] > max_bin[1]) {
-                max_bin[1] = bin[1];
-              }
-              if (coor[2] <= temp[bin[0]][bin[1]][0]) {
-                temp[bin[0]][bin[1]][0] = coor[2];
-                temp2[bin[0]][bin[1]][0] = true;
-              }
-              if (coor[2] >= temp[bin[0]][bin[1]][1]) {
-                temp[bin[0]][bin[1]][1] = coor[2];
-                temp2[bin[0]][bin[1]][1] = true;
-              }
+            if (coor[2] <= temp[bin[0]][bin[1]][0]) {
+              temp[bin[0]][bin[1]][0] = coor[2];
+              temp2[bin[0]][bin[1]][0] = true;
+            }
+            if (coor[2] >= temp[bin[0]][bin[1]][1]) {
+              temp[bin[0]][bin[1]][1] = coor[2];
+              temp2[bin[0]][bin[1]][1] = true;
             }
           }
-        } else {
-          count_out++;
+          if (pbc[1] > lo[1] && pbc[1] < hi[1]) {
+            bin[0] = coor[0] / width;
+            bin[1] = pbc[1] / width;
+            if (bin[0] > max_bin[0]) {
+              max_bin[0] = bin[0];
+            }
+            if (bin[1] > max_bin[1]) {
+              max_bin[1] = bin[1];
+            }
+            if (coor[2] <= temp[bin[0]][bin[1]][0]) {
+              temp[bin[0]][bin[1]][0] = coor[2];
+              temp2[bin[0]][bin[1]][0] = true;
+            }
+            if (coor[2] >= temp[bin[0]][bin[1]][1]) {
+              temp[bin[0]][bin[1]][1] = coor[2];
+              temp2[bin[0]][bin[1]][1] = true;
+            }
+          }
         }
       } //}}}
-      if (count_out > 0) {
-        snprintf(ERROR_MSG, LINE, "%s%d%s beads ignored due to box size change",
-                 ErrYellow(), count_out, ErrCyan());
-        PrintWarning();
-      }
 
       // add to sums //{{{
-      for (int i = 0; i < bins[0]; i++) {
-        for (int j = 0; j < bins[1]; j++) {
+      for (int i = 0; i < bins_step[0]; i++) {
+        for (int j = 0; j < bins_step[1]; j++) {
           if (temp2[i][j][0]) {
             surf[i][j][0] += temp[i][j][0];
             values[i][j][0]++;
@@ -553,40 +520,56 @@ int main(int argc, char *argv[]) {
       } //}}}
 
       // calculate total area as a sum of areas of triangles //{{{
+      double rest[2];
+      for (int aa = 0; aa < 2; aa++) {
+        rest[aa] = sidelength[aa] - width * (bins_step[aa] - 2);
+        if (fabs(rest[0]) < 0.00001) {
+          rest[aa] = width;
+        }
+      }
+      for (int i = 0; i < bins_step[0]; i++) {
+        temp[i][bins_step[1]-1][0] = temp[i][bins_step[0]-2][0] + (temp[i][0][0] - temp[i][bins_step[1]-2][0]) * rest[0] / width;
+        temp[i][bins_step[1]-1][1] = temp[i][bins_step[0]-2][1] + (temp[i][0][1] - temp[i][bins_step[1]-2][1]) * rest[0] / width;
+        temp2[i][bins_step[1]-1][0] = temp2[i][0][0];
+        temp2[i][bins_step[1]-1][1] = temp2[i][0][1];
+      }
+      for (int j = 0; j < bins_step[1]; j++) {
+        temp[bins_step[0]-1][j][0] = temp[bins_step[1]-2][j][0] + (temp[0][j][0] - temp[bins_step[1]-2][j][0]) * rest[1] / width;
+        temp[bins_step[0]-1][j][1] = temp[bins_step[1]-2][j][1] + (temp[0][j][1] - temp[bins_step[1]-2][j][1]) * rest[1] / width;
+        temp2[bins_step[0]-1][j][0] = temp2[0][j][0];
+        temp2[bins_step[0]-1][j][1] = temp2[0][j][1];
+      }
       double sum_area[3] = {0, 0, 0};
       int triangles[3] = {0, 0, 0};
-      for (int i = 0; i < bins_true[0]; i++) {
-        temp[i][bins_true[1]-1][0] = temp[i][0][0];
-        temp[i][bins_true[1]-1][1] = temp[i][0][1];
-        temp2[i][bins_true[1]-1][0] = temp2[i][0][0];
-        temp2[i][bins_true[1]-1][1] = temp2[i][0][1];
-      }
-      for (int j = 0; j < bins_true[1]; j++) {
-        temp[bins_true[0]-1][j][0] = temp[0][j][0];
-        temp[bins_true[0]-1][j][1] = temp[0][j][1];
-        temp2[bins_true[0]-1][j][0] = temp2[0][j][0];
-        temp2[bins_true[0]-1][j][1] = temp2[0][j][1];
-      }
-      count = 0;
-      for (int i = 0; i < (bins_true[0] - 1); i++) {
-        for (int j = 0; j < (bins_true[1] - 1); j++) {
-          count++;
-          // top and bottom surfaces //{{{
+      for (int i = 0; i < (bins_step[0] - 1); i++) {
+        for (int j = 0; j < (bins_step[1] - 1); j++) {
+          // find the true width of the bin (last one may be narrower)
+          rest[0] = sidelength[0] - width * (bins_step[0] - 2);
+          if (fabs(rest[0]) < 0.00001 || i != (bins_step[0] - 2)) {
+            rest[0] = width;
+          }
+          rest[1] = sidelength[1] - width * (bins_step[1] - 2);
+          if (fabs(rest[1]) < 0.00001 || j != (bins_step[1] - 2)) {
+            rest[1] = width;
+          }
+          // four points defining the two triangles
           double A[3] = {-1}, B[3] = {-1}, C[3] = {-1}, D[3] = {-1};
+          // top and bottom surfaces //{{{
           for (int aa = 0; aa < 2; aa++) {
             if (temp2[i][j][aa] && temp2[i+1][j+1][aa]) {
               A[0] = A[1] = 0;
               A[2] = temp[i][j][aa];
-              D[0] = D[1] = width;
+              D[0] = rest[0];
+              D[1] = rest[1];
               D[2] = temp[i+1][j+1][aa];
               if (temp2[i+1][j][aa]) {
-                B[0] = width;
+                B[0] = rest[0];
                 B[1] = 0;
                 B[2] = temp[i+1][j][aa];
               }
               if (temp2[i][j+1][aa]) {
                 C[0] = 0;
-                C[1] = width;
+                C[1] = rest[1];
                 C[2] = temp[i][j+1][aa];
               }
               calc_4points(A, B, C, D, &sum_area[aa], &triangles[aa]);
@@ -597,23 +580,20 @@ int main(int argc, char *argv[]) {
           if (temp2[i][j][0] && temp2[i][j][1] &&
               temp2[i+1][j+1][0] && temp2[i+1][j+1][1]) {
             A[0] = A[1] = 0;
-            A[2] = (temp[i][j][0] +
-                    temp[i][j][1]) / 2;
-            D[0] = D[1] = width;
-            D[2] = (temp[i+1][j+1][0] +
-                    temp[i+1][j+1][1]) / 2;
+            A[2] = (temp[i][j][0] + temp[i][j][1]) / 2;
+            D[0] = rest[0];
+            D[1] = rest[1];
+            D[2] = (temp[i+1][j+1][0] + temp[i+1][j+1][1]) / 2;
 
             if (temp2[i+1][j][0] && temp2[i+1][j][1]) {
-              B[0] = width;
+              B[0] = rest[0];
               B[1] = 0;
-              B[2] = (temp[i+1][j][0] +
-                      temp[i+1][j][1]) / 2;
+              B[2] = (temp[i+1][j][0] + temp[i+1][j][1]) / 2;
             }
             if (temp2[i][j+1][0] && temp2[i][j+1][1]) {
-              C[0] = width;
+              C[0] = rest[1];
               C[1] = 0;
-              C[2] = (temp[i][j+1][0] +
-                      temp[i][j+1][1]) / 2;
+              C[2] = (temp[i][j+1][0] + temp[i][j+1][1]) / 2;
             }
             calc_4points(A, B, C, D, &sum_area[2], &triangles[2]);
           }
@@ -621,26 +601,19 @@ int main(int argc, char *argv[]) {
         }
       }
 
-      // int n_triangles = (bins[0] - 1) * (bins[1] - 1)  * 2;
-      int n_triangles = (bins_true[0] - 1) * (bins_true[1] - 1) * 2;
+      int n_triangles = (bins_step[0] - 1) * (bins_step[1] - 1) * 2;
       double avg_triangle[3];
-      avg_triangle[0] = sum_area[0] / triangles[0];
-      avg_triangle[1] = sum_area[1] / triangles[1];
-      avg_triangle[2] = sum_area[2] / triangles[2];
-      sum_area[0] += avg_triangle[0] * (n_triangles - triangles[0]);
-      sum_area[1] += avg_triangle[1] * (n_triangles - triangles[1]);
-      sum_area[2] += avg_triangle[2] * (n_triangles - triangles[2]);
-      double Length_area = System.Box.Length[0] * System.Box.Length[1];
-      double width_area = (bins_true[0] - 1) * (bins_true[1] - 1) * SQR(width);
+      for (int dd = 0; dd < 3; dd++) {
+        avg_triangle[dd] = sum_area[dd] / triangles[dd];
+        sum_area[dd] += avg_triangle[dd] * (n_triangles - triangles[dd]);
+      }
       fprintf(out, "%d %lf %lf %lf\n", count_coor,
-                                       sum_area[0] * Length_area / width_area,
-                                       sum_area[1] * Length_area / width_area,
-                                       sum_area[2] * Length_area / width_area);
+              sum_area[0], sum_area[1], sum_area[2]);
       //}}}
 
       // free the temporary array //{{{
-      for (int i = 0; i < bins[0]; i++) {
-        for (int j = 0; j < bins[1]; j++) {
+      for (int i = 0; i < bins_step[0]; i++) {
+        for (int j = 0; j < bins_step[1]; j++) {
           free(temp[i][j]);
           free(temp2[i][j]);
         }
@@ -678,26 +651,38 @@ int main(int argc, char *argv[]) {
   out = OpenFile(file_surf, "a");
   char a[3] = {'x', 'y', 'z'};
   fprintf(out, "# (1) %c coordinate; (2) %c coordinate;", a[map[0]], a[map[1]]);
-  fprintf(out, " (3) surface 1; (4) surface 2\n");
+  fprintf(out, " (3) surface 1; (4) surface 2; (5) average surface\n");
 
-  // bins[] are large than box (used in surface area calculation)
-  for (int i = 0; i < (bins[0] - 1); i++) {
-    for (int j = 0; j < (bins[1] - 1); j++) {
-      fprintf(out, "%7.4f", width*(2*i+1)/2);
-      fprintf(out, " %7.4f", width*(2*j+1)/2);
-      if (values[i][j][0] > 0) {
-        fprintf(out, " %7.4f", surf[i][j][0]/values[i][j][0]);
-      } else {
-        fprintf(out, "       ?");
+  // max_bin[] are bin ids, so +1 to get count which includes id=0
+  max_bin[0]++;
+  max_bin[1]++;
+  for (int i = 0; i < max_bin[0]; i++) {
+    count = 0;
+    for (int j = 0; j < max_bin[1]; j++) {
+      if (values[i][j][0] > 0 || values[i][j][1] > 0) {
+        count++;
+        fprintf(out, "%7.4f", width*(2*i+1)/2);
+        fprintf(out, " %7.4f", width*(2*j+1)/2);
+        double surface[2];
+        for (int aa = 0; aa < 2; aa++) {
+          if (values[i][j][aa] > 0) {
+            surface[aa] = surf[i][j][aa] / values[i][j][aa];
+            fprintf(out, " %7.4f", surface[aa]);
+          } else {
+            fprintf(out, "       ?");
+          }
+        }
+        if (values[i][j][0] > 0 && values[i][j][1] > 0) {
+          fprintf(out, " %7.4f", (surface[0]+surface[1])/2);
+        } else {
+          fprintf(out, "       ?");
+        }
+        fprintf(out, "\n");
       }
-      if (values[i][j][1] > 0) {
-        fprintf(out, " %7.4f", surf[i][j][1]/values[i][j][1]);
-      } else {
-        fprintf(out, "       ?");
-      }
+    }
+    if (count != 0) {
       fprintf(out, "\n");
     }
-    fprintf(out, "\n");
   }
   fclose(out); //}}}
 
@@ -705,20 +690,20 @@ int main(int argc, char *argv[]) {
   double sum_area[3] = {0, 0, 0};
   int triangles[3] = {0, 0, 0};
   count = 0;
-  for (int i = 0; i < bins_true[0]; i++) {
-    values[i][bins_true[1]-1][0] = values[i][0][0];
-    values[i][bins_true[1]-1][1] = values[i][0][1];
-    surf[i][bins_true[1]-1][0] = surf[i][0][0];
-    surf[i][bins_true[1]-1][1] = surf[i][0][1];
+  for (int i = 0; i < max_bin[0]; i++) {
+    values[i][max_bin[1]-1][0] = values[i][0][0];
+    values[i][max_bin[1]-1][1] = values[i][0][1];
+    surf[i][max_bin[1]-1][0] = surf[i][0][0];
+    surf[i][max_bin[1]-1][1] = surf[i][0][1];
   }
-  for (int j = 0; j < bins_true[1]; j++) {
-    values[bins_true[0]-1][j][0] = values[0][j][0];
-    values[bins_true[0]-1][j][1] = values[0][j][1];
-    surf[bins_true[0]-1][j][0] = surf[0][j][0];
-    surf[bins_true[0]-1][j][1] = surf[0][j][1];
+  for (int j = 0; j < max_bin[1]; j++) {
+    values[max_bin[0]-1][j][0] = values[0][j][0];
+    values[max_bin[0]-1][j][1] = values[0][j][1];
+    surf[max_bin[0]-1][j][0] = surf[0][j][0];
+    surf[max_bin[0]-1][j][1] = surf[0][j][1];
   }
-  for (int i = 0; i < (bins_true[0] - 1); i++) {
-    for (int j = 0; j < (bins_true[1] - 1); j++) {
+  for (int i = 0; i < (max_bin[0] - 1); i++) {
+    for (int j = 0; j < (max_bin[1] - 1); j++) {
       count++;
       // top and bottom surfaces //{{{
       double A[3] = {-1}, B[3] = {-1}, C[3] = {-1}, D[3] = {-1};
@@ -773,7 +758,7 @@ int main(int argc, char *argv[]) {
   }
 
   // int n_triangles = (bins[0] - 1) * (bins[1] - 1)  * 2;
-  int n_triangles = (bins_true[0] - 1) * (bins_true[1] - 1) * 2;
+  int n_triangles = (max_bin[0] - 1) * (max_bin[1] - 1) * 2;
   double avg_triangle[3];
   for (int dd = 0; dd < 3; dd++) {
     avg_triangle[dd] = sum_area[dd] / triangles[dd];
@@ -782,7 +767,7 @@ int main(int argc, char *argv[]) {
     sum_area[dd] += avg_triangle[dd] * (n_triangles - triangles[dd]);
   }
   double Length_area = System.Box.Length[0] * System.Box.Length[1];
-  double width_area = (bins_true[0] - 1) * (bins_true[1] - 1) * SQR(width);
+  double width_area = (max_bin[0] - 1) * (max_bin[1] - 1) * SQR(width);
   out = OpenFile(file_area, "a");
   fprintf(out, "# average: (1) surface 1; (2) surface 2; (3) middle surface\n");
   fprintf(out, "# %lf %lf %lf\n", sum_area[0] * Length_area / width_area,
@@ -791,8 +776,8 @@ int main(int argc, char *argv[]) {
   fclose(out);
 
   FreeSystem(&System);
-  for (int i = 0; i < bins_orig[0]; i++) {
-    for (int j = 0; j < bins_orig[1]; j++) {
+  for (int i = 0; i < bins_alloc[0]; i++) {
+    for (int j = 0; j < bins_alloc[1]; j++) {
       free(surf[i][j]);
       free(values[i][j]);
     }
