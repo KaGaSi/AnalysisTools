@@ -222,13 +222,13 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
     BEADTYPE *bt = &System.BeadType[type_def];
     fprintf(fw, "atom default name %8s", bt->Name);
     if (bt->Mass != MASS) {
-      fprintf(fw, " mass %lf", bt->Mass);
+      fprintf(fw, " mass %12f", bt->Mass);
     }
     if (bt->Charge != CHARGE) {
-      fprintf(fw, " charge %lf", bt->Charge);
+      fprintf(fw, " charge %12f", bt->Charge);
     }
     if (bt->Radius != RADIUS) {
-      fprintf(fw, " radius %lf", bt->Radius);
+      fprintf(fw, " radius %12f", bt->Radius);
     }
     putc('\n', fw);
   } //}}}
@@ -244,13 +244,13 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
     if (print) {
       fprintf(fw, "atom %7d name %8s", i, bt->Name);
       if (bt->Mass != MASS) {
-        fprintf(fw, " mass %lf ", bt->Mass);
+        fprintf(fw, " mass %15f ", bt->Mass);
       }
       if (bt->Charge != CHARGE) {
-        fprintf(fw, " charge %lf", bt->Charge);
+        fprintf(fw, " charge %12f", bt->Charge);
       }
       if (bt->Radius != RADIUS) {
-        fprintf(fw, " radius %lf", bt->Radius);
+        fprintf(fw, " radius %12f", bt->Radius);
       }
       if (mol != -1) {
         int mtype = System.Molecule[mol].Type,
@@ -409,13 +409,14 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
   } //}}}
   // print atoms //{{{
   // if there is 0 molecule index, saved indices will get +1
+  // TODO: why would I need to go from 1?
   bool zero = false;
-  for (int i = 0; i < Count->Molecule; i++) {
-    if (System.Molecule[i].Index == 0) {
-      zero = true;
-      break;
-    }
-  }
+  // for (int i = 0; i < Count->Molecule; i++) {
+  //   if (System.Molecule[i].Index == 0) {
+  //     zero = true;
+  //     break;
+  //   }
+  // }
   fprintf(fw, "\nAtoms # full\n\n");
   for (int i = 0; i < Count->BeadCoor; i++) {
     int id = System.BeadCoor[i];
@@ -444,9 +445,9 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
       fprintf(fw, " %15f", q);
     }
     // coordinates
-    fprintf(fw, " %15f %15f %15f", bead->Position[0] + System.Box.Low[0],
-                                   bead->Position[1] + System.Box.Low[1],
-                                   bead->Position[2] + System.Box.Low[2]);
+    for (int dd = 0; dd < 3; dd++) {
+      fprintf(fw, " %15f", bead->Position[dd] + System.Box.Low[dd]);
+    }
     // molecule name
     if (mol != -1) {
       int type = System.Molecule[mol].Type;
@@ -730,6 +731,7 @@ void WriteOutput(SYSTEM System, bool write[], FILE_TYPE fw,
     fw.name[strlen(fw.name)-2] = 'c';
     fw.type = VCF_FILE;
   } else if (fw.type == VTF_FILE ||
+             fw.type == VSF_FILE ||
              fw.type == FIELD_FILE ||
              fw.type == CONFIG_FILE ||
              fw.type == LDATA_FILE) {

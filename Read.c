@@ -644,7 +644,7 @@ static SYSTEM LmpDataReadStruct(char file[]) { //{{{
       c_bonded++;
     }
   }
-  // make molecule indices go from 1 (just to avoid large numbers) //{{{
+  // make molecule indices go from 0 (just to avoid large numbers) //{{{
   // 1) find the lowest molecule index
   int min_id = 1e7;
   for (int i = 0; i < System.Count.Molecule; i++) {
@@ -654,8 +654,8 @@ static SYSTEM LmpDataReadStruct(char file[]) { //{{{
   }
   // 2) subtract the lowest molecule index from molecule indices
   for (int i = 0; i < System.Count.Molecule; i++) {
-    System.Molecule[i].Index -= min_id - 1; // start from 1, not from 0
-  }                                         //}}}
+    System.Molecule[i].Index -= min_id;
+  } //}}}
   CheckSystem(System, file);
   return System;
 } //}}}
@@ -1590,7 +1590,7 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
     } else {
       strcpy(bt->Name, name_mass[type].Name);
     }
-    if (resid > 0) { // bead in a molecule //{{{
+    if (resid >= 0) { // bead in a molecule //{{{
       Count->Bonded++;
       b->Molecule = resid;
       // resid ids may be discontinuous, so define Molecule for all possible ids
@@ -3848,7 +3848,7 @@ static void FillMoleculeTypeAngles(SYSTEM *System, int (*angle)[4], int num) {
       fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[1], ErrCyan(),
               ErrYellow(), System->Bead[id[1]].Molecule, ErrCyan());
       fprintf(stderr, " %s%d%s (%s%d%s)\n", ErrYellow(), id[2], ErrCyan(),
-              ErrYellow(), System->Bead[id[2]].Molecule, ErrCyan());
+              ErrYellow(), System->Bead[id[2]].Molecule, ErrColourReset());
       continue;
     } //}}}
     MOLECULETYPE *mt_mol = &System->MoleculeType[mol];
@@ -3922,7 +3922,7 @@ static void FillMoleculeTypeDihedral(SYSTEM *System, int (*dihedral)[5],
       fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[2], ErrCyan(),
               ErrYellow(), System->Bead[id[2]].Molecule, ErrCyan());
       fprintf(stderr, " %s%d%s (%s%d%s)\n", ErrYellow(), id[3], ErrCyan(),
-              ErrYellow(), System->Bead[id[3]].Molecule, ErrCyan());
+              ErrYellow(), System->Bead[id[3]].Molecule, ErrColourReset());
       continue;
     } //}}}
     MOLECULETYPE *mt_mol = &System->MoleculeType[mol];
@@ -4002,7 +4002,7 @@ static void FillMoleculeTypeImproper(SYSTEM *System, int (*improper)[5],
       fprintf(stderr, " %s%d%s (%s%d%s);", ErrYellow(), id[2], ErrCyan(),
               ErrYellow(), System->Bead[id[2]].Molecule, ErrCyan());
       fprintf(stderr, " %s%d%s (%s%d%s)\n", ErrYellow(), id[3], ErrCyan(),
-              ErrYellow(), System->Bead[id[3]].Molecule, ErrCyan());
+              ErrYellow(), System->Bead[id[3]].Molecule, ErrColourReset());
       continue;
     } //}}}
     MOLECULETYPE *mt_mol = &System->MoleculeType[mol];

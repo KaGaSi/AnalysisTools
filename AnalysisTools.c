@@ -1,5 +1,9 @@
 #include "AnalysisTools.h"
 
+// TODO: consider the names - can't I have different bead types with the same
+//       name? ...I'd only need to ensure that going over named beads would
+//       encompass all bead types with that name.
+
 // STATIC DEFINITIONS
 // functions to transform to/from fractional coordinates
 static void ToFractional(double coor[3], BOX Box);
@@ -3215,6 +3219,7 @@ void CheckSystem(SYSTEM System, char file[]) {
         break;
       }
     }
+    // TODO: use snprintf to create ERROR_MSG
     if (test[mol_i->Index] > -1) {
       strcpy(ERROR_MSG, "same molecule index with multiple molecules");
       PrintErrorFile(file, "\0", "\0");
@@ -3883,14 +3888,13 @@ void PrintMoleculeType(SYSTEM System) { //{{{
 } //}}}
 void PrintMolecule(SYSTEM System) { //{{{
   for (int i = 0; i < System.Count.Molecule; i++) {
-    int type = System.Molecule[i].Type;
-    fprintf(stdout, "Molecule %3d (%d, %s):\n", i + 1, System.Molecule[i].Index,
-            System.MoleculeType[type].Name);
-    fprintf(stdout, " BEAD INDICES (%d): ", System.MoleculeType[type].nBeads);
+    MOLECULE *mol = &System.Molecule[i];
+    MOLECULETYPE *mtype = &System.MoleculeType[mol->Type];
+    fprintf(stdout, "Molecule %3d (%d, %s):\n", i + 1, mol->Index, mtype->Name);
+    fprintf(stdout, " BEAD INDICES (%d): ", mtype->nBeads);
     fputs("intramolecular; input file\n", stdout);
-    for (int j = 0; j < System.MoleculeType[type].nBeads; j++) {
-      int id = System.Molecule[i].Bead[j];
-      fprintf(stdout, "   %3d; %5d\n", j + 1, id);
+    for (int j = 0; j < mtype->nBeads; j++) {
+      fprintf(stdout, "   %3d; %5d\n", j + 1, mol->Bead[j]);
     }
   }
   fprintf(stdout, "\n");

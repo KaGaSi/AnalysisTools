@@ -92,8 +92,7 @@ int main(int argc, char *argv[]) {
   } //}}}
   // output file (-o option) //{{{
   opt->fout = InitFile;
-  FileOption(argc, argv, "-o", opt->fout.name);
-  if (opt->fout.name[0] != '\0') {
+  if (FileOption(argc, argv, "-o", opt->fout.name)) {
     opt->fout.type = FileType(opt->fout.name);
   } //}}}
   opt->c = CommonOptions(argc, argv, LINE, in);
