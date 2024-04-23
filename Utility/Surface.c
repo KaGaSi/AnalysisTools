@@ -1,46 +1,5 @@
 #include "../AnalysisTools.h"
 
-// TODO: 'central' average surface
-// TODO: overall averages to <surf.txt>?
-
-double calc_area(double A[3], double B[3], double C[3]) {
-  double AB[3], AC[3], BC[3];
-  for (int dd = 0; dd < 3; dd++) {
-    AB[dd] = B[dd] - A[dd];
-    AC[dd] = C[dd] - A[dd];
-    BC[dd] = C[dd] - B[dd];
-  }
-  double a = 0, b = 0, c = 0;
-  for (int dd = 0; dd < 3; dd++) {
-    a += SQR(BC[dd]);
-    b += SQR(AC[dd]);
-    c += SQR(AB[dd]);
-  }
-  a = sqrt(a);
-  b = sqrt(b);
-  c = sqrt(c);
-  double s = (a + b + c) / 2;
-  return sqrt(s * (s - a) * (s - b) * (s - c));
-}
-
-void calc_4points(double A[3], double B[3], double C[3], double D[3],
-                  double *sum_area, int *triangles) {
-  if (A[0] != -1 && B[0] != -1 && D[0] != -1) {
-    // printf("area: %lf\n", calc_area(A, B, D));
-    *sum_area += calc_area(A, B, D);
-    (*triangles)++;
-  }
-  if (A[0] != -1 && C[0] != -1 && D[0] != -1) {
-    // printf("area: %lf\n", calc_area(A, C, D));
-    *sum_area += calc_area(A, C, D);
-    (*triangles)++;
-  }
-}
-
-// TODO: reinstate molecular condition
-// TODO: impelment -m & -bt options
-// TODO: calculate proper per-timestep area even when box size changes
-
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
@@ -71,25 +30,167 @@ edges or the two surfaces of a lipid bilayer inside the box).\n\n");
   fprintf(ptr, "[options]\n");
   fprintf(ptr, "  --in              start from the box's edges "
           "instead of the centre\n");
+  fprintf(ptr, "  --bonded          use only beads in molecules\n");
+  fprintf(ptr, "  -bt <name(s)>     bead type(s) to use\n");
   // fprintf(ptr, "  -m <mol(s)>       molecule type(s) to use\n");
-  // fprintf(ptr, "  -bt <name(s)>     bead type(s) to use\n");
   CommonHelp(error, n, opt);
 } //}}}
 
 // structure for options //{{{
 struct OPT {
-  bool in;        // --in
-  FILE_TYPE fout; // -o
+  int bt_number, *bt; // -bt (number of types; list of the types)
+  bool in,            // --in
+       bonded;        // --bonded
+  FILE_TYPE fout;     // -o
   COMMON_OPT c;
 };
 OPT * opt_create(void) {
   return malloc(sizeof(OPT));
 } //}}}
 
+/*
+ * Number of bins allocated in the two dimensions; it's 10 times larger than the
+ * first box dimensions to guard against box size changes (enlargement).
+ */
+int bin_alloc[2];
+
+// TODO: overall averages to <surf.txt>?
+
+// calculate index in an 1D array that simulates a 3D one /{{{
+int id3D(int x, int y, int z) {
+  return (z * bin_alloc[0] * bin_alloc[1]) + (y * bin_alloc[0]) + x;
+} //}}}
+
+// calculate area of a triangle given three points (Heron's formula) //{{{
+double calc_area(double A[3], double B[3], double C[3]) {
+  // triangle's sides vectors
+  double AB[3], AC[3], BC[3];
+  for (int dd = 0; dd < 3; dd++) {
+    AB[dd] = B[dd] - A[dd];
+    AC[dd] = C[dd] - A[dd];
+    BC[dd] = C[dd] - B[dd];
+  }
+  double a = 0, b = 0, c = 0; // triangle's sidelengths
+  for (int dd = 0; dd < 3; dd++) {
+    a = VectorLength(BC);
+    b = VectorLength(AC);
+    c = VectorLength(AB);
+  }
+  double s = (a + b + c) / 2;
+  return sqrt(s * (s - a) * (s - b) * (s - c));
+} //}}}
+// calculate areas of two triangles (if appropriate points are defined) //{{{
+void calc_4points(double A[3], double B[3], double C[3], double D[3],
+                  double *sum_area, int *triangles) {
+  if (A[0] != -1 && B[0] != -1 && D[0] != -1) {
+    *sum_area += calc_area(A, B, D);
+    (*triangles)++;
+  }
+  if (A[0] != -1 && C[0] != -1 && D[0] != -1) {
+    *sum_area += calc_area(A, C, D);
+    (*triangles)++;
+  }
+} //}}}
+
+// find maximum bin in the two dimensions //{{{
+void MaxBin(int bin[2], int max_bin[2]) {
+  for (int aa = 0; aa < 2; aa++) {
+    if (bin[aa] > max_bin[aa]) {
+      max_bin[aa] = bin[aa];
+    }
+  }
+} //}}}
+// assign bin to a coordate for going from the middle of the box //{{{
+void AddSurfacePointOut(double coor, bool *bin_use, double *surf_step,
+                        double sidelength[3], int bin[2]) {
+  if (coor <= (sidelength[2] / 2)) {
+    if (coor >= surf_step[id3D(bin[0], bin[1], 0)]) {
+      surf_step[id3D(bin[0], bin[1], 0)] = coor;
+      bin_use[id3D(bin[0], bin[1], 0)] = true;
+    }
+  } else {
+    if (coor <= surf_step[id3D(bin[0], bin[1], 1)]) {
+      surf_step[id3D(bin[0], bin[1], 1)] = coor;
+      bin_use[id3D(bin[0], bin[1], 1)] = true;
+    }
+  }
+} //}}}
+// assign bin to a coordate for going from the sides of the box //{{{
+void AddSurfacePointIn(double coor, bool *bin_use, double *surf_step,
+                        double sidelength[3], int bin[2]) {
+  if (coor <= surf_step[id3D(bin[0], bin[1], 0)]) {
+    surf_step[id3D(bin[0], bin[1], 0)] = coor;
+    bin_use[id3D(bin[0], bin[1], 0)] = true;
+  }
+  if (coor >= surf_step[id3D(bin[0], bin[1], 1)]) {
+    surf_step[id3D(bin[0], bin[1], 1)] = coor;
+    bin_use[id3D(bin[0], bin[1], 1)] = true;
+  }
+} //}}}
+// based on mode, pick a proper bin-assigning function //{{{
+void AddSurfacePoint(double coor, bool *bin_use, double *surf_step,
+                     double sidelength[3], int bin[2], bool in) {
+  if (!in) {
+    AddSurfacePointOut(coor, bin_use, surf_step, sidelength, bin);
+  } else {
+    AddSurfacePointIn(coor, bin_use, surf_step, sidelength, bin);
+  }
+} //}}}
+/*
+ * function to assign bins to a single coordinate (including of possible
+ * periodic images)
+ */ //{{{
+void SurfacePoint(SYSTEM System, int id, int map[2], int axis, bool in,
+                  double sidelength[3], double width, double *surf_step, bool
+                  *bin_use, double lo[2], double hi[2], int max_bin[2]) {
+  BEAD *b = &System.Bead[id];
+  double coor[3]; // coor[0] & [1] are in the surface plane
+  coor[0] = b->Position[map[0]];
+  coor[1] = b->Position[map[1]];
+  coor[2] = b->Position[axis];
+  // fnd bead's bins & test for highest bins ever
+  double pbc[2];
+  int bin[2];
+  for (int aa = 0; aa < 2; aa++) {
+    bin[aa] = coor[aa] / width;
+    pbc[aa] = coor[aa] + sidelength[aa];
+  }
+  MaxBin(bin, max_bin);
+  AddSurfacePoint(coor[2], bin_use, surf_step, sidelength, bin, in);
+  /*
+   * use a periodic image if the highest bin is narrower than <width>, so the
+   * highest bins don't have too few beads in them
+   */
+  // in one dimension of the surface plane
+  if (pbc[0] > lo[0] && pbc[0] < hi[0]) {
+    bin[0] = pbc[0] / width;
+    bin[1] = coor[1] / width;
+    MaxBin(bin, max_bin);
+    AddSurfacePoint(coor[2], bin_use, surf_step, sidelength, bin, in);
+  }
+  // in second dimension of the surface plane
+  if (pbc[1] > lo[1] && pbc[1] < hi[1]) {
+    bin[0] = coor[0] / width;
+    bin[1] = pbc[1] / width;
+    MaxBin(bin, max_bin);
+    AddSurfacePoint(coor[2], bin_use, surf_step, sidelength, bin, in);
+  }
+  // in both dimensions of the surface plane
+  if (pbc[0] > lo[0] && pbc[0] < hi[0] &&
+      pbc[1] > lo[1] && pbc[1] < hi[1]) {
+    bin[0] = pbc[0] / width;
+    bin[1] = pbc[1] / width;
+    MaxBin(bin, max_bin);
+    AddSurfacePoint(coor[2], bin_use, surf_step, sidelength, bin, in);
+  }
+} //}}}
+
+// TODO: reinstate molecular condition
+
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 9, all = common + 1, count = 0,
+  int common = 9, all = common + 3, count = 0,
       req_arg = 5;
   char option[all][OPT_LENGTH];
   // common options
@@ -104,8 +205,9 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "--version");
   // extra options
   strcpy(option[count++], "--in");
+  strcpy(option[count++], "--bonded");
   // strcpy(option[count++], "-m");
-  // strcpy(option[count++], "-bt");
+  strcpy(option[count++], "-bt");
   OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   count = 0; // count mandatory arguments
@@ -153,7 +255,8 @@ int main(int argc, char *argv[]) {
   }
   //}}}
   opt->c = CommonOptions(argc, argv, LINE, in);
-  opt->in = BoolOption(argc, argv, "--in"); //}}}
+  opt->in = BoolOption(argc, argv, "--in");
+  opt->bonded = BoolOption(argc, argv, "--bonded"); //}}}
 
   if (!opt->c.silent) {
     PrintCommand(stdout, argc, argv);
@@ -161,65 +264,56 @@ int main(int argc, char *argv[]) {
 
   SYSTEM System = ReadStructure(in, opt->c.detailed);
   COUNT *Count = &System.Count;
+
+  // -bt option
+  opt->bt_number = 0;
+  opt->bt = calloc(Count->BeadType, sizeof *opt->bt);
+  bool *flag = calloc(Count->BeadType, sizeof *flag);
+  if (BeadTypeOption(argc, argv, "-bt", true, flag, System)) {
+    for (int i = 0; i < Count->BeadType; i++) {
+      if (flag[i]) {
+        opt->bt[opt->bt_number] = i;
+        opt->bt_number++;
+      }
+    }
+  }
+
+  // read the first timestep from a coordinate file to get box dimensions
+  FILE *fr = OpenFile(in.coor.name, "r");
+  int line_count = 0;
+  if (!ReadTimestep(in, fr, &System, &line_count)) {
+    exit(1);
+  }
+  fclose(fr);
   double sidelength[3];
   sidelength[0] = System.Box.Length[map[0]];
   sidelength[1] = System.Box.Length[map[1]];
   sidelength[2] = System.Box.Length[axis];
 
-
   if (opt->c.verbose) {
     VerboseOutput(System);
   }
 
-  // set maximum/minimum as box length in the given direction
-  double range[2];
-  range[0] = 0;
-  range[1] = sidelength[2];
+  // number of bins, guarding against box enlargement
+  bin_alloc[0] = sidelength[0] / width * 10;
+  bin_alloc[1] = sidelength[1] / width * 10;
 
-  // number of bins //{{{
-  int bins_alloc[2];
-  bins_alloc[0] = sidelength[0] / width * 10;
-  bins_alloc[1] = sidelength[1] / width * 10;
-  // // for calculation of area - TODO: change
-  // int bins_true[2];
-  // bins_true[0] = sidelength[0] / width + 1;
-  // bins_true[1] = sidelength[0] / width + 1;
-  // // *1000 to ensure width is integer as otherwise it can wreak havoc
-  // if ((fmod(sidelength[0] * 1000, width * 1000) / 1000) > 0.001) {
-  //   bins_true[0]++;
-  // }
-  // if ((fmod(sidelength[1] * 1000, width * 1000) / 1000) > 0.001) {
-  //   bins_true[1]++;
-  // }
-  // find lowest and highest coordinates for the topmost bins
-  double lo[2], hi[2];
-  lo[0] = (int)(sidelength[0] / width) * width;
-  lo[1] = (int)(sidelength[1] / width) * width;
-  if (fabs(lo[0]-sidelength[0]) > 0.00001) {
-    hi[0] = lo[0] + width;
-  } else {
-    hi[0] = lo[0];
-  }
-  if (fabs(lo[1]-sidelength[1]) > 0.00001) {
-    hi[1] = lo[1] + width;
-  } else {
-    hi[1] = lo[1];
-  } //}}}
-
-  // allocate memory for density arrays //{{{
-  double ***surf = malloc(bins_alloc[0] * sizeof(double **)); // sum
-  int ***values = malloc(bins_alloc[0] * sizeof(int **)); // number of values
-  for (int i = 0; i < bins_alloc[0]; i++) {
-    surf[i] = malloc(bins_alloc[1] * sizeof(double *));
-    values[i] = malloc(bins_alloc[1] * sizeof(int *));
-    for (int j = 0; j < bins_alloc[1]; j++) {
-      surf[i][j] = calloc(2, sizeof(double));
-      values[i][j] = calloc(2, sizeof(int));
-    }
-  } //}}}
+  /*
+   * Number of values in each bin each surface: should be equal to the number of
+   * steps, but if there's no bead that falls into the given bin (i.e., <width>
+   * is too low), than it may be lower
+   */
+  int *values = calloc(bin_alloc[0] * bin_alloc[1] * 2, sizeof *values);
+  /*
+   * Sum of points for each surface (i.e., the 'proper' coordinates in <axis>
+   * direction) in each bin
+   *
+   * sum_surf/values gives average coordinate for the two surfaces
+   */
+  double *sum_surf = calloc(bin_alloc[0] * bin_alloc[1] * 2, sizeof *sum_surf);
 
   // open input coordinate file
-  FILE *fr = OpenFile(in.coor.name, "r");
+  fr = OpenFile(in.coor.name, "r");
 
   // write initial stuff to the per-timestep area //{{{
   PrintByline(file_area, argc, argv);
@@ -234,8 +328,8 @@ int main(int argc, char *argv[]) {
   // main loop //{{{
   int count_coor = 0, // count calculated timesteps
       count_used = 0, // count timesteps from the beginning
-      line_count = 0, // count lines in the coor file
       max_bin[2] = {0, 0}; // highest bin ids (i.e., number of bins to write)
+  line_count = 0; // count lines in the coor file
   bool warn_box_change = false;
   while (true) {
     PrintStep(&count_coor, opt->c.start, opt->c.silent);
@@ -270,10 +364,6 @@ int main(int argc, char *argv[]) {
       sidelength[1] = System.Box.Length[map[1]];
       sidelength[2] = System.Box.Length[axis];
 
-      // TODO: why range?
-      range[0] = 0;
-      range[1] = sidelength[2];
-
       /*
        * Recalculate number of bins for this timestep, considering that
        *   1) Box.Length might have changed
@@ -281,348 +371,165 @@ int main(int argc, char *argv[]) {
        *      0th's value for surface is used
        */
       int bins_step[2];
-      bins_step[0] = sidelength[0] / width + 1;
-      bins_step[1] = sidelength[1] / width + 1;
-      // *1000 to ensure width is integer as otherwise it can wreak havoc
-      if ((fmod(sidelength[0] * 1000, width * 1000) / 1000) > 0.001) {
-        bins_step[0]++;
-      }
-      if ((fmod(sidelength[1] * 1000, width * 1000) / 1000) > 0.001) {
-        bins_step[1]++;
+      for (int aa = 0; aa < 2; aa++) {
+        bins_step[aa] = sidelength[aa] / width + 1;
+        // *1000 to ensure width is integer as otherwise it can wreak havoc
+        if ((fmod(sidelength[aa] * 1000, width * 1000) / 1000) > 0.001) {
+          bins_step[aa]++;
+        }
       }
       /*
       * Find lowest and highest coordinates for the topmost bins; these are used
       * to use beads from a periodic image should the highest bin be less wide
       * than 'width'
       */
-      lo[0] = (int)(sidelength[0] / width) * width;
-      lo[1] = (int)(sidelength[1] / width) * width;
+      double lo[2], hi[2];
       for (int aa = 0; aa < 2; aa++) {
+        lo[aa] = (int)(sidelength[aa] / width) * width;
         if (fabs(lo[aa]-sidelength[aa]) > 0.00001) {
           hi[aa] = lo[aa] + width;
         } else {
           hi[aa] = lo[aa];
         }
-      }
-      //}}}
+      } //}}}
 
       // allocate memory for temporary arrays //{{{
-      double ***temp = calloc(bins_step[0], sizeof(double **));
-      bool ***temp2 = calloc(bins_step[0], sizeof(bool **));
+      // surfaces' coordinates in this step
+      double *surf_step = calloc(bin_alloc[0] * bin_alloc[1] * 2,
+                                 sizeof *surf_step);
+      // is a bin used in this step? (akin to the values array)
+      bool *bin_use = calloc(bin_alloc[0] * bin_alloc[1] * 2, sizeof *bin_use);
       for (int i = 0; i < bins_step[0]; i++) {
-        temp[i] = calloc(bins_step[1], sizeof(double *));
-        temp2[i] = calloc(bins_step[1], sizeof(bool *));
         for (int j = 0; j < bins_step[1]; j++) {
-          temp[i][j] = calloc(2, sizeof(double));
-          temp2[i][j] = calloc(2, sizeof(bool));
           if (!opt->in) {
-            temp[i][j][0] = 0;
-            temp[i][j][1] = sidelength[2];
+            surf_step[id3D(i, j, 0)] = 0;
+            surf_step[id3D(i, j, 1)] = sidelength[2];
           } else {
-            temp[i][j][0] = sidelength[2];
-            temp[i][j][1] = 0;
+            surf_step[id3D(i, j, 0)] = sidelength[2];
+            surf_step[id3D(i, j, 1)] = 0;
           }
         }
       } //}}}
 
       // calculate surface //{{{
-      for (int i = 0; i < Count->BeadCoor; i++) {
-        int id = System.BeadCoor[i];
-        BEAD *b = &System.Bead[id];
-        // int mol = b->Molecule;
-        // if (mol == -1) { // consider only beads in molecules
-        //   continue;
-        // }
-        // BEADTYPE *btype = &System.BeadType[b->Type]; // for -bt
-        // int mtype = System.Molecule[mol].Type;
-        // MOLECULETYPE *mol_type = &System.MoleculeType[mtype]; // for -m
-        // TODO: -m & -bt options: add codition like this
-        //       if (b->Molecule != -1 && mol_type->Flag && btype->Flag)
-        double coor[3];
-        coor[0] = b->Position[map[0]];
-        coor[1] = b->Position[map[1]];
-        coor[2] = b->Position[axis];
-        int bin[2];
-        bin[0] = coor[0] / width;
-        bin[1] = coor[1] / width;
-        if (bin[0] > max_bin[0]) {
-          max_bin[0] = bin[0];
+      if (opt->bonded) { // use all beads in moleculs
+        for (int i = 0; i < Count->Bonded; i++) {
+          int id = System.Bonded[i];
+          SurfacePoint(System, id, map, axis, opt->in, sidelength, width,
+                       surf_step, bin_use, lo, hi, max_bin);
         }
-        if (bin[1] > max_bin[1]) {
-          max_bin[1] = bin[1];
+      } else if (opt->bt_number > 0) { // use specified bead types
+        for (int i = 0; i < opt->bt_number; i++) {
+          BEADTYPE *btype = &System.BeadType[opt->bt[i]];
+          for (int j = 0; j < btype->Number; j++) {
+            int id = btype->Index[j];
+            SurfacePoint(System, id, map, axis, opt->in, sidelength, width,
+                         surf_step, bin_use, lo, hi, max_bin);
+          }
         }
-        // printf("%d (%d) %d (%d)\n", bin[0], bins[0], bin[1], bins[1]);
-        // error if box got bigger
-        double pbc[2];
-        pbc[0] = coor[0] + sidelength[0];
-        pbc[1] = coor[1] + sidelength[1];
-
-        if (!opt->in) { // go from box centre to edges
-          if (coor[2] >= temp[bin[0]][bin[1]][0] &&
-              coor[2] >= range[0] &&
-              coor[2] <= ((range[0] + range[1])/2)) {
-            temp[bin[0]][bin[1]][0] = coor[2];
-            temp2[bin[0]][bin[1]][0] = true;
-          }
-          if (coor[2] <= temp[bin[0]][bin[1]][1] &&
-              coor[2] >= ((range[0] + range[1])/2) &&
-              coor[2] <= range[1]) {
-            temp[bin[0]][bin[1]][1] = coor[2];
-            temp2[bin[0]][bin[1]][1] = true;
-          }
-          if (pbc[0] > lo[0] && pbc[0] < hi[0] &&
-              pbc[1] > lo[1] && pbc[1] < hi[1]) {
-            bin[0] = pbc[0] / width;
-            bin[1] = pbc[1] / width;
-            if (bin[0] > max_bin[0]) {
-              max_bin[0] = bin[0];
-            }
-            if (bin[1] > max_bin[1]) {
-              max_bin[1] = bin[1];
-            }
-            if (coor[2] >= temp[bin[0]][bin[1]][0] &&
-                coor[2] >= range[0] &&
-                coor[2] <= ((range[0] + range[1])/2)) {
-              temp[bin[0]][bin[1]][0] = coor[2];
-              temp2[bin[0]][bin[1]][0] = true;
-            }
-            if (coor[2] <= temp[bin[0]][bin[1]][1] &&
-                coor[2] >= ((range[0] + range[1])/2) &&
-                coor[2] <= range[1]) {
-              temp[bin[0]][bin[1]][1] = coor[2];
-              temp2[bin[0]][bin[1]][1] = true;
-            }
-          }
-          if (pbc[0] > lo[0] && pbc[0] < hi[0]) {
-            bin[0] = pbc[0] / width;
-            bin[1] = coor[1] / width;
-            if (bin[0] > max_bin[0]) {
-              max_bin[0] = bin[0];
-            }
-            if (bin[1] > max_bin[1]) {
-              max_bin[1] = bin[1];
-            }
-            if (coor[2] >= temp[bin[0]][bin[1]][0] &&
-                coor[2] >= range[0] &&
-                coor[2] <= ((range[0] + range[1])/2)) {
-              temp[bin[0]][bin[1]][0] = coor[2];
-              temp2[bin[0]][bin[1]][0] = true;
-            }
-            if (coor[2] <= temp[bin[0]][bin[1]][1] &&
-                coor[2] >= ((range[0] + range[1])/2) &&
-                coor[2] <= range[1]) {
-              temp[bin[0]][bin[1]][1] = coor[2];
-              temp2[bin[0]][bin[1]][1] = true;
-            }
-          }
-          if (pbc[1] > lo[1] && pbc[1] < hi[1]) {
-            bin[0] = coor[0] / width;
-            bin[1] = pbc[1] / width;
-            if (bin[0] > max_bin[0]) {
-              max_bin[0] = bin[0];
-            }
-            if (bin[1] > max_bin[1]) {
-              max_bin[1] = bin[1];
-            }
-            if (coor[2] >= temp[bin[0]][bin[1]][0] &&
-                coor[2] >= range[0] &&
-                coor[2] <= ((range[0] + range[1])/2)) {
-              temp[bin[0]][bin[1]][0] = coor[2];
-              temp2[bin[0]][bin[1]][0] = true;
-            }
-            if (coor[2] <= temp[bin[0]][bin[1]][1] &&
-                coor[2] >= ((range[0] + range[1])/2) &&
-                coor[2] <= range[1]) {
-              temp[bin[0]][bin[1]][1] = coor[2];
-              temp2[bin[0]][bin[1]][1] = true;
-            }
-          }
-        } else if (coor[2] >= range[0] &&
-                   coor[2] <= range[1]) { // go from box edges to centre
-          if (coor[2] <= temp[bin[0]][bin[1]][0]) {
-            temp[bin[0]][bin[1]][0] = coor[2];
-            temp2[bin[0]][bin[1]][0] = true;
-          }
-          if (coor[2] >= temp[bin[0]][bin[1]][1]) {
-            temp[bin[0]][bin[1]][1] = coor[2];
-            temp2[bin[0]][bin[1]][1] = true;
-          }
-          if (pbc[0] > lo[0] && pbc[0] < hi[0] &&
-              pbc[1] > lo[1] && pbc[1] < hi[1]) {
-            bin[0] = pbc[0] / width;
-            bin[1] = pbc[1] / width;
-            if (bin[0] > max_bin[0]) {
-              max_bin[0] = bin[0];
-            }
-            if (bin[1] > max_bin[1]) {
-              max_bin[1] = bin[1];
-            }
-            if (coor[2] <= temp[bin[0]][bin[1]][0]) {
-              temp[bin[0]][bin[1]][0] = coor[2];
-              temp2[bin[0]][bin[1]][0] = true;
-            }
-            if (coor[2] >= temp[bin[0]][bin[1]][1]) {
-              temp[bin[0]][bin[1]][1] = coor[2];
-              temp2[bin[0]][bin[1]][1] = true;
-            }
-          }
-          if (pbc[0] > lo[0] && pbc[0] < hi[0]) {
-            bin[0] = pbc[0] / width;
-            bin[1] = coor[1] / width;
-            if (bin[0] > max_bin[0]) {
-              max_bin[0] = bin[0];
-            }
-            if (bin[1] > max_bin[1]) {
-              max_bin[1] = bin[1];
-            }
-            if (coor[2] <= temp[bin[0]][bin[1]][0]) {
-              temp[bin[0]][bin[1]][0] = coor[2];
-              temp2[bin[0]][bin[1]][0] = true;
-            }
-            if (coor[2] >= temp[bin[0]][bin[1]][1]) {
-              temp[bin[0]][bin[1]][1] = coor[2];
-              temp2[bin[0]][bin[1]][1] = true;
-            }
-          }
-          if (pbc[1] > lo[1] && pbc[1] < hi[1]) {
-            bin[0] = coor[0] / width;
-            bin[1] = pbc[1] / width;
-            if (bin[0] > max_bin[0]) {
-              max_bin[0] = bin[0];
-            }
-            if (bin[1] > max_bin[1]) {
-              max_bin[1] = bin[1];
-            }
-            if (coor[2] <= temp[bin[0]][bin[1]][0]) {
-              temp[bin[0]][bin[1]][0] = coor[2];
-              temp2[bin[0]][bin[1]][0] = true;
-            }
-            if (coor[2] >= temp[bin[0]][bin[1]][1]) {
-              temp[bin[0]][bin[1]][1] = coor[2];
-              temp2[bin[0]][bin[1]][1] = true;
-            }
-          }
+      } else {
+        for (int i = 0; i < Count->BeadCoor; i++) {
+          int id = System.BeadCoor[i];
+          SurfacePoint(System, id, map, axis, opt->in, sidelength, width,
+                       surf_step, bin_use, lo, hi, max_bin);
         }
       } //}}}
 
       // add to sums //{{{
       for (int i = 0; i < bins_step[0]; i++) {
         for (int j = 0; j < bins_step[1]; j++) {
-          if (temp2[i][j][0]) {
-            surf[i][j][0] += temp[i][j][0];
-            values[i][j][0]++;
+          if (bin_use[id3D(i, j, 0)]) {
+            sum_surf[id3D(i, j, 0)] += surf_step[id3D(i, j, 0)];
+            values[id3D(i, j, 0)]++;
           }
-          if (temp2[i][j][1]) {
-            surf[i][j][1] += temp[i][j][1];
-            values[i][j][1]++;
+          if (bin_use[id3D(i, j, 1)]) {
+            sum_surf[id3D(i, j, 1)] += surf_step[id3D(i, j, 1)];
+            values[id3D(i, j, 1)]++;
           }
         }
       } //}}}
 
       // calculate total area as a sum of areas of triangles //{{{
-      double rest[2];
-      for (int aa = 0; aa < 2; aa++) {
-        rest[aa] = sidelength[aa] - width * (bins_step[aa] - 2);
-        if (fabs(rest[0]) < 0.00001) {
-          rest[aa] = width;
-        }
-      }
       for (int i = 0; i < bins_step[0]; i++) {
-        temp[i][bins_step[1]-1][0] = temp[i][bins_step[0]-2][0] + (temp[i][0][0] - temp[i][bins_step[1]-2][0]) * rest[0] / width;
-        temp[i][bins_step[1]-1][1] = temp[i][bins_step[0]-2][1] + (temp[i][0][1] - temp[i][bins_step[1]-2][1]) * rest[0] / width;
-        temp2[i][bins_step[1]-1][0] = temp2[i][0][0];
-        temp2[i][bins_step[1]-1][1] = temp2[i][0][1];
+        surf_step[id3D(i, bins_step[1]-1, 0)] = surf_step[id3D(i, 0, 0)];
+        surf_step[id3D(i, bins_step[1]-1, 1)] = surf_step[id3D(i, 0, 1)];
+        bin_use[id3D(i, bins_step[1]-1, 0)] = bin_use[id3D(i, 0, 0)];
+        bin_use[id3D(i, bins_step[1]-1, 1)] = bin_use[id3D(i, 0, 1)];
       }
       for (int j = 0; j < bins_step[1]; j++) {
-        temp[bins_step[0]-1][j][0] = temp[bins_step[1]-2][j][0] + (temp[0][j][0] - temp[bins_step[1]-2][j][0]) * rest[1] / width;
-        temp[bins_step[0]-1][j][1] = temp[bins_step[1]-2][j][1] + (temp[0][j][1] - temp[bins_step[1]-2][j][1]) * rest[1] / width;
-        temp2[bins_step[0]-1][j][0] = temp2[0][j][0];
-        temp2[bins_step[0]-1][j][1] = temp2[0][j][1];
+        surf_step[id3D(bins_step[0]-1, j, 0)] = surf_step[id3D(0, j, 0)];
+        surf_step[id3D(bins_step[0]-1, j, 1)] = surf_step[id3D(0, j, 1)];
+        bin_use[id3D(bins_step[0]-1, j, 0)] = bin_use[id3D(0, j, 0)];
+        bin_use[id3D(bins_step[0]-1, j, 1)] = bin_use[id3D(0, j, 1)];
       }
-      double sum_area[3] = {0, 0, 0};
-      int triangles[3] = {0, 0, 0};
+      double area[3] = {0, 0, 0};
+      int triangles[3] = {0, 0, 0}; // number of valid triangles per area
       for (int i = 0; i < (bins_step[0] - 1); i++) {
         for (int j = 0; j < (bins_step[1] - 1); j++) {
-          // find the true width of the bin (last one may be narrower)
-          rest[0] = sidelength[0] - width * (bins_step[0] - 2);
-          if (fabs(rest[0]) < 0.00001 || i != (bins_step[0] - 2)) {
-            rest[0] = width;
-          }
-          rest[1] = sidelength[1] - width * (bins_step[1] - 2);
-          if (fabs(rest[1]) < 0.00001 || j != (bins_step[1] - 2)) {
-            rest[1] = width;
-          }
           // four points defining the two triangles
           double A[3] = {-1}, B[3] = {-1}, C[3] = {-1}, D[3] = {-1};
           // top and bottom surfaces //{{{
           for (int aa = 0; aa < 2; aa++) {
-            if (temp2[i][j][aa] && temp2[i+1][j+1][aa]) {
+            if (bin_use[id3D(i, j, aa)] && bin_use[id3D(i+1, j+1, aa)]) {
               A[0] = A[1] = 0;
-              A[2] = temp[i][j][aa];
-              D[0] = rest[0];
-              D[1] = rest[1];
-              D[2] = temp[i+1][j+1][aa];
-              if (temp2[i+1][j][aa]) {
-                B[0] = rest[0];
+              A[2] = surf_step[id3D(i, j, aa)];
+              D[0] = D[1] = width;
+              D[2] = surf_step[id3D(i+1, j+1, aa)];
+              if (bin_use[id3D(i+1, j, aa)]) {
+                // B[0] = rest[0];
+                B[0] = width;
                 B[1] = 0;
-                B[2] = temp[i+1][j][aa];
+                B[2] = surf_step[id3D(i+1, j, aa)];
               }
-              if (temp2[i][j+1][aa]) {
+              if (bin_use[id3D(i, j+1, aa)]) {
                 C[0] = 0;
-                C[1] = rest[1];
-                C[2] = temp[i][j+1][aa];
+                C[1] = width;
+                C[2] = surf_step[id3D(i, j+1, aa)];
               }
-              calc_4points(A, B, C, D, &sum_area[aa], &triangles[aa]);
+              calc_4points(A, B, C, D, &area[aa], &triangles[aa]);
             }
           } //}}}
           // 'middle' surface //{{{
           A[0] = B[0] = C[0] = D[0] = -1;
-          if (temp2[i][j][0] && temp2[i][j][1] &&
-              temp2[i+1][j+1][0] && temp2[i+1][j+1][1]) {
+          if (bin_use[id3D(i, j, 0)] && bin_use[id3D(i, j, 1)] &&
+              bin_use[id3D(i+1, j+1, 0)] && bin_use[id3D(i+1, j+1, 1)]) {
             A[0] = A[1] = 0;
-            A[2] = (temp[i][j][0] + temp[i][j][1]) / 2;
-            D[0] = rest[0];
-            D[1] = rest[1];
-            D[2] = (temp[i+1][j+1][0] + temp[i+1][j+1][1]) / 2;
+            A[2] = (surf_step[id3D(i, j, 0)] + surf_step[id3D(i, j, 1)]) / 2;
+            D[0] = D[1] = width;
+            D[2] = (surf_step[id3D(i+1, j+1, 0)] + surf_step[id3D(i+1, j+1, 1)]) / 2;
 
-            if (temp2[i+1][j][0] && temp2[i+1][j][1]) {
-              B[0] = rest[0];
+            if (bin_use[id3D(i+1, j, 0)] && bin_use[id3D(i+1, j, 1)]) {
+              B[0] = width;
               B[1] = 0;
-              B[2] = (temp[i+1][j][0] + temp[i+1][j][1]) / 2;
+              B[2] = (surf_step[id3D(i+1, j, 0)] + surf_step[id3D(i+1, j, 1)]) / 2;
             }
-            if (temp2[i][j+1][0] && temp2[i][j+1][1]) {
-              C[0] = rest[1];
+            if (bin_use[id3D(i, j+1, 0)] && bin_use[id3D(i, j+1, 1)]) {
+              // C[0] = rest[1];
+              C[0] = width;
               C[1] = 0;
-              C[2] = (temp[i][j+1][0] + temp[i][j+1][1]) / 2;
+              C[2] = (surf_step[id3D(i, j+1, 0)] + surf_step[id3D(i, j+1, 1)]) / 2;
             }
-            calc_4points(A, B, C, D, &sum_area[2], &triangles[2]);
+            calc_4points(A, B, C, D, &area[2], &triangles[2]);
           }
           //}}}
         }
       }
-
+      // add average triangle areas to the total area if not enough triangles
       int n_triangles = (bins_step[0] - 1) * (bins_step[1] - 1) * 2;
       double avg_triangle[3];
       for (int dd = 0; dd < 3; dd++) {
-        avg_triangle[dd] = sum_area[dd] / triangles[dd];
-        sum_area[dd] += avg_triangle[dd] * (n_triangles - triangles[dd]);
+        avg_triangle[dd] = area[dd] / triangles[dd];
+        area[dd] += avg_triangle[dd] * (n_triangles - triangles[dd]);
       }
+      double Length_area = sidelength[0] * sidelength[1];
+      double width_area = (bins_step[0] - 1) * (bins_step[1] - 1) * SQR(width);
       fprintf(out, "%d %lf %lf %lf\n", count_coor,
-              sum_area[0], sum_area[1], sum_area[2]);
+                                       area[0] * Length_area / width_area,
+                                       area[1] * Length_area / width_area,
+                                       area[2] * Length_area / width_area);
       //}}}
-
-      // free the temporary array //{{{
-      for (int i = 0; i < bins_step[0]; i++) {
-        for (int j = 0; j < bins_step[1]; j++) {
-          free(temp[i][j]);
-          free(temp2[i][j]);
-        }
-        free(temp[i]);
-        free(temp2[i]);
-      }
-      free(temp);
-      free(temp2); //}}}
-      //}}}
+      free(surf_step);
+      free(bin_use); //}}}
     } else { //{{{
       if (!SkipTimestep(in, fr, &line_count)) {
         count_coor--;
@@ -659,20 +566,24 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < max_bin[0]; i++) {
     count = 0;
     for (int j = 0; j < max_bin[1]; j++) {
-      if (values[i][j][0] > 0 || values[i][j][1] > 0) {
+      if (values[id3D(i, j, 0)] > 0 ||
+          values[id3D(i, j, 1)] > 0) {
         count++;
         fprintf(out, "%7.4f", width*(2*i+1)/2);
         fprintf(out, " %7.4f", width*(2*j+1)/2);
         double surface[2];
         for (int aa = 0; aa < 2; aa++) {
-          if (values[i][j][aa] > 0) {
-            surface[aa] = surf[i][j][aa] / values[i][j][aa];
+          // if (values[i][j][aa] > 0) {
+          if (values[id3D(i, j, aa)] > 0) {
+            // surface[aa] = surf[i][j][aa] / values[i][j][aa];
+            surface[aa] = sum_surf[id3D(i, j, aa)] / values[id3D(i, j, aa)];
             fprintf(out, " %7.4f", surface[aa]);
           } else {
             fprintf(out, "       ?");
           }
         }
-        if (values[i][j][0] > 0 && values[i][j][1] > 0) {
+        if (values[id3D(i, j, 0)] > 0 ||
+            values[id3D(i, j, 1)] > 0) {
           fprintf(out, " %7.4f", (surface[0]+surface[1])/2);
         } else {
           fprintf(out, "       ?");
@@ -686,106 +597,95 @@ int main(int argc, char *argv[]) {
   }
   fclose(out); //}}}
 
-  // calculate total area as a sum of areas of triangles
-  double sum_area[3] = {0, 0, 0};
-  int triangles[3] = {0, 0, 0};
-  count = 0;
+  // calculate total area as a sum of areas of triangles //{{{
   for (int i = 0; i < max_bin[0]; i++) {
-    values[i][max_bin[1]-1][0] = values[i][0][0];
-    values[i][max_bin[1]-1][1] = values[i][0][1];
-    surf[i][max_bin[1]-1][0] = surf[i][0][0];
-    surf[i][max_bin[1]-1][1] = surf[i][0][1];
+    values[id3D(i, max_bin[1]-1, 0)] = values[id3D(i, 0, 0)];
+    values[id3D(i, max_bin[1]-1, 1)] = values[id3D(i, 0, 1)];
+    sum_surf[id3D(i, max_bin[1]-1, 0)] = sum_surf[id3D(i, 0, 0)];
+    sum_surf[id3D(i, max_bin[1]-1, 1)] = sum_surf[id3D(i, 0, 1)];
   }
   for (int j = 0; j < max_bin[1]; j++) {
-    values[max_bin[0]-1][j][0] = values[0][j][0];
-    values[max_bin[0]-1][j][1] = values[0][j][1];
-    surf[max_bin[0]-1][j][0] = surf[0][j][0];
-    surf[max_bin[0]-1][j][1] = surf[0][j][1];
+    values[id3D(max_bin[0]-1, j, 0)] = values[id3D(0, j, 0)];
+    values[id3D(max_bin[0]-1, j, 1)] = values[id3D(0, j, 1)];
+    sum_surf[id3D(max_bin[0]-1, j, 0)] = sum_surf[id3D(0, j, 0)];
+    sum_surf[id3D(max_bin[0]-1, j, 1)] = sum_surf[id3D(0, j, 1)];
   }
+  double area[3] = {0, 0, 0};
+  int triangles[3] = {0, 0, 0};
   for (int i = 0; i < (max_bin[0] - 1); i++) {
     for (int j = 0; j < (max_bin[1] - 1); j++) {
-      count++;
       // top and bottom surfaces //{{{
       double A[3] = {-1}, B[3] = {-1}, C[3] = {-1}, D[3] = {-1};
       for (int aa = 0; aa < 2; aa++) {
-        if (values[i][j][aa] > 0 && values[i+1][j+1][aa] > 0) {
+        if (values[id3D(i, j, aa)] > 0 && values[id3D(i+1, j+1, aa)] > 0) {
           A[0] = A[1] = 0;
-          A[2] = surf[i][j][aa] / values[i][j][aa];
+          A[2] = sum_surf[id3D(i, j, aa)] / values[id3D(i, j, aa)];
           D[0] = D[1] = width;
-          D[2] = surf[i+1][j+1][aa] / values[i][j][aa];
-          if (values[i+1][j][aa] > 0) {
+          D[2] = sum_surf[id3D(i+1, j+1, aa)] / values[id3D(i+1, j+1, aa)];
+          if (values[id3D(i+1, j, aa)] > 0) {
             B[0] = width;
             B[1] = 0;
-            B[2] = surf[i+1][j][aa] / values[i+1][j][aa];
+            B[2] = sum_surf[id3D(i+1, j, aa)] / values[id3D(i+1, j, aa)];
           }
-          if (values[i][j+1][aa] > 0) {
+          if (values[id3D(i, j+1, aa)] > 0) {
             C[0] = 0;
             C[1] = width;
-            C[2] = surf[i][j+1][aa] / values[i][j+1][aa];
+            C[2] = sum_surf[id3D(i, j+1, aa)] / values[id3D(i, j+1, aa)];
           }
-          calc_4points(A, B, C, D, &sum_area[aa], &triangles[aa]);
+          calc_4points(A, B, C, D, &area[aa], &triangles[aa]);
         }
       } //}}}
       // 'middle' surface //{{{
       A[0] = B[0] = C[0] = D[0] = -1;
-      if (values[i][j][0] > 0 && values[i][j][1] > 0 &&
-          values[i+1][j+1][0] > 0 && values[i+1][j+1][1] > 0) {
-          // values[i+1][j][0] > 0 &&
-          // values[i+1][j][1] > 0 &&
+      if (values[id3D(i, j, 0)] > 0 && values[id3D(i, j, 1)] > 0 &&
+          values[id3D(i+1, j+1, 0)] > 0 && values[id3D(i+1, j+1, 1)] > 0) {
         A[0] = A[1] = 0;
-        A[2] = (surf[i][j][0] / values[i][j][0] +
-                surf[i][j][1] / values[i][j][1]) / 2;
+        A[2] = (sum_surf[id3D(i, j, 0)] / values[id3D(i, j, 0)] +
+                sum_surf[id3D(i, j, 1)] / values[id3D(i, j, 1)]) / 2;
         D[0] = D[1] = width;
-        D[2] = (surf[i+1][j+1][0] / values[i+1][j+1][0] +
-                surf[i+1][j+1][1] / values[i+1][j+1][1]) / 2;
+        D[2] = (sum_surf[id3D(i+1, j+1, 0)] / values[id3D(i+1, j+1, 0)] +
+                sum_surf[id3D(i+1, j+1, 1)] / values[id3D(i+1, j+1, 1)]) / 2;
 
-        if (values[i+1][j][0] > 0 && values[i+1][j][1] > 0) {
+        if (values[id3D(i+1, j, 0)] > 0 &&
+            values[id3D(i+1, j, 1)] > 0) {
           B[0] = width;
           B[1] = 0;
-          B[2] = (surf[i+1][j][0] / values[i+1][j][0] +
-                  surf[i+1][j][1] / values[i+1][j][1]) / 2;
+          B[2] = (sum_surf[id3D(i+1, j, 0)] / values[id3D(i+1, j, 0)] +
+                  sum_surf[id3D(i+1, j, 1)] / values[id3D(i+1, j, 1)]) / 2;
         }
-        if (values[i][j+1][0] > 0 && values[i][j+1][1] > 0) {
+        if (values[id3D(i, j+1, 0)] > 0 &&
+            values[id3D(i, j+1, 1)] > 0) {
           C[0] = width;
           C[1] = 0;
-          C[2] = (surf[i][j+1][0] / values[i][j+1][0] +
-                  surf[i][j+1][1] / values[i][j+1][1]) / 2;
+          C[2] = (sum_surf[id3D(i, j+1, 0)] / values[id3D(i, j+1, 0)] +
+                  sum_surf[id3D(i, j+1, 1)] / values[id3D(i, j+1, 1)]) / 2;
         }
-        calc_4points(A, B, C, D, &sum_area[2], &triangles[2]);
+        calc_4points(A, B, C, D, &area[2], &triangles[2]);
       }
       //}}}
     }
   }
 
-  // int n_triangles = (bins[0] - 1) * (bins[1] - 1)  * 2;
+  // add average triangle areas to the total area if not enough triangles
   int n_triangles = (max_bin[0] - 1) * (max_bin[1] - 1) * 2;
   double avg_triangle[3];
   for (int dd = 0; dd < 3; dd++) {
-    avg_triangle[dd] = sum_area[dd] / triangles[dd];
-  }
-  for (int dd = 0; dd < 3; dd++) {
-    sum_area[dd] += avg_triangle[dd] * (n_triangles - triangles[dd]);
+    avg_triangle[dd] = area[dd] / triangles[dd];
+    area[dd] += avg_triangle[dd] * (n_triangles - triangles[dd]);
   }
   double Length_area = System.Box.Length[0] * System.Box.Length[1];
   double width_area = (max_bin[0] - 1) * (max_bin[1] - 1) * SQR(width);
   out = OpenFile(file_area, "a");
   fprintf(out, "# average: (1) surface 1; (2) surface 2; (3) middle surface\n");
-  fprintf(out, "# %lf %lf %lf\n", sum_area[0] * Length_area / width_area,
-                                  sum_area[1] * Length_area / width_area,
-                                  sum_area[2] * Length_area / width_area);
-  fclose(out);
+  fprintf(out, "# %lf %lf %lf\n", area[0] * Length_area / width_area,
+                                  area[1] * Length_area / width_area,
+                                  area[2] * Length_area / width_area);
+  fclose(out); //}}}
 
   FreeSystem(&System);
-  for (int i = 0; i < bins_alloc[0]; i++) {
-    for (int j = 0; j < bins_alloc[1]; j++) {
-      free(surf[i][j]);
-      free(values[i][j]);
-    }
-    free(surf[i]);
-    free(values[i]);
-  }
-  free(surf);
+  free(sum_surf);
   free(values);
+  free(opt->bt);
   free(opt);
 
   return 0;
