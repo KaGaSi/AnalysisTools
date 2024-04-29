@@ -2281,7 +2281,6 @@ static int *VtfAtomLineValues() {
   }
   return value;
 } //}}}
-// TODO: add long id & VECOTR position, so it doesn't have to be done twice
 static int VtfCheckCoorOrderedLine(double coor[3]) { //{{{
   if (words >= 3 &&
       IsRealNumber(split[0], &coor[0]) &&

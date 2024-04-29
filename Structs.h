@@ -137,6 +137,7 @@ static const PARAMS InitParams = {
 typedef struct BeadType { //{{{
   char Name[BEAD_NAME]; // name of given bead type
   int Number, // number of beads of given type
+      InCoor, // nubmer of beads in the coordinate file
       *Index; // array of Bead[] indices
   double Charge, // charge of every bead of given type
          Mass, // mass of every bead of given type

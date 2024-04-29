@@ -7,15 +7,20 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   } else {
     ptr = stdout;
     fprintf(ptr, "\
-TODO: CHECK & REWRITE\n\n\
-Surface utility determines the first bead (either from the box's centre or \
-edges) in each square prism defined by the given <width> parameter, thus \
-defining a surface of, e.g., polymer brush or lipid bilayer. The <width> \
-slices the box into square prisms along the chosen axis (i.e., if z is the \
+Surface utility determines the first bead (either going from the box's centre \
+- defaault behaviour - \
+or from its edges - if --in option is used) \
+in each square prism defined by the given <width> parameter, \
+thus defining a surface of, e.g., polymer brush or lipid bilayer. The <width> \
+'slices' the box into square prisms along the chosen axis (i.e., if z is the \
 chosen axis, the xy plane is chopped into squares, creating \
 <width>*<width>*<box length in z> prisms). In each such prism, two beads \
 are found corresponding to the two surfaces (e.g., polymer brush on both box \
-edges or the two surfaces of a lipid bilayer inside the box).\n\n");
+edges or the two surfaces of a lipid bilayer inside the box). The surface \
+coordinates are saved into the <surf.txt> output file, while their area \
+(calculated from triangles defined by the surface coordinates) are written \
+into the <area.txt>. What bead types are considered as possible surface \
+beads is controlled via --bonded and -bt options.\n\n");
   }
 
   fprintf(ptr, "Usage:\n");
@@ -53,8 +58,6 @@ OPT * opt_create(void) {
  * first box dimensions to guard against box size changes (enlargement).
  */
 int bin_alloc[2];
-
-// TODO: overall averages to <surf.txt>?
 
 // calculate index in an 1D array that simulates a 3D one /{{{
 int id3D(int x, int y, int z) {
@@ -185,8 +188,6 @@ void SurfacePoint(SYSTEM System, int id, int map[2], int axis, bool in,
   }
 } //}}}
 
-// TODO: reinstate molecular condition
-
 int main(int argc, char *argv[]) {
 
   // define options //{{{
@@ -265,7 +266,7 @@ int main(int argc, char *argv[]) {
   SYSTEM System = ReadStructure(in, opt->c.detailed);
   COUNT *Count = &System.Count;
 
-  // -bt option
+  // -bt option //{{{
   opt->bt_number = 0;
   opt->bt = calloc(Count->BeadType, sizeof *opt->bt);
   bool *flag = calloc(Count->BeadType, sizeof *flag);
@@ -276,27 +277,37 @@ int main(int argc, char *argv[]) {
         opt->bt_number++;
       }
     }
-  }
+    if (opt->bonded) {
+      strcpy(ERROR_MSG, "when both are used, --bonded takes precedence");
+      PrintWarnOption("--bonded/-bt");
+    }
+  } //}}}
 
-  // read the first timestep from a coordinate file to get box dimensions
+  // read the first timestep from a coordinate file to get box dimensions //{{{
   FILE *fr = OpenFile(in.coor.name, "r");
   int line_count = 0;
   if (!ReadTimestep(in, fr, &System, &line_count)) {
     exit(1);
   }
   fclose(fr);
+  if (System.Box.Volume == -1) {
+    strcpy(ERROR_MSG, "missing box dimensions");
+    PrintError();
+    exit(1);
+  }
   double sidelength[3];
   sidelength[0] = System.Box.Length[map[0]];
   sidelength[1] = System.Box.Length[map[1]];
   sidelength[2] = System.Box.Length[axis];
-
-  if (opt->c.verbose) {
-    VerboseOutput(System);
-  }
+  //}}}
 
   // number of bins, guarding against box enlargement
   bin_alloc[0] = sidelength[0] / width * 10;
   bin_alloc[1] = sidelength[1] / width * 10;
+
+  if (opt->c.verbose) {
+    VerboseOutput(System);
+  }
 
   /*
    * Number of values in each bin each surface: should be equal to the number of
@@ -359,11 +370,11 @@ int main(int argc, char *argv[]) {
         PrintWarning();
         warn_box_change = true;
       } //}}}
-      // number of bins //{{{
       sidelength[0] = System.Box.Length[map[0]];
       sidelength[1] = System.Box.Length[map[1]];
       sidelength[2] = System.Box.Length[axis];
 
+      // number of bins //{{{
       /*
        * Recalculate number of bins for this timestep, considering that
        *   1) Box.Length might have changed
@@ -412,22 +423,26 @@ int main(int argc, char *argv[]) {
       } //}}}
 
       // calculate surface //{{{
-      if (opt->bonded) { // use all beads in moleculs
+      if (opt->bonded) { // use all beads in moleculs (--bonded)
         for (int i = 0; i < Count->Bonded; i++) {
           int id = System.Bonded[i];
-          SurfacePoint(System, id, map, axis, opt->in, sidelength, width,
-                       surf_step, bin_use, lo, hi, max_bin);
-        }
-      } else if (opt->bt_number > 0) { // use specified bead types
-        for (int i = 0; i < opt->bt_number; i++) {
-          BEADTYPE *btype = &System.BeadType[opt->bt[i]];
-          for (int j = 0; j < btype->Number; j++) {
-            int id = btype->Index[j];
+          if (System.Bead[id].InTimestep) {
             SurfacePoint(System, id, map, axis, opt->in, sidelength, width,
                          surf_step, bin_use, lo, hi, max_bin);
           }
         }
-      } else {
+      } else if (opt->bt_number > 0) { // use specified bead types (-bt option)
+        for (int i = 0; i < opt->bt_number; i++) {
+          BEADTYPE *btype = &System.BeadType[opt->bt[i]];
+          for (int j = 0; j < btype->Number; j++) {
+            int id = btype->Index[j];
+            if (System.Bead[id].InTimestep) {
+              SurfacePoint(System, id, map, axis, opt->in, sidelength, width,
+                           surf_step, bin_use, lo, hi, max_bin);
+            }
+          }
+        }
+      } else { // use all beads (no option specified)
         for (int i = 0; i < Count->BeadCoor; i++) {
           int id = System.BeadCoor[i];
           SurfacePoint(System, id, map, axis, opt->in, sidelength, width,

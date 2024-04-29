@@ -1,7 +1,7 @@
 \section{Surface} \label{sec:Surface}
 
 Surface utility determines the average surface of structures such as
-membranes or or polymer brushes.
+membranes or or polymer brushes and calculates the surface areas.
 
 The utility cuts the plane perpendicular to the chosen axis into squares of
 size \tt{<width>*<width>} and then finds the beads with the highest and
@@ -10,7 +10,7 @@ into the square for each square on the plane. By default, it searches the
 chosen axis for the beads with the highest coordinate in the interval
 $\langle0, (box length)/2\rangle$ and with the lowest coordinate in the
 interval $\langle(box\ length)/2; (box\ length)\rangle$, i.e., it assumes
-something such as a polymer brush on each wall. If \tt{-in}
+something such as a polymer brush on each wall. If \tt{--in}
 option is used, it searches for a layer structure inside the box, i.e., it
 searches for the bead with the lowest and highest coordinates in the whole
 box, $\langle0; (box\ length)\rangle$ (this mode finds surfaces for
@@ -27,13 +27,13 @@ types can be used. This is particularly useful when, e.g., other molecules
 solubilise inside the brush/membrane, leaving some molecules in the
 solution.
 
-Following are two examples of usage with and without \tt{-in} option
+Following are two examples of usage with and without \tt{--in} option
 (on top are snapshots with coloured balls representing the detected surface
 and on the bottom are graphs of the surface):
 
 \begin{minipage}{0.45\textwidth}
   \centering
-  \tt{Surface in.vcf 1 out.txt z -in}
+  \tt{Surface in.vcf 1 out.txt z --in}
   \includegraphics[width=\textwidth]{Surface-bilayer.pdf}
 \end{minipage}
 \hfill
@@ -62,7 +62,9 @@ Usage: \tt{Surface <input> <width> <surf.txt> <area.txt> <axis> [options]}
   \toprule
   \multicolumn{2}{l}{Options} \\
   \midrule
-  \tt{--in} & start from the box centre instead of from its edges \\
+  \tt{--in}          & start from the box centre instead of from its edges \\
+  \tt{--bonded}      & use beads in molecules for surface recognition \\
+  \tt{-bt <name(s)>} & use specified bead types for surface recognition \\
   \midrule
   \multicolumn{2}{l}{Other options (see the beginning of
                      Chapter~\ref{chap:Utils})}\\

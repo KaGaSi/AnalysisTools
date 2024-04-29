@@ -1,5 +1,13 @@
 #include "AnalysisTools.h"
 
+// TODO: consider BeadType[].Index, System.Bonded, etc. arrays - shouldn't they
+//       be filled based on whether the beads are in the timestep? Plus a
+//       function that says 'everything's there' for utilities not using
+//       coordinates (e.g., DistrAgg). Needs adding IndexCoor count, I guess, so
+//       we know how many are in that timestep.
+//       ...would speed some cases, and it's easier to use since it does not
+//       have to be combined with Bead[].InTimestep anymore.
+
 // TODO: consider the names - can't I have different bead types with the same
 //       name? ...I'd only need to ensure that going over named beads would
 //       encompass all bead types with that name.
@@ -302,27 +310,56 @@ void FillMoleculeTypeChargeMass(MOLECULETYPE *mtype, BEADTYPE btype[]) { //{{{
     }
   }
 } //}}}
+// void FillBeadTypeIndex(SYSTEM *System) { //{{{
+//   COUNT *Count = &System->Count;
+//   // allocate memory for Index arrays
+//   for (int i = 0; i < Count->BeadType; i++) {
+//     BEADTYPE *bt_i = &System->BeadType[i];
+//     if (bt_i->Number > 0) {
+//       bt_i->Index = malloc(sizeof *bt_i->Index * bt_i->Number);
+//     }
+//   }
+//   // fill the Index arrays
+//   int *count_id = calloc(Count->BeadType, sizeof *count_id);
+//   for (int i = 0; i < Count->Bead; i++) {
+//     int type = System->Bead[i].Type;
+//     if (System->BeadType[type].Number < count_id[type]) {
+//       fprintf(stderr, "...hmm; error count_id[%d]=%d (%d)\n", type,
+//               count_id[type], System->BeadType[type].Number);
+//     }
+//     System->BeadType[type].Index[count_id[type]] = i;
+//     count_id[type]++;
+//   }
+//   free(count_id);
+// } //}}}
+// TODO: bt->Index alloc must be changed if it's supposed to be run whenever
+//       coordinates are read; two ways:
+//       a) add a switch saying when to allocate (only when called through some
+//          structure-reading function)
+//       b) put the allocation directly into the structure-reading functions
+//          (where other allocations are - well, should be, I think)
 void FillBeadTypeIndex(SYSTEM *System) { //{{{
   COUNT *Count = &System->Count;
   // allocate memory for Index arrays
   for (int i = 0; i < Count->BeadType; i++) {
-    BEADTYPE *bt_i = &System->BeadType[i];
-    if (bt_i->Number > 0) {
-      bt_i->Index = malloc(sizeof *bt_i->Index * bt_i->Number);
+    BEADTYPE *bt = &System->BeadType[i];
+    if (bt->Number > 0) {
+      bt->Index = malloc(sizeof *bt->Index * bt->Number);
     }
+    bt->InCoor = 0;
   }
   // fill the Index arrays
-  int *count_id = calloc(Count->BeadType, sizeof *count_id);
-  for (int i = 0; i < Count->Bead; i++) {
-    int type = System->Bead[i].Type;
-    if (System->BeadType[type].Number < count_id[type]) {
+  for (int i = 0; i < Count->BeadCoor; i++) {
+    int id = System->BeadCoor[i],
+        type = System->Bead[id].Type;
+    BEADTYPE *bt = &System->BeadType[type];
+    if (bt->Number < bt->InCoor) {
       fprintf(stderr, "...hmm; error count_id[%d]=%d (%d)\n", type,
-              count_id[type], System->BeadType[type].Number);
+              bt->InCoor, bt->Number);
     }
-    System->BeadType[type].Index[count_id[type]] = i;
-    count_id[type]++;
+    bt->Index[bt->InCoor] = i;
+    bt->InCoor++;
   }
-  free(count_id);
 }
 void ReFillBeadTypeIndex(SYSTEM *System) {
   for (int i = 0; i < System->Count.BeadType; i++) {
@@ -434,18 +471,25 @@ void FillSystemNonessentials(SYSTEM *System) { //{{{
 } //}}}
 void FillInCoor(SYSTEM *System) { //{{{
   COUNT *Count = &System->Count;
+  for (int i = 0; i < Count->BeadType; i++) {
+    System->BeadType[i].InCoor = 0;
+  }
   Count->BondedCoor = 0;
   Count->UnbondedCoor = 0;
   for (int i = 0; i < Count->BeadCoor; i++) {
     int id = System->BeadCoor[i];
-    System->Bead[id].InTimestep = true;
-    if (System->Bead[id].Molecule != -1) {
+    BEAD *b = &System->Bead[id];
+    b->InTimestep = true;
+    if (b->Molecule != -1) {
       System->BondedCoor[Count->BondedCoor] = id;
       Count->BondedCoor++;
     } else {
       System->UnbondedCoor[Count->UnbondedCoor] = id;
       Count->UnbondedCoor++;
     }
+    BEADTYPE *bt = &System->BeadType[b->Type];
+    bt->Index[bt->InCoor] = id;
+    bt->InCoor++;
   }
 } //}}}
 // sort a bond/angle/dihedral/improper array in an ascending order
@@ -3018,7 +3062,7 @@ void CheckSystem(SYSTEM System, char file[]) {
   // BeadType[].Index array //{{{
   for (int i = 0; i < Count->BeadType; i++) {
     BEADTYPE *bt_i = &System.BeadType[i];
-    for (int j = 0; j < bt_i->Number; j++) {
+    for (int j = 0; j < bt_i->InCoor; j++) {
       if (bt_i->Index[j] < 0 || bt_i->Index[j] >= Count->Bead) {
         strcpy(ERROR_MSG, "incorrect index in BeadType[].Index array");
         PrintErrorFile(file, "\0", "\0");
