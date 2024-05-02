@@ -17,7 +17,7 @@ void ReFillMoleculeTypeBType(SYSTEM *System);
 void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
                                 BEADTYPE BeadType[]);
 void FillBeadTypeIndex(SYSTEM *System);
-void ReFillBeadTypeIndex(SYSTEM *System);
+void AllocFillBeadTypeIndex(SYSTEM *System);
 void FillMoleculeTypeIndex(SYSTEM *System);
 void ReFillMoleculeTypeIndex(SYSTEM *System);
 void FillIndexMol(SYSTEM *System);

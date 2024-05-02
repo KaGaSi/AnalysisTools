@@ -314,9 +314,9 @@ void FillMoleculeTypeChargeMass(MOLECULETYPE *mtype, BEADTYPE btype[]) { //{{{
 //   COUNT *Count = &System->Count;
 //   // allocate memory for Index arrays
 //   for (int i = 0; i < Count->BeadType; i++) {
-//     BEADTYPE *bt_i = &System->BeadType[i];
-//     if (bt_i->Number > 0) {
-//       bt_i->Index = malloc(sizeof *bt_i->Index * bt_i->Number);
+//     BEADTYPE *bt = &System->BeadType[i];
+//     if (bt->Number > 0) {
+//       bt->Index = malloc(sizeof *bt->Index * bt->Number);
 //     }
 //   }
 //   // fill the Index arrays
@@ -343,9 +343,6 @@ void FillBeadTypeIndex(SYSTEM *System) { //{{{
   // allocate memory for Index arrays
   for (int i = 0; i < Count->BeadType; i++) {
     BEADTYPE *bt = &System->BeadType[i];
-    if (bt->Number > 0) {
-      bt->Index = malloc(sizeof *bt->Index * bt->Number);
-    }
     bt->InCoor = 0;
   }
   // fill the Index arrays
@@ -361,9 +358,12 @@ void FillBeadTypeIndex(SYSTEM *System) { //{{{
     bt->InCoor++;
   }
 }
-void ReFillBeadTypeIndex(SYSTEM *System) {
+void AllocFillBeadTypeIndex(SYSTEM *System) {
   for (int i = 0; i < System->Count.BeadType; i++) {
-    free(System->BeadType[i].Index);
+    BEADTYPE *bt = &System->BeadType[i];
+    if (bt->Number > 0) {
+      bt->Index = calloc(bt->Number, sizeof *bt->Index);
+    }
   }
   FillBeadTypeIndex(System);
 } //}}}
@@ -1647,7 +1647,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name) {
     for (int i = 0; i < count_old.BeadType; i++) {
       free(Sys_orig->BeadType[i].Index);
     }
-    FillBeadTypeIndex(Sys_orig);
+    AllocFillBeadTypeIndex(Sys_orig);
   } //}}}
   // add bond/angle/dihedral/improper types from Sys_add to Sys_orig //{{{
   if (Count_add->BondType > 0) {
@@ -2007,7 +2007,7 @@ SYSTEM CopySystem(SYSTEM S_in) {
         *bt_out = *bt_in;
         if (bt_out->Number > 0) {
           bt_out->Index = malloc(bt_out->Number * sizeof *bt_out->Index);
-          for (int j = 0; j < bt_out->Number; j++) {
+          for (int j = 0; j < bt_out->InCoor; j++) {
             bt_out->Index[j] = bt_in->Index[j];
           }
         }
@@ -2672,7 +2672,7 @@ void PruneSystem(SYSTEM *System) {
   MergeMoleculeTypes(System);
   RenameBeadTypes(System);
   RenameMoleculeTypes(System);
-  FillBeadTypeIndex(System);
+  AllocFillBeadTypeIndex(System);
   FillMoleculeTypeIndex(System);
   // rewrite Index_mol //{{{
   if (Count->HighestResid != -1) {

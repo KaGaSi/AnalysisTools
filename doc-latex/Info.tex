@@ -13,15 +13,18 @@ structure section. If coordinates should be read from the input \vtf structure
 file (and the system potentially pruned), just use the \tt{-c} option with that
 filename.
 
-Using the \tt{-i} option with an extra structure file asigns bead mass, charge,
+Using the \tt{-i} option with an extra structure file assigns bead mass, charge,
 and/or radius from the extra file if the bead types in the original file have
 unspecified values; this is done only for bead types that share names. Also, if
 the two structure files share molecules that have the same bead type order
 (which can be initially checked via individual \tt{Info} runs on the two files),
 bond types, angles, and angle type can be added to the molecule types in the
-original file. Using \tt{-i!} first exchanges beads in the original molecules
-with those from the extra file (if the molecules have the same number of beads)
-before adding the extra information. See \tt{Examples/Info} folder for examples.
+original file. Note that to add this extra information, the bead types in the
+bonds/angles/dihedrals must be the same, i.e., all their paramaters (name, mass,
+charge, radius) must be the same. Using \tt{-i!} first exchanges beads in the
+original molecules with those from the extra file (if the molecules have the
+same number of beads) before adding the extra information. See
+\tt{Examples/Info} folder for examples.
 
 \tt{Info} can also write this information into a new file (\tt{-o} option) of
 any format. Note that only one timestep is read and, therefore, saved. Also, if

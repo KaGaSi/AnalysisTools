@@ -38,6 +38,8 @@ exchanged for the new ones.\n\n");
           "and roll (specify in degrees; overrides --no-rotate)\n");
   fprintf(ptr, "  --head            use the first bead of a molecule for "
                "constraint checks (default: molecule's geometric centre)\n");
+  fprintf(ptr, "  --tail            use the last bead of a molecule for "
+               "constraint checks (--head overwrites --tail)\n");
   fprintf(ptr, "  --real            use real coordinates for "
           "-cx/-cy/-cz/-off options instead of fractions\n");
   fprintf(ptr, "  -cx 2×<float>     constrain x-coordinate to specified "
@@ -55,19 +57,19 @@ exchanged for the new ones.\n\n");
 
 // structure for options //{{{
 struct OPT {
-  bool ld, hd;            // -ld/-hd
-  double ldist, hdist,    //
-         angle[3],        // -a
-         axis[3][2],      // -cx/-cy/-cz
-         off[3];          // -off
-  bool *bt_use_orig,      // -bt
-       *sw_type,          // -xb
-       new,               // generate new system from scratch?
-       real, add, no_rot, // --real/--add/--no-rotate
-       bonded, head;      // --bonded/--head
-  BOX box;                // -b (then constrained 'box' via -cx/-cy/-cz)
-  int seed;               // -s
-  FILE_TYPE fout;         // -o
+  bool ld, hd;             // -ld/-hd
+  double ldist, hdist,     //
+         angle[3],         // -a
+         axis[3][2],       // -cx/-cy/-cz
+         off[3];           // -off
+  bool *bt_use_orig,       // -bt
+       *sw_type,           // -xb
+       new,                // generate new system from scratch?
+       real, add, no_rot,  // --real/--add/--no-rotate
+       bonded, head, tail; // --bonded/--head/--tail
+  BOX box;                 // -b (then constrained 'box' via -cx/-cy/-cz)
+  int seed;                // -s
+  FILE_TYPE fout;          // -o
   COMMON_OPT c;
 };
 OPT * opt_create(void) {
@@ -192,7 +194,7 @@ void Rotate(SYSTEM System, int number, int *list,
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 7, all = common + 17, count = 0, req_arg = 3;
+  int common = 7, all = common + 18, count = 0, req_arg = 3;
   char option[all][OPT_LENGTH];
   // common options
   strcpy(option[count++], "-st");
@@ -213,6 +215,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "--no-rotate");
   strcpy(option[count++], "-a");
   strcpy(option[count++], "--head");
+  strcpy(option[count++], "--tail");
   strcpy(option[count++], "-cx");
   strcpy(option[count++], "-cy");
   strcpy(option[count++], "-cz");
@@ -353,6 +356,7 @@ int main(int argc, char *argv[]) {
     opt->no_rot = false;
   } //}}}
   opt->head = BoolOption(argc, argv, "--head");
+  opt->tail = BoolOption(argc, argv, "--tail");
   // output box dimensions //{{{
   opt->box = InitBox;
   double temp[3] = {0, 0, 0};
@@ -520,6 +524,12 @@ int main(int argc, char *argv[]) {
     double zero[3];
     if (opt->head) {
       int id0 = S_add.Molecule[i].Bead[0];
+      for (int dd = 0; dd < 3; dd++) {
+        zero[dd] = S_add.Bead[id0].Position[dd];
+      }
+    } else if (opt->tail) {
+      int n = S_add.MoleculeType[S_add.Molecule[i].Type].nBeads;
+      int id0 = S_add.Molecule[i].Bead[n-1];
       for (int dd = 0; dd < 3; dd++) {
         zero[dd] = S_add.Bead[id0].Position[dd];
       }

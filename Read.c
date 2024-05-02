@@ -617,24 +617,25 @@ static void LtrjFillAtomVariables(int n, char var[n][10]) { //{{{
 static SYSTEM LmpDataReadStruct(char file[]) { //{{{
   SYSTEM System;
   InitSystem(&System);
+  COUNT *Count = &System.Count;
   FILE *fr = OpenFile(file, "r");
   int line_count = 0;
   int lmp_types = LmpDataReadHeader(fr, file, &System, &line_count);
   LmpDataReadBody(fr, file, &System, lmp_types, &line_count);
   fclose(fr);
-  System.Count.BeadCoor = System.Count.Bead;
-  System.Count.UnbondedCoor = System.Count.Unbonded;
-  System.Count.BondedCoor = System.Count.Bonded;
   CalculateBoxData(&System.Box, 1);
   RemoveExtraTypes(&System);
   MergeBeadTypes(&System, true);
   MergeMoleculeTypes(&System);
   FillSystemNonessentials(&System);
-  System.BeadCoor = realloc(System.BeadCoor,
-                            System.Count.Bead * sizeof *System.BeadCoor);
   // take the data file as a coordinate file as well
+  Count->BeadCoor = Count->Bead;
+  Count->UnbondedCoor = Count->Unbonded;
+  Count->BondedCoor = Count->Bonded;
+  System.BeadCoor = realloc(System.BeadCoor,
+                            Count->Bead * sizeof *System.BeadCoor);
   int c_unbonded = 0, c_bonded = 0;
-  for (int i = 0; i < System.Count.Bead; i++) {
+  for (int i = 0; i < Count->Bead; i++) {
     System.BeadCoor[i] = i;
     if (System.Bead[i].Molecule == -1) {
       System.UnbondedCoor[c_unbonded] = i;
@@ -644,6 +645,7 @@ static SYSTEM LmpDataReadStruct(char file[]) { //{{{
       c_bonded++;
     }
   }
+  AllocFillBeadTypeIndex(&System);
   // make molecule indices go from 0 (just to avoid large numbers) //{{{
   // 1) find the lowest molecule index
   int min_id = 1e7;
@@ -917,38 +919,38 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
         InitBead(&System->Bead[i]);
         InitBeadType(&System->BeadType[i]);
       } //}}}
-      // <int> bonds //{{{
+    // <int> bonds //{{{
     } else if (words > 1 && strcmp(split[1], "bonds") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->Bond = val; //}}}
-      // <int> angles //{{{
+    // <int> angles //{{{
     } else if (words > 1 && strcmp(split[1], "angles") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->Angle = val; //}}}
-      // <int> dihedrals //{{{
+    // <int> dihedrals //{{{
     } else if (words > 1 && strcmp(split[1], "dihedrals") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->Dihedral = val; //}}}
-      // <int> impropers //{{{
+    // <int> impropers //{{{
     } else if (words > 1 && strcmp(split[1], "impropers") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
         goto error;
       }
       Count->Improper = val; //}}}
-      // <int> atom types //{{{
+    // <int> atom types //{{{
     } else if (words > 2 && strcmp(split[1], "atom") == 0 &&
                strcmp(split[2], "types") == 0) {
       if (!IsNaturalNumber(split[0], &val) || val == 0) {
         goto error;
       }
       atom_types = val; //}}}
-      // <int> bond types //{{{
+    // <int> bond types //{{{
     } else if (words > 2 && strcmp(split[1], "bond") == 0 &&
                strcmp(split[2], "types") == 0) {
       if (strcmp(split[0], "???") != 0) {
@@ -965,7 +967,7 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
         }
       }
       //}}}
-      // <int> angle types //{{{
+    // <int> angle types //{{{
     } else if (words > 2 && strcmp(split[1], "angle") == 0 &&
                strcmp(split[2], "types") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
@@ -980,7 +982,7 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
         }
       }
       //}}}
-      // <int> dihedral types //{{{
+    // <int> dihedral types //{{{
     } else if (words > 2 && strcmp(split[1], "dihedral") == 0 &&
                strcmp(split[2], "types") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
@@ -996,7 +998,7 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
         }
       }
       //}}}
-      // <int> improper types //{{{
+    // <int> improper types //{{{
     } else if (words > 2 && strcmp(split[1], "improper") == 0 &&
                strcmp(split[2], "types") == 0) {
       if (!IsWholeNumber(split[0], &val)) {
@@ -1012,7 +1014,7 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
         }
       }
       //}}}
-      // <double> <double> xlo xhi //{{{
+    // <double> <double> xlo xhi //{{{
     } else if (words > 3 && strcmp(split[2], "xlo") == 0 &&
                strcmp(split[3], "xhi") == 0) {
       double xlo, xhi;
@@ -1021,7 +1023,7 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
       }
       System->Box.Low[0] = xlo;
       System->Box.OrthoLength[0] = xhi - xlo; //}}}
-      // <double> <double> ylo yhi //{{{
+    // <double> <double> ylo yhi //{{{
     } else if (words > 3 && strcmp(split[2], "ylo") == 0 &&
                strcmp(split[3], "yhi") == 0) {
       double ylo, yhi;
@@ -1030,7 +1032,7 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
       }
       System->Box.Low[1] = ylo;
       System->Box.OrthoLength[1] = yhi - ylo; //}}}
-      // <double> <double> zlo zhi //{{{
+    // <double> <double> zlo zhi //{{{
     } else if (words > 3 && strcmp(split[2], "zlo") == 0 &&
                strcmp(split[3], "zhi") == 0) {
       double zlo, zhi;
@@ -1039,7 +1041,7 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
       }
       System->Box.Low[2] = zlo;
       System->Box.OrthoLength[2] = zhi - zlo; //}}}
-      // <double> <double> <double> xy xz yz //{{{
+    // <double> <double> <double> xy xz yz //{{{
     } else if (words > 5 && strcmp(split[3], "xy") == 0 &&
                strcmp(split[4], "xz") == 0 && strcmp(split[5], "yz") == 0) {
       double xy, xz, yz;
@@ -2151,6 +2153,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   MergeBeadTypes(&Sys, detailed);
   MergeMoleculeTypes(&Sys);
   FillSystemNonessentials(&Sys);
+  AllocFillBeadTypeIndex(&Sys);
   CheckSystem(Sys, file);
   Sys.Box = VtfReadPBC(file);
   return Sys;
@@ -2715,6 +2718,7 @@ static SYSTEM FieldRead(char file[]) { //{{{
   System.BeadCoor = realloc(System.BeadCoor,
                             Count->Bead * sizeof *System.BeadCoor);
   FillSystemNonessentials(&System);
+  AllocFillBeadTypeIndex(&System);
   CheckSystem(System, file);
   return System;
 } //}}}
@@ -3390,12 +3394,16 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
           long beads[4];
           PARAMS values = InitParams;
           // error - incorrect line //{{{
-          if (words < 5 || !IsNaturalNumber(split[1], &beads[0]) ||
+          if (words < 5 ||
+              !IsNaturalNumber(split[1], &beads[0]) ||
               !IsNaturalNumber(split[2], &beads[1]) ||
               !IsNaturalNumber(split[3], &beads[2]) ||
-              !IsNaturalNumber(split[4], &beads[3]) || beads[0] == beads[1] ||
-              beads[0] == beads[2] || beads[0] == beads[3] ||
-              beads[1] == beads[2] || beads[1] == beads[3] ||
+              !IsNaturalNumber(split[4], &beads[3]) ||
+              beads[0] == beads[1] ||
+              beads[0] == beads[2] ||
+              beads[0] == beads[3] ||
+              beads[1] == beads[2] ||
+              beads[1] == beads[3] ||
               beads[2] == beads[3]) {
             snprintf(ERROR_MSG, LINE, "incorrect improper line for molecule "
                      "%s%s", ErrYellow(), mt_i->Name);
