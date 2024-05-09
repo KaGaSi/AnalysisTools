@@ -41,7 +41,7 @@ int *AngleIndices(SYSTEM System, int mol, int angle);
 int *DihedralIndices(SYSTEM System, int mol, int dihed);
 int *ImproperIndices(SYSTEM System, int mol, int dihed);
 // enrich molecule types with information from a second System structure
-void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool beads, bool name);
+void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool name);
 // test whether two bead types are identical
 bool SameBeadType(BEADTYPE bt_1, BEADTYPE bt_2);
 // create new bead/molecule type, realloc'ing the appropriate array
@@ -55,8 +55,7 @@ int FindBeadType(char name[], SYSTEM System);
 // identify molecule type based on name
 int FindMoleculeName(char name[], SYSTEM System);
 // identify molecule type based on name only or on other parameters too
-int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2,
-                     int mode, bool name);
+int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode);
 // TODO: CopySystem won't be static?
 SYSTEM CopySystem(SYSTEM S_in);
 // cleanse System by removing molecule/bead types with .Number=0, etc.

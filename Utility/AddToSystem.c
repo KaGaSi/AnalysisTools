@@ -194,12 +194,11 @@ void Rotate(SYSTEM System, int number, int *list,
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 7, all = common + 18, count = 0, req_arg = 3;
+  int common = 6, all = common + 18, count = 0, req_arg = 3;
   char option[all][OPT_LENGTH];
   // common options
   strcpy(option[count++], "-st");
   strcpy(option[count++], "-i");
-  strcpy(option[count++], "--detailed");
   strcpy(option[count++], "--verbose");
   strcpy(option[count++], "--silent");
   strcpy(option[count++], "--help");
@@ -403,7 +402,7 @@ int main(int argc, char *argv[]) {
   if (opt->new) {
     InitSystem(&S_orig);
   } else {
-    S_orig = ReadStructure(in, opt->c.detailed);
+    S_orig = ReadStructure(in, false);
   }
   COUNT *C_orig = &S_orig.Count;
 
@@ -460,7 +459,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // read input FIELD file defining what to add //{{{
-  SYSTEM S_add = ReadStructure(field, opt->c.detailed);
+  SYSTEM S_add = ReadStructure(field, false);
   COUNT *C_add = &S_add.Count;
   C_add->BeadCoor = C_add->Bead;
   for (int i = 0; i < C_add->Bead; i++) {
@@ -816,7 +815,7 @@ int main(int argc, char *argv[]) {
     FILE *out = OpenFile(fout.name, "w");
     fclose(out);
   }
-  WriteTimestep(fout, S_out, 0, write);
+  WriteTimestep(fout, S_out, 0, write, argc, argv);
   if (opt->fout.name[0] != '\0') {
     if (opt->fout.type == VTF_FILE ||
         opt->fout.type == VSF_FILE ||
@@ -828,7 +827,7 @@ int main(int argc, char *argv[]) {
         opt->fout.type == LTRJ_FILE ||
         opt->fout.type == LDATA_FILE ||
         opt->fout.type == CONFIG_FILE) {
-      WriteTimestep(opt->fout, S_out2, 0, write);
+      WriteTimestep(opt->fout, S_out2, 0, write, argc, argv);
     }
   } //}}}
 

@@ -11,7 +11,7 @@ Info analyzes the provided input structure file, printing system composition \
 to standard output and, optionally, producing an output structure file \
 of specified format (-o option). If some information required in the output \
 file is missing, '???\' is printed instead. The system from the input file \
-can be modified using a second structure file (-i[!] option) and/or \
+can be modified using a second structure file (-i option) and/or \
 a coordinate file (-c option); see Examples/Info folder for details.\
 \n\n");
   }
@@ -19,9 +19,11 @@ a coordinate file (-c option); see Examples/Info folder for details.\
   fprintf(ptr, "Usage: %s <input> [options]\n\n", cmd);
   fprintf(ptr, "<input>             input structure file\n");
   fprintf(ptr, "[options]\n");
-  fprintf(ptr, "  -i[!] <file>      secondary structure file\n");
+  fprintf(ptr, "  -i <file>         secondary structure file\n");
   fprintf(ptr, "  -c <file>         input coordinate file\n");
   fprintf(ptr, "  -o <file>         output structure file\n");
+  fprintf(ptr, "  --detailed        use name as well as charge, mass, and "
+          "radius to identfy bead types (input vtf structure files only)\n");
   fprintf(ptr, "  -def <bead name>  default bead type "
           "(output vtf structure file only)\n");
   fprintf(ptr, "  --mass            define lammps atom types by mass, but "
@@ -35,7 +37,7 @@ a coordinate file (-c option); see Examples/Info folder for details.\
 // structure for options //{{{
 struct OPT {
   int vsf_def, ebt;          // -def -ebt
-  bool lmp_mass;             // --mass
+  bool lmp_mass, detailed;   // --mass --detailed
   FILE_TYPE fout;            // -o
   COMMON_OPT c;
 };
@@ -46,20 +48,19 @@ OPT * opt_create(void) {
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 6, all = common + 7, count = 0, req_arg = 1;
+  int common = 5, all = common + 7, count = 0, req_arg = 1;
   char option[all][OPT_LENGTH];
   // common options
   strcpy(option[count++], "-st");
-  strcpy(option[count++], "--detailed");
   strcpy(option[count++], "--verbose");
   strcpy(option[count++], "--silent");
   strcpy(option[count++], "--help");
   strcpy(option[count++], "--version");
   // extra options
   strcpy(option[count++], "-i");
-  strcpy(option[count++], "-i!");
   strcpy(option[count++], "-c");
   strcpy(option[count++], "-o");
+  strcpy(option[count++], "--detailed");
   strcpy(option[count++], "-def");
   strcpy(option[count++], "--mass");
   strcpy(option[count++], "-ebt");
@@ -73,15 +74,9 @@ int main(int argc, char *argv[]) {
 
   PrintCommand(stdout, argc, argv);
 
-  // -i[!] option //{{{
+  // -i option //{{{
   SYS_FILES extra = InitSysFiles;
-  bool change_beads = false;
-  if (!FileOption(argc, argv, "-i", extra.stru.name)) { // -i present?
-    if (FileOption(argc, argv, "-i!", extra.stru.name)) { // -i! present?
-      change_beads = true;
-    }
-  }
-  if (extra.stru.name[0] != '\0') {
+  if (FileOption(argc, argv, "-i", extra.stru.name)) {
     extra.stru.type = StructureFileType(extra.stru.name);
   } //}}}
   // input coordinate file (-c option) //{{{
@@ -99,9 +94,13 @@ int main(int argc, char *argv[]) {
   // extra bead types for data output (-ebt option)
   opt->ebt = 0;
   IntegerOption1(argc, argv, "-ebt", &opt->ebt);
+  // use mass only for atom type definition for data output file
+  opt->lmp_mass = BoolOption(argc, argv, "--mass");
+  // base bead types on name, charge, mass, and radius (vtf input file)
+  opt->detailed = BoolOption(argc, argv, "--detailed");
 
   // read information from input file(s) //{{{
-  SYSTEM System = ReadStructure(in, opt->c.detailed);
+  SYSTEM System = ReadStructure(in, opt->detailed);
   COUNT *Count = &System.Count;
   // use coordinate from a separate file (-c option)
   if (in.coor.type != -1) {
@@ -134,7 +133,7 @@ int main(int argc, char *argv[]) {
   }
   SYSTEM Sys_extra;
   if (extra.stru.name[0] != '\0') {
-    Sys_extra = ReadStructure(extra, opt->c.detailed);
+    Sys_extra = ReadStructure(extra, opt->detailed);
     if (opt->c.verbose) {
       fprintf(stdout, "\n==================================================");
       printf("\nSystem in extra file (%s)", extra.stru.name);
@@ -150,18 +149,19 @@ int main(int argc, char *argv[]) {
       BEADTYPE *bt = &System.BeadType[i];
       int type_extra = FindBeadType(bt->Name, Sys_extra);
       if (type_extra != -1) {
+        BEADTYPE *bt_extra = &Sys_extra.BeadType[type_extra];
         if (bt->Charge == CHARGE) {
-          bt->Charge = Sys_extra.BeadType[type_extra].Charge;
+          bt->Charge = bt_extra->Charge;
         }
         if (bt->Mass == MASS) {
-          bt->Mass = Sys_extra.BeadType[type_extra].Mass;
+          bt->Mass = bt_extra->Mass;
         }
         if (bt->Radius == RADIUS) {
-          bt->Radius = Sys_extra.BeadType[type_extra].Radius;
+          bt->Radius = bt_extra->Radius;
         }
       }
     }
-    ChangeMolecules(&System, Sys_extra, change_beads, false);
+    ChangeMolecules(&System, Sys_extra, false);
     CheckSystem(System, extra.stru.name);
   } //}}}
 
@@ -176,8 +176,6 @@ int main(int argc, char *argv[]) {
     }
   }
   free(def_type); //}}}
-  // use mass only for atom type definition for data output file
-  opt->lmp_mass = BoolOption(argc, argv, "--mass");
 
   PruneSystem(&System);
 

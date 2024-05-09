@@ -50,14 +50,13 @@ OPT * opt_create(void) {
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 8, all = common + 5, count = 0,
+  int common = 7, all = common + 5, count = 0,
       req_arg = 4;
   char option[all][OPT_LENGTH];
   // common options
   strcpy(option[count++], "-st");
   strcpy(option[count++], "-e");
   strcpy(option[count++], "-sk");
-  strcpy(option[count++], "--detailed");
   strcpy(option[count++], "--verbose");
   strcpy(option[count++], "--silent");
   strcpy(option[count++], "--help");
@@ -99,7 +98,7 @@ int main(int argc, char *argv[]) {
     PrintCommand(stdout, argc, argv);
   }
 
-  SYSTEM System = ReadStructure(in, opt->c.detailed);
+  SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
 
   // '-n' option //{{{

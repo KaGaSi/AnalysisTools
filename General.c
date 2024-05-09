@@ -181,11 +181,11 @@ bool ReadAndSplitLine(FILE *fr, int max_strings, const char delim[]) {
   words = SplitLine(max_strings, split, line, delim);
   return true;
 } //}}}
-char * BareCommand(char cmd[]) {
+char * BareCommand(char cmd[]) { //{{{
   strcpy(line, cmd);
   int words = SplitLine(SPL_STR, split, line, "/");
   return split[words - 1];
-}
+} //}}}
 void PrintCommand(FILE *ptr, int argc, char *argv[]) { //{{{
   fprintf(ptr, "%s%s", Colour(ptr, WHITE), argv[0]);
   // print the rest of the command

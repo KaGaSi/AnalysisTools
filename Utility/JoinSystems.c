@@ -24,16 +24,12 @@ of both systems.\n\n");
           "the first ('c' to place it in the centre of the first system)\n");
   fprintf(ptr, "  -b 3×<float>      output box dimensions (orthogonal)\n");
   fprintf(ptr, "  -i1/-i2 <file>    structure file for <input1>/<input2>\n");
-  fprintf(ptr, "  --detailed[0]/--detailed[1]\n"
-               "                    detailed bead type recognistion "
-               "(vtf input file)\n");
   fprintf(ptr, "  -st1/-st2 <int>   starting timestep for the input files\n");
   CommonHelp(error, n, opt);
 } //}}}
 
 // structure for options //{{{
 struct OPT {
-  bool detailed[2];          // --detailed[0] --detailed[1]
   int start[2];              // -st1 -st2
   double off[3], box[3];     // -off -b
   FILE_TYPE fout;            // -o
@@ -46,7 +42,7 @@ OPT * opt_create(void) {
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 4, all = common + 9, count = 0, req_arg = 3;
+  int common = 4, all = common + 7, count = 0, req_arg = 3;
   char option[all][OPT_LENGTH];
   // common options
   strcpy(option[count++], "--verbose");
@@ -59,8 +55,6 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-b");
   strcpy(option[count++], "-i1");
   strcpy(option[count++], "-i2");
-  strcpy(option[count++], "--detailed[0]");
-  strcpy(option[count++], "--detailed[1]");
   strcpy(option[count++], "-st1");
   strcpy(option[count++], "-st2");
   OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
@@ -97,9 +91,6 @@ int main(int argc, char *argv[]) {
     in[1].stru.type = StructureFileType(in[1].stru.name);
   } //}}}
   opt->c = CommonOptions(argc, argv, LINE, in[0]);
-  // --detailed option for both input systems; copied from CommonOptions()
-  opt->detailed[0] = BoolOption(argc, argv, "--detailed1"),
-  opt->detailed[1] = BoolOption(argc, argv, "--detailed2");
   // -st option for both input systems; copied from CommonOptions()
   opt->start[0] = 1, opt->start[1] = 1;
   IntegerOption1(argc, argv, "-st1", &opt->start[0]);
@@ -149,7 +140,7 @@ int main(int argc, char *argv[]) {
   SYSTEM Sys[2];
   BOX *box[2] = {NULL, NULL};
   for (int s = 0; s < 2; s++) {
-    Sys[s] = ReadStructure(in[s], opt->detailed[s]);
+    Sys[s] = ReadStructure(in[s], false);
     box[s] = &(Sys[s].Box);
   }
 

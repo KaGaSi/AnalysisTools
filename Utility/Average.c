@@ -249,6 +249,8 @@ int main ( int argc, char** argv ) {
     putc('\n', fw);
     fclose(fw);
 
+    printf("%d blocks with %d datapoints\n", opt->tau, data_per_block);
+
     for (int i = 0; i < col_count; i++) {
       free(avg_block[i]);
       free(avg_all[i]);

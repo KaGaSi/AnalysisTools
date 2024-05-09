@@ -39,7 +39,7 @@ OPT * opt_create(void) {
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 9, all = common + 1, count = 0,
+  int common = 8, all = common + 1, count = 0,
       req_arg = 3;
   char option[all][OPT_LENGTH];
   // common options
@@ -47,7 +47,6 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-e");
   strcpy(option[count++], "-sk");
   strcpy(option[count++], "-i");
-  strcpy(option[count++], "--detailed");
   strcpy(option[count++], "--verbose");
   strcpy(option[count++], "--silent");
   strcpy(option[count++], "--help");
@@ -86,7 +85,7 @@ int main(int argc, char *argv[]) {
     PrintCommand(stdout, argc, argv);
   }
 
-  SYSTEM System = ReadStructure(in, opt->c.detailed);
+  SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
   BOX *box = &System.Box;
 

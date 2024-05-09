@@ -337,7 +337,7 @@ OPT * opt_create(void) {
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 9, all = common + 2, count = 0,
+  int common = 8, all = common + 2, count = 0,
       req_arg = 4;
   char option[all][OPT_LENGTH];
   // common options
@@ -345,7 +345,6 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-e");
   strcpy(option[count++], "-sk");
   strcpy(option[count++], "-i");
-  strcpy(option[count++], "--detailed");
   strcpy(option[count++], "--verbose");
   strcpy(option[count++], "--silent");
   strcpy(option[count++], "--help");
@@ -388,7 +387,7 @@ int main(int argc, char *argv[]) {
     PrintCommand(stdout, argc, argv);
   }
 
-  SYSTEM System = ReadStructure(in, opt->c.detailed);
+  SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
 
   // <agg sizes> - aggregate sizes to write //{{{
@@ -487,7 +486,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < Count->Bead; i++) {
       System.BeadCoor[i] = i;
     }
-    WriteTimestep(fout, System, 0, write);
+    WriteTimestep(fout, System, 0, write, argc, argv);
   }
   //}}}
 
@@ -550,7 +549,7 @@ int main(int argc, char *argv[]) {
               }
             }
           }
-          WriteTimestep(fout, System, count_step, write);
+          WriteTimestep(fout, System, count_step, write, argc, argv);
           count_saved++;
         }
       } //}}}

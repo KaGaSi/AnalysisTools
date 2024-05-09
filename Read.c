@@ -176,75 +176,6 @@ static void RemoveExtraTypes(SYSTEM *System);
 
 // STATIC IMPLEMENTATIONS
 // lammpstrj //{{{
-// Read a single timestep from lammpstrj file //{{{
-static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
-                            int *line_count) {
-  // set 'not in timestep' to all beads //{{{
-  for (int i = 0; i < System->Count.Bead; i++) {
-    System->Bead[i].InTimestep = false;
-  } //}}}
-  System->Count.BeadCoor =
-      LtrjReadTimestepPreamble(fr, file, &System->Box, line_count);
-  if (System->Count.BeadCoor < 0) {
-    return System->Count.BeadCoor;
-  }
-  // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
-  int max_vars = 11, position[max_vars];
-  char vars[max_vars][10];
-  int cols = LtrjReadAtomsLine(fr, file, max_vars, position, vars, line_count);
-  // read atom lines //{{{
-  for (int i = 0; i < System->Count.BeadCoor; i++) {
-    BEAD line;
-    (*line_count)++;
-    if (LtrjReadCoorLine(fr, &line, System->Count.Bead, position, cols) < 0) {
-      strcpy(ERROR_MSG, "invalid atom line (or not enough atom lines)");
-      PrintErrorFileLine(file, *line_count);
-      return -1;
-    }
-    int id = line.Type - 1;
-    BEAD *b = &System->Bead[id];
-    for (int dd = 0; dd < 3; dd++) {
-      b->Position[dd] = line.Position[dd];
-      b->Velocity[dd] = line.Velocity[dd];
-      b->Force[dd] = line.Force[dd];
-    }
-    if (b->InTimestep) {
-      strcpy(ERROR_MSG, "multiple atoms with the same id");
-      PrintErrorFileLine(file, *line_count);
-      return -1;
-    }
-    b->InTimestep = true;
-    System->BeadCoor[i] = id;
-  } //}}}
-  SubtractLow(System);
-  return 1;
-} //}}}
-// TODO: skip lines based on the number of atoms?
-// Skip a single timestep from lammpstrj file //{{{
-static int LtrjSkipTimestep(FILE *fr, char file[], int *line_count) {
-  /* read until two 'ITEM: TIMESTEP' lines are found
-   *   the first should be the first line read, but who cares...
-   *   the second is the beginning of the next timestep
-   */
-  fpos_t position;
-  for (int i = 0; i < 2; i++) {
-    do {
-      fgetpos(fr, &position);
-      (*line_count)++;
-      if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
-        if (i == 0) {
-          return -2; // before the first ITEM: TIMESTEP, so error
-        } else {
-          return 1; // there were some valid coor lines, so no error
-        }
-      }
-    } while (words < 2 || strcmp(split[0], "ITEM:") != 0 ||
-             strcmp(split[1], "TIMESTEP") != 0);
-  }
-  fsetpos(fr, &position); // restore the second 'ITEM: TIMESTEP' line
-  (*line_count)--;        // the 'ITEM: TIMESTEP' will be re-read
-  return 1;
-} //}}}
 // Use the first lammpstrj timestep as a definition of system composition //{{{
 static SYSTEM LtrjReadStruct(char file[]) {
   SYSTEM Sys;
@@ -258,7 +189,7 @@ static SYSTEM LtrjReadStruct(char file[]) {
   Count->Unbonded = Count->Bead; // lammpstrj contains no bond information
   Count->UnbondedCoor = Count->Bead;
   Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
-  Sys.BeadCoor = realloc(Sys.BeadCoor, sizeof *Sys.BeadCoor * Count->BeadCoor);
+  Sys.BeadCoor = realloc(Sys.BeadCoor, sizeof *Sys.BeadCoor * Count->Bead);
   // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
   int max_vars = 11, position[max_vars];
   char var[max_vars][10];
@@ -332,12 +263,81 @@ static SYSTEM LtrjReadStruct(char file[]) {
   fclose(fr);
   FillSystemNonessentials(&Sys);
   for (int i = 0; i < Count->Bead; i++) {
-    Sys.BeadCoor[i] = i;
     Sys.UnbondedCoor[i] = i;
   }
+  // AllocFillBeadTypeIndex(&Sys);
   CheckSystem(Sys, file);
   SubtractLow(&Sys);
   return Sys;
+} //}}}
+// Read a single timestep from lammpstrj file //{{{
+static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
+                            int *line_count) {
+  // set 'not in timestep' to all beads //{{{
+  for (int i = 0; i < System->Count.Bead; i++) {
+    System->Bead[i].InTimestep = false;
+  } //}}}
+  System->Count.BeadCoor =
+      LtrjReadTimestepPreamble(fr, file, &System->Box, line_count);
+  if (System->Count.BeadCoor < 0) {
+    return System->Count.BeadCoor;
+  }
+  // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
+  int max_vars = 11, position[max_vars];
+  char vars[max_vars][10];
+  int cols = LtrjReadAtomsLine(fr, file, max_vars, position, vars, line_count);
+  // read atom lines //{{{
+  for (int i = 0; i < System->Count.BeadCoor; i++) {
+    BEAD line;
+    (*line_count)++;
+    if (LtrjReadCoorLine(fr, &line, System->Count.Bead, position, cols) < 0) {
+      strcpy(ERROR_MSG, "invalid atom line (or not enough atom lines)");
+      PrintErrorFileLine(file, *line_count);
+      return -1;
+    }
+    int id = line.Type - 1;
+    BEAD *b = &System->Bead[id];
+    for (int dd = 0; dd < 3; dd++) {
+      b->Position[dd] = line.Position[dd];
+      b->Velocity[dd] = line.Velocity[dd];
+      b->Force[dd] = line.Force[dd];
+    }
+    if (b->InTimestep) {
+      strcpy(ERROR_MSG, "multiple atoms with the same id");
+      PrintErrorFileLine(file, *line_count);
+      return -1;
+    }
+    b->InTimestep = true;
+    System->BeadCoor[i] = id;
+  } //}}}
+  SubtractLow(System);
+  return 1;
+} //}}}
+// TODO: skip lines based on the number of atoms?
+// Skip a single timestep from lammpstrj file //{{{
+static int LtrjSkipTimestep(FILE *fr, char file[], int *line_count) {
+  /* read until two 'ITEM: TIMESTEP' lines are found
+   *   the first should be the first line read, but who cares...
+   *   the second is the beginning of the next timestep
+   */
+  fpos_t position;
+  for (int i = 0; i < 2; i++) {
+    do {
+      fgetpos(fr, &position);
+      (*line_count)++;
+      if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
+        if (i == 0) {
+          return -2; // before the first ITEM: TIMESTEP, so error
+        } else {
+          return 1; // there were some valid coor lines, so no error
+        }
+      }
+    } while (words < 2 || strcmp(split[0], "ITEM:") != 0 ||
+             strcmp(split[1], "TIMESTEP") != 0);
+  }
+  fsetpos(fr, &position); // restore the second 'ITEM: TIMESTEP' line
+  (*line_count)--;        // the 'ITEM: TIMESTEP' will be re-read
+  return 1;
 } //}}}
 // read pbc from the preamble of the first timestep //{{{
 static BOX LtrjReadPBC(char file[]) {
@@ -645,7 +645,6 @@ static SYSTEM LmpDataReadStruct(char file[]) { //{{{
       c_bonded++;
     }
   }
-  AllocFillBeadTypeIndex(&System);
   // make molecule indices go from 0 (just to avoid large numbers) //{{{
   // 1) find the lowest molecule index
   int min_id = 1e7;
@@ -1107,10 +1106,10 @@ static void LmpDataReadBody(FILE *fr, char file[], SYSTEM *System,
   } //}}}
   // variables to check all sections are present
   bool atoms = false,                // Atoms section
-      bonds[2] = {false, false},     // Bond Coeffs & Bonds sections
-      angles[2] = {false, false},    // Angle Coeffs & Angles sections
-      dihedrals[2] = {false, false}, // Dihedral Coeffs & Dihedrals sections
-      impropers[2] = {false, false}; // Improper Coeffs & Impropers sections
+       bonds[2] = {false, false},     // Bond Coeffs & Bonds sections
+       angles[2] = {false, false},    // Angle Coeffs & Angles sections
+       dihedrals[2] = {false, false}, // Dihedral Coeffs & Dihedrals sections
+       impropers[2] = {false, false}; // Improper Coeffs & Impropers sections
   // read the rest of the file //{{{
   while (ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
     (*line_count)++;
@@ -1148,10 +1147,8 @@ static void LmpDataReadBody(FILE *fr, char file[], SYSTEM *System,
         } else if (strcmp(split[2], "charge") == 0) {
           mode = 3; // for 'Atoms # charge'
         } else {    // for 'Atoms # <something else>'
-          snprintf(ERROR_MSG, LINE,
-                   "unsupported atom_style (Atoms section) "
-                   "%s%s; assuming 'full'",
-                   ErrYellow(), split[2]);
+          snprintf(ERROR_MSG, LINE, "unsupported atom_style (Atoms section) "
+                   "%s%s; assuming 'full'", ErrYellow(), split[2]);
           PrintWarnFile(file, "\0", "\0");
         }
       }
@@ -1303,7 +1300,7 @@ static void LmpDataReadMasses(FILE *fr, char file[], BEADTYPE name_mass[],
       strncpy(name_mass[type].Name, split[3], BEAD_NAME);
       name_mass[type].Name[BEAD_NAME - 1] = '\0'; // ensure null-termination
     } else {
-      snprintf(name_mass[type].Name, BEAD_NAME, "bt_%d", i);
+      strcpy(name_mass[type].Name, NON);
     }
   }
 } //}}}
@@ -1422,7 +1419,7 @@ static void LmpDataReadDihedralCoeffs(FILE *fr, char file[], SYSTEM *System,
       PrintErrorFileLine(file, *line_count);
       exit(1);
     } //}}}
-    System->DihedralType[type-1].a = a;
+    System->DihedralType[type-1].a = a * 2;
     System->DihedralType[type-1].b = b;
     System->DihedralType[type-1].c = c;
   }
@@ -1464,7 +1461,7 @@ static void LmpDataReadImproperCoeffs(FILE *fr, char file[], SYSTEM *System,
       PrintErrorFileLine(file, *line_count);
       exit(1);
     } //}}}
-    System->ImproperType[type - 1].a = a;
+    System->ImproperType[type - 1].a = a * 2;
     System->ImproperType[type - 1].b = b;
     System->ImproperType[type - 1].c = c;
   }
@@ -1587,11 +1584,7 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
       bt->Charge = q;
     }
     bt->Number = 1;
-    if (name_mass[type].Name[0] == '\0') {
-      strcpy(bt->Name, "bt");
-    } else {
-      strcpy(bt->Name, name_mass[type].Name);
-    }
+    strcpy(bt->Name, name_mass[type].Name);
     if (resid >= 0) { // bead in a molecule //{{{
       Count->Bonded++;
       b->Molecule = resid;
@@ -1611,7 +1604,7 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
       // does the molecule type (i.e., that molecule id) exist?
       MOLECULETYPE *mt_resid = &System->MoleculeType[resid];
       if (mt_resid->Number == 0) { // no, create new type
-        char name[MOL_NAME] = "mol";
+        char name[MOL_NAME] = NON;
         for (int j = 0; j < words; j++) {
           if (split[j][0] == '#' && words > j) {
             snprintf(name, MOL_NAME, "%s", split[j+1]);
@@ -2029,10 +2022,10 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
           int resid = atoi(split[value[5]]);
           // highest molecule id?
           if (resid > Count->HighestResid) {
-            Sys.MoleculeType =
-                realloc(Sys.MoleculeType, sizeof(MOLECULETYPE) * (resid + 1));
-            Sys.Molecule =
-                realloc(Sys.Molecule, sizeof(MOLECULE) * (resid + 1));
+            Sys.MoleculeType = realloc(Sys.MoleculeType,
+                                       sizeof(MOLECULETYPE) * (resid + 1));
+            Sys.Molecule = realloc(Sys.Molecule,
+                                   sizeof(MOLECULE) * (resid + 1));
             for (int i = (Count->HighestResid + 1); i <= resid; i++) {
               InitMoleculeType(&Sys.MoleculeType[i]);
               InitMolecule(&Sys.Molecule[i]);
@@ -2043,7 +2036,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
           MOLECULETYPE *mt_resid = &Sys.MoleculeType[resid];
           if (mt_resid->Number == 0) { // new molecule type
             if (value[4] == -1) {
-              strcpy(mt_resid->Name, "mol");
+              strcpy(mt_resid->Name, NON);
               mt_resid->Flag = false;
             } else {
               strncpy(mt_resid->Name, split[value[4]], MOL_NAME);
@@ -2153,7 +2146,6 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   MergeBeadTypes(&Sys, detailed);
   MergeMoleculeTypes(&Sys);
   FillSystemNonessentials(&Sys);
-  AllocFillBeadTypeIndex(&Sys);
   CheckSystem(Sys, file);
   Sys.Box = VtfReadPBC(file);
   return Sys;
@@ -2718,7 +2710,6 @@ static SYSTEM FieldRead(char file[]) { //{{{
   System.BeadCoor = realloc(System.BeadCoor,
                             Count->Bead * sizeof *System.BeadCoor);
   FillSystemNonessentials(&System);
-  AllocFillBeadTypeIndex(&System);
   CheckSystem(System, file);
   return System;
 } //}}}
@@ -2784,7 +2775,7 @@ static void FieldReadSpecies(char file[], SYSTEM *System) { //{{{
       }
     }
     NewBeadType(&System->BeadType, &Count->BeadType, split[0], charge, mass,
-                RADIUS);
+                NOT);
     System->BeadType[Count->BeadType-1].Number = number;
     Count->Bead += number;
     Count->Unbonded += number;
@@ -3550,14 +3541,14 @@ static SYSTEM XyzReadStruct(char file[]) { //{{{
   Count->BeadCoor = val;
   Count->Unbonded = val;
   Count->UnbondedCoor = val;
-  // read next line, possibly with pbc //{{{
+  Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
+  Sys.BeadCoor = realloc(Sys.BeadCoor, sizeof *Sys.BeadCoor * Count->Bead);
+  // read next line //{{{
   line_count++;
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
     ErrorEOF(file, "missing comment line");
     exit(1);
   } //}}}
-  Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
-  Sys.BeadCoor = realloc(Sys.BeadCoor, sizeof *Sys.BeadCoor * Count->Bead);
   // read atoms //{{{
   for (int i = 0; i < Count->Bead; i++) {
     line_count++;
@@ -3577,6 +3568,7 @@ static SYSTEM XyzReadStruct(char file[]) { //{{{
       b->Position[dd] = coor[dd];
     }
     b->InTimestep = true;
+    Sys.BeadCoor[i] = i;
     // assign bead type or create a new one
     bool new = true;
     for (int j = 0; j < Count->BeadType; j++) {
@@ -3590,8 +3582,7 @@ static SYSTEM XyzReadStruct(char file[]) { //{{{
     }
     if (new) {
       int type = Count->BeadType;
-      NewBeadType(&Sys.BeadType, &Count->BeadType, split[0], CHARGE, MASS,
-                  RADIUS);
+      NewBeadType(&Sys.BeadType, &Count->BeadType, split[0], NOT, NOT, NOT);
       BEADTYPE *bt_new = &Sys.BeadType[type];
       bt_new->Number = 1;
       b->Type = type;
@@ -3600,7 +3591,6 @@ static SYSTEM XyzReadStruct(char file[]) { //{{{
   fclose(fr);
   FillSystemNonessentials(&Sys);
   for (int i = 0; i < Count->Bead; i++) {
-    Sys.BeadCoor[i] = i;
     Sys.UnbondedCoor[i] = i;
   }
   CheckSystem(Sys, file);

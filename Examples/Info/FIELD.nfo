@@ -20,9 +20,9 @@ Counts of
   Dihedrals:      1
   Impropers:      1
 
-BeadType[0] = {.Name = A .Number = 7 .Charge = 0.000 .Mass = 1.000 .Radius = n/a}
-BeadType[1] = {.Name = B .Number = 4 .Charge = 0.000 .Mass = 1.000 .Radius = n/a}
-BeadType[2] = {.Name = C .Number = 4 .Charge = 0.000 .Mass = 1.000 .Radius = n/a}
+BeadType[0] = {.Name = A .Number = 7 .Charge = 0.000 .Mass = 1.000 .Radius = n/a }
+BeadType[1] = {.Name = B .Number = 4 .Charge = 0.000 .Mass = 1.000 .Radius = n/a }
+BeadType[2] = {.Name = C .Number = 4 .Charge = 0.000 .Mass = 1.000 .Radius = n/a }
 
 Bond types
    4.000000 0.500000 0.000000 0.000000

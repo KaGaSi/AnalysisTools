@@ -1,7 +1,5 @@
 #include "../AnalysisTools.h"
 
-// TODO: -x option not implemented (needs change in Write.c, I guess)
-
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
@@ -49,7 +47,7 @@ OPT * opt_create(void) {
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 9, all = common + 7, count = 0,
+  int common = 8, all = common + 7, count = 0,
       req_arg = 2;
   char option[all][OPT_LENGTH];
   // common options
@@ -57,7 +55,6 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-e");
   strcpy(option[count++], "-sk");
   strcpy(option[count++], "-i");
-  strcpy(option[count++], "--detailed");
   strcpy(option[count++], "--verbose");
   strcpy(option[count++], "--silent");
   strcpy(option[count++], "--help");
@@ -97,7 +94,7 @@ int main(int argc, char *argv[]) {
     PrintCommand(stdout, argc, argv);
   }
 
-  SYSTEM System = ReadStructure(in, opt->c.detailed);
+  SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
 
   // specify beads to save (possibly using -bt and/or -mt options) //{{{
@@ -152,12 +149,6 @@ int main(int argc, char *argv[]) {
   // free the auxiliary arrays
   free(write_mt);
   free(write_bt); //}}}
-
-  // '-x' option //{{{
-  // TODO remove the bool flags from SYSTEM, i.e., also change ExcludeOption()
-  if (ExcludeOption(argc, argv, &System)) {
-    exit(1);
-  } //}}}
 
   // '-n' option - specify timestep ids //{{{
   opt->n_number = -1;
@@ -246,7 +237,7 @@ int main(int argc, char *argv[]) {
       }
       count_saved++;
       WrapJoinCoordinates(&System, opt->wrap, opt->join);
-      WriteTimestep(fout, System, count_coor, write);
+      WriteTimestep(fout, System, count_coor, write, argc, argv);
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
       if (!SkipTimestep(in, fr, &line_count)) {
@@ -281,7 +272,7 @@ int main(int argc, char *argv[]) {
       if (ReadTimestep(in, fr, &System, &line_count)) {
         count_saved++;
         WrapJoinCoordinates(&System, opt->wrap, opt->join);
-        WriteTimestep(fout, System, count_coor, write);
+        WriteTimestep(fout, System, count_coor, write, argc, argv);
         if (!opt->c.silent) {
           if (isatty(STDOUT_FILENO)) {
             fprintf(stdout, "\r                          \r");

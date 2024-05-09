@@ -7,8 +7,10 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System);
 static void WriteConfig(SYSTEM System, char file[]);
 static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
                            int argc, char *argv[]);
-static void WriteLmpData(SYSTEM System, char file[], bool mass);
-static void WriteField(SYSTEM System, char file_field[]);
+static void WriteLmpData(SYSTEM System, char file[], bool mass,
+                         int argc, char *argv[]);
+static void WriteField(SYSTEM System, char file_field[],
+                       int argc, char *argv[]);
 static void SimplifyResid(SYSTEM *System);
 
 // TODO: renumber molecules so that the lowest id is 1 while creating new output
@@ -190,7 +192,7 @@ static void WriteConfig(SYSTEM System, char file[]) { //{{{
   }
   fclose(out);
 } //}}}
-// VtfWriteStruct()  //{{{
+// VtfWriteStruct() //{{{
 static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
                            int argc, char *argv[]) {
   SimplifyResid(&System);
@@ -289,10 +291,14 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
   // close structure file
   fclose(fw);
 } //}}}
-static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
+// WriteLmpData() //{{{
+static void WriteLmpData(SYSTEM System, char file[], bool mass,
+                         int argc, char *argv[]) {
   FILE *fw = OpenFile(file, "w");
-  fprintf(fw, "Created via AnalysisTools v%s "
-          "(https://github.com/KaGaSi/AnalysisTools)\n\n", VERSION);
+  fprintf(fw, "Created via AnalysisTools v%s ", VERSION);
+  fprintf(fw, "(https://github.com/KaGaSi/AnalysisTools); Command: ");
+  PrintCommand(fw, argc, argv);
+  putc('\n', fw);
   COUNT *Count = &System.Count;
   // count bonds according to Bead[].InTimestep
   // create new SYSTEM structure to figure out bead types if mass == true //{{{
@@ -383,28 +389,30 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
     fprintf(fw, "\nBond Coeffs\n\n");
     for (int i = 0; i < Count->BondType; i++) {
       fprintf(fw, "%5d %lf %lf\n", i + 1, System.BondType[i].a / 2,
-              System.BondType[i].b);
+                                          System.BondType[i].b);
     }
   }
   if (Count->AngleType > 0) {
     fprintf(fw, "\nAngle Coeffs\n\n");
     for (int i = 0; i < Count->AngleType; i++) {
       fprintf(fw, "%5d %lf %lf\n", i + 1, System.AngleType[i].a / 2,
-              System.AngleType[i].b);
+                                          System.AngleType[i].b);
     }
   }
   if (Count->DihedralType > 0) {
     fprintf(fw, "\nDihedral Coeffs\n\n");
     for (int i = 0; i < Count->DihedralType; i++) {
       fprintf(fw, "%5d %lf %lf %lf\n", i + 1, System.DihedralType[i].a / 2,
-              System.DihedralType[i].b, System.DihedralType[i].c);
+                                              System.DihedralType[i].b,
+                                              System.DihedralType[i].c);
     }
   }
   if (Count->ImproperType > 0) {
     fprintf(fw, "\nImproper Coeffs\n\n");
     for (int i = 0; i < Count->ImproperType; i++) {
       fprintf(fw, "%5d %lf %lf %lf\n", i + 1, System.ImproperType[i].a / 2,
-              System.ImproperType[i].b, System.ImproperType[i].c);
+                                              System.ImproperType[i].b,
+                                              System.ImproperType[i].c);
     }
   } //}}}
   // print atoms //{{{
@@ -582,7 +590,9 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass) { //{{{
   free(bt_old_to_masstype);
   fclose(fw);
 } //}}}
-static void WriteField(SYSTEM System, char file_field[]) { //{{{
+// WriteField() //{{{
+static void WriteField(SYSTEM System, char file_field[],
+                       int argc, char *argv[]) {
   FILE *fw = OpenFile(file_field, "w");
   BOX *box = &System.Box;
   if (box->Volume != -1) {
@@ -592,8 +602,10 @@ static void WriteField(SYSTEM System, char file_field[]) { //{{{
       fprintf(fw, "%lf %lf %lf ", box->alpha, box->beta, box->gamma);
     }
   }
-  fprintf(fw, "Created via AnalysisTools v%s"
-          "(https://github.com/KaGaSi/AnalysisTools)\n\n", VERSION);
+  fprintf(fw, "Created via AnalysisTools v%s", VERSION);
+  fprintf(fw, "(https://github.com/KaGaSi/AnalysisTools); Command: ");
+  PrintCommand(fw, argc, argv);
+  putc('\n', fw);
   COUNT *Count = &System.Count;
   // print species section //{{{
   fprintf(fw, "species %d <name> <m> <q> <# of unbonded>\n", Count->BeadType);
@@ -748,11 +760,12 @@ void WriteOutput(SYSTEM System, bool write[], FILE_TYPE fw,
       FILE *out = OpenFile(fw.name, "w");
       fclose(out);
     }
-    WriteTimestep(fw, System, 1, write);
+    WriteTimestep(fw, System, 1, write, argc, argv);
   }
 } //}}}
 // Write a single timestep to output file based on the file type //{{{
-void WriteTimestep(FILE_TYPE f, SYSTEM System, int count_step, bool write[]) {
+void WriteTimestep(FILE_TYPE f, SYSTEM System, int count_step, bool write[],
+                   int argc, char *argv[]) {
   FILE *fw = OpenFile(f.name, "a");
   switch (f.type) {
     case VCF_FILE:
@@ -766,7 +779,7 @@ void WriteTimestep(FILE_TYPE f, SYSTEM System, int count_step, bool write[]) {
       LtrjWriteCoor(fw, count_step, write, System);
       break;
     case LDATA_FILE:
-      WriteLmpData(System, f.name, false);
+      WriteLmpData(System, f.name, false, argc, argv);
       break;
     default:
       snprintf(ERROR_MSG, LINE, "no action specified for output coor_type %s%d",
@@ -786,13 +799,13 @@ void WriteStructure(FILE_TYPE f, SYSTEM System, int vsf_def_type,
       VtfWriteStruct(f.name, System, vsf_def_type, argc, argv);
       break;
     case LDATA_FILE:
-      WriteLmpData(System, f.name, lmp_mass);
+      WriteLmpData(System, f.name, lmp_mass, argc, argv);
       break;
     case CONFIG_FILE:
       WriteConfig(System, f.name);
       break;
     case FIELD_FILE:
-      WriteField(System, f.name);
+      WriteField(System, f.name, argc, argv);
       break;
     case LTRJ_FILE:
       if (System.Count.BeadCoor == 0) {

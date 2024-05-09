@@ -1,10 +1,9 @@
 \section{Info} \label{sec:Info}
 
 This utility prints system information read from an input structure file,
-possibly augmenting it with information from another structure file (\tt{-i[!]
+possibly augmenting it with information from another structure file (\tt{-i
 <file>} option) and/or pruning the system to contain only beads from a provided
-coordinate file (\tt{-c} option). For the effects of these options, see the
-\tt{Examples/Info} folder.
+coordinate file (\tt{-c} option).
 
 Note that using LAMMPS \data, \ltrj or \xyz input structure file automatically
 reads coordinates in those files, but using \vtf does not. This is because a
@@ -13,18 +12,38 @@ structure section. If coordinates should be read from the input \vtf structure
 file (and the system potentially pruned), just use the \tt{-c} option with that
 filename.
 
+For \vtf structure files, the bead (and, consequently, molecule) type
+identification can be enhanced via the \tt{--detailed} option. By default, bead
+types are defined solely based on their name; the other properties (mass,
+charge, and radius) are taken from the first \tt{a[tom]} line with the bead of
+that name that contains the appropriate keyword. For example, lines
+
+\noindent
+\tt{atom default name A m 1}\\
+\tt{atom 1 name B}\\
+\tt{atom 2 name B m 2}\\
+\tt{atom 3 name A m 2}\\
+\tt{atom 4 name A}\\[-1em]
+
+\noindent
+would define two bead type called \tt{A} and \tt{B} with masses equal to 1 and
+2, respectively. Using the \tt{--detailed} option would split the \tt{A} beads
+into three types (and augment the names): \tt{A} and \tt{A_1} with masses equal
+to 1 and 2, respectively, and \tt{A_2} with undefined mass (it remains undefined
+because there is an ambiguity---should the last bead have mass 1 or 2?). On the
+other hand, the \tt{B} beads would be assigned the same bead type with mass
+equal to 2 (there is no ambiguity because only one mass is specified for the
+\tt{B} beads).
+
 Using the \tt{-i} option with an extra structure file assigns bead mass, charge,
 and/or radius from the extra file if the bead types in the original file have
 unspecified values; this is done only for bead types that share names. Also, if
 the two structure files share molecules that have the same bead type order
 (which can be initially checked via individual \tt{Info} runs on the two files),
-bond types, angles, and angle type can be added to the molecule types in the
+bond types, angles, and angle types can be added to the molecule types in the
 original file. Note that to add this extra information, the bead types in the
-bonds/angles/dihedrals must be the same, i.e., all their paramaters (name, mass,
-charge, radius) must be the same. Using \tt{-i!} first exchanges beads in the
-original molecules with those from the extra file (if the molecules have the
-same number of beads) before adding the extra information. See
-\tt{Examples/Info} folder for examples.
+bonds/angles/dihedrals/impropers must be the same, i.e., all their parameters
+(name, mass, charge, radius) must be the same.
 
 \tt{Info} can also write this information into a new file (\tt{-o} option) of
 any format. Note that only one timestep is read and, therefore, saved. Also, if
@@ -51,6 +70,8 @@ bonded beads) is used. For \vtsf file, \tt{atom default} bead type can be
 specified via the \tt{-def} option; by default, the bead type with the most
 unbonded beads is used as the \tt{atom default} type.
 
+For examples of \tt{Info} usage, see the \tt{Examples/Info} folder.
+
 \vspace{1em}
 \noindent
 Usage: \tt{Info <input> [options]}
@@ -63,8 +84,7 @@ Usage: \tt{Info <input> [options]}
   \midrule
   \multicolumn{2}{l}{Options for input files}\\
   \midrule
-  \tt{-i[!] <file>} & extra input structure file; see \tt{Examples/Info}
-    directory for the effect of \tt{-i} and \tt{-i!} options (default: None)\\
+  \tt{-i <file>}    & extra input structure file (default: None)\\
   \tt{-c <file>}    & input coordinate file (default: None)\\
   \midrule
   \multicolumn{2}{l}{Options for output file}\\
@@ -78,12 +98,14 @@ Usage: \tt{Info <input> [options]}
     types are the same as \tt{Info}-recognized bead types)\\
   \tt{-ebt <int>}   & only \data structure file: number of extra atom types
                       (for, e.g., srp)\\
+  \tt{--detailed}   & only \vtf structure file: detailed recognition for bead
+    (and, consequently, molecule) types based on the bead names as well as
+    charges, masses, and radii \\
   \midrule
   \multicolumn{2}{l}{Other options (see the beginning of 
                      Chapter~\ref{chap:Utils})}\\
   \midrule
   \multicolumn{2}{l}{\tt{-st},
-                     \tt{--detailed},
                      \tt{--verbose},
                      \tt{--silent},
                      \tt{--help},

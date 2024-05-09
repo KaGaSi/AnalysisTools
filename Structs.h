@@ -10,6 +10,8 @@
 #define CHARGE 10000.0 // 'impossible' charge
 #define MASS 0.0 // 'impossible' mass
 #define RADIUS 0.0 // 'impossible' radius
+#define NOT 1000000 // 'impossible' value for stuff unspecifiable in struct file
+#define NON "NONAME" // 'impossible' name
 #define MOL_NAME 21 // maximum molecule name length (with null terminator)
 #define BEAD_NAME 21 // maximum bead name length (with null terminator)
 
@@ -45,7 +47,7 @@ static const SYS_FILES InitSysFiles = {
 };
 
 typedef struct common_opt {
-  bool verbose, silent, detailed;
+  bool verbose, silent;
   int start, end, skip;
 } COMMON_OPT;
 

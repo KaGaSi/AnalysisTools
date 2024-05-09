@@ -203,11 +203,12 @@ void WarnChargedSystem(SYSTEM System, char file1[], char file2[],
                        char file3[]) {
   double charge = 0;
   for (int i = 0; i < System.Count.BeadType; i++) {
+    BEADTYPE *bt = &System.BeadType[i];
     // do nothing if at least one bead type had undefined charge
-    if (System.BeadType[i].Charge == CHARGE) {
+    if (bt->Charge == CHARGE || bt->Charge == NOT) {
       return;
     }
-    charge += System.BeadType[i].Charge * System.BeadType[i].Number;
+    charge += bt->Charge * bt->Number;
   }
   if (fabs(charge) > 0.00001) {
     strcpy(ERROR_MSG, "system with net electric charge");

@@ -136,9 +136,6 @@ void CommonHelp(bool error, int n, char option[n][OPT_LENGTH]) {
       fprintf(ptr, "  -e <end>          ending timestep for calculation\n");
     } else if (strcmp(option[i], "-sk") == 0) {
       fprintf(ptr, "  -sk <int>         leave out every 'skip' steps\n");
-    } else if (strcmp(option[i], "--detailed") == 0) {
-      fprintf(ptr, "  --detailed        use name as well as charge, mass, "
-              "and radius to identfy bead types (vtf structure files only)\n");
     } else if (strcmp(option[i], "--variable") == 0) {
       fprintf(ptr, "  --variable        vtf coordinate file with indexed "
               "timesteps with varying number of beads\n");
@@ -171,8 +168,6 @@ COMMON_OPT CommonOptions(int argc, char *argv[], int length, SYS_FILES f) {
   opt.verbose = BoolOption(argc, argv, "--verbose");
   // --silent option - silent mode
   SilentOption(argc, argv, &opt.verbose, &opt.silent);
-  // --detailed option - base bead types on name, charge, mass, and radius
-  opt.detailed = BoolOption(argc, argv, "--detailed");
   // starting/ending timestep
   if (IntegerOption1(argc, argv, "-st", &opt.start)) {
     if (opt.start <= 0) {
@@ -562,8 +557,7 @@ bool MoleculeTypeOption(int argc, char *argv[], char opt[], int *moltype,
         PrintErrorOption(opt);
         return true;
       } //}}}
-      *moltype = FindMoleculeType_old(argv[i+1], Counts, *MoleculeType);
-      if (*moltype == -1) {
+      *moltype = FindMoleculeType_old(argv[i+1], Counts, *MoleculeType); if (*moltype == -1) {
         snprintf(ERROR_MSG, LINE, "non-existent molecule %s%s",
                  ErrYellow(), argv[i+1]);
         PrintErrorOption(opt);

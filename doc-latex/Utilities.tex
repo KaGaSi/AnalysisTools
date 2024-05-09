@@ -20,9 +20,6 @@ provided.\\[1em]
   \midrule
   \tt{-i <name>}  & use specified structure file, see
     \cref{sec:StructFile} for possible formats\\
-  \tt{--detailed} & only \vtf structure file: detailed recognition for bead
-    (and, consequently, molecule) types based on the bead names as well as
-    charges, masses, and radii \\
   \tt{-st <n>}    & any coordinate file: start calculations at \tt{n}-th
     timestep\\
   \tt{-e <n>}     & any coordinate file: end calculations at \tt{n}-th
@@ -31,28 +28,6 @@ provided.\\[1em]
     calculations\\
   \bottomrule
 \end{tabular}\\[1em]
-
-For \vtf structure files, the bead types are defined solely based on their name
-by default; the other properties (mass, charge, and radius) are taken from the
-first \tt{a[tom]} line with the bead of that name that contains the appropriate
-keyword. For example, lines
-
-\noindent
-\tt{atom default name A m 1}\\
-\tt{atom 1 name B}\\
-\tt{atom 2 name B m 2}\\
-\tt{atom 3 name A m 2}\\
-\tt{atom 4 name A}\\[-1em]
-
-\noindent
-would define two bead type called \tt{A} and \tt{B} with masses equal to 1 and
-2, respectively. Using the \tt{--detailed} option would split the \tt{A} beads
-into three types: \tt{A} and \tt{A_1} with masses equal to 1 and 2,
-respectively, and \tt{A_2} with undefined mass (it remains undefined because
-there is an ambiguity---should the last bead have mass 1 or 2?). On the other
-hand, the \tt{B} beads would be assigned the same bead type with mass equal to 2
-(there is no ambiguity because only one mass is specified for the \tt{B} beads).
-See \tt{Examples/Info} directory for other examples.
 
 % For \vtf coordinate file with indexed timesteps, all timesteps are expected to
 % have the same number of beads (though not necessarily the same beads). If some
