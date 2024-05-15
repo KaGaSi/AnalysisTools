@@ -222,7 +222,10 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
   // print default bead type //{{{
   if (type_def != -1) {
     BEADTYPE *bt = &System.BeadType[type_def];
-    fprintf(fw, "atom default name %8s", bt->Name);
+    fprintf(fw, "atom default");
+    if (strcmp(bt->Name, NON) != 0) {
+      fprintf(fw, " name %8s", bt->Name);
+    }
     if (bt->Mass != MASS) {
       fprintf(fw, " mass %12f", bt->Mass);
     }
@@ -244,7 +247,10 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
     }
     BEADTYPE *bt = &System.BeadType[btype];
     if (print) {
-      fprintf(fw, "atom %7d name %8s", i, bt->Name);
+      fprintf(fw, "atom %7d", i);
+      if (strcmp(bt->Name, NON) != 0) {
+        fprintf(fw, " name %8s", bt->Name);
+      }
       if (bt->Mass != MASS) {
         fprintf(fw, " mass %15f ", bt->Mass);
       }
@@ -261,8 +267,10 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
         if (snprintf(name, 8, "%s", System.MoleculeType[mtype].Name) < 0) {
           ErrorSnprintf();
         }
-        fprintf(fw, " resname %10s ", name);
-        fprintf(fw, "resid %5d", id);
+        if (strcmp(System.MoleculeType[mtype].Name, NON) != 0) {
+          fprintf(fw, " resname %10s", name);
+        }
+        fprintf(fw, " resid %5d", id);
       }
       putc('\n', fw);
     }
@@ -340,7 +348,7 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass,
   putc('\n', fw);
   // // add one atom type for extra (possibly srp)
   // fprintf(fw, "%10d atom types\n", Count->BeadType + 1);
-  fprintf(fw, "%10d atom types\n", Count->BeadType);
+  fprintf(fw, "%10d atom types\n", mass_types);
   if (Count->Bond > 0 && Count->BondType > 0) {
     fprintf(fw, "%10d bond types\n", Count->BondType);
   }
@@ -740,7 +748,7 @@ void WriteOutput(SYSTEM System, bool write[], FILE_TYPE fw,
     PrintByline(fw.name, argc, argv); // byline to vcf file
     fw.name[strlen(fw.name)-2] = 's';
     fw.type = VSF_FILE;
-    WriteStructure(fw, System, vsf_def, false, argc, argv);
+    WriteStructure(fw, System, vsf_def, lmp_mass, argc, argv);
     fw.name[strlen(fw.name)-2] = 'c';
     fw.type = VCF_FILE;
   } else if (fw.type == VTF_FILE ||
@@ -748,7 +756,7 @@ void WriteOutput(SYSTEM System, bool write[], FILE_TYPE fw,
              fw.type == FIELD_FILE ||
              fw.type == CONFIG_FILE ||
              fw.type == LDATA_FILE) {
-    WriteStructure(fw, System, vsf_def, false, argc, argv);
+    WriteStructure(fw, System, vsf_def, lmp_mass, argc, argv);
   }
   // write coordinates if the file is of coordinate type
   if (fw.type == VTF_FILE ||

@@ -4117,15 +4117,15 @@ static void RemoveExtraTypes(SYSTEM *System) {
           free(mt_i->Angle);
         }
         if (mt_new->nDihedrals > 0) {
-          mt_new->Dihedral =
-              malloc(sizeof *mt_new->Dihedral * mt_new->nDihedrals);
+          mt_new->Dihedral = malloc(sizeof *mt_new->Dihedral *
+                                    mt_new->nDihedrals);
           memcpy(mt_new->Dihedral, mt_i->Dihedral,
                  sizeof *mt_i->Dihedral * mt_i->nDihedrals);
           free(mt_i->Dihedral);
         }
         if (mt_new->nImpropers > 0) {
-          mt_new->Improper =
-              malloc(sizeof *mt_new->Improper * mt_new->nImpropers);
+          mt_new->Improper = malloc(sizeof *mt_new->Improper *
+                                    mt_new->nImpropers);
           memcpy(mt_new->Improper, mt_i->Improper,
                  sizeof *mt_i->Improper * mt_i->nImpropers);
           free(mt_i->Improper);

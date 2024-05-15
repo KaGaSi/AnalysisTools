@@ -15,11 +15,11 @@
 // STATIC DEFINITIONS
 // functions to transform to/from fractional coordinates
 static void ToFractional(double coor[3], BOX Box);
-static void ToFractionalCoor(SYSTEM *System);
+// static void ToFractionalCoor(SYSTEM *System);
 static void FromFractional(double coor[3], BOX Box);
-static void FromFractionalCoor(SYSTEM *System);
+// static void FromFractionalCoor(SYSTEM *System);
 // test whether all bonds in a molecule are connected
-static bool ConnectedMolecule(MOLECULE mol, SYSTEM System);
+static bool ConnectedMolecule(SYSTEM System, int n);
 // remove pbc for molecules by joining the molecules
 static void RemovePBCMolecules(SYSTEM *System);
 // restore pbc by wrapping all coordinates inside the simulation box
@@ -64,8 +64,9 @@ static void ToFractional(double coor[3], BOX Box) { //{{{
     }
   }
 } //}}}
-static void ToFractionalCoor(SYSTEM *System) { //{{{
-  if (System->Box.alpha != 90 || System->Box.beta != 90 ||
+void ToFractionalCoor(SYSTEM *System) { //{{{
+  if (System->Box.alpha != 90 ||
+      System->Box.beta != 90 ||
       System->Box.gamma != 90) {
     for (int i = 0; i < System->Count.BeadCoor; i++) {
       int id = System->BeadCoor[i];
@@ -87,7 +88,7 @@ static void FromFractional(double coor[3], BOX Box) { //{{{
     }
   }
 } //}}}
-static void FromFractionalCoor(SYSTEM *System) { //{{{
+void FromFractionalCoor(SYSTEM *System) { //{{{
   if (System->Box.alpha != 90 ||
       System->Box.beta != 90 ||
       System->Box.gamma != 90) {
@@ -99,151 +100,351 @@ static void FromFractionalCoor(SYSTEM *System) { //{{{
   }
 } //}}}
 // test whether all bonds in a molecule are connected //{{{
-static bool ConnectedMolecule(MOLECULE mol, SYSTEM System) {
-  MOLECULETYPE *mt = &System.MoleculeType[mol.Type];
+static bool ConnectedMolecule(SYSTEM System, int n) {
+  MOLECULE *mol = &System.Molecule[n];
+  MOLECULETYPE *mt = &System.MoleculeType[mol->Type];
   if (mt->nBonds == 0) {
     return false;
   }
-  bool *connected = calloc(mt->nBeads, sizeof *connected);
-  // find first bead in the first bond present in the timestep
+  int *connected = calloc(mt->nBonds, sizeof *connected),
+      *unconnected = calloc(mt->nBonds, sizeof *unconnected),
+      count_connected = 0, count_unconnected = 0;
   for (int i = 0; i < mt->nBonds; i++) {
     int id1 = mt->Bond[i][0], id2 = mt->Bond[i][1];
-    BEAD *b_1 = &System.Bead[mol.Bead[id1]], *b_2 = &System.Bead[mol.Bead[id2]];
+    BEAD *b_1 = &System.Bead[mol->Bead[id1]],
+         *b_2 = &System.Bead[mol->Bead[id2]];
     if (b_1->InTimestep && b_2->InTimestep) {
-      connected[id1] = true;
-      connected[id2] = true;
-      break;
+      if (count_connected == 0) {
+        connected[count_connected] = i;
+        count_connected++;
+      } else {
+        unconnected[count_unconnected] = i;
+        count_unconnected++;
+      }
     }
   }
-  for (int i = 0; i < mt->nBonds; i++) {
-    int id1 = mt->Bond[i][0], id2 = mt->Bond[i][1];
-    BEAD *b_1 = &System.Bead[mol.Bead[id1]], *b_2 = &System.Bead[mol.Bead[id2]];
-    if (b_1->InTimestep && b_2->InTimestep && connected[id1]) {
-      connected[id2] = true;
+  if (count_unconnected == 0 && count_connected == 0) {
+    // TODO: this means the molecule isn't in the step - change into int ouptut?
+    free(connected);
+    free(unconnected);
+    return true;
+  }
+
+  for (int i = 0; i < count_connected; i++) {
+    for (int j = 0; j < count_unconnected; j++) {
+      int bond[2], con[2], uncon[2];
+      bond[0] = connected[i];
+      bond[1] = unconnected[j];
+      con[0] = mt->Bond[bond[0]][0];
+      con[1] = mt->Bond[bond[0]][1];
+      uncon[0] = mt->Bond[bond[1]][0];
+      uncon[1] = mt->Bond[bond[1]][1];
+      if (con[0] == uncon[0] || con[0] == uncon[1] ||
+          con[1] == uncon[0] || con[1] == uncon[1]) {
+        connected[count_connected] = bond[1];
+        count_connected++;
+        count_unconnected--;
+        for (int k = j; k < count_unconnected; k++) {
+          unconnected[k] = unconnected[k+1];
+        }
+        j--;
+      }
     }
   }
-  for (int i = 0; i < mt->nBeads; i++) {
-    BEAD *b = &System.Bead[mol.Bead[i]];
-    if (b->InTimestep && !connected[i]) {
-      free(connected);
-      return false;
-    }
+  if (count_unconnected > 0) {
+    return false;
   }
   free(connected);
+  free(unconnected);
   return true;
 } //}}}
 // remove pbc for molecules by joining the molecules //{{{
 /*
- * TODO what about if the molecule has bonds, but is in more 'pieces'; should
- *      it really just try joining it 1000 times when we know it's impossible?
- *      There should be some check and then the separate pieces should be
- *      connected (with a warning issued).
- *      ...working on it - now, unconnected molecules aren't joined
- *      TODO: maybe split molecule to connected pieces, connect those and place
- *            their centres of mass nearest each other
- *      TODO: check the ConnectedMolecule() and possibly make the joining
- *            algorithm along the same lines (go over bond after bond instead of
- *            that while loop)
+ * Create a list of all bonds ('unconnected' array) with beads that are in the
+ * timestep. Then create a connectivity array by going through the list,
+ * transferring used bonds into 'connected' array, and finally, use the
+ * 'connected' array to join the molecule. As long as there are bonds in the
+ * 'unconnected' array, continue creating a new 'connected' array and joining
+ * the molecule. This procedure should be able to join molecule of any
+ * complexity as well as molecule where some beads ar not connected.
+ */
+/*
+ * TODO: maybe split molecule to connected pieces, connect those and place
+ *       their centres of mass nearest each other
  */
 static void RemovePBCMolecules(SYSTEM *System) {
   BOX *box = &System->Box;
   // go through all molecules
-  for (int i = 0; i < System->Count.Molecule; i++) {
-    MOLECULE *mol_i = &System->Molecule[i];
-    MOLECULETYPE *mt_i = &System->MoleculeType[mol_i->Type];
-    if (!ConnectedMolecule(*mol_i, *System)) {
-      snprintf(ERROR_MSG, LINE,
-               "molecule %s%d%s (%s%s%s) does not have all " "beads connected",
-               ErrYellow(), mol_i->Index, ErrCyan(), ErrYellow(), mt_i->Name,
-               ErrCyan());
+  for (int mm = 0; mm < System->Count.Molecule; mm++) {
+    MOLECULE *mol = &System->Molecule[mm];
+    MOLECULETYPE *mt = &System->MoleculeType[mol->Type];
+    // skip molecule if it is bond-less
+    if (mt->nBonds == 0) {
+      snprintf(ERROR_MSG, LINE, "molecule %s%d%s (%s%s%s) has no bonds ",
+               ErrYellow(), mol->Index, ErrCyan(),
+               ErrYellow(), mt->Name, ErrCyan());
       PrintWarning();
-    } else {
-      // do nothing if the molecule has no bonds
-      if (mt_i->nBonds == 0) {
-        continue;
-      }
-      for (int j = 0; j < mt_i->nBeads; j++) {
-        int id = mol_i->Bead[j];
-        System->Bead[id].Flag = false; // no beads moved yet
-      }
-      // first bead in the first bond is considered moved
-      for (int j = 0; j < mt_i->nBonds; j++) {
-        int id1 = mt_i->Bond[j][0], // bead position in the molecule
-            id2 = mt_i->Bond[j][1]; //
-        id1 = mol_i->Bead[id1];     // bead index in the System
-        id2 = mol_i->Bead[id2];     //
-        if (System->Bead[id1].InTimestep && System->Bead[id2].InTimestep) {
-          System->Bead[id1].Flag = true;
-          break;
-        }
-      }
-      bool done = false;
-      int test = 0; // if too many loops, just leave the loop with error
-      while (!done && test < 1000) {
-        for (int j = 0; j < mt_i->nBonds; j++) {
-          int id1 = mt_i->Bond[j][0], // bead position in the molecule
-              id2 = mt_i->Bond[j][1]; //
-          id1 = mol_i->Bead[id1];     // bead index in the System
-          id2 = mol_i->Bead[id2];     //
-          BEAD *b_1 = &System->Bead[id1], *b_2 = &System->Bead[id2];
-          if (b_1->InTimestep && b_2->InTimestep) {
-            // move id1, if id2 is moved already
-            double dist[3];
-            if (!b_1->Flag && b_2->Flag) {
-              Distance(b_2->Position, b_1->Position, box->Length, dist);
-              for (int dd = 0; dd < 3; dd++) {
-                b_1->Position[dd] = b_2->Position[dd] - dist[dd];
-              }
-              b_1->Flag = true;
-              // move id2, if id1 was moved already
-            } else if (b_1->Flag && !b_2->Flag) {
-              Distance(b_1->Position, b_2->Position, box->Length, dist);
-              for (int dd = 0; dd < 3; dd++) {
-                b_2->Position[dd] = b_1->Position[dd] - dist[dd];
-              }
-              b_2->Flag = true;
-            }
-          }
-        }
-
-        // break while loop if all beads have moved
-        done = true;
-        for (int j = 1; j < mt_i->nBeads; j++) {
-          int id = mol_i->Bead[j];
-          if (System->Bead[id].InTimestep && !System->Bead[id].Flag) {
-            done = false;
-            break;
-          }
-        }
-        test++;
-      }
-      if (test == 1000) {
-        snprintf(ERROR_MSG, LINE, "unable to join molecule %s%s%s (resid "
-                 "%s%d%s)\n     Either all beads are not connected or "
-                 "some beads are missing from the timestep", ErrYellow(),
-                 mt_i->Name, ErrCyan(), ErrYellow(), i + 1, ErrCyan());
-        PrintWarning();
-      }
-
-      // put molecule's geometric centre into the simulation box //{{{
-      double cog[3];
-      GeomCentre(mt_i->nBeads, mol_i->Bead, System->Bead, cog);
-      // by how many BoxLength's should cog be moved?
-      // for distant molecules - it shouldn't happen, but better safe than sorry
-      int move[3];
-      for (int dd = 0; dd < 3; dd++) {
-        move[dd] = cog[dd] / box->Length[dd];
-        if (cog[dd] < 0) {
-          move[dd]--;
-        }
-      }
-      for (int j = 0; j < mt_i->nBeads; j++) {
-        int bead = mol_i->Bead[j];
-        for (int dd = 0; dd < 3; dd++) {
-          System->Bead[bead].Position[dd] -= move[dd] * box->Length[dd];
-        }
-      } //}}}
+      continue;
     }
+    // arrays holding bonds already connected and yet unconnected
+    int *connected = calloc(mt->nBonds, sizeof *connected),
+        *unconnected = calloc(mt->nBonds, sizeof *unconnected),
+        count_unconnected = 0;
+    // 1)
+    for (int i = 0; i < mt->nBonds; i++) {
+      int id1 = mt->Bond[i][0], id2 = mt->Bond[i][1];
+      BEAD *b_1 = &System->Bead[mol->Bead[id1]],
+           *b_2 = &System->Bead[mol->Bead[id2]];
+      if (b_1->InTimestep && b_2->InTimestep) {
+        unconnected[count_unconnected] = i;
+        count_unconnected++;
+      }
+    }
+    // skip molecule if there is no valid bond in the coordinate file //{{{
+    if (count_unconnected == 0) {
+      snprintf(ERROR_MSG, LINE, "no bonded beads in the timestep "
+               " for molecule %s%d%s (%s%s%s) has no bonds ", ErrYellow(),
+               mol->Index, ErrCyan(), ErrYellow(), mt->Name, ErrCyan());
+      PrintWarning();
+      free(connected);
+      free(unconnected);
+      continue;
+    } //}}}
+    while (count_unconnected > 0) {
+      int count_connected = 0;
+      connected[count_connected] = unconnected[0];
+      count_connected++;
+      count_unconnected--;
+      for (int i = 0; i < count_unconnected; i++) {
+        unconnected[i] = unconnected[i+1];
+      }
+      // 2)
+      for (int i = 0; i < count_connected; i++) {
+        for (int j = 0; j < count_unconnected; j++) {
+          int bond[2], // the connected and unconnected bonds
+              con[2], // beads in the already connected bond (bond[0])
+              uncon[2]; // beads in the yet unconneced bond (bond[1])
+          bond[0] = connected[i];
+          bond[1] = unconnected[j];
+          con[0] = mt->Bond[bond[0]][0];
+          con[1] = mt->Bond[bond[0]][1];
+          uncon[0] = mt->Bond[bond[1]][0];
+          uncon[1] = mt->Bond[bond[1]][1];
+          // if a bead is in both bonds, the unconnected bond becomes connected
+          if (con[0] == uncon[0] || con[0] == uncon[1] ||
+              con[1] == uncon[0] || con[1] == uncon[1]) {
+            connected[count_connected] = bond[1];
+            count_connected++;
+            count_unconnected--;
+            // move unconnected bonds to retain continuous array
+            for (int k = j; k < count_unconnected; k++) {
+              unconnected[k] = unconnected[k+1];
+            }
+            // unconnected[j] is again unconnected, so decremenet 'j'
+            j--;
+          }
+        }
+      }
+      // connect the molecule by going through the list of connected bonds 
+      bool *moved = calloc(mt->nBeads, sizeof *moved);
+      int first = mt->Bond[connected[0]][0];
+      moved[first] = true;
+      for (int i = 0; i < count_connected; i++) {
+        int bond = connected[i];
+        int id1 = mt->Bond[bond][0],
+            id2 = mt->Bond[bond][1];
+        BEAD *b_1 = &System->Bead[mol->Bead[id1]],
+             *b_2 = &System->Bead[mol->Bead[id2]];
+        // printf("%2d %2d-%2d\n", bond, id1, id2);
+        double dist[3];
+        if (!moved[id1] && moved[id2]) {
+          Distance(b_2->Position, b_1->Position, box->OrthoLength, dist);
+          for (int dd = 0; dd < 3; dd++) {
+            b_1->Position[dd] = b_2->Position[dd] - dist[dd];
+          }
+          moved[id1] = true;
+        } else if (moved[id1] && !moved[id2]) {
+          Distance(b_1->Position, b_2->Position, box->OrthoLength, dist);
+          for (int dd = 0; dd < 3; dd++) {
+            b_2->Position[dd] = b_1->Position[dd] - dist[dd];
+          }
+          moved[id2] = true;
+        }
+      }
+      // TODO CENTRE OF MASS
+      free(moved);
+    }
+    free(connected);
+    free(unconnected);
+    // put molecule's geometric centre into the simulation box //{{{
+    double cog[3];
+    GeomCentre(mt->nBeads, mol->Bead, System->Bead, cog);
+    // by how many BoxLength's should cog be moved?
+    int move[3];
+    for (int dd = 0; dd < 3; dd++) {
+      move[dd] = cog[dd] / box->OrthoLength[dd];
+      if (cog[dd] < 0) {
+        move[dd]--;
+      }
+    }
+    for (int j = 0; j < mt->nBeads; j++) {
+      int bead = mol->Bead[j];
+      for (int dd = 0; dd < 3; dd++) {
+        System->Bead[bead].Position[dd] -= move[dd] * box->OrthoLength[dd];
+      }
+    } //}}}
+  }
+} //}}}
+// remove pbc for molecules by joining the molecules //{{{
+/*
+ * TODO: maybe split molecule to connected pieces, connect those and place
+ *       their centres of mass nearest each other
+ */
+static void RemovePBCMolecules_old(SYSTEM *System) {
+  BOX *box = &System->Box;
+  // go through all molecules
+  for (int mm = 0; mm < System->Count.Molecule; mm++) {
+    MOLECULE *mol = &System->Molecule[mm];
+    MOLECULETYPE *mt = &System->MoleculeType[mol->Type];
+    // skip molecule if it is bond-less
+    if (mt->nBonds == 0) {
+      snprintf(ERROR_MSG, LINE, "molecule %s%d%s (%s%s%s) has no bonds ",
+               ErrYellow(), mol->Index, ErrCyan(),
+               ErrYellow(), mt->Name, ErrCyan());
+      PrintWarning();
+      continue;
+    }
+    /*
+     * Create a connectivity array holding a sequence of connected bonds, so the
+     * whole molecule can be joined (if that molecule can be joined) no matter
+     * how are bonds ordered.
+     * 1) assign all bonds as unconnected except for the first one
+     * 2) go through the lists of connected and unconnected bonds, creating the
+     *    connectivity array by joining unconnected bonds with connected ones,
+     *    reducing count of unconnected bonds to 0 (if the molecule can be
+     *    connected)
+     */ //{{{
+    // arrays holding bonds already connected and yet unconnected
+    int *connected = calloc(mt->nBonds, sizeof *connected),
+        *unconnected = calloc(mt->nBonds, sizeof *unconnected),
+        count_connected = 0, count_unconnected = 0;
+    // 1)
+    for (int i = 0; i < mt->nBonds; i++) {
+      int id1 = mt->Bond[i][0], id2 = mt->Bond[i][1];
+      BEAD *b_1 = &System->Bead[mol->Bead[id1]],
+           *b_2 = &System->Bead[mol->Bead[id2]];
+      if (b_1->InTimestep && b_2->InTimestep) {
+        if (count_connected == 0) {
+          connected[count_connected] = i;
+          count_connected++;
+        } else {
+          unconnected[count_unconnected] = i;
+          count_unconnected++;
+        }
+      }
+    }
+    // skip molecule if there is no valid bond in the coordinate file //{{{
+    if (count_unconnected == 0 && count_connected == 0) {
+      snprintf(ERROR_MSG, LINE, "no bonded beads in the timestep "
+               " for molecule %s%d%s (%s%s%s) has no bonds ", ErrYellow(),
+               mol->Index, ErrCyan(), ErrYellow(), mt->Name, ErrCyan());
+      PrintWarning();
+      free(connected);
+      free(unconnected);
+      continue;
+    } //}}}
+    // 2)
+    for (int i = 0; i < count_connected; i++) {
+      for (int j = 0; j < count_unconnected; j++) {
+        int bond[2], // the connected and unconnected bonds
+            con[2], // beads in the already connected bond (bond[0])
+            uncon[2]; // beads in the yet unconneced bond (bond[1])
+        bond[0] = connected[i];
+        bond[1] = unconnected[j];
+        con[0] = mt->Bond[bond[0]][0];
+        con[1] = mt->Bond[bond[0]][1];
+        uncon[0] = mt->Bond[bond[1]][0];
+        uncon[1] = mt->Bond[bond[1]][1];
+        // if a bead is in both bonds, the unconnected bond becomes connected
+        if (con[0] == uncon[0] || con[0] == uncon[1] ||
+            con[1] == uncon[0] || con[1] == uncon[1]) {
+          connected[count_connected] = bond[1];
+          count_connected++;
+          count_unconnected--;
+          // move unconnected bonds to retain continuous array
+          for (int k = j; k < count_unconnected; k++) {
+            unconnected[k] = unconnected[k+1];
+          }
+          // unconnected[j] is again unconnected, so decremenet 'j'
+          j--;
+        }
+      }
+    } //}}}
+    // if any unconnected bond remains, the molecule cannot be joined
+    if (count_unconnected > 0) {
+      snprintf(ERROR_MSG, LINE, "unable to join molecule %s%s%s (resid "
+               "%s%d%s)\n     Either all beads are not connected or "
+               "some beads are missing from the timestep", ErrYellow(),
+               mt->Name, ErrCyan(), ErrYellow(), mol->Index, ErrCyan());
+      PrintWarning();
+      int bond = unconnected[0];
+      int id1 = mt->Bond[bond][0],
+          id2 = mt->Bond[bond][1];
+      id1 = mol->Bead[id1];
+      id2 = mol->Bead[id2];
+      printf("%d unconnected (first: %d %d-%d)\n",
+             count_unconnected, bond, id1, id2);
+      free(connected);
+      free(unconnected);
+      continue;
+    }
+    // connect the molecule by going through the list of connected bonds 
+    bool *moved = calloc(mt->nBeads, sizeof *moved);
+    int first = mt->Bond[connected[0]][0];
+    moved[first] = true;
+    for (int i = 0; i < count_connected; i++) {
+      int bond = connected[i];
+      int id1 = mt->Bond[bond][0],
+          id2 = mt->Bond[bond][1];
+      BEAD *b_1 = &System->Bead[mol->Bead[id1]],
+           *b_2 = &System->Bead[mol->Bead[id2]];
+      // printf("%2d %2d-%2d\n", bond, id1, id2);
+      double dist[3];
+      if (!moved[id1] && moved[id2]) {
+        Distance(b_2->Position, b_1->Position, box->OrthoLength, dist);
+        for (int dd = 0; dd < 3; dd++) {
+          b_1->Position[dd] = b_2->Position[dd] - dist[dd];
+        }
+        moved[id1] = true;
+      } else if (moved[id1] && !moved[id2]) {
+        Distance(b_1->Position, b_2->Position, box->OrthoLength, dist);
+        for (int dd = 0; dd < 3; dd++) {
+          b_2->Position[dd] = b_1->Position[dd] - dist[dd];
+        }
+        moved[id2] = true;
+      }
+    }
+    // TODO CENTRE OF MASS
+    free(moved);
+    free(connected);
+    free(unconnected);
+    // put molecule's geometric centre into the simulation box //{{{
+    double cog[3];
+    GeomCentre(mt->nBeads, mol->Bead, System->Bead, cog);
+    // by how many BoxLength's should cog be moved?
+    int move[3];
+    for (int dd = 0; dd < 3; dd++) {
+      move[dd] = cog[dd] / box->OrthoLength[dd];
+      if (cog[dd] < 0) {
+        move[dd]--;
+      }
+    }
+    for (int j = 0; j < mt->nBeads; j++) {
+      int bead = mol->Bead[j];
+      for (int dd = 0; dd < 3; dd++) {
+        System->Bead[bead].Position[dd] -= move[dd] * box->OrthoLength[dd];
+      }
+    } //}}}
   }
 } //}}}
 // restore pbc by wrapping all coordinates inside the simulation box //{{{
@@ -253,11 +454,11 @@ static void RestorePBC(SYSTEM *System) {
     BEAD *bead = &System->Bead[id];
     BOX *box = &System->Box;
     for (int dd = 0; dd < 3; dd++) {
-      while (bead->Position[dd] >= box->Length[dd]) {
-        bead->Position[dd] -= box->Length[dd];
+      while (bead->Position[dd] >= box->OrthoLength[dd]) {
+        bead->Position[dd] -= box->OrthoLength[dd];
       }
       while (bead->Position[dd] < 0) {
-        bead->Position[dd] += box->Length[dd];
+        bead->Position[dd] += box->OrthoLength[dd];
       }
     }
   }
@@ -673,15 +874,19 @@ bool CalculateBoxData(BOX *Box, int mode) {
         Box->Length[dd] = Box->OrthoLength[dd];
       }
       Box->Volume = Box->Length[0] * Box->Length[1] *  Box->Length[2];
-      if (Box->transform[0][1] != 0 || Box->transform[0][2] != 0 ||
+      if (Box->transform[0][1] != 0 ||
+          Box->transform[0][2] != 0 ||
           Box->transform[1][2] != 0) {
         double a = Box->OrthoLength[0],
                b = sqrt(SQR(Box->OrthoLength[1]) + SQR(Box->transform[0][1])),
-               c = sqrt(SQR(Box->OrthoLength[2]) + SQR(Box->transform[0][2]));
+               c = sqrt(SQR(Box->OrthoLength[2]) +
+                        SQR(Box->transform[0][2]) +
+                        SQR(Box->transform[1][2]));
         double c_a = (Box->transform[0][1] * Box->transform[0][2] +
                       Box->OrthoLength[1] * Box->transform[1][2]) /
                      (b * c),
-               c_b = Box->transform[0][2] / c, c_g = Box->transform[0][1] / b,
+               c_b = Box->transform[0][2] / c,
+               c_g = Box->transform[0][1] / b,
                s_g = sin(Box->gamma * PI / 180);
         // cell length
         Box->Length[0] = a;
@@ -734,10 +939,12 @@ bool CalculateBoxData(BOX *Box, int mode) {
          xz = Box->transform[0][2],
          yz = Box->transform[1][2],
          xyz = Box->transform[0][1] + Box->transform[0][2];
-  Box->Bounding[0] = Box->Low[0] + Max3(0, xy, Max3(0, xz, xyz)) -
-                    Min3(0, xy, Min3(0, xz, xyz));
-  Box->Bounding[1] = Box->Low[1] + Max3(0, 0, yz) - Max3(0, 0, yz);
-  Box->Bounding[2] = Box->Low[2]; //}}}
+  Box->Bounding[0] = Box->OrthoLength[0] -
+                     Max3(0, xy, Max3(0, xz, xyz)) +
+                     Min3(0, xy, Min3(0, xz, xyz));
+  Box->Bounding[1] = Box->OrthoLength[1] -
+                     Min3(0, 0, yz) + Max3(0, 0, yz);
+  Box->Bounding[2] = Box->OrthoLength[2]; //}}}
   if (Box->Volume == 0) { //{{{
     strcpy(ERROR_MSG, "not all box dimensions are non-zero:");
     PrintError();
@@ -1081,7 +1288,7 @@ void MergeBeadTypes(SYSTEM *System, bool detailed) {
     }
     free(temp);
     //}}}
-    RenameBeadTypes(System);
+    // RenameBeadTypes(System);
     // fill array to relabel bead types in arrays //{{{
     for (int i = 0; i < count_bt_old; i++) {
       old_to_new[i] = bt_old_to_new[bt_older_to_old[i]];
@@ -3644,7 +3851,7 @@ void VerboseOutput(SYSTEM System) { //{{{
   PrintAngleType(System);
   PrintDihedralType(System);
   PrintImproperType(System);
-  PrintMoleculeType(System);
+  PrintMoleculeTypes(System);
   if (System.Box.Volume != -1) {
     putchar('\n');
     PrintBox(System.Box);
@@ -3672,9 +3879,9 @@ void PrintCount(COUNT Count) { //{{{
   }
   fprintf(stdout, "  Molecule Types: %d\n", Count.MoleculeType);
   fprintf(stdout, "  Molecules:      %d\n", Count.Molecule);
-  if (Count.Molecule > 0) {
-    fprintf(stdout, "  HighestResid:   %d", Count.HighestResid);
-  }
+  // if (Count.Molecule > 0) {
+  //   fprintf(stdout, "  HighestResid:   %d", Count.HighestResid);
+  // }
   if (Count.BondType > 0) {
     fprintf(stdout, "\n  Bond Types:     %d", Count.BondType);
   }
@@ -3805,110 +4012,116 @@ void PrintBeadType(SYSTEM System) { //{{{
   }
   putchar('\n');
 } //}}}
-void PrintMoleculeType(SYSTEM System) { //{{{
-  for (int i = 0; i < System.Count.MoleculeType; i++) {
-    MOLECULETYPE *mt = &System.MoleculeType[i];
-    fprintf(stdout, "MoleculeType[%d] = {\n", i);
-    if (strcmp(mt->Name, NON) == 0) {
-      fprintf(stdout, "  .Name       = n/a\n");
-    } else {
-      fprintf(stdout, "  .Name       = %s\n", mt->Name);
-    }
-    fprintf(stdout, "  .Number     = %d\n", mt->Number);
-    // print bead types (list all beads) //{{{
-    fprintf(stdout, "  .nBeads     = %d\n", mt->nBeads);
-    fprintf(stdout, "  .Bead       = {");
-    for (int j = 0; j < mt->nBeads; j++) {
-      fprintf(stdout, " %d", mt->Bead[j]);
-    }
-    fprintf(stdout, " }\n"); //}}}
-    // print bonds if there are any //{{{
-    if (mt->nBonds > 0) {
-      fprintf(stdout, "  .nBonds     = %d\n", mt->nBonds);
-      fprintf(stdout, "  .Bond       = {");
-      for (int j = 0; j < mt->nBonds; j++) {
-        fprintf(stdout, " %d-%d", mt->Bond[j][0] + 1, mt->Bond[j][1] + 1);
-        if (mt->Bond[j][2] != -1) {
-          fprintf(stdout, " (%d)", mt->Bond[j][2] + 1);
-        }
+void Print1MoleculeType(SYSTEM System, int n) { //{{{
+  MOLECULETYPE *mt = &System.MoleculeType[n];
+  fprintf(stdout, "MoleculeType[%d] = {\n", n);
+  if (strcmp(mt->Name, NON) == 0) {
+    fprintf(stdout, "  .Name       = n/a\n");
+  } else {
+    fprintf(stdout, "  .Name       = %s\n", mt->Name);
+  }
+  fprintf(stdout, "  .Number     = %d\n", mt->Number);
+  // print bead types (list all beads) //{{{
+  fprintf(stdout, "  .nBeads     = %d\n", mt->nBeads);
+  fprintf(stdout, "  .Bead       = {");
+  for (int j = 0; j < mt->nBeads; j++) {
+    fprintf(stdout, " %d", mt->Bead[j]);
+  }
+  fprintf(stdout, " }\n"); //}}}
+  // print bonds if there are any //{{{
+  if (mt->nBonds > 0) {
+    fprintf(stdout, "  .nBonds     = %d\n", mt->nBonds);
+    fprintf(stdout, "  .Bond       = {");
+    for (int j = 0; j < mt->nBonds; j++) {
+      fprintf(stdout, " %d-%d", mt->Bond[j][0] + 1, mt->Bond[j][1] + 1);
+      if (mt->Bond[j][2] != -1) {
+        fprintf(stdout, " (%d)", mt->Bond[j][2] + 1);
       }
-      fprintf(stdout, " }\n");
-    } //}}}
-    // print angles if there are any //{{{
-    if (mt->nAngles > 0) {
-      fprintf(stdout, "  .nAngles    = %d\n", mt->nAngles);
-      fprintf(stdout, "  .Angle      = {");
-      for (int j = 0; j < mt->nAngles; j++) {
-        fprintf(stdout, " %d-%d-%d", mt->Angle[j][0] + 1,
-                                     mt->Angle[j][1] + 1,
-                                     mt->Angle[j][2] + 1);
-        if (mt->Angle[j][3] != -1) {
-          fprintf(stdout, " (%d)", mt->Angle[j][3] + 1);
-        }
-      }
-      fprintf(stdout, " }\n");
-    } //}}}
-    // print dihedrals if there are any //{{{
-    if (mt->nDihedrals > 0) {
-      fprintf(stdout, "  .nDihedrals = %d\n  .Dihedral   = {",
-              mt->nDihedrals);
-      for (int j = 0; j < mt->nDihedrals; j++) {
-        fprintf(stdout, " %d-%d-%d-%d", mt->Dihedral[j][0] + 1,
-                                        mt->Dihedral[j][1] + 1,
-                                        mt->Dihedral[j][2] + 1,
-                                        mt->Dihedral[j][3] + 1);
-        if (mt->Dihedral[j][4] != -1) {
-          fprintf(stdout, " (%d)", mt->Dihedral[j][4] + 1);
-        }
-      }
-      fprintf(stdout, " }\n");
-    } //}}}
-    // print impropers if there are any //{{{
-    if (mt->nImpropers > 0) {
-      fprintf(stdout, "  .nImpropers = %d\n  .Improper   = { ", mt->nImpropers);
-      for (int j = 0; j < mt->nImpropers; j++) {
-        if (j != 0) {
-          fprintf(stdout, ", ");
-        }
-        fprintf(stdout, "%d-%d-%d-%d", mt->Improper[j][0] + 1,
-                                       mt->Improper[j][1] + 1,
-                                       mt->Improper[j][2] + 1,
-                                       mt->Improper[j][3] + 1);
-        if (mt->Improper[j][4] != -1) {
-          fprintf(stdout, "(%d)", mt->Improper[j][4] + 1);
-        }
-      }
-      fprintf(stdout, " }\n");
-    } //}}}
-    // print bead types (just the which are present) //{{{
-    fprintf(stdout, "  .nBTypes    = %d\n", mt->nBTypes);
-    fprintf(stdout, "  .BType      = {");
-    for (int j = 0; j < mt->nBTypes; j++) {
-      fprintf(stdout, " %d", mt->BType[j]);
     }
-    fprintf(stdout, " }\n"); //}}}
-    if (mt->Mass != MASS) {
-      fprintf(stdout, "  .Mass       = %.5f\n", mt->Mass);
-    } else {
-      fprintf(stdout, "  .Mass       = n/a\n");
+    fprintf(stdout, " }\n");
+  } //}}}
+  // print angles if there are any //{{{
+  if (mt->nAngles > 0) {
+    fprintf(stdout, "  .nAngles    = %d\n", mt->nAngles);
+    fprintf(stdout, "  .Angle      = {");
+    for (int j = 0; j < mt->nAngles; j++) {
+      fprintf(stdout, " %d-%d-%d", mt->Angle[j][0] + 1,
+                                   mt->Angle[j][1] + 1,
+                                   mt->Angle[j][2] + 1);
+      if (mt->Angle[j][3] != -1) {
+        fprintf(stdout, " (%d)", mt->Angle[j][3] + 1);
+      }
     }
-    if (mt->Charge != CHARGE) {
-      fprintf(stdout, "  .Charge     = %.5f\n}\n", mt->Charge);
-    } else {
-      fprintf(stdout, "  .Charge     = n/a\n}\n");
+    fprintf(stdout, " }\n");
+  } //}}}
+  // print dihedrals if there are any //{{{
+  if (mt->nDihedrals > 0) {
+    fprintf(stdout, "  .nDihedrals = %d\n  .Dihedral   = {",
+            mt->nDihedrals);
+    for (int j = 0; j < mt->nDihedrals; j++) {
+      fprintf(stdout, " %d-%d-%d-%d", mt->Dihedral[j][0] + 1,
+                                      mt->Dihedral[j][1] + 1,
+                                      mt->Dihedral[j][2] + 1,
+                                      mt->Dihedral[j][3] + 1);
+      if (mt->Dihedral[j][4] != -1) {
+        fprintf(stdout, " (%d)", mt->Dihedral[j][4] + 1);
+      }
     }
+    fprintf(stdout, " }\n");
+  } //}}}
+  // print impropers if there are any //{{{
+  if (mt->nImpropers > 0) {
+    fprintf(stdout, "  .nImpropers = %d\n  .Improper   = { ", mt->nImpropers);
+    for (int j = 0; j < mt->nImpropers; j++) {
+      if (j != 0) {
+        fprintf(stdout, ", ");
+      }
+      fprintf(stdout, "%d-%d-%d-%d", mt->Improper[j][0] + 1,
+                                     mt->Improper[j][1] + 1,
+                                     mt->Improper[j][2] + 1,
+                                     mt->Improper[j][3] + 1);
+      if (mt->Improper[j][4] != -1) {
+        fprintf(stdout, " (%d)", mt->Improper[j][4] + 1);
+      }
+    }
+    fprintf(stdout, " }\n");
+  } //}}}
+  // print bead types (just the which are present) //{{{
+  fprintf(stdout, "  .nBTypes    = %d\n", mt->nBTypes);
+  fprintf(stdout, "  .BType      = {");
+  for (int j = 0; j < mt->nBTypes; j++) {
+    fprintf(stdout, " %d", mt->BType[j]);
+  }
+  fprintf(stdout, " }\n"); //}}}
+  if (mt->Mass != MASS) {
+    fprintf(stdout, "  .Mass       = %.5f\n", mt->Mass);
+  } else {
+    fprintf(stdout, "  .Mass       = n/a\n");
+  }
+  if (mt->Charge != CHARGE) {
+    fprintf(stdout, "  .Charge     = %.5f\n}\n", mt->Charge);
+  } else {
+    fprintf(stdout, "  .Charge     = n/a\n}\n");
   }
 } //}}}
-void PrintMolecule(SYSTEM System) { //{{{
+void PrintMoleculeTypes(SYSTEM System) { //{{{
+  for (int i = 0; i < System.Count.MoleculeType; i++) {
+    Print1MoleculeType(System, i);
+  }
+} //}}}
+void Print1Molecule(SYSTEM System, int n) { //{{{
+  MOLECULE *mol = &System.Molecule[n];
+  MOLECULETYPE *mtype = &System.MoleculeType[mol->Type];
+  fprintf(stdout, "Molecule %3d (%d, %s):\n", n + 1, mol->Index, mtype->Name);
+  fprintf(stdout, " BEAD INDICES (%d): ", mtype->nBeads);
+  fputs("intramolecular; input file\n", stdout);
+  for (int j = 0; j < mtype->nBeads; j++) {
+    fprintf(stdout, "   %3d; %5d\n", j + 1, mol->Bead[j]);
+  }
+} //}}}
+void PrintMolecules(SYSTEM System) { //{{{
   for (int i = 0; i < System.Count.Molecule; i++) {
-    MOLECULE *mol = &System.Molecule[i];
-    MOLECULETYPE *mtype = &System.MoleculeType[mol->Type];
-    fprintf(stdout, "Molecule %3d (%d, %s):\n", i + 1, mol->Index, mtype->Name);
-    fprintf(stdout, " BEAD INDICES (%d): ", mtype->nBeads);
-    fputs("intramolecular; input file\n", stdout);
-    for (int j = 0; j < mtype->nBeads; j++) {
-      fprintf(stdout, "   %3d; %5d\n", j + 1, mol->Bead[j]);
-    }
+    Print1Molecule(System, i);
   }
   fprintf(stdout, "\n");
 } //}}}
@@ -3987,6 +4200,21 @@ void PrintBox(BOX Box) { //{{{
     fprintf(stdout, "  .alpha = %lf\n", Box.alpha);
     fprintf(stdout, "  .beta  = %lf\n", Box.beta);
     fprintf(stdout, "  .gamma = %lf\n", Box.gamma);
+    fprintf(stdout, "  .OrthoLength = ( %lf %lf %lf )\n", Box.OrthoLength[0],
+                                                          Box.OrthoLength[1],
+                                                          Box.OrthoLength[2]);
+    fprintf(stdout, "  .Bounding = ( %lf %lf %lf )\n", Box.Bounding[0],
+                                                       Box.Bounding[1],
+                                                       Box.Bounding[2]);
+    fprintf(stdout, "  .transform = ( %lf %lf %lf)\n", Box.transform[0][0],
+                                                       Box.transform[0][1],
+                                                       Box.transform[0][2]);
+    fprintf(stdout, "               ( %lf %lf %lf)\n", Box.transform[1][0],
+                                                       Box.transform[1][1],
+                                                       Box.transform[1][2]);
+    fprintf(stdout, "               ( %lf %lf %lf)\n", Box.transform[2][0],
+                                                       Box.transform[2][1],
+                                                       Box.transform[2][2]);
   }
   fprintf(stdout, "  .Volume = %lf\n", Box.Volume);
   fprintf(stdout, "}\n");

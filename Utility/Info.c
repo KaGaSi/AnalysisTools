@@ -21,9 +21,10 @@ a coordinate file (-c option); see Examples/Info folder for details.\
   fprintf(ptr, "[options]\n");
   fprintf(ptr, "  -i <file>         secondary structure file\n");
   fprintf(ptr, "  -c <file>         input coordinate file\n");
-  fprintf(ptr, "  -o <file>         output structure file\n");
   fprintf(ptr, "  --detailed        use name as well as charge, mass, and "
           "radius to identfy bead types (input vtf structure files only)\n");
+  fprintf(ptr, "  -o <file>         output structure file\n");
+  fprintf(ptr, "  --unique          make all bead/molecule names unique\n");
   fprintf(ptr, "  -def <bead name>  default bead type "
           "(output vtf structure file only)\n");
   fprintf(ptr, "  --mass            define lammps atom types by mass, but "
@@ -48,7 +49,7 @@ OPT * opt_create(void) {
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 5, all = common + 7, count = 0, req_arg = 1;
+  int common = 5, all = common + 8, count = 0, req_arg = 1;
   char option[all][OPT_LENGTH];
   // common options
   strcpy(option[count++], "-st");
@@ -60,6 +61,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "-i");
   strcpy(option[count++], "-c");
   strcpy(option[count++], "-o");
+  strcpy(option[count++], "--unique");
   strcpy(option[count++], "--detailed");
   strcpy(option[count++], "-def");
   strcpy(option[count++], "--mass");
@@ -129,7 +131,7 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "Information about every bead:\n");
     PrintBead(System);
     fprintf(stdout, "\nInformation about every molecule:\n");
-    PrintMolecule(System);
+    PrintMolecules(System);
   }
   SYSTEM Sys_extra;
   if (extra.stru.name[0] != '\0') {
@@ -142,7 +144,7 @@ int main(int argc, char *argv[]) {
       fprintf(stdout, "Information about every bead:\n");
       PrintBead(Sys_extra);
       fprintf(stdout, "\nInformation about every molecule:\n");
-      PrintMolecule(Sys_extra);
+      PrintMolecules(Sys_extra);
     }
     // add charge, mass, and radius to bead types if possible
     for (int i = 0; i < Count->BeadType; i++) {
@@ -192,11 +194,14 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "Information about every bead:\n");
     PrintBead(System);
     fprintf(stdout, "\nInformation about every molecule:\n");
-    PrintMolecule(System);
+    PrintMolecules(System);
   } //}}}
 
   // write the output file if required (-o option) //{{{
   if (opt->fout.name[0] != '\0') {
+    if (opt->fout.type == LDATA_FILE && opt->ebt > 0) {
+      NewBeadType(&System.BeadType, &Count->BeadType, "extra", 0, 1, 1);
+    }
     bool *write = malloc(sizeof *write * Count->Bead);
     InitBoolArray(write, Count->Bead, true);
     WriteOutput(System, write, opt->fout, opt->lmp_mass, opt->vsf_def,

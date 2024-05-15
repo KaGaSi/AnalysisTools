@@ -86,6 +86,8 @@ void GeomCentre(int n, int *list, BEAD *Bead, double gc[3]);
 // add/subtract Box.Low to/from coordinates
 void AddLow(SYSTEM *System);
 void SubtractLow(SYSTEM *System);
+void ToFractionalCoor(SYSTEM *System);
+void FromFractionalCoor(SYSTEM *System);
 
 // identify input coordinate and structure files
 // bool InputCoorStruct(int argc, char *argv[], char coor[], int *coor_type,
@@ -106,8 +108,10 @@ int SelectCell2(int c1[3], int n_cells[3], int Dc[14][3], int n);
 void VerboseOutput(SYSTEM System);
 void PrintCount(COUNT Count);
 void PrintBeadType(SYSTEM System);
-void PrintMoleculeType(SYSTEM System);
-void PrintMolecule(SYSTEM System);
+void Print1MoleculeType(SYSTEM System, int n);
+void PrintMoleculeTypes(SYSTEM System);
+void Print1Molecule(SYSTEM System, int n);
+void PrintMolecules(SYSTEM System);
 void PrintBead(SYSTEM System);
 void PrintBondType(SYSTEM System);
 void PrintAngleType(SYSTEM System);
