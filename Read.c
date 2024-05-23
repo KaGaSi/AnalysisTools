@@ -2993,43 +2993,24 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
           mt_i->Bond[j][0] = beads[0] - 1; // in FIELD, indices start from 1
           mt_i->Bond[j][1] = beads[1] - 1; //
           // read up to three values for bond type
-          if (words > 3) {
-            if (strcmp(split[3], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE, "undefined bond type (\'???\' in bonds "
-                       "section) in molecule %s%s", ErrYellow(), mt_i->Name);
-              PrintWarnFile(file, "\0", "\0");
-              warned = true;
-            } else if (!IsRealNumber(split[3], &values.a)) {
-              snprintf(ERROR_MSG, LINE, "wrong bond type parameter in "
-                       "molecule %s%s\n", ErrYellow(), mt_i->Name);
-              PrintErrorFileLine(file, line_count);
-              exit(1);
+          for (int k = 3; k <= 5; k++) {
+            double *ptr = NULL;
+            if (k == 3) {
+              ptr = &values.a;
+            } else if (k == 4) {
+              ptr = &values.b;
+            } else {
+              ptr = &values.c;
             }
-          }
-          if (words > 4) {
-            if (strcmp(split[4], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE, "undefined bond type (\'???\' in bonds "
-                       "section) in molecule %s%s", ErrYellow(), mt_i->Name);
-              PrintWarnFile(file, "\0", "\0");
-              warned = true;
-            } else if (!IsRealNumber(split[4], &values.b)) {
-              snprintf(ERROR_MSG, LINE, "wrong bond type parameter in "
-                       "molecule %s%s\n", ErrYellow(), mt_i->Name);
-              PrintErrorFileLine(file, line_count);
-              exit(1);
-            }
-          }
-          if (words > 5) {
-            if (strcmp(split[5], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE, "undefined bond type (\'???\' in bonds "
-                       "section) in molecule %s%s", ErrYellow(), mt_i->Name);
-              PrintWarnFile(file, "\0", "\0");
-              warned = true;
-            } else if (!IsRealNumber(split[5], &values.c)) {
-              snprintf(ERROR_MSG, LINE, "wrong bond type parameter in "
-                       "molecule %s%s\n", ErrYellow(), mt_i->Name);
-              PrintErrorFileLine(file, line_count);
-              exit(1);
+            if (words > k) {
+              if (strcmp(split[k], "???") == 0 && !warned) {
+                snprintf(ERROR_MSG, LINE, "undefined bond parameter (\'???\') "
+                         "in molecule %s%s", ErrYellow(), mt_i->Name);
+                PrintWarnFile(file, "\0", "\0");
+                warned = true;
+              } else if (!IsRealNumber(split[k], ptr)) {
+                break;
+              }
             }
           }
           // assign bond type //{{{
@@ -3117,60 +3098,28 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
             PrintErrorFileLine(file, line_count);
             exit(1);
           } //}}}
-          mt_i->Angle[j][0] =
-              beads[0] - 1; // in FIELD, bead indices start from 1
+          mt_i->Angle[j][0] = beads[0] - 1; // in FIELD, bead indices go from 1
           mt_i->Angle[j][1] = beads[1] - 1; //
           mt_i->Angle[j][2] = beads[2] - 1; //
           // read up to three values for angle type
-          if (words > 4) {
-            if (strcmp(split[4], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE,
-                       "undefined angle type (\'???\' in angles "
-                       "section) for molecule %s%s",
-                       ErrYellow(), mt_i->Name);
-              PrintWarnFile(file, "\0", "\0");
-              warned = true;
-            } else if (!IsRealNumber(split[4], &values.a)) {
-              snprintf(ERROR_MSG, LINE,
-                       "wrong angle parameter in molecule "
-                       "%s%s",
-                       ErrYellow(), mt_i->Name);
-              PrintErrorFileLine(file, line_count);
-              exit(1);
+          for (int k = 4; k <= 6; k++) {
+            double *ptr = NULL;
+            if (k == 4) {
+              ptr = &values.a;
+            } else if (k == 5) {
+              ptr = &values.b;
+            } else {
+              ptr = &values.c;
             }
-          }
-          if (words > 5) {
-            if (strcmp(split[5], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE,
-                       "undefined angle type (\'???\' in angles "
-                       "section) for molecule %s%s",
-                       ErrYellow(), mt_i->Name);
-              PrintWarnFile(file, "\0", "\0");
-              warned = true;
-            } else if (!IsRealNumber(split[5], &values.b)) {
-              snprintf(ERROR_MSG, LINE,
-                       "wrong angle parameter in molecule "
-                       "%s%s",
-                       ErrYellow(), mt_i->Name);
-              PrintErrorFileLine(file, line_count);
-              exit(1);
-            }
-          }
-          if (words > 6) {
-            if (strcmp(split[6], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE,
-                       "undefined angle type (\'???\' in angles "
-                       "section) for molecule %s%s",
-                       ErrYellow(), mt_i->Name);
-              PrintWarnFile(file, "\0", "\0");
-              warned = true;
-            } else if (!IsRealNumber(split[6], &values.c)) {
-              snprintf(ERROR_MSG, LINE,
-                       "wrong angle parameter in molecule "
-                       "%s%s",
-                       ErrYellow(), mt_i->Name);
-              PrintErrorFileLine(file, line_count);
-              exit(1);
+            if (words > k) {
+              if (strcmp(split[k], "???") == 0 && !warned) {
+                snprintf(ERROR_MSG, LINE, "undefined angle parameter (\'???\') "
+                         " for molecule %s%s", ErrYellow(), mt_i->Name);
+                PrintWarnFile(file, "\0", "\0");
+                warned = true;
+              } else if (!IsRealNumber(split[k], ptr)) {
+                break;
+              }
             }
           }
           // assign angle type //{{{
@@ -3270,55 +3219,24 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
           mt_i->Dihedral[j][2] = beads[2] - 1; //
           mt_i->Dihedral[j][3] = beads[3] - 1; //
           // read up to three values for dihedral type //{{{
-          if (words > 5) {
-            if (strcmp(split[5], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE,
-                       "undefined dihedral type (\'???\' in the "
-                       "section) for molecule %s%s",
-                       ErrYellow(), mt_i->Name);
-              PrintWarnFile(file, "\0", "\0");
-              warned = true;
-            } else if (!IsRealNumber(split[5], &values.a)) {
-              snprintf(ERROR_MSG, LINE,
-                       "wrong dihedral parameter "
-                       "for molecule %s%s",
-                       ErrYellow(), mt_i->Name);
-              PrintErrorFile(file, "\0", "\0");
-              exit(1);
+          for (int k = 5; k <= 7; k++) {
+            double *ptr = NULL;
+            if (k == 5) {
+              ptr = &values.a;
+            } else if (k == 6) {
+              ptr = &values.b;
+            } else {
+              ptr = &values.c;
             }
-          }
-          if (words > 6) {
-            if (strcmp(split[6], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE,
-                       "undefined dihedral type (\'???\' in the "
-                       "section) for molecule %s%s",
-                       ErrYellow(), mt_i->Name);
-              PrintWarnFile(file, "\0", "\0");
-              warned = true;
-            } else if (!IsRealNumber(split[6], &values.b)) {
-              snprintf(ERROR_MSG, LINE,
-                       "wrong dihedral parameter "
-                       "for molecule %s%s",
-                       ErrYellow(), mt_i->Name);
-              PrintErrorFile(file, "\0", "\0");
-              exit(1);
-            }
-          }
-          if (words > 7) {
-            if (strcmp(split[7], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE,
-                       "undefined dihedral type (\'???\' in the "
-                       "section) for molecule %s%s",
-                       ErrYellow(), mt_i->Name);
-              PrintWarnFile(file, "\0", "\0");
-              warned = true;
-            } else if (!IsRealNumber(split[7], &values.c)) {
-              snprintf(ERROR_MSG, LINE,
-                       "wrong dihedral parameter "
-                       "for molecule %s%s",
-                       ErrYellow(), mt_i->Name);
-              PrintErrorFile(file, "\0", "\0");
-              exit(1);
+            if (words > k) {
+              if (strcmp(split[k], "???") == 0 && !warned) {
+                snprintf(ERROR_MSG, LINE, "undefined dihedral paramter "
+                         "(\'???\') in molecule %s%s", ErrYellow(), mt_i->Name);
+                PrintWarnFile(file, "\0", "\0");
+                warned = true;
+              } else if (!IsRealNumber(split[k], ptr)) {
+                break;
+              }
             }
           } //}}}
           // assign dihedral type //{{{
@@ -3413,53 +3331,24 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
           mt_i->Improper[j][2] = beads[2] - 1; //
           mt_i->Improper[j][3] = beads[3] - 1; //
           // read up to three values for improper type //{{{
-          if (words > 5) {
-            if (strcmp(split[5], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE,
-                       "undefined improper type (\'???\' in the "
-                       "section) for molecule %s%s", ErrYellow(), mt_i->Name);
-              PrintWarnFile(file, "\0", "\0");
-              warned = true;
-            } else if (!IsRealNumber(split[5], &values.a)) {
-              snprintf(ERROR_MSG, LINE, "wrong improper parameter "
-                       "for molecule %s%s", ErrYellow(), mt_i->Name);
-              PrintErrorFile(file, "\0", "\0");
-              exit(1);
+          for (int k = 5; k <= 7; k++) {
+            double *ptr = NULL;
+            if (k == 3) {
+              ptr = &values.a;
+            } else if (k == 4) {
+              ptr = &values.b;
+            } else {
+              ptr = &values.c;
             }
-          }
-          if (words > 6) {
-            if (strcmp(split[6], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE,
-                       "undefined improper type (\'???\' in the "
-                       "section) for molecule %s%s",
-                       ErrYellow(), mt_i->Name);
-              PrintWarnFile(file, "\0", "\0");
-              warned = true;
-            } else if (!IsRealNumber(split[6], &values.b)) {
-              snprintf(ERROR_MSG, LINE,
-                       "wrong improper parameter "
-                       "for molecule %s%s",
-                       ErrYellow(), mt_i->Name);
-              PrintErrorFile(file, "\0", "\0");
-              exit(1);
-            }
-          }
-          if (words > 7) {
-            IsRealNumber(split[7], &values.c);
-            if (strcmp(split[7], "???") == 0 && !warned) {
-              snprintf(ERROR_MSG, LINE,
-                       "undefined improper type (\'???\' in the "
-                       "section) for molecule %s%s",
-                       ErrYellow(), mt_i->Name);
-              PrintWarnFile(file, "\0", "\0");
-              warned = true;
-            } else if (!IsRealNumber(split[7], &values.c)) {
-              snprintf(ERROR_MSG, LINE,
-                       "wrong improper parameter "
-                       "for molecule %s%s",
-                       ErrYellow(), mt_i->Name);
-              PrintErrorFile(file, "\0", "\0");
-              exit(1);
+            if (words > k) {
+              if (strcmp(split[k], "???") == 0 && !warned) {
+                snprintf(ERROR_MSG, LINE, "undefined improper parameter "
+                         "(\'???\') in molecule %s%s", ErrYellow(), mt_i->Name);
+                PrintWarnFile(file, "\0", "\0");
+                warned = true;
+              } else if (!IsRealNumber(split[k], ptr)) {
+                break;
+              }
             }
           } //}}}
           // assign improper type //{{{
