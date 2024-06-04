@@ -817,7 +817,7 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
         PrintErrorFileLine(file, *line_count);
         exit(1);
       }
-    } else if (mode == 3) {
+    } else {
       // 'Atoms # charge': <bead id> <bead type id> <charge> <coordinates>
       if (words < 6 || !IsNaturalNumber(split[0], &id) ||
           id > Count->Bead ||                // bead index
@@ -1533,7 +1533,7 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
       }
       resid = 0;
       q = CHARGE;
-    } else if (mode == 3) {
+    } else {
       // 'Atoms # charge': <bead id> <bead type id> <charge> <coordinates>
       if (words < 6 || !IsNaturalNumber(split[0], &id) ||
           id > Count->Bead ||                // bead index
@@ -2109,14 +2109,13 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   } //}}}
   // assign atom default to default beads & count bonded/unbonded beads //{{{
   // find first unused bead type and make it the default
-  int def = -1, count_def = 0;
+  int def = -1;
   for (int i = 0; i < Count->Bead; i++) {
     if (Sys.BeadType[i].Number == 0) {
       def = i;
       Sys.BeadType[def] = bt_def;
       Sys.BeadType[def].Number = Count->Bead - count_atoms;
       Sys.Bead[def].Type = def;
-      count_def = 1;
       break;
     }
   }
@@ -2124,7 +2123,6 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   for (int i = 0; i < Count->Bead; i++) {
     if (Sys.BeadType[i].Number == 0) { // default bead?
       Sys.Bead[i].Type = def;
-      count_def++;
     }
     if (Sys.Bead[i].Molecule == -1) { // is 'i' in a molecule?
       Count->Unbonded++;              // unbonded bead

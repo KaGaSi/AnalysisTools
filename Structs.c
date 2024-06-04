@@ -42,14 +42,14 @@ void InitMolecule(MOLECULE *mol) { //{{{
 void InitSystem(SYSTEM *System) { //{{{
   System->Box = InitBox;
   System->Count = InitCount;
-  System->BeadType =     calloc(1, sizeof System->BeadType);
-  System->Bead =         calloc(1, sizeof System->Bead);
-  System->MoleculeType = calloc(1, sizeof System->MoleculeType);
-  System->Molecule =     calloc(1, sizeof System->Molecule);
-  System->BondType =     calloc(1, sizeof System->BondType);
-  System->AngleType =    calloc(1, sizeof System->AngleType);
-  System->DihedralType = calloc(1, sizeof System->DihedralType);
-  System->ImproperType = calloc(1, sizeof System->ImproperType);
+  System->BeadType =     calloc(1, sizeof(struct BeadType));
+  System->Bead =         calloc(1, sizeof(struct Bead));
+  System->MoleculeType = calloc(1, sizeof(struct MoleculeType));
+  System->Molecule =     calloc(1, sizeof(struct Molecule));
+  System->BondType =     calloc(1, sizeof(struct Params));
+  System->AngleType =    calloc(1, sizeof(struct Params));
+  System->DihedralType = calloc(1, sizeof(struct Params));
+  System->ImproperType = calloc(1, sizeof(struct Params));
   System->Index_mol =    calloc(1, sizeof System->Index_mol);
   System->Bonded =       calloc(1, sizeof System->Bonded);
   System->BondedCoor =   calloc(1, sizeof System->BondedCoor);
