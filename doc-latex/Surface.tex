@@ -1,7 +1,7 @@
 \section{Surface} \label{sec:Surface}
 
 Surface utility determines the average surface of structures such as
-membranes or or polymer brushes and calculates the surface areas.
+membranes or polymer brushes and calculates the surface areas.
 
 The utility cuts the plane perpendicular to the chosen axis into squares of
 size \tt{<width>*<width>} and then finds the beads with the highest and
@@ -16,15 +16,15 @@ searches for the bead with the lowest and highest coordinates in the whole
 box, $\langle0; (box\ length)\rangle$ (this mode finds surfaces for
 something like a bilayer).
 
-Note that the utility does not determines any structures for now, therefore
-any molecules outside the brush/membrane can be recognised as a part of the
+Note that the utility does not determine any structures for now, therefore
+any molecules outside the brush/membrane can be recognized as a part of the
 surface (\tt{-bt} and \tt{-m} can be sometimes used to eliminate
 this problem).
 
 By default, all bead types and all molecule types are used, but using
 \tt{-bt} and \tt{-m} options, only specified bead and/or molecule
 types can be used. This is particularly useful when, e.g., other molecules
-solubilise inside the brush/membrane, leaving some molecules in the
+solubilize inside the brush/membrane, leaving some molecules in the
 solution.
 
 Following are two examples of usage with and without \tt{--in} option

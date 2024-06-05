@@ -67,7 +67,7 @@ box or \tt{pbc <a> <b> <c> <alpha> <beta> <gamma>} for a general rhomboid
 box. %}}}
 \subsection{FIELD format}\label{ssec:StructField} %{{{
 A format similar to the \tt{FIELD} input file for
-\href{https://www.scd.stfc.ac.uk/Pages/DL_MESO.aspx}{DL\_MESO\_DPD simulation
+\href{https://www.scd.stfc.ac.uk/Pages/DL_MESO.aspx}{DL_MESO_DPD simulation
 package}; see \tt{in.FIELD} for an example. This concise format defines species
 of beads and molecules, providing number of beads/molecules of given species as
 well as their properties.
@@ -92,7 +92,7 @@ recommended. Because \field contains only numbers of beads of given types, it is
 not possible to ensure that bead indices in the coordinate file will line up
 with the correct bead types in the \field file. The indices are assigned to the
 beads from \field on the \enquote{first read, first labelled} basis, that is,
-the unbonded bonds are first (in the order of the lines in the \tt{species}
+the unbonded beads are first (in the order of the lines in the \tt{species}
 section) followed by beads from the molecules. Should one want to check the bead
 index assignments, the \tt{Info} utility can be used to generate, e.g., a \vsf
 file from the \field file.
@@ -106,7 +106,7 @@ scratch via, e.g., \fullref{sec:AddToSystem} or \TODO{ref GenSystem,
 GenLayers, or some such}.
 
 To be recognized by AnalysisTools utilities, the file must either be called
-\field or have a \tt{.FIELD} extension.
+\field or have a \tt{FIELD} extension.
 %}}}
 \subsection{XYZ format}\label{ssec:StructXyz} %{{{
 This is the simplest and probably best known format, see, e.g.,
@@ -144,7 +144,7 @@ are coordinates.
 
 For the \tt{Bond Coeffs} and \tt{Angle Coeffs} sections, harmonic potential is
 assumed, and the first value of each bond/angle type is multiplied by 2 because
-LAMMPS uses harmonic spring strength of $k/2$ (as opposed to, e.g., DL\_MESO
+LAMMPS uses harmonic spring strength of $k/2$ (as opposed to, e.g., DL_MESO
 which uses $k$).
 
 For the \tt{Dihedral Coeffs} and \tt{Improper Coeffs} sections, AnalysisTools
@@ -169,7 +169,7 @@ attribute is ignored. Note that if \tt{element} is missing, all beads are
 considered of the same type called \tt{bt}.
 
 To be recognized by AnalysisTools utilities, the file must have an extension
-\tt{.lammpstrj}. %}}}
+\tt{lammpstrj}. %}}}
 
 \section{Coordinate files}\label{sec:CoorFile}
 As coordinate files, any of the following formats can be used; example files for
@@ -219,7 +219,7 @@ attribute is ignored. Note that if \tt{element} is missing, all beads are
 considered of the same type called \tt{bt}.
 
 To be recognized by AnalysisTools utilities, the file must have an extension
-\tt{.lammpstrj}.
+\tt{lammpstrj}.
 
 This coordinate file will be used as a structure file as well unless an extra
 structure file is provided via the \tt{-i <file>} option. %}}}
