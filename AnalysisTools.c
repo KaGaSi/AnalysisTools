@@ -3126,7 +3126,7 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
     S_out->ImproperType = realloc(S_out->ImproperType, Count_out->ImproperType *
                                   sizeof *S_out->ImproperType);
     for (int i = Count_old.ImproperType; i < Count_out->ImproperType; i++) {
-      S_out->ImproperType[i] = S_in.ImproperType[i - Count_old.ImproperType];
+      S_out->ImproperType[i] = S_in.ImproperType[i-Count_old.ImproperType];
     }
   } //}}}
   PruneSystem(S_out);
