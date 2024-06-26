@@ -1248,12 +1248,12 @@ void MergeBeadTypes(SYSTEM *System, bool detailed) {
     }
     free(merge);
     Count->BeadType = count; //}}}
-    // 4) add 'bt' to unnamed types //{{{
-    for (int i = 0; i < Count->BeadType; i++) {
-      if (strcmp(System->BeadType[i].Name, NON) == 0) {
-        strcpy(System->BeadType[i].Name, "bt");
-      }
-    } //}}}
+    // // 4) add 'bt' to unnamed types //{{{
+    // for (int i = 0; i < Count->BeadType; i++) {
+    //   if (strcmp(System->BeadType[i].Name, NON) == 0) {
+    //     strcpy(System->BeadType[i].Name, "bt");
+    //   }
+    // } //}}}
     // 5) reorder the types, placing same-named ones next to each other //{{{
     // copy all bead types temporarily to bt struct
     int *bt_old_to_new = malloc(sizeof *bt_old_to_new * Count->BeadType);
@@ -1288,7 +1288,7 @@ void MergeBeadTypes(SYSTEM *System, bool detailed) {
     }
     free(temp);
     //}}}
-    // RenameBeadTypes(System);
+    RenameBeadTypes(System);
     // fill array to relabel bead types in arrays //{{{
     for (int i = 0; i < count_bt_old; i++) {
       old_to_new[i] = bt_old_to_new[bt_older_to_old[i]];
@@ -1391,8 +1391,7 @@ void MergeMoleculeTypes(SYSTEM *System) {
     for (; j < count; j++) {
       MOLECULETYPE *mt_j = &System->MoleculeType[j];
       // i) check numbers of stuff
-      if ((strcmp(mt_i->Name, mt_j->Name) == 0 ||
-           strcmp(mt_i->Name, NON) == 0 || strcmp (mt_j->Name, NON) == 0) &&
+      if (strcmp(mt_i->Name, mt_j->Name) == 0 &&
           mt_i->nBeads == mt_j->nBeads &&
           mt_i->nAngles == mt_j->nAngles &&
           mt_i->nDihedrals == mt_j->nDihedrals &&
@@ -1523,8 +1522,8 @@ void MergeMoleculeTypes(SYSTEM *System) {
     FreeMoleculeTypeEssentials(&temp[i]);
   } //}}}
   free(temp);
-  // RenameMoleculeTypes(System);
-  // relabel molecules with proper molecule types; yep - again //{{{
+  RenameMoleculeTypes(System);
+  // relabel molecules with proper molecule types - again // TODO: why? //{{{
   for (int i = 0; i < Count->Molecule; i++) {
     int old_type = System->Molecule[i].Type;
     System->Molecule[i].Type = old_to_new[old_type];
@@ -1542,13 +1541,13 @@ void RenameBeadTypes(SYSTEM *System) { //{{{
         strncpy(name, System->BeadType[j].Name, BEAD_NAME);
         // shorten name if necessary
         if (count < 10) {
-          name[BEAD_NAME-3] = '\0';
+          name[BEAD_NAME-2] = '\0';
         } else if (count < 100) {
-          name[BEAD_NAME-4] = '\0';
+          name[BEAD_NAME-3] = '\0';
         } else if (count < 1000) {
-          name[BEAD_NAME-5] = '\0';
+          name[BEAD_NAME-4] = '\0';
         }
-        if (snprintf(System->BeadType[j].Name, BEAD_NAME, "%s_%d", name,
+        if (snprintf(System->BeadType[j].Name, BEAD_NAME, "%s%d", name,
                      count) < 0) {
           ErrorSnprintf();
         }
@@ -1568,13 +1567,13 @@ void RenameMoleculeTypes(SYSTEM *System) { //{{{
         strncpy(name, mt_j->Name, MOL_NAME);
         // shorten name if necessary
         if (count < 10) {
-          name[MOL_NAME-3] = '\0';
+          name[MOL_NAME-2] = '\0';
         } else if (count < 100) {
-          name[MOL_NAME-4] = '\0';
+          name[MOL_NAME-3] = '\0';
         } else if (count < 1000) {
-          name[MOL_NAME-5] = '\0';
+          name[MOL_NAME-4] = '\0';
         }
-        if (snprintf(mt_j->Name, MOL_NAME, "%s_%d", name, count) < 0) {
+        if (snprintf(mt_j->Name, MOL_NAME, "%s%d", name, count) < 0) {
           ErrorSnprintf();
         }
       }
@@ -1855,10 +1854,10 @@ void ChangeMolecules(SYSTEM *S_orig, SYSTEM S_add, bool name) {
     int type = FindMoleculeType(*S_orig, S_orig->MoleculeType[i], S_add, 2);
     if (type != -1) {
       MOLECULETYPE *mt_add = &S_add.MoleculeType[type];
-      // add name should the original molecule be unnamed
-      if (strcmp(mt_orig->Name, NON) == 0) {
-        strcpy(mt_orig->Name, mt_add->Name);
-      }
+      // // add name should the original molecule be unnamed
+      // if (strcmp(mt_orig->Name, NON) == 0) {
+      //   strcpy(mt_orig->Name, mt_add->Name);
+      // }
       // add bonds, if there are none in the original molecule type... //{{{
       if (mt_add->nBonds > 0 && mt_orig->nBonds == 0) {
         mt_orig->nBonds = mt_add->nBonds;
@@ -2055,9 +2054,7 @@ int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode) {
   // find the same name
   for (int i = 0; i < Sys2.Count.MoleculeType; i++) {
     MOLECULETYPE *mt_2 = &Sys2.MoleculeType[i];
-    if (strcmp(mt_1->Name, mt_2->Name) == 0 ||
-        strcmp(mt_1->Name, NON) == 0 ||
-        strcmp(mt_2->Name, NON) == 0) {
+    if (strcmp(mt_1->Name, mt_2->Name) == 0) {
       if (mode == 0) { // only name checked
         return i;
       }
@@ -2561,7 +2558,6 @@ void PruneSystem(SYSTEM *System) {
       count_all++;
     }
   }
-  // RenameBeadTypes(System);
   Count->Bead = count_all;
   Count->BeadCoor = Count->Bead;
   Count->Bonded = count_bonded;
@@ -2845,8 +2841,6 @@ void PruneSystem(SYSTEM *System) {
     }
   } //}}}
   MergeMoleculeTypes(System);
-  // RenameBeadTypes(System);
-  // RenameMoleculeTypes(System);
   AllocFillBeadTypeIndex(System);
   FillMoleculeTypeIndex(System);
   // rewrite Index_mol //{{{
@@ -3919,9 +3913,6 @@ void PrintBeadType(SYSTEM System) { //{{{
   for (int i = 0; i < System.Count.BeadType; i++) {
     BEADTYPE *bt = &System.BeadType[i];
     int length = strlen(bt->Name);
-    if (strcmp(bt->Name, NON) == 0) {
-      length = 3;
-    }
     if (length > longest_name) {
       longest_name = length;
     }
@@ -3976,11 +3967,7 @@ void PrintBeadType(SYSTEM System) { //{{{
   for (int i = 0; i < System.Count.BeadType; i++) {
     BEADTYPE *bt = &System.BeadType[i];
     fprintf(stdout, "BeadType[%*d] = {", types_digits, i);
-    if (strcmp(bt->Name, NON) == 0) {
-      fprintf(stdout, ".Name = %*s ", longest_name, "n/a");
-    } else {
-      fprintf(stdout, ".Name = %*s ", longest_name, bt->Name);
-    }
+    fprintf(stdout, ".Name = %*s ", longest_name, bt->Name);
     fprintf(stdout, ".Number = %*d ", max_number, bt->Number);
     fprintf(stdout, ".Charge = ");
     if (bt->Charge != CHARGE) {
@@ -4016,11 +4003,7 @@ void PrintBeadType(SYSTEM System) { //{{{
 void Print1MoleculeType(SYSTEM System, int n) { //{{{
   MOLECULETYPE *mt = &System.MoleculeType[n];
   fprintf(stdout, "MoleculeType[%d] = {\n", n);
-  if (strcmp(mt->Name, NON) == 0) {
-    fprintf(stdout, "  .Name       = n/a\n");
-  } else {
-    fprintf(stdout, "  .Name       = %s\n", mt->Name);
-  }
+  fprintf(stdout, "  .Name       = %s\n", mt->Name);
   fprintf(stdout, "  .Number     = %d\n", mt->Number);
   // print bead types (list all beads) //{{{
   fprintf(stdout, "  .nBeads     = %d\n", mt->nBeads);

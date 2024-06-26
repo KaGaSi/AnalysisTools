@@ -224,9 +224,7 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
   if (type_def != -1) {
     BEADTYPE *bt = &System.BeadType[type_def];
     fprintf(fw, "atom default");
-    if (strcmp(bt->Name, NON) != 0) {
-      fprintf(fw, " name %8s", bt->Name);
-    }
+    fprintf(fw, " name %8s", bt->Name);
     if (bt->Mass != MASS) {
       fprintf(fw, " mass %12f", bt->Mass);
     }
@@ -249,9 +247,7 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
     BEADTYPE *bt = &System.BeadType[btype];
     if (print) {
       fprintf(fw, "atom %7d", i);
-      if (strcmp(bt->Name, NON) != 0) {
-        fprintf(fw, " name %8s", bt->Name);
-      }
+      fprintf(fw, " name %8s", bt->Name);
       if (bt->Mass != MASS) {
         fprintf(fw, " mass %15f ", bt->Mass);
       }
@@ -268,9 +264,7 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
         if (snprintf(name, 8, "%s", System.MoleculeType[mtype].Name) < 0) {
           ErrorSnprintf();
         }
-        if (strcmp(System.MoleculeType[mtype].Name, NON) != 0) {
-          fprintf(fw, " resname %10s", name);
-        }
+        fprintf(fw, " resname %10s", name);
         fprintf(fw, " resid %5d", id);
       }
       putc('\n', fw);
@@ -385,15 +379,13 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass,
   fprintf(fw, "Masses\n\n");
   for (int i = 0; i < mass_types; i++) {
     BEADTYPE *bt = &System.BeadType[bt_masstype_to_old[i]];
+    fprintf(fw, "%5d", i + 1);
     if (bt->Mass == MASS) {
-      fprintf(fw, "%5d ??? # %s\n", i + 1, bt->Name);
+      fprintf(fw, " ???");
     } else {
-      fprintf(fw, "%5d %lf # %s\n", i + 1, bt->Mass, bt->Name);
+      fprintf(fw, " %lf", bt->Mass);
     }
-    if (strcmp(bt->Name, NON) != 0) {
-      fprintf(fw, "# %s", bt->Name);
-    }
-    putc('\n', fw);
+    fprintf(fw, " # %s\n", bt->Name);
   }
   // // add an extra bead type - just in case srp is required
   // fprintf(fw, "%5d %lf # extra type\n", mass_types + 1, 1.0); //}}}
@@ -472,9 +464,7 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass,
     // molecule name
     if (mol != -1) {
       int type = System.Molecule[mol].Type;
-      if (strcmp(System.MoleculeType[type].Name, NON) != 0) {
-        fprintf(fw, " # %s", System.MoleculeType[type].Name);
-      }
+      fprintf(fw, " # %s", System.MoleculeType[type].Name);
     }
     putc('\n', fw);
   } //}}}

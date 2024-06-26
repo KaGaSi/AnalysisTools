@@ -1,7 +1,6 @@
 #include "Structs.h"
 
 void InitBeadType(BEADTYPE *bt) { //{{{
-  strcpy(bt->Name, NON);
   bt->Number = 0;
   bt->InCoor = 0;
   bt->Charge = CHARGE;

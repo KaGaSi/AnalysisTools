@@ -254,7 +254,7 @@ static SYSTEM LtrjReadStruct(char file[]) {
         NewBeadType(&Sys.BeadType, &Count->BeadType, split[position[1]], CHARGE,
                     MASS, RADIUS);
       } else { // 'element' variable is missing
-        NewBeadType(&Sys.BeadType, &Count->BeadType, "bt", CHARGE, MASS,
+        NewBeadType(&Sys.BeadType, &Count->BeadType, "b0", CHARGE, MASS,
                     RADIUS);
       }
       BEADTYPE *bt_new = &Sys.BeadType[type];
@@ -1300,9 +1300,10 @@ static void LmpDataReadMasses(FILE *fr, char file[], BEADTYPE name_mass[],
     // check for bead type name: # <name>
     if (words > 3 && split[2][0] == '#') {
       strncpy(name_mass[type].Name, split[3], BEAD_NAME);
-      name_mass[type].Name[BEAD_NAME - 1] = '\0'; // ensure null-termination
+      name_mass[type].Name[BEAD_NAME-1] = '\0'; // ensure null-termination
     } else {
-      strcpy(name_mass[type].Name, NON);
+      // strcpy(name_mass[type].Name, NON);
+      snprintf(name_mass[type].Name, BEAD_NAME, "b%d", i);
     }
   }
 } //}}}
@@ -1568,8 +1569,8 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
     BEADTYPE *bt = &System->BeadType[id];
     if (type > atom_types) {
       snprintf(ERROR_MSG, LINE, "bead type is too high; id is %s%ld%s in "
-               "a file with %s%d%s atom types",
-               ErrRed(), type, ErrYellow(), ErrRed(), atom_types, ErrYellow());
+               "a file with %s%d%s atom types", ErrRed(), type, ErrYellow(),
+               ErrRed(), atom_types, ErrYellow());
       PrintErrorFile(file, "\0", "\0");
       exit(1);
     }
@@ -1606,7 +1607,7 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
       // does the molecule type (i.e., that molecule id) exist?
       MOLECULETYPE *mt_resid = &System->MoleculeType[resid];
       if (mt_resid->Number == 0) { // no, create new type
-        char name[MOL_NAME] = NON;
+        char name[MOL_NAME] = "m\0";
         for (int j = 0; j < words; j++) {
           if (split[j][0] == '#' && words > j) {
             snprintf(name, MOL_NAME, "%s", split[j+1]);
@@ -2043,7 +2044,9 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
           MOLECULETYPE *mt_resid = &Sys.MoleculeType[resid];
           if (mt_resid->Number == 0) { // new molecule type
             if (value[4] == -1) {
-              strcpy(mt_resid->Name, NON);
+              // strcpy(mt_resid->Name, NON);
+              // snprintf(mt_resid->Name, MOL_NAME, "m%d", resid);
+              strcpy(mt_resid->Name, "m");
               mt_resid->Flag = false;
             } else {
               strncpy(mt_resid->Name, split[value[4]], MOL_NAME);
