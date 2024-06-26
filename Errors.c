@@ -205,7 +205,7 @@ void WarnChargedSystem(SYSTEM System, char file1[], char file2[],
   for (int i = 0; i < System.Count.BeadType; i++) {
     BEADTYPE *bt = &System.BeadType[i];
     // do nothing if at least one bead type had undefined charge
-    if (bt->Charge == CHARGE || bt->Charge == NOT) {
+    if (bt->Charge == CHARGE) {
       return;
     }
     charge += bt->Charge * bt->Number;

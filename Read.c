@@ -1,4 +1,6 @@
 #include "Read.h"
+#include "AnalysisTools.h"
+#include "Structs.h"
 
 // TODO: use FillInCoor()
 
@@ -1941,7 +1943,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   int(*bond)[3] = calloc(1, sizeof *bond);
   bond[0][2] = -1; // no bond types in a vtf file //}}}
   // read struct_file line by line, saving all atom and bond lines //{{{
-  /* Do something based on to line type
+  /* Do something based on the line type
    *   a) atom line: save bead information
    *      i) atom default line (the first one): save into separate bt_def struct
    *      ii) atom <id> line: save as a separate Sys.BeadType & Sys.Bead
@@ -1959,20 +1961,22 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
     // read line
     int ltype = VtfCheckLineType(file, line_count);
     if (ltype == ATOM_LINE) {                 // a)
-      if (strcmp(split[1], "default") == 0) { // 'a[tom] default' line
-        if (default_atom != 0 && !warned) {   // warn of multiple defaults //{{{
-          warned = true;                      // warn only once
-          snprintf(ERROR_MSG, LINE,
-                   "multiple 'a[tom] default' lines"
+      if (strcmp(split[1], "default") == 0) { // 'a[tom] default' line //{{{
+        if (default_atom != 0 && !warned) { // warn of multiple defaults //{{{
+          warned = true; // warn just once
+          snprintf(ERROR_MSG, LINE, "multiple 'a[tom] default' lines"
                    "%s, using line %s%d%s as the default line%s\n",
                    ErrCyan(), ErrYellow(), default_atom, ErrCyan(),
                    ErrColourReset());
           PrintWarnFile(file, "\0", "\0"); //}}}
-        } else { // save line number of the first 'atom default' line //{{{
+        } else { // save line number of the first 'atom default' line
           default_atom = line_count;
           // save values for the default bead type
           int *value = VtfAtomLineValues();
-          snprintf(bt_def.Name, BEAD_NAME, "%s", split[value[0]]);
+          if (value[0] != -1) { // TODO: should never happen (for now)
+            snprintf(bt_def.Name, BEAD_NAME, "%s", split[value[0]]);
+            bt_def.Name[BEAD_NAME-1] = '\0'; // ensure null-termination
+          }
           if (value[1] != -1) {
             bt_def.Mass = atof(split[value[1]]);
           }
@@ -1982,7 +1986,8 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
           if (value[3] != -1) {
             bt_def.Radius = atof(split[value[3]]);
           }
-        }      //}}}
+        }
+      //}}}
       } else { // 'a[tom] <id>' line //{{{
         int id = atoi(split[1]);
         // warning - repeated atom line //{{{
@@ -1990,7 +1995,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
           strcpy(ERROR_MSG, "atom defined multiple times; ignoring this line");
           PrintWarnFileLine(file, line_count);
           continue; // go to reading the next line
-        }           //}}}
+        } //}}}
         count_atoms++;
         // highest bead index? (corresponds to the number of beads in vsf)
         if (id >= Count->Bead) {
@@ -2004,8 +2009,10 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
         }
         // save values from the 'a[tom] <id>' line
         int *value = VtfAtomLineValues();
-        snprintf(Sys.BeadType[id].Name, BEAD_NAME, "%s", split[value[0]]);
-        Sys.BeadType[id].Name[BEAD_NAME - 1] = '\0'; // ensure null-termination
+        if (value[0] != -1) { // TODO: should never happen (for now)
+          snprintf(Sys.BeadType[id].Name, BEAD_NAME, "%s", split[value[0]]);
+          Sys.BeadType[id].Name[BEAD_NAME-1] = '\0'; // ensure null-termination
+        }
         if (value[1] != -1) {
           Sys.BeadType[id].Mass = atof(split[value[1]]);
         }
@@ -2056,7 +2063,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
           }
           Sys.Bead[id].Molecule = resid;
         }
-      }                              //}}}
+      } //}}}
     } else if (ltype == BOND_LINE) { // b) //{{{
       bond = realloc(bond, sizeof *bond * (count_bonds + 1));
       long val;
@@ -2100,10 +2107,9 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   // error - no default line and too few atom lines //{{{
   if (default_atom == 0 && count_atoms != Count->Bead) {
     int undefined = Count->Bead - count_atoms;
-    snprintf(ERROR_MSG, LINE,
-             "not all beads defined ('atom default' line is "
-             "omitted); %s%d%s bead(s) undefined",
-             ErrYellow(), undefined, ErrRed());
+    snprintf(ERROR_MSG, LINE, "not all beads defined ('atom default' line is "
+             "omitted); %s%d%s bead(s) undefined", ErrYellow(), undefined,
+             ErrRed());
     PrintErrorFile(file, "\0", "\0");
     exit(1);
   } //}}}
@@ -2132,8 +2138,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   }
   // just check that it counts the beads correctly
   if (Count->Bead != (Count->Unbonded + Count->Bonded)) {
-    strcpy(ERROR_MSG, "something went wrong with bead counting; "
-                      "should never happen!");
+    strcpy(ERROR_MSG, "wrong with bead counting; should never happen!");
     PrintErrorFile(file, "\0", "\0");
     exit(1);
   } //}}}
@@ -2374,25 +2379,25 @@ static bool VtfCheckAtomLine() { //{{{
         !IsRealNumber(split[i + 1], &val_d)) {
       strcpy(ERROR_MSG, "atom line: 'charge|q' not followed by real number ");
       return false; //}}}
-      // error - r[adius] not followed by positive number //{{{
+    // error - r[adius] not followed by positive number //{{{
     } else if (split[i][0] == 'r' &&               // possible r[adius]
                strncmp(split[i], "res", 3) != 0 && // it's not resid or resname
                !IsPosRealNumber(split[i + 1], &val_d)) {
       strcpy(ERROR_MSG, "atom line: 'r[adius]]]' not followed by "
                         "positive real number ");
       return false; //}}}
-      // error - m[ass] not followed by positive number //{{{
+    // error - m[ass] not followed by positive number //{{{
     } else if (split[i][0] == 'm' && !IsPosRealNumber(split[i + 1], &val_d)) {
       strcpy(ERROR_MSG, "atom line: 'm[ass]' not followed by "
                         "positive real number");
       return false;
     } //}}}
   }
-  // error - missing the mandatory n[ame] keyword or //{{{
-  if (!name) {
+  // error - missing the mandatory n[ame] keyword //{{{
+  if (!name) { // TODO: should eventually disappear
     strcpy(ERROR_MSG, "atom line: missing 'n[ame]' keyword ");
     return false;
-  }            //}}}
+  } //}}}
   return true; // valid atom line
 } //}}}
 static bool VtfCheckBondLine() { //{{{
@@ -2773,7 +2778,7 @@ static void FieldReadSpecies(char file[], SYSTEM *System) { //{{{
       }
     }
     NewBeadType(&System->BeadType, &Count->BeadType, split[0], charge, mass,
-                NOT);
+                RADIUS);
     System->BeadType[Count->BeadType-1].Number = number;
     Count->Bead += number;
     Count->Unbonded += number;
@@ -3469,7 +3474,8 @@ static SYSTEM XyzReadStruct(char file[]) { //{{{
     }
     if (new) {
       int type = Count->BeadType;
-      NewBeadType(&Sys.BeadType, &Count->BeadType, split[0], NOT, NOT, NOT);
+      NewBeadType(&Sys.BeadType, &Count->BeadType, split[0],
+                  CHARGE, MASS, RADIUS);
       BEADTYPE *bt_new = &Sys.BeadType[type];
       bt_new->Number = 1;
       b->Type = type;

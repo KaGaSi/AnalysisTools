@@ -1,4 +1,5 @@
 #include "Write.h"
+#include <stdio.h>
 
 // STATIC DEFINITIONS
 static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System);
@@ -389,6 +390,10 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass,
     } else {
       fprintf(fw, "%5d %lf # %s\n", i + 1, bt->Mass, bt->Name);
     }
+    if (strcmp(bt->Name, NON) != 0) {
+      fprintf(fw, "# %s", bt->Name);
+    }
+    putc('\n', fw);
   }
   // // add an extra bead type - just in case srp is required
   // fprintf(fw, "%5d %lf # extra type\n", mass_types + 1, 1.0); //}}}
@@ -467,7 +472,9 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass,
     // molecule name
     if (mol != -1) {
       int type = System.Molecule[mol].Type;
-      fprintf(fw, " # %s", System.MoleculeType[type].Name);
+      if (strcmp(System.MoleculeType[type].Name, NON) != 0) {
+        fprintf(fw, " # %s", System.MoleculeType[type].Name);
+      }
     }
     putc('\n', fw);
   } //}}}

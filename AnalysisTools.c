@@ -1295,7 +1295,7 @@ void MergeBeadTypes(SYSTEM *System, bool detailed) {
     }
     free(bt_older_to_old);
     free(bt_old_to_new); //}}}
-  } else {               // use name only
+  } else { // use name only
     Count->BeadType = count_bnames;
     // go through old types, creating a new one for each unique name //{{{
     int count_bt_new = 0;
@@ -1952,14 +1952,12 @@ void ChangeMolecules(SYSTEM *S_orig, SYSTEM S_add, bool name) {
 } //}}}
 // test whether two bead types are identical //{{{
 bool SameBeadType(BEADTYPE bt_1, BEADTYPE bt_2) {
-  if ((strcmp(bt_1.Name, bt_2.Name) == 0 ||
-       strcmp(bt_1.Name, NON) == 0 || strcmp(bt_2.Name, NON) == 0) &&
-      (bt_1.Charge == bt_2.Charge ||
-       bt_1.Charge == NOT || bt_2.Charge == NOT) &&
-      (bt_1.Mass == bt_2.Mass ||
-       bt_1.Mass == NOT || bt_2.Mass == NOT) &&
-      (bt_1.Radius == bt_2.Radius ||
-       bt_1.Radius == NOT || bt_2.Radius == NOT)) {
+  // if ((strcmp(bt_1.Name, bt_2.Name) == 0 ||
+  //      strcmp(bt_1.Name, NON) == 0 || strcmp(bt_2.Name, NON) == 0) &&
+  if ((strcmp(bt_1.Name, bt_2.Name) == 0) &&
+      bt_1.Charge == bt_2.Charge &&
+      bt_1.Mass == bt_2.Mass &&
+      bt_1.Radius == bt_2.Radius) {
     return true;
   } else {
     return false;
@@ -3878,7 +3876,7 @@ void PrintCount(COUNT Count) { //{{{
     fprintf(stdout, "    In Coor File: %d\n", Count.UnbondedCoor);
   }
   fprintf(stdout, "  Molecule Types: %d\n", Count.MoleculeType);
-  fprintf(stdout, "  Molecules:      %d\n", Count.Molecule);
+  fprintf(stdout, "  Molecules:      %d", Count.Molecule);
   // if (Count.Molecule > 0) {
   //   fprintf(stdout, "  HighestResid:   %d", Count.HighestResid);
   // }
@@ -3921,7 +3919,10 @@ void PrintBeadType(SYSTEM System) { //{{{
   for (int i = 0; i < System.Count.BeadType; i++) {
     BEADTYPE *bt = &System.BeadType[i];
     int length = strlen(bt->Name);
-    if (length > longest_name && strcmp(bt->Name, NON) != 0) {
+    if (strcmp(bt->Name, NON) == 0) {
+      length = 3;
+    }
+    if (length > longest_name) {
       longest_name = length;
     }
     if (bt->Number > max_number) {
@@ -3930,13 +3931,13 @@ void PrintBeadType(SYSTEM System) { //{{{
     if (bt->Charge < 0) {
       negative = true;
     }
-    if (bt->Charge != CHARGE && bt->Charge != NOT && fabs(bt->Charge) > max_q) {
+    if (bt->Charge != CHARGE && fabs(bt->Charge) > max_q) {
       max_q = floor(fabs(bt->Charge));
     }
-    if (bt->Mass != MASS && bt->Mass != NOT && bt->Mass > max_m) {
+    if (bt->Mass != MASS && bt->Mass > max_m) {
       max_m = floor(bt->Mass);
     }
-    if (bt->Radius != RADIUS && bt->Radius != NOT && bt->Radius > max_r) {
+    if (bt->Radius != RADIUS && bt->Radius > max_r) {
       max_r = floor(bt->Radius);
     }
   }
@@ -3982,7 +3983,7 @@ void PrintBeadType(SYSTEM System) { //{{{
     }
     fprintf(stdout, ".Number = %*d ", max_number, bt->Number);
     fprintf(stdout, ".Charge = ");
-    if (bt->Charge != CHARGE && bt->Charge != NOT) {
+    if (bt->Charge != CHARGE) {
       fprintf(stdout, "%*.*f ", max_q, precision, bt->Charge);
     } else {
       for (int j = 0; j < (max_q - 3); j++) {
@@ -3991,7 +3992,7 @@ void PrintBeadType(SYSTEM System) { //{{{
       fprintf(stdout, "n/a ");
     }
     fprintf(stdout, ".Mass = ");
-    if (bt->Mass != MASS && bt->Mass != NOT) {
+    if (bt->Mass != MASS) {
       fprintf(stdout, "%*.*f ", max_m, precision, bt->Mass);
     } else {
       for (int j = 0; j < (max_m - 3); j++) {
@@ -4000,7 +4001,7 @@ void PrintBeadType(SYSTEM System) { //{{{
       fprintf(stdout, "n/a ");
     }
     fprintf(stdout, ".Radius = ");
-    if (bt->Radius != RADIUS && bt->Radius != NOT) {
+    if (bt->Radius != RADIUS) {
       fprintf(stdout, "%*.*f", max_r, precision, bt->Radius);
     } else {
       for (int j = 0; j < (max_r - 3); j++) {
