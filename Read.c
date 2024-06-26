@@ -1302,7 +1302,6 @@ static void LmpDataReadMasses(FILE *fr, char file[], BEADTYPE name_mass[],
       strncpy(name_mass[type].Name, split[3], BEAD_NAME);
       name_mass[type].Name[BEAD_NAME-1] = '\0'; // ensure null-termination
     } else {
-      // strcpy(name_mass[type].Name, NON);
       snprintf(name_mass[type].Name, BEAD_NAME, "b%d", i);
     }
   }
@@ -1607,7 +1606,7 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
       // does the molecule type (i.e., that molecule id) exist?
       MOLECULETYPE *mt_resid = &System->MoleculeType[resid];
       if (mt_resid->Number == 0) { // no, create new type
-        char name[MOL_NAME] = "m\0";
+        char name[MOL_NAME] = "m";
         for (int j = 0; j < words; j++) {
           if (split[j][0] == '#' && words > j) {
             snprintf(name, MOL_NAME, "%s", split[j+1]);
@@ -1964,11 +1963,10 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
     if (ltype == ATOM_LINE) {                 // a)
       if (strcmp(split[1], "default") == 0) { // 'a[tom] default' line //{{{
         if (default_atom != 0 && !warned) { // warn of multiple defaults //{{{
-          warned = true; // warn just once
-          snprintf(ERROR_MSG, LINE, "multiple 'a[tom] default' lines"
-                   "%s, using line %s%d%s as the default line%s\n",
-                   ErrCyan(), ErrYellow(), default_atom, ErrCyan(),
-                   ErrColourReset());
+          warned = true; // warn only once
+          snprintf(ERROR_MSG, LINE, "multiple 'a[tom] default' lines %s, using"
+                   " line %s%d%s as the default line%s\n", ErrCyan(),
+                   ErrYellow(), default_atom, ErrCyan(), ErrColourReset());
           PrintWarnFile(file, "\0", "\0"); //}}}
         } else { // save line number of the first 'atom default' line
           default_atom = line_count;
@@ -1987,8 +1985,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
           if (value[3] != -1) {
             bt_def.Radius = atof(split[value[3]]);
           }
-        }
-      //}}}
+        } //}}}
       } else { // 'a[tom] <id>' line //{{{
         int id = atoi(split[1]);
         // warning - repeated atom line //{{{
@@ -2044,8 +2041,6 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
           MOLECULETYPE *mt_resid = &Sys.MoleculeType[resid];
           if (mt_resid->Number == 0) { // new molecule type
             if (value[4] == -1) {
-              // strcpy(mt_resid->Name, NON);
-              // snprintf(mt_resid->Name, MOL_NAME, "m%d", resid);
               strcpy(mt_resid->Name, "m");
               mt_resid->Flag = false;
             } else {

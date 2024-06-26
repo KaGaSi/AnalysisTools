@@ -1249,6 +1249,7 @@ void MergeBeadTypes(SYSTEM *System, bool detailed) {
     free(merge);
     Count->BeadType = count; //}}}
     // // 4) add 'bt' to unnamed types //{{{
+    // TODO: this shouldn't have any effect now, right?
     // for (int i = 0; i < Count->BeadType; i++) {
     //   if (strcmp(System->BeadType[i].Name, NON) == 0) {
     //     strcpy(System->BeadType[i].Name, "bt");
@@ -1855,6 +1856,7 @@ void ChangeMolecules(SYSTEM *S_orig, SYSTEM S_add, bool name) {
     if (type != -1) {
       MOLECULETYPE *mt_add = &S_add.MoleculeType[type];
       // // add name should the original molecule be unnamed
+      // TODO: this is useless now, right?
       // if (strcmp(mt_orig->Name, NON) == 0) {
       //   strcpy(mt_orig->Name, mt_add->Name);
       // }
@@ -1951,8 +1953,6 @@ void ChangeMolecules(SYSTEM *S_orig, SYSTEM S_add, bool name) {
 } //}}}
 // test whether two bead types are identical //{{{
 bool SameBeadType(BEADTYPE bt_1, BEADTYPE bt_2) {
-  // if ((strcmp(bt_1.Name, bt_2.Name) == 0 ||
-  //      strcmp(bt_1.Name, NON) == 0 || strcmp(bt_2.Name, NON) == 0) &&
   if ((strcmp(bt_1.Name, bt_2.Name) == 0) &&
       bt_1.Charge == bt_2.Charge &&
       bt_1.Mass == bt_2.Mass &&
