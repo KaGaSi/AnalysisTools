@@ -1954,9 +1954,12 @@ void ChangeMolecules(SYSTEM *S_orig, SYSTEM S_add, bool name) {
 // test whether two bead types are identical //{{{
 bool SameBeadType(BEADTYPE bt_1, BEADTYPE bt_2) {
   if ((strcmp(bt_1.Name, bt_2.Name) == 0) &&
-      bt_1.Charge == bt_2.Charge &&
-      bt_1.Mass == bt_2.Mass &&
-      bt_1.Radius == bt_2.Radius) {
+      (bt_1.Charge == bt_2.Charge ||
+       bt_1.Charge == NOT || bt_2.Charge == NOT) &&
+      (bt_1.Mass == bt_2.Mass ||
+       bt_1.Mass == NOT || bt_2.Mass == NOT) &&
+      (bt_1.Radius == bt_2.Radius ||
+       bt_1.Radius == NOT || bt_2.Radius == NOT)) {
     return true;
   } else {
     return false;
@@ -3922,13 +3925,13 @@ void PrintBeadType(SYSTEM System) { //{{{
     if (bt->Charge < 0) {
       negative = true;
     }
-    if (bt->Charge != CHARGE && fabs(bt->Charge) > max_q) {
+    if (bt->Charge != CHARGE && bt->Charge != NOT && fabs(bt->Charge) > max_q) {
       max_q = floor(fabs(bt->Charge));
     }
-    if (bt->Mass != MASS && bt->Mass > max_m) {
+    if (bt->Mass != MASS && bt->Mass != NOT && bt->Mass > max_m) {
       max_m = floor(bt->Mass);
     }
-    if (bt->Radius != RADIUS && bt->Radius > max_r) {
+    if (bt->Radius != RADIUS && bt->Radius != NOT && bt->Radius > max_r) {
       max_r = floor(bt->Radius);
     }
   }
@@ -3970,7 +3973,7 @@ void PrintBeadType(SYSTEM System) { //{{{
     fprintf(stdout, ".Name = %*s ", longest_name, bt->Name);
     fprintf(stdout, ".Number = %*d ", max_number, bt->Number);
     fprintf(stdout, ".Charge = ");
-    if (bt->Charge != CHARGE) {
+    if (bt->Charge != CHARGE && bt->Charge != NOT) {
       fprintf(stdout, "%*.*f ", max_q, precision, bt->Charge);
     } else {
       for (int j = 0; j < (max_q - 3); j++) {
@@ -3979,7 +3982,7 @@ void PrintBeadType(SYSTEM System) { //{{{
       fprintf(stdout, "n/a ");
     }
     fprintf(stdout, ".Mass = ");
-    if (bt->Mass != MASS) {
+    if (bt->Mass != MASS && bt->Mass != NOT) {
       fprintf(stdout, "%*.*f ", max_m, precision, bt->Mass);
     } else {
       for (int j = 0; j < (max_m - 3); j++) {
@@ -3988,7 +3991,7 @@ void PrintBeadType(SYSTEM System) { //{{{
       fprintf(stdout, "n/a ");
     }
     fprintf(stdout, ".Radius = ");
-    if (bt->Radius != RADIUS) {
+    if (bt->Radius != RADIUS && bt->Radius != NOT) {
       fprintf(stdout, "%*.*f", max_r, precision, bt->Radius);
     } else {
       for (int j = 0; j < (max_r - 3); j++) {

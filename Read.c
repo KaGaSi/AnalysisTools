@@ -1,6 +1,7 @@
 #include "Read.h"
 #include "AnalysisTools.h"
 #include "Structs.h"
+#include <string.h>
 
 // TODO: use FillInCoor()
 
@@ -2045,6 +2046,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
               mt_resid->Flag = false;
             } else {
               strncpy(mt_resid->Name, split[value[4]], MOL_NAME);
+              mt_resid->Name[MOL_NAME-1] = '\0';
               mt_resid->Flag = true;
             }
             mt_resid->Name[MOL_NAME-1] = '\0'; // null-terminate!
@@ -2058,6 +2060,11 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
             mt_resid->Bead = realloc(mt_resid->Bead,
                                      sizeof *mt_resid->Bead * mt_resid->nBeads);
             mt_resid->Bead[bead] = id; // bead type = bead index
+            if (value[4] != -1 && strcmp(mt_resid->Name, "m") == 0) {
+              strncpy(mt_resid->Name, split[value[4]], MOL_NAME);
+              mt_resid->Name[MOL_NAME-1] = '\0';
+              mt_resid->Flag = true;
+            }
           }
           Sys.Bead[id].Molecule = resid;
         }
@@ -2776,7 +2783,7 @@ static void FieldReadSpecies(char file[], SYSTEM *System) { //{{{
       }
     }
     NewBeadType(&System->BeadType, &Count->BeadType, split[0], charge, mass,
-                RADIUS);
+                NOT);
     System->BeadType[Count->BeadType-1].Number = number;
     Count->Bead += number;
     Count->Unbonded += number;
@@ -3472,8 +3479,7 @@ static SYSTEM XyzReadStruct(char file[]) { //{{{
     }
     if (new) {
       int type = Count->BeadType;
-      NewBeadType(&Sys.BeadType, &Count->BeadType, split[0],
-                  CHARGE, MASS, RADIUS);
+      NewBeadType(&Sys.BeadType, &Count->BeadType, split[0], NOT, NOT, NOT);
       BEADTYPE *bt_new = &Sys.BeadType[type];
       bt_new->Number = 1;
       b->Type = type;

@@ -10,7 +10,7 @@ outputs of Info command with various options.
 2) using --detailed option: Info in.vtf --detailed
   * file: vtf_detailed.nfo
   * this command identifies bead types (and, consequently, molecule types)
-    according to not just bead names, but also according to their mass, charge,
+    according to not just bead names, but also according to beads' mass, charge,
     and radius
 
 3) using -i option: Info in.vtf -i in.FIELD
