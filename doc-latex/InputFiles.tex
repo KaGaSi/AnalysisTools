@@ -21,29 +21,29 @@ used to generate it. Any of the \tt{Aggregates} (\cref{sec:Aggregates})
 utilities can create the \tt{agg} file.
 
 \section{Structure files}\label{sec:StructFile}
-As structure files, any of the following formats can be used; example files for
-a simple \enquote{sandbox} system are provided in the \tt{Examples/InputFiles}
-directory. Utilities load a specific structure using the \tt{-i <file>} option;
-if the option is missing, it is usually assumed the structure file is the same
-as the coordinate file.
+As a structure file, any of the following formats can be used; simple example
+files are provided in the \tt{Examples/InputFiles} directory. Most utilities can
+load a specific structure file using the \tt{-i <file>} option; if the option is
+missing, it is usually assumed the structure file is the same as the coordinate
+file.
 
-Importantly, many of the utilities work (either fundamentally or optionally)
-with types of beads and/or molecules. In these case, names define both the bead
-types and molecule types. While many input files support naming beads and
-molecules, not all do (and in some formats, these are optional); in these cases,
-AnalysisTools names the bead types as \tt{b} (and \tt{b1}, \tt{b2}, etc., if
-more than one bead type is present) and molecule types as \tt{m} (and \tt{m1},
-\tt{m2}, etc., in case of multiple molecule types). See the individual file
-formats for details.
+Importantly, many of the AnalysisTools utilities work (either fundamentally or
+optionally) with types of beads and/or molecules. In these cases, names are used
+specify the bead/molecule types. While many input files support naming
+beads and molecules, not all do (in some formats, these are optional); in
+these cases, AnalysisTools names the bead types as \tt{b} (and \tt{b1}, \tt{b2},
+etc., if more than one bead type is present) and molecule types as \tt{m} (and
+\tt{m1}, \tt{m2}, etc., in case of multiple molecule types). See the individual
+file formats for details.
 
 \tt{Info} utility (\cref{sec:Info}) can convert these formats between
 each other via the \tt{-o <file>} option.
 \subsection{VTF format}\label{ssec:StructVtf} %{{{
-See \href{https://github.com/olenz/vtfplugin/wiki/VTF-format}{here} for complete
-description and \tt{in.vtf} and \tt{in.vsf} for example files (a \vtf file
-contains a structure part followed by a coordinate part, but a \vsf file
-contains only the structure part). In this format, every bead is defined on its
-own line and all bonds all listed.
+See \href{https://github.com/olenz/vtfplugin/wiki/VTF-format}{here} for the
+complete description and the \tt{Examples} directory for example \vtsf files (a
+\vtf file contains a structure part followed by a coordinate part, but a \vsf
+file contains only the structure part). In this format, every bead is defined on
+its own line and all bonds all listed.
 
 Not all keywords listed on the web page for the \enquote{Atom lines} are
 recognized; keyword \tt{n[ame]} is mandatory and optional keywords are
@@ -56,10 +56,10 @@ Generally, only name defines types of beads, i.e., should two beads share the
 name, they will be of the same type; their mass, charge, and radius will each
 equal to that for the bead type’s topmost atom line containing the corresponding
 keyword. If the keyword is missing from all atom lines, that characteristic is
-undefined. In the case of the \tt{Info} utility (\cref{sec:Info}), the
-\tt{--detailed} command line option triggers detailed recognition, where beads
-that share the name but differ in mass, charge, and/or radius will be of
-different type (with a number appended to the original name).
+undefined. In the case of the \tt{Info} utility (see \cref{sec:Info} for
+details), the \tt{--detailed} command line option triggers the detailed
+recognition, where beads that share the name but differ in mass, charge, and/or
+radius will be of different type (with a number appended to the original name).
 
 Different molecule types, on the other hand, are always distinguished based on
 all their characteristics, i.e., name, connectivity, and order of bead types
@@ -75,54 +75,51 @@ box. %}}}
 \subsection{FIELD format}\label{ssec:StructField} %{{{
 A format similar to the \tt{FIELD} input file for
 \href{https://www.scd.stfc.ac.uk/Pages/DL_MESO.aspx}{DL_MESO_DPD simulation
-package}; see \tt{Examples/Info/in.FIELD} for an example. This concise format
-defines species of beads and molecules, providing number of beads/molecules of
-given species as well as their properties.
+package}. This concise format defines species of beads and molecules, providing
+number of beads/molecules of given species as well as their properties.
 
 The \tt{species} section is the same as in the \tt{DL_MESO} \field file, but the
 \tt{molecules} section differs slightly. Besides the \tt{beads} part, every
 molecule can have \tt{bonds}, \tt{angles}, \tt{dihedrals}, but even though up to
 three parameters for potential parameters are read, AnalysisTools does not
 recognize the potential keywords (\tt{harm}, \tt{cos}, etc.). Moreover, these
-potential parameters are only used for generating new LAMMPS data files via the
-\tt{Info} utility (\cref{sec:Info}). The \tt{molecules} section can also
-contain one extra part: \tt{impropers} for improper angles which has the same
-format as the \tt{dihedrals} section (this was added because the
+potential parameters are only used for generating new LAMMPS data files via,
+e.g., the \tt{Info} utility (\cref{sec:Info}). The \tt{molecules} section can
+also contain one extra part: \tt{impropers} for improper angles which has the
+same format as the \tt{dihedrals} section (this was added because the
 \href{https://lammps.sandia.gov/}{LAMMPS molecular dynamics simulator} and other
-software distinguish between the two).
+software distinguish between the two types).
 
-Note that the \field file does not have to contain \tt{Interactions} section;
-this part is ignored.
+Note that the \field file does not have to contain the \tt{Interactions}
+section; this part is ignored.
 
-However, using this file in conjunction with coordinate files is not recommended
-(other than files generated via the \tt{DL_MESO} software). Because \field
-contains only numbers of beads of given types, it is not possible to ensure that
-bead indices in the coordinate file will line up with the correct bead types in
-the \field file. The indices are assigned to the beads from \field on the
-\enquote{first read, first labelled} basis, that is, the unbonded beads are
-first (in the order of the lines in the \tt{species} section) followed by beads
-from the molecules. Should one want to check the bead index assignments, the
-\tt{Info} utility can be used to generate, e.g., a \vsf file from the \field
-file.
+However, using this file in conjunction with coordinate files is not
+recommended. Because \field contains only numbers of beads of given types, it is
+not possible to ensure that bead indices in the coordinate file will line up
+with the correct bead types in the \field file. AnalysisTools assigns the bead
+indices on the \enquote{first read, first labelled} basis, that is, the unbonded
+beads are first (in the order of the lines in the \tt{species} section) followed
+by beads from the molecules. Should one want to check the bead index
+assignments, the \tt{Info} utility can be used to generate, e.g., a \vsf file
+from the \field file.
 
 Nevertheless, the file can be used to supply extra information for bead and
 molecule types for the \tt{Info} utility's \tt{-i} option as these do not
 depend on individual beads but rather on bead and molecule type names (see
-\cref{sec:Info} for details). Moreover, \field can be used as an input file
-to add extra species into an existing system or to create a new system from
-scratch via, e.g., \fullref{sec:AddToSystem} or \TODO{ref GenSystem,
-GenLayers, or some such}.
+\cref{sec:Info} for details). Moreover, \field is used as an input file to add
+extra species into an existing system or to create a new system from scratch
+via, e.g., \fullref{sec:AddToSystem} or \TODO{ref GenSystem, GenLayers, or some
+such}.
 
 To be recognized by AnalysisTools utilities, the file must either be called
-\field or have a \tt{.FIELD} extension.
+\field or have the \tt{.FIELD} extension.
 %}}}
 \subsection{XYZ format}\label{ssec:StructXyz} %{{{
 This is the simplest and probably best known format, see, e.g.,
 \href{https://openbabel.org/docs/dev/FileFormats/XYZ_cartesian_coordinates_format.html}{here}
-for the description and \tt{Examples/Info/in.xyz} for an example. An \xyz file
-is essentially a file with timesteps (bead coordinates), and the only structure
-information are bead names. Note that the second line of each timestep (a
-comment line) is ignored by AnalysisTools.
+for the description. An \xyz file is essentially a file with timesteps (bead
+coordinates), and the only structure information are bead names. Note that the
+second line of each timestep (a comment line) is ignored.
 
 % The comment line at the beginning of each timestep can contain periodic boundary
 % conditions as \tt{<x> <y> <z>} (cuboid box) or \tt{<a> <b> <c> <alpha> <beta>
@@ -137,101 +134,54 @@ This rather complicated format comes from the
 the numbers of beads, bonds, angles, etc., as well as individual beads, bonds,
 angles, etc., and information about potentials for bonds, angles, etc. See
 \href{https://docs.lammps.org/2001/data_format.html}{here} for description of
-the format and \tt{in.data} for an example.
+the format and the \tt{Examples} directory for example files.
 
 AnalysisTools reads the header information as well as \tt{Masses}, \tt{Atoms},
 \tt{Velocities}, \tt{Bonds}, \tt{Angles}, \tt{Dihedrals}, \tt{Impropers}. It
 also reads \tt{Bond Coeffs}, \tt{Angle Coeffs}, \tt{Dihedral Coeffs}, and
 \tt{Improper Coeffs} sections.
 
-The \tt{Atoms} section must have \tt{atom_style full} format, that is every bead
-line must have the format \tt{<id> <mol id> <bead type> <q> <x> <y> <z>},
-where \tt{<id>} is a bead index, \tt{<mol id>} is a molecule index (-1 means the
-bead is in no molecule), \tt{<bead type>} is the bead type index corresponding
-to a line in the \tt{Masses} section, \tt{<q>} is charge, and \tt{<x> <y> <z>}
-are coordinates.
+The \tt{Atoms} section may have \tt{atom_style full}, \tt{bond}, \tt{angle},
+\tt{atomic}, \tt{molecular}, or \tt{charge} format (specified as a trailing
+comment on the \tt{Atoms} line as required by the LAMMPS software).
 
 For the \tt{Bond Coeffs} and \tt{Angle Coeffs} sections, harmonic potential is
 assumed, and the first value of each bond/angle type is multiplied by 2 because
 LAMMPS uses harmonic spring strength of $k/2$ (as opposed to, e.g., DL_MESO
-which uses $k$).
-
-For the \tt{Dihedral Coeffs} and \tt{Improper Coeffs} sections, AnalysisTools
-reads at most three numbers without assuming any specific potential.
-
-All the \tt{Coeffs} sections are used only for generating new structure files
-via the utility \fullref{sec:Info}, (specifically, only to generate
-\field and LAMMPS \data files because no other supported file contains this
-information).
+which uses $k$). For the \tt{Dihedral Coeffs} and \tt{Improper Coeffs} sections,
+AnalysisTools reads at most three numbers without assuming any specific
+potential. The \tt{Coeffs} sections are used only for generating new structure
+files via, e.g., the \fullref{sec:Info} utility; note that to run LAMMPS
+simulations, these section may have to be manually corrected to conform to the
+specific potential type.
 
 To be recognized by AnalysisTools utilities, the file must have an extension
 \tt{.data}. %}}}
 \subsection{LAMMPS lammpstrj format}\label{ssec:StructLtrj} %{{{
-This mainly coordinate file format comes from the LAMMPS
-\href{https://docs.lammps.org/dump.html}{dump style custom} command. See
-\tt{in.lammpstrj} for an example.
+This file format comes from the LAMMPS
+\href{https://docs.lammps.org/dump.html}{dump style custom} command.
 
 Of the possible LAMMPS attributes, AnalysisTools recognizes only \tt{id} (bead
 index -- mandatory), \tt{element} (bead name), \tt{x y z} (bead coordinates),
-\tt{vx vy vz} (bead velocities), and \tt{fx fy fz} (bead forces). Any other
+\tt{vx vy vz} (bead velocities), and \tt{fx fy fz} (bead forces). Other
 attribute is ignored. Note that if \tt{element} is missing, all beads are
-considered of the same type called \tt{bt}.
+considered of the same type called \tt{b}.
 
 To be recognized by AnalysisTools utilities, the file must have an extension
-\tt{lammpstrj}. %}}}
+\tt{.lammpstrj}. %}}}
 
 \section{Coordinate files}\label{sec:CoorFile}
-As coordinate files, any of the following formats can be used; example files for
-a simple \enquote{sandbox} system are provided in the \tt{Examples/InputFiles}
-directory. These files can be combined with any of the above-described structure
-files (via the \tt{-i <file>} option), but some may be used as both the
-structure and coordinate file.
-
-Utility \fullref{sec:Selected} can generate any of these file types,
-converting between the formats; all utilities that require coordinate file can
-use any of these formats.
-\subsection{VTF format}\label{ssec:CoorVtf} %{{{
-See \href{https://github.com/olenz/vtfplugin/wiki/VTF-format}{here} for the
-description of a coordinate part of the \vtf format and \tt{in.vtf} and
-\tt{in.vcf} for example files (a \vtf file contains the coordinate part after a
-structure part, while a \vcf file contains only the coordinate part).
-
-AnalysisTools recognizes both ordered and indexed timesteps as well as a
-\tt{pbc} line defining box dimensions.
-
-If an AnalysisTools utility is not provided with an extra structure file (\tt{-i
-<file>} option), the same filename is assumed but with the \tt{.vsf} extension
-instead of the \tt{.vcf} extension. %}}}
-\subsection{XYZ format}\label{ssec:CoorXyz} %{{{
-This is the simplest and probably best known format, see, e.g.,
-\href{https://openbabel.org/docs/dev/FileFormats/XYZ_cartesian_coordinates_format.html}{here}
-for the description and \tt{in.xyz} for an example.
-
-The comment line at the beginning of each timestep can contain periodic boundary
-conditions as \tt{<x> <y> <z>} (cuboid box) or \tt{<a> <b> <c> <alpha> <beta>
-<gamma>} (general rhomboid box); it is similar to the \tt{pbc} keyword in \vtf
-file. To use this box definition, use \tt{-pbc <n>} option where \tt{<n>} is the
-position of the first number on the comment line (e.g., \tt{1} if the comment
-line starts with the box size).
-
-The \xyz coordinate file will be used as a structure file as well unless an
-extra structure file is provided via the \tt{-i <file>} option. %}}}
-\subsection{LAMMPS lammpstrj format}\label{ssec:CoorLtrj} %{{{
-This coordinate file format comes from the LAMMPS
-\href{https://docs.lammps.org/dump.html}{dump style custom} command. See
-\tt{in.lammpstrj} for an example.
-
-Of the possible LAMMPS attributes, AnalysisTools recognizes only \tt{id} (bead
-index -- mandatory), \tt{element} (bead name), \tt{x y z} (bead coordinates),
-\tt{vx vy vz} (bead velocities), and \tt{fx fy fz} (bead forces). Any other
-attribute is ignored. Note that if \tt{element} is missing, all beads are
-considered of the same type called \tt{bt}.
-
-To be recognized by AnalysisTools utilities, the file must have an extension
-\tt{lammpstrj}.
-
-This coordinate file will be used as a structure file as well unless an extra
-structure file is provided via the \tt{-i <file>} option. %}}}
+As a coordinate file, any of the following formats (described above) can be
+used.
+\begin{itemize}
+  \item \vtcf format (\vtf file contains both structure and coordinate sections
+    while \vcf file contains only the coordinate section); both indexed and
+    ordered timesteps can be used, but the AnalysisTools utilities always output
+    files with ordered timesteps
+  \item \xyz format
+  \item LAMMPS \data format which by definition can only contain one timestep
+  \item LAMMPS \ltrj format
+\end{itemize}
 
 \section{Aggregate file} \label{sec:AggFile} %{{{
 
@@ -252,14 +202,14 @@ data for individual timesteps are shown. It follows these rules:
   \item each timestep starts with \tt{Step: <int>}
   \item the second line is the number of aggregates in the given timestep
   \item for each aggregate, there is a single line in the format \tt{<size> :
-    <id1> <id2> ... <idsize>}; the \tt{<id\#>} are molecular indices from the
+    <id1> <id2> ...}; the \tt{<id\#>} are molecular indices from the
     input structure file
   \item no blank or comment lines are allowed
-  \item not all molecules present in the \vcf file used to generate
-    this file must be present in every timestep
+  \item not all molecules present in the coordinate/structure file(s) used to
+    generate this file must be present in every timestep
 \end{itemize}
 
-Note that the term aggregate also refers to free chains (i.e., fully
+Note that the term aggregate also refers to free chains (i.e., unimers or fully
 dissolved chains).
 
 When keywords \tt{Last Step: <int>} are encountered in place of \tt{Step:} line,

@@ -3439,7 +3439,7 @@ void CheckSystem(SYSTEM System, char file[]) {
     if (test[mol_i->Index] > -1) {
       strcpy(ERROR_MSG, "same molecule index with multiple molecules");
       PrintErrorFile(file, "\0", "\0");
-      fprintf(stderr, "%s, index %s%d%s with molecuces %s%d %d%s\n", ErrRed(),
+      fprintf(stderr, "%s, index %s%d%s with molecules %s%d %d%s\n", ErrRed(),
               ErrYellow(), mol_i->Index, ErrRed(), ErrYellow(),
               test[mol_i->Index], i, ErrColourReset());
       break;

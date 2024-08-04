@@ -2858,10 +2858,23 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
         exit(1);
       } //}}}
       if (words < 2 || strcasecmp(split[0], "nummols") != 0 ||
-          !IsNaturalNumber(split[1], &val)) {
+          // !IsNaturalNumber(split[1], &val)) {
+          !IsIntegerNumber(split[1], &val) || val < 0) {
         strcpy(ERROR_MSG, "incorrect 'nummols' line in a molecule entry");
         PrintErrorFileLine(file, line_count);
         exit(1);
+      } else if (val == 0) {
+        do {
+          line_count++;
+          // read a line //{{{
+          if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
+            ErrorEOF(file, "incomplete 'Molecules' section");
+            exit(1);
+          } //}}}
+        } while(strcmp(split[0], "finish") != 0);
+        i--;
+        Count->MoleculeType--;
+        continue;
       }
       mt_i->Number = val; //}}}
       // 3) beads in the molecule //{{{
