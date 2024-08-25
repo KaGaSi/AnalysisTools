@@ -682,6 +682,7 @@ void FillInCoor(SYSTEM *System) { //{{{
     BEAD *b = &System->Bead[id];
     b->InTimestep = true;
     if (b->Molecule != -1) {
+      System->Molecule[b->Molecule].InTimestep = true;
       System->BondedCoor[Count->BondedCoor] = id;
       Count->BondedCoor++;
     } else {
@@ -3846,7 +3847,7 @@ void VerboseOutput(SYSTEM System) { //{{{
   PrintAngleType(System);
   PrintDihedralType(System);
   PrintImproperType(System);
-  PrintMoleculeTypes(System);
+  PrintAllMolTypes(System);
   if (System.Box.Volume != -1) {
     putchar('\n');
     PrintBox(System.Box);
@@ -4003,7 +4004,7 @@ void PrintBeadType(SYSTEM System) { //{{{
   }
   putchar('\n');
 } //}}}
-void Print1MoleculeType(SYSTEM System, int n) { //{{{
+void PrintOneMolType(SYSTEM System, int n) { //{{{
   MOLECULETYPE *mt = &System.MoleculeType[n];
   fprintf(stdout, "MoleculeType[%d] = {\n", n);
   fprintf(stdout, "  .Name       = %s\n", mt->Name);
@@ -4013,6 +4014,9 @@ void Print1MoleculeType(SYSTEM System, int n) { //{{{
   fprintf(stdout, "  .Bead       = {");
   for (int j = 0; j < mt->nBeads; j++) {
     fprintf(stdout, " %d", mt->Bead[j]);
+    if (((j + 1) % 10) == 0 && j != (mt->nBeads - 1)) {
+      fprintf(stdout, "\n                 ");
+    }
   }
   fprintf(stdout, " }\n"); //}}}
   // print bonds if there are any //{{{
@@ -4023,6 +4027,9 @@ void Print1MoleculeType(SYSTEM System, int n) { //{{{
       fprintf(stdout, " %d-%d", mt->Bond[j][0] + 1, mt->Bond[j][1] + 1);
       if (mt->Bond[j][2] != -1) {
         fprintf(stdout, " (%d)", mt->Bond[j][2] + 1);
+      }
+      if (((j + 1) % 10) == 0 && j != (mt->nBonds - 1)) {
+        fprintf(stdout, "\n                 ");
       }
     }
     fprintf(stdout, " }\n");
@@ -4038,6 +4045,9 @@ void Print1MoleculeType(SYSTEM System, int n) { //{{{
       if (mt->Angle[j][3] != -1) {
         fprintf(stdout, " (%d)", mt->Angle[j][3] + 1);
       }
+      if (((j + 1) % 10) == 0 && j != (mt->nAngles - 1)) {
+        fprintf(stdout, "\n                 ");
+      }
     }
     fprintf(stdout, " }\n");
   } //}}}
@@ -4052,6 +4062,9 @@ void Print1MoleculeType(SYSTEM System, int n) { //{{{
                                       mt->Dihedral[j][3] + 1);
       if (mt->Dihedral[j][4] != -1) {
         fprintf(stdout, " (%d)", mt->Dihedral[j][4] + 1);
+      }
+      if (((j + 1) % 10) == 0 && j != (mt->nDihedrals - 1)) {
+        fprintf(stdout, "\n                 ");
       }
     }
     fprintf(stdout, " }\n");
@@ -4070,6 +4083,9 @@ void Print1MoleculeType(SYSTEM System, int n) { //{{{
       if (mt->Improper[j][4] != -1) {
         fprintf(stdout, " (%d)", mt->Improper[j][4] + 1);
       }
+      if (((j + 1) % 10) == 0 && j != (mt->nImpropers - 1)) {
+        fprintf(stdout, "\n                 ");
+      }
     }
     fprintf(stdout, " }\n");
   } //}}}
@@ -4078,6 +4094,9 @@ void Print1MoleculeType(SYSTEM System, int n) { //{{{
   fprintf(stdout, "  .BType      = {");
   for (int j = 0; j < mt->nBTypes; j++) {
     fprintf(stdout, " %d", mt->BType[j]);
+    if (((j + 1) % 10) == 0 && j != (mt->nBTypes - 1)) {
+      fprintf(stdout, "\n                 ");
+    }
   }
   fprintf(stdout, " }\n"); //}}}
   if (mt->Mass != MASS) {
@@ -4091,9 +4110,9 @@ void Print1MoleculeType(SYSTEM System, int n) { //{{{
     fprintf(stdout, "  .Charge     = n/a\n}\n");
   }
 } //}}}
-void PrintMoleculeTypes(SYSTEM System) { //{{{
+void PrintAllMolTypes(SYSTEM System) { //{{{
   for (int i = 0; i < System.Count.MoleculeType; i++) {
-    Print1MoleculeType(System, i);
+    PrintOneMolType(System, i);
   }
 } //}}}
 void Print1Molecule(SYSTEM System, int n) { //{{{
@@ -4400,65 +4419,67 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
   // go over all pairs of molecules
   for (int i = 1; i < Count->Molecule; i++) {
     for (int j = 0; j < i; j++) {
-      int agg_i = System->Molecule[i].Aggregate,
-          agg_j = System->Molecule[j].Aggregate;
-      // if molecules 'i' and 'j' are in contact, put them into one aggregate
-      if (contact[i][j] >= contacts) { //{{{
-        // create new aggregate if molecule 'j' isn'it in any
-        if (agg_j == -1) {
+      if (System->Molecule[i].InTimestep && System->Molecule[j].InTimestep) {
+        int agg_i = System->Molecule[i].Aggregate,
+            agg_j = System->Molecule[j].Aggregate;
+        // if molecules 'i' and 'j' are in contact, put them into one aggregate
+        if (contact[i][j] >= contacts) { //{{{
+          // create new aggregate if molecule 'j' isn'it in any
+          if (agg_j == -1) {
+            agg_j = Count->Aggregate;
+            System->Molecule[j].Aggregate = agg_j;
+            Aggregate[agg_j].nMolecules = 1;
+            Aggregate[agg_j].Molecule[0] = j;
+            Count->Aggregate++;
+          }
+          /*
+           * add molecule 'i' to aggregate 'j' (which contains molecule 'j')
+           * if molecule 'i' isn't in any aggregate
+           */
+          if (agg_i == -1) {
+            int mols = Aggregate[agg_j].nMolecules;
+            Aggregate[agg_j].Molecule[mols] = i;
+            Aggregate[agg_j].nMolecules++;
+            System->Molecule[i].Aggregate = agg_j;
+          }
+          /*
+           * if molecules 'i' and 'j' are in different aggregate,
+           * unite those aggregates
+           */
+          if (agg_i != -1 && agg_j != -1 && agg_i != agg_j) {
+            // add molecules from aggregate 'i' to aggregate 'j'
+            int n_mol_old = Aggregate[agg_j].nMolecules;
+            Aggregate[agg_j].nMolecules += Aggregate[agg_i].nMolecules;
+            for (int k = n_mol_old; k < Aggregate[agg_j].nMolecules; k++) {
+              int mol = Aggregate[agg_i].Molecule[k-n_mol_old];
+              Aggregate[agg_j].Molecule[k] = mol;
+              System->Molecule[mol].Aggregate = agg_j;
+            }
+            // move aggregates with id greater then agg_i to id-1
+            for (int k = (agg_i + 1); k < Count->Aggregate; k++) {
+              Aggregate[k-1].nMolecules = Aggregate[k].nMolecules;
+              // move every molecule from aggregate 'k' to aggregate 'k-1'
+              for (int l = 0; l < Aggregate[k].nMolecules; l++) {
+                int mol = Aggregate[k].Molecule[l];
+                Aggregate[k-1].Molecule[l] = mol;
+                System->Molecule[mol].Aggregate = k - 1;
+              }
+            }
+            // reduce number of aggregates since the two aggregates were merged
+            Count->Aggregate--;
+          } //}}}
+        /*
+         * or if molecules 'i' and 'j' aren't in contact, and molecule 'j' isn't
+         * in any aggregate, create new aggregate for molecule 'j'
+         */
+        } else if (agg_j == -1) { //{{{
           agg_j = Count->Aggregate;
           System->Molecule[j].Aggregate = agg_j;
           Aggregate[agg_j].nMolecules = 1;
           Aggregate[agg_j].Molecule[0] = j;
           Count->Aggregate++;
-        }
-        /*
-         * add molecule 'i' to aggregate 'j' (which contains molecule 'j')
-         * if molecule 'i' isn't in any aggregate
-         */
-        if (agg_i == -1) {
-          int mols = Aggregate[agg_j].nMolecules;
-          Aggregate[agg_j].Molecule[mols] = i;
-          Aggregate[agg_j].nMolecules++;
-          System->Molecule[i].Aggregate = agg_j;
-        }
-        /*
-         * if molecules 'i' and 'j' are in different aggregate,
-         * unite those aggregates
-         */
-        if (agg_i != -1 && agg_j != -1 && agg_i != agg_j) {
-          // add molecules from aggregate 'i' to aggregate 'j'
-          int n_mol_old = Aggregate[agg_j].nMolecules;
-          Aggregate[agg_j].nMolecules += Aggregate[agg_i].nMolecules;
-          for (int k = n_mol_old; k < Aggregate[agg_j].nMolecules; k++) {
-            int mol = Aggregate[agg_i].Molecule[k-n_mol_old];
-            Aggregate[agg_j].Molecule[k] = mol;
-            System->Molecule[mol].Aggregate = agg_j;
-          }
-          // move aggregates with id greater then agg_i to id-1
-          for (int k = (agg_i + 1); k < Count->Aggregate; k++) {
-            Aggregate[k-1].nMolecules = Aggregate[k].nMolecules;
-            // move every molecule from aggregate 'k' to aggregate 'k-1'
-            for (int l = 0; l < Aggregate[k].nMolecules; l++) {
-              int mol = Aggregate[k].Molecule[l];
-              Aggregate[k-1].Molecule[l] = mol;
-              System->Molecule[mol].Aggregate = k - 1;
-            }
-          }
-          // reduce number of aggregates since the two aggregates were merged
-          Count->Aggregate--;
         } //}}}
-      /*
-       * or if molecules 'i' and 'j' aren't in contact, and molecule 'j' isn't
-       * in any aggregate, create new aggregate for molecule 'j'
-       */
-      } else if (agg_j == -1) { //{{{
-        agg_j = Count->Aggregate;
-        System->Molecule[j].Aggregate = agg_j;
-        Aggregate[agg_j].nMolecules = 1;
-        Aggregate[agg_j].Molecule[0] = j;
-        Count->Aggregate++;
-      } //}}}
+      }
     }
   }
   // check if the highest id residue is in an aggregate //{{{

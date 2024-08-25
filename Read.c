@@ -280,6 +280,11 @@ static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
   for (int i = 0; i < System->Count.Bead; i++) {
     System->Bead[i].InTimestep = false;
   } //}}}
+  // set 'not in timestep' to all molecules //{{{
+  for (int i = 0; i < System->Count.Molecule; i++) {
+    System->Molecule[i].InTimestep = false;
+  }
+  //}}}
   System->Count.BeadCoor =
       LtrjReadTimestepPreamble(fr, file, &System->Box, line_count);
   if (System->Count.BeadCoor < 0) {
@@ -312,6 +317,9 @@ static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
     }
     b->InTimestep = true;
     System->BeadCoor[i] = id;
+    if (b->Molecule != -1) {
+      System->Molecule[b->Molecule].InTimestep = true;
+    }
   } //}}}
   SubtractLow(System);
   return 1;
@@ -674,6 +682,12 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
   for (int i = 0; i < Count->Bead; i++) {
     System->Bead[i].InTimestep = true;
   } //}}}
+  // set 'in timestep' to all molecules //{{{
+  for (int i = 0; i < Count->Molecule; i++) {
+    System->Molecule[i].InTimestep = false;
+  }
+  //}}}
+
   // ignore the first line (comment) //{{{
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
     ErrorEOF(file, "\0");
@@ -2169,6 +2183,11 @@ static int VtfReadTimestep(FILE *fr, char file[],
   for (int i = 0; i < System->Count.Bead; i++) {
     System->Bead[i].InTimestep = false;
   } //}}}
+  // set 'not in timestep' to all molecules //{{{
+  for (int i = 0; i < System->Count.Molecule; i++) {
+    System->Molecule[i].InTimestep = false;
+  }
+  //}}}
   // read coordinates
   COUNT *Count = &System->Count;
   Count->UnbondedCoor = 0;
@@ -3554,6 +3573,10 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
       System->Bead[i].InTimestep = true;
       System->BeadCoor[i] = i;
       (*line_count)++;
+      int mol = System->Bead[i].Molecule;
+      if (mol != -1) {
+        System->Molecule[mol].InTimestep = true;
+      }
       double vel[3];
       if (words > 6 &&
           IsRealNumber(split[4], &vel[0]) &&
@@ -3574,9 +3597,13 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
       return -1;
     }
   } //}}}
-  // set 'not in timestep' to the remaining beads //{{{
+  // set 'not in timestep' to the remaining beads/molecules //{{{
   for (int i = System->Count.BeadCoor; i < System->Count.Bead; i++) {
     System->Bead[i].InTimestep = false;
+    int mol = System->Bead[i].Molecule;
+    if (mol != -1) {
+      System->Molecule[mol].InTimestep = false;
+    }
   } //}}}
   return true;
 } //}}}
@@ -4135,6 +4162,7 @@ bool ReadTimestep(SYS_FILES f, FILE *fr, SYSTEM *System, int *line_count) {
         return false;
       }
       // skip this step if it's a first one that contain only zeroes
+      // ...huh? Why would this be a thing?
       if (line == 0 && System->Count.BeadCoor == System->Count.Bead) {
         bool zeroes = true;
         for (int i = 0; i < System->Count.Bead; i++) {

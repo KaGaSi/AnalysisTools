@@ -11,7 +11,6 @@ Counts of
   Unbonded Beads: 9
   Molecule Types: 2
   Molecules:      2
-  HighestResid:   2
   Bond Types:     1
   Bonds:          1
 
@@ -25,21 +24,21 @@ MoleculeType[0] = {
   .Name       = A2
   .Number     = 1
   .nBeads     = 2
-  .Bead       = { A A }
+  .Bead       = { 0 0 }
   .nBonds     = 1
   .Bond       = { 1-2 (1) }
   .nBTypes    = 1
-  .BType      = { A }
+  .BType      = { 0 }
   .Mass       = 2.00000
   .Charge     = 0.00000
 }
 MoleculeType[1] = {
-  .Name       = n/a
+  .Name       = m
   .Number     = 1
   .nBeads     = 4
-  .Bead       = { A A A A }
+  .Bead       = { 0 0 0 0 }
   .nBTypes    = 1
-  .BType      = { A }
+  .BType      = { 0 }
   .Mass       = 4.00000
   .Charge     = 0.00000
 }

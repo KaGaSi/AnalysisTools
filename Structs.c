@@ -37,6 +37,7 @@ void InitMolecule(MOLECULE *mol) { //{{{
   mol->Type = -1;
   mol->Index = -1;
   mol->Aggregate = -1;
+  mol->InTimestep = false;
 } //}}}
 void InitSystem(SYSTEM *System) { //{{{
   System->Box = InitBox;

@@ -6,46 +6,48 @@ described in their respective sections in \cref{chap:Utils}.
 
 Input files are divided into two categories: structure and coordinate files. The
 structure files contain information about the system composition, that is,
-number of beads and molecules, bead properties (mass, charge, etc.), molecule
-properties (number and types of beads, connectivity, etc.). The coordinate files
-contain individual timesteps with beads' coordinates (and, possibly, velocities,
-forces, etc.). Some files can be used as both a structure and a coordinate file,
-but using a different structure file may be essential. For example, an \tt{xyz}
-file (see below) may be used as both, but because it only provides bead names,
-using a separate structure file would provide additional information (bead
-and/or molecule properties).
+number of beads and molecules, bead properties (name, mass, charge, etc.),
+molecule properties (name, number and types of beads, connectivity, etc.). The
+coordinate files contain individual timesteps with beads' coordinates (and,
+possibly, velocities, forces, etc.). While most files can be used as both a
+structure and a coordinate file, using a separate structure file may be
+essential. For example, an \tt{xyz} file (see below) may be used as both, but
+because it only provides bead names, using a separate structure file would
+provide additional information (bead and/or molecule properties).
 
 For working with aggregates, AnalysisTools' \tt{agg} file format (see below)
-describes their compositions in terms of molecule numbers from a structure file
-used to generate it. Any of the \tt{Aggregates} (\cref{sec:Aggregates})
-utilities can create the \tt{agg} file.
+describes their compositions in terms of molecule numbers taken from the
+structure file used to generate it. Any of the \tt{Aggregates}
+(\cref{sec:Aggregates}) utilities can create the \tt{agg} file.
 
 \section{Structure files}\label{sec:StructFile}
-As a structure file, any of the following formats can be used; simple example
-files are provided in the \tt{Examples/InputFiles} directory. Most utilities can
-load a specific structure file using the \tt{-i <file>} option; if the option is
-missing, it is usually assumed the structure file is the same as the coordinate
-file.
+As a structure file, any of the following formats can be used; browse the
+\tt{Examples} directory for example files. Most utilities can load a specific
+structure file using the \tt{-i <file>} option; if the option is not used, it is
+usually assumed the structure file is the same as the coordinate file.
 
 Importantly, many of the AnalysisTools utilities work (either fundamentally or
 optionally) with types of beads and/or molecules. In these cases, names are used
-specify the bead/molecule types. While many input files support naming
-beads and molecules, not all do (in some formats, these are optional); in
-these cases, AnalysisTools names the bead types as \tt{b} (and \tt{b1}, \tt{b2},
-etc., if more than one bead type is present) and molecule types as \tt{m} (and
-\tt{m1}, \tt{m2}, etc., in case of multiple molecule types). See the individual
-file formats for details.
+specify the bead/molecule types. While many input files support naming beads and
+molecules, not all do (in some formats, these are optional); in such cases,
+AnalysisTools names the bead types as \tt{b} (and \tt{b1}, \tt{b2}, etc., if
+more than one bead type is present) and molecule types as \tt{m} (and \tt{m1},
+\tt{m2}, etc., in case of multiple molecule types). If unsure, using the Info
+utility (\cref{sec:Info}), one can see the names of beads and molecules for the
+specific structure file.
 
-\tt{Info} utility (\cref{sec:Info}) can convert these formats between
-each other via the \tt{-o <file>} option.
+\tt{Info} utility can also convert these formats between each other via the
+\tt{-o <file>} option.
+
 \subsection{VTF format}\label{ssec:StructVtf} %{{{
-See \href{https://github.com/olenz/vtfplugin/wiki/VTF-format}{here} for the
-complete description and the \tt{Examples} directory for example \vtsf files (a
-\vtf file contains a structure part followed by a coordinate part, but a \vsf
-file contains only the structure part). In this format, every bead is defined on
-its own line and all bonds all listed.
 
-Not all keywords listed on the web page for the \enquote{Atom lines} are
+See \href{https://github.com/olenz/vtfplugin/wiki/VTF-format}{here} for the
+complete description of \vtsf files (a \vtf file contains a structure part
+followed by a coordinate part, while a \vsf file contains only the structure
+part). In this format, every bead is defined on its own line (except for the
+\tt{atom default} bead type) and all bonds all listed.
+
+Not all the keywords listed on the web page for the \enquote{Atom lines} are
 recognized; keyword \tt{n[ame]} is mandatory and optional keywords are
 \tt{m[ass]}, \tt{charge|q}, \tt{r[adius]}, \tt{resid}, and \tt{res[name]}. For
 the \tt{<aid-specifier>}, only a single bead index number or the \tt{default}
@@ -66,29 +68,31 @@ all their characteristics, i.e., name, connectivity, and order of bead types
 (order of its \vsf indices). Molecule types may also be affected by the
 \tt{--detailed} option because of the bead type definition.
 
-For bond lines, only single bonds are recognized (i.e., \tt{bond
+For bond lines, only one bond per line is permitted (i.e., \tt{bond
 <index1>:<index2>} format).
 
 Periodic boundary condition can be included as \tt{pbc <x> <y> <z>} for a cuboid
 box or \tt{pbc <a> <b> <c> <alpha> <beta> <gamma>} for a general rhomboid
 box. %}}}
+
 \subsection{FIELD format}\label{ssec:StructField} %{{{
-A format similar to the \tt{FIELD} input file for
+
+A format used by the
 \href{https://www.scd.stfc.ac.uk/Pages/DL_MESO.aspx}{DL_MESO_DPD simulation
-package}. This concise format defines species of beads and molecules, providing
-number of beads/molecules of given species as well as their properties.
+package} concisely defines species of beads and molecules, providing number of
+beads/molecules of given species as well as their properties.
 
 The \tt{species} section is the same as in the \tt{DL_MESO} \field file, but the
 \tt{molecules} section differs slightly. Besides the \tt{beads} part, every
-molecule can have \tt{bonds}, \tt{angles}, \tt{dihedrals}, but even though up to
-three parameters for potential parameters are read, AnalysisTools does not
+molecule can have \tt{bonds}, \tt{angles}, and \tt{dihedrals}, but even though
+up to three parameters for potential parameters are read, AnalysisTools does not
 recognize the potential keywords (\tt{harm}, \tt{cos}, etc.). Moreover, these
-potential parameters are only used for generating new LAMMPS data files via,
-e.g., the \tt{Info} utility (\cref{sec:Info}). The \tt{molecules} section can
-also contain one extra part: \tt{impropers} for improper angles which has the
-same format as the \tt{dihedrals} section (this was added because the
-\href{https://lammps.sandia.gov/}{LAMMPS molecular dynamics simulator} and other
-software distinguish between the two types).
+potential parameters are only used for generating new \tt{LAMMPS} or
+\tt{DL_MESO} data files via, e.g., the \tt{Info} utility (\cref{sec:Info}). The
+\tt{molecules} section can also contain one extra part: \tt{impropers} for
+improper angles which has the same format as the \tt{dihedrals} section (this
+was added because the \href{https://lammps.sandia.gov/}{LAMMPS molecular
+dynamics simulator} and other software distinguish between the two types).
 
 Note that the \field file does not have to contain the \tt{Interactions}
 section; this part is ignored.
@@ -114,12 +118,18 @@ such}.
 To be recognized by AnalysisTools utilities, the file must either be called
 \field or have the \tt{.FIELD} extension.
 %}}}
+
 \subsection{XYZ format}\label{ssec:StructXyz} %{{{
+
 This is the simplest and probably best known format, see, e.g.,
 \href{https://openbabel.org/docs/dev/FileFormats/XYZ_cartesian_coordinates_format.html}{here}
 for the description. An \xyz file is essentially a file with timesteps (bead
 coordinates), and the only structure information are bead names. Note that the
 second line of each timestep (a comment line) is ignored.
+
+When used as a structure file, the first timestep is used to define the system
+composition. Therefore while the timesteps can each have a different number of
+beads, their amount cannot exceed the number in the first step.
 
 % The comment line at the beginning of each timestep can contain periodic boundary
 % conditions as \tt{<x> <y> <z>} (cuboid box) or \tt{<a> <b> <c> <alpha> <beta>
@@ -128,7 +138,9 @@ second line of each timestep (a comment line) is ignored.
 % position of the first number on the comment line (e.g., \tt{1} if the comment
 % line starts with the box size).
 %}}}
+
 \subsection{LAMMPS data format}\label{ssec:StructLdata} %{{{
+
 This rather complicated format comes from the
 \href{https://lammps.sandia.gov/}{LAMMPS molecular dynamics simulator} and lists
 the numbers of beads, bonds, angles, etc., as well as individual beads, bonds,
@@ -143,7 +155,7 @@ also reads \tt{Bond Coeffs}, \tt{Angle Coeffs}, \tt{Dihedral Coeffs}, and
 
 The \tt{Atoms} section may have \tt{atom_style full}, \tt{bond}, \tt{angle},
 \tt{atomic}, \tt{molecular}, or \tt{charge} format (specified as a trailing
-comment on the \tt{Atoms} line as required by the LAMMPS software).
+comment on the \tt{Atoms} line as required by the \tt{LAMMPS} software).
 
 For the \tt{Bond Coeffs} and \tt{Angle Coeffs} sections, harmonic potential is
 assumed, and the first value of each bond/angle type is multiplied by 2 because
@@ -151,52 +163,58 @@ LAMMPS uses harmonic spring strength of $k/2$ (as opposed to, e.g., DL_MESO
 which uses $k$). For the \tt{Dihedral Coeffs} and \tt{Improper Coeffs} sections,
 AnalysisTools reads at most three numbers without assuming any specific
 potential. The \tt{Coeffs} sections are used only for generating new structure
-files via, e.g., the \fullref{sec:Info} utility; note that to run LAMMPS
+files via, e.g., the \fullref{sec:Info} utility; note that to run \tt{LAMMPS}
 simulations, these section may have to be manually corrected to conform to the
 specific potential type.
 
 To be recognized by AnalysisTools utilities, the file must have an extension
 \tt{.data}. %}}}
+
 \subsection{LAMMPS lammpstrj format}\label{ssec:StructLtrj} %{{{
-This file format comes from the LAMMPS
+
+This file format comes from the \tt{LAMMPS}
 \href{https://docs.lammps.org/dump.html}{dump style custom} command.
 
-Of the possible LAMMPS attributes, AnalysisTools recognizes only \tt{id} (bead
-index -- mandatory), \tt{element} (bead name), \tt{x y z} (bead coordinates),
-\tt{vx vy vz} (bead velocities), and \tt{fx fy fz} (bead forces). Other
-attribute is ignored. Note that if \tt{element} is missing, all beads are
-considered of the same type called \tt{b}.
+Of the possible \tt{LAMMPS} attributes, AnalysisTools recognizes only \tt{id}
+(bead index -- mandatory), \tt{element} (bead name), \tt{x y z} (bead
+coordinates), \tt{vx vy vz} (bead velocities), and \tt{fx fy fz} (bead forces).
+Other attributes are ignored. Note that if \tt{element} is missing, all beads
+are considered of the same type called \tt{b}.
+
+When used as a structure file, the first timestep is used to define the system
+composition. Therefore while the timesteps can each have a different number of
+beads, their amount cannot exceed the number in the first step.
 
 To be recognized by AnalysisTools utilities, the file must have an extension
 \tt{.lammpstrj}. %}}}
 
 \section{Coordinate files}\label{sec:CoorFile}
 As a coordinate file, any of the following formats (described above) can be
-used.
+used:
 \begin{itemize}
   \item \vtcf format (\vtf file contains both structure and coordinate sections
     while \vcf file contains only the coordinate section); both indexed and
     ordered timesteps can be used, but the AnalysisTools utilities always output
     files with ordered timesteps
-  \item \xyz format
+  \item \xyz format where timesteps can have a different number of beads
   \item LAMMPS \data format which by definition can only contain one timestep
-  \item LAMMPS \ltrj format
+  \item LAMMPS \ltrj format where timesteps can have a different number of beads
 \end{itemize}
 
 \section{Aggregate file} \label{sec:AggFile} %{{{
 
-A \tt{file.agg} is generated using
-\tt{Aggregates} (or \tt{Aggregates-NotSameBeads}) utility. The
-file contains information about the number of aggregates in each timestep
-and which molecules and monomeric (i.e., unbonded) beads belong to which
-aggregate. It serves as an additional input file for utilities that
-calculate aggregate properties; \tt{agg} file is, therefore, linked to
-the \vcf file that was used to generate it.
+An \tt{agg} is generated using any of the \tt{Aggregates} utilities. The file
+contains information about the number of aggregates in each timestep and which
+molecules
+% and monomeric (i.e., unbonded) beads 
+belong to which aggregate. It serves as an additional input file for utilities
+that calculate aggregate properties; \tt{agg} file is, therefore, linked to the
+structure and coordinate file(s) used to generate it.
 
 The \tt{agg} file is a simple text file. The first two lines are just comments
 (the second one should contain the command used to generate the file as parts of
-the command may be used by subsequent aggregate analysis). From third line, the
-data for individual timesteps are shown. It follows these rules:
+the command may be used by subsequent aggregate analysis). Starting at the third
+line, the data for individual timesteps are shown. It follows these rules:
 
 \begin{itemize}[topsep=0pt,itemsep=0pt]
   \item each timestep starts with \tt{Step: <int>}
@@ -207,22 +225,21 @@ data for individual timesteps are shown. It follows these rules:
   \item no blank or comment lines are allowed
   \item not all molecules present in the coordinate/structure file(s) used to
     generate this file must be present in every timestep
+  \item the keyword \tt{Last} instead of \tt{Step:} signalizes the end of data
 \end{itemize}
 
-Note that the term aggregate also refers to free chains (i.e., unimers or fully
-dissolved chains).
-
-When keywords \tt{Last Step: <int>} are encountered in place of \tt{Step:} line,
-it signalizes the end of the \tt{agg} file; no utility will read anything beyond
-this line.
+Note that the term aggregate also refers to free molecules (i.e., unimers or
+fully dissolved chains).
 
 If \vtf format is used for the coordinates, the indices from \tt{agg} file can
 be used in \href{http://www.ks.uiuc.edu/Research/vmd/}{vmd} to visualize, e.g.,
 only a specific aggregate by using \tt{resid <id1> ... <id\#>} in the
-\tt{Selected Atoms} box inside the vmd. A bash script
-\tt{scripts/VisualizeAgg.sh} (and the accompanied picture VisualizeAgg.jpg) is a
-rough example of visualizing aggregates by different colours (it takes \vtf and
-\tt{agg} files as command line arguments).
+\tt{Selected Atoms} box inside the vmd. A rough script to visualize aggregates
+in different colours is in the \tt{Examples/scripts/Visualize} directory
+(\tt{VisAgg*} files),
+accompanied by the resultant picture (the bash script uses the
+provided \vtf and \tt{agg} files to generate a \tt{tcl} script and run it via
+\tt{vmd}).
 
 An example of an \tt{agg} file can be found in the \tt{Examples/DistrAgg}
 directory. %}}}

@@ -10,9 +10,9 @@ provided.\\[1em]
   \multicolumn{2}{l}{General options}\\
   \midrule
   \tt{--verbose} & print information about all bead and molecule types to the
-    screen\\
+                   screen\\
   \tt{--silent}  & run silently, i.e., without any output at all (overrides
-    \tt{--verbose} option)\\
+                   \tt{--verbose} option)\\
   \tt{--help}    & print short description of the utility and usage\\
   \tt{--version} & print version of the utilities and exit\\
   \midrule
@@ -20,12 +20,12 @@ provided.\\[1em]
   \midrule
   \tt{-i <name>}  & use specified structure file, see
     \cref{sec:StructFile} for possible formats\\
-  \tt{-st <n>}    & any coordinate file: start calculations at \tt{n}-th
-    timestep\\
-  \tt{-e <n>}     & any coordinate file: end calculations at \tt{n}-th
-    timestep\\
-  \tt{-sk <n>}    & any coordinate file: skip every \tt{n} timesteps during
-    calculations\\
+  \tt{-st <n>}    & start calculations at \tt{n}-th
+                    timestep\\
+  \tt{-e <n>}     & end calculations at \tt{n}-th
+                    timestep\\
+  \tt{-sk <n>}    & skip every \tt{n} timesteps (i.e., use every \tt{(n+1)}-th
+                    timestep)\\
   \bottomrule
 \end{tabular}\\[1em]
 
@@ -51,9 +51,15 @@ provided.\\[1em]
 % numbers were provided, only the first three would be used to define a cuboid
 % box.
 
-Which timesteps are used by the utility can be controlled via the \tt{-st},
-\tt{-e}, and \tt{-sk} options. For example, specifying \tt{-st 2 -e 10 -sk 2}
-would use timesteps 2, 5, and 8.
+% Which timesteps are used by the utility can be controlled via the \tt{-st},
+% \tt{-e}, and \tt{-sk} options. For example, specifying \tt{-st 2 -e 10 -sk 2}
+% would use timesteps 2, 5, and 8.
+
+The \tt{-st}, \tt{-e}, and \tt{-sk} options can be combined, so that, for
+example, specifying \tt{-st 2 -e 10 -sk 2} would use timesteps 2, 5, and 8.
+
+Note that should two (or more) identical options be specified on the command
+line, only the first one is used.
 
 \input{AddToSystem}
 \input{Aggregates}

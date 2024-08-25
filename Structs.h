@@ -191,6 +191,7 @@ typedef struct Molecule { //{{{
       *Bead, // ids of beads in the molecule
       Index, // resid according to input file
       Aggregate; // aggregate id the molecule is in (-1 for none)
+  bool InTimestep; // is the molecule in a timestep?
 } MOLECULE;
 void InitMolecule(MOLECULE *mol); //}}}
 typedef struct System { //{{{

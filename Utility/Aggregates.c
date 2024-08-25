@@ -71,7 +71,7 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
   int n_cells[3], *Head, *Link, Dc[14][3];
   LinkedList(*System, &Head, &Link, cell_size, n_cells, Dc);
 
-  // count contacts between all molecules pairs (using cell linked list) //{{{
+  // count contacts between all molecule pairs (using cell linked list) //{{{
   int c1[3];
   for (c1[2] = 0; c1[2] < n_cells[2]; c1[2]++) {
     for (c1[1] = 0; c1[1] < n_cells[1]; c1[1]++) {
@@ -95,8 +95,9 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
                    *b_j = &System->Bead[System->BeadCoor[j]];
               int mol_i = b_i->Molecule,
                   mol_j = b_j->Molecule;
-              if (mol_i != -1 &&
-                  mol_j != -1) { // both i and j must be in molecule
+              if (mol_i != -1 && // both i and j must be in molecule
+                  mol_j != -1 && //
+                  b_i->InTimestep && b_j->InTimestep) {
                 if (System->BeadType[b_i->Type].Flag &&
                     System->BeadType[b_j->Type].Flag) {
                   // TODO: fractionals?

@@ -853,7 +853,8 @@ void WriteAggregates(int step_count, char *agg_file, SYSTEM System,
       // go through all molecules in aggregate 'i'
       fprintf(fw, "%d :", Aggregate[i].nMolecules);
       for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-        fprintf(fw, " %d", Aggregate[i].Molecule[j] + 1);
+        int mol = Aggregate[i].Molecule[j];
+        fprintf(fw, " %d", System.Molecule[mol].Index);
       }
       putc('\n', fw);
     }
