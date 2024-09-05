@@ -51,6 +51,9 @@ bool DoubleOption3(int argc, char *argv[], char opt[], double value[3]);
 bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
                        int *values, int *count, char file[]);
 bool FileOption(int argc, char *argv[], char opt[], char file[]);
+// general option with filename and double(s) arguments
+bool FileDoubleOption(int argc, char *argv[], int max, char opt[],
+                       double *values, int *count, char file[]);
 
 #if 0 //{{{
 // TODO redo

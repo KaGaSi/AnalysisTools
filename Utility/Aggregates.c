@@ -262,14 +262,7 @@ int main(int argc, char *argv[]) {
   // print command to output .agg (and, possibly, coordinate) file
   PrintByline(agg_file, argc, argv);
   if (opt->fout.name[0] != '\0') {
-    if (opt->fout.type == VCF_FILE) {
-      PrintByline(opt->fout.name, argc, argv);
-    } else if (opt->fout.type == VTF_FILE) {
-      WriteStructure(opt->fout, System, -1, false, argc, argv);
-    } else {
-      FILE *out = OpenFile(opt->fout.name, "w");
-      fclose(out);
-    }
+    InitCoorFile(opt->fout, System, argc, argv);
   }
 
   // allocate Aggregate struct //{{{

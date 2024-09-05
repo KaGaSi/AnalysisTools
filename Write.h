@@ -3,6 +3,7 @@
 
 #include "AnalysisTools.h"
 
+void InitCoorFile(FILE_TYPE fout, SYSTEM System, int argc, char *argv[]);
 void WriteOutput(SYSTEM System, bool write[], FILE_TYPE fw,
                  bool lmp_mass, int vsf_def, int argc, char *argv[]);
 void WriteTimestep(FILE_TYPE f, SYSTEM System, int count_step, bool write[],

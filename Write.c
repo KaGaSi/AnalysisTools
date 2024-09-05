@@ -738,6 +738,17 @@ static void SimplifyResid(SYSTEM *System) { //{{{
   }
 } //}}}
 
+void InitCoorFile(FILE_TYPE file, SYSTEM System, int argc, char *argv[]) {
+  if (file.type == VCF_FILE) {
+    PrintByline(file.name, argc, argv);
+  } else if (file.type == VTF_FILE) {
+    WriteStructure(file, System, -1, false, argc, argv);
+  } else {
+    FILE *out = OpenFile(file.name, "w");
+    fclose(out);
+  }
+}
+
 // write structure and/or coordinates to a new file (can be any format) //{{{
 void WriteOutput(SYSTEM System, bool write[], FILE_TYPE fw,
                  bool lmp_mass, int vsf_def, int argc, char *argv[]) {

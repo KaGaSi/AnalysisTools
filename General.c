@@ -264,7 +264,7 @@ FILE *OpenFile(char *file, char *mode) { //{{{
   return ptr;
 } //}}}
 // initialize arrays to specified value //{{{
-void InitDoubleArray(double array[], int n, int val) {
+void InitDoubleArray(double array[], int n, double val) {
   for (int i = 0; i < n; i++) {
     array[i] = val;
   }

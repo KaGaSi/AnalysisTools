@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+#include <stdio.h>
 
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
@@ -37,16 +38,21 @@ beads is controlled via --bonded and -bt options.\n\n");
           "instead of the centre\n");
   fprintf(ptr, "  --bonded          use only beads in molecules\n");
   fprintf(ptr, "  -bt <name(s)>     bead type(s) to use\n");
+  fprintf(ptr, "  -w <file> <width> calculate distribution of widths"
+          "with given single bin width\n");
   // fprintf(ptr, "  -m <mol(s)>       molecule type(s) to use\n");
   CommonHelp(error, n, opt);
 } //}}}
 
 // structure for options //{{{
 struct OPT {
-  int bt_number, *bt; // -bt (number of types; list of the types)
-  bool in,            // --in
-       bonded;        // --bonded
-  FILE_TYPE fout;     // -o
+  int bt_number, *bt;    // -bt (number of types; list of the types)
+  double distr_width;    // -w (width of distribution bin)
+  char distr_file[LINE]; // -w (filename)
+  bool w,                // -w (is it present?)
+       in,               // --in
+       bonded;           // --bonded
+  FILE_TYPE fout;        // -o
   COMMON_OPT c;
 };
 OPT * opt_create(void) {
@@ -191,7 +197,7 @@ void SurfacePoint(SYSTEM System, int id, int map[2], int axis, bool in,
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 8, all = common + 3, count = 0,
+  int common = 8, all = common + 4, count = 0,
       req_arg = 5;
   char option[all][OPT_LENGTH];
   // common options
@@ -208,6 +214,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "--bonded");
   // strcpy(option[count++], "-m");
   strcpy(option[count++], "-bt");
+  strcpy(option[count++], "-w");
   OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   count = 0; // count mandatory arguments
@@ -254,6 +261,11 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   //}}}
+  // -w option
+  opt->w = BoolOption(argc, argv, "-w");
+  double distr_width = 0;
+  int vals[2];
+  FileDoubleOption(argc, argv, 1, "-w", &distr_width, vals, opt->distr_file);
   opt->c = CommonOptions(argc, argv, LINE, in);
   opt->in = BoolOption(argc, argv, "--in");
   opt->bonded = BoolOption(argc, argv, "--bonded"); //}}}
@@ -280,7 +292,8 @@ int main(int argc, char *argv[]) {
       strcpy(ERROR_MSG, "when both are used, --bonded takes precedence");
       PrintWarnOption("--bonded/-bt");
     }
-  } //}}}
+  }
+  free(flag); //}}}
 
   // read the first timestep from a coordinate file to get box dimensions //{{{
   FILE *fr = OpenFile(in.coor.name, "r");
@@ -321,6 +334,12 @@ int main(int argc, char *argv[]) {
    * sum_surf/values gives average coordinate for the two surfaces
    */
   double *sum_surf = calloc(bin_alloc[0] * bin_alloc[1] * 2, sizeof *sum_surf);
+  // distribution of widths (i.e., distances between top and bottom surface)
+  long int *distr = NULL;
+  int distr_bins = sidelength[2] / distr_width * 10;
+  if (distr_width > 0) {
+    distr = calloc(distr_bins, sizeof *distr);
+  }
 
   // open input coordinate file
   fr = OpenFile(in.coor.name, "r");
@@ -423,12 +442,10 @@ int main(int argc, char *argv[]) {
 
       // calculate surface //{{{
       if (opt->bonded) { // use all beads in moleculs (--bonded)
-        for (int i = 0; i < Count->Bonded; i++) {
-          int id = System.Bonded[i];
-          if (System.Bead[id].InTimestep) {
-            SurfacePoint(System, id, map, axis, opt->in, sidelength, width,
-                         surf_step, bin_use, lo, hi, max_bin);
-          }
+        for (int i = 0; i < Count->BondedCoor; i++) {
+          int id = System.BondedCoor[i];
+          SurfacePoint(System, id, map, axis, opt->in, sidelength, width,
+                       surf_step, bin_use, lo, hi, max_bin);
         }
       } else if (opt->bt_number > 0) { // use specified bead types (-bt option)
         for (int i = 0; i < opt->bt_number; i++) {
@@ -459,6 +476,13 @@ int main(int argc, char *argv[]) {
           if (bin_use[id3D(i, j, 1)]) {
             sum_surf[id3D(i, j, 1)] += surf_step[id3D(i, j, 1)];
             values[id3D(i, j, 1)]++;
+          }
+          if (distr_width > 0 &&
+              bin_use[id3D(i, j, 0)] && bin_use[id3D(i, j, 1)]) {
+            double w = fabs(surf_step[id3D(i, j, 0)] -
+                            surf_step[id3D(i, j, 1)]);
+            int bin = w / distr_width;
+            distr[bin]++;
           }
         }
       } //}}}
@@ -696,9 +720,43 @@ int main(int argc, char *argv[]) {
                                   area[2] * Length_area / width_area);
   fclose(out); //}}}
 
+  // write distribution of widths (-w option)
+  if (distr_width > 0) {
+    long int norm = 0;
+    int min = 0, max = distr_bins;
+    for (int i = 0; i < distr_bins; i++) {
+      norm += distr[i];
+      if (distr[i] > 0 && min == 0) {
+        min = i;
+      }
+        /* printf("%d\n", distr_bins-1-i); */
+      if (distr[distr_bins-1-i] > 0 && max == distr_bins) {
+        max = distr_bins - i;
+      }
+    }
+
+    PrintByline(opt->distr_file, argc, argv);
+    out = OpenFile(opt->distr_file, "a");
+    fprintf(out, "# (1) distance; (2) distribution\n");
+    for (int i = min; i < max; i++) {
+      double dist = distr_width * (2 * i + 1) / 2;
+      fprintf(out, "%lf", dist);
+      if (distr[i] > 0) {
+        fprintf(out, " %lf", (double)(distr[i]) / norm);
+      } else {
+        fprintf(out, " %lf", 0.0);
+      }
+      putc('\n', out);
+    }
+    fclose(out);
+  }
+
   FreeSystem(&System);
   free(sum_surf);
   free(values);
+  if (distr_width > 0) {
+    free(distr);
+  }
   free(opt->bt);
   free(opt);
 

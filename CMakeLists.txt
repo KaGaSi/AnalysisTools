@@ -41,6 +41,7 @@ set(UTILS AddToSystem
           JoinSystems
           Selected
           Surface
+          Surface2
           VisualizeAgg)
 foreach(utility ${UTILS})
   add_executable(${utility} Utility/${utility}.c)

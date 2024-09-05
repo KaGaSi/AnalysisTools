@@ -7,10 +7,19 @@
 //       we know how many are in that timestep.
 //       ...would speed some cases, and it's easier to use since it does not
 //       have to be combined with Bead[].InTimestep anymore.
+//       TODO: Done already? ...via System.{Bead,Bonded,Unbonded}Coor arrays
 
 // TODO: consider the names - can't I have different bead types with the same
 //       name? ...I'd only need to ensure that going over named beads would
 //       encompass all bead types with that name.
+
+// TODO: check Molecule[].InTimestep stuff - is it implemented for all input
+//       files?
+
+// TODO: System.Index_mol[] array - what's it for? Useless, right? But it needs
+//       something like MolCoor array akin to BeadCoor to specify which
+//       molecules are in a timestep. And corresponding Count.MolCoor, I guess.
+//       Oh, there's already Count.MoleculeCoor defined - but not used
 
 // STATIC DEFINITIONS
 // functions to transform to/from fractional coordinates
@@ -177,6 +186,9 @@ static void RemovePBCMolecules(SYSTEM *System) {
   // go through all molecules
   for (int mm = 0; mm < System->Count.Molecule; mm++) {
     MOLECULE *mol = &System->Molecule[mm];
+    if (!mol->InTimestep) {
+      continue;
+    }
     MOLECULETYPE *mt = &System->MoleculeType[mol->Type];
     // skip molecule if it is bond-less
     if (mt->nBonds == 0) {
@@ -271,7 +283,7 @@ static void RemovePBCMolecules(SYSTEM *System) {
           moved[id2] = true;
         }
       }
-      // TODO CENTRE OF MASS
+      // TODO: CENTRE OF MASS
       free(moved);
     }
     free(connected);

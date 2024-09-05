@@ -97,6 +97,11 @@ int main(int argc, char *argv[]) {
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
 
+  if (opt->join && Count->Molecule == 0) {
+    strcpy(ERROR_MSG, "no molecules to join are present");
+    PrintWarning();
+  }
+
   // specify beads to save (possibly using -bt and/or -mt options) //{{{
   /*
    * reverse=true ... save only the specified species

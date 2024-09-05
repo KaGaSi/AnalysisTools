@@ -464,6 +464,7 @@ bool DoubleOption3(int argc, char *argv[], char opt[], double value[3]) {
 bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
                        int *values, int *count, char file[]) {
   int n = 0;
+  file[0] = '\0';
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
       // Error - no output file name
@@ -515,6 +516,56 @@ bool FileOption(int argc, char *argv[], char opt[], char file[]) {
     return true;
   }
   return false;
+} //}}}
+
+// general option with filename and double(s) arguments //{{{
+bool FileDoubleOption(int argc, char *argv[], int max, char opt[],
+                      double *values, int *count, char file[]) {
+  int n = 0;
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], opt) == 0) {
+      // Error - no output file name
+      if ((i+1) >= argc || argv[i+1][0] == '-') {
+        strcpy(ERROR_MSG, "missing file name "
+               "(or the file name begins with a dash)");
+        PrintErrorOption(opt);
+        exit(1);
+      }
+      snprintf(file, LINE, "%s", argv[i+1]);
+      // read integers
+      if (max == 0) {
+        return true;
+      } else {
+        while ((i+2+n) < argc && argv[i+2+n][0] != '-') {
+          // Error - non-numeric or missing argument
+          double val;
+          if (!IsRealNumber(argv[i+2+n], &val)) {
+            strcpy(ERROR_MSG, "each argument must be non-negative whole number");
+            PrintErrorOption(opt);
+            exit(1);
+          }
+          values[n] = val;
+          n++;
+          // warning - too many numeric arguments
+          if (n > max) {
+            snprintf(ERROR_MSG, LINE, "too many arguments; only the first %d "
+                     "used", max);
+            PrintErrorOption(opt);
+            *count = n;
+            exit(1);
+          }
+        }
+        if (n == 0) {
+          strcpy(ERROR_MSG, "missing numeric argument(s)");
+          PrintErrorOption(opt);
+          exit(1);
+        }
+      }
+      *count = n;
+      return true; // option present
+    }
+  }
+  return false; // option not present
 } //}}}
 
 #if 0 //{{{

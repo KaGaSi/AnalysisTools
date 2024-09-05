@@ -3637,7 +3637,6 @@ static bool XyzCheckCoorLine(double coor[3]) { //{{{
       IsRealNumber(split[3], &coor[2])) {
     return true;
   } else {
-    printf("OK\n");
     return false;
   }
 } //}}}

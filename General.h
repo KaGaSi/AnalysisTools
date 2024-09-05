@@ -93,7 +93,7 @@ void ColourChange(int a, char *colour);
 FILE *OpenFile(char *file, char *mode);
 
 // initialize arrays to specified value
-void InitDoubleArray (double array[], int n, int val);
+void InitDoubleArray (double array[], int n, double val);
 void InitIntArray (int array[], int n, int val);
 void InitBoolArray (bool array[], int n, bool val);
 void InitVecArray (VECTOR array[], int n, bool val);
