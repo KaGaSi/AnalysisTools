@@ -33,7 +33,7 @@ ${Add} 1.vtf E5D1.FIELD 2.vtf -cx 8 8.1 -cy 0 2 -cz 0 2 -a 180 0 0 --head --add 
 # add only water to one side
 sed "s/WATER/2100/" W.FIELD | sed "s/ION/0/" > FIELD
 ${Add} 2.vtf FIELD 1.vtf -cx 12 20 --add --real
-# add water and ions to the side
+# add water and ions to the other side
 sed "s/WATER/1300/" W.FIELD | sed "s/ION/100/" > FIELD
 ${Add} 1.vtf FIELD Bilayer.vtf -cx 0 5 --add --real
 

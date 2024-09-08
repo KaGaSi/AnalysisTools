@@ -111,6 +111,93 @@ void calc_4points(double A[3], double B[3], double C[3], double D[3],
   }
 } //}}}
 
+// SurfacePoint() //{{{
+/*
+ * For each grid point (i.e, each probe) find a bead that's close enough
+ * and has maximum/minimum (i.e., top/bottom for a bilayer or vice versa
+ * for a brush) coordinate normal to the surface.
+ * For each bead:
+ * 1) find each in-surface circular bin the bead is in (i.e., index for
+ *    which the bead is in-surface-plane at most probe radius + bead
+ *    radius away from the grid point); may be multiple grid points for
+ *    each bead
+ * 2) find if the 3D distance is within the distance probe radius + bead
+ *    radius
+ * Find a bead with maximum/minimum normal coordinate for each bin. So,
+ * it's a loop over all considered beads and nested within is a loop over
+ * the grid of probes...
+ */
+void AddPoint(double *surf_step, bool *bin_use, int *surf_bead_ids,
+              int bin, int id, double coor) {
+  surf_step[bin] = coor;
+  bin_use[bin] = true;
+  surf_bead_ids[bin] = id;
+}
+void SurfacePoint(SYSTEM System, int id, int map[2], int axis, double width,
+                  OPT *opt, int *bins_step, bool *bin_use, double *surf_step,
+                  int *surf_bead_ids) {
+  BEAD *bead = &System.Bead[id];
+  double coor[3]; // coor[0] & [1] are in the surface plane
+  coor[0] = bead->Position[map[0]];
+  coor[1] = bead->Position[map[1]];
+  coor[2] = bead->Position[axis];
+  // maximum 3D distance between the probe and the bead (well, square of)
+  double max_dist = SQR(System.BeadType[bead->Type].Radius + opt->probe);
+  // minimum and maximum possible grid point for specified in-surface coordinate
+  int min[2], max[2];
+  for (int aa = 0; aa < 2; aa++) {
+    min[aa] = (coor[aa] - max_dist) / width - 1;
+    max[aa] = (coor[aa] + max_dist) / width + 1;
+  }
+  // go over all those grid ponts
+  int tmp[2];
+  for (tmp[0] = min[0]; tmp[0] <= max[0]; tmp[0]++) {
+    for (tmp[1] = min[1]; tmp[1] <= max[1]; tmp[1]++) {
+      // account for pbc in the grid point: if its coordinate is too high/low,
+      // use one from the box's other side
+      int grid[2];
+      for (int aa = 0; aa < 2; aa++) {
+        grid[aa] = tmp[aa];
+        if (tmp[aa] >= bins_step[aa]) {
+          grid[aa] -= bins_step[aa];
+        } else if (tmp[aa] < 0) {
+          grid[aa] += bins_step[aa];
+        }
+      }
+      // 1) bead's distance from the grid point in the surface plane
+      double d[2]; // the two axes distance, accounting for pbc
+      for (int aa = 0; aa < 2; aa++) {
+        d[aa] = fabs(coor[aa] - grid[aa] * width);
+        // account for pbc
+        while (fabs(d[aa]) > (System.Box.Length[map[aa]] / 2)) {
+          d[aa] -= System.Box.Length[map[aa]];
+        }
+      }
+      // actual in-surface-plane disance (well, square of)
+      d[0] = SQR(d[0]) + SQR(d[1]);
+      // 2) only use beads close enough to the probe (in surface plane)
+      if (d[0] <= max_dist) {
+        // 'bottom' surface for bilayers or 'top' surface for brushes
+        int the_bin = id3D(grid[0], grid[1], 0);
+        // -sqrt because we need lower intersection of line and sphere
+        double axis_coor = coor[2] - sqrt(max_dist - d[0]);
+        if ((opt->in && axis_coor <= surf_step[the_bin]) ||
+            (!opt->in && axis_coor >= surf_step[the_bin])) {
+          AddPoint(surf_step, bin_use, surf_bead_ids, the_bin, id, axis_coor);
+        }
+        // 'top' surface for bilayers or 'bottom' surface for brushes
+        the_bin = id3D(grid[0], grid[1], 1);
+        // +sqrt because we need upper intersection of line and sphere
+        axis_coor = coor[2] + sqrt(max_dist - d[0]);
+        if ((opt->in && axis_coor >= surf_step[the_bin]) ||
+            (!opt->in && axis_coor >= surf_step[the_bin])) {
+          AddPoint(surf_step, bin_use, surf_bead_ids, the_bin, id, axis_coor);
+        }
+      }
+    }
+  }
+} //}}}
+
 int main(int argc, char *argv[]) {
 
   // define options //{{{
@@ -204,17 +291,6 @@ int main(int argc, char *argv[]) {
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
 
-  double max_rad = 0;
-  for (int i = 0; i < Count->BeadType; i++) {
-    double *r = &System.BeadType[i].Radius;
-    if (*r == RADIUS) {
-      *r = 0.5;
-    }
-    if (*r > max_rad) {
-      max_rad = *r;
-    }
-  }
-
   // -bt option //{{{
   opt->bt_number = 0;
   opt->bt = calloc(Count->BeadType, sizeof *opt->bt);
@@ -232,6 +308,46 @@ int main(int argc, char *argv[]) {
     }
   }
   free(flag); //}}}
+
+  // specify radius for beads that have none //{{{
+  double warn = false;
+  if (opt->bonded) { // use all beads in moleculs (--bonded)
+    for (int i = 0; i < Count->Bonded; i++) {
+      int btype = System.Bead[System.Bonded[i]].Type;
+      if (System.BeadType[btype].Radius == RADIUS) {
+        System.BeadType[btype].Radius = 0.5;
+        if (!warn) {
+          warn = true;
+          strcpy(ERROR_MSG, "unspecified bead radius (using 0.5)");
+          PrintWarning();
+        }
+      }
+    }
+  } else if (opt->bt_number > 0) { // use specified bead types (-bt option)
+    for (int i = 0; i < opt->bt_number; i++) {
+      BEADTYPE *btype = &System.BeadType[opt->bt[i]];
+      if (btype->Radius == RADIUS) {
+        btype->Radius = 0.5;
+        if (!warn) {
+          warn = true;
+          strcpy(ERROR_MSG, "unspecified bead radius (using 0.5)");
+          PrintWarning();
+        }
+      }
+    }
+  } else { // use all beads (no option specified)
+    for (int i = 0; i < Count->Bead; i++) {
+      int btype = System.Bead[i].Type;
+      if (System.BeadType[btype].Radius == RADIUS) {
+        System.BeadType[btype].Radius = 0.5;
+        if (!warn) {
+          warn = true;
+          strcpy(ERROR_MSG, "unspecified bead radius (using 0.5)");
+          PrintWarning();
+        }
+      }
+    }
+  } //}}}
 
   // read the first timestep from a coordinate file to get box dimensions //{{{
   FILE *fr = OpenFile(in.coor.name, "r");
@@ -272,9 +388,10 @@ int main(int argc, char *argv[]) {
    * sum_surf/values gives average coordinate for the two surfaces
    */
   double *sum_surf = calloc(bin_alloc[0] * bin_alloc[1] * 2, sizeof *sum_surf);
-  // distribution of widths (i.e., distances between top and bottom surface)
+  // distribution of widths (i.e., top-bottom surface distances)
   long int *distr = NULL;
   int distr_bins = sidelength[2] / distr_width * 10;
+  double avg_thickness = 0;
   if (distr_width > 0) {
     distr = calloc(distr_bins, sizeof *distr);
   }
@@ -294,11 +411,12 @@ int main(int argc, char *argv[]) {
     putc('\n', out);
   } //}}}
 
+  // array for writing surface beads (if -b option is used) //{{{
   bool *write = NULL;
   if (opt->bead_file.name[0] != '\0') {
     InitCoorFile(opt->bead_file, System, argc, argv);
     write = calloc(Count->Bead, sizeof *write);
-  }
+  } //}}}
 
   // main loop //{{{
   int count_coor = 0, // count calculated timesteps
@@ -371,85 +489,31 @@ int main(int argc, char *argv[]) {
       } //}}}
 
       // calculate surface //{{{
-      /*
-       * For each grid point (i.e, each probe) find a bead that's close enough
-       * and has maximum/minimum (i.e., top/bottom for a bilayer or vice versa
-       * for a brush) coordinate normal to the surface.
-       * For each bead:
-       * 1) find each in-surface circular bin the bead is in (i.e., index for
-       *    which the bead is in-surface-plane at most probe radius + bead
-       *    radius away from the grid point); may be multiple grid points for
-       *    each bead
-       * 2) find if the 3D distance is within the distance probe radius + bead
-       *    radius
-       * Find a bead with maximum/minimum normal coordinate for each bin. So,
-       * it's a loop over all considered beads and nested within is a loop over
-       * the grid of probes...
-       */
       if (opt->bonded) { // use all beads in moleculs (--bonded)
         for (int i = 0; i < Count->BondedCoor; i++) {
           int id = System.BondedCoor[i];
-          BEAD *bead = &System.Bead[id];
-          double coor[3]; // coor[0] & [1] are in the surface plane
-          coor[0] = bead->Position[map[0]];
-          coor[1] = bead->Position[map[1]];
-          coor[2] = bead->Position[axis];
-          // maximum 3D distance between the probe and the bead
-          double probe_bead_max_dist =
-            SQR(System.BeadType[bead->Type].Radius + opt->probe);
-          // go over all the relevant grid points
-          int min[2], max[2];
-          for (int aa = 0; aa < 2; aa++) {
-            min[aa] = (coor[aa] - probe_bead_max_dist) / width - 1;
-            max[aa] = (coor[aa] + probe_bead_max_dist) / width + 1;
-          }
-          int tmp[2];
-          for (tmp[0] = min[0]; tmp[0] <= max[0]; tmp[0]++) {
-            for (tmp[1] = min[1]; tmp[1] <= max[1]; tmp[1]++) {
-              int grid[2];
-              for (int aa = 0; aa < 2; aa++) {
-                grid[aa] = tmp[aa];
-                if (tmp[aa] >= bins_step[aa]) {
-                  grid[aa] -= bins_step[aa];
-                } else if (tmp[aa] < 0) {
-                  grid[aa] += bins_step[aa];
-                }
-              }
-              // 1) bead's distance from the grid point in the surface plane
-              double d[2]; // the two axes distance, accounting for pbc
-              for (int aa = 0; aa < 2; aa++) {
-                d[aa] = fabs(coor[aa] - grid[aa] * width);
-                while (fabs(d[aa]) > (System.Box.Length[map[aa]] / 2)) {
-                  d[aa] -= System.Box.Length[map[aa]];
-                }
-              }
-              // actual in-surface-plane disance
-              d[0] = SQR(d[0]) + SQR(d[1]);
-              // 2) only use beads at most the maximum distance from probe
-              if (d[0] <= probe_bead_max_dist) {
-                // +sqrt because for top surface, we need upper intersection of
-                // line and sphere
-                // 'bottom' surface for bilayers, 'top' for brushes
-                int the_bin = id3D(grid[0], grid[1], 0);
-                double axis_coor = coor[2] - sqrt(probe_bead_max_dist - d[0]);
-                if (axis_coor <= surf_step[the_bin]) {
-                  surf_step[the_bin] = axis_coor;
-                  bin_use[the_bin] = true;
-                  surf_bead_ids[the_bin] = id;
-                }
-                // 'top' surface for bilayers, 'bottom' for brushes
-                the_bin = id3D(grid[0], grid[1], 1);
-                axis_coor = coor[2] + sqrt(probe_bead_max_dist - d[0]);
-                if (axis_coor >= surf_step[the_bin]) {
-                  surf_step[the_bin] = axis_coor;
-                  bin_use[the_bin] = true;
-                  surf_bead_ids[the_bin] = id;
-                }
-              }
+          SurfacePoint(System, id, map, axis, width, opt,
+                       bins_step, bin_use, surf_step, surf_bead_ids);
+        }
+      } else if (opt->bt_number > 0) { // use specified bead types (-bt option)
+        for (int i = 0; i < opt->bt_number; i++) {
+          BEADTYPE *btype = &System.BeadType[opt->bt[i]];
+          for (int j = 0; j < btype->Number; j++) {
+            int id = btype->Index[j];
+            if (System.Bead[id].InTimestep) {
+              SurfacePoint(System, id, map, axis, width, opt,
+                           bins_step, bin_use, surf_step, surf_bead_ids);
             }
           }
         }
-      } //}}}
+      } else { // use all beads (no option specified)
+        for (int i = 0; i < Count->BeadCoor; i++) {
+          int id = System.BeadCoor[i];
+          SurfacePoint(System, id, map, axis, width, opt,
+                       bins_step, bin_use, surf_step, surf_bead_ids);
+        }
+      }
+      //}}}
 
       // add to sums //{{{
       for (int i = 0; i < bins_step[0]; i++) {
@@ -468,6 +532,7 @@ int main(int argc, char *argv[]) {
             double w = fabs(surf_step[id0] - surf_step[id1]);
             int bin = w / distr_width;
             distr[bin]++;
+            avg_thickness += w;
           }
         }
       } //}}}
@@ -557,7 +622,7 @@ int main(int argc, char *argv[]) {
       }
       //}}}
 
-      // save interfacial (surface) beads to a coordinate file
+      // save interfacial (surface) beads to a coordinate file //{{{
       if (opt->bead_file.name[0] != '\0') {
         // find which beads were assigned as surface
         InitBoolArray(write, Count->Bead, false);
@@ -583,7 +648,7 @@ int main(int argc, char *argv[]) {
           }
         }
         WriteTimestep(opt->bead_file, System, count_coor, write, argc, argv);
-      }
+      } //}}}
 
       free(surf_step);
       free(bin_use);
@@ -734,10 +799,10 @@ int main(int argc, char *argv[]) {
     fclose(out);
   } //}}}
 
-  // write distribution of widths (-w option)
+  // write distribution of widths (-w option) //{{{
   if (distr_width > 0) {
-    long int norm = 0;
-    int min = 0, max = distr_bins;
+    long int norm = 0; // normalization factor
+    int min = 0, max = distr_bins; // lowest/highest bin
     for (int i = 0; i < distr_bins; i++) {
       norm += distr[i];
       if (distr[i] > 0 && min == 0) {
@@ -747,11 +812,12 @@ int main(int argc, char *argv[]) {
         max = distr_bins - i;
       }
     }
-
+    // write data to the file
     PrintByline(opt->distr_file, argc, argv);
     out = OpenFile(opt->distr_file, "a");
     fprintf(out, "# (1) distance; (2) distribution\n");
-    for (int i = min; i < max; i++) {
+    // for (int i = min; i < max; i++) {
+    for (int i = 0; i < distr_bins; i++) {
       double dist = distr_width * (2 * i + 1) / 2;
       fprintf(out, "%10.5f", dist);
       if (distr[i] > 0) {
@@ -761,9 +827,11 @@ int main(int argc, char *argv[]) {
       }
       putc('\n', out);
     }
+    fprintf(out, "# average thickness: %lf\n", avg_thickness / norm);
     fclose(out);
-  }
+  } //}}}
 
+  // free arrays //{{{
   FreeSystem(&System);
   free(sum_surf);
   free(values);
@@ -774,7 +842,7 @@ int main(int argc, char *argv[]) {
   if (opt->bead_file.name[0] != '\0') {
     free(write);
   }
-  free(opt);
+  free(opt); //}}}
 
   return 0;
 }

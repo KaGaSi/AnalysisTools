@@ -225,13 +225,13 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
     BEADTYPE *bt = &System.BeadType[type_def];
     fprintf(fw, "atom default");
     fprintf(fw, " name %8s", bt->Name);
-    if (bt->Mass != MASS) {
+    if (bt->Mass != MASS && bt->Mass != NOT) {
       fprintf(fw, " mass %12f", bt->Mass);
     }
-    if (bt->Charge != CHARGE) {
+    if (bt->Charge != CHARGE && bt->Charge != NOT) {
       fprintf(fw, " charge %12f", bt->Charge);
     }
-    if (bt->Radius != RADIUS) {
+    if (bt->Radius != RADIUS && bt->Radius != NOT) {
       fprintf(fw, " radius %12f", bt->Radius);
     }
     putc('\n', fw);
@@ -248,13 +248,13 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
     if (print) {
       fprintf(fw, "atom %7d", i);
       fprintf(fw, " name %8s", bt->Name);
-      if (bt->Mass != MASS) {
+      if (bt->Mass != MASS && bt->Mass != NOT) {
         fprintf(fw, " mass %15f ", bt->Mass);
       }
-      if (bt->Charge != CHARGE) {
+      if (bt->Charge != CHARGE && bt->Charge != NOT) {
         fprintf(fw, " charge %12f", bt->Charge);
       }
-      if (bt->Radius != RADIUS) {
+      if (bt->Radius != RADIUS && bt->Radius != NOT) {
         fprintf(fw, " radius %12f", bt->Radius);
       }
       if (mol != -1) {
