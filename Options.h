@@ -48,7 +48,7 @@ bool DoubleOption1(int argc, char *argv[], char opt[], double *value);
 bool DoubleOption2(int argc, char *argv[], char opt[], double value[2]);
 bool DoubleOption3(int argc, char *argv[], char opt[], double value[3]);
 // general option with filename and integer(s) arguments
-bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
+bool FileIntegerOption(int argc, char *argv[], int min, int max, char opt[],
                        int *values, int *count, char file[]);
 bool FileOption(int argc, char *argv[], char opt[], char file[]);
 // general option with filename and double(s) arguments

@@ -461,9 +461,10 @@ bool DoubleOption3(int argc, char *argv[], char opt[], double value[3]) {
 } //}}}
 
 // general option with filename and integer(s) arguments //{{{
-bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
+bool FileIntegerOption(int argc, char *argv[], int min, int max, char opt[],
                        int *values, int *count, char file[]) {
   int n = 0;
+  *count = 0;
   file[0] = '\0';
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
@@ -498,8 +499,8 @@ bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
             exit(1);
           }
         }
-        if (n == 0) {
-          strcpy(ERROR_MSG, "missing numeric argument(s)");
+        if (n < min) {
+          strcpy(ERROR_MSG, "not enough numeric arguments");
           PrintErrorOption(opt);
           exit(1);
         }
@@ -512,7 +513,7 @@ bool FileIntegerOption(int argc, char *argv[], int max, char opt[],
 }
 bool FileOption(int argc, char *argv[], char opt[], char file[]) {
   int trash;
-  if (FileIntegerOption(argc, argv, 0, opt, &trash, &trash, file)) {
+  if (FileIntegerOption(argc, argv, 0, 0, opt, &trash, &trash, file)) {
     return true;
   }
   return false;

@@ -34,7 +34,9 @@ endforeach(library)
 set(UTILS AddToSystem
           Aggregates
           Aggregates-NotSameBeads
+          AngleMolecules
           Average
+          BondLength
           DensityBox
           DistrAgg
           Info

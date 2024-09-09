@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
   // -c option
   int c_sizes[100] = {0}, c_count = 0;
   char c_file[LINE] = "";
-  FileIntegerOption(argc, argv, 100, "-c", c_sizes, &c_count, c_file);
+  FileIntegerOption(argc, argv, 1, 100, "-c", c_sizes, &c_count, c_file);
   //}}}
 
   // print command to stdout
