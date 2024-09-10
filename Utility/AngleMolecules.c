@@ -1,5 +1,12 @@
 #include "../AnalysisTools.h"
 
+// TODO: -a option to not just calculate angles between same-type angles,
+//       but between all angles in the molecule; e.g., should a molecule contain
+//       2 A-A-A angles, it should produce just one distribution without -a
+//       (i.e., average of all A-A-A angles) but three distributions if -a is
+//       present (i.e., for each of the two A-A-A angles as well as the average)
+// TODO: -n option akin to BondLength's -d option
+
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
@@ -7,31 +14,32 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   } else {
     ptr = stdout;
     fprintf(stdout, "\
-AngleMolecules utility calculates angles for specified beads (three beads per \
-angle) for molecules of specified type(s). The specified beads do not have \
-to be connected by bonds.\n\n");
+AngleMolecules utility calculates distribution of angles in specified \
+molecule type(s) for all angles, dividing them according to different bead \
+types. Note that input structure file with defined angles must be used. \
+The utility can also calculate distribution of \
+angles between any three beads in those molecule types (-n option).\n\n");
   }
-  fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <width> <output> <mol(s)> [options]\n\n", cmd);
+  fprintf(ptr, "Usage: %s <input> <width> <output> [options]\n\n", cmd);
 
-  fprintf(ptr, "   <input>    input coordinate file (vcf or vtf format)\n");
-  fprintf(ptr, "   <width>    width of a single bin in degrees\n");
-  fprintf(ptr, "   <output>   output file with the distribution of angles\n");
-  fprintf(ptr, "   [options]\n");
-  fprintf(ptr, "      -m <name(s)>      molecules to calculate distances for"
-               "(if not present, use all molecule types)");
+  fprintf(ptr, "<input>             input coordinate file\n");
+  fprintf(ptr, "<width>             width of a distribution bin in degrees\n");
+  fprintf(ptr, "<output>            output file with the distribution of angles\n");
+  fprintf(ptr, "[options]\n");
+  fprintf(ptr, "  -m <name(s)>      molecule types to calculate bond lengths "
+          "for (if not present, use all molecule types)");
   fprintf(ptr, "      --joined    specify that <input> contains joined "
-               "coordinates\n");
-// see BondLength -d
-//   fprintf(ptr, "      -n <ints>   bead indices (multiple of 3 <ints>)"
-//                "for angle calculation (default: 1 2 3)\n");
+          "coordinates\n");
+  // see BondLength -d
+  // fprintf(ptr, "  -n <ints>         bead indices (multiple of 3 <ints>)"
+  //         "for angle calculation (default: 1 2 3)\n");
   CommonHelp(error, n, opt);
 } //}}}
 
 // structure for options //{{{
 struct OPT {
-  bool joined,       // --joined
-       *mt;           // -m
+  bool join, // --joined
+       *mt;  // -m
   COMMON_OPT c;
 };
 OPT * opt_create(void) {
@@ -45,6 +53,29 @@ int id5D(int i1, int i2, int i3, int i4, int i5, int size[4]) {
           i3 * size[0] * size[1] +
           i2 * size[0] +
           i1);
+}
+// return three indices (needs 5D array size 3*size[0]*size[1]*size[2]*size[3])
+int * bins_id5D(int i1, int i2, int i3, int i4, int size[4]) {
+  static int bin[3];
+  for (int dd = 0; dd < 3; dd++) {
+    bin[dd] = id5D(i1, i2, i3, i4, dd, size);
+  }
+  return bin;
+} //}}}
+// calculate index in an 1D array that simulates a 4D one /{{{
+int id4D(int i1, int i2, int i3, int i4, int size[3]) {
+  return (i4 * size[0] * size[1] * size[2] +
+          i3 * size[0] * size[1] +
+          i2 * size[0] +
+          i1);
+}
+// return three indices (assumes 4D array size 3*size[0]*size[1]*size[2])
+int * bins_id4D(int i1, int i2, int i3, int size[3]) {
+  static int bin[3];
+  for (int dd = 0; dd < 3; dd++) {
+    bin[dd] = id4D(i1, i2, i3, dd, size);
+  }
+  return bin;
 } //}}}
 
 int main(int argc, char *argv[]) {
@@ -93,11 +124,10 @@ int main(int argc, char *argv[]) {
   // options before reading system data //{{{
   opt->c = CommonOptions(argc, argv, LINE, in);
   // --joined option
-  opt->joined = BoolOption(argc, argv, "--joined");
-  if (opt->joined) { // joined coordinates supplied, so no need to join
-    opt->joined = false;
-  } else { // molecules need to be joined
-    opt->joined = true;
+  if (BoolOption(argc, argv, "--joined")) {
+    opt->join = false; // joined coordinates supplied, so no need to join
+  } else {
+    opt->join = true; // molecules need to be joined
   } //}}}
 
   if (!opt->c.silent) {
@@ -123,16 +153,15 @@ int main(int argc, char *argv[]) {
   arr_id[1] = Count->BeadType;
   arr_id[2] = Count->BeadType;
   arr_id[3] = Count->BeadType;
-  double *angle = calloc(arr_id[0] * arr_id[1] * arr_id[2] * arr_id[3] * bins,
-                         sizeof *angle);
-  double *min_max = calloc(arr_id[0] * arr_id[1] * arr_id[2] * arr_id[3] * 2,
-                           sizeof *min_max);
+  int arr_id_size = arr_id[0] * arr_id[1] * arr_id[2] * arr_id[3];
+  double *angle = calloc(arr_id_size * bins, sizeof *angle);
+  double *min_max_avg = calloc(arr_id_size * 3, sizeof *min_max_avg);
   for (int i = 0; i < Count->MoleculeType; i++) {
     for (int j = 0; j < Count->BeadType; j++) {
       for (int k = 0; k < Count->BeadType; k++) {
         for (int l = 0; l < Count->BeadType; l++) {
           int id = id5D(i, j, k, l, 0, arr_id);
-          min_max[id] = 180; // maximum angle in degrees
+          min_max_avg[id] = 180; // maximum angle in degrees
         }
       }
     }
@@ -158,7 +187,7 @@ int main(int argc, char *argv[]) {
         break;
       }
       count_used++;
-      WrapJoinCoordinates(&System, true, opt->joined);
+      WrapJoinCoordinates(&System, true, opt->join);
       // calculate bond lengths //{{{
       // go through all molecules
       for (int i = 0; i < Count->Molecule; i++) {
@@ -197,14 +226,14 @@ int main(int argc, char *argv[]) {
             }
 
             // mins & maxes //{{{
-            int bin_id[2];
-            bin_id[0] = id5D(mol_i->Type, *id_lo, b_2->Type, *id_hi, 0, arr_id);
-            bin_id[1] = id5D(mol_i->Type, *id_lo, b_2->Type, *id_hi, 1, arr_id);
-            if (ang < min_max[bin_id[0]]) {
-              min_max[bin_id[0]] = ang;
-            } else if (ang > min_max[bin_id[1]]) {
-              min_max[bin_id[1]] = ang;
-            } //}}}
+            int *bin_id = bins_id5D(mol_i->Type, *id_lo, b_2->Type, *id_hi, arr_id);
+            if (ang < min_max_avg[bin_id[0]]) {
+              min_max_avg[bin_id[0]] = ang;
+            } else if (ang > min_max_avg[bin_id[1]]) {
+              min_max_avg[bin_id[1]] = ang;
+            }
+            min_max_avg[bin_id[2]] += ang;
+            //}}}
 
             int k = ang / width;
             if (k < bins) {
@@ -235,25 +264,18 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "Last Step: %d (used %d)\n", count_coor, count_used);
   } //}}}
 
-  // count total number of angles in molecules //{{{
+  // sum up all angles in molecules (normalization factor) //{{{
   int angles[Count->MoleculeType][Count->BeadType][Count->BeadType][Count->BeadType];
-  // zeroize the array
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    for (int j = 0; j < Count->BeadType; j++) {
-      for (int k = 0; k < Count->BeadType; k++) {
-        for (int l = 0; l < Count->BeadType; l++) {
-          angles[i][j][k][l] = 0;
-        }
-      }
-    }
-  }
-  // count the angles
   for (int i = 0; i < Count->MoleculeType; i++) {
     for (int j = 0; j < Count->BeadType; j++) {
       for (int k = j; k < Count->BeadType; k++) {
         for (int l = j; l < Count->BeadType; l++) {
+          angles[i][j][k][l] = 0;
           for (int m = 0; m < bins; m++) {
-            angles[i][j][k][l] += angle[id5D(i, j, k, l, m, arr_id)];
+            int id = id5D(i, j, k, l, m, arr_id);
+            if (angle[id] > 0) {
+              angles[i][j][k][l] += angle[id];
+            }
           }
         }
       }
@@ -324,9 +346,9 @@ int main(int argc, char *argv[]) {
     }
     putc('\n', fw);
   } //}}}
-  // write mins and maxes //{{{
+  // write mins, maxes, and averages //{{{
   // legend line
-  fprintf(fw, "# mins(odd columns)/maxes(even columns) -");
+  fprintf(fw, "# min(1st columns)/max(2nd columns)/average(3rd columns) -");
   count = 1;
   for (int i = 0; i < Count->MoleculeType; i++) {
     MOLECULETYPE *mt_i = &System.MoleculeType[i];
@@ -343,7 +365,7 @@ int main(int argc, char *argv[]) {
                       System.BeadType[btype1].Name,
                       System.BeadType[btype1].Name,
                       System.BeadType[btype3].Name);
-              count += 2;
+              count += 3;
               if (k == (mt_i->nBTypes - 1)) {
                 if (i != (Count->MoleculeType - 1)) {
                   putc(';', fw); // molecule's last bead type pair
@@ -364,11 +386,11 @@ int main(int argc, char *argv[]) {
     for (int j = 0; j < Count->BeadType; j++) {
       for (int k = j; k < Count->BeadType; k++) {
         for (int l = j; l < Count->BeadType; l++) {
-          int bin_id[2];
-          bin_id[0] = id5D(i, j, k, l, 0, arr_id);
-          bin_id[1] = id5D(i, j, k, l, 1, arr_id);
-          if (min_max[bin_id[1]] > 0) {
-            fprintf(fw, " %lf %lf", min_max[bin_id[0]], min_max[bin_id[1]]);
+          int *bin_id = bins_id5D(i, j, k, l, arr_id);
+          if (min_max_avg[bin_id[1]] > 0) {
+            fprintf(fw, " %lf", min_max_avg[bin_id[0]]);
+            fprintf(fw, " %lf", min_max_avg[bin_id[1]]);
+            fprintf(fw, " %lf", min_max_avg[bin_id[2]] / angles[i][j][k][l]);
           }
         }
       }
@@ -382,7 +404,7 @@ int main(int argc, char *argv[]) {
   free(opt->mt);
   free(opt);
   free(angle);
-  free(min_max);
+  free(min_max_avg);
   //}}}
 
   return 0;

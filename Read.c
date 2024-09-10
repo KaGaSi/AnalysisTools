@@ -2802,7 +2802,7 @@ static void FieldReadSpecies(char file[], SYSTEM *System) { //{{{
       }
     }
     NewBeadType(&System->BeadType, &Count->BeadType, split[0], charge, mass,
-                NOT);
+                HIGHNUM);
     System->BeadType[Count->BeadType-1].Number = number;
     Count->Bead += number;
     Count->Unbonded += number;
@@ -3511,7 +3511,7 @@ static SYSTEM XyzReadStruct(char file[]) { //{{{
     }
     if (new) {
       int type = Count->BeadType;
-      NewBeadType(&Sys.BeadType, &Count->BeadType, split[0], NOT, NOT, NOT);
+      NewBeadType(&Sys.BeadType, &Count->BeadType, split[0], HIGHNUM, HIGHNUM, HIGHNUM);
       BEADTYPE *bt_new = &Sys.BeadType[type];
       bt_new->Number = 1;
       b->Type = type;
