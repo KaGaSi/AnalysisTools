@@ -58,4 +58,4 @@ gnuplot << EOF
   unset output
 EOF
 
-source "${h}/gnuplot/latex.sh" "${size[0]}" "${size[2]}"
+source "${h}/gnuplot/latex.sh" "${size[2]}" "${size[0]}"

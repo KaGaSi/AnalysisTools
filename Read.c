@@ -857,11 +857,15 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
   do {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
+      SubtractLow(System);
+      FillInCoor(System);
       return 1; // Velocities section is not mandatory
     }
   } while (words == 0 || strcmp(split[0], "Velocities") != 0);
   (*line_count)++;
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
+    SubtractLow(System);
+    FillInCoor(System);
     return -2;
   } //}}}
   // read velocity lines //{{{
@@ -889,6 +893,7 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
     }
   } //}}}
   SubtractLow(System);
+  FillInCoor(System);
   return 1;
   error: // unrecognised line //{{{
     strcpy(ERROR_MSG, "unrecognised line in the file header");

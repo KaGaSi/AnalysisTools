@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 
+// TODO: inconsistencies in -wd/-w: should both be allowed separately? If so,
+//       all needs checking as sometimes -wd is necessary for -w
+
 // Uses Identification of the Truly Interfacial Molecules (ITIM) from
 // https://doi.org/10.1002/jcc.20852
 // ...assumes probe + bead distance is 1 (i.e., r_c for DPD bead), that is probe
@@ -44,8 +47,9 @@ beads is controlled via --bonded and -bt options.\n\n");
           "instead of the centre\n");
   fprintf(ptr, "  --bonded          use only beads in molecules\n");
   fprintf(ptr, "  -bt <name(s)>     bead type(s) to use\n");
-  fprintf(ptr, "  -w <file> <width> calculate distribution of widths"
-          "with given single bin width\n");
+  fprintf(ptr, "  -wd <file> <w>    calculate distribution of widths"
+          " with given single bin width\n");
+  fprintf(ptr, "  -w <file>         save per-timestep width\n");
   fprintf(ptr, "  -a <area.txt>     per-timestep areas\n");
   fprintf(ptr, "  -b <file>         save per-timestep surface beads"
           "to a coordinate file\n");
@@ -55,14 +59,15 @@ beads is controlled via --bonded and -bt options.\n\n");
 
 // structure for options //{{{
 struct OPT {
-  int bt_number, *bt;    // -bt (number of types; list of the types)
-  double distr_width,    // -w (width of distribution bin)
-         probe;          // -r (probe radius)
-  char distr_file[LINE], // -w (filename)
-       area_file[LINE];  // -a (filename)
-  bool in,               // --in
-       bonded;           // --bonded
-  FILE_TYPE bead_file;   // -b (filename)
+  int bt_number, *bt;     // -bt (number of types; list of the types)
+  double distr_width,     // -wd (width of distribution bin)
+         probe;           // -r (probe radius)
+  char width_distr[LINE], // -wd (filename)
+       width_avg[LINE],   // -w (filename)
+       area_file[LINE];   // -a (filename)
+  bool in,                // --in
+       bonded;            // --bonded
+  FILE_TYPE bead_file;    // -b (filename)
   COMMON_OPT c;
 };
 OPT * opt_create(void) {
@@ -201,7 +206,7 @@ void SurfacePoint(SYSTEM System, int id, int map[2], int axis, double width,
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 8, all = common + 7, count = 0,
+  int common = 8, all = common + 8, count = 0,
       req_arg = 4;
   char option[all][OPT_LENGTH];
   // common options
@@ -218,6 +223,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "--bonded");
   // strcpy(option[count++], "-m");
   strcpy(option[count++], "-bt");
+  strcpy(option[count++], "-wd");
   strcpy(option[count++], "-w");
   strcpy(option[count++], "-a");
   strcpy(option[count++], "-b");
@@ -265,10 +271,11 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   //}}}
-  // -w option
+  // -wd option
   double distr_width = 0;
   int vals[2];
-  FileDoubleOption(argc, argv, 1, "-w", &distr_width, vals, opt->distr_file);
+  FileDoubleOption(argc, argv, 1, "-wd", &distr_width, vals, opt->width_distr);
+  FileOption(argc, argv, "-w", opt->width_avg);
   opt->c = CommonOptions(argc, argv, LINE, in);
   opt->in = BoolOption(argc, argv, "--in");
   opt->bonded = BoolOption(argc, argv, "--bonded");
@@ -411,6 +418,13 @@ int main(int argc, char *argv[]) {
     putc('\n', out);
   } //}}}
 
+  if (opt->width_avg[0] != '\0') {
+    PrintByline(opt->width_avg, argc, argv);
+    FILE *fout = OpenFile(opt->width_avg, "a");
+    fprintf(fout, "# (1) step; (2) thickness\n");
+    fclose(fout);
+  }
+
   // array for writing surface beads (if -b option is used) //{{{
   bool *write = NULL;
   if (opt->bead_file.name[0] != '\0') {
@@ -516,6 +530,8 @@ int main(int argc, char *argv[]) {
       //}}}
 
       // add to sums //{{{
+      double avg_thickness_step = 0;
+      int avg_thickness_count = 0;
       for (int i = 0; i < bins_step[0]; i++) {
         for (int j = 0; j < bins_step[1]; j++) {
           for (int aa = 0; aa < 2; aa++) {
@@ -528,14 +544,23 @@ int main(int argc, char *argv[]) {
           }
           int id0 = id3D(i, j, 0),
               id1 = id3D(i, j, 1);
-          if (distr_width > 0 && surf_step[id0] != -1 && surf_step[id1] != -1) {
+          if ((distr_width > 0 || opt->width_avg[0] != '\0') &&
+              surf_step[id0] != -1 && surf_step[id1] != -1) {
             double w = fabs(surf_step[id0] - surf_step[id1]);
             int bin = w / distr_width;
             distr[bin]++;
             avg_thickness += w;
+            avg_thickness_step += w;
+            avg_thickness_count++;
           }
         }
       } //}}}
+      if (opt->width_avg[0] != '\0') {
+        FILE *fout = OpenFile(opt->width_avg, "a");
+        fprintf(fout, "%5d %lf\n", count_coor,
+                avg_thickness_step / avg_thickness_count);
+        fclose(fout);
+      }
 
       // calculate total area as a sum of areas of triangles //{{{
       if (opt->area_file[0] != '\0') {
@@ -799,7 +824,7 @@ int main(int argc, char *argv[]) {
     fclose(out);
   } //}}}
 
-  // write distribution of widths (-w option) //{{{
+  // write distribution of widths (-wd option) //{{{
   if (distr_width > 0) {
     long int norm = 0; // normalization factor
     int min = 0, max = distr_bins; // lowest/highest bin
@@ -813,8 +838,8 @@ int main(int argc, char *argv[]) {
       }
     }
     // write data to the file
-    PrintByline(opt->distr_file, argc, argv);
-    out = OpenFile(opt->distr_file, "a");
+    PrintByline(opt->width_distr, argc, argv);
+    out = OpenFile(opt->width_distr, "a");
     fprintf(out, "# (1) distance; (2) distribution\n");
     // for (int i = min; i < max; i++) {
     for (int i = 0; i < distr_bins; i++) {
@@ -829,6 +854,12 @@ int main(int argc, char *argv[]) {
     }
     fprintf(out, "# average thickness: %lf\n", avg_thickness / norm);
     fclose(out);
+    // write avg thickness to per-timestep thickness
+    if (opt->width_avg[0] != '\0') {
+      out = OpenFile(opt->width_avg, "a");
+      fprintf(out, "# average thickness: %lf\n", avg_thickness / norm);
+      fclose(out);
+    }
   } //}}}
 
   // free arrays //{{{
