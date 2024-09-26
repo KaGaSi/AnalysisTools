@@ -1,7 +1,6 @@
 #include "Errors.h"
 char ERROR_MSG[LINE];
 
-static void ErrorPrintLine();
 static void PrintLine(FILE *f, char *colour1, char *colour2);
 
 // print 'WARNING - <ERROR_MSG>\n' in cyan //{{{
@@ -116,7 +115,7 @@ static void PrintLine(FILE *f, char *colour1, char *colour2) {
     }
   }
 }
-static void ErrorPrintLine() {
+void ErrorPrintLine() {
   PrintLine(stderr, RED, YELLOW);
 }
 void WarnPrintLine() {

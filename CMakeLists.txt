@@ -40,6 +40,7 @@ set(UTILS AddToSystem
           DensityAggregates
           DensityBox
           DistrAgg
+          GenFIELD
           Info
           JoinSystems
           Selected

@@ -1,5 +1,6 @@
 #include "Read.h"
 #include "AnalysisTools.h"
+#include "Errors.h"
 #include "Structs.h"
 #include <string.h>
 
@@ -1962,6 +1963,8 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   InitBeadType(&bt_def);
   int(*bond)[3] = calloc(1, sizeof *bond);
   bond[0][2] = -1; // no bond types in a vtf file //}}}
+  // TODO: read the file once to get max number of beads to malloc instead of
+  //       realloc, then reread and fill Bead[] et al. without realloc'ing
   // read struct_file line by line, saving all atom and bond lines //{{{
   /* Do something based on the line type
    *   a) atom line: save bead information
@@ -1980,7 +1983,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
     line_count++;
     // read line
     int ltype = VtfCheckLineType(file, line_count);
-    if (ltype == ATOM_LINE) {                 // a)
+    if (ltype == ATOM_LINE) { // a)
       if (strcmp(split[1], "default") == 0) { // 'a[tom] default' line //{{{
         if (default_atom != 0 && !warned) { // warn of multiple defaults //{{{
           warned = true; // warn only once
@@ -2739,8 +2742,13 @@ static SYSTEM FieldRead(char file[]) { //{{{
   RemoveExtraTypes(&System);
   MergeBeadTypes(&System, true);
   MergeMoleculeTypes(&System);
-  System.BeadCoor = realloc(System.BeadCoor,
-                            Count->Bead * sizeof *System.BeadCoor);
+  if (Count->Bead == 0) {
+    strcpy(ERROR_MSG, "No beads in the file");
+    PrintWarnFile(file, "\0", "\0");
+  } else {
+    System.BeadCoor = realloc(System.BeadCoor,
+                              Count->Bead * sizeof *System.BeadCoor);
+  }
   FillSystemNonessentials(&System);
   CheckSystem(System, file);
   return System;

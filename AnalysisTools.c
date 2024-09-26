@@ -579,6 +579,15 @@ void AllocFillBeadTypeIndex(SYSTEM *System) {
     }
   }
   FillBeadTypeIndex(System);
+}
+void RefillBeadTypeIndex(SYSTEM *System) {
+  for (int i = 0; i < System->Count.BeadType; i++) {
+    BEADTYPE *bt = &System->BeadType[i];
+    if (bt->Number > 0) {
+      free(bt->Index);
+    }
+  }
+  AllocFillBeadTypeIndex(System);
 } //}}}
 void FillMoleculeTypeIndex(SYSTEM *System) { //{{{
   COUNT *Count = &System->Count;
@@ -2948,7 +2957,7 @@ MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old) { //{{{
 // ConcatenateSystems() //{{{
 // ...assumes S_out needs reallocating memory to accommodate S_in.
 // TODO: some warning about S_in being empty
-void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
+void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box, bool prune) {
   COUNT Count_old = S_out->Count; // copy the original COUNT
   COUNT *Count_out = &S_out->Count,
         *Count_in = &S_in.Count;
@@ -2975,7 +2984,7 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
   // Bead & BeadCoor //{{{
   if (Count_in->Bead > 0) {
     Count_out->Bead += Count_in->Bead;
-    S_out->Bead = realloc(S_out->Bead, sizeof(BEAD) * Count_out->Bead);
+    S_out->Bead = realloc(S_out->Bead, sizeof *S_out->Bead * Count_out->Bead);
     for (int i = 0; i < Count_in->Bead; i++) {
       int new = i + Count_old.Bead;
       S_out->Bead[new] = S_in.Bead[i];
@@ -2985,8 +2994,8 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
       }
     }
     Count_out->BeadCoor += Count_in->BeadCoor;
-    S_out->BeadCoor =
-        realloc(S_out->BeadCoor, sizeof *S_out->BeadCoor * Count_out->Bead);
+    S_out->BeadCoor = realloc(S_out->BeadCoor,
+                              sizeof *S_out->BeadCoor * Count_out->Bead);
     for (int i = 0; i < Count_in->BeadCoor; i++) {
       int new = i + Count_old.BeadCoor;
       S_out->BeadCoor[new] = S_in.BeadCoor[i] + Count_old.Bead;
@@ -3023,8 +3032,8 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
       S_out->Unbonded[new] = S_in.Unbonded[i] + Count_old.Bead;
     }
     Count_out->UnbondedCoor += Count_in->UnbondedCoor;
-    S_out->UnbondedCoor = realloc(
-        S_out->UnbondedCoor, sizeof *S_out->UnbondedCoor * Count_out->Unbonded);
+    S_out->UnbondedCoor = realloc(S_out->UnbondedCoor, Count_out->UnbondedCoor *
+                                  sizeof *S_out->UnbondedCoor);
     for (int i = 0; i < Count_in->UnbondedCoor; i++) {
       int new = i + Count_old.UnbondedCoor;
       S_out->UnbondedCoor[new] = S_in.UnbondedCoor[i] + Count_old.Bead;
@@ -3137,7 +3146,9 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box) {
       S_out->ImproperType[i] = S_in.ImproperType[i-Count_old.ImproperType];
     }
   } //}}}
-  PruneSystem(S_out);
+  if (prune) {
+    PruneSystem(S_out);
+  }
 } //}}}
 // TODO: split CheckSystem to CheckCount, CheckBeadType, etc.
 // check that the System struct doesn't contain an error //{{{

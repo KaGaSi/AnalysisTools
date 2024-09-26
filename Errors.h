@@ -39,6 +39,7 @@ void PrintWarnFileLine(char file[], int count);
 void WarnPrintFile(char file1[], char file2[], char file3[]); // in cyan
 void ErrorPrintFile(char file1[], char file2[], char file3[]); // in red
 void WarnPrintLine(); // in cyan
+void ErrorPrintLine();
 void ErrorEOF(char file[], char msg[]);
 void ErrorSnprintf();
 void ErrorArgNumber(int count, int need);

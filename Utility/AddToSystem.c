@@ -571,6 +571,8 @@ int main(int argc, char *argv[]) {
     S_add2 = CopySystem(S_add);
   }
   COUNT *C_out = &S_out.Count;
+  // TODO: prune = false & PruneSystem() only at the end
+  bool prune = true;
   // if not switched, concatenate the new (i.e., original) and the added systems
   if (opt->add) { // do not switch, append the new system
     if (opt->fout.name[0] != '\0') {
@@ -581,7 +583,7 @@ int main(int argc, char *argv[]) {
         VtfSystem(&S_out2);
         VtfSystem(&S_add2);
       }
-      ConcatenateSystems(&S_out2, S_add2, S_orig.Box);
+      ConcatenateSystems(&S_out2, S_add2, S_orig.Box, prune);
     }
     S_out = CopySystem(S_orig);
     if (fout.type == VCF_FILE ||
@@ -590,7 +592,7 @@ int main(int argc, char *argv[]) {
       VtfSystem(&S_out);
       VtfSystem(&S_add);
     }
-    ConcatenateSystems(&S_out, S_add, S_orig.Box);
+    ConcatenateSystems(&S_out, S_add, S_orig.Box, prune);
   } else { // switch, so transform the system
     // error - too few beads to switch //{{{
     // first, count number of beads that can be exchanged
@@ -626,14 +628,14 @@ int main(int argc, char *argv[]) {
         VtfSystem(&S_out2);
         VtfSystem(&S_add2);
       }
-      ConcatenateSystems(&S_out2, S_add2, S_orig.Box);
+      ConcatenateSystems(&S_out2, S_add2, S_orig.Box, prune);
     }
     S_out = CopySystem(S_orig);
     if (fout.type == VCF_FILE || fout.type == VSF_FILE || fout.type == VTF_FILE) {
       VtfSystem(&S_out);
       VtfSystem(&S_add);
     }
-    ConcatenateSystems(&S_out, S_add, S_orig.Box);
+    ConcatenateSystems(&S_out, S_add, S_orig.Box, prune);
   } //}}}
 
   // define constrained box for adding beads (-cx/y/z and/or -hd options) //{{{

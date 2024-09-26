@@ -225,6 +225,8 @@ int main(int argc, char *argv[]) {
   box_out.gamma = 90;
   CalculateBoxData(&box_out, 0); //}}}
   // main output file
+  // TODO: prune = false & PruneSystem() only once
+  bool prune = true;
   SYSTEM S_in = CopySystem(Sys[1]),
          S_out = CopySystem(Sys[0]);
   if (fout.type == VCF_FILE ||
@@ -233,7 +235,7 @@ int main(int argc, char *argv[]) {
     VtfSystem(&S_out);
     VtfSystem(&S_in);
   }
-  ConcatenateSystems(&S_out, S_in, box_out);
+  ConcatenateSystems(&S_out, S_in, box_out, prune);
   FreeSystem(&S_in);
   // optional output file
   SYSTEM S_out_opt;
@@ -246,7 +248,7 @@ int main(int argc, char *argv[]) {
       VtfSystem(&S_out_opt);
       VtfSystem(&S_in);
     }
-    ConcatenateSystems(&S_out_opt, S_in, box_out);
+    ConcatenateSystems(&S_out_opt, S_in, box_out, prune);
     FreeSystem(&S_in);
   }
   //}}}

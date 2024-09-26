@@ -18,6 +18,7 @@ void FillMoleculeTypeChargeMass(MOLECULETYPE *MoleculeType,
                                 BEADTYPE BeadType[]);
 void FillBeadTypeIndex(SYSTEM *System);
 void AllocFillBeadTypeIndex(SYSTEM *System);
+void RefillBeadTypeIndex(SYSTEM *System);
 void FillMoleculeTypeIndex(SYSTEM *System);
 void ReFillMoleculeTypeIndex(SYSTEM *System);
 void FillIndexMol(SYSTEM *System);
@@ -64,7 +65,7 @@ void PruneAngleTypes(SYSTEM S_old, SYSTEM *System);
 void PruneDihedralTypes(SYSTEM S_old, SYSTEM *System);
 void PruneImproperTypes(SYSTEM S_old, SYSTEM *System);
 void PruneSystem(SYSTEM *System);
-void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box);
+void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box, bool prune);
 // copy molecule type
 MOLECULETYPE CopyMoleculeType(MOLECULETYPE mt_old);
 MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old);
