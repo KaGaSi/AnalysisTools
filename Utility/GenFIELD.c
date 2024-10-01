@@ -10,6 +10,12 @@ bool file_exists (char *filename) {
   return (stat (filename, &buffer) == 0);
 }
 
+// calculate index in an 1D array that simulates a 3D one /{{{
+int id3D(int i1, int i2, int i3, int *size) {
+  return (i3 * size[0] * size[1] +
+          i2 * size[0] +
+          i1);
+} //}}}
 
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
@@ -72,13 +78,14 @@ int main(int argc, char *argv[]) {
   InitSystem(&System);
   COUNT *Count = &System.Count;
 
-  // read the input text file
-  FILE *fr = OpenFile(in, "r");
+  // read the input text file //{{{
+  FILE *f = OpenFile(in, "r");
   int line_count = 0;
   double density = 0;
-  while (ReadAndSplitLine(fr, 4, " \t\n")) {
+  while (ReadAndSplitLine(f, 4, " \t\n")) {
     line_count++;
-    if (words == 0) {
+    if (words == 0 || split[0][0] == '#' || // blank or comment line
+        strncasecmp("potential", split[0], 3) == 0) {
       continue;
     }
     if (strncasecmp("box", split[0], 3) == 0) { //{{{
@@ -106,11 +113,20 @@ int main(int argc, char *argv[]) {
     } else if (strncasecmp("molecule", split[0], 3) == 0) { //{{{
       long int n_Sys;
       if (words < 3 || (strncasecmp("fill", split[2], 1) != 0 &&
-                        !IsNaturalNumber(split[2], &n_Sys))) {
+                        !IsWholeNumber(split[2], &n_Sys))) {
         goto err_in;
       }
       if (strncasecmp("fill", split[2], 1) == 0) {
         n_Sys = System.Box.Volume * density - Count->Bead;
+        if (n_Sys <= 0) {
+          if (snprintf(ERROR_MSG, LINE,
+                       "No beads to 'fill': %ld beads too many", -n_Sys) < 0) {
+            ErrorSnprintf();
+          }
+          PrintWarning();
+        }
+      } else if (n_Sys == 0) {
+        continue;
       }
       char name[MOL_NAME];
       snprintf(name, MOL_NAME, "%s", split[1]);
@@ -151,19 +167,97 @@ int main(int argc, char *argv[]) {
     }
   }
   PruneSystem(&System);
-  fclose(fr);
+  fclose(f); //}}}
 
-  if (opt->c.verbose) {
-    VerboseOutput(System);
+  // array for dpd parameters //{{{
+  int arr_pot[3];
+  arr_pot[0] = Count->BeadType;
+  arr_pot[1] = Count->BeadType;
+  arr_pot[2] = 3;
+  int arr_pot_size = arr_pot[0] * arr_pot[1] * arr_pot[2];
+  // dpd potential: a_ij; r_c; gamma
+  double *pot = malloc(arr_pot_size * sizeof *pot);
+  // default: a_ij = 25, r_c = 1, gamma = 4.5
+  for (int i = 0; i < arr_pot[0]; i++) {
+    for (int j = 0; j < arr_pot[1]; j++) {
+      int id = id3D(i, j, 0, arr_pot);
+      pot[id] = 25;
+      id = id3D(i, j, 1, arr_pot);
+      pot[id] = 1;
+      id = id3D(i, j, 2, arr_pot);
+      pot[id] = 4.5;
+    }
+  } //}}}
+
+  // reread the file to get potential parameters //{{{
+  f = OpenFile(in, "r");
+  while (ReadAndSplitLine(f, SPL_STR, " \t\n")) {
+    line_count++;
+    if (words > 0 && strncasecmp("potential", split[0], 3) == 0) {
+      double val[3] = {-1, -1, -1};
+      if (words < 4 || strncasecmp("dpd", split[1], 3) != 0 ||
+          (words > 4 && !IsPosRealNumber(split[4], &val[0])) ||
+          (words > 5 && !IsPosRealNumber(split[5], &val[1])) ||
+          (words > 6 && !IsPosRealNumber(split[6], &val[2]))) {
+        goto err_in;
+      }
+      int bt_1 = FindBeadType(split[2], System),
+          bt_2 = FindBeadType(split[3], System);
+      if (bt_1 != -1 && bt_2 != -1) {
+        if (bt_1 > bt_2) {
+          SwapInt(&bt_1, &bt_2);
+        }
+        for (int aa = 0; aa < 3; aa++) {
+          int id = id3D(bt_1, bt_2, aa, arr_pot);
+          if (val[aa] != -1) {
+            pot[id] = val[aa];
+          }
+        }
+      }
+    }
   }
+  fclose(f); //}}}
+
+  if (opt->c.verbose) { //{{{
+    VerboseOutput(System);
+    fprintf(stdout, "Potentials:\n");
+    for (int i = 0; i < arr_pot[0]; i++) {
+      for (int j = i; j < arr_pot[1]; j++) {
+        fprintf(stdout, "%10s %10s", System.BeadType[i].Name,
+                                     System.BeadType[j].Name);
+        for (int aa = 0; aa < 3; aa++) {
+          int id = id3D(i, j, aa, arr_pot);
+          fprintf(stdout, " %lf", pot[id]);
+        }
+        putchar('\n');
+      }
+    }
+  } //}}}
 
   // write the output file if required
-  bool *write = malloc(sizeof *write * Count->Bead);
-  InitBoolArray(write, Count->Bead, true);
-  WriteOutput(System, write, out, false, false, argc, argv);
-  free(write);
+  WriteOutputAll(System, out, false, false, argc, argv);
+
+  // print parameters to FIELD output file //{{{
+  if (out.type == FIELD_FILE) {
+    f = OpenFile(out.name, "a");
+    int n = Count->BeadType * (Count->BeadType - 1) / 2 + Count->BeadType;
+    fprintf(f, "interactions %d <a_ij> <r_c> <gamma>\n", n);
+    for (int i = 0; i < Count->BeadType; i++) {
+      for (int j = i; j < Count->BeadType; j++) {
+        fprintf(f, "%10s %10s dpd", System.BeadType[i].Name,
+                                    System.BeadType[j].Name);
+        for (int aa = 0; aa < 3; aa++) {
+          int id = id3D(i, j, aa, arr_pot);
+          fprintf(f, " %lf", pot[id]);
+        }
+        putc('\n', f);
+      }
+    }
+    fclose(f);
+  } //}}}
 
   FreeSystem(&System);
+  free(pot);
   free(opt);
 
   return 0;

@@ -1,5 +1,8 @@
 #include "Write.h"
+#include "AnalysisTools.h"
+#include "General.h"
 #include <stdio.h>
+#include <unistd.h>
 
 // STATIC DEFINITIONS
 static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System);
@@ -303,7 +306,6 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass,
   PrintCommand(fw, argc, argv);
   putc('\n', fw);
   COUNT *Count = &System.Count;
-  // count bonds according to Bead[].InTimestep
   // create new SYSTEM structure to figure out bead types if mass == true //{{{
   int mass_types = 0;
   int *bt_masstype_to_old = calloc(Count->BeadType, sizeof *bt_masstype_to_old);
@@ -738,6 +740,7 @@ static void SimplifyResid(SYSTEM *System) { //{{{
   }
 } //}}}
 
+// InitCoorFile() //{{{
 void InitCoorFile(FILE_TYPE file, SYSTEM System, int argc, char *argv[]) {
   if (file.type == VCF_FILE) {
     PrintByline(file.name, argc, argv);
@@ -747,7 +750,7 @@ void InitCoorFile(FILE_TYPE file, SYSTEM System, int argc, char *argv[]) {
     FILE *out = OpenFile(file.name, "w");
     fclose(out);
   }
-}
+} //}}}
 
 // write structure and/or coordinates to a new file (can be any format) //{{{
 void WriteOutput(SYSTEM System, bool write[], FILE_TYPE fw,
@@ -778,6 +781,13 @@ void WriteOutput(SYSTEM System, bool write[], FILE_TYPE fw,
     }
     WriteTimestep(fw, System, 1, write, argc, argv);
   }
+}
+void WriteOutputAll(SYSTEM System, FILE_TYPE fw, bool lmp_mass,
+                    int vsf_def, int argc, char *argv[]) {
+  bool *write = malloc(System.Count.Bead * sizeof *write);
+  InitBoolArray(write, System.Count.Bead, true);
+  WriteOutput(System, write, fw, lmp_mass, vsf_def, argc, argv);
+  free(write);
 } //}}}
 // Write a single timestep to output file based on the file type //{{{
 void WriteTimestep(FILE_TYPE f, SYSTEM System, int count_step, bool write[],
@@ -804,7 +814,15 @@ void WriteTimestep(FILE_TYPE f, SYSTEM System, int count_step, bool write[],
       exit(1);
   }
   fclose(fw);
-} //}}}
+}
+void WriteTimestepAll(FILE_TYPE f, SYSTEM System, int count_step,
+                      int argc, char *argv[]) {
+  bool *write = malloc(System.Count.Bead * sizeof *write);
+  InitBoolArray(write, System.Count.Bead, true);
+  WriteTimestep(f, System, count_step, write, argc, argv);
+  free(write);
+}
+//}}}
 // Create a structure file based on the file type (including dl_meso CONFIG) //{{{
 void WriteStructure(FILE_TYPE f, SYSTEM System, int vsf_def_type,
                     bool lmp_mass, int argc, char *argv[]) {
@@ -871,4 +889,442 @@ void WriteAggregates(int step_count, char *agg_file, SYSTEM System,
     }
   }
   fclose(fw);
+} //}}}
+
+// verbose output (print various structures and some such)
+void VerboseOutput(SYSTEM System) { //{{{
+  PrintCount(System.Count);
+  PrintBeadType(System);
+  PrintBondType(System);
+  PrintAngleType(System);
+  PrintDihedralType(System);
+  PrintImproperType(System);
+  PrintAllMolTypes(System);
+  if (System.Box.Volume != -1) {
+    putchar('\n');
+    PrintBox(System.Box);
+  }
+  putchar('\n');
+} //}}}
+void PrintCount(COUNT Count) { //{{{
+  bool coor = false;
+  if (Count.Bead != Count.BeadCoor && Count.BeadCoor > 0) {
+    coor = true;
+  }
+  fprintf(stdout, "\nCounts of\n");
+  fprintf(stdout, "  Bead Types:     %d\n", Count.BeadType);
+  fprintf(stdout, "  All Beads:      %d\n", Count.Bead);
+  if (coor && Count.Bead > 0) {
+    fprintf(stdout, "    In Coor File: %d\n", Count.BeadCoor);
+  }
+  fprintf(stdout, "  Bonded Beads:   %d\n", Count.Bonded);
+  if (coor && Count.Bonded > 0) {
+    fprintf(stdout, "    In Coor File: %d\n", Count.BondedCoor);
+  }
+  fprintf(stdout, "  Unbonded Beads: %d\n", Count.Unbonded);
+  if (coor && Count.Unbonded > 0) {
+    fprintf(stdout, "    In Coor File: %d\n", Count.UnbondedCoor);
+  }
+  fprintf(stdout, "  Molecule Types: %d\n", Count.MoleculeType);
+  fprintf(stdout, "  Molecules:      %d", Count.Molecule);
+  // if (Count.Molecule > 0) {
+  //   fprintf(stdout, "  HighestResid:   %d", Count.HighestResid);
+  // }
+  if (Count.BondType > 0) {
+    fprintf(stdout, "\n  Bond Types:     %d", Count.BondType);
+  }
+  if (Count.Bonded > 0) {
+    fprintf(stdout, "\n  Bonds:          %d", Count.Bond);
+  }
+  if (Count.AngleType > 0) {
+    fprintf(stdout, "\n  Angle Types:    %d", Count.AngleType);
+  }
+  if (Count.Angle > 0) {
+    fprintf(stdout, "\n  Angles:         %d", Count.Angle);
+  }
+  if (Count.DihedralType > 0) {
+    fprintf(stdout, "\n  Dihedral Types: %d", Count.DihedralType);
+  }
+  if (Count.Dihedral > 0) {
+    fprintf(stdout, "\n  Dihedrals:      %d", Count.Dihedral);
+  }
+  if (Count.ImproperType > 0) {
+    fprintf(stdout, "\n  Improper Types: %d", Count.ImproperType);
+  }
+  if (Count.Improper > 0) {
+    fprintf(stdout, "\n  Impropers:      %d", Count.Improper);
+  }
+  fprintf(stdout, "\n\n");
+} //}}}
+void PrintBeadType(SYSTEM System) { //{{{
+  // some stuff to properly align the fields //{{{
+  int precision = 3,     // number of decimal digits
+      longest_name = 0,  // longest bead type name
+      max_number = 0,    // maximum number of beads
+      max_q = 0,         // maximum charge
+      max_m = 0,         // maximum mass
+      max_r = 0;         // maximum radius
+  bool negative = false; // extra space for '-' if there's negative charge
+  // determine length of values to have a nice-looking output
+  for (int i = 0; i < System.Count.BeadType; i++) {
+    BEADTYPE *bt = &System.BeadType[i];
+    int length = strlen(bt->Name);
+    if (length > longest_name) {
+      longest_name = length;
+    }
+    if (bt->Number > max_number) {
+      max_number = bt->Number;
+    }
+    if (bt->Charge < 0) {
+      negative = true;
+    }
+    if (bt->Charge != CHARGE && bt->Charge != HIGHNUM && fabs(bt->Charge) > max_q) {
+      max_q = floor(fabs(bt->Charge));
+    }
+    if (bt->Mass != MASS && bt->Mass != HIGHNUM && bt->Mass > max_m) {
+      max_m = floor(bt->Mass);
+    }
+    if (bt->Radius != RADIUS && bt->Radius != HIGHNUM && bt->Radius > max_r) {
+      max_r = floor(bt->Radius);
+    }
+  }
+  // number of digits of the highest_number
+  if (max_number == 0) {
+    max_number = 1;
+  } else {
+    max_number = floor(log10(max_number)) + 1;
+  }
+  // number of digits of the charge
+  if (max_q == 0) {
+    max_q = 1;
+  } else {
+    max_q = floor(log10(max_q)) + 1;
+  }
+  max_q += 1 + precision; // +1 for the decimal point
+  if (negative) {
+    max_q++; // extra space for minus sign
+  }
+  // number of digits of the mass
+  if (max_m == 0) {
+    max_m = 1;
+  } else {
+    max_m = floor(log10(max_m)) + 1 + precision + 1;
+  }
+  // number of digits of the radius
+  if (max_r == 0) {
+    max_r = 1;
+  } else {
+    max_r = floor(log10(max_m)) + 1 + precision + 1;
+  }
+  // number of digits of the number of types
+  int types_digits = floor(log10(System.Count.BeadType)) + 1;
+  //}}}
+  // print the information
+  for (int i = 0; i < System.Count.BeadType; i++) {
+    BEADTYPE *bt = &System.BeadType[i];
+    fprintf(stdout, "BeadType[%*d] = {", types_digits, i);
+    fprintf(stdout, ".Name = %*s ", longest_name, bt->Name);
+    fprintf(stdout, ".Number = %*d ", max_number, bt->Number);
+    fprintf(stdout, ".Charge = ");
+    if (bt->Charge != CHARGE && bt->Charge != HIGHNUM) {
+      fprintf(stdout, "%*.*f ", max_q, precision, bt->Charge);
+    } else {
+      for (int j = 0; j < (max_q - 3); j++) {
+        putchar(' ');
+      }
+      fprintf(stdout, "n/a ");
+    }
+    fprintf(stdout, ".Mass = ");
+    if (bt->Mass != MASS && bt->Mass != HIGHNUM) {
+      fprintf(stdout, "%*.*f ", max_m, precision, bt->Mass);
+    } else {
+      for (int j = 0; j < (max_m - 3); j++) {
+        putchar(' ');
+      }
+      fprintf(stdout, "n/a ");
+    }
+    fprintf(stdout, ".Radius = ");
+    if (bt->Radius != RADIUS && bt->Radius != HIGHNUM) {
+      fprintf(stdout, "%*.*f", max_r, precision, bt->Radius);
+    } else {
+      for (int j = 0; j < (max_r - 3); j++) {
+        putchar(' ');
+      }
+      fprintf(stdout, "n/a");
+    }
+    fprintf(stdout, " }\n");
+  }
+  putchar('\n');
+} //}}}
+void PrintOneMolType(SYSTEM System, int n) { //{{{
+  int line = 80; // maximum printed line length
+  MOLECULETYPE *mt = &System.MoleculeType[n];
+  fprintf(stdout, "MoleculeType[%d] = {\n", n);
+  fprintf(stdout, "  .Name       = %s\n", mt->Name);
+  fprintf(stdout, "  .Number     = %d\n", mt->Number);
+  // print bead types (list all beads) //{{{
+  fprintf(stdout, "  .nBeads     = %d\n", mt->nBeads);
+  int count = fprintf(stdout, "  .Bead       = {");
+  for (int j = 0; j < mt->nBeads; j++) {
+    count += fprintf(stdout, " %d", mt->Bead[j]);
+    if (count >= line) {
+      count = fprintf(stdout, "\n                 ") - 1;
+    }
+  }
+  fprintf(stdout, " }\n"); //}}}
+  // print bonds if there are any //{{{
+  if (mt->nBonds > 0) {
+    fprintf(stdout, "  .nBonds     = %d\n", mt->nBonds);
+    count = fprintf(stdout, "  .Bond       = {");
+    for (int j = 0; j < mt->nBonds; j++) {
+      count += fprintf(stdout, " %d-%d", mt->Bond[j][0] + 1,
+                                         mt->Bond[j][1] + 1);
+      if (mt->Bond[j][2] != -1) {
+        count += fprintf(stdout, " (%d)", mt->Bond[j][2] + 1);
+      }
+      if (count >= line) {
+        count = fprintf(stdout, "\n                 ") - 1;
+      }
+    }
+    fprintf(stdout, " }\n");
+  } //}}}
+  // print angles if there are any //{{{
+  if (mt->nAngles > 0) {
+    fprintf(stdout, "  .nAngles    = %d\n", mt->nAngles);
+    count = fprintf(stdout, "  .Angle      = {");
+    for (int j = 0; j < mt->nAngles; j++) {
+      count += fprintf(stdout, " %d-%d-%d", mt->Angle[j][0] + 1,
+                                            mt->Angle[j][1] + 1,
+                                            mt->Angle[j][2] + 1);
+      if (mt->Angle[j][3] != -1) {
+        count += fprintf(stdout, " (%d)", mt->Angle[j][3] + 1);
+      }
+      if (count >= 80) {
+        count = fprintf(stdout, "\n                 ") - 1;
+      }
+    }
+    fprintf(stdout, " }\n");
+  } //}}}
+  // print dihedrals if there are any //{{{
+  if (mt->nDihedrals > 0) {
+    fprintf(stdout, "  .nDihedrals = %d\n", mt->nDihedrals);
+    count = fprintf(stdout, "  .Dihedral   = {");
+    for (int j = 0; j < mt->nDihedrals; j++) {
+      count += fprintf(stdout, " %d-%d-%d-%d", mt->Dihedral[j][0] + 1,
+                                               mt->Dihedral[j][1] + 1,
+                                               mt->Dihedral[j][2] + 1,
+                                               mt->Dihedral[j][3] + 1);
+      if (mt->Dihedral[j][4] != -1) {
+        count += fprintf(stdout, " (%d)", mt->Dihedral[j][4] + 1);
+      }
+      if (count >= line) {
+        count =fprintf(stdout, "\n                 ") - 1;
+      }
+    }
+    fprintf(stdout, " }\n");
+  } //}}}
+  // print impropers if there are any //{{{
+  if (mt->nImpropers > 0) {
+    fprintf(stdout, "  .nImpropers = %d\n", mt->nImpropers);
+    count = fprintf(stdout, "  .Improper   = { ");
+    for (int j = 0; j < mt->nImpropers; j++) {
+      count += fprintf(stdout, "%d-%d-%d-%d", mt->Improper[j][0] + 1,
+                                              mt->Improper[j][1] + 1,
+                                              mt->Improper[j][2] + 1,
+                                              mt->Improper[j][3] + 1);
+      if (mt->Improper[j][4] != -1) {
+        count += fprintf(stdout, " (%d)", mt->Improper[j][4] + 1);
+      }
+      if (count >= line) {
+        count = fprintf(stdout, "\n                 ") - 1;
+      }
+    }
+    fprintf(stdout, " }\n");
+  } //}}}
+  // print bead types (just the which are present) //{{{
+  fprintf(stdout, "  .nBTypes    = %d\n", mt->nBTypes);
+  count = fprintf(stdout, "  .BType      = {");
+  for (int j = 0; j < mt->nBTypes; j++) {
+    count += fprintf(stdout, " %d", mt->BType[j]);
+    if (count >= 80) {
+      count = fprintf(stdout, "\n                 ") - 1;
+    }
+  }
+  fprintf(stdout, " }\n"); //}}}
+  if (mt->Mass != MASS) {
+    fprintf(stdout, "  .Mass       = %.5f\n", mt->Mass);
+  } else {
+    fprintf(stdout, "  .Mass       = n/a\n");
+  }
+  if (mt->Charge != CHARGE) {
+    fprintf(stdout, "  .Charge     = %.5f\n}\n", mt->Charge);
+  } else {
+    fprintf(stdout, "  .Charge     = n/a\n}\n");
+  }
+} //}}}
+void PrintAllMolTypes(SYSTEM System) { //{{{
+  for (int i = 0; i < System.Count.MoleculeType; i++) {
+    PrintOneMolType(System, i);
+  }
+} //}}}
+void Print1Molecule(SYSTEM System, int n) { //{{{
+  MOLECULE *mol = &System.Molecule[n];
+  MOLECULETYPE *mtype = &System.MoleculeType[mol->Type];
+  fprintf(stdout, "Molecule %3d (%d, %s):\n", n + 1, mol->Index, mtype->Name);
+  fprintf(stdout, " BEAD INDICES (%d): ", mtype->nBeads);
+  fputs("intramolecular; input file\n", stdout);
+  for (int j = 0; j < mtype->nBeads; j++) {
+    fprintf(stdout, "   %3d; %5d\n", j + 1, mol->Bead[j]);
+  }
+} //}}}
+void PrintMolecules(SYSTEM System) { //{{{
+  for (int i = 0; i < System.Count.Molecule; i++) {
+    Print1Molecule(System, i);
+  }
+  fprintf(stdout, "\n");
+} //}}}
+void PrintBead(SYSTEM System) { //{{{
+  fprintf(stdout, "Beads\n");
+  fprintf(stdout, "<bead id>");
+  fprintf(stdout, " (<bead type id>);");
+  fprintf(stdout, " <molecule id>");
+  fprintf(stdout, " (<molecule type id>);");
+  fprintf(stdout, " <in coor>");
+  putchar('\n');
+  for (int i = 0; i < System.Count.Bead; i++) {
+    BEAD *b = &System.Bead[i];
+    fprintf(stdout, " %6d", i);
+    fprintf(stdout, " (%3d);", b->Type);
+    if (b->Molecule == -1) {
+      fprintf(stdout, " %4s", "None");
+      fprintf(stdout, "      ;");
+    } else {
+      fprintf(stdout, " %4d", System.Molecule[b->Molecule].Index);
+      fprintf(stdout, " (%3d);", System.Molecule[b->Molecule].Type);
+    }
+    fprintf(stdout, " %s", b->InTimestep ? "yes" : " no");
+    putchar('\n');
+  }
+} //}}}
+void PrintBondType(SYSTEM System) { //{{{
+  if (System.Count.BondType > 0) {
+    fprintf(stdout, "Bond types\n");
+    for (int i = 0; i < System.Count.BondType; i++) {
+      PARAMS *b = &System.BondType[i];
+      fprintf(stdout, "   %lf %lf %lf %lf\n", b->a, b->b, b->c, b->d);
+    }
+    fprintf(stdout, "\n");
+  }
+} //}}}
+void PrintAngleType(SYSTEM System) { //{{{
+  if (System.Count.AngleType > 0) {
+    fprintf(stdout, "Angle types\n");
+    for (int i = 0; i < System.Count.AngleType; i++) {
+      PARAMS *ang = &System.AngleType[i];
+      fprintf(stdout, "   %lf %lf %lf %lf\n", ang->a, ang->b, ang->c, ang->d);
+    }
+    fprintf(stdout, "\n");
+  }
+} //}}}
+void PrintDihedralType(SYSTEM System) { //{{{
+  if (System.Count.DihedralType > 0) {
+    fprintf(stdout, "Dihedral types\n");
+    for (int i = 0; i < System.Count.DihedralType; i++) {
+      PARAMS *dih = &System.DihedralType[i];
+      fprintf(stdout, "   %lf %lf %lf %lf\n", dih->a, dih->b, dih->c, dih->d);
+    }
+    fprintf(stdout, "\n");
+  }
+} //}}}
+void PrintImproperType(SYSTEM System) { //{{{
+  if (System.Count.ImproperType > 0) {
+    fprintf(stdout, "Improper types\n");
+    for (int i = 0; i < System.Count.ImproperType; i++) {
+      PARAMS *imp = &System.ImproperType[i];
+      fprintf(stdout, "   %lf %lf %lf %lf\n", imp->a, imp->b, imp->c, imp->d);
+    }
+    fprintf(stdout, "\n");
+  }
+} //}}}
+void PrintBox(BOX Box) { //{{{
+  fprintf(stdout, "Box = {\n");
+  if (Box.Low[0] != 0 || Box.Low[1] != 0 || Box.Low[2] != 0) {
+    fprintf(stdout, "  .Low = ( %lf %lf %lf )\n",
+            Box.Low[0], Box.Low[1], Box.Low[2]);
+  }
+  fprintf(stdout, "  .Length = ( %lf %lf %lf )\n",
+          Box.Length[0], Box.Length[1], Box.Length[2]);
+  if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
+    fprintf(stdout, "  .alpha = %lf\n", Box.alpha);
+    fprintf(stdout, "  .beta  = %lf\n", Box.beta);
+    fprintf(stdout, "  .gamma = %lf\n", Box.gamma);
+    fprintf(stdout, "  .OrthoLength = ( %lf %lf %lf )\n", Box.OrthoLength[0],
+                                                          Box.OrthoLength[1],
+                                                          Box.OrthoLength[2]);
+    fprintf(stdout, "  .Bounding = ( %lf %lf %lf )\n", Box.Bounding[0],
+                                                       Box.Bounding[1],
+                                                       Box.Bounding[2]);
+    fprintf(stdout, "  .transform = ( %lf %lf %lf)\n", Box.transform[0][0],
+                                                       Box.transform[0][1],
+                                                       Box.transform[0][2]);
+    fprintf(stdout, "               ( %lf %lf %lf)\n", Box.transform[1][0],
+                                                       Box.transform[1][1],
+                                                       Box.transform[1][2]);
+    fprintf(stdout, "               ( %lf %lf %lf)\n", Box.transform[2][0],
+                                                       Box.transform[2][1],
+                                                       Box.transform[2][2]);
+  }
+  fprintf(stdout, "  .Volume = %lf\n", Box.Volume);
+  fprintf(stdout, "}\n");
+} //}}}
+void PrintByline(char file[], int argc, char *argv[]) { //{{{
+  FILE *fw = OpenFile(file, "w");
+  fprintf(fw, "# Created by AnalysisTools v%s ", VERSION);
+  fprintf(fw, " (https://github.com/KaGaSi/AnalysisTools)\n");
+  fprintf(fw, "# command: ");
+  PrintCommand(fw, argc, argv);
+  fclose(fw);
+} //}}}
+void PrintStep(int *count_coor, int start, bool silent) { //{{{
+  (*count_coor)++;
+  if (!silent && isatty(STDOUT_FILENO)) {
+    if (*count_coor < start) {
+      fprintf(stdout, "\rDiscarding step: %d", *count_coor);
+    } else {
+      if (*count_coor == start) {
+        fprintf(stdout, "\rStarting step: %d    \n", start);
+      }
+      fprintf(stdout, "\rStep: %d", *count_coor);
+    }
+    fflush(stdout);
+  }
+} //}}}
+void PrintAggregate(SYSTEM System, AGGREGATE Aggregate[]) { //{{{
+  COUNT *Count = &System.Count;
+  fprintf(stdout, "Aggregates: %d\n", Count->Aggregate);
+  for (int i = 0; i < Count->Aggregate; i++) {
+    // print molecules
+    fprintf(stdout, " %d mols:", Aggregate[i].nMolecules);
+    for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+      int mol = Aggregate[i].Molecule[j];
+      int type = System.Molecule[mol].Type;
+      fprintf(stdout, " %d (%d)", mol, type);
+      if (j != (Aggregate[i].nMolecules - 1)) {
+        putchar(',');
+      } else {
+        putchar('\n');
+      }
+    }
+    // print bonded beads
+    fprintf(stdout, " %d bonded beads:", Aggregate[i].nBeads);
+    for (int j = 0; j < Aggregate[i].nBeads; j++) {
+      int bead = Aggregate[i].Bead[j];
+      fprintf(stdout, " %d", bead);
+      if (j != (Aggregate[i].nBeads-1)) {
+        putchar(',');
+      } else {
+        putchar('\n');
+      }
+    }
+  }
 } //}}}

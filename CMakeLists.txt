@@ -24,6 +24,7 @@ set(LIBRARIES Read
               Write
               Options
               AnalysisTools
+              System
               Errors
               General
               Structs)

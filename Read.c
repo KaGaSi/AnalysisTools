@@ -1959,32 +1959,23 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
       default_atom = 0, // line number of the first 'atom default' line
       count_bonds = 0;  // number of bonds
   bool warned = false; // has 'a[tom] default' line warning been already issued?
-  BEADTYPE bt_def;
-  InitBeadType(&bt_def);
-  int(*bond)[3] = calloc(1, sizeof *bond);
-  bond[0][2] = -1; // no bond types in a vtf file //}}}
-  // TODO: read the file once to get max number of beads to malloc instead of
-  //       realloc, then reread and fill Bead[] et al. without realloc'ing
-  // read struct_file line by line, saving all atom and bond lines //{{{
-  /* Do something based on the line type
-   *   a) atom line: save bead information
-   *      i) atom default line (the first one): save into separate bt_def struct
-   *      ii) atom <id> line: save as a separate Sys.BeadType & Sys.Bead
-   *      iii) resid keyword: create new Sys.MoleculeType & Sys.Molecule if
-   *           this resid wasn't used yet, otherwise add to existing ones
-   *   b) bond line: save bonded bead indices into a bond struct
-   *   c) timestep line: break the loop (end of vtf file's structure section)
-   *   d) coordinate line: exit program as coordinates cannot be inside a
-   *      structure section
-   *   e) anything else besides pbc, blank, or comment line: exit program as
-   *      unrecognised line was encountered
+  //}}}
+  // read struct_file line by line, counting atoms and bonds //{{{
+  /*
+   * Test all the lines are correct, counting them and printing possible
+   * warnings. For atom lines, take the highest <id>+1 as the number of atoms
+   * (ids start from 0), save line number of the first 'atom default' line
+   * (if present), and count molecules (well, get highest resid). For bond
+   * lines, just count them. Ignore pbc, blank, or comment lines, stop reading
+   * on timestep line, and exit with error for any other line (including a valid
+   * coordinate line as they cannot be inside a structure block)
    */
   while (ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
     line_count++;
     // read line
     int ltype = VtfCheckLineType(file, line_count);
-    if (ltype == ATOM_LINE) { // a)
-      if (strcmp(split[1], "default") == 0) { // 'a[tom] default' line //{{{
+    if (ltype == ATOM_LINE) { //{{{
+      if (strcmp(split[1], "default") == 0) { // 'a[tom] default' line
         if (default_atom != 0 && !warned) { // warn of multiple defaults //{{{
           warned = true; // warn only once
           snprintf(ERROR_MSG, LINE, "multiple 'a[tom] default' lines %s, using"
@@ -1993,41 +1984,116 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
           PrintWarnFile(file, "\0", "\0"); //}}}
         } else { // save line number of the first 'atom default' line
           default_atom = line_count;
-          // save values for the default bead type
-          int *value = VtfAtomLineValues();
-          if (value[0] != -1) { // TODO: should never happen (for now)
-            snprintf(bt_def.Name, BEAD_NAME, "%s", split[value[0]]);
-            bt_def.Name[BEAD_NAME-1] = '\0'; // ensure null-termination
-          }
-          if (value[1] != -1) {
-            bt_def.Mass = atof(split[value[1]]);
-          }
-          if (value[2] != -1) {
-            bt_def.Charge = atof(split[value[2]]);
-          }
-          if (value[3] != -1) {
-            bt_def.Radius = atof(split[value[3]]);
-          }
-        } //}}}
-      } else { // 'a[tom] <id>' line //{{{
+        }
+      } else { // 'a[tom] <id>' line
         int id = atoi(split[1]);
-        // warning - repeated atom line //{{{
-        if (id < Count->Bead && Sys.BeadType[id].Number != 0) {
-          strcpy(ERROR_MSG, "atom defined multiple times; ignoring this line");
-          PrintWarnFileLine(file, line_count);
-          continue; // go to reading the next line
-        } //}}}
         count_atoms++;
         // highest bead index? (corresponds to the number of beads in vsf)
         if (id >= Count->Bead) {
-          Sys.BeadType = realloc(Sys.BeadType, sizeof *Sys.BeadType * (id + 1));
-          Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * (id + 1));
-          for (int i = Count->Bead; i <= id; i++) {
-            InitBeadType(&Sys.BeadType[i]);
-            InitBead(&Sys.Bead[i]);
-          }
           Count->Bead = id + 1; // +1 as bead ids start from 0 in vsf
         }
+        // save values from the 'a[tom] <id>' line
+        int *value = VtfAtomLineValues();
+        // is the bead in a molecule?
+        if (value[5] > -1) {
+          int resid = atoi(split[value[5]]);
+          if (resid > Count->HighestResid) {
+            Count->HighestResid = resid;
+          }
+        }
+      } //}}}
+    } else if (ltype == BOND_LINE) {
+      count_bonds++;
+    } else if (ltype == TIME_LINE || ltype == TIME_LINE_O) {
+      break;
+    } else if (ltype == COOR_LINE || ltype == COOR_LINE_O) {
+      strcpy(ERROR_MSG, "encountered a coordinate-like line"
+                        "inside the structure block ");
+      PrintErrorFileLine(file, line_count);
+      exit(1);
+    } else if (ltype != BLANK_LINE && ltype != COMMENT_LINE &&
+               ltype != PBC_LINE && ltype != PBC_LINE_ANGLES) { // e)
+      // proper error message already established in VtfCheckLineType()
+      PrintErrorFileLine(file, line_count);
+      exit(1);
+    }
+  }
+  fclose(fr); //}}}
+  // error - no default line and too few atom lines //{{{
+  if (default_atom == 0 && count_atoms != Count->Bead) {
+    int undefined = Count->Bead - count_atoms;
+    snprintf(ERROR_MSG, LINE, "not all beads defined ('atom default' line is "
+             "omitted); %s%d%s bead(s) undefined", ErrYellow(), undefined,
+             ErrRed());
+    PrintErrorFile(file, "\0", "\0");
+    exit(1);
+  } //}}}
+  // assume there are as many molecules as resids (which start from 0, hence +1)
+  Count->Molecule = Count->HighestResid + 1;
+  // allocate & initialize structures //{{{
+  Sys.BeadType = realloc(Sys.BeadType, sizeof *Sys.BeadType * Count->Bead);
+  Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
+  Sys.MoleculeType = realloc(Sys.MoleculeType,
+                             sizeof *Sys.MoleculeType * Count->Molecule);
+  Sys.Molecule = realloc(Sys.Molecule, sizeof *Sys.Molecule * Count->Molecule);
+  for (int i = 0; i < Count->Molecule; i++) {
+    InitMoleculeType(&Sys.MoleculeType[i]);
+    InitMolecule(&Sys.Molecule[i]);
+  }
+  for (int i = 0; i < Count->Bead; i++) {
+    InitBeadType(&Sys.BeadType[i]);
+    InitBead(&Sys.Bead[i]);
+  } //}}}
+  // array to save bonds - if there are any //{{{
+  int (*bond)[3] = NULL;
+  if (count_bonds != 0) {
+    bond = calloc(count_bonds, sizeof *bond);
+    bond[0][2] = -1; // no bond types in a vtf file
+  } //}}}
+  // default type - may not be used
+  BEADTYPE bt_def;
+  InitBeadType(&bt_def);
+
+  fr = OpenFile(file, "r");
+  // go through the file again to save atom and bond info //{{{
+  /*
+   * a)tom line: save bead information
+   *   i) save 'atom default' line info into separate bt_def struct
+   *   ii) atom <id> line: save into separate Sys.BeadType & Sys.Bead
+   *   iii) resid keyword: save into separate Sys.MoleculeType & Sys.Molecule
+   * b)ond line: save bonded bead indices into a bond struct for later use
+   */
+  count_bonds = 0;
+  for (int line = 1; line <= line_count; line++) {
+    // read line
+    ReadAndSplitLine(fr, SPL_STR, " \t\n");
+    if (words > 1 && split[0][0] == 'a') { // a)
+      if (line == default_atom) { // 'a[tom] default' line //{{{
+        // save values for the default bead type
+        int *value = VtfAtomLineValues();
+        if (value[0] != -1) { // TODO: should be always true (for now)
+          snprintf(bt_def.Name, BEAD_NAME, "%s", split[value[0]]);
+          bt_def.Name[BEAD_NAME-1] = '\0'; // ensure null-termination
+        }
+        if (value[1] != -1) {
+          bt_def.Mass = atof(split[value[1]]);
+        }
+        if (value[2] != -1) {
+          bt_def.Charge = atof(split[value[2]]);
+        }
+        if (value[3] != -1) {
+          bt_def.Radius = atof(split[value[3]]);
+        }
+        //}}}
+      } else if (split[1][0] != 'd') { // 'a[tom] <id>' line //{{{
+        int id = atoi(split[1]);
+        // warning - repeated atom line //{{{
+        if (id < Count->Bead && Sys.BeadType[id].Number != 0) {
+          count_atoms--; // this counted lines, not checked ids
+          strcpy(ERROR_MSG, "atom defined multiple times; ignoring this line");
+          PrintWarnFileLine(file, line);
+          continue; // go to reading the next line
+        } //}}}
         // save values from the 'a[tom] <id>' line
         int *value = VtfAtomLineValues();
         if (value[0] != -1) { // TODO: should never happen (for now)
@@ -2048,19 +2114,6 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
         // is the bead in a molecule?
         if (value[5] > -1) {
           int resid = atoi(split[value[5]]);
-          // highest molecule id?
-          if (resid > Count->HighestResid) {
-            Sys.MoleculeType = realloc(Sys.MoleculeType,
-                                       sizeof(MOLECULETYPE) * (resid + 1));
-            Sys.Molecule = realloc(Sys.Molecule,
-                                   sizeof(MOLECULE) * (resid + 1));
-            for (int i = (Count->HighestResid + 1); i <= resid; i++) {
-              InitMoleculeType(&Sys.MoleculeType[i]);
-              InitMolecule(&Sys.Molecule[i]);
-            }
-            Count->HighestResid = resid; // goes from 0
-            Count->Molecule = resid + 1;
-          }
           MOLECULETYPE *mt_resid = &Sys.MoleculeType[resid];
           if (mt_resid->Number == 0) { // new molecule type
             if (value[4] == -1) {
@@ -2091,9 +2144,8 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
           Sys.Bead[id].Molecule = resid;
         }
       } //}}}
-    } else if (ltype == BOND_LINE) { // b) //{{{
-      bond = realloc(bond, sizeof *bond * (count_bonds + 1));
-      long val;
+    } else if (words > 1 && split[0][0] == 'b') { // b)
+      long val; //{{{
       if (words == 2) { // case 'bond <id>:<id>'
         char *index[SPL_STR];
         SplitLine(SPL_STR, index, split[1], ":");
@@ -2102,6 +2154,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
         IsIntegerNumber(index[1], &val);
         bond[count_bonds][1] = val;
       } else { // case 'bond <id>: <id>'
+        // IsIntegerNumber() ignores the trailing ':'
         IsIntegerNumber(split[1], &val);
         bond[count_bonds][0] = val;
         IsIntegerNumber(split[2], &val);
@@ -2112,34 +2165,13 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
       if (bond[count_bonds][0] > bond[count_bonds][1]) {
         SwapInt(&bond[count_bonds][0], &bond[count_bonds][1]);
       }
-      count_bonds++;                                         //}}}
-    } else if (ltype == TIME_LINE || ltype == TIME_LINE_O) { // c)
-      break;
-    } else if (ltype == COOR_LINE || ltype == COOR_LINE_O) { // d)
-      strcpy(ERROR_MSG, "encountered a coordinate-like line"
-                        "inside the structure block ");
-      PrintErrorFileLine(file, line_count);
-      exit(1);
-    } else if (ltype != BLANK_LINE && ltype != COMMENT_LINE &&
-               ltype != PBC_LINE && ltype != PBC_LINE_ANGLES) { // e)
-      // proper error message already established in VtfCheckLineType()
-      PrintErrorFileLine(file, line_count);
-      exit(1);
+      count_bonds++; //}}}
     }
   } //}}}
   fclose(fr);
   Sys.BeadCoor = realloc(Sys.BeadCoor, Count->Bead * sizeof *Sys.BeadCoor);
   Count->BeadType = Count->Bead;
   Count->MoleculeType = Count->Molecule;
-  // error - no default line and too few atom lines //{{{
-  if (default_atom == 0 && count_atoms != Count->Bead) {
-    int undefined = Count->Bead - count_atoms;
-    snprintf(ERROR_MSG, LINE, "not all beads defined ('atom default' line is "
-             "omitted); %s%d%s bead(s) undefined", ErrYellow(), undefined,
-             ErrRed());
-    PrintErrorFile(file, "\0", "\0");
-    exit(1);
-  } //}}}
   // assign atom default to default beads & count bonded/unbonded beads //{{{
   // find first unused bead type and make it the default
   int def = -1;
@@ -2171,7 +2203,9 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   } //}}}
   CopyMoleculeTypeBeadsToMoleculeBeads(&Sys);
   FillMoleculeTypeBonds(&Sys, bond, count_bonds);
-  free(bond);
+  if (count_bonds != 0) {
+    free(bond);
+  }
   RemoveExtraTypes(&Sys);
   MergeBeadTypes(&Sys, detailed);
   MergeMoleculeTypes(&Sys);
@@ -2455,7 +2489,6 @@ static bool VtfCheckBondLine() { //{{{
   }
   // more than two strings - assume '<int>: <int>' and test it
   if (words > 2) {
-    split[1][strlen(split[1]) - 1] = '\0';
     if (!IsIntegerNumber(split[1], &val_i) || val_i < 0 ||
         !IsIntegerNumber(split[2], &val_i) || val_i < 0) {
       strcpy(ERROR_MSG, "bond line: only 'b[ond] <int>:<int>' or "
