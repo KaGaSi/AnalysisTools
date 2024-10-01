@@ -2532,6 +2532,13 @@ void FinishSystem(SYSTEM *System) {
   FillBondedUnbonded(System);
   CountBondAngleDihedralImproper(System);
   FillInCoor(System);
+  if (System->Box.transform[0][1] != 0 ||
+      System->Box.transform[0][2] != 0 ||
+      System->Box.transform[1][2] != 0) {
+    CalculateBoxData(&System->Box, 1);
+  } else {
+    CalculateBoxData(&System->Box, 0);
+  }
   CheckSystem(*System, "\0");
 } //}}}
 
