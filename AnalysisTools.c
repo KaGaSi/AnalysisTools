@@ -204,9 +204,9 @@ static void RemovePBCMolecules(SYSTEM *System) {
         count_unconnected = 0;
     // 1)
     for (int i = 0; i < mt->nBonds; i++) {
-      int id1 = mt->Bond[i][0], id2 = mt->Bond[i][1];
-      BEAD *b_1 = &System->Bead[mol->Bead[id1]],
-           *b_2 = &System->Bead[mol->Bead[id2]];
+      int id[2] = {mol->Bead[mt->Bond[i][0]], mol->Bead[mt->Bond[i][1]]};
+      BEAD *b_1 = &System->Bead[mol->Bead[id[0]]],
+           *b_2 = &System->Bead[mol->Bead[id[1]]];
       if (b_1->InTimestep && b_2->InTimestep) {
         unconnected[count_unconnected] = i;
         count_unconnected++;
@@ -262,25 +262,24 @@ static void RemovePBCMolecules(SYSTEM *System) {
       int first = mt->Bond[connected[0]][0];
       moved[first] = true;
       for (int i = 0; i < count_connected; i++) {
-        int bond = connected[i];
-        int id1 = mt->Bond[bond][0],
-            id2 = mt->Bond[bond][1];
-        BEAD *b_1 = &System->Bead[mol->Bead[id1]],
-             *b_2 = &System->Bead[mol->Bead[id2]];
-        // printf("%2d %2d-%2d\n", bond, id1, id2);
+        int bond = connected[i],
+            id[2] = {mol->Bead[mt->Bond[bond][0]],
+                     mol->Bead[mt->Bond[bond][1]]};
+        BEAD *b_1 = &System->Bead[mol->Bead[id[0]]],
+             *b_2 = &System->Bead[mol->Bead[id[1]]];
         double dist[3];
-        if (!moved[id1] && moved[id2]) {
+        if (!moved[id[0]] && moved[id[1]]) {
           Distance(b_2->Position, b_1->Position, box->OrthoLength, dist);
           for (int dd = 0; dd < 3; dd++) {
             b_1->Position[dd] = b_2->Position[dd] - dist[dd];
           }
-          moved[id1] = true;
-        } else if (moved[id1] && !moved[id2]) {
+          moved[id[0]] = true;
+        } else if (moved[id[0]] && !moved[id[1]]) {
           Distance(b_1->Position, b_2->Position, box->OrthoLength, dist);
           for (int dd = 0; dd < 3; dd++) {
             b_2->Position[dd] = b_1->Position[dd] - dist[dd];
           }
-          moved[id2] = true;
+          moved[id[1]] = true;
         }
       }
       // TODO: CENTRE OF MASS
@@ -342,9 +341,9 @@ static void RemovePBCMolecules_old(SYSTEM *System) {
         count_connected = 0, count_unconnected = 0;
     // 1)
     for (int i = 0; i < mt->nBonds; i++) {
-      int id1 = mt->Bond[i][0], id2 = mt->Bond[i][1];
-      BEAD *b_1 = &System->Bead[mol->Bead[id1]],
-           *b_2 = &System->Bead[mol->Bead[id2]];
+      int id[2] = {mol->Bead[mt->Bond[i][0]], mol->Bead[mt->Bond[i][1]]};
+      BEAD *b_1 = &System->Bead[mol->Bead[id[0]]],
+           *b_2 = &System->Bead[mol->Bead[id[1]]];
       if (b_1->InTimestep && b_2->InTimestep) {
         if (count_connected == 0) {
           connected[count_connected] = i;
@@ -400,12 +399,9 @@ static void RemovePBCMolecules_old(SYSTEM *System) {
                mt->Name, ErrCyan(), ErrYellow(), mol->Index, ErrCyan());
       PrintWarning();
       int bond = unconnected[0];
-      int id1 = mt->Bond[bond][0],
-          id2 = mt->Bond[bond][1];
-      id1 = mol->Bead[id1];
-      id2 = mol->Bead[id2];
+      int id[2] = {mol->Bead[mt->Bond[bond][0]], mol->Bead[mt->Bond[bond][1]]};
       printf("%d unconnected (first: %d %d-%d)\n",
-             count_unconnected, bond, id1, id2);
+             count_unconnected, bond, id[0], id[1]);
       free(connected);
       free(unconnected);
       continue;
@@ -416,24 +412,22 @@ static void RemovePBCMolecules_old(SYSTEM *System) {
     moved[first] = true;
     for (int i = 0; i < count_connected; i++) {
       int bond = connected[i];
-      int id1 = mt->Bond[bond][0],
-          id2 = mt->Bond[bond][1];
-      BEAD *b_1 = &System->Bead[mol->Bead[id1]],
-           *b_2 = &System->Bead[mol->Bead[id2]];
-      // printf("%2d %2d-%2d\n", bond, id1, id2);
+      int id[2] = {mol->Bead[mt->Bond[bond][0]], mol->Bead[mt->Bond[bond][1]]};
+      BEAD *b_1 = &System->Bead[mol->Bead[id[0]]],
+           *b_2 = &System->Bead[mol->Bead[id[1]]];
       double dist[3];
-      if (!moved[id1] && moved[id2]) {
+      if (!moved[id[0]] && moved[id[1]]) {
         Distance(b_2->Position, b_1->Position, box->OrthoLength, dist);
         for (int dd = 0; dd < 3; dd++) {
           b_1->Position[dd] = b_2->Position[dd] - dist[dd];
         }
-        moved[id1] = true;
-      } else if (moved[id1] && !moved[id2]) {
+        moved[id[0]] = true;
+      } else if (moved[id[0]] && !moved[id[1]]) {
         Distance(b_1->Position, b_2->Position, box->OrthoLength, dist);
         for (int dd = 0; dd < 3; dd++) {
           b_2->Position[dd] = b_1->Position[dd] - dist[dd];
         }
-        moved[id2] = true;
+        moved[id[1]] = true;
       }
     }
     // TODO CENTRE OF MASS
@@ -485,7 +479,7 @@ static void RestorePBC(SYSTEM *System) {
  * (Bond, Angle, etc.), while elements n..2*n-1 contain bead indices for in
  * Bead.
  */
-int *BondIndices(SYSTEM System, int mol, int bond) { //{{{
+extern inline int *BondIndices(SYSTEM System, int mol, int bond) { //{{{
   static int index[4]; // first are 'real' ids, then the intramolecular ones
   int n = 2, type = System.Molecule[mol].Type;
   // intramolecular id
@@ -958,40 +952,6 @@ bool InputCoorStruct(int argc, char *argv[], SYS_FILES *f) {
   }
   return true;
 } //}}}
-// // identify input coordinate and structure files //{{{
-// bool InputCoorStruct(int argc, char *argv[], char coor_file[], int *coor_type,
-//                      char struct_file[], int *struct_type) {
-//   // input structure file (-i option)
-//   if (FileOption(argc, argv, "-i", struct_file)) {
-//     *struct_type = StructureFileType(struct_file);
-//   }
-//   *coor_type = CoordinateFileType(coor_file);
-//   // set default structure file if -i option not used
-//   if (struct_file[0] == '\0') {
-//     if (*coor_type == VCF_FILE) { // use vcf file with .vsf ending
-//       int last = -1;
-//       for (int i = 0; i < strlen(coor_file); i++) {
-//         if (coor_file[i] == '.') {
-//           last = i;
-//         }
-//       }
-//       strncpy(struct_file, coor_file, last);
-//       strcat(struct_file, ".vsf");
-//       *struct_type = VSF_FILE;
-//     } else if (*coor_type == VTF_FILE ||   //
-//                *coor_type == XYZ_FILE ||   // use both as a coordinate and
-//                *coor_type == LDATA_FILE || // a structure files
-//                *coor_type == LTRJ_FILE) {  //
-//       strcpy(struct_file, coor_file);
-//       *struct_type = *coor_type;
-//     } else {
-//       strcpy(ERROR_MSG, "missing structure file; should never happen!");
-//       PrintError();
-//       exit(1);
-//     }
-//   }
-//   return true;
-// } //}}}
 int StructureFileType(char name[]) { //{{{
   // a) check for FIELD file
   if (strcasecmp(name, "FIELD") == 0) {
@@ -1387,153 +1347,6 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
   } //}}}
 } //}}}
 
-// // RemovePBCAggregates() //{{{
-// void RemovePBCAggregates(double distance, AGGREGATE *Aggregate,
-//                          SYSTEM *System) {
-//   COUNT *Count = &System->Count;
-//   double (*box)[3] = &System->Box.Length;
-//   // helper array indicating whether molecules already moved
-//   bool *moved = malloc(sizeof *moved * Count->Molecule);
-//   // go through aggregates larger than As=1, knitting together //{{{
-//   for (int i = 0; i < Count->Aggregate; i++) {
-
-//     // negate moved array, but the first molecule is not to move
-//     // for (int j = 1; j < Count->Molecule; j++) {
-//     //   moved[j] = false;
-//     // }
-//     InitBoolArray(moved, Count->Molecule, false);
-//     moved[0] = true;
-
-//     // TODO: what about a kindo of linked list instead of nested loop?
-//     //       first, moved[i=0]=true; then go over j=1..n mols until j gets
-//     //       moved, then i=j and go back to going over j? would result in one
-//     //       loop many times, but it should be less than two full loops, right?
-//     //       Possibly also creating another array connecting joined molecules
-//     //       with their ids to avoid going over 1..n for j but rather over the
-//     //       list of un-moved mols...
-
-//     bool done = false;
-//     int test = 0; // if too many loops, just exit with error
-//     while (!done && test < 1000) {
-
-//       // go through all molecule pairs
-//       for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-//         // TODO: what about if (moved[j]) here as opposed to down for speed-up?
-//         for (int k = 0; k < Aggregate[i].nMolecules; k++) {
-
-//           // use only moved molecule 'mol1' and unmoved molecule 'mol2'
-//           // TODO: what about else if (!moved[j] && moved[k]) for speed-up?
-//           if (moved[j] && !moved[k]) { // automatically follows that j != k
-//             int mol1 = Aggregate[i].Molecule[j],
-//                 mol2 = Aggregate[i].Molecule[k];
-//             MOLECULE *molec1 = &System->Molecule[mol1],
-//                      *molec2 = &System->Molecule[mol2];
-//             MOLECULETYPE *mt1 = &System->MoleculeType[molec1->Type],
-//                          *mt2 = &System->MoleculeType[molec2->Type];
-
-//             // go through all bead pairs in the two molecules
-//             for (int l = 0; l < mt1->nBeads; l++) {
-//               for (int m = 0; m < mt2->nBeads; m++) {
-//                 int bead1 = System->Molecule[mol1].Bead[l],
-//                     bead2 = System->Molecule[mol2].Bead[m];
-//                 BEAD *b1 = &System->Bead[bead1],
-//                      *b2 = &System->Bead[bead2];
-//                 /*
-//                  * Use only bead types that were used to assign molecules to
-//                  * aggregates
-//                  */
-//                 if (System->BeadType[b1->Type].Flag &&
-//                     System->BeadType[b2->Type].Flag) {
-
-//                   // calculate distance between 'bead1' and 'bead2'
-//                   double dist[3];
-//                   Distance(b1->Position, b2->Position, *box, dist);
-//                   dist[0] = VectorLength(dist);
-
-//                   // move 'mol2' (or 'k') if 'bead1' and 'bead2' are in contact
-//                   if (dist[0] <= distance) {
-//                     // distance vector between 'bead1' and 'bead2'
-//                     for (int dd = 0; dd < 3; dd++) {
-//                       dist[dd] = b1->Position[dd] - b2->Position[dd];
-//                     }
-//                     /*
-//                      * if 'bead1' and 'bead2' are too far,
-//                      * move 'mol2' in x-direction
-//                      */
-//                     //{{{
-//                     for (int dd = 0; dd < 3; dd++) {
-//                       while (dist[dd] > ((*box)[dd] / 2)) {
-//                         for (int n = 0; n < mt2->nBeads; n++) {
-//                           int id = molec2->Bead[n];
-//                           System->Bead[id].Position[dd] += (*box)[dd];
-//                         }
-//                         dist[dd] = b1->Position[dd] - b2->Position[dd];
-//                       }
-//                       while (dist[dd] <= -((*box)[dd] / 2)) {
-//                         for (int n = 0; n < mt2->nBeads; n++) {
-//                           int id = molec2->Bead[n];
-//                           System->Bead[id].Position[dd] -= (*box)[dd];
-//                         }
-//                         dist[dd] = b1->Position[dd] - b2->Position[dd];
-//                       }
-//                     } //}}}
-//                     moved[k] = true;
-//                     // skip remainder of 'mol2' (or 'k')
-//                     break;
-//                   }
-//                 }
-//               }
-//               // if molekule 'k' (or 'mol2') has been moved, skip also remainder of molecules 'mol1'
-//               if (moved[k]) {
-//                 break;
-//               }
-//             }
-//           }
-//         }
-//       }
-
-//       // check if all molecules have moved //{{{
-//       done = true;
-//       for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-//         if (!moved[j]) {
-//           done = false;
-//           break;
-//         }
-//       } //}}}
-//       test++;
-//     }
-//     // if (test > 1) {
-//     //   printf("test: %d\n", test);
-//     // }
-//     // // TODO: the test? Do I need 1000 tries and whatnot?
-//     // if (test == 1000) {
-//     //   strcpy(ERROR_MSG, "unable to 'join' aggregate");
-//     //   PrintWarning();
-//     // }
-//   }
-//   free(moved); //}}}
-//   // put aggregates' centre of mass into the simulation box //{{{
-//   for (int i = 0; i < Count->Aggregate; i++) {
-//     double com[3];
-//     CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead, *System, com);
-//     // by how many BoxLength's should com by moved?
-//     // for distant aggregates - it shouldn't happen, but better safe than sorry
-//     int move[3];
-//     for (int dd = 0; dd < 3; dd++) {
-//       move[dd] = com[dd] / (*box)[dd];
-//       if (com[dd] < 0) {
-//         move[dd]--;
-//       }
-//     }
-//     // move all the beads
-//     for (int j = 0; j < Aggregate[i].nBeads; j++) {
-//       int bead = Aggregate[i].Bead[j];
-//       for (int dd = 0; dd < 3; dd++) {
-//         System->Bead[bead].Position[dd] -= move[dd] * (*box)[dd];
-//       }
-//     }
-//   } //}}}
-// } //}}}
 // RemovePBCAggregates() //{{{
 void RemovePBCAggregates(double distance, AGGREGATE *Aggregate,
                          SYSTEM *System) {
@@ -1593,7 +1406,7 @@ void RemovePBCAggregates(double distance, AGGREGATE *Aggregate,
               // calculate distance between 'bead1' and 'bead2'
               double dist[3];
               Distance(b1->Position, b2->Position, *box, dist);
-              dist[0] = VectorLength(dist);
+              dist[0] = VECTORLENGTH(dist);
               // move 'mol2' (or 'k') if 'bead1' and 'bead2' are in contact
               if (dist[0] <= distance) {
                 // distance vector between 'bead1' and 'bead2'

@@ -265,12 +265,14 @@ int main(int argc, char *argv[]) {
       WrapJoinCoordinates(&System, true, opt->join);
       // calculate bond lengths //{{{
       // go through all molecules
+      // TODO: make into for (mtype); for (mtype.index)
       for (int i = 0; i < Count->Molecule; i++) {
         MOLECULE *mol_i = &System.Molecule[i];
         MOLECULETYPE *mt_i = &System.MoleculeType[mol_i->Type];
         if (opt->mt[mol_i->Type]) { // use only specified molecule types
           for (int j = 0; j < mt_i->nBonds; j++) {
             // bead ids in the bond
+            // TODO: use BondIndices
             int id1 = mol_i->Bead[mt_i->Bond[j][0]],
                 id2 = mol_i->Bead[mt_i->Bond[j][1]];
             BEAD *b_1 = &System.Bead[id1],
@@ -280,7 +282,7 @@ int main(int argc, char *argv[]) {
             for (int dd = 0; dd < 3; dd++) {
               bond[dd] = b_1->Position[dd] - b_2->Position[dd];
             }
-            bond[0] = VectorLength(bond);
+            bond[0] = VECTORLENGTH(bond);
             // warn if bond is too long //{{{
             if (opt->warn != HIGHNUM && bond[0] > opt->warn) {
               snprintf(ERROR_MSG, LINE, "-w option; too long a bond between "
@@ -344,7 +346,7 @@ int main(int argc, char *argv[]) {
               for (int dd = 0; dd < 3; dd++) {
                 dist[dd] = b_1->Position[dd] - b_2->Position[dd];
               }
-              dist[0] = VectorLength(dist);
+              dist[0] = VECTORLENGTH(dist);
 
               // distance mins & maxes & averages //{{{
               int *bin_id = bins_id3D(mol_i->Type, j / 2, arr_d);

@@ -276,12 +276,17 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
   // print bonds //{{{
   putc('\n', fw);
   for (int i = 0; i < Count->Molecule; i++) {
-    int mtype = System.Molecule[i].Type;
-    if (System.MoleculeType[mtype].nBonds > 0) {
+    MOLECULE *mol = &System.Molecule[i];
+    MOLECULETYPE *mt = &System.MoleculeType[mol->Type];
+    if (mt->nBonds > 0) {
       fprintf(fw, "# resid %d\n", i + 1); // in VMD resid start with 1
-      for (int j = 0; j < System.MoleculeType[mtype].nBonds; j++) {
-        int *bead = BondIndices(System, i, j);
-        fprintf(fw, "bond %6d: %6d\n", bead[0], bead[1]);
+      for (int j = 0; j < mt->nBonds; j++) {
+        int id[2];
+        for (int aa = 0; aa < 2; aa++) {
+          id[aa] = mt->Bond[j][aa];
+          id[aa] = mol->Bead[id[aa]];
+        }
+        fprintf(fw, "bond %6d: %6d\n", id[0], id[1]);
       }
     }
   } //}}}
@@ -499,9 +504,13 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass,
       MOLECULETYPE *mt_i = &System.MoleculeType[mtype];
       for (int j = 0; j < mt_i->nBonds; j++) {
         count++;
-        int *val = BondIndices(System, i, j);
-        if (System.Bead[val[0]].InTimestep &&
-            System.Bead[val[1]].InTimestep) {
+        int id[2];
+        for (int aa = 0; aa < 2; aa++) {
+          id[aa] = System.MoleculeType[mtype].Bond[j][aa];
+          id[aa] = System.Molecule[i].Bead[id[aa]];
+        }
+        if (System.Bead[id[0]].InTimestep &&
+            System.Bead[id[1]].InTimestep) {
           fprintf(fw, "%7d", count);
           // if (Count->BondType > 0) {
           if (mt_i->Bond[j][2] != -1 ) {
@@ -509,7 +518,7 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass,
           } else {
             fprintf(fw, "   ???");
           }
-          fprintf(fw, " %5d %5d\n", val[0] + 1, val[1] + 1);
+          fprintf(fw, " %5d %5d\n", id[0] + 1, id[1] + 1);
         }
       }
     }
@@ -523,17 +532,21 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass,
       MOLECULETYPE *mt_i = &System.MoleculeType[mtype];
       for (int j = 0; j < mt_i->nAngles; j++) {
         count++;
-        int *val = AngleIndices(System, i, j);
-        if (System.Bead[val[0]].InTimestep &&
-            System.Bead[val[1]].InTimestep &&
-            System.Bead[val[2]].InTimestep) {
+        int id[3];
+        for (int aa = 0; aa < 3; aa++) {
+          id[aa] = System.MoleculeType[mtype].Angle[j][aa];
+          id[aa] = System.Molecule[i].Bead[id[aa]];
+        }
+        if (System.Bead[id[0]].InTimestep &&
+            System.Bead[id[1]].InTimestep &&
+            System.Bead[id[2]].InTimestep) {
           fprintf(fw, "%7d", count);
           if (Count->AngleType > 0) {
             fprintf(fw, " %6d", mt_i->Angle[j][3] + 1);
           } else {
             fprintf(fw, "   ???");
           }
-          fprintf(fw, " %5d %5d %5d\n", val[0] + 1, val[1] + 1, val[2] + 1);
+          fprintf(fw, " %5d %5d %5d\n", id[0] + 1, id[1] + 1, id[2] + 1);
         }
       }
     }
@@ -548,19 +561,23 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass,
       MOLECULETYPE *mt_i = &System.MoleculeType[mtype];
       for (int j = 0; j < mt_i->nDihedrals; j++) {
         count++;
-        int *val = DihedralIndices(System, i, j);
-        if (System.Bead[val[0]].InTimestep &&
-            System.Bead[val[1]].InTimestep &&
-            System.Bead[val[2]].InTimestep &&
-            System.Bead[val[3]].InTimestep) {
+        int id[4];
+        for (int aa = 0; aa < 4; aa++) {
+          id[aa] = System.MoleculeType[mtype].Dihedral[j][aa];
+          id[aa] = System.Molecule[i].Bead[id[aa]];
+        }
+        if (System.Bead[id[0]].InTimestep &&
+            System.Bead[id[1]].InTimestep &&
+            System.Bead[id[2]].InTimestep &&
+            System.Bead[id[3]].InTimestep) {
           fprintf(fw, "%7d", count);
           if (Count->DihedralType > 0) {
             fprintf(fw, " %6d", mt_i->Dihedral[j][4] + 1);
           } else {
             fprintf(fw, "   ???");
           }
-          fprintf(fw, " %5d %5d %5d %5d\n", val[0] + 1, val[1] + 1, val[2] + 1,
-                  val[3] + 1);
+          fprintf(fw, " %5d %5d %5d %5d\n",
+                  id[0] + 1, id[1] + 1, id[2] + 1, id[3] + 1);
         }
       }
     }
@@ -574,21 +591,23 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass,
       MOLECULETYPE *mt_i = &System.MoleculeType[mtype];
       for (int j = 0; j < mt_i->nImpropers; j++) {
         count++;
-        int *val = ImproperIndices(System, i, j);
-        if (System.Bead[val[0]].InTimestep &&
-            System.Bead[val[1]].InTimestep &&
-            System.Bead[val[2]].InTimestep &&
-            System.Bead[val[3]].InTimestep) {
+        int id[4];
+        for (int aa = 0; aa < 4; aa++) {
+          id[aa] = System.MoleculeType[mtype].Improper[j][aa];
+          id[aa] = System.Molecule[i].Bead[id[aa]];
+        }
+        if (System.Bead[id[0]].InTimestep &&
+            System.Bead[id[1]].InTimestep &&
+            System.Bead[id[2]].InTimestep &&
+            System.Bead[id[3]].InTimestep) {
           fprintf(fw, "%7d", count);
           if (Count->DihedralType > 0) {
-            fprintf(fw, " %6d", mt_i->Dihedral[j][4] + 1);
+            fprintf(fw, " %6d", mt_i->Improper[j][4] + 1);
           } else {
             fprintf(fw, "   ???");
           }
-          fprintf(fw, " %5d %5d %5d %5d\n", val[0] + 1,
-                                            val[1] + 1,
-                                            val[2] + 1,
-                                            val[3] + 1);
+          fprintf(fw, " %5d %5d %5d %5d\n",
+                  id[0] + 1, id[1] + 1, id[2] + 1, id[3] + 1);
         }
       }
     }

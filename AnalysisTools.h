@@ -32,6 +32,12 @@ void GeomCentre(int n, int *list, BEAD *Bead, double gc[3]);
 void ToFractionalCoor(SYSTEM *System);
 void FromFractionalCoor(SYSTEM *System);
 
+// get bead indices for bonds/angles/dihedrals (with some error checking)
+int *BondIndices(SYSTEM System, int mol, int bond);
+int *AngleIndices(SYSTEM System, int mol, int angle);
+int *DihedralIndices(SYSTEM System, int mol, int dihed);
+int *ImproperIndices(SYSTEM System, int mol, int dihed);
+
 // identify input coordinate and structure files
 // bool InputCoorStruct(int argc, char *argv[], char coor[], int *coor_type,
 //                      char struc[], int *struc_type);

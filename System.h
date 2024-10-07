@@ -27,12 +27,6 @@ bool CalculateBoxData(BOX *Box, int mode);
 void MergeBeadTypes(SYSTEM *System, bool detailed);
 void MergeMoleculeTypes(SYSTEM *System);
 
-// get bead indices for bonds/angles/dihedrals (with some error checking)
-int *BondIndices(SYSTEM System, int mol, int bond);
-int *AngleIndices(SYSTEM System, int mol, int angle);
-int *DihedralIndices(SYSTEM System, int mol, int dihed);
-int *ImproperIndices(SYSTEM System, int mol, int dihed);
-
 // Appends # to bead/molecule types with the same name
 void RenameBeadTypes(SYSTEM *System);
 void RenameMoleculeTypes(SYSTEM *System);

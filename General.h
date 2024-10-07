@@ -17,6 +17,8 @@
 #define SPL_LEN 64 // maximum length of split strings
 #define SQR(x) ((x)*(x)) // macro for algebraic square
 #define CUBE(x) ((x)*(x)*(x)) // macro for algebraic cube
+#define VECTORLENGTH(x) (sqrt(SQR(x[0])+SQR(x[1])+SQR(x[2])))
+#define ID2D(x,y,size) ((x)*(size)[0]+(y))
 
 #define BLACK   "\033[1;30m"
 #define RED     "\033[1;31m"

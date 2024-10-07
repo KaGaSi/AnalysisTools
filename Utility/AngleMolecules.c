@@ -190,12 +190,14 @@ int main(int argc, char *argv[]) {
       WrapJoinCoordinates(&System, true, opt->join);
       // calculate bond lengths //{{{
       // go through all molecules
+      // TODO: make into for (mtype); for (mtype.index)
       for (int i = 0; i < Count->Molecule; i++) {
         MOLECULE *mol_i = &System.Molecule[i];
         MOLECULETYPE *mt_i = &System.MoleculeType[mol_i->Type];
         if (opt->mt[mol_i->Type]) { // use only specified molecule types
           for (int j = 0; j < mt_i->nAngles; j++) {
             // bead ids in the bond
+            // TODO: use AngleIndices
             int id1 = mol_i->Bead[mt_i->Angle[j][0]],
                 id2 = mol_i->Bead[mt_i->Angle[j][1]],
                 id3 = mol_i->Bead[mt_i->Angle[j][2]];
@@ -210,8 +212,8 @@ int main(int argc, char *argv[]) {
             }
             // calculate angle between the two vectors
             double size[2];
-            size[0] = VectorLength(u);
-            size[1] = VectorLength(v);
+            size[0] = VECTORLENGTH(u);
+            size[1] = VECTORLENGTH(v);
             double scalar = u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
             double ang = acos(scalar / (size[0] * size[1])); // in rad
             ang *= 180 / PI; // in degrees

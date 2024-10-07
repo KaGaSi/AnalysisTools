@@ -1375,9 +1375,9 @@ void PruneBondTypes(SYSTEM S_old, SYSTEM *System) { //{{{
   Count->BondType = 0;
   int *type_old_to_new = calloc(Count_old->BondType, sizeof *type_old_to_new);
   for (int i = 0; i < Count->MoleculeType; i++) {
-    MOLECULETYPE *mt_i = &System->MoleculeType[i];
-    for (int j = 0; j < mt_i->nBonds; j++) {
-      int old_tbond = mt_i->Bond[j][2];
+    MOLECULETYPE *mt = &System->MoleculeType[i];
+    for (int j = 0; j < mt->nBonds; j++) {
+      int old_tbond = mt->Bond[j][2];
       if (old_tbond != -1) {
         bool new = true;
         PARAMS *tbond = &S_old.BondType[old_tbond];
@@ -1401,13 +1401,13 @@ void PruneBondTypes(SYSTEM S_old, SYSTEM *System) { //{{{
     }
   }
   for (int i = 0; i < Count->MoleculeType; i++) {
-    MOLECULETYPE *mt_i = &System->MoleculeType[i];
-    for (int j = 0; j < mt_i->nBonds; j++) {
-      int old_tbond = mt_i->Bond[j][2];
+    MOLECULETYPE *mt = &System->MoleculeType[i];
+    for (int j = 0; j < mt->nBonds; j++) {
+      int old_tbond = mt->Bond[j][2];
       if (old_tbond != -1) {
-        mt_i->Bond[j][2] = type_old_to_new[old_tbond];
+        mt->Bond[j][2] = type_old_to_new[old_tbond];
       } else {
-        mt_i->Bond[j][2] = -1;
+        mt->Bond[j][2] = -1;
       }
     }
   }
@@ -1690,13 +1690,11 @@ void PruneSystem(SYSTEM *System) { //{{{
       if (mt_old->nBonds > 0) {
         mt_old_new.Bond = malloc(sizeof *mt_old_new.Bond * mt_old->nBonds);
         for (int j = 0; j < mt_old->nBonds; j++) {
-          int id1 = mt_old->Bond[j][0],
-              id2 = mt_old->Bond[j][1];
-          id1 = b_old_to_old_new[id1];
-          id2 = b_old_to_old_new[id2];
-          if (id1 != -1 && id2 != -1) {
-            mt_old_new.Bond[count][0] = id1;
-            mt_old_new.Bond[count][1] = id2;
+          int id[2] = {b_old_to_old_new[mt_old->Bond[j][0]],
+                       b_old_to_old_new[mt_old->Bond[j][1]]};
+          if (id[0] != -1 && id[1] != -1) {
+            mt_old_new.Bond[count][0] = id[0];
+            mt_old_new.Bond[count][1] = id[1];
             mt_old_new.Bond[count][2] = mt_old->Bond[j][2];
             count++;
           }
@@ -1821,34 +1819,52 @@ void PruneSystem(SYSTEM *System) { //{{{
       } else { // no, it isn't; create a new one
         int new_new_type = Count->MoleculeType,
             c_bond = 0, c_angle = 0, c_dihedral = 0, c_improper = 0;
+        int mtype = S_old.Molecule[i].Type, id[10];
         // count bonds in the pruned molecule type //{{{
         for (int j = 0; j < mt_old->nBonds; j++) {
-          int *id = BondIndices(S_old, i, j);
+          for (int aa = 0; aa < 2; aa++) {
+            id[aa] = S_old.MoleculeType[mtype].Bond[j][aa];
+            id[aa] = S_old.Molecule[i].Bead[id[aa]];
+          }
           if (S_old.Bead[id[0]].InTimestep && S_old.Bead[id[1]].InTimestep) {
             c_bond++;
           }
         } //}}}
         // count angles in the pruned molecule type //{{{
         for (int j = 0; j < mt_old->nAngles; j++) {
-          int *id = AngleIndices(S_old, i, j);
-          if (S_old.Bead[id[0]].InTimestep && S_old.Bead[id[1]].InTimestep &&
+          for (int aa = 0; aa < 3; aa++) {
+            id[aa] = S_old.MoleculeType[mtype].Angle[j][aa];
+            id[aa] = S_old.Molecule[i].Bead[id[aa]];
+          }
+          if (S_old.Bead[id[0]].InTimestep &&
+              S_old.Bead[id[1]].InTimestep &&
               S_old.Bead[id[2]].InTimestep) {
             c_angle++;
           }
         } //}}}
         // count dihedrals in the pruned molecule type //{{{
         for (int j = 0; j < mt_old->nDihedrals; j++) {
-          int *id = DihedralIndices(S_old, i, j);
-          if (S_old.Bead[id[0]].InTimestep && S_old.Bead[id[1]].InTimestep &&
-              S_old.Bead[id[2]].InTimestep && S_old.Bead[id[3]].InTimestep) {
+          for (int aa = 0; aa < 4; aa++) {
+            id[aa] = S_old.MoleculeType[mtype].Dihedral[j][aa];
+            id[aa] = S_old.Molecule[i].Bead[id[aa]];
+          }
+          if (S_old.Bead[id[0]].InTimestep &&
+              S_old.Bead[id[1]].InTimestep &&
+              S_old.Bead[id[2]].InTimestep &&
+              S_old.Bead[id[3]].InTimestep) {
             c_dihedral++;
           }
         } //}}}
         // count impropers in the pruned molecule type //{{{
         for (int j = 0; j < mt_old->nImpropers; j++) {
-          int *id = ImproperIndices(S_old, i, j);
-          if (S_old.Bead[id[0]].InTimestep && S_old.Bead[id[1]].InTimestep &&
-              S_old.Bead[id[2]].InTimestep && S_old.Bead[id[3]].InTimestep) {
+          for (int aa = 0; aa < 4; aa++) {
+            id[aa] = S_old.MoleculeType[mtype].Improper[j][aa];
+            id[aa] = S_old.Molecule[i].Bead[id[aa]];
+          }
+          if (S_old.Bead[id[0]].InTimestep &&
+              S_old.Bead[id[1]].InTimestep &&
+              S_old.Bead[id[2]].InTimestep &&
+              S_old.Bead[id[3]].InTimestep) {
             c_improper++;
           }
         } //}}}
@@ -1875,7 +1891,11 @@ void PruneSystem(SYSTEM *System) { //{{{
         // copy bonds to the new molecule type //{{{
         c_bond = 0;
         for (int j = 0; j < mt_old->nBonds; j++) {
-          int *id = BondIndices(S_old, i, j), last = mt_old->Bond[j][2];
+          for (int aa = 0; aa < 2; aa++) {
+            id[aa+2] = S_old.MoleculeType[mtype].Bond[j][aa];
+            id[aa] = S_old.Molecule[i].Bead[id[aa+2]];
+          }
+          int last = mt_old->Bond[j][2];
           if (S_old.Bead[id[0]].InTimestep && S_old.Bead[id[1]].InTimestep) {
             mt_new->Bond[c_bond][0] = id_old_to_new[id[2]];
             mt_new->Bond[c_bond][1] = id_old_to_new[id[3]];
@@ -1886,7 +1906,11 @@ void PruneSystem(SYSTEM *System) { //{{{
         // copy angles to the new molecule type //{{{
         c_angle = 0;
         for (int j = 0; j < mt_old->nAngles; j++) {
-          int *id = AngleIndices(S_old, i, j), last = mt_old->Angle[j][3];
+          int last = mt_old->Angle[j][3];
+          for (int aa = 0; aa < 3; aa++) {
+            id[aa+3] = S_old.MoleculeType[mtype].Angle[j][aa];
+            id[aa] = S_old.Molecule[i].Bead[id[aa+3]];
+          }
           if (S_old.Bead[id[0]].InTimestep && S_old.Bead[id[1]].InTimestep &&
               S_old.Bead[id[2]].InTimestep) {
             mt_new->Angle[c_angle][0] = id_old_to_new[id[3]];
@@ -1899,7 +1923,11 @@ void PruneSystem(SYSTEM *System) { //{{{
         // copy dihedrals to the new molecule type //{{{
         c_dihedral = 0;
         for (int j = 0; j < mt_old->nDihedrals; j++) {
-          int *id = DihedralIndices(S_old, i, j), last = mt_old->Dihedral[j][4];
+          int last = mt_old->Dihedral[j][4];
+          for (int aa = 0; aa < 4; aa++) {
+            id[aa+4] = S_old.MoleculeType[mtype].Dihedral[j][aa];
+            id[aa] = S_old.Molecule[i].Bead[id[aa+4]];
+          }
           if (S_old.Bead[id[0]].InTimestep && S_old.Bead[id[1]].InTimestep &&
               S_old.Bead[id[2]].InTimestep && S_old.Bead[id[3]].InTimestep) {
             mt_new->Dihedral[c_dihedral][0] = id_old_to_new[id[4]];
@@ -1913,7 +1941,11 @@ void PruneSystem(SYSTEM *System) { //{{{
         // copy impropers to the new molecule type //{{{
         c_improper = 0;
         for (int j = 0; j < mt_old->nImpropers; j++) {
-          int *id = ImproperIndices(S_old, i, j), last = mt_old->Improper[j][4];
+          int last = mt_old->Improper[j][4];
+          for (int aa = 0; aa < 4; aa++) {
+            id[aa+4] = S_old.MoleculeType[mtype].Improper[j][aa];
+            id[aa] = S_old.Molecule[i].Bead[id[aa+4]];
+          }
           if (S_old.Bead[id[0]].InTimestep && S_old.Bead[id[1]].InTimestep &&
               S_old.Bead[id[2]].InTimestep && S_old.Bead[id[3]].InTimestep) {
             mt_new->Improper[c_improper][0] = id_old_to_new[id[4]];
@@ -2282,146 +2314,146 @@ void CheckSystem(SYSTEM System, char file[]) {
   } //}}}
   // MoleculeType[]. arrays //{{{
   for (int i = 0; i < Count->MoleculeType; i++) {
-    MOLECULETYPE *mt_i = &System.MoleculeType[i];
+    MOLECULETYPE *mt = &System.MoleculeType[i];
     // Index array //{{{
-    for (int j = 0; j < mt_i->Number; j++) {
-      if (mt_i->Index[j] < 0 || mt_i->Index[j] >= Count->Molecule) {
+    for (int j = 0; j < mt->Number; j++) {
+      if (mt->Index[j] < 0 || mt->Index[j] >= Count->Molecule) {
         strcpy(ERROR_MSG, "incorrect index in MoleculeType[].Index array");
         PrintErrorFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Index[%s%d%s] = %s%d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
-                ErrYellow(), mt_i->Index[j], ErrColourReset());
+                ErrYellow(), mt->Index[j], ErrColourReset());
         break;
       }
     } //}}}
     // Bead array //{{{
-    for (int j = 0; j < mt_i->nBeads; j++) {
-      if (mt_i->Bead[j] < 0 || mt_i->Bead[j] >= Count->BeadType) {
+    for (int j = 0; j < mt->nBeads; j++) {
+      if (mt->Bead[j] < 0 || mt->Bead[j] >= Count->BeadType) {
         strcpy(ERROR_MSG, "incorrect index in Bead array");
         PrintErrorFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Bead[%s%d%s] = %s%d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
-                ErrYellow(), mt_i->Bead[j], ErrColourReset());
+                ErrYellow(), mt->Bead[j], ErrColourReset());
         break;
       }
     } //}}}
     // Bond array //{{{
-    for (int j = 0; j < mt_i->nBonds; j++) {
-      if (mt_i->Bond[j][0] < 0 || mt_i->Bond[j][0] >= mt_i->nBeads ||
-          mt_i->Bond[j][1] < 0 || mt_i->Bond[j][1] >= mt_i->nBeads ||
-          mt_i->Bond[j][0] == mt_i->Bond[j][1]) {
+    for (int j = 0; j < mt->nBonds; j++) {
+      if (mt->Bond[j][0] < 0 || mt->Bond[j][0] >= mt->nBeads ||
+          mt->Bond[j][1] < 0 || mt->Bond[j][1] >= mt->nBeads ||
+          mt->Bond[j][0] == mt->Bond[j][1]) {
         strcpy(ERROR_MSG, "incorrect index in Bond array");
         PrintErrorFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Bond[%s%d%s][0..1]", ErrRed(),
                 ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed());
-        fprintf(stderr, " = %s%d %d%s\n", ErrYellow(), mt_i->Bond[j][0],
-                mt_i->Bond[j][1], ErrColourReset());
+        fprintf(stderr, " = %s%d %d%s\n", ErrYellow(), mt->Bond[j][0],
+                mt->Bond[j][1], ErrColourReset());
         break;
       }
-      if (mt_i->Bond[j][2] < -1 || mt_i->Bond[j][2] >= Count->BondType) {
+      if (mt->Bond[j][2] < -1 || mt->Bond[j][2] >= Count->BondType) {
         strcpy(ERROR_MSG, "incorrect bond type in Bond array");
         PrintErrorFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Bond[2] = %s%d%s\n", ErrRed(),
-                ErrYellow(), i, ErrRed(), ErrYellow(), mt_i->Bond[j][2],
+                ErrYellow(), i, ErrRed(), ErrYellow(), mt->Bond[j][2],
                 ErrColourReset());
         break;
       }
     } //}}}
     // Angle array //{{{
-    for (int j = 0; j < mt_i->nAngles; j++) {
-      if (mt_i->Angle[j][0] < 0 || mt_i->Angle[j][0] >= mt_i->nBeads ||
-          mt_i->Angle[j][1] < 0 || mt_i->Angle[j][1] >= mt_i->nBeads ||
-          mt_i->Angle[j][2] < 0 || mt_i->Angle[j][2] >= mt_i->nBeads ||
-          mt_i->Angle[j][0] == mt_i->Angle[j][1] ||
-          mt_i->Angle[j][0] == mt_i->Angle[j][2] ||
-          mt_i->Angle[j][1] == mt_i->Angle[j][2]) {
+    for (int j = 0; j < mt->nAngles; j++) {
+      if (mt->Angle[j][0] < 0 || mt->Angle[j][0] >= mt->nBeads ||
+          mt->Angle[j][1] < 0 || mt->Angle[j][1] >= mt->nBeads ||
+          mt->Angle[j][2] < 0 || mt->Angle[j][2] >= mt->nBeads ||
+          mt->Angle[j][0] == mt->Angle[j][1] ||
+          mt->Angle[j][0] == mt->Angle[j][2] ||
+          mt->Angle[j][1] == mt->Angle[j][2]) {
         strcpy(ERROR_MSG, "incorrect index in Angle array");
         PrintErrorFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Angle[0..2] = %s%d %d %d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
-                mt_i->Angle[j][0], mt_i->Angle[j][1], mt_i->Angle[j][2],
+                mt->Angle[j][0], mt->Angle[j][1], mt->Angle[j][2],
                 ErrColourReset());
         break;
       }
-      if (mt_i->Angle[j][3] < -1 || mt_i->Angle[j][3] >= Count->AngleType) {
+      if (mt->Angle[j][3] < -1 || mt->Angle[j][3] >= Count->AngleType) {
         strcpy(ERROR_MSG, "incorrect angle type in Angle array");
         PrintErrorFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Angle[3] = %s%d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
-                mt_i->Angle[j][3], ErrColourReset());
+                mt->Angle[j][3], ErrColourReset());
         break;
       }
     } //}}}
     // Dihedral array //{{{
-    for (int j = 0; j < mt_i->nDihedrals; j++) {
-      if (mt_i->Dihedral[j][0] < 0 || mt_i->Dihedral[j][0] >= mt_i->nBeads ||
-          mt_i->Dihedral[j][1] < 0 || mt_i->Dihedral[j][1] >= mt_i->nBeads ||
-          mt_i->Dihedral[j][2] < 0 || mt_i->Dihedral[j][2] >= mt_i->nBeads ||
-          mt_i->Dihedral[j][3] < 0 || mt_i->Dihedral[j][3] >= mt_i->nBeads ||
-          mt_i->Dihedral[j][0] == mt_i->Dihedral[j][1] ||
-          mt_i->Dihedral[j][0] == mt_i->Dihedral[j][2] ||
-          mt_i->Dihedral[j][0] == mt_i->Dihedral[j][3] ||
-          mt_i->Dihedral[j][1] == mt_i->Dihedral[j][2] ||
-          mt_i->Dihedral[j][1] == mt_i->Dihedral[j][3] ||
-          mt_i->Dihedral[j][2] == mt_i->Dihedral[j][3]) {
+    for (int j = 0; j < mt->nDihedrals; j++) {
+      if (mt->Dihedral[j][0] < 0 || mt->Dihedral[j][0] >= mt->nBeads ||
+          mt->Dihedral[j][1] < 0 || mt->Dihedral[j][1] >= mt->nBeads ||
+          mt->Dihedral[j][2] < 0 || mt->Dihedral[j][2] >= mt->nBeads ||
+          mt->Dihedral[j][3] < 0 || mt->Dihedral[j][3] >= mt->nBeads ||
+          mt->Dihedral[j][0] == mt->Dihedral[j][1] ||
+          mt->Dihedral[j][0] == mt->Dihedral[j][2] ||
+          mt->Dihedral[j][0] == mt->Dihedral[j][3] ||
+          mt->Dihedral[j][1] == mt->Dihedral[j][2] ||
+          mt->Dihedral[j][1] == mt->Dihedral[j][3] ||
+          mt->Dihedral[j][2] == mt->Dihedral[j][3]) {
         strcpy(ERROR_MSG, "incorrect index in Dihedral array");
         PrintErrorFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Dihedral[0..3] = %s",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow());
-        fprintf(stderr, "%d %d %d %d%s\n", mt_i->Dihedral[j][0],
-                mt_i->Dihedral[j][1], mt_i->Dihedral[j][2],
-                mt_i->Dihedral[j][3], ErrColourReset());
+        fprintf(stderr, "%d %d %d %d%s\n", mt->Dihedral[j][0],
+                mt->Dihedral[j][1], mt->Dihedral[j][2],
+                mt->Dihedral[j][3], ErrColourReset());
         break;
       }
-      if (mt_i->Dihedral[j][4] < -1 ||
-          mt_i->Dihedral[j][4] >= Count->DihedralType) {
+      if (mt->Dihedral[j][4] < -1 ||
+          mt->Dihedral[j][4] >= Count->DihedralType) {
         strcpy(ERROR_MSG, "incorrect dihedral type in Dihedral array");
         PrintErrorFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Dihedral[4] = %s%d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
-                mt_i->Dihedral[j][4], ErrColourReset());
+                mt->Dihedral[j][4], ErrColourReset());
         break;
       }
     } //}}}
     // Improper array //{{{
-    for (int j = 0; j < mt_i->nImpropers; j++) {
-      if (mt_i->Improper[j][0] < 0 || mt_i->Improper[j][0] >= mt_i->nBeads ||
-          mt_i->Improper[j][1] < 0 || mt_i->Improper[j][1] >= mt_i->nBeads ||
-          mt_i->Improper[j][2] < 0 || mt_i->Improper[j][2] >= mt_i->nBeads ||
-          mt_i->Improper[j][3] < 0 || mt_i->Improper[j][3] >= mt_i->nBeads ||
-          mt_i->Improper[j][0] == mt_i->Improper[j][1] ||
-          mt_i->Improper[j][0] == mt_i->Improper[j][2] ||
-          mt_i->Improper[j][0] == mt_i->Improper[j][3] ||
-          mt_i->Improper[j][1] == mt_i->Improper[j][2] ||
-          mt_i->Improper[j][1] == mt_i->Improper[j][3] ||
-          mt_i->Improper[j][2] == mt_i->Improper[j][3]) {
+    for (int j = 0; j < mt->nImpropers; j++) {
+      if (mt->Improper[j][0] < 0 || mt->Improper[j][0] >= mt->nBeads ||
+          mt->Improper[j][1] < 0 || mt->Improper[j][1] >= mt->nBeads ||
+          mt->Improper[j][2] < 0 || mt->Improper[j][2] >= mt->nBeads ||
+          mt->Improper[j][3] < 0 || mt->Improper[j][3] >= mt->nBeads ||
+          mt->Improper[j][0] == mt->Improper[j][1] ||
+          mt->Improper[j][0] == mt->Improper[j][2] ||
+          mt->Improper[j][0] == mt->Improper[j][3] ||
+          mt->Improper[j][1] == mt->Improper[j][2] ||
+          mt->Improper[j][1] == mt->Improper[j][3] ||
+          mt->Improper[j][2] == mt->Improper[j][3]) {
         strcpy(ERROR_MSG, "incorrect index in Improper array");
         PrintErrorFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Improper[0..3] = %s",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow());
-        fprintf(stderr, "%d %d %d %d%s\n", mt_i->Improper[j][0],
-                mt_i->Improper[j][1], mt_i->Improper[j][2],
-                mt_i->Improper[j][3], ErrColourReset());
+        fprintf(stderr, "%d %d %d %d%s\n", mt->Improper[j][0],
+                mt->Improper[j][1], mt->Improper[j][2],
+                mt->Improper[j][3], ErrColourReset());
         break;
       }
-      if (mt_i->Improper[j][4] < -1 ||
-          mt_i->Improper[j][4] >= Count->ImproperType) {
+      if (mt->Improper[j][4] < -1 ||
+          mt->Improper[j][4] >= Count->ImproperType) {
         strcpy(ERROR_MSG, "incorrect improper type in Improper array");
         PrintErrorFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].Improper[4] = %s%d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(),
-                mt_i->Improper[j][4], ErrColourReset());
+                mt->Improper[j][4], ErrColourReset());
         break;
       }
     } //}}}
     // BType array //{{{
-    for (int j = 0; j < mt_i->nBTypes; j++) {
-      if (mt_i->BType[j] < 0 || mt_i->BType[j] >= Count->BeadType) {
+    for (int j = 0; j < mt->nBTypes; j++) {
+      if (mt->BType[j] < 0 || mt->BType[j] >= Count->BeadType) {
         strcpy(ERROR_MSG, "incorrect index in BType array");
         PrintErrorFile(file, "\0", "\0");
         fprintf(stderr, "%s, MoleculeType[%s%d%s].BType[%s%d%s] = %s%d%s\n",
                 ErrRed(), ErrYellow(), i, ErrRed(), ErrYellow(), j, ErrRed(),
-                ErrYellow(), mt_i->BType[j], ErrColourReset());
+                ErrYellow(), mt->BType[j], ErrColourReset());
         break;
       }
     } //}}}
