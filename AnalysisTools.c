@@ -205,8 +205,9 @@ static void RemovePBCMolecules(SYSTEM *System) {
     // 1)
     for (int i = 0; i < mt->nBonds; i++) {
       int id[2] = {mol->Bead[mt->Bond[i][0]], mol->Bead[mt->Bond[i][1]]};
-      BEAD *b_1 = &System->Bead[mol->Bead[id[0]]],
-           *b_2 = &System->Bead[mol->Bead[id[1]]];
+      BEAD *b_1 = &System->Bead[id[0]],
+           *b_2 = &System->Bead[id[1]];
+      // printf("%d %d\n", id[0], id[1]);
       if (b_1->InTimestep && b_2->InTimestep) {
         unconnected[count_unconnected] = i;
         count_unconnected++;
@@ -263,8 +264,7 @@ static void RemovePBCMolecules(SYSTEM *System) {
       moved[first] = true;
       for (int i = 0; i < count_connected; i++) {
         int bond = connected[i],
-            id[2] = {mol->Bead[mt->Bond[bond][0]],
-                     mol->Bead[mt->Bond[bond][1]]};
+            id[2] = {mt->Bond[bond][0], mt->Bond[bond][1]};
         BEAD *b_1 = &System->Bead[mol->Bead[id[0]]],
              *b_2 = &System->Bead[mol->Bead[id[1]]];
         double dist[3];
@@ -308,6 +308,15 @@ static void RemovePBCMolecules(SYSTEM *System) {
 } //}}}
 // remove pbc for molecules by joining the molecules //{{{
 /*
+ * Create a list of all bonds ('unconnected' array) with beads that are in the
+ * timestep. Then create a connectivity array by going through the list,
+ * transferring used bonds into 'connected' array, and finally, use the
+ * 'connected' array to join the molecule. As long as there are bonds in the
+ * 'unconnected' array, continue creating a new 'connected' array and joining
+ * the molecule. This procedure should be able to join molecule of any
+ * complexity as well as molecule where some beads ar not connected.
+ */
+/*
  * TODO: maybe split molecule to connected pieces, connect those and place
  *       their centres of mass nearest each other
  */
@@ -316,6 +325,9 @@ static void RemovePBCMolecules_old(SYSTEM *System) {
   // go through all molecules
   for (int mm = 0; mm < System->Count.Molecule; mm++) {
     MOLECULE *mol = &System->Molecule[mm];
+    if (!mol->InTimestep) {
+      continue;
+    }
     MOLECULETYPE *mt = &System->MoleculeType[mol->Type];
     // skip molecule if it is bond-less
     if (mt->nBonds == 0) {
@@ -325,37 +337,23 @@ static void RemovePBCMolecules_old(SYSTEM *System) {
       PrintWarning();
       continue;
     }
-    /*
-     * Create a connectivity array holding a sequence of connected bonds, so the
-     * whole molecule can be joined (if that molecule can be joined) no matter
-     * how are bonds ordered.
-     * 1) assign all bonds as unconnected except for the first one
-     * 2) go through the lists of connected and unconnected bonds, creating the
-     *    connectivity array by joining unconnected bonds with connected ones,
-     *    reducing count of unconnected bonds to 0 (if the molecule can be
-     *    connected)
-     */ //{{{
     // arrays holding bonds already connected and yet unconnected
     int *connected = calloc(mt->nBonds, sizeof *connected),
         *unconnected = calloc(mt->nBonds, sizeof *unconnected),
-        count_connected = 0, count_unconnected = 0;
+        count_unconnected = 0;
     // 1)
     for (int i = 0; i < mt->nBonds; i++) {
       int id[2] = {mol->Bead[mt->Bond[i][0]], mol->Bead[mt->Bond[i][1]]};
-      BEAD *b_1 = &System->Bead[mol->Bead[id[0]]],
-           *b_2 = &System->Bead[mol->Bead[id[1]]];
+      BEAD *b_1 = &System->Bead[id[0]],
+           *b_2 = &System->Bead[id[1]];
+      // printf("%d %d\n", id[0], id[1]);
       if (b_1->InTimestep && b_2->InTimestep) {
-        if (count_connected == 0) {
-          connected[count_connected] = i;
-          count_connected++;
-        } else {
-          unconnected[count_unconnected] = i;
-          count_unconnected++;
-        }
+        unconnected[count_unconnected] = i;
+        count_unconnected++;
       }
     }
     // skip molecule if there is no valid bond in the coordinate file //{{{
-    if (count_unconnected == 0 && count_connected == 0) {
+    if (count_unconnected == 0) {
       snprintf(ERROR_MSG, LINE, "no bonded beads in the timestep "
                " for molecule %s%d%s (%s%s%s) has no bonds ", ErrYellow(),
                mol->Index, ErrCyan(), ErrYellow(), mt->Name, ErrCyan());
@@ -364,74 +362,68 @@ static void RemovePBCMolecules_old(SYSTEM *System) {
       free(unconnected);
       continue;
     } //}}}
-    // 2)
-    for (int i = 0; i < count_connected; i++) {
-      for (int j = 0; j < count_unconnected; j++) {
-        int bond[2], // the connected and unconnected bonds
-            con[2], // beads in the already connected bond (bond[0])
-            uncon[2]; // beads in the yet unconneced bond (bond[1])
-        bond[0] = connected[i];
-        bond[1] = unconnected[j];
-        con[0] = mt->Bond[bond[0]][0];
-        con[1] = mt->Bond[bond[0]][1];
-        uncon[0] = mt->Bond[bond[1]][0];
-        uncon[1] = mt->Bond[bond[1]][1];
-        // if a bead is in both bonds, the unconnected bond becomes connected
-        if (con[0] == uncon[0] || con[0] == uncon[1] ||
-            con[1] == uncon[0] || con[1] == uncon[1]) {
-          connected[count_connected] = bond[1];
-          count_connected++;
-          count_unconnected--;
-          // move unconnected bonds to retain continuous array
-          for (int k = j; k < count_unconnected; k++) {
-            unconnected[k] = unconnected[k+1];
+    while (count_unconnected > 0) {
+      int count_connected = 0;
+      connected[count_connected] = unconnected[0];
+      count_connected++;
+      count_unconnected--;
+      for (int i = 0; i < count_unconnected; i++) {
+        unconnected[i] = unconnected[i+1];
+      }
+      // 2)
+      for (int i = 0; i < count_connected; i++) {
+        for (int j = 0; j < count_unconnected; j++) {
+          int bond[2], // the connected and unconnected bonds
+              con[2], // beads in the already connected bond (bond[0])
+              uncon[2]; // beads in the yet unconneced bond (bond[1])
+          bond[0] = connected[i];
+          bond[1] = unconnected[j];
+          con[0] = mt->Bond[bond[0]][0];
+          con[1] = mt->Bond[bond[0]][1];
+          uncon[0] = mt->Bond[bond[1]][0];
+          uncon[1] = mt->Bond[bond[1]][1];
+          // if a bead is in both bonds, the unconnected bond becomes connected
+          if (con[0] == uncon[0] || con[0] == uncon[1] ||
+              con[1] == uncon[0] || con[1] == uncon[1]) {
+            connected[count_connected] = bond[1];
+            count_connected++;
+            count_unconnected--;
+            // move unconnected bonds to retain continuous array
+            for (int k = j; k < count_unconnected; k++) {
+              unconnected[k] = unconnected[k+1];
+            }
+            // unconnected[j] is again unconnected, so decremenet 'j'
+            j--;
           }
-          // unconnected[j] is again unconnected, so decremenet 'j'
-          j--;
         }
       }
-    } //}}}
-    // if any unconnected bond remains, the molecule cannot be joined
-    if (count_unconnected > 0) {
-      snprintf(ERROR_MSG, LINE, "unable to join molecule %s%s%s (resid "
-               "%s%d%s)\n     Either all beads are not connected or "
-               "some beads are missing from the timestep", ErrYellow(),
-               mt->Name, ErrCyan(), ErrYellow(), mol->Index, ErrCyan());
-      PrintWarning();
-      int bond = unconnected[0];
-      int id[2] = {mol->Bead[mt->Bond[bond][0]], mol->Bead[mt->Bond[bond][1]]};
-      printf("%d unconnected (first: %d %d-%d)\n",
-             count_unconnected, bond, id[0], id[1]);
-      free(connected);
-      free(unconnected);
-      continue;
-    }
-    // connect the molecule by going through the list of connected bonds 
-    bool *moved = calloc(mt->nBeads, sizeof *moved);
-    int first = mt->Bond[connected[0]][0];
-    moved[first] = true;
-    for (int i = 0; i < count_connected; i++) {
-      int bond = connected[i];
-      int id[2] = {mol->Bead[mt->Bond[bond][0]], mol->Bead[mt->Bond[bond][1]]};
-      BEAD *b_1 = &System->Bead[mol->Bead[id[0]]],
-           *b_2 = &System->Bead[mol->Bead[id[1]]];
-      double dist[3];
-      if (!moved[id[0]] && moved[id[1]]) {
-        Distance(b_2->Position, b_1->Position, box->OrthoLength, dist);
-        for (int dd = 0; dd < 3; dd++) {
-          b_1->Position[dd] = b_2->Position[dd] - dist[dd];
+      // connect the molecule by going through the list of connected bonds 
+      bool *moved = calloc(mt->nBeads, sizeof *moved);
+      int first = mt->Bond[connected[0]][0];
+      moved[first] = true;
+      for (int i = 0; i < count_connected; i++) {
+        int bond = connected[i],
+            id[2] = {mt->Bond[bond][0], mt->Bond[bond][1]};
+        BEAD *b_1 = &System->Bead[mol->Bead[id[0]]],
+             *b_2 = &System->Bead[mol->Bead[id[1]]];
+        double dist[3];
+        if (!moved[id[0]] && moved[id[1]]) {
+          Distance(b_2->Position, b_1->Position, box->OrthoLength, dist);
+          for (int dd = 0; dd < 3; dd++) {
+            b_1->Position[dd] = b_2->Position[dd] - dist[dd];
+          }
+          moved[id[0]] = true;
+        } else if (moved[id[0]] && !moved[id[1]]) {
+          Distance(b_1->Position, b_2->Position, box->OrthoLength, dist);
+          for (int dd = 0; dd < 3; dd++) {
+            b_2->Position[dd] = b_1->Position[dd] - dist[dd];
+          }
+          moved[id[1]] = true;
         }
-        moved[id[0]] = true;
-      } else if (moved[id[0]] && !moved[id[1]]) {
-        Distance(b_1->Position, b_2->Position, box->OrthoLength, dist);
-        for (int dd = 0; dd < 3; dd++) {
-          b_2->Position[dd] = b_1->Position[dd] - dist[dd];
-        }
-        moved[id[1]] = true;
       }
+      // TODO: CENTRE OF MASS
+      free(moved);
     }
-    // TODO CENTRE OF MASS
-    free(moved);
     free(connected);
     free(unconnected);
     // put molecule's geometric centre into the simulation box //{{{

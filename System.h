@@ -13,7 +13,7 @@ void AllocFillBeadTypeIndex(SYSTEM *System);
 void RefillBeadTypeIndex(SYSTEM *System);
 void FillMoleculeTypeIndex(SYSTEM *System);
 void ReFillMoleculeTypeIndex(SYSTEM *System);
-void FillIndexMol(SYSTEM *System);
+// void FillIndexMol(SYSTEM *System);
 void FillBondedUnbonded(SYSTEM *System);
 void CountBondAngleDihedralImproper(SYSTEM *System);
 void SortBonds(int (*bond)[3], int n);

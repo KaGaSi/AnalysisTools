@@ -78,16 +78,18 @@ static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System) { //{{{
   }
   putc('\n', fw);
   // write the coodinates
-  for (int i = 0; i < System.Count.BeadCoor; i++) {
-    int id = System.BeadCoor[i];
+  // for (int i = 0; i < System.Count.BeadCoor; i++) {
+  //   int id = System.BeadCoor[i];
+  for (int id = 0; id < System.Count.Bead; id++) {
     BEAD *bead = &System.Bead[id];
-    if (write[id]) {
+    if (write[id] && bead->InTimestep) {
       int type = bead->Type;
       fprintf(fw, "%8s %8.4f %8.4f %8.4f\n", System.BeadType[type].Name,
               bead->Position[0], bead->Position[1], bead->Position[2]);
     }
   }
 } //}}}
+// TODO: possibly an option to have bead ids to go from 1 to number of beads
 static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{{{
   // find out number of beads to save and if velocity/force should be saved
   int count_write = 0;
@@ -139,18 +141,12 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
     }
     // fprintf(fw, " mol");
     putc('\n', fw);
-    int count = 0; // count saved beads (used if not all beads are printed)
     for (int i = 0; i < System.Count.BeadCoor; i++) {
-      int id = System.BeadCoor[i], id_out;
-      if (count_write != System.Count.Bead) {
-        id_out = count;
-      } else {
-        id_out = id;
-      }
+      int id = System.BeadCoor[i];
       BEAD *b = &System.Bead[id];
       if (write[id]) {
         int type = b->Type;
-        fprintf(fw, "%8d %8s %8.4f %8.4f %8.4f", id_out + 1,
+        fprintf(fw, "%8d %8s %8.4f %8.4f %8.4f", id + 1,
                 System.BeadType[type].Name,
                 b->Position[0]+box->Low[0],
                 b->Position[1]+box->Low[1],
@@ -167,7 +163,6 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
         }
         // fprintf(fw, " %5d", b->Molecule);
         putc('\n', fw);
-        count++; // increment number of saved beads
       }
     }
   } else {

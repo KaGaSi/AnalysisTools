@@ -104,7 +104,7 @@ void RandomConstrainedCoor(SYSTEM S_orig, int mode, double box[3],
         int id = S_orig.BondedCoor[i];
         double dist[3];
         Distance(S_orig.Bead[id].Position, random, box, dist);
-        dist[0] = VectorLength(dist);
+        dist[0] = VECTORLENGTH(dist);
         if (dist[0] < min_dist) {
           min_dist = dist[0];
         }
@@ -118,7 +118,7 @@ void RandomConstrainedCoor(SYSTEM S_orig, int mode, double box[3],
             if (b->InTimestep) {
               double dist[3];
               Distance(b->Position, random, box, dist);
-              dist[0] = VectorLength(dist);
+              dist[0] = VECTORLENGTH(dist);
               if (dist[0] < min_dist) {
                 min_dist = dist[0];
               }
@@ -133,7 +133,7 @@ void RandomConstrainedCoor(SYSTEM S_orig, int mode, double box[3],
         if (b->InTimestep) {
           double dist[3];
           Distance(b->Position, random, box, dist);
-          dist[0] = VectorLength(dist);
+          dist[0] = VECTORLENGTH(dist);
           if (dist[0] < min_dist) {
             min_dist = dist[0];
           }
@@ -152,7 +152,7 @@ void Rotate(SYSTEM System, int number, int *list,
   for (int dd = 0; dd < 3; dd++) {
     random[dd] = (double)(rand()) / (double)(RAND_MAX) * 2 - 1; // number <-1,1>
   }
-  double dist = VectorLength(random);
+  double dist = VECTORLENGTH(random);
   for (int dd = 0; dd < 3; dd++) {
     random[dd] /= dist;
   }

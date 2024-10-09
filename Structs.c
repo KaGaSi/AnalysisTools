@@ -50,7 +50,7 @@ void InitSystem(SYSTEM *System) { //{{{
   System->AngleType =    calloc(1, sizeof(struct Params));
   System->DihedralType = calloc(1, sizeof(struct Params));
   System->ImproperType = calloc(1, sizeof(struct Params));
-  System->Index_mol =    calloc(1, sizeof System->Index_mol);
+  System->MoleculeCoor = calloc(1, sizeof System->MoleculeCoor);
   System->Bonded =       calloc(1, sizeof System->Bonded);
   System->BondedCoor =   calloc(1, sizeof System->BondedCoor);
   System->Unbonded =     calloc(1, sizeof System->Unbonded);

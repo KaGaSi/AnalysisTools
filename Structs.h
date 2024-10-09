@@ -205,7 +205,7 @@ typedef struct System { //{{{
   PARAMS *AngleType;
   PARAMS *DihedralType;
   PARAMS *ImproperType;
-  int *Index_mol, // link between indices (i.e., Index_mol[Molecule[i].Index]=i)
+  int *MoleculeCoor, // array of molecule ids with InTimestep=true
       *Bonded, // array of Bead[] ids of in-molecule beads
       *BondedCoor, // array of Bead[] ids of in-molecule beads in a timestep
       *Unbonded, // array of Bead[] ids of in-molecule beads

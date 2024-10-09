@@ -96,9 +96,9 @@ double calc_area(double A[3], double B[3], double C[3]) {
   }
   double a = 0, b = 0, c = 0; // triangle's sidelengths
   for (int dd = 0; dd < 3; dd++) {
-    a = VectorLength(BC);
-    b = VectorLength(AC);
-    c = VectorLength(AB);
+    a = VECTORLENGTH(BC);
+    b = VECTORLENGTH(AC);
+    c = VECTORLENGTH(AB);
   }
   double s = (a + b + c) / 2;
   return sqrt(s * (s - a) * (s - b) * (s - c));

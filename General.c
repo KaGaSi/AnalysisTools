@@ -53,9 +53,6 @@ bool IsWholeNumber(char str[], long *val) {
     return false;
   }
 } //}}}
-double VectorLength(double a[3]) { //{{{
-  return sqrt(SQR(a[0]) + SQR(a[1]) + SQR(a[2]));
-} //}}}
 double Min3(double x, double y, double z) { //{{{
   double min;
   if (x > y) {

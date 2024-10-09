@@ -2,6 +2,7 @@
 #include "AnalysisTools.h"
 #include "Errors.h"
 #include "Structs.h"
+#include "System.h"
 #include <string.h>
 
 // TODO: use FillInCoor()
@@ -282,12 +283,12 @@ static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
     System->Bead[i].InTimestep = false;
   } //}}}
   // set 'not in timestep' to all molecules //{{{
+  System->Count.MoleculeCoor = 0;
   for (int i = 0; i < System->Count.Molecule; i++) {
     System->Molecule[i].InTimestep = false;
-  }
-  //}}}
-  System->Count.BeadCoor =
-      LtrjReadTimestepPreamble(fr, file, &System->Box, line_count);
+  } //}}}
+  System->Count.BeadCoor = LtrjReadTimestepPreamble(fr, file, &System->Box,
+                                                    line_count);
   if (System->Count.BeadCoor < 0) {
     return System->Count.BeadCoor;
   }
@@ -319,6 +320,10 @@ static int LtrjReadTimestep(FILE *fr, char file[], SYSTEM *System,
     b->InTimestep = true;
     System->BeadCoor[i] = id;
     if (b->Molecule != -1) {
+      if (!System->Molecule[b->Molecule].InTimestep) {
+        System->MoleculeCoor[System->Count.MoleculeCoor] = b->Molecule;
+        System->Count.MoleculeCoor++;
+      }
       System->Molecule[b->Molecule].InTimestep = true;
     }
   } //}}}
@@ -669,6 +674,12 @@ static SYSTEM LmpDataReadStruct(char file[]) { //{{{
   for (int i = 0; i < System.Count.Molecule; i++) {
     System.Molecule[i].Index -= min_id;
   } //}}}
+  System.MoleculeCoor = realloc(System.MoleculeCoor, Count->Molecule *
+                                sizeof *System.MoleculeCoor);
+  Count->MoleculeCoor = Count->Molecule;
+  for (int i = 0; i < Count->MoleculeCoor; i++) {
+    System.MoleculeCoor[i] = i;
+  }
   CheckSystem(System, file);
   return System;
 } //}}}
@@ -686,8 +697,11 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
   // set 'in timestep' to all molecules //{{{
   for (int i = 0; i < Count->Molecule; i++) {
     System->Molecule[i].InTimestep = false;
+  } //}}}
+  Count->MoleculeCoor = Count->Molecule;
+  for (int i = 0; i < Count->MoleculeCoor; i++) {
+    System->MoleculeCoor[i] = i;
   }
-  //}}}
 
   // ignore the first line (comment) //{{{
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
@@ -2172,6 +2186,8 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   Sys.BeadCoor = realloc(Sys.BeadCoor, Count->Bead * sizeof *Sys.BeadCoor);
   Count->BeadType = Count->Bead;
   Count->MoleculeType = Count->Molecule;
+  Sys.MoleculeCoor = realloc(Sys.MoleculeCoor,
+                             Count->Molecule * sizeof *Sys.MoleculeCoor);
   // assign atom default to default beads & count bonded/unbonded beads //{{{
   // find first unused bead type and make it the default
   int def = -1;
@@ -2608,13 +2624,17 @@ static int VtfReadCoorBlockIndexed(FILE *fr, char file[], SYSTEM *System,
       return -1;
     }
     BEAD *bead_id = &System->Bead[id];
+    if (bead_id->InTimestep) {
+      strcpy(ERROR_MSG, "multiple beads with the same id; ignoring this line");
+      PrintWarnFileLine(file, *line_count);
+      if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
+        break; // 'proper' eof
+      }
+      continue;
+    }
+    bead_id->InTimestep = true;
     for (int dd = 0; dd < 3; dd++) {
       bead_id->Position[dd] = coordinate[dd];
-    }
-    if (bead_id->InTimestep) {
-      strcpy(ERROR_MSG, "multiple beads with the same id");
-      PrintErrorFileLine(file, *line_count);
-      return -1;
     }
     double vel[3];
     if (words >= 7 &&
@@ -2781,6 +2801,10 @@ static SYSTEM FieldRead(char file[]) { //{{{
   } else {
     System.BeadCoor = realloc(System.BeadCoor,
                               Count->Bead * sizeof *System.BeadCoor);
+  }
+  if (Count->Molecule > 0) {
+    System.MoleculeCoor = realloc(System.MoleculeCoor, Count->Molecule *
+                                  sizeof *System.MoleculeCoor);
   }
   FillSystemNonessentials(&System);
   CheckSystem(System, file);
@@ -3574,6 +3598,7 @@ static SYSTEM XyzReadStruct(char file[]) { //{{{
 // XYZReadTimestep() //{{{
 static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
                            int *line_count) {
+  System->Count.MoleculeCoor = 0;
   // read number of beads //{{{
   (*line_count)++;
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
@@ -3603,11 +3628,9 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
   for (int i = 0; i < System->Count.BeadCoor; i++) {
     (*line_count)++;
     if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
-      snprintf(ERROR_MSG, LINE,
-               "premature end of file "
-               "(%s%d%s coordinate lines instead of %s%d%s)",
-               ErrYellow(), i, ErrRed(), ErrYellow(), System->Count.BeadCoor,
-               ErrRed());
+      snprintf(ERROR_MSG, LINE, "premature end of file "
+               "(%s%d%s coordinate lines instead of %s%d%s)", ErrYellow(),
+               i, ErrRed(), ErrYellow(), System->Count.BeadCoor, ErrRed());
       PrintErrorFileLine(file, *line_count);
       return -2;
     }
@@ -3616,13 +3639,8 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
       for (int dd = 0; dd < 3; dd++) {
         System->Bead[i].Position[dd] = coor[dd];
       }
-      System->Bead[i].InTimestep = true;
       System->BeadCoor[i] = i;
       (*line_count)++;
-      int mol = System->Bead[i].Molecule;
-      if (mol != -1) {
-        System->Molecule[mol].InTimestep = true;
-      }
       double vel[3];
       if (words > 6 &&
           IsRealNumber(split[4], &vel[0]) &&
@@ -3643,14 +3661,7 @@ static int XyzReadTimestep(FILE *fr, char file[], SYSTEM *System,
       return -1;
     }
   } //}}}
-  // set 'not in timestep' to the remaining beads/molecules //{{{
-  for (int i = System->Count.BeadCoor; i < System->Count.Bead; i++) {
-    System->Bead[i].InTimestep = false;
-    int mol = System->Bead[i].Molecule;
-    if (mol != -1) {
-      System->Molecule[mol].InTimestep = false;
-    }
-  } //}}}
+  FillInCoor(System);
   return true;
 } //}}}
 static bool XyzSkipTimestep(FILE *fr, char file[], int *line_count) { //{{{

@@ -50,7 +50,6 @@ typedef struct LongIntVector {
   long int x, y, z;
 } LONGINTVECTOR;
 //}}}
-double VectorLength(double a[3]);
 // convert string into number if possible
 bool IsRealNumber(char *str, double *val);
 bool IsPosRealNumber(char *str, double *val);

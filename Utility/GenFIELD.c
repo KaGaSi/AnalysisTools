@@ -81,14 +81,31 @@ int main(int argc, char *argv[]) {
   // read the input text file //{{{
   FILE *f = OpenFile(in, "r");
   int line_count = 0;
-  double density = 0;
-  while (ReadAndSplitLine(f, 4, " \t\n")) {
+  double density = 0,
+         dpd[3] = {25, 1, 4.5};
+  while (ReadAndSplitLine(f, 7, " \t\n")) {
     line_count++;
-    if (words == 0 || split[0][0] == '#' || // blank or comment line
-        strncasecmp("potential", split[0], 3) == 0) {
+    if (words == 0 || split[0][0] == '#') { // blank or comment line
       continue;
-    }
-    if (strncasecmp("box", split[0], 3) == 0) { //{{{
+    } else if (strncasecmp("potential", split[0], 3) == 0) { //{{{
+      double val[3] = {-1, -1, -1};
+      if (words < 4 || strncasecmp("dpd", split[1], 3) != 0 ||
+          (words > 4 && !IsPosRealNumber(split[4], &val[0])) ||
+          (words > 5 && !IsPosRealNumber(split[5], &val[1])) ||
+          (words > 6 && !IsPosRealNumber(split[6], &val[2]))) {
+        goto err_in;
+      } else if (strcmp(split[2], "*") == 0 && strcmp(split[3], "*") == 0) {
+        if (val[0] != -1) {
+          dpd[0] = val[0];
+        }
+        if (val[1] != -1) {
+          dpd[1] = val[1];
+        }
+        if (val[2] != -1) {
+          dpd[2] = val[2];
+        }
+      } //}}}
+    } else if (strncasecmp("box", split[0], 3) == 0) { //{{{
       if (words >= 4) {
         if (!IsPosRealNumber(split[1], &System.Box.Length[0]) ||
             !IsPosRealNumber(split[2], &System.Box.Length[1]) ||
@@ -181,11 +198,11 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < arr_pot[0]; i++) {
     for (int j = 0; j < arr_pot[1]; j++) {
       int id = id3D(i, j, 0, arr_pot);
-      pot[id] = 25;
+      pot[id] = dpd[0];
       id = id3D(i, j, 1, arr_pot);
-      pot[id] = 1;
+      pot[id] = dpd[1];
       id = id3D(i, j, 2, arr_pot);
-      pot[id] = 4.5;
+      pot[id] = dpd[2];
     }
   } //}}}
 

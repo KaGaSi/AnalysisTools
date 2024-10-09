@@ -140,20 +140,20 @@ void ReFillMoleculeTypeIndex(SYSTEM *System) {
   }
   FillMoleculeTypeIndex(System);
 } //}}}
-void FillIndexMol(SYSTEM *System) { //{{{
-  COUNT *Count = &System->Count;
-  if (Count->Molecule > 0) {
-    System->Index_mol = realloc(System->Index_mol,
-                                sizeof *System->Index_mol *
-                                (Count->HighestResid + 1));
-    for (int i = 0; i <= Count->HighestResid; i++) {
-      System->Index_mol[i] = -1;
-    }
-    for (int i = 0; i < Count->Molecule; i++) {
-      System->Index_mol[System->Molecule[i].Index] = i;
-    }
-  }
-} //}}}
+// void FillIndexMol(SYSTEM *System) { //{{{
+//   COUNT *Count = &System->Count;
+//   if (Count->Molecule > 0) {
+//     System->Index_mol = realloc(System->Index_mol,
+//                                 sizeof *System->Index_mol *
+//                                 (Count->HighestResid + 1));
+//     for (int i = 0; i <= Count->HighestResid; i++) {
+//       System->Index_mol[i] = -1;
+//     }
+//     for (int i = 0; i < Count->Molecule; i++) {
+//       System->Index_mol[System->Molecule[i].Index] = i;
+//     }
+//   }
+// } //}}}
 void FillBondedUnbonded(SYSTEM *System) { //{{{
   COUNT *Count = &System->Count;
   if (Count->Bonded > 0) {
@@ -202,7 +202,6 @@ void FillSystemNonessentials(SYSTEM *System) { //{{{
   }
   AllocFillBeadTypeIndex(System);
   FillMoleculeTypeIndex(System);
-  FillIndexMol(System);
   FillBondedUnbonded(System);
   CountBondAngleDihedralImproper(System);
   // sort bonds, angles, dihedrals, and impropers
@@ -221,12 +220,17 @@ void FillInCoor(SYSTEM *System) { //{{{
   }
   Count->BondedCoor = 0;
   Count->UnbondedCoor = 0;
+  Count->MoleculeCoor = 0;
   for (int i = 0; i < Count->BeadCoor; i++) {
     int id = System->BeadCoor[i];
     BEAD *b = &System->Bead[id];
     b->InTimestep = true;
     if (b->Molecule != -1) {
-      System->Molecule[b->Molecule].InTimestep = true;
+      if (!System->Molecule[b->Molecule].InTimestep) {
+        System->Molecule[b->Molecule].InTimestep = true;
+        System->MoleculeCoor[Count->MoleculeCoor] = b->Molecule;
+        Count->MoleculeCoor++;
+      }
       System->BondedCoor[Count->BondedCoor] = id;
       Count->BondedCoor++;
     } else {
@@ -1315,7 +1319,7 @@ SYSTEM CopySystem(SYSTEM S_in) {
         S_out.MoleculeType[i] = CopyMoleculeType(S_in.MoleculeType[i]);
       }
     } //}}}
-    // Molecule & Index_mol //{{{
+    // Molecule & MoleculeCoor //{{{
     if (S_out.Count.Molecule > 0) {
       S_out.Molecule = realloc(S_out.Molecule,
                                sizeof *S_out.Molecule * S_out.Count.Molecule);
@@ -1331,11 +1335,12 @@ SYSTEM CopySystem(SYSTEM S_in) {
                  S_in.MoleculeType[type].nBeads);
         }
       }
-      // Index_mol
-      S_out.Index_mol = realloc(S_out.Index_mol,
-                                sizeof *S_out.Index_mol * S_out.Count.Molecule);
-      memcpy(S_out.Index_mol, S_in.Index_mol,
-             sizeof *S_in.Index_mol * S_in.Count.Molecule);
+      // MoleculeCoor
+      S_out.MoleculeCoor = realloc(S_out.MoleculeCoor,
+                                   sizeof *S_out.MoleculeCoor *
+                                   S_out.Count.Molecule);
+      memcpy(S_out.MoleculeCoor, S_in.MoleculeCoor,
+             sizeof *S_in.MoleculeCoor * S_in.Count.Molecule);
     } //}}}
     // BondType //{{{
     if (S_out.Count.BondType > 0) {
@@ -1555,7 +1560,7 @@ void PruneSystem(SYSTEM *System) { //{{{
   System->Box = S_old.Box;
   *Count = *Count_old; // some counts will change later
   // allocate memory for bead count arrays
-  System->Bead = realloc(System->Bead, sizeof(BEAD) * Count->Bead);
+  System->Bead = realloc(System->Bead, sizeof *System->Bead * Count->Bead);
   System->BeadCoor = realloc(System->BeadCoor,
                              sizeof *System->BeadCoor * Count->Bead);
   if (Count->Bonded > 0) {
@@ -1685,7 +1690,7 @@ void PruneSystem(SYSTEM *System) { //{{{
           c_bead++;
         }
       }
-      // copy bonds to the mt_old_new molecule type
+      // copy bonds to the mt_old_new molecule type //{{{
       int count = 0;
       if (mt_old->nBonds > 0) {
         mt_old_new.Bond = malloc(sizeof *mt_old_new.Bond * mt_old->nBonds);
@@ -1703,8 +1708,8 @@ void PruneSystem(SYSTEM *System) { //{{{
           free(mt_old_new.Bond);
         }
       }
-      mt_old_new.nBonds = count;
-      // copy angles to the mt_old_new molecule type
+      mt_old_new.nBonds = count; //}}}
+      // copy angles to the mt_old_new molecule type //{{{
       count = 0;
       if (mt_old->nAngles > 0) {
         mt_old_new.Angle = malloc(sizeof *mt_old_new.Angle * mt_old->nAngles);
@@ -1727,8 +1732,8 @@ void PruneSystem(SYSTEM *System) { //{{{
           free(mt_old_new.Angle);
         }
       }
-      mt_old_new.nAngles = count;
-      // copy dihedrals to the mt_old_new molecule type
+      mt_old_new.nAngles = count; //}}}
+      // copy dihedrals to the mt_old_new molecule type //{{{
       count = 0;
       if (mt_old->nDihedrals > 0) {
         mt_old_new.Dihedral =
@@ -1755,8 +1760,8 @@ void PruneSystem(SYSTEM *System) { //{{{
           free(mt_old_new.Dihedral);
         }
       }
-      mt_old_new.nDihedrals = count;
-      // copy impropers to the mt_old_new molecule type
+      mt_old_new.nDihedrals = count; //}}}
+      // copy impropers to the mt_old_new molecule type //{{{
       count = 0;
       if (mt_old->nImpropers > 0) {
         mt_old_new.Improper =
@@ -1783,7 +1788,7 @@ void PruneSystem(SYSTEM *System) { //{{{
           free(mt_old_new.Improper);
         }
       }
-      mt_old_new.nImpropers = count;
+      mt_old_new.nImpropers = count; //}}}
 
       int new_id = Count->Molecule;
       Count->Molecule++;
@@ -1963,17 +1968,6 @@ void PruneSystem(SYSTEM *System) { //{{{
   MergeMoleculeTypes(System);
   AllocFillBeadTypeIndex(System);
   FillMoleculeTypeIndex(System);
-  // rewrite Index_mol //{{{
-  if (Count->HighestResid != -1) {
-    System->Index_mol = realloc(System->Index_mol, sizeof *System->Index_mol *
-                                (Count->HighestResid + 1));
-    for (int i = 0; i <= Count->HighestResid; i++) {
-      System->Index_mol[i] = -1;
-    }
-    for (int i = 0; i < Count->Molecule; i++) {
-      System->Index_mol[System->Molecule[i].Index] = i;
-    }
-  } //}}}
   // prune bond/angle/dihedral/improper types //{{{
   if (Count_old->BondType > 0) {
     PruneBondTypes(S_old, System);
@@ -1991,6 +1985,15 @@ void PruneSystem(SYSTEM *System) { //{{{
   for (int i = 0; i < Count->MoleculeType; i++) {
     FillMoleculeTypeBType(&System->MoleculeType[i]);
     FillMoleculeTypeChargeMass(&System->MoleculeType[i], System->BeadType);
+  }
+  System->MoleculeCoor = realloc(System->MoleculeCoor, Count->Molecule *
+                                 sizeof *System->MoleculeCoor);
+  Count->MoleculeCoor = 0;
+  for (int i = 0; i < Count->Molecule; i++) {
+    if (System->Molecule[i].InTimestep) {
+      System->MoleculeCoor[Count->MoleculeCoor] = i;
+      Count->MoleculeCoor++;
+    }
   }
   FreeSystem(&S_old);
   free(b_id_old_to_new);
@@ -2124,7 +2127,7 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box, bool prune) {
       }
     }
   } //}}}
-  // Molecule & Index_mol //{{{
+  // Molecule & MoleculeCoor //{{{
   if (Count_in->Molecule > 0) {
     Count_out->Molecule += Count_in->Molecule;
     S_out->Molecule = realloc(S_out->Molecule,
@@ -2136,20 +2139,18 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box, bool prune) {
       mol_out->Type = type;
       // destroys info about S_in molecules' resids, but who cares
       mol_out->Index = Count_old.HighestResid + i + 1;
-      mol_out->Bead = malloc( S_out->MoleculeType[type].nBeads *
+      mol_out->Bead = malloc(S_out->MoleculeType[type].nBeads *
                              sizeof *mol_out->Bead);
       for (int j = 0; j < S_out->MoleculeType[type].nBeads; j++) {
         mol_out->Bead[j] = mol_in->Bead[j] + Count_old.Bead;
       }
     }
     Count_out->HighestResid += Count_in->Molecule;
-    S_out->Index_mol = realloc(S_out->Index_mol, (Count_out->HighestResid + 1) *
-                               sizeof *S_out->Index_mol);
-    for (int i = 0; i <= Count_out->HighestResid; i++) {
-      S_out->Index_mol[i] = -1;
-    }
-    for (int i = 0; i < Count_out->Molecule; i++) {
-      S_out->Index_mol[S_out->Molecule[i].Index] = i;
+    S_out->MoleculeCoor = realloc(S_out->MoleculeCoor, Count_out->Molecule *
+                                  sizeof *S_out->MoleculeCoor);
+    for (int i = 0; i <= Count_in->MoleculeCoor; i++) {
+      int new = i + Count_old.MoleculeCoor;
+      S_out->MoleculeCoor[new] = S_in.MoleculeCoor[i] + Count_old.Molecule;
     }
   } //}}}
   // BondType //{{{
@@ -2289,15 +2290,15 @@ void CheckSystem(SYSTEM System, char file[]) {
     }
   } //}}}
   // Index_mol array //{{{
-  for (int i = 0; i < Count->HighestResid; i++) {
-    if (System.Index_mol[i] < -1 || System.Index_mol[i] >= Count->Molecule) {
-      strcpy(ERROR_MSG, "incorrect index in Index_mol array");
-      PrintErrorFile(file, "\0", "\0");
-      fprintf(stderr, "%s, Index_mol[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
-              i, ErrRed(), ErrYellow(), System.Index_mol[i], ErrColourReset());
-      break;
-    }
-  } //}}}
+  // for (int i = 0; i < Count->HighestResid; i++) {
+  //   if (System.Index_mol[i] < -1 || System.Index_mol[i] >= Count->Molecule) {
+  //     strcpy(ERROR_MSG, "incorrect index in Index_mol array");
+  //     PrintErrorFile(file, "\0", "\0");
+  //     fprintf(stderr, "%s, Index_mol[%s%d%s] = %s%d%s\n", ErrRed(), ErrYellow(),
+  //             i, ErrRed(), ErrYellow(), System.Index_mol[i], ErrColourReset());
+  //     break;
+  //   }
+  // } //}}}
   // BeadType[].Index array //{{{
   for (int i = 0; i < Count->BeadType; i++) {
     BEADTYPE *bt_i = &System.BeadType[i];
@@ -2772,7 +2773,7 @@ void SortAggStruct(AGGREGATE *Aggregate, SYSTEM System) { //{{{
 
 // memory-freeing functions
 void FreeSystem(SYSTEM *System) { //{{{
-  free(System->Index_mol);
+  free(System->MoleculeCoor);
   free(System->BeadCoor);
   free(System->Bonded);
   free(System->BondedCoor);

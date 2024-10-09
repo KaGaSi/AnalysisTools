@@ -152,49 +152,54 @@ int main(int argc, char *argv[]) {
       count_used++;
       WrapJoinCoordinates(&System, true, opt->join);
       // go through all molecules //{{{
-      // TODO: make into for (mtype); for (mtype.index)
-      for (int i = 0; i < Count->Molecule; i++) {
-        MOLECULE *mol_i = &System.Molecule[i];
-        MOLECULETYPE *mt_i = &System.MoleculeType[mol_i->Type];
-        if (opt->mt[mol_i->Type]) { // use only specified molecule types
-          for (int j = 0; j < mt_i->nBonds; j++) {
-            int id1 = mol_i->Bead[mt_i->Bond[j][0]],
-                id2 = mol_i->Bead[mt_i->Bond[j][1]];
-            BEAD *bj1 = &System.Bead[id1],
-                 *bj2 = &System.Bead[id2];
-            double u[3]; // the first bond vector
-            for (int dd = 0; dd < 3; dd++) {
-              u[dd] = bj1->Position[dd] - bj2->Position[dd];
-            }
-            // bond lengths
-            double size[2];
-            size[0] = VECTORLENGTH(u);
-            int id = id2D(mol_i->Type, 0, arr_avg_bond);
-            avg_bond[id] += size[0];
-            id = id2D(mol_i->Type, 1, arr_avg_bond);
-            avg_bond[id]++;
-            for (int k = (j + 1); k < mt_i->nBonds; k++) {
-              int idk[2] = {mol_i->Bead[mt_i->Bond[k][0]],
-                            mol_i->Bead[mt_i->Bond[k][1]]};
-              BEAD *bk1 = &System.Bead[idk[0]],
-                   *bk2 = &System.Bead[idk[1]];
-              double v[3]; // the second bond vector
-              for (int dd = 0; dd < 3; dd++) {
-                v[dd] = bk1->Position[dd] - bk2->Position[dd];
+      for (int i = 0; i < Count->MoleculeType; i++) {
+        if (opt->mt[i]) {
+          for (int mm = 0; mm < System.MoleculeType[i].Number; mm++) {
+            int mol = System.MoleculeType[i].Index[mm];
+            MOLECULE *mol_i = &System.Molecule[mol];
+            MOLECULETYPE *mt_i = &System.MoleculeType[mol_i->Type];
+            // use only specified molecule types
+            if (mol_i->InTimestep) {
+              for (int j = 0; j < mt_i->nBonds; j++) {
+                int id1 = mol_i->Bead[mt_i->Bond[j][0]],
+                    id2 = mol_i->Bead[mt_i->Bond[j][1]];
+                BEAD *bj1 = &System.Bead[id1],
+                     *bj2 = &System.Bead[id2];
+                double u[3]; // the first bond vector
+                for (int dd = 0; dd < 3; dd++) {
+                  u[dd] = bj1->Position[dd] - bj2->Position[dd];
+                }
+                // bond lengths
+                double size[2];
+                size[0] = VECTORLENGTH(u);
+                int id = id2D(mol_i->Type, 0, arr_avg_bond);
+                avg_bond[id] += size[0];
+                id = id2D(mol_i->Type, 1, arr_avg_bond);
+                avg_bond[id]++;
+                for (int k = (j + 1); k < mt_i->nBonds; k++) {
+                  int idk[2] = {mol_i->Bead[mt_i->Bond[k][0]],
+                                mol_i->Bead[mt_i->Bond[k][1]]};
+                  BEAD *bk1 = &System.Bead[idk[0]],
+                       *bk2 = &System.Bead[idk[1]];
+                  double v[3]; // the second bond vector
+                  for (int dd = 0; dd < 3; dd++) {
+                    v[dd] = bk1->Position[dd] - bk2->Position[dd];
+                  }
+                  // bond lengths
+                  size[1] = VECTORLENGTH(v);
+                  // size[1] = sqrt(SQR(v[0]) + SQR(v[1]) * SQR(v[2]));
+                  double scalar = u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+                  int id = id3D(mol_i->Type, j, k, arr);
+                  // sum of dot products
+                  dot[id] += scalar;
+                  // sum of cos(\phi)
+                  cos_phi[id] += scalar / (size[0] * size[1]);
+                  // sum of bond lengths
+                  bond[id] += size[0] * size[1];
+                  // count values - easier than figuring out their number
+                  count_stuff[id]++;
+                }
               }
-              // bond lengths
-              size[1] = VECTORLENGTH(v);
-              // size[1] = sqrt(SQR(v[0]) + SQR(v[1]) * SQR(v[2]));
-              double scalar = u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
-              int id = id3D(mol_i->Type, j, k, arr);
-              // sum of dot products
-              dot[id] += scalar;
-              // sum of cos(\phi)
-              cos_phi[id] += scalar / (size[0] * size[1]);
-              // sum of bond lengths
-              bond[id] += size[0] * size[1];
-              // count values - easier than figuring out their number
-              count_stuff[id]++;
             }
           }
         }

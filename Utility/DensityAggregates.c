@@ -289,7 +289,7 @@ int main(int argc, char *argv[]) {
             // if (System.MoleculeType[moltype].Flag) {
               double dist[3];
               Distance(System.Bead[bead].Position, com, box, dist);
-              dist[0] = VectorLength(dist);
+              dist[0] = VECTORLENGTH(dist);
 
               if (dist[0] < max_dist) {
                 int k = dist[0] / width;
@@ -304,7 +304,7 @@ int main(int argc, char *argv[]) {
             int id = System.Unbonded[j];
             double dist[3];
             Distance(System.Bead[id].Position, com, box, dist);
-            dist[0] = VectorLength(dist);
+            dist[0] = VECTORLENGTH(dist);
 
             if (dist[0] < max_dist) {
               int k = dist[0] / width;
