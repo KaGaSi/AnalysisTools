@@ -30,6 +30,8 @@ angles between any three beads in those molecule types (-n option).\n\n");
           "for (if not present, use all molecule types)");
   fprintf(ptr, "      --joined    specify that <input> contains joined "
           "coordinates\n");
+  fprintf(ptr, "  --all             calculate distribution for each angle in "
+          "the molecule type(s)\n");
   // see BondLength -d
   // fprintf(ptr, "  -n <ints>         bead indices (multiple of 3 <ints>)"
   //         "for angle calculation (default: 1 2 3)\n");
@@ -39,7 +41,8 @@ angles between any three beads in those molecule types (-n option).\n\n");
 // structure for options //{{{
 struct OPT {
   bool join, // --joined
-       *mt;  // -m
+       *mt,  // -m
+       all;          // --all
   COMMON_OPT c;
 };
 OPT * opt_create(void) {
@@ -81,7 +84,7 @@ int * bins_id4D(int i1, int i2, int i3, int size[3]) {
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 8, all = common + 2, count = 0,
+  int common = 8, all = common + 3, count = 0,
       req_arg = 3;
   char option[all][OPT_LENGTH];
   // common options
@@ -95,6 +98,7 @@ int main(int argc, char *argv[]) {
   strcpy(option[count++], "--version");
   // extra options
   strcpy(option[count++], "--joined");
+  strcpy(option[count++], "--all");
   strcpy(option[count++], "-m");
   OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
@@ -123,12 +127,14 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data //{{{
   opt->c = CommonOptions(argc, argv, LINE, in);
-  // --joined option
+  // --joined option //{{{
   if (BoolOption(argc, argv, "--joined")) {
     opt->join = false; // joined coordinates supplied, so no need to join
   } else {
     opt->join = true; // molecules need to be joined
   } //}}}
+  opt->all = BoolOption(argc, argv, "--all");
+  //}}}
 
   if (!opt->c.silent) {
     PrintCommand(stdout, argc, argv);
@@ -155,13 +161,13 @@ int main(int argc, char *argv[]) {
   arr_id[3] = Count->BeadType;
   int arr_id_size = arr_id[0] * arr_id[1] * arr_id[2] * arr_id[3];
   double *angle = calloc(arr_id_size * bins, sizeof *angle);
-  double *min_max_avg = calloc(arr_id_size * 3, sizeof *min_max_avg);
+  double *angle_mma = calloc(arr_id_size * 3, sizeof *angle_mma);
   for (int i = 0; i < Count->MoleculeType; i++) {
     for (int j = 0; j < Count->BeadType; j++) {
       for (int k = 0; k < Count->BeadType; k++) {
         for (int l = 0; l < Count->BeadType; l++) {
           int id = id5D(i, j, k, l, 0, arr_id);
-          min_max_avg[id] = 180; // maximum angle in degrees
+          angle_mma[id] = 180; // maximum angle in degrees
         }
       }
     }
@@ -229,12 +235,12 @@ int main(int argc, char *argv[]) {
 
             // mins & maxes //{{{
             int *bin_id = bins_id5D(mol_i->Type, *id_lo, b_2->Type, *id_hi, arr_id);
-            if (ang < min_max_avg[bin_id[0]]) {
-              min_max_avg[bin_id[0]] = ang;
-            } else if (ang > min_max_avg[bin_id[1]]) {
-              min_max_avg[bin_id[1]] = ang;
+            if (ang < angle_mma[bin_id[0]]) {
+              angle_mma[bin_id[0]] = ang;
+            } else if (ang > angle_mma[bin_id[1]]) {
+              angle_mma[bin_id[1]] = ang;
             }
-            min_max_avg[bin_id[2]] += ang;
+            angle_mma[bin_id[2]] += ang;
             //}}}
 
             int k = ang / width;
@@ -287,13 +293,13 @@ int main(int argc, char *argv[]) {
   // write distribution of bond lengths //{{{
   PrintByline(fout, argc, argv);
   // print first line of output file - molecule names and beadtype trios //{{{
-  FILE *fw = OpenFile(fout, "w");
-  fprintf(fw, "# (1) distance;");
+  FILE *fw = OpenFile(fout, "a");
+  fprintf(fw, "# (1) distance\n");
   count = 1;
   for (int i = 0; i < Count->MoleculeType; i++) {
     MOLECULETYPE *mt_i = &System.MoleculeType[i];
     if (opt->mt[i]) {
-      fprintf(fw, " %s molecule:", mt_i->Name);
+      fprintf(fw, "# %s molecule:", mt_i->Name);
       for (int j = 0; j < mt_i->nBTypes; j++) {
         for (int k = j; k < mt_i->nBTypes; k++) {
           for (int l = j; l < mt_i->nBTypes; l++) {
@@ -306,19 +312,19 @@ int main(int argc, char *argv[]) {
                       System.BeadType[btype1].Name,
                       System.BeadType[btype2].Name,
                       System.BeadType[btype3].Name);
-              // add semicolon for molecule's last trio; add comma otherwise
-              if (k == (mt_i->nBTypes - 1)) {
-                putc(';', fw);
-              } else {
-                putc(',', fw);
-              }
             }
           }
         }
       }
+      if (opt->all) {
+        count++;
+        fprintf(fw, " (%d)-(%d) individual angles", count,
+                count + mt_i->nBonds - 1);
+        count += mt_i->nAngles - 1;
+      }
+      putc('\n', fw);
     }
-  }
-  putc('\n', fw); //}}}
+  } //}}}
   // write distribution to output file //{{{
   for (int i = 0; i < bins; i++) {
     fprintf(fw, "%7.4f", width * (2 * i + 1) / 2);
@@ -350,12 +356,12 @@ int main(int argc, char *argv[]) {
   } //}}}
   // write mins, maxes, and averages //{{{
   // legend line
-  fprintf(fw, "# min(1st columns)/max(2nd columns)/average(3rd columns) -");
+  fprintf(fw, "# min(1st columns)/max(2nd columns)/average(3rd columns)\n");
   count = 1;
   for (int i = 0; i < Count->MoleculeType; i++) {
     MOLECULETYPE *mt_i = &System.MoleculeType[i];
     if (opt->mt[i]) {
-      fprintf(fw, " %s molecule:", mt_i->Name);
+      fprintf(fw, "# %s molecule:", mt_i->Name);
       for (int j = 0; j < mt_i->nBTypes; j++) {
         for (int k = j; k < mt_i->nBTypes; k++) {
           for (int l = j; l < mt_i->nBTypes; l++) {
@@ -368,20 +374,18 @@ int main(int argc, char *argv[]) {
                       System.BeadType[btype1].Name,
                       System.BeadType[btype3].Name);
               count += 3;
-              if (k == (mt_i->nBTypes - 1)) {
-                if (i != (Count->MoleculeType - 1)) {
-                  putc(';', fw); // molecule's last bead type pair
-                }
-              } else {
-                putc(',', fw); // not the last pair
-              }
             }
           }
         }
       }
+      if (opt->all) {
+        fprintf(fw, " (%d)-(%d) individual bonds", count,
+                count + 3 * mt_i->nBonds - 1);
+        count += 3 * mt_i->nBonds;
+      }
+      putc('\n', fw);
     }
   }
-  putc('\n', fw);
   // data line
   putc('#', fw);
   for (int i = 0; i < Count->MoleculeType; i++) {
@@ -389,10 +393,10 @@ int main(int argc, char *argv[]) {
       for (int k = j; k < Count->BeadType; k++) {
         for (int l = j; l < Count->BeadType; l++) {
           int *bin_id = bins_id5D(i, j, k, l, arr_id);
-          if (min_max_avg[bin_id[1]] > 0) {
-            fprintf(fw, " %lf", min_max_avg[bin_id[0]]);
-            fprintf(fw, " %lf", min_max_avg[bin_id[1]]);
-            fprintf(fw, " %lf", min_max_avg[bin_id[2]] / angles[i][j][k][l]);
+          if (angle_mma[bin_id[1]] > 0) {
+            fprintf(fw, " %lf", angle_mma[bin_id[0]]);
+            fprintf(fw, " %lf", angle_mma[bin_id[1]]);
+            fprintf(fw, " %lf", angle_mma[bin_id[2]] / angles[i][j][k][l]);
           }
         }
       }
@@ -406,7 +410,7 @@ int main(int argc, char *argv[]) {
   free(opt->mt);
   free(opt);
   free(angle);
-  free(min_max_avg);
+  free(angle_mma);
   //}}}
 
   return 0;

@@ -553,7 +553,6 @@ int main(int argc, char *argv[]) {
       putc('\n', fw);
     }
   }
-  putc('\n', fw);
   // data line
   putc('#', fw);
   for (int i = 0; i < Count->MoleculeType; i++) {
