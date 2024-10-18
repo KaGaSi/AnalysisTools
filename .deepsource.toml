@@ -5,5 +5,3 @@ enabled = true
 [analyzers.meta]
   misra_compliance = true
   cyclomatic_complexity_threshold = "very-high"
-
-[[ transformers ]]
