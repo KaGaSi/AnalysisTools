@@ -1,101 +1,91 @@
 \section{Angle Molecules} \label{sec:AngleMolecules}
 
-\TODO{Completely rewrite\ldots}
+This utility calculates angles (distribution and overall averages) between beads
+in each molecule of specified molecule type(s); the input structure file must
+contain angles (such as LAMMPS \data file). It can also calculate angles between
+any three beads in the molecule type(s) via the \tt{-n} option. See
+\tt{Examples/AngleMolecules} for an example.
 
-This utility calculates angles between beads in each molecule of specified
-molecule type(s). The beads do not have to be connected, so the angle does
-not have to be between two bonds.
+By default, the angles are calculated for every molecule type, but the \tt{-m}
+option can be used to specify only some of them.
 
-Using \texttt{-n} option, the angle is specified by three bead indices taken
-from the bead order in the \texttt{vsf} file. These indices go from 1
-to $N$, where $N$ is the number of beads in the molecule type. Generally,
-the numbering of beads inside a molecule is made according to the first
-molecule of the given type in \texttt{vsf} file. For example, assume that
-beads of the first molecule called \texttt{mol} in the \texttt{vsf} file
-are ordered \texttt{A} (\texttt{vsf} index 123), \texttt{B} (\texttt{vsf}
-index 124), \texttt{C} (\texttt{vsf} index 200). Then, bead \texttt{A} is
-1, bead \texttt{B} is 2, and \texttt{C} is 3.
+The utility groups angles according to bead types; e.g., in a linear 6-bead
+molecule (such as in the \tt{Example/AngleMolecules} directory) with bead order
+A-A-A-B-A-A with all possible angles defined (i.e., 1-2-3, 2-3-4, 3-4-5, and
+4-5-6 where the numbers specify bead indices in the molecule), there are three
+angle types: A-A-A, A-A-B, and A-B-A. However, using the \tt{--all} option, all
+molecular angles are averaged separately as well; i.e., beside for the three
+angles based on bead types, the distributions and averages are calculated for
+all five angles in the molecule too.
 
-More than one angle can be specified (i.e., a multiple of three numbers
-have to be supplied to the \texttt{-n} option.). For example, assuming
-indices \texttt{1 2 3 1 3 2} are specified, two angles will be calculeted.
-The first angle will be between lines defined by beads with indices
-\texttt{1 2} and \texttt{2 3}; the second one will be between lines defined
-by beads with indices \texttt{1 3} and \texttt{3 2}. An angle is calculated in
-degrees and is between 0 and 180$^{\circ}$.
-
-The utility calculates distribution of angles for each specified trio of
-bead indices for each molecule type and prints overall averages at the end
-of an \texttt{<output>} file. If \texttt{-a} option is used, it can also write
-all the angles for all individual molecules in each timestep (i.e., time
-evolution of the angle for each individual molecule).
-
-Usage:
+Using \texttt{-n} option, extra angles are specified by three bead indices taken
+from the bead order in the molecule type(s). These indices go from 1 to $N$,
+where $N$ is the number of beads in the molecule type (\tt{Info} utility can be
+used to check the indices). Multiple angles may be specified, and the results
+are written to the specified file. Angles containing an index number that is
+higher than the number of beads in a molecule are ignored only for that
+molecule.
 
 \vspace{1em}
 \noindent
-\texttt{AngleMolecules <input> <width> <output> <mol name(s)> <options>}
-
+Usage: \tt{AngleMolecules <input> <width> <output> [options]}
 \noindent
-\begin{longtable}{p{0.19\textwidth}p{0.754\textwidth}}
+\begin{longtable}{p{0.24\textwidth}p{0.704\textwidth}}
   \toprule
   \multicolumn{2}{l}{Mandatory arguments} \\
   \midrule
-  \texttt{<input>} & input coordinate file (either \texttt{vcf} or
-    \texttt{vtf} format) \\
-  \texttt{<width>} & width of each bin of the distribution \\
-  \texttt{<mol name(s)>} & molecule name(s) to calculcate angles for \\
-  \texttt{<output>} & output file for distribution \\
-  \toprule
-  \multicolumn{2}{l}{Non-standard options} \\
+  \texttt{<input>}       & input coordinate file\\
+  \texttt{<width>}       & width of each distribution bin\\
+  \texttt{<output>}      & output file for distribution\\
   \midrule
-  \texttt{--joined} & specify that \texttt{<input>} contains joined
-    coordinates (i.e., periodic boundary conditions for molecules do not
-    have to be removed) \\
-  \texttt{-a <name>} & write all angles for all molecules in all timesteps
-    to \texttt{<name>} \\
-  \texttt{-n  <ints>} & multiple of three indices for angle calculation (default: 1 2 3) \\
-  \texttt{-st <int>} & starting timestep for calculation (default: 1) \\
-  \texttt{-e <int>} & ending timestep for calculation (default: none) \\
+  \multicolumn{2}{l}{Options}\\
+  \midrule
+  \texttt{-m <name(s)>} & specify molecule type(s) to use\\
+  \texttt{--joined}     & specify that \texttt{<input>} contains joined
+    coordinates\\
+  \texttt{--all}        & write all angles for the molecule types\\
+  \texttt{-n <file> <ints>} & multiple of three indices for extra angle\\
+  \midrule
+  \multicolumn{2}{l}{Other options (see the beginning of
+                     Chapter~\ref{chap:Utils})}\\
+  \midrule
+  \multicolumn{2}{p{0.948\textwidth}}{\tt{-st},
+                                      \tt{-e},
+                                      \tt{-sk},
+                                      \tt{-i},
+                                      \tt{--verbose},
+                                      \tt{--silent},
+                                      \tt{--help},
+                                      \tt{--version}}\\
   \bottomrule
 \end{longtable}
 
 \noindent
 Format of output files:
 \begin{enumerate}[nosep,leftmargin=20pt]
-  \item \texttt{<output>} -- distribution of angles
+  \item \texttt{<output>} -- distribution of angles (grouped by bead types and
+    possibly for all molecular angles as well if \tt{--all} option is used)
     \begin{itemize}[nosep,leftmargin=5pt]
-      \item first line: command used to generate the file
-      \item second line: angle-specifying bead indices (the dash-separated
-        numbers correspond to indices inside every molecule and are the
-        same as the arguments to the \texttt{-n} option) with the numbers
-        in brackets corresponding to $n$th column of data for each molecule
-        type
-      \item third line: numbering of columns (i.e., column headers)
+      \item first line: AnalysisTools version
+      \item second line: command used to generate the file
+      \item following lines (number of specified molecules plus 1): column
+        headers
         \begin{itemize}[nosep,leftmargin=10pt]
-          \item first is the centre of each bin in angles (governed by
+          \item first column is the centre of each bin in angles (governed by
             \texttt{<width>}); i.e., if \texttt{<width>} is 5$^{\circ}$,
             then the centre of bin 0 to 5$^{\circ}$ is 2.5, centre of bin 5
             to 10$^{\circ}$ is 7.5 and so on
-          \item the rest are for the calculated data: the range for each
-            molecule type specifies which column numbers correspond to the
-            calculated angles for that particular molecule type and the
-            order of angles is given by the second line
+          \item the rest are for the calculated data: for each specified
+            molecule there are angles grouped by bead types followed by all
+            angles in that molecule (if \tt{--all} option is used)
         \end{itemize}
-      \item last two lines: arithmetic means for each calculated angle
-        (last line) and headers (second to last line) that again give range
-        of columns in the last line for each molecule type
+      \item next lines: the calculated data
+      \item last several lines (number of specified molecules plus 2): minimum,
+        maximum, and arithmetic mean for each calculated angle (last line) and
+        headers (preceding lines)
     \end{itemize}
-  \item \texttt{-a <name>} -- all angles for all molecules in all timesteps
+  \item \texttt{-n <file>} -- angles specified by supplied molecular indices
   \begin{itemize}[nosep,leftmargin=5pt]
-    \item first and second lines are the same as for \texttt{<output>}
-    \item third line: column headers
-      \begin{itemize}[nosep,leftmargin=10pt]
-        \item first is simulation timestep
-        \item the rest are the calculated data: the range for each molecule
-          type corresponds to the number of molecules of the given type
-          times the number of calculated angles; for each molecule the
-          angles are ordered according to the second line
-      \end{itemize}
+    \item the file structure is the same as for the default output file
   \end{itemize}
 \end{enumerate}

@@ -1,6 +1,9 @@
 #ifndef _GENERAL_H_
 #define _GENERAL_H_
 
+// just to use fileno() function
+#define _POSIX_C_SOURCE 200809L
+
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,9 +35,6 @@
 
 extern char line[LINE], *split[SPL_STR];
 extern int words;
-
-// needs to be here so I can use fileno() from a standard library
-int fileno(const FILE *stream);
 
 // deffine vector structures //{{{
 typedef struct Vector {
