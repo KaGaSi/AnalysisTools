@@ -808,9 +808,9 @@ int main(int argc, char *argv[]) {
   // create vsf file if output file is vcf format
   if (fout.type == VCF_FILE) {
     PrintByline(fout.name, argc, argv); // byline to vcf file
-    fout.name[strlen(fout.name)-2] = 's';
+    fout.name[strnlen(fout.name, LINE)-2] = 's';
     WriteStructure(fout, S_out, -1, false, argc, argv);
-    fout.name[strlen(fout.name)-2] = 'c';
+    fout.name[strnlen(fout.name, LINE)-2] = 'c';
   } else if (fout.type == VTF_FILE) {
     WriteStructure(fout, S_out, -1, false, argc, argv);
   } else { // some formats 'append' coordinates, not 'write' them

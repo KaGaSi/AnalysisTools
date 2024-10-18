@@ -1,7 +1,6 @@
 #ifndef _GENERAL_H_
 #define _GENERAL_H_
 
-// just to use fileno() function
 #define _POSIX_C_SOURCE 200809L
 
 #include <unistd.h>
@@ -104,6 +103,9 @@ void InitDouble2DArray (double *array[], int m, int n, double val);
 // test whether two arrays are the same
 bool SameArrayInt(int arr_1[], int arr_2[], int n);
 
+// some safe variants to classic functions
 void s_strcpy(char *dest, const char *src);
+char* s_strncpy(char *dest, const char *src, size_t dest_size);
+void* s_realloc(void *ptr, size_t new_size);
 
 #endif

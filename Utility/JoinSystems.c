@@ -45,18 +45,18 @@ int main(int argc, char *argv[]) {
   int common = 4, all = common + 7, count = 0, req_arg = 3;
   char option[all][OPT_LENGTH];
   // common options
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
+  s_strcpy(option[count++], "--verbose");
+  s_strcpy(option[count++], "--silent");
+  s_strcpy(option[count++], "--help");
+  s_strcpy(option[count++], "--version");
   // extra options
-  strcpy(option[count++], "-o");
-  strcpy(option[count++], "-off");
-  strcpy(option[count++], "-b");
-  strcpy(option[count++], "-i1");
-  strcpy(option[count++], "-i2");
-  strcpy(option[count++], "-st1");
-  strcpy(option[count++], "-st2");
+  s_strcpy(option[count++], "-o");
+  s_strcpy(option[count++], "-off");
+  s_strcpy(option[count++], "-b");
+  s_strcpy(option[count++], "-i1");
+  s_strcpy(option[count++], "-i2");
+  s_strcpy(option[count++], "-st1");
+  s_strcpy(option[count++], "-st2");
   OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   count = 0; // count mandatory arguments

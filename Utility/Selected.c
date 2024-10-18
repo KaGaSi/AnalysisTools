@@ -200,10 +200,10 @@ int main(int argc, char *argv[]) {
     } else {
       PrintStep(&count_coor, opt->c.start, opt->c.silent);
     }
-    position = realloc(position, count_coor * sizeof *position);
+    position = s_realloc(position, count_coor * sizeof *position);
     fgetpos(fr, &position[count_coor-1]);
-    bkp_line_count = realloc(bkp_line_count, count_coor *
-                             sizeof *bkp_line_count);
+    bkp_line_count = s_realloc(bkp_line_count, count_coor *
+                               sizeof *bkp_line_count);
     bkp_line_count[count_coor-1] = line_count;
     // decide whether this timestep is to be saved //{{{
     bool use = false;

@@ -6,6 +6,8 @@
 #ifndef _ERRORS_H_
 #define _ERRORS_H_
 
+#define _POSIX_C_SOURCE 200809L
+
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>

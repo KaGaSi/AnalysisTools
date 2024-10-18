@@ -922,12 +922,12 @@ bool InputCoorStruct(int argc, char *argv[], SYS_FILES *f) {
   if (f->stru.name[0] == '\0') {
     if (f->coor.type == VCF_FILE) { // use vcf file with .vsf ending
       int last = -1;
-      for (int i = 0; i < strlen(f->coor.name); i++) {
+      for (int i = 0; i < strnlen(f->coor.name, LINE); i++) {
         if (f->coor.name[i] == '.') {
           last = i;
         }
       }
-      strncpy(f->stru.name, f->coor.name, last);
+      s_strncpy(f->stru.name, f->coor.name, last);
       strcat(f->stru.name, ".vsf");
       f->stru.type = VSF_FILE;
     } else if (f->coor.type == VTF_FILE ||   //

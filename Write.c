@@ -769,10 +769,10 @@ void WriteOutput(SYSTEM System, bool write[], FILE_TYPE fw,
                  bool lmp_mass, int vsf_def, int argc, char *argv[]) {
   if (fw.type == VCF_FILE) { // create vsf file if output file is vcf format
     PrintByline(fw.name, argc, argv); // byline to vcf file
-    fw.name[strlen(fw.name)-2] = 's';
+    fw.name[strnlen(fw.name, LINE)-2] = 's';
     fw.type = VSF_FILE;
     WriteStructure(fw, System, vsf_def, lmp_mass, argc, argv);
-    fw.name[strlen(fw.name)-2] = 'c';
+    fw.name[strnlen(fw.name, LINE)-2] = 'c';
     fw.type = VCF_FILE;
   } else if (fw.type == VTF_FILE ||
              fw.type == VSF_FILE ||
@@ -980,7 +980,7 @@ void PrintBeadType(SYSTEM System) { //{{{
   // determine length of values to have a nice-looking output
   for (int i = 0; i < System.Count.BeadType; i++) {
     BEADTYPE *bt = &System.BeadType[i];
-    int length = strlen(bt->Name);
+    int length = strnlen(bt->Name, BEAD_NAME);
     if (length > longest_name) {
       longest_name = length;
     }

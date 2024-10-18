@@ -305,14 +305,34 @@ bool SameArrayInt(int arr_1[], int arr_2[], int n) { //{{{
   }
   return true;
 } //}}}
+// some safe variants to classic functions
 void s_strcpy(char *dest, const char *src) { //{{{
   if (dest == NULL || src == NULL) {
     return; // Handle NULL pointers
   }
-  size_t dest_len = strlen(dest);
-  size_t src_len = strlen(src);
+  size_t dest_len = strnlen(dest, LINE);
+  size_t src_len = strnlen(src, LINE);
   for (size_t i = 0; i < src_len && i < dest_len; i++) {
     dest[i] = src[i];
   }
   dest[dest_len - 1] = '\0'; // Ensure null-termination
+} //}}}
+char* s_strncpy(char *dest, const char *src, size_t dest_size) { //{{{
+  if (dest == NULL || src == NULL || dest_size == 0) {
+    return dest;
+  }
+  size_t i;
+  for (i = 0; i < dest_size - 1 && src[i] != '\0'; i++) {
+    dest[i] = src[i];
+  }
+  dest[i] = '\0';
+  return dest;
+} //}}}
+void* s_realloc(void *ptr, size_t new_size) { //{{{
+  void *temp = realloc(ptr, new_size);
+  if (temp == NULL && new_size > 0) {
+    s_strcpy(ERROR_MSG, "realloc error");
+    exit (1);
+  }
+  return temp;
 } //}}}

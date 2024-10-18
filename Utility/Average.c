@@ -84,7 +84,7 @@ int main ( int argc, char** argv ) {
       exit(1);
     }
     col_count++;
-    column = realloc(column, sizeof *column * (col_count + 1));
+    column = s_realloc(column, sizeof *column * (col_count + 1));
   }
   int col_max = 0;
   for (int i = 0; i < col_count; i++) {
@@ -163,7 +163,7 @@ int main ( int argc, char** argv ) {
       if (opt->c.start < data_lines) {
         count = data_lines - opt->c.start - 1;
         for (int i = 0; i < col_count; i++) {
-          data[i] = realloc(data[i], sizeof *data[i] * (count + 1));
+          data[i] = s_realloc(data[i], sizeof *data[i] * (count + 1));
           data[i][count] = atof(split[column[i]-1]);
         }
       }

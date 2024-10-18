@@ -110,7 +110,7 @@ static void PrintLine(FILE *f, char *colour1, char *colour2) {
     }
     fputs(Colour(f, C_RESET), f);
     // print line break if the last split[] doesn't end with one
-    if (split[words - 1][strlen(split[words - 1]) - 1] != '\n') {
+    if (split[words-1][strnlen(split[words-1], SPL_LEN)-1] != '\n') {
       putc('\n', f);
     }
   }
@@ -125,7 +125,7 @@ void WarnPrintLine() {
 // print 'ERROR - premature end of file\n<file>\n' //{{{
 void ErrorEOF(char file[], char msg[]) {
   if (msg[0] != '\0') {
-    if (strlen(msg) >= (LINE - 24)) {
+    if (strnlen(msg, LINE) >= (LINE - 24)) {
       msg[LINE-24] = '\0';
     }
     snprintf(ERROR_MSG, LINE, "%s; premature end of file", msg);
