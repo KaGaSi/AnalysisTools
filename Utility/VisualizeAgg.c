@@ -341,20 +341,20 @@ int main(int argc, char *argv[]) {
       req_arg = 4;
   char option[all][OPT_LENGTH];
   // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "-sk");
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
+  s_strcpy(option[count++], "-st");
+  s_strcpy(option[count++], "-e");
+  s_strcpy(option[count++], "-sk");
+  s_strcpy(option[count++], "-i");
+  s_strcpy(option[count++], "--verbose");
+  s_strcpy(option[count++], "--silent");
+  s_strcpy(option[count++], "--help");
+  s_strcpy(option[count++], "--version");
   // extra options
-  strcpy(option[count++], "--join");
-  // strcpy(option[count++], "-m");
-  // strcpy(option[count++], "-x");
-  // strcpy(option[count++], "-only");
-  strcpy(option[count++], "--range");
+  s_strcpy(option[count++], "--join");
+  // s_strcpy(option[count++], "-m");
+  // s_strcpy(option[count++], "-x");
+  // s_strcpy(option[count++], "-only");
+  s_strcpy(option[count++], "--range");
   OptionCheck(argc, argv, count, req_arg, common, all, option, false); //}}}
 
   count = 0; // count mandatory arguments
@@ -362,19 +362,19 @@ int main(int argc, char *argv[]) {
   // arguments & options before reading system data //{{{
   // <in.coor> - input coordinate (and structure) file
   SYS_FILES in = InitSysFiles;
-  safe_strcpy(in.coor.name, argv[++count]);
+  s_strcpy(in.coor.name, argv[++count]);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   }
   // <in.agg> - input agg file
   char in_agg[LINE] = "";
-  safe_strcpy(in_agg, argv[++count]);
+  s_strcpy(in_agg, argv[++count]);
   // <output> - output coordinate file
   FILE_TYPE fout;
-  safe_strcpy(fout.name, argv[++count]);
+  s_strcpy(fout.name, argv[++count]);
   fout.type = CoordinateFileType(fout.name);
   if (fout.type == LDATA_FILE) {
-    strcpy(ERROR_MSG, "lammps data file not allowed as output coordinate file");
+    s_strcpy(ERROR_MSG, "lammps data file cannot be output coordinate file");
     exit(1);
   }
 
@@ -400,7 +400,7 @@ int main(int argc, char *argv[]) {
         !IsNaturalNumber(argv[count+1], &val[0]) ||
         !IsNaturalNumber(argv[count+2], &val[1]) ||
         val[0] == val[1]) {
-      strcpy(ERROR_MSG, "two different positive numbers needed for size range");
+      s_strcpy(ERROR_MSG, "size range requires two different positive numbers");
       PrintError();
       Help(argv[0], true, common, option);
       exit(1);
@@ -455,7 +455,7 @@ int main(int argc, char *argv[]) {
     for (; count < words; count++) {
       if (strcmp(split[count], "-d") == 0) {
         if ((count+1) >= words || !IsRealNumber(split[count+1], &distance)) {
-          strcpy(ERROR_MSG, "wrong distance in Aggregate command "
+          s_strcpy(ERROR_MSG, "wrong distance in Aggregate command "
                  "(-d option); using 1 for joining the aggregates");
           PrintWarnFile(in_agg, "\0", "\0");
           distance = 1;

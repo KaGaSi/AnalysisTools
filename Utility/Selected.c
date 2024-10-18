@@ -51,36 +51,36 @@ int main(int argc, char *argv[]) {
       req_arg = 2;
   char option[all][OPT_LENGTH];
   // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "-sk");
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
+  s_strcpy(option[count++], "-st");
+  s_strcpy(option[count++], "-e");
+  s_strcpy(option[count++], "-sk");
+  s_strcpy(option[count++], "-i");
+  s_strcpy(option[count++], "--verbose");
+  s_strcpy(option[count++], "--silent");
+  s_strcpy(option[count++], "--help");
+  s_strcpy(option[count++], "--version");
   // extra options
-  strcpy(option[count++], "--reverse");
-  strcpy(option[count++], "--join");
-  strcpy(option[count++], "--wrap");
-  strcpy(option[count++], "-n");
-  strcpy(option[count++], "--last");
-  strcpy(option[count++], "-bt");
-  strcpy(option[count++], "-mt");
+  s_strcpy(option[count++], "--reverse");
+  s_strcpy(option[count++], "--join");
+  s_strcpy(option[count++], "--wrap");
+  s_strcpy(option[count++], "-n");
+  s_strcpy(option[count++], "--last");
+  s_strcpy(option[count++], "-bt");
+  s_strcpy(option[count++], "-mt");
   OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
   // <input> - input coordinate (and structure) file //{{{
   SYS_FILES in = InitSysFiles;
-  safe_strcpy(in.coor.name, argv[++count]);
+  s_strcpy(in.coor.name, argv[++count]);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
 
   // <output> - output coordinate file
   FILE_TYPE fout;
-  safe_strcpy(fout.name, argv[++count]);
+  s_strcpy(fout.name, argv[++count]);
   fout.type = CoordinateFileType(fout.name);
 
   // options before reading system data //{{{
@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
   COUNT *Count = &System.Count;
 
   if (opt->join && Count->Molecule == 0) {
-    strcpy(ERROR_MSG, "no molecules to join are present");
+    s_strcpy(ERROR_MSG, "no molecules to join are present");
     PrintWarning();
   }
 
@@ -231,7 +231,7 @@ int main(int argc, char *argv[]) {
     } //}}}
     if (use) { // read and write the timestep, if it should be saved //{{{
       if (fout.type == LDATA_FILE && count_saved == 1) {
-        strcpy(ERROR_MSG, "only one timestep can be saved to lammps data file");
+        s_strcpy(ERROR_MSG, "lammps data file can contain only one timestep");
         PrintWarnFile(fout.name, "\0", "\0");
         count_coor--;
         break;
@@ -294,11 +294,11 @@ int main(int argc, char *argv[]) {
     } //}}}
   } else if (count_coor == 0) { // error - input file without a valid timestep //{{{
     remove(fout.name);
-    strcpy(ERROR_MSG, "no valid timestep found");
+    s_strcpy(ERROR_MSG, "no valid timestep found");
     PrintErrorFile(in.coor.name, "\0", "\0"); //}}}
   } else if (opt->c.start > count_coor) { // warn if no timesteps were written //{{{
     remove(fout.name);
-    strcpy(ERROR_MSG, "no coordinates written (starting timestep is higher"
+    s_strcpy(ERROR_MSG, "no coordinates written (starting timestep is higher"
            " than the total number of timesteps)");
     PrintWarning(); //}}}
   } else if (!opt->c.silent) { // print last step count? //{{{

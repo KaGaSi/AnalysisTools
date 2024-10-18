@@ -52,26 +52,26 @@ int main(int argc, char *argv[]) {
   int common = 5, all = common + 8, count = 0, req_arg = 1;
   char option[all][OPT_LENGTH];
   // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
+  s_strcpy(option[count++], "-st");
+  s_strcpy(option[count++], "--verbose");
+  s_strcpy(option[count++], "--silent");
+  s_strcpy(option[count++], "--help");
+  s_strcpy(option[count++], "--version");
   // extra options
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "-c");
-  strcpy(option[count++], "-o");
-  strcpy(option[count++], "--unique");
-  strcpy(option[count++], "--detailed");
-  strcpy(option[count++], "-def");
-  strcpy(option[count++], "--mass");
-  strcpy(option[count++], "-ebt");
+  s_strcpy(option[count++], "-i");
+  s_strcpy(option[count++], "-c");
+  s_strcpy(option[count++], "-o");
+  s_strcpy(option[count++], "--unique");
+  s_strcpy(option[count++], "--detailed");
+  s_strcpy(option[count++], "-def");
+  s_strcpy(option[count++], "--mass");
+  s_strcpy(option[count++], "-ebt");
   OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   count = 0; // count arguments
   OPT *opt = opt_create();
   SYS_FILES in = InitSysFiles;
-  safe_strcpy(in.stru.name, argv[++count]);
+  s_strcpy(in.stru.name, argv[++count]);
   in.stru.type = StructureFileType(in.stru.name);
 
   PrintCommand(stdout, argc, argv);

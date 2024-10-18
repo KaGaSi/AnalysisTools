@@ -104,6 +104,6 @@ void InitDouble2DArray (double *array[], int m, int n, double val);
 // test whether two arrays are the same
 bool SameArrayInt(int arr_1[], int arr_2[], int n);
 
-void safe_strcpy(char *dest, const char *src);
+void s_strcpy(char *dest, const char *src);
 
 #endif

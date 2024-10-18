@@ -1,8 +1,4 @@
 #include "../AnalysisTools.h"
-#include <math.h>
-#include <stdio.h>
-#include <string.h>
-#include <strings.h>
 #include <sys/stat.h>   // stat
 
 bool file_exists (char *filename) {
@@ -47,12 +43,12 @@ OPT * opt_create(void) {
 int main(int argc, char *argv[]) {
 
   // define options //{{{
-  int common = 3, all = common + 0, count = 0, req_arg = 2;
+  int common = 3, all = common, count = 0, req_arg = 2;
   char option[all][OPT_LENGTH];
   // common options
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
+  s_strcpy(option[count++], "--verbose");
+  s_strcpy(option[count++], "--silent");
+  s_strcpy(option[count++], "--help");
   // extra options
   OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
@@ -60,14 +56,14 @@ int main(int argc, char *argv[]) {
   OPT *opt = opt_create();
 
   char in[LINE];
-  safe_strcpy(in, argv[++count]);
+  s_strcpy(in, argv[++count]);
 
   FILE_TYPE out;
-  safe_strcpy(out.name, argv[++count]);
+  s_strcpy(out.name, argv[++count]);
   out.type = StructureFileType(out.name);
 
   char db_dir[LINE];
-  strcpy(db_dir, "./");
+  s_strcpy(db_dir, "./");
 
   PrintCommand(stdout, argc, argv);
 
@@ -146,7 +142,7 @@ int main(int argc, char *argv[]) {
         continue;
       }
       char name[MOL_NAME];
-      safe_strcpy(name, split[1]);
+      s_strcpy(name, split[1]);
       // for (int i = 0; i < words; i++) {
       //   printf(" %s", split[i]);
       // }
@@ -280,7 +276,7 @@ int main(int argc, char *argv[]) {
   return 0;
 
   err_in:
-    strcpy(ERROR_MSG, "wrong line");
+    s_strcpy(ERROR_MSG, "wrong line");
     PrintErrorFileLine(in, line_count);
     exit(1);
 }

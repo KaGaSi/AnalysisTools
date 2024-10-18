@@ -130,7 +130,7 @@ void ErrorEOF(char file[], char msg[]) {
     }
     snprintf(ERROR_MSG, LINE, "%s; premature end of file", msg);
   } else {
-    strcpy(ERROR_MSG, "premature end of file");
+    s_strcpy(ERROR_MSG, "premature end of file");
   }
   PrintError();
   ErrorPrintFile(file, "\0", "\0");
@@ -138,13 +138,13 @@ void ErrorEOF(char file[], char msg[]) {
 } //}}}
 // snprintf - just to shut up compiler warnings; should never trigger //{{{
 void ErrorSnprintf() {
-  strcpy(ERROR_MSG, "something went wrong with snprintf()");
+  s_strcpy(ERROR_MSG, "something went wrong with snprintf()");
   PrintError();
   exit(1);
 } //}}}
 // wrong number of commandline arguments //{{{
 void ErrorArgNumber(int count, int need) {
-  strcpy(ERROR_MSG, "insufficient number of arguments");
+  s_strcpy(ERROR_MSG, "insufficient number of arguments");
   PrintError();
   fprintf(stderr, "%ssupplied: %s%d%s, needed: %s%d%s\n", ErrRed(),
           ErrYellow(), count, ErrRed(), ErrYellow(), need, ErrColourReset());
@@ -157,7 +157,7 @@ int ErrorExtension(char *file, int number, char extension[][EXTENSION]) {
       return i;
     }
   }
-  strcpy(ERROR_MSG, "incorrect file extension");
+  s_strcpy(ERROR_MSG, "incorrect file extension");
   PrintError();
   ErrorPrintFile(file, "\0", "\0");
   fprintf(stderr, "%s; allowed extensions:", ErrRed());
@@ -169,11 +169,11 @@ int ErrorExtension(char *file, int number, char extension[][EXTENSION]) {
   return -1;
 } //}}}
 void ErrorOption(char *option) { //{{{
-  strcpy(ERROR_MSG, "non-existent option");
+  s_strcpy(ERROR_MSG, "non-existent option");
   PrintErrorOption(option);
 } //}}}
 void ErrorNaN(char *option) { //{{{
-  strcpy(ERROR_MSG, "non-numeric argument");
+  s_strcpy(ERROR_MSG, "non-numeric argument");
   PrintErrorOption(option);
 } //}}}
 void ErrorBeadType(char name[], SYSTEM System) { //{{{
@@ -210,7 +210,7 @@ void WarnChargedSystem(SYSTEM System, char file1[], char file2[],
     charge += bt->Charge * bt->Number;
   }
   if (fabs(charge) > 0.00001) {
-    strcpy(ERROR_MSG, "system with net electric charge");
+    s_strcpy(ERROR_MSG, "system with net electric charge");
     PrintWarning();
     WarnPrintFile(file1, file2, file3);
     fprintf(stderr, "%s; %sq = %lf%s\n", ErrCyan(), ErrYellow(), charge,

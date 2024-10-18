@@ -90,20 +90,20 @@ int main(int argc, char *argv[]) {
       req_arg = 3;
   char option[all][OPT_LENGTH];
   // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "-sk");
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
+  s_strcpy(option[count++], "-st");
+  s_strcpy(option[count++], "-e");
+  s_strcpy(option[count++], "-sk");
+  s_strcpy(option[count++], "-i");
+  s_strcpy(option[count++], "--verbose");
+  s_strcpy(option[count++], "--silent");
+  s_strcpy(option[count++], "--help");
+  s_strcpy(option[count++], "--version");
   // extra options
-  strcpy(option[count++], "--joined");
-  strcpy(option[count++], "--all");
-  strcpy(option[count++], "-d");
-  strcpy(option[count++], "-m");
-  strcpy(option[count++], "-w");
+  s_strcpy(option[count++], "--joined");
+  s_strcpy(option[count++], "--all");
+  s_strcpy(option[count++], "-d");
+  s_strcpy(option[count++], "-m");
+  s_strcpy(option[count++], "-w");
   OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   count = 0; // count mandatory arguments
@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
 
   // <input> - input coordinate (and structure) file //{{{
   SYS_FILES in = InitSysFiles;
-  safe_strcpy(in.coor.name, argv[++count]);
+  s_strcpy(in.coor.name, argv[++count]);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
@@ -126,7 +126,7 @@ int main(int argc, char *argv[]) {
 
   // <output> - file name with bond length distribution
   char fout[LINE] = "";
-  safe_strcpy(fout, argv[++count]);
+  s_strcpy(fout, argv[++count]);
 
   // options before reading system data //{{{
   opt->c = CommonOptions(argc, argv, LINE, in);
@@ -150,7 +150,7 @@ int main(int argc, char *argv[]) {
   int d_pair_n = opt->n_number / d_per_set;
   // Error: wrong number of integers //{{{
   if (opt->d_file[0] != '\0' && (opt->n_number % d_per_set) != 0) {
-    strcpy(ERROR_MSG, "number of bead indexes must be even");
+    s_strcpy(ERROR_MSG, "number of bead indexes must be even");
     PrintErrorOption("-d");
     exit(1);
   } //}}}
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < opt->n_number; i += d_per_set) {
     if (opt->n_list[i] == opt->n_list[i+1] ||
         opt->n_list[i] == 0 || opt->n_list[i+1] == 0) {
-      strcpy(ERROR_MSG, "each pair of bead ids must be non-zero and different");
+      s_strcpy(ERROR_MSG, "each bead id pair must be non-zero and different");
       PrintErrorOption("-d");
       exit(1);
     }

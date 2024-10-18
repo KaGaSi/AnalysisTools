@@ -57,16 +57,16 @@ int main(int argc, char *argv[]) {
       req_arg = 5;
   char option[all][OPT_LENGTH];
   // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "-sk");
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
+  s_strcpy(option[count++], "-st");
+  s_strcpy(option[count++], "-e");
+  s_strcpy(option[count++], "-sk");
+  s_strcpy(option[count++], "-i");
+  s_strcpy(option[count++], "--verbose");
+  s_strcpy(option[count++], "--silent");
+  s_strcpy(option[count++], "--help");
+  s_strcpy(option[count++], "--version");
   // extra options
-  strcpy(option[count++], "--joined");
+  s_strcpy(option[count++], "--joined");
   OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   count = 0; // count mandatory arguments
@@ -74,18 +74,18 @@ int main(int argc, char *argv[]) {
 
   // <input> - input coordinate (and structure) file //{{{
   SYS_FILES in = InitSysFiles;
-  safe_strcpy(in.coor.name, argv[++count]);
+  s_strcpy(in.coor.name, argv[++count]);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
 
   // <in.agg> - input aggregate file //{{{
   char input_agg[LINE] = "";
-  safe_strcpy(input_agg, argv[++count]);
+  s_strcpy(input_agg, argv[++count]);
   // test if <in.agg> ends with '.agg'
   int ext = 1;
   char extension[2][EXTENSION];
-  strcpy(extension[0], ".agg");
+  s_strcpy(extension[0], ".agg");
   if (ErrorExtension(input_agg, ext, extension) == -1) {
     Help(argv[0], true, common, option);
     exit(1);
@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
 
   // <output> - filename with bead densities
   char output_rho[LINE];
-  safe_strcpy(output_rho, argv[++count]);
+  s_strcpy(output_rho, argv[++count]);
 
   // options before reading system data //{{{
   opt->c = CommonOptions(argc, argv, LINE, in);

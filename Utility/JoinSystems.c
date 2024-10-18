@@ -66,14 +66,14 @@ int main(int argc, char *argv[]) {
   SYS_FILES in[2];
   for (int s = 0; s < 2; s++) {
     in[s] = InitSysFiles;
-    safe_strcpy(in[s].coor.name, argv[++count]);
+    s_strcpy(in[s].coor.name, argv[++count]);
     if (!InputCoorStruct(argc, argv, &in[s])) {
       exit(1);
     }
   }
   // <output> - output coordinate file
   FILE_TYPE fout = InitFile;
-  safe_strcpy(fout.name, argv[++count]);
+  s_strcpy(fout.name, argv[++count]);
   fout.type = CoordinateFileType(fout.name); //}}}
 
   // options before reading system data //{{{
@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
           (argv[i+1][0] != 'c' && !IsRealNumber(argv[i + 1], &opt->off[0])) ||
           (argv[i+2][0] != 'c' && !IsRealNumber(argv[i + 2], &opt->off[1])) ||
           (argv[i+3][0] != 'c' && !IsRealNumber(argv[i + 3], &opt->off[2]))) {
-        strcpy(ERROR_MSG, "wrong/missing arguments (either number or 'c')");
+        s_strcpy(ERROR_MSG, "wrong/missing arguments (either number or 'c')");
         PrintErrorOption("-off");
         exit(1);
       }
@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
   InitDoubleArray(opt->box, 3, 0);
   if (DoubleOption3(argc, argv, "-b", opt->box)) {
     if (opt->box[0] <= 0 || opt->box[1] <= 0 || opt->box[2] <= 0) {
-      strcpy(ERROR_MSG, "three positive numbers required");
+      s_strcpy(ERROR_MSG, "three positive numbers required");
       PrintErrorOption("-b");
       Help(argv[0], true, common, option);
       exit(1);
@@ -166,7 +166,7 @@ int main(int argc, char *argv[]) {
       }
     }
     if (!ReadTimestep(in[s], fr, &Sys[s], &line_count)) {
-      strcpy(ERROR_MSG, "no valid timestep; maybe starting step is too high?");
+      s_strcpy(ERROR_MSG, "no valid timestep; starting step may be too high");
       PrintErrorFile(in[s].coor.name, "\0", "\0");
       exit(1);
     }

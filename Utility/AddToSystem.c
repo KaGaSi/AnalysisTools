@@ -197,31 +197,31 @@ int main(int argc, char *argv[]) {
   int common = 6, all = common + 18, count = 0, req_arg = 3;
   char option[all][OPT_LENGTH];
   // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
+  s_strcpy(option[count++], "-st");
+  s_strcpy(option[count++], "-i");
+  s_strcpy(option[count++], "--verbose");
+  s_strcpy(option[count++], "--silent");
+  s_strcpy(option[count++], "--help");
+  s_strcpy(option[count++], "--version");
   // extra options
-  strcpy(option[count++], "-o");
-  strcpy(option[count++], "-ld");
-  strcpy(option[count++], "-hd");
-  strcpy(option[count++], "-bt");
-  strcpy(option[count++], "--bonded");
-  strcpy(option[count++], "-xb");
-  strcpy(option[count++], "--add");
-  strcpy(option[count++], "--no-rotate");
-  strcpy(option[count++], "-a");
-  strcpy(option[count++], "--head");
-  strcpy(option[count++], "--tail");
-  strcpy(option[count++], "-cx");
-  strcpy(option[count++], "-cy");
-  strcpy(option[count++], "-cz");
-  strcpy(option[count++], "--real");
-  strcpy(option[count++], "-b");
-  strcpy(option[count++], "-off");
-  strcpy(option[count++], "-s");
+  s_strcpy(option[count++], "-o");
+  s_strcpy(option[count++], "-ld");
+  s_strcpy(option[count++], "-hd");
+  s_strcpy(option[count++], "-bt");
+  s_strcpy(option[count++], "--bonded");
+  s_strcpy(option[count++], "-xb");
+  s_strcpy(option[count++], "--add");
+  s_strcpy(option[count++], "--no-rotate");
+  s_strcpy(option[count++], "-a");
+  s_strcpy(option[count++], "--head");
+  s_strcpy(option[count++], "--tail");
+  s_strcpy(option[count++], "-cx");
+  s_strcpy(option[count++], "-cy");
+  s_strcpy(option[count++], "-cz");
+  s_strcpy(option[count++], "--real");
+  s_strcpy(option[count++], "-b");
+  s_strcpy(option[count++], "-off");
+  s_strcpy(option[count++], "-s");
   OptionCheck(argc, argv, count, req_arg, common, all, option, true);
   //}}}
 
@@ -231,7 +231,7 @@ int main(int argc, char *argv[]) {
   SYS_FILES in = InitSysFiles;
   opt->new = true; // create new system from scratch?
   if (argv[++count][0] != '-') {
-    safe_strcpy(in.coor.name, argv[count]);
+    s_strcpy(in.coor.name, argv[count]);
     opt->new = false;
     if (!InputCoorStruct(argc, argv, &in)) {
       exit(1);
@@ -240,17 +240,17 @@ int main(int argc, char *argv[]) {
 
   // <in.field> - FIELD file with specis to add //{{{
   SYS_FILES field = InitSysFiles;
-  safe_strcpy(field.stru.name, argv[++count]);
+  s_strcpy(field.stru.name, argv[++count]);
   field.stru.type = StructureFileType(field.stru.name);
   if (field.stru.type != FIELD_FILE) {
-    strcpy(ERROR_MSG, "input FIELD file required");
+    s_strcpy(ERROR_MSG, "input FIELD file required");
     PrintErrorFile(field.stru.name, "\0", "\0");
     exit(1);
   } //}}}
 
   // <output> - coordinate and structure output file
   FILE_TYPE fout = InitFile;
-  safe_strcpy(fout.name, argv[++count]);
+  s_strcpy(fout.name, argv[++count]);
   fout.type = CoordinateFileType(fout.name);
 
   // options before reading system data //{{{
@@ -272,14 +272,14 @@ int main(int argc, char *argv[]) {
   }
   // errors for -ld/-hd options //{{{
   if ((opt->ld && opt->ldist <= 0) || (opt->hd && opt->hdist <= 0)) {
-    strcpy(ERROR_MSG, "highest/lowest distance must be positive real number");
+    s_strcpy(ERROR_MSG, "highest/lowest distance must be positive real number");
     PrintErrorOption("-ld/-hd");
     PrintCommand(stderr, argc, argv);
     Help(argv[0], true, common, option);
     exit(1);
   }
   if (opt->ld && opt->hd && opt->ldist >= opt->hdist) {
-    strcpy(ERROR_MSG, "highest distance must be higher than lowest distance");
+    s_strcpy(ERROR_MSG, "highest distance must be higher than lowest distance");
     PrintErrorOption("-ld/-hd");
     PrintCommand(stderr, argc, argv);
     Help(argv[0], true, common, option);
@@ -294,7 +294,7 @@ int main(int argc, char *argv[]) {
       }
     }
     if (!bt) {
-      strcpy(ERROR_MSG, "missing mandatory -bt or --bonded options");
+      s_strcpy(ERROR_MSG, "missing mandatory -bt or --bonded options");
       PrintErrorOption("-ld/-hd");
       Help(argv[0], true, common, option);
       exit(1);
@@ -309,22 +309,22 @@ int main(int argc, char *argv[]) {
     char str[4];
     switch (dd) {
       case 0:
-        strcpy(str, "-cx");
+        s_strcpy(str, "-cx");
         break;
       case 1:
-        strcpy(str, "-cy");
+        s_strcpy(str, "-cy");
         break;
       case 2:
-        strcpy(str, "-cz");
+        s_strcpy(str, "-cz");
         break;
     }
     if (DoubleOption2(argc, argv, str, opt->axis[dd])) {
       if (opt->axis[dd][0] < 0 || opt->axis[dd][1] < 0) {
-        strcpy(ERROR_MSG, "two non-negative numbers required");
+        s_strcpy(ERROR_MSG, "two non-negative numbers required");
         PrintErrorOption("-cx/-cy/-cz");
         exit(1);
       } else if (opt->axis[dd][0] == opt->axis[dd][1]) {
-        strcpy(ERROR_MSG, "two different distance values required");
+        s_strcpy(ERROR_MSG, "two different distance values required");
         PrintErrorOption("-cx/-cy/-cz");
         exit(1);
       } else if (opt->axis[dd][0] > opt->axis[dd][1]) {
@@ -334,7 +334,7 @@ int main(int argc, char *argv[]) {
     if (!opt->real) {
       if ((opt->axis[dd][0] != -1 && opt->axis[dd][0] > 1) ||
           (opt->axis[dd][1] != -1 && opt->axis[dd][1] > 1)) {
-        strcpy(ERROR_MSG, "unless --real is used, "
+        s_strcpy(ERROR_MSG, "unless --real is used, "
                           "-cx/y/z values must be between 0 and 1");
         PrintErrorOption(str);
         exit(1);
@@ -367,7 +367,7 @@ int main(int argc, char *argv[]) {
         opt->box.Length[0] <= 0 ||
         opt->box.Length[1] <= 0 ||
         opt->box.Length[2] <= 0) {
-      strcpy(ERROR_MSG, "three positive numbers required");
+      s_strcpy(ERROR_MSG, "three positive numbers required");
       PrintErrorOption("-b");
       Help(argv[0], true, common, option);
       exit(1);
@@ -389,7 +389,7 @@ int main(int argc, char *argv[]) {
           strcmp(argv[i], "--add") == 0 ||
           strcmp(argv[i], "-xb") == 0 ||
           strcmp(argv[i], "-st") == 0) {
-        strcpy(ERROR_MSG, "ignored when creating new system from scratch");
+        s_strcpy(ERROR_MSG, "ignored when creating new system from scratch");
         PrintWarnOption("-bt/-ld/-hd/--bonded/-xb/-st");
         break;
       }
@@ -445,13 +445,13 @@ int main(int argc, char *argv[]) {
     int line_count = 0;
     for (int i = 1; i < opt->c.start; i++) { // from 1 as start=1 is the first
       if (!SkipTimestep(in, fr, &line_count)) {
-        strcpy(ERROR_MSG, "couldn't skip");
+        s_strcpy(ERROR_MSG, "couldn't skip");
         PrintError();
         exit(1);
       }
     }
     if (!ReadTimestep(in, fr, &S_orig, &line_count)) {
-      strcpy(ERROR_MSG, "no coordinate data (starting step may be too high)");
+      s_strcpy(ERROR_MSG, "no coordinate data (starting step may be too high)");
       PrintErrorFile(in.coor.name, "\0", "\0");
       exit(1);
     }
@@ -604,7 +604,7 @@ int main(int argc, char *argv[]) {
     }
     // second, the error?
     if (C_add->Bead > count) {
-      strcpy(ERROR_MSG, "not enough beads to switch");
+      s_strcpy(ERROR_MSG, "not enough beads to switch");
       PrintError();
       exit(1);
     } //}}}

@@ -52,17 +52,17 @@ int main(int argc, char *argv[]) {
       req_arg = 2;
   char option[all][OPT_LENGTH];
   // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "-sk");
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
+  s_strcpy(option[count++], "-st");
+  s_strcpy(option[count++], "-e");
+  s_strcpy(option[count++], "-sk");
+  s_strcpy(option[count++], "-i");
+  s_strcpy(option[count++], "--verbose");
+  s_strcpy(option[count++], "--silent");
+  s_strcpy(option[count++], "--help");
+  s_strcpy(option[count++], "--version");
   // extra options
-  strcpy(option[count++], "--joined");
-  strcpy(option[count++], "-m");
+  s_strcpy(option[count++], "--joined");
+  s_strcpy(option[count++], "-m");
   OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   count = 0; // count mandatory arguments
@@ -70,14 +70,14 @@ int main(int argc, char *argv[]) {
 
   // <input> - input coordinate (and structure) file //{{{
   SYS_FILES in = InitSysFiles;
-  safe_strcpy(in.coor.name, argv[++count]);
+  s_strcpy(in.coor.name, argv[++count]);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
 
   // <output> - file name with persistence lengths
   char fout[LINE] = "";
-  safe_strcpy(fout, argv[++count]);
+  s_strcpy(fout, argv[++count]);
 
   // options before reading system data //{{{
   opt->c = CommonOptions(argc, argv, LINE, in);

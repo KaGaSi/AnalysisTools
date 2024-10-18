@@ -54,19 +54,19 @@ int main(int argc, char *argv[]) {
       req_arg = 4;
   char option[all][OPT_LENGTH];
   // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "-sk");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
+  s_strcpy(option[count++], "-st");
+  s_strcpy(option[count++], "-e");
+  s_strcpy(option[count++], "-sk");
+  s_strcpy(option[count++], "--verbose");
+  s_strcpy(option[count++], "--silent");
+  s_strcpy(option[count++], "--help");
+  s_strcpy(option[count++], "--version");
   // extra options
-  strcpy(option[count++], "-n");
-  strcpy(option[count++], "-m");
-  strcpy(option[count++], "-x");
-  strcpy(option[count++], "-only");
-  strcpy(option[count++], "-c");
+  s_strcpy(option[count++], "-n");
+  s_strcpy(option[count++], "-m");
+  s_strcpy(option[count++], "-x");
+  s_strcpy(option[count++], "-only");
+  s_strcpy(option[count++], "-c");
   OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   // commad line arguments before reading the structure //{{{
@@ -74,17 +74,17 @@ int main(int argc, char *argv[]) {
   OPT *opt = opt_create();
   // <input> - input structure file
   SYS_FILES in = InitSysFiles;
-  safe_strcpy(in.stru.name, argv[++count]);
+  s_strcpy(in.stru.name, argv[++count]);
   in.stru.type = StructureFileType(in.stru.name);
   // <in.agg> - input aggregate file
   char input_agg[LINE] = "";
-  safe_strcpy(input_agg, argv[++count]);
+  s_strcpy(input_agg, argv[++count]);
   // <distr file> - file with distribution of aggregation numbers
   char out_distr[LINE] = "";
-  safe_strcpy(out_distr, argv[++count]);
+  s_strcpy(out_distr, argv[++count]);
   // <avg file> - file with per-timestep average aggregation numbers
   char out_avg[LINE] = "";
-  safe_strcpy(out_avg, argv[++count]);
+  s_strcpy(out_avg, argv[++count]);
   // options before reading system data
   opt->c = CommonOptions(argc, argv, LINE, in);
   // -c option
@@ -126,8 +126,8 @@ int main(int argc, char *argv[]) {
     }
   }
   if (!overlap) {
-    strcpy(ERROR_MSG, "for any aggregate to be used, at least one molecule "
-           "must be specified in both options");
+    s_strcpy(ERROR_MSG, "for any aggregate to be used, at least one molecule "
+             "must be specified in both options");
     PrintErrorOption("-m/-only");
     exit(1);
   } //}}}
@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
     }
   }
   if (overlap) {
-    strcpy(ERROR_MSG, "the lists of molecules must be different");
+    s_strcpy(ERROR_MSG, "the lists of molecules must be different");
     PrintErrorOption("-x/-only");
     exit(1);
   } //}}}
@@ -157,8 +157,8 @@ int main(int argc, char *argv[]) {
     }
   }
   if (overlap) {
-    strcpy(ERROR_MSG, "with all molecules listed, "
-           "no aggregates would be detected");
+    s_strcpy(ERROR_MSG, "with all molecules listed, "
+             "no aggregates would be detected");
     PrintErrorOption("-x");
     exit(1);
   } //}}}

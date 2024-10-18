@@ -53,15 +53,15 @@ int main ( int argc, char** argv ) {
       req_arg = 3; // TODO: will be only two (<input> and <column(s)>)
   char option[all][OPT_LENGTH];
   // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
+  s_strcpy(option[count++], "-st");
+  s_strcpy(option[count++], "-e");
+  s_strcpy(option[count++], "--silent");
+  s_strcpy(option[count++], "--help");
+  s_strcpy(option[count++], "--version");
   // extra options
-  strcpy(option[count++], "-tau");
-  strcpy(option[count++], "-b");
-  strcpy(option[count++], "-m");
+  s_strcpy(option[count++], "-tau");
+  s_strcpy(option[count++], "-b");
+  s_strcpy(option[count++], "-m");
   OptionCheck(argc, argv, count, req_arg, common, all, option, true);
   //}}}
 
@@ -69,9 +69,9 @@ int main ( int argc, char** argv ) {
   OPT *opt = opt_create();
 
   char fin[LINE];
-  safe_strcpy(fin, argv[++count]);
+  s_strcpy(fin, argv[++count]);
   char fout[LINE] = "";
-  safe_strcpy(fout, argv[++count]);
+  s_strcpy(fout, argv[++count]);
 
   // <column> - column number(s) to analyze
   // TODO: warning if multiple times the same column number
@@ -107,7 +107,7 @@ int main ( int argc, char** argv ) {
   opt->moving = -1;
   IntegerOption1(argc, argv, "-m", &opt->moving);
   if (opt->moving == -1 && opt->tau == -1 && opt->block == -1) {
-    strcpy(ERROR_MSG, "-tau, -b, or -m option must be used");
+    s_strcpy(ERROR_MSG, "-tau, -b, or -m option must be used");
     PrintError();
     Help(argv[0], true, common, option);
     exit(1);
@@ -115,7 +115,7 @@ int main ( int argc, char** argv ) {
   if ((opt->moving != -1 && opt->tau != -1) ||
       (opt->moving != -1 && opt->block != -1) ||
       (opt->tau != -1 && opt->block != -1)) {
-    strcpy(ERROR_MSG, "only one of the -tau, -b, and -m option can be used");
+    s_strcpy(ERROR_MSG, "only one of the -tau, -b, and -m option can be used");
     PrintError();
     Help(argv[0], true, common, option);
   }

@@ -210,24 +210,24 @@ int main(int argc, char *argv[]) {
       req_arg = 4;
   char option[all][OPT_LENGTH];
   // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "-sk");
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
+  s_strcpy(option[count++], "-st");
+  s_strcpy(option[count++], "-e");
+  s_strcpy(option[count++], "-sk");
+  s_strcpy(option[count++], "-i");
+  s_strcpy(option[count++], "--verbose");
+  s_strcpy(option[count++], "--silent");
+  s_strcpy(option[count++], "--help");
+  s_strcpy(option[count++], "--version");
   // extra options
-  strcpy(option[count++], "--in");
-  strcpy(option[count++], "--bonded");
-  // strcpy(option[count++], "-m");
-  strcpy(option[count++], "-bt");
-  strcpy(option[count++], "-wd");
-  strcpy(option[count++], "-w");
-  strcpy(option[count++], "-a");
-  strcpy(option[count++], "-b");
-  strcpy(option[count++], "-r");
+  s_strcpy(option[count++], "--in");
+  s_strcpy(option[count++], "--bonded");
+  // s_strcpy(option[count++], "-m");
+  s_strcpy(option[count++], "-bt");
+  s_strcpy(option[count++], "-wd");
+  s_strcpy(option[count++], "-w");
+  s_strcpy(option[count++], "-a");
+  s_strcpy(option[count++], "-b");
+  s_strcpy(option[count++], "-r");
   OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   count = 0; // count mandatory arguments
@@ -235,7 +235,7 @@ int main(int argc, char *argv[]) {
   // arguments & options before reading system data //{{{
   // <input> - input coordinate (and structure) file
   SYS_FILES in = InitSysFiles;
-  safe_strcpy(in.coor.name, argv[++count]);
+  s_strcpy(in.coor.name, argv[++count]);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   }
@@ -248,7 +248,7 @@ int main(int argc, char *argv[]) {
   }
   // <surf.txt> - output file with averaged surface coordinates
   char file_surf[LINE] = "";
-  safe_strcpy(file_surf, argv[++count]);
+  s_strcpy(file_surf, argv[++count]);
   // <axis> - x, y, or z //{{{
   int axis, // which axis? 0=x, 1=y, 2=z
       map[2]; // map the remaining two axes based on the 'axis' variable
@@ -265,7 +265,7 @@ int main(int argc, char *argv[]) {
     map[0] = 0;
     map[1] = 1;
   } else {
-    strcpy(ERROR_MSG, "must be 'x', 'y', or 'z'");
+    s_strcpy(ERROR_MSG, "must be 'x', 'y', or 'z'");
     PrintErrorOption("<axis>");
     Help(argv[0], true, common, option);
     exit(1);
@@ -310,7 +310,7 @@ int main(int argc, char *argv[]) {
       }
     }
     if (opt->bonded) {
-      strcpy(ERROR_MSG, "when both are used, --bonded takes precedence");
+      s_strcpy(ERROR_MSG, "when both are used, --bonded takes precedence");
       PrintWarnOption("--bonded/-bt");
     }
   }
@@ -325,7 +325,7 @@ int main(int argc, char *argv[]) {
         System.BeadType[btype].Radius = 0.5;
         if (!warn) {
           warn = true;
-          strcpy(ERROR_MSG, "unspecified bead radius (using 0.5)");
+          s_strcpy(ERROR_MSG, "unspecified bead radius (using 0.5)");
           PrintWarning();
         }
       }
@@ -337,7 +337,7 @@ int main(int argc, char *argv[]) {
         btype->Radius = 0.5;
         if (!warn) {
           warn = true;
-          strcpy(ERROR_MSG, "unspecified bead radius (using 0.5)");
+          s_strcpy(ERROR_MSG, "unspecified bead radius (using 0.5)");
           PrintWarning();
         }
       }
@@ -349,7 +349,7 @@ int main(int argc, char *argv[]) {
         System.BeadType[btype].Radius = 0.5;
         if (!warn) {
           warn = true;
-          strcpy(ERROR_MSG, "unspecified bead radius (using 0.5)");
+          s_strcpy(ERROR_MSG, "unspecified bead radius (using 0.5)");
           PrintWarning();
         }
       }
@@ -364,7 +364,7 @@ int main(int argc, char *argv[]) {
   }
   fclose(fr);
   if (System.Box.Volume == -1) {
-    strcpy(ERROR_MSG, "missing box dimensions");
+    s_strcpy(ERROR_MSG, "missing box dimensions");
     PrintError();
     exit(1);
   }
@@ -459,7 +459,7 @@ int main(int argc, char *argv[]) {
           (fabs(sidelength[0] - System.Box.Length[map[0]]) > 0.00001 ||
            fabs(sidelength[1] - System.Box.Length[map[1]]) > 0.00001 ||
            fabs(sidelength[2] - System.Box.Length[axis]) > 0.00001)) {
-        strcpy(ERROR_MSG, "box size changed; only coordinates inside the "
+        s_strcpy(ERROR_MSG, "box size changed; only coordinates inside the "
                "original box are used for surface averaging");
         PrintWarning();
         warn_box_change = true;

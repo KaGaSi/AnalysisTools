@@ -487,7 +487,7 @@ extern inline int *BondIndices(SYSTEM System, int mol, int bond) { //{{{
     }
   }
   if (err) {
-    strcpy(ERROR_MSG, "wrong index in a bond; should never happen!");
+    s_strcpy(ERROR_MSG, "wrong index in a bond; should never happen!");
     PrintError();
     fprintf(stderr, "%sMolecule %s%d%s (%s%s%s with %s%d%s beads),", ErrRed(),
             ErrYellow(), mol, ErrRed(), ErrYellow(),
@@ -512,7 +512,7 @@ extern inline int *BondIndices(SYSTEM System, int mol, int bond) { //{{{
     }
   }
   if (err) {
-    strcpy(ERROR_MSG, "wrong index in a bond; should never happen!");
+    s_strcpy(ERROR_MSG, "wrong index in a bond; should never happen!");
     PrintError();
     fprintf(stderr, "%sMolecule %s%d%s (%s%s%s),", ErrRed(), ErrYellow(), mol,
             ErrRed(), ErrYellow(), System.MoleculeType[type].Name, ErrRed());
@@ -542,7 +542,7 @@ int *AngleIndices(SYSTEM System, int mol, int angle) { //{{{
     }
   }
   if (err) {
-    strcpy(ERROR_MSG, "wrong index in an angle; should never happen!");
+    s_strcpy(ERROR_MSG, "wrong index in an angle; should never happen!");
     PrintError();
     fprintf(stderr, "%sMolecule %s%d%s (%s%s%s with %s%d%s beads),", ErrRed(),
             ErrYellow(), mol, ErrRed(), ErrYellow(),
@@ -567,7 +567,7 @@ int *AngleIndices(SYSTEM System, int mol, int angle) { //{{{
     }
   }
   if (err) {
-    strcpy(ERROR_MSG, "wrong index in an angle; should never happen!");
+    s_strcpy(ERROR_MSG, "wrong index in an angle; should never happen!");
     PrintError();
     fprintf(stderr, "%sMolecule %s%d%s (%s%s%s),", ErrRed(), ErrYellow(), mol,
             ErrRed(), ErrYellow(), System.MoleculeType[type].Name, ErrRed());
@@ -597,7 +597,7 @@ int *DihedralIndices(SYSTEM System, int mol, int dihed) { //{{{
     }
   }
   if (err) {
-    strcpy(ERROR_MSG, "wrong index in an dihedral; should never happen!");
+    s_strcpy(ERROR_MSG, "wrong index in an dihedral; should never happen!");
     PrintError();
     fprintf(stderr, "%sMolecule %s%d%s (%s%s%s with %s%d%s beads),", ErrRed(),
             ErrYellow(), mol, ErrRed(), ErrYellow(),
@@ -622,7 +622,7 @@ int *DihedralIndices(SYSTEM System, int mol, int dihed) { //{{{
     }
   }
   if (err) {
-    strcpy(ERROR_MSG, "wrong index in a dihedral; should never happen!");
+    s_strcpy(ERROR_MSG, "wrong index in a dihedral; should never happen!");
     PrintError();
     fprintf(stderr, "%sMolecule %s%d%s (%s%s%s),", ErrRed(), ErrYellow(), mol,
             ErrRed(), ErrYellow(), System.MoleculeType[type].Name, ErrRed());
@@ -652,7 +652,7 @@ int *ImproperIndices(SYSTEM System, int mol, int improper) { //{{{
     }
   }
   if (err) {
-    strcpy(ERROR_MSG, "wrong index in an improper; should never happen!");
+    s_strcpy(ERROR_MSG, "wrong index in an improper; should never happen!");
     PrintError();
     fprintf(stderr, "%sMolecule %s%d%s (%s%s%s with %s%d%s beads),", ErrRed(),
             ErrYellow(), mol, ErrRed(), ErrYellow(),
@@ -677,7 +677,7 @@ int *ImproperIndices(SYSTEM System, int mol, int improper) { //{{{
     }
   }
   if (err) {
-    strcpy(ERROR_MSG, "wrong index in a improper; should never happen!");
+    s_strcpy(ERROR_MSG, "wrong index in a improper; should never happen!");
     PrintError();
     fprintf(stderr, "%sMolecule %s%d%s (%s%s%s),", ErrRed(), ErrYellow(), mol,
             ErrRed(), ErrYellow(), System.MoleculeType[type].Name, ErrRed());
@@ -728,7 +728,7 @@ int FindMoleculeName(char name[], SYSTEM System) {
 int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode) {
   // just to be sure the function's mode parameter is correct //{{{
   if (mode < 0 || mode > 3) {
-    strcpy(ERROR_MSG, "FindMoleculeType() - mode parameter must be <0,3>\n");
+    s_strcpy(ERROR_MSG, "FindMoleculeType() - mode parameter must be <0,3>\n");
     PrintError();
     exit(1);
   } //}}}
@@ -934,10 +934,10 @@ bool InputCoorStruct(int argc, char *argv[], SYS_FILES *f) {
                f->coor.type == XYZ_FILE ||   // use both as a coordinate and
                f->coor.type == LDATA_FILE || // a structure files
                f->coor.type == LTRJ_FILE) {  //
-      safe_strcpy(f->stru.name, f->coor.name);
+      s_strcpy(f->stru.name, f->coor.name);
       f->stru.type = f->coor.type;
     } else {
-      strcpy(ERROR_MSG, "missing structure file; should never happen!");
+      s_strcpy(ERROR_MSG, "missing structure file; should never happen!");
       PrintError();
       exit(1);
     }
@@ -952,16 +952,16 @@ int StructureFileType(char name[]) { //{{{
   // b) check for extension
   // copy the name as it's destroyed by strrchr()
   char orig[LINE];
-  safe_strcpy(orig, name);
+  s_strcpy(orig, name);
   // check for known extensions
   int ext = 6;
   char extension[ext][EXTENSION];
-  strcpy(extension[0], ".vsf");
-  strcpy(extension[1], ".vtf");
-  strcpy(extension[2], ".xyz");
-  strcpy(extension[3], ".lammpstrj");
-  strcpy(extension[4], ".data");
-  strcpy(extension[5], ".field");
+  s_strcpy(extension[0], ".vsf");
+  s_strcpy(extension[1], ".vtf");
+  s_strcpy(extension[2], ".xyz");
+  s_strcpy(extension[3], ".lammpstrj");
+  s_strcpy(extension[4], ".data");
+  s_strcpy(extension[5], ".field");
   char *dot = strrchr(name, '.');
   for (int i = 0; i < ext; i++) {
     if (dot && strcasecmp(dot, extension[i]) == 0) {
@@ -983,7 +983,7 @@ int StructureFileType(char name[]) { //{{{
     case 5:
       return FIELD_FILE;
     default:
-      strcpy(ERROR_MSG, "Unknown structure file type");
+      s_strcpy(ERROR_MSG, "Unknown structure file type");
       PrintErrorFile(name, "\0", "\0");
       exit(1);
   }
@@ -991,15 +991,15 @@ int StructureFileType(char name[]) { //{{{
 int CoordinateFileType(char name[]) { //{{{
   // copy the name as it's destroyed by strrchr()
   char orig[LINE];
-  safe_strcpy(orig, name);
+  s_strcpy(orig, name);
   // check for known extensions
   int ext = 5;
   char extension[ext][EXTENSION];
-  strcpy(extension[0], ".vcf");
-  strcpy(extension[1], ".vtf");
-  strcpy(extension[2], ".xyz");
-  strcpy(extension[3], ".lammpstrj");
-  strcpy(extension[4], ".data");
+  s_strcpy(extension[0], ".vcf");
+  s_strcpy(extension[1], ".vtf");
+  s_strcpy(extension[2], ".xyz");
+  s_strcpy(extension[3], ".lammpstrj");
+  s_strcpy(extension[4], ".data");
   char *dot = strrchr(name, '.');
   for (int i = 0; i < ext; i++) {
     if (dot && strcasecmp(dot, extension[i]) == 0) {
@@ -1019,7 +1019,7 @@ int CoordinateFileType(char name[]) { //{{{
     case 4:
       return LDATA_FILE;
     default:
-      strcpy(ERROR_MSG, "Unknown coordinate file type");
+      s_strcpy(ERROR_MSG, "Unknown coordinate file type");
       PrintErrorFile(name, "\0", "\0");
       exit(1);
   }
@@ -1034,18 +1034,18 @@ int FileType(char name[]) { //{{{
   // b) check for extension
   // copy the name as it's destroyed by strrchr()
   char orig[LINE];
-  safe_strcpy(orig, name);
+  s_strcpy(orig, name);
   // check for known extensions
   int ext = 8;
   char extension[ext][EXTENSION];
-  strcpy(extension[0], ".vtf");
-  strcpy(extension[1], ".vsf");
-  strcpy(extension[2], ".vcf");
-  strcpy(extension[3], ".xyz");
-  strcpy(extension[4], ".data");
-  strcpy(extension[5], ".lammpstrj");
-  strcpy(extension[6], ".field");
-  strcpy(extension[7], ".config");
+  s_strcpy(extension[0], ".vtf");
+  s_strcpy(extension[1], ".vsf");
+  s_strcpy(extension[2], ".vcf");
+  s_strcpy(extension[3], ".xyz");
+  s_strcpy(extension[4], ".data");
+  s_strcpy(extension[5], ".lammpstrj");
+  s_strcpy(extension[6], ".field");
+  s_strcpy(extension[7], ".config");
   char *dot = strrchr(name, '.');
   for (int i = 0; i < ext; i++) {
     if (dot && strcasecmp(dot, extension[i]) == 0) {
@@ -1071,7 +1071,7 @@ int FileType(char name[]) { //{{{
     case 7:
       return CONFIG_FILE;
     default:
-      strcpy(ERROR_MSG, "Unknown coordinate file type");
+      s_strcpy(ERROR_MSG, "Unknown coordinate file type");
       PrintErrorFile(name, "\0", "\0");
       exit(1);
   }
@@ -1088,7 +1088,7 @@ void LinkedList(SYSTEM System, int **Head, int **Link, double rcut,
     n_cells[dd] = (int)(rl[dd]);
   }
   if (n_cells[0] < 3 || n_cells[1] < 3 || n_cells[2] < 3) {
-    strcpy(ERROR_MSG, "cell size too small for cut-off in linked list");
+    s_strcpy(ERROR_MSG, "cell size too small for cut-off in linked list");
     PrintError();
     exit(1);
   }

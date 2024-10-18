@@ -46,7 +46,7 @@ static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System) { //{{{
     }
   }
   if (none) {
-    strcpy(ERROR_MSG, "no beads to save");
+    s_strcpy(ERROR_MSG, "no beads to save");
     PrintWarning();
   }
 } //}}}
@@ -62,7 +62,7 @@ static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System) { //{{{
     }
   }
   if (none) {
-    strcpy(ERROR_MSG, "no beads to save");
+    s_strcpy(ERROR_MSG, "no beads to save");
     PrintWarning();
     return;
   }
@@ -117,7 +117,7 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
     fprintf(fw, "ITEM: TIMESTEP\n%d\n", step);
     fprintf(fw, "ITEM: NUMBER OF ATOMS\n%d\n", count_write);
     if (box->Volume == -1) {
-      strcpy(ERROR_MSG, "unspecified box dimensions");
+      s_strcpy(ERROR_MSG, "unspecified box dimensions");
       PrintWarning();
     }
     // orthogonal box
@@ -166,7 +166,7 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
       }
     }
   } else {
-    strcpy(ERROR_MSG, "no beads to save");
+    s_strcpy(ERROR_MSG, "no beads to save");
     PrintWarning();
   }
 } //}}}
@@ -259,7 +259,7 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
         int mtype = System.Molecule[mol].Type,
             id = System.Molecule[mol].Index;
         char name[8];
-        safe_strcpy(name, System.MoleculeType[mtype].Name);
+        s_strcpy(name, System.MoleculeType[mtype].Name);
         fprintf(fw, " resname %10s", name);
         fprintf(fw, " resid %5d", id);
       }
@@ -855,8 +855,8 @@ void WriteStructure(FILE_TYPE f, SYSTEM System, int vsf_def_type,
       break;
     case LTRJ_FILE:
       if (System.Count.BeadCoor == 0) {
-        strcpy(ERROR_MSG, "no structure data to save into lammpstrj file "
-               "(no coordinates loaded)");
+        s_strcpy(ERROR_MSG, "no structure data to save into lammpstrj file "
+                 "(no coordinates loaded)");
         PrintError();
         exit(1);
       }
@@ -868,7 +868,7 @@ void WriteStructure(FILE_TYPE f, SYSTEM System, int vsf_def_type,
       free(write);
       break;
     default:
-      strcpy(ERROR_MSG, "Inexistent output struct_type; should never happen!");
+      s_strcpy(ERROR_MSG, "Inexistent output struct_type; should never happen!");
       PrintError();
       exit(1);
   }
