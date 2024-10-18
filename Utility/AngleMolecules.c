@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
 
   // <input> - input coordinate (and structure) file //{{{
   SYS_FILES in = InitSysFiles;
-  snprintf(in.coor.name, LINE, "%s", argv[++count]);
+  safe_strcpy(in.coor.name, argv[++count]);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
 
   // <output> - file name with angle distribution
   char fout[LINE] = "";
-  snprintf(fout, LINE, "%s", argv[++count]);
+  safe_strcpy(fout, argv[++count]);
 
   // options before reading system data //{{{
   opt->c = CommonOptions(argc, argv, LINE, in);

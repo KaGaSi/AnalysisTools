@@ -259,9 +259,7 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
         int mtype = System.Molecule[mol].Type,
             id = System.Molecule[mol].Index;
         char name[8];
-        if (snprintf(name, 8, "%s", System.MoleculeType[mtype].Name) < 0) {
-          ErrorSnprintf();
-        }
+        safe_strcpy(name, System.MoleculeType[mtype].Name);
         fprintf(fw, " resname %10s", name);
         fprintf(fw, " resid %5d", id);
       }

@@ -70,14 +70,14 @@ int main(int argc, char *argv[]) {
 
   // <input> - input coordinate (and structure) file //{{{
   SYS_FILES in = InitSysFiles;
-  snprintf(in.coor.name, LINE, "%s", argv[++count]);
+  safe_strcpy(in.coor.name, argv[++count]);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
 
   // <output> - file name with persistence lengths
   char fout[LINE] = "";
-  snprintf(fout, LINE, "%s", argv[++count]);
+  safe_strcpy(fout, argv[++count]);
 
   // options before reading system data //{{{
   opt->c = CommonOptions(argc, argv, LINE, in);

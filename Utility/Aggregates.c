@@ -197,14 +197,14 @@ int main(int argc, char *argv[]) {
   OPT *opt = opt_create();
   // <input> - input coordinate file //{{{
   SYS_FILES in = InitSysFiles;
-  snprintf(in.coor.name, LINE, "%s", argv[++count]);
+  safe_strcpy(in.coor.name, argv[++count]);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
 
   // <output.agg> - filename of output agg file (must end with .agg) //{{{
   char agg_file[LINE] = "";
-  snprintf(agg_file, LINE, "%s", argv[++count]);
+  safe_strcpy(agg_file, argv[++count]);
   // test if <output.agg> ends with '.agg'
   int ext = 1;
   char extension[1][EXTENSION];

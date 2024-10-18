@@ -74,14 +74,14 @@ int main(int argc, char *argv[]) {
 
   // <input> - input coordinate (and structure) file //{{{
   SYS_FILES in = InitSysFiles;
-  snprintf(in.coor.name, LINE, "%s", argv[++count]);
+  safe_strcpy(in.coor.name, argv[++count]);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
 
   // <in.agg> - input aggregate file //{{{
   char input_agg[LINE] = "";
-  snprintf(input_agg, LINE, "%s", argv[++count]);
+  safe_strcpy(input_agg, argv[++count]);
   // test if <in.agg> ends with '.agg'
   int ext = 1;
   char extension[2][EXTENSION];
@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
 
   // <output> - filename with bead densities
   char output_rho[LINE];
-  snprintf(output_rho, LINE, "%s", argv[++count]);
+  safe_strcpy(output_rho, argv[++count]);
 
   // options before reading system data //{{{
   opt->c = CommonOptions(argc, argv, LINE, in);

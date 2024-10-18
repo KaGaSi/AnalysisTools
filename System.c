@@ -1158,7 +1158,7 @@ void NewBeadType(BEADTYPE *BeadType[], int *number_of_types, char name[],
   int btype = *number_of_types;
   (*number_of_types)++;
   *BeadType = realloc(*BeadType, sizeof **BeadType * (btype + 1));
-  strcpy((*BeadType)[btype].Name, name);
+  safe_strcpy((*BeadType)[btype].Name, name);
   (*BeadType)[btype].Number = 0;
   (*BeadType)[btype].Charge = charge;
   (*BeadType)[btype].Mass = mass;
@@ -1171,7 +1171,7 @@ void NewMolType(MOLECULETYPE *MoleculeType[], int *n_types, char *name,
   int mtype = (*n_types)++;
   *MoleculeType = realloc(*MoleculeType, sizeof **MoleculeType * (*n_types));
   // copy new name to MoleculeType[].Name
-  snprintf((*MoleculeType)[mtype].Name, MOL_NAME, "%s", name);
+  safe_strcpy((*MoleculeType)[mtype].Name, name);
   // initialize struct members
   (*MoleculeType)[mtype].Number = 1;
   (*MoleculeType)[mtype].nBeads = n_beads;
@@ -1674,7 +1674,7 @@ void PruneSystem(SYSTEM *System) { //{{{
       // create new type for mt_old as some beads may be missing
       MOLECULETYPE mt_old_new;
       InitMoleculeType(&mt_old_new);
-      strcpy(mt_old_new.Name, mt_old->Name);
+      safe_strcpy(mt_old_new.Name, mt_old->Name);
       mt_old_new.Number = 1;
       mt_old_new.nBeads = c_bead;
       mt_old_new.Bead = malloc(sizeof *mt_old_new.Bead * mt_old_new.nBeads);

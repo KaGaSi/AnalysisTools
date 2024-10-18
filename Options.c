@@ -104,7 +104,7 @@ int OptionCheck(int argc, char *argv[], int auto_c, int req, int common,
     char extra[LINE] = "\0";
     for (int i = (req + 1); i <= count; i++) {
       char cpy[LINE];
-      strcpy(cpy, extra);
+      safe_strcpy(cpy, extra);
       if (snprintf(extra, LINE, "%s %s", cpy, argv[i]) < 0) {
         ErrorSnprintf();
       }

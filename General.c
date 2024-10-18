@@ -179,7 +179,7 @@ bool ReadAndSplitLine(FILE *fr, int max_strings, const char delim[]) {
   return true;
 } //}}}
 char * BareCommand(char cmd[]) { //{{{
-  strcpy(line, cmd);
+  safe_strcpy(line, cmd);
   int words = SplitLine(SPL_STR, split, line, "/");
   return split[words - 1];
 } //}}}
@@ -304,4 +304,15 @@ bool SameArrayInt(int arr_1[], int arr_2[], int n) { //{{{
     }
   }
   return true;
+} //}}}
+void safe_strcpy(char *dest, const char *src) { //{{{
+  if (dest == NULL || src == NULL) {
+    return; // Handle NULL pointers
+  }
+  size_t dest_len = strlen(dest);
+  size_t src_len = strlen(src);
+  for (size_t i = 0; i < src_len && i < dest_len; i++) {
+    dest[i] = src[i];
+  }
+  dest[dest_len - 1] = '\0'; // Ensure null-termination
 } //}}}

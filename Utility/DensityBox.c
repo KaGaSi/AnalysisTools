@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
   OPT *opt = opt_create();
   // <input> - input coordinate (and structure) file //{{{
   SYS_FILES in = InitSysFiles;
-  snprintf(in.coor.name, LINE, "%s", argv[++count]);
+  safe_strcpy(in.coor.name, argv[++count]);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
 
   // <outputt> - filename
   char fout_rho[LINE] = "";
-  snprintf(fout_rho, LINE, "%s", argv[++count]);
+  safe_strcpy(fout_rho, argv[++count]);
   fout_rho[LINE-7] = '\0'; // for adding -<axis>.rho
 
   // options before reading system data

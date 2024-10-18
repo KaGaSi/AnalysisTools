@@ -934,7 +934,7 @@ bool InputCoorStruct(int argc, char *argv[], SYS_FILES *f) {
                f->coor.type == XYZ_FILE ||   // use both as a coordinate and
                f->coor.type == LDATA_FILE || // a structure files
                f->coor.type == LTRJ_FILE) {  //
-      strcpy(f->stru.name, f->coor.name);
+      safe_strcpy(f->stru.name, f->coor.name);
       f->stru.type = f->coor.type;
     } else {
       strcpy(ERROR_MSG, "missing structure file; should never happen!");
@@ -952,7 +952,7 @@ int StructureFileType(char name[]) { //{{{
   // b) check for extension
   // copy the name as it's destroyed by strrchr()
   char orig[LINE];
-  snprintf(orig, LINE, "%s", name);
+  safe_strcpy(orig, name);
   // check for known extensions
   int ext = 6;
   char extension[ext][EXTENSION];
@@ -991,7 +991,7 @@ int StructureFileType(char name[]) { //{{{
 int CoordinateFileType(char name[]) { //{{{
   // copy the name as it's destroyed by strrchr()
   char orig[LINE];
-  snprintf(orig, LINE, "%s", name);
+  safe_strcpy(orig, name);
   // check for known extensions
   int ext = 5;
   char extension[ext][EXTENSION];
@@ -1034,7 +1034,7 @@ int FileType(char name[]) { //{{{
   // b) check for extension
   // copy the name as it's destroyed by strrchr()
   char orig[LINE];
-  snprintf(orig, LINE, "%s", name);
+  safe_strcpy(orig, name);
   // check for known extensions
   int ext = 8;
   char extension[ext][EXTENSION];

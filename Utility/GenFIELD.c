@@ -60,14 +60,14 @@ int main(int argc, char *argv[]) {
   OPT *opt = opt_create();
 
   char in[LINE];
-  snprintf(in, LINE, "%s", argv[++count]);
+  safe_strcpy(in, argv[++count]);
 
   FILE_TYPE out;
-  snprintf(out.name, LINE, "%s", argv[++count]);
+  safe_strcpy(out.name, argv[++count]);
   out.type = StructureFileType(out.name);
 
   char db_dir[LINE];
-  snprintf(db_dir, LINE, "./");
+  strcpy(db_dir, "./");
 
   PrintCommand(stdout, argc, argv);
 
@@ -146,7 +146,7 @@ int main(int argc, char *argv[]) {
         continue;
       }
       char name[MOL_NAME];
-      snprintf(name, MOL_NAME, "%s", split[1]);
+      safe_strcpy(name, split[1]);
       // for (int i = 0; i < words; i++) {
       //   printf(" %s", split[i]);
       // }

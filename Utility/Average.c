@@ -1,5 +1,4 @@
 #include "../AnalysisTools.h"
-#include <stdio.h>
 
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
@@ -70,10 +69,9 @@ int main ( int argc, char** argv ) {
   OPT *opt = opt_create();
 
   char fin[LINE];
-  snprintf(fin, LINE, "%s", argv[++count]);
-  // strcpy(fin, argv[++count]);
+  safe_strcpy(fin, argv[++count]);
   char fout[LINE] = "";
-  snprintf(fout, LINE, "%s", argv[++count]);
+  safe_strcpy(fout, argv[++count]);
 
   // <column> - column number(s) to analyze
   // TODO: warning if multiple times the same column number

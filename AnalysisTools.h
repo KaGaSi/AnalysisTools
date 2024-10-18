@@ -1,6 +1,8 @@
 #ifndef _ANALYSISTOOLS_H_
 #define _ANALYSISTOOLS_H_
 
+#include <stdio.h>
+#include <string.h>
 #include "Structs.h"
 #include "System.h"
 #include "Errors.h"

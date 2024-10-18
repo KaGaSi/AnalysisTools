@@ -796,10 +796,8 @@ static int LmpDataReadTimestep(FILE *fr, char file[], SYSTEM *System,
     } else if (strcmp(split[2], "charge") == 0) {
       mode = 3; // for 'Atoms # charge'
     } else {    // for 'Atoms # <something else>'
-      snprintf(ERROR_MSG, LINE,
-               "unsupported atom_style (Atoms section) "
-               "%s%s; assuming 'full'",
-               ErrYellow(), split[2]);
+      snprintf(ERROR_MSG, LINE, "unsupported atom_style (Atoms section) "
+               "%s%s; assuming 'full'", ErrYellow(), split[2]);
       PrintWarnFile(file, "\0", "\0");
     }
   }
@@ -1644,7 +1642,7 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
         char name[MOL_NAME] = "m";
         for (int j = 0; j < words; j++) {
           if (split[j][0] == '#' && words > j) {
-            snprintf(name, MOL_NAME, "%s", split[j+1]);
+            safe_strcpy(name, split[j+1]);
             mt_resid->Flag = true;
             break;
           }
@@ -2086,7 +2084,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
         // save values for the default bead type
         int *value = VtfAtomLineValues();
         if (value[0] != -1) { // TODO: should be always true (for now)
-          snprintf(bt_def.Name, BEAD_NAME, "%s", split[value[0]]);
+          safe_strcpy(bt_def.Name, split[value[0]]);
           bt_def.Name[BEAD_NAME-1] = '\0'; // ensure null-termination
         }
         if (value[1] != -1) {
@@ -2111,7 +2109,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
         // save values from the 'a[tom] <id>' line
         int *value = VtfAtomLineValues();
         if (value[0] != -1) { // TODO: should never happen (for now)
-          snprintf(Sys.BeadType[id].Name, BEAD_NAME, "%s", split[value[0]]);
+          safe_strcpy(Sys.BeadType[id].Name, split[value[0]]);
           Sys.BeadType[id].Name[BEAD_NAME-1] = '\0'; // ensure null-termination
         }
         if (value[1] != -1) {
@@ -3191,20 +3189,16 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
               !IsNaturalNumber(split[2], &beads[1]) ||
               !IsNaturalNumber(split[3], &beads[2]) || beads[0] == beads[1] ||
               beads[0] == beads[2] || beads[1] == beads[2]) {
-            snprintf(ERROR_MSG, LINE,
-                     "incorrect line in an entry for "
-                     "molecule %s%s",
-                     ErrYellow(), mt_i->Name);
+            snprintf(ERROR_MSG, LINE, "incorrect line in an entry for "
+                     "molecule %s%s", ErrYellow(), mt_i->Name);
             PrintErrorFileLine(file, line_count);
             exit(1);
           } //}}}
           // error - bead index is too high //{{{
           if (beads[0] > mt_i->nBeads || beads[1] > mt_i->nBeads ||
               beads[2] > mt_i->nBeads) {
-            snprintf(ERROR_MSG, LINE,
-                     "bead index in an angle is too high in "
-                     "molecule %s%s",
-                     ErrYellow(), mt_i->Name);
+            snprintf(ERROR_MSG, LINE, "bead index in an angle is too high in "
+                     "molecule %s%s", ErrYellow(), mt_i->Name);
             PrintErrorFileLine(file, line_count);
             exit(1);
           } //}}}
@@ -3261,10 +3255,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
         continue;
       } else {
-        snprintf(ERROR_MSG, LINE,
-                 "unrecognised line in an entry for molecule "
-                 "%s%s",
-                 ErrYellow(), mt_i->Name);
+        snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for molecule "
+                 "%s%s", ErrYellow(), mt_i->Name);
         PrintErrorFileLine(file, line_count);
         exit(1);
       } //}}}
@@ -3278,10 +3270,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       if (words > 1 && strncasecmp(split[0], "dihedrals", 5) == 0) {
         // a) number of dihedrals //{{{
         if (!IsNaturalNumber(split[1], &val)) {
-          snprintf(ERROR_MSG, LINE,
-                   "incorrect 'dihedrals' line for molecule "
-                   "%s%s",
-                   ErrYellow(), mt_i->Name);
+          snprintf(ERROR_MSG, LINE, "incorrect 'dihedrals' line for molecule "
+                   "%s%s", ErrYellow(), mt_i->Name);
           PrintErrorFileLine(file, line_count);
           exit(1);
         }
@@ -3307,20 +3297,16 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
               beads[0] == beads[2] || beads[0] == beads[3] ||
               beads[1] == beads[2] || beads[1] == beads[3] ||
               beads[2] == beads[3]) {
-            snprintf(ERROR_MSG, LINE,
-                     "incorrect dihedral line for molecule "
-                     "%s%s",
-                     ErrYellow(), mt_i->Name);
+            snprintf(ERROR_MSG, LINE, "incorrect dihedral line for molecule "
+                     "%s%s", ErrYellow(), mt_i->Name);
             PrintErrorFileLine(file, line_count);
             exit(1);
           } //}}}
           // error - bead index is too high //{{{
           if (beads[0] > mt_i->nBeads || beads[1] > mt_i->nBeads ||
               beads[2] > mt_i->nBeads || beads[3] > mt_i->nBeads) {
-            snprintf(ERROR_MSG, LINE,
-                     "bead index in a dihedral is too high for "
-                     "molecule %s%s",
-                     ErrYellow(), mt_i->Name);
+            snprintf(ERROR_MSG, LINE, "bead index in a dihedral is too high for "
+                     "molecule %s%s", ErrYellow(), mt_i->Name);
             PrintErrorFileLine(file, line_count);
             exit(1);
           }                                    //}}}
@@ -3392,10 +3378,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       if (words > 1 && strncasecmp(split[0], "impropers", 6) == 0) {
         // a) number of impropers //{{{
         if (!IsNaturalNumber(split[1], &val)) {
-          snprintf(ERROR_MSG, LINE,
-                   "incorrect 'impropers' line in an entry "
-                   "for molecule %s%s",
-                   ErrYellow(), mt_i->Name);
+          snprintf(ERROR_MSG, LINE, "incorrect 'impropers' line in an entry "
+                   "for molecule %s%s", ErrYellow(), mt_i->Name);
           PrintErrorFileLine(file, line_count);
           exit(1);
         }
@@ -3489,10 +3473,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       } else if (words > 0 && strcasecmp(split[0], "finish") == 0) {
         continue;
       } else {
-        snprintf(ERROR_MSG, LINE,
-                 "unrecognised line in an entry for molecule "
-                 "%s%s",
-                 ErrYellow(), mt_i->Name);
+        snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for molecule "
+                 "%s%s", ErrYellow(), mt_i->Name);
         PrintErrorFileLine(file, line_count);
         exit(1);
       } //}}}
@@ -3504,10 +3486,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
         exit(1);
       } //}}}
       if (words == 0 || strcasecmp(split[0], "finish") != 0) {
-        snprintf(ERROR_MSG, LINE,
-                 "missing 'finish' at the end of an entry for "
-                 "molecule %s%s",
-                 ErrYellow(), mt_i->Name);
+        snprintf(ERROR_MSG, LINE, "missing 'finish' at the end of an entry for "
+                 "molecule %s%s", ErrYellow(), mt_i->Name);
         PrintErrorFileLine(file, line_count);
         exit(1);
       } //}}}
@@ -4289,18 +4269,14 @@ int ReadAggregates(FILE *fr, char file[], SYSTEM *System, AGGREGATE Aggregate[],
   // read Step:/Last Step: line //{{{
   (*line_count)++;
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
-    snprintf(ERROR_MSG, LINE,
-             "premature end of %s%s%s file; "
-             "stopping reading",
-             ErrYellow(), file, ErrCyan());
+    snprintf(ERROR_MSG, LINE, "premature end of %s%s%s file; "
+             "stopping reading", ErrYellow(), file, ErrCyan());
     PrintWarnFile(file, "\0", "\0");
     return -2;
   }
   if (words < 1) {
-    snprintf(ERROR_MSG, LINE,
-             "blank line instead of Step:/Last Step: line; "
-             "stopping reading %s%s",
-             ErrYellow(), file);
+    snprintf(ERROR_MSG, LINE, "blank line instead of Step:/Last Step: line; "
+             "stopping reading %s%s", ErrYellow(), file);
     PrintWarnFileLine(file, *line_count);
     return -2;
   }

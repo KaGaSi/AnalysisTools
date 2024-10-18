@@ -74,17 +74,17 @@ int main(int argc, char *argv[]) {
   OPT *opt = opt_create();
   // <input> - input structure file
   SYS_FILES in = InitSysFiles;
-  snprintf(in.stru.name, LINE, "%s", argv[++count]);
+  safe_strcpy(in.stru.name, argv[++count]);
   in.stru.type = StructureFileType(in.stru.name);
   // <in.agg> - input aggregate file
   char input_agg[LINE] = "";
-  snprintf(input_agg, LINE, "%s", argv[++count]);
+  safe_strcpy(input_agg, argv[++count]);
   // <distr file> - file with distribution of aggregation numbers
   char out_distr[LINE] = "";
-  snprintf(out_distr, LINE, "%s", argv[++count]);
+  safe_strcpy(out_distr, argv[++count]);
   // <avg file> - file with per-timestep average aggregation numbers
   char out_avg[LINE] = "";
-  snprintf(out_avg, LINE, "%s", argv[++count]);
+  safe_strcpy(out_avg, argv[++count]);
   // options before reading system data
   opt->c = CommonOptions(argc, argv, LINE, in);
   // -c option
