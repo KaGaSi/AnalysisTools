@@ -74,7 +74,7 @@ int OptionCheck2(int argc, char *argv[], int req, int common, int all,
   int count = 0;
   while ((count + 1) < argc &&
          // there may be '-' as a mandatory argument
-         (argv[count+1][0] != '-' || strlen(argv[count+1]) == 1)) {
+         (argv[count+1][0] != '-' || strnlen(argv[count+1], LINE) == 1)) {
     count++;
   }
   if (count < req) {
@@ -107,7 +107,7 @@ int OptionCheck2(int argc, char *argv[], int req, int common, int all,
     char extra[LINE] = "\0";
     for (int i = (req + 1); i <= count; i++) {
       char cpy[LINE];
-      strcpy(cpy, extra);
+      s_strcpy(cpy, extra, LINE);
       if (snprintf(extra, LINE, "%s %s", cpy, argv[i]) < 0) {
         ErrorSnprintf();
       }
@@ -147,7 +147,7 @@ int OptionCheck(int argc, char *argv[], int auto_c, int req, int common,
   // correct number of mandatory options?
   int count = 0;
   while ((count + 1) < argc &&
-         (argv[count+1][0] != '-' || strlen(argv[count+1]) == 1)) {
+         (argv[count+1][0] != '-' || strnlen(argv[count+1], LINE) == 1)) {
     count++;
   }
   if (count < req) {
@@ -180,7 +180,7 @@ int OptionCheck(int argc, char *argv[], int auto_c, int req, int common,
     char extra[LINE] = "\0";
     for (int i = (req + 1); i <= count; i++) {
       char cpy[LINE];
-      strcpy(cpy, extra);
+      s_strcpy(cpy, extra, LINE);
       if (snprintf(extra, LINE, "%s %s", cpy, argv[i]) < 0) {
         ErrorSnprintf();
       }
@@ -247,7 +247,7 @@ COMMON_OPT CommonOptions(int argc, char *argv[], int length, SYS_FILES f) {
   // starting/ending timestep
   if (IntegerOption1(argc, argv, "-st", &opt.start)) {
     if (opt.start <= 0) {
-      strcpy(ERROR_MSG, "positive number required");
+      s_strcpy(ERROR_MSG, "positive number required", LINE);
       PrintErrorOption("-st");
       exit(1);
     }
@@ -255,14 +255,14 @@ COMMON_OPT CommonOptions(int argc, char *argv[], int length, SYS_FILES f) {
     opt.start = 1;
   }
   if (IntegerOption1(argc, argv, "-e", &opt.end) && opt.end <= 0) {
-    strcpy(ERROR_MSG, "positive number required");
+    s_strcpy(ERROR_MSG, "positive number required", LINE);
     PrintErrorOption("-e");
     exit(1);
   }
   ErrorStartEnd(opt.start, opt.end);
   // number of timesteps to skip per one used
   if (IntegerOption1(argc, argv, "-sk", &opt.skip) && opt.skip <= 0) {
-    strcpy(ERROR_MSG, "positive number required");
+    s_strcpy(ERROR_MSG, "positive number required", LINE);
     PrintErrorOption("-sk");
     exit(1);
   }
@@ -285,8 +285,8 @@ bool ExcludeOption(int argc, char *argv[], SYSTEM *System) {
     if (strcmp(argv[i], "-x") == 0) {
       // wrong argument to -x option //{{{
       if ((i+1) >= argc || argv[i+1][0] == '-') {
-        strcpy(ERROR_MSG, "missing an argument "
-               "(or molecule name beginning with a dash)");
+        s_strcpy(ERROR_MSG, "missing an argument "
+                 "(or molecule name beginning with a dash)", LINE);
         PrintErrorOption("-x");
         exit(1);
       } //}}}
@@ -317,18 +317,18 @@ bool JoinCoorOption(int argc, char *argv[], int *coor_type, char file[]) {
     if (strcmp(argv[i], "-j") == 0) {
       // wrong argument to -j option //{{{
       if ((i+1) >= argc || argv[i+1][0] == '-') {
-        strcpy(ERROR_MSG, "missiont file name "
-               "(or the file begins with a dash)");
+        s_strcpy(ERROR_MSG, "missiont file name "
+                 "(or the file begins with a dash)", LINE);
         PrintErrorOption("-j");
         return true;
       } //}}}
       snprintf(file, LINE, "%s", argv[i+1]);
       int ext = 3;
       char extension[4][EXTENSION];
-      strcpy(extension[0], ".vcf");
-      strcpy(extension[1], ".vtf");
-      strcpy(extension[2], ".xyz");
-      strcpy(extension[3], ".lammpstrj");
+      s_strcpy(extension[0], ".vcf", EXTENSION);
+      s_strcpy(extension[1], ".vtf", EXTENSION);
+      s_strcpy(extension[2], ".xyz", EXTENSION);
+      s_strcpy(extension[3], ".lammpstrj", EXTENSION);
       *coor_type = ErrorExtension(file, ext, extension);
     }
   }
@@ -355,7 +355,7 @@ bool BeadTypeOption(int argc, char *argv[], char opt[],
         flag[btype] = use;
       }
       if (pos == (i + 1)) {
-        strcpy(ERROR_MSG, "at least one bead type is required");
+        s_strcpy(ERROR_MSG, "at least one bead type is required", LINE);
         PrintErrorOption(opt);
         exit(1);
       }
@@ -384,7 +384,7 @@ bool MoleculeTypeOption(int argc, char *argv[], char opt[],
         flag[btype] = use;
       }
       if (pos == (i + 1)) {
-        strcpy(ERROR_MSG, "at least one bead type is required");
+        s_strcpy(ERROR_MSG, "at least one bead type is required", LINE);
         PrintErrorOption(opt);
         exit(1);
       }
@@ -426,7 +426,7 @@ bool IntegerOption(int argc, char *argv[], int max,
         }
       }
       if (n == 0) {
-        strcpy(ERROR_MSG, "missing argument(s)");
+        s_strcpy(ERROR_MSG, "missing argument(s)", LINE);
         PrintErrorOption(opt);
         return true;
       }
@@ -440,7 +440,7 @@ bool IntegerOption1(int argc, char *argv[], char opt[], int *value) {
   int count = 0;
   if (IntegerOption(argc, argv, 1, opt, &count, value)) {
     if (count != 1) {
-      strcpy(ERROR_MSG, "single numeric argument required");
+      s_strcpy(ERROR_MSG, "single numeric argument required", LINE);
       PrintErrorOption(opt);
       exit(1);
     } else {
@@ -453,7 +453,7 @@ bool IntegerOption2(int argc, char *argv[], char opt[], int value[2]) {
   int count = 0;
   if (IntegerOption(argc, argv, 2, opt, &count, value)) {
     if (count != 2) {
-      strcpy(ERROR_MSG, "two numeric arguments required");
+      s_strcpy(ERROR_MSG, "two numeric arguments required", LINE);
       PrintErrorOption(opt);
       exit(1);
     } else {
@@ -486,7 +486,7 @@ bool DoubleOption(int argc, char *argv[], int max,
         }
       }
       if (n == 0) {
-        strcpy(ERROR_MSG, "missing argument(s)");
+        s_strcpy(ERROR_MSG, "missing argument(s)", LINE);
         PrintErrorOption(opt);
         return true;
       }
@@ -500,7 +500,7 @@ bool DoubleOption1(int argc, char *argv[], char opt[], double *value) {
   int count = 0;
   if (DoubleOption(argc, argv, 1, opt, &count, value)) {
     if (count != 1) {
-      strcpy(ERROR_MSG, "single numeric argument required");
+      s_strcpy(ERROR_MSG, "single numeric argument required", LINE);
       PrintErrorOption(opt);
       exit(1);
     } else {
@@ -513,7 +513,7 @@ bool DoubleOption2(int argc, char *argv[], char opt[], double value[2]) {
   int count = 0;
   if (DoubleOption(argc, argv, 2, opt, &count, value)) {
     if (count != 2) {
-      strcpy(ERROR_MSG, "two numeric arguments required");
+      s_strcpy(ERROR_MSG, "two numeric arguments required", LINE);
       PrintErrorOption(opt);
       exit(1);
     } else {
@@ -526,7 +526,7 @@ bool DoubleOption3(int argc, char *argv[], char opt[], double value[3]) {
   int count = 0;
   if (DoubleOption(argc, argv, 3, opt, &count, value)) {
     if (count != 3) {
-      strcpy(ERROR_MSG, "three numeric arguments required");
+      s_strcpy(ERROR_MSG, "three numeric arguments required", LINE);
       PrintErrorOption(opt);
       exit(1);
     } else {
@@ -546,8 +546,8 @@ bool FileIntegerOption(int argc, char *argv[], int min, int max, char opt[],
     if (strcmp(argv[i], opt) == 0) {
       // Error - no output file name
       if ((i+1) >= argc || argv[i+1][0] == '-') {
-        strcpy(ERROR_MSG, "missing file name "
-               "(or the file name begins with a dash)");
+        s_strcpy(ERROR_MSG, "missing file name "
+                 "(or the file name begins with a dash)", LINE);
         PrintErrorOption(opt);
         exit(1);
       }
@@ -560,7 +560,8 @@ bool FileIntegerOption(int argc, char *argv[], int min, int max, char opt[],
           // Error - non-numeric or missing argument
           long val;
           if (!IsIntegerNumber(argv[i+2+n], &val)) {
-            strcpy(ERROR_MSG, "each argument must be non-negative whole number");
+            s_strcpy(ERROR_MSG, "arguments must be non-negative whole numbers",
+                     LINE);
             PrintErrorOption(opt);
             exit(1);
           }
@@ -576,7 +577,7 @@ bool FileIntegerOption(int argc, char *argv[], int min, int max, char opt[],
           }
         }
         if (n < min) {
-          strcpy(ERROR_MSG, "not enough numeric arguments");
+          s_strcpy(ERROR_MSG, "not enough numeric arguments", LINE);
           PrintErrorOption(opt);
           exit(1);
         }
@@ -603,8 +604,8 @@ bool FileDoubleOption(int argc, char *argv[], int max, char opt[],
     if (strcmp(argv[i], opt) == 0) {
       // Error - no output file name
       if ((i+1) >= argc || argv[i+1][0] == '-') {
-        strcpy(ERROR_MSG, "missing file name "
-               "(or the file name begins with a dash)");
+        s_strcpy(ERROR_MSG, "missing file name "
+                 "(or the file name begins with a dash)", LINE);
         PrintErrorOption(opt);
         exit(1);
       }
@@ -617,7 +618,8 @@ bool FileDoubleOption(int argc, char *argv[], int max, char opt[],
           // Error - non-numeric or missing argument
           double val;
           if (!IsRealNumber(argv[i+2+n], &val)) {
-            strcpy(ERROR_MSG, "each argument must be non-negative whole number");
+            s_strcpy(ERROR_MSG, "arguments must be non-negative whole numbers",
+                     LINE);
             PrintErrorOption(opt);
             exit(1);
           }
@@ -633,7 +635,7 @@ bool FileDoubleOption(int argc, char *argv[], int max, char opt[],
           }
         }
         if (n == 0) {
-          strcpy(ERROR_MSG, "missing numeric argument(s)");
+          s_strcpy(ERROR_MSG, "missing numeric argument(s)", LINE);
           PrintErrorOption(opt);
           exit(1);
         }
