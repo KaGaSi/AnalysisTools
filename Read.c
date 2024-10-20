@@ -3030,6 +3030,7 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
         mol->Type = i;
         mol->Index = mol_count;
         mol->Bead = malloc(sizeof *mol->Bead * mt_i->nBeads);
+        mol->InTimestep = true;
         for (int k = 0; k < mt_i->nBeads; k++) {
           BEAD *bead = &System->Bead[count];
           bead->Type = mt_i->Bead[k];
