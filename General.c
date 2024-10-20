@@ -305,12 +305,14 @@ bool SameArrayInt(int arr_1[], int arr_2[], int n) { //{{{
   }
   return true;
 } //}}}
-void s_strcpy(char *dest, const char *src, size_t dest_size) {
-  size_t src_len = strlen(src);
-  if (src_len >= dest_size) { // copy only part of string
-    strncpy(dest, src, dest_size - 1);
-    dest[dest_size-1] = '\0';
-  } else { // safe to copy
-    strcpy(dest, src);
+void s_strcpy(char *dest, const char *src, size_t dest_size) { //{{{
+  if (dest == NULL || src == NULL || dest_size == 0) {
+    fprintf(stderr, "s_strcpy error...");
+    exit(1);
   }
-}
+  size_t i;
+  for (i = 0; i < dest_size - 1 && src[i] != '\0'; i++) {
+    dest[i] = src[i];
+  }
+  dest[i] = '\0';
+} //}}}
