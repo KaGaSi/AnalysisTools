@@ -48,7 +48,7 @@ OPT * opt_create(void) {
   return malloc(sizeof(OPT));
 } //}}}
 
-void OptionNames(int n, char *opt[], ...) {
+void OptionNames(int n, char opt[n][OPT_LENGTH], ...) {
   va_list args;
   va_start(args, opt);
   // Loop through the variable arguments, copy each string
@@ -61,25 +61,13 @@ void OptionNames(int n, char *opt[], ...) {
 
 int main(int argc, char *argv[]) {
 
-  // define options //{{{
+  // define options & check their validity //{{{
   int common = 5, all = common + 8, count = 0, req_arg = 1;
   char option[all][OPT_LENGTH];
-  // common options
-  s_strcpy(option[count++], "-st", OPT_LENGTH);
-  s_strcpy(option[count++], "--verbose", OPT_LENGTH);
-  s_strcpy(option[count++], "--silent", OPT_LENGTH);
-  s_strcpy(option[count++], "--help", OPT_LENGTH);
-  s_strcpy(option[count++], "--version", OPT_LENGTH);
-  // extra options
-  s_strcpy(option[count++], "-i", OPT_LENGTH);
-  s_strcpy(option[count++], "-c", OPT_LENGTH);
-  s_strcpy(option[count++], "-o", OPT_LENGTH);
-  s_strcpy(option[count++], "--unique", OPT_LENGTH);
-  s_strcpy(option[count++], "--detailed", OPT_LENGTH);
-  s_strcpy(option[count++], "-def", OPT_LENGTH);
-  s_strcpy(option[count++], "--mass", OPT_LENGTH);
-  s_strcpy(option[count++], "-ebt", OPT_LENGTH);
-  OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
+  OptionCheck2(argc, argv, req_arg, common, all, true, option,
+               "-st", "--verbose", "--silent", "-help",
+               "--version", "-i", "-c", "-o", "--unique",
+               "--detailed", "-def", "--mass", "-ebt"); //}}}
 
   count = 0; // count arguments
   OPT *opt = opt_create();

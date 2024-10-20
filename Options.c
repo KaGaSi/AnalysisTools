@@ -1,4 +1,5 @@
 #include "Options.h"
+#include <stdarg.h>
 
 // STATIC DECLARATIONs
 static void SilentOption(int argc, char *argv[], bool *verbose, bool *silent);
@@ -45,6 +46,80 @@ void HelpVersionOption(int argc, char *argv[]) {
   }
 } //}}}
 
+// version/help printing and initial check of provided options //{{{
+int OptionCheck2(int argc, char *argv[], int req, int common, int all,
+                 bool check_extra, char opt[all][OPT_LENGTH], ...) {
+  snprintf(argv[0], LINE, "%s", BareCommand(argv[0]));
+  // copy options to an array
+  va_list args;
+  va_start(args, opt);
+  // Loop through the variable arguments, copy each string
+  for (int i = 0; i < all; i++) {
+    const char *src = va_arg(args, const char *);
+    s_strcpy(opt[i], src, OPT_LENGTH);
+  }
+  va_end(args);
+  // --version option?
+  if (VersionOption(argc, argv)) {
+    exit(0);
+  }
+  // --help option?
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "--help") == 0) {
+      Help(argv[0], false, common, opt);
+      exit(0);
+    }
+  }
+  // correct number of mandatory options?
+  int count = 0;
+  while ((count + 1) < argc &&
+         // there may be '-' as a mandatory argument
+         (argv[count+1][0] != '-' || strlen(argv[count+1]) == 1)) {
+    count++;
+  }
+  if (count < req) {
+    ErrorArgNumber(count, req);
+    PrintCommand(stderr, argc, argv);
+    Help(argv[0], true, common, opt);
+    exit(1);
+  }
+  // all options exist?
+  for (int i = (count+1); i < argc; i++) {
+    bool valid = false;
+    for (int j = 0; j < all; j++) {
+      double value;
+      if (argv[i][0] != '-' || // assumes an argument to some option
+          IsRealNumber(argv[i], &value) || // assumes negative numeric argument
+          strcmp(argv[i], opt[j]) == 0) { // an option
+        valid = true;
+        break;
+      }
+    }
+    if (!valid) {
+      ErrorOption(argv[i]);
+      PrintCommand(stderr, argc, argv);
+      Help(argv[0], true, common, opt);
+      exit(1);
+    }
+  }
+  // warn if extra arguments (between required ones and options)
+  if (check_extra && req != count) {
+    char extra[LINE] = "\0";
+    for (int i = (req + 1); i <= count; i++) {
+      char cpy[LINE];
+      strcpy(cpy, extra);
+      if (snprintf(extra, LINE, "%s %s", cpy, argv[i]) < 0) {
+        ErrorSnprintf();
+      }
+    }
+    if (snprintf(ERROR_MSG, LINE, "command line arguments%s%s%s have no effect",
+                 ErrYellow(), extra, ErrCyan()) < 0) {
+      ErrorSnprintf();
+    }
+    PrintWarning();
+  }
+  return count;
+} //}}}
 // version/help printing and initial check of provided options //{{{
 int OptionCheck(int argc, char *argv[], int auto_c, int req, int common,
                 int all, char opt[all][OPT_LENGTH], bool check_extra) {

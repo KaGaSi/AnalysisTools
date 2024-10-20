@@ -13,6 +13,8 @@ void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]);
 // version/help printing and initial check of provided options
 int OptionCheck(int argc, char *argv[], int auto_c, int req, int common,
                 int all, char opt[all][OPT_LENGTH], bool check_extra);
+int OptionCheck2(int argc, char *argv[], int req, int common, int all,
+                 bool check_extra, char opt[all][OPT_LENGTH], ...);
 // print version/help and exit
 void HelpVersionOption(int argc, char *argv[]);
 // print help for common options
