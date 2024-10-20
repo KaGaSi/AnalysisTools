@@ -31,6 +31,7 @@ static bool VersionOption(int argc, char *argv[]) {
 } //}}}
 
 // THE VISIBLE FUNCTIONS
+
 // print version or help and exit (--version and --help options) //{{{
 void HelpVersionOption(int argc, char *argv[]) {
   if (VersionOption(argc, argv)) {

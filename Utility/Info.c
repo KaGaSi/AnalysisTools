@@ -1,5 +1,6 @@
 #include "../AnalysisTools.h"
 #include <string.h>
+#include <stdarg.h>
 
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
@@ -46,6 +47,17 @@ struct OPT {
 OPT * opt_create(void) {
   return malloc(sizeof(OPT));
 } //}}}
+
+void OptionNames(int n, char *opt[], ...) {
+  va_list args;
+  va_start(args, opt);
+  // Loop through the variable arguments, copy each string
+  for (int i = 0; i < n; i++) {
+    const char *src = va_arg(args, const char *);
+    s_strcpy(opt[i], src, OPT_LENGTH);
+  }
+  va_end(args);
+}
 
 int main(int argc, char *argv[]) {
 
