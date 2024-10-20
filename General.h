@@ -1,7 +1,6 @@
 #ifndef _GENERAL_H_
 #define _GENERAL_H_
 
-// just to use fileno() function
 #define _POSIX_C_SOURCE 200809L
 
 #include <unistd.h>

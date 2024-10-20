@@ -656,8 +656,8 @@ bool FileIntegerOption(int argc, char *argv[], char opt[], char *name, int lengt
     if (strcmp(argv[i], opt) == 0) {
       // wrong argument to the option
       if ((i+1) >= argc || argv[i+1][0] == '-') {
-        strcpy(ERROR_MSG, "missing file name "
-               "(or the file name begins with a dash)");
+        s_strcpy(ERROR_MSG, "missing file name "
+                 "(or the file name begins with a dash)", LINE);
         PrintErrorOption(opt);
         return true;
       }
@@ -682,8 +682,8 @@ bool MoleculeTypeOption(int argc, char *argv[], char opt[], int *moltype,
     if (strcmp(argv[i], opt) == 0) {
       // Error - missing or wrong argument //{{{
       if ((i+1) >= argc || argv[i+1][0] == '-') {
-        strcpy(ERROR_MSG, "missing file name "
-               "(or the file name begins with a dash)");
+        s_strcpy(ERROR_MSG, "missing file name "
+                 "(or the file name begins with a dash)", LINE);
         PrintErrorOption(opt);
         return true;
       } //}}}
@@ -713,8 +713,8 @@ bool MoleculeTypeOption2(int argc, char *argv[], char opt[], int *moltype,
       }
       // Error - missing or wrong argument //{{{
       if ((i+1) >= argc || argv[i+1][0] == '-') {
-        strcpy(ERROR_MSG, "missing molecule name "
-               "(or the name begins with a dash)");
+        s_strcpy(ERROR_MSG, "missing molecule name "
+                 "(or the name begins with a dash)", LINE);
         PrintErrorOption(opt);
         ErrorMoleculeType_old(Counts, *MoleculeType);
         return true;
@@ -724,8 +724,8 @@ bool MoleculeTypeOption2(int argc, char *argv[], char opt[], int *moltype,
       while ((i+1+j) < argc && argv[i+1+j][0] != '-') {
         int type = FindMoleculeType_old(argv[i+1+j], Counts, *MoleculeType);
         if (type == -1) { // is argv[i+1+j] in vsf?
-          strcpy(ERROR_MSG, "non-existent molecule name %s%s"
-                 ErrYellow(), argv[i+1+j]);
+          s_strcpy(ERROR_MSG, "non-existent molecule name %s%s"
+                   ErrYellow(), argv[i+1+j], LINE);
           PrintErrorOption(opt);
           ErrorMoleculeType_old(Counts, *MoleculeType);
           return true;
@@ -749,7 +749,7 @@ bool MoleculeTypeIntOption(int argc, int i, char *argv[], char opt[],
   if (strcmp(argv[i], opt) == 0) {
     // Error - missing or wrong arguments //{{{
     if ((i+2) >= argc || argv[i+1][0] == '-' || !IsInteger_old(argv[i+2])) {
-      strcpy(ERROR_MSG, "two arguments required (<mol name> <int>)");
+      s_strcpy(ERROR_MSG, "two arguments required (<mol name> <int>)", LINE);
       PrintErrorOption(opt);
       return true;
     } //}}}
