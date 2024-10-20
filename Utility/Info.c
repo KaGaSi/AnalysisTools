@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+#include <string.h>
 
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
@@ -52,20 +53,21 @@ int main(int argc, char *argv[]) {
   int common = 5, all = common + 8, count = 0, req_arg = 1;
   char option[all][OPT_LENGTH];
   // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
+  strncpy(option[count++], "-st", OPT_LENGTH);
+  // strcpy(option[count++], "-st");
+  strncpy(option[count++], "--verbose", OPT_LENGTH);
+  strncpy(option[count++], "--silent", OPT_LENGTH);
+  strncpy(option[count++], "--help", OPT_LENGTH);
+  strncpy(option[count++], "--version", OPT_LENGTH);
   // extra options
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "-c");
-  strcpy(option[count++], "-o");
-  strcpy(option[count++], "--unique");
-  strcpy(option[count++], "--detailed");
-  strcpy(option[count++], "-def");
-  strcpy(option[count++], "--mass");
-  strcpy(option[count++], "-ebt");
+  strncpy(option[count++], "-i", OPT_LENGTH);
+  strncpy(option[count++], "-c", OPT_LENGTH);
+  strncpy(option[count++], "-o", OPT_LENGTH);
+  strncpy(option[count++], "--unique", OPT_LENGTH);
+  strncpy(option[count++], "--detailed", OPT_LENGTH);
+  strncpy(option[count++], "-def", OPT_LENGTH);
+  strncpy(option[count++], "--mass", OPT_LENGTH);
+  strncpy(option[count++], "-ebt", OPT_LENGTH);
   OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   count = 0; // count arguments
