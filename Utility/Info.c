@@ -53,27 +53,27 @@ int main(int argc, char *argv[]) {
   int common = 5, all = common + 8, count = 0, req_arg = 1;
   char option[all][OPT_LENGTH];
   // common options
-  snprintf(option[count++], OPT_LENGTH, "%s", "-st");
-  // strcpy(option[count++], "-st");
-  snprintf(option[count++], OPT_LENGTH, "%s", "--verbose");
-  snprintf(option[count++], OPT_LENGTH, "%s", "--silent");
-  snprintf(option[count++], OPT_LENGTH, "%s", "--help");
-  snprintf(option[count++], OPT_LENGTH, "%s", "--version");
+  s_strcpy(option[count++], "-st", OPT_LENGTH);
+  s_strcpy(option[count++], "--verbose", OPT_LENGTH);
+  s_strcpy(option[count++], "--silent", OPT_LENGTH);
+  s_strcpy(option[count++], "--help", OPT_LENGTH);
+  s_strcpy(option[count++], "--version", OPT_LENGTH);
   // extra options
-  snprintf(option[count++], OPT_LENGTH, "%s", "-i");
-  snprintf(option[count++], OPT_LENGTH, "%s", "-c");
-  snprintf(option[count++], OPT_LENGTH, "%s", "-o");
-  snprintf(option[count++], OPT_LENGTH, "%s", "--unique");
-  snprintf(option[count++], OPT_LENGTH, "%s", "--detailed");
-  snprintf(option[count++], OPT_LENGTH, "%s", "-def");
-  snprintf(option[count++], OPT_LENGTH, "%s", "--mass");
-  snprintf(option[count++], OPT_LENGTH, "%s", "-ebt");
+  s_strcpy(option[count++], "-i", OPT_LENGTH);
+  s_strcpy(option[count++], "-c", OPT_LENGTH);
+  s_strcpy(option[count++], "-o", OPT_LENGTH);
+  s_strcpy(option[count++], "--unique", OPT_LENGTH);
+  s_strcpy(option[count++], "--detailed", OPT_LENGTH);
+  s_strcpy(option[count++], "-def", OPT_LENGTH);
+  s_strcpy(option[count++], "--mass", OPT_LENGTH);
+  s_strcpy(option[count++], "-ebt", OPT_LENGTH);
   OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   count = 0; // count arguments
   OPT *opt = opt_create();
   SYS_FILES in = InitSysFiles;
-  snprintf(in.stru.name, LINE, "%s", argv[++count]);
+  // snprintf(in.stru.name, LINE, "%s", argv[++count]);
+  s_strcpy(in.stru.name, argv[++count], LINE);
   in.stru.type = StructureFileType(in.stru.name);
 
   PrintCommand(stdout, argc, argv);

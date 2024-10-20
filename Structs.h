@@ -5,7 +5,7 @@
 
 #define VERSION "4.0"
 #define DATE "TBD"
-#define OPT_LENGTH 16
+#define OPT_LENGTH 15
 
 #define CHARGE 10000.0 // 'impossible' charge
 #define MASS 0.0 // 'impossible' mass
