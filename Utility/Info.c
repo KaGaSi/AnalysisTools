@@ -53,21 +53,21 @@ int main(int argc, char *argv[]) {
   int common = 5, all = common + 8, count = 0, req_arg = 1;
   char option[all][OPT_LENGTH];
   // common options
-  strncpy(option[count++], "-st", OPT_LENGTH);
+  snprintf(option[count++], OPT_LENGTH, "%s", "-st");
   // strcpy(option[count++], "-st");
-  strncpy(option[count++], "--verbose", OPT_LENGTH);
-  strncpy(option[count++], "--silent", OPT_LENGTH);
-  strncpy(option[count++], "--help", OPT_LENGTH);
-  strncpy(option[count++], "--version", OPT_LENGTH);
+  snprintf(option[count++], OPT_LENGTH, "%s", "--verbose");
+  snprintf(option[count++], OPT_LENGTH, "%s", "--silent");
+  snprintf(option[count++], OPT_LENGTH, "%s", "--help");
+  snprintf(option[count++], OPT_LENGTH, "%s", "--version");
   // extra options
-  strncpy(option[count++], "-i", OPT_LENGTH);
-  strncpy(option[count++], "-c", OPT_LENGTH);
-  strncpy(option[count++], "-o", OPT_LENGTH);
-  strncpy(option[count++], "--unique", OPT_LENGTH);
-  strncpy(option[count++], "--detailed", OPT_LENGTH);
-  strncpy(option[count++], "-def", OPT_LENGTH);
-  strncpy(option[count++], "--mass", OPT_LENGTH);
-  strncpy(option[count++], "-ebt", OPT_LENGTH);
+  snprintf(option[count++], OPT_LENGTH, "%s", "-i");
+  snprintf(option[count++], OPT_LENGTH, "%s", "-c");
+  snprintf(option[count++], OPT_LENGTH, "%s", "-o");
+  snprintf(option[count++], OPT_LENGTH, "%s", "--unique");
+  snprintf(option[count++], OPT_LENGTH, "%s", "--detailed");
+  snprintf(option[count++], OPT_LENGTH, "%s", "-def");
+  snprintf(option[count++], OPT_LENGTH, "%s", "--mass");
+  snprintf(option[count++], OPT_LENGTH, "%s", "-ebt");
   OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
 
   count = 0; // count arguments
