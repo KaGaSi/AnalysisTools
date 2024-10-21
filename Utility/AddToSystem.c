@@ -544,7 +544,6 @@ int main(int argc, char *argv[]) {
   SYSTEM S_out2;
   SYSTEM S_add2;
   if (opt->fout.name[0] != '\0') {
-    S_add2.Box = InitBox;
     S_add2 = CopySystem(S_add);
   }
   COUNT *C_out = &S_out.Count;
@@ -560,6 +559,7 @@ int main(int argc, char *argv[]) {
         VtfSystem(&S_out2);
         VtfSystem(&S_add2);
       }
+    S_add2.Box = InitBox;
       ConcatenateSystems(&S_out2, S_add2, S_orig.Box, prune);
     }
     S_out = CopySystem(S_orig);
