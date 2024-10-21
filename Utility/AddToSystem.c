@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
   snprintf(field.stru.name, LINE, "%s", argv[++count]);
   field.stru.type = StructureFileType(field.stru.name);
   if (field.stru.type != FIELD_FILE) {
-    strcpy(ERROR_MSG, "input FIELD file required");
+    err_msg("input FIELD file required");
     PrintErrorFile(field.stru.name, "\0", "\0");
     exit(1);
   } //}}}
@@ -272,14 +272,14 @@ int main(int argc, char *argv[]) {
   }
   // errors for -ld/-hd options //{{{
   if ((opt->ld && opt->ldist <= 0) || (opt->hd && opt->hdist <= 0)) {
-    strcpy(ERROR_MSG, "highest/lowest distance must be positive real number");
+    err_msg("highest/lowest distance must be positive real number");
     PrintErrorOption("-ld/-hd");
     PrintCommand(stderr, argc, argv);
     Help(argv[0], true, common, option);
     exit(1);
   }
   if (opt->ld && opt->hd && opt->ldist >= opt->hdist) {
-    strcpy(ERROR_MSG, "highest distance must be higher than lowest distance");
+    err_msg("highest distance must be higher than lowest distance");
     PrintErrorOption("-ld/-hd");
     PrintCommand(stderr, argc, argv);
     Help(argv[0], true, common, option);
@@ -294,7 +294,7 @@ int main(int argc, char *argv[]) {
       }
     }
     if (!bt) {
-      strcpy(ERROR_MSG, "missing mandatory -bt or --bonded options");
+      err_msg("missing mandatory -bt or --bonded options");
       PrintErrorOption("-ld/-hd");
       Help(argv[0], true, common, option);
       exit(1);
@@ -320,11 +320,11 @@ int main(int argc, char *argv[]) {
     }
     if (DoubleOption2(argc, argv, str, opt->axis[dd])) {
       if (opt->axis[dd][0] < 0 || opt->axis[dd][1] < 0) {
-        strcpy(ERROR_MSG, "two non-negative numbers required");
+        err_msg("two non-negative numbers required");
         PrintErrorOption("-cx/-cy/-cz");
         exit(1);
       } else if (opt->axis[dd][0] == opt->axis[dd][1]) {
-        strcpy(ERROR_MSG, "two different distance values required");
+        err_msg("two different distance values required");
         PrintErrorOption("-cx/-cy/-cz");
         exit(1);
       } else if (opt->axis[dd][0] > opt->axis[dd][1]) {
@@ -334,8 +334,7 @@ int main(int argc, char *argv[]) {
     if (!opt->real) {
       if ((opt->axis[dd][0] != -1 && opt->axis[dd][0] > 1) ||
           (opt->axis[dd][1] != -1 && opt->axis[dd][1] > 1)) {
-        strcpy(ERROR_MSG, "unless --real is used, "
-                          "-cx/y/z values must be between 0 and 1");
+        err_msg("unless --real is used, -cx/y/z must be between 0 and 1");
         PrintErrorOption(str);
         exit(1);
       }
@@ -367,7 +366,7 @@ int main(int argc, char *argv[]) {
         opt->box.Length[0] <= 0 ||
         opt->box.Length[1] <= 0 ||
         opt->box.Length[2] <= 0) {
-      strcpy(ERROR_MSG, "three positive numbers required");
+      err_msg("three positive numbers required");
       PrintErrorOption("-b");
       Help(argv[0], true, common, option);
       exit(1);
@@ -389,7 +388,7 @@ int main(int argc, char *argv[]) {
           strcmp(argv[i], "--add") == 0 ||
           strcmp(argv[i], "-xb") == 0 ||
           strcmp(argv[i], "-st") == 0) {
-        strcpy(ERROR_MSG, "ignored when creating new system from scratch");
+        err_msg("ignored when creating new system from scratch");
         PrintWarnOption("-bt/-ld/-hd/--bonded/-xb/-st");
         break;
       }
@@ -445,13 +444,13 @@ int main(int argc, char *argv[]) {
     int line_count = 0;
     for (int i = 1; i < opt->c.start; i++) { // from 1 as start=1 is the first
       if (!SkipTimestep(in, fr, &line_count)) {
-        strcpy(ERROR_MSG, "couldn't skip");
+        err_msg("couldn't skip");
         PrintError();
         exit(1);
       }
     }
     if (!ReadTimestep(in, fr, &S_orig, &line_count)) {
-      strcpy(ERROR_MSG, "no coordinate data (starting step may be too high)");
+      err_msg("no coordinate data (starting step may be too high)");
       PrintErrorFile(in.coor.name, "\0", "\0");
       exit(1);
     }
@@ -604,7 +603,7 @@ int main(int argc, char *argv[]) {
     }
     // second, the error?
     if (C_add->Bead > count) {
-      strcpy(ERROR_MSG, "not enough beads to switch");
+      err_msg("not enough beads to switch");
       PrintError();
       exit(1);
     } //}}}

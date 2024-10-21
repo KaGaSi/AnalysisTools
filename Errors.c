@@ -1,4 +1,5 @@
 #include "Errors.h"
+#include "General.h"
 char ERROR_MSG[LINE];
 
 static void PrintLine(FILE *f, char *colour1, char *colour2);
@@ -226,3 +227,7 @@ void ErrorStartEnd(int start, int end) { //{{{
     exit(1);
   }
 } //}}}
+
+void err_msg(char *str) {
+  s_strcpy(ERROR_MSG, str, LINE);
+}

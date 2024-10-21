@@ -12,6 +12,7 @@
 #include <time.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <stdarg.h>
 
 #define PI 3.14159265358979323846264338327950
 #define LINE 1024 // maximum length of an array for strings
@@ -102,6 +103,9 @@ void InitDouble2DArray (double *array[], int m, int n, double val);
 
 // test whether two arrays are the same
 bool SameArrayInt(int arr_1[], int arr_2[], int n);
+
+// safe function alternatives
 void s_strcpy(char *dest, const char *src, size_t dest_size);
+void s_snprintf(char *buffer, size_t size, const char *format, ...);
 
 #endif

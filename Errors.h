@@ -50,6 +50,8 @@ void ErrorBeadType(char name[], SYSTEM System);
 void ErrorMoleculeType(char name[], SYSTEM System);
 void WarnChargedSystem(SYSTEM System, char file1[], char file2[], char file3[]);
 void ErrorStartEnd(int start, int end);
+
+void err_msg(char *str);
 #endif
 
 // // FilePrintFile() //{{{
