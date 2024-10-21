@@ -385,7 +385,7 @@ int main(int argc, char *argv[]) {
   // find bead type to switch (the most numerous one; solvent, probably) //{{{
   opt->sw_type = NULL;
   if (!opt->add) {
-    opt->sw_type = calloc(C_orig->BeadType, sizeof opt->sw_type);
+    opt->sw_type = calloc(C_orig->BeadType, sizeof *opt->sw_type);
     // if -xb option not present, take the most numerous bead type
     if (!BeadTypeOption(argc, argv, "-xb", true, opt->sw_type, S_orig)) {
       count = 0;
@@ -403,7 +403,7 @@ int main(int argc, char *argv[]) {
   opt->bt_use_orig = NULL;
   opt->bonded = false;
   if (!opt->new) {
-    opt->bt_use_orig = calloc(C_orig->BeadType, sizeof opt->bt_use_orig);
+    opt->bt_use_orig = calloc(C_orig->BeadType, sizeof *opt->bt_use_orig);
     opt->bonded = BoolOption(argc, argv, "--bonded");
     BeadTypeOption(argc, argv, "-bt", true, opt->bt_use_orig, S_orig);
   } //}}}
@@ -544,6 +544,7 @@ int main(int argc, char *argv[]) {
   SYSTEM S_out2;
   SYSTEM S_add2;
   if (opt->fout.name[0] != '\0') {
+    S_add2.Box = InitBox;
     S_add2 = CopySystem(S_add);
   }
   COUNT *C_out = &S_out.Count;
