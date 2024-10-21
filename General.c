@@ -316,3 +316,15 @@ void s_strcpy(char *dest, const char *src, size_t dest_size) { //{{{
   }
   dest[i] = '\0';
 } //}}}
+void* s_realloc(void *ptr, size_t new_size) { //{{{
+  if (new_size == 0) {
+    fprintf(stderr, "realloc error\n");
+    exit(1);
+  }
+  void *temp = realloc(ptr, new_size);
+  if (temp == NULL) {
+    fprintf(stderr, "realloc error\n");
+    exit(1);
+  }
+  return temp;
+} //}}}

@@ -1,25 +1,6 @@
 #include "../AnalysisTools.h"
 #include <stdio.h>
 
-void* safe_realloc(void *ptr, size_t new_size) {
-  if (new_size == 0) {
-    free(ptr);  // If the new size is 0, free the memory and return NULL
-    return NULL;
-  }
-
-  // Use a temporary pointer to store the result of realloc
-  void *temp = realloc(ptr, new_size);
-
-  if (temp == NULL) {
-    // If realloc fails, do not overwrite the original pointer
-    printf("Reallocation failed, original memory is still valid.\n");
-    return NULL;
-  }
-
-  // If realloc succeeded, return the new pointer
-  return temp;
-}
-
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
@@ -95,7 +76,7 @@ int main ( int argc, char** argv ) {
       exit(1);
     }
     col_count++;
-    column = safe_realloc(column, sizeof *column * (col_count + 1));
+    column = s_realloc(column, sizeof *column * (col_count + 1));
   }
   int col_max = 0;
   for (int i = 0; i < col_count; i++) {
@@ -174,7 +155,7 @@ int main ( int argc, char** argv ) {
       if (opt->c.start < data_lines) {
         count = data_lines - opt->c.start - 1;
         for (int i = 0; i < col_count; i++) {
-          data[i] = safe_realloc(data[i], sizeof *data[i] * (count + 1));
+          data[i] = s_realloc(data[i], sizeof *data[i] * (count + 1));
           data[i][count] = atof(split[column[i]-1]);
         }
       }
