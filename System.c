@@ -1207,7 +1207,6 @@ MOLECULETYPE CopyMoleculeType(MOLECULETYPE mt_old) { //{{{
   // MoleculeType[].Index array
   if (mt_new.Number > 0) {
     mt_new.Index = malloc(sizeof *mt_new.Index * mt_new.Number);
-    // memcpy(mt_new.Index, mt_old.Index, sizeof *mt_old.Index * mt_old.Number);
     for (int i = 0; i < mt_old.Number; i++) {
       mt_new.Index[i] = mt_old.Index[i];
     }
@@ -1215,7 +1214,6 @@ MOLECULETYPE CopyMoleculeType(MOLECULETYPE mt_old) { //{{{
   // MoleculeType[].BType array
   if (mt_new.nBTypes > 0) {
     mt_new.BType = malloc(sizeof *mt_new.BType * mt_new.nBTypes);
-    // memcpy(mt_new.BType, mt_old.BType, sizeof *mt_old.BType * mt_old.nBTypes);
     for (int i = 0; i < mt_new.nBTypes; i++) {
       mt_new.BType[i] = mt_old.BType[i];
     }
@@ -1228,7 +1226,6 @@ MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old) { //{{{
   // MoleculeType[].Bead array
   if (mt_new.nBeads > 0) {
     mt_new.Bead = malloc(sizeof *mt_new.Bead * mt_new.nBeads);
-    // memcpy(mt_new.Bead, mt_old.Bead, sizeof *mt_old.Bead * mt_old.nBeads);
     for (int i = 0; i < mt_old.nBeads; i++) {
       mt_new.Bead[i] = mt_old.Bead[i];
     }
@@ -1241,7 +1238,6 @@ MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old) { //{{{
   // MoleculeType[].Bond array
   if (mt_new.nBonds > 0) {
     mt_new.Bond = malloc(sizeof *mt_new.Bond * mt_new.nBonds);
-    // memcpy(mt_new.Bond, mt_old.Bond, sizeof *mt_old.Bond * mt_old.nBonds);
     for (int i = 0; i < mt_old.nBonds; i++) {
       for (int aa = 0; aa < 3; aa++) {
         mt_new.Bond[i][aa] = mt_old.Bond[i][aa];
@@ -1251,7 +1247,6 @@ MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old) { //{{{
   // MoleculeType[].Angle array
   if (mt_new.nAngles > 0) {
     mt_new.Angle = malloc(sizeof *mt_new.Angle * mt_new.nAngles);
-    // memcpy(mt_new.Angle, mt_old.Angle, sizeof *mt_old.Angle * mt_old.nAngles);
     for (int i = 0; i < mt_old.nAngles; i++) {
       for (int aa = 0; aa < 4; aa++) {
         mt_new.Angle[i][aa] = mt_old.Angle[i][aa];
@@ -1261,8 +1256,6 @@ MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old) { //{{{
   // MoleculeType[].Dihedral array
   if (mt_new.nDihedrals > 0) {
     mt_new.Dihedral = malloc(sizeof *mt_new.Dihedral * mt_new.nDihedrals);
-    // memcpy(mt_new.Dihedral, mt_old.Dihedral,
-    //        sizeof *mt_old.Dihedral * mt_old.nDihedrals);
     for (int i = 0; i < mt_old.nDihedrals; i++) {
       for (int aa = 0; aa < 5; aa++) {
         mt_new.Dihedral[i][aa] = mt_old.Dihedral[i][aa];
@@ -1272,8 +1265,6 @@ MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old) { //{{{
   // MoleculeType[].Improper array
   if (mt_new.nImpropers > 0) {
     mt_new.Improper = malloc(sizeof *mt_new.Improper * mt_new.nImpropers);
-    // memcpy(mt_new.Improper, mt_old.Improper,
-    //        sizeof *mt_old.Improper * mt_old.nImpropers);
     for (int i = 0; i < mt_old.nImpropers; i++) {
       for (int aa = 0; aa < 5; aa++) {
         mt_new.Improper[i][aa] = mt_old.Improper[i][aa];
@@ -1311,12 +1302,14 @@ SYSTEM CopySystem(SYSTEM S_in) {
       return S_out;
     } //}}}
     // Bead & BeadCoor //{{{
-    S_out.Bead = s_realloc(S_out.Bead, sizeof(BEAD) * S_out.Count.Bead);
+    S_out.Bead = s_realloc(S_out.Bead, sizeof *S_out.Bead * S_out.Count.Bead);
     S_out.BeadCoor = s_realloc(S_out.BeadCoor,
                                sizeof *S_out.BeadCoor * S_out.Count.Bead);
-    memcpy(S_out.Bead, S_in.Bead, sizeof(BEAD) * S_in.Count.Bead);
-    memcpy(S_out.BeadCoor, S_in.BeadCoor,
-           sizeof *S_in.BeadCoor * S_in.Count.Bead); //}}}
+    for (int i = 0; i < S_in.Count.Bead; i++) {
+      S_out.Bead[i] = S_in.Bead[i];
+      S_out.BeadCoor[i] = S_in.BeadCoor[i];
+    }
+    //}}}
     // Bonded & BondedCoor //{{{
     if (S_out.Count.Bonded > 0) {
       S_out.Bonded = s_realloc(S_out.Bonded,
@@ -1324,10 +1317,10 @@ SYSTEM CopySystem(SYSTEM S_in) {
       S_out.BondedCoor = s_realloc(S_out.BondedCoor,
                                    sizeof *S_out.BondedCoor *
                                    S_out.Count.Bonded);
-      memcpy(S_out.Bonded, S_in.Bonded,
-             sizeof *S_in.Bonded * S_in.Count.Bonded);
-      memcpy(S_out.BondedCoor, S_in.BondedCoor,
-             sizeof *S_in.BondedCoor * S_in.Count.Bonded);
+      for (int i = 0; i < S_in.Count.Bonded; i++) {
+        S_out.Bonded[i] = S_in.Bonded[i];
+        S_out.BondedCoor[i] = S_in.BondedCoor[i];
+      }
     } //}}}
     // Unbonded & UnbondedCoor //{{{
     if (S_out.Count.Unbonded > 0) {
@@ -1363,45 +1356,50 @@ SYSTEM CopySystem(SYSTEM S_in) {
         if (S_out.MoleculeType[type].nBeads > 0) {
           S_out.Molecule[i].Bead = malloc(sizeof *S_out.Molecule[i].Bead *
                                           S_out.MoleculeType[type].nBeads);
-          memcpy(S_out.Molecule[i].Bead, S_in.Molecule[i].Bead,
-                 sizeof *S_in.Molecule[i].Bead *
-                 S_in.MoleculeType[type].nBeads);
+          for (int j = 0; j < S_out.MoleculeType[type].nBeads; j++) {
+            S_out.Molecule[i].Bead[j] = S_in.Molecule[i].Bead[j];
+          }
         }
       }
       // MoleculeCoor
       S_out.MoleculeCoor = s_realloc(S_out.MoleculeCoor,
                                      sizeof *S_out.MoleculeCoor *
                                      S_out.Count.Molecule);
-      memcpy(S_out.MoleculeCoor, S_in.MoleculeCoor,
-             sizeof *S_in.MoleculeCoor * S_in.Count.Molecule);
+      for (int i = 0; i < S_in.Count.Molecule; i++) {
+        S_out.MoleculeCoor[i] = S_in.MoleculeCoor[i];
+      }
     } //}}}
     // BondType //{{{
     if (S_out.Count.BondType > 0) {
       S_out.BondType = s_realloc(S_out.BondType,
                                  sizeof *S_out.BondType * S_out.Count.BondType);
-      memcpy(S_out.BondType, S_in.BondType,
-             sizeof *S_out.BondType * S_in.Count.BondType);
+      for (int i = 0; i < S_in.Count.BondType; i++) {
+        S_out.BondType[i] = S_in.BondType[i];
+      }
     } //}}}
     // AngleType //{{{
     if (S_out.Count.AngleType > 0) {
       S_out.AngleType = s_realloc(S_out.AngleType, sizeof *S_out.AngleType *
                                   S_out.Count.AngleType);
-      memcpy(S_out.AngleType, S_in.AngleType,
-             sizeof *S_out.AngleType * S_in.Count.AngleType);
+      for (int i = 0; i < S_in.Count.AngleType; i++) {
+        S_out.AngleType[i] = S_in.AngleType[i];
+      }
     } //}}}
     // DihedralType //{{{
     if (S_out.Count.DihedralType > 0) {
       S_out.DihedralType = s_realloc(S_out.DihedralType,
                                      sizeof(PARAMS) * S_out.Count.DihedralType);
-      memcpy(S_out.DihedralType, S_in.DihedralType,
-             sizeof *S_out.DihedralType * S_in.Count.DihedralType);
+      for (int i = 0; i < S_in.Count.DihedralType; i++) {
+        S_out.DihedralType[i] = S_in.DihedralType[i];
+      }
     } //}}}
     // ImproperType //{{{
     if (S_out.Count.ImproperType > 0) {
       S_out.ImproperType = s_realloc(S_out.ImproperType,
                                      sizeof(PARAMS) * S_out.Count.ImproperType);
-      memcpy(S_out.ImproperType, S_in.ImproperType,
-             sizeof *S_out.ImproperType * S_in.Count.ImproperType);
+      for (int i = 0; i < S_in.Count.ImproperType; i++) {
+        S_out.ImproperType[i] = S_in.ImproperType[i];
+      }
     } //}}}
   }
   return S_out;
@@ -2627,49 +2625,51 @@ void ChangeMolecules(SYSTEM *S_orig, SYSTEM S_add, bool name) {
     C_orig->BondType += C_add->BondType;
     S_orig->BondType = s_realloc(S_orig->BondType,
                                  sizeof *S_orig->BondType * C_orig->BondType);
-    memcpy(S_orig->BondType + count_old.BondType, S_add.BondType,
-           sizeof *S_orig->BondType * C_add->BondType);
+    for (int i = 0; i < C_add->BondType; i++) {
+      S_orig->BondType[count_old.BondType+i] = S_add.BondType[i];
+    }
   }
   if (C_add->AngleType > 0) {
     C_orig->AngleType += C_add->AngleType;
     S_orig->AngleType = s_realloc(S_orig->AngleType, sizeof *S_orig->AngleType *
                                   C_orig->AngleType);
-    memcpy(S_orig->AngleType + count_old.AngleType, S_add.AngleType,
-           sizeof *S_orig->AngleType * C_add->AngleType);
+    for (int i = 0; i < C_add->AngleType; i++) {
+      S_orig->AngleType[count_old.AngleType+i] = S_add.AngleType[i];
+    }
   }
   if (C_add->DihedralType > 0) {
     C_orig->DihedralType += C_add->DihedralType;
     S_orig->DihedralType = s_realloc(S_orig->DihedralType,
                                      sizeof *S_orig->DihedralType *
                                      C_orig->DihedralType);
-    memcpy(S_orig->DihedralType + count_old.DihedralType, S_add.DihedralType,
-           sizeof *S_orig->DihedralType * C_add->DihedralType);
+    for (int i = 0; i < C_add->DihedralType; i++) {
+      S_orig->DihedralType[count_old.DihedralType+i] = S_add.DihedralType[i];
+    }
   }
   if (C_add->ImproperType > 0) {
     C_orig->ImproperType += C_add->ImproperType;
     S_orig->ImproperType = s_realloc(S_orig->ImproperType,
                                      sizeof *S_orig->ImproperType *
                                      C_orig->ImproperType);
-    memcpy(S_orig->ImproperType + count_old.ImproperType, S_add.ImproperType,
-           sizeof *S_orig->ImproperType * C_add->ImproperType);
+    for (int i = 0; i < C_add->ImproperType; i++) {
+      S_orig->ImproperType[count_old.ImproperType+i] = S_add.ImproperType[i];
+    }
   }                                                    //}}}
   for (int i = 0; i < C_orig->MoleculeType; i++) { //{{{
     MOLECULETYPE *mt_orig = &S_orig->MoleculeType[i];
     int type = FindMoleculeType(*S_orig, S_orig->MoleculeType[i], S_add, 2);
     if (type != -1) {
       MOLECULETYPE *mt_add = &S_add.MoleculeType[type];
-      // // add name should the original molecule be unnamed
-      // TODO: this is useless now, right?
-      // if (strcmp(mt_orig->Name, NON) == 0) {
-      //   strcpy(mt_orig->Name, mt_add->Name);
-      // }
       // add bonds, if there are none in the original molecule type... //{{{
       if (mt_add->nBonds > 0 && mt_orig->nBonds == 0) {
         mt_orig->nBonds = mt_add->nBonds;
         mt_orig->Bond = malloc(sizeof *mt_orig->Bond * mt_orig->nBonds);
-        memcpy(mt_orig->Bond, mt_add->Bond,
-               sizeof *mt_add->Bond * mt_add->nBonds); //}}}
-        // ...or just add bond types where missing //{{{
+        for (int i = 0; i < mt_add->nBonds; i++) {
+          for (int aa = 0; aa < 3; aa++) {
+            mt_orig->Bond[i][aa] = mt_add->Bond[i][aa];
+          }
+        } //}}}
+      // ...or just add bond types where missing //{{{
       } else if (C_add->BondType > 0) {
         for (int j = 0; j < mt_orig->nBonds; j++) {
           for (int k = 0; k < mt_add->nBonds; k++) {
@@ -2686,9 +2686,12 @@ void ChangeMolecules(SYSTEM *S_orig, SYSTEM S_add, bool name) {
       if (mt_add->nAngles > 0 && mt_orig->nAngles == 0) {
         mt_orig->nAngles = mt_add->nAngles;
         mt_orig->Angle = malloc(sizeof *mt_orig->Angle * mt_orig->nAngles);
-        memcpy(mt_orig->Angle, mt_add->Angle,
-               sizeof *mt_add->Angle * mt_add->nAngles); //}}}
-        // ...or just add angle types where missing //{{{
+        for (int i = 0; i < mt_add->nAngles; i++) {
+          for (int aa = 0; aa < 4; aa++) {
+            mt_orig->Angle[i][aa] = mt_add->Angle[i][aa];
+          }
+        } //}}}
+      // ...or just add angle types where missing //{{{
       } else if (C_add->AngleType > 0) {
         for (int j = 0; j < mt_orig->nAngles; j++) {
           for (int k = 0; k < mt_orig->nAngles; k++) {
@@ -2705,11 +2708,14 @@ void ChangeMolecules(SYSTEM *S_orig, SYSTEM S_add, bool name) {
       // add dihedrals, if there are none in the original molecule type... //{{{
       if (mt_add->nDihedrals > 0 && mt_orig->nDihedrals == 0) {
         mt_orig->nDihedrals = mt_add->nDihedrals;
-        mt_orig->Dihedral =
-            malloc(sizeof *mt_orig->Dihedral * mt_orig->nDihedrals);
-        memcpy(mt_orig->Dihedral, mt_add->Dihedral,
-               sizeof *mt_add->Dihedral * mt_add->nDihedrals); //}}}
-        // ...or just add dihedral types where missing //{{{
+        mt_orig->Dihedral = malloc(sizeof *mt_orig->Dihedral *
+                                   mt_orig->nDihedrals);
+        for (int i = 0; i < mt_add->nDihedrals; i++) {
+          for (int aa = 0; aa < 5; aa++) {
+            mt_orig->Dihedral[i][aa] = mt_add->Dihedral[i][aa];
+          }
+        } //}}}
+      // ...or just add dihedral types where missing //{{{
       } else if (C_add->DihedralType > 0) {
         for (int j = 0; j < mt_orig->nDihedrals; j++) {
           for (int k = 0; k < mt_orig->nDihedrals; k++) {
@@ -2728,11 +2734,14 @@ void ChangeMolecules(SYSTEM *S_orig, SYSTEM S_add, bool name) {
       // add impropers, if there are none in the original molecule type... //{{{
       if (mt_add->nImpropers > 0 && mt_orig->nImpropers == 0) {
         mt_orig->nImpropers = mt_add->nImpropers;
-        mt_orig->Improper =
-            malloc(sizeof *mt_orig->Improper * mt_orig->nImpropers);
-        memcpy(mt_orig->Improper, mt_add->Improper,
-               sizeof *mt_add->Improper * mt_add->nImpropers); //}}}
-        // ...or just add improper types where missing //{{{
+        mt_orig->Improper = malloc(sizeof *mt_orig->Improper *
+                                   mt_orig->nImpropers);
+        for (int i = 0; i < mt_add->nImpropers; i++) {
+          for (int aa = 0; aa < 5; aa++) {
+            mt_orig->Improper[i][aa] = mt_add->Improper[i][aa];
+          }
+        } //}}}
+      // ...or just add improper types where missing //{{{
       } else if (C_add->ImproperType > 0) {
         for (int j = 0; j < mt_orig->nImpropers; j++) {
           for (int k = 0; k < mt_orig->nImpropers; k++) {
