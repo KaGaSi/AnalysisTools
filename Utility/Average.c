@@ -93,7 +93,7 @@ int main ( int argc, char** argv ) {
   opt->tau = -1;
   IntegerOption1(argc, argv, "-tau", &opt->tau);
   // -b option: calculate block averages
-  opt->block = -1;
+  opt->block = 0;
   IntegerOption1(argc, argv, "-b", &opt->block);
   // -m option: calculate moving average
   opt->moving = -1;
@@ -105,8 +105,8 @@ int main ( int argc, char** argv ) {
     exit(1);
   }
   if ((opt->moving != -1 && opt->tau != -1) ||
-      (opt->moving != -1 && opt->block != -1) ||
-      (opt->tau != -1 && opt->block != -1)) {
+      (opt->moving != -1 && opt->block != 0) ||
+      (opt->tau != -1 && opt->block != 0)) {
     err_msg("only one of the -tau, -b, and -m option can be used");
     PrintError();
     Help(argv[0], true, common, option);
@@ -254,7 +254,7 @@ int main ( int argc, char** argv ) {
   } //}}}
 
   // -b mode //{{{
-  if (opt->block > -1) {
+  if (opt->block > 0) {
     // variables
     // number of data points must be divisible by 'data_per_block'
     int remainder = (data_lines - opt->c.start) % opt->block;
