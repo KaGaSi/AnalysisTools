@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
   int d_pair_n = opt->n_number / d_per_set;
   // Error: wrong number of integers //{{{
   if (opt->d_file[0] != '\0' && (opt->n_number % d_per_set) != 0) {
-    strcpy(ERROR_MSG, "number of bead indexes must be even");
+    err_msg("number of bead indexes must be even");
     PrintErrorOption("-d");
     exit(1);
   } //}}}
@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < opt->n_number; i += d_per_set) {
     if (opt->n_list[i] == opt->n_list[i+1] ||
         opt->n_list[i] == 0 || opt->n_list[i+1] == 0) {
-      strcpy(ERROR_MSG, "each pair of bead ids must be non-zero and different");
+      err_msg("each pair of bead ids must be non-zero and different");
       PrintErrorOption("-d");
       exit(1);
     }

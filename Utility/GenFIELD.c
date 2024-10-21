@@ -46,15 +46,11 @@ OPT * opt_create(void) {
 
 int main(int argc, char *argv[]) {
 
-  // define options //{{{
-  int common = 3, all = common + 0, count = 0, req_arg = 2;
+  // define options & check their validity
+  int common = 4, all = common, count = 0, req_arg = 2;
   char option[all][OPT_LENGTH];
-  // common options
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  // extra options
-  OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
+  OptionCheck2(argc, argv, req_arg, common, all, true, option,
+               "--verbose", "--silent", "--help", "--version");
 
   count = 0; // count arguments
   OPT *opt = opt_create();
@@ -280,7 +276,7 @@ int main(int argc, char *argv[]) {
   return 0;
 
   err_in:
-    strcpy(ERROR_MSG, "wrong line");
+    err_msg("wrong line");
     PrintErrorFileLine(in, line_count);
     exit(1);
 }

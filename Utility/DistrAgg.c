@@ -49,25 +49,13 @@ OPT * opt_create(void) {
 
 int main(int argc, char *argv[]) {
 
-  // define options //{{{
+  // define options & check their validity
   int common = 7, all = common + 5, count = 0,
       req_arg = 4;
   char option[all][OPT_LENGTH];
-  // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "-sk");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
-  // extra options
-  strcpy(option[count++], "-n");
-  strcpy(option[count++], "-m");
-  strcpy(option[count++], "-x");
-  strcpy(option[count++], "-only");
-  strcpy(option[count++], "-c");
-  OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
+  OptionCheck2(argc, argv, req_arg, common, all, true, option,
+               "-st", "-e", "-sk", "--verbose", "--silent", "--help",
+               "--version", "-n", "-m", "-x", "-only", "-c");
 
   // commad line arguments before reading the structure //{{{
   count = 0; // count mandatory arguments
@@ -126,8 +114,8 @@ int main(int argc, char *argv[]) {
     }
   }
   if (!overlap) {
-    strcpy(ERROR_MSG, "for any aggregate to be used, at least one molecule "
-           "must be specified in both options");
+    err_msg("for any aggregate to be used, at least one molecule "
+            "must be specified in both options");
     PrintErrorOption("-m/-only");
     exit(1);
   } //}}}
@@ -144,7 +132,7 @@ int main(int argc, char *argv[]) {
     }
   }
   if (overlap) {
-    strcpy(ERROR_MSG, "the lists of molecules must be different");
+    err_msg("the lists of molecules must be different");
     PrintErrorOption("-x/-only");
     exit(1);
   } //}}}
@@ -157,8 +145,7 @@ int main(int argc, char *argv[]) {
     }
   }
   if (overlap) {
-    strcpy(ERROR_MSG, "with all molecules listed, "
-           "no aggregates would be detected");
+    err_msg("with all molecules listed, no aggregates would be detected");
     PrintErrorOption("-x");
     exit(1);
   } //}}}

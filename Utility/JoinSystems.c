@@ -41,23 +41,12 @@ OPT * opt_create(void) {
 
 int main(int argc, char *argv[]) {
 
-  // define options //{{{
+  // define options & check their validity
   int common = 4, all = common + 7, count = 0, req_arg = 3;
   char option[all][OPT_LENGTH];
-  // common options
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
-  // extra options
-  strcpy(option[count++], "-o");
-  strcpy(option[count++], "-off");
-  strcpy(option[count++], "-b");
-  strcpy(option[count++], "-i1");
-  strcpy(option[count++], "-i2");
-  strcpy(option[count++], "-st1");
-  strcpy(option[count++], "-st2");
-  OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
+  OptionCheck2(argc, argv, req_arg, common, all, true, option,
+               "--verbose", "--silent", "--help", "--version",
+               "-o", "-off", "-b", "-i1", "-i2", "-st1", "-st2");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -71,6 +60,7 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
   }
+
   // <output> - output coordinate file
   FILE_TYPE fout = InitFile;
   snprintf(fout.name, LINE, "%s", argv[++count]);
@@ -84,10 +74,13 @@ int main(int argc, char *argv[]) {
     opt->fout.type = FileType(opt->fout.name);
   } //}}}
   // input structure files (-i1/-i2 options) //{{{
-  if (FileOption(argc, argv, "-i1", in[0].stru.name)) {
+  char tmp[LINE] = "\0";
+  if (FileOption(argc, argv, "-i1", tmp)) {
+    s_strcpy(in[0].stru.name, tmp, LINE);
     in[0].stru.type = StructureFileType(in[0].stru.name);
   }
-  if (FileOption(argc, argv, "-i2", in[1].stru.name)) {
+  if (FileOption(argc, argv, "-i2", tmp)) {
+    s_strcpy(in[1].stru.name, tmp, LINE);
     in[1].stru.type = StructureFileType(in[1].stru.name);
   } //}}}
   opt->c = CommonOptions(argc, argv, LINE, in[0]);
@@ -103,7 +96,7 @@ int main(int argc, char *argv[]) {
           (argv[i+1][0] != 'c' && !IsRealNumber(argv[i + 1], &opt->off[0])) ||
           (argv[i+2][0] != 'c' && !IsRealNumber(argv[i + 2], &opt->off[1])) ||
           (argv[i+3][0] != 'c' && !IsRealNumber(argv[i + 3], &opt->off[2]))) {
-        strcpy(ERROR_MSG, "wrong/missing arguments (either number or 'c')");
+        err_msg("wrong/missing arguments (either number or 'c')");
         PrintErrorOption("-off");
         exit(1);
       }
@@ -119,7 +112,7 @@ int main(int argc, char *argv[]) {
   InitDoubleArray(opt->box, 3, 0);
   if (DoubleOption3(argc, argv, "-b", opt->box)) {
     if (opt->box[0] <= 0 || opt->box[1] <= 0 || opt->box[2] <= 0) {
-      strcpy(ERROR_MSG, "three positive numbers required");
+      err_msg("three positive numbers required");
       PrintErrorOption("-b");
       Help(argv[0], true, common, option);
       exit(1);
@@ -166,7 +159,7 @@ int main(int argc, char *argv[]) {
       }
     }
     if (!ReadTimestep(in[s], fr, &Sys[s], &line_count)) {
-      strcpy(ERROR_MSG, "no valid timestep; maybe starting step is too high?");
+      err_msg("no valid timestep; maybe starting step is too high?");
       PrintErrorFile(in[s].coor.name, "\0", "\0");
       exit(1);
     }

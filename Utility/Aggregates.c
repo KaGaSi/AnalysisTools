@@ -178,7 +178,7 @@ int main(int argc, char *argv[]) {
   int common = 8, all = common + 3, count = 0,
       req_arg = 3;
   char option[all][OPT_LENGTH];
-  OptionCheck2(argc, argv, req_arg, common, all, true, option,
+  OptionCheck2(argc, argv, req_arg, common, all, false, option,
                "-st", "-e", "-sk", "-i", "--verbose", "--silent",
                "--help", "--version", "-d", "-c", "-j");
 

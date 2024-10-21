@@ -38,23 +38,13 @@ OPT * opt_create(void) {
 
 int main(int argc, char *argv[]) {
 
-  // define options //{{{
+  // define options & check their validity
   int common = 8, all = common + 1, count = 0,
       req_arg = 3;
   char option[all][OPT_LENGTH];
-  // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "-sk");
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
-  // extra options
-  strcpy(option[count++], "-x");
-  OptionCheck(argc, argv, count, req_arg, common, all, option, true);
-  //}}}
+  OptionCheck2(argc, argv, req_arg, common, all, true, option,
+               "-st", "-e", "-sk", "-i", "--verbose",
+               "--silent", "--help", "--version", "-x");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -96,7 +86,7 @@ int main(int argc, char *argv[]) {
 
   // number of bins //{{{
   if (box->Volume == -1) {
-    strcpy(ERROR_MSG, "missing box dimensions");
+    err_msg("missing box dimensions");
     PrintErrorFile(in.coor.name, in.stru.name, "\0");
     exit(1);
   }
