@@ -202,9 +202,7 @@ int main(int argc, char *argv[]) {
       // definitely not use, if --last option is used
       if (opt->last) {
         use = false;
-      } else if (count_coor >= opt->c.start &&              // 1)
-                 (count_coor <= opt->c.end || opt->c.end == -1) && //
-                 ((count_coor - opt->c.start) % opt->c.skip) == 0) { // 2)
+      } else if (UseStep(opt->c, count_coor)) {
         use = true;
       } else {
         use = false;

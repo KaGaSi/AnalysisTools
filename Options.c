@@ -1,5 +1,4 @@
 #include "Options.h"
-#include <stdarg.h>
 
 // STATIC DECLARATIONs
 static void SilentOption(int argc, char *argv[], bool *verbose, bool *silent);

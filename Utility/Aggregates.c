@@ -277,9 +277,7 @@ int main(int argc, char *argv[]) {
     PrintStep(&count_coor, opt->c.start, opt->c.silent);
     // decide whether this timestep is to be saved
     bool use = false;
-    if (count_coor >= opt->c.start &&
-        (count_coor <= opt->c.end || opt->c.end == -1) &&
-        ((count_coor - opt->c.start) % opt->c.skip) == 0) {
+    if (UseStep(opt->c, count_coor)) {
       use = true;
     }
     if (use) { //{{{

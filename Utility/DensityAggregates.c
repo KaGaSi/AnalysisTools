@@ -199,9 +199,7 @@ int main(int argc, char *argv[]) {
 
     // use every skip-th timestep between start and end
     bool use = false;
-    if (count_coor >= opt->c.start &&
-        (count_coor <= opt->c.end || opt->c.end == -1) &&
-        ((count_coor - opt->c.start) % opt->c.skip) == 0) {
+    if (UseStep(opt->c, count_coor)) {
       use = true;
     }
     if (use) { //{{{
