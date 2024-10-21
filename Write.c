@@ -46,7 +46,7 @@ static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System) { //{{{
     }
   }
   if (none) {
-    strcpy(ERROR_MSG, "no beads to save");
+    err_msg("no beads to save");
     PrintWarning();
   }
 } //}}}
@@ -62,7 +62,7 @@ static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System) { //{{{
     }
   }
   if (none) {
-    strcpy(ERROR_MSG, "no beads to save");
+    err_msg("no beads to save");
     PrintWarning();
     return;
   }
@@ -117,7 +117,7 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
     fprintf(fw, "ITEM: TIMESTEP\n%d\n", step);
     fprintf(fw, "ITEM: NUMBER OF ATOMS\n%d\n", count_write);
     if (box->Volume == -1) {
-      strcpy(ERROR_MSG, "unspecified box dimensions");
+      err_msg("unspecified box dimensions");
       PrintWarning();
     }
     // orthogonal box
@@ -166,7 +166,7 @@ static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{
       }
     }
   } else {
-    strcpy(ERROR_MSG, "no beads to save");
+    err_msg("no beads to save");
     PrintWarning();
   }
 } //}}}
@@ -771,10 +771,10 @@ void WriteOutput(SYSTEM System, bool write[], FILE_TYPE fw,
                  bool lmp_mass, int vsf_def, int argc, char *argv[]) {
   if (fw.type == VCF_FILE) { // create vsf file if output file is vcf format
     PrintByline(fw.name, argc, argv); // byline to vcf file
-    fw.name[strlen(fw.name)-2] = 's';
+    fw.name[strnlen(fw.name, LINE)-2] = 's';
     fw.type = VSF_FILE;
     WriteStructure(fw, System, vsf_def, lmp_mass, argc, argv);
-    fw.name[strlen(fw.name)-2] = 'c';
+    fw.name[strnlen(fw.name, LINE)-2] = 'c';
     fw.type = VCF_FILE;
   } else if (fw.type == VTF_FILE ||
              fw.type == VSF_FILE ||
@@ -857,8 +857,7 @@ void WriteStructure(FILE_TYPE f, SYSTEM System, int vsf_def_type,
       break;
     case LTRJ_FILE:
       if (System.Count.BeadCoor == 0) {
-        strcpy(ERROR_MSG, "no structure data to save into lammpstrj file "
-               "(no coordinates loaded)");
+        err_msg("no data to save into lammpstrj file (no coordinates loaded)");
         PrintError();
         exit(1);
       }
@@ -870,7 +869,7 @@ void WriteStructure(FILE_TYPE f, SYSTEM System, int vsf_def_type,
       free(write);
       break;
     default:
-      strcpy(ERROR_MSG, "Inexistent output struct_type; should never happen!");
+      err_msg("Inexistent output struct_type; should never happen!");
       PrintError();
       exit(1);
   }
@@ -982,7 +981,7 @@ void PrintBeadType(SYSTEM System) { //{{{
   // determine length of values to have a nice-looking output
   for (int i = 0; i < System.Count.BeadType; i++) {
     BEADTYPE *bt = &System.BeadType[i];
-    int length = strlen(bt->Name);
+    int length = strnlen(bt->Name, BEAD_NAME);
     if (length > longest_name) {
       longest_name = length;
     }
