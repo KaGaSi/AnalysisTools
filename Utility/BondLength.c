@@ -85,26 +85,13 @@ int * bins_id4D(int i1, int i2, int i3, int size[3]) {
 
 int main(int argc, char *argv[]) {
 
-  // define options //{{{
+  // define options & check their validity
   int common = 8, all = common + 5, count = 0,
       req_arg = 3;
   char option[all][OPT_LENGTH];
-  // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "-sk");
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
-  // extra options
-  strcpy(option[count++], "--joined");
-  strcpy(option[count++], "--all");
-  strcpy(option[count++], "-d");
-  strcpy(option[count++], "-m");
-  strcpy(option[count++], "-w");
-  OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
+  OptionCheck2(argc, argv, req_arg, common, all, true, option,
+               "-st", "-e", "-sk", "-i", "--verbose", "--silent",
+               "--help", "--version", "--joined", "--all", "-d", "-m", "-w");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
