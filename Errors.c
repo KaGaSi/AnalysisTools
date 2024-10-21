@@ -111,7 +111,7 @@ static void PrintLine(FILE *f, char *colour1, char *colour2) {
     }
     fputs(Colour(f, C_RESET), f);
     // print line break if the last split[] doesn't end with one
-    if (split[words - 1][strlen(split[words - 1]) - 1] != '\n') {
+    if (split[words-1][strnlen(split[words-1], SPL_LEN) - 1] != '\n') {
       putc('\n', f);
     }
   }
@@ -126,12 +126,12 @@ void WarnPrintLine() {
 // print 'ERROR - premature end of file\n<file>\n' //{{{
 void ErrorEOF(char file[], char msg[]) {
   if (msg[0] != '\0') {
-    if (strlen(msg) >= (LINE - 24)) {
+    if (strnlen(msg, LINE) >= (LINE - 24)) {
       msg[LINE-24] = '\0';
     }
     snprintf(ERROR_MSG, LINE, "%s; premature end of file", msg);
   } else {
-    strcpy(ERROR_MSG, "premature end of file");
+    err_msg("premature end of file");
   }
   PrintError();
   ErrorPrintFile(file, "\0", "\0");
@@ -139,13 +139,13 @@ void ErrorEOF(char file[], char msg[]) {
 } //}}}
 // snprintf - just to shut up compiler warnings; should never trigger //{{{
 void ErrorSnprintf() {
-  strcpy(ERROR_MSG, "something went wrong with snprintf()");
+  err_msg("something went wrong with snprintf()");
   PrintError();
   exit(1);
 } //}}}
 // wrong number of commandline arguments //{{{
 void ErrorArgNumber(int count, int need) {
-  strcpy(ERROR_MSG, "insufficient number of arguments");
+  err_msg("insufficient number of arguments");
   PrintError();
   fprintf(stderr, "%ssupplied: %s%d%s, needed: %s%d%s\n", ErrRed(),
           ErrYellow(), count, ErrRed(), ErrYellow(), need, ErrColourReset());
@@ -158,7 +158,7 @@ int ErrorExtension(char *file, int number, char extension[][EXTENSION]) {
       return i;
     }
   }
-  strcpy(ERROR_MSG, "incorrect file extension");
+  err_msg("incorrect file extension");
   PrintError();
   ErrorPrintFile(file, "\0", "\0");
   fprintf(stderr, "%s; allowed extensions:", ErrRed());
@@ -170,11 +170,11 @@ int ErrorExtension(char *file, int number, char extension[][EXTENSION]) {
   return -1;
 } //}}}
 void ErrorOption(char *option) { //{{{
-  strcpy(ERROR_MSG, "non-existent option");
+  err_msg("non-existent option");
   PrintErrorOption(option);
 } //}}}
 void ErrorNaN(char *option) { //{{{
-  strcpy(ERROR_MSG, "non-numeric argument");
+  err_msg("non-numeric argument");
   PrintErrorOption(option);
 } //}}}
 void ErrorBeadType(char name[], SYSTEM System) { //{{{
@@ -211,7 +211,7 @@ void WarnChargedSystem(SYSTEM System, char file1[], char file2[],
     charge += bt->Charge * bt->Number;
   }
   if (fabs(charge) > 0.00001) {
-    strcpy(ERROR_MSG, "system with net electric charge");
+    err_msg("system with net electric charge");
     PrintWarning();
     WarnPrintFile(file1, file2, file3);
     fprintf(stderr, "%s; %sq = %lf%s\n", ErrCyan(), ErrYellow(), charge,
@@ -227,7 +227,7 @@ void ErrorStartEnd(int start, int end) { //{{{
     exit(1);
   }
 } //}}}
-
+// copy message to the ERROR_MSG array //{{{
 void err_msg(char *str) {
   s_strcpy(ERROR_MSG, str, LINE);
-}
+} //}}}

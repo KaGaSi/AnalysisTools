@@ -2047,9 +2047,14 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   // allocate & initialize structures //{{{
   Sys.BeadType = realloc(Sys.BeadType, sizeof *Sys.BeadType * Count->Bead);
   Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
-  Sys.MoleculeType = realloc(Sys.MoleculeType,
-                             sizeof *Sys.MoleculeType * Count->Molecule);
-  Sys.Molecule = realloc(Sys.Molecule, sizeof *Sys.Molecule * Count->Molecule);
+  if (Count->Molecule > 0) {
+    Sys.MoleculeType = realloc(Sys.MoleculeType,
+                               sizeof *Sys.MoleculeType * Count->Molecule);
+    Sys.Molecule = realloc(Sys.Molecule, sizeof *Sys.Molecule *
+                           Count->Molecule);
+    Sys.MoleculeCoor = realloc(Sys.MoleculeCoor,
+                               Count->Molecule * sizeof *Sys.MoleculeCoor);
+  }
   for (int i = 0; i < Count->Molecule; i++) {
     InitMoleculeType(&Sys.MoleculeType[i]);
     InitMolecule(&Sys.Molecule[i]);
@@ -2186,8 +2191,6 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   Sys.BeadCoor = realloc(Sys.BeadCoor, Count->Bead * sizeof *Sys.BeadCoor);
   Count->BeadType = Count->Bead;
   Count->MoleculeType = Count->Molecule;
-  Sys.MoleculeCoor = realloc(Sys.MoleculeCoor,
-                             Count->Molecule * sizeof *Sys.MoleculeCoor);
   // assign atom default to default beads & count bonded/unbonded beads //{{{
   // find first unused bead type and make it the default
   int def = -1;

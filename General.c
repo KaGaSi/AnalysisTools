@@ -102,7 +102,7 @@ void SwapBool(bool *a, bool *b) {
 // Bubble sort an array; mode = 0: ascendingly, mode = 1: descendingly //{{{
 void SortArrayInt(int *array, int length, int mode) {
   if (mode != 0 && mode != 1) {
-    strcpy(ERROR_MSG, "SortArrayInt(): use 0 or 1 for sorting mode");
+    err_msg("SortArrayInt(): use 0 or 1 for sorting mode");
     PrintError();
     exit(1);
   }
@@ -124,7 +124,7 @@ void SortArrayInt(int *array, int length, int mode) {
 }
 void SortArrayDouble(double *array, int length, int mode) {
   if (mode != 0 && mode != 1) {
-    strcpy(ERROR_MSG, "SortArrayDouble(): use 0 or 1 for sorting mode");
+    err_msg("SortArrayDouble(): use 0 or 1 for sorting mode");
     PrintError();
     exit(1);
   }
@@ -179,7 +179,7 @@ bool ReadAndSplitLine(FILE *fr, int max_strings, const char delim[]) {
   return true;
 } //}}}
 char * BareCommand(char cmd[]) { //{{{
-  strcpy(line, cmd);
+  s_strcpy(line, cmd, LINE);
   int words = SplitLine(SPL_STR, split, line, "/");
   return split[words - 1];
 } //}}}
@@ -242,7 +242,7 @@ void ColourChange(int a, char *colour) {
     } else if (a == STDERR_FILENO) {
       ptr = stderr;
     } else {
-      strcpy(ERROR_MSG, "ColourChange() - error that should never happen!");
+      err_msg("ColourChange() - error that should never happen!");
       PrintError();
       exit(1);
     }

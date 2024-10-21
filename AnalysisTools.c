@@ -1,5 +1,6 @@
 #include "AnalysisTools.h"
 #include "Errors.h"
+#include <string.h>
 
 // TODO: consider BeadType[].Index, System.Bonded, etc. arrays - shouldn't they
 //       be filled based on whether the beads are in the timestep? Plus a
@@ -923,13 +924,13 @@ bool InputCoorStruct(int argc, char *argv[], SYS_FILES *f) {
   if (f->stru.name[0] == '\0') {
     if (f->coor.type == VCF_FILE) { // use vcf file with .vsf ending
       int last = -1;
-      for (int i = 0; i < strlen(f->coor.name); i++) {
+      for (int i = 0; i < strnlen(f->coor.name, LINE); i++) {
         if (f->coor.name[i] == '.') {
           last = i;
         }
       }
-      strncpy(f->stru.name, f->coor.name, last);
-      strcat(f->stru.name, ".vsf");
+      s_strcpy(f->stru.name, f->coor.name, LINE);
+      f->stru.name[last+2] = 's';
       f->stru.type = VSF_FILE;
     } else if (f->coor.type == VTF_FILE ||   //
                f->coor.type == XYZ_FILE ||   // use both as a coordinate and
