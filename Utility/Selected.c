@@ -46,28 +46,14 @@ OPT * opt_create(void) {
 
 int main(int argc, char *argv[]) {
 
-  // define options //{{{
+  // define options & check their validity
   int common = 8, all = common + 7, count = 0,
       req_arg = 2;
   char option[all][OPT_LENGTH];
-  // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "-sk");
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
-  // extra options
-  strcpy(option[count++], "--reverse");
-  strcpy(option[count++], "--join");
-  strcpy(option[count++], "--wrap");
-  strcpy(option[count++], "-n");
-  strcpy(option[count++], "--last");
-  strcpy(option[count++], "-bt");
-  strcpy(option[count++], "-mt");
-  OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
+  OptionCheck2(argc, argv, req_arg, common, all, true, option,
+               "-st", "-e", "-sk", "-i", "--verbose", "--silent", "--help",
+               "--version", "--reverse", "--join", "--wrap", "-n", "--last",
+               "-bt", "-mt");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -98,7 +84,7 @@ int main(int argc, char *argv[]) {
   COUNT *Count = &System.Count;
 
   if (opt->join && Count->Molecule == 0) {
-    strcpy(ERROR_MSG, "no molecules to join are present");
+    err_msg("no molecules to join are present");
     PrintWarning();
   }
 
@@ -200,10 +186,10 @@ int main(int argc, char *argv[]) {
     } else {
       PrintStep(&count_coor, opt->c.start, opt->c.silent);
     }
-    position = realloc(position, count_coor * sizeof *position);
+    position = s_realloc(position, count_coor * sizeof *position);
     fgetpos(fr, &position[count_coor-1]);
-    bkp_line_count = realloc(bkp_line_count, count_coor *
-                             sizeof *bkp_line_count);
+    bkp_line_count = s_realloc(bkp_line_count, count_coor *
+                               sizeof *bkp_line_count);
     bkp_line_count[count_coor-1] = line_count;
     // decide whether this timestep is to be saved //{{{
     bool use = false;
@@ -231,7 +217,7 @@ int main(int argc, char *argv[]) {
     } //}}}
     if (use) { // read and write the timestep, if it should be saved //{{{
       if (fout.type == LDATA_FILE && count_saved == 1) {
-        strcpy(ERROR_MSG, "only one timestep can be saved to lammps data file");
+        err_msg("only one timestep can be saved to lammps data file");
         PrintWarnFile(fout.name, "\0", "\0");
         count_coor--;
         break;
@@ -294,12 +280,12 @@ int main(int argc, char *argv[]) {
     } //}}}
   } else if (count_coor == 0) { // error - input file without a valid timestep //{{{
     remove(fout.name);
-    strcpy(ERROR_MSG, "no valid timestep found");
+    err_msg("no valid timestep found");
     PrintErrorFile(in.coor.name, "\0", "\0"); //}}}
   } else if (opt->c.start > count_coor) { // warn if no timesteps were written //{{{
     remove(fout.name);
-    strcpy(ERROR_MSG, "no coordinates written (starting timestep is higher"
-           " than the total number of timesteps)");
+    err_msg("no coordinates written (starting timestep is higher "
+            "than the total number of timesteps)");
     PrintWarning(); //}}}
   } else if (!opt->c.silent) { // print last step count? //{{{
     if (isatty(STDOUT_FILENO)) {

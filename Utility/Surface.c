@@ -205,30 +205,14 @@ void SurfacePoint(SYSTEM System, int id, int map[2], int axis, double width,
 
 int main(int argc, char *argv[]) {
 
-  // define options //{{{
+  // define options & check their validity
   int common = 8, all = common + 8, count = 0,
       req_arg = 4;
   char option[all][OPT_LENGTH];
-  // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "-sk");
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
-  // extra options
-  strcpy(option[count++], "--in");
-  strcpy(option[count++], "--bonded");
-  // strcpy(option[count++], "-m");
-  strcpy(option[count++], "-bt");
-  strcpy(option[count++], "-wd");
-  strcpy(option[count++], "-w");
-  strcpy(option[count++], "-a");
-  strcpy(option[count++], "-b");
-  strcpy(option[count++], "-r");
-  OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
+  OptionCheck2(argc, argv, req_arg, common, all, true, option,
+               "-st", "-e", "-sk", "-i", "--verbose", "--silent",
+               "--help", "--version", "--in", "--bonded",
+               "-bt", "-wd", "-w", "-a", "-b", "-r");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -265,7 +249,7 @@ int main(int argc, char *argv[]) {
     map[0] = 0;
     map[1] = 1;
   } else {
-    strcpy(ERROR_MSG, "must be 'x', 'y', or 'z'");
+    err_msg("must be 'x', 'y', or 'z'");
     PrintErrorOption("<axis>");
     Help(argv[0], true, common, option);
     exit(1);
@@ -310,7 +294,7 @@ int main(int argc, char *argv[]) {
       }
     }
     if (opt->bonded) {
-      strcpy(ERROR_MSG, "when both are used, --bonded takes precedence");
+      err_msg("when both are used, --bonded takes precedence");
       PrintWarnOption("--bonded/-bt");
     }
   }
@@ -325,7 +309,7 @@ int main(int argc, char *argv[]) {
         System.BeadType[btype].Radius = 0.5;
         if (!warn) {
           warn = true;
-          strcpy(ERROR_MSG, "unspecified bead radius (using 0.5)");
+          err_msg("unspecified bead radius (using 0.5)");
           PrintWarning();
         }
       }
@@ -337,7 +321,7 @@ int main(int argc, char *argv[]) {
         btype->Radius = 0.5;
         if (!warn) {
           warn = true;
-          strcpy(ERROR_MSG, "unspecified bead radius (using 0.5)");
+          err_msg("unspecified bead radius (using 0.5)");
           PrintWarning();
         }
       }
@@ -349,7 +333,7 @@ int main(int argc, char *argv[]) {
         System.BeadType[btype].Radius = 0.5;
         if (!warn) {
           warn = true;
-          strcpy(ERROR_MSG, "unspecified bead radius (using 0.5)");
+          err_msg("unspecified bead radius (using 0.5)");
           PrintWarning();
         }
       }
@@ -364,7 +348,7 @@ int main(int argc, char *argv[]) {
   }
   fclose(fr);
   if (System.Box.Volume == -1) {
-    strcpy(ERROR_MSG, "missing box dimensions");
+    err_msg("missing box dimensions");
     PrintError();
     exit(1);
   }
@@ -459,8 +443,8 @@ int main(int argc, char *argv[]) {
           (fabs(sidelength[0] - System.Box.Length[map[0]]) > 0.00001 ||
            fabs(sidelength[1] - System.Box.Length[map[1]]) > 0.00001 ||
            fabs(sidelength[2] - System.Box.Length[axis]) > 0.00001)) {
-        strcpy(ERROR_MSG, "box size changed; only coordinates inside the "
-               "original box are used for surface averaging");
+        err_msg("box size changed; only coordinates inside the "
+                "original box are used for surface averaging");
         PrintWarning();
         warn_box_change = true;
       } //}}}
