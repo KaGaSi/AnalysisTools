@@ -559,7 +559,6 @@ int main(int argc, char *argv[]) {
         VtfSystem(&S_out2);
         VtfSystem(&S_add2);
       }
-    S_add2.Box = InitBox;
       ConcatenateSystems(&S_out2, S_add2, S_orig.Box, prune);
     }
     S_out = CopySystem(S_orig);
@@ -605,6 +604,7 @@ int main(int argc, char *argv[]) {
         VtfSystem(&S_out2);
         VtfSystem(&S_add2);
       }
+    S_add2.Box = InitBox;
       ConcatenateSystems(&S_out2, S_add2, S_orig.Box, prune);
     }
     S_out = CopySystem(S_orig);
