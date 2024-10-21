@@ -196,11 +196,11 @@ int main(int argc, char *argv[]) {
   // define & check options
   int common = 6, all = common + 18, count = 0, req_arg = 3;
   char option[all][OPT_LENGTH];
-  OptionCheck2(argc, argv, req_arg, common, all, true, option, "-st",
-               "--verbose", "--silent", "-help", "--version", "-i", "-o", "-ld",
-               "-hd", "-bt", "--bonded", "-xb", "--add", "--no-rotate", "-a",
-               "--head", "--tail", "-cx", "-cy", "-cz", "--real", "-b", "-off",
-               "-s");
+  OptionCheck2(argc, argv, req_arg, common, all, true, option,
+               "-st", "--verbose", "--silent", "--help", "--version", "-i",
+               "-o", "-ld", "-hd", "-bt", "--bonded", "-xb", "--add",
+               "--no-rotate", "-a", "--head", "--tail", "-cx", "-cy", "-cz",
+               "--real", "-b", "-off", "-s");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();

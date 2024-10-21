@@ -50,21 +50,6 @@ typedef struct common_opt {
   int start, end, skip;
 } COMMON_OPT;
 
-// POINTER TO ARRAY IN STRUCTURE
-// double (*test)[3][3] = &S_orig.Box.transform;
-// printf("%lf %lf %lf\n", (*test)[0][0], (*test)[0][1], (*test)[0][2]);
-// printf("%lf %lf %lf\n", (*test)[1][0], (*test)[1][1], (*test)[1][2]);
-// printf("%lf %lf %lf\n", (*test)[2][0], (*test)[2][1], (*test)[2][2]);
-// printf("%lf %lf %lf\n", S_orig.Box.transform[0][0],
-//                         S_orig.Box.transform[1][0],
-//                         S_orig.Box.transform[2][0]);
-// printf("%lf %lf %lf\n", S_orig.Box.transform[0][1],
-//                         S_orig.Box.transform[1][1],
-//                         S_orig.Box.transform[2][1]);
-// printf("%lf %lf %lf\n", S_orig.Box.transform[0][2],
-//                         S_orig.Box.transform[1][2],
-//                         S_orig.Box.transform[2][2]);
-
 typedef struct Box { //{{{
   double Length[3],
          OrthoLength[3],

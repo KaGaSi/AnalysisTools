@@ -1,6 +1,25 @@
 #include "../AnalysisTools.h"
 #include <stdio.h>
 
+void* safe_realloc(void *ptr, size_t new_size) {
+  if (new_size == 0) {
+    free(ptr);  // If the new size is 0, free the memory and return NULL
+    return NULL;
+  }
+
+  // Use a temporary pointer to store the result of realloc
+  void *temp = realloc(ptr, new_size);
+
+  if (temp == NULL) {
+    // If realloc fails, do not overwrite the original pointer
+    printf("Reallocation failed, original memory is still valid.\n");
+    return NULL;
+  }
+
+  // If realloc succeeded, return the new pointer
+  return temp;
+}
+
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
@@ -49,29 +68,19 @@ OPT * opt_create(void) {
 
 int main ( int argc, char** argv ) {
 
-  // define options //{{{
+  // define options & check their validity
   int common = 5, all = common + 3, count = 0,
       req_arg = 3; // TODO: will be only two (<input> and <column(s)>)
   char option[all][OPT_LENGTH];
-  // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
-  // extra options
-  strcpy(option[count++], "-tau");
-  strcpy(option[count++], "-b");
-  strcpy(option[count++], "-m");
-  OptionCheck(argc, argv, count, req_arg, common, all, option, true);
-  //}}}
+  OptionCheck2(argc, argv, req_arg, common, all, false, option,
+               "-st", "-e", "--silent", "--help",
+               "--version", "-tau", "-b", "-m");
 
   count = 0;
   OPT *opt = opt_create();
 
   char fin[LINE];
   snprintf(fin, LINE, "%s", argv[++count]);
-  // strcpy(fin, argv[++count]);
   char fout[LINE] = "";
   snprintf(fout, LINE, "%s", argv[++count]);
 
@@ -86,7 +95,7 @@ int main ( int argc, char** argv ) {
       exit(1);
     }
     col_count++;
-    column = realloc(column, sizeof *column * (col_count + 1));
+    column = safe_realloc(column, sizeof *column * (col_count + 1));
   }
   int col_max = 0;
   for (int i = 0; i < col_count; i++) {
@@ -109,7 +118,7 @@ int main ( int argc, char** argv ) {
   opt->moving = -1;
   IntegerOption1(argc, argv, "-m", &opt->moving);
   if (opt->moving == -1 && opt->tau == -1 && opt->block == -1) {
-    strcpy(ERROR_MSG, "-tau, -b, or -m option must be used");
+    err_msg("-tau, -b, or -m option must be used");
     PrintError();
     Help(argv[0], true, common, option);
     exit(1);
@@ -117,7 +126,7 @@ int main ( int argc, char** argv ) {
   if ((opt->moving != -1 && opt->tau != -1) ||
       (opt->moving != -1 && opt->block != -1) ||
       (opt->tau != -1 && opt->block != -1)) {
-    strcpy(ERROR_MSG, "only one of the -tau, -b, and -m option can be used");
+    err_msg("only one of the -tau, -b, and -m option can be used");
     PrintError();
     Help(argv[0], true, common, option);
   }
@@ -165,7 +174,7 @@ int main ( int argc, char** argv ) {
       if (opt->c.start < data_lines) {
         count = data_lines - opt->c.start - 1;
         for (int i = 0; i < col_count; i++) {
-          data[i] = realloc(data[i], sizeof *data[i] * (count + 1));
+          data[i] = safe_realloc(data[i], sizeof *data[i] * (count + 1));
           data[i][count] = atof(split[column[i]-1]);
         }
       }

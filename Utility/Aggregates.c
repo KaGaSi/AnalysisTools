@@ -174,24 +174,13 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
 
 int main(int argc, char *argv[]) {
 
-  // define options //{{{
+  // define options & check their validity
   int common = 8, all = common + 3, count = 0,
       req_arg = 3;
   char option[all][OPT_LENGTH];
-  // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "-sk");
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
-  // extra options
-  strcpy(option[count++], "-d");
-  strcpy(option[count++], "-c");
-  strcpy(option[count++], "-j");
-  OptionCheck(argc, argv, count, req_arg, common, all, option, false); //}}}
+  OptionCheck2(argc, argv, req_arg, common, all, true, option,
+               "-st", "-e", "-sk", "-i", "--verbose", "--silent",
+               "--help", "--version", "-d", "-c", "-j");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -208,7 +197,7 @@ int main(int argc, char *argv[]) {
   // test if <output.agg> ends with '.agg'
   int ext = 1;
   char extension[1][EXTENSION];
-  strcpy(extension[0], ".agg");
+  s_strcpy(extension[0], ".agg", EXTENSION);
   if (ErrorExtension(agg_file, ext, extension) == -1) {
     Help(argv[0], true, common, option);
     exit(1);

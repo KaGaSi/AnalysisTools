@@ -48,25 +48,13 @@ OPT * opt_create(void) {
 
 int main(int argc, char *argv[]) {
 
-  // define options //{{{
+  // define options & check their validity
   int common = 8, all = common + 4, count = 0,
       req_arg = 3;
   char option[all][OPT_LENGTH];
-  // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "-sk");
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
-  // extra options
-  strcpy(option[count++], "--joined");
-  strcpy(option[count++], "--all");
-  strcpy(option[count++], "-n");
-  strcpy(option[count++], "-m");
-  OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
+  OptionCheck2(argc, argv, req_arg, common, all, true, option,
+               "-st", "-e", "-sk", "-i", "--verbose", "--silent",
+               "--help", "--version", "--joined", "--all", "-n", "-m");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -106,14 +94,14 @@ int main(int argc, char *argv[]) {
   // if '-n' is present without numbers, use first and last for each molecule
   int n_per_set = 3; // it's an angle, so there three beads in each
   if (opt->n_file[0] != '\0' && opt->n_number == 0) {
-    strcpy(ERROR_MSG, "missing bead indices");
+    err_msg("missing bead indices");
     PrintErrorOption("-n");
     exit(1);
   }
   int n_pair_num = opt->n_number / n_per_set;
   // Error: wrong number of integers //{{{
   if (opt->n_file[0] != '\0' && (opt->n_number % n_per_set) != 0) {
-    strcpy(ERROR_MSG, "number of bead indexes must a multiple of three");
+    err_msg("number of bead indexes must a multiple of three");
     PrintErrorOption("-n");
     exit(1);
   } //}}}
@@ -125,7 +113,7 @@ int main(int argc, char *argv[]) {
         opt->n_list[i] == 0 ||
         opt->n_list[i+1] == 0 ||
         opt->n_list[i+2] == 0) {
-      strcpy(ERROR_MSG, "each trio of bead ids must be non-zero and different");
+      err_msg("each trio of bead ids must be non-zero and different");
       PrintErrorOption("-n");
       exit(1);
     }
