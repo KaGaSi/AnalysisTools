@@ -47,23 +47,12 @@ int id3D(int i1, int i2, int i3, int size[3]) {
 
 int main(int argc, char *argv[]) {
 
-  // define options //{{{
   int common = 8, all = common + 2, count = 0,
       req_arg = 2;
   char option[all][OPT_LENGTH];
-  // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-e");
-  strcpy(option[count++], "-sk");
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
-  // extra options
-  strcpy(option[count++], "--joined");
-  strcpy(option[count++], "-m");
-  OptionCheck(argc, argv, count, req_arg, common, all, option, true); //}}}
+  OptionCheck2(argc, argv, req_arg, common, all, true, option,
+               "-st", "-e", "-sk", "-i", "--verbose", "--silent",
+               "--help", "--version", "--joined", "-m");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -282,7 +271,7 @@ int main(int argc, char *argv[]) {
   // write data to ouptut file //{{{
   PrintByline(fout, argc, argv);
   // print first line of output file - molecule names and beadtype trios //{{{
-  FILE *fw = OpenFile(fout, "w");
+  FILE *fw = OpenFile(fout, "a");
   fprintf(fw, "# (1) distance between bonds;");
   fprintf(fw, " molecules:");
   count = 1;
