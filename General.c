@@ -316,18 +316,3 @@ void s_strcpy(char *dest, const char *src, size_t dest_size) { //{{{
   }
   dest[i] = '\0';
 } //}}}
-void s_snprintf(char *buffer, size_t size, const char *format, ...) { //{{{
-  if (buffer == NULL || size == 0) {
-    fprintf(stderr, "Error with s_snprintf\n");
-    exit(EXIT_FAILURE); // Exit on error
-  }
-  va_list args;
-  va_start(args, format);
-  // Use vsnprintf to write formatted data to the buffer
-  vsnprintf(buffer, size, format, args);
-  va_end(args);
-  // Ensure the buffer is null-terminated
-  if (size > 0) {
-    buffer[size - 1] = '\0';
-  }
-} //}}}

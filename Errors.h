@@ -19,23 +19,23 @@
 
 extern char ERROR_MSG[LINE];
 
-// print 'WARNING - <ERROR_MSG>\n' in cyan
+// print 'warning - <ERROR_MSG>\n' in cyan
 void PrintWarning();
-// print 'ERROR - <ERROR_MSG>\n' in red
+// print 'error - <ERROR_MSG>\n' in red
 void PrintError();
-// print 'ERROR: <option> - <ERROR_MSG>' in red and yellow
+// print 'error: <option> - <ERROR_MSG>' in red and yellow
 void PrintErrorOption(char *opt);
-// print 'WARNING: <option> - <ERROR_MSG>' in cyan and yellow
+// print 'warning: <option> - <ERROR_MSG>' in cyan and yellow
 void PrintWarnOption(char *opt);
-// print 'ERROR: - <ERROR_MSG>\nFile <file(s)>'
+// print 'error: - <ERROR_MSG>\nFile <file(s)>'
 void PrintErrorFile(char file1[], char file2[], char file3[]);
-// print 'WARNING: - <ERROR_MSG>\nFile <file(s)>'
+// print 'warning: - <ERROR_MSG>\nFile <file(s)>'
 void PrintWarnFile(char file1[], char file2[], char file3[]);
-// print 'ERROR: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>'
+// print 'error: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>'
 void PrintErrorFileLine(char file[], int count);
-// print 'WARNING: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>'
+// print 'warning: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>'
 void PrintWarnFileLine(char file[], int count);
-// print 'FILE <name(s)>' in given colour
+// print 'file <name(s)>' in given colour
 void WarnPrintFile(char file1[], char file2[], char file3[]); // in cyan
 void ErrorPrintFile(char file1[], char file2[], char file3[]); // in red
 void WarnPrintLine(); // in cyan

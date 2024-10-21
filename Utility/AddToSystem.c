@@ -193,37 +193,14 @@ void Rotate(SYSTEM System, int number, int *list,
 
 int main(int argc, char *argv[]) {
 
-  // define options //{{{
+  // define & check options
   int common = 6, all = common + 18, count = 0, req_arg = 3;
   char option[all][OPT_LENGTH];
-  // common options
-  strcpy(option[count++], "-st");
-  strcpy(option[count++], "-i");
-  strcpy(option[count++], "--verbose");
-  strcpy(option[count++], "--silent");
-  strcpy(option[count++], "--help");
-  strcpy(option[count++], "--version");
-  // extra options
-  strcpy(option[count++], "-o");
-  strcpy(option[count++], "-ld");
-  strcpy(option[count++], "-hd");
-  strcpy(option[count++], "-bt");
-  strcpy(option[count++], "--bonded");
-  strcpy(option[count++], "-xb");
-  strcpy(option[count++], "--add");
-  strcpy(option[count++], "--no-rotate");
-  strcpy(option[count++], "-a");
-  strcpy(option[count++], "--head");
-  strcpy(option[count++], "--tail");
-  strcpy(option[count++], "-cx");
-  strcpy(option[count++], "-cy");
-  strcpy(option[count++], "-cz");
-  strcpy(option[count++], "--real");
-  strcpy(option[count++], "-b");
-  strcpy(option[count++], "-off");
-  strcpy(option[count++], "-s");
-  OptionCheck(argc, argv, count, req_arg, common, all, option, true);
-  //}}}
+  OptionCheck2(argc, argv, req_arg, common, all, true, option, "-st",
+               "--verbose", "--silent", "-help", "--version", "-i", "-o", "-ld",
+               "-hd", "-bt", "--bonded", "-xb", "--add", "--no-rotate", "-a",
+               "--head", "--tail", "-cx", "-cy", "-cz", "--real", "-b", "-off",
+               "-s");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -309,13 +286,13 @@ int main(int argc, char *argv[]) {
     char str[4];
     switch (dd) {
       case 0:
-        strcpy(str, "-cx");
+        s_strcpy(str, "-cx", 4);
         break;
       case 1:
-        strcpy(str, "-cy");
+        s_strcpy(str, "-cy", 4);
         break;
       case 2:
-        strcpy(str, "-cz");
+        s_strcpy(str, "-cz", 4);
         break;
     }
     if (DoubleOption2(argc, argv, str, opt->axis[dd])) {

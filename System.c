@@ -1302,13 +1302,15 @@ SYSTEM CopySystem(SYSTEM S_in) {
     if (S_out.Count.Unbonded > 0) {
       S_out.Unbonded = realloc(S_out.Unbonded,
                                sizeof *S_out.Unbonded * S_out.Count.Unbonded);
-      S_out.UnbondedCoor =
-          realloc(S_out.UnbondedCoor,
-                  sizeof *S_out.UnbondedCoor * S_out.Count.Unbonded);
-      memcpy(S_out.Unbonded, S_in.Unbonded,
-             sizeof *S_in.Unbonded * S_in.Count.Unbonded);
-      memcpy(S_out.UnbondedCoor, S_in.UnbondedCoor,
-             sizeof *S_in.UnbondedCoor * S_in.Count.Unbonded);
+      S_out.UnbondedCoor = realloc(S_out.UnbondedCoor,
+                                   sizeof *S_out.UnbondedCoor *
+                                   S_out.Count.Unbonded);
+      for (int i = 0; i < S_out.Count.Unbonded; i++) {
+        S_out.Unbonded[i] = S_in.Unbonded[i];
+      }
+      for (int i = 0; i < S_out.Count.UnbondedCoor; i++) {
+        S_out.UnbondedCoor[i] = S_in.UnbondedCoor[i];
+      }
     } //}}}
     // MoleculeType //{{{
     if (S_out.Count.MoleculeType > 0) {
@@ -1986,8 +1988,10 @@ void PruneSystem(SYSTEM *System) { //{{{
     FillMoleculeTypeBType(&System->MoleculeType[i]);
     FillMoleculeTypeChargeMass(&System->MoleculeType[i], System->BeadType);
   }
-  System->MoleculeCoor = realloc(System->MoleculeCoor, Count->Molecule *
-                                 sizeof *System->MoleculeCoor);
+  if (Count->Molecule > 0) {
+    System->MoleculeCoor = realloc(System->MoleculeCoor, Count->Molecule *
+                                   sizeof *System->MoleculeCoor);
+  }
   Count->MoleculeCoor = 0;
   for (int i = 0; i < Count->Molecule; i++) {
     if (System->Molecule[i].InTimestep) {

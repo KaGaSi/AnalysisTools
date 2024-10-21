@@ -61,13 +61,13 @@ void OptionNames(int n, char opt[n][OPT_LENGTH], ...) {
 
 int main(int argc, char *argv[]) {
 
-  // define options & check their validity //{{{
+  // define options & check their validity
   int common = 5, all = common + 8, count = 0, req_arg = 1;
   char option[all][OPT_LENGTH];
   OptionCheck2(argc, argv, req_arg, common, all, true, option,
                "-st", "--verbose", "--silent", "-help",
                "--version", "-i", "-c", "-o", "--unique",
-               "--detailed", "-def", "--mass", "-ebt"); //}}}
+               "--detailed", "-def", "--mass", "-ebt");
 
   count = 0; // count arguments
   OPT *opt = opt_create();
