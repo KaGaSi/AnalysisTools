@@ -1472,3 +1472,14 @@ void RemovePBCAggregates(double distance, AGGREGATE *Aggregate,
     }
   } //}}}
 } //}}}
+
+// should given step be used for calculations? //{{{
+bool UseStep(COMMON_OPT opt, int step) {
+  if (step >= opt.start &&
+      (step <= opt.end || opt.end == -1) &&
+      ((step - opt.start) % opt.skip) == 0) {
+    return true;
+  } else {
+    return false;
+  }
+} //}}}

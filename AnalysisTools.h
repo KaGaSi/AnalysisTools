@@ -66,4 +66,6 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
 //                          MOLECULETYPE *MoleculeType, MOLECULE *Molecule);
 void RemovePBCAggregates(double distance, AGGREGATE *Aggregate,
                          SYSTEM *System);
+
+bool UseStep(COMMON_OPT opt, int step);
 #endif

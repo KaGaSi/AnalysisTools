@@ -262,9 +262,7 @@ int main(int argc, char *argv[]) {
 
     // decide whether this timestep is to be used for averages and distributions
     bool use = false;
-    if (count_step >= opt->c.start &&
-        (count_step <= opt->c.end || opt->c.end == -1) &&
-        ((count_step - opt->c.start) % opt->c.skip) == 0) {
+    if (UseStep(opt->c, count_step)) {
       use = true;
     }
     if (use) {
