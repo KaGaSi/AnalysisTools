@@ -604,11 +604,12 @@ int main(int argc, char *argv[]) {
         VtfSystem(&S_out2);
         VtfSystem(&S_add2);
       }
-    S_add2.Box = InitBox;
       ConcatenateSystems(&S_out2, S_add2, S_orig.Box, prune);
     }
     S_out = CopySystem(S_orig);
-    if (fout.type == VCF_FILE || fout.type == VSF_FILE || fout.type == VTF_FILE) {
+    if (fout.type == VCF_FILE ||
+        fout.type == VSF_FILE ||
+        fout.type == VTF_FILE) {
       VtfSystem(&S_out);
       VtfSystem(&S_add);
     }
@@ -785,9 +786,9 @@ int main(int argc, char *argv[]) {
   // create vsf file if output file is vcf format
   if (fout.type == VCF_FILE) {
     PrintByline(fout.name, argc, argv); // byline to vcf file
-    fout.name[strlen(fout.name)-2] = 's';
+    fout.name[strnlen(fout.name, LINE)-2] = 's';
     WriteStructure(fout, S_out, -1, false, argc, argv);
-    fout.name[strlen(fout.name)-2] = 'c';
+    fout.name[strnlen(fout.name, LINE)-2] = 'c';
   } else if (fout.type == VTF_FILE) {
     WriteStructure(fout, S_out, -1, false, argc, argv);
   } else { // some formats 'append' coordinates, not 'write' them
