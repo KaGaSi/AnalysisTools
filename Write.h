@@ -6,12 +6,12 @@
 #include "AnalysisTools.h"
 
 void InitCoorFile(FILE_TYPE fout, SYSTEM System, int argc, char *argv[]);
-void WriteOutput(SYSTEM System, bool write[], FILE_TYPE fw,
+void WriteOutput(SYSTEM System, const bool write[], FILE_TYPE fw,
                  bool lmp_mass, int vsf_def, int argc, char *argv[]);
 void WriteOutputAll(SYSTEM System, FILE_TYPE fw, bool lmp_mass,
                     int vsf_def, int argc, char *argv[]);
-void WriteTimestep(FILE_TYPE f, SYSTEM System, int count_step, bool write[],
-                   int argc, char *argv[]);
+void WriteTimestep(FILE_TYPE f, SYSTEM System, int count_step,
+                   const bool write[], int argc, char *argv[]);
 void WriteTimestepAll(FILE_TYPE f, SYSTEM System, int count_step,
                       int argc, char *argv[]);
 void WriteStructure(FILE_TYPE f, SYSTEM System, int vsf_def_type,

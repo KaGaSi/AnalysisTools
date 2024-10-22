@@ -5,9 +5,10 @@
 #include <unistd.h>
 
 // STATIC DEFINITIONS
-static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System);
-static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System);
-static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System);
+static void VtfWriteCoorIndexed(FILE *fw, const bool write[], SYSTEM System);
+static void XyzWriteCoor(FILE *fw, const bool write[], SYSTEM System);
+static void LtrjWriteCoor(FILE *fw, int step, const bool write[],
+                          SYSTEM System);
 static void WriteConfig(SYSTEM System, char file[]);
 static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
                            int argc, char *argv[]);
@@ -21,7 +22,8 @@ static void SimplifyResid(SYSTEM *System);
 //       structure files
 
 // STATIC IMPLEMENTATIONS
-static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System) { //{{{
+// VtfWriteCoorIndexed() //{{{
+static void VtfWriteCoorIndexed(FILE *fw, const bool write[], SYSTEM System) {
   fprintf(fw, "indexed\n");
   // print box size if present //{{{
   BOX *box = &System.Box;
@@ -50,7 +52,7 @@ static void VtfWriteCoorIndexed(FILE *fw, bool write[], SYSTEM System) { //{{{
     PrintWarning();
   }
 } //}}}
-static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System) { //{{{
+static void XyzWriteCoor(FILE *fw, const bool write[], SYSTEM System) { //{{{
   // find out number of beads to save
   int count = 0;
   bool none = true; // to make sure there are beads to save
@@ -90,7 +92,9 @@ static void XyzWriteCoor(FILE *fw, bool write[], SYSTEM System) { //{{{
   }
 } //}}}
 // TODO: possibly an option to have bead ids to go from 1 to number of beads
-static void LtrjWriteCoor(FILE *fw, int step, bool write[], SYSTEM System) { //{{{
+// LtrjWriteCoor() //{{{
+static void LtrjWriteCoor(FILE *fw, int step, const bool write[],
+                          SYSTEM System) {
   // find out number of beads to save and if velocity/force should be saved
   int count_write = 0;
   bool vel = false, force = false;
@@ -767,7 +771,7 @@ void InitCoorFile(FILE_TYPE file, SYSTEM System, int argc, char *argv[]) {
 } //}}}
 
 // write structure and/or coordinates to a new file (can be any format) //{{{
-void WriteOutput(SYSTEM System, bool write[], FILE_TYPE fw,
+void WriteOutput(SYSTEM System, const bool write[], FILE_TYPE fw,
                  bool lmp_mass, int vsf_def, int argc, char *argv[]) {
   if (fw.type == VCF_FILE) { // create vsf file if output file is vcf format
     PrintByline(fw.name, argc, argv); // byline to vcf file
@@ -804,8 +808,8 @@ void WriteOutputAll(SYSTEM System, FILE_TYPE fw, bool lmp_mass,
   free(write);
 } //}}}
 // Write a single timestep to output file based on the file type //{{{
-void WriteTimestep(FILE_TYPE f, SYSTEM System, int count_step, bool write[],
-                   int argc, char *argv[]) {
+void WriteTimestep(FILE_TYPE f, SYSTEM System, int count_step,
+                   const bool write[], int argc, char *argv[]) {
   FILE *fw = OpenFile(f.name, "a");
   switch (f.type) {
     case VCF_FILE:
