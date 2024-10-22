@@ -1,5 +1,5 @@
-#ifndef _AGGREGATES_H_
-#define _AGGREGATES_H_
+#ifndef AGGREGATES_H
+#define AGGREGATES_H
 #include "../Structs.h"
 
 void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt);
