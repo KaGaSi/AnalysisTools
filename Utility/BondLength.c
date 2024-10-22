@@ -581,7 +581,7 @@ int main(int argc, char *argv[]) {
     if (range[1] < (bins - 1)) {
       range[1] += 2; // +2 as for loop is range[0]...range[1]-1
     } //}}}
-    fw = OpenFile(opt->d_file, "w");
+    fw = OpenFile(opt->d_file, "a");
     // print the first line - molecule names with bead order //{{{
     fprintf(fw, "# bead order in molecule(s) -");
     for (int i = 0; i < Count->MoleculeType; i++) {

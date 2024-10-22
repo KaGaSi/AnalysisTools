@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
   // allocate memory for arrays //{{{
   // just check if the bead type is at all present in the calculation
   bool *n_beads = calloc(Count->BeadType, sizeof *n_beads);
-  long int **rho[3]; // = malloc(3 * sizeof ***rho);
+  long int **rho[3];
   for (int dd = 0; dd < 3; dd++) {
     rho[dd] = malloc(Count->BeadType * sizeof **rho);
   }
@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
       count_used++;
       WrapJoinCoordinates(&System, true, false);
       // allocate memory for temporary density arrays
-      int **temp_rho[3]; // = malloc(3 * sizeof(int **));
+      int **temp_rho[3];
       for (int dd = 0; dd < 3; dd++) {
         temp_rho[dd] = malloc(Count->BeadType * sizeof *temp_rho[dd]);
         for (int i = 0; i < Count->BeadType; i++) {

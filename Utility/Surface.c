@@ -74,17 +74,6 @@ OPT * opt_create(void) {
   return malloc(sizeof(OPT));
 } //}}}
 
-/*
- * grid size for probes' coordinates in surface plane; it's 10 times larger than
- * the first box dimensions to guard against box size changes (enlargement).
- */
-unsigned long bin_alloc[2];
-
-// calculate index in an 1D array that simulates a 3D one /{{{
-int id3D(int x, int y, int z) {
-  return (z * bin_alloc[0] * bin_alloc[1]) + (y * bin_alloc[0]) + x;
-} //}}}
-
 // calculate area of a triangle given three points (Heron's formula) //{{{
 double calc_area(double A[3], double B[3], double C[3]) {
   // triangle's sides vectors
@@ -132,15 +121,16 @@ void calc_4points(double A[3], double B[3], double C[3], double D[3],
  * it's a loop over all considered beads and nested within is a loop over
  * the grid of probes...
  */
-void AddPoint(double *surf_step, bool *bin_use, int *surf_bead_ids,
-              int bin, int id, double coor) {
-  surf_step[bin] = coor;
-  bin_use[bin] = true;
-  surf_bead_ids[bin] = id;
+void AddPoint(double (**surf_step)[2], bool ***bin_use,
+              int (**surf_bead_ids)[2], int i, int j, int k,
+              int id, double coor) {
+  surf_step[i][j][k] = coor;
+  bin_use[i][j][k] = true;
+  surf_bead_ids[i][j][k] = id;
 }
 void SurfacePoint(SYSTEM System, int id, int map[2], int axis, double width,
-                  OPT *opt, int *bins_step, bool *bin_use, double *surf_step,
-                  int *surf_bead_ids) {
+                  OPT *opt, int *bins_step, bool ***bin_use,
+                  double (**surf_step)[2], int (**surf_bead_ids)[2]) {
   BEAD *bead = &System.Bead[id];
   double coor[3]; // coor[0] & [1] are in the surface plane
   coor[0] = bead->Position[map[0]];
@@ -183,20 +173,20 @@ void SurfacePoint(SYSTEM System, int id, int map[2], int axis, double width,
       // 2) only use beads close enough to the probe (in surface plane)
       if (d[0] <= max_dist) {
         // 'bottom' surface for bilayers or 'top' surface for brushes
-        int the_bin = id3D(grid[0], grid[1], 0);
         // -sqrt because we need lower intersection of line and sphere
         double axis_coor = coor[2] - sqrt(max_dist - d[0]);
-        if ((opt->in && axis_coor <= surf_step[the_bin]) ||
-            (!opt->in && axis_coor >= surf_step[the_bin])) {
-          AddPoint(surf_step, bin_use, surf_bead_ids, the_bin, id, axis_coor);
+        if ((opt->in && axis_coor <= surf_step[grid[0]][grid[1]][0]) ||
+            (!opt->in && axis_coor >= surf_step[grid[0]][grid[1]][0])) {
+          AddPoint(surf_step, bin_use, surf_bead_ids,
+                   grid[0], grid[1], 0, id, axis_coor);
         }
         // 'top' surface for bilayers or 'bottom' surface for brushes
-        the_bin = id3D(grid[0], grid[1], 1);
         // +sqrt because we need upper intersection of line and sphere
         axis_coor = coor[2] + sqrt(max_dist - d[0]);
-        if ((opt->in && axis_coor >= surf_step[the_bin]) ||
-            (!opt->in && axis_coor >= surf_step[the_bin])) {
-          AddPoint(surf_step, bin_use, surf_bead_ids, the_bin, id, axis_coor);
+        if ((opt->in && axis_coor >= surf_step[grid[0]][grid[1]][1]) ||
+            (!opt->in && axis_coor >= surf_step[grid[0]][grid[1]][1])) {
+          AddPoint(surf_step, bin_use, surf_bead_ids,
+                   grid[0], grid[1], 1, id, axis_coor);
         }
       }
     }
@@ -359,6 +349,7 @@ int main(int argc, char *argv[]) {
   //}}}
 
   // number of grid points (i.e., of bins), guarding against box enlargement
+  int bin_alloc[2];
   bin_alloc[0] = sidelength[0] / width * 10;
   bin_alloc[1] = sidelength[1] / width * 10;
 
@@ -371,14 +362,19 @@ int main(int argc, char *argv[]) {
    * steps, but if there's no bead that falls into the given bin (i.e., <width>
    * is too low), than it may be lower
    */
-  int *values = calloc(bin_alloc[0] * bin_alloc[1] * 2, sizeof *values);
+  // int *values = calloc(bin_alloc[0] * bin_alloc[1] * 2, sizeof *values);
+  int (**values)[2] = calloc(bin_alloc[0], sizeof (*values)[2]);
   /*
    * Sum of points for each surface (i.e., the 'proper' coordinates in <axis>
    * direction) in each bin
    *
    * sum_surf/values gives average coordinate for the two surfaces
    */
-  double *sum_surf = calloc(bin_alloc[0] * bin_alloc[1] * 2, sizeof *sum_surf);
+  double (**sum_surf)[2] = calloc(bin_alloc[0], sizeof (*sum_surf)[2]);
+  for (int i = 0; i < bin_alloc[0]; i++) {
+    values[i] = calloc(bin_alloc[1], sizeof **values);
+    sum_surf[i] = calloc(bin_alloc[1], sizeof **sum_surf);
+  }
   // distribution of widths (i.e., top-bottom surface distances)
   long int *distr = NULL;
   int distr_bins = sidelength[2] / distr_width * 10;
@@ -465,21 +461,26 @@ int main(int argc, char *argv[]) {
 
       // allocate memory for temporary arrays //{{{
       // surfaces' coordinates in this step
-      double *surf_step = calloc(bin_alloc[0] * bin_alloc[1] * 2,
-                                 sizeof *surf_step);
-      int *surf_bead_ids = calloc(bin_alloc[0] * bin_alloc[1] * 2,
-                                  sizeof *surf_bead_ids);
-      InitIntArray(surf_bead_ids, bin_alloc[0] * bin_alloc[1] * 2, -1);
+      double (**surf_step)[2] = calloc(bins_step[0], sizeof (*surf_step)[2]);
+      int (**surf_bead_ids)[2] = calloc(bins_step[0],
+                                  sizeof (*surf_bead_ids)[2]);
+      // InitIntArray(surf_bead_ids, bin_alloc[0] * bin_alloc[1] * 2, -1);
       // is a bin used in this step? (akin to the values array)
-      bool *bin_use = calloc(bin_alloc[0] * bin_alloc[1] * 2, sizeof *bin_use);
+      bool ***bin_use = calloc(bins_step[0], sizeof *bin_use);
       for (int i = 0; i < bins_step[0]; i++) {
+        surf_step[i] = calloc(bins_step[1], sizeof **surf_step);
+        surf_bead_ids[i] = calloc(bins_step[1], sizeof **surf_bead_ids);
+        bin_use[i] = calloc(bins_step[1], sizeof *bin_use);
         for (int j = 0; j < bins_step[1]; j++) {
+          bin_use[i][j] = calloc(2, sizeof *bin_use);
+          surf_bead_ids[i][j][0] = -1;
+          surf_bead_ids[i][j][1] = -1;
           if (!opt->in) {
-            surf_step[id3D(i, j, 0)] = 0;
-            surf_step[id3D(i, j, 1)] = sidelength[2];
+            surf_step[i][j][0] = 0;
+            surf_step[i][j][1] = sidelength[2];
           } else {
-            surf_step[id3D(i, j, 0)] = sidelength[2];
-            surf_step[id3D(i, j, 1)] = 0;
+            surf_step[i][j][0] = sidelength[2];
+            surf_step[i][j][1] = 0;
           }
         }
       } //}}}
@@ -517,18 +518,15 @@ int main(int argc, char *argv[]) {
       for (int i = 0; i < bins_step[0]; i++) {
         for (int j = 0; j < bins_step[1]; j++) {
           for (int aa = 0; aa < 2; aa++) {
-            int id = id3D(i, j, aa);
-            if (bin_use[id]) {
+            if (bin_use[i][j][aa]) {
               // printf("OK %d %lf %lf\n", aa, sum_surf[id], surf_step[id]);
-              sum_surf[id] += surf_step[id];
-              values[id]++;
+              sum_surf[i][j][aa] += surf_step[i][j][aa];
+              values[i][j][aa]++;
             }
           }
-          int id0 = id3D(i, j, 0),
-              id1 = id3D(i, j, 1);
           if ((distr_width > 0 || opt->width_avg[0] != '\0') &&
-              surf_step[id0] != -1 && surf_step[id1] != -1) {
-            double w = fabs(surf_step[id0] - surf_step[id1]);
+              surf_step[i][j][0] != -1 && surf_step[i][j][1] != -1) {
+            double w = fabs(surf_step[i][j][0] - surf_step[i][j][1]);
             int bin = w / distr_width;
             distr[bin]++;
             avg_thickness += w;
@@ -547,12 +545,12 @@ int main(int argc, char *argv[]) {
       // calculate total area as a sum of areas of triangles //{{{
       if (opt->area_file[0] != '\0') {
         for (int i = 0; i < bins_step[0]; i++) {
-          surf_step[id3D(i, bins_step[1]-1, 0)] = surf_step[id3D(i, 0, 0)];
-          surf_step[id3D(i, bins_step[1]-1, 1)] = surf_step[id3D(i, 0, 1)];
+          surf_step[i][bins_step[1]-1][0] = surf_step[i][0][0];
+          surf_step[i][bins_step[1]-1][1] = surf_step[i][0][1];
         }
         for (int j = 0; j < bins_step[1]; j++) {
-          surf_step[id3D(bins_step[0]-1, j, 0)] = surf_step[id3D(0, j, 0)];
-          surf_step[id3D(bins_step[0]-1, j, 1)] = surf_step[id3D(0, j, 1)];
+          surf_step[bins_step[0]-1][j][0] = surf_step[0][j][0];
+          surf_step[bins_step[0]-1][j][1] = surf_step[0][j][1];
         }
         double area[3] = {0, 0, 0};
         int triangles[3] = {0, 0, 0}; // number of valid triangles per area
@@ -562,49 +560,49 @@ int main(int argc, char *argv[]) {
             double A[3] = {-1}, B[3] = {-1}, C[3] = {-1}, D[3] = {-1};
             // top and bottom surfaces //{{{
             for (int aa = 0; aa < 2; aa++) {
-              if (surf_step[id3D(i, j, aa)] != -1 &&
-                  surf_step[id3D(i+1, j+1, aa)] != -1) {
+              if (surf_step[i][j][aa] != -1 &&
+                  surf_step[i+1][j+1][aa] != -1) {
                 A[0] = A[1] = 0;
-                A[2] = surf_step[id3D(i, j, aa)];
+                A[2] = surf_step[i][j][aa];
                 D[0] = D[1] = width;
-                D[2] = surf_step[id3D(i+1, j+1, aa)];
-                if (surf_step[id3D(i+1, j, aa)] != -1) {
+                D[2] = surf_step[i+1][j+1][aa];
+                if (surf_step[i+1][j][aa] != -1) {
                   // B[0] = rest[0];
                   B[0] = width;
                   B[1] = 0;
-                  B[2] = surf_step[id3D(i+1, j, aa)];
+                  B[2] = surf_step[i+1][j][aa];
                 }
-                if (surf_step[id3D(i, j+1, aa)] != -1) {
+                if (surf_step[i][j+1][aa] != -1) {
                   C[0] = 0;
                   C[1] = width;
-                  C[2] = surf_step[id3D(i, j+1, aa)];
+                  C[2] = surf_step[i][j+1][aa];
                 }
                 calc_4points(A, B, C, D, &area[aa], &triangles[aa]);
               }
             } //}}}
             // 'middle' surface //{{{
             A[0] = B[0] = C[0] = D[0] = -1;
-            if (surf_step[id3D(i, j, 0)] != -1 &&
-                surf_step[id3D(i, j, 1)] != -1 &&
-                surf_step[id3D(i+1, j+1, 0)] != -1 &&
-                surf_step[id3D(i+1, j+1, 1)] != -1) {
+            if (surf_step[i][j][0] != -1 &&
+                surf_step[i][j][1] != -1 &&
+                surf_step[i+1][j+1][0] != -1 &&
+                surf_step[i+1][j+1][1] != -1) {
               A[0] = A[1] = 0;
-              A[2] = (surf_step[id3D(i, j, 0)] + surf_step[id3D(i, j, 1)]) / 2;
+              A[2] = (surf_step[i][j][0] + surf_step[i][j][1]) / 2;
               D[0] = D[1] = width;
-              D[2] = (surf_step[id3D(i+1, j+1, 0)] + surf_step[id3D(i+1, j+1, 1)]) / 2;
+              D[2] = (surf_step[i+1][j+1][0] + surf_step[i+1][j+1][1]) / 2;
 
-              if (surf_step[id3D(i+1, j, 0)] != -1 &&
-                  surf_step[id3D(i+1, j, 1)] != -1) {
+              if (surf_step[i+1][j][0] != -1 &&
+                  surf_step[i+1][j][1] != -1) {
                 B[0] = width;
                 B[1] = 0;
-                B[2] = (surf_step[id3D(i+1, j, 0)] + surf_step[id3D(i+1, j, 1)]) / 2;
+                B[2] = (surf_step[i+1][j][0] + surf_step[i+1][j][1]) / 2;
               }
-              if (surf_step[id3D(i, j+1, 0)] != -1 &&
-                  surf_step[id3D(i, j+1, 1)] != -1) {
+              if (surf_step[i][j+1][0] != -1 &&
+                  surf_step[i][j+1][1] != -1) {
                 // C[0] = rest[1];
                 C[0] = width;
                 C[1] = 0;
-                C[2] = (surf_step[id3D(i, j+1, 0)] + surf_step[id3D(i, j+1, 1)]) / 2;
+                C[2] = (surf_step[i][j+1][0] + surf_step[i][j+1][1]) / 2;
               }
               calc_4points(A, B, C, D, &area[2], &triangles[2]);
             }
@@ -636,7 +634,7 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < bin_alloc[0]; i++) {
           for (int j = 0; j < bin_alloc[1]; j++) {
             for (int aa = 0; aa < 2; aa++) {
-              int id = surf_bead_ids[id3D(i, j, aa)];
+              int id = surf_bead_ids[i][j][aa];
               if (id > -1) {
                 write[id] = true;
               }
@@ -657,9 +655,17 @@ int main(int argc, char *argv[]) {
         WriteTimestep(opt->bead_file, System, count_coor, write, argc, argv);
       } //}}}
 
+      for (int i = 0; i < bins_step[0]; i++) {
+        for (int j = 0; j < bins_step[1]; j++) {
+          free(bin_use[i][j]);
+        }
+        free(surf_step[i]);
+        free(surf_bead_ids[i]);
+        free(bin_use[i]);
+      }
       free(surf_step);
-      free(bin_use);
-      free(surf_bead_ids); //}}}
+      free(surf_bead_ids);
+      free(bin_use); //}}}
     } else { //{{{
       if (!SkipTimestep(in, fr, &line_count)) {
         count_coor--;
@@ -685,7 +691,7 @@ int main(int argc, char *argv[]) {
   int max[2] = {-1, -1};
   for (int i = (bin_alloc[0] - 1); i >= 0; i--) {
     for (int j = (bin_alloc[1] - 1); j >= 0; j--) {
-      if (sum_surf[id3D(i, j, 0)] > 0 && sum_surf[id3D(i, j, 1)] > 0) {
+      if (sum_surf[i][j][0] > 0 && sum_surf[i][j][1] > 0) {
         max[0] = i + 1; // highest point, so add 1 to go from 0 to max-1
         max[1] = j + 1; //
         break;
@@ -706,8 +712,8 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < max[0]; i++) {
     for (int j = 0; j < max[1]; j++) {
       double surface[3];
-      surface[0] = sum_surf[id3D(i, j, 0)] / values[id3D(i, j, 0)];
-      surface[1] = sum_surf[id3D(i, j, 1)] / values[id3D(i, j, 1)];
+      surface[0] = sum_surf[i][j][0] / values[i][j][0];
+      surface[1] = sum_surf[i][j][1] / values[i][j][1];
       surface[2] = (surface[0] + surface[1]) / 2;
 
       fprintf(out, "%10.4f %10.4f %10.4f %10.4f %10.4f\n", i*width, j*width,
@@ -720,16 +726,16 @@ int main(int argc, char *argv[]) {
   // calculate total area as a sum of areas of triangles //{{{
   if (opt->area_file[0] != '\0') {
     for (int i = 0; i < max[0]; i++) {
-      values[id3D(i, max[1]-1, 0)] = values[id3D(i, 0, 0)];
-      values[id3D(i, max[1]-1, 1)] = values[id3D(i, 0, 1)];
-      sum_surf[id3D(i, max[1]-1, 0)] = sum_surf[id3D(i, 0, 0)];
-      sum_surf[id3D(i, max[1]-1, 1)] = sum_surf[id3D(i, 0, 1)];
+      values[i][max[1]-1][0] = values[i][0][0];
+      values[i][max[1]-1][1] = values[i][0][1];
+      sum_surf[i][max[1]-1][0] = sum_surf[i][0][0];
+      sum_surf[i][max[1]-1][1] = sum_surf[i][0][1];
     }
     for (int j = 0; j < max[1]; j++) {
-      values[id3D(max[0]-1, j, 0)] = values[id3D(0, j, 0)];
-      values[id3D(max[0]-1, j, 1)] = values[id3D(0, j, 1)];
-      sum_surf[id3D(max[0]-1, j, 0)] = sum_surf[id3D(0, j, 0)];
-      sum_surf[id3D(max[0]-1, j, 1)] = sum_surf[id3D(0, j, 1)];
+      values[max[0]-1][j][0] = values[0][j][0];
+      values[max[0]-1][j][1] = values[0][j][1];
+      sum_surf[max[0]-1][j][0] = sum_surf[0][j][0];
+      sum_surf[max[0]-1][j][1] = sum_surf[0][j][1];
     }
     double area[3] = {0, 0, 0};
     int triangles[3] = {0, 0, 0};
@@ -738,48 +744,48 @@ int main(int argc, char *argv[]) {
         // top and bottom surfaces //{{{
         double A[3] = {-1}, B[3] = {-1}, C[3] = {-1}, D[3] = {-1};
         for (int aa = 0; aa < 2; aa++) {
-          if (values[id3D(i, j, aa)] > 0 && values[id3D(i+1, j+1, aa)] > 0) {
+          if (values[i][j][aa] > 0 && values[i+1][j+1][aa] > 0) {
             A[0] = A[1] = 0;
-            A[2] = sum_surf[id3D(i, j, aa)] / values[id3D(i, j, aa)];
+            A[2] = sum_surf[i][j][aa] / values[i][j][aa];
             D[0] = D[1] = width;
-            D[2] = sum_surf[id3D(i+1, j+1, aa)] / values[id3D(i+1, j+1, aa)];
-            if (values[id3D(i+1, j, aa)] > 0) {
+            D[2] = sum_surf[i+1][j+1][aa] / values[i+1][j+1][aa];
+            if (values[i+1][j][aa] > 0) {
               B[0] = width;
               B[1] = 0;
-              B[2] = sum_surf[id3D(i+1, j, aa)] / values[id3D(i+1, j, aa)];
+              B[2] = sum_surf[i+1][j][aa] / values[i+1][j][aa];
             }
-            if (values[id3D(i, j+1, aa)] > 0) {
+            if (values[i][j+1][aa] > 0) {
               C[0] = 0;
               C[1] = width;
-              C[2] = sum_surf[id3D(i, j+1, aa)] / values[id3D(i, j+1, aa)];
+              C[2] = sum_surf[i][j+1][aa] / values[i][j+1][aa];
             }
             calc_4points(A, B, C, D, &area[aa], &triangles[aa]);
           }
         } //}}}
         // 'middle' surface //{{{
         A[0] = B[0] = C[0] = D[0] = -1;
-        if (values[id3D(i, j, 0)] > 0 && values[id3D(i, j, 1)] > 0 &&
-            values[id3D(i+1, j+1, 0)] > 0 && values[id3D(i+1, j+1, 1)] > 0) {
+        if (values[i][j][0] > 0 && values[i][j][1] > 0 &&
+            values[i+1][j+1][0] > 0 && values[i+1][j+1][1] > 0) {
           A[0] = A[1] = 0;
-          A[2] = (sum_surf[id3D(i, j, 0)] / values[id3D(i, j, 0)] +
-                  sum_surf[id3D(i, j, 1)] / values[id3D(i, j, 1)]) / 2;
+          A[2] = (sum_surf[i][j][0] / values[i][j][0] +
+                  sum_surf[i][j][1] / values[i][j][1]) / 2;
           D[0] = D[1] = width;
-          D[2] = (sum_surf[id3D(i+1, j+1, 0)] / values[id3D(i+1, j+1, 0)] +
-                  sum_surf[id3D(i+1, j+1, 1)] / values[id3D(i+1, j+1, 1)]) / 2;
+          D[2] = (sum_surf[i+1][j+1][0] / values[i+1][j+1][0] +
+                  sum_surf[i+1][j+1][1] / values[i+1][j+1][1]) / 2;
 
-          if (values[id3D(i+1, j, 0)] > 0 &&
-              values[id3D(i+1, j, 1)] > 0) {
+          if (values[i+1][j][0] > 0 &&
+              values[i+1][j][1] > 0) {
             B[0] = width;
             B[1] = 0;
-            B[2] = (sum_surf[id3D(i+1, j, 0)] / values[id3D(i+1, j, 0)] +
-                    sum_surf[id3D(i+1, j, 1)] / values[id3D(i+1, j, 1)]) / 2;
+            B[2] = (sum_surf[i+1][j][0] / values[i+1][j][0] +
+                    sum_surf[i+1][j][1] / values[i+1][j][1]) / 2;
           }
-          if (values[id3D(i, j+1, 0)] > 0 &&
-              values[id3D(i, j+1, 1)] > 0) {
+          if (values[i][j+1][0] > 0 &&
+              values[i][j+1][1] > 0) {
             C[0] = width;
             C[1] = 0;
-            C[2] = (sum_surf[id3D(i, j+1, 0)] / values[id3D(i, j+1, 0)] +
-                    sum_surf[id3D(i, j+1, 1)] / values[id3D(i, j+1, 1)]) / 2;
+            C[2] = (sum_surf[i][j+1][0] / values[i][j+1][0] +
+                    sum_surf[i][j+1][1] / values[i][j+1][1]) / 2;
           }
           calc_4points(A, B, C, D, &area[2], &triangles[2]);
         }
@@ -846,6 +852,10 @@ int main(int argc, char *argv[]) {
 
   // free arrays //{{{
   FreeSystem(&System);
+  for (int i = 0; i < bin_alloc[0]; i++) {
+    free(sum_surf[i]);
+    free(values[i]);
+  }
   free(sum_surf);
   free(values);
   if (distr_width > 0) {
