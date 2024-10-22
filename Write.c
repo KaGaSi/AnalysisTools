@@ -72,8 +72,9 @@ static void XyzWriteCoor(FILE *fw, const bool write[], SYSTEM System) { //{{{
   fprintf(fw, "%d\n", count);
   BOX *box = &System.Box;
   if (box->Volume != -1) {
-    fprintf(fw, "%.3f %.3f %.3f",
-            box->Length[0], box->Length[1], box->Length[2]);
+    fprintf(fw, "%.3f %.3f %.3f", box->Length[0],
+                                  box->Length[1],
+                                  box->Length[2]);
     if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {
       fprintf(fw, " %lf %lf %lf", box->alpha, box->beta, box->gamma);
     }
@@ -97,7 +98,8 @@ static void LtrjWriteCoor(FILE *fw, int step, const bool write[],
                           SYSTEM System) {
   // find out number of beads to save and if velocity/force should be saved
   int count_write = 0;
-  bool vel = false, force = false;
+  bool vel = false;
+  bool force = false;
   for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadCoor[i];
     BEAD *b = &System.Bead[id];
@@ -186,8 +188,8 @@ static void WriteConfig(SYSTEM System, char file[]) { //{{{
   // bead coordinates
   // unbonded beads must be first (dl_meso requirement)
   for (int i = 0; i < System.Count.BeadCoor; i++) {
-    int id = System.BeadCoor[i],
-        btype = System.Bead[id].Type;
+    int id = System.BeadCoor[i];
+    int btype = System.Bead[id].Type;
     fprintf(out, "%s %d\n", System.BeadType[btype].Name, id + 1);
     fprintf(out, "%lf %lf %lf\n", System.Bead[id].Position[0],
                                   System.Bead[id].Position[1],
@@ -240,7 +242,8 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
   } //}}}
   // print beads //{{{
   for (int i = 0; i < Count->Bead; i++) {
-    int btype = System.Bead[i].Type, mol = System.Bead[i].Molecule;
+    int btype = System.Bead[i].Type;
+    int mol = System.Bead[i].Molecule;
     // print beads that are non-default, in a molecule, or have the highest id
     bool print = false;
     if (btype != type_def || mol != -1 || i == (Count->Bead - 1)) {
@@ -260,8 +263,8 @@ static void VtfWriteStruct(char file[], SYSTEM System, int type_def,
         fprintf(fw, " radius %12f", bt->Radius);
       }
       if (mol != -1) {
-        int mtype = System.Molecule[mol].Type,
-            id = System.Molecule[mol].Index;
+        int mtype = System.Molecule[mol].Type;
+        int id = System.Molecule[mol].Index;
         char name[8];
         if (snprintf(name, 8, "%s", System.MoleculeType[mtype].Name) < 0) {
           ErrorSnprintf();
@@ -364,9 +367,6 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass,
   }
   putc('\n', fw); //}}}
   // print box size //{{{
-  // fprintf(fw, "0.0 %lf xlo xhi\n", System.Box.OrthoLength.x);
-  // fprintf(fw, "0.0 %lf ylo yhi\n", System.Box.OrthoLength.y);
-  // fprintf(fw, "0.0 %lf zlo zhi\n", System.Box.OrthoLength.z);
   fprintf(fw, "%.3f", System.Box.Low[0]);
   fprintf(fw, " %.3f xlo xhi\n", System.Box.Low[0] + System.Box.OrthoLength[0]);
   fprintf(fw, "%.3f", System.Box.Low[1]);
@@ -392,9 +392,7 @@ static void WriteLmpData(SYSTEM System, char file[], bool mass,
       fprintf(fw, " %lf", bt->Mass);
     }
     fprintf(fw, " # %s\n", bt->Name);
-  }
-  // // add an extra bead type - just in case srp is required
-  // fprintf(fw, "%5d %lf # extra type\n", mass_types + 1, 1.0); //}}}
+  } //}}}
   // print various coeffs //{{{
   if (Count->BondType > 0) {
     fprintf(fw, "\nBond Coeffs\n\n");
@@ -695,7 +693,8 @@ static void WriteField(SYSTEM System, char file_field[],
       for (int j = 0; j < mt_i->nAngles; j++) {
         // TODO harm only for now
         fprintf(fw, "harm %5d %5d %5d", mt_i->Angle[j][0] + 1,
-                mt_i->Angle[j][1] + 1, mt_i->Angle[j][2] + 1);
+                                        mt_i->Angle[j][1] + 1,
+                                        mt_i->Angle[j][2] + 1);
         int type = mt_i->Angle[j][3];
         if (type != -1) {
           fprintf(fw, " %lf %lf\n", System.AngleType[type].a,
@@ -712,12 +711,14 @@ static void WriteField(SYSTEM System, char file_field[],
       for (int j = 0; j < mt_i->nDihedrals; j++) {
         // TODO harm (lammps) only for now
         fprintf(fw, "harm %5d %5d %5d %5d", mt_i->Dihedral[j][0] + 1,
-                mt_i->Dihedral[j][1] + 1, mt_i->Dihedral[j][2] + 1,
-                mt_i->Dihedral[j][3] + 1);
+                                            mt_i->Dihedral[j][1] + 1,
+                                            mt_i->Dihedral[j][2] + 1,
+                                            mt_i->Dihedral[j][3] + 1);
         int type = mt_i->Dihedral[j][4];
         if (type != -1) {
           fprintf(fw, " %lf %lf %lf\n", System.DihedralType[type].a,
-                  System.DihedralType[type].b, System.DihedralType[type].c);
+                                        System.DihedralType[type].b,
+                                        System.DihedralType[type].c);
         } else {
           fprintf(fw, " ???\n");
         }
@@ -736,7 +737,8 @@ static void WriteField(SYSTEM System, char file_field[],
         int type = mt_i->Improper[j][4];
         if (type != -1) {
           fprintf(fw, " %lf %lf %lf\n", System.ImproperType[type].a,
-                  System.ImproperType[type].b, System.ImproperType[type].c);
+                                        System.ImproperType[type].b,
+                                        System.ImproperType[type].c);
         } else {
           fprintf(fw, " ???\n");
         }
@@ -975,12 +977,12 @@ void PrintCount(COUNT Count) { //{{{
 } //}}}
 void PrintBeadType(SYSTEM System) { //{{{
   // some stuff to properly align the fields //{{{
-  int precision = 3,     // number of decimal digits
-      longest_name = 0,  // longest bead type name
-      max_number = 0,    // maximum number of beads
-      max_q = 0,         // maximum charge
-      max_m = 0,         // maximum mass
-      max_r = 0;         // maximum radius
+  int precision = 3;     // number of decimal digits
+  int longest_name = 0;  // longest bead type name
+  int max_number = 0;    // maximum number of beads
+  int max_q = 0;         // maximum charge
+  int max_m = 0;         // maximum mass
+  int max_r = 0;         // maximum radius
   bool negative = false; // extra space for '-' if there's negative charge
   // determine length of values to have a nice-looking output
   for (int i = 0; i < System.Count.BeadType; i++) {
