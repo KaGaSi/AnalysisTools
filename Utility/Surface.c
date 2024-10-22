@@ -78,7 +78,7 @@ OPT * opt_create(void) {
  * grid size for probes' coordinates in surface plane; it's 10 times larger than
  * the first box dimensions to guard against box size changes (enlargement).
  */
-int bin_alloc[2];
+unsigned long bin_alloc[2];
 
 // calculate index in an 1D array that simulates a 3D one /{{{
 int id3D(int x, int y, int z) {
