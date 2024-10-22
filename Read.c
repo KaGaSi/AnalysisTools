@@ -54,7 +54,7 @@ static int LtrjReadAtomsLine(FILE *fr, char file[], int n, int *var_pos,
                              char vars[n][10], int *line_count);
 // read an atom coordinate line
 static int LtrjReadCoorLine(FILE *fr, BEAD *b, int b_count,
-                            int *var, const int cols);
+                            const int *var, int cols);
 // fill a helper array with possible variables in 'ITEM: ATOMS ...' line
 static void LtrjFillAtomVariables(int n, char var[n][10]); //}}}
 /*
@@ -587,8 +587,8 @@ static int LtrjReadAtomsLine(FILE *fr, char file[], int max_vars, int *var_pos,
   return cols;
 } //}}}
 // LtrjReadCoorLine() //{{{
-static int LtrjReadCoorLine(FILE *fr, BEAD *b, int b_count, int *var,
-                            int cols) {
+static int LtrjReadCoorLine(FILE *fr, BEAD *b, int b_count,
+                            const int *var, int cols) {
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
     return -2;
   }
