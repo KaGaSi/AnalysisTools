@@ -145,8 +145,8 @@ void RandomConstrainedCoor(SYSTEM S_orig, int mode, double box[3],
 } //}}}
 
 // rotate randomly given collection of beads (e.g., a molecule) //{{{
-void Rotate(SYSTEM System, int number, int *list,
-            double rot_angle[3], double (*new)[3]) {
+void Rotate(SYSTEM System, int number, const int *list,
+            const double rot_angle[3], double (*new)[3]) {
   // random rotation axis
   double random[3];
   for (int dd = 0; dd < 3; dd++) {

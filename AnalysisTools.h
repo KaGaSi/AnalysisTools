@@ -25,12 +25,12 @@ int FindMoleculeType(SYSTEM Sys1, MOLECULETYPE mt, SYSTEM Sys2, int mode);
 // wrap coordinates into simulation box and/or join molecules
 void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join);
 // distance between two beads; in the range <-BoxLength/2,BoxLength/2)
-void Distance(double id1[3], double id2[3],
-              double BoxLength[3], double out[3]);
+void Distance(const double id1[3], const double id2[3],
+              const double BoxLength[3], double out[3]);
 // calculate centre of mass for a list of beads
-void CentreOfMass(int n, int list[], SYSTEM System, double gc[3]);
+void CentreOfMass(int n, const int list[], SYSTEM System, double gc[3]);
 // calculate geometric centre for a list of beads
-void GeomCentre(int n, int *list, BEAD *Bead, double gc[3]);
+void GeomCentre(int n, const int *list, BEAD *Bead, double gc[3]);
 void ToFractionalCoor(SYSTEM *System);
 void FromFractionalCoor(SYSTEM *System);
 
@@ -52,8 +52,9 @@ int FileType(char name[]);
 // create a cell-linked list
 void LinkedList(SYSTEM System, int **Head, int **Link, double cell_size,
                 int n_cells[3], int Dc[14][3]);
-int SelectCell1(int c1[3], int n_cells[3]);
-int SelectCell2(int c1[3], int n_cells[3], int Dc[14][3], int n);
+int SelectCell1(const int c1[3], const int n_cells[3]);
+int SelectCell2(const int c1[3], const int n_cells[3],
+                const int Dc[14][3], const int n);
 
 // calculate gyration tensor and various shape descriptors
 void Gyration(int n, int *list, COUNT Counts, BEADTYPE *BeadType,

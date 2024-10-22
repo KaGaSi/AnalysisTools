@@ -297,7 +297,7 @@ void InitDouble2DArray(double *array[], int m, int n, double val) {
     }
   }
 } //}}}
-bool SameArrayInt(int arr_1[], int arr_2[], int n) { //{{{
+bool SameArrayInt(const int arr_1[], const int arr_2[], int n) { //{{{
   for (int i = 0; i < n; i++) {
     if (arr_1[i] != arr_2[i]) {
       return false;

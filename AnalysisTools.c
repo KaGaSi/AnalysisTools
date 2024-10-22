@@ -863,8 +863,8 @@ void WrapJoinCoordinates(SYSTEM *System, bool wrap, bool join) {
   }
 } //}}}
 // distance between two beads; in the range <-BoxLength/2,BoxLength/2) //{{{
-void Distance(double id1[3], double id2[3],
-              double BoxLength[3], double out[3]) {
+void Distance(const double id1[3], const double id2[3],
+              const double BoxLength[3], double out[3]) {
   // remove periodic boundary conditions in x-direction
   for (int dd = 0; dd < 3; dd++) {
     out[dd] = id1[dd] - id2[dd];
@@ -877,7 +877,7 @@ void Distance(double id1[3], double id2[3],
   }
 } //}}}
 // calculate centre of mass for a list of beads //{{{
-void CentreOfMass(int n, int list[], SYSTEM System, double com[3]) {
+void CentreOfMass(int n, const int list[], SYSTEM System, double com[3]) {
   for (int dd = 0; dd < 3; dd++) {
     com[dd] = 0;
   }
@@ -896,7 +896,7 @@ void CentreOfMass(int n, int list[], SYSTEM System, double com[3]) {
   }
 } //}}}
 // calculate geometric centre for a list of beads //{{{
-void GeomCentre(int n, int *list, BEAD *Bead, double gc[3]) {
+void GeomCentre(int n, const int *list, BEAD *Bead, double gc[3]) {
   InitDoubleArray(gc, 3, 0);
   int count = 0;
   for (int i = 0; i < n; i++) {
@@ -1123,10 +1123,11 @@ void LinkedList(SYSTEM System, int **Head, int **Link, double rcut,
     Dc[i][2] = z[i];
   }
 }
-int SelectCell1(int c1[3], int n_cells[3]) {
+int SelectCell1(const int c1[3], const int n_cells[3]) {
   return c1[0] + c1[1] * n_cells[0] + c1[2] * n_cells[0] * n_cells[1];
 }
-int SelectCell2(int c1[3], int n_cells[3], int Dc[14][3], int n) {
+int SelectCell2(const int c1[3], const int n_cells[3],
+                const int Dc[14][3], int n) {
   int c2[3];
   for (int dd = 0; dd < 3; dd++) {
     c2[dd] = c1[dd] + Dc[n][dd];
