@@ -1,5 +1,7 @@
-#ifndef _WRITE_H_
-#define _WRITE_H_
+#ifndef WRITE_H
+#define WRITE_H
+
+#define _POSIX_C_SOURCE 200809L
 
 #include "AnalysisTools.h"
 

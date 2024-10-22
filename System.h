@@ -1,5 +1,5 @@
-#ifndef _SYSTEM_H_
-#define _SYSTEM_H_
+#ifndef SYSTEM_H
+#define SYSTEM_H
 
 #include "AnalysisTools.h"
 

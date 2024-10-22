@@ -1,5 +1,5 @@
-#ifndef _GENERAL_H_
-#define _GENERAL_H_
+#ifndef GENERAL_H
+#define GENERAL_H
 
 #define _POSIX_C_SOURCE 200809L
 

@@ -1,5 +1,7 @@
-#ifndef _STRUCTS_H_
-#define _STRUCTS_H_
+#ifndef STRUCTS_H
+#define STRUCTS_H
+
+#define _POSIX_C_SOURCE 200809L
 
 #include "General.h"
 

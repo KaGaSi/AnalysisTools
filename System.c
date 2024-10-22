@@ -4,7 +4,7 @@
 // fill some System arrays and some such
 void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType) { //{{{
   MoleculeType->nBTypes = 0;
-  MoleculeType->BType = malloc(sizeof *MoleculeType->BType * 1);
+  MoleculeType->BType = malloc(sizeof *MoleculeType->BType);
   for (int j = 0; j < MoleculeType->nBeads; j++) {
     bool new = true;
     for (int k = 0; k < MoleculeType->nBTypes; k++) {

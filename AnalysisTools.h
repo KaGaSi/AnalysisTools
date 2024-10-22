@@ -1,5 +1,7 @@
-#ifndef _ANALYSISTOOLS_H_
-#define _ANALYSISTOOLS_H_
+#ifndef ANALYSISTOOLS_H
+#define ANALYSISTOOLS_H
+
+#define _POSIX_C_SOURCE 200809L
 
 #include "Structs.h"
 #include "System.h"

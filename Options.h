@@ -1,5 +1,5 @@
-#ifndef _OPTIONS_H_
-#define _OPTIONS_H_
+#ifndef OPTIONS_H
+#define OPTIONS_H
 
 #define _POSIX_C_SOURCE 200809L
 

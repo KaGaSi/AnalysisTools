@@ -1,5 +1,7 @@
-#ifndef _READ_H_
-#define _READ_H_
+#ifndef READ_H
+#define READ_H
+
+#define _POSIX_C_SOURCE 200809L
 
 #include "AnalysisTools.h"
 
@@ -10,33 +12,4 @@ bool ReadTimestep(SYS_FILES f, FILE *fr, SYSTEM *System, int *line_count);
 bool SkipTimestep(SYS_FILES f, FILE *fr, int *line_count);
 int ReadAggregates(FILE *fr, char file[], SYSTEM *System,
                    AGGREGATE Aggregate[], int *line_count);
-
-#if 0 //{{{
-// TODO will be changed - agg files
-void ReadAggregates(FILE *fr, char *agg_file, COUNT *Counts, AGGREGATE *Aggregate[],
-                    BEADTYPE *BeadType, BEAD *Bead[],
-                    MOLECULETYPE *MoleculeType, MOLECULE *Molecule[], int *Index);
-// ReadAggCommand() //{{{
-/*
- * \brief Function reading Aggregate command from agg file.
- *
- * \param [in]  BeadType      information about bead types
- * \param [in]  Counts        numbers of beads, molecules, etc.
- * \param [in]  input_coor    coordinate file
- * \param [in]  input_agg     aggregate file
- * \param [out] distance      <distance> parameter from Aggregate command
- * \param [out] contacts      <contacts> parameter from Aggregate command
- */
-void ReadAggCommand(BEADTYPE *BeadType, COUNT Counts,
-                    char *input_coor, char *input_agg,
-                    double *distance, int *contacts); //}}}
-// SkipAgg() //{{{
-/*
- * \brief Function to skip one timestep in coordinates file.
- *
- * \param [in] agg        pointer to the open agg file
- * \param [in] agg_file   agg file name
- */
-void SkipAgg(FILE *agg, char *agg_file); //}}}
-#endif //}}}
 #endif

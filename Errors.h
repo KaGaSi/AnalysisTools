@@ -3,8 +3,8 @@
  * \brief Error prints
  */
 
-#ifndef _ERRORS_H_
-#define _ERRORS_H_
+#ifndef ERRORS_H
+#define ERRORS_H
 
 #define _POSIX_C_SOURCE 200809L
 
