@@ -10,13 +10,6 @@ bool file_exists (char *filename) {
   return (stat (filename, &buffer) == 0);
 }
 
-// calculate index in an 1D array that simulates a 3D one /{{{
-int id3D(int i1, int i2, int i3, int *size) {
-  return (i3 * size[0] * size[1] +
-          i2 * size[0] +
-          i1);
-} //}}}
-
 void Help(char cmd[50], bool error, int n, char opt[n][OPT_LENGTH]) { //{{{
   FILE *ptr;
   if (error) {
@@ -179,26 +172,22 @@ int main(int argc, char *argv[]) {
       goto err_in;
     }
   }
+  for (int i = 0; i < Count->Molecule; i++) {
+    System.Molecule[i].InTimestep = true;
+  }
   PruneSystem(&System);
   fclose(f); //}}}
 
   // array for dpd parameters //{{{
-  int arr_pot[3];
-  arr_pot[0] = Count->BeadType;
-  arr_pot[1] = Count->BeadType;
-  arr_pot[2] = 3;
-  int arr_pot_size = arr_pot[0] * arr_pot[1] * arr_pot[2];
   // dpd potential: a_ij; r_c; gamma
-  double *pot = malloc(arr_pot_size * sizeof *pot);
+  double (**pot)[3] = calloc(Count->BeadType, sizeof (*pot)[3]);
   // default: a_ij = 25, r_c = 1, gamma = 4.5
-  for (int i = 0; i < arr_pot[0]; i++) {
-    for (int j = 0; j < arr_pot[1]; j++) {
-      int id = id3D(i, j, 0, arr_pot);
-      pot[id] = dpd[0];
-      id = id3D(i, j, 1, arr_pot);
-      pot[id] = dpd[1];
-      id = id3D(i, j, 2, arr_pot);
-      pot[id] = dpd[2];
+  for (int i = 0; i < Count->BeadType; i++) {
+    pot[i] = calloc (Count->BeadType, sizeof **pot);
+    for (int j = 0; j < Count->BeadType; j++) {
+      for (int aa = 0; aa < 3; aa++) {
+        pot[i][j][aa] = dpd[aa];
+      }
     }
   } //}}}
 
@@ -221,9 +210,8 @@ int main(int argc, char *argv[]) {
           SwapInt(&bt_1, &bt_2);
         }
         for (int aa = 0; aa < 3; aa++) {
-          int id = id3D(bt_1, bt_2, aa, arr_pot);
           if (val[aa] != -1) {
-            pot[id] = val[aa];
+            pot[bt_1][bt_2][aa] = val[aa];
           }
         }
       }
@@ -234,13 +222,12 @@ int main(int argc, char *argv[]) {
   if (opt->c.verbose) { //{{{
     VerboseOutput(System);
     fprintf(stdout, "Potentials:\n");
-    for (int i = 0; i < arr_pot[0]; i++) {
-      for (int j = i; j < arr_pot[1]; j++) {
+    for (int i = 0; i < Count->BeadType; i++) {
+      for (int j = i; j < Count->BeadType; j++) {
         fprintf(stdout, "%10s %10s", System.BeadType[i].Name,
                                      System.BeadType[j].Name);
         for (int aa = 0; aa < 3; aa++) {
-          int id = id3D(i, j, aa, arr_pot);
-          fprintf(stdout, " %lf", pot[id]);
+          fprintf(stdout, " %lf", pot[i][j][aa]);
         }
         putchar('\n');
       }
@@ -260,8 +247,7 @@ int main(int argc, char *argv[]) {
         fprintf(f, "%10s %10s dpd", System.BeadType[i].Name,
                                     System.BeadType[j].Name);
         for (int aa = 0; aa < 3; aa++) {
-          int id = id3D(i, j, aa, arr_pot);
-          fprintf(f, " %lf", pot[id]);
+          fprintf(f, " %lf", pot[i][j][aa]);
         }
         putc('\n', f);
       }
@@ -269,8 +255,11 @@ int main(int argc, char *argv[]) {
     fclose(f);
   } //}}}
 
-  FreeSystem(&System);
+  for (int i = 0; i < Count->BeadType; i++) {
+    free(pot[i]);
+  }
   free(pot);
+  FreeSystem(&System);
   free(opt);
 
   return 0;

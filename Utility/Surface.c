@@ -75,7 +75,7 @@ OPT * opt_create(void) {
 } //}}}
 
 // calculate area of a triangle given three points (Heron's formula) //{{{
-double calc_area(double A[3], double B[3], double C[3]) {
+double calc_area(const double A[3], const double B[3], const double C[3]) {
   // triangle's sides vectors
   double AB[3], AC[3], BC[3];
   for (int dd = 0; dd < 3; dd++) {
@@ -128,8 +128,8 @@ void AddPoint(double (**surf_step)[2], bool ***bin_use,
   bin_use[i][j][k] = true;
   surf_bead_ids[i][j][k] = id;
 }
-void SurfacePoint(SYSTEM System, int id, int map[2], int axis, double width,
-                  OPT *opt, int *bins_step, bool ***bin_use,
+void SurfacePoint(SYSTEM System, int id, const int map[2], int axis,
+                  double width, OPT *opt, const int *bins_step, bool ***bin_use,
                   double (**surf_step)[2], int (**surf_bead_ids)[2]) {
   BEAD *bead = &System.Bead[id];
   double coor[3]; // coor[0] & [1] are in the surface plane
