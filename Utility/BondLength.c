@@ -49,40 +49,6 @@ OPT * opt_create(void) {
   return malloc(sizeof(OPT));
 } //}}}
 
-// calculate index in an 1D array that simulates a 2D one /{{{
-int id2D(int i1, int i2, int size) {
-  return (i2 * size + i1);
-} //}}}
-// calculate index in an 1D array that simulates a 3D one /{{{
-int id3D(int i1, int i2, int i3, int size[2]) {
-  return (i3 * size[0] * size[1] +
-          i2 * size[0] +
-          i1);
-}
-// return three indices (assumes 3D array size 3*size[0]*size[1])
-int * bins_id3D(int i1, int i2, int size[2]) {
-  static int bin[3];
-  for (int dd = 0; dd < 3; dd++) {
-    bin[dd] = id3D(i1, i2, dd, size);
-  }
-  return bin;
-} //}}}
-// calculate index in an 1D array that simulates a 4D one /{{{
-int id4D(int i1, int i2, int i3, int i4, int size[3]) {
-  return (i4 * size[0] * size[1] * size[2] +
-          i3 * size[0] * size[1] +
-          i2 * size[0] +
-          i1);
-}
-// return three indices (assumes 4D array size 3*size[0]*size[1]*size[2])
-int * bins_id4D(int i1, int i2, int i3, int size[3]) {
-  static int bin[3];
-  for (int dd = 0; dd < 3; dd++) {
-    bin[dd] = id4D(i1, i2, i3, dd, size);
-  }
-  return bin;
-} //}}}
-
 int main(int argc, char *argv[]) {
 
   // define options & check their validity
