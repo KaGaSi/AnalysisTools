@@ -56,14 +56,14 @@ int main(int argc, char *argv[]) {
   OPT *opt = opt_create();
 
   char in[LINE];
-  snprintf(in, LINE, "%s", argv[++count]);
+  s_strcpy(in, argv[++count], LINE);
 
   FILE_TYPE out;
-  snprintf(out.name, LINE, "%s", argv[++count]);
+  s_strcpy(out.name, argv[++count], LINE);
   out.type = StructureFileType(out.name);
 
   char db_dir[LINE];
-  snprintf(db_dir, LINE, "./");
+  s_strcpy(db_dir, "./", LINE);
 
   PrintCommand(stdout, argc, argv);
 

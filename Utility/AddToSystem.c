@@ -208,7 +208,7 @@ int main(int argc, char *argv[]) {
   SYS_FILES in = InitSysFiles;
   opt->new = true; // create new system from scratch?
   if (argv[++count][0] != '-') {
-    snprintf(in.coor.name, LINE, "%s", argv[count]);
+    s_strcpy(in.coor.name, argv[count], LINE);
     opt->new = false;
     if (!InputCoorStruct(argc, argv, &in)) {
       exit(1);
@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
 
   // <in.field> - FIELD file with specis to add //{{{
   SYS_FILES field = InitSysFiles;
-  snprintf(field.stru.name, LINE, "%s", argv[++count]);
+  s_strcpy(field.stru.name, argv[++count], LINE);
   field.stru.type = StructureFileType(field.stru.name);
   if (field.stru.type != FIELD_FILE) {
     err_msg("input FIELD file required");
@@ -227,7 +227,7 @@ int main(int argc, char *argv[]) {
 
   // <output> - coordinate and structure output file
   FILE_TYPE fout = InitFile;
-  snprintf(fout.name, LINE, "%s", argv[++count]);
+  s_strcpy(fout.name, argv[++count], LINE);
   fout.type = CoordinateFileType(fout.name);
 
   // options before reading system data //{{{

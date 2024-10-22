@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
   // arguments & options before reading system data //{{{
   // <input> - input coordinate (and structure) file
   SYS_FILES in = InitSysFiles;
-  snprintf(in.coor.name, LINE, "%s", argv[++count]);
+  s_strcpy(in.coor.name, argv[++count], LINE);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   }
@@ -222,7 +222,7 @@ int main(int argc, char *argv[]) {
   }
   // <surf.txt> - output file with averaged surface coordinates
   char file_surf[LINE] = "";
-  snprintf(file_surf, LINE, "%s", argv[++count]);
+  s_strcpy(file_surf, argv[++count], LINE);
   // <axis> - x, y, or z //{{{
   int axis, // which axis? 0=x, 1=y, 2=z
       map[2]; // map the remaining two axes based on the 'axis' variable

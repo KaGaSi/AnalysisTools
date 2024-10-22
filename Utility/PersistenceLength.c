@@ -33,18 +33,6 @@ OPT * opt_create(void) {
   return malloc(sizeof(OPT));
 } //}}}
 
-// calculate index in an 1D array that simulates a 2D one /{{{
-int id2D(int i1, int i2, int size[2]) {
-  return (i2 * size[0] +
-          i1);
-} //}}}
-// calculate index in an 1D array that simulates a 3D one /{{{
-int id3D(int i1, int i2, int i3, int size[3]) {
-  return (i3 * size[0] * size[1] +
-          i2 * size[0] +
-          i1);
-} //}}}
-
 int main(int argc, char *argv[]) {
 
   int common = 8, all = common + 2, count = 0,
@@ -59,14 +47,14 @@ int main(int argc, char *argv[]) {
 
   // <input> - input coordinate (and structure) file //{{{
   SYS_FILES in = InitSysFiles;
-  snprintf(in.coor.name, LINE, "%s", argv[++count]);
+  s_strcpy(in.coor.name, argv[++count], LINE);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
 
   // <output> - file name with persistence lengths
   char fout[LINE] = "";
-  snprintf(fout, LINE, "%s", argv[++count]);
+  s_strcpy(fout, argv[++count], LINE);
 
   // options before reading system data //{{{
   opt->c = CommonOptions(argc, argv, LINE, in);
@@ -103,38 +91,17 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // arrays for sums //{{{
-  // int arr[3];
-  // arr[0] = Count->MoleculeType;
-  // arr[1] = max_bonds;
-  // arr[2] = max_bonds;
-  // int arr_size = arr[0] * arr[1] * arr[2];
-  // double *dot = calloc(arr_size, sizeof *dot),
-  //        *cos_phi = calloc(arr_size, sizeof *cos_phi), // TODO: useless?
-  //        *bond = calloc(arr_size, sizeof *bond);
-  // long int *count_stuff = calloc(arr_size, sizeof *count_stuff);
-  double ***dot = calloc(Count->MoleculeType, sizeof *dot),
-         ***cos_phi = calloc(Count->MoleculeType, sizeof *cos_phi), // TODO: useless?
-         ***bond = calloc(Count->MoleculeType, sizeof *bond);
+  double ***cos_phi = calloc(Count->MoleculeType, sizeof *cos_phi), // TODO: useless?
+         (*avg_bond)[2] = calloc(Count->MoleculeType, sizeof avg_bond[2]);
   long int ***count_stuff = calloc(Count->MoleculeType, sizeof *count_stuff);
   for (int i = 0; i < Count->MoleculeType; i++) {
-    int bonds = System.MoleculeType[i].nBonds;
-    dot[i] = calloc(bonds, sizeof *dot);
-    cos_phi[i] = calloc(bonds, sizeof *cos_phi);
-    bond[i] = calloc(bonds, sizeof *bond);
-    count_stuff[i] = calloc(bonds, sizeof *count_stuff);
-    for (int j = 0; j < bonds; j++) {
-      dot[i][j] = calloc(bonds, sizeof *dot);
-      cos_phi[i][j] = calloc(bonds, sizeof *cos_phi);
-      bond[i][j] = calloc(bonds, sizeof *bond);
-      count_stuff[i][j] = calloc(bonds, sizeof *count_stuff);
+    cos_phi[i] = calloc(max_bonds, sizeof *cos_phi);
+    count_stuff[i] = calloc(max_bonds, sizeof *count_stuff);
+    for (int j = 0; j < max_bonds; j++) {
+      cos_phi[i][j] = calloc(max_bonds, sizeof *cos_phi);
+      count_stuff[i][j] = calloc(max_bonds, sizeof *count_stuff);
     }
-  }
-  int arr_avg_bond[2];
-  arr_avg_bond[0] = Count->MoleculeType;
-  arr_avg_bond[1] = 2; // [0]...bond length, [1]...number of mols
-  int arr_avg_bond_size = arr_avg_bond[0] * arr_avg_bond[1];
-  double *avg_bond = calloc(arr_avg_bond_size, sizeof *avg_bond);
-  //}}}
+  } //}}}
 
   // main loop //{{{
   FILE *fr = OpenFile(in.coor.name, "r");
@@ -176,10 +143,8 @@ int main(int argc, char *argv[]) {
                 // bond lengths
                 double size[2];
                 size[0] = VECTORLENGTH(u);
-                int id = id2D(mol_i->Type, 0, arr_avg_bond);
-                avg_bond[id] += size[0];
-                id = id2D(mol_i->Type, 1, arr_avg_bond);
-                avg_bond[id]++;
+                avg_bond[mol_i->Type][0] += size[0];
+                avg_bond[mol_i->Type][1]++;
                 for (int k = (j + 1); k < mt_i->nBonds; k++) {
                   int idk[2] = {mol_i->Bead[mt_i->Bond[k][0]],
                                 mol_i->Bead[mt_i->Bond[k][1]]};
@@ -191,15 +156,9 @@ int main(int argc, char *argv[]) {
                   }
                   // bond lengths
                   size[1] = VECTORLENGTH(v);
-                  // size[1] = sqrt(SQR(v[0]) + SQR(v[1]) * SQR(v[2]));
                   double scalar = u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
-                  // int id = id3D(mol_i->Type, j, k, arr);
-                  // sum of dot products
-                  dot[mol_i->Type][j][k] += scalar;
                   // sum of cos(\phi)
                   cos_phi[mol_i->Type][j][k] += scalar / (size[0] * size[1]);
-                  // sum of bond lengths
-                  bond[mol_i->Type][j][k] += size[0] * size[1];
                   // count values - easier than figuring out their number
                   count_stuff[mol_i->Type][j][k]++;
                 }
@@ -236,36 +195,26 @@ int main(int argc, char *argv[]) {
       MOLECULETYPE *mt = &System.MoleculeType[i];
       for (int j = 0; j < (mt->nBonds - 1); j++) {
         for (int k = (j + 1); k < mt->nBonds; k++) {
-          // int id = id3D(i, j, k, arr);
           cos_phi[i][j][k] /= count_stuff[i][j][k];
-          dot[i][j][k] /= count_stuff[i][j][k];
-          bond[i][j][k] /= count_stuff[i][j][k];
         }
       }
     }
   } //}}}
 
   // recalculate arrays to be dependent on just distance between bonds //{{{
-  int arr_id_dist[2];
-  arr_id_dist[0] = Count->MoleculeType;
-  arr_id_dist[1] = max_bonds;
-  int arr_id_dist_size = arr_id_dist[0] * arr_id_dist[1];
-  double *cos_phi_dist = calloc(arr_id_dist_size, sizeof *cos_phi_dist),
-         *dot_dist = calloc(arr_id_dist_size, sizeof *dot_dist),
-         *bond_dist = calloc(arr_id_dist_size, sizeof *bond_dist);
-  int *count_stuff_dist = calloc(arr_id_dist_size, sizeof *count_stuff_dist);
+  double **cos_phi_dist = calloc(Count->MoleculeType, sizeof *cos_phi_dist);
+  int **count_stuff_dist = calloc(Count->MoleculeType,
+                                  sizeof *count_stuff_dist);
   for (int i = 0; i < Count->MoleculeType; i++) {
+    cos_phi_dist[i] = calloc(max_bonds, sizeof *cos_phi_dist);
+    count_stuff_dist[i] = calloc(max_bonds, sizeof *count_stuff_dist);
     if (opt->mt[i]) {
       MOLECULETYPE *mt = &System.MoleculeType[i];
       for (int j = 0; j < (mt->nBonds - 1); j++) {
         count = 0;
         for (int k = (j + 1); k < mt->nBonds; k++) {
-          int id2 = id2D(i, k - j - 1, arr_id_dist);
-              // id3 = id3D(i, j, k, arr);
-          cos_phi_dist[id2] += cos_phi[i][j][k];
-          dot_dist[id2] += dot[i][j][k];
-          bond_dist[id2] += bond[i][j][k];
-          count_stuff_dist[id2]++;
+          cos_phi_dist[i][k-j-1] += cos_phi[i][j][k];
+          count_stuff_dist[i][k-j-1]++;
         }
       }
     }
@@ -275,10 +224,7 @@ int main(int argc, char *argv[]) {
     if (opt->mt[i]) {
       MOLECULETYPE *mt = &System.MoleculeType[i];
       for (int j = 0; j < (mt->nBonds - 1); j++) {
-        int id2 = id2D(i, j, arr_id_dist);
-        cos_phi_dist[id2] /= count_stuff_dist[id2];
-        dot_dist[id2] /= count_stuff_dist[id2];
-        bond_dist[id2] /= count_stuff_dist[id2];
+        cos_phi_dist[i][j] /= count_stuff_dist[i][j];
       }
     }
   } //}}}
@@ -294,55 +240,46 @@ int main(int argc, char *argv[]) {
     MOLECULETYPE *mt_i = &System.MoleculeType[i];
     if (opt->mt[i]) {
       count++;
-      fprintf(fw, " (%d) %s molecule:", count, mt_i->Name);
+      fprintf(fw, " (%d) %s", count, mt_i->Name);
     }
   }
   putc('\n', fw); //}}}
   // write data //{{{
-  for (int i = 0; i < arr_id_dist[1]; i++) {
+  for (int i = 0; i < max_bonds; i++) {
     fprintf(fw, "%d", i + 1);
     for (int j = 0; j < Count->MoleculeType; j++) {
-      if (opt->mt[j]) {
-        int id = id2D(j, i, arr_id_dist);
-        fprintf(fw, " %lf %lf", cos_phi_dist[id], dot_dist[id] / bond_dist[id]);
+      if (opt->mt[j] && i < System.MoleculeType[j].nBonds) {
+        fprintf(fw, " %lf", cos_phi_dist[j][i]);
       }
     }
     putc('\n', fw);
   } //}}}
   for (int i = 0; i < Count->MoleculeType; i++) {
     if (opt->mt[i]) {
-      int id1 = id2D(i, 0, arr_avg_bond);
-      int id2 = id2D(i, 1, arr_avg_bond);
-      fprintf(fw, "# average bond length: %lf\n", avg_bond[id1] / avg_bond[id2]);
+      fprintf(fw, "# average bond length: %lf\n",
+              avg_bond[i][0] / avg_bond[i][1]);
     }
   }
   fclose(fw); //}}}
 
   // free memory - to make valgrind happy //{{{
-  FreeSystem(&System);
   free(opt->mt);
   for (int i = 0; i < Count->MoleculeType; i++) {
-    int bonds = System.MoleculeType[i].nBonds;
-    for (int j = 0; j < bonds; j++) {
-      free(dot[i][j]);
+    for (int j = 0; j < max_bonds; j++) {
       free(cos_phi[i][j]);
-      free(bond[i][j]);
       free(count_stuff[i][j]);
     }
-    free(dot[i]);
     free(cos_phi[i]);
-    free(bond[i]);
     free(count_stuff[i]);
+    free(cos_phi_dist[i]);
+    free(count_stuff_dist[i]);
   }
-  free(dot);
   free(cos_phi);
-  free(bond);
   free(count_stuff);
   free(cos_phi_dist);
-  free(dot_dist);
   free(count_stuff_dist);
-  free(bond_dist);
   free(avg_bond);
+  FreeSystem(&System);
   free(opt);
   //}}}
 

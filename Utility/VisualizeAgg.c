@@ -348,16 +348,16 @@ int main(int argc, char *argv[]) {
   // arguments & options before reading system data //{{{
   // <in.coor> - input coordinate (and structure) file
   SYS_FILES in = InitSysFiles;
-  snprintf(in.coor.name, LINE, "%s", argv[++count]);
+  s_strcpy(in.coor.name, argv[++count], LINE);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   }
   // <in.agg> - input agg file
   char in_agg[LINE] = "";
-  snprintf(in_agg, LINE, "%s", argv[++count]);
+  s_strcpy(in_agg, argv[++count], LINE);
   // <output> - output coordinate file
   FILE_TYPE fout;
-  snprintf(fout.name, LINE, "%s", argv[++count]);
+  s_strcpy(fout.name, argv[++count], LINE);
   fout.type = CoordinateFileType(fout.name);
   if (fout.type == LDATA_FILE) {
     err_msg("lammps data file not allowed as output coordinate file");

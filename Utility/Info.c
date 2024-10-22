@@ -72,7 +72,6 @@ int main(int argc, char *argv[]) {
   count = 0; // count arguments
   OPT *opt = opt_create();
   SYS_FILES in = InitSysFiles;
-  // snprintf(in.stru.name, LINE, "%s", argv[++count]);
   s_strcpy(in.stru.name, argv[++count], LINE);
   in.stru.type = StructureFileType(in.stru.name);
 

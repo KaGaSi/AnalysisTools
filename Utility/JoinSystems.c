@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
   SYS_FILES in[2];
   for (int s = 0; s < 2; s++) {
     in[s] = InitSysFiles;
-    snprintf(in[s].coor.name, LINE, "%s", argv[++count]);
+    s_strcpy(in[s].coor.name, argv[++count], LINE);
     if (!InputCoorStruct(argc, argv, &in[s])) {
       exit(1);
     }
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
 
   // <output> - output coordinate file
   FILE_TYPE fout = InitFile;
-  snprintf(fout.name, LINE, "%s", argv[++count]);
+  s_strcpy(fout.name, argv[++count], LINE);
   fout.type = CoordinateFileType(fout.name); //}}}
 
   // options before reading system data //{{{

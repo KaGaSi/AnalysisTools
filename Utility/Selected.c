@@ -59,14 +59,14 @@ int main(int argc, char *argv[]) {
   OPT *opt = opt_create();
   // <input> - input coordinate (and structure) file //{{{
   SYS_FILES in = InitSysFiles;
-  snprintf(in.coor.name, LINE, "%s", argv[++count]);
+  s_strcpy(in.coor.name, argv[++count], LINE);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
 
   // <output> - output coordinate file
   FILE_TYPE fout;
-  snprintf(fout.name, LINE, "%s", argv[++count]);
+  s_strcpy(fout.name, argv[++count], LINE);
   fout.type = CoordinateFileType(fout.name);
 
   // options before reading system data //{{{

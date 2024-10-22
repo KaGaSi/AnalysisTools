@@ -61,9 +61,9 @@ int main ( int argc, char** argv ) {
   OPT *opt = opt_create();
 
   char fin[LINE];
-  snprintf(fin, LINE, "%s", argv[++count]);
+  s_strcpy(fin, argv[++count], LINE);
   char fout[LINE] = "";
-  snprintf(fout, LINE, "%s", argv[++count]);
+  s_strcpy(fout, argv[++count], LINE);
 
   // <column> - column number(s) to analyze
   // TODO: warning if multiple times the same column number
