@@ -195,8 +195,8 @@ static SYSTEM LtrjReadStruct(char file[]) {
   Count->BeadCoor = Count->Bead;
   Count->Unbonded = Count->Bead; // lammpstrj contains no bond information
   Count->UnbondedCoor = Count->Bead;
-  Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
-  Sys.BeadCoor = realloc(Sys.BeadCoor, sizeof *Sys.BeadCoor * Count->Bead);
+  Sys.Bead = s_realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
+  Sys.BeadCoor = s_realloc(Sys.BeadCoor, sizeof *Sys.BeadCoor * Count->Bead);
   // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
   int max_vars = 11, position[max_vars];
   char var[max_vars][10];
@@ -649,8 +649,8 @@ static SYSTEM LmpDataReadStruct(char file[]) { //{{{
   Count->BeadCoor = Count->Bead;
   Count->UnbondedCoor = Count->Unbonded;
   Count->BondedCoor = Count->Bonded;
-  System.BeadCoor = realloc(System.BeadCoor,
-                            Count->Bead * sizeof *System.BeadCoor);
+  System.BeadCoor = s_realloc(System.BeadCoor,
+                              Count->Bead * sizeof *System.BeadCoor);
   int c_unbonded = 0, c_bonded = 0;
   for (int i = 0; i < Count->Bead; i++) {
     System.BeadCoor[i] = i;
@@ -935,13 +935,14 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
         goto error;
       }
       Count->Bead = val;
-      System->Bead = realloc(System->Bead, Count->Bead * sizeof *System->Bead);
+      System->Bead = s_realloc(System->Bead,
+                               Count->Bead * sizeof *System->Bead);
       /* Count->Bead = Count->BeadType as each bead can have different charge,
        * so at first, each bead will be its own type
        */
       Count->BeadType = val;
-      System->BeadType =
-          realloc(System->BeadType, Count->BeadType * sizeof *System->BeadType);
+      System->BeadType = s_realloc(System->BeadType,
+                                   Count->BeadType * sizeof *System->BeadType);
       for (int i = 0; i < Count->Bead; i++) {
         InitBead(&System->Bead[i]);
         InitBeadType(&System->BeadType[i]);
@@ -986,8 +987,8 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
         }
         Count->BondType = val;
         if (Count->BondType > 0) {
-          System->BondType = realloc(
-              System->BondType, Count->BondType * sizeof *System->BondType);
+          System->BondType = s_realloc(System->BondType, Count->BondType *
+                                       sizeof *System->BondType);
           for (int i = 0; i < Count->BondType; i++) {
             System->BondType[i] = InitParams;
           }
@@ -1002,8 +1003,8 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
       }
       Count->AngleType = val;
       if (Count->AngleType > 0) {
-        System->AngleType = realloc(
-            System->AngleType, Count->AngleType * sizeof *System->AngleType);
+        System->AngleType = s_realloc(System->AngleType, Count->AngleType *
+                                      sizeof *System->AngleType);
         for (int i = 0; i < Count->AngleType; i++) {
           System->AngleType[i] = InitParams;
         }
@@ -1017,9 +1018,9 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
       }
       Count->DihedralType = val;
       if (Count->DihedralType > 0) {
-        System->DihedralType =
-            realloc(System->DihedralType,
-                    Count->DihedralType * sizeof *System->DihedralType);
+        System->DihedralType = s_realloc(System->DihedralType,
+                                         Count->DihedralType *
+                                         sizeof *System->DihedralType);
         for (int i = 0; i < Count->DihedralType; i++) {
           System->DihedralType[i] = InitParams;
         }
@@ -1033,9 +1034,9 @@ static int LmpDataReadHeader(FILE *fr, char file[], SYSTEM *System,
       }
       Count->ImproperType = val;
       if (Count->ImproperType > 0) {
-        System->ImproperType =
-            realloc(System->ImproperType,
-                    Count->ImproperType * sizeof *System->ImproperType);
+        System->ImproperType = s_realloc(System->ImproperType,
+                                         Count->ImproperType *
+                                         sizeof *System->ImproperType);
         for (int i = 0; i < Count->ImproperType; i++) {
           System->ImproperType[i] = InitParams;
         }
@@ -1554,7 +1555,7 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
         PrintErrorFileLine(file, *line_count);
         exit(1);
       }
-      resid = 0;
+      resid = -1;
       q = CHARGE;
     } else {
       // 'Atoms # charge': <bead id> <bead type id> <charge> <coordinates>
@@ -1613,10 +1614,10 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
       b->Molecule = resid;
       // resid ids may be discontinuous, so define Molecule for all possible ids
       if (resid > Count->HighestResid) {
-        System->MoleculeType = realloc(System->MoleculeType, (resid + 1) *
-                                       sizeof *System->MoleculeType);
-        System->Molecule = realloc(System->Molecule, (resid + 1) *
-                                   sizeof *System->Molecule);
+        System->MoleculeType = s_realloc(System->MoleculeType, (resid + 1) *
+                                         sizeof *System->MoleculeType);
+        System->Molecule = s_realloc(System->Molecule, (resid + 1) *
+                                     sizeof *System->Molecule);
         for (int j = (Count->HighestResid + 1); j <= resid; j++) {
           InitMoleculeType(&System->MoleculeType[j]);
           InitMolecule(&System->Molecule[j]);
@@ -1643,8 +1644,8 @@ static void LmpDataReadAtoms(FILE *fr, char file[], SYSTEM *System,
       } else { // yes, assign the atom to that type
         int bead = mt_resid->nBeads;
         mt_resid->nBeads++;
-        mt_resid->Bead = realloc(mt_resid->Bead, mt_resid->nBeads *
-                                 sizeof *mt_resid->Bead);
+        mt_resid->Bead = s_realloc(mt_resid->Bead, mt_resid->nBeads *
+                                   sizeof *mt_resid->Bead);
         mt_resid->Bead[bead] = id;
       }
     } else {
@@ -2032,15 +2033,15 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
   // assume there are as many molecules as resids (which start from 0, hence +1)
   Count->Molecule = Count->HighestResid + 1;
   // allocate & initialize structures //{{{
-  Sys.BeadType = realloc(Sys.BeadType, sizeof *Sys.BeadType * Count->Bead);
-  Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
+  Sys.BeadType = s_realloc(Sys.BeadType, sizeof *Sys.BeadType * Count->Bead);
+  Sys.Bead = s_realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
   if (Count->Molecule > 0) {
-    Sys.MoleculeType = realloc(Sys.MoleculeType,
-                               sizeof *Sys.MoleculeType * Count->Molecule);
-    Sys.Molecule = realloc(Sys.Molecule, sizeof *Sys.Molecule *
-                           Count->Molecule);
-    Sys.MoleculeCoor = realloc(Sys.MoleculeCoor,
-                               Count->Molecule * sizeof *Sys.MoleculeCoor);
+    Sys.MoleculeType = s_realloc(Sys.MoleculeType,
+                                 sizeof *Sys.MoleculeType * Count->Molecule);
+    Sys.Molecule = s_realloc(Sys.Molecule, sizeof *Sys.Molecule *
+                             Count->Molecule);
+    Sys.MoleculeCoor = s_realloc(Sys.MoleculeCoor,
+                                 Count->Molecule * sizeof *Sys.MoleculeCoor);
   }
   for (int i = 0; i < Count->Molecule; i++) {
     InitMoleculeType(&Sys.MoleculeType[i]);
@@ -2138,8 +2139,8 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
           } else {                  // not new moleclue type
             int bead = mt_resid->nBeads;
             mt_resid->nBeads++;
-            mt_resid->Bead = realloc(mt_resid->Bead,
-                                     sizeof *mt_resid->Bead * mt_resid->nBeads);
+            mt_resid->Bead = s_realloc(mt_resid->Bead, sizeof *mt_resid->Bead *
+                                       mt_resid->nBeads);
             mt_resid->Bead[bead] = id; // bead type = bead index
             if (value[4] != -1 && strcmp(mt_resid->Name, "m") == 0) {
               strncpy(mt_resid->Name, split[value[4]], MOL_NAME);
@@ -2175,7 +2176,7 @@ static SYSTEM VtfReadStruct(char file[], bool detailed) {
     }
   } //}}}
   fclose(fr);
-  Sys.BeadCoor = realloc(Sys.BeadCoor, Count->Bead * sizeof *Sys.BeadCoor);
+  Sys.BeadCoor = s_realloc(Sys.BeadCoor, Count->Bead * sizeof *Sys.BeadCoor);
   Count->BeadType = Count->Bead;
   Count->MoleculeType = Count->Molecule;
   // assign atom default to default beads & count bonded/unbonded beads //{{{
@@ -2760,9 +2761,9 @@ static SYSTEM FieldRead(char file[]) { //{{{
   FieldReadSpecies(file, &System);
   // fill System.Bead & System.Unbonded //{{{
   if (Count->Unbonded > 0) {
-    System.Bead = realloc(System.Bead, Count->Bead * sizeof *System.Bead);
-    System.Unbonded = realloc(System.Unbonded,
-                              sizeof *System.Unbonded * Count->Unbonded);
+    System.Bead = s_realloc(System.Bead, Count->Bead * sizeof *System.Bead);
+    System.Unbonded = s_realloc(System.Unbonded,
+                                sizeof *System.Unbonded * Count->Unbonded);
     int count = 0;
     for (int i = 0; i < Count->BeadType; i++) {
       for (int j = 0; j < System.BeadType[i].Number; j++) {
@@ -2787,12 +2788,12 @@ static SYSTEM FieldRead(char file[]) { //{{{
     err_msg("No beads in the file");
     PrintWarnFile(file, "\0", "\0");
   } else {
-    System.BeadCoor = realloc(System.BeadCoor,
-                              Count->Bead * sizeof *System.BeadCoor);
+    System.BeadCoor = s_realloc(System.BeadCoor,
+                                Count->Bead * sizeof *System.BeadCoor);
   }
   if (Count->Molecule > 0) {
-    System.MoleculeCoor = realloc(System.MoleculeCoor, Count->Molecule *
-                                  sizeof *System.MoleculeCoor);
+    System.MoleculeCoor = s_realloc(System.MoleculeCoor, Count->Molecule *
+                                    sizeof *System.MoleculeCoor);
   }
   FillSystemNonessentials(&System);
   CheckSystem(System, file);
@@ -2893,8 +2894,9 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
   COUNT *Count = &System->Count;
   Count->MoleculeType = val;
   if (Count->MoleculeType > 0) {
-    System->MoleculeType = realloc(System->MoleculeType,
-                                   sizeof(MOLECULETYPE) * Count->MoleculeType);
+    System->MoleculeType = s_realloc(System->MoleculeType,
+                                     sizeof *System->MoleculeType *
+                                     Count->MoleculeType);
     // read molecule types
     /*
      * Order of entries:
@@ -3005,11 +3007,12 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
       Count->Molecule += mt_i->Number;
       Count->Bead += mt_i->Number * mt_i->nBeads;
       Count->Bonded += mt_i->Number * mt_i->nBeads;
-      System->Molecule = realloc(System->Molecule,
-                                 sizeof *System->Molecule * Count->Molecule);
-      System->Bead = realloc(System->Bead, sizeof *System->Bead * Count->Bead);
-      System->Bonded = realloc(System->Bonded,
-                               sizeof System->Bonded * Count->Bonded);
+      System->Molecule = s_realloc(System->Molecule,
+                                   sizeof *System->Molecule * Count->Molecule);
+      System->Bead = s_realloc(System->Bead,
+                               sizeof *System->Bead * Count->Bead);
+      System->Bonded = s_realloc(System->Bonded,
+                                 sizeof System->Bonded * Count->Bonded);
       for (int j = count; j < Count->Bead; j++) {
         InitBead(&System->Bead[j]);
       }
@@ -3129,8 +3132,8 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
             if (bond_type == -1) {
               bond_type = Count->BondType;
               Count->BondType++;
-              System->BondType = realloc(System->BondType, Count->BondType *
-                                          sizeof *System->BondType);
+              System->BondType = s_realloc(System->BondType, Count->BondType *
+                                           sizeof *System->BondType);
               System->BondType[bond_type] = InitParams;
               System->BondType[bond_type].a = values.a;
               System->BondType[bond_type].b = values.b;
@@ -3238,8 +3241,9 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
             if (angle_type == -1) {
               angle_type = Count->AngleType;
               Count->AngleType++;
-              System->AngleType = realloc(System->AngleType, Count->AngleType *
-                                          sizeof *System->AngleType);
+              System->AngleType = s_realloc(System->AngleType,
+                                            Count->AngleType *
+                                            sizeof *System->AngleType);
               System->AngleType[angle_type] = InitParams;
               System->AngleType[angle_type].a = values.a;
               System->AngleType[angle_type].b = values.b;
@@ -3352,9 +3356,9 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
             if (dihedral_type == -1) {
               dihedral_type = Count->DihedralType;
               Count->DihedralType++;
-              System->DihedralType = realloc(System->DihedralType,
-                                             Count->DihedralType *
-                                             sizeof *System->DihedralType);
+              System->DihedralType = s_realloc(System->DihedralType,
+                                               Count->DihedralType *
+                                               sizeof *System->DihedralType);
               System->DihedralType[dihedral_type] = InitParams;
               System->DihedralType[dihedral_type] = values;
             }
@@ -3464,9 +3468,9 @@ static void FieldReadMolecules(char file[], SYSTEM *System) { //{{{
             if (improper_type == -1) {
               improper_type = Count->ImproperType;
               Count->ImproperType++;
-              System->ImproperType = realloc(System->ImproperType,
-                                             Count->ImproperType *
-                                             sizeof *System->ImproperType);
+              System->ImproperType = s_realloc(System->ImproperType,
+                                               Count->ImproperType *
+                                               sizeof *System->ImproperType);
               System->ImproperType[improper_type] = InitParams;
               System->ImproperType[improper_type] = values;
             }
@@ -3525,8 +3529,8 @@ static SYSTEM XyzReadStruct(char file[]) { //{{{
   Count->BeadCoor = val;
   Count->Unbonded = val;
   Count->UnbondedCoor = val;
-  Sys.Bead = realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
-  Sys.BeadCoor = realloc(Sys.BeadCoor, sizeof *Sys.BeadCoor * Count->Bead);
+  Sys.Bead = s_realloc(Sys.Bead, sizeof *Sys.Bead * Count->Bead);
+  Sys.BeadCoor = s_realloc(Sys.BeadCoor, sizeof *Sys.BeadCoor * Count->Bead);
   // read next line //{{{
   line_count++;
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
@@ -3730,8 +3734,8 @@ static void FillMoleculeTypeBonds(SYSTEM *System, int (*bond)[3], int num) {
     if (bond == 0) { // first bond in a molecule - allocate one memory space
       mt_mol->Bond = malloc(sizeof *mt_mol->Bond);
     } else { // subsequent bonds - add one memory space
-      mt_mol->Bond =
-          realloc(mt_mol->Bond, sizeof *mt_mol->Bond * mt_mol->nBonds);
+      mt_mol->Bond = s_realloc(mt_mol->Bond,
+                               sizeof *mt_mol->Bond * mt_mol->nBonds);
     }
     mt_mol->Bond[bond][0] = id[0];
     mt_mol->Bond[bond][1] = id[1];
@@ -3828,8 +3832,8 @@ static void FillMoleculeTypeAngles(SYSTEM *System, int (*angle)[4], int num) {
     if (angle == 0) {
       mt_mol->Angle = malloc(sizeof *mt_mol->Angle);
     } else {
-      mt_mol->Angle =
-          realloc(mt_mol->Angle, sizeof *mt_mol->Angle * mt_mol->nAngles);
+      mt_mol->Angle = s_realloc(mt_mol->Angle,
+                                sizeof *mt_mol->Angle * mt_mol->nAngles);
     }
     mt_mol->Angle[angle][0] = id[0];
     mt_mol->Angle[angle][1] = id[1];
@@ -3900,8 +3904,8 @@ static void FillMoleculeTypeDihedral(SYSTEM *System, int (*dihedral)[5],
     if (angle == 0) {
       mt_mol->Dihedral = malloc(sizeof *mt_mol->Dihedral);
     } else {
-      mt_mol->Dihedral = realloc(mt_mol->Dihedral,
-                                 sizeof *mt_mol->Dihedral * mt_mol->nDihedrals);
+      mt_mol->Dihedral = s_realloc(mt_mol->Dihedral, sizeof *mt_mol->Dihedral *
+                                   mt_mol->nDihedrals);
     }
     mt_mol->Dihedral[angle][0] = id[0];
     mt_mol->Dihedral[angle][1] = id[1];
@@ -3978,8 +3982,8 @@ static void FillMoleculeTypeImproper(SYSTEM *System, int (*improper)[5],
     if (angle == 0) {
       mt_mol->Improper = malloc(sizeof *mt_mol->Improper);
     } else {
-      mt_mol->Improper = realloc(mt_mol->Improper,
-                                 sizeof *mt_mol->Improper * mt_mol->nImpropers);
+      mt_mol->Improper = s_realloc(mt_mol->Improper, sizeof *mt_mol->Improper *
+                                   mt_mol->nImpropers);
     }
     mt_mol->Improper[angle][0] = id[0];
     mt_mol->Improper[angle][1] = id[1];
