@@ -621,7 +621,7 @@ static void WriteField(SYSTEM System, char file_field[],
   if (box->Volume != -1) {
     fprintf(fw, "%.3f %.3f %.3f ",
             box->Length[0], box->Length[1], box->Length[2]);
-    if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {
+    if (box->alpha != 90 || box->beta != 90 || box->gamma != 0) {
       fprintf(fw, "%lf %lf %lf ", box->alpha, box->beta, box->gamma);
     }
   }
@@ -693,8 +693,8 @@ static void WriteField(SYSTEM System, char file_field[],
       for (int j = 0; j < mt_i->nAngles; j++) {
         // TODO harm only for now
         fprintf(fw, "harm %5d %5d %5d", mt_i->Angle[j][0] + 1,
-                                        mt_i->Angle[j][1] + 1,
-                                        mt_i->Angle[j][2] + 1);
+                mt_i->Angle[j][1] + 1,
+                mt_i->Angle[j][2] + 1);
         int type = mt_i->Angle[j][3];
         if (type != -1) {
           fprintf(fw, " %lf %lf\n", System.AngleType[type].a,
@@ -711,14 +711,14 @@ static void WriteField(SYSTEM System, char file_field[],
       for (int j = 0; j < mt_i->nDihedrals; j++) {
         // TODO harm (lammps) only for now
         fprintf(fw, "harm %5d %5d %5d %5d", mt_i->Dihedral[j][0] + 1,
-                                            mt_i->Dihedral[j][1] + 1,
-                                            mt_i->Dihedral[j][2] + 1,
-                                            mt_i->Dihedral[j][3] + 1);
+                mt_i->Dihedral[j][1] + 1,
+                mt_i->Dihedral[j][2] + 1,
+                mt_i->Dihedral[j][3] + 1);
         int type = mt_i->Dihedral[j][4];
         if (type != -1) {
           fprintf(fw, " %lf %lf %lf\n", System.DihedralType[type].a,
-                                        System.DihedralType[type].b,
-                                        System.DihedralType[type].c);
+                  System.DihedralType[type].b,
+                  System.DihedralType[type].c);
         } else {
           fprintf(fw, " ???\n");
         }
@@ -731,14 +731,14 @@ static void WriteField(SYSTEM System, char file_field[],
       for (int j = 0; j < mt_i->nImpropers; j++) {
         // TODO harm only for now
         fprintf(fw, "cvff %5d %5d %5d %5d", mt_i->Improper[j][0] + 1,
-                                            mt_i->Improper[j][1] + 1,
-                                            mt_i->Improper[j][2] + 1,
-                                            mt_i->Improper[j][3] + 1);
+                mt_i->Improper[j][1] + 1,
+                mt_i->Improper[j][2] + 1,
+                mt_i->Improper[j][3] + 1);
         int type = mt_i->Improper[j][4];
         if (type != -1) {
           fprintf(fw, " %lf %lf %lf\n", System.ImproperType[type].a,
-                                        System.ImproperType[type].b,
-                                        System.ImproperType[type].c);
+                  System.ImproperType[type].b,
+                  System.ImproperType[type].c);
         } else {
           fprintf(fw, " ???\n");
         }
@@ -783,17 +783,17 @@ void WriteOutput(SYSTEM System, const bool write[], FILE_TYPE fw,
     fw.name[strnlen(fw.name, LINE)-2] = 'c';
     fw.type = VCF_FILE;
   } else if (fw.type == VTF_FILE ||
-             fw.type == VSF_FILE ||
-             fw.type == FIELD_FILE ||
-             fw.type == CONFIG_FILE ||
-             fw.type == LDATA_FILE) {
+    fw.type == VSF_FILE ||
+    fw.type == FIELD_FILE ||
+    fw.type == CONFIG_FILE ||
+    fw.type == LDATA_FILE) {
     WriteStructure(fw, System, vsf_def, lmp_mass, argc, argv);
   }
   // write coordinates if the file is of coordinate type
   if (fw.type == VTF_FILE ||
-      fw.type == VCF_FILE ||
-      fw.type == XYZ_FILE ||
-      fw.type == LTRJ_FILE) {
+    fw.type == VCF_FILE ||
+    fw.type == XYZ_FILE ||
+    fw.type == LTRJ_FILE) {
     // ensure it's a new file if the coordinate file is usually appended
     if (fw.type != VTF_FILE) {
       FILE *out = OpenFile(fw.name, "w");
@@ -914,16 +914,14 @@ void WriteAggregates(int step_count, char *agg_file, SYSTEM System,
 void VerboseOutput(SYSTEM System) { //{{{
   PrintCount(System.Count);
   PrintBeadType(System);
+  PrintAllMolTypes(System);
   PrintBondType(System);
   PrintAngleType(System);
   PrintDihedralType(System);
   PrintImproperType(System);
-  PrintAllMolTypes(System);
   if (System.Box.Volume != -1) {
-    putchar('\n');
     PrintBox(System.Box);
   }
-  putchar('\n');
 } //}}}
 void PrintCount(COUNT Count) { //{{{
   bool coor = false;
@@ -1097,9 +1095,12 @@ void PrintOneMolType(SYSTEM System, int n) { //{{{
     count = fprintf(stdout, "  .Bond       = {");
     for (int j = 0; j < mt->nBonds; j++) {
       count += fprintf(stdout, " %d-%d", mt->Bond[j][0] + 1,
-                                         mt->Bond[j][1] + 1);
+                       mt->Bond[j][1] + 1);
       if (mt->Bond[j][2] != -1) {
         count += fprintf(stdout, " (%d)", mt->Bond[j][2] + 1);
+        if (j != (mt->nBonds - 1)) {
+          putchar(',');
+        }
       }
       if (count >= line) {
         count = fprintf(stdout, "\n                 ") - 1;
@@ -1113,10 +1114,13 @@ void PrintOneMolType(SYSTEM System, int n) { //{{{
     count = fprintf(stdout, "  .Angle      = {");
     for (int j = 0; j < mt->nAngles; j++) {
       count += fprintf(stdout, " %d-%d-%d", mt->Angle[j][0] + 1,
-                                            mt->Angle[j][1] + 1,
-                                            mt->Angle[j][2] + 1);
+                       mt->Angle[j][1] + 1,
+                       mt->Angle[j][2] + 1);
       if (mt->Angle[j][3] != -1) {
         count += fprintf(stdout, " (%d)", mt->Angle[j][3] + 1);
+        if (j != (mt->nAngles - 1)) {
+          putchar(',');
+        }
       }
       if (count >= 80) {
         count = fprintf(stdout, "\n                 ") - 1;
@@ -1130,11 +1134,14 @@ void PrintOneMolType(SYSTEM System, int n) { //{{{
     count = fprintf(stdout, "  .Dihedral   = {");
     for (int j = 0; j < mt->nDihedrals; j++) {
       count += fprintf(stdout, " %d-%d-%d-%d", mt->Dihedral[j][0] + 1,
-                                               mt->Dihedral[j][1] + 1,
-                                               mt->Dihedral[j][2] + 1,
-                                               mt->Dihedral[j][3] + 1);
+                       mt->Dihedral[j][1] + 1,
+                       mt->Dihedral[j][2] + 1,
+                       mt->Dihedral[j][3] + 1);
       if (mt->Dihedral[j][4] != -1) {
         count += fprintf(stdout, " (%d)", mt->Dihedral[j][4] + 1);
+        if (j != (mt->nDihedrals - 1)) {
+          putchar(',');
+        }
       }
       if (count >= line) {
         count =fprintf(stdout, "\n                 ") - 1;
@@ -1145,14 +1152,17 @@ void PrintOneMolType(SYSTEM System, int n) { //{{{
   // print impropers if there are any //{{{
   if (mt->nImpropers > 0) {
     fprintf(stdout, "  .nImpropers = %d\n", mt->nImpropers);
-    count = fprintf(stdout, "  .Improper   = { ");
+    count = fprintf(stdout, "  .Improper   = {");
     for (int j = 0; j < mt->nImpropers; j++) {
-      count += fprintf(stdout, "%d-%d-%d-%d", mt->Improper[j][0] + 1,
-                                              mt->Improper[j][1] + 1,
-                                              mt->Improper[j][2] + 1,
-                                              mt->Improper[j][3] + 1);
+      count += fprintf(stdout, " %d-%d-%d-%d", mt->Improper[j][0] + 1,
+                       mt->Improper[j][1] + 1,
+                       mt->Improper[j][2] + 1,
+                       mt->Improper[j][3] + 1);
       if (mt->Improper[j][4] != -1) {
         count += fprintf(stdout, " (%d)", mt->Improper[j][4] + 1);
+        if (j != (mt->nImpropers - 1)) {
+          putchar(',');
+        }
       }
       if (count >= line) {
         count = fprintf(stdout, "\n                 ") - 1;
@@ -1184,6 +1194,9 @@ void PrintOneMolType(SYSTEM System, int n) { //{{{
 void PrintAllMolTypes(SYSTEM System) { //{{{
   for (int i = 0; i < System.Count.MoleculeType; i++) {
     PrintOneMolType(System, i);
+  }
+  if (System.Count.MoleculeType > 0) {
+    putchar('\n');
   }
 } //}}}
 void Print1Molecule(SYSTEM System, int n) { //{{{
@@ -1227,40 +1240,143 @@ void PrintBead(SYSTEM System) { //{{{
 } //}}}
 void PrintBondType(SYSTEM System) { //{{{
   if (System.Count.BondType > 0) {
-    fprintf(stdout, "Bond types\n");
+    // TODO: eventually, there should be more than cvff
+    // find highest value to get proper width //{{{
+    PARAMS high = InitParams;
     for (int i = 0; i < System.Count.BondType; i++) {
       PARAMS *b = &System.BondType[i];
-      fprintf(stdout, "   %lf %lf %lf %lf\n", b->a, b->b, b->c, b->d);
+      if (b->a > high.a) {
+        high.a = b->a;
+      }
+      if (b->b > high.b) {
+        high.b = b->b;
+      }
+      if (b->c > high.c) {
+        high.c = b->c;
+      }
+      if (b->d > high.d) {
+        high.d = b->d;
+      }
+    }
+    int wid[4];
+    wid[0] = snprintf(NULL, 0, "%.5f", high.a);
+    wid[1] = snprintf(NULL, 0, "%.0f", high.b);
+    wid[2] = snprintf(NULL, 0, "%.0f", high.c);
+    wid[3] = snprintf(NULL, 0, "%.0f", high.d);
+    //}}}
+    fprintf(stdout, "Bond types");
+    fprintf(stdout, " (lammps style 'harm')\n");
+    for (int i = 0; i < System.Count.BondType; i++) {
+      PARAMS *b = &System.BondType[i];
+      fprintf(stdout, "  %*.5f %*.5f\n", wid[0], b->a, wid[1], b->b);
     }
     fprintf(stdout, "\n");
   }
 } //}}}
 void PrintAngleType(SYSTEM System) { //{{{
   if (System.Count.AngleType > 0) {
-    fprintf(stdout, "Angle types\n");
+    // TODO: eventually, there should be more than cvff
+    // find highest value to get proper width //{{{
+    PARAMS high = InitParams;
     for (int i = 0; i < System.Count.AngleType; i++) {
       PARAMS *ang = &System.AngleType[i];
-      fprintf(stdout, "   %lf %lf %lf %lf\n", ang->a, ang->b, ang->c, ang->d);
+      if (ang->a > high.a) {
+        high.a = ang->a;
+      }
+      if (ang->b > high.b) {
+        high.b = ang->b;
+      }
+      if (ang->c > high.c) {
+        high.c = ang->c;
+      }
+      if (ang->d > high.d) {
+        high.d = ang->d;
+      }
+    }
+    int wid[4];
+    wid[0] = snprintf(NULL, 0, "%.5f", high.a);
+    wid[1] = snprintf(NULL, 0, "%.0f", high.b);
+    wid[2] = snprintf(NULL, 0, "%.0f", high.c);
+    wid[3] = snprintf(NULL, 0, "%.0f", high.d);
+    //}}}
+    fprintf(stdout, "Angle types");
+    fprintf(stdout, " (lammps style 'harm')\n");
+    for (int i = 0; i < System.Count.AngleType; i++) {
+      PARAMS *ang = &System.AngleType[i];
+      fprintf(stdout, "  %*.5f %*.5f\n", wid[0], ang->a, wid[1], ang->b);
     }
     fprintf(stdout, "\n");
   }
 } //}}}
 void PrintDihedralType(SYSTEM System) { //{{{
   if (System.Count.DihedralType > 0) {
-    fprintf(stdout, "Dihedral types\n");
+    // TODO: eventually, there should be more than harm
+    // find highest value to get proper width //{{{
+    PARAMS high = InitParams;
     for (int i = 0; i < System.Count.DihedralType; i++) {
       PARAMS *dih = &System.DihedralType[i];
-      fprintf(stdout, "   %lf %lf %lf %lf\n", dih->a, dih->b, dih->c, dih->d);
+      if (dih->a > high.a) {
+        high.a = dih->a;
+      }
+      if (dih->b > high.b) {
+        high.b = dih->b;
+      }
+      if (dih->c > high.c) {
+        high.c = dih->c;
+      }
+      if (dih->d > high.d) {
+        high.d = dih->d;
+      }
+    }
+    int wid[4];
+    wid[0] = snprintf(NULL, 0, "%.5f", high.a);
+    wid[1] = snprintf(NULL, 0, "%.0f", high.b);
+    wid[2] = snprintf(NULL, 0, "%.0f", high.c);
+    wid[3] = snprintf(NULL, 0, "%.0f", high.d);
+    //}}}
+    fprintf(stdout, "Dihedral types");
+    // TODO: eventually, there should be more
+    fprintf(stdout, " (lammps style 'harm')\n");
+    for (int i = 0; i < System.Count.DihedralType; i++) {
+      PARAMS *dih = &System.DihedralType[i];
+      fprintf(stdout, "  %*.5f %*.0f %*.0f\n",
+              wid[0], dih->a, wid[1], dih->b, wid[2], dih->c);
     }
     fprintf(stdout, "\n");
   }
 } //}}}
 void PrintImproperType(SYSTEM System) { //{{{
   if (System.Count.ImproperType > 0) {
-    fprintf(stdout, "Improper types\n");
+    // TODO: eventually, there should be more than cvff
+    // find highest value to get proper width //{{{
+    PARAMS high = InitParams;
     for (int i = 0; i < System.Count.ImproperType; i++) {
       PARAMS *imp = &System.ImproperType[i];
-      fprintf(stdout, "   %lf %lf %lf %lf\n", imp->a, imp->b, imp->c, imp->d);
+      if (imp->a > high.a) {
+        high.a = imp->a;
+      }
+      if (imp->b > high.b) {
+        high.b = imp->b;
+      }
+      if (imp->c > high.c) {
+        high.c = imp->c;
+      }
+      if (imp->d > high.d) {
+        high.d = imp->d;
+      }
+    }
+    int wid[4];
+    wid[0] = snprintf(NULL, 0, "%.5f", high.a);
+    wid[1] = snprintf(NULL, 0, "%.0f", high.b);
+    wid[2] = snprintf(NULL, 0, "%.0f", high.c);
+    wid[3] = snprintf(NULL, 0, "%.0f", high.d);
+    //}}}
+    fprintf(stdout, "Improper types");
+    fprintf(stdout, " (lammps style 'cvff')\n");
+    for (int i = 0; i < System.Count.ImproperType; i++) {
+      PARAMS *imp = &System.ImproperType[i];
+      fprintf(stdout, "  %*.5f %*.0f %*.0f\n",
+              wid[0], imp->a, wid[1], imp->b, wid[2], imp->c);
     }
     fprintf(stdout, "\n");
   }
@@ -1273,7 +1389,7 @@ void PrintBox(BOX Box) { //{{{
   }
   fprintf(stdout, "  .Length = ( %lf %lf %lf )\n",
           Box.Length[0], Box.Length[1], Box.Length[2]);
-  if (Box.alpha != 90 || Box.beta != 90 || Box.gamma != 90) {
+  if (Box.alpha != 0 || Box.beta != 90 || Box.gamma != 90) {
     fprintf(stdout, "  .alpha = %lf\n", Box.alpha);
     fprintf(stdout, "  .beta  = %lf\n", Box.beta);
     fprintf(stdout, "  .gamma = %lf\n", Box.gamma);

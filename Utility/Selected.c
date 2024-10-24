@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
   COUNT *Count = &System.Count;
 
   if (opt->join && Count->Molecule == 0) {
-    err_msg("no molecules to join are present");
+    err_msg("no molecules to join");
     PrintWarning();
   }
 
@@ -200,11 +200,9 @@ int main(int argc, char *argv[]) {
      */
     if (opt->n_number == -1) {
       // definitely not use, if --last option is used
-      if (opt->last) {
-        use = false;
-      } else if (UseStep(opt->c, count_coor)) {
+      if (UseStep(opt->c, count_coor)) {
         use = true;
-      } else {
+      } else { // includes --last option
         use = false;
       }
       // -n option is used - save the timestep if it's in the list
