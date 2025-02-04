@@ -81,6 +81,7 @@ int main(int argc, char *argv[]) {
   COUNT *Count = &System.Count;
   BOX *box = &System.Box;
 
+  // TODO: why ExcludeOption()? Just use TypeOption()!
   // '-x' option //{{{
   if (ExcludeOption(argc, argv, &System)) {
     exit(1);

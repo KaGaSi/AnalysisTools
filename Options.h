@@ -16,12 +16,9 @@ void CommonHelp(const bool error, const int n,
 COMMON_OPT CommonOptions(const int argc, char **argv, const SYS_FILES f);
 // exclude specified molecule names (-x <mol name(s)>)
 bool ExcludeOption(const int argc, char **argv, SYSTEM *System);
-// tag which bead types to use (if not present, set to specified value)
-bool BeadTypeOption(const int argc, char **argv, const char *opt,
-                    const bool use, bool *flag, const SYSTEM System);
-// tag which molecule types to use (if not present, set to specified value)
-bool MoleculeTypeOption(const int argc, char **argv, const char *opt,
-                        const bool use, bool *flag, const SYSTEM System);
+// tag bead/molecule types to use
+bool TypeOption(const int argc, char **argv, const char opt[], const int mode,
+                const bool use, bool *flag, const SYSTEM System);
 // general boolean option
 bool BoolOption(const int argc, char **argv, const char *opt);
 // general option with multiple integer/double arguments

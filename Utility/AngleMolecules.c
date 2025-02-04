@@ -132,7 +132,7 @@ int main(int argc, char *argv[]) {
 
   // '-m <name(s)>' option
   opt->mt = calloc(System.Count.MoleculeType, sizeof *opt->mt);
-  if (!MoleculeTypeOption(argc, argv, "-m", true, opt->mt, System)) {
+  if (!TypeOption(argc, argv, "-m", 'm', true, opt->mt, System)) {
     InitBoolArray(opt->mt, Count->MoleculeType, true);
   }
 

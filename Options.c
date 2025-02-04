@@ -1,5 +1,6 @@
 #include "Options.h"
 #include "Errors.h"
+#include "General.h"
 
 // STATIC DECLARATIONs
 static void SilentOption(const int argc, char **argv,
@@ -17,7 +18,7 @@ static void ArgumentMissingErr(const int n, const char *opt);
 int OptionCheck(const int argc, char **argv, const int req, const int common,
                 const int all, const bool check_extra,
                 char opt[all][OPT_LENGTH], ...) {
-  snprintf(argv[0], LINE, "%s", BareCommand(argv[0]));
+  snprintf(argv[0], LINE, "%s", StripPath(argv[0]));
   // copy options to an array
   va_list args;
   va_start(args, opt);
@@ -168,6 +169,7 @@ COMMON_OPT CommonOptions(const int argc, char **argv, const SYS_FILES f) {
   }
   return opt;
 } //}}}
+// TODO: why is this here? Just use TypeOption()!
 // exclude specified molecule names (-x <mol name(s)>) //{{{
 bool ExcludeOption(const int argc, char **argv, SYSTEM *System) {
   // set all molecules to use
@@ -202,27 +204,49 @@ bool ExcludeOption(const int argc, char **argv, SYSTEM *System) {
   }
   return false;
 } //}}}
-// tag bead types with true/false (if missing, set all to opposite) //{{{
-bool BeadTypeOption(const int argc, char **argv, const char opt[],
-                    const bool use, bool *flag, const SYSTEM System) {
+// tag bead/molecule types true/false //{{{
+bool TypeOption(const int argc, char **argv, const char opt[], const int mode,
+                const bool use, bool *flag, const SYSTEM System) {
+  char text[9];
+  if (mode == 'b') {
+    s_strcpy(text, "bead", 9);
+  } else if (mode == 'm') {
+    s_strcpy(text, "molecule", 9);
+  } else {
+    err_msg("TypeOption(): mode must be 'b' or 'm'");
+    PrintError();
+    exit(1);
+  }
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
       int pos = i;
       while (++pos < argc && argv[pos][0] != '-') {
-        int type = FindBeadType(argv[pos], System);
+        int type;
+        if (mode == 'b') {
+          type = FindBeadType(argv[pos], System);
+        } else {
+          type = FindMoleculeName(argv[pos], System);
+        }
         if (type == -1) {
-          if (snprintf(ERROR_MSG, LINE, "non-existent bead name %s%s",
-                       ErrYellow(), argv[pos]) < 0) {
+          if (snprintf(ERROR_MSG, LINE, "non-existent %s name %s%s",
+                       text, ErrYellow(), argv[pos]) < 0) {
             ErrorSnprintf();
           }
           PrintErrorOption(opt);
-          ErrorBeadType(argv[pos], System);
+          if (mode == 'b') {
+            ErrorBeadType(argv[pos], System);
+          } else {
+            ErrorMoleculeType(argv[pos], System);
+          }
           exit(1);
         }
         flag[type] = use;
       }
       if (pos == (i + 1)) {
-        s_strcpy(ERROR_MSG, "at least one bead type is required", LINE);
+        if (snprintf(ERROR_MSG, LINE, "at least one %s type is required",
+                     text) < 0) {
+          ErrorSnprintf();
+        }
         PrintErrorOption(opt);
         exit(1);
       }
@@ -231,35 +255,7 @@ bool BeadTypeOption(const int argc, char **argv, const char opt[],
   }
   return false; // option is not present
 } //}}}
-// tag molecule types with true/false (if missing, set all to opposite) //{{{
-bool MoleculeTypeOption(const int argc, char **argv, const char *opt,
-                        const bool use, bool *flag, const SYSTEM System) {
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], opt) == 0) {
-      int pos = i;
-      while (++pos < argc && argv[pos][0] != '-') {
-        int type = FindMoleculeName(argv[pos], System);
-        if (type == -1) {
-          if (snprintf(ERROR_MSG, LINE, "non-existent molecule name %s%s",
-                       ErrYellow(), argv[pos]) < 0) {
-            ErrorSnprintf();
-          }
-          PrintErrorOption(opt);
-          ErrorMoleculeType(argv[pos], System);
-          exit(1);
-        }
-        flag[type] = use;
-      }
-      if (pos == (i + 1)) {
-        s_strcpy(ERROR_MSG, "at least one molecule type is required", LINE);
-        PrintErrorOption(opt);
-        exit(1);
-      }
-      return true; // option is present
-    }
-  }
-  return false; // option is not present
-} // }}}
+
 // general boolean option //{{{
 bool BoolOption(const int argc, char **argv, const char *opt) {
   for (int i = 1; i < argc; i++) {

@@ -526,18 +526,20 @@ bool InputCoorStruct(const int argc, char **argv, SYS_FILES *f) {
   }
   return true;
 } //}}}
-int StructureFileType(const char *name) { //{{{
+int StructureFileType(const char *path) { //{{{
+  const char *name = StripPath(path);
   int ft = FindFileType(name);
   if (ft == VTF_FILE || ft == VSF_FILE || ft == FIELD_FILE ||
       ft == LDATA_FILE || ft == LTRJ_FILE || ft == XYZ_FILE) {
     return ft;
   } else {
     err_msg("Not a structure file");
-    PrintErrorFile(name, "\0", "\0");
+    PrintErrorFile(path, "\0", "\0");
     exit(1);
   }
 } //}}}
-int CoordinateFileType(const char *name) { //{{{
+int CoordinateFileType(const char *path) { //{{{
+  const char *name = StripPath(path);
   int ft = FindFileType(name);
   if (ft == VTF_FILE ||
       ft == VCF_FILE ||
@@ -548,7 +550,7 @@ int CoordinateFileType(const char *name) { //{{{
     return ft;
   } else {
     err_msg("Not a coordinate file");
-    PrintErrorFile(name, "\0", "\0");
+    PrintErrorFile(path, "\0", "\0");
     exit(1);
   }
 } //}}}
@@ -593,20 +595,6 @@ void LinkedList(const SYSTEM System, int **Head, int **Link,
     long cell = (int)(bead->Position[0] * rl[0]) +
                 (int)(bead->Position[1] * rl[1]) * n_cells[0] +
                 (int)(bead->Position[2] * rl[2]) * n_cells[0] * n_cells[1];
-    // TODO: check the numbers aren't too high (don't go over max int)
-    //       or change int to long?
-    // printf("\n%d %d\n", id, cell);
-    // printf("rl: %lf %lf %lf\n", rl[0], rl[1], rl[2]);
-    // printf("n_cells: %d %d %d\n", n_cells[0], n_cells[1], n_cells[2]);
-    // printf("pos: %lf %lf %lf\n", rl[0] * bead->Position[0],
-    //                              rl[1] * bead->Position[1],
-    //                              rl[2] * bead->Position[2]);
-    // printf("pos: %d %d %d\n", (int)(rl[0] * bead->Position[0]),
-    //                           (int)(rl[1] * bead->Position[1]),
-    //                           (int)(rl[2] * bead->Position[2]));
-    // printf("pos: %d %d %d\n", (int)(rl[0] * bead->Position[0]),
-    //                           (int)(rl[1] * bead->Position[1]) * n_cells[0],
-    //                           (int)(rl[2] * bead->Position[2]) * n_cells[0] * n_cells[1]);
     (*Link)[i] = (*Head)[cell];
     (*Head)[cell] = i;
   }

@@ -125,7 +125,7 @@ bool ReadAndSplitLine(FILE *fr, const int max_str, const char delim[]) { //{{{
   words = SplitLine(max_str, split, line, delim);
   return true;
 } //}}}
-const char * BareCommand(const char cmd[]) { //{{{
+const char * StripPath(const char cmd[]) { //{{{
   // Find the last occurrence of '/' in the path
   const char *command = strrchr(cmd, '/');
   if (command) { // '/' found

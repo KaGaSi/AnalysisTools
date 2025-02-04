@@ -266,12 +266,11 @@ int main(int argc, char *argv[]) {
   // first assume all bead types are saved/excluded based on --reverse option...
   InitBoolArray(write_bt, Count->BeadType, !opt->reverse);
   // ... then adjust if -bt option is present
-  opt->bt = BeadTypeOption(argc, argv, "-bt", opt->reverse, write_bt, System);
+  opt->bt = TypeOption(argc, argv, "-bt", 'b', opt->reverse, write_bt, System);
   // first assume all molecule types are saved/excluded...
   InitBoolArray(write_mt, Count->MoleculeType, !opt->reverse);
   // ... then adjust if -mt option is present
-  opt->mt = MoleculeTypeOption(argc, argv, "-mt", opt->reverse,
-                               write_mt, System);
+  opt->mt = TypeOption(argc, argv, "-mt", 'm', opt->reverse, write_mt, System);
   // array for holding which beads to save/exclude
   bool *write = malloc(Count->Bead * sizeof *write);
   // first assume all are saved/excluded...
@@ -384,7 +383,9 @@ int main(int argc, char *argv[]) {
       ConstrainCoordinates(&System, *opt, write, &write2);
       WrapJoinCoordinates(&System, opt->wrap, opt->join);
       WriteTimestep(fout, System, count_coor, write, argc, argv);
-      if (opt->ca_count[0] > 0 || opt->ca_count[1] > 0 || opt->ca_count[2] > 0) {
+      if (opt->ca_count[0] > 0 ||
+          opt->ca_count[1] > 0 ||
+          opt->ca_count[2] > 0) {
         // restore the original 'write' array
         CopyWrite(Count->Bead, write, write2);
         // free the array alloc'd in ConstrainCoordinates()

@@ -432,7 +432,7 @@ int ReadAggregates(FILE *fr, const char *file, SYSTEM *System,
     return -2;
   }
   long int val;
-  if (words < 1 || !IsNaturalNumber(split[0], &val)) {
+  if (words < 1 || !IsWholeNumber(split[0], &val)) {
     snprintf(ERROR_MSG, LINE,
              "incorrect line with number of aggregates stopping reading %s%s",
              ErrYellow(), file);

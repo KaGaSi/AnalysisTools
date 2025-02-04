@@ -279,7 +279,7 @@ int main(int argc, char *argv[]) {
   opt->bt_number = 0;
   opt->bt = calloc(Count->BeadType, sizeof *opt->bt);
   bool *flag = calloc(Count->BeadType, sizeof *flag);
-  if (BeadTypeOption(argc, argv, "-bt", true, flag, System)) {
+  if (TypeOption(argc, argv, "-bt", 'b', true, flag, System)) {
     for (int i = 0; i < Count->BeadType; i++) {
       if (flag[i]) {
         opt->bt[opt->bt_number] = i;

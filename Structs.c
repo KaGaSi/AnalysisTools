@@ -61,6 +61,8 @@ void InitAggregate(SYSTEM System, AGGREGATE **Aggregate) { //{{{
   COUNT *Count = &System.Count;
   *Aggregate = malloc(Count->Molecule * sizeof **Aggregate);
   for (int i = 0; i < Count->Molecule; i++) {
+    (*Aggregate)[i].nMolecules = 0;
+    (*Aggregate)[i].nBeads = 0;
     (*Aggregate)[i].Molecule = calloc(1, sizeof *Aggregate[i]->Molecule);
     (*Aggregate)[i].Bead = calloc(1, sizeof *Aggregate[i]->Bead);
   }
@@ -69,9 +71,10 @@ void ReInitAggregate(SYSTEM System, AGGREGATE *Aggregate) { //{{{
   COUNT *Count = &System.Count;
   for (int i = 0; i < Count->Molecule; i++) {
     Aggregate[i].nMolecules = 0;
+    Aggregate[i].nBeads = 0;
     Aggregate[i].Molecule = s_realloc(Aggregate[i].Molecule,
-                                      sizeof *Aggregate[i].Molecule);
+                                      1 * sizeof *Aggregate[i].Molecule);
     Aggregate[i].Bead = s_realloc(Aggregate[i].Bead,
-                                  sizeof *Aggregate[i].Bead);
+                                  1 * sizeof *Aggregate[i].Bead);
   }
 } //}}}

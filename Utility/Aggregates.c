@@ -60,11 +60,12 @@ OPT * opt_create(void) {
 } //}}}
 
 // CalculateAggregates() //{{{
+// note the function doesn't fill in Aggregate[].Bead[] as it's not used here
 void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
   double sqdist = Square(opt.distance);
   COUNT *Count = &System->Count;
   Count->Aggregate = 0;
-  // zeroize
+  // zeroize - just pro-forma; is done in (Re)InitAggregate()
   for (int i = 0; i < Count->Molecule; i++) {
     Aggregate[i].nMolecules = 0;
     Aggregate[i].nBeads = 0;
@@ -150,35 +151,6 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
   // sort molecules in aggregates according to ascending ids //{{{
   for (int i = 0; i < System->Count.Aggregate; i++) {
     SortArray(Aggregate[i].Molecule, Aggregate[i].nMolecules, 0, 'i');
-  } //}}}
-
-  // assign bonded beads to Aggregate struct //{{{
-  for (int i = 0; i < System->Count.Aggregate; i++) {
-    AGGREGATE *agg = &Aggregate[i];
-    // go through all molecules in aggregate 'i'
-    for (int j = 0; j < agg->nMolecules; j++) {
-      int mol = agg->Molecule[j];
-      // copy all bead in molecule 'mol' to Aggregate struct
-      int mtype = System->Molecule[mol].Type;
-      agg->nBeads += System->MoleculeType[mtype].nBeads;
-      agg->Bead = s_realloc(agg->Bead, agg->nBeads * sizeof *agg->Bead);
-      for (int k = 0; k < System->MoleculeType[mtype].nBeads; k++) {
-        int beads = agg->nBeads - System->MoleculeType[mtype].nBeads + k;
-        agg->Bead[beads] = System->Molecule[mol].Bead[k];
-      }
-    }
-  } //}}}
-
-  // assign aggregate id to every bonded bead in the aggregate //{{{
-  for (int i = 0; i < System->Count.Aggregate; i++) {
-    for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-      int mol = Aggregate[i].Molecule[j];
-      int mtype = System->Molecule[mol].Type;
-      for (int k = 0; k < System->MoleculeType[mtype].nBeads; k++) {
-        int id = System->Molecule[mol].Bead[k];
-        System->Bead[id].Aggregate = i;
-      }
-    }
   } //}}}
 
   SortAggStruct(Aggregate, *System);
@@ -434,8 +406,8 @@ int main(int argc, char *argv[]) {
       break;
     }
   }
-  PrintLastStep(count_coor, count_used, opt->c.silent); //}}}
   fclose(fr);
+  PrintLastStep(count_coor, count_used, opt->c.silent); //}}}
 
   // print last step number to <output.agg>
   // open output .agg file for appending

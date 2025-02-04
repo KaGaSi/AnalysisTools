@@ -2359,7 +2359,6 @@ void ChangeMolecules(SYSTEM *S_orig, SYSTEM S_add, bool name) {
   for (int i = 0; i < C_orig->MoleculeType; i++) { //{{{
     MOLECULETYPE *mt_orig = &S_orig->MoleculeType[i];
     int type = FindMoleculeType(*S_orig, *mt_orig, S_add, 2, name);
-    printf(" %s %d\n", mt_orig->Name, type);
     // PrintAllMolTypes(*S_orig);
     // PrintAllMolTypes(S_add);
     if (type != -1) {

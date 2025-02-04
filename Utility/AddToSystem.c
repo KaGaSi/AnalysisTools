@@ -381,7 +381,7 @@ int main(int argc, char *argv[]) {
   if (!opt->add) {
     opt->sw_type = calloc(C_orig->BeadType, sizeof *opt->sw_type);
     // if -xb option not present, take the most numerous bead type
-    if (!BeadTypeOption(argc, argv, "-xb", true, opt->sw_type, S_orig)) {
+    if (!TypeOption(argc, argv, "-xb", 'b', true, opt->sw_type, S_orig)) {
       count = 0;
       int bt = 0;
       for (int i = 0; i < C_orig->BeadType; i++) {
@@ -400,7 +400,7 @@ int main(int argc, char *argv[]) {
   if (!opt->new) {
     opt->bt_use_orig = calloc(C_orig->BeadType, sizeof *opt->bt_use_orig);
     opt->bonded = BoolOption(argc, argv, "--bonded");
-    BeadTypeOption(argc, argv, "-bt", true, opt->bt_use_orig, S_orig);
+    TypeOption(argc, argv, "-bt", 'b', true, opt->bt_use_orig, S_orig);
   } //}}}
 
   // seed random number generator //{{{

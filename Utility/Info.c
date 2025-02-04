@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
 
   // -def option (for vsf output file) //{{{
   bool *def_type = calloc(Count->BeadType, sizeof *def_type);
-  BeadTypeOption(argc, argv, "-def", false, def_type, System);
+  TypeOption(argc, argv, "-def", 'b', false, def_type, System);
   opt->vsf_def = -1;
   for (int i = 0; i < Count->BeadType; i++) {
     if (def_type[i]) {

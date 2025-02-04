@@ -99,12 +99,12 @@ int main(int argc, char *argv[]) {
   } //}}}
   // '-m' option //{{{
   bool *mtype_As = calloc(Count->MoleculeType, sizeof *mtype_As);
-  if (!MoleculeTypeOption(argc, argv, "-m", true, mtype_As, System)) {
+  if (!TypeOption(argc, argv, "-m", 'm', true, mtype_As, System)) {
     InitBoolArray(mtype_As, Count->MoleculeType, true);
   } //}}}
   // '-only' option //{{{
   bool *mtype_only_opt = calloc(Count->MoleculeType, sizeof *mtype_only_opt);
-  if (!MoleculeTypeOption(argc, argv, "-only", true, mtype_only_opt, System)) {
+  if (!TypeOption(argc, argv, "-only", 'm', true, mtype_only_opt, System)) {
     InitBoolArray(mtype_only_opt, Count->MoleculeType, true);
   } //}}}
   // error - molecules specified by -m and -only do not overlap //{{{
@@ -123,7 +123,7 @@ int main(int argc, char *argv[]) {
   } //}}}
   // '-x' option //{{{
   bool *mtype_x_opt = calloc(Count->MoleculeType, sizeof *mtype_x_opt);
-  MoleculeTypeOption(argc, argv, "-x", true, mtype_x_opt, System); //}}}
+  TypeOption(argc, argv, "-x", 'm', true, mtype_x_opt, System); //}}}
   // error - molecules specified by -only and -x must differ //{{{
   overlap = true; // do the two array fully overlap?
   for (int i = 0; i < Count->MoleculeType; i++) {
@@ -403,7 +403,7 @@ int main(int argc, char *argv[]) {
           fprintf(fw, " %10.5f", 0.0);
         }
       }
-      fprintf(fw, " %5d", aggs_step); // number of aggregates in the step
+      fprintf(fw, " %10d", aggs_step); // number of aggregates in the step
       // numbers of species
       putc('\n', fw);
       fclose(fw); //}}}
@@ -474,7 +474,7 @@ int main(int argc, char *argv[]) {
       fprintf(fw, " %lf", (double)(ndistr[i]) / ndistr_norm);
       fprintf(fw, " %lf", (double)(wdistr[i][0]) / wdistr_norm[0]);
       fprintf(fw, " %lf", (double)(zdistr[i][0]) / zdistr_norm[0]);
-      fprintf(fw, " %6d", count_agg[i]); // number of aggregates
+      fprintf(fw, " %10d", count_agg[i]); // number of aggregates
       // print average number of molecule types in aggregates
       for (int j = 0; j < Count->MoleculeType; j++) {
         fprintf(fw, " %10.5f", (double)(molecules_sum[i][j])/count_agg[i]);
