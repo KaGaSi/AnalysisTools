@@ -1,5 +1,4 @@
 #include "../AnalysisTools.h"
-#include <stdio.h>
 
 // Help() //{{{
 void Help(const char cmd[50], const bool error,
@@ -23,8 +22,8 @@ conditions can be either stripped away or applied (which happens first if both \
   fprintf(ptr, "[options]\n");
   fprintf(ptr, "  -bt <bead type>   bead types to exclude\n");
   fprintf(ptr, "  -mt <mol type>    molecule types to exclude\n");
-  fprintf(ptr, "  --reverse         reverse <bead name(s)>, i.e., save the"
-          " specified bead types (-bt and/or -mt is needed)\n");
+  fprintf(ptr, "  --keep            save only the specified types "
+          " instead of excluding them");
   fprintf(ptr, "  --join            join molecules (remove pbc)\n");
   fprintf(ptr, "  --wrap            wrap coordinates (i.e., apply pbc)\n");
   fprintf(ptr, "  -n <int(s)>       save only specified timesteps"
@@ -95,9 +94,11 @@ static void ConstrainCoordinates(SYSTEM *System, const OPT opt,
   }
   // recalculate constraints if --real was not used
   double con[3][100];
+  bool init[3] = {true, true, true};
   for (int dd = 0; dd < 3; dd++) {
     for (int i = 0; i < opt.ca_count[dd]; i++) {
       con[dd][i] = opt.ca[dd][i];
+      init[dd] = false;
       if (!opt.real) {
         con[dd][i] *= System->Box.Length[dd];
       }
@@ -117,24 +118,40 @@ static void ConstrainCoordinates(SYSTEM *System, const OPT opt,
     }
     // check -cx/-cy/-cz constraint
     double (*pos)[3] = &System->Bead[id].Position;
-    bool save[3] = {true, true, true};
+    bool save[3] = {init[0], init[1], init[2]};
     for (int dd = 0; dd < 3; dd++) {
       for (int j = 0; j < opt.ca_count[dd]; j+=2) {
-        if ((*pos)[dd] <= con[dd][j] || (*pos)[dd] >= con[dd][j+1]) {
-          save[dd] = false;
+        if ((*pos)[dd] >= con[dd][j] && (*pos)[dd] <= con[dd][j+1]) {
+          save[dd] = true;
           break;
         }
       }
-      if (!save[dd]) {
-        break;
-      }
     }
+    // printf("%d %d %d\n", save[0], save[1], save[2]);
     // if at least one axis constraint isn't met, don't save the bead
     if (!save[0] || !save[1] || !save[2]) {
       write_new[id] = false;
     }
   }
 } //}}}
+// make all the alterations and saves into one function
+void TransformAndSave(SYSTEM *System, const OPT opt, FILE_TYPE f, bool write[],
+                      const int count_coor, const int argc, char *argv[]) {
+  bool *write2 = NULL; // used in case of -cx/-cy/-cz constraints
+  ConstrainCoordinates(System, opt, write, &write2);
+  ScaleCoordinates(System, opt.scale);
+  MoveCoordinates(System, opt.move);
+  WrapJoinCoordinates(System, opt.wrap, opt.join);
+  WriteTimestep(f, *System, count_coor, write, argc, argv);
+  if (opt.ca_count[0] > 0 ||
+      opt.ca_count[1] > 0 ||
+      opt.ca_count[2] > 0) {
+    // restore the original 'write' array
+    CopyWrite(System->Count.Bead, write, write2);
+    // free the array alloc'd in ConstrainCoordinates()
+    free(write2);
+  }
+}
 
 int main(int argc, char *argv[]) {
 
@@ -144,7 +161,7 @@ int main(int argc, char *argv[]) {
   char option[all][OPT_LENGTH];
   OptionCheck(argc, argv, req_arg, common, all, true, option,
               "-st", "-e", "-sk", "-i", "--verbose", "--silent", "--help",
-              "--version", "-bt", "-mt", "--reverse", "--join", "--wrap", "-n",
+              "--version", "-bt", "-mt", "--keep", "--join", "--wrap", "-n",
               "--last", "-sc", "-m", "-cx", "-cy", "-cz", "--real");
 
   count = 0; // count mandatory arguments
@@ -170,12 +187,14 @@ int main(int argc, char *argv[]) {
   if (!OneNumberOption(argc, argv, "-sc", &opt->scale, 'd')) {
     opt->scale = 1;
   }
+  opt->real = BoolOption(argc, argv, "--real");
   if (!ThreeNumbersOption(argc, argv, "-m", opt->move, 'd')) {
     for (int dd = 0; dd < 3; dd++) {
       opt->move[dd] = 0;
     }
+  } else if (opt->real) {
+
   }
-  opt->real = BoolOption(argc, argv, "--real");
   // constraints (-cx/-cy/-cz) //{{{
   for (int dd = 0; dd < 3; dd++) {
     char option[10];
@@ -245,6 +264,11 @@ int main(int argc, char *argv[]) {
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
+  if (!opt->real) {
+    for (int dd = 0; dd < 3; dd++) {
+      opt->move[dd] *= System.Box.Length[dd];
+    }
+  }
 
   if (opt->join && Count->Molecule == 0) {
     err_msg("no molecules to join");
@@ -377,20 +401,7 @@ int main(int argc, char *argv[]) {
         break;
       }
       count_saved++;
-      ScaleCoordinates(&System, opt->scale);
-      MoveCoordinates(&System, opt->move);
-      bool *write2 = NULL; // used in case of -cx/-cy/-cz constraints
-      ConstrainCoordinates(&System, *opt, write, &write2);
-      WrapJoinCoordinates(&System, opt->wrap, opt->join);
-      WriteTimestep(fout, System, count_coor, write, argc, argv);
-      if (opt->ca_count[0] > 0 ||
-          opt->ca_count[1] > 0 ||
-          opt->ca_count[2] > 0) {
-        // restore the original 'write' array
-        CopyWrite(Count->Bead, write, write2);
-        // free the array alloc'd in ConstrainCoordinates()
-        free(write2);
-      }
+      TransformAndSave(&System, *opt, fout, write, count_coor, argc, argv);
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
       if (!SkipTimestep(in, fr, &line_count)) {
@@ -423,9 +434,7 @@ int main(int argc, char *argv[]) {
       fsetpos(fr, &position[i]);
       line_count = bkp_line_count[i];
       if (ReadTimestep(in, fr, &System, &line_count)) {
-        ScaleCoordinates(&System, opt->scale);
-        WrapJoinCoordinates(&System, opt->wrap, opt->join);
-        WriteTimestep(fout, System, count_coor, write, argc, argv);
+        TransformAndSave(&System, *opt, fout, write, count_coor, argc, argv);
         if (!opt->c.silent) {
           if (isatty(STDOUT_FILENO)) {
             fprintf(stdout, "\r                          \r");

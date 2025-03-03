@@ -1,0 +1,22 @@
+% myarrows.tex
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, calc}
+
+% new command for drawing the arrow
+\newcommand{\myarrow}[7]{%
+  \path (#1) -- (#6) coordinate[midway] (start);
+  \draw[line width=0.8pt, draw=#7, fill=#7]
+    (start) --
+    ++(0.5*#2-0.5*#5,0) --
+    ++(0,+#4) --
+    ++(#5,-#3-#4) --
+    ++(-#5,-#3-#4) --
+    ++(0,+#4) --
+    ++(-#2,0) --
+    ++(0,2*#3) --
+    (start);
+}
+% simpler arrow command - just {start}{length}{end}
+\newcommand{\inlinearrow}[3]{%
+  \myarrow{#1}{#2}{0.05cm}{0.1cm}{0.3cm}{#3}{red!50!blue!50!white}
+}
