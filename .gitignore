@@ -1,8 +1,12 @@
+.ltex
+TODO
 test*
-build
+build*
 doc
+docs/doxygen
+docs/_build
 cscope*
-OneTime
+Testing
 tags
 *aux
 *latexmk
@@ -12,5 +16,9 @@ tags
 *toc
 *out
 *xmp*
-*bkp
-.ccls*
+.ccls-cache
+*json
+*bkp*
+.gdb_history
+.cache
+profile
