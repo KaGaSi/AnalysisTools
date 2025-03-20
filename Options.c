@@ -1,506 +1,458 @@
 #include "Options.h"
+#include "Errors.h"
+#include "General.h"
 
-// CommonHelp() //{{{
-/**
- * Function to print help for common options, either for `-h` help option
- * or program error.
- */
-void CommonHelp(bool error) {
+// STATIC DECLARATIONs
+static void SilentOption(const int argc, char **argv,
+                         bool *verbose, bool *silent);
+static bool VersionOption(const int argc, char **argv);
+// some repeated warnings/errors
+static void MissingFilenameError(const int argc, char **argv,
+                                 const char *opt, const int i);
+static bool TooManyArgsWarn(const int max, const int n,
+                            const char *opt, int *count);
+static void ArgumentNumberErr(const int count, const int n, const char *opt);
+static void ArgumentMissingErr(const int n, const char *opt);
+
+// version/help printing and initial check of provided options //{{{
+int OptionCheck(const int argc, char **argv, const int req, const int common,
+                const int all, const bool check_extra,
+                char opt[all][OPT_LENGTH], ...) {
+  snprintf(argv[0], LINE, "%s", StripPath(argv[0]));
+  // copy options to an array
+  va_list args;
+  va_start(args, opt);
+  // Loop through the variable arguments, copy each string
+  for (int i = 0; i < all; i++) {
+    const char *src = va_arg(args, const char *);
+    s_strcpy(opt[i], src, OPT_LENGTH);
+  }
+  va_end(args);
+  // --version option?
+  if (VersionOption(argc, argv)) {
+    exit(0);
+  }
+  // --help option?
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "--help") == 0) {
+      Help(argv[0], false, common, opt);
+      exit(0);
+    }
+  }
+  // correct number of mandatory options?
+  int count = 0;
+  while ((count + 1) < argc &&
+         // there may be '-' as a mandatory argument
+         (argv[count+1][0] != '-' || strnlen(argv[count+1], LINE) == 1)) {
+    count++;
+  }
+  if (count < req) {
+    ErrorArgNumber(count, req);
+    PrintCommand(stderr, argc, argv);
+    Help(argv[0], true, common, opt);
+    exit(1);
+  }
+  // all options exist?
+  for (int i = (count+1); i < argc; i++) {
+    bool valid = false;
+    for (int j = 0; j < all; j++) {
+      double value;
+      if (argv[i][0] != '-' || // assumes an argument to some option
+          IsRealNumber(argv[i], &value) || // assumes negative numeric argument
+          strcmp(argv[i], opt[j]) == 0) { // an option
+        valid = true;
+        break;
+      }
+    }
+    if (!valid) {
+      ErrorOption(argv[i]);
+      PrintCommand(stderr, argc, argv);
+      Help(argv[0], true, common, opt);
+      exit(1);
+    }
+  }
+  // warn if extra arguments (between required ones and options)
+  if (check_extra && req != count) {
+    char extra[LINE] = "\0";
+    for (int i = (req + 1); i <= count; i++) {
+      char cpy[LINE];
+      s_strcpy(cpy, extra, LINE);
+      if (snprintf(extra, LINE, "%s %s", cpy, argv[i]) < 0) {
+        ErrorSnprintf();
+      }
+    }
+    if (snprintf(ERROR_MSG, LINE, "command line arguments%s%s%s have no effect",
+                 ErrYellow(), extra, ErrCyan()) < 0) {
+      ErrorSnprintf();
+    }
+    PrintWarning();
+  }
+  return count;
+} //}}}
+// print help for common options //{{{
+void CommonHelp(const bool error, const int n,
+                const char option[n][OPT_LENGTH]) {
   FILE *ptr;
   if (error) {
     ptr = stderr;
   } else {
     ptr = stdout;
   }
-
-  fprintf(ptr, "   <standard options>\n");
-  fprintf(ptr, "      -i <name>      use input .vsf file different from traject.vsf\n");
-//fprintf(ptr, "      -b <name>      file containing bond alternatives to FIELD\n");
-  fprintf(ptr, "      -v             verbose output\n");
-  fprintf(ptr, "      --silent       no output (overrides verbose option)\n");
-  fprintf(ptr, "      -h             print this help and exit\n");
-  fprintf(ptr, "      --script       no progress output (useful if output is routed to a file)\n");
-  fprintf(ptr, "      --version      print version number and exit\n");
+  for (int i = 0; i < n; i++) {
+    if (strcmp(option[i], "-i") == 0) {
+      fprintf(ptr, "  -i <name>         input structure file if different "
+                   "than the coordinate file\n");
+    } else if (strcmp(option[i], "-st") == 0) {
+      fprintf(ptr, "  -st <int>         starting timestep for calculation\n");
+    } else if (strcmp(option[i], "-e") == 0) {
+      fprintf(ptr, "  -e <end>          ending timestep for calculation\n");
+    } else if (strcmp(option[i], "-sk") == 0) {
+      fprintf(ptr, "  -sk <int>         leave out every 'skip' steps\n");
+    } else if (strcmp(option[i], "--variable") == 0) {
+      fprintf(ptr, "  --variable        vtf coordinate file with indexed "
+              "timesteps with varying number of beads\n");
+    } else if (strcmp(option[i], "-ltrj") == 0) {
+      fprintf(ptr, "  -ltrj <int>       does lammpstrj ids go from 0 or 1?\n");
+    } else if (strcmp(option[i], "--verbose") == 0) {
+      fprintf(ptr, "  --verbose         verbose output\n");
+    } else if (strcmp(option[i], "--silent") == 0) {
+      fprintf(ptr, "  --silent          no output (overrides --verbose)\n");
+    } else if (strcmp(option[i], "--help") == 0) {
+      fprintf(ptr, "  --help            print this help and exit\n");
+    } else if (strcmp(option[i], "--version") == 0) {
+      fprintf(ptr, "  --version         print version number and exit\n");
+    } else {
+      snprintf(ERROR_MSG, LINE, "unknown common option %s%s%s!", ErrYellow(),
+               option[i], ErrRed());
+      PrintError();
+      exit(1);
+    }
+  }
 } //}}}
-
-// CommonOptions() //{{{
-/**
- * Function for options common to most of the utilities.
- */
-// TODO: copy vsf_file to old_name; then if vsf_file[0] == '\0', copy old_name back to vsf_file
-void CommonOptions(int argc, char **argv, char **vsf_file,
-                   bool *verbose, bool *silent, bool *script) {
-
-  // -i <name> option - filename of input structure file //{{{
-  // save provided file name
-  char old_name[LINE];
-  strcpy(old_name, *vsf_file);
-  // test if '-i' option is there
-  if (FileOption(argc, argv, "-i", vsf_file)) {
-    exit(1);
-  }
-  // copy back the old name if '-i' option is not present
-  if (*vsf_file[0] == '\0') {
-    strcpy(*vsf_file, old_name);
-  }
-  // test if structure file ends with '.vsf' or '.vtf'
-  int ext = 2;
-  char extension[2][5];
-  strcpy(extension[0], ".vsf");
-  strcpy(extension[1], ".vtf");
-  if (ErrorExtension(*vsf_file, ext, extension)) {
-    Help(argv[0], true);
-    exit(1);
-  } //}}}
+// detect options common for most utilities //{{{
+COMMON_OPT CommonOptions(const int argc, char **argv, const SYS_FILES f) {
+  COMMON_OPT opt;
+  opt.start = -1;
+  opt.end = -1;
+  opt.skip = 0;
   // -v option - verbose output
-  *verbose = BoolOption(argc, argv, "-v");
+  opt.verbose = BoolOption(argc, argv, "--verbose");
   // --silent option - silent mode
-  SilentOption(argc, argv, verbose, silent);
-  // --script - meant for when output is routed to file, so don't use flush & \r
-  *script = BoolOption(argc, argv, "--script"); // do not use \r & co.
-} //}}}
-
-// SilentOption() //{{{
-/**
- * Option to not print anything to stdout (or at least no system
- * definitions and no Step: #). Overrides verbose option. Argument: `--silent`
- */
-void SilentOption(int argc, char **argv, bool *verbose, bool *silent) {
-
-  *silent = false;
-
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "--silent") == 0) {
-      *verbose = false;
-      *silent = true;
-
-      break;
+  SilentOption(argc, argv, &opt.verbose, &opt.silent);
+  // starting/ending timestep
+  if (OneNumberOption(argc, argv, "-st", &opt.start, 'i')) {
+    if (opt.start <= 0) {
+      s_strcpy(ERROR_MSG, "positive number required", LINE);
+      PrintErrorOption("-st");
+      exit(1);
     }
+  } else {
+    opt.start = 1;
   }
-} //}}}
-
-// VersionOption() //{{{
-/**
- * Option to print version number of the program suite.
- */
-bool VersionOption(int argc, char **argv) {
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "--version") == 0) {
-      fprintf(stdout, "AnalysisTools by Karel Šindelka (KaGaSi), version %s", VERSION);
-      fprintf(stdout, " (released %s)\n", DATE);
-      fprintf(stdout, "Download at https://github.com/KaGaSi/AnalysisTools/releases/tag/v%s\n", VERSION);
-      return true;
-    }
+  if (OneNumberOption(argc, argv, "-e", &opt.end, 'i') && opt.end <= 0) {
+    s_strcpy(ERROR_MSG, "positive number required", LINE);
+    PrintErrorOption("-e");
+    exit(1);
   }
-
-  return false;
+  ErrorStartEnd(opt.start, opt.end);
+  // number of timesteps to skip per one used
+  if (OneNumberOption(argc, argv, "-sk", &opt.skip, 'i') && opt.skip <= 0) {
+    s_strcpy(ERROR_MSG, "positive number required", LINE);
+    PrintErrorOption("-sk");
+    exit(1);
+  }
+  opt.skip++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
+  if (f.coor.type == LDATA_FILE) {
+    opt.start = 1;
+    opt.skip = 1;
+    opt.end = 1;
+  }
+  return opt;
 } //}}}
-
-// ExcludeOption() //{{{
-/**
- * Option to exclude specified molecule types from calculations. Gives
- * specified molecule types `Use = false` and the rest `Use = true`.
- * Arguments: `-x <name(s)>`
- */
-bool ExcludeOption(int argc, char **argv, COUNTS Counts,
-                   MOLECULETYPE **MoleculeType) {
-
-  // set all molecules to use //{{{
-  for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-    (*MoleculeType)[i].Use = true;
-  } //}}}
+// TODO: why is this here? Just use TypeOption()!
+// exclude specified molecule names (-x <mol name(s)>) //{{{
+bool ExcludeOption(const int argc, char **argv, SYSTEM *System) {
+  // set all molecules to use
+  for (int i = 0; i < System->Count.MoleculeType; i++) {
+    System->MoleculeType[i].Flag = true;
+  }
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-x") == 0) {
       // wrong argument to -x option //{{{
       if ((i+1) >= argc || argv[i+1][0] == '-') {
-        fprintf(stderr, "Missing an argument to '-x' option ");
-        fprintf(stderr, "(or molecule name beginning with a dash)!\n");
+        s_strcpy(ERROR_MSG, "missing an argument "
+                 "(or molecule name beginning with a dash)", LINE);
+        PrintErrorOption("-x");
         exit(1);
       } //}}}
       // read molecule(s) names
       int j = 0;
       while ((i+1+j) < argc && argv[i+1+j][0] != '-') {
-        int type = FindMoleculeType(argv[i+1+j], Counts, *MoleculeType);
+        int type = FindMoleculeName(argv[i+1+j], *System);
         if (type == -1) { // is it in vsf?
-          fprintf(stderr, "\033[1;31m");
-          fprintf(stderr, "Error: non-existent molecule \033[1;33m%s\033[1;31m\n", argv[i+1+j]);
-          ErrorMoleculeType(Counts, *MoleculeType);
-          return(true);
+          snprintf(ERROR_MSG, LINE, "non-existent molecule %s%s",
+                   ErrYellow(), argv[i+1+j]);
+          PrintErrorOption("-x");
+          return true;
         } else {
           // exclude that molecule
-          (*MoleculeType)[type].Use = false;
+          System->MoleculeType[type].Flag = false;
         }
         j++;
       }
     }
   }
-
-  return(false);
+  return false;
 } //}}}
-
-// JoinCoorOption() //{{{
-/**
- * Option whether to join aggregates and save joined coordinates into a
- * specified file. Arguments: `-j <joined.vcf>`
- */
-bool JoinCoorOption(int argc, char **argv, char *joined_vcf) {
-
-  joined_vcf[0] = '\0'; // no -j option
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "-j") == 0) {
-      // wrong argument to -j option //{{{
-      if ((i+1) >= argc || argv[i+1][0] == '-') {
-        fprintf(stderr, "Missing argument to '-j' option ");
-        fprintf(stderr, "(or filename beginning with a dash)!\n");
-        return(true);
-      } //}}}
-      strcpy(joined_vcf, argv[i+1]);
-      // test if <joined.vcf> filename ends with '.vcf' (required by VMD) //{{{
-      char *dot = strrchr(joined_vcf, '.');
-      if (!dot || (strcmp(dot, ".vcf") && strcmp(dot, ".vtf"))) {
-        fprintf(stderr, "\033[1;31m");
-        fprintf(stderr, "\nError: \033[1;33m%s\033[1;31m does not have .vcf ending!\n", joined_vcf);
-        fprintf(stderr, "\033[0m");
-        return(true);
-      } //}}}
-    }
+// tag bead/molecule types true/false //{{{
+bool TypeOption(const int argc, char **argv, const char opt[], const int mode,
+                const bool use, bool *flag, const SYSTEM System) {
+  char text[9];
+  if (mode == 'b') {
+    s_strcpy(text, "bead", 9);
+  } else if (mode == 'm') {
+    s_strcpy(text, "molecule", 9);
+  } else {
+    err_msg("TypeOption(): mode must be 'b' or 'm'");
+    PrintError();
+    exit(1);
   }
-
-  return(false);
-} //}}}
-
-// BeadTypeOption() //{{{
-/**
- * Option to choose which bead types to use for calculation. If the option
- * is absent, all bead types are switched to `Use = true`. Argument: `-bt
- * <name(s)>`
- */
-bool BeadTypeOption(int argc, char **argv, char *opt, bool use,
-                    COUNTS Counts, BEADTYPE **BeadType) {
-
-  // specify what bead types to use - either specified by '-bt' option or all
-  int types = -1;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
-      types = i; // positon of the '-bt' argument in command
-      // <type names> - names of bead types to save
-      while (++types < argc && argv[types][0] != '-') {
-        int type = FindBeadType(argv[types], Counts, *BeadType);
+      int pos = i;
+      while (++pos < argc && argv[pos][0] != '-') {
+        int type;
+        if (mode == 'b') {
+          type = FindBeadType(argv[pos], System);
+        } else {
+          type = FindMoleculeName(argv[pos], System);
+        }
         if (type == -1) {
-          fprintf(stderr, "Bead type '%s' does not exist in structure file ('%s' option)!\n", argv[types], opt);
-          return(true);
+          err_msg("non-existent name");
+          PrintErrorOption(opt);
+          if (mode == 'b') {
+            ErrorBeadType(argv[pos], System);
+          } else {
+            ErrorMoleculeType(argv[pos], System);
+          }
+          exit(1);
         }
-
-        (*BeadType)[type].Use = true;
+        flag[type] = use;
       }
-    }
-  }
-  if (types == -1) {
-    for (int i = 0; i < Counts.TypesOfBeads; i++) {
-      (*BeadType)[i].Use = use;
-    }
-  }
-
-  return(false);
-} // }}}
-
-// BoolOption() //{{{
-/**
- * Function for any boolean option (i.e. without argument). The option
- * (e.g. `--script`) is an argument of this function.
- */
-bool BoolOption(int argc, char **argv, char *opt) {
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], opt) == 0) {
-      return(true);
-    }
-  }
-  return(false);
-} // }}}
-
-// IntegerOption() //{{{
-/**
- * Function for any option with integer argument. The option (e.g. `-n`)
- * is an argument of this function.
- */
-bool IntegerOption(int argc, char **argv, char *opt, int *value) {
-
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], opt) == 0) {
-      // Error - missing argument
-      if ((i+1) >= argc) {
-        fprintf(stderr, "\033[1;31m");
-        fprintf(stderr, "Missing numeric argument for \033[1;33m%s\033[1;31m option!\n", opt);
-        fprintf(stderr, "\033[0m");
-        return(true);
+      if (pos == (i + 1)) {
+        if (snprintf(ERROR_MSG, LINE, "at least one %s type is required",
+                     text) < 0) {
+          ErrorSnprintf();
+        }
+        PrintErrorOption(opt);
+        exit(1);
       }
-      // Error - non-numeric
-      if (!IsInteger(argv[i+1])) {
-        fprintf(stderr, "\033[1;31m");
-        fprintf(stderr, "Non-numeric argement for \033[1;33m%s\033[1;31m option!\n", opt);
-        fprintf(stderr, "\033[0m");
-        return(true);
-      }
-      *value = atoi(argv[i+1]);
+      return true; // option is present
     }
   }
-
-  return(false);
+  return false; // option is not present
 } //}}}
 
-// DoubleOption() //{{{
-/**
- * Function for any option with double argument. The option (e.g. `-n`)
- * is an argument of this function.
- */
-bool DoubleOption(int argc, char **argv, char *opt, double *value) {
-
+// general boolean option //{{{
+bool BoolOption(const int argc, char **argv, const char *opt) {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
-      // Error - missing argument
-      if ((i+1) >= argc) {
-        fprintf(stderr, "\033[1;31m");
-        fprintf(stderr, "Missing numeric argument for \033[1;33m%s\033[1;31m option!\n", opt);
-        fprintf(stderr, "\033[0m");
-        return(true);
-      }
-      // Error - non-numeric
-      if (!IsPosDouble(argv[i+1])) {
-        fprintf(stderr, "\033[1;31m");
-        fprintf(stderr, "Non-numeric argement for \033[1;33m%s\033[1;31m option!\n", opt);
-        fprintf(stderr, "\033[0m");
-        return(true);
-      }
-      *value = atof(argv[i+1]);
+      return true;
     }
   }
-
-  return(false);
-} //}}}
-
-// MultiIntegerOption() //{{{
-/**
- * Function for any option with two integer arguments. The option (e.g. `-n`)
- * is an argument of this function.
- */
-bool MultiIntegerOption(int argc, char **argv, char *opt, int *count, int *values) {
-
+  return false;
+} // }}}
+// general option with multiple integer arguments (up to 'max') //{{{
+bool NumbersOption(const int argc, char **argv, const int max, const char *opt,
+                   int *count, void *values, const char type) {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
       int n = 0; // number of arguments
       // read integers
       int arg = i+1+n;
-      while ((arg) < argc && argv[arg][0] != '-') {
-        // Error - non-numeric or missing argument
-        if (!IsInteger(argv[arg])) {
-          fprintf(stderr, "\033[1;31m");
-          fprintf(stderr, "Error: option \033[1;33m%s\033[1;31m - non-numeric argement(s)\n", opt);
-          fprintf(stderr, "\033[0m");
-          return true;
+      while (arg < argc) {
+        if (type == 'i') {
+          long val;
+          if (!IsIntegerNumber(argv[arg], &val)) {
+            break;
+          }
+          int *num = (int *)values;
+          int *a = &num[n];
+          *a = val;
+        } else {
+          double val;
+          if (!IsRealNumber(argv[arg], &val)) {
+            break;
+          }
+          double *num = (double *)values;
+          double *a = &num[n];
+          *a = val;
         }
-        values[n] = atoi(argv[arg]);
         n++;
         arg = i+1+n;
-        // warning - too many numeric arguments
-        if (n == 100) {
-          fprintf(stderr, "\033[1;33m");
-          fprintf(stderr, "Warning: Option \033[1;36m%s\033[1;33m", opt);
-          fprintf(stderr, " - too many numberic arguments; only the first 100 used\n");
-          fprintf(stderr, "\033[0m");
-          *count = n;
+        if (TooManyArgsWarn(max, n, opt, count)) {
           return true;
         }
       }
+      ArgumentMissingErr(n, opt);
       *count = n;
+      return true;
     }
   }
-
   return false;
-} //}}}
-
-// MultiDoubleOption() //{{{
-/**
- * Function for any option with two double arguments. The option (e.g. `-n`)
- * is an argument of this function.
- */
-bool MultiDoubleOption(int argc, char **argv, char *opt, int *count, double *values) {
-
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], opt) == 0) {
-      int n = 0; // number of arguments
-      // read doubles
-      int arg = i+1+n;
-      while ((arg) < argc && argv[arg][0] != '-') {
-        // Error - non-numeric argument
-        if (!IsPosDouble(argv[arg])) {
-          fprintf(stderr, "\033[1;31m");
-          fprintf(stderr, "Error: option \033[1;33m%s\033[1;31m - non-numeric argement(s)\n", opt);
-          fprintf(stderr, "\033[0m");
-          return true;
-        }
-        values[n] = atof(argv[arg]);
-        n++;
-        arg = i+1+n;
-        // warning - too many numeric arguments
-        if (n == 100) {
-          fprintf(stderr, "\033[1;33m");
-          fprintf(stderr, "Warning: Option \033[1;36m%s\033[1;33m", opt);
-          fprintf(stderr, " - too many numberic arguments; only first 100 used\n");
-          fprintf(stderr, "\033[0m");
-          *count = n;
-          return true;
-        }
-      }
-      *count = n;
-    }
+}
+bool OneNumberOption(const int argc, char **argv,
+                     const char *opt, void *value, const char type) {
+  int count = 0;
+  if (NumbersOption(argc, argv, 1, opt, &count, value, type)) {
+    ArgumentNumberErr(count, 1, opt);
+    return true; // option present
   }
-
-  return false;
+  return false; // option not present
+}
+bool TwoNumbersOption(const int argc, char **argv,
+                      const char *opt, void *value, const char type) {
+  int count = 0;
+  if (NumbersOption(argc, argv, 2, opt, &count, value, type)) {
+    ArgumentNumberErr(count, 2, opt);
+    return true; // option present
+  }
+  return false; // option not present
+}
+bool ThreeNumbersOption(const int argc, char **argv,
+                        const char *opt, void *value, const char type) {
+  int count = 0;
+  if (NumbersOption(argc, argv, 3, opt, &count, value, type)) {
+    ArgumentNumberErr(count, 3, opt);
+    return true; // option present
+  }
+  return false; // option not present
 } //}}}
-
-// FileIntsOptions() //{{{
-/**
- * Function for any option with a file name and up to 100 integer
- * arguments. The option is an argument of this function.
- */
-bool FileIntsOption(int argc, char **argv, char *opt, int *values, int *count, char *file) {
-
+// general option with filename and integer(s)/double(s) arguments //{{{
+bool FileNumbersOption(const int argc, char **argv, const int min,
+                       const int max, const char *opt, void *values,
+                       int *count, char *file, const char type) {
   int n = 0;
+  *count = 0;
+  file[0] = '\0';
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
-      // Error - no output file name
-      if ((i+1) >= argc || argv[i+1][0] == '-' ||
-          (argv[i+1][0] >= '0' && argv[i+1][0] <= '9')) {
-        fprintf(stderr, "\033[1;31m");
-        fprintf(stderr, "Error: option \033[1;33m%s\033[1;31m - missing output file name", opt);
-        fprintf(stderr, " (or the file name begins with '-' or a number)\n");
-        fprintf(stderr, "\033[0m");
-        return false;
-      }
-      strcpy(file, argv[i+1+n]);
-      // read integers
-      while ((i+2+n) < argc && argv[i+2+n][0] != '-') {
-        // Error - non-numeric or missing argument
-        if (!IsInteger(argv[i+2+n])) {
-          fprintf(stderr, "\033[1;31m");
-          fprintf(stderr, "Error: option \033[1;33m%s\033[1;31m - non-numeric argement(s)\n", opt);
-          fprintf(stderr, "\033[0m");
-          return true;
+      MissingFilenameError(argc, argv, opt, i);
+      snprintf(file, LINE, "%s", argv[i+1]);
+      // read numbers
+      if (max == 0) {
+        return true;
+      } else {
+        while ((i+2+n) < argc && argv[i+2+n][0] != '-') {
+          if (type == 'i') {
+            long val;
+            if (!IsIntegerNumber(argv[i+2+n], &val)) {
+              err_msg("arguments must be non-negative numbers");
+              goto error;
+            }
+            int *num = (int *)values;
+            int *a = &num[n];
+            *a = val;
+          } else {
+            double val;
+            if (!IsRealNumber(argv[i+2+n], &val)) {
+              err_msg("arguments must be non-negative numbers");
+              goto error;
+            }
+            double *num = (double *)values;
+            double *a = &num[n];
+            *a = val;
+          }
+          n++;
+          if (TooManyArgsWarn(max, n, opt, count)) {
+            return true;
+          }
         }
-        values[n] = atoi(argv[i+2+n]);
-        n++;
-        // warning - too many numeric arguments
-        if (n == 100) {
-          fprintf(stderr, "\033[1;33m");
-          fprintf(stderr, "Warning: Option \033[1;36m%s\033[1;33m", opt);
-          fprintf(stderr, " - too many numberic arguments; only first 100 used\n");
-          fprintf(stderr, "\033[0m");
-          *count = n;
-          return true;
+        if (n < min) {
+          s_strcpy(ERROR_MSG, "not enough numeric arguments", LINE);
+          goto error;
         }
       }
+      *count = n;
+      return true; // option present
     }
   }
-  *count = n;
-
+  return false; // option not present
+  error:
+    PrintErrorOption(opt);
+    exit(1);
+} //}}}
+// general option with filename //{{{
+bool FileOption(const int argc, char **argv, const char *opt, char *file) {
+  int trash;
+  if (FileNumbersOption(argc, argv, 0, 0, opt, &trash, &trash, file, 'i')) {
+    return true;
+  }
   return false;
 } //}}}
 
-// FileOption() //{{{
-/**
- * Generic option for file name. The option is an argument of this function.
- */
-bool FileOption(int argc, char **argv, char *opt, char **name) {
-
-  (*name)[0] = '\0';
+// option for output verbosity (--silent) //{{{
+static void SilentOption(const int argc, char **argv,
+                         bool *verbose, bool *silent) {
+  *silent = false;
   for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], opt) == 0) {
-      // wrong argument to the option
-      if ((i+1) >= argc || argv[i+1][0] == '-') {
-        fprintf(stderr, "\033[1;33m");
-        fprintf(stderr, "\nMissing argument to \033[1;36m%s\033[1;33m option ", opt);
-        fprintf(stderr, "(or filename beginning with a dash)!\n\n");
-        fprintf(stderr, "\033[0m");
-        return(true);
-      }
-      strcpy(*name, argv[i+1]);
+    if (strcmp(argv[i], "--silent") == 0) {
+      *verbose = false;
+      *silent = true;
+      break;
     }
   }
-
-  return(false);
 } //}}}
-
-// MoleculeTypeOption() //{{{
-/**
- * Generic option for molecule type that can take one
- * argument. The option is an argument of this function.
- */
-bool MoleculeTypeOption(int argc, char **argv, char *opt, int *moltype,
-                        COUNTS Counts, MOLECULETYPE **MoleculeType) {
-
-  *moltype = -1;
+// print AnalysisTools version number (--version) //{{{
+static bool VersionOption(const int argc, char **argv) {
   for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], opt) == 0) {
-      // Error - missing or wrong argument
-      if ((i+1) >= argc || argv[i+1][0] == '-') {
-        fprintf(stderr, "\033[1;31m");
-        fprintf(stderr, "Missing argument for \033[1;33m%s\033[1;31m option (or molecule name beginning with a dash)!\n", opt);
-        fprintf(stderr, "\033[0m");
-        return(true);
-      }
-      *moltype = FindMoleculeType(argv[i+1], Counts, *MoleculeType);
-      if (*moltype == -1) {
-        fprintf(stderr, "\033[1;31m");
-        fprintf(stderr, "Error: molecule \033[1;33m%s\033[1;31m does not exist in structure file", argv[i+1]);
-        fprintf(stderr, "(\033[1;33m%s\033[1;31m option)!\n\n", opt);
-        fprintf(stderr, "\033[0m");
-        ErrorMoleculeType(Counts, *MoleculeType);
-        return(true);
-      }
+    if (strcmp(argv[i], "--version") == 0) {
+      fprintf(stdout, "AnalysisTools by Karel Šindelka (KaGaSi), version %s"
+              " (released %s)\n", VERSION, DATE);
+      fprintf(stdout, "Download at https://github.com/KaGaSi/AnalysisTools/"
+              "releases/tag/v%s\n", VERSION);
+      return true;
     }
   }
-
-  return(false);
+  return false;
 } //}}}
-
-// MoleculeTypeOption2() //{{{
-/**
- * Generic option for molecule types. The option is an argument of this
- * function.
- */
-bool MoleculeTypeOption2(int argc, char **argv, char *opt, int **moltype,
-                         COUNTS Counts, MOLECULETYPE **MoleculeType) {
-
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], opt) == 0) {
-      // set all moltypes not to be used
-      for (int i = 0; i < Counts.TypesOfMolecules; i++) {
-        (*moltype)[i] = 0;
-      }
-      // Error - missing or wrong argument //{{{
-      if ((i+1) >= argc || argv[i+1][0] == '-') {
-        fprintf(stderr, "\033[1;31m");
-        fprintf(stderr, "Missing argument for \033[1;33m%s\033[1;31m option (or molecule name beginning with a dash)!\n", opt);
-        fprintf(stderr, "\033[0m");
-        return(true);
-      } //}}}
-      // read molecule(s) names
-      int j = 0;
-      while ((i+1+j) < argc && argv[i+1+j][0] != '-') {
-        int type = FindMoleculeType(argv[i+1+j], Counts, *MoleculeType);
-        if (type == -1) { // is argv[i+1+j] in vsf?
-          fprintf(stderr, "\033[1;31m");
-          fprintf(stderr, "Error: molecule \033[1;33m%s\033[1;31m does not exist in the coordinate file ", argv[i+1+j]);
-          fprintf(stderr, "(\033[1;33m%s\033[1;31m option)!\n\n", opt);
-          fprintf(stderr, "\033[0m");
-          ErrorMoleculeType(Counts, *MoleculeType);
-          return(true);
-        }
-        (*moltype)[type] = 1;
-        j++;
-      }
-    }
+// exit if file name is missing in an option where it's required //{{{
+static void MissingFilenameError(const int argc, char **argv,
+                                 const char *opt, const int i) {
+  // Error - no output file name
+  if ((i+1) >= argc || argv[i+1][0] == '-') {
+    s_strcpy(ERROR_MSG, "missing file name "
+             "(or the file name begins with a dash)", LINE);
+    PrintErrorOption(opt);
+    exit(1);
   }
-
-  return(false);
+} //}}}
+// warn if too many arguments //{{{
+static bool TooManyArgsWarn(const int max, const int n,
+                            const char *opt, int *count) {
+  if (n > max) {
+    snprintf(ERROR_MSG, LINE, "too many arguments; only the first %d "
+             "used", max);
+    PrintErrorOption(opt);
+    *count = max;
+    return true;
+  } else {
+    return false;
+  }
+} //}}}
+// exit if wrong number of arguments  //{{{
+static void ArgumentNumberErr(const int count, const int n, const char *opt) {
+  if (count != n) {
+    snprintf(ERROR_MSG, LINE, "%d numeric argument(s) required", n);
+    PrintErrorOption(opt);
+    exit(1);
+  }
+} //}}}
+// exit if missing arguments //{{{
+static void ArgumentMissingErr(const int n, const char *opt) {
+  if (n == 0) {
+    s_strcpy(ERROR_MSG, "missing numeric argument(s)", LINE);
+    PrintErrorOption(opt);
+    exit(1);
+  }
 } //}}}

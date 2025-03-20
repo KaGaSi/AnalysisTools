@@ -1,191 +1,234 @@
 #include "Errors.h"
+#include "General.h"
+#include "Globals.h"
 
-// ErrorCoorRead() //{{{
-/**
- * Error when reading vcf file
- */
-void ErrorCoorRead(char *input_vcf, int bead, int step, char *stuff) {
-  fprintf(stderr, "\033[1;31m");
-  fprintf(stderr, "\nError: \033[1;33m%s\033[1;31m - cannot read coordinates ", input_vcf);
-  fprintf(stderr, "(bead \033[1;33m%d\033[1;31m; step \033[1;33m%d\033[1;31m", bead, step);
-  if (stuff[0] != '\0') {
-    char split[30][100];
-    fprintf(stderr, " beginning with |");
-    int words = SplitLine(split, stuff, " \t");
-    fprintf(stderr, "\033[1;33m");
-    for (int i = 0; i < words; i++) {
-      fprintf(stderr, "%s", split[i]);
-      if (i != (words-1)) {
-        fprintf(stderr, " ");
+static void PrintLine(FILE *f, const char *colour1, const char *colour2);
+
+// print 'WARNING - <ERROR_MSG>\n' in cyan //{{{
+void PrintWarning() {
+  fprintf(stderr, "\n  %sWARNING - %s%s\n",
+          ErrCyan(), ERROR_MSG, ErrColourReset());
+} //}}}
+// print 'ERROR - <ERROR_MSG>\n' in red //{{{
+void PrintError() {
+  fprintf(stderr, "\n  %sERROR - %s%s\n",
+          ErrRed(), ERROR_MSG, ErrColourReset());
+} //}}}
+// print 'ERROR <option> - <ERROR_MSG>\n' in red and yellow //{{{
+void PrintErrorOption(const char *opt) {
+  fprintf(stderr, "\n  %sERROR: %s%s%s - %s%s\n",
+          ErrRed(), ErrYellow(), opt, ErrRed(), ERROR_MSG, ErrColourReset());
+} //}}}
+// print 'WARNING <option> - <ERROR_MSG>\n' in cyan and yellow //{{{
+void PrintWarnOption(const char *opt) {
+  fprintf(stderr, "\n  %sWARNING: %s%s%s - %s%s\n",
+          ErrCyan(), ErrYellow(), opt, ErrCyan(), ERROR_MSG, ErrColourReset());
+} //}}}
+// print 'ERROR - <ERROR_MSG>\nFile <file(s)>\n' //{{{
+void PrintErrorFile(const char *file1, const char *file2, const char *file3) {
+  PrintError();
+  ErrorPrintFile(file1, file2, file3);
+  putc('\n', stderr);
+} //}}}
+// print 'WARNING - <ERROR_MSG>\nFile <file(s)>\n' //{{{
+void PrintWarnFile(const char *file1, const char *file2, const char *file3) {
+  PrintWarning();
+  WarnPrintFile(file1, file2, file3);
+  putc('\n', stderr);
+} //}}}
+// print 'ERROR - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>' //{{{
+void PrintErrorFileLine(const char *file, const int count) {
+  PrintError();
+  ErrorPrintFile(file, "", "");
+  fprintf(stderr, "%s, line %s%d%s:\n", ErrRed(), ErrYellow(), count, ErrRed());
+  ErrorPrintLine();
+} //}}}
+// print 'WARNING - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>' //{{{
+void PrintWarnFileLine(const char *file, const int count) {
+  PrintWarning();
+  WarnPrintFile(file, "", "");
+  fprintf(stderr, "%s, line %s%d%s:\n", ErrCyan(),
+          ErrYellow(), count, ErrCyan());
+  WarnPrintLine();
+} //}}}
+// print 'File <name(s)>' in colours //{{{
+void WarnPrintFile(const char *file1, const char *file2,const  char *file3) {
+  fprintf(stderr, "%sFile(s) %s", ErrCyan(), ErrYellow());
+  const char *f[3];
+  f[0] = file1;
+  f[1] = file2;
+  f[2] = file3;
+  int n_files = 0;
+  for (int i = 0; i < 3; i++) {
+    if (f[i][0] != '\0') {
+      if (n_files > 0) {
+        fprintf(stderr, "%s, %s", ErrCyan(), ErrYellow());
       }
+      fprintf(stderr, "%s", f[i]);
+      n_files++;
     }
-    fprintf(stderr, "\033[1;31m");
-    fprintf(stderr, "|");
   }
-  fprintf(stderr, ")\n\033[0m");
-} //}}}
-
-// ErrorArgNumber() //{{{
-/**
- * Error when insufficient number of arguments
- */
-void ErrorArgNumber(int count, int need) {
-  fprintf(stderr, "\033[1;31m");
-  fprintf(stderr, "\nError: too few mandatory arguments (%d instead of %d)\n\n", count, need);
-  fprintf(stderr, "\033[0m");
-} //}}}
-
-// ErrorDiscard()  //{{{
-/**
- * Error when number of starting step is higher then the total number of steps
- * in a coordinate file
- */
-bool ErrorDiscard(int start, int step, char *file, FILE *coor) {
-  int test;
-  if ((test = getc(coor)) == EOF) {
-    fflush(stdout);
-    fprintf(stderr, "\033[1;31m");
-    fprintf(stderr, "\nError: \033[1;33m%s\033[1;31m", file);
-    fprintf(stderr, " - starting timestep (\033[1;33m%d\033[1;31m) is higher", step);
-    fprintf(stderr, " than the total number of steps (\033[1;33m%d\033[1;31m)\n\n", step);
-    fprintf(stderr, "\033[0m");
-    return true;
+  fprintf(stderr, "%s", ErrColourReset());
+}
+void ErrorPrintFile(const char *file1, const char *file2, const char *file3) {
+  fprintf(stderr, "%sFile(s) %s", ErrRed(), ErrYellow());
+  const char *f[3];
+  f[0] = file1;
+  f[1] = file2;
+  f[2] = file3;
+  if (strcmp(f[0], f[1]) == 0) {
+    f[1] = "";
+  } else if (strcmp(f[0], f[2]) == 0) {
+    f[2] = "";
+  }
+  if (strcmp(f[1], f[2]) == 0) {
+    f[2] = "";
+  }
+  int n_files = 0;
+  for (int i = 0; i < 3; i++) {
+    if (f[i][0] != '\0') {
+      if (n_files > 0) {
+        fprintf(stderr, "%s, %s", ErrRed(), ErrYellow());
+      }
+      fprintf(stderr, "%s", f[i]);
+      n_files++;
+    }
+  }
+  fprintf(stderr, "%s", ErrColourReset());
+}
+//}}}
+// print 'Line: <line>|(blank)' in given colours //{{{
+static void PrintLine(FILE *f, const char *colour1, const char *colour2) {
+  if (words == 0) {
+    fprintf(f, "%s(blank)\n%s", Colour(f, colour1), Colour(f, C_RESET));
   } else {
-    ungetc(test,coor);
-    return false;
+    fputs(Colour(f, colour2), f);
+    for (int i = 0; i < words; i++) {
+      if (i != 0) {
+        putc(' ', f);
+      }
+      fprintf(f, "%s", split[i]);
+    }
+    fputs(Colour(f, C_RESET), f);
+    // print line break if the last split[] doesn't end with one
+    if (split[words-1][strnlen(split[words-1], SPL_LEN) - 1] != '\n') {
+      putc('\n', f);
+    }
   }
+}
+void ErrorPrintLine() {
+  PrintLine(stderr, RED, YELLOW);
+}
+void WarnPrintLine() {
+  PrintLine(stderr, CYAN, YELLOW);
+}
+//}}}
+// print 'ERROR - premature end of file\n<file>\n' //{{{
+void ErrorEOF(const char *file, char *msg) {
+  if (msg[0] != '\0') {
+    if (strnlen(msg, LINE) >= (LINE - 24)) {
+      msg[LINE-24] = '\0';
+    }
+    snprintf(ERROR_MSG, LINE, "%s; premature end of file", msg);
+  } else {
+    err_msg("premature end of file");
+  }
+  PrintError();
+  ErrorPrintFile(file, "", "");
+  putc('\n', stderr);
 } //}}}
-
-// ErrorExtension() //{{{
-/**
- * Error when missing or incorrect file extension
- */
-bool ErrorExtension(char *file, int number, char extension[][5]) {
+// snprintf - just to shut up compiler warnings; should never trigger //{{{
+void ErrorSnprintf() {
+  err_msg("something went wrong with snprintf()");
+  PrintError();
+  exit(1);
+} //}}}
+// wrong number of commandline arguments //{{{
+void ErrorArgNumber(const int count, const int need) {
+  err_msg("insufficient number of arguments");
+  PrintError();
+  fprintf(stderr, "%ssupplied: %s%d%s, needed: %s%d%s\n", ErrRed(),
+          ErrYellow(), count, ErrRed(), ErrYellow(), need, ErrColourReset());
+} //}}}
+// wrong file extension //{{{
+int ErrorExtension(const char *file, const int number,
+                   const char extension[][EXTENSION]) {
   char *dot = strrchr(file, '.');
   for (int i = 0; i < number; i++) {
-    if (dot && strcmp(dot, extension[i]) == 0) {
-      return false;
+    if (dot && strcasecmp(dot, extension[i]) == 0) {
+      return i;
     }
   }
-  fprintf(stderr, "\033[1;31m");
-  fprintf(stderr, "\nError: \033[1;33m%s\033[1;31m does not have a correct extension (", file);
-  for (int i = 0; i < number; i++) {
-    if (i < (number-1)) {
-      fprintf(stderr, "'%s', ", extension[i]);
-    } else {
-      fprintf(stderr, "'%s')\n\n", extension[i]);
-    }
+  err_msg("incorrect file extension");
+  PrintError();
+  ErrorPrintFile(file, "", "");
+  fprintf(stderr, "%s; allowed extensions:", ErrRed());
+  for (int i = 0; i < (number - 1); i++) {
+    fprintf(stderr, " %s%s%s,", ErrYellow(), extension[i], ErrRed());
   }
-  fprintf(stderr, "\033[0m");
-  return true;
+  fprintf(stderr, " %s%s%s\n", ErrYellow(), extension[number - 1],
+          ErrColourReset());
+  return -1;
 } //}}}
-
-// ErrorFileOpen() //{{{
-/**
- * Error when open file
- */
-void ErrorFileOpen(char *file, char mode) {
-  fprintf(stderr, "\033[1;31m");
-  fprintf(stderr, "\nError: cannot open \033[1;33m%s\033[1;31m for ", file);
-  switch(mode) {
-    case 'r':
-      fprintf(stderr, "reading\n");
-      break;
-    case 'w':
-      fprintf(stderr, "writing\n");
-      break;
-    case 'a':
-      fprintf(stderr, "appending\n");
-      break;
-    default :
-      fprintf(stderr, "...well, it seems you found something new to do with a file!\n");
-      fprintf(stderr, "Use r(ead), w(rite), or a(ppend).\n\n");
+void ErrorOption(const char *option) { //{{{
+  err_msg("non-existent option");
+  PrintErrorOption(option);
+} //}}}
+void ErrorNaN(const char *option) { //{{{
+  err_msg("non-numeric argument");
+  PrintErrorOption(option);
+} //}}}
+void ErrorBeadType(const char *name, const SYSTEM System) { //{{{
+  fprintf(stderr, "%sillegal name: %s%s%s\n",
+          ErrRed(), ErrYellow(), name, ErrRed());
+  fprintf(stderr, "Possible names: %s%s\n", ErrYellow(),
+          System.BeadType[0].Name);
+  for (int i = 1; i < System.Count.BeadType; i++) {
+    fprintf(stderr, "                %s\n", System.BeadType[i].Name);
   }
-  putchar('\n');
-  fprintf(stderr, "\033[0m");
+  fprintf(stderr, "%s\n", ErrColourReset());
 } //}}}
-
-// ErrorNaN() //{{{
-/**
- * Error when non-numeric argument is present instead of a number
- */
-void ErrorNaN(char *option) {
-  fprintf(stderr, "\033[1;31m");
-  fprintf(stderr, "\nError: non-numeric argument for \033[1;33m%s\033[1;31m\n\n", option);
-  fprintf(stderr, "\033[0m");
-} //}}}
-
-// ErrorOption() //{{{
-/**
- * Error when unknown option specified as argument
- */
-void ErrorOption(char *option) {
-  fprintf(stderr, "\033[1;31m");
-  fprintf(stderr, "\nError: non-existent option \033[1;33m%s\033[1;31m\n\n", option);
-  fprintf(stderr, "\033[0m");
-} //}}}
-
-// ErrorBeadType() //{{{
-/**
- * Error when non-existent bead is used.
- */
-void ErrorBeadType(COUNTS Counts, BEADTYPE *BeadType) {
-  fprintf(stderr, "\033[1;31m");
-  fprintf(stderr, "       Possible bead names: %s\n", BeadType[0].Name);
-  for (int i = 1; i < Counts.TypesOfBeads; i++) {
-    fprintf(stderr, "                            %s\n", BeadType[i].Name);
+void ErrorMoleculeType(const char *name, const SYSTEM System) { //{{{
+  fprintf(stderr, "%sillegal name: %s%s%s\n",
+          ErrRed(), ErrYellow(), name, ErrRed());
+  fprintf(stderr, "Possible molecule names: %s%s\n", ErrYellow(),
+          System.MoleculeType[0].Name);
+  for (int i = 1; i < System.Count.MoleculeType; i++) {
+    fprintf(stderr, "                         %s\n",
+            System.MoleculeType[i].Name);
   }
-  putc('\n', stderr);
-  fprintf(stderr, "\033[0m");
+  fprintf(stderr, "%s\n", ErrColourReset());
 } //}}}
-
-// ErrorMoleculeType() //{{{
-/**
- * Error when non-existent molecule is used.
- */
-void ErrorMoleculeType(COUNTS Counts, MOLECULETYPE *MoleculeType) {
-  fprintf(stderr, "\033[1;31m");
-  fprintf(stderr, "       Possible molecule names: %s\n", MoleculeType[0].Name);
-  for (int i = 1; i < Counts.TypesOfMolecules; i++) {
-    fprintf(stderr, "                            %s\n", MoleculeType[i].Name);
-  }
-  putc('\n', stderr);
-  fprintf(stderr, "\033[0m");
-} //}}}
-
-// ErrorPrintLine() //{{{
-/**
- * Print provided strings (array of strings generally created using
- * SplitLine()) to error output.
- */
-void ErrorPrintLine(char split[30][100], int words) {
-  fprintf(stderr, "\033[1;31m");
-  fprintf(stderr, "       Wrong line: |");
-  fprintf(stderr, "\033[1;33m");
-  for (int i = 0; i < words; i++) {
-    if (i != 0) {
-      putc(' ', stderr);
-    }
-    fprintf(stderr, "%s", split[i]);
-  }
-  fprintf(stderr, "\033[1;31m");
-  fprintf(stderr, "|\n\n");
-  fprintf(stderr, "\033[0m");
-} //}}}
-
-// WarnElNeutrality() //{{{
-/**
- * Function to warn if the system is not electrically neutral.
- */
-void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file) {
+// warn the system is not electrically neutral //{{{
+void WarnChargedSystem(const SYSTEM System, const char *file1,
+                       const char *file2, char const *file3) {
   double charge = 0;
-  for (int i = 0; i < Counts.TypesOfBeads; i++) {
-    charge += BeadType[i].Charge * BeadType[i].Number;
+  for (int i = 0; i < System.Count.BeadType; i++) {
+    BEADTYPE *bt = &System.BeadType[i];
+    // do nothing if at least one bead type had undefined charge
+    if (bt->Charge == CHARGE || bt->Charge == HIGHNUM) {
+      return;
+    }
+    charge += bt->Charge * bt->Number;
   }
-  if (charge != 0) {
-    fprintf(stderr, "\033[1;33m");
-    fprintf(stderr, "\nWarning: system in \033[1;36m%s\033[1;33m", file);
-    fprintf(stderr, " has net electric charge (q = \033[1;36m%lf\033[1;33m)!\n\n", charge);
-    fprintf(stderr, "\033[0m");
+  if (fabs(charge) > 0.00001) {
+    err_msg("system with net electric charge");
+    PrintWarning();
+    WarnPrintFile(file1, file2, file3);
+    fprintf(stderr, "%s; %sq = %lf%s\n", ErrCyan(), ErrYellow(), charge,
+            ErrColourReset());
   }
+} //}}}
+void ErrorStartEnd(const int start, const int end) { //{{{
+  if (end != -1 && start > end) {
+    snprintf(ERROR_MSG, LINE, "starting step (%s%d%s) lower than ending step "
+             "(%s%d%s)", ErrYellow(), start, ErrRed(),
+             ErrYellow(), end, ErrRed());
+    PrintErrorOption("-st/-e");
+    exit(1);
+  }
+} //}}}
+// copy message to the ERROR_MSG array //{{{
+void err_msg(const char *str) {
+  s_strcpy(ERROR_MSG, str, LINE);
 } //}}}

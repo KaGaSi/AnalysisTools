@@ -1,0 +1,23 @@
+Random simulation
+
+volume 10.0 10.0 10.0
+
+temperature 1.0
+
+timestep 0.01
+
+steps 110000
+equilibration steps 10000
+
+trajectory 10000 2000 0
+
+stats every 100
+stack size 100
+print every 100
+
+job time 10800.0
+close time 100.0
+
+ensemble nvt mdvv
+
+finish

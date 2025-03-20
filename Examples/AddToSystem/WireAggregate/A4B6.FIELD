@@ -1,0 +1,30 @@
+10 10 16 diblock copolymer
+
+species 2
+A  1  0  0
+B  1  0  0
+molecule 1
+A4B6
+nummols 1
+beads 10
+A  0.0  0     0.0
+A  0.5  0     0.0
+A  1.0  0     0.0
+A  1.35 0.35  0.0
+B  1.70 0     0.0
+B  2.05 0.35  0.0
+B  2.40 0     0.0
+B  2.75 0.35  0.0
+B  2.75 0.85  0.0
+B  2.25 0.85  0.0
+bonds 9
+harm 1  2 100 0.5
+harm 2  3 100 0.5
+harm 3  4 100 0.5
+harm 4  5 100 0.5
+harm 5  6 100 0.5
+harm 6  7 100 0.5
+harm 7  8 100 0.5
+harm 8  9 100 0.5
+harm 9 10 100 0.5
+finish

@@ -1,0 +1,70 @@
+Info traj.data
+
+==================================================
+System composition
+==================================================
+
+Counts of
+  Bead Types:     3
+  All Beads:      3000
+  Bonded Beads:   2000
+  Unbonded Beads: 1000
+  Molecule Types: 2
+  Molecules:      400
+  Bond Types:     8
+  Bonds:          1600
+  Angle Types:    4
+  Angles:         800
+
+BeadType[0] = {.Name = W .Number = 1000 .Charge = 0.000 .Mass = 1.000 .Radius = n/a }
+BeadType[1] = {.Name = A .Number = 1400 .Charge = 0.000 .Mass = 1.000 .Radius = n/a }
+BeadType[2] = {.Name = B .Number =  600 .Charge = 0.000 .Mass = 1.000 .Radius = n/a }
+
+Bond types
+   300.000000 0.300000 0.000000 0.000000
+   300.000000 0.400000 0.000000 0.000000
+   300.000000 0.500000 0.000000 0.000000
+   300.000000 0.600000 0.000000 0.000000
+   300.000000 0.700000 0.000000 0.000000
+   30.000000 0.400000 0.000000 0.000000
+   30.000000 0.500000 0.000000 0.000000
+   30.000000 0.600000 0.000000 0.000000
+
+Angle types
+   50.000000 180.000000 0.000000 0.000000
+   50.000000 120.000000 0.000000 0.000000
+   50.000000 90.000000 0.000000 0.000000
+   50.000000 60.000000 0.000000 0.000000
+
+MoleculeType[0] = {
+  .Name       = A3BA2
+  .Number     = 200
+  .nBeads     = 6
+  .Bead       = { 1 1 1 2 1 1 }
+  .nBonds     = 5
+  .Bond       = { 1-2 (1) 2-3 (2) 3-4 (3) 4-5 (4) 5-6 (5) }
+  .nAngles    = 4
+  .Angle      = { 1-2-3 (1) 2-3-4 (2) 3-4-5 (3) 4-5-6 (4) }
+  .nBTypes    = 2
+  .BType      = { 1 2 }
+  .Mass       = 6.00000
+  .Charge     = 0.00000
+}
+MoleculeType[1] = {
+  .Name       = A2B2
+  .Number     = 200
+  .nBeads     = 4
+  .Bead       = { 1 1 2 2 }
+  .nBonds     = 3
+  .Bond       = { 1-2 (6) 2-3 (7) 3-4 (8) }
+  .nBTypes    = 2
+  .BType      = { 1 2 }
+  .Mass       = 4.00000
+  .Charge     = 0.00000
+}
+
+Box = {
+  .Length = ( 10.000000 10.000000 10.000000 )
+  .Volume = 1000.000000
+}
+

@@ -1,0 +1,45 @@
+Info in.vtf -i in.FIELD
+
+==================================================
+Final system composition
+==================================================
+
+Counts of
+  Bead Types:     2
+  All Beads:      15
+  Bonded Beads:   6
+  Unbonded Beads: 9
+  Molecule Types: 2
+  Molecules:      2
+  Bond Types:     1
+  Bonds:          1
+
+BeadType[0] = {.Name = A .Number = 11 .Charge = 0.000 .Mass = 1.000 .Radius =   n/a }
+BeadType[1] = {.Name = B .Number =  4 .Charge = 0.000 .Mass = 1.000 .Radius = 1.000 }
+
+Bond types
+   4.000000 0.500000 0.000000 0.000000
+
+MoleculeType[0] = {
+  .Name       = A2
+  .Number     = 1
+  .nBeads     = 2
+  .Bead       = { 0 0 }
+  .nBonds     = 1
+  .Bond       = { 1-2 (1) }
+  .nBTypes    = 1
+  .BType      = { 0 }
+  .Mass       = 2.00000
+  .Charge     = 0.00000
+}
+MoleculeType[1] = {
+  .Name       = m
+  .Number     = 1
+  .nBeads     = 4
+  .Bead       = { 0 0 0 0 }
+  .nBTypes    = 1
+  .BType      = { 0 }
+  .Mass       = 4.00000
+  .Charge     = 0.00000
+}
+

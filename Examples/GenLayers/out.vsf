@@ -1,0 +1,602 @@
+# Created by AnalysisTools version 3.3 (https://github.com/KaGaSi/AnalysisTools/releases)
+atom       0 name        A mass   1.00000 charge   0.00000 resname         A3 resid     1
+atom       1 name        A mass   1.00000 charge   0.00000 resname         A3 resid     1
+atom       2 name        A mass   1.00000 charge   0.00000 resname         A3 resid     1
+atom       3 name        A mass   1.00000 charge   0.00000 resname         A3 resid     2
+atom       4 name        A mass   1.00000 charge   0.00000 resname         A3 resid     2
+atom       5 name        A mass   1.00000 charge   0.00000 resname         A3 resid     2
+atom       6 name        A mass   1.00000 charge   0.00000 resname         A3 resid     3
+atom       7 name        A mass   1.00000 charge   0.00000 resname         A3 resid     3
+atom       8 name        A mass   1.00000 charge   0.00000 resname         A3 resid     3
+atom       9 name        A mass   1.00000 charge   0.00000 resname         A3 resid     4
+atom      10 name        A mass   1.00000 charge   0.00000 resname         A3 resid     4
+atom      11 name        A mass   1.00000 charge   0.00000 resname         A3 resid     4
+atom      12 name        A mass   1.00000 charge   0.00000 resname         A3 resid     5
+atom      13 name        A mass   1.00000 charge   0.00000 resname         A3 resid     5
+atom      14 name        A mass   1.00000 charge   0.00000 resname         A3 resid     5
+atom      15 name        A mass   1.00000 charge   0.00000 resname         A3 resid     6
+atom      16 name        A mass   1.00000 charge   0.00000 resname         A3 resid     6
+atom      17 name        A mass   1.00000 charge   0.00000 resname         A3 resid     6
+atom      18 name        A mass   1.00000 charge   0.00000 resname         A3 resid     7
+atom      19 name        A mass   1.00000 charge   0.00000 resname         A3 resid     7
+atom      20 name        A mass   1.00000 charge   0.00000 resname         A3 resid     7
+atom      21 name        A mass   1.00000 charge   0.00000 resname         A3 resid     8
+atom      22 name        A mass   1.00000 charge   0.00000 resname         A3 resid     8
+atom      23 name        A mass   1.00000 charge   0.00000 resname         A3 resid     8
+atom      24 name        A mass   1.00000 charge   0.00000 resname         A3 resid     9
+atom      25 name        A mass   1.00000 charge   0.00000 resname         A3 resid     9
+atom      26 name        A mass   1.00000 charge   0.00000 resname         A3 resid     9
+atom      27 name        A mass   1.00000 charge   0.00000 resname         A3 resid    10
+atom      28 name        A mass   1.00000 charge   0.00000 resname         A3 resid    10
+atom      29 name        A mass   1.00000 charge   0.00000 resname         A3 resid    10
+atom      30 name        A mass   1.00000 charge   0.00000 resname         A3 resid    11
+atom      31 name        A mass   1.00000 charge   0.00000 resname         A3 resid    11
+atom      32 name        A mass   1.00000 charge   0.00000 resname         A3 resid    11
+atom      33 name        A mass   1.00000 charge   0.00000 resname         A3 resid    12
+atom      34 name        A mass   1.00000 charge   0.00000 resname         A3 resid    12
+atom      35 name        A mass   1.00000 charge   0.00000 resname         A3 resid    12
+atom      36 name        A mass   1.00000 charge   0.00000 resname         A3 resid    13
+atom      37 name        A mass   1.00000 charge   0.00000 resname         A3 resid    13
+atom      38 name        A mass   1.00000 charge   0.00000 resname         A3 resid    13
+atom      39 name        A mass   1.00000 charge   0.00000 resname         A3 resid    14
+atom      40 name        A mass   1.00000 charge   0.00000 resname         A3 resid    14
+atom      41 name        A mass   1.00000 charge   0.00000 resname         A3 resid    14
+atom      42 name        A mass   1.00000 charge   0.00000 resname         A3 resid    15
+atom      43 name        A mass   1.00000 charge   0.00000 resname         A3 resid    15
+atom      44 name        A mass   1.00000 charge   0.00000 resname         A3 resid    15
+atom      45 name        A mass   1.00000 charge   0.00000 resname         A3 resid    16
+atom      46 name        A mass   1.00000 charge   0.00000 resname         A3 resid    16
+atom      47 name        A mass   1.00000 charge   0.00000 resname         A3 resid    16
+atom      48 name        A mass   1.00000 charge   0.00000 resname         A3 resid    17
+atom      49 name        A mass   1.00000 charge   0.00000 resname         A3 resid    17
+atom      50 name        A mass   1.00000 charge   0.00000 resname         A3 resid    17
+atom      51 name        A mass   1.00000 charge   0.00000 resname         A3 resid    18
+atom      52 name        A mass   1.00000 charge   0.00000 resname         A3 resid    18
+atom      53 name        A mass   1.00000 charge   0.00000 resname         A3 resid    18
+atom      54 name        A mass   1.00000 charge   0.00000 resname         A3 resid    19
+atom      55 name        A mass   1.00000 charge   0.00000 resname         A3 resid    19
+atom      56 name        A mass   1.00000 charge   0.00000 resname         A3 resid    19
+atom      57 name        A mass   1.00000 charge   0.00000 resname         A3 resid    20
+atom      58 name        A mass   1.00000 charge   0.00000 resname         A3 resid    20
+atom      59 name        A mass   1.00000 charge   0.00000 resname         A3 resid    20
+atom      60 name        A mass   1.00000 charge   0.00000 resname         A3 resid    21
+atom      61 name        A mass   1.00000 charge   0.00000 resname         A3 resid    21
+atom      62 name        A mass   1.00000 charge   0.00000 resname         A3 resid    21
+atom      63 name        A mass   1.00000 charge   0.00000 resname         A3 resid    22
+atom      64 name        A mass   1.00000 charge   0.00000 resname         A3 resid    22
+atom      65 name        A mass   1.00000 charge   0.00000 resname         A3 resid    22
+atom      66 name        A mass   1.00000 charge   0.00000 resname         A3 resid    23
+atom      67 name        A mass   1.00000 charge   0.00000 resname         A3 resid    23
+atom      68 name        A mass   1.00000 charge   0.00000 resname         A3 resid    23
+atom      69 name        A mass   1.00000 charge   0.00000 resname         A3 resid    24
+atom      70 name        A mass   1.00000 charge   0.00000 resname         A3 resid    24
+atom      71 name        A mass   1.00000 charge   0.00000 resname         A3 resid    24
+atom      72 name        A mass   1.00000 charge   0.00000 resname         A3 resid    25
+atom      73 name        A mass   1.00000 charge   0.00000 resname         A3 resid    25
+atom      74 name        A mass   1.00000 charge   0.00000 resname         A3 resid    25
+atom      75 name        A mass   1.00000 charge   0.00000 resname         A3 resid    26
+atom      76 name        A mass   1.00000 charge   0.00000 resname         A3 resid    26
+atom      77 name        A mass   1.00000 charge   0.00000 resname         A3 resid    26
+atom      78 name        A mass   1.00000 charge   0.00000 resname         A3 resid    27
+atom      79 name        A mass   1.00000 charge   0.00000 resname         A3 resid    27
+atom      80 name        A mass   1.00000 charge   0.00000 resname         A3 resid    27
+atom      81 name        A mass   1.00000 charge   0.00000 resname         A3 resid    28
+atom      82 name        A mass   1.00000 charge   0.00000 resname         A3 resid    28
+atom      83 name        A mass   1.00000 charge   0.00000 resname         A3 resid    28
+atom      84 name        A mass   1.00000 charge   0.00000 resname         A3 resid    29
+atom      85 name        A mass   1.00000 charge   0.00000 resname         A3 resid    29
+atom      86 name        A mass   1.00000 charge   0.00000 resname         A3 resid    29
+atom      87 name        A mass   1.00000 charge   0.00000 resname         A3 resid    30
+atom      88 name        A mass   1.00000 charge   0.00000 resname         A3 resid    30
+atom      89 name        A mass   1.00000 charge   0.00000 resname         A3 resid    30
+atom      90 name        A mass   1.00000 charge   0.00000 resname         A3 resid    31
+atom      91 name        A mass   1.00000 charge   0.00000 resname         A3 resid    31
+atom      92 name        A mass   1.00000 charge   0.00000 resname         A3 resid    31
+atom      93 name        A mass   1.00000 charge   0.00000 resname         A3 resid    32
+atom      94 name        A mass   1.00000 charge   0.00000 resname         A3 resid    32
+atom      95 name        A mass   1.00000 charge   0.00000 resname         A3 resid    32
+atom      96 name        A mass   1.00000 charge   0.00000 resname         A3 resid    33
+atom      97 name        A mass   1.00000 charge   0.00000 resname         A3 resid    33
+atom      98 name        A mass   1.00000 charge   0.00000 resname         A3 resid    33
+atom      99 name        A mass   1.00000 charge   0.00000 resname         A3 resid    34
+atom     100 name        A mass   1.00000 charge   0.00000 resname         A3 resid    34
+atom     101 name        A mass   1.00000 charge   0.00000 resname         A3 resid    34
+atom     102 name        A mass   1.00000 charge   0.00000 resname         A3 resid    35
+atom     103 name        A mass   1.00000 charge   0.00000 resname         A3 resid    35
+atom     104 name        A mass   1.00000 charge   0.00000 resname         A3 resid    35
+atom     105 name        A mass   1.00000 charge   0.00000 resname         A3 resid    36
+atom     106 name        A mass   1.00000 charge   0.00000 resname         A3 resid    36
+atom     107 name        A mass   1.00000 charge   0.00000 resname         A3 resid    36
+atom     108 name        A mass   1.00000 charge   0.00000 resname         A3 resid    37
+atom     109 name        A mass   1.00000 charge   0.00000 resname         A3 resid    37
+atom     110 name        A mass   1.00000 charge   0.00000 resname         A3 resid    37
+atom     111 name        A mass   1.00000 charge   0.00000 resname         A3 resid    38
+atom     112 name        A mass   1.00000 charge   0.00000 resname         A3 resid    38
+atom     113 name        A mass   1.00000 charge   0.00000 resname         A3 resid    38
+atom     114 name        A mass   1.00000 charge   0.00000 resname         A3 resid    39
+atom     115 name        A mass   1.00000 charge   0.00000 resname         A3 resid    39
+atom     116 name        A mass   1.00000 charge   0.00000 resname         A3 resid    39
+atom     117 name        A mass   1.00000 charge   0.00000 resname         A3 resid    40
+atom     118 name        A mass   1.00000 charge   0.00000 resname         A3 resid    40
+atom     119 name        A mass   1.00000 charge   0.00000 resname         A3 resid    40
+atom     120 name        A mass   1.00000 charge   0.00000 resname         A3 resid    41
+atom     121 name        A mass   1.00000 charge   0.00000 resname         A3 resid    41
+atom     122 name        A mass   1.00000 charge   0.00000 resname         A3 resid    41
+atom     123 name        A mass   1.00000 charge   0.00000 resname         A3 resid    42
+atom     124 name        A mass   1.00000 charge   0.00000 resname         A3 resid    42
+atom     125 name        A mass   1.00000 charge   0.00000 resname         A3 resid    42
+atom     126 name        A mass   1.00000 charge   0.00000 resname         A3 resid    43
+atom     127 name        A mass   1.00000 charge   0.00000 resname         A3 resid    43
+atom     128 name        A mass   1.00000 charge   0.00000 resname         A3 resid    43
+atom     129 name        A mass   1.00000 charge   0.00000 resname         A3 resid    44
+atom     130 name        A mass   1.00000 charge   0.00000 resname         A3 resid    44
+atom     131 name        A mass   1.00000 charge   0.00000 resname         A3 resid    44
+atom     132 name        A mass   1.00000 charge   0.00000 resname         A3 resid    45
+atom     133 name        A mass   1.00000 charge   0.00000 resname         A3 resid    45
+atom     134 name        A mass   1.00000 charge   0.00000 resname         A3 resid    45
+atom     135 name        A mass   1.00000 charge   0.00000 resname         A3 resid    46
+atom     136 name        A mass   1.00000 charge   0.00000 resname         A3 resid    46
+atom     137 name        A mass   1.00000 charge   0.00000 resname         A3 resid    46
+atom     138 name        A mass   1.00000 charge   0.00000 resname         A3 resid    47
+atom     139 name        A mass   1.00000 charge   0.00000 resname         A3 resid    47
+atom     140 name        A mass   1.00000 charge   0.00000 resname         A3 resid    47
+atom     141 name        A mass   1.00000 charge   0.00000 resname         A3 resid    48
+atom     142 name        A mass   1.00000 charge   0.00000 resname         A3 resid    48
+atom     143 name        A mass   1.00000 charge   0.00000 resname         A3 resid    48
+atom     144 name        A mass   1.00000 charge   0.00000 resname         A3 resid    49
+atom     145 name        A mass   1.00000 charge   0.00000 resname         A3 resid    49
+atom     146 name        A mass   1.00000 charge   0.00000 resname         A3 resid    49
+atom     147 name        A mass   1.00000 charge   0.00000 resname         A3 resid    50
+atom     148 name        A mass   1.00000 charge   0.00000 resname         A3 resid    50
+atom     149 name        A mass   1.00000 charge   0.00000 resname         A3 resid    50
+atom     150 name        A mass   1.00000 charge   0.00000 resname         A3 resid    51
+atom     151 name        A mass   1.00000 charge   0.00000 resname         A3 resid    51
+atom     152 name        A mass   1.00000 charge   0.00000 resname         A3 resid    51
+atom     153 name        A mass   1.00000 charge   0.00000 resname         A3 resid    52
+atom     154 name        A mass   1.00000 charge   0.00000 resname         A3 resid    52
+atom     155 name        A mass   1.00000 charge   0.00000 resname         A3 resid    52
+atom     156 name        A mass   1.00000 charge   0.00000 resname         A3 resid    53
+atom     157 name        A mass   1.00000 charge   0.00000 resname         A3 resid    53
+atom     158 name        A mass   1.00000 charge   0.00000 resname         A3 resid    53
+atom     159 name        A mass   1.00000 charge   0.00000 resname         A3 resid    54
+atom     160 name        A mass   1.00000 charge   0.00000 resname         A3 resid    54
+atom     161 name        A mass   1.00000 charge   0.00000 resname         A3 resid    54
+atom     162 name        A mass   1.00000 charge   0.00000 resname         A3 resid    55
+atom     163 name        A mass   1.00000 charge   0.00000 resname         A3 resid    55
+atom     164 name        A mass   1.00000 charge   0.00000 resname         A3 resid    55
+atom     165 name        A mass   1.00000 charge   0.00000 resname         A3 resid    56
+atom     166 name        A mass   1.00000 charge   0.00000 resname         A3 resid    56
+atom     167 name        A mass   1.00000 charge   0.00000 resname         A3 resid    56
+atom     168 name        A mass   1.00000 charge   0.00000 resname         A3 resid    57
+atom     169 name        A mass   1.00000 charge   0.00000 resname         A3 resid    57
+atom     170 name        A mass   1.00000 charge   0.00000 resname         A3 resid    57
+atom     171 name        A mass   1.00000 charge   0.00000 resname         A3 resid    58
+atom     172 name        A mass   1.00000 charge   0.00000 resname         A3 resid    58
+atom     173 name        A mass   1.00000 charge   0.00000 resname         A3 resid    58
+atom     174 name        A mass   1.00000 charge   0.00000 resname         A3 resid    59
+atom     175 name        A mass   1.00000 charge   0.00000 resname         A3 resid    59
+atom     176 name        A mass   1.00000 charge   0.00000 resname         A3 resid    59
+atom     177 name        A mass   1.00000 charge   0.00000 resname         A3 resid    60
+atom     178 name        A mass   1.00000 charge   0.00000 resname         A3 resid    60
+atom     179 name        A mass   1.00000 charge   0.00000 resname         A3 resid    60
+atom     180 name        A mass   1.00000 charge   0.00000 resname         A3 resid    61
+atom     181 name        A mass   1.00000 charge   0.00000 resname         A3 resid    61
+atom     182 name        A mass   1.00000 charge   0.00000 resname         A3 resid    61
+atom     183 name        A mass   1.00000 charge   0.00000 resname         A3 resid    62
+atom     184 name        A mass   1.00000 charge   0.00000 resname         A3 resid    62
+atom     185 name        A mass   1.00000 charge   0.00000 resname         A3 resid    62
+atom     186 name        A mass   1.00000 charge   0.00000 resname         A3 resid    63
+atom     187 name        A mass   1.00000 charge   0.00000 resname         A3 resid    63
+atom     188 name        A mass   1.00000 charge   0.00000 resname         A3 resid    63
+atom     189 name        A mass   1.00000 charge   0.00000 resname         A3 resid    64
+atom     190 name        A mass   1.00000 charge   0.00000 resname         A3 resid    64
+atom     191 name        A mass   1.00000 charge   0.00000 resname         A3 resid    64
+atom     192 name        A mass   1.00000 charge   0.00000 resname         A3 resid    65
+atom     193 name        A mass   1.00000 charge   0.00000 resname         A3 resid    65
+atom     194 name        A mass   1.00000 charge   0.00000 resname         A3 resid    65
+atom     195 name        A mass   1.00000 charge   0.00000 resname         A3 resid    66
+atom     196 name        A mass   1.00000 charge   0.00000 resname         A3 resid    66
+atom     197 name        A mass   1.00000 charge   0.00000 resname         A3 resid    66
+atom     198 name        A mass   1.00000 charge   0.00000 resname         A3 resid    67
+atom     199 name        A mass   1.00000 charge   0.00000 resname         A3 resid    67
+atom     200 name        A mass   1.00000 charge   0.00000 resname         A3 resid    67
+atom     201 name        A mass   1.00000 charge   0.00000 resname         A3 resid    68
+atom     202 name        A mass   1.00000 charge   0.00000 resname         A3 resid    68
+atom     203 name        A mass   1.00000 charge   0.00000 resname         A3 resid    68
+atom     204 name        A mass   1.00000 charge   0.00000 resname         A3 resid    69
+atom     205 name        A mass   1.00000 charge   0.00000 resname         A3 resid    69
+atom     206 name        A mass   1.00000 charge   0.00000 resname         A3 resid    69
+atom     207 name        A mass   1.00000 charge   0.00000 resname         A3 resid    70
+atom     208 name        A mass   1.00000 charge   0.00000 resname         A3 resid    70
+atom     209 name        A mass   1.00000 charge   0.00000 resname         A3 resid    70
+atom     210 name        A mass   1.00000 charge   0.00000 resname         A3 resid    71
+atom     211 name        A mass   1.00000 charge   0.00000 resname         A3 resid    71
+atom     212 name        A mass   1.00000 charge   0.00000 resname         A3 resid    71
+atom     213 name        A mass   1.00000 charge   0.00000 resname         A3 resid    72
+atom     214 name        A mass   1.00000 charge   0.00000 resname         A3 resid    72
+atom     215 name        A mass   1.00000 charge   0.00000 resname         A3 resid    72
+atom     216 name        A mass   1.00000 charge   0.00000 resname         A3 resid    73
+atom     217 name        A mass   1.00000 charge   0.00000 resname         A3 resid    73
+atom     218 name        A mass   1.00000 charge   0.00000 resname         A3 resid    73
+atom     219 name        A mass   1.00000 charge   0.00000 resname         A3 resid    74
+atom     220 name        A mass   1.00000 charge   0.00000 resname         A3 resid    74
+atom     221 name        A mass   1.00000 charge   0.00000 resname         A3 resid    74
+atom     222 name        A mass   1.00000 charge   0.00000 resname         A3 resid    75
+atom     223 name        A mass   1.00000 charge   0.00000 resname         A3 resid    75
+atom     224 name        A mass   1.00000 charge   0.00000 resname         A3 resid    75
+atom     225 name        A mass   1.00000 charge   0.00000 resname         A3 resid    76
+atom     226 name        A mass   1.00000 charge   0.00000 resname         A3 resid    76
+atom     227 name        A mass   1.00000 charge   0.00000 resname         A3 resid    76
+atom     228 name        A mass   1.00000 charge   0.00000 resname         A3 resid    77
+atom     229 name        A mass   1.00000 charge   0.00000 resname         A3 resid    77
+atom     230 name        A mass   1.00000 charge   0.00000 resname         A3 resid    77
+atom     231 name        A mass   1.00000 charge   0.00000 resname         A3 resid    78
+atom     232 name        A mass   1.00000 charge   0.00000 resname         A3 resid    78
+atom     233 name        A mass   1.00000 charge   0.00000 resname         A3 resid    78
+atom     234 name        A mass   1.00000 charge   0.00000 resname         A3 resid    79
+atom     235 name        A mass   1.00000 charge   0.00000 resname         A3 resid    79
+atom     236 name        A mass   1.00000 charge   0.00000 resname         A3 resid    79
+atom     237 name        A mass   1.00000 charge   0.00000 resname         A3 resid    80
+atom     238 name        A mass   1.00000 charge   0.00000 resname         A3 resid    80
+atom     239 name        A mass   1.00000 charge   0.00000 resname         A3 resid    80
+atom     240 name        A mass   1.00000 charge   0.00000 resname         A3 resid    81
+atom     241 name        A mass   1.00000 charge   0.00000 resname         A3 resid    81
+atom     242 name        A mass   1.00000 charge   0.00000 resname         A3 resid    81
+atom     243 name        A mass   1.00000 charge   0.00000 resname         A3 resid    82
+atom     244 name        A mass   1.00000 charge   0.00000 resname         A3 resid    82
+atom     245 name        A mass   1.00000 charge   0.00000 resname         A3 resid    82
+atom     246 name        A mass   1.00000 charge   0.00000 resname         A3 resid    83
+atom     247 name        A mass   1.00000 charge   0.00000 resname         A3 resid    83
+atom     248 name        A mass   1.00000 charge   0.00000 resname         A3 resid    83
+atom     249 name        A mass   1.00000 charge   0.00000 resname         A3 resid    84
+atom     250 name        A mass   1.00000 charge   0.00000 resname         A3 resid    84
+atom     251 name        A mass   1.00000 charge   0.00000 resname         A3 resid    84
+atom     252 name        A mass   1.00000 charge   0.00000 resname         A3 resid    85
+atom     253 name        A mass   1.00000 charge   0.00000 resname         A3 resid    85
+atom     254 name        A mass   1.00000 charge   0.00000 resname         A3 resid    85
+atom     255 name        A mass   1.00000 charge   0.00000 resname         A3 resid    86
+atom     256 name        A mass   1.00000 charge   0.00000 resname         A3 resid    86
+atom     257 name        A mass   1.00000 charge   0.00000 resname         A3 resid    86
+atom     258 name        A mass   1.00000 charge   0.00000 resname         A3 resid    87
+atom     259 name        A mass   1.00000 charge   0.00000 resname         A3 resid    87
+atom     260 name        A mass   1.00000 charge   0.00000 resname         A3 resid    87
+atom     261 name        A mass   1.00000 charge   0.00000 resname         A3 resid    88
+atom     262 name        A mass   1.00000 charge   0.00000 resname         A3 resid    88
+atom     263 name        A mass   1.00000 charge   0.00000 resname         A3 resid    88
+atom     264 name        A mass   1.00000 charge   0.00000 resname         A3 resid    89
+atom     265 name        A mass   1.00000 charge   0.00000 resname         A3 resid    89
+atom     266 name        A mass   1.00000 charge   0.00000 resname         A3 resid    89
+atom     267 name        A mass   1.00000 charge   0.00000 resname         A3 resid    90
+atom     268 name        A mass   1.00000 charge   0.00000 resname         A3 resid    90
+atom     269 name        A mass   1.00000 charge   0.00000 resname         A3 resid    90
+atom     270 name        A mass   1.00000 charge   0.00000 resname         A3 resid    91
+atom     271 name        A mass   1.00000 charge   0.00000 resname         A3 resid    91
+atom     272 name        A mass   1.00000 charge   0.00000 resname         A3 resid    91
+atom     273 name        A mass   1.00000 charge   0.00000 resname         A3 resid    92
+atom     274 name        A mass   1.00000 charge   0.00000 resname         A3 resid    92
+atom     275 name        A mass   1.00000 charge   0.00000 resname         A3 resid    92
+atom     276 name        A mass   1.00000 charge   0.00000 resname         A3 resid    93
+atom     277 name        A mass   1.00000 charge   0.00000 resname         A3 resid    93
+atom     278 name        A mass   1.00000 charge   0.00000 resname         A3 resid    93
+atom     279 name        A mass   1.00000 charge   0.00000 resname         A3 resid    94
+atom     280 name        A mass   1.00000 charge   0.00000 resname         A3 resid    94
+atom     281 name        A mass   1.00000 charge   0.00000 resname         A3 resid    94
+atom     282 name        A mass   1.00000 charge   0.00000 resname         A3 resid    95
+atom     283 name        A mass   1.00000 charge   0.00000 resname         A3 resid    95
+atom     284 name        A mass   1.00000 charge   0.00000 resname         A3 resid    95
+atom     285 name        A mass   1.00000 charge   0.00000 resname         A3 resid    96
+atom     286 name        A mass   1.00000 charge   0.00000 resname         A3 resid    96
+atom     287 name        A mass   1.00000 charge   0.00000 resname         A3 resid    96
+atom     288 name        A mass   1.00000 charge   0.00000 resname         A3 resid    97
+atom     289 name        A mass   1.00000 charge   0.00000 resname         A3 resid    97
+atom     290 name        A mass   1.00000 charge   0.00000 resname         A3 resid    97
+atom     291 name        A mass   1.00000 charge   0.00000 resname         A3 resid    98
+atom     292 name        A mass   1.00000 charge   0.00000 resname         A3 resid    98
+atom     293 name        A mass   1.00000 charge   0.00000 resname         A3 resid    98
+atom     294 name        A mass   1.00000 charge   0.00000 resname         A3 resid    99
+atom     295 name        A mass   1.00000 charge   0.00000 resname         A3 resid    99
+atom     296 name        A mass   1.00000 charge   0.00000 resname         A3 resid    99
+atom     297 name        A mass   1.00000 charge   0.00000 resname         A3 resid   100
+atom     298 name        A mass   1.00000 charge   0.00000 resname         A3 resid   100
+atom     299 name        A mass   1.00000 charge   0.00000 resname         A3 resid   100
+
+# resid 1
+bond      0:      1
+bond      1:      2
+# resid 2
+bond      3:      4
+bond      4:      5
+# resid 3
+bond      6:      7
+bond      7:      8
+# resid 4
+bond      9:     10
+bond     10:     11
+# resid 5
+bond     12:     13
+bond     13:     14
+# resid 6
+bond     15:     16
+bond     16:     17
+# resid 7
+bond     18:     19
+bond     19:     20
+# resid 8
+bond     21:     22
+bond     22:     23
+# resid 9
+bond     24:     25
+bond     25:     26
+# resid 10
+bond     27:     28
+bond     28:     29
+# resid 11
+bond     30:     31
+bond     31:     32
+# resid 12
+bond     33:     34
+bond     34:     35
+# resid 13
+bond     36:     37
+bond     37:     38
+# resid 14
+bond     39:     40
+bond     40:     41
+# resid 15
+bond     42:     43
+bond     43:     44
+# resid 16
+bond     45:     46
+bond     46:     47
+# resid 17
+bond     48:     49
+bond     49:     50
+# resid 18
+bond     51:     52
+bond     52:     53
+# resid 19
+bond     54:     55
+bond     55:     56
+# resid 20
+bond     57:     58
+bond     58:     59
+# resid 21
+bond     60:     61
+bond     61:     62
+# resid 22
+bond     63:     64
+bond     64:     65
+# resid 23
+bond     66:     67
+bond     67:     68
+# resid 24
+bond     69:     70
+bond     70:     71
+# resid 25
+bond     72:     73
+bond     73:     74
+# resid 26
+bond     75:     76
+bond     76:     77
+# resid 27
+bond     78:     79
+bond     79:     80
+# resid 28
+bond     81:     82
+bond     82:     83
+# resid 29
+bond     84:     85
+bond     85:     86
+# resid 30
+bond     87:     88
+bond     88:     89
+# resid 31
+bond     90:     91
+bond     91:     92
+# resid 32
+bond     93:     94
+bond     94:     95
+# resid 33
+bond     96:     97
+bond     97:     98
+# resid 34
+bond     99:    100
+bond    100:    101
+# resid 35
+bond    102:    103
+bond    103:    104
+# resid 36
+bond    105:    106
+bond    106:    107
+# resid 37
+bond    108:    109
+bond    109:    110
+# resid 38
+bond    111:    112
+bond    112:    113
+# resid 39
+bond    114:    115
+bond    115:    116
+# resid 40
+bond    117:    118
+bond    118:    119
+# resid 41
+bond    120:    121
+bond    121:    122
+# resid 42
+bond    123:    124
+bond    124:    125
+# resid 43
+bond    126:    127
+bond    127:    128
+# resid 44
+bond    129:    130
+bond    130:    131
+# resid 45
+bond    132:    133
+bond    133:    134
+# resid 46
+bond    135:    136
+bond    136:    137
+# resid 47
+bond    138:    139
+bond    139:    140
+# resid 48
+bond    141:    142
+bond    142:    143
+# resid 49
+bond    144:    145
+bond    145:    146
+# resid 50
+bond    147:    148
+bond    148:    149
+# resid 51
+bond    150:    151
+bond    151:    152
+# resid 52
+bond    153:    154
+bond    154:    155
+# resid 53
+bond    156:    157
+bond    157:    158
+# resid 54
+bond    159:    160
+bond    160:    161
+# resid 55
+bond    162:    163
+bond    163:    164
+# resid 56
+bond    165:    166
+bond    166:    167
+# resid 57
+bond    168:    169
+bond    169:    170
+# resid 58
+bond    171:    172
+bond    172:    173
+# resid 59
+bond    174:    175
+bond    175:    176
+# resid 60
+bond    177:    178
+bond    178:    179
+# resid 61
+bond    180:    181
+bond    181:    182
+# resid 62
+bond    183:    184
+bond    184:    185
+# resid 63
+bond    186:    187
+bond    187:    188
+# resid 64
+bond    189:    190
+bond    190:    191
+# resid 65
+bond    192:    193
+bond    193:    194
+# resid 66
+bond    195:    196
+bond    196:    197
+# resid 67
+bond    198:    199
+bond    199:    200
+# resid 68
+bond    201:    202
+bond    202:    203
+# resid 69
+bond    204:    205
+bond    205:    206
+# resid 70
+bond    207:    208
+bond    208:    209
+# resid 71
+bond    210:    211
+bond    211:    212
+# resid 72
+bond    213:    214
+bond    214:    215
+# resid 73
+bond    216:    217
+bond    217:    218
+# resid 74
+bond    219:    220
+bond    220:    221
+# resid 75
+bond    222:    223
+bond    223:    224
+# resid 76
+bond    225:    226
+bond    226:    227
+# resid 77
+bond    228:    229
+bond    229:    230
+# resid 78
+bond    231:    232
+bond    232:    233
+# resid 79
+bond    234:    235
+bond    235:    236
+# resid 80
+bond    237:    238
+bond    238:    239
+# resid 81
+bond    240:    241
+bond    241:    242
+# resid 82
+bond    243:    244
+bond    244:    245
+# resid 83
+bond    246:    247
+bond    247:    248
+# resid 84
+bond    249:    250
+bond    250:    251
+# resid 85
+bond    252:    253
+bond    253:    254
+# resid 86
+bond    255:    256
+bond    256:    257
+# resid 87
+bond    258:    259
+bond    259:    260
+# resid 88
+bond    261:    262
+bond    262:    263
+# resid 89
+bond    264:    265
+bond    265:    266
+# resid 90
+bond    267:    268
+bond    268:    269
+# resid 91
+bond    270:    271
+bond    271:    272
+# resid 92
+bond    273:    274
+bond    274:    275
+# resid 93
+bond    276:    277
+bond    277:    278
+# resid 94
+bond    279:    280
+bond    280:    281
+# resid 95
+bond    282:    283
+bond    283:    284
+# resid 96
+bond    285:    286
+bond    286:    287
+# resid 97
+bond    288:    289
+bond    289:    290
+# resid 98
+bond    291:    292
+bond    292:    293
+# resid 99
+bond    294:    295
+bond    295:    296
+# resid 100
+bond    297:    298
+bond    298:    299

@@ -1,306 +1,55 @@
-/**
- * \file
- * \brief Functions common to all analysis utilities.
- */
+#ifndef ANALYSISTOOLS_H
+#define ANALYSISTOOLS_H
 
-#ifndef _ANALYSISTOOLS_H_
-#define _ANALYSISTOOLS_H_
+#define _POSIX_C_SOURCE 200809L
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
-#include <math.h>
-#include <time.h>
-#include <stdbool.h>
-#include "General.h"
-#include "Errors.h"
 #include "Structs.h"
+#include "Globals.h"
+#include "MathUtils.h"
+#include "System.h"
+#include "Errors.h"
+#include "General.h"
 #include "Options.h"
-#include "Read.h"
-#include "Write.h"
+#include "ReadWrite.h"
+#include <complex.h>
 
-// VerboseOutput() //{{{
-/**
- * \brief Function printing basic information about system if `-v` or `-V`
- * option is provided
- *
- * \param [in] input_vcf     .vcf coordinate file
- * \param [in] Counts        numbers of beads, molecules, etc.
- * \param [in] BoxLength     dimension of the simulation box
- * \param [in] BeadType      information about bead types
- * \param [in] Bead          informationn about individual beads
- * \param [in] MoleculeType  information about molecule types
- * \param [in] Molecule      information about individual molecules
- */
-void VerboseOutput(char *input_vcf, COUNTS Counts, VECTOR BoxLength,
-                   BEADTYPE *BeadType, BEAD *Bead,
-                   MOLECULETYPE *MoleculeType, MOLECULE *Molecule); //}}}
+// Helper functions for dealing with SYSTEM structure
+// identify bead type based on name
+int FindBeadType(const char *name, const SYSTEM System);
+// identify molecule type based on name
+int FindMoleculeName(const char *name, const SYSTEM System);
+// identify molecule type based on name only or on other parameters too
+int FindMoleculeType(const SYSTEM Sys1, const MOLECULETYPE mt,
+                     const SYSTEM Sys2, const int mode, const bool name);
+// Helper functions for manipulating coordinates
+// wrap coordinates into simulation box and/or join molecules
+void WrapJoinCoordinates(SYSTEM *System, const bool wrap, const bool join);
+// distance between two beads; in the range <-BoxLength/2,BoxLength/2)
+void Distance(const double id1[3], const double id2[3],
+              const double BoxLength[3], double out[3]);
+// calculate centre of mass for a list of beads
+void CentreOfMass(const int n, const int *list,
+                  const SYSTEM System, double gc[3]);
+// calculate geometric centre for a list of beads
+void GeomCentre(const int n, const int *list, const BEAD *Bead, double gc[3]);
+// identify input coordinate and structure files
+bool InputCoorStruct(const int argc, char **argv, SYS_FILES *f);
+int StructureFileType(const char *name);
+int CoordinateFileType(const char *name);
+int FileType(const char *name);
+// create a cell-linked list
+void LinkedList(const SYSTEM System, int **Head, int **Link,
+                const double cell_size, int n_cells[3], int Dc[14][3]);
+int SelectCell1(const int c1[3], const int n_cells[3]);
+int SelectCell2(const int c1[3], const int n_cells[3],
+                const int Dc[14][3], const int n);
+// calculate gyration tensor and various shape descriptors
+void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]);
+// TODO: redo
+void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
+                      const int contacts, uint8_t **contact);
+void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
+                         SYSTEM *System);
 
-// PrintCounts()  //{{{
-/**
- * \brief Function printing Counts structure.
- *
- * \param [in] Counts   numbers of beads, molecules, etc.
- */
-void PrintCounts(COUNTS Counts);
-//}}}
-
-// PrintBeadType() //{{{
-/**
- * \brief Function printing Counts structure.
- *
- * \param [in] Counts     numbers of beads, molecules, etc.
- * \param [in] BeadType   information about bead types
- */
-void PrintBeadType(COUNTS Counts, BEADTYPE *BeadType); //}}}
-
-// PrintMoleculeTypeType()  //{{{
-/**
- * \brief Function printing MoleculeType structure.
- *
- * \param [in] Counts        numbers of beads, molecules, etc.
- * \param [in] BeadType      information about bead types
- * \param [in] MoleculeType  information about molecule types
- */
-void PrintMoleculeType(COUNTS Counts, BEADTYPE *BeadType, MOLECULETYPE *MoleculeType); //}}}
-
-// PrintBead() //{{{
-/**
- * Function printing Bead structure.
- */
-void PrintBead(COUNTS Counts, int *Index, BEADTYPE *BeadType, BEAD *Bead); //}}}
-
-// PrintMolecule() //{{{
-/**
- * Function printing Molecule structure.
- */
-void PrintMolecule(COUNTS Counts, int *Index,
-                   MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
-                   BEADTYPE *BeadType, BEAD *Bead); //}}}
-
-// PrintAggregate() //{{{
-/**
- * Function printing Molecule structure.
- */
-void PrintAggregate(COUNTS Counts, int *Index,
-                    MOLECULETYPE *MoleculeType, MOLECULE *Molecule,
-                    BEAD *Bead, BEADTYPE *BeadType, AGGREGATE *Aggregate); //}}}
-
-// PrintBondTypes() //{{{
-void PrintBondTypes(COUNTS Counts, PARAMS *bond_type);  //}}}
-
-// PrintAngleTypes() //{{{
-void PrintAngleTypes(COUNTS Counts, PARAMS *angle_type);  //}}}
-
-// FindBeadType() //{{{
-/** \brief Function to identify type of bead from its name
- *
- * \param [in]  name      bead name
- * \param [in]  Counts    numbers of beads, residues, etc.
- * \param [in]  BeadType  information about bead types
- * \return bead type id corresponding to index in BeadType struct (or -1 if non-existent bead name)
- */
-int FindBeadType(char *name, COUNTS Counts, BEADTYPE *BeadType); //}}}
-
-// FindMoleculeType() //{{{
-/** \brief Function to identify type of molecule from its name
- *
- * \param [in]  name          molecule name
- * \param [in]  Counts        numbers of beads, residues, etc.
- * \param [in]  MoleculeType  information about bead types
- * \return molecule type      id corresponding to index in BeadType struct (or -1 for non-existent molecule)
- */
-int FindMoleculeType(char *name, COUNTS Counts, MOLECULETYPE *MoleculeType); //}}}
-
-// Distancet() //{{{
-/**
- * \brief Function to calculate distance vector between two beads.
- *
- * \param [in] id1         first coordinate vector
- * \param [in] id2         second coordinate vector
- * \param [in] BoxLength   dimensions of simulation box
- * \return distance vector between the two provided beads (without pbc)
- */
-VECTOR Distance(VECTOR id1, VECTOR id2, VECTOR BoxLength); //}}}
-
-// RemovePBCMolecules() //{{{
-/**
- * \brief Function to join all molecules.
- *
- * \param [in]  Counts         numbers of beads, molecules, etc.
- * \param [in]  BoxLength      dimension of the simulation box
- * \param [in]  BeadType       information about bead types
- * \param [out] Bead           information about individual beads (coordinates)
- * \param [in]  MoleculeType   information about molecule types
- * \param [in]  Molecule       information about individual molecules
- */
-void RemovePBCMolecules(COUNTS Counts, VECTOR BoxLength,
-                        BEADTYPE *BeadType, BEAD **Bead,
-                        MOLECULETYPE *MoleculeType, MOLECULE *Molecule); //}}}
-
-// RemovePBCAggregates() //{{{
-/**
- * \brief Funcion to join all aggregates.
- *
- * \param [in]  distance       distance for closeness check (taken from agg file)
- * \param [in]  Aggregate      information about aggregates
- * \param [in]  Counts         number of beads, molecu.es, etc.
- * \param [in]  BoxLength      dimensions of the simulation box
- * \param [in]  BeadType       information about bead types
- * \param [out] Bead           information about individual beads (coordinates)
- * \param [in]  MoleculeType   information about molecule types
- * \param [in]  Molecule       information about individual molecules
- */
-void RemovePBCAggregates(double distance, AGGREGATE *Aggregate, COUNTS Counts,
-                         VECTOR BoxLength, BEADTYPE *BeadType, BEAD **Bead,
-                         MOLECULETYPE *MoleculeType, MOLECULE *Molecule); //}}}
-
-// RestorePBC() //{{{
-/**
- * \brief Function to restore pbc.
- *
- * \param [in]  Counts         numbers of beads, molecules, etc.
- * \param [in]  BoxLength      dimension of the simulation box
- * \param [out] Bead           information about individual beads (coordinates)
- */
-void RestorePBC(COUNTS Counts, VECTOR BoxLength, BEAD **Bead); //}}}
-
-// CentreOfMass() //{{{
-/**
- * \brief Function to calculate centre of mass for a collection of beads.
- *
- * \param [in] n              number of beads
- * \param [in] list           list of bead ids (corresponding to indices in Bead struct)
- * \param [in] Bead           information about individual beads (coordinates)
- * \param [in] BeadType       information about beadtypes (masses)
- * \return coordinates of centre of mass of a given aggregate
- */
-VECTOR CentreOfMass(int n, int *list, BEAD *Bead, BEADTYPE *BeadType); //}}}
-
-// GeomCentre() //{{{
-/**
- * \brief Function to calculate geometric centre for a collection of beads.
- *
- * \param [in] n              number of beads
- * \param [in] list           list of bead ids (corresponding to indices in Bead struct)
- * \param [in] Bead           information about individual beads (coordinates)
- * \return coordinates of geometric centre of a given aggregate
- */
-VECTOR GeomCentre(int n, int *list, BEAD *Bead); //}}}
-
-// Gyration() //{{{
-/*
- * \brief Function calculating principal moments of the gyration tensor.
- *
- * \param [in] n             number of beads
- * \param [in] list          array of bead ids
- * \param [in] Counts        numbers of beads, molecules, etc.
- * \param [in] BoxLength     dimensions of simulation box
- * \param [in] BeadType      informationn about bead types
- * \param [in] Bead          informationn about individual beads
- * \return vector with principal moments of gyration tensor (sorted as x<y<z)
- */
-void Gyration(int n, int *list, COUNTS Counts, VECTOR BoxLength,
-              BEADTYPE *BeadType, BEAD **Bead, double **tensor,
-              double eigenvalue[3], double **eigenvector); //}}}
-// // Gyration - backup() //{{{
-// /*
-//  * \brief Function calculating principal moments of the gyration tensor.
-//  *
-//  * \param [in] n             number of beads
-//  * \param [in] list          array of bead ids
-//  * \param [in] Counts        numbers of beads, molecules, etc.
-//  * \param [in] BoxLength     dimensions of simulation box
-//  * \param [in] BeadType      informationn about bead types
-//  * \param [in] Bead          informationn about individual beads
-//  * \return vector with principal moments of gyration tensor (sorted as x<y<z)
-//  */
-// VECTOR Gyration(int n, int *list, COUNTS Counts, VECTOR BoxLength,
-//                 BEADTYPE *BeadType, BEAD **Bead, double tensor[6]); //}}}
-
-// EvaluateContacts() //{{{
-/**
- * \brief Function evaluating contacts for aggregate detection
- *
- * \param [in]  Counts        numbers of beads, molecules, etc.
- * \param [out] Aggregate     information about aggregates
- * \param [in]  Molecule      information about individual molecules
- * \param [in]  contacts      number of contacts for aggregate check
- * \param [in]  contact       2D array containing number of contacts between molecules
- */
-void EvaluateContacts(COUNTS *Counts, AGGREGATE **Aggregate,
-                      MOLECULE **Molecule,
-                      int contacts, int **contact);
-//}}}
-
-// SortAggStruct() //{{{
-/**
- * \brief Function to sort Aggregate struct.
- *
- * \param [out] Aggregate  Aggregate struct to sort
- * \param [in]  Counts     numbers of beads, molecules, etc.
- */
-void SortAggStruct(AGGREGATE **Aggregate, COUNTS Counts,
-                   MOLECULE *Molecule, MOLECULETYPE *MoleculeType,
-                   BEAD **Bead, BEADTYPE *BeadType); //}}}
-
-// LinkedList() //{{{
-void LinkedList(VECTOR BoxLength, COUNTS Counts, BEAD *Bead,
-                int **Head, int **Link, double cell_size, INTVECTOR *n_cells,
-                int *Dcx, int *Dcy, int *Dcz); //}}}
-
-// SortBonds() //{{{
-/**
- * \brief Function to sort 2D array of bonds.
- *
- * \param [out] bond    2D array of bonds
- * \param [in]  length  number of bonds
- */
-void SortBonds(int **bond, int length); //}}}
-
-// SortAngles() //{{{
-/**
- * \brief Function to sort 2D array of bonds.
- *
- * \param [out] angle   2D array of angles
- * \param [in]  length  number of angles
- */
-void SortAngles(int **angle, int length); //}}}
-
-// FreeBead() //{{{
-/**
- * \brief Free memory allocated for Bead struct array.
- *
- * \param [in]  Counts      number of beads, molecu.es, etc.
- * \param [out] Bead        information about individual beads
- */
-void FreeBead(COUNTS Counts, BEAD **Bead); //}}}
-
-// FreeMolecule() //{{{
-/**
- * \brief Free memory allocated for Molecule struct array.
- *
- * \param [in]  Counts      number of beads, molecu.es, etc.
- * \param [out] Molecule    information about individual molecules
- */
-void FreeMolecule(COUNTS Counts, MOLECULE **Molecule); //}}}
-
-// FreeMoleculeType() //{{{
-/**
- * \brief Free memory allocated for MoleculeType struct array.
- *
- * \param [in]  Counts         number of beads, molecu.es, etc.
- * \param [out] MoleculeType   information about individual molecules
- */
-void FreeMoleculeType(COUNTS Counts, MOLECULETYPE **MoleculeType); //}}}
-
-// FreeAggregate() //{{{
-/**
- * \brief Free memory allocated for MoleculeType struct array.
- *
- * \param [in]  Counts      number of beads, molecu.es, etc.
- * \param [out] Aggregate   information about individual molecules
- */
-void FreeAggregate(COUNTS Counts, AGGREGATE **Aggregate); //}}}
+bool UseStep(const COMMON_OPT opt, int step);
 #endif

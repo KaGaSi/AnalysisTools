@@ -1,0 +1,329 @@
+# Created by AnalysisTools version 3.3 (https://github.com/KaGaSi/AnalysisTools/releases)
+atom default name        W mass   1.00000 charge   0.00000
+atom     100 name        A mass   0.41670 charge   0.00000 resname       mol1 resid     1
+atom     101 name        A mass   0.41670 charge   0.00000 resname       mol1 resid     1
+atom     102 name        A mass   0.41670 charge   0.00000 resname       mol1 resid     1
+atom     103 name        B mass   0.77780 charge   0.00000 resname       mol1 resid     1
+atom     104 name        B mass   0.77780 charge   0.00000 resname       mol1 resid     1
+atom     105 name        B mass   0.77780 charge   0.00000 resname       mol1 resid     1
+atom     106 name        B mass   0.77780 charge   0.00000 resname       mol1 resid     1
+atom     107 name        A mass   0.41670 charge   0.00000 resname    mol1-b1 resid     2
+atom     108 name        A mass   0.41670 charge   0.00000 resname    mol1-b1 resid     2
+atom     109 name        A mass   0.41670 charge   0.00000 resname    mol1-b1 resid     2
+atom     110 name        B mass   0.77780 charge   0.00000 resname    mol1-b1 resid     2
+atom     111 name        B mass   0.77780 charge   0.00000 resname    mol1-b1 resid     2
+atom     112 name        B mass   0.77780 charge   0.00000 resname    mol1-b1 resid     2
+atom     113 name        B mass   0.77780 charge   0.00000 resname    mol1-b1 resid     2
+atom     114 name        A mass   0.41670 charge   0.00000 resname    mol1-b2 resid     3
+atom     115 name        A mass   0.41670 charge   0.00000 resname    mol1-b2 resid     3
+atom     116 name        A mass   0.41670 charge   0.00000 resname    mol1-b2 resid     3
+atom     117 name        B mass   0.77780 charge   0.00000 resname    mol1-b2 resid     3
+atom     118 name        B mass   0.77780 charge   0.00000 resname    mol1-b2 resid     3
+atom     119 name        B mass   0.77780 charge   0.00000 resname    mol1-b2 resid     3
+atom     120 name        B mass   0.77780 charge   0.00000 resname    mol1-b2 resid     3
+atom     121 name        A mass   0.41670 charge   0.00000 resname    mol1-b3 resid     4
+atom     122 name        A mass   0.41670 charge   0.00000 resname    mol1-b3 resid     4
+atom     123 name        A mass   0.41670 charge   0.00000 resname    mol1-b3 resid     4
+atom     124 name        B mass   0.77780 charge   0.00000 resname    mol1-b3 resid     4
+atom     125 name        B mass   0.77780 charge   0.00000 resname    mol1-b3 resid     4
+atom     126 name        B mass   0.77780 charge   0.00000 resname    mol1-b3 resid     4
+atom     127 name        B mass   0.77780 charge   0.00000 resname    mol1-b3 resid     4
+atom     128 name        A mass   0.41670 charge   0.00000 resname mol1-b3-a1 resid     5
+atom     129 name        A mass   0.41670 charge   0.00000 resname mol1-b3-a1 resid     5
+atom     130 name        A mass   0.41670 charge   0.00000 resname mol1-b3-a1 resid     5
+atom     131 name        B mass   0.77780 charge   0.00000 resname mol1-b3-a1 resid     5
+atom     132 name        B mass   0.77780 charge   0.00000 resname mol1-b3-a1 resid     5
+atom     133 name        B mass   0.77780 charge   0.00000 resname mol1-b3-a1 resid     5
+atom     134 name        B mass   0.77780 charge   0.00000 resname mol1-b3-a1 resid     5
+atom     135 name        C mass   1.22220 charge   0.00000 resname       mol2 resid     6
+atom     136 name        C mass   1.22220 charge   0.00000 resname       mol2 resid     6
+atom     137 name        C mass   1.22220 charge   0.00000 resname       mol2 resid     6
+atom     138 name        D mass   0.86410 charge   0.00000 resname       mol2 resid     6
+atom     139 name        D mass   0.86410 charge   0.00000 resname       mol2 resid     6
+atom     140 name        D mass   0.86410 charge   0.00000 resname       mol2 resid     6
+atom     141 name        C mass   1.22220 charge   0.00000 resname       mol2 resid     7
+atom     142 name        C mass   1.22220 charge   0.00000 resname       mol2 resid     7
+atom     143 name        C mass   1.22220 charge   0.00000 resname       mol2 resid     7
+atom     144 name        D mass   0.86410 charge   0.00000 resname       mol2 resid     7
+atom     145 name        D mass   0.86410 charge   0.00000 resname       mol2 resid     7
+atom     146 name        D mass   0.86410 charge   0.00000 resname       mol2 resid     7
+atom     147 name        C mass   1.22220 charge   0.00000 resname       mol2 resid     8
+atom     148 name        C mass   1.22220 charge   0.00000 resname       mol2 resid     8
+atom     149 name        C mass   1.22220 charge   0.00000 resname       mol2 resid     8
+atom     150 name        D mass   0.86410 charge   0.00000 resname       mol2 resid     8
+atom     151 name        D mass   0.86410 charge   0.00000 resname       mol2 resid     8
+atom     152 name        D mass   0.86410 charge   0.00000 resname       mol2 resid     8
+atom     153 name        A mass   0.41670 charge   0.00000 resname       mol3 resid     9
+atom     154 name        B mass   0.77780 charge   0.00000 resname       mol3 resid     9
+atom     155 name        B mass   0.77780 charge   0.00000 resname       mol3 resid     9
+atom     156 name        C mass   1.22220 charge   0.00000 resname       mol3 resid     9
+atom     157 name        C mass   1.22220 charge   0.00000 resname       mol3 resid     9
+atom     158 name        C mass   1.22220 charge   0.00000 resname       mol3 resid     9
+atom     159 name        D mass   0.86410 charge   0.00000 resname       mol3 resid     9
+atom     160 name        D mass   0.86410 charge   0.00000 resname       mol3 resid     9
+atom     161 name        D mass   0.86410 charge   0.00000 resname       mol3 resid     9
+atom     162 name        D mass   0.86410 charge   0.00000 resname       mol3 resid     9
+atom     163 name        A mass   0.41670 charge   0.00000 resname       mol3 resid    10
+atom     164 name        B mass   0.77780 charge   0.00000 resname       mol3 resid    10
+atom     165 name        B mass   0.77780 charge   0.00000 resname       mol3 resid    10
+atom     166 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    10
+atom     167 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    10
+atom     168 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    10
+atom     169 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    10
+atom     170 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    10
+atom     171 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    10
+atom     172 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    10
+atom     173 name        A mass   0.41670 charge   0.00000 resname       mol3 resid    11
+atom     174 name        B mass   0.77780 charge   0.00000 resname       mol3 resid    11
+atom     175 name        B mass   0.77780 charge   0.00000 resname       mol3 resid    11
+atom     176 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    11
+atom     177 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    11
+atom     178 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    11
+atom     179 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    11
+atom     180 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    11
+atom     181 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    11
+atom     182 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    11
+atom     183 name        A mass   0.41670 charge   0.00000 resname       mol3 resid    12
+atom     184 name        B mass   0.77780 charge   0.00000 resname       mol3 resid    12
+atom     185 name        B mass   0.77780 charge   0.00000 resname       mol3 resid    12
+atom     186 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    12
+atom     187 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    12
+atom     188 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    12
+atom     189 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    12
+atom     190 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    12
+atom     191 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    12
+atom     192 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    12
+atom     193 name        A mass   0.41670 charge   0.00000 resname       mol3 resid    13
+atom     194 name        B mass   0.77780 charge   0.00000 resname       mol3 resid    13
+atom     195 name        B mass   0.77780 charge   0.00000 resname       mol3 resid    13
+atom     196 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    13
+atom     197 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    13
+atom     198 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    13
+atom     199 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    13
+atom     200 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    13
+atom     201 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    13
+atom     202 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    13
+atom     203 name        A mass   0.41670 charge   0.00000 resname       mol3 resid    14
+atom     204 name        B mass   0.77780 charge   0.00000 resname       mol3 resid    14
+atom     205 name        B mass   0.77780 charge   0.00000 resname       mol3 resid    14
+atom     206 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    14
+atom     207 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    14
+atom     208 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    14
+atom     209 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    14
+atom     210 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    14
+atom     211 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    14
+atom     212 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    14
+atom     213 name        A mass   0.41670 charge   0.00000 resname       mol3 resid    15
+atom     214 name        B mass   0.77780 charge   0.00000 resname       mol3 resid    15
+atom     215 name        B mass   0.77780 charge   0.00000 resname       mol3 resid    15
+atom     216 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    15
+atom     217 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    15
+atom     218 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    15
+atom     219 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    15
+atom     220 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    15
+atom     221 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    15
+atom     222 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    15
+atom     223 name        A mass   0.41670 charge   0.00000 resname       mol3 resid    16
+atom     224 name        B mass   0.77780 charge   0.00000 resname       mol3 resid    16
+atom     225 name        B mass   0.77780 charge   0.00000 resname       mol3 resid    16
+atom     226 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    16
+atom     227 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    16
+atom     228 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    16
+atom     229 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    16
+atom     230 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    16
+atom     231 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    16
+atom     232 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    16
+atom     233 name        A mass   0.41670 charge   0.00000 resname       mol3 resid    17
+atom     234 name        B mass   0.77780 charge   0.00000 resname       mol3 resid    17
+atom     235 name        B mass   0.77780 charge   0.00000 resname       mol3 resid    17
+atom     236 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    17
+atom     237 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    17
+atom     238 name        C mass   1.22220 charge   0.00000 resname       mol3 resid    17
+atom     239 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    17
+atom     240 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    17
+atom     241 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    17
+atom     242 name        D mass   0.86410 charge   0.00000 resname       mol3 resid    17
+atom     243 name        A mass   0.41670 charge   0.00000 resname    mol3-a1 resid    18
+atom     244 name        B mass   0.77780 charge   0.00000 resname    mol3-a1 resid    18
+atom     245 name        B mass   0.77780 charge   0.00000 resname    mol3-a1 resid    18
+atom     246 name        C mass   1.22220 charge   0.00000 resname    mol3-a1 resid    18
+atom     247 name        C mass   1.22220 charge   0.00000 resname    mol3-a1 resid    18
+atom     248 name        C mass   1.22220 charge   0.00000 resname    mol3-a1 resid    18
+atom     249 name        D mass   0.86410 charge   0.00000 resname    mol3-a1 resid    18
+atom     250 name        D mass   0.86410 charge   0.00000 resname    mol3-a1 resid    18
+atom     251 name        D mass   0.86410 charge   0.00000 resname    mol3-a1 resid    18
+atom     252 name        D mass   0.86410 charge   0.00000 resname    mol3-a1 resid    18
+
+# resid 1
+bond    100:    101
+bond    100:    102
+bond    102:    103
+bond    103:    104
+bond    104:    105
+bond    105:    106
+# resid 2
+bond    107:    108
+bond    108:    109
+bond    108:    110
+bond    110:    111
+bond    111:    112
+bond    112:    113
+# resid 3
+bond    114:    115
+bond    115:    116
+bond    116:    117
+bond    116:    118
+bond    118:    119
+bond    119:    120
+# resid 4
+bond    121:    122
+bond    122:    123
+bond    123:    124
+bond    124:    125
+bond    125:    126
+bond    126:    127
+# resid 5
+bond    128:    129
+bond    129:    130
+bond    130:    131
+bond    131:    132
+bond    132:    133
+bond    133:    134
+# resid 6
+bond    135:    136
+bond    136:    137
+bond    137:    138
+bond    138:    139
+bond    139:    140
+# resid 7
+bond    141:    142
+bond    142:    143
+bond    143:    144
+bond    144:    145
+bond    145:    146
+# resid 8
+bond    147:    148
+bond    148:    149
+bond    149:    150
+bond    150:    151
+bond    151:    152
+# resid 9
+bond    153:    154
+bond    153:    162
+bond    154:    155
+bond    155:    156
+bond    155:    161
+bond    156:    157
+bond    157:    158
+bond    158:    159
+bond    159:    160
+bond    160:    161
+bond    161:    162
+# resid 10
+bond    163:    164
+bond    163:    172
+bond    164:    165
+bond    165:    166
+bond    165:    171
+bond    166:    167
+bond    167:    168
+bond    168:    169
+bond    169:    170
+bond    170:    171
+bond    171:    172
+# resid 11
+bond    173:    174
+bond    173:    182
+bond    174:    175
+bond    175:    176
+bond    175:    181
+bond    176:    177
+bond    177:    178
+bond    178:    179
+bond    179:    180
+bond    180:    181
+bond    181:    182
+# resid 12
+bond    183:    184
+bond    183:    192
+bond    184:    185
+bond    185:    186
+bond    185:    191
+bond    186:    187
+bond    187:    188
+bond    188:    189
+bond    189:    190
+bond    190:    191
+bond    191:    192
+# resid 13
+bond    193:    194
+bond    193:    202
+bond    194:    195
+bond    195:    196
+bond    195:    201
+bond    196:    197
+bond    197:    198
+bond    198:    199
+bond    199:    200
+bond    200:    201
+bond    201:    202
+# resid 14
+bond    203:    204
+bond    203:    212
+bond    204:    205
+bond    205:    206
+bond    205:    211
+bond    206:    207
+bond    207:    208
+bond    208:    209
+bond    209:    210
+bond    210:    211
+bond    211:    212
+# resid 15
+bond    213:    214
+bond    213:    222
+bond    214:    215
+bond    215:    216
+bond    215:    221
+bond    216:    217
+bond    217:    218
+bond    218:    219
+bond    219:    220
+bond    220:    221
+bond    221:    222
+# resid 16
+bond    223:    224
+bond    223:    232
+bond    224:    225
+bond    225:    226
+bond    225:    231
+bond    226:    227
+bond    227:    228
+bond    228:    229
+bond    229:    230
+bond    230:    231
+bond    231:    232
+# resid 17
+bond    233:    234
+bond    233:    242
+bond    234:    235
+bond    235:    236
+bond    235:    241
+bond    236:    237
+bond    237:    238
+bond    238:    239
+bond    239:    240
+bond    240:    241
+bond    241:    242
+# resid 18
+bond    243:    244
+bond    243:    252
+bond    244:    245
+bond    245:    246
+bond    245:    251
+bond    246:    247
+bond    247:    248
+bond    248:    249
+bond    249:    250
+bond    250:    251
+bond    251:    252

@@ -3,9 +3,12 @@
  * \brief Error prints
  */
 
-#ifndef _ERRORS_H_
-#define _ERRORS_H_
+#ifndef ERRORS_H
+#define ERRORS_H
 
+#define _POSIX_C_SOURCE 200809L
+
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,109 +17,41 @@
 #include <stdbool.h>
 #include "General.h"
 #include "Structs.h"
+#include "AnalysisTools.h"
 
-// ErrorCoorRead() //{{{
-/**
- * \brief Incorrect reading of vcf file
- *
- * \param [in] input_vcf  .vcf coordinate file
- * \param [in] bead       bead's line in its timestep in .vcf file where error occurred
- * \param [in] step       timestep when error occurred
- * \param [in] stuff      comment line of a timestep when error occurred
- */
-void ErrorCoorRead(char *input_vcf, int bead, int step, char *stuff); //}}}
+// print 'warning - <ERROR_MSG>\n' in cyan
+void PrintWarning();
+// print 'error - <ERROR_MSG>\n' in red
+void PrintError();
+// print 'error: <option> - <ERROR_MSG>' in red and yellow
+void PrintErrorOption(const char *opt);
+// print 'warning: <option> - <ERROR_MSG>' in cyan and yellow
+void PrintWarnOption(const char *opt);
+// print 'error: - <ERROR_MSG>\nFile <file(s)>'
+void PrintErrorFile(const char *file1, const char *file2, const char *file3);
+// print 'warning: - <ERROR_MSG>\nFile <file(s)>'
+void PrintWarnFile(const char *file1, const char *file2, const char *file3);
+// print 'error: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>'
+void PrintErrorFileLine(const char *file, const int count);
+// print 'warning: - <ERROR_MSG>\nFile <file(s)>, line <count>:\n<line>'
+void PrintWarnFileLine(const char *file, const int count);
+// print 'file <name(s)>' in given colour (Warn: cyan, Error: red)
+void WarnPrintFile(const char *file1, const char *file2, const char *file3);
+void ErrorPrintFile(const char *file1, const char *file2, const char *file3);
+void WarnPrintLine();
+void ErrorPrintLine();
+void ErrorEOF(const char *file, char *msg);
+void ErrorSnprintf();
+void ErrorArgNumber(const int count, const int need);
+int ErrorExtension(const char *file, const int number,
+                   const char extension[][EXTENSION]);
+void ErrorOption(const char *option);
+void ErrorNaN(const char *option);
+void ErrorBeadType(const char *name, const SYSTEM System);
+void ErrorMoleculeType(const char *name, const SYSTEM System);
+void WarnChargedSystem(const SYSTEM System, const char *file1,
+                       const char *file2, const char *file3);
+void ErrorStartEnd(const int start, const int end);
 
-// ErrorArgNumber() //{{{
-/**
- * \brief Insufficient number of arguments
- *
- * \param [in] count  number of supplied arguments
- * \param [in] need   minimum number of required arguments
- */
-void ErrorArgNumber(int count, int need); //}}}
-
-// ErrorDiscard() //{{{
-/**
- * \brief Starting timestep is higher than the number of steps
- *
- * \param [in] start  starting timestep
- * \param [in] step   number of steps read
- * \param [in] file   coordinate filename
- * \param [in] coor   pointer to the coordinate file
- * \return 'true' if the starting step is too high, 'false' otherwise
- */
-bool ErrorDiscard(int start, int step, char *file, FILE *coor); //}}}
-
-// ErrorExtension() //{{{
-/**
- * \brief Wrong file extension
- *
- * \param [in] file       filename
- * \param [in] number     number of correct extension(s)
- * \param [in] extension  correct extension(s)
- * \return 'true' if wrong extension, 'false' otherwise
- */
-bool ErrorExtension(char *file, int number, char extension[][5]); //}}}
-
-// ErrorFileOpen() //{{{
-/**
- * \brief Cannot open file
- *
- * \param [in] file  filename
- * \param [in] mode  open mode - r(ead), w(rite), a(ppend)
- */
-void ErrorFileOpen(char *file, char mode); //}}}
-
-// ErrorNaN() //{{{
-/**
- * \brief Non-numeric argument
- *
- * \param [in] option   the option with wrong argument
- */
-void ErrorNaN(char *option); //}}}
-
-// ErrorOption() //{{{
-/**
- * \brief Unknown option
- *
- * \param [in] option   the unknown option
- */
-void ErrorOption(char *option); //}}}
-
-// ErrorBeadType() //{{{
-/**
- * Error when non-existent bead is used.
- *
- * \param [in] Counts      numbers of beads, molecules, etc.
- * \param [in] BeadType    information about bead types
- */
-void ErrorBeadType(COUNTS Counts, BEADTYPE *BeadType); //}}}
-
-// ErrorMoleculeType() //{{{
-/**
- * Error when non-existent bead is used.
- *
- * \param [in] Counts        numbers of beads, molecules, etc.
- * \param [in] MoleculeType  information about molecule types
- */
-void ErrorMoleculeType(COUNTS Counts, MOLECULETYPE *MoleculeType); //}}}
-
-// ErrorPrintLine() //{{{
-/**
- * \brief Print provided strings to error output.
- *
- * \param [in] split     array of strings to prints
- * \param [in] words     number of strings in the split array
- */
-void ErrorPrintLine(char split[30][100], int words); //}}}
-
-// WarnElNeutrality() //{{{
-/**
- * \brief Function warning about charged system
- *
- * \param [in] Counts    numbers of beads, molecules, etc.
- * \param [in] BeadType  informationn about bead types
- * \param [in] file      file name containing the system data
- */
-void WarnElNeutrality(COUNTS Counts, BEADTYPE *BeadType, char *file); //}}}
+void err_msg(const char *str);
 #endif

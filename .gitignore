@@ -22,3 +22,5 @@ tags
 .gdb_history
 .cache
 profile
+cscope.files
+backends.txt

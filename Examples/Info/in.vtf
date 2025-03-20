@@ -1,0 +1,22 @@
+atom default name A m 1 q 0
+atom  3 name A m 2
+atom  4 name A     q 2
+atom  5 name A m 1 q 0 resid 1
+atom  6 name A m 1 q 0 resid 1 resname A2
+atom  7 name A         resid 2
+atom  8 name A         resid 2
+atom  9 name A         resid 2
+atom 10 name A         resid 2
+atom 11 name B m 1 r 1
+atom 12 name B     r 1
+atom 13 name B m 1
+atom 14 name B
+
+indexed
+  0  0.0  0.0  0.0
+  1  0.1  0.0  0.0
+  4  0.2  0.1  0.0
+  5  0.3  0.2  0.1
+  8  0.4  0.3  0.2
+  9  0.5  0.4  0.3
+ 12  0.6  0.5  0.4
