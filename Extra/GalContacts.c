@@ -117,10 +117,10 @@ void PrintHeader(int bt_j, int bt_k, FILE *fw,
   char *name_j = Sys.BeadType[bt_j].Name;
   char *name_k = Sys.BeadType[bt_k].Name;
   if (FindBeadType(name, Sys) != -1) {
-    fprintf(fw, " (%d) %s-%s-%s;", ctx->column++, name_j, name_k, name_mol);
+    fprintf(fw, " (%d) %s-%s-%s;", ctx->column++, name_j, name_k, name);
   }
   if (FindMoleculeName(name_mol, Sys) != -1) {
-    fprintf(fw, " (%d) %s-%s-%s", ctx->column++, name_j, name_k, name);
+    fprintf(fw, " (%d) %s-%s-%s", ctx->column++, name_j, name_k, name_mol);
   }
 }
 // Function to compute averages
@@ -206,12 +206,12 @@ int main(int argc, char *argv[]) {
   // molecule/bead type options //{{{
   // molecule types to calculate contacts for
   opt->mt = calloc(System.Count.MoleculeType, sizeof *opt->mt);
-  if (!MoleculeTypeOption(argc, argv, "-mt", true, opt->mt, System)) {
+  if (!TypeOption(argc, argv, "-mt", 'm', true, opt->mt, System)) {
     InitBoolArray(opt->mt, Count->MoleculeType, true);
   }
   // bead types to calculate contacts for
   opt->bt = calloc(System.Count.BeadType, sizeof *opt->bt);
-  if (!BeadTypeOption(argc, argv, "-bt", true, opt->bt, System)) {
+  if (!TypeOption(argc, argv, "-bt", 'b', true, opt->bt, System)) {
     InitBoolArray(opt->bt, Count->BeadType, true);
   } //}}}
 

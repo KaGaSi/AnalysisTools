@@ -2,6 +2,7 @@
 #include "Errors.h"
 #include "General.h"
 #include "ReadWrite.h"
+#include <gsl/gsl_poly.h>
 
 // TODO: consider BeadType[].Index, System.Bonded, etc. arrays - shouldn't they
 //       be filled based on whether the beads are in the timestep? Plus a
@@ -120,6 +121,9 @@ static void RemovePBCMolecules(SYSTEM *System) {
       continue;
     }
     MOLECULETYPE *mt = &System->MoleculeType[mol->Type];
+    if (mt->nBonds == 0) {
+      continue;
+    }
     // skip molecule if it is bond-less
     if (mt->nBonds == 0) {
       snprintf(ERROR_MSG, LINE, "molecule %s%d%s (%s%s%s) has no bonds ",
@@ -483,10 +487,10 @@ static int FindFileType(const char *name) { //{{{
   char orig[LINE];
   snprintf(orig, LINE, "%s", name);
   // check for known extensions
-  char *extension[8] = {".vtf", ".vsf", ".vcf", ".xyz", ".data",
-                         ".lammpstrj", ".field", ".config"};
+  char *extension[9] = {".vtf", ".vsf", ".vcf", ".xyz", ".data",
+                         ".lammpstrj", ".field", ".config", ".itp"};
   char *dot = strrchr(name, '.');
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < 9; i++) {
     if (dot && strcasecmp(dot, extension[i]) == 0) {
       return i;
     }
@@ -530,7 +534,8 @@ int StructureFileType(const char *path) { //{{{
   const char *name = StripPath(path);
   int ft = FindFileType(name);
   if (ft == VTF_FILE || ft == VSF_FILE || ft == FIELD_FILE ||
-      ft == LDATA_FILE || ft == LTRJ_FILE || ft == XYZ_FILE) {
+      ft == LDATA_FILE || ft == LTRJ_FILE || ft == XYZ_FILE ||
+      ft == GROM_FILE) {
     return ft;
   } else {
     err_msg("Not a structure file");
@@ -636,8 +641,7 @@ int SelectCell2(const int c1[3], const int n_cells[3],
 // TODO: use Jacobi method
 // TODO: use SYSTEM
 // calculate gyration tensor and various shape descriptors //{{{
-void Gyration(const int n, const int *list, const COUNT Counts,
-              const BEADTYPE *BeadType, BEAD **Bead, double eigen[3]) {
+void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]) {
   // gyration tensor (3x3 array)
   // use long double to ensure precision -- previous problem with truncation in
   // short chains
@@ -647,24 +651,28 @@ void Gyration(const int n, const int *list, const COUNT Counts,
   long double GyrationTensor[3][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
 
   double cog[3];
-  GeomCentre(n, list, *Bead, cog);
+  GeomCentre(n, list, System->Bead, cog);
 
   // move centre of mass to [0,0,0] //{{{
   for (int i = 0; i < n; i++) {
     for (int dd = 0; dd < 3; dd++) {
-      (*Bead)[list[i]].Position[dd] -= cog[dd];
+      System->Bead[list[i]].Position[dd] -= cog[dd];
     }
   } //}}}
+  // for (int i = 0; i < n; i++) {
+  //   printf("%5d %5d %5d\n", i, list[i], n);
+  // }
 
   // calculate gyration tensor //{{{
   for (int i = 0; i < n; i++) {
     int id = list[i];
-    GyrationTensor[0][0] += Bead[id]->Position[0] * Bead[id]->Position[0];
-    GyrationTensor[0][1] += Bead[id]->Position[0] * Bead[id]->Position[1];
-    GyrationTensor[0][2] += Bead[id]->Position[0] * Bead[id]->Position[2];
-    GyrationTensor[1][1] += Bead[id]->Position[1] * Bead[id]->Position[1];
-    GyrationTensor[1][2] += Bead[id]->Position[1] * Bead[id]->Position[2];
-    GyrationTensor[2][2] += Bead[id]->Position[2] * Bead[id]->Position[2];
+    double *pos = System->Bead[id].Position;
+    GyrationTensor[0][0] += pos[0] * pos[0];
+    GyrationTensor[0][1] += pos[0] * pos[1];
+    GyrationTensor[0][2] += pos[0] * pos[2];
+    GyrationTensor[1][1] += pos[1] * pos[1];
+    GyrationTensor[1][2] += pos[1] * pos[2];
+    GyrationTensor[2][2] += pos[2] * pos[2];
   }
   GyrationTensor[0][0] /= n;
   GyrationTensor[0][1] /= n;
@@ -675,66 +683,57 @@ void Gyration(const int n, const int *list, const COUNT Counts,
 
   // characteristic polynomial:
   // a_cube * x^3 + b_cube * x^2 + c_cube * x + d_cube = 0
-  long double a_cube = -1;
-  long double b_cube = GyrationTensor[0][0] +
-                       GyrationTensor[1][1] +
-                       GyrationTensor[2][2];
-  long double c_cube = -GyrationTensor[0][0] * GyrationTensor[1][1] -
-                       GyrationTensor[0][0] * GyrationTensor[2][2] -
-                       GyrationTensor[1][1] * GyrationTensor[2][2] +
-                       Square(GyrationTensor[1][2]) +
-                       Square(GyrationTensor[0][1]) +
-                       Square(GyrationTensor[0][2]);
-  long double d_cube =
+  long double a = -1;
+  long double b = GyrationTensor[0][0] +
+                  GyrationTensor[1][1] +
+                  GyrationTensor[2][2];
+  long double c = -GyrationTensor[0][0] * GyrationTensor[1][1] -
+                  GyrationTensor[0][0] * GyrationTensor[2][2] -
+                  GyrationTensor[1][1] * GyrationTensor[2][2] +
+                  Square(GyrationTensor[1][2]) +
+                  Square(GyrationTensor[0][1]) +
+                  Square(GyrationTensor[0][2]);
+  long double d =
       +GyrationTensor[0][0] * GyrationTensor[1][1] * GyrationTensor[2][2] +
       2 * GyrationTensor[0][1] * GyrationTensor[1][2] * GyrationTensor[0][2] -
       Square(GyrationTensor[0][2]) * GyrationTensor[1][1] -
       Square(GyrationTensor[0][1]) * GyrationTensor[2][2] -
       Square(GyrationTensor[1][2]) * GyrationTensor[0][0];
+  b /= a;
+  c /= a;
+  d /= a;
 
-  // first root: either 0 or Newton's iterative method to get it //{{{
-  long double root0 = 0;
-  if (fabsl(d_cube) > 0.0000000001L) {
-    // derivative of char. polynomial: a_deriv * x^2 + b_deriv * x + c_deriv
-    long double a_deriv = 3 * a_cube;
-    long double b_deriv = 2 * b_cube;
-    long double c_deriv = c_cube;
-
-    long double root1 = 1;
-
-    while (fabsl(root0 - root1) > 0.0000000001L) {
-      long double f_root0 = (a_cube * Cube(root0) + b_cube * Square(root0) +
-                             c_cube * root0 + d_cube);
-      long double f_deriv_root0 =
-          (a_deriv * Square(root0) + b_deriv * root0 + c_deriv);
-      root1 = root0 - f_root0 / f_deriv_root0;
-
-      // swap root0 and root1 for the next iteration
-      long double tmp = root0;
-      root0 = root1;
-      root1 = tmp;
-    }
-  } //}}}
-
-  // find parameters of a quadratic equation a_quad*x^2+b_quad*x+c_quad=0 //{{{
-  /*
-   * derived by division:
-   * (x^3+(b_cube/a_cube)*x^2+(c_cube/a_cube)*x+(d_cube/a_cube)):(x-root0)
-   */
-  long double a_quad = 1;
-  long double b_quad = b_cube / a_cube + root0;
-  long double c_quad =
-      Square(root0) + b_cube / a_cube * root0 + c_cube / a_cube; //}}}
-  // calculate & sort eigenvalues
-  long double e[3];
-  e[0] = root0; // found out by Newton's method
-  // roots of the quadratic equation
-  e[1] = (-b_quad + sqrt(Square(b_quad) - 4 * a_quad * c_quad)) / (2 * a_quad);
-  e[2] = (-b_quad - sqrt(Square(b_quad) - 4 * a_quad * c_quad)) / (2 * a_quad);
-  for (int dd = 0; dd < 3; dd++) {
-    eigen[dd] = e[dd];
+  // calculate roots
+  double x[3] = {0, 0, 0}; // Roots
+  int num_roots = gsl_poly_solve_cubic(b, c, d, &x[0], &x[1], &x[2]);
+  // ensure small roots are 0; otherwise it may look negative
+  if (fabs(x[0]) < 1e-5) {
+    x[0] = 0.0;
   }
-  SortArray(eigen, 3, 0, 'd');
+  if (num_roots > 1 && fabs(x[1]) < 1e-5) {
+    x[1] = 0.0;
+  }
+  if (num_roots > 2 && fabs(x[2]) < 1e-5) {
+    x[2] = 0.0;
+  }
+  // assign roots to the eigen values
+  if (num_roots > 2) {
+    eigen[0] = x[0];
+    eigen[1] = x[1];
+    eigen[2] = x[2];
+  } else if (num_roots > 1) {
+    eigen[1] = x[0];
+    eigen[2] = x[1];
+  } else if (num_roots > 0) {
+    eigen[2] = x[0];
+  }
+  // error for negative eigenvalues - shouldn't happen
+  if (eigen[0] < 0 || eigen[1] < 0 || eigen[2] < 0) {
+    snprintf(ERROR_MSG, LINE, "negative eigenvalues (%s%lf%s, %s%lf%s, "
+             "%s%lf%s)", ErrYellow(), eigen[0], ErrCyan(), ErrYellow(),
+             eigen[1], ErrCyan(), ErrYellow(), eigen[2], ErrCyan());
+    PrintWarning();
+  }
 } //}}}
 // evaluate contacts between molecules, creating aggregates //{{{
 static int NewAgg(AGGREGATE *Aggregate, SYSTEM *System,

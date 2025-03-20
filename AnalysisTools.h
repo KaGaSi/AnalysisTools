@@ -11,6 +11,7 @@
 #include "General.h"
 #include "Options.h"
 #include "ReadWrite.h"
+#include <complex.h>
 
 // Helper functions for dealing with SYSTEM structure
 // identify bead type based on name
@@ -43,8 +44,7 @@ int SelectCell1(const int c1[3], const int n_cells[3]);
 int SelectCell2(const int c1[3], const int n_cells[3],
                 const int Dc[14][3], const int n);
 // calculate gyration tensor and various shape descriptors
-void Gyration(const int n, const int *list, const COUNT Counts,
-              const BEADTYPE *BeadType, BEAD **Bead, double eigen[3]);
+void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]);
 // TODO: redo
 void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
                       const int contacts, uint8_t **contact);

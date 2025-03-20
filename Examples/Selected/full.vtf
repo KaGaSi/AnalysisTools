@@ -1,0 +1,73 @@
+atom default    radius   1.000000 mass   1.000000 charge   0.000000 name A       
+atom          0    radius   1.000000 mass   1.000000 charge   0.000000 name B       
+atom          2    radius   1.000000 mass   1.000000 charge   0.000000 name B       
+atom          3    radius   1.000000 mass   1.000000 charge   0.000000 name C       
+atom          4    radius   1.000000 mass   1.000000 charge   0.000000 name C       
+atom          5    radius   1.000000 mass   1.000000 charge   0.000000 name B       
+atom          7    radius   1.000000 mass   1.000000 charge   0.000000 name C       
+atom          9    radius   1.000000 mass   1.000000 charge   0.000000 name C       
+atom         12    radius   1.000000 mass   1.000000 charge   0.000000 name B       
+atom         14    radius   1.000000 mass   1.000000 charge   0.000000 name C       
+atom         15    radius   1.000000 mass   1.000000 charge   0.000000 name B       
+atom         17    radius   1.000000 mass   1.000000 charge   0.000000 name B       
+atom         18    radius   1.000000 mass   1.000000 charge   0.000000 name B       
+atom         19    radius   1.000000 mass   1.000000 charge   0.000000 name C       
+atom         20    radius   1.000000 mass   1.000000 charge   0.000000 name C       
+atom         21    radius   1.000000 mass   1.000000 charge   0.000000 name B       
+atom         22    radius   1.000000 mass   1.000000 charge   0.000000 name C       
+atom         23    radius   1.000000 mass   1.000000 charge   0.000000 name B       
+atom         24    radius   1.000000 mass   1.000000 charge   0.000000 name C       
+atom         25    radius   1.000000 mass   1.000000 charge   0.000000 name B       
+atom         29    radius   1.000000 mass   1.000000 charge   0.000000 name C       
+atom         30    radius   1.000000 mass   1.000000 charge   0.000000 name A        resid          1 resname ABC     
+atom         31    radius   1.000000 mass   1.000000 charge   0.000000 name B        resid          1 resname ABC     
+atom         32    radius   1.000000 mass   1.000000 charge   0.000000 name C        resid          1 resname ABC     
+atom         33    radius   1.000000 mass   1.000000 charge   0.000000 name A        resid          2 resname AB      
+atom         34    radius   1.000000 mass   1.000000 charge   0.000000 name B        resid          2 resname AB      
+atom         35    radius   1.000000 mass   1.000000 charge   0.000000 name A        resid          3 resname AC      
+atom         36    radius   1.000000 mass   1.000000 charge   0.000000 name C        resid          3 resname AC      
+
+bond         30:        31
+bond         31:        32
+bond         33:        34
+bond         35:        36
+
+timestep indexed
+pbc     5.000000    5.000000    5.000000 90 90 90
+         0     0.617903     0.610905     1.265529
+         1     1.865986     0.615378     1.238914
+         4     0.611259     1.873506     1.264098
+         5     1.888624     1.864840     1.243417
+         8     0.631606     3.120111     1.232993
+         9     1.889520     3.132168     1.234934
+        12     0.638295     4.378680     1.240453
+        13     1.862197     4.369896     1.244001
+        31     2.197975     3.828688     2.258720
+        32     1.907135     3.430301     2.222538
+        35     1.151915     2.444119     0.627728
+        36     1.600008     2.274162     0.813600
+         2     3.129544     0.614033     1.249642
+         3     4.390581     0.639768     1.259664
+         6     3.122650     1.880744     1.253440
+         7     4.389023     1.873933     1.265154
+        10     3.110443     3.138261     1.244455
+        11     4.374422     3.124176     1.258616
+        14     3.130430     4.388971     1.236417
+        15     4.376544     4.389730     1.243120
+        33     3.406530     1.010934     2.437576
+        16     0.635152     0.634295     3.739917
+        17     1.873301     0.633771     3.754704
+        20     0.609927     1.885698     3.764531
+        21     1.863035     1.867668     3.746059
+        24     0.624644     3.108080     3.733603
+        25     1.875844     3.128759     3.755569
+        28     0.640899     4.389351     3.753924
+        29     1.892288     4.368124     3.735622
+        30     2.328587     3.703726     2.704238
+        18     3.140049     0.624943     3.732065
+        19     4.384688     0.626607     3.752950
+        22     3.126961     1.875406     3.749513
+        23     4.367118     1.878303     3.765604
+        26     3.110131     3.115971     3.761020
+        27     4.372577     3.129487     3.759145
+        34     3.235096     1.307613     2.832440

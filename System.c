@@ -2505,21 +2505,6 @@ void SortAggStruct(AGGREGATE *Aggregate, SYSTEM System) { //{{{
         for (int k = 0; k < mols; k++) {
           SwapInt(&Agg_j->Molecule[k], &Agg_j1->Molecule[k]);
         }
-        // switch bonded beads array
-        SwapInt(&Agg_j->nBeads, &Agg_j1->nBeads);
-        int beads; // number of beads in the larger aggregate
-        if (Agg_j->nBeads > Agg_j1->nBeads) {
-          beads = Aggregate[j].nBeads;
-          Agg_j->Bead = realloc(Agg_j->Bead, Agg_j->nBeads *
-                                sizeof *Agg_j->Bead);
-        } else {
-          beads = Agg_j1->nBeads;
-          Agg_j1->Bead = realloc(Agg_j1->Bead, Agg_j1->nBeads *
-                                 sizeof *Agg_j1->Bead);
-        }
-        for (int k = 0; k < beads; k++) {
-          SwapInt(&Agg_j->Bead[k], &Agg_j1->Bead[k]);
-        }
         done = false;
       }
     }

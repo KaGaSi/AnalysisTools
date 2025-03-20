@@ -6,6 +6,7 @@
 #include "ReadWriteLdata.h"
 #include "ReadWriteField.h"
 #include "ReadWriteConfig.h"
+#include "ReadWriteGromacs.h"
 #include "AnalysisTools.h"
 #include "Errors.h"
 #include "Structs.h"
@@ -287,6 +288,9 @@ SYSTEM ReadStructure(const SYS_FILES f, const bool detailed) {
       break;
     case FIELD_FILE:
       System = FieldRead(f.stru.name);
+      break;
+    case GROM_FILE:
+      System = GromacsReadStruct(f.stru.name);
       break;
     default:
       err_msg("unspecified structure file; should never happen!");
@@ -694,7 +698,7 @@ void PrintCount(const COUNT Count) { //{{{
 } //}}}
 void PrintBeadType(const SYSTEM System) { //{{{
   // some stuff to properly align the fields //{{{
-  int precision = 3;     // number of decimal digits
+  int precision = 4;     // number of decimal digits
   int longest_name = 0;  // longest bead type name
   int max_number = 0;    // maximum number of beads
   int max_q = 0;         // maximum charge

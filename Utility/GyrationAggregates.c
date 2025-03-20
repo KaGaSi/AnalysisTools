@@ -1,6 +1,8 @@
 #include "../AnalysisTools.h"
 #include <stdbool.h>
 
+// TODO: the -x option
+
 // Help() //{{{
 void Help(const char cmd[50], const bool error,
           const int n, const char opt[n][OPT_LENGTH]) {
@@ -31,7 +33,7 @@ coordinates\n");
   fprintf(ptr, "      -bt               specify bead types to be used for calculation (default is all)\n");
   fprintf(ptr, "      -m <name(s)>      agg size means number of <name(s)> \
 molecules in an aggregate\n");
-  fprintf(ptr, "      -x <name(s)>      exclude aggregates containing only specified molecule(s)\n");
+  // fprintf(ptr, "      -x <name(s)>      exclude aggregates containing only specified molecule(s)\n");
   fprintf(ptr, "      -only <name(s)>   use only aggregates composed \
 of specified molecule(s)\n");
   fprintf(ptr, "      -ps <file>        save per-size averages to a <file>\n");
@@ -64,12 +66,12 @@ int main(int argc, char *argv[]) {
 
   // define options & check their validity
   int common = 8, all = common + 1, count = 0,
-      req_arg = 5;
+      req_arg = 3;
   char option[all][OPT_LENGTH];
   OptionCheck(argc, argv, req_arg, common, all, true, option,
               "-st", "-e", "-sk", "-i", "--verbose", "--silent",
               "--help", "--version", "--joined", "-bt", "-m",
-              "-x", "-only", "-ps", "-n", "-st", "-e");
+              /*"-x",*/ "-only", "-ps", "-n", "-st", "-e");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -117,7 +119,6 @@ int main(int argc, char *argv[]) {
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
-  double *box = System.Box.Length;
 
   // '-n' option - range of aggregation numbers //{{{
   opt->range_As[0] = 1;
@@ -128,22 +129,21 @@ int main(int argc, char *argv[]) {
   } //}}}
   // '-m' option //{{{
   opt->mt_m = calloc(Count->MoleculeType, sizeof *opt->mt_m);
-  if (!MoleculeTypeOption(argc, argv, "-m", true, opt->mt_m, System)) {
+  if (!TypeOption(argc, argv, "-m", 'm', true, opt->mt_m, System)) {
     InitBoolArray(opt->mt_m, Count->MoleculeType, true);
   } //}}}
   // '-x' option //{{{
   opt->mt_x = calloc(Count->MoleculeType, sizeof *opt->mt_x);
-  MoleculeTypeOption(argc, argv, "-x", true, opt->mt_x, System); //}}}
+  TypeOption(argc, argv, "-x", 'm', true, opt->mt_x, System); //}}}
   // '-only' option //{{{
   opt->mt_only = calloc(Count->MoleculeType, sizeof *opt->mt_only);
-  opt->only = MoleculeTypeOption(argc, argv, "-only", true,
-                                 opt->mt_only, System);
+  opt->only = TypeOption(argc, argv, "-only", 'm', true, opt->mt_only, System);
   if (!opt->only) {
     InitBoolArray(opt->mt_only, Count->MoleculeType, true);
   } //}}}
   // -bt option //{{{
   opt->bt = calloc(Count->BeadType, sizeof *opt->bt);
-  if (!BeadTypeOption(argc, argv, "-bt", true, opt->bt, System)) {
+  if (!TypeOption(argc, argv, "-m", 'b', true, opt->bt, System)) {
     InitBoolArray(opt->bt, Count->BeadType, true);
   } //}}}
 
@@ -243,210 +243,187 @@ int main(int argc, char *argv[]) {
         RemovePBCAggregates(distance, Aggregate, &System);
       }
 
-      // TODO: HERE BE THE CALCULATIONS FROM BELOW!
-    }
+      // TODO: allocation... Aaargh!
+      // allocate arrays for the timestep //{{{
+      int *agg_counts_step = calloc(Count->Molecule, sizeof *agg_counts_step);
+      double (*Rg_step)[3] = calloc(Count->Molecule, sizeof *Rg_step);
+      double (*sqrRg_step)[3] = calloc(Count->Molecule, sizeof *sqrRg_step);
+      double *Anis_step = calloc(Count->Molecule, sizeof *Anis_step);
+      double *Acyl_step = calloc(Count->Molecule, sizeof *Acyl_step);
+      double *Aspher_step = calloc(Count->Molecule,sizeof *Aspher_step);
+      double (*eigen_step)[3] = calloc(Count->Molecule, sizeof *eigen_step); //}}}
 
-    // TODO: allocation... Aaargh!
-    // allocate arrays for the timestep //{{{
-    int *agg_counts_step = calloc(Count->Molecule, sizeof *agg_counts_step);
-    double (*Rg_step)[3] = calloc(Count->Molecule, sizeof *Rg_step);
-    double (*sqrRg_step)[3] = calloc(Count->Molecule, sizeof *sqrRg_step);
-    double *Anis_step = calloc(Count->Molecule, sizeof *Anis_step);
-    double *Acyl_step = calloc(Count->Molecule, sizeof *Acyl_step);
-    double *Aspher_step = calloc(Count->Molecule,sizeof *Aspher_step);
-    double (*eigen_step)[3] = calloc(Count->Molecule, sizeof *eigen_step); //}}}
-
-  // TODO check
-    // calculate shape descriptors //{{{
-    double mass_step[2] = {0}; // total mass of aggregates in a step: [0] normal, [1] sum of squares
-    for (int i = 0; i < Count->Aggregate; i++) {
-
-      // test if aggregate 'i' should be used //{{{
-      int size = 0;
-      // agg size = number of molecules of type 'specific_moltype_for_size'
-      for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-        int mol_type = System.Molecule[Aggregate[i].Molecule[j]].Type;
-        if (opt->mt_m[mol_type]) {
-          size++;
-        }
-      }
-      int correct_size = size - 1; // all agg sizes are used - relic of old times
-      // make calculations only if agg size is well defined and within given range
-      if (size == 0 || size < opt->range_As[0] || size > opt->range_As[1]) {
-        continue;
-      } //}}}
-
-      // if '-only' is used, use only aggregates composed the specified molecule(s) //{{{
-      bool test = true;
-      if (opt->only) {
+      // calculate shape descriptors //{{{
+      double mass_step[2] = {0}; // total mass of aggregates in a step: [0] normal, [1] sum of squares
+      for (int i = 0; i < Count->Aggregate; i++) {
+        // test if aggregate 'i' should be used //{{{
+        int size = 0;
+        // agg size = number of molecules of type 'specific_moltype_for_size'
         for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-          int id = Aggregate[i].Molecule[j];
-          if (opt->mt_only[System.Molecule[id].Type] == 0) {
-            test = false; // a molecule is not of the required type
-            break;
+          int mol_type = System.Molecule[Aggregate[i].Molecule[j]].Type;
+          if (opt->mt_m[mol_type]) {
+            size++;
           }
         }
-        if (!test) { // should the rest of the for loop agg i be skipped?
+        int correct_size = size - 1; // all agg sizes are used - relic of old times
+        // make calculations only if agg size is well defined and within given range
+        if (size == 0 || size < opt->range_As[0] || size > opt->range_As[1]) {
           continue;
-        }
-      } //}}}
-
-      // // if '-x' option is used, discount aggregates with only specified molecule type(s) //{{{
-      // test = false;
-      // for (int j = 0; j < size; j++) {
-      //   int moltype = System.Molecule[Aggregate[i].Molecule[j]].Type;
-      //   if (opt->mt_x[moltype]) {
-      //     test = true; // a molecule that shouldn't be in agg 'i' is there
-      //     break;
-      //   }
-      // }
-      // if (!test) { // should the rest of the for loop agg i be skipped?
-      //   exclude_count_chains += Aggregate[i].nMolecules;
-      //   exclude_count_agg++;
-      //   continue;
-      // } //}}}
-
-      if (correct_size != -1) {
-        // copy bead ids to a separate array //{{{
-        int *list = malloc(Aggregate[i].nBeads * sizeof *list);
-        int n = 0;
-        double agg_mass = 0;
-        for (int j = 0; j < Aggregate[i].nBeads; j++) {
-          int id = Aggregate[i].Bead[j];
-          int btype = System.Bead[id].Type;
-          if (opt->bt[btype]) {
-            list[n] = id;
-            n++;
-            agg_mass += System.BeadType[System.Bead[id].Type].Mass;
+        } //}}}
+        // if '-only' is used, use only aggregates composed the specified molecule(s) //{{{
+        bool test = true;
+        if (opt->only) {
+          for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+            int id = Aggregate[i].Molecule[j];
+            if (opt->mt_only[System.Molecule[id].Type] == 0) {
+              test = false; // a molecule is not of the required type
+              break;
+            }
+          }
+          if (!test) { // should the rest of the for loop agg i be skipped?
+            continue;
           }
         } //}}}
+        // // if '-x' option is used, discount aggregates with only specified molecule type(s) //{{{
+        // test = false;
+        // for (int j = 0; j < size; j++) {
+        //   int moltype = System.Molecule[Aggregate[i].Molecule[j]].Type;
+        //   if (opt->mt_x[moltype]) {
+        //     test = true; // a molecule that shouldn't be in agg 'i' is there
+        //     break;
+        //   }
+        // }
+        // if (!test) { // should the rest of the for loop agg i be skipped?
+        //   exclude_count_chains += Aggregate[i].nMolecules;
+        //   exclude_count_agg++;
+        //   continue;
+        // } //}}}
 
-      // TODO fractionals
-        double eigen[3];
-        Gyration(n, list, *Count, System.BeadType, &System.Bead, eigen);
+        if (correct_size != -1) {
+          // copy bead ids to a separate array //{{{
+          int *list = malloc(Aggregate[i].nBeads * sizeof *list);
+          int n = 0;
+          double agg_mass = 0;
+          for (int j = 0; j < Aggregate[i].nBeads; j++) {
+            int id = Aggregate[i].Bead[j];
+            int btype = System.Bead[id].Type;
+            if (opt->bt[btype]) {
+              list[n] = id;
+              n++;
+              agg_mass += System.BeadType[System.Bead[id].Type].Mass;
+            }
+          } //}}}
 
-        free(list); // free array of bead ids for gyration calculation
+          double eigen[3];
+          Gyration(n, list, &System, eigen);
+          free(list); // free array of bead ids for gyration calculation
 
-        double Rgi = sqrt(eigen[0] + eigen[1] + eigen[2]);
+          double Rgi = sqrt(eigen[0] + eigen[1] + eigen[2]);
+          // agg masses
+          mass_step[0] += agg_mass; // for this timestep
+          mass_step[1] += Square(agg_mass); // for this timestep
+          // radius of gyration
+          Rg_step[correct_size][0] += Rgi; // for number avg
+          Rg_step[correct_size][1] += Rgi * agg_mass; // for weight average
+          Rg_step[correct_size][2] += Rgi * Square(agg_mass); // for z-average
+          // squared radius of gyration
+          sqrRg_step[correct_size][0] += Square(Rgi); // for number avg
+          sqrRg_step[correct_size][1] += Square(Rgi) * agg_mass; // for weight average
+          sqrRg_step[correct_size][2] += Square(Rgi) * Square(agg_mass); // for z-average
+          // relative shape anisotropy
+          double temp[2];
+          temp[0] = Square(eigen[0]) + Square(eigen[1]) + Square(eigen[2]);
+          temp[1] = Square(eigen[0] + eigen[1] + eigen[2]);
+          Anis_step[correct_size] += 1.5 * temp[0] / temp[1] - 0.5;
+          // acylindricity
+          Acyl_step[correct_size] += eigen[1] - eigen[0];
+          // asphericity
+          Aspher_step[correct_size] += eigen[2] - 0.5 * (eigen[0] + eigen[1]);
+          // gyration vector eigenvalues
+          eigen_step[correct_size][0] += eigen[0];
+          eigen_step[correct_size][1] += eigen[1];
+          eigen_step[correct_size][2] += eigen[2];
+          // aggregate count
+          agg_counts_step[correct_size]++;
 
-        if (eigen[0] < 0 || eigen[1] < 0 || eigen[2] < 0) {
-          ColourChange(STDERR_FILENO, YELLOW);
-          fprintf(stderr, "Warning: negative eigenvalues (");
-          ColourChange(STDERR_FILENO, CYAN);
-          fprintf(stderr, "%lf", eigen[0]);
-          ColourChange(STDERR_FILENO, YELLOW);
-          fprintf(stderr, ", ");
-          ColourChange(STDERR_FILENO, CYAN);
-          fprintf(stderr, "%lf", eigen[1]);
-          ColourChange(STDERR_FILENO, CYAN);
-          fprintf(stderr, ", ");
-          ColourChange(STDERR_FILENO, YELLOW);
-          fprintf(stderr, "%lf", eigen[2]);
-          ColourChange(STDERR_FILENO, YELLOW);
-          fprintf(stderr, ")\n\n");
-          ColourReset();
-        }
-        // agg masses
-        mass_step[0] += agg_mass; // for this timestep
-        mass_step[1] += Square(agg_mass); // for this timestep
-        // radius of gyration
-        Rg_step[correct_size][0] += Rgi; // for number avg
-        Rg_step[correct_size][1] += Rgi * agg_mass; // for weight average
-        Rg_step[correct_size][2] += Rgi * Square(agg_mass); // for z-average
-        // squared radius of gyration
-        sqrRg_step[correct_size][0] += Square(Rgi); // for number avg
-        sqrRg_step[correct_size][1] += Square(Rgi) * agg_mass; // for weight average
-        sqrRg_step[correct_size][2] += Square(Rgi) * Square(agg_mass); // for z-average
-        // relative shape anisotropy
-        Anis_step[correct_size] += 1.5 * (Square(eigen[0]) + Square(eigen[1]) + Square(eigen[2])) / Square(eigen[0] + eigen[1] + eigen[2]) - 0.5;
-        // acylindricity
-        Acyl_step[correct_size] += eigen[1] - eigen[0];
-        // asphericity
-        Aspher_step[correct_size] += eigen[2] - 0.5 * (eigen[0] + eigen[1]);
-        // gyration vector eigenvalues
-        eigen_step[correct_size][0] += eigen[0];
-        eigen_step[correct_size][1] += eigen[1];
-        eigen_step[correct_size][2] += eigen[2];
-        // aggregate count
-        agg_counts_step[correct_size]++;
-
-        // sum molecules and aggregates (if step between start and end)
-        if (count >= opt->c.start && (opt->c.end == -1 || count <= opt->c.end)) {
-          agg_counts_sum[correct_size]++;
-          // aggregate mass
-          mass_sum[correct_size][0] += agg_mass;
-          mass_sum[correct_size][1] += Square(agg_mass);
-          for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-            int mol_type = System.Molecule[Aggregate[i].Molecule[j]].Type;
-            molecules_sum[correct_size][mol_type]++;
+          // sum molecules and aggregates (if step between start and end)
+          if (count >= opt->c.start && (opt->c.end == -1 || count <= opt->c.end)) {
+            agg_counts_sum[correct_size]++;
+            // aggregate mass
+            mass_sum[correct_size][0] += agg_mass;
+            mass_sum[correct_size][1] += Square(agg_mass);
+            for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+              int mol_type = System.Molecule[Aggregate[i].Molecule[j]].Type;
+              molecules_sum[correct_size][mol_type]++;
+            }
           }
         }
+      } //}}}
+
+      // add values to sums //{{{
+      if (count >= opt->c.start && (opt->c.end == -1 || count <= opt->c.end)) {
+        for (int i = 0; i < Count->Molecule; i++) {
+          Rg_sum[i][0] += Rg_step[i][0];
+          Rg_sum[i][1] += Rg_step[i][1];
+          Rg_sum[i][2] += Rg_step[i][2];
+          sqrRg_sum[i][0] += sqrRg_step[i][0];
+          sqrRg_sum[i][1] += sqrRg_step[i][1];
+          sqrRg_sum[i][2] += sqrRg_step[i][2];
+          Anis_sum[i] += Anis_step[i];
+          Acyl_sum[i] += Acyl_step[i];
+          Aspher_sum[i] += Aspher_step[i];
+          eigen_sum[i][0] += eigen_step[i][0];
+          eigen_sum[i][1] += eigen_step[i][1];
+          eigen_sum[i][2] += eigen_step[i][2];
+        }
+      } //}}}
+
+      // print data to output file //{{{
+      out = OpenFile(output, "a");
+      fprintf(out, "%5d", count_used); // timestep
+      // sum up contributions from all aggregate sizes
+      for (int i = 1; i < Count->Molecule; i++) {
+        Rg_step[0][0] += Rg_step[i][0];
+        Rg_step[0][1] += Rg_step[i][1];
+        Rg_step[0][2] += Rg_step[i][2];
+        sqrRg_step[0][0] += sqrRg_step[i][0];
+        sqrRg_step[0][1] += sqrRg_step[i][1];
+        sqrRg_step[0][2] += sqrRg_step[i][2];
+        Anis_step[0] += Anis_step[i];
+        Acyl_step[0] += Acyl_step[i];
+        Aspher_step[0] += Aspher_step[i];
+        eigen_step[0][0] += eigen_step[i][0];
+        eigen_step[0][1] += eigen_step[i][1];
+        eigen_step[0][2] += eigen_step[i][2];
+
+        agg_counts_step[0] += agg_counts_step[i];
       }
-    } //}}}
+      // <R_G>
+      fprintf(out, " %lf %lf %lf", Rg_step[0][0]/agg_counts_step[0], Rg_step[0][1]/mass_step[0], Rg_step[0][2]/mass_step[1]);
+      // <R_G^2>
+      fprintf(out, " %lf %lf %lf", sqrRg_step[0][0]/agg_counts_step[0], sqrRg_step[0][1]/mass_step[0], sqrRg_step[0][2]/mass_step[1]);
+      // relative shape anisotropy
+      fprintf(out, " %lf", Anis_step[0]/agg_counts_step[0]);
+      // acylindricity
+      fprintf(out, " %lf", Acyl_step[0]/agg_counts_step[0]);
+      // asphericity
+      fprintf(out, " %lf", Aspher_step[0]/agg_counts_step[0]);
+      // eigenvalues
+      fprintf(out, " %lf %lf %lf", eigen_step[0][0]/agg_counts_step[0],
+                                   eigen_step[0][1]/agg_counts_step[0],
+                                   eigen_step[0][2]/agg_counts_step[0]);
+      putc('\n', out);
+      fclose(out); //}}}
 
-    // add values to sums //{{{
-    if (count >= opt->c.start && (opt->c.end == -1 || count <= opt->c.end)) {
-      for (int i = 0; i < Count->Molecule; i++) {
-        Rg_sum[i][0] += Rg_step[i][0];
-        Rg_sum[i][1] += Rg_step[i][1];
-        Rg_sum[i][2] += Rg_step[i][2];
-        sqrRg_sum[i][0] += sqrRg_step[i][0];
-        sqrRg_sum[i][1] += sqrRg_step[i][1];
-        sqrRg_sum[i][2] += sqrRg_step[i][2];
-        Anis_sum[i] += Anis_step[i];
-        Acyl_sum[i] += Acyl_step[i];
-        Aspher_sum[i] += Aspher_step[i];
-        eigen_sum[i][0] += eigen_step[i][0];
-        eigen_sum[i][1] += eigen_step[i][1];
-        eigen_sum[i][2] += eigen_step[i][2];
-      }
-    } //}}}
-
-    // print data to output file //{{{
-    out = OpenFile(output, "a");
-    fprintf(out, "%5d", count); // timestep
-    // sum up contributions from all aggregate sizes
-    for (int i = 1; i < Count->Molecule; i++) {
-      Rg_step[0][0] += Rg_step[i][0];
-      Rg_step[0][1] += Rg_step[i][1];
-      Rg_step[0][2] += Rg_step[i][2];
-      sqrRg_step[0][0] += sqrRg_step[i][0];
-      sqrRg_step[0][1] += sqrRg_step[i][1];
-      sqrRg_step[0][2] += sqrRg_step[i][2];
-      Anis_step[0] += Anis_step[i];
-      Acyl_step[0] += Acyl_step[i];
-      Aspher_step[0] += Aspher_step[i];
-      eigen_step[0][0] += eigen_step[i][0];
-      eigen_step[0][1] += eigen_step[i][1];
-      eigen_step[0][2] += eigen_step[i][2];
-
-      agg_counts_step[0] += agg_counts_step[i];
-    }
-    // <R_G>
-    fprintf(out, " %lf %lf %lf", Rg_step[0][0]/agg_counts_step[0], Rg_step[0][1]/mass_step[0], Rg_step[0][2]/mass_step[1]);
-    // <R_G^2>
-    fprintf(out, " %lf %lf %lf", sqrRg_step[0][0]/agg_counts_step[0], sqrRg_step[0][1]/mass_step[0], sqrRg_step[0][2]/mass_step[1]);
-    // relative shape anisotropy
-    fprintf(out, " %lf", Anis_step[0]/agg_counts_step[0]);
-    // acylindricity
-    fprintf(out, " %lf", Acyl_step[0]/agg_counts_step[0]);
-    // asphericity
-    fprintf(out, " %lf", Aspher_step[0]/agg_counts_step[0]);
-    // eigenvalues
-    fprintf(out, " %lf %lf %lf", eigen_step[0][0]/agg_counts_step[0],
-                                 eigen_step[0][1]/agg_counts_step[0],
-                                 eigen_step[0][2]/agg_counts_step[0]);
-    putc('\n', out);
-    fclose(out); //}}}
-
-    // free memory //{{{
-    free(agg_counts_step);
-    free(Rg_step);
-    free(sqrRg_step);
-    free(Anis_step);
-    free(Acyl_step);
-    free(Aspher_step);
-    free(eigen_step); //}}}
+      // free memory //{{{
+      free(agg_counts_step);
+      free(Rg_step);
+      free(sqrRg_step);
+      free(Anis_step);
+      free(Acyl_step);
+      free(Aspher_step);
+      free(eigen_step); //}}}
+    } // TODO: else - skip!
 
     // exit the main loop if reached user-specied end timestep
     if (count_coor == opt->c.end) {
@@ -582,7 +559,12 @@ int main(int argc, char *argv[]) {
   free(Anis_sum);
   free(Acyl_sum);
   free(Aspher_sum);
-  free(eigen_sum); //}}}
+  free(eigen_sum);
+  free(opt->mt_m);
+  free(opt->mt_x);
+  free(opt->mt_only);
+  free(opt->bt);
+  free(opt); //}}}
 
   return 0;
 }

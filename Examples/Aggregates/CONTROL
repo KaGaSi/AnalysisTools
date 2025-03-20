@@ -1,0 +1,21 @@
+DL_MESO amphiphile mesophase example
+
+volume 10.0 10.0 20.0
+temperature 1.0
+cutoff 1.0
+global bonds
+
+timestep 0.01
+steps 1010000
+equilibration steps 10000
+scale temperature every 1000
+trajectory 10000 10000
+stats every 1000
+stack size 100
+print every 1000
+job time 7200.0
+close time 10.0
+
+ensemble nvt mdvv
+
+finish

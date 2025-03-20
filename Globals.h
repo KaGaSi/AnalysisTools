@@ -13,7 +13,8 @@ enum { VTF_FILE = 0,
        LDATA_FILE = 4,
        LTRJ_FILE = 5,
        FIELD_FILE = 6,
-       CONFIG_FILE = 7 };
+       CONFIG_FILE = 7,
+       GROM_FILE = 8 };
 // maxumum bead/molecule name and file extension lengths
 enum { MOL_NAME = 21, BEAD_NAME = 21, EXTENSION = 16 };
 // 'impossible' values
