@@ -446,6 +446,7 @@ int ReadAggregates(FILE *fr, const char *file, SYSTEM *System,
   Count->Aggregate = val;
   // go through all aggregates, filling in the molecules
   for (int i = 0; i < Count->Aggregate; i++) {
+    (*line_count)++;
     AGGREGATE *Agg = &Aggregate[i];
     fscanf(fr, "%d :", &Agg->nMolecules);
     Agg->Molecule = s_realloc(Agg->Molecule,
@@ -491,6 +492,50 @@ int ReadAggregates(FILE *fr, const char *file, SYSTEM *System,
   }
   return 1;
 } //}}}
+bool SkipAggregates(FILE *fr, const char *file, int *line_count) { //{{{
+  // read Step:/Last Step: line //{{{
+  (*line_count)++;
+  if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
+    snprintf(ERROR_MSG, LINE, "premature end of %s%s%s file; stopping reading",
+             ErrYellow(), file, ErrCyan());
+    PrintWarnFile(file, "\0", "\0");
+    return false;
+  }
+  if (words < 1) {
+    snprintf(ERROR_MSG, LINE, "blank line instead of Step:/Last Step: line; "
+             "stopping reading %s%s", ErrYellow(), file);
+    PrintWarnFileLine(file, *line_count);
+    return false;
+  }
+  //}}}
+  if (strcasecmp(split[0], "Last") == 0) {
+    return false; // no error - just the end of the timesteps
+  }
+  // read number of aggregates //{{{
+  (*line_count)++;
+  if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
+    snprintf(ERROR_MSG, LINE, "premature end of %s%s%s file; stopping reading",
+             ErrYellow(), file, ErrCyan());
+    PrintWarnFile(file, "\0", "\0");
+    return false;
+  }
+  long int num_agg;
+  if (words < 1 || !IsWholeNumber(split[0], &num_agg)) {
+    snprintf(ERROR_MSG, LINE, "incorrect line with number of aggregates; "
+             "stopping reading %s%s", ErrYellow(), file);
+    PrintWarnFileLine(file, *line_count);
+    return false;
+  } //}}}
+  // go through all aggregates, filling in the molecules
+  for (int i = 0; i < num_agg; i++) {
+    (*line_count)++;
+    int ch;
+    while ((ch = getc(fr)) != '\n' && ch != EOF)
+      ;
+  }
+  return true;
+} //}}}
+ //}}}
 
 // write structure and/or coordinates to a new file (can be any format) //{{{
 void WriteOutput(const SYSTEM System, const bool *write, FILE_TYPE fw,

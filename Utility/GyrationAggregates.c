@@ -1,8 +1,6 @@
 #include "../AnalysisTools.h"
 #include <stdbool.h>
 
-// TODO: the -x option
-
 // Help() //{{{
 void Help(const char cmd[50], const bool error,
           const int n, const char opt[n][OPT_LENGTH]) {
@@ -21,28 +19,27 @@ the calculation can also be made only for aggregate sizes in a given \
 range.\n\n");
   }
 
-  fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <in.agg> <output> [options]\n\n", cmd);
+  fprintf(ptr, "Usage: %s <input> <in.agg> <output> [options]\n\n", cmd);
 
-  fprintf(ptr, "   <input>    input coordinate file (either vcf or vtf format)\n");
-  fprintf(ptr, "   <in.agg>   input agg file\n");
-  fprintf(ptr, "   <output>   output file with per-timestep data\n");
-  fprintf(ptr, "   [options]\n");
-  fprintf(ptr, "      --joined          specify that <input> contains joined \
-coordinates\n");
-  fprintf(ptr, "      -bt               specify bead types to be used for calculation (default is all)\n");
-  fprintf(ptr, "      -m <name(s)>      agg size means number of <name(s)> \
-molecules in an aggregate\n");
-  // fprintf(ptr, "      -x <name(s)>      exclude aggregates containing only specified molecule(s)\n");
-  fprintf(ptr, "      -only <name(s)>   use only aggregates composed \
-of specified molecule(s)\n");
-  fprintf(ptr, "      -ps <file>        save per-size averages to a <file>\n");
-  fprintf(ptr, "      -n <int> <int>    calculate for aggregate sizes in \
-given range\n");
-  fprintf(ptr, "      -st <int>         starting timestep for calculation \
-(only affects per-size and overall averages)\n");
-  fprintf(ptr, "      -e <end>          ending timestep for calculation \
-(only affects per-size and overall averages)\n");
+  fprintf(ptr, "<input>             input coordinate file\n");
+  fprintf(ptr, "<in.agg>            input agg file\n");
+  fprintf(ptr, "<output>            output file with per-timestep data\n");
+  fprintf(ptr, "[options]\n");
+  fprintf(ptr, "  --joined          specify that <input> contains joined "
+          "coordinates\n");
+  fprintf(ptr, "  -bt               specify bead types used for calculation "
+          "(default is all)\n");
+  fprintf(ptr, "  -m <name(s)>      agg size means number of <name(s)> "
+          "molecules in an aggregate\n");
+  fprintf(ptr, "  -only <name(s)>   use only aggregates composed "
+          "of specified molecule(s)\n");
+  fprintf(ptr, "  -ps <file>        save per-size averages to a <file>\n");
+  fprintf(ptr, "  -n <int> <int>    calculate for aggregate sizes in "
+          "given range\n");
+  fprintf(ptr, "  -st <int>         starting timestep for calculation "
+          "(only affects per-size and overall averages)\n");
+  fprintf(ptr, "  -e <end>          ending timestep for calculation "
+          "(only affects per-size and overall averages)\n");
   CommonHelp(error, n, opt);
 } //}}}
 
@@ -50,7 +47,6 @@ given range\n");
 struct OPT {
   bool joined,        // --joined
        *mt_m,         // -m
-       *mt_x,         // -x
        *mt_only,      // -only
        only,          // -only (is the option present?)
        *bt;           // -bt (number of types; list of the types)
@@ -65,13 +61,12 @@ OPT * opt_create(void) {
 int main(int argc, char *argv[]) {
 
   // define options & check their validity
-  int common = 8, all = common + 1, count = 0,
+  int common = 8, all = common + 6, count = 0,
       req_arg = 3;
   char option[all][OPT_LENGTH];
   OptionCheck(argc, argv, req_arg, common, all, true, option,
-              "-st", "-e", "-sk", "-i", "--verbose", "--silent",
-              "--help", "--version", "--joined", "-bt", "-m",
-              /*"-x",*/ "-only", "-ps", "-n", "-st", "-e");
+              "-st", "-e", "-sk", "-i", "--verbose", "--silent", "--help",
+              "--version", "--joined", "-bt", "-m", "-only", "-ps", "-n");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -132,9 +127,6 @@ int main(int argc, char *argv[]) {
   if (!TypeOption(argc, argv, "-m", 'm', true, opt->mt_m, System)) {
     InitBoolArray(opt->mt_m, Count->MoleculeType, true);
   } //}}}
-  // '-x' option //{{{
-  opt->mt_x = calloc(Count->MoleculeType, sizeof *opt->mt_x);
-  TypeOption(argc, argv, "-x", 'm', true, opt->mt_x, System); //}}}
   // '-only' option //{{{
   opt->mt_only = calloc(Count->MoleculeType, sizeof *opt->mt_only);
   opt->only = TypeOption(argc, argv, "-only", 'm', true, opt->mt_only, System);
@@ -143,7 +135,7 @@ int main(int argc, char *argv[]) {
   } //}}}
   // -bt option //{{{
   opt->bt = calloc(Count->BeadType, sizeof *opt->bt);
-  if (!TypeOption(argc, argv, "-m", 'b', true, opt->bt, System)) {
+  if (!TypeOption(argc, argv, "-bt", 'b', true, opt->bt, System)) {
     InitBoolArray(opt->bt, Count->BeadType, true);
   } //}}}
 
@@ -219,7 +211,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // main loop //{{{
-  FILE *vcf = OpenFile(in.coor.name, "r");
+  FILE *coor = OpenFile(in.coor.name, "r");
   int count_coor = 0, // count steps in the vcf file
       count_used = 0, // count steps in output file
       line_count = 0, // count lines in the vcf file
@@ -232,7 +224,7 @@ int main(int argc, char *argv[]) {
       use = true;
     }
     if (use) {
-      if (!ReadTimestep(in, vcf, &System, &line_count)) {
+      if (!ReadTimestep(in, coor, &System, &line_count)) {
         count_coor--;
         break;
       }
@@ -379,8 +371,6 @@ int main(int argc, char *argv[]) {
       } //}}}
 
       // print data to output file //{{{
-      out = OpenFile(output, "a");
-      fprintf(out, "%5d", count_used); // timestep
       // sum up contributions from all aggregate sizes
       for (int i = 1; i < Count->Molecule; i++) {
         Rg_step[0][0] += Rg_step[i][0];
@@ -398,22 +388,30 @@ int main(int argc, char *argv[]) {
 
         agg_counts_step[0] += agg_counts_step[i];
       }
-      // <R_G>
-      fprintf(out, " %lf %lf %lf", Rg_step[0][0]/agg_counts_step[0], Rg_step[0][1]/mass_step[0], Rg_step[0][2]/mass_step[1]);
-      // <R_G^2>
-      fprintf(out, " %lf %lf %lf", sqrRg_step[0][0]/agg_counts_step[0], sqrRg_step[0][1]/mass_step[0], sqrRg_step[0][2]/mass_step[1]);
-      // relative shape anisotropy
-      fprintf(out, " %lf", Anis_step[0]/agg_counts_step[0]);
-      // acylindricity
-      fprintf(out, " %lf", Acyl_step[0]/agg_counts_step[0]);
-      // asphericity
-      fprintf(out, " %lf", Aspher_step[0]/agg_counts_step[0]);
-      // eigenvalues
-      fprintf(out, " %lf %lf %lf", eigen_step[0][0]/agg_counts_step[0],
-                                   eigen_step[0][1]/agg_counts_step[0],
-                                   eigen_step[0][2]/agg_counts_step[0]);
-      putc('\n', out);
-      fclose(out); //}}}
+      if (agg_counts_step[0] > 0) {
+        out = OpenFile(output, "a");
+        fprintf(out, "%5d", count_used); // timestep
+        // <R_G>
+        fprintf(out, " %lf %lf %lf", Rg_step[0][0]/agg_counts_step[0],
+                                     Rg_step[0][1]/mass_step[0],
+                                     Rg_step[0][2]/mass_step[1]);
+        // <R_G^2>
+        fprintf(out, " %lf %lf %lf", sqrRg_step[0][0]/agg_counts_step[0],
+                                     sqrRg_step[0][1]/mass_step[0],
+                                     sqrRg_step[0][2]/mass_step[1]);
+        // relative shape anisotropy
+        fprintf(out, " %lf", Anis_step[0]/agg_counts_step[0]);
+        // acylindricity
+        fprintf(out, " %lf", Acyl_step[0]/agg_counts_step[0]);
+        // asphericity
+        fprintf(out, " %lf", Aspher_step[0]/agg_counts_step[0]);
+        // eigenvalues
+        fprintf(out, " %lf %lf %lf", eigen_step[0][0]/agg_counts_step[0],
+                                     eigen_step[0][1]/agg_counts_step[0],
+                                     eigen_step[0][2]/agg_counts_step[0]);
+        putc('\n', out);
+        fclose(out);
+      } //}}}
 
       // free memory //{{{
       free(agg_counts_step);
@@ -423,18 +421,23 @@ int main(int argc, char *argv[]) {
       free(Acyl_step);
       free(Aspher_step);
       free(eigen_step); //}}}
-    } // TODO: else - skip!
+    } else { // skip the timestep - both coordinate and agg file //{{{
+      if (!SkipTimestep(in, coor, &line_count) ||
+          !SkipAggregates(agg, input_agg, &line_count_agg)) {
+        count_coor--;
+        break;
+      }
+    } //}}}
 
     // exit the main loop if reached user-specied end timestep
     if (count_coor == opt->c.end) {
       break;
     }
   }
-  fclose(vcf);
+  fclose(coor);
   fclose(agg);
   PrintLastStep(count_coor, count_used, opt->c.silent); //}}}
 
-// TODO check
   // calculate per-size averages? //{{{
   if (opt->ps_file[0] != '\0') {
     out = OpenFile(opt->ps_file, "w");
@@ -561,7 +564,6 @@ int main(int argc, char *argv[]) {
   free(Aspher_sum);
   free(eigen_sum);
   free(opt->mt_m);
-  free(opt->mt_x);
   free(opt->mt_only);
   free(opt->bt);
   free(opt); //}}}

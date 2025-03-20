@@ -22,6 +22,7 @@ bool ReadTimestep(const SYS_FILES f, FILE *fr,
 bool SkipTimestep(const SYS_FILES f, FILE *fr, int *line_count);
 int ReadAggregates(FILE *fr, const char *file, SYSTEM *System,
                    AGGREGATE *Aggregate, int *line_count);
+bool SkipAggregates(FILE *fr, const char *file, int *line_count);
 
 // writing functions
 void WriteOutput(const SYSTEM System, const bool *write, FILE_TYPE fw,

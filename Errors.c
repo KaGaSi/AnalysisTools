@@ -179,9 +179,9 @@ void ErrorNaN(const char *option) { //{{{
   PrintErrorOption(option);
 } //}}}
 void ErrorBeadType(const char *name, const SYSTEM System) { //{{{
-  fprintf(stderr, "%s; illegal name: %s%s%s\n", ErrRed(), ErrYellow(), name,
-          ErrRed());
-  fprintf(stderr, "Possible names:%s %s\n", ErrYellow(),
+  fprintf(stderr, "%sillegal name: %s%s%s\n",
+          ErrRed(), ErrYellow(), name, ErrRed());
+  fprintf(stderr, "Possible names: %s%s\n", ErrYellow(),
           System.BeadType[0].Name);
   for (int i = 1; i < System.Count.BeadType; i++) {
     fprintf(stderr, "                %s\n", System.BeadType[i].Name);
@@ -189,15 +189,15 @@ void ErrorBeadType(const char *name, const SYSTEM System) { //{{{
   fprintf(stderr, "%s\n", ErrColourReset());
 } //}}}
 void ErrorMoleculeType(const char *name, const SYSTEM System) { //{{{
-  fprintf(stderr, "%s; illegal name: %s%s%s\n",
+  fprintf(stderr, "%sillegal name: %s%s%s\n",
           ErrRed(), ErrYellow(), name, ErrRed());
-  fprintf(stderr, "   Possible molecule names: %s\n",
+  fprintf(stderr, "Possible molecule names: %s%s\n", ErrYellow(),
           System.MoleculeType[0].Name);
   for (int i = 1; i < System.Count.MoleculeType; i++) {
-    fprintf(stderr, "                        %s\n",
+    fprintf(stderr, "                         %s\n",
             System.MoleculeType[i].Name);
   }
-  putc('\n', stderr);
+  fprintf(stderr, "%s\n", ErrColourReset());
 } //}}}
 // warn the system is not electrically neutral //{{{
 void WarnChargedSystem(const SYSTEM System, const char *file1,
