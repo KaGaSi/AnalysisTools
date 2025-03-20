@@ -46,9 +46,9 @@ conditions can be either stripped away or applied (which happens first if both \
 
 // structure for options //{{{
 struct OPT {
-  bool bt, mt,             // -bt/-mt
-       reverse,              // --reverse
-       join, wrap, last,   // --join --wrap --last
+  bool bt, mt,               // -bt/-mt
+       keep,                 // --keep
+       join, wrap, last,     // --join --wrap --last
        real;                 // --real
   int n_save[100], n_number; // -n
   double scale,              // -sc
@@ -134,7 +134,7 @@ static void ConstrainCoordinates(SYSTEM *System, const OPT opt,
     }
   }
 } //}}}
-// make all the alterations and saves into one function
+// make all the alterations and saves into one function //{{{
 void TransformAndSave(SYSTEM *System, const OPT opt, FILE_TYPE f, bool write[],
                       const int count_coor, const int argc, char *argv[]) {
   bool *write2 = NULL; // used in case of -cx/-cy/-cz constraints
@@ -151,7 +151,7 @@ void TransformAndSave(SYSTEM *System, const OPT opt, FILE_TYPE f, bool write[],
     // free the array alloc'd in ConstrainCoordinates()
     free(write2);
   }
-}
+} //}}}
 
 int main(int argc, char *argv[]) {
 
@@ -180,7 +180,7 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data //{{{
   opt->c = CommonOptions(argc, argv, in);
-  opt->reverse = BoolOption(argc, argv, "--reverse");
+  opt->keep = BoolOption(argc, argv, "--keep");
   opt->join = BoolOption(argc, argv, "--join");
   opt->wrap = BoolOption(argc, argv, "--wrap");
   opt->last = BoolOption(argc, argv, "--last");
@@ -287,18 +287,18 @@ int main(int argc, char *argv[]) {
   // auxiliary arrays holding which bead/molecule types to save
   bool *write_bt = malloc(Count->BeadType * sizeof *write_bt),
        *write_mt = malloc(Count->MoleculeType * sizeof *write_mt);
-  // first assume all bead types are saved/excluded based on --reverse option...
-  InitBoolArray(write_bt, Count->BeadType, !opt->reverse);
+  // first assume all bead types are saved/excluded based on --keep option...
+  InitBoolArray(write_bt, Count->BeadType, !opt->keep);
   // ... then adjust if -bt option is present
-  opt->bt = TypeOption(argc, argv, "-bt", 'b', opt->reverse, write_bt, System);
+  opt->bt = TypeOption(argc, argv, "-bt", 'b', opt->keep, write_bt, System);
   // first assume all molecule types are saved/excluded...
-  InitBoolArray(write_mt, Count->MoleculeType, !opt->reverse);
+  InitBoolArray(write_mt, Count->MoleculeType, !opt->keep);
   // ... then adjust if -mt option is present
-  opt->mt = TypeOption(argc, argv, "-mt", 'm', opt->reverse, write_mt, System);
+  opt->mt = TypeOption(argc, argv, "-mt", 'm', opt->keep, write_mt, System);
   // array for holding which beads to save/exclude
   bool *write = malloc(Count->Bead * sizeof *write);
   // first assume all are saved/excluded...
-  InitBoolArray(write, Count->Bead, !opt->reverse);
+  InitBoolArray(write, Count->Bead, !opt->keep);
   // then check possible -mt option...
   if (opt->mt) {
     for (int i = 0; i < Count->MoleculeType; i++) {
@@ -307,8 +307,8 @@ int main(int argc, char *argv[]) {
         int mol = mt->Index[j];
         for (int k = 0; k < mt->nBeads; k++) {
           int id = System.Molecule[mol].Bead[k];
-          if (write_mt[i] == opt->reverse) {
-            write[id] = opt->reverse; // save/exclude based on --reverse
+          if (write_mt[i] == opt->keep) {
+            write[id] = opt->keep; // save/exclude based on --keep
           }
         }
       }
@@ -318,8 +318,8 @@ int main(int argc, char *argv[]) {
   if (opt->bt) {
     for (int i = 0; i < Count->Bead; i++) {
       int type = System.Bead[i].Type;
-      if (write_bt[type] == opt->reverse) {
-        write[i] = opt->reverse;
+      if (write_bt[type] == opt->keep) {
+        write[i] = opt->keep;
       }
     }
   }

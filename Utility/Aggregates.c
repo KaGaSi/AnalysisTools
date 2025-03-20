@@ -266,6 +266,8 @@ int main(int argc, char *argv[]) {
   while (++count < argc && argv[count][0] != '-') {
     int type = FindBeadType(argv[count], System);
     if (type == -1) {
+      err_msg("non-existent bead name");
+      PrintError();
       ErrorBeadType(argv[count], System);
       exit(1);
     }

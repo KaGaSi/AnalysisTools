@@ -3,6 +3,8 @@ set(CMAKE_LEGACY_CYGWIN_WIN32 0) # something for cygwin
 
 project(project)
 enable_language (C Fortran)
+find_package(GSL REQUIRED)  # Find GSL package
+message(STATUS "GSL package found: ${GSL_INCLUDE_DIRS} ${GSL_LIBRARIES}")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -34,6 +36,7 @@ add_library(AnalysisTools
             ReadWriteLdata.c
             ReadWriteField.c
             ReadWriteConfig.c
+            ReadWriteGromacs.c
             Options.c
             System.c
             Errors.c
@@ -46,10 +49,12 @@ set(UTILS AddToSystem
           AngleMolecules
           Average
           BondLength
+          BOOP
           DensityAggregates
           DensityBox
           DistrAgg
           GenFIELD
+          GyrationAggregates
           Info
           JoinSystems
           PairCorrel
@@ -60,8 +65,16 @@ set(UTILS AddToSystem
 foreach(utility ${UTILS})
   add_executable(${utility} Utility/${utility}.c)
   # target_link_libraries(${utility} ${LIBRARIES} m)
-  target_link_libraries(${utility} AnalysisTools m)
+  # target_link_libraries(${utility} PRIVATE AnalysisTools m)
+  target_link_libraries(${utility} PRIVATE ${GSL_LIBRARIES} AnalysisTools m)
+  target_include_directories(${utility} PRIVATE ${GSL_INCLUDE_DIRS})
 endforeach(utility)
+# # Create the executable for BOOP before linking libraries
+# add_executable(BOOP Utility/BOOP.c)  # Ensure the correct source file is specified
+# # target_link_libraries(BOOP PRIVATE GSL::GSL)  # Link GSL to BOOP
+# target_link_libraries(BOOP PRIVATE ${GSL_LIBRARIES} AnalysisTools m)
+# target_include_directories(BOOP PRIVATE ${GSL_INCLUDE_DIRS})
+
 
 # this somehow specifies fortran compiler
 get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)

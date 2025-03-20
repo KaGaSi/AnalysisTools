@@ -228,10 +228,7 @@ bool TypeOption(const int argc, char **argv, const char opt[], const int mode,
           type = FindMoleculeName(argv[pos], System);
         }
         if (type == -1) {
-          if (snprintf(ERROR_MSG, LINE, "non-existent %s name %s%s",
-                       text, ErrYellow(), argv[pos]) < 0) {
-            ErrorSnprintf();
-          }
+          err_msg("non-existent name");
           PrintErrorOption(opt);
           if (mode == 'b') {
             ErrorBeadType(argv[pos], System);

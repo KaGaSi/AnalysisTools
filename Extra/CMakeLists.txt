@@ -3,6 +3,8 @@ set(CMAKE_LEGACY_CYGWIN_WIN32 0) # something for cygwin
 
 project(project)
 enable_language (C)
+find_package(GSL REQUIRED)  # Find GSL package
+message(STATUS "GSL package found: ${GSL_INCLUDE_DIRS} ${GSL_LIBRARIES}")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ../build/bin)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -31,6 +33,7 @@ add_library(AnalysisTools
             ../ReadWriteLdata.c
             ../ReadWriteField.c
             ../ReadWriteConfig.c
+            ../ReadWriteGromacs.c
             ../Options.c
             ../System.c
             ../Errors.c
@@ -39,10 +42,11 @@ add_library(AnalysisTools
 
 set(UTILS GenGal
           GalContacts
-          Selected-from_wall
+          LargestAgg
           Template
           test)
 foreach(utility ${UTILS})
   add_executable(${utility} ../Extra/${utility}.c)
-  target_link_libraries(${utility} AnalysisTools m)
+  target_link_libraries(${utility} PRIVATE ${GSL_LIBRARIES} AnalysisTools m)
+  target_include_directories(${utility} PRIVATE ${GSL_INCLUDE_DIRS})
 endforeach(utility)

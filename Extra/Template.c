@@ -93,11 +93,11 @@ int main(int argc, char *argv[]) {
   COUNT *Count = &System.Count;
 
   opt->mt = calloc(System.Count.MoleculeType, sizeof *opt->mt);
-  if (!MoleculeTypeOption(argc, argv, "-mt", true, opt->mt, System)) {
+  if (!TypeOption(argc, argv, "-mt", 'm', true, opt->mt, System)) {
     InitBoolArray(opt->mt, Count->MoleculeType, true);
   }
   opt->bt = calloc(System.Count.BeadType, sizeof *opt->bt);
-  if (!BeadTypeOption(argc, argv, "-bt", true, opt->bt, System)) {
+  if (!TypeOption(argc, argv, "-bt", 'b', true, opt->bt, System)) {
     InitBoolArray(opt->bt, Count->MoleculeType, true);
   }
 
