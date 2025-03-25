@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
   double width = -1;
   if (!IsPosRealNumber(argv[++count], &width)) {
     ErrorNaN("<width>");
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
     exit(1);
   } //}}}
   int bins = 180 / width;

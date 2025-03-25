@@ -109,13 +109,13 @@ int main(int argc, char *argv[]) {
   long skip = 0;
   if (!IsWholeNumber(argv[++count], &skip)) {
     ErrorNaN("<skip>");
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
     exit(1);
   }
   double dist_check = 0;
   if (!IsPosRealNumber(argv[++count], &dist_check)) {
     ErrorNaN("<dist>");
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
     exit(1);
   } //}}}
 

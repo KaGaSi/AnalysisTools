@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
   char extension[2][EXTENSION];
   s_strcpy(extension[0], ".agg", EXTENSION);
   if (ErrorExtension(input_agg, ext, extension) == -1) {
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
     exit(1);
   } //}}}
 

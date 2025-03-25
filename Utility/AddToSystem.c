@@ -246,14 +246,14 @@ int main(int argc, char *argv[]) {
     err_msg("highest/lowest distance must be positive real number");
     PrintErrorOption("-ld/-hd");
     PrintCommand(stderr, argc, argv);
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
     exit(1);
   }
   if (opt->ld && opt->hd && opt->ldist >= opt->hdist) {
     err_msg("highest distance must be higher than lowest distance");
     PrintErrorOption("-ld/-hd");
     PrintCommand(stderr, argc, argv);
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
     exit(1);
   }
   if (opt->hd || opt->ld) {
@@ -267,7 +267,7 @@ int main(int argc, char *argv[]) {
     if (!bt) {
       err_msg("missing mandatory -bt or --bonded options");
       PrintErrorOption("-ld/-hd");
-      Help(argv[0], true, common, option);
+      Help(StripPath(argv[0]), true, common, option);
       exit(1);
     }
   } //}}}
@@ -339,7 +339,7 @@ int main(int argc, char *argv[]) {
         opt->box.Length[2] <= 0) {
       err_msg("three positive numbers required");
       PrintErrorOption("-b");
-      Help(argv[0], true, common, option);
+      Help(StripPath(argv[0]), true, common, option);
       exit(1);
     }
   } //}}}

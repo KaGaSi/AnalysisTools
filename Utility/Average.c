@@ -75,7 +75,7 @@ int main ( int argc, char** argv ) {
   while (++count < argc && argv[count][0] != '-') {
     if (!IsNaturalNumber(argv[count], &column[col_count])) {
       ErrorNaN("<column>");
-      Help(argv[0], true, common, option);
+      Help(StripPath(argv[0]), true, common, option);
       exit(1);
     }
     col_count++;
@@ -104,7 +104,7 @@ int main ( int argc, char** argv ) {
   // if (opt->moving == 0 && opt->tau == 0 && opt->block == 0) {
   //   err_msg("one of -tau, -b, or -m options must be used");
   //   PrintError();
-  //   Help(argv[0], true, common, option);
+  //   Help(StripPath(argv[0]), true, common, option);
   //   exit(1);
   // }
   if ((opt->moving != 0 && opt->tau != 0) ||
@@ -112,7 +112,7 @@ int main ( int argc, char** argv ) {
       (opt->tau != 0 && opt->block != 0)) {
     err_msg("only one of the -tau, -b, and -m option can be used");
     PrintError();
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
   }
   if (opt->moving != -1 && opt->c.end != -1 &&
       (opt->c.end - opt->c.start - opt->moving) < 0) {
@@ -121,7 +121,7 @@ int main ( int argc, char** argv ) {
              opt->moving, ErrRed(), ErrYellow(),
              opt->c.end - opt->c.start, ErrRed());
     PrintError();
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
   }
 
   if (!opt->c.silent) {

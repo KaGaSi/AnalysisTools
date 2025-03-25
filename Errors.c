@@ -129,7 +129,9 @@ void ErrorEOF(const char *file, char *msg) {
     if (strnlen(msg, LINE) >= (LINE - 24)) {
       msg[LINE-24] = '\0';
     }
-    snprintf(ERROR_MSG, LINE, "%s; premature end of file", msg);
+    char text[LINE];
+    snprintf(text, LINE, "%s; premature end of file", msg);
+    s_strcpy(ERROR_MSG, text, LINE);
   } else {
     err_msg("premature end of file");
   }

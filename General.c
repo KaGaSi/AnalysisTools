@@ -125,6 +125,12 @@ bool ReadAndSplitLine(FILE *fr, const int max_str, const char delim[]) { //{{{
   words = SplitLine(max_str, split, line, delim);
   return true;
 } //}}}
+void WriteSplitLine(FILE *f) { //{{{
+  for (int i = 0; i < words; i++) {
+    fprintf(f, " %s", split[i]);
+  }
+  putc('\n', f);
+} //}}}
 const char * StripPath(const char cmd[]) { //{{{
   // Find the last occurrence of '/' in the path
   const char *command = strrchr(cmd, '/');
@@ -135,7 +141,7 @@ const char * StripPath(const char cmd[]) { //{{{
   }
 } //}}}
 void PrintCommand(FILE *ptr, const int argc, char **argv) { //{{{
-  fprintf(ptr, "%s%s", Colour(ptr, WHITE), argv[0]);
+  fprintf(ptr, "%s%s", Colour(ptr, WHITE), StripPath(argv[0]));
   // print the rest of the command
   for (int i = 1; i < argc; i++) {
     fprintf(ptr, " %s", argv[i]);
@@ -200,10 +206,10 @@ void InitDouble2DArray(double **array, const int m, const int n,
     }
   }
 }
-void InitInt2DArray(int **array, const int m, const int n, const int val) {
+void InitInt2DArray(int *array, const int m, const int n, const int val) {
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
-      array[i][j] = val;
+      array[i * n + j] = val;  // Access using row-major order
     }
   }
 }
