@@ -113,6 +113,7 @@ void SortArray(void *array, const int length, const int mode, const char type);
 bool ReadLine(FILE *fr, char *line);
 int SplitLine(const int max_str, char **out, char *line, const char *delim);
 bool ReadAndSplitLine(FILE *fr, const int max_strings, const char *delim);
+void WriteSplitLine(FILE *f);
 // strip path from command
 const char * StripPath(const char cmd[]);
 void PrintCommand(FILE *ptr, const int argc, char **argv);
@@ -125,7 +126,7 @@ void InitBoolArray (bool *array, const int n, const bool val);
 void InitLong2DArray (long **arr, const int m, const int n, const long val);
 void InitDouble2DArray (double **arr, const int m, const int n,
                         const double val);
-void InitInt2DArray (int **arr, const int m, const int n, const int val);
+void InitInt2DArray (int *arr, const int m, const int n, const int val);
 void InitBool2DArray (bool **arr, const int m, const int n, const bool val);
 // test whether two arrays are the same
 bool SameArrayInt(const int arr_1[], const int arr_2[], const int n);

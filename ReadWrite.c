@@ -289,8 +289,11 @@ SYSTEM ReadStructure(const SYS_FILES f, const bool detailed) {
     case FIELD_FILE:
       System = FieldRead(f.stru.name);
       break;
-    case GROM_FILE:
-      System = GromacsReadStruct(f.stru.name);
+    case ITP_FILE:
+      System = ItpReadStruct(f.stru.name);
+      break;
+    case PDB_FILE:
+      System = PdbReadStruct(f.stru.name);
       break;
     default:
       err_msg("unspecified structure file; should never happen!");
@@ -312,8 +315,11 @@ SYSTEM ReadStructure(const SYS_FILES f, const bool detailed) {
   }
   WarnChargedSystem(System, f.stru.name, "\0", "\0");
   // warn if missing box dimensions (unless it's a pbc-less file type)
-  if (System.Box.Volume == -1 && f.stru.type != VSF_FILE &&
-      f.stru.type != FIELD_FILE && f.stru.type != XYZ_FILE) {
+  if (System.Box.Volume == -1 &&
+      f.stru.type != VSF_FILE &&
+      f.stru.type != FIELD_FILE &&
+      f.stru.type != XYZ_FILE &&
+      f.stru.type != ITP_FILE) {
     err_msg("unspecified box dimensions in structure definition");
     PrintWarnFile(f.stru.name, "\0", "\0");
   }
@@ -535,7 +541,6 @@ bool SkipAggregates(FILE *fr, const char *file, int *line_count) { //{{{
   }
   return true;
 } //}}}
- //}}}
 
 // write structure and/or coordinates to a new file (can be any format) //{{{
 void WriteOutput(const SYSTEM System, const bool *write, FILE_TYPE fw,
@@ -718,7 +723,7 @@ void PrintCount(const COUNT Count) { //{{{
   if (Count.BondType > 0) {
     fprintf(stdout, "\n  Bond Types:     %d", Count.BondType);
   }
-  if (Count.Bonded > 0) {
+  if (Count.Bond > 0) {
     fprintf(stdout, "\n  Bonds:          %d", Count.Bond);
   }
   if (Count.AngleType > 0) {

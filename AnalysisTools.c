@@ -2,7 +2,11 @@
 #include "Errors.h"
 #include "General.h"
 #include "ReadWrite.h"
-#include <gsl/gsl_poly.h>
+#include <gsl/gsl_matrix_double.h>
+#include <gsl/gsl_poly.h> // solve cubic equation
+#include <gsl/gsl_eigen.h>  // Jacobi method
+#include <gsl/gsl_matrix.h> //
+#include <gsl/gsl_vector.h> //
 
 // TODO: consider BeadType[].Index, System.Bonded, etc. arrays - shouldn't they
 //       be filled based on whether the beads are in the timestep? Plus a
@@ -37,6 +41,11 @@ static void FractionalCoor(SYSTEM *System, const int mode);
 static int FindFileType(const char *name);
 static int NewAgg(AGGREGATE *Aggregate, SYSTEM *System,
                   const int i, const int j);
+
+// Comparison function for ascending order (introduced for qsort)
+int Compare(const void *a, const void *b) {
+  return (*(double*)a > *(double*)b) - (*(double*)a < *(double*)b);
+}
 
 // STATIC IMPLEMENTATIONS
 // TODO: the whole fractional stuff - not sure if it works
@@ -487,10 +496,10 @@ static int FindFileType(const char *name) { //{{{
   char orig[LINE];
   snprintf(orig, LINE, "%s", name);
   // check for known extensions
-  char *extension[9] = {".vtf", ".vsf", ".vcf", ".xyz", ".data",
-                         ".lammpstrj", ".field", ".config", ".itp"};
+  char *extension[10] = {".vtf", ".vsf", ".vcf", ".xyz", ".data", ".lammpstrj",
+                        ".field", ".config", ".itp", ".pdb"};
   char *dot = strrchr(name, '.');
-  for (int i = 0; i < 9; i++) {
+  for (int i = 0; i < 10; i++) {
     if (dot && strcasecmp(dot, extension[i]) == 0) {
       return i;
     }
@@ -533,9 +542,14 @@ bool InputCoorStruct(const int argc, char **argv, SYS_FILES *f) {
 int StructureFileType(const char *path) { //{{{
   const char *name = StripPath(path);
   int ft = FindFileType(name);
-  if (ft == VTF_FILE || ft == VSF_FILE || ft == FIELD_FILE ||
-      ft == LDATA_FILE || ft == LTRJ_FILE || ft == XYZ_FILE ||
-      ft == GROM_FILE) {
+  if (ft == VTF_FILE ||
+      ft == VSF_FILE ||
+      ft == FIELD_FILE ||
+      ft == LDATA_FILE ||
+      ft == LTRJ_FILE ||
+      ft == XYZ_FILE ||
+      ft == ITP_FILE ||
+      ft == PDB_FILE) {
     return ft;
   } else {
     err_msg("Not a structure file");
@@ -639,7 +653,6 @@ int SelectCell2(const int c1[3], const int n_cells[3],
   return c2[0] + c2[1] * n_cells[0] + c2[2] * n_cells[0] * n_cells[1];
 } //}}}
 // TODO: use Jacobi method
-// TODO: use SYSTEM
 // calculate gyration tensor and various shape descriptors //{{{
 void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]) {
   // gyration tensor (3x3 array)
@@ -680,53 +693,79 @@ void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]) {
   GyrationTensor[1][1] /= n;
   GyrationTensor[1][2] /= n;
   GyrationTensor[2][2] /= n; //}}}
+  // Define the symmetric matrix (example 3x3 matrix)
+  gsl_matrix *A = gsl_matrix_alloc(3, 3);
+  gsl_vector *eigenvalues = gsl_vector_alloc(3);
+  gsl_matrix *eigenvectors = gsl_matrix_alloc(3, 3);
+  for (int dd1 = 0; dd1 < 3; dd1++) {
+    for (int dd2 = 0; dd2 < 3; dd2++) {
+      gsl_matrix_set(A, dd1, dd2, GyrationTensor[dd1][dd2]);
+    }
+  }
+  // Perform the eigendecomposition using the Jacobi method
+  gsl_eigen_symmv_workspace *workspace = gsl_eigen_symmv_alloc(3);
+  gsl_eigen_symmv(A, eigenvalues, eigenvectors, workspace);
 
-  // characteristic polynomial:
-  // a_cube * x^3 + b_cube * x^2 + c_cube * x + d_cube = 0
-  long double a = -1;
-  long double b = GyrationTensor[0][0] +
-                  GyrationTensor[1][1] +
-                  GyrationTensor[2][2];
-  long double c = -GyrationTensor[0][0] * GyrationTensor[1][1] -
-                  GyrationTensor[0][0] * GyrationTensor[2][2] -
-                  GyrationTensor[1][1] * GyrationTensor[2][2] +
-                  Square(GyrationTensor[1][2]) +
-                  Square(GyrationTensor[0][1]) +
-                  Square(GyrationTensor[0][2]);
-  long double d =
-      +GyrationTensor[0][0] * GyrationTensor[1][1] * GyrationTensor[2][2] +
-      2 * GyrationTensor[0][1] * GyrationTensor[1][2] * GyrationTensor[0][2] -
-      Square(GyrationTensor[0][2]) * GyrationTensor[1][1] -
-      Square(GyrationTensor[0][1]) * GyrationTensor[2][2] -
-      Square(GyrationTensor[1][2]) * GyrationTensor[0][0];
-  b /= a;
-  c /= a;
-  d /= a;
+  for (int dd = 0; dd < 3; dd++) {
+    eigen[dd] = gsl_vector_get(eigenvalues, dd);
+    if (fabs(eigen[dd]) < 1e-5) {
+      eigen[dd] = 0;
+    }
+  }
+  qsort(eigen, 3, sizeof(eigen[0]), Compare);
 
-  // calculate roots
-  double x[3] = {0, 0, 0}; // Roots
-  int num_roots = gsl_poly_solve_cubic(b, c, d, &x[0], &x[1], &x[2]);
-  // ensure small roots are 0; otherwise it may look negative
-  if (fabs(x[0]) < 1e-5) {
-    x[0] = 0.0;
-  }
-  if (num_roots > 1 && fabs(x[1]) < 1e-5) {
-    x[1] = 0.0;
-  }
-  if (num_roots > 2 && fabs(x[2]) < 1e-5) {
-    x[2] = 0.0;
-  }
-  // assign roots to the eigen values
-  if (num_roots > 2) {
-    eigen[0] = x[0];
-    eigen[1] = x[1];
-    eigen[2] = x[2];
-  } else if (num_roots > 1) {
-    eigen[1] = x[0];
-    eigen[2] = x[1];
-  } else if (num_roots > 0) {
-    eigen[2] = x[0];
-  }
+  // Free allocated memory
+  gsl_matrix_free(A);
+  gsl_vector_free(eigenvalues);
+  gsl_matrix_free(eigenvectors);
+  gsl_eigen_symmv_free(workspace);
+
+  // // characteristic polynomial: //{{{
+  // // a_cube * x^3 + b_cube * x^2 + c_cube * x + d_cube = 0
+  // long double a = -1;
+  // long double b = GyrationTensor[0][0] +
+  //                 GyrationTensor[1][1] +
+  //                 GyrationTensor[2][2];
+  // long double c = -GyrationTensor[0][0] * GyrationTensor[1][1] -
+  //                 GyrationTensor[0][0] * GyrationTensor[2][2] -
+  //                 GyrationTensor[1][1] * GyrationTensor[2][2] +
+  //                 Square(GyrationTensor[1][2]) +
+  //                 Square(GyrationTensor[0][1]) +
+  //                 Square(GyrationTensor[0][2]);
+  // long double d =
+  //     +GyrationTensor[0][0] * GyrationTensor[1][1] * GyrationTensor[2][2] +
+  //     2 * GyrationTensor[0][1] * GyrationTensor[1][2] * GyrationTensor[0][2] -
+  //     Square(GyrationTensor[0][2]) * GyrationTensor[1][1] -
+  //     Square(GyrationTensor[0][1]) * GyrationTensor[2][2] -
+  //     Square(GyrationTensor[1][2]) * GyrationTensor[0][0];
+  // b /= a;
+  // c /= a;
+  // d /= a;
+  //
+  // // calculate roots
+  // double x[3] = {0, 0, 0}; // Roots
+  // int num_roots = gsl_poly_solve_cubic(b, c, d, &x[0], &x[1], &x[2]);
+  // // ensure small roots are 0; otherwise it may look negative
+  // if (fabs(x[0]) < 1e-5) {
+  //   x[0] = 0.0;
+  // }
+  // if (num_roots > 1 && fabs(x[1]) < 1e-5) {
+  //   x[1] = 0.0;
+  // }
+  // if (num_roots > 2 && fabs(x[2]) < 1e-5) {
+  //   x[2] = 0.0;
+  // }
+  // // assign roots to the eigen values
+  // if (num_roots > 2) {
+  //   eigen[0] = x[0];
+  //   eigen[1] = x[1];
+  //   eigen[2] = x[2];
+  // } else if (num_roots > 1) {
+  //   eigen[1] = x[0];
+  //   eigen[2] = x[1];
+  // } else if (num_roots > 0) {
+  //   eigen[2] = x[0];
+  // } //}}}
   // error for negative eigenvalues - shouldn't happen
   if (eigen[0] < 0 || eigen[1] < 0 || eigen[2] < 0) {
     snprintf(ERROR_MSG, LINE, "negative eigenvalues (%s%lf%s, %s%lf%s, "

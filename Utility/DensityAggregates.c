@@ -21,18 +21,17 @@ averaged without regard for the various types of molecule it comes from \
 only one column for 'A' bead type).\n\n");
   }
 
-  fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <in.agg> <width> <output> <size(s)> \
-[options]\n\n", cmd);
+  fprintf(ptr, "Usage: %s <input> <in.agg> <width> <output> <size(s)>"
+          "[options]\n\n", cmd);
 
-  fprintf(ptr, "   <input>     input coordinate file (vcf or vtf format)\n");
-  fprintf(ptr, "   <in.agg>    input agg file\n");
-  fprintf(ptr, "   <width>     width of a single bin\n");
-  fprintf(ptr, "   <output>    output density file - one per agg size \
-(automatic '<size>.rho' ending)\n");
-  fprintf(ptr, "   <size(s)>   aggregate sizes to calculate density for\n");
-  fprintf(ptr, "   [options]\n");
-  fprintf(ptr, "      --joined       specify that <input> contains joined \
+  fprintf(ptr, "<input>             input coordinate file\n");
+  fprintf(ptr, "<in.agg>            input agg file\n");
+  fprintf(ptr, "<width>             width of a single bin\n");
+  fprintf(ptr, "<output>            output density file - one per agg size "
+          "(automatic '<sizrho' ending)\n");
+  fprintf(ptr, "<size(s)>           aggregate sizes for density calculation\n");
+  fprintf(ptr, "[options]\n");
+  fprintf(ptr, "  --joined          specify that <input> contains joined \
 coordinates\n");
 //   fprintf(ptr, "      -m <name(s)>   agg size means number of <name(s)> "
 //           "molecules in an aggregate\n");
@@ -80,7 +79,7 @@ int main(int argc, char *argv[]) {
   char extension[2][EXTENSION];
   s_strcpy(extension[0], ".agg", EXTENSION);
   if (ErrorExtension(input_agg, ext, extension) == -1) {
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
     exit(1);
   } //}}}
 
@@ -88,7 +87,7 @@ int main(int argc, char *argv[]) {
   double width = -1;
   if (!IsPosRealNumber(argv[++count], &width)) {
     ErrorNaN("<width>");
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
     exit(1);
   } //}}}
 
@@ -130,7 +129,7 @@ int main(int argc, char *argv[]) {
     long val;
     if (!IsNaturalNumber(argv[count], &val)) {
       ErrorNaN("<agg size(s)>");
-      Help(argv[0], true, common, option);
+      Help(StripPath(argv[0]), true, common, option);
       exit(1);
     } //}}}
     agg_sizes[aggs][0] = atoi(argv[count]);
@@ -199,13 +198,14 @@ int main(int argc, char *argv[]) {
       use = true;
     }
     if (use) { //{{{
-      if (!ReadTimestep(in, fr, &System, &line_count)) {
+      if (!ReadTimestep(in, fr, &System, &line_count) ||
+          ReadAggregates(agg, input_agg, &System,
+                          Aggregate, &line_count_agg) < 0) {
         count_coor--;
         break;
       }
       count_used++;
       // TODO: join aggregates
-      ReadAggregates(agg, input_agg, &System, Aggregate, &line_count_agg);
 
       // TODO: proper allocation...
       // allocate memory for temporary density arrays //{{{
@@ -322,7 +322,8 @@ int main(int argc, char *argv[]) {
       free(temp_rho); //}}}
     //}}}
     } else {
-      if (!SkipTimestep(in, fr, &line_count)) {
+      if (!SkipTimestep(in, fr, &line_count) ||
+          !SkipAggregates(agg, input_agg, &line_count_agg)) {
         count_coor--;
         break;
       }

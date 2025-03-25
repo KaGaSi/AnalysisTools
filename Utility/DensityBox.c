@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
   double width;
   if (!IsPosRealNumber(argv[++count], &width)) {
     ErrorNaN("<width>");
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
     exit(1);
   } //}}}
 

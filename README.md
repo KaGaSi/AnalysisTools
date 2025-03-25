@@ -1,9 +1,7 @@
 # AnalysisTools
 
 A set of utilities to analyse trajectories from particle-based molecular
-simulations. The 34 utilities (including one from the [DL_MESO simulation
-package](https://www.scd.stfc.ac.uk/Pages/DL_MESO.aspx)) could be roughly
-divided into four types:
+simulations. The utilities could be roughly divided into four types:
 
 * utilities to calculate system-wide properties; e.g., pair
   correlation functions or particle densities along a simulation box axis
@@ -19,21 +17,11 @@ divided into four types:
 Installation
 ============
 
-Either download the latest zipped/tarred version
-[here](https://github.com/KaGaSi/AnalysisTools/tags), or clone this repository:
+Requirements: GSL (GNU Scientific Library), cmake, C and Fortran compilers
 
-`git clone https://github.com/KaGaSi/AnalysisTools`
+Download from [releases](https://github.com/KaGaSi/AnalysisTools/releases) or
+clone this repository.
 
-AnalysisTools requires `C` and `Fortran` compilers and `cmake`.  The
-compilation should be done in a separate directory, such as `<root>/build`
-(where `<root>` is the AnalysisTools root directory). The following
-generates a `Makefile` within `build`:
+To compile all utilities in a `build` directory,
 
-`mkdir <root>/build; cd <root>/build; cmake ../`
-
-Then run `make` to compile all utilities or `make <utility name>` to
-compile a single utility.
-
-The binaries are located in the `<root>/build/bin` directory.
-
-A reference manual is included in the repository (manual.pdf).
+`cd /path/to/build; cmake /path/to/AnalysisTools/; make`

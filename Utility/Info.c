@@ -96,11 +96,11 @@ int main(int argc, char *argv[]) {
 
   // read information from input file(s) //{{{
   SYSTEM System = ReadStructure(in, opt->detailed);
-  if (in.stru.type == GROM_FILE) {
-    FreeSystem(&System);
-    free(opt);
-    return 0;
-  }
+  // if (in.stru.type == PDB_FILE) {
+  //   FreeSystem(&System);
+  //   free(opt);
+  //   return 0;
+  // }
   COUNT *Count = &System.Count;
   // use coordinate from a separate file (-c option)
   if (in.coor.type != -1) {

@@ -295,19 +295,19 @@ static void FieldReadMolecules(const char *file, SYSTEM *System) { //{{{
                                      Count->MoleculeType);
     // read molecule types
     /*
-     * Order of entries:
+     * Order of entries - '4-7' means these can be in any order:
      *   1) <molecule name>
      *   2) nummol[s] <int>
      *   3) bead[s] <int>
      *      <int> lines: <bead name> <x> <y> <z>
-     *   4) bond[s] <int> (optional)
-     *      <int> lines: harm <id1> <id2> <k> <r_0>
-     *   5) angle[s] <int> (optional)
-     *      <int> lines: harm <id1> <id2> <id3> <k> <theta_0>
-     *   6) dihed[rals] <int> (optional)
-     *      <int> lines: harm <id1> <id2> <id3> <id4> <k>
-     *   7) improp[ers] <int> (optional)
-     *      <int> lines: harm <id1> <id2> <id3> <id4> <k>
+     *   4-7) bond[s] <int> (optional)
+     *        <int> lines: harm <id1> <id2> <k> <r_0>
+     *   4-7) angle[s] <int> (optional)
+     *        <int> lines: harm <id1> <id2> <id3> <k> <theta_0>
+     *   4-7) dihed[rals] <int> (optional)
+     *        <int> lines: harm <id1> <id2> <id3> <id4> <k>
+     *   4-7) improp[ers] <int> (optional)
+     *        <int> lines: harm <id1> <id2> <id3> <id4> <k>
      *   8) finish keyword
      */
     for (int i = 0; i < Count->MoleculeType; i++) {
@@ -415,28 +415,29 @@ static void FieldReadMolecules(const char *file, SYSTEM *System) { //{{{
       } //}}}
       //}}}
       free(coor); //}}}
-      // 4) bonds in the molecule (if present)
-      if (!ReadStuff(file, fr, &line_count, 0, i, System)) {
-        continue;
-      }
-      // 5) angles in the molecule (if present)
-      if (!ReadStuff(file, fr, &line_count, 1, i, System)) {
-        continue;
-      }
-      // 6) dihedrals in the molecule (if present)
-      if (!ReadStuff(file, fr, &line_count, 2, i, System)) {
-        continue;
-      }
-      // 7) impropers in the molecule (if present)
-      if (!ReadStuff(file, fr, &line_count, 3, i, System)) {
-        continue;
-      }
-      // finish keyword
-      CountLineReadLine(&line_count, fr, file, "Molecules");
-      if (words == 0 || strcasecmp(split[0], "finish") != 0) {
-        snprintf(ERROR_MSG, LINE, "missing 'finish' at the end of an entry for "
-                 "molecule %s%s", ErrYellow(), mt_i->Name);
-        FieldFileError(file, line_count);
+      // 4-7) bonds/angles/dihedrals/impropers
+      while (true) {
+        CountLineReadLine(&line_count, fr, file, "Molecules");
+        if (words == 0) { // allow blanks between sections
+          continue;
+        }
+        // 4) bonds in the molecule (if present)
+        if (strncasecmp(split[0], "bonds", 4) == 0) {
+          ReadStuff(file, fr, &line_count, 0, i, System);
+        } else if (strncasecmp(split[0], "angles", 4) == 0) {
+          ReadStuff(file, fr, &line_count, 1, i, System);
+        } else if (strncasecmp(split[0], "dihedrals", 5) == 0) {
+          ReadStuff(file, fr, &line_count, 2, i, System);
+        } else if (strncasecmp(split[0], "impropers", 6) == 0) {
+          ReadStuff(file, fr, &line_count, 3, i, System);
+        } else if (strcasecmp(split[0], "finish") == 0) {
+          break;
+        } else {
+          snprintf(ERROR_MSG, LINE, "unrecognised entry (or missing 'finish' "
+                   "keywoerd) for molecule %s%s", ErrYellow(), mt_i->Name);
+          FieldFileError(file, line_count);
+          exit(1);
+        }
       }
     }
     Count->HighestResid = Count->Molecule;
@@ -571,58 +572,49 @@ static bool ReadStuff(const char *file, FILE *fr, int *line_count,
     PrintError();
     exit(1);
   } //}}}
-  CountLineReadLine(line_count, fr, file, "Molecules");
-  if (words > 0 && strcasecmp(split[0], "finish") == 0) {
-    return false;
-  } else if (words > 1 && strncasecmp(split[0], name, strlen(name)) == 0) {
-    long val;
-    // a) number of bonds/angles/dihedrals/impropers
-    if (!IsNaturalNumber(split[1], &val)) {
-      err_msg("incorrect 'dihedral' line in a molecule entry");
-      FieldFileError(file, *line_count);
-    }
-    *n_stuff = val;
-    // b) bonds/angles/dihedrals/impropers themselves & their types
-    // allocate MoleculeType[].Stuff array
-    *Stuff = malloc(sizeof **Stuff * *n_stuff);
-    bool warned = false;
-    for (int j = 0; j < *n_stuff; j++) {
-      CountLineReadLine(line_count, fr, file, "Molecules");
-      long beads[num];
-      if (!GetBeadIds(num, beads, *mt)) {
-      FieldFileError(file, *line_count);
-      }
-      // assign bead ids to proper 'stuff'
-      for (int aa = 0; aa < (num - 1); aa++) {
-        (*Stuff)[j][aa] = beads[aa] - 1;
-      }
-      PARAMS values = GetParams(file, num, *mt, &warned);
-      // assign stuff type
-      int n_type = -1;
-      if (values.a != 0 || values.b != 0 || values.c != 0) {
-        // find if this bond type already exists
-        for (int k = 0; k < *CountStuff; k++) {
-          if ((*StuffType)[k].a == values.a &&
-              (*StuffType)[k].b == values.b &&
-              (*StuffType)[k].c == values.c) {
-            n_type = k;
-            break;
-          }
-        }
-        // create a new stuff type if necessary
-        if (n_type == -1) {
-          n_type = *CountStuff;
-          (*CountStuff)++;
-          *StuffType = s_realloc(*StuffType, *CountStuff * sizeof **StuffType);
-          (*StuffType)[n_type] = values;
-        }
-      }
-      (*Stuff)[j][num-1] = n_type;
-    }
-  } else {
-    snprintf(ERROR_MSG, LINE, "unrecognised line in an entry for molecule "
-             "%s%s", ErrYellow(), mt->Name);
+  long val = 0;
+  // a) number of bonds/angles/dihedrals/impropers
+  if (words < 2 || !IsNaturalNumber(split[1], &val)) {
+    err_msg("incorrect or missing number of bonds/angles/dihedrals/impropers");
     FieldFileError(file, *line_count);
+  }
+  *n_stuff = val;
+  // b) bonds/angles/dihedrals/impropers themselves & their types
+  // allocate MoleculeType[].Stuff array
+  *Stuff = malloc(sizeof **Stuff * *n_stuff);
+  bool warned = false;
+  for (int j = 0; j < *n_stuff; j++) {
+    CountLineReadLine(line_count, fr, file, "Molecules");
+    long beads[num];
+    if (!GetBeadIds(num, beads, *mt)) {
+    FieldFileError(file, *line_count);
+    }
+    // assign bead ids to proper 'stuff'
+    for (int aa = 0; aa < (num - 1); aa++) {
+      (*Stuff)[j][aa] = beads[aa] - 1;
+    }
+    PARAMS values = GetParams(file, num, *mt, &warned);
+    // assign stuff type
+    int n_type = -1;
+    if (values.a != 0 || values.b != 0 || values.c != 0) {
+      // find if this bond type already exists
+      for (int k = 0; k < *CountStuff; k++) {
+        if ((*StuffType)[k].a == values.a &&
+            (*StuffType)[k].b == values.b &&
+            (*StuffType)[k].c == values.c) {
+          n_type = k;
+          break;
+        }
+      }
+      // create a new stuff type if necessary
+      if (n_type == -1) {
+        n_type = *CountStuff;
+        (*CountStuff)++;
+        *StuffType = s_realloc(*StuffType, *CountStuff * sizeof **StuffType);
+        (*StuffType)[n_type] = values;
+      }
+    }
+    (*Stuff)[j][num-1] = n_type;
   }
   return true;
 } //}}}

@@ -28,16 +28,17 @@ whose names are based on <out.agg> ('-w' and '-no_w' is prepended to the .agg \
 extension).\n\n");
   }
 
-  fprintf(ptr, "Usage: %s <input> <out.agg> <bead(s)> [options]\n\n", cmd);
-
+  fprintf(ptr, "Usage: %s <input> <out.agg> <bead(s)>/--all"
+          "[options]\n\n", cmd);
   fprintf(ptr, "<input>             input coordinate file\n");
   fprintf(ptr, "<out.agg>           output aggregate file\n");
-  fprintf(ptr, "<bead(s)>           bead names for closeness calculation\n");
+  fprintf(ptr, "<bead(s)>/--all     bead names for closeness calculation\n");
   fprintf(ptr, "[options]\n");
+  fprintf(ptr, "  --all             use all types (overwrites <bead(s)>)\n");
   fprintf(ptr, "  -d                maximum distance for contact "
           "(default: 1)\n");
   fprintf(ptr, "  -c                minimum number of contacts (default: 1, "
-          "max: 255)");
+          "max: 255)\n");
   fprintf(ptr, "  -j <output>       output file with joined coordinates\n");
   fprintf(ptr, "  -w <a> <float(s)> position of wall perpendicular to "
           "given axis <a> at the axis' coordinate(s)\n");
@@ -53,6 +54,7 @@ struct OPT {
   int w_count, axis;    // -w
   char w_file[2][LINE]; // -w
   FILE_TYPE j_file[2];  // -w (if -j)
+  bool all;             // --all
   COMMON_OPT c;
 };
 OPT * opt_create(void) {
@@ -159,11 +161,11 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
 int main(int argc, char *argv[]) {
 
   // define options & check their validity
-  int common = 8, all = common + 4, req_arg = 3, count = 0;
+  int common = 8, all = common + 5, req_arg = 2, count = 0;
   char option[all][OPT_LENGTH];
   OptionCheck(argc, argv, req_arg, common, all, false, option,
                "-st", "-e", "-sk", "-i", "--verbose", "--silent",
-               "--help", "--version", "-d", "-c", "-j", "-w");
+               "--help", "--version", "--all", "-d", "-c", "-j", "-w");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -182,7 +184,7 @@ int main(int argc, char *argv[]) {
   char extension[1][EXTENSION];
   s_strcpy(extension[0], ".agg", EXTENSION);
   if (ErrorExtension(agg_file, ext, extension) == -1) {
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
     exit(1);
   } //}}}
 
@@ -244,7 +246,7 @@ int main(int argc, char *argv[]) {
       }
     }
   } //}}}
- //}}}
+  opt->all = BoolOption(argc, argv, "--all"); //}}}
 
   if (!opt->c.silent) {
     PrintCommand(stdout, argc, argv);
@@ -259,25 +261,40 @@ int main(int argc, char *argv[]) {
   }
 
   // <bead(s)> - names of bead types to use for closeness calculation //{{{
-  // TODO: necessary to assign false?
-  for (int i = 0; i < Count->BeadType; i++) {
-    System.BeadType[i].Flag = false;
-  }
-  while (++count < argc && argv[count][0] != '-') {
-    int type = FindBeadType(argv[count], System);
-    if (type == -1) {
-      err_msg("non-existent bead name");
+  if (opt->all) {
+    for (int i = 0; i < Count->BeadType; i++) {
+      System.BeadType[i].Flag = true;
+    }
+  } else {
+    // missing --all as well as any bead type(s)
+    // TODO: necessary to assign false?
+    for (int i = 0; i < Count->BeadType; i++) {
+      System.BeadType[i].Flag = false;
+    }
+    while (++count < argc && argv[count][0] != '-') {
+      int type = FindBeadType(argv[count], System);
+      if (type == -1) {
+        err_msg("non-existent bead name");
+        PrintError();
+        ErrorBeadType(argv[count], System);
+        exit(1);
+      }
+      if (System.BeadType[type].Flag) {
+        snprintf(ERROR_MSG, LINE, "bead type %s%s%s specified more than once",
+                 ErrYellow(), argv[count], ErrCyan());
+        PrintWarning();
+      }
+      System.BeadType[type].Flag = true;
+    } //}}}
+    count--; // while always increments count at least once
+    if (count < (req_arg + 1)) {
+      err_msg("missing <bead(s)> or --all option");
       PrintError();
-      ErrorBeadType(argv[count], System);
+      PrintCommand(stderr, argc, argv);
+      Help(StripPath(argv[0]), true, common, option);
       exit(1);
     }
-    if (System.BeadType[type].Flag) {
-      snprintf(ERROR_MSG, LINE, "bead type %s%s%s specified more than once",
-               ErrYellow(), argv[count], ErrCyan());
-      PrintWarning();
-    }
-    System.BeadType[type].Flag = true;
-  } //}}}
+  }
 
   // print command to output .agg (and, possibly, coordinate) file
   PrintByline(agg_file, argc, argv);
