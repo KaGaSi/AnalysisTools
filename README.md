@@ -19,7 +19,7 @@ Installation
 
 Requirements: GSL (GNU Scientific Library), cmake, C and Fortran compilers
 
-Download from [releases](https://github.com/KaGaSi/AnalysisTools/releases) or
+Download from [tags](https://github.com/KaGaSi/AnalysisTools/tags) or
 clone this repository.
 
 To compile all utilities in a `build` directory,
