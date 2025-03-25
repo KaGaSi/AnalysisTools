@@ -390,7 +390,7 @@ int main(int argc, char *argv[]) {
         val[0] == val[1]) {
       err_msg("two different positive numbers needed for size range");
       PrintError();
-      Help(argv[0], true, common, option);
+      Help(StripPath(argv[0]), true, common, option);
       exit(1);
     }
     agg_sizes[0] = val[0];
@@ -405,7 +405,7 @@ int main(int argc, char *argv[]) {
       long val;
       if (!IsNaturalNumber(argv[count], &val)) {
         ErrorNaN("<agg size(s)>");
-        Help(argv[0], true, common, option);
+        Help(StripPath(argv[0]), true, common, option);
         exit(1);
       } //}}}
       agg_sizes[aggs] = atoi(argv[count]);

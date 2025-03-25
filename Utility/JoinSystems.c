@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
     if (opt->box[0] <= 0 || opt->box[1] <= 0 || opt->box[2] <= 0) {
       err_msg("three positive numbers required");
       PrintErrorOption("-b");
-      Help(argv[0], true, common, option);
+      Help(StripPath(argv[0]), true, common, option);
       exit(1);
     }
   } //}}}

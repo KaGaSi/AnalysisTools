@@ -18,7 +18,6 @@ static void ArgumentMissingErr(const int n, const char *opt);
 int OptionCheck(const int argc, char **argv, const int req, const int common,
                 const int all, const bool check_extra,
                 char opt[all][OPT_LENGTH], ...) {
-  snprintf(argv[0], LINE, "%s", StripPath(argv[0]));
   // copy options to an array
   va_list args;
   va_start(args, opt);
@@ -35,7 +34,7 @@ int OptionCheck(const int argc, char **argv, const int req, const int common,
   // --help option?
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--help") == 0) {
-      Help(argv[0], false, common, opt);
+      Help(StripPath(argv[0]), false, common, opt);
       exit(0);
     }
   }
@@ -49,7 +48,7 @@ int OptionCheck(const int argc, char **argv, const int req, const int common,
   if (count < req) {
     ErrorArgNumber(count, req);
     PrintCommand(stderr, argc, argv);
-    Help(argv[0], true, common, opt);
+    Help(StripPath(argv[0]), true, common, opt);
     exit(1);
   }
   // all options exist?
@@ -67,7 +66,7 @@ int OptionCheck(const int argc, char **argv, const int req, const int common,
     if (!valid) {
       ErrorOption(argv[i]);
       PrintCommand(stderr, argc, argv);
-      Help(argv[0], true, common, opt);
+      Help(StripPath(argv[0]), true, common, opt);
       exit(1);
     }
   }
@@ -156,7 +155,7 @@ COMMON_OPT CommonOptions(const int argc, char **argv, const SYS_FILES f) {
   }
   ErrorStartEnd(opt.start, opt.end);
   // number of timesteps to skip per one used
-  if (OneNumberOption(argc, argv, "-sk", &opt.skip, 'i') && opt.skip <= 0) {
+  if (OneNumberOption(argc, argv, "-sk", &opt.skip, 'i') && opt.skip < 0) {
     s_strcpy(ERROR_MSG, "positive number required", LINE);
     PrintErrorOption("-sk");
     exit(1);

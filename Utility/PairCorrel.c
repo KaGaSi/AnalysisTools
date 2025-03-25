@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
   double width = -1;
   if (!IsPosRealNumber(argv[++count], &width)) {
     ErrorNaN("<width>");
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
     exit(1);
   } //}}}
 
@@ -130,6 +130,14 @@ int main(int argc, char *argv[]) {
         PrintWarning();
       }
       System.BeadType[type].Flag = true;
+    }
+    count--; // while always increments count at least once
+    if (count < (req_arg + 1)) {
+      err_msg("missing <bead(s)> or --all option");
+      PrintError();
+      PrintCommand(stderr, argc, argv);
+      Help(StripPath(argv[0]), true, common, option);
+      exit(1);
     }
   } //}}}
 

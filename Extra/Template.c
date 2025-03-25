@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
   double mandatory_double = 0;
   if (!IsRealNumber(argv[++count], &mandatory_double)) {
     ErrorNaN("<width>");
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
     exit(1);
   } //}}}
 

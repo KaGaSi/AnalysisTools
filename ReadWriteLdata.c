@@ -41,6 +41,167 @@ static void CheckAtomsLine(const int mode, const int beads, long *id,
 static void WriteStuff(FILE *fw, const SYSTEM System, const int mol,
                        int *count, const int num, int (**arr)[5], const int n);
 
+// read files
+// TODO: Atoms & Velocities section can be switched
+// TODO: add Forces section reading
+SYSTEM LmpDataReadStruct(const char *file) { //{{{
+  SYSTEM System;
+  InitSystem(&System);
+  COUNT *Count = &System.Count;
+  FILE *fr = OpenFile(file, "r");
+  int line_count = 0;
+  LmpDataReadHeader(fr, file, &System, &line_count);
+  LmpDataReadBody(fr, file, &System, &line_count);
+  fclose(fr);
+  CalculateBoxData(&System.Box, 1);
+  // till RemoveExtraTypes(), each bead is its own bead type
+  Count->BeadType = Count->Bead;
+  RemoveExtraTypes(&System);
+  MergeBeadTypes(&System, true);
+  MergeMoleculeTypes(&System);
+  FillSystemNonessentials(&System, true);
+  // take the data file as a coordinate file as well
+  Count->BeadCoor = Count->Bead;
+  Count->UnbondedCoor = Count->Unbonded;
+  Count->BondedCoor = Count->Bonded;
+  System.BeadCoor = s_realloc(System.BeadCoor,
+                              Count->Bead * sizeof *System.BeadCoor);
+  int c_unbonded = 0, c_bonded = 0;
+  for (int i = 0; i < Count->Bead; i++) {
+    System.BeadCoor[i] = i;
+    if (System.Bead[i].Molecule == -1) {
+      System.UnbondedCoor[c_unbonded] = i;
+      c_unbonded++;
+    } else {
+      System.BondedCoor[c_bonded] = i;
+      c_bonded++;
+    }
+  }
+  // make molecule indices go from 0 (just to avoid large numbers) //{{{
+  // 1) find the lowest molecule index
+  int min_id = 1e7;
+  for (int i = 0; i < System.Count.Molecule; i++) {
+    if (System.Molecule[i].Index < min_id) {
+      min_id = System.Molecule[i].Index;
+    }
+  }
+  // 2) subtract the lowest molecule index from molecule indices
+  for (int i = 0; i < System.Count.Molecule; i++) {
+    System.Molecule[i].Index -= min_id;
+  } //}}}
+  if (Count->Molecule) {
+    System.MoleculeCoor = s_realloc(System.MoleculeCoor, Count->Molecule *
+                                    sizeof *System.MoleculeCoor);
+  }
+  Count->MoleculeCoor = Count->Molecule;
+  for (int i = 0; i < Count->MoleculeCoor; i++) {
+    System.MoleculeCoor[i] = i;
+  }
+  CheckSystem(System, file);
+  return System;
+} //}}}
+// read lammps data file as a coordinate file //{{{
+int LmpDataReadTimestep(FILE *fr, const char *file,
+                        SYSTEM *System, int *line_count) {
+  COUNT *Count = &System->Count;
+  // set 'in timestep' to all beads //{{{
+  for (int i = 0; i < Count->Bead; i++) {
+    System->Bead[i].InTimestep = true;
+  } //}}}
+  // set 'in timestep' to all molecules //{{{
+  for (int i = 0; i < Count->Molecule; i++) {
+    System->Molecule[i].InTimestep = false;
+  } //}}}
+  // fill MoleculeCoor array - all molecules are present //{{{
+  Count->MoleculeCoor = Count->Molecule;
+  for (int i = 0; i < Count->MoleculeCoor; i++) {
+    System->MoleculeCoor[i] = i;
+  } //}}}
+  *line_count = 0;
+  CountLineReadLine(line_count, fr, file, "empty file", 1);
+  // read numer of atoms & box size //{{{
+  // read until the first capital-letter-starting line
+  fpos_t position;
+  do {
+    fgetpos(fr, &position);
+    CountLineReadLine(line_count, fr, file,
+                      "incomplete lammps data file header", 1);
+    long val;
+    // <int> atoms //{{{
+    if (words > 1 && strcmp(split[1], "atoms") == 0) {
+      if (!IsNaturalNumber(split[0], &val) || val == 0) {
+        goto error;
+      }
+      if (Count->Bead != val) {
+        err_msg("coordinate lammps data file must contain all beads");
+        PrintErrorFile(file, "\0", "\0");
+        exit(1);
+      } //}}}
+    }
+    if (!ReadPbc(&System->Box)) {
+      goto error;
+    }
+  } while (words == 0 || split[0][0] < 'A' || split[0][0] > 'Z');
+  //  return file pointer to before the first capital-letter-starting line
+  fsetpos(fr, &position);
+  (*line_count)--;
+  CalculateBoxData(&System->Box, 1); //}}}
+  // find 'Atoms' section (and skip the next blank line) //{{{
+  do {
+    if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
+      return -2;
+    }
+  } while (words == 0 || strcmp(split[0], "Atoms") != 0);
+  int mode = CheckAtomsMode(words, split, file);
+  if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
+    return -2;
+  } //}}}
+  // read atom lines //{{{
+  Count->BeadCoor = Count->Bead;
+  for (int i = 0; i < Count->Bead; i++) {
+    if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
+      return -2;
+    }
+    long id, resid, type;
+    double pos[3], q;
+    CheckAtomsLine(mode, Count->Bead, &id, &resid,
+                   &type, &q, pos, file, *line_count);
+    id--; // in lammps data file, ids start from 1
+    BEAD *b = &System->Bead[id];
+    for (int dd = 0; dd < 3; dd++) {
+      b->Position[dd] = pos[dd] - System->Box.Low[dd];
+    }
+    System->BeadCoor[i] = id;
+  } //}}}
+  // find 'Velocities' section (and skip the next blank line) //{{{
+  do {
+    if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
+      ChangeBoxByLow(System, -1);
+      FillInCoor(System);
+      return 1; // Velocities section is not mandatory
+    }
+  } while (words == 0 || strcmp(split[0], "Velocities") != 0);
+  if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
+    ChangeBoxByLow(System, -1);
+    FillInCoor(System);
+    return -2;
+  } //}}}
+  // read velocity lines //{{{
+  for (int i = 0; i < Count->Bead; i++) {
+    if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
+      return -2;
+    }
+    GetBeadVelocity(System, file, *line_count);
+  } //}}}
+  ChangeBoxByLow(System, -1);
+  FillInCoor(System);
+  return 1;
+  error: // unrecognised line //{{{
+    err_msg("unrecognised line in the file header");
+    PrintErrorFileLine(file, *line_count);
+    exit(1); //}}}
+} //}}}
+
 // increment line count and read the line //{{{
 static int CountLineReadLine(int *line_count, FILE *fr, const char *file,
                              const char *msg, const int mode) {
@@ -211,165 +372,6 @@ error: // unrecognised line //{{{
   PrintErrorFileLine(file, *line_count);
   exit(1); //}}}
 } //}}}
-SYSTEM LmpDataReadStruct(const char *file) { //{{{
-  SYSTEM System;
-  InitSystem(&System);
-  COUNT *Count = &System.Count;
-  FILE *fr = OpenFile(file, "r");
-  int line_count = 0;
-  LmpDataReadHeader(fr, file, &System, &line_count);
-  LmpDataReadBody(fr, file, &System, &line_count);
-  fclose(fr);
-  CalculateBoxData(&System.Box, 1);
-  // till RemoveExtraTypes(), each bead is its own bead type
-  Count->BeadType = Count->Bead;
-  RemoveExtraTypes(&System);
-  MergeBeadTypes(&System, true);
-  MergeMoleculeTypes(&System);
-  FillSystemNonessentials(&System, true);
-  // take the data file as a coordinate file as well
-  Count->BeadCoor = Count->Bead;
-  Count->UnbondedCoor = Count->Unbonded;
-  Count->BondedCoor = Count->Bonded;
-  System.BeadCoor = s_realloc(System.BeadCoor,
-                              Count->Bead * sizeof *System.BeadCoor);
-  int c_unbonded = 0, c_bonded = 0;
-  for (int i = 0; i < Count->Bead; i++) {
-    System.BeadCoor[i] = i;
-    if (System.Bead[i].Molecule == -1) {
-      System.UnbondedCoor[c_unbonded] = i;
-      c_unbonded++;
-    } else {
-      System.BondedCoor[c_bonded] = i;
-      c_bonded++;
-    }
-  }
-  // make molecule indices go from 0 (just to avoid large numbers) //{{{
-  // 1) find the lowest molecule index
-  int min_id = 1e7;
-  for (int i = 0; i < System.Count.Molecule; i++) {
-    if (System.Molecule[i].Index < min_id) {
-      min_id = System.Molecule[i].Index;
-    }
-  }
-  // 2) subtract the lowest molecule index from molecule indices
-  for (int i = 0; i < System.Count.Molecule; i++) {
-    System.Molecule[i].Index -= min_id;
-  } //}}}
-  if (Count->Molecule) {
-    System.MoleculeCoor = s_realloc(System.MoleculeCoor, Count->Molecule *
-                                    sizeof *System.MoleculeCoor);
-  }
-  Count->MoleculeCoor = Count->Molecule;
-  for (int i = 0; i < Count->MoleculeCoor; i++) {
-    System.MoleculeCoor[i] = i;
-  }
-  CheckSystem(System, file);
-  return System;
-} //}}}
-// TODO: Atoms & Velocities section can be switched
-// TODO: add Forces section reading
-// read lammps data file as a coordinate file //{{{
-int LmpDataReadTimestep(FILE *fr, const char *file,
-                        SYSTEM *System, int *line_count) {
-  COUNT *Count = &System->Count;
-  // set 'in timestep' to all beads //{{{
-  for (int i = 0; i < Count->Bead; i++) {
-    System->Bead[i].InTimestep = true;
-  } //}}}
-  // set 'in timestep' to all molecules //{{{
-  for (int i = 0; i < Count->Molecule; i++) {
-    System->Molecule[i].InTimestep = false;
-  } //}}}
-  // fill MoleculeCoor array - all molecules are present //{{{
-  Count->MoleculeCoor = Count->Molecule;
-  for (int i = 0; i < Count->MoleculeCoor; i++) {
-    System->MoleculeCoor[i] = i;
-  } //}}}
-  *line_count = 0;
-  CountLineReadLine(line_count, fr, file, "empty file", 1);
-  // read numer of atoms & box size //{{{
-  // read until the first capital-letter-starting line
-  fpos_t position;
-  do {
-    fgetpos(fr, &position);
-    CountLineReadLine(line_count, fr, file,
-                      "incomplete lammps data file header", 1);
-    long val;
-    // <int> atoms //{{{
-    if (words > 1 && strcmp(split[1], "atoms") == 0) {
-      if (!IsNaturalNumber(split[0], &val) || val == 0) {
-        goto error;
-      }
-      if (Count->Bead != val) {
-        err_msg("coordinate lammps data file must contain all beads");
-        PrintErrorFile(file, "\0", "\0");
-        exit(1);
-      } //}}}
-    }
-    if (!ReadPbc(&System->Box)) {
-      goto error;
-    }
-  } while (words == 0 || split[0][0] < 'A' || split[0][0] > 'Z');
-  //  return file pointer to before the first capital-letter-starting line
-  fsetpos(fr, &position);
-  (*line_count)--;
-  CalculateBoxData(&System->Box, 1); //}}}
-  // find 'Atoms' section (and skip the next blank line) //{{{
-  do {
-    if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
-      return -2;
-    }
-  } while (words == 0 || strcmp(split[0], "Atoms") != 0);
-  int mode = CheckAtomsMode(words, split, file);
-  if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
-    return -2;
-  } //}}}
-  // read atom lines //{{{
-  Count->BeadCoor = Count->Bead;
-  for (int i = 0; i < Count->Bead; i++) {
-    if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
-      return -2;
-    }
-    long id, resid, type;
-    double pos[3], q;
-    CheckAtomsLine(mode, Count->Bead, &id, &resid,
-                   &type, &q, pos, file, *line_count);
-    id--; // in lammps data file, ids start from 1
-    BEAD *b = &System->Bead[id];
-    for (int dd = 0; dd < 3; dd++) {
-      b->Position[dd] = pos[dd] - System->Box.Low[dd];
-    }
-    System->BeadCoor[i] = id;
-  } //}}}
-  // find 'Velocities' section (and skip the next blank line) //{{{
-  do {
-    if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
-      ChangeBoxByLow(System, -1);
-      FillInCoor(System);
-      return 1; // Velocities section is not mandatory
-    }
-  } while (words == 0 || strcmp(split[0], "Velocities") != 0);
-  if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
-    ChangeBoxByLow(System, -1);
-    FillInCoor(System);
-    return -2;
-  } //}}}
-  // read velocity lines //{{{
-  for (int i = 0; i < Count->Bead; i++) {
-    if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
-      return -2;
-    }
-    GetBeadVelocity(System, file, *line_count);
-  } //}}}
-  ChangeBoxByLow(System, -1);
-  FillInCoor(System);
-  return 1;
-  error: // unrecognised line //{{{
-    err_msg("unrecognised line in the file header");
-    PrintErrorFileLine(file, *line_count);
-    exit(1); //}}}
-} //}}}
 // read body //{{{
 static void LmpDataReadBody(FILE *fr, const char *file, SYSTEM *System,
                             int *line_count) {
@@ -377,7 +379,7 @@ static void LmpDataReadBody(FILE *fr, const char *file, SYSTEM *System,
   // BEADTYPE *name_mass = calloc(atom_types, sizeof *name_mass);
   BEADTYPE *name_mass = calloc(Count->BeadType, sizeof *name_mass);
   // create arrays for bonds/angles/dihedrals/impropers //{{{
-  int(*bond)[5], (*angle)[5], (*dihedral)[5], (*improper)[5];
+  int (*bond)[5], (*angle)[5], (*dihedral)[5], (*improper)[5];
   if (Count->Bond > 0) {
     bond = calloc(Count->Bond, sizeof *bond);
   } else {
@@ -1033,35 +1035,7 @@ error:
   exit(1);
 } //}}}
 
-// write single bond/angle/dihedral/improper 'stuff' //{{{
-static void WriteStuff(FILE *fw, const SYSTEM System, const int mol,
-                       int *count, const int num, int (**arr)[5], const int n) {
-  (*count)++;
-  bool in = true;
-  for (int aa = 0; aa < (num - 1); aa++) {
-    int id = (*arr)[n][aa];
-    id = System.Molecule[mol].Bead[id];
-    if (!System.Bead[id].InTimestep) {
-      in = false;
-      break;
-    }
-  }
-  if (in) {
-    fprintf(fw, "%7d", *count);
-    if ((*arr)[n][num-1] != -1) {
-      fprintf(fw, " %6d", (*arr)[n][num-1] + 1);
-    } else {
-      fprintf(fw, "   ???");
-    }
-    for (int aa = 0; aa < (num - 1); aa++) {
-      int id = (*arr)[n][aa];
-      id = System.Molecule[mol].Bead[id];
-      fprintf(fw, " %5d", id + 1);
-    }
-    putc('\n', fw);
-  }
-} //}}}
-// write all bond/angle/dihedral/improper 'stuff'
+// write files
 void WriteAllStuff(FILE *fw, const SYSTEM System, const int type) { //{{{
   int num = 0;
   if (type == 0) { // bond
@@ -1101,6 +1075,36 @@ void WriteAllStuff(FILE *fw, const SYSTEM System, const int type) { //{{{
     }
   }
 } //}}}
+
+// write single bond/angle/dihedral/improper 'stuff' //{{{
+static void WriteStuff(FILE *fw, const SYSTEM System, const int mol,
+                       int *count, const int num, int (**arr)[5], const int n) {
+  (*count)++;
+  bool in = true;
+  for (int aa = 0; aa < (num - 1); aa++) {
+    int id = (*arr)[n][aa];
+    id = System.Molecule[mol].Bead[id];
+    if (!System.Bead[id].InTimestep) {
+      in = false;
+      break;
+    }
+  }
+  if (in) {
+    fprintf(fw, "%7d", *count);
+    if ((*arr)[n][num-1] != -1) {
+      fprintf(fw, " %6d", (*arr)[n][num-1] + 1);
+    } else {
+      fprintf(fw, "   ???");
+    }
+    for (int aa = 0; aa < (num - 1); aa++) {
+      int id = (*arr)[n][aa];
+      id = System.Molecule[mol].Bead[id];
+      fprintf(fw, " %5d", id + 1);
+    }
+    putc('\n', fw);
+  }
+} //}}}
+// write all bond/angle/dihedral/improper 'stuff'
 // WriteLmpData() //{{{
 void WriteLmpData(const SYSTEM System, const char *file, const bool mass,
                   const int argc, char **argv) {

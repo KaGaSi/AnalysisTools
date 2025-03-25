@@ -23,8 +23,14 @@ individual utilities as well as possible workflows chaining several utilities.
 
 \section{Installation}
 
-AnalysisTools requires \tt{C} and \tt{Fortran} compilers and \tt{cmake}. The
-utilities should be compiled in a separate directory, typically
+Requirements
+\begin{itemize}
+  \item \tt{C} and \tt{Fortran} compilers
+  \item \tt{cmake} to generate files necessary to build AnalysisTools
+  \item \tt{GSL}, the GNU Scientific Library
+\end{itemize}
+
+The utilities should be compiled in a separate directory, typically
 \tt{<root>/build} (where \tt{<root>} is the AnalysisTools root directory). The
 following generates a \tt{Makefile} within \tt{<root>/build}:
 

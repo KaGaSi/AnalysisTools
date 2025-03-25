@@ -4,6 +4,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "AnalysisTools.h"
-SYSTEM GromacsReadStruct(const char *file);
+SYSTEM ItpReadStruct(const char *file);
+SYSTEM PdbReadStruct(const char *file);
 
 #endif

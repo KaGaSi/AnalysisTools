@@ -25,7 +25,7 @@ types 'A' and 'B' are given, it considers only 'A-B' pairs.\n\n");
   fprintf(ptr, "  -d                maximum distance for contact "
           "(default: 1)\n");
   fprintf(ptr, "  -c                minimum number of contacts (default: 1, "
-          "max: 255)");
+          "max: 255)\n");
   fprintf(ptr, "  -j <output>       output file with joined coordinates\n");
   fprintf(ptr, "  -w <a> <float(s)> position of wall perpendicular to "
           "given axis <a> at the axis' coordinate(s)\n");
@@ -171,7 +171,7 @@ int main(int argc, char *argv[]) {
   char extension[1][EXTENSION];
   s_strcpy(extension[0], ".agg", EXTENSION);
   if (ErrorExtension(agg_file, ext, extension) == -1) {
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
     exit(1);
   } //}}}
 

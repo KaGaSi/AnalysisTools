@@ -219,7 +219,7 @@ int main(int argc, char *argv[]) {
   double width = 0;
   if (!IsPosRealNumber(argv[++count], &width)) {
     ErrorNaN("<width>");
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
     exit(1);
   }
   // <surf.txt> - output file with averaged surface coordinates
@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
   } else {
     err_msg("must be 'x', 'y', or 'z'");
     PrintErrorOption("<axis>");
-    Help(argv[0], true, common, option);
+    Help(StripPath(argv[0]), true, common, option);
     exit(1);
   }
   //}}}
