@@ -28,9 +28,8 @@ whose names are based on <out.agg> ('-w' and '-no_w' is prepended to the .agg \
 extension).\n\n");
   }
 
-  fprintf(ptr, "Usage: %s <input> <out.agg> <bead(s)>/--all"
-          "[options]\n\n", cmd);
-  fprintf(ptr, "<input>             input coordinate file\n");
+  fprintf(ptr, "Usage: %s <coor> <out.agg> <bead(s)>/--all [options]\n\n", cmd);
+  fprintf(ptr, "<coor>              input coordinate file\n");
   fprintf(ptr, "<out.agg>           output aggregate file\n");
   fprintf(ptr, "<bead(s)>/--all     bead names for closeness calculation\n");
   fprintf(ptr, "[options]\n");
@@ -285,7 +284,7 @@ int main(int argc, char *argv[]) {
         PrintWarning();
       }
       System.BeadType[type].Flag = true;
-    } //}}}
+    }
     count--; // while always increments count at least once
     if (count < (req_arg + 1)) {
       err_msg("missing <bead(s)> or --all option");
@@ -294,7 +293,7 @@ int main(int argc, char *argv[]) {
       Help(StripPath(argv[0]), true, common, option);
       exit(1);
     }
-  }
+  } //}}}
 
   // print command to output .agg (and, possibly, coordinate) file
   PrintByline(agg_file, argc, argv);
