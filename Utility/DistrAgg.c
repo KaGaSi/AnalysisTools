@@ -43,6 +43,9 @@ all aggregates with given size).\n\n");
 
 // structure for options //{{{
 struct OPT {
+  bool x, only, m;                // were -x, -only, and/or -m specified?
+  bool *x_mol, *only_mol, *m_mol; // arrays for which molecules to use
+  int range[2];                   // -n; used with 1 & Count.Molecules if no -n
   COMMON_OPT c;
 };
 OPT * opt_create(void) {
@@ -92,63 +95,78 @@ int main(int argc, char *argv[]) {
   COUNT *Count = &System.Count;
 
   // '-n' option //{{{
-  int range_As[2] = {1, Count->Molecule};
-  TwoNumbersOption(argc, argv, "-n", range_As, 'i');
-  if (range_As[0] > range_As[1]) {
-    SwapInt(&range_As[0], &range_As[1]);
+  opt->range[0] = 1;
+  opt->range[1] = Count->Molecule;
+  TwoNumbersOption(argc, argv, "-n", opt->range, 'i');
+  if (opt->range[0] > opt->range[1]) {
+    SwapInt(&opt->range[0], &opt->range[1]);
   } //}}}
   // '-m' option //{{{
-  bool *mtype_As = calloc(Count->MoleculeType, sizeof *mtype_As);
-  if (!TypeOption(argc, argv, "-m", 'm', true, mtype_As, System)) {
-    InitBoolArray(mtype_As, Count->MoleculeType, true);
+  opt->m_mol = calloc(Count->MoleculeType, sizeof *opt->m_mol);
+  opt->m = true;
+  if (!TypeOption(argc, argv, "-m", 'm', true, opt->m_mol, System)) {
+    opt->m = false;
+    InitBoolArray(opt->m_mol, Count->MoleculeType, true);
   } //}}}
   // '-only' option //{{{
-  bool *mtype_only_opt = calloc(Count->MoleculeType, sizeof *mtype_only_opt);
-  if (!TypeOption(argc, argv, "-only", 'm', true, mtype_only_opt, System)) {
-    InitBoolArray(mtype_only_opt, Count->MoleculeType, true);
-  } //}}}
-  // error - molecules specified by -m and -only do not overlap //{{{
-  bool overlap = false;
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    if (mtype_As[i] && mtype_only_opt[i]) {
-      overlap = true;
-      break;
-    }
-  }
-  if (!overlap) {
-    err_msg("for any aggregate to be used, at least one molecule "
-            "must be specified in both options");
-    PrintErrorOption("-m/-only");
-    exit(1);
+  opt->only_mol = calloc(Count->MoleculeType, sizeof *opt->only_mol);
+  opt->only = true;
+  if (!TypeOption(argc, argv, "-only", 'm', true, opt->only_mol, System)) {
+    opt->only = false;
+    InitBoolArray(opt->only_mol, Count->MoleculeType, true);
   } //}}}
   // '-x' option //{{{
-  bool *mtype_x_opt = calloc(Count->MoleculeType, sizeof *mtype_x_opt);
-  TypeOption(argc, argv, "-x", 'm', true, mtype_x_opt, System); //}}}
-  // error - molecules specified by -only and -x must differ //{{{
-  overlap = true; // do the two array fully overlap?
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    if (mtype_x_opt[i] != mtype_only_opt[i]) {
-      overlap = false;
-      break;
-    }
+  opt->x_mol = calloc(Count->MoleculeType, sizeof *opt->x_mol);
+  opt->x = true;
+  if (!TypeOption(argc, argv, "-x", 'm', true, opt->x_mol, System)) {
+    opt->x = false;
   }
-  if (overlap) {
-    err_msg("the lists of molecules must be different");
-    PrintErrorOption("-x/-only");
-    exit(1);
+  // error - all molecule specified //{{{
+  if (opt->x) {
+    bool overlap = true; // are all molecule types specified by -x?
+    for (int i = 0; i < Count->MoleculeType; i++) {
+      if (!opt->x_mol[i]) {
+        overlap = false;
+        break;
+      }
+    }
+    if (overlap) {
+      err_msg("with all molecules listed, no aggregates would be detected");
+      PrintErrorOption("-x");
+      exit(1);
+    }
   } //}}}
-  // error - -x specifies all molecules in the system //{{{
-  overlap = true; // are all molecule types specified by -x?
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    if (!mtype_x_opt[i]) {
-      overlap = false;
-      break;
+  //}}}
+  // error - molecules specified by -m and -only do not overlap //{{{
+  if (opt->m && opt->only) {
+    bool overlap = false;
+    for (int i = 0; i < Count->MoleculeType; i++) {
+      if (opt->m_mol[i] && opt->only_mol[i]) {
+        overlap = true;
+        break;
+      }
     }
-  }
-  if (overlap) {
-    err_msg("with all molecules listed, no aggregates would be detected");
-    PrintErrorOption("-x");
-    exit(1);
+    if (!overlap) {
+      err_msg("for any aggregate to be used, at least one molecule "
+              "must be specified in both options");
+      PrintErrorOption("-m/-only");
+      exit(1);
+    }
+  } //}}}
+  // error - molecules specified by -only and -x must differ //{{{
+  if (opt->only && opt->x) {
+    bool overlap = true; // do the two array fully overlap?
+    for (int i = 0; i < Count->MoleculeType; i++) {
+      if (opt->x_mol[i] != opt->only_mol[i]) {
+        overlap = false;
+        break;
+      }
+    }
+    if (overlap) {
+      err_msg("the lists of molecules must be different");
+      PrintErrorOption("-x/-only");
+      exit(1);
+    }
   } //}}}
 
   AGGREGATE *Aggregate = NULL;
@@ -256,10 +274,6 @@ int main(int argc, char *argv[]) {
   double mass_sum[3][2] = {{0}}, As_sum[3][2] = {{0}};
   while (true) { // cycle ends with 'Last Step' line in agg file
     PrintStep(&count_step, opt->c.start, opt->c.silent);
-    if (ReadAggregates(fr, input_agg, &System, Aggregate, &agg_lines) < 0) {
-      count_step--;
-      break;
-    }
 
     // decide whether this timestep is to be used for averages and distributions
     bool use = false;
@@ -267,6 +281,10 @@ int main(int argc, char *argv[]) {
       use = true;
     }
     if (use) { //{{{
+      if (ReadAggregates(fr, input_agg, &System, Aggregate, &agg_lines) < 0) {
+        count_step--;
+        break;
+      }
       count_used++; // just to print at the end
       int aggs_step = 0; // number of eligible aggregates per step
       double avg_mass_n_step[2] = {0}, // per-step mass averages
@@ -282,23 +300,29 @@ int main(int argc, char *argv[]) {
         // decide whether to use the aggregate based on used options //{{{
         int size = 0; // -m option-adjusted aggregate size
         double agg_mass = 0; // -m option-adjusted aggregate mass
-        bool only_opt = true, // acceptable composition (-only option)
-             x_opt = true; // acceptable composition (-x option)
+        bool only_opt = true, // acceptable composition (-only option)?
+             x_opt = false; // acceptable composition (-x option)?
         for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-          int mtype = System.Molecule[Aggregate[i].Molecule[j]].Type;
-          if (mtype_As[mtype]) {
+          MOLECULE *mol = &System.Molecule[Aggregate[i].Molecule[j]];
+          int mtype = mol->Type;
+          MOLECULETYPE *mt = &System.MoleculeType[mtype];
+          if (opt->m_mol[mtype]) {
             size++;
-            agg_mass += System.MoleculeType[mtype].Mass;
+            agg_mass += mt->Mass;
           }
-          if (!mtype_only_opt[mtype]) {
+          // if at least one unwanted molecule is present, don't use aggregate
+          if (!opt->only_mol[mtype]) {
             only_opt = false;
           }
-          if (mtype_x_opt[mtype]) {
-            x_opt = false;
+          // if at least one molecule isn't exluded, use aggregate
+          if (!opt->x_mol[mtype]) {
+            x_opt = true;
           }
         }
-        if (size == 0 || size < range_As[0] || size > range_As[1] ||
-            !only_opt || !x_opt) {
+        if (size == 0 || // -m: discarded all molecules
+            size < opt->range[0] || size > opt->range[1] || // -n: not in range
+            !only_opt || // -only: found molecule that weren't supposed to be in
+            !x_opt) { // -x: didn't find any un-excluded molecules
           continue;
         } //}}}
         // average aggregate mass during the step
@@ -408,14 +432,17 @@ int main(int argc, char *argv[]) {
       putc('\n', fw);
       fclose(fw); //}}}
       ReInitAggregate(System, Aggregate);
-    }
       //}}}
-    // } else {
-    //   if (!SkipTimestep(in, fr, &agg_lines)) {
-    //     count_step--;
-    //     break;
-    //   }
-    // }
+    } else {
+      if (!SkipAggregates(fr, input_agg, &agg_lines)) {
+        count_step--;
+        break;
+      }
+    }
+    // exit the main loop if reached user-specied end timestep
+    if (count_step == opt->c.end) {
+      break;
+    }
   }
   fclose(fr);
   // print last step //{{{
@@ -619,9 +646,9 @@ int main(int argc, char *argv[]) {
     free(molecules_sum[i]);
   }
   free(molecules_sum);
-  free(mtype_As);
-  free(mtype_only_opt);
-  free(mtype_x_opt);
+  free(opt->m_mol);
+  free(opt->only_mol);
+  free(opt->x_mol);
   if (c_count > 0) {
     for (int i = 0; i < c_count; i++) {
       for (int j = 0; j < Count->MoleculeType; j++) {
