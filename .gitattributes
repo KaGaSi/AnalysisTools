@@ -1,1 +1,4 @@
-doc-latex merge=ours
+doc-latex/ merge=ours
+Extra/ merge=ours
+.gitignore merge=ours
+.gitattributes merge=ours
