@@ -133,5 +133,9 @@ bool SameArrayInt(const int arr_1[], const int arr_2[], const int n);
 // safe function alternatives
 void s_strcpy(char *dest, const char *src, size_t dest_size);
 void * s_realloc(void *ptr, size_t new_size);
+// stuff to count digits and print correctly column width
+void FillMaxDigits(const int columns, const int n,
+                   double *data[n], int (*digits)[2]);
+void Fprintf1(FILE *f, const double value, const int digits[2]);
 
 #endif

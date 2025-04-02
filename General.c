@@ -1,6 +1,9 @@
 #include "General.h"
 #include "Errors.h"
 
+static void CountDigits(const double num, int digits[2]);
+static void MaxDigits(const double num, int max_digits[2]);
+
 // convert string into a number if possible //{{{
 /* Functions to test provided string and convert it to a number type. Note that
  * the conversion stops when it encounters an illegal character, so only the
@@ -251,3 +254,58 @@ void* s_realloc(void *ptr, size_t new_size) { //{{{
   }
   return temp;
 } //}}}
+// stuff to count digits and print correctly column width //{{{
+static void CountDigits(const double num, int digits[2]) {
+  int max_precision = 5;
+  double frac_part, int_part;
+  // Handle negative numbers
+  int neg = 0;
+  if (num < 0) {
+    neg = 1;
+  }
+  double temp = fabs(num);
+  // Split into integer and fractional parts
+  frac_part = modf(temp, &int_part);
+  // Count integer digits
+  if (int_part == 0) {
+    digits[0] = 1 + neg;
+  } else {
+    digits[0] = (int)log10(int_part) + 1 + neg;
+  }
+  // Count fractional digits dynamically
+  digits[1] = 0;
+  while (digits[1] < max_precision) {
+    frac_part *= 10;
+    frac_part = round(frac_part * 1e9) / 1e9; // roundto avoid precision errors
+    if (frac_part < 1e-9) {
+      break; // stop when there's no more fraction left
+    }
+    frac_part -= floor(frac_part);
+    digits[1]++;
+  }
+  // +1 for '.'
+  if (digits[1] > 0) {
+    digits[0]++;
+  }
+}
+static void MaxDigits(const double num, int max_digits[2]) {
+  int digits[2];
+  CountDigits(num, digits);
+  for (int i = 0; i < 2; i++) {
+    if (digits[i] > max_digits[i]) {
+      max_digits[i] = digits[i];
+    }
+  }
+}
+void FillMaxDigits(const int columns, const int n,
+                   double *data[n], int (*digits)[2]) {
+  for (int i = 0; i < n; i++) {
+    for (int col = 0; col < columns; col++) {
+      MaxDigits(data[i][col], digits[col]);
+    }
+  }
+}
+void Fprintf1(FILE *f, const double value, const int digits[2]) {
+  fprintf(f, " %*.*f", digits[0] + digits[1], digits[1], value);
+}
+//}}}

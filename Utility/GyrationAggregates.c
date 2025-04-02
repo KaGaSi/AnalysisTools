@@ -1,45 +1,5 @@
 #include "../AnalysisTools.h"
 
-// TODO: make it into something general in General library
-// stuff to count digits and print correctly column width //{{{
-void CountDigits(double num, int digits[2]) {
-  int max_precision = 5;
-  double frac_part, int_part;
-  // Handle negative numbers
-  int neg = 0;
-  if (num < 0) {
-    neg = 1;
-  }
-  num = fabs(num);
-  // Split into integer and fractional parts
-  frac_part = modf(num, &int_part);
-  // Count integer digits
-  if (int_part == 0) {
-    digits[0] = 1 + neg;
-  } else {
-    digits[0] = (int)log10(int_part) + 1 + neg;
-  }
-  // Count fractional digits dynamically
-  digits[1] = 0;
-  while (frac_part > 0 && digits[1] < max_precision) { // Limit max precision
-    frac_part *= 10;
-    frac_part -= floor(frac_part);
-    digits[1]++;
-  }
-}
-void MaxDigits(double num, int max_digits[3]) {
-  int digits[2];
-  CountDigits(num, digits);
-  for (int i = 0; i < 2; i++) {
-    if (digits[i] > max_digits[i]) {
-      max_digits[i] = digits[i];
-    }
-  }
-}
-void Fprintf1(FILE *f, double value, int digits[3]) {
-  fprintf(f, " %*.*f", digits[2], digits[1], value);
-} //}}}
-
 // Help() //{{{
 void Help(const char cmd[50], const bool error,
           const int n, const char opt[n][OPT_LENGTH]) {
@@ -499,69 +459,40 @@ int main(int argc, char *argv[]) {
     fprintf(out, " (%d) <eigen[2]>, ", Count->MoleculeType+9);
     fprintf(out, " (%d) number of aggs", Count->MoleculeType+10);
     putc('\n', out);
-    // determine width of each column //{{{
+    // determine width of each column & collate data //{{{
     int columns = Count->MoleculeType + 10;
-    int digits[columns][3];
+    int digits[columns][2];
     InitInt2DArray((int *)digits, columns, 3, 0);
+    // double data[columns][Count->Molecule];
+    double *data[Count->Molecule];
     for (int i = 0; i < Count->Molecule; i++) {
+      data[i] = calloc(columns, sizeof data[i]);
       if (agg_counts_sum[i] > 0) {
-        count = 0;
-        MaxDigits((double)(i + 1), digits[count]);
-        count++;
+        count = -1;
+        data[i][++count] = i + 1;
         for (int j = 0; j < Count->MoleculeType; j++) {
-          MaxDigits((double)(molecules_sum[i][j]) / agg_counts_sum[i],
-                         digits[count]);
-          count++;
+          data[i][++count] = (double)(molecules_sum[i][j]) / agg_counts_sum[i];
         }
-        MaxDigits(Rg_sum[i][0]/agg_counts_sum[i], digits[count]);
-        count++;
-        MaxDigits(sqrRg_sum[i][0]/agg_counts_sum[i], digits[count]);
-        count++;
-        MaxDigits(Anis_sum[i]/agg_counts_sum[i], digits[count]);
-        count++;
-        MaxDigits(Acyl_sum[i]/agg_counts_sum[i], digits[count]);
-        count++;
-        MaxDigits(Aspher_sum[i]/agg_counts_sum[i], digits[count]);
-        count++;
-        MaxDigits(eigen_sum[i][0]/agg_counts_sum[i], digits[count]);
-        count++;
-        MaxDigits(eigen_sum[i][1]/agg_counts_sum[i], digits[count]);
-        count++;
-        MaxDigits(eigen_sum[i][2]/agg_counts_sum[i], digits[count]);
-        count++;
-        MaxDigits((double)(agg_counts_sum[i]), digits[count]);
+        data[i][++count] = Rg_sum[i][0]/agg_counts_sum[i];
+        data[i][++count] = sqrRg_sum[i][0]/agg_counts_sum[i];
+        data[i][++count] = Anis_sum[i]/agg_counts_sum[i];
+        data[i][++count] = Acyl_sum[i]/agg_counts_sum[i];
+        data[i][++count] = Aspher_sum[i]/agg_counts_sum[i];
+        data[i][++count] = eigen_sum[i][0]/agg_counts_sum[i];
+        data[i][++count] = eigen_sum[i][1]/agg_counts_sum[i];
+        data[i][++count] = eigen_sum[i][2]/agg_counts_sum[i];
+        data[i][++count] = (double)(agg_counts_sum[i]);
       }
     }
-    // Compute total width (including decimal point and possible negative sign)
-    for (int i = 0; i < columns; i++) {
-      digits[i][2] = digits[i][0] + digits[i][1];
-      // +1 for '.'
-      if (digits[i][1] > 0) {
-        digits[i][2]++;
-      }
-    } //}}}
+    FillMaxDigits(columns, Count->Molecule, data, digits); //}}}
 
     // go over all possible sizes
     for (int i = 0; i < Count->Molecule; i++) {
       // is that size in the data?
       if (agg_counts_sum[i] > 0) {
-        count = 0;
-        fprintf(out, "%*d", digits[count++][2] + 1, i + 1);
-        for (int j = 0; j < Count->MoleculeType; j++) {
-          Fprintf1(out, (double)(molecules_sum[i][j])/agg_counts_sum[i],
-                   digits[count++]);
-        }
-        Fprintf1(out, Rg_sum[i][0]/agg_counts_sum[i], digits[count++]);
-        Fprintf1(out, sqrRg_sum[i][0]/agg_counts_sum[i], digits[count++]);
-        Fprintf1(out, Anis_sum[i]/agg_counts_sum[i], digits[count++]);
-        Fprintf1(out, Acyl_sum[i]/agg_counts_sum[i], digits[count++]);
-        Fprintf1(out, Aspher_sum[i]/agg_counts_sum[i], digits[count++]);
-        Fprintf1(out, eigen_sum[i][0]/agg_counts_sum[i], digits[count++]);
-        Fprintf1(out, eigen_sum[i][1]/agg_counts_sum[i], digits[count++]);
-        Fprintf1(out, eigen_sum[i][2]/agg_counts_sum[i], digits[count++]);
-        Fprintf1(out, agg_counts_sum[i], digits[count++]);
-        putc('\n', out);
+        WriteFormatedDataLine(out, columns, data[i], digits);
       }
+      free(data[i]);
     }
 
     fclose(out);

@@ -1211,3 +1211,12 @@ void PrintAggregate(const SYSTEM System, const AGGREGATE *Aggregate) { //{{{
     }
   }
 } //}}}
+
+// WriteFormatedDataLine //{{{
+void WriteFormatedDataLine(FILE *fw, const int columns, const double *data,
+                           const int (*digits)[2]) {
+  for (int col = 0; col < columns; col++) {
+    Fprintf1(fw, data[col], digits[col]);
+  }
+  putc('\n', fw);
+} //}}}
