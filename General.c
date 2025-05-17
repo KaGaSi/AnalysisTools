@@ -201,11 +201,11 @@ void InitLong2DArray(long **array, const int m, const int n, const long val) {
     }
   }
 }
-void InitDouble2DArray(double **array, const int m, const int n,
+void InitDouble2DArray(double *array, const int m, const int n,
                        const double val) {
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
-      array[i][j] = val;
+      array[i * n + j] = val;  // Access using row-major order
     }
   }
 }
@@ -244,19 +244,19 @@ void s_strcpy(char *dest, const char *src, const size_t dest_size) { //{{{
 } //}}}
 void* s_realloc(void *ptr, size_t new_size) { //{{{
   if (new_size == 0) {
-    fprintf(stderr, "realloc error\n");
+    fprintf(stderr, "s_realloc: new size is 0\n");
     exit(1);
   }
   void *temp = realloc(ptr, new_size);
   if (temp == NULL) {
-    fprintf(stderr, "realloc error\n");
+    fprintf(stderr, "s_realloc: NULL returned\n");
     exit(1);
   }
   return temp;
 } //}}}
 // stuff to count digits and print correctly column width //{{{
 static void CountDigits(const double num, int digits[2]) {
-  int max_precision = 5;
+  int max_precision = 6;
   double frac_part, int_part;
   // Handle negative numbers
   int neg = 0;

@@ -462,7 +462,7 @@ int main(int argc, char *argv[]) {
     // determine width of each column & collate data //{{{
     int columns = Count->MoleculeType + 10;
     int digits[columns][2];
-    InitInt2DArray((int *)digits, columns, 3, 0);
+    InitInt2DArray((int *)digits, columns, 2, 0);
     // double data[columns][Count->Molecule];
     double *data[Count->Molecule];
     for (int i = 0; i < Count->Molecule; i++) {

@@ -307,6 +307,8 @@ SYSTEM ReadStructure(const SYS_FILES f, const bool detailed) {
   if (f.coor.type == VCF_FILE) {
     System.Count.BeadCoor = VtfReadNumberOfBeads(f.coor.name);
     if (System.Count.BeadCoor < 0) {
+      err_msg("vcf file without data");
+      PrintErrorFile(f.coor.name, "\0", "\0");
       exit(1);
     }
     if (System.Box.Volume == -1) {

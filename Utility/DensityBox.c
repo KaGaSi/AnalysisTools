@@ -230,7 +230,7 @@ int main(int argc, char *argv[]) {
       }
     }
     putc('\n', fw);
-    // write rdf
+    // write density
     for (int i = 0; i < (n - 1); i++) {
       double dist = width * (2 * i + 1) / 2;
       if (dist > size) { // write only til the max box size

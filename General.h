@@ -124,7 +124,7 @@ void InitDoubleArray (double *array, const int n, const double val);
 void InitIntArray (int *array, const int n, const int val);
 void InitBoolArray (bool *array, const int n, const bool val);
 void InitLong2DArray (long **arr, const int m, const int n, const long val);
-void InitDouble2DArray (double **arr, const int m, const int n,
+void InitDouble2DArray (double *arr, const int m, const int n,
                         const double val);
 void InitInt2DArray (int *arr, const int m, const int n, const int val);
 void InitBool2DArray (bool **arr, const int m, const int n, const bool val);
