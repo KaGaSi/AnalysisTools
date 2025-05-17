@@ -46,7 +46,7 @@ extension).\n\n");
 
 // structure for options //{{{
 struct OPT {
-  double distance;      // -d
+  double cutoff;      // -d
   int contacts;         // -c
   FILE_TYPE fout;       // -j
   double wall[100];     // -w
@@ -63,7 +63,7 @@ OPT * opt_create(void) {
 // CalculateAggregates() //{{{
 // note the function doesn't fill in Aggregate[].Bead[] as it's not used here
 void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
-  double sqdist = Square(opt.distance);
+  double sqdist = Square(opt.cutoff);
   COUNT *Count = &System->Count;
   Count->Aggregate = 0;
   // zeroize - just pro-forma; is done in (Re)InitAggregate()
@@ -197,8 +197,8 @@ int main(int argc, char *argv[]) {
     opt->j_file[1].type = opt->fout.type;
   }
   // parameters for aggregate check (-d and -c options)
-  opt->distance = 1;
-  OneNumberOption(argc, argv, "-d", &opt->distance, 'd');
+  opt->cutoff = 1;
+  OneNumberOption(argc, argv, "-d", &opt->cutoff, 'd');
   opt->contacts = 1;
   OneNumberOption(argc, argv, "-c", &opt->contacts, 'i');
   if (opt->contacts > 255 || opt->contacts <= 0) {
@@ -338,8 +338,9 @@ int main(int argc, char *argv[]) {
       CalculateAggregates(Aggregate, &System, *opt);
       // calculate & write joined coordinatest (-j option)
       if (opt->fout.name[0] != '\0') {
+        FillAggregateBeads(Aggregate, System);
         WrapJoinCoordinates(&System, false, true);
-        RemovePBCAggregates(opt->distance, Aggregate, &System);
+        RemovePBCAggregates(opt->cutoff, Aggregate, &System);
         bool *write = calloc(Count->Bead, sizeof *write);
         InitBoolArray(write, Count->Bead, true);
         WriteTimestep(opt->fout, System, count_coor, write, argc, argv);
@@ -364,8 +365,8 @@ int main(int argc, char *argv[]) {
               if (System.BeadType[b->Type].Flag) {
                 for (int l = 0; l < opt->w_count; l++) {
                   double dist = b->Position[opt->axis] - opt->wall[l];
-                  if (fabs(dist) < opt->distance) {
-                    Aggregate[i].Flag = true;
+                  if (fabs(dist) < opt->cutoff) {
+                    Aggregate[i].Flag = true; // aggregate i is touching a wall
                     goto next;
                   }
                 }
@@ -377,35 +378,44 @@ int main(int argc, char *argv[]) {
         }
         // write the aggregates to *-w.agg file
         WriteAggregates(count_coor, opt->w_file[0], System, Aggregate);
-        // write joined coordinates to *-w* file (-j option)?
-        if (opt->fout.name[0] != '\0') {
-          bool *write = calloc(Count->Bead, sizeof *write);
-          for (int i = 0; i < Count->Aggregate; i++) {
-            if (Aggregate[i].Flag) {
-              for (int j = 0; j < Aggregate[i].nBeads; j++) {
-                write[Aggregate[i].Bead[j]] = true;
-              }
-            }
-          }
-          WriteTimestep(opt->j_file[0], System, count_coor, write, argc, argv);
-          free(write);
-        }
         // reverse the Aggregate[].Flag to select aggregates in bulk
         for (int i = 0; i < Count->Aggregate; i++) {
           Aggregate[i].Flag = !Aggregate[i].Flag;
         }
-        // write the aggregates to *-no_w.agg file
+        // write the aggregates to *-w.agg file
         WriteAggregates(count_coor, opt->w_file[1], System, Aggregate);
-        // write joined coordinates to *-no_w* file (-j option)?
+
+        // write joined coordinates to -no_w/-w files (-j option)?
         if (opt->fout.name[0] != '\0') {
           bool *write = calloc(Count->Bead, sizeof *write);
+          // assume all beads are saved (to save unbonded beads)
+          InitBoolArray(write, Count->Bead, true);
+
+          // exclude from saving all aggregate beads in bulk
           for (int i = 0; i < Count->Aggregate; i++) {
+            // is aggregate in the bulk?
             if (Aggregate[i].Flag) {
-              for (int j = 0; j < Aggregate[i].nBeads; j++) {
-                write[Aggregate[i].Bead[j]] = true;
+              for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+                int mol = Aggregate[i].Molecule[j];
+                int mtype = System.Molecule[mol].Type;
+                for (int k = 0; k < System.MoleculeType[mtype].nBeads; k++) {
+                  int id = System.Molecule[mol].Bead[k];
+                  if (System.Bead[id].InTimestep) {
+                    write[id] = false;
+                  }
+                }
               }
             }
           }
+          // write joined coordinates for wall-touching aggregates to -w file
+          WriteTimestep(opt->j_file[0], System, count_coor, write, argc, argv);
+
+          // flip write flag for all bonded beads
+          for (int i = 0; i < Count->Bonded; i++) {
+            int id = System.Bonded[i];
+            write[id] = !write[id];
+          }
+          // write joined coordinates for bulk aggregates to -no_w file
           WriteTimestep(opt->j_file[1], System, count_coor, write, argc, argv);
           free(write);
         }
