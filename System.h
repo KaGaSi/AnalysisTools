@@ -48,6 +48,7 @@ MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old);
 SYSTEM CopySystem(SYSTEM S_in);
 
 // cleanse System by removing molecule/bead types with .Number=0, etc.
+void PruneSystem2(SYSTEM *System, int *b_full_red);
 void PruneSystem(SYSTEM *System);
 // join two systems, possibly pruning it
 void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box, bool prune);
@@ -68,6 +69,7 @@ void ChangeMolecules(SYSTEM *Sys_orig, SYSTEM Sys_add, bool name);
 void ChangeBoxByLow(SYSTEM *System, int sign);
 
 void SortAggStruct(AGGREGATE *Aggregate, SYSTEM System);
+void FillAggregateBeads(AGGREGATE *Aggregate, SYSTEM System);
 
 // memory-freeing functions
 void FreeSystem(SYSTEM *System);

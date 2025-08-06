@@ -1541,6 +1541,185 @@ void CopyAllStuffType(SYSTEM *S_new, SYSTEM S_old) {
   CopySingleStuffType(&S_new->ImproperType, S_old.ImproperType,
                       S_new->Count.ImproperType);
 } //}}}
+// TODO: PruneSystem2 -> PruneSystem with added int *arr & bool fill *arr?
+void PruneSystem2(SYSTEM *System, int *b_full_to_red) { //{{{
+  InitIntArray(b_full_to_red, System->Count.Bead, -1);
+  SYSTEM S_old = CopySystem(*System);
+  FreeSystem(System);
+  InitSystem(System);
+  COUNT *Count = &System->Count;
+  COUNT *Count_old = &S_old.Count;
+  System->Box = S_old.Box;
+  *Count = *Count_old; // some counts will change later
+  ReallocBead(System);
+  ReallocBonded(System);
+  ReallocUnbonded(System);
+  // copy bond/angle/dihedral/improper types to the new system
+  CopyAllStuffType(System, S_old);
+  // copy Bead/Unbonded/Bonded arrays & create new BeadType array //{{{
+  int count_unbonded = 0, count_bonded = 0, count_all = 0;
+  // arrays for mapping old bead ids/types to new ones
+  int *remap_all_bead_ids = calloc(Count_old->Bead, sizeof *remap_all_bead_ids);
+  int *remap_beadtype_ids = calloc(Count_old->BeadType,
+                                   sizeof *remap_beadtype_ids);
+  Count->BeadType = 0;
+  // TODO: why use InTimestep instead of BeadCoor?
+  for (int i = 0; i < Count_old->Bead; i++) {
+    if (S_old.Bead[i].InTimestep) {
+      // create new bead type if it doesn't exist yet in the pruned system
+      int old_type = S_old.Bead[i].Type, new_type = -1;
+      BEADTYPE *bt_old = &S_old.BeadType[old_type];
+      for (int j = 0; j < Count->BeadType; j++) {
+        if (SameBeadType(*bt_old, System->BeadType[j], true)) {
+          new_type = j;
+          break;
+        }
+      }
+      if (new_type == -1) {
+        new_type = Count->BeadType;
+        NewBeadType(&System->BeadType, &Count->BeadType, bt_old->Name,
+                    bt_old->Charge, bt_old->Mass, bt_old->Radius);
+      }
+
+      System->Bead[count_all] = S_old.Bead[i];
+
+      if (System->Bead[count_all].Molecule == -1) {
+        System->Unbonded[count_unbonded] = count_all;
+        System->UnbondedCoor[count_unbonded] = count_all;
+        count_unbonded++;
+      } else {
+        System->Bonded[count_bonded] = count_all;
+        System->BondedCoor[count_bonded] = count_all;
+        count_bonded++;
+      }
+      System->BeadCoor[count_all] = count_all;
+
+      System->Bead[count_all].Type = new_type;
+      remap_all_bead_ids[i] = count_all;
+      // b_full_red[count_all] = i;
+      b_full_to_red[i] = count_all;
+
+      System->BeadType[new_type].Number++;
+      remap_beadtype_ids[old_type] = new_type;
+
+      count_all++;
+    }
+  }
+  Count->Bead = count_all;
+  Count->BeadCoor = Count->Bead;
+  Count->Bonded = count_bonded;
+  Count->BondedCoor = Count->Bonded;
+  Count->Unbonded = count_unbonded;
+  Count->UnbondedCoor = Count->Unbonded; //}}}
+  // copy Molecule array & create a new MoleculeType array //{{{
+  Count->MoleculeType = 0;
+  Count->Molecule = 0;
+  for (int i = 0; i < Count_old->Molecule; i++) {
+    MOLECULE *mol_old = &S_old.Molecule[i];
+    MOLECULETYPE *mt_old = &S_old.MoleculeType[mol_old->Type];
+    int c_bead = 0;
+    for (int j = 0; j < mt_old->nBeads; j++) {
+      int id = mol_old->Bead[j];
+      if (S_old.Bead[id].InTimestep) {
+        c_bead++;
+      }
+    }
+    if (c_bead > 0) { // should the molecule be in the pruned system?
+      // create new type for mt_old as some beads may be missing
+      MOLECULETYPE mt_old_new;
+      InitMoleculeType(&mt_old_new);
+      s_strcpy(mt_old_new.Name, mt_old->Name, MOL_NAME);
+      mt_old_new.Number = 1;
+      mt_old_new.nBeads = c_bead;
+      mt_old_new.Bead = malloc(sizeof *mt_old_new.Bead * mt_old_new.nBeads);
+      c_bead = 0;
+      // map internal MoleculeType[].Bead ids to new ones (some may disappear)
+      int remap_internal_bead_ids[mt_old->nBeads];
+      for (int j = 0; j < mt_old->nBeads; j++) {
+        remap_internal_bead_ids[j] = -1;
+        int id = mol_old->Bead[j];
+        if (S_old.Bead[id].InTimestep) {
+          mt_old_new.Bead[c_bead] = S_old.Bead[id].Type;
+          remap_internal_bead_ids[j] = c_bead;
+          c_bead++;
+        }
+      }
+      // copy bonds/angles/etc. to the mt_old_new molecule type
+      CopyAllMTypeStuff(*mt_old, &mt_old_new, remap_internal_bead_ids);
+
+      int new_id = Count->Molecule;
+      Count->Molecule++;
+      System->Molecule = s_realloc(System->Molecule,
+                                   sizeof *System->Molecule * Count->Molecule);
+      MOLECULE *mol_new = &System->Molecule[new_id];
+      *mol_new = *mol_old;
+      mol_new->Bead = calloc(c_bead, sizeof *mol_new->Bead);
+      c_bead = 0;
+      for (int j = 0; j < mt_old->nBeads; j++) {
+        int id = mol_old->Bead[j];
+        if (S_old.Bead[id].InTimestep) {
+          mol_new->Bead[c_bead] = remap_all_bead_ids[id];
+          System->Bead[remap_all_bead_ids[id]].Molecule = new_id;
+          c_bead++;
+        }
+      }
+
+      /*
+       * Is the molecule type already in the pruned system (check based on all
+       * molecule type information)?
+       */
+      int new_type = FindMoleculeType(S_old, mt_old_new, *System, 3, true);
+      FreeMoleculeTypeEssentials(&mt_old_new);
+      if (new_type != -1) { // yes, the molecule type is in the pruned system
+        mol_new->Type = new_type;
+        System->MoleculeType[new_type].Number++;
+      } else { // no, it isn't; create a new one
+        int c_stuff[4];
+        CountAllMTypeStuff(S_old, i, c_stuff);
+        NewMolType(&System->MoleculeType, &Count->MoleculeType, mt_old->Name,
+                   c_bead, c_stuff[0], c_stuff[1], c_stuff[2], c_stuff[3]);
+        System->Molecule[new_id].Type = Count->MoleculeType - 1;
+        System->Molecule[new_id].Aggregate = mol_old->Aggregate;
+        MOLECULETYPE *mt_new = &System->MoleculeType[Count->MoleculeType-1];
+        // copy beads to the new molecule type //{{{
+        c_bead = 0;
+        for (int j = 0; j < mt_old->nBeads; j++) {
+          int id = mol_old->Bead[j];
+          int old_btype = mt_old->Bead[j];
+          if (S_old.Bead[id].InTimestep) {
+            mt_new->Bead[c_bead] = remap_beadtype_ids[old_btype];
+            c_bead++;
+          }
+        } //}}}
+        // correct bead ids from the S_old.MoleculeType to S_new.MoleculeType
+        MTypeAllStuffNewIDs(S_old, mt_new, i, remap_internal_bead_ids);
+      }
+    }
+  } //}}}
+  MergeMoleculeTypes(System);
+  AllocFillBeadTypeIndex(System);
+  FillMoleculeTypeIndex(System);
+  PruneAllStuffTypes(S_old, System);
+  CountBondAngleDihedralImproper(System);
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    FillMoleculeTypeBType(&System->MoleculeType[i]);
+    FillMoleculeTypeChargeMass(&System->MoleculeType[i], System->BeadType);
+  }
+  if (Count->Molecule > 0) {
+    System->MoleculeCoor = s_realloc(System->MoleculeCoor, Count->Molecule *
+                                     sizeof *System->MoleculeCoor);
+  }
+  Count->MoleculeCoor = 0;
+  for (int i = 0; i < Count->Molecule; i++) {
+    if (System->Molecule[i].InTimestep) {
+      System->MoleculeCoor[Count->MoleculeCoor] = i;
+      Count->MoleculeCoor++;
+    }
+  }
+  FreeSystem(&S_old);
+  free(remap_all_bead_ids);
+  free(remap_beadtype_ids);
+} //}}}
 void PruneSystem(SYSTEM *System) { //{{{
   SYSTEM S_old = CopySystem(*System);
   FreeSystem(System);
@@ -2510,6 +2689,24 @@ void SortAggStruct(AGGREGATE *Aggregate, SYSTEM System) { //{{{
     }
     if (done)
       break;
+  }
+} //}}}
+void FillAggregateBeads(AGGREGATE *Aggregate, SYSTEM System) { //{{{
+  COUNT *Count = &System.Count;
+  for (int i = 0; i < Count->Aggregate; i++) {
+    AGGREGATE *agg = &Aggregate[i];
+    agg->nBeads = 0;
+    for (int j = 0; j < agg->nMolecules; j++) {
+      int mol = agg->Molecule[j];
+      MOLECULE *m = &System.Molecule[mol];
+      int mtype = m->Type;
+      MOLECULETYPE *mt = &System.MoleculeType[mtype];
+      agg->nBeads += mt->nBeads;
+      agg->Bead = realloc(agg->Bead, sizeof *agg->Bead * agg->nBeads);
+      for (int k = 0; k < mt->nBeads; k++) {
+        agg->Bead[agg->nBeads-mt->nBeads+k] = m->Bead[k];
+      }
+    }
   }
 } //}}}
 

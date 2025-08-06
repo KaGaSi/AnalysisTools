@@ -1,4 +1,29 @@
 #include "../AnalysisTools.h"
+#include <string.h>
+#include <unistd.h>
+
+static void ReduceSystem(const SYSTEM System, SYSTEM *Sys, const bool write[],
+                         int **b_full_to_red, const OPT opt,
+                         const FILE_TYPE fout, const int argc, char *argv[]);
+static void ReducedWrite(SYSTEM *Sys, const SYSTEM System,
+                         const int b_full_to_red[],
+                         const bool *write, bool **write2);
+static void SaveReduced(SYSTEM *Sys, const SYSTEM System, const int count_saved,
+                        const int count_coor, int **b_full_to_red,
+                        const bool write[], const OPT opt, const FILE_TYPE fout,
+                        const int argc, char *argv[]);
+static void ScaleCoordinates(SYSTEM *System, const double scale);
+static void MoveCoordinates(SYSTEM *System, const double move[3]);
+static void CopyWrite(const int num, bool *new, bool *old);
+static void ConstrainCoordinates(SYSTEM *System, const OPT opt,
+                                 bool *write_new, bool **write_orig);
+static void TransformAndSave(SYSTEM *System, const OPT opt, const FILE_TYPE f,
+                             bool *write, const int count_coor,
+                             const int argc, char *argv[]);
+static void SaveTimestep(SYSTEM *Sys, SYSTEM *System,
+                         const int count_saved, const int count_coor,
+                         int **b_full_to_red, bool *write, const OPT opt,
+                         const FILE_TYPE fout, const int argc, char *argv[]);
 
 // Help() //{{{
 void Help(const char cmd[50], const bool error,
@@ -41,6 +66,9 @@ conditions can be either stripped away or applied (which happens first if both \
           "dimensions (in fraction of output box); multiple pairs possible\n");
   fprintf(ptr, "  --real            use real coordinates for "
           "-cx/-cy/-cz options instead of box fractions\n");
+  fprintf(ptr, "  --reduce          reduce the structure to contaion only "
+          "beads in the coordinate file\n");
+  fprintf(ptr, "  -b 3×<float>      box size in x, y, and z\n");
   CommonHelp(error, n, opt);
 } //}}}
 
@@ -49,10 +77,12 @@ struct OPT {
   bool bt, mt,               // -bt/-mt
        keep,                 // --keep
        join, wrap, last,     // --join --wrap --last
-       real;                 // --real
+       real,                 // --real
+       reduce;               // --reduce
   int n_save[100], n_number; // -n
   double scale,              // -sc
-         move[3];            // -m
+         move[3],            // -m
+         box[3];             // -b
   double ca[3][100];         // -cx/y/z ... slice(s)' coordinates
   int ca_count[3];           // -cx/y/z ... number of slices per axis
   COMMON_OPT c;
@@ -61,6 +91,79 @@ OPT * opt_create(void) {
   return malloc(sizeof(OPT));
 } //}}}
 
+// reduce system based on the beds present in the timestep //{{{
+static void ReduceSystem(const SYSTEM System, SYSTEM *Sys, const bool *write,
+                         int **b_full_to_red, const OPT opt,
+                         const FILE_TYPE fout, const int argc, char *argv[]) {
+  *Sys = CopySystem(System);
+  // fill Sys.BeadCoor for beads to be saved
+  int count = -1;
+  for (int i = 0; i < Sys->Count.BeadCoor; i++) {
+    int id = Sys->BeadCoor[i];
+    if (write[id]) {
+      Sys->BeadCoor[++count] = id;
+    } else {
+      Sys->Bead[id].InTimestep = false;
+    }
+  }
+  Sys->Count.BeadCoor = count;
+  // prune the system and generate full->reduced bead ids transformation
+  *b_full_to_red = calloc(System.Count.Bead, sizeof *b_full_to_red);
+  PruneSystem2(Sys, *b_full_to_red);
+  // print the system to save if required
+  if (opt.c.verbose) {
+    fprintf(stdout, "\n################\n");
+    fprintf(stdout, "# Saved System #\n");
+    fprintf(stdout, "################\n");
+    VerboseOutput(*Sys);
+  }
+  // if output is vtf, write the structure part
+  if (fout.type == VTF_FILE) {
+    WriteStructure(fout, *Sys, -1, false, argc, argv);
+  // if output is vcf, write a new structure file
+  } else if (fout.type == VCF_FILE) {
+    FILE_TYPE f_vsf;
+    s_strcpy(f_vsf.name, fout.name, LINE);
+    f_vsf.name[strlen(f_vsf.name)-2] = 's';
+    f_vsf.type = StructureFileType(f_vsf.name);
+    WriteStructure(f_vsf, *Sys, -1, false, argc, argv);
+  }
+} //}}}
+// populate reduced BeadCoor for a given timestep //{{{
+static void ReducedWrite(SYSTEM *Sys, const SYSTEM System,
+                         const int b_full_to_red[],
+                         const bool *write, bool **write2) {
+  Sys->Count.BeadCoor = 0;
+  *write2 = calloc(Sys->Count.Bead, sizeof *write2);
+  for (int i = 0; i < System.Count.BeadCoor; i++) {
+    int id_orig = System.BeadCoor[i];
+    int id_new = b_full_to_red[id_orig];
+    if (id_new == -1) {
+      continue;
+    }
+    for (int dd = 0; dd < 3; dd++) {
+      Sys->Bead[id_new].Position[dd] = System.Bead[id_orig].Position[dd];
+    }
+    Sys->BeadCoor[Sys->Count.BeadCoor] = id_new;
+    Sys->Box = System.Box;
+    (*write2)[id_new] = write[id_orig];
+    Sys->Count.BeadCoor++;
+  }
+} //}}}
+// save reduced coordinate (and structure part for the first saved step) //{{{
+static void SaveReduced(SYSTEM *Sys, const SYSTEM System, const int count_saved,
+                        const int count_coor, int **b_full_to_red,
+                        const bool write[], const OPT opt, const FILE_TYPE fout,
+                        const int argc, char *argv[]) {
+  if (count_saved == 1) {
+    ReduceSystem(System, Sys, write, b_full_to_red, opt, fout, argc, argv);
+  }
+  bool *write2 = NULL;
+  ReducedWrite(Sys, System, *b_full_to_red, write, &write2);
+  TransformAndSave(Sys, opt, fout, write2, count_coor, argc, argv);
+  free(write2);
+}
+//}}}
 static void ScaleCoordinates(SYSTEM *System, const double scale) { //{{{
   if (scale != 1) {
     for (int i = 0; i < System->Count.BeadCoor; i++) {
@@ -127,7 +230,6 @@ static void ConstrainCoordinates(SYSTEM *System, const OPT opt,
         }
       }
     }
-    // printf("%d %d %d\n", save[0], save[1], save[2]);
     // if at least one axis constraint isn't met, don't save the bead
     if (!save[0] || !save[1] || !save[2]) {
       write_new[id] = false;
@@ -135,8 +237,9 @@ static void ConstrainCoordinates(SYSTEM *System, const OPT opt,
   }
 } //}}}
 // make all the alterations and saves into one function //{{{
-void TransformAndSave(SYSTEM *System, const OPT opt, FILE_TYPE f, bool write[],
-                      const int count_coor, const int argc, char *argv[]) {
+static void TransformAndSave(SYSTEM *System, const OPT opt, const FILE_TYPE f,
+                             bool *write, const int count_coor,
+                             const int argc, char *argv[]) {
   bool *write2 = NULL; // used in case of -cx/-cy/-cz constraints
   ConstrainCoordinates(System, opt, write, &write2);
   ScaleCoordinates(System, opt.scale);
@@ -152,17 +255,30 @@ void TransformAndSave(SYSTEM *System, const OPT opt, FILE_TYPE f, bool write[],
     free(write2);
   }
 } //}}}
+// save timestep, including --reduce and transformation options and all //{{{
+static void SaveTimestep(SYSTEM *Sys, SYSTEM *System,
+                         const int count_saved, const int count_coor,
+                         int **b_full_to_red, bool *write, const OPT opt,
+                         const FILE_TYPE fout, const int argc, char *argv[]) {
+  if (opt.reduce) {
+    SaveReduced(Sys, *System, count_saved, count_coor, b_full_to_red,
+                write, opt, fout, argc, argv);
+  } else {
+    TransformAndSave(System, opt, fout, write, count_coor, argc, argv);
+  }
+} //}}}
 
 int main(int argc, char *argv[]) {
 
   // define options & check their validity
-  int common = 8, all = common + 13, count = 0,
+  int common = 8, all = common + 15, count = 0,
       req_arg = 2;
   char option[all][OPT_LENGTH];
   OptionCheck(argc, argv, req_arg, common, all, true, option,
               "-st", "-e", "-sk", "-i", "--verbose", "--silent", "--help",
               "--version", "-bt", "-mt", "--keep", "--join", "--wrap", "-n",
-              "--last", "-sc", "-m", "-cx", "-cy", "-cz", "--real");
+              "--last", "-sc", "-m", "-cx", "-cy", "-cz", "--real", "--reduce",
+              "-b");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -192,9 +308,8 @@ int main(int argc, char *argv[]) {
     for (int dd = 0; dd < 3; dd++) {
       opt->move[dd] = 0;
     }
-  } else if (opt->real) {
-
   }
+  opt->reduce = BoolOption(argc, argv, "--reduce");
   // constraints (-cx/-cy/-cz) //{{{
   for (int dd = 0; dd < 3; dd++) {
     char option[10];
@@ -256,7 +371,11 @@ int main(int argc, char *argv[]) {
       PrintErrorOption("-cx/-cy/-cz");
       exit(1);
   } //}}}
-  //}}}
+  if (!ThreeNumbersOption(argc, argv, "-b", opt->box, 'd')) {
+    for (int dd = 0; dd < 3; dd++) {
+      opt->box[dd] = -1;
+    }
+  } //}}}
 
   if (!opt->c.silent) {
     PrintCommand(stdout, argc, argv);
@@ -264,6 +383,19 @@ int main(int argc, char *argv[]) {
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
+  if (opt->box[0] != -1) {
+    System.Box.Length[0] = opt->box[0];
+    System.Box.Length[1] = opt->box[1];
+    System.Box.Length[2] = opt->box[2];
+    System.Box.alpha = 90;
+    System.Box.beta = 90;
+    System.Box.gamma = 90;
+    if (!CalculateBoxData(&System.Box, 0)) {
+      err_msg("CalculateBoxData() function - should not happen!");
+      PrintError();
+      exit(1);
+    }
+  }
   if (!opt->real) {
     for (int dd = 0; dd < 3; dd++) {
       opt->move[dd] *= System.Box.Length[dd];
@@ -341,18 +473,27 @@ int main(int argc, char *argv[]) {
   SortArray(opt->n_save, opt->n_number, 0, 'i'); //}}}
 
   if (opt->c.verbose) {
+    if (opt->reduce) {
+      fprintf(stdout, "\n##################\n");
+      fprintf(stdout, "# Initial System #\n");
+      fprintf(stdout, "##################\n");
+    }
     VerboseOutput(System);
   }
 
   // print initial stuff to output coordinate file //{{{
   if (fout.type == VCF_FILE) {
     PrintByline(fout.name, argc, argv);
-  } else if (fout.type == VTF_FILE) {
+  } else if (fout.type == VTF_FILE && !opt->reduce) {
     WriteStructure(fout, System, -1, false, argc, argv);
   } else { // ensure it's a new file
     FILE *out = OpenFile(fout.name, "w");
     fclose(out);
   } //}}}
+
+  // helper variables for --reduce option
+  SYSTEM Sys; // the reduced system
+  int *b_full_to_red = NULL; // full-system bead ids to reduced-system ids
 
   FILE *fr = OpenFile(in.coor.name, "r");
   // main loop //{{{
@@ -366,8 +507,8 @@ int main(int argc, char *argv[]) {
       line_count = 0;  // count lines in the coor file
   while (true) {
     if (opt->last) {
+      count_coor++;
       if (!opt->c.silent && isatty(STDOUT_FILENO)) {
-        count_coor++;
         fprintf(stdout, "\rDiscarding step: %d", count_coor);
       }
     } else {
@@ -401,7 +542,8 @@ int main(int argc, char *argv[]) {
         break;
       }
       count_saved++;
-      TransformAndSave(&System, *opt, fout, write, count_coor, argc, argv);
+      SaveTimestep(&Sys, &System, count_saved, count_coor,
+                   &b_full_to_red, write, *opt, fout, argc, argv);
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
       if (!SkipTimestep(in, fr, &line_count)) {
@@ -434,7 +576,9 @@ int main(int argc, char *argv[]) {
       fsetpos(fr, &position[i]);
       line_count = bkp_line_count[i];
       if (ReadTimestep(in, fr, &System, &line_count)) {
-        TransformAndSave(&System, *opt, fout, write, count_coor, argc, argv);
+        // TransformAndSave(&System, *opt, fout, write, count_coor, argc, argv);
+        SaveTimestep(&Sys, &System, 1, count_coor,
+                     &b_full_to_red, write, *opt, fout, argc, argv);
         if (!opt->c.silent) {
           if (isatty(STDOUT_FILENO)) {
             fprintf(stdout, "\r                          \r");
@@ -495,6 +639,10 @@ int main(int argc, char *argv[]) {
   free(write);
   free(position);
   free(bkp_line_count);
+  if (opt->reduce) {
+    FreeSystem(&Sys);
+    free(b_full_to_red);
+  }
   free(opt);
 
   return 0;
