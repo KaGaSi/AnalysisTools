@@ -1,10 +1,10 @@
 \section{DistrAgg} \label{sec:DistrAgg}
 
-This utility calculates average aggregate mass and aggregation number for
-each timestep (i.e., time evolution) and the averages over all timesteps
-from a supplied \tt{agg} file (see Section~\ref{sec:AggFile} for its format).
-It calculates number, weight, and z averages. It also calculates
-distribution functions of aggregation sizes.
+This utility calculates average aggregate mass and aggregation number for each
+timestep (i.e., time evolution) and the averages over all timesteps from a
+supplied \tt{agg} file (see Section~\ref{sec:AggFile} for its format). It
+calculates number, weight, and z averages as well as distribution functions of
+aggregation sizes.
 
 Generally, for a quantity $\mathcal{O}$, the number, weight, and z averages,
 $\langle\mathcal{O}\rangle_{\text{n}}$,
@@ -18,9 +18,9 @@ $\langle\mathcal{O}\rangle_{\text{z}}$, respectively, are defined as
   \langle\mathcal{O}\rangle_{\text{z}} = \frac{\sum_i N_im_i^2\mathcal{O}_i}{\sum_i N_i m_i^2},
 \end{equation}
 where $N$ is the total number of measurements, i.e., the total number of
-aggregates for per-aggregate averages (or molecules for per-molecule
-averages); $N_i$ is the number of measurements with the value
-$\mathcal{O}_i$, and $m_i$ is mass of an aggregate $i$ (or a molecule $i$).
+aggregates for per-aggregate averages (or molecules for per-molecule averages);
+$N_i$ is the number of measurements with the value $\mathcal{O}_i$, and $m_i$ is
+mass of an aggregate $i$ (or a molecule $i$).
 
 Number, weight, and z distribution functions of aggregate sizes,
 $F_{\text{n}}(A_{\text{S}})$, $F_{\text{w}}(A_{\text{S}})$, and
@@ -46,8 +46,8 @@ $M$ is the total mass of all aggregates. The equations are normalized so
 that $\sum F_x(A_{\text{S}})=1$.
 
 Per-timestep averages are written to the \tt{<output avg>} and  distributions
-into the \tt{<output distr>} file. Overall averages are appended as comments
-(with commented legend) to both \tt{<output avg>} and \tt{<output distr>} files.
+into the \tt{<distr>} file. Overall averages are appended as comments (with
+commented legend) to both \tt{<output avg>} and \tt{<distr>} files.
 
 Lastly, \tt{DistrAgg} can calculate distribution of composition for aggregates
 with specified size(s) (\tt{-c} option). Two versions of a \enquote{composition
@@ -71,7 +71,7 @@ either contain $i$ molecules of given type (the first distribution type) or has
 the ratio of molecules \tt{mol1} and \tt{mol2}; i.e., $i=$ \tt{mol1}$/$\tt{mol2}
 (the second distribution type).
 
-The \tt{<avg file>} contains averages for all timesteps regardless of \tt{-st},
+The \tt{<avg>} contains averages for all timesteps regardless of \tt{-st},
 \tt{-e}, and \tt{-sk} options. The starting and ending timesteps as well as the
 number of skipped timesteps are taken into account for all the distributions and
 overall averages.
@@ -157,29 +157,31 @@ Usage:
 \tt{DistrAgg <input.agg> <distr file> <avg file> <options>}
 
 \noindent
-\begin{longtable}{p{0.30\textwidth}p{0.644\textwidth}}
+\begin{longtable}{p{0.27\textwidth}p{0.674\textwidth}}
   \toprule
-  \multicolumn{2}{l}{Mandatory arguments} \\
+  \multicolumn{2}{l}{Mandatory arguments}\\
   \midrule
-  \tt{<input>} & input structure file \\
-  \tt{<input.agg>} & input \tt{agg} file \\
-  \tt{<distr file>} & output file with distribution of aggregate
+  \tt{<in.stru>} & input structure file\\
+  \tt{<in.agg>} & input \tt{agg} file\\
+  \tt{<distr>} & output file with distribution of aggregate
     sizes \\
-  \tt{<avg file>} & output file with per-timestep averages \\
+  \tt{<avg>} & output file with per-timestep averages\\
   \toprule
-  \multicolumn{2}{l}{Non-standard options} \\
+  \multicolumn{2}{l}{Non-standard options}\\
   \midrule
-  \tt{-n <int> <int>} & use aggregate sizes in a given range \\
-  \tt{-m <mol name(s)>} & use number of specified molecule(s) as
-    aggregate size \\
-  \tt{-x <mol name(s)>} & exclude aggregates containing only specified
-    mole\-cule(s) \\
-  \tt{-only <mol name(s)>} & use only aggregates composed of specified
-    molecule(s) \\
-  \tt{-c <file> <int(s)>} & save composition distribution for
-    specified aggregate size(s) to \tt{<output>} file \\
+  \tt{-n <int> <int>} & use aggregate sizes in a given range\\
+  \tt{-m <name(s)>} & use number of specified molecule(s) as aggregate
+    size\\
+  \tt{-x <name(s)>} & exclude aggregates containing only specified
+    mole\-cule(s)\\
+  \tt{-only <name(s)>} & use only aggregates composed of specified
+  molecule(s)\\
+  \tt{-c <file> <int(s)>} & save composition distribution for specified
+    aggregate size(s) to \tt{<file>} file \\
+  \tt{-w <width>} & width of a single bin for the ratios in \tt{-c}
+    (default: 0.1)\\
   \midrule
-  \multicolumn{2}{l}{Other options (see the beginning of 
+  \multicolumn{2}{l}{Other options (see the beginning of
                      Chapter~\ref{chap:Utils})}\\
   \midrule
   \multicolumn{2}{l}{\tt{-st},
@@ -195,13 +197,12 @@ Usage:
 \noindent
 Format of output files:
 \begin{enumerate}[nosep,leftmargin=20pt]
-  \item \tt{<output distr>} -- distributions of aggregate sizes
+  \item \tt{<distr>} -- distributions of aggregate sizes
     \begin{itemize}[nosep,leftmargin=5pt]
-      \item first line: AnalysisTools version
-      \item second line: command used to generate the file
+      \item first two lines: AnalysisTools version and the command
       \item third line: column headers
         \begin{itemize}[nosep,leftmargin=10pt]
-          \item first is the aggregate size, \tt{As} -- either true aggregation
+          \item first is the aggregate size, \tt{As}; either true aggregation
             number or the size specified by options
           \item \tt{F_n(As)}, \tt{F_w(As)}, and \tt{F_z(As)} are
             number, weight, and z distribution of aggregate sizes (Equation
@@ -209,7 +210,7 @@ Format of output files:
           \item next is the total number of aggregates with specified size (sum
             from all timesteps)
           \item the remaining columns (\tt{<mol name>_n}) show average
-            numbers of every molecule type in an aggregate with the specified
+            numbers of every mole\-cule type in an aggregate with the specified
             size
         \end{itemize}
       \item data lines follow
@@ -227,10 +228,9 @@ Format of output files:
         \end{itemize}
       \item last line: the overall averages
     \end{itemize}
-  \item \tt{<output avg>} -- per-timestep averages
+  \item \tt{<avg>} -- per-timestep averages
     \begin{itemize}[nosep,leftmargin=5pt]
-      \item first line: AnalysisTools version
-      \item second line: command used to generate the file
+      \item first two lines: AnalysisTools version and the command
       \item third line: column headers
       \begin{itemize}[nosep,leftmargin=10pt]
         \item first is simulation timestep
@@ -241,13 +241,12 @@ Format of output files:
         \item the last column is the number of aggregates in the given step
       \end{itemize}
     \item data lines follow
-    \item the last two lines are the same as in \tt{<output distr>}
+    \item the last two lines are the same as in \tt{<distr>}
   \end{itemize}
 \item \tt{<file>-<size>.txt} from \tt{-c} option -- composition distribution of
   numbers of molecules
   \begin{itemize}[nosep,leftmargin=5pt]
-    \item first line: AnalysisTools version
-    \item second line: command used to generate the file
+    \item first two lines: AnalysisTools version and the command
     \item third line: number of aggregates of given size (sum from all
       timesteps)
     \item fourth line: column headers
@@ -261,14 +260,13 @@ Format of output files:
 \item \tt{<file>-ratio_<size>.txt} from \tt{-c} option -- composition
   distribution of ratios of molecular pairs
   \begin{itemize}[nosep,leftmargin=5pt]
-    \item first line: AnalysisTools version
-    \item second line: command used to generate the file
+    \item first two lines: AnalysisTools version and the command
     \item third line: number of aggregates of given size (sum from all
       timesteps)
     \item fourth line: column headers
       \begin{itemize}[nosep,leftmargin=10pt]
         \item first is the ratio of the two molecules (going from 0 to aggregate
-          size with the interval of 0.1)
+          size with the given interval)
         \item the rest are the ratios of all molecular pairs
       \end{itemize}
     \item data lines follow
