@@ -25,6 +25,8 @@ of both systems.\n\n");
   fprintf(ptr, "  -off 3×<float>|c  offset of the second system against "
           "the first ('c' to place it in the centre of the first system)\n");
   fprintf(ptr, "  -b 3×<float>      output box dimensions (orthogonal)\n");
+  fprintf(ptr, "  --real            use real coordinates for -b and -off "
+          "instead of fraction of first input system's box size");
   fprintf(ptr, "  -i1/-i2 <file>    structure file for <input1>/<input2>\n");
   fprintf(ptr, "  -st1/-st2 <int>   starting timestep for the input files\n");
   CommonHelp(error, n, opt);
@@ -32,9 +34,10 @@ of both systems.\n\n");
 
 // structure for options //{{{
 struct OPT {
-  int start[2];              // -st1 -st2
-  double off[3], box[3];     // -off -b
-  FILE_TYPE fout;            // -o
+  int start[2];          // -st1 -st2
+  double off[3], box[3]; // -off -b
+  bool real;             // --real
+  FILE_TYPE fout;        // -o
   COMMON_OPT c;
 };
 OPT * opt_create(void) {
@@ -44,11 +47,11 @@ OPT * opt_create(void) {
 int main(int argc, char *argv[]) {
 
   // define options & check their validity
-  int common = 4, all = common + 7, count = 0, req_arg = 3;
+  int common = 4, all = common + 8, count = 0, req_arg = 3;
   char option[all][OPT_LENGTH];
   OptionCheck(argc, argv, req_arg, common, all, true, option,
                "--verbose", "--silent", "--help", "--version",
-               "-o", "-off", "-b", "-i1", "-i2", "-st1", "-st2");
+               "-o", "-off", "-b", "--real", "-i1", "-i2", "-st1", "-st2");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -86,6 +89,7 @@ int main(int argc, char *argv[]) {
     in[1].stru.type = StructureFileType(in[1].stru.name);
   } //}}}
   opt->c = CommonOptions(argc, argv, in[0]);
+  opt->real = BoolOption(argc, argv, "--real");
   // -st option for both input systems; copied from CommonOptions()
   opt->start[0] = 1, opt->start[1] = 1;
   OneNumberOption(argc, argv, "-st1", &opt->start[0], 'i');
@@ -173,9 +177,11 @@ int main(int argc, char *argv[]) {
 
   // make proper offset vector //{{{
   for (int dd = 0; dd < 3; dd++) {
-    if (opt->off[dd] == -11111) { // a)
+    if (opt->off[dd] == -11111) { // a) put the two centres on top of each other
       opt->off[dd] = (box[0]->Low[dd] + 0.5 * box[0]->Length[dd]) -
                      (box[1]->Low[dd] + 0.5 * box[1]->Length[dd]);
+    } else if (!opt->real) {
+      opt->off[dd] *= box[0]->Length[dd];
     }
   } //}}}
 
