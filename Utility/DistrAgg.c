@@ -9,14 +9,13 @@ void Help(const char cmd[50], const bool error,
   } else {
     ptr = stdout;
     fprintf(ptr, "\
-        TODO: rewrite\n\n\
 DistrAgg calculates average aggregation numbers and aggregate masses during \
 the simulation run (i.e., time evolution) as well as overall distributions. \
-The definition of aggregate size is quite \
-flexible and only a specified range can be used. Also, this utility can \
-fanalyse composition of specified aggreget size(s) and write compositition \
-distribution (i.e., distribution of numbers of different molecules in over \
-all aggregates with given size).\n\n");
+The definition of aggregate size is quite flexible, \
+and only a specified range can be used. Also, this utility can \
+analyse composition of specified aggreget size(s) and write compositition \
+distribution (i.e., distribution of numbers of different molecules in \
+the aggregates with given size).\n\n");
   }
 
   fprintf(ptr, "Usage: %s <input> <in.agg> <distr file> <avg file> "
@@ -37,9 +36,7 @@ all aggregates with given size).\n\n");
   fprintf(ptr, "  -c <file> <size(s)>\n");
   fprintf(ptr, "                    write composition distributions for "
           "aggregate size(s) to two <file>s with automatic endings '-#.txt' "
-          "and '-ratio_#.txt'\n");
-  fprintf(ptr, "  -w <width>        bin width for the ratios in -c option "
-          "(default: 0.1)\n");
+          "and '_r-#.txt'\n");
   CommonHelp(error, n, opt);
 } //}}}
 
@@ -51,7 +48,6 @@ struct OPT {
       c_s[100],                   // -c; aggregate sizes
       c_c;                        // -c; number of sizes
   char c_f[LINE];                 // -c; filename
-  double w;                       // -w; bin width for -c
   COMMON_OPT c;
 };
 OPT * opt_create(void) {
@@ -61,12 +57,12 @@ OPT * opt_create(void) {
 int main(int argc, char *argv[]) {
 
   // define options & check their validity
-  int common = 7, all = common + 6, count = 0,
+  int common = 7, all = common + 5, count = 0,
       req_arg = 4;
   char option[all][OPT_LENGTH];
   OptionCheck(argc, argv, req_arg, common, all, true, option,
                "-st", "-e", "-sk", "--verbose", "--silent", "--help",
-               "--version", "-n", "-m", "-x", "-only", "-c", "-w");
+               "--version", "-n", "-m", "-x", "-only", "-c");
 
   // commad line arguments before reading the structure //{{{
   count = 0; // count mandatory arguments
@@ -89,12 +85,7 @@ int main(int argc, char *argv[]) {
   // -c option
   FileNumbersOption(argc, argv, 1, 100, "-c", opt->c_s,
                     &opt->c_c, opt->c_f, 'i');
-  if (!OneNumberOption(argc, argv, "-w", &opt->w, 'd')) {
-    opt->w = 0.1;
-  } else if (opt->c_c == 0) {
-    err_msg("no effect when -c option is missing");
-    PrintWarnOption("-w");
-  } //}}}
+  //}}}
 
   // print command to stdout
   if (!opt->c.silent) {
@@ -204,10 +195,9 @@ int main(int argc, char *argv[]) {
   }
   // arrays for composition distribution
   long int ***comp_distr = NULL; // [c_size][moltype][number of mols]
-  long int ****ratio_distr = NULL; // [c_size][moltype1][moltype2][ratio]
+  long int *****ratio_distr = NULL; // [c_size][moltype1][moltype2][num1][num2]
   long int *comp_agg_count = NULL;
   int *link_c_sizes = NULL;
-  double bin_r = Count->Molecule / opt->w + 1; // +1 for N/0
   if (opt->c_c > 0) {
     link_c_sizes = malloc(Count->Molecule * sizeof *link_c_sizes);
     InitIntArray(link_c_sizes, Count->Molecule, -1);
@@ -221,10 +211,15 @@ int main(int argc, char *argv[]) {
         // +1 as it goes from no molecules to N molecules in the agg
         comp_distr[i][j] = calloc(Count->Molecule + 1,
                                   sizeof *comp_distr[i][j]);
-        ratio_distr[i][j] = malloc(Count->MoleculeType *
+        ratio_distr[i][j] = calloc(Count->MoleculeType,
                                    sizeof *ratio_distr[i][j]);
         for (int k = 0; k < Count->MoleculeType; k++) {
-          ratio_distr[i][j][k] = calloc(bin_r, sizeof *ratio_distr[i][j][k]);
+          ratio_distr[i][j][k] = calloc(Count->Molecule + 1,
+                                        sizeof *ratio_distr[i][j][k]);
+          for (int l = 0; l <= Count->Molecule; l++) {
+            ratio_distr[i][j][k][l] = calloc(Count->Molecule + 1,
+                                             sizeof *ratio_distr[i][j][k][l]);
+          }
         }
       }
       for (int j = 0; j < Count->Molecule; j++) {
@@ -387,8 +382,8 @@ int main(int argc, char *argv[]) {
           // composition distribution (-c option)
           if (opt->c_c > 0 && link_c_sizes[size] != -1) {
             comp_agg_count[link_c_sizes[size]]++;
-            double comp_aux[Count->MoleculeType];
-            InitDoubleArray(comp_aux, Count->MoleculeType, 0);
+            int comp_aux[Count->MoleculeType];
+            InitIntArray(comp_aux, Count->MoleculeType, 0);
             // count molecule types in the aggregate
             for (int j = 0; j < Aggregate[i].nMolecules; j++) {
               int mtype = System.Molecule[Aggregate[i].Molecule[j]].Type;
@@ -397,16 +392,13 @@ int main(int argc, char *argv[]) {
             // increment the distribution
             for (int j = 0; j < Count->MoleculeType; j++) {
               int id = link_c_sizes[size];
-              comp_distr[id][j][(int)comp_aux[j]]++;
-              for (int k = (j+1); k < Count->MoleculeType; k++) {
-                double a;
-                if (comp_aux[k] == 0) {
-                  a = size;
-                } else {
-                  a = comp_aux[j] / comp_aux[k];
-                }
-                a /= opt->w;
-                ratio_distr[id][j][k][(int)a]++;
+              comp_distr[id][j][comp_aux[j]]++;
+              for (int k = (j + 1); k < Count->MoleculeType; k++) {
+                ratio_distr[id][j][k][comp_aux[j]][comp_aux[k]]++;
+                // printf("%4d %3d (%3d): %3d (%s) %3d (%s)\n",
+                //        count_step, i, Aggregate[i].nMolecules,
+                //        comp_aux[j], System.MoleculeType[j].Name,
+                //        comp_aux[k], System.MoleculeType[k].Name);
               }
             }
           }
@@ -641,7 +633,7 @@ int main(int argc, char *argv[]) {
       }
       fclose(fw); //}}}
       // print the ratios //{{{
-      if (snprintf(file, LINE, "%s-ratio_%03d.txt",
+      if (snprintf(file, LINE, "%s_r-%03d.txt",
                    opt->c_f, opt->c_s[i]) < 0) {
         ErrorSnprintf();
       }
@@ -650,13 +642,14 @@ int main(int argc, char *argv[]) {
       // print header
       fprintf(fw, "# total number of aggregates with size %d: %ld\n",
               opt->c_s[i], comp_agg_count[i]);
-      fprintf(fw, "# (1) ratio of:");
+      fprintf(fw, "# (1-2) number of molecules:");
       count = 2;
-      for (int j = 0; j < (Count->MoleculeType - 1); j++) {
+      for (int j = 0; j < Count->MoleculeType; j++) {
         for (int k = (j + 1); k < Count->MoleculeType; k++) {
-          fprintf(fw, " (%d) %s/%s", count++, System.MoleculeType[j].Name,
+          fprintf(fw, " (%d) %s-%s", ++count, System.MoleculeType[j].Name,
                                               System.MoleculeType[k].Name);
-          if (!(j == (Count->MoleculeType - 2) && k == (j + 1))) {
+          if (j != (Count->MoleculeType - 2) ||
+              k != (Count->MoleculeType - 1)) {
             putc(',', fw);
           }
         }
@@ -665,36 +658,64 @@ int main(int argc, char *argv[]) {
       // print data
       if (comp_agg_count[i] > 0) {
         // determine width of each column & collate data //{{{
-        int columns = Count->MoleculeType * (Count->MoleculeType - 1) / 2 + 1;
+        int columns = Count->MoleculeType * (Count->MoleculeType - 1) / 2 + 2;
+        // int digits[columns][2];
         int digits[columns][2];
-        int lines = opt->c_s[i] / opt->w + 1;
+        int lines = Square(Count->Molecule + 1);
         InitInt2DArray((int *)digits, columns, 2, 0);
-        double *data[lines]; // array for data
-        for (int j = 0; j < lines; j++) {
-          data[j] = calloc(columns, sizeof data[j]);
-          count = -1;
-          // data[j][++count] = j * opt->w + opt->w / 2;
-          data[j][++count] = opt->w * (j + 0.5);
-          for (int k = 0; k < Count->MoleculeType; k++) {
-            for (int l = (k + 1); l < Count->MoleculeType; l++) {
-              data[j][++count] = (double)(ratio_distr[i][k][l][j]) /
-                                 comp_agg_count[i];
+        double **data = calloc(lines, sizeof *data); // array for data
+        int count_lines = 0;
+        for (int j = 0; j <= Count->Molecule; j++) {
+          for (int k = 0; k <= Count->Molecule; k++) {
+            bool use = false;
+            for (int l = 0; l < Count->MoleculeType; l++) {
+              for (int m = (l + 1); m < Count->MoleculeType; m++) {
+                if (ratio_distr[i][l][m][j][k] > 0) {
+                  use = true;
+                  break;
+                }
+              }
+              if (use) {
+                break;
+              }
             }
+            if (!use) {
+              continue;
+            }
+            data[count_lines] = calloc(columns, sizeof data[count_lines]);
+            count = -1;
+            data[count_lines][++count] = j;
+            data[count_lines][++count] = k;
+            for (int l = 0; l < Count->MoleculeType; l++) {
+              for (int m = (l + 1); m < Count->MoleculeType; m++) {
+                double avg = (double)(ratio_distr[i][l][m][j][k]) /
+                             comp_agg_count[i];
+                data[count_lines][++count] = avg;
+              }
+            }
+            count_lines++;
           }
         }
-        FillMaxDigits(columns, lines, data, digits); //}}}
-        for (int j = 0; j < lines; j++) {
+        FillMaxDigits(columns, count_lines, data, digits); //}}}
+        for (int j = 0; j < count_lines; j++) {
           for (int col = 0; col < columns; col++) {
-            if (fabs(data[j][col]) > 1e-5) {
+            // Fprintf1(fw, data[j][col], digits[col]);
+            if (col < 2 || fabs(data[j][col]) > 1e-5) {
               Fprintf1(fw, data[j][col], digits[col]);
             } else {
               fprintf(fw, "%*s", digits[col][0] + digits[col][1] + 1, "?");
             }
           }
           putc('\n', fw);
+          if (j < (count_lines - 1) && data[j][0] != data[j+1][0]) {
+            putc('\n', fw);
+          }
           // WriteFormatedDataLine(fw, columns, data[j], digits);
+        }
+        for (int j = 0; j < lines; j++) {
           free(data[j]);
         }
+        free(data);
       }
       fclose(fw); //}}}
     }
@@ -714,6 +735,9 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < opt->c_c; i++) {
       for (int j = 0; j < Count->MoleculeType; j++) {
         for (int k = 0; k < Count->MoleculeType; k++) {
+          for (int l = 0; l <= Count->Molecule; l++) {
+            free(ratio_distr[i][j][k][l]);
+          }
           free(ratio_distr[i][j][k]);
         }
         free(comp_distr[i][j]);
