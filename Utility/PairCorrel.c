@@ -215,8 +215,9 @@ int main(int argc, char *argv[]) {
       }
       count_used++;
       // // TODO: trying cell-linked list (unsuccessfully) //{{{
+      //          ...see Extra/NearestNeighbour.c
       // // double cell_size = 3;
-      // int n_cells[3], *Head, *Link, Dc[14][3];
+      // int n_cells[3], *Head, *Link, Dc[27][3];
       // LinkedList(System, &Head, &Link, cell_size, n_cells, Dc);
       // int c1[3];
       // for (c1[2] = 0; c1[2] < n_cells[2]; c1[2]++) {
@@ -231,7 +232,7 @@ int main(int argc, char *argv[]) {
       //           i = Link[i];
       //           continue;
       //         }
-      //         for (int k = 0; k < 14; k++) {
+      //         for (int k = 0; k < 27; k++) {
       //           int cell2 = SelectCell2(c1, n_cells, Dc, k);
       //
       //           int j;

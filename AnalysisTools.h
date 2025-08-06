@@ -39,10 +39,10 @@ int CoordinateFileType(const char *name);
 int FileType(const char *name);
 // create a cell-linked list
 void LinkedList(const SYSTEM System, int **Head, int **Link,
-                const double cell_size, int n_cells[3], int Dc[14][3]);
+                const double cell_size, int n_cells[3], int Dc[27][3]);
 int SelectCell1(const int c1[3], const int n_cells[3]);
 int SelectCell2(const int c1[3], const int n_cells[3],
-                const int Dc[14][3], const int n);
+                const int Dc[27][3], const int n);
 // calculate gyration tensor and various shape descriptors
 void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]);
 // TODO: redo

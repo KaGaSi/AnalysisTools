@@ -22,3 +22,5 @@ tags
 .gdb_history
 .cache
 profile
+lizard_report.txt
+sources.txt

@@ -254,7 +254,7 @@ int main(int argc, char *argv[]) {
           double com[3];
           CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead, System, com);
 
-          // free temporary density array //{{{
+          // zeroize temporary density array //{{{
           for (int j = 0; j < Count->BeadType; j++) {
             for (int k = 0; k < aggs; k++) {
               for (int l = 0; l < bins; l++) {

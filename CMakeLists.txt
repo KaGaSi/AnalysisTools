@@ -16,7 +16,7 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 # Compiler flags
 set(CMAKE_C_FLAGS "-std=c11 -Wall")
 set(CMAKE_C_FLAGS_DEBUG "-ggdb -g")
-set(CMAKE_C_FLAGS_RELEASE "-O3")
+set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG")
 
 # Find GSL
 find_package(GSL REQUIRED)

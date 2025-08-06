@@ -458,6 +458,12 @@ void CentreOfMass(const int n, const int *list,
     int id = list[i];
     BEAD *b = &System.Bead[id];
     BEADTYPE *bt = &System.BeadType[b->Type];
+    if (bt->Mass == MASS) {
+      for (int dd = 0; dd < 3; dd++) {
+        com[dd] = 0;
+        return;
+      }
+    }
     for (int dd = 0; dd < 3; dd++) {
       com[dd] += b->Position[dd] * bt->Mass;
     }
@@ -585,7 +591,7 @@ int FileType(const char *name) { //{{{
 } //}}}
 // create a cell-linked list //{{{
 void LinkedList(const SYSTEM System, int **Head, int **Link,
-                const double cell_size, int n_cells[3], int Dc[14][3]) {
+                const double cell_size, int n_cells[3], int Dc[27][3]) {
   const double (*box)[3] = &System.Box.Length;
   const COUNT *Count = &System.Count;
   double rl[3];
@@ -617,38 +623,35 @@ void LinkedList(const SYSTEM System, int **Head, int **Link,
     (*Link)[i] = (*Head)[cell];
     (*Head)[cell] = i;
   }
-  // coordinates of adjoining cells
-  int x[14] = {0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1};
-  int y[14] = {0, 0, 1, 1, 1, -1, -1, -1, 0, 0, 0, 1, 1, 1};
-  int z[14] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-  for (int i = 0; i < 14; i++) {
-    Dc[i][0] = x[i];
-    Dc[i][1] = y[i];
-    Dc[i][2] = z[i];
+  // coordinates of all 27 cells (adjoining + the middle)
+  int idx = 0;
+  for (int dz = -1; dz <= 1; dz++) {
+    for (int dy = -1; dy <= 1; dy++) {
+      for (int dx = -1; dx <= 1; dx++) {
+        Dc[idx][0] = dx;
+        Dc[idx][1] = dy;
+        Dc[idx][2] = dz;
+        idx++;
+      }
+    }
   }
 }
 int SelectCell1(const int c1[3], const int n_cells[3]) {
   return c1[0] + c1[1] * n_cells[0] + c1[2] * n_cells[0] * n_cells[1];
 }
 int SelectCell2(const int c1[3], const int n_cells[3],
-                const int Dc[14][3], int n) {
+                const int Dc[27][3], int n) {
   int c2[3];
   for (int dd = 0; dd < 3; dd++) {
     c2[dd] = c1[dd] + Dc[n][dd];
   }
   // periodic boundary conditions for cells
-  if (c2[0] >= n_cells[0])
-    c2[0] -= n_cells[0];
-  else if (c2[0] < 0)
-    c2[0] += n_cells[0];
-
-  if (c2[1] >= n_cells[1])
-    c2[1] -= n_cells[1];
-  else if (c2[1] < 0)
-    c2[1] += n_cells[1];
-
-  if (c2[2] >= n_cells[2])
-    c2[2] -= n_cells[2];
+  for (int dd = 0; dd < 3; dd++) {
+    if (c2[dd] >= n_cells[dd])
+      c2[dd] -= n_cells[dd];
+    else if (c2[dd] < 0)
+      c2[dd] += n_cells[dd];
+  }
 
   return c2[0] + c2[1] * n_cells[0] + c2[2] * n_cells[0] * n_cells[1];
 } //}}}
@@ -883,6 +886,7 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
   int **mol_eligible_beads = malloc(Count->MoleculeType * sizeof(int *));
   int *count_eligible_beads = malloc(Count->MoleculeType *
                                      sizeof *count_eligible_beads);
+  bool eligible = false;
   for (int i = 0; i < Count->MoleculeType; i++) {
     MOLECULETYPE *mt = &System->MoleculeType[i];
     mol_eligible_beads[i] = malloc(mt->nBeads * sizeof(int));
@@ -891,8 +895,14 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
       if (System->BeadType[mt->Bead[j]].Flag) {
         mol_eligible_beads[i][count_eligible_beads[i]] = j;
         count_eligible_beads[i]++;
+        eligible = true;
       }
     }
+  }
+  if (!eligible) {
+    err_msg("RemovePBCAggregates(): no bead types for joining");
+    PrintError();
+    exit(1);
   }
 
   double (*box)[3] = &System->Box.Length;

@@ -86,7 +86,7 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
   // count contacts between all molecule pairs (using cell linked list) //{{{
   // create cell-linked list
   double cell_size = sqrt(sqdist);
-  int n_cells[3], *Head, *Link, Dc[14][3];
+  int n_cells[3], *Head, *Link, Dc[27][3];
   LinkedList(*System, &Head, &Link, cell_size, n_cells, Dc);
   // go over all cells (and beads inside)
   int c1[3];
@@ -97,7 +97,7 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
         // select first bead in the cell 'cell1'
         int i = Head[cell1];
         while (i != -1) {
-          for (int k = 0; k < 14; k++) {
+          for (int k = 0; k < 27; k++) {
             int cell2 = SelectCell2(c1, n_cells, Dc, k);
             // select bead in the cell 'cell2' //{{{
             int j;

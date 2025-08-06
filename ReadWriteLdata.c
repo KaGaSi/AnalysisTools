@@ -746,9 +746,9 @@ static void LmpDataReadAtoms(FILE *fr, const char *file, SYSTEM *System,
     BEADTYPE *bt = &System->BeadType[id];
     if (type > atom_types) {
       snprintf(ERROR_MSG, LINE, "bead type is too high; id is %s%ld%s in "
-               "a file with %s%d%s atom types", ErrRed(), type, ErrYellow(),
-               ErrRed(), atom_types, ErrYellow());
-      PrintErrorFile(file, "\0", "\0");
+               "a file with %s%d%s atom types", ErrYellow(), type, ErrRed(),
+               ErrYellow(), atom_types, ErrRed());
+      PrintErrorFileLine(file, *line_count);
       exit(1);
     }
     bt->Mass = name_mass[type].Mass;

@@ -610,7 +610,7 @@ BOX VtfReadPBC(const char *file) { //{{{
     if (ltype == PBC_LINE || ltype == PBC_LINE_ANGLES) {
       VtfPbcLine(&Box, ltype);
       break; //}}}
-      // coordinate line - return from function //{{{
+    // coordinate line - return from function //{{{
     } else if (ltype == COOR_LINE || ltype == COOR_LINE_O) {
       break;
     } //}}}
