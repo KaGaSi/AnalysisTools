@@ -166,7 +166,9 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  printf("%d %d %d\n", System.BeadType[0].Number, System.BeadType[1].Number, System.BeadType[2].Number);
+  printf("%d %d %d\n", System.BeadType[0].Number,
+                       System.BeadType[1].Number,
+                       System.BeadType[2].Number);
   printf("%d %d\n", count1, count2);
 
   // print initial stuff to output coordinate file //{{{

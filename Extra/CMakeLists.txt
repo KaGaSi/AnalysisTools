@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 set(CMAKE_LEGACY_CYGWIN_WIN32 0) # Cygwin compatibility setting
 
 project(project)
@@ -11,14 +11,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ../build/bin)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Build type
-# set(CMAKE_BUILD_TYPE "Debug")
-set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_BUILD_TYPE "Debug")
+# set(CMAKE_BUILD_TYPE "Release")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 # compiler flags
 set(CMAKE_C_FLAGS "-std=c11 -Wall")
 set(CMAKE_C_FLAGS_DEBUG "-ggdb -g")
-set(CMAKE_C_FLAGS_RELEASE "-O3")
+set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG")
 
 # Find GSL
 find_package(GSL REQUIRED)
@@ -77,12 +77,24 @@ add_library(AnalysisTools
 
 # List of utilities
 set(UTILS
+  CICount
+  Distribution
+  dbscan
+  Entropy
   GenGal
   GalContacts
   LargestAgg
+  NearestNeighbour
+  NearestNeighbour-wall
   Structure
   Template
   test)
+
+# Conditionally link BLAS
+target_link_libraries(AnalysisTools PRIVATE ${GSL_LIBRARIES} m ${BLAS_LIB})
+target_include_directories(AnalysisTools PRIVATE ${GSL_INCLUDE_DIRS})
+
+# Create utility executables
 foreach(utility ${UTILS})
   add_executable(${utility} ../Extra/${utility}.c)
   target_link_libraries(${utility} PRIVATE ${GSL_LIBRARIES} m ${BLAS_LIB} AnalysisTools)
