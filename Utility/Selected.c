@@ -172,6 +172,10 @@ static void ScaleCoordinates(SYSTEM *System, const double scale) { //{{{
         System->Bead[id].Position[dd] /= scale;
       }
     }
+    for (int dd = 0; dd < 3; dd++) {
+      System->Box.Length[dd] /= scale;
+    }
+    CalculateBoxData(&System->Box, 0);
   }
 } //}}}
 static void MoveCoordinates(SYSTEM *System, const double move[3]) { //{{{
