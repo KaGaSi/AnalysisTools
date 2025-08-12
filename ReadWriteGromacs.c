@@ -19,12 +19,12 @@ static void ReadAngles(const char *file, FILE *fr,
                       int *line_count, SYSTEM *System);
 static void ReadDihedrals(const char *file, FILE *fr,
                           int *line_count, SYSTEM *System);
-// not used for now
-static void ReadBADI(const char *file, FILE *fr, int *line_count,
-                     SYSTEM *System, int (**arr)[5], const int type);
-static SYSTEM CountInFile(const char *file);
-static void CountOneSection(const char *file, FILE *fr, int *line_count,
-                            int *count, int min_num);
+// // not used for now
+// static void ReadBADI(const char *file, FILE *fr, int *line_count,
+//                      SYSTEM *System, int (**arr)[5], const int type);
+// static SYSTEM CountInFile(const char *file);
+// static void CountOneSection(const char *file, FILE *fr, int *line_count,
+//                             int *count, int min_num);
 
 // read files
 SYSTEM ItpReadStruct(const char *file) { //{{{
@@ -464,207 +464,207 @@ static void ReadDihedrals(const char *file, FILE *fr,
   } while (CountLineReadLine(line_count, fr, file, ""));
 } //}}}
 
-// unused - for now
-// static void ReadBADI() //{{{
-static void ReadBADI(const char *file, FILE *fr, int *line_count,
-                     SYSTEM *System, int (**arr)[5], const int type) {
-  COUNT *Count = &System->Count;
-  // assign type-based variables //{{{
-  int count, // number of bonds/angles/etc. and their types
-      num; // number of required bead ids
-  char txt[10];
-  if (type == 0) {
-    count = Count->Bond;
-    num = 2;
-    s_strcpy(txt, "bonds", 10);
-  } else if (type == 1) {
-    count = Count->Angle;
-    num = 3;
-    s_strcpy(txt, "angles", 10);
-  } else if (type == 2) {
-    count = Count->Dihedral;
-    num = 4;
-    s_strcpy(txt, "dihedrals", 10);
-  } else if (type == 3) {
-    count = Count->Improper;
-    s_strcpy(txt, "impropers", 10);
-    num = 4;
-  } else {
-    err_msg("ReadBADI(): type must be 0 to 3");
-    PrintError();
-    exit(1);
-  }
-  char msg[LINE];
-  snprintf(msg, LINE, "incomplete '[ %ss ]' section", txt); //}}}
-  MOLECULETYPE *mt = &System->MoleculeType[Count->MoleculeType-1];
-  // skip comments (;-starting lines) and blank lines and read first bonds line
-  do {
-    CountLineReadLine(line_count, fr, file, msg);
-  } while (words == 0 || split[0][0] == ';');
-  // read the bonds lines
-  do {
-    long int id[num];
-    if (words < num) {
-      break;
-    }
-    if (!IsNaturalNumber(split[0], &id[0]) ||
-        !IsNaturalNumber(split[1], &id[1])) {
-      break;
-    }
-    if (id[0] > mt->nBeads || id[1] > mt->nBeads) {
-      err_msg("atom id is too high");
-      PrintErrorFileLine(file, *line_count);
-      exit(1);
-    }
-    mt->nBonds++;
-    if (mt->nBonds == 1) {
-      mt->Bond = malloc(sizeof *mt->Bond);
-    } else {
-      mt->Bond = realloc(mt->Bond, mt->nBonds * sizeof *mt->Bond);
-    }
-    mt->Bond[mt->nBonds-1][0] = id[0] - 1;
-    mt->Bond[mt->nBonds-1][1] = id[1] - 1;
-    mt->Bond[mt->nBonds-1][2] = -1;
-  } while (CountLineReadLine(line_count, fr, file, ""));
-} //}}}
-// static void CountOneSection() //{{{
-static void CountOneSection(const char *file, FILE *fr, int *line_count,
-                            int *count, int min_num) {
-  while (CountLineReadLine(line_count, fr, file, "")) {
-    fpos_t saved_pos;
-    // only check non-blank, non-comment lines
-    if (words > 0 && split[0][0] != ';') {
-      if (split[0][0] == '[') { // exit loop on [ <section> ]
-        fsetpos(fr, &saved_pos); // return pointer to the previous line
-        (*line_count)--; // pointer rewound one line, so decrement count
-        break;
-      } else if (words < min_num) { // but too few words
-        // correct section name //{{{
-        int length = 20;
-        char txt[length];
-        switch (min_num) {
-          case 8:
-            s_strcpy(txt, "atoms", length);
-            break;
-          case 3:
-            s_strcpy(txt, "bonds", length);
-            break;
-          case 4:
-            s_strcpy(txt, "angles", length);
-            break;
-          case 5:
-            s_strcpy(txt, "dihedrals/impropers", length);
-            break;
-        } //}}}
-        snprintf(ERROR_MSG, LINE, "wrong line in [ %s ] section", txt);
-        PrintErrorFileLine(file, *line_count);
-        exit(1);
-      } else { // correct line
-        (*count)++;
-      }
-    }
-    // save position in file
-    fgetpos(fr, &saved_pos);
-  }
-} //}}}
-static SYSTEM CountInFile(const char *file) { //{{{
-  int line_count = 0;
-  SYSTEM System;
-  InitSystem(&System);
-  COUNT *Count = &System.Count;
-  FILE *fr = OpenFile(file, "r");
-  // read first line, erroring out on empty file
-  while (CountLineReadLine(&line_count, fr, file, "")) {
-    // if not new molecule type, read next line
-    if ((words < 1 || strcasecmp(split[0], "[moleculetype]") != 0) &&
-        (words < 3 || strcasecmp(split[1], "moleculetype") != 0)) {
-      continue;
-    }
-    // Count->MoleculeType++;
-    char name[MOL_NAME];
-    while (CountLineReadLine(&line_count, fr, file,
-                             "missing  moleculetype name")) {
-      if (words > 0) {
-        s_strcpy(name, split[0], MOL_NAME);
-        break;
-      }
-    }
-    // if new molecule type, search for [ atoms ] //{{{
-    bool section = false;
-    while (CountLineReadLine(&line_count, fr, file, "")) {
-      // if not [ atoms ] line, read next line
-      if ((words > 0 && strcasecmp(split[0], "[atoms]") == 0) ||
-          (words > 2 && strcasecmp(split[1], "atoms") == 0)) {
-        section = true;
-        break;
-      }
-      // found [ moleculetype ] before [ atoms ] - error
-      if ((words > 0 && strcasecmp(split[0], "[moleculetype]") == 0) ||
-          (words > 2 && strcasecmp(split[1], "moleculetype") == 0)) {
-        break;
-      }
-    }
-    if (!section) {
-      err_msg("missing [ atoms ] section");
-      PrintErrorFile(file, "\0", "\0");
-      exit(1);
-    } //}}}
-    int beads = 0,
-        bonds = 0,
-        angles = 0,
-        dihedrals = 0,
-        impropers = 0;
-    CountOneSection(file, fr, &line_count, &beads, 8);
-    fpos_t saved_pos;
-    // count bonds/angles/dihedrals/impropers
-    while (CountLineReadLine(&line_count, fr, file, "")) {
-      if ((words > 0 && strcasecmp(split[0], "[bonds]") == 0) ||
-          (words > 2 && strcasecmp(split[1], "bonds") == 0)) {
-        CountOneSection(file, fr, &line_count, &bonds, 3);
-      } else if ((words > 0 && strcasecmp(split[0], "[angles]") == 0) ||
-                 (words > 2 && strcasecmp(split[1], "angles") == 0)) {
-        CountOneSection(file, fr, &line_count, &angles, 4);
-      } else if ((words > 0 && strcasecmp(split[0], "[dihedrals]") == 0) ||
-                 (words > 2 && strcasecmp(split[1], "dihedrals") == 0)) {
-        CountOneSection(file, fr, &line_count, &dihedrals, 5);
-      } else if ((words > 0 && strcasecmp(split[0], "[impropers]") == 0) ||
-                 (words > 2 && strcasecmp(split[1], "impropers") == 0)) {
-        CountOneSection(file, fr, &line_count, &impropers, 5);
-      } else if ((words > 0 && strcasecmp(split[0], "[moleculetype]") == 0) ||
-                 (words > 2 && strcasecmp(split[1], "moleculetype") == 0)) {
-        // start of the next molecule
-        break;
-      }
-      fgetpos(fr, &saved_pos);
-    }
-    fsetpos(fr, &saved_pos);
-    line_count--;
-    System.MoleculeType = realloc(System.MoleculeType, Count->MoleculeType *
-                                  sizeof *System.MoleculeType);
-    NewMolType(&System.MoleculeType, &Count->MoleculeType, name, beads, bonds,
-               angles, dihedrals, 0);
-    MOLECULETYPE *mt = &System.MoleculeType[Count->MoleculeType-1];
-    for (int i = 0; i < mt->nBeads; i++) {
-      mt->Bead[i] = Count->Bead + i;
-    }
-
-    line_count--;
-    Count->Bead += beads;
-    Count->Bond += bonds;
-    Count->Angle += angles;
-    Count->Dihedral += dihedrals;
-    Count->Improper += impropers;
-    printf("Molecule %d: %d %d %d %d %d\n",
-           Count->MoleculeType, beads, bonds, angles, dihedrals, impropers);
-  }
-  if (Count->MoleculeType == 0) {
-    line_count--;
-    ErrorEOF(file, "missing [ moleculetype ] section");
-    exit(1);
-  }
-  fclose(fr);
-
-  return System;
-} //}}}
+// // unused - for now
+// // static void ReadBADI() //{{{
+// static void ReadBADI(const char *file, FILE *fr, int *line_count,
+//                      SYSTEM *System, int (**arr)[5], const int type) {
+//   COUNT *Count = &System->Count;
+//   // assign type-based variables //{{{
+//   int count, // number of bonds/angles/etc. and their types
+//       num; // number of required bead ids
+//   char txt[10];
+//   if (type == 0) {
+//     count = Count->Bond;
+//     num = 2;
+//     s_strcpy(txt, "bonds", 10);
+//   } else if (type == 1) {
+//     count = Count->Angle;
+//     num = 3;
+//     s_strcpy(txt, "angles", 10);
+//   } else if (type == 2) {
+//     count = Count->Dihedral;
+//     num = 4;
+//     s_strcpy(txt, "dihedrals", 10);
+//   } else if (type == 3) {
+//     count = Count->Improper;
+//     s_strcpy(txt, "impropers", 10);
+//     num = 4;
+//   } else {
+//     err_msg("ReadBADI(): type must be 0 to 3");
+//     PrintError();
+//     exit(1);
+//   }
+//   char msg[LINE];
+//   snprintf(msg, LINE, "incomplete '[ %ss ]' section", txt); //}}}
+//   MOLECULETYPE *mt = &System->MoleculeType[Count->MoleculeType-1];
+//   // skip comments (;-starting lines) and blank lines and read first bonds line
+//   do {
+//     CountLineReadLine(line_count, fr, file, msg);
+//   } while (words == 0 || split[0][0] == ';');
+//   // read the bonds lines
+//   do {
+//     long int id[num];
+//     if (words < num) {
+//       break;
+//     }
+//     if (!IsNaturalNumber(split[0], &id[0]) ||
+//         !IsNaturalNumber(split[1], &id[1])) {
+//       break;
+//     }
+//     if (id[0] > mt->nBeads || id[1] > mt->nBeads) {
+//       err_msg("atom id is too high");
+//       PrintErrorFileLine(file, *line_count);
+//       exit(1);
+//     }
+//     mt->nBonds++;
+//     if (mt->nBonds == 1) {
+//       mt->Bond = malloc(sizeof *mt->Bond);
+//     } else {
+//       mt->Bond = realloc(mt->Bond, mt->nBonds * sizeof *mt->Bond);
+//     }
+//     mt->Bond[mt->nBonds-1][0] = id[0] - 1;
+//     mt->Bond[mt->nBonds-1][1] = id[1] - 1;
+//     mt->Bond[mt->nBonds-1][2] = -1;
+//   } while (CountLineReadLine(line_count, fr, file, ""));
+// } //}}}
+// // static void CountOneSection() //{{{
+// static void CountOneSection(const char *file, FILE *fr, int *line_count,
+//                             int *count, int min_num) {
+//   while (CountLineReadLine(line_count, fr, file, "")) {
+//     fpos_t saved_pos;
+//     // only check non-blank, non-comment lines
+//     if (words > 0 && split[0][0] != ';') {
+//       if (split[0][0] == '[') { // exit loop on [ <section> ]
+//         fsetpos(fr, &saved_pos); // return pointer to the previous line
+//         (*line_count)--; // pointer rewound one line, so decrement count
+//         break;
+//       } else if (words < min_num) { // but too few words
+//         // correct section name //{{{
+//         int length = 20;
+//         char txt[length];
+//         switch (min_num) {
+//           case 8:
+//             s_strcpy(txt, "atoms", length);
+//             break;
+//           case 3:
+//             s_strcpy(txt, "bonds", length);
+//             break;
+//           case 4:
+//             s_strcpy(txt, "angles", length);
+//             break;
+//           case 5:
+//             s_strcpy(txt, "dihedrals/impropers", length);
+//             break;
+//         } //}}}
+//         snprintf(ERROR_MSG, LINE, "wrong line in [ %s ] section", txt);
+//         PrintErrorFileLine(file, *line_count);
+//         exit(1);
+//       } else { // correct line
+//         (*count)++;
+//       }
+//     }
+//     // save position in file
+//     fgetpos(fr, &saved_pos);
+//   }
+// } //}}}
+// static SYSTEM CountInFile(const char *file) { //{{{
+//   int line_count = 0;
+//   SYSTEM System;
+//   InitSystem(&System);
+//   COUNT *Count = &System.Count;
+//   FILE *fr = OpenFile(file, "r");
+//   // read first line, erroring out on empty file
+//   while (CountLineReadLine(&line_count, fr, file, "")) {
+//     // if not new molecule type, read next line
+//     if ((words < 1 || strcasecmp(split[0], "[moleculetype]") != 0) &&
+//         (words < 3 || strcasecmp(split[1], "moleculetype") != 0)) {
+//       continue;
+//     }
+//     // Count->MoleculeType++;
+//     char name[MOL_NAME];
+//     while (CountLineReadLine(&line_count, fr, file,
+//                              "missing  moleculetype name")) {
+//       if (words > 0) {
+//         s_strcpy(name, split[0], MOL_NAME);
+//         break;
+//       }
+//     }
+//     // if new molecule type, search for [ atoms ] //{{{
+//     bool section = false;
+//     while (CountLineReadLine(&line_count, fr, file, "")) {
+//       // if not [ atoms ] line, read next line
+//       if ((words > 0 && strcasecmp(split[0], "[atoms]") == 0) ||
+//           (words > 2 && strcasecmp(split[1], "atoms") == 0)) {
+//         section = true;
+//         break;
+//       }
+//       // found [ moleculetype ] before [ atoms ] - error
+//       if ((words > 0 && strcasecmp(split[0], "[moleculetype]") == 0) ||
+//           (words > 2 && strcasecmp(split[1], "moleculetype") == 0)) {
+//         break;
+//       }
+//     }
+//     if (!section) {
+//       err_msg("missing [ atoms ] section");
+//       PrintErrorFile(file, "\0", "\0");
+//       exit(1);
+//     } //}}}
+//     int beads = 0,
+//         bonds = 0,
+//         angles = 0,
+//         dihedrals = 0,
+//         impropers = 0;
+//     CountOneSection(file, fr, &line_count, &beads, 8);
+//     fpos_t saved_pos;
+//     // count bonds/angles/dihedrals/impropers
+//     while (CountLineReadLine(&line_count, fr, file, "")) {
+//       if ((words > 0 && strcasecmp(split[0], "[bonds]") == 0) ||
+//           (words > 2 && strcasecmp(split[1], "bonds") == 0)) {
+//         CountOneSection(file, fr, &line_count, &bonds, 3);
+//       } else if ((words > 0 && strcasecmp(split[0], "[angles]") == 0) ||
+//                  (words > 2 && strcasecmp(split[1], "angles") == 0)) {
+//         CountOneSection(file, fr, &line_count, &angles, 4);
+//       } else if ((words > 0 && strcasecmp(split[0], "[dihedrals]") == 0) ||
+//                  (words > 2 && strcasecmp(split[1], "dihedrals") == 0)) {
+//         CountOneSection(file, fr, &line_count, &dihedrals, 5);
+//       } else if ((words > 0 && strcasecmp(split[0], "[impropers]") == 0) ||
+//                  (words > 2 && strcasecmp(split[1], "impropers") == 0)) {
+//         CountOneSection(file, fr, &line_count, &impropers, 5);
+//       } else if ((words > 0 && strcasecmp(split[0], "[moleculetype]") == 0) ||
+//                  (words > 2 && strcasecmp(split[1], "moleculetype") == 0)) {
+//         // start of the next molecule
+//         break;
+//       }
+//       fgetpos(fr, &saved_pos);
+//     }
+//     fsetpos(fr, &saved_pos);
+//     line_count--;
+//     System.MoleculeType = realloc(System.MoleculeType, Count->MoleculeType *
+//                                   sizeof *System.MoleculeType);
+//     NewMolType(&System.MoleculeType, &Count->MoleculeType, name, beads, bonds,
+//                angles, dihedrals, 0);
+//     MOLECULETYPE *mt = &System.MoleculeType[Count->MoleculeType-1];
+//     for (int i = 0; i < mt->nBeads; i++) {
+//       mt->Bead[i] = Count->Bead + i;
+//     }
+//
+//     line_count--;
+//     Count->Bead += beads;
+//     Count->Bond += bonds;
+//     Count->Angle += angles;
+//     Count->Dihedral += dihedrals;
+//     Count->Improper += impropers;
+//     printf("Molecule %d: %d %d %d %d %d\n",
+//            Count->MoleculeType, beads, bonds, angles, dihedrals, impropers);
+//   }
+//   if (Count->MoleculeType == 0) {
+//     line_count--;
+//     ErrorEOF(file, "missing [ moleculetype ] section");
+//     exit(1);
+//   }
+//   fclose(fr);
+//
+//   return System;
+// } //}}}
 
 // write file

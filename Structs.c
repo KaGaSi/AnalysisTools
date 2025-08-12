@@ -17,6 +17,9 @@ void InitBead(BEAD *b) { //{{{
     b->Velocity[dd] = 0;
     b->Force[dd] = 0;
   }
+  for (int dd = 0; dd < 6; dd++) {
+    b->Extra[dd] = HIGHNUM;
+  }
   b->InTimestep = false;
 } //}}}
 void InitMoleculeType(MOLECULETYPE *mt) { //{{{

@@ -1,6 +1,9 @@
 #include "ReadWriteLtrj.h"
 #include "General.h"
 
+// TODO: somehow optional writing of velocity, force, extra...
+//       probably requires flags from outside ReadWrite files.
+
 // maximum number of variables in 'ITEM: ATOM' line
 static const int max_var = 12;
 
@@ -29,10 +32,11 @@ static bool LtrjCheckNumberAtomsLine();
 static bool LtrjCheckPbcLine();
 // read 'ITEM: ATOMS ...' line, defining what variables are in which columns
 static int LtrjReadAtomsLine(FILE *fr, const char *file, int *var_pos,
-                             char vars[max_var][10], int *line_count);
+                             char vars[max_var][10], int unknown[6],
+                             int *line_count);
 // read an atom coordinate line
 static int LtrjReadCoorLine(FILE *fr, BEAD *b, int b_count,
-                            const int *var, int cols);
+                            const int *var, int cols, int unknown[6]);
 // fill a helper array with possible variables in 'ITEM: ATOMS ...' line
 static void LtrjFillAtomVariables(char var[max_var][10]);
 static void AssignPosVelForce(const BEAD in, BEAD *b);
@@ -54,7 +58,8 @@ SYSTEM LtrjReadStruct(const char *file) {
   // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
   int position[max_var];
   char var[max_var][10];
-  int cols = LtrjReadAtomsLine(fr, file, position, var, &line_count);
+  int unknown[6];
+  int cols = LtrjReadAtomsLine(fr, file, position, var, unknown, &line_count);
   // error - incorrect 'ITEM: ATOMS ...' line //{{{
   if (cols < 0) {
     err_msg("wrong 'ITEM: ATOMS' line in the first timestep");
@@ -74,7 +79,8 @@ SYSTEM LtrjReadStruct(const char *file) {
     InitBead(&line);
     line_count++;
     // read & check the coordinate line validity //{{{
-    if (LtrjReadCoorLine(fr, &line, Sys.Count.Bead, position, cols) < 0) {
+    if (LtrjReadCoorLine(fr, &line, Sys.Count.Bead, position,
+                         cols, unknown) < 0) {
       err_msg("invalid atom line (or not enough atom lines)");
       PrintErrorFileLine(file, line_count);
       exit(1);
@@ -146,12 +152,14 @@ int LtrjReadTimestep(FILE *fr, const char *file, SYSTEM *System,
   // read ITEM: ATOMS line & find positions of varaibles in a coordinate line
   int position[max_var];
   char vars[max_var][10];
-  int cols = LtrjReadAtomsLine(fr, file, position, vars, line_count);
+  int unknown[6];
+  int cols = LtrjReadAtomsLine(fr, file, position, vars, unknown, line_count);
   // read atom lines //{{{
   for (int i = 0; i < System->Count.BeadCoor; i++) {
     BEAD line;
     (*line_count)++;
-    if (LtrjReadCoorLine(fr, &line, System->Count.Bead, position, cols) < 0) {
+    if (LtrjReadCoorLine(fr, &line, System->Count.Bead, position,
+                         cols, unknown) < 0) {
       err_msg("invalid atom line (or not enough atom lines)");
       PrintErrorFileLine(file, *line_count);
       return -1;
@@ -397,7 +405,8 @@ static bool LtrjCheckPbcLine() { //{{{
 } //}}}
 // LtrjReadAtomsLine() //{{{
 static int LtrjReadAtomsLine(FILE *fr, const char *file, int *var_pos,
-                             char vars[max_var][10], int *line_count) {
+                             char vars[max_var][10], int unknown[6],
+                             int *line_count) {
   // generate array with possible variable names
   LtrjFillAtomVariables(vars);
   // read ITEM: ATOMS line //{{{
@@ -414,25 +423,32 @@ static int LtrjReadAtomsLine(FILE *fr, const char *file, int *var_pos,
     return -1;
   }                                    //}}}
   InitIntArray(var_pos, max_var, -1); // id, element, r[3], v[3], f[3], type
+  InitIntArray(unknown, 6, -1);
   int cols = -1;
+  int count_unknown = 0;
   for (int i = 2; i < words; i++) {
+    bool known = false;
     for (int j = 0; j < max_var; j++) {
       if (strcmp(split[i], vars[j]) == 0) {
+        // column index: word position - 2 words (ITEMS: ATOMS)
         var_pos[j] = i - 2;
+        // column count: column index + 1 for being count, not index
         cols = i - 2 + 1;
+        known = true;
         break;
       }
     }
+    if (!known && count_unknown < 6) {
+      unknown[count_unknown] = i - 2;
+      count_unknown++;
+    }
   }
-  if (cols < 0 || var_pos[0] == -1) {
-    err_msg("wrong 'ITEM: ATOMS' line");
-    return -1;
-  }
+  cols = words - 2; // count even the unknown columns
   return cols;
 } //}}}
 // LtrjReadCoorLine() //{{{
 static int LtrjReadCoorLine(FILE *fr, BEAD *b, int b_count,
-                            const int *var, int cols) {
+                            const int *var, int cols, int unknown[6]) {
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
     return -2;
   }
@@ -450,7 +466,13 @@ static int LtrjReadCoorLine(FILE *fr, BEAD *b, int b_count,
       (var[10] != -1 && !IsRealNumber(split[var[10]], &b->Force[2]))) {
     return -1;
   }
-  b->Type = id;
+  b->Type = id; // this will then be used to assign proper type to this bead
+
+  for (int i = 0; i < 6; i++) {
+    if (unknown[i] != -1) {
+      IsRealNumber(split[unknown[i]], &b->Extra[i]);
+    }
+  }
   return 1;
 } //}}}
 static void LtrjFillAtomVariables(char var[max_var][10]) { //{{{
@@ -473,6 +495,9 @@ static void AssignPosVelForce(const BEAD in, BEAD *b) { //{{{
     b->Velocity[dd] = in.Velocity[dd];
     b->Force[dd] = in.Force[dd];
   }
+  for (int dd = 0; dd < 6; dd++) {
+    b->Extra[dd] = in.Extra[dd];
+  }
 } //}}}
 
 // LtrjWriteCoor() //{{{
@@ -480,8 +505,9 @@ void LtrjWriteCoor(FILE *fw, const int step,
                    const bool *write, const SYSTEM System) {
   // find out number of beads to save and if velocity/force should be saved
   int count_write = 0;
-  bool vel = false;
-  bool force = false;
+  bool vel = false; // TODO: define outside
+  bool force = false; // TODO: define outside
+  bool extra = true; // TODO: define outside
   for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadCoor[i];
     BEAD *b = &System.Bead[id];
@@ -527,6 +553,11 @@ void LtrjWriteCoor(FILE *fw, const int step,
     if (force) {
       fprintf(fw, " fx fy fz");
     }
+    if (extra) {
+      for (int dd = 0; dd < 6; dd++) {
+        fprintf(fw, " extra[%d]", dd+1);
+      }
+    }
     // fprintf(fw, " mol");
     putc('\n', fw);
     for (int i = 0; i < System.Count.BeadCoor; i++) {
@@ -547,6 +578,11 @@ void LtrjWriteCoor(FILE *fw, const int step,
         if (force) {
           for (int dd = 0; dd < 3; dd++) {
             fprintf(fw, " %8.4f", b->Force[dd]);
+          }
+        }
+        if (extra) {
+          for (int dd = 0; dd < 6; dd++) {
+            fprintf(fw, " %8.4f", b->Extra[dd]);
           }
         }
         // fprintf(fw, " %5d", b->Molecule);

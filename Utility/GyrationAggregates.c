@@ -225,7 +225,7 @@ int main(int argc, char *argv[]) {
     if (use) {
       if (!ReadTimestep(in, coor, &System, &line_count) ||
           ReadAggregates(agg, input_agg, &System,
-                          Aggregate, &line_count_agg) < 0) {
+                         Aggregate, &line_count_agg) < 0) {
         count_coor--;
         break;
       }

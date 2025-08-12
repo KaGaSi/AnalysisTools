@@ -1157,7 +1157,7 @@ void PrintByline(const char *file, const int argc, char **argv) { //{{{
   FILE *fw = OpenFile(file, "w");
   fprintf(fw, "# Created by AnalysisTools v%s ", VERSION);
   fprintf(fw, " (https://github.com/KaGaSi/AnalysisTools)\n");
-  fprintf(fw, "# command: ");
+  fprintf(fw, "# Command: ");
   PrintCommand(fw, argc, argv);
   fclose(fw);
 } //}}}

@@ -77,18 +77,20 @@ add_library(AnalysisTools
 
 # List of utilities
 set(UTILS
-  CICount
-  Distribution
-  dbscan
-  Entropy
+  # CICount
+  # Distribution
+  # dbscan
+  # Entropy
+  # FuzzyCoordinates
   GenGal
   GalContacts
   LargestAgg
-  NearestNeighbour
-  NearestNeighbour-wall
-  Structure
+  # NearestNeighbour
+  # NearestNeighbour-wall
+  # Structure
+  # SurfaceTension
   Template
-  test)
+  Template_simple)
 
 # Conditionally link BLAS
 target_link_libraries(AnalysisTools PRIVATE ${GSL_LIBRARIES} m ${BLAS_LIB})

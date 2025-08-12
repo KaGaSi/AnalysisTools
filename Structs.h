@@ -118,9 +118,7 @@ typedef struct Bead { //{{{
       Molecule, // id corresponding to Molecule struct (-1 for monomeric bead)
       Aggregate; // aggregate id the molecule is in (-1 for none)
   double Position[3], Velocity[3], Force[3];
-  // VECTOR Position; // cartesian coordinates of the bead
-         // Velocity; // velocity of the bead
-         // Force; // force acting on the bead
+  double Extra[6]; // up to six extra values (e.g., in ltraj coordinate line)
   bool InTimestep; // is the bead in the present timestep?
   bool Flag; // general-purpose flag; TODO: remove?
 } BEAD;
