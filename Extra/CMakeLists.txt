@@ -81,7 +81,7 @@ set(UTILS
   # Distribution
   # dbscan
   # Entropy
-  # FuzzyCoordinates
+  FuzzyCoor
   GenGal
   GalContacts
   LargestAgg
@@ -89,8 +89,7 @@ set(UTILS
   # NearestNeighbour-wall
   # Structure
   # SurfaceTension
-  Template
-  Template_simple)
+  Template)
 
 # Conditionally link BLAS
 target_link_libraries(AnalysisTools PRIVATE ${GSL_LIBRARIES} m ${BLAS_LIB})
