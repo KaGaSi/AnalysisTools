@@ -87,7 +87,7 @@ set(UTILS
   LargestAgg
   # NearestNeighbour
   # NearestNeighbour-wall
-  # Structure
+  Structure
   # SurfaceTension
   Template)
 
