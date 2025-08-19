@@ -8,7 +8,7 @@
 int XyzReadTimestep(FILE *fr, const char *file,
                     SYSTEM *System, int *line_count);
 SYSTEM XyzReadStruct(const char *file);
-bool XyzSkipTimestep(FILE *fr, const char *file, int *line_count);
+int XyzSkipTimestep(FILE *fr, const char *file, int *line_count);
 
 void XyzWriteCoor(FILE *fw, const bool *write, SYSTEM System);
 

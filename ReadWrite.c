@@ -388,7 +388,7 @@ bool SkipTimestep(const SYS_FILES f, FILE *fr, int *line_count) {
       }
       break;
     case XYZ_FILE:
-      if (!XyzSkipTimestep(fr, f.coor.name, line_count)) {
+      if (XyzSkipTimestep(fr, f.coor.name, line_count) < 0) {
         return false;
       }
       break;

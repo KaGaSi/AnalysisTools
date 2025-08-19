@@ -128,7 +128,7 @@ int XyzReadTimestep(FILE *fr, const char *file,
   FillInCoor(System);
   return 1;
 } //}}}
-bool XyzSkipTimestep(FILE *fr, const char *file, int *line_count) { //{{{
+int XyzSkipTimestep(FILE *fr, const char *file, int *line_count) { //{{{
   long val = ReadFirstLine(file, fr, line_count);
   (*line_count)++;
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
@@ -140,7 +140,7 @@ bool XyzSkipTimestep(FILE *fr, const char *file, int *line_count) { //{{{
     while ((a = getc(fr)) != '\n' && a != EOF)
       ;
   }
-  return true;
+  return 1;
 } //}}}
 static bool XyzCheckCoorLine(double coor[3]) { //{{{
   if (words > 3 &&
