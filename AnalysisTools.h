@@ -11,6 +11,7 @@
 #include "General.h"
 #include "Options.h"
 #include "ReadWrite.h"
+#include "Aggregates.h"
 #include <complex.h>
 
 // Helper functions for dealing with SYSTEM structure

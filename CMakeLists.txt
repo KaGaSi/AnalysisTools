@@ -57,6 +57,7 @@ endif()
 # Define library
 add_library(AnalysisTools
   AnalysisTools.c
+  Aggregates.c
   Globals.c
   MathUtils.h
   ReadWrite.c
