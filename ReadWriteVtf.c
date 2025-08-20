@@ -1,6 +1,4 @@
 #include "ReadWriteVtf.h"
-#include "General.h"
-#include "ReadWrite.h"
 
 // variables defining line types //{{{
 static const int ERROR_LINE = -1;

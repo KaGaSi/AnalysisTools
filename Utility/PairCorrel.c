@@ -142,8 +142,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // write initial stuff to output pcf file //{{{
-  PrintByline(fout_pcf, argc, argv);
-  FILE *out = OpenFile(fout_pcf, "a");
+  FILE *out = PrintBylineOpenFile(fout_pcf, argc, argv);
   fprintf(out, "# (1) distance");
   // print bead type names to output file //{{{
   count = 1;

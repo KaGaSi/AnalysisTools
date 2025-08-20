@@ -171,15 +171,7 @@ int main(int argc, char *argv[]) {
                        System.BeadType[2].Number);
   printf("%d %d\n", count1, count2);
 
-  // print initial stuff to output coordinate file //{{{
-  if (fw_coor.type == VCF_FILE) {
-    PrintByline(fw_coor.name, argc, argv);
-  } else if (fw_coor.type == VTF_FILE) {
-    WriteStructure(fw_coor, System, -1, false, argc, argv);
-  } else { // ensure it's a new file
-    FILE *out = OpenFile(fw_coor.name, "w");
-    fclose(out);
-  } //}}}
+  InitOutputCoorFile(fw_coor, System, argc, argv);
 
   if (opt->c.verbose) {
     VerboseOutput(System);

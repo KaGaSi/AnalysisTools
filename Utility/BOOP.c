@@ -218,8 +218,7 @@ int main(int argc, char *argv[]) {
   COUNT *Count = &System.Count;
 
   // write initial stuff to output file //{{{
-  PrintByline(output, argc, argv);
-  FILE *out = OpenFile(output, "a");
+  FILE *out = PrintBylineOpenFile(output, argc, argv);
   // print legend line to output file
   count = 1;
   fprintf(out, "# (%d) timestep", count++);

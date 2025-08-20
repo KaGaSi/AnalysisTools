@@ -81,3 +81,103 @@ void ReInitAggregate(SYSTEM System, AGGREGATE *Aggregate) { //{{{
                                   1 * sizeof *Aggregate[i].Bead);
   }
 } //}}}
+// free the agg_picker struct //{{{
+void FreeAggPicker(AGG_PICKER *opt) {
+  free(opt->m);
+  free(opt->only);
+  free(opt->x);
+} //}}}
+void FreeSystem(SYSTEM *System) { //{{{
+  free(System->MoleculeCoor);
+  free(System->BeadCoor);
+  free(System->Bonded);
+  free(System->BondedCoor);
+  free(System->Unbonded);
+  free(System->UnbondedCoor);
+  free(System->Bead);
+  for (int i = 0; i < System->Count.BeadType; i++) {
+    if (System->BeadType[i].Number > 0) {
+      free(System->BeadType[i].Index);
+    }
+  }
+  free(System->BeadType);
+  for (int i = 0; i < System->Count.Molecule; i++) {
+    free(System->Molecule[i].Bead);
+  }
+  free(System->Molecule);
+  for (int i = 0; i < System->Count.MoleculeType; i++) {
+    FreeMoleculeType(&System->MoleculeType[i]);
+  }
+  free(System->MoleculeType);
+  free(System->BondType);
+  free(System->AngleType);
+  free(System->DihedralType);
+  free(System->ImproperType);
+}; //}}}
+void FreeMoleculeType(MOLECULETYPE *MoleculeType) { //{{{
+  FreeMoleculeTypeEssentials(MoleculeType);
+  if (MoleculeType->nBTypes > 0) {
+    free(MoleculeType->BType);
+  }
+  if (MoleculeType->Number > 0) {
+    free(MoleculeType->Index);
+  }
+} //}}}
+void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) { //{{{
+  free(MoleculeType->Bead);
+  if (MoleculeType->nBonds > 0) {
+    free(MoleculeType->Bond);
+  }
+  if (MoleculeType->nAngles > 0) {
+    free(MoleculeType->Angle);
+  }
+  if (MoleculeType->nDihedrals > 0) {
+    free(MoleculeType->Dihedral);
+  }
+  if (MoleculeType->nImpropers > 0) {
+    free(MoleculeType->Improper);
+  }
+} //}}}
+void FreeAggregate(COUNT Count, AGGREGATE *Aggregate) { //{{{
+  for (int i = 0; i < Count.Molecule; i++) {
+    free(Aggregate[i].Molecule);
+    free(Aggregate[i].Bead);
+  }
+  free(Aggregate);
+} //}}}
+// realloc some System.*{,Coor} arrays //{{{
+void ReallocBead(SYSTEM *System) {
+  COUNT *Count = &System->Count;
+  System->Bead = s_realloc(System->Bead, sizeof *System->Bead * Count->Bead);
+  System->BeadCoor = s_realloc(System->BeadCoor,
+                               sizeof *System->BeadCoor * Count->Bead);
+}
+void ReallocBonded(SYSTEM *System) {
+  COUNT *Count = &System->Count;
+  if (Count->Bonded > 0) {
+    System->Bonded = s_realloc(System->Bonded,
+                               sizeof *System->Bonded * Count->Bonded);
+    System->BondedCoor = s_realloc(System->BondedCoor,
+                                   sizeof *System->BondedCoor * Count->Bonded);
+  }
+}
+void ReallocUnbonded(SYSTEM *System) {
+  COUNT *Count = &System->Count;
+  if (Count->Unbonded > 0) {
+    System->Unbonded = s_realloc(System->Unbonded,
+                                 sizeof *System->Unbonded * Count->Unbonded);
+    System->UnbondedCoor = s_realloc(System->UnbondedCoor,
+                                     sizeof *System->UnbondedCoor *
+                                     Count->Unbonded);
+  }
+}
+void ReallocMolecule(SYSTEM *System) {
+  COUNT *Count = &System->Count;
+  if (Count->Molecule > 0) {
+    System->Molecule = s_realloc(System->Molecule,
+                                sizeof *System->Molecule * Count->Molecule);
+    System->MoleculeCoor = s_realloc(System->MoleculeCoor, Count->Molecule *
+                                    sizeof *System->MoleculeCoor);
+  }
+}
+//}}}

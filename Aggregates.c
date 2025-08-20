@@ -3,7 +3,7 @@
 
 // based on options, should an aggregate be used for calculations? //{{{
 bool UseAggregate(SYSTEM System, AGGREGATE *Aggregate, int id,
-                  AGG_CHOICE agg, int *size, double *mass) {
+                  AGG_PICKER agg, int *size, double *mass) {
   bool only = true;
   bool x = false;
   *size = 0;
@@ -35,7 +35,9 @@ bool UseAggregate(SYSTEM System, AGGREGATE *Aggregate, int id,
     return true;
   }
 } //}}}
-void AggChoiceOptions(const int argc, char **argv, AGG_CHOICE *opt, SYSTEM System) {
+// detect -m, -x, -only, and -n options //{{{
+void AggPickerOptions(const int argc, char **argv, AGG_PICKER *opt,
+                      SYSTEM System) {
   COUNT *Count = &System.Count;
   // '-n' option
   opt->range[0] = 1;
@@ -111,4 +113,4 @@ void AggChoiceOptions(const int argc, char **argv, AGG_CHOICE *opt, SYSTEM Syste
       exit(1);
     }
   } //}}}
-}
+} //}}}

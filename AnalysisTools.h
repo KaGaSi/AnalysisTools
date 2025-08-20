@@ -13,6 +13,11 @@
 #include "ReadWrite.h"
 #include "Aggregates.h"
 #include <complex.h>
+#include <gsl/gsl_matrix_double.h>
+#include <gsl/gsl_poly.h> // solve cubic equation
+#include <gsl/gsl_eigen.h>  // Jacobi method
+#include <gsl/gsl_matrix.h> //
+#include <gsl/gsl_vector.h> //
 
 // Helper functions for dealing with SYSTEM structure
 // identify bead type based on name
@@ -51,6 +56,5 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
                       const int contacts, uint8_t **contact);
 void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
                          SYSTEM *System);
-
 bool UseStep(const COMMON_OPT opt, int step);
 #endif

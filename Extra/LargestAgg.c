@@ -73,8 +73,7 @@ int main(int argc, char *argv[]) {
   }
 
   // print the initial stuff to output file //{{{
-  PrintByline(fout, argc, argv);
-  FILE *fw = OpenFile(fout, "a");
+  FILE *fw = PrintBylineOpenFile(fout, argc, argv);
   count = 1;
   fprintf(fw, "# column: (%d) step, ", count++);
   fprintf(fw, "(%d) largest aggregate size; ", count++);

@@ -8,15 +8,6 @@
 
 #define _POSIX_C_SOURCE 200809L
 
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-#include <time.h>
-#include <stdbool.h>
-#include "General.h"
-#include "Structs.h"
 #include "AnalysisTools.h"
 
 // print 'warning - <ERROR_MSG>\n' in cyan

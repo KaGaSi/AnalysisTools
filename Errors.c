@@ -1,6 +1,4 @@
 #include "Errors.h"
-#include "General.h"
-#include "Globals.h"
 
 static void PrintLine(FILE *f, const char *colour1, const char *colour2);
 

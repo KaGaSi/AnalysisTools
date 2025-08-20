@@ -1,5 +1,4 @@
 #include "ReadWriteLtrj.h"
-#include "General.h"
 
 // TODO: somehow optional writing of velocity, force, extra...
 //       probably requires flags from outside ReadWrite files.

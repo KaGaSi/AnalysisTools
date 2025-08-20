@@ -485,15 +485,7 @@ int main(int argc, char *argv[]) {
     VerboseOutput(System);
   }
 
-  // print initial stuff to output coordinate file //{{{
-  if (fout.type == VCF_FILE) {
-    PrintByline(fout.name, argc, argv);
-  } else if (fout.type == VTF_FILE && !opt->reduce) {
-    WriteStructure(fout, System, -1, false, argc, argv);
-  } else { // ensure it's a new file
-    FILE *out = OpenFile(fout.name, "w");
-    fclose(out);
-  } //}}}
+  InitOutputCoorFile(fout, System, argc, argv);
 
   // helper variables for --reduce option
   SYSTEM Sys; // the reduced system

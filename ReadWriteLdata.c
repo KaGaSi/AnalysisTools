@@ -1,8 +1,4 @@
 #include "ReadWriteLdata.h"
-#include "Errors.h"
-#include "General.h"
-#include "ReadWrite.h"
-#include "System.h"
 
 // TODO: LmpDataReadDihedralCoeffs() and LmpDataReadImproperCoeffs() should read
 //       up to three numbers, not assuming any format of the potential

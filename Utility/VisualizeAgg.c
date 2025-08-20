@@ -459,14 +459,7 @@ int main(int argc, char *argv[]) {
   bool *write = calloc(Count->Bead, sizeof *write);
 
   // print initial stuff to output coordinate file //{{{
-  if (fout.type == VCF_FILE) {
-    PrintByline(fout.name, argc, argv);
-  } else if (fout.type == VTF_FILE) {
-    WriteStructure(fout, System, -1, false, argc, argv);
-  } else {
-    FILE *out = OpenFile(fout.name, "w");
-    fclose(out);
-  }
+  InitOutputCoorFile(fout, System, argc, argv);
   // write empty lammpstrj timestep containing all beads (vmd needs it)
   if (fout.type == LTRJ_FILE) {
     InitBoolArray(write, Count->Bead, true);

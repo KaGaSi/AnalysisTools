@@ -347,9 +347,8 @@ int main(int argc, char *argv[]) {
       ErrorSnprintf();
     }
     // write initial stuff to the file //{{{
-    PrintByline(str, argc, argv);
+    out = PrintBylineOpenFile(str, argc, argv);
     // print bead type names to output file
-    out = OpenFile(str, "a");
     fprintf(out, "# for each bead type: (1) rdp; (2) rnp\n");
     fprintf(out, "# columns: (1) distance;");
     for (int j = 0; j < Count->BeadType; j++) {

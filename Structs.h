@@ -16,6 +16,12 @@ typedef struct common_opt {
   bool verbose, silent;
   int start, end, skip;
 } COMMON_OPT; //}}}
+// structure for the aggregate-picking options //{{{
+typedef struct agg_picker {
+  bool *x, *only, *m; // arrays for which molecules to use for -x, -only, and -m
+  bool x_flag, only_flag, m_flag; // flags whethere -x, -only, and -m are used
+  int range[2];       // -n; used with 1 & Count.Molecules if no -n
+} AGG_PICKER; //}}}
 // structures for file names and types //{{{
 typedef struct file_type {
   char name[LINE];
@@ -188,4 +194,15 @@ typedef struct Aggregate { //{{{
 } AGGREGATE;
 void InitAggregate(SYSTEM System, AGGREGATE **Aggregate);
 void ReInitAggregate(SYSTEM System, AGGREGATE *Aggregate); //}}}
+// free structures
+void FreeAggPicker(AGG_PICKER *opt);
+void FreeSystem(SYSTEM *System);
+void FreeMoleculeType(MOLECULETYPE *MoleculeType);
+void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType);
+void FreeAggregate(COUNT Count, AGGREGATE *Aggregate);
+// realloc some System.*{,Coor} arrays
+void ReallocBead(SYSTEM *System);
+void ReallocBonded(SYSTEM *System);
+void ReallocUnbonded(SYSTEM *System);
+void ReallocMolecule(SYSTEM *System);
 #endif

@@ -70,16 +70,4 @@ void ChangeBoxByLow(SYSTEM *System, int sign);
 
 void SortAggStruct(AGGREGATE *Aggregate, SYSTEM System);
 void FillAggregateBeads(AGGREGATE *Aggregate, SYSTEM System);
-
-// memory-freeing functions
-void FreeSystem(SYSTEM *System);
-void FreeMoleculeType(MOLECULETYPE *MoleculeType);
-void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType);
-void FreeAggregate(COUNT Count, AGGREGATE *Aggregate);
-
-// realloc some System.*{,Coor} arrays
-void ReallocBead(SYSTEM *System);
-void ReallocBonded(SYSTEM *System);
-void ReallocUnbonded(SYSTEM *System);
-void ReallocMolecule(SYSTEM *System);
 #endif

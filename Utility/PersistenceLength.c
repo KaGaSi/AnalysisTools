@@ -333,9 +333,8 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // write data to ouptut file //{{{
-  PrintByline(fout, argc, argv);
   // print first lines of output file //{{{
-  FILE *fw = OpenFile(fout, "a");
+  FILE *fw = PrintBylineOpenFile(fout, argc, argv);
   fprintf(fw, "# for each molecule type: bond correlation; ");
   fprintf(fw, "angle r_1,2 and r_1,N multiplied by r_1,N distance; ");
   fprintf(fw, "angle r_1,2 and r_N-1,N; ");

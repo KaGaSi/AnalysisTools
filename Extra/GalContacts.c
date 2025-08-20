@@ -263,8 +263,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // print initial stuff to output file //{{{
-  PrintByline(fout, argc, argv);
-  FILE *fw = OpenFile(fout, "a");
+  FILE *fw = PrintBylineOpenFile(fout, argc, argv);
   column = 1;
   fprintf(fw, "# (%d) step\n", column++);
   for (int i = 0; i < Count->MoleculeType; i++) {

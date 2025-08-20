@@ -391,8 +391,7 @@ int main(int argc, char *argv[]) {
 
   // write initial stuff to the per-timestep area //{{{
   if (opt->area_file[0] != '\0') {
-    PrintByline(opt->area_file, argc, argv);
-    FILE *out = OpenFile(opt->area_file, "a");
+    FILE *out = PrintBylineOpenFile(opt->area_file, argc, argv);
     count = 1;
     fprintf(out, "# (%d) timestep", count++);
     fprintf(out, "; (%d) surface 1", count++);
@@ -402,8 +401,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   if (opt->width_avg[0] != '\0') {
-    PrintByline(opt->width_avg, argc, argv);
-    FILE *fout = OpenFile(opt->width_avg, "a");
+    FILE *fout = PrintBylineOpenFile(opt->width_avg, argc, argv);
     fprintf(fout, "# (1) step; (2) thickness\n");
     fclose(fout);
   }
@@ -709,9 +707,8 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // write surface to output file //{{{
-  PrintByline(file_surf, argc, argv);
   // print legend
-  FILE *out = OpenFile(file_surf, "a");
+  FILE *out = PrintBylineOpenFile(file_surf, argc, argv);
   char a[3] = {'x', 'y', 'z'};
   fprintf(out, "# (1) %c coordinate; (2) %c coordinate;", a[map[0]], a[map[1]]);
   fprintf(out, " (3) surface 1; (4) surface 2; (5) average surface\n");
@@ -842,8 +839,7 @@ int main(int argc, char *argv[]) {
       }
     }
     // write data to the file
-    PrintByline(opt->width_distr, argc, argv);
-    out = OpenFile(opt->width_distr, "a");
+    out = PrintBylineOpenFile(opt->width_distr, argc, argv);
     fprintf(out, "# (1) distance; (2) distribution\n");
     // for (int i = min; i < max; i++) {
     for (int i = 0; i < distr_bins; i++) {

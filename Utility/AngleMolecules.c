@@ -377,9 +377,8 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // write distribution of angles //{{{
-  PrintByline(fout, argc, argv);
   // print first line of output file - molecule names and beadtype trios //{{{
-  FILE *fw = OpenFile(fout, "a");
+  FILE *fw = PrintBylineOpenFile(fout, argc, argv);
   fprintf(fw, "# (1) angle\n");
   count = 1;
   for (int i = 0; i < Count->MoleculeType; i++) {
@@ -519,8 +518,7 @@ int main(int argc, char *argv[]) {
         }
       }
     } //}}}
-    PrintByline(opt->n_file, argc, argv);
-    fw = OpenFile(opt->n_file, "a");
+    fw = PrintBylineOpenFile(opt->n_file, argc, argv);
     // print molecule names and ids with column numbers //{{{
     fprintf(fw, "# (1) angle\n");
     count = 1;

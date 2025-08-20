@@ -67,10 +67,7 @@ void ComputeBOOP(SYSTEM System, int n,
       err_msg("Huh? Not enough neighbours! Should never happen!!");
       PrintError();
     }
-    printf(" %lf", min_dist[i]);
   }
-  putchar('\n');
-
 
   // calculate boop
   double q_real[n_sym];
@@ -279,8 +276,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  PrintByline(fout, argc, argv);
-  FILE *fw = OpenFile(fout, "a");
+  FILE *fw = PrintBylineOpenFile(fout, argc, argv);
   // print header
   count = 1;
   fprintf(fw, "# (%d) boop; symmetry:", count++);

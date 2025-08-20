@@ -47,7 +47,7 @@ struct comp {
   char f[LINE];  // filename
 };
 struct OPT {
-  AGG_CHOICE agg;  // -x, -only, -m, and -n arrays
+  AGG_PICKER agg;  // -x, -only, -m, and -n arrays
   struct comp comp;       // -c
   COMMON_OPT c;
 };
@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
 
-  AggChoiceOptions(argc, argv, &opt->agg, System);
+  AggPickerOptions(argc, argv, &opt->agg, System);
 
   AGGREGATE *Aggregate = NULL;
   InitAggregate(System, &Aggregate);
@@ -167,8 +167,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // print the first lines to output file with per-step averages //{{{
-  PrintByline(out_avg, argc, argv);
-  FILE *fw = OpenFile(out_avg, "a");
+  FILE *fw = PrintBylineOpenFile(out_avg, argc, argv);
   count = 1;
   fprintf(fw, "# Column: ");
   fprintf(fw, "(%d) step, ", count++);
@@ -389,8 +388,7 @@ int main(int argc, char *argv[]) {
   //}}}
 
   // print distributions to output file //{{{
-  PrintByline(out_distr, argc, argv);
-  fw = OpenFile(out_distr, "a");
+  fw = PrintBylineOpenFile(out_distr, argc, argv);
   // headers //{{{
   count = 1;
   fprintf(fw, "# column: ");
@@ -541,8 +539,7 @@ int main(int argc, char *argv[]) {
                    opt->comp.f, opt->comp.size[i]) < 0) {
         ErrorSnprintf();
       }
-      PrintByline(file, argc, argv);
-      fw = OpenFile(file, "a");
+      fw = PrintBylineOpenFile(file, argc, argv);
       // print header
       fprintf(fw, "# total number of aggregates with size %d: %ld\n",
               opt->comp.size[i], comp_agg_count[i]);
@@ -588,8 +585,7 @@ int main(int argc, char *argv[]) {
                    opt->comp.f, opt->comp.size[i]) < 0) {
         ErrorSnprintf();
       }
-      PrintByline(file, argc, argv);
-      fw = OpenFile(file, "a");
+      fw = PrintBylineOpenFile(file, argc, argv);
       // print header
       fprintf(fw, "# total number of aggregates with size %d: %ld\n",
               opt->comp.size[i], comp_agg_count[i]);
@@ -679,9 +675,7 @@ int main(int argc, char *argv[]) {
     free(molecules_sum[i]);
   }
   free(molecules_sum);
-  free(opt->agg.m);
-  free(opt->agg.only);
-  free(opt->agg.x);
+  FreeAggPicker(&opt->agg);
   if (opt->comp.count > 0) {
     for (int i = 0; i < opt->comp.count; i++) {
       for (int j = 0; j < Count->MoleculeType; j++) {

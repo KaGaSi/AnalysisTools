@@ -207,8 +207,7 @@ int main(int argc, char *argv[]) {
   //}}}
 
   // print initial stuff to output file //{{{
-  PrintByline(fout, argc, argv);
-  FILE *fw = OpenFile(fout, "a");
+  FILE *fw = PrintBylineOpenFile(fout, argc, argv);
   count = 1;
   fprintf(fw, "# (%d) step\n", count++);
   for (int i = 0; i < Count->MoleculeType; i++) {

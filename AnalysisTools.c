@@ -1,12 +1,4 @@
 #include "AnalysisTools.h"
-#include "Errors.h"
-#include "General.h"
-#include "ReadWrite.h"
-#include <gsl/gsl_matrix_double.h>
-#include <gsl/gsl_poly.h> // solve cubic equation
-#include <gsl/gsl_eigen.h>  // Jacobi method
-#include <gsl/gsl_matrix.h> //
-#include <gsl/gsl_vector.h> //
 
 // TODO: consider BeadType[].Index, System.Bonded, etc. arrays - shouldn't they
 //       be filled based on whether the beads are in the timestep? Plus a
@@ -659,11 +651,6 @@ int SelectCell2(const int c1[3], const int n_cells[3],
 // calculate gyration tensor and various shape descriptors //{{{
 void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]) {
   // gyration tensor (3x3 array)
-  // use long double to ensure precision -- previous problem with truncation in
-  // short chains
-  // struct Tensor {
-  //   LONGVECTOR x, y, z;
-  // } GyrationTensor = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
   long double GyrationTensor[3][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
 
   double cog[3];

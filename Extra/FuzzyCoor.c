@@ -119,15 +119,7 @@ int main(int argc, char *argv[]) {
   // seed random number generator
   srand(time(0));
 
-  // print initial stuff to output coordinate file //{{{
-  if (fout.type == VCF_FILE) {
-    PrintByline(fout.name, argc, argv);
-  } else if (fout.type == VTF_FILE) {
-    WriteStructure(fout, System, -1, false, argc, argv);
-  } else { // ensure it's a new file
-    FILE *out = OpenFile(fout.name, "w");
-    fclose(out);
-  } //}}}
+  InitOutputCoorFile(fout, System, argc, argv);
 
   // main loop //{{{
   FILE *fr = OpenFile(in.coor.name, "r");

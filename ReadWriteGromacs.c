@@ -1,11 +1,4 @@
-#include "AnalysisTools.h"
 #include "ReadWriteGromacs.h"
-#include "Errors.h"
-#include "General.h"
-#include "Globals.h"
-#include "ReadWrite.h"
-#include "Structs.h"
-#include "System.h"
 
 static bool CountLineReadLine(int *line_count, FILE *fr,
                               const char *file, char *msg);

@@ -1,8 +1,4 @@
 #include "ReadWriteField.h"
-#include "Errors.h"
-#include "General.h"
-#include "ReadWrite.h"
-#include "Structs.h"
 
 // reads the 'species' section
 static void FieldReadSpecies(const char *file, SYSTEM *System);

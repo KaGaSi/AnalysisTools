@@ -1,3 +1,4 @@
+#include "AnalysisTools.h"
 #include "ReadWrite.h"
 #include "General.h"
 #include "ReadWriteVtf.h"
@@ -7,10 +8,6 @@
 #include "ReadWriteField.h"
 #include "ReadWriteConfig.h"
 #include "ReadWriteGromacs.h"
-#include "AnalysisTools.h"
-#include "Errors.h"
-#include "Structs.h"
-#include "System.h"
 
 static void CopyAndFreeStuff(const int n, int (**old)[5], int (**new)[5]);
 static void CopyAndFreeAllStuff(MOLECULETYPE *mt_old, MOLECULETYPE *mt_new);
@@ -685,7 +682,6 @@ void WriteAggregates(const int step_count, const char *agg_file,
   fclose(fw);
 } //}}}
 
-// verbose output (print various structures and some such)
 void VerboseOutput(const SYSTEM System) { //{{{
   PrintCount(System.Count);
   PrintBeadType(System);
@@ -1160,6 +1156,11 @@ void PrintByline(const char *file, const int argc, char **argv) { //{{{
   fprintf(fw, "# Command: ");
   PrintCommand(fw, argc, argv);
   fclose(fw);
+} //}}}
+FILE * PrintBylineOpenFile(const char *f, const int argc, char **argv) { //{{{
+  PrintByline(f, argc, argv);
+  FILE *ptr = OpenFile(f, "a");
+  return ptr;
 } //}}}
 void PrintStep(int *count_coor, const int start, const bool silent) { //{{{
   (*count_coor)++;
