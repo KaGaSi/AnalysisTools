@@ -35,6 +35,8 @@
 \usepackage[czech,english]{babel}
 % commands (such as \textcolor) in verbatim
 \usepackage[strings]{underscore}
+% \xspace command for macros
+\usepackage{xspace}
 % custom colours
 \usepackage{xcolor}
 % custom headers and footers -- replaces fancyhdr
@@ -66,6 +68,34 @@
 % clickable links -- hyperref should be the last package listed
 \usepackage{hyperref}
 \usepackage[nameinlink]{cleveref} %}}}
+
+% Declare normal macros to hold title/author for both printing and metadata
+\newcommand{\mytitle}{AnalysisTools User Manual}
+\newcommand{\myauthor}{RNDr. Karel Šindelka, Ph.D.}
+\newcommand{\myemail}{k.sindelka@gmail.com}
+\newcommand{\mydate}{\today}
+
+% % custom title %{{{
+\renewcommand{\maketitle}{%
+  \begin{titlepage}
+    \centering
+    \vspace*{\fill}
+    {\Huge \bfseries \mytitle \par}
+    \vskip 2em
+    {\Large
+      \lineskip .5em
+      \begin{tabular}[t]{c}\myauthor\end{tabular}\par
+    }
+    {\large \myemail}
+    \vskip 1.5em
+    {\Large Version 4.x (\mydate) \par}
+    \vspace*{\fill}
+  \end{titlepage}%
+} %}}}
+
+\title{\mytitle}
+\author{\myauthor}
+\date{\mydate}
 
 \usetikzlibrary{calc}
 
@@ -125,7 +155,6 @@
           {\thepage}% even-center
           {}% even-right
         } %}}}
-\hypersetup{colorlinks, linkcolor={dark-red}, citecolor={dark-green}}
 % chapter headers without too much white space %{{{
 \makeatletter
 \def\@makechapterhead#1{
@@ -162,17 +191,17 @@
 \newcommand*{\fullref}[1]{\nameref*{#1} (\hyperref[{#1}]{\autoref*{#1}})}
 % some keywords
 \let\tt\useless
-\newcommand{\tt}{\texttt}
-\newcommand{\vcf}{\texttt{vcf} }
-\newcommand{\vsf}{\texttt{vsf} }
-\newcommand{\vscf}{\texttt{vsf/vcf} }
-\newcommand{\vtsf}{\texttt{vtf/vsf} }
-\newcommand{\vtcf}{\texttt{vtf/vcf} }
-\newcommand{\vtf}{\texttt{vtf} }
-\newcommand{\xyz}{\texttt{xyz} }
-\newcommand{\field}{\texttt{FIELD} }
-\newcommand{\data}{\texttt{data} }
-\newcommand{\ltrj}{\texttt{lammpstrj} }
+\newcommand{\tt}[1]{\texttt{\detokenize{#1}}\xspace}
+\newcommand{\vcf}{\tt{vcf}}
+\newcommand{\vsf}{\tt{vsf}}
+\newcommand{\vscf}{\tt{vsf/vcf}}
+\newcommand{\vtsf}{\tt{vtf/vsf}}
+\newcommand{\vtcf}{\tt{vtf/vcf}}
+\newcommand{\vtf}{\tt{vtf}}
+\newcommand{\xyz}{\tt{xyz}}
+\newcommand{\field}{\tt{FIELD}}
+\newcommand{\data}{\tt{data}}
+\newcommand{\ltrj}{\tt{lammpstrj}}
 \newcommand{\ttb}[1]{\textcolor{blue}{\texttt{#1}}}
 \newcommand{\note}[1]{\vspace{-1em}\noindent\footnotesize{#1}}
 % yellow highlighting
@@ -227,33 +256,46 @@
 \setitemize[3]{label=$\circ$}
 \setitemize{leftmargin=*, noitemsep}
 
-\begin{document}
+% metadata
+\hypersetup{
+  pdftitle={\mytitle},
+  pdfauthor={\myauthor},
+  pdfdisplaydoctitle=true,
+  % pdfsubject={Test Document},
+  % pdfkeywords={latex, metadata, test}
+  colorlinks,
+  linkcolor={dark-red},
+  citecolor={dark-green}
+}
 
+\begin{document}
 % some better(?) word splitting settings %{{{
 \lefthyphenmin=2
 \righthyphenmin=2 %}}}
 
-\begin{center}
-\thispagestyle{empty}
-\textcolor{white}{.}
-\vfill
-\vfill
-\vfill
-{\Huge\bf AnalysisTools user manual}
-\vfill
-{\Large RNDr. Karel Šindelka, Ph.D.}
+\maketitle
 
-{\small k.sindelka@gmail.com}
-\vspace{10pt}
-
-\vfill
-Version 4.0 (Released \sout{August 18, 2020,} at some point, it will be...)
-\vfill
-\vfill
-\vfill
-\vfill
-\vfill
-\end{center}
+% \begin{center}
+% \thispagestyle{empty}
+% \textcolor{white}{.}
+% \vfill
+% \vfill
+% \vfill
+% {\Huge\bf AnalysisTools user manual}
+% \vfill
+% {\Large RNDr. Karel Šindelka, Ph.D.}
+%
+% {\small k.sindelka@gmail.com}
+% \vspace{10pt}
+%
+% \vfill
+% Version 4.0 (Released \sout{August 18, 2020,} at some point, it will be...)
+% \vfill
+% \vfill
+% \vfill
+% \vfill
+% \vfill
+% \end{center}
 \tableofcontents
 \setcounter{page}{1}
 \thispagestyle{empty}
