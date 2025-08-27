@@ -2617,7 +2617,7 @@ void ChangeBoxByLow(SYSTEM *System, int sign) {
   for (int i = 0; i < System->Count.BeadCoor; i++) {
     int id = System->BeadCoor[i];
     for (int dd = 0; dd < 3; dd++) {
-      System->Bead[id].Position[dd] += sign * System->Box.Low[dd];
+      System->Bead[id].Position.v[dd] += sign * System->Box.Low[dd];
     }
   }
 } //}}}

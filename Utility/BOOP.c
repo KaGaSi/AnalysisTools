@@ -297,9 +297,9 @@ int main(int argc, char *argv[]) {
                                    sizeof *particles);
       for (int i = 0; i < Aggregate[largest[1]].nBeads; i++) {
         int id = Aggregate[largest[1]].Bead[i];
-        particles[i].x = System.Bead[id].Position[0];
-        particles[i].y = System.Bead[id].Position[1];
-        particles[i].z = System.Bead[id].Position[2];
+        particles[i].x = System.Bead[id].Position.v[0];
+        particles[i].y = System.Bead[id].Position.v[1];
+        particles[i].z = System.Bead[id].Position.v[2];
       }
 
       double q4 = compute_q_l(particles, Aggregate[largest[1]].nBeads, 4);

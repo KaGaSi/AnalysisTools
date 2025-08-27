@@ -105,12 +105,11 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
                     System->BeadType[b_j->Type].Flag &&
                     b_i->Type != b_j->Type) { // the NotSameBeads bit
                   // calculate distance between i and j beads
-                  double rij[3];
-                  Distance(b_i->Position, b_j->Position,
-                           System->Box.Length, rij);
-                  rij[0] = Square(rij[0]) + Square(rij[1]) + Square(rij[2]);
+                  vec3 rij = Distance(b_i->Position.v, b_j->Position.v,
+                                      System->Box.Length);
+                  rij.v[0] = SqVectLength(rij);
                   // are 'i' and 'j' close enough?
-                  if (mol_i != mol_j && rij[0] <= sqdist) {
+                  if (mol_i != mol_j && rij.v[0] <= sqdist) {
                     if (mol_i > mol_j) {
                       contact[mol_i][mol_j]++;
                     } else {
@@ -352,7 +351,7 @@ int main(int argc, char *argv[]) {
               BEAD *b = &System.Bead[mol->Bead[k]];
               if (System.BeadType[b->Type].Flag) {
                 for (int l = 0; l < opt->w_count; l++) {
-                  double dist = b->Position[opt->axis] - opt->wall[l];
+                  double dist = b->Position.v[opt->axis] - opt->wall[l];
                   if (fabs(dist) < opt->cutoff) {
                     Aggregate[i].Flag = true; // aggregate i is touching a wall
                     goto next;

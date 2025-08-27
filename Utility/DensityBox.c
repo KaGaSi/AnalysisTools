@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
         if (use) {
           n_beads[bead->Type] = true;
           for (int dd = 0; dd < 3; dd++) {
-            int j = bead->Position[dd] / width;
+            int j = bead->Position.v[dd] / width;
             temp_rho[dd][bead->Type][j]++;
           }
         }

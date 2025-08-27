@@ -1,6 +1,11 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
+// 3D vector structure
+typedef struct {
+  double v[3];
+} vec3;
+
 extern const double PI;
 
 // maximum splits and string lengths

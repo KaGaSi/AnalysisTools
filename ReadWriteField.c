@@ -139,9 +139,9 @@ void WriteField(const SYSTEM System, const char *file_field,
     for (int j = 0; j < mt_i->nBeads; j++) {
       int id = System.Molecule[mol].Bead[j];
       int bt = mt_i->Bead[j];
-      double (*pos)[3] = &System.Bead[id].Position;
+      vec3 *pos = &System.Bead[id].Position;
       fprintf(fw, "%16s %8.5f %8.5f %8.5f\n", System.BeadType[bt].Name,
-              (*pos)[0], (*pos)[1], (*pos)[2]);
+              pos->v[0], pos->v[1], pos->v[2]);
     }
     // bonds (if present)
     if (mt_i->nBonds > 0) {
@@ -389,7 +389,7 @@ static void FieldReadMolecules(const char *file, SYSTEM *System) { //{{{
           bead->Type = mt_i->Bead[k];
           bead->Molecule = mol_count;
           for (int dd = 0; dd < 3; dd++) {
-            bead->Position[dd] = coor[k][dd];
+            bead->Position.v[dd] = coor[k][dd];
           }
           System->BeadType[bead->Type].Number++;
           System->Bonded[count-Count->Unbonded] = count;

@@ -454,15 +454,15 @@ static int LtrjReadCoorLine(FILE *fr, BEAD *b, int b_count,
   InitBead(b);
   long id;
   if (words < cols || !IsWholeNumber(split[var[0]], &id) || id > b_count ||
-      (var[ 2] != -1 && !IsRealNumber(split[var[ 2]], &b->Position[0])) ||
-      (var[ 3] != -1 && !IsRealNumber(split[var[ 3]], &b->Position[1])) ||
-      (var[ 4] != -1 && !IsRealNumber(split[var[ 4]], &b->Position[2])) ||
-      (var[ 5] != -1 && !IsRealNumber(split[var[ 5]], &b->Velocity[0])) ||
-      (var[ 6] != -1 && !IsRealNumber(split[var[ 6]], &b->Velocity[1])) ||
-      (var[ 7] != -1 && !IsRealNumber(split[var[ 7]], &b->Velocity[2])) ||
-      (var[ 8] != -1 && !IsRealNumber(split[var[ 8]], &b->Force[0])) ||
-      (var[ 9] != -1 && !IsRealNumber(split[var[ 9]], &b->Force[1])) ||
-      (var[10] != -1 && !IsRealNumber(split[var[10]], &b->Force[2]))) {
+      (var[ 2] != -1 && !IsRealNumber(split[var[ 2]], &b->Position.v[0])) ||
+      (var[ 3] != -1 && !IsRealNumber(split[var[ 3]], &b->Position.v[1])) ||
+      (var[ 4] != -1 && !IsRealNumber(split[var[ 4]], &b->Position.v[2])) ||
+      (var[ 5] != -1 && !IsRealNumber(split[var[ 5]], &b->Velocity.v[0])) ||
+      (var[ 6] != -1 && !IsRealNumber(split[var[ 6]], &b->Velocity.v[1])) ||
+      (var[ 7] != -1 && !IsRealNumber(split[var[ 7]], &b->Velocity.v[2])) ||
+      (var[ 8] != -1 && !IsRealNumber(split[var[ 8]], &b->Force.v[0])) ||
+      (var[ 9] != -1 && !IsRealNumber(split[var[ 9]], &b->Force.v[1])) ||
+      (var[10] != -1 && !IsRealNumber(split[var[10]], &b->Force.v[2]))) {
     return -1;
   }
   b->Type = id; // this will then be used to assign proper type to this bead
@@ -490,9 +490,9 @@ static void LtrjFillAtomVariables(char var[max_var][10]) { //{{{
 } //}}}
 static void AssignPosVelForce(const BEAD in, BEAD *b) { //{{{
   for (int dd = 0; dd < 3; dd++) {
-    b->Position[dd] = in.Position[dd];
-    b->Velocity[dd] = in.Velocity[dd];
-    b->Force[dd] = in.Force[dd];
+    b->Position.v[dd] = in.Position.v[dd];
+    b->Velocity.v[dd] = in.Velocity.v[dd];
+    b->Force.v[dd] = in.Force.v[dd];
   }
   for (int dd = 0; dd < 6; dd++) {
     b->Extra[dd] = in.Extra[dd];
@@ -512,14 +512,14 @@ void LtrjWriteCoor(FILE *fw, const int step,
     BEAD *b = &System.Bead[id];
     if (write[id]) {
       count_write++;
-      if (b->Velocity[0] != 0 ||
-          b->Velocity[1] != 0 ||
-          b->Velocity[2] != 0) {
+      if (b->Velocity.v[0] != 0 ||
+          b->Velocity.v[1] != 0 ||
+          b->Velocity.v[2] != 0) {
         vel = true;
       }
-      if (b->Force[0] != 0 ||
-          b->Force[1] != 0 ||
-          b->Force[2] != 0) {
+      if (b->Force.v[0] != 0 ||
+          b->Force.v[1] != 0 ||
+          b->Force.v[2] != 0) {
         force = true;
       }
     }
@@ -566,17 +566,17 @@ void LtrjWriteCoor(FILE *fw, const int step,
         int type = b->Type;
         fprintf(fw, "%8d %8s %8.4f %8.4f %8.4f", id + 1,
                 System.BeadType[type].Name,
-                b->Position[0]+box->Low[0],
-                b->Position[1]+box->Low[1],
-                b->Position[2]+box->Low[2]);
+                b->Position.v[0]+box->Low[0],
+                b->Position.v[1]+box->Low[1],
+                b->Position.v[2]+box->Low[2]);
         if (vel) {
           for (int dd = 0; dd < 3; dd++) {
-          fprintf(fw, " %8.4f", b->Velocity[dd]);
+          fprintf(fw, " %8.4f", b->Velocity.v[dd]);
           }
         }
         if (force) {
           for (int dd = 0; dd < 3; dd++) {
-            fprintf(fw, " %8.4f", b->Force[dd]);
+            fprintf(fw, " %8.4f", b->Force.v[dd]);
           }
         }
         if (extra) {

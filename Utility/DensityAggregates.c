@@ -270,12 +270,11 @@ int main(int argc, char *argv[]) {
             // int mol = System.Bead[bead].Molecule;
             // int moltype = System.Molecule[mol].Type;
             // if (System.MoleculeType[moltype].Flag) {
-              double dist[3];
-              Distance(System.Bead[bead].Position, com, box, dist);
-              dist[0] = VectLength(dist);
+              vec3 dist = Distance(System.Bead[bead].Position.v, com, box);
+              dist.v[0] = VectLength(dist);
 
-              if (dist[0] < max_dist) {
-                int k = dist[0] / width;
+              if (dist.v[0] < max_dist) {
+                int k = dist.v[0] / width;
 
                 temp_rho[System.Bead[Aggregate[i].Bead[j]].Type][correct_size][k]++;
               }
@@ -285,12 +284,11 @@ int main(int argc, char *argv[]) {
           // monomeric beads //{{{
           for (int j = 0; j < Count->Unbonded; j++) {
             int id = System.Unbonded[j];
-            double dist[3];
-            Distance(System.Bead[id].Position, com, box, dist);
-            dist[0] = VectLength(dist);
+            vec3 dist = Distance(System.Bead[id].Position.v, com, box);
+            dist.v[0] = VectLength(dist);
 
-            if (dist[0] < max_dist) {
-              int k = dist[0] / width;
+            if (dist.v[0] < max_dist) {
+              int k = dist.v[0] / width;
               temp_rho[System.Bead[id].Type][correct_size][k]++;
             }
           } //}}}

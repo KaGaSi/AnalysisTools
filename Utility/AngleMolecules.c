@@ -228,19 +228,10 @@ int main(int argc, char *argv[]) {
             BEAD *b_1 = &System.Bead[id1],
                  *b_2 = &System.Bead[id2],
                  *b_3 = &System.Bead[id3];
-            // two vectors to calculate the angle for
-            double u[3], v[3];
-            for (int dd = 0; dd < 3; dd++) {
-              u[dd] = b_1->Position[dd] - b_2->Position[dd];
-              v[dd] = b_3->Position[dd] - b_2->Position[dd];
-            }
-            // calculate angle between the two vectors
-            double size[2];
-            size[0] = VectLength(u);
-            size[1] = VectLength(v);
-            double scalar = u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
-            double angle = acos(scalar / (size[0] * size[1])); // in rad
-            angle *= 180 / PI; // in degrees
+            // calculate angle between the two vectors in degrees
+            vec3 u = Vector(b_1->Position, b_2->Position);
+            vec3 v = Vector(b_3->Position, b_2->Position);
+            double angle = AngleDegrees(u, v);
             // btype1 must be lower than btype3
             int *id_lo, *id_hi;
             if (b_1->Type < b_3->Type) {
@@ -298,19 +289,10 @@ int main(int argc, char *argv[]) {
               BEAD *b_1 = &System.Bead[id1],
                    *b_2 = &System.Bead[id2],
                    *b_3 = &System.Bead[id3];
-              // two vectors to calculate the angle for
-              double u[3], v[3];
-              for (int dd = 0; dd < 3; dd++) {
-                u[dd] = b_1->Position[dd] - b_2->Position[dd];
-                v[dd] = b_3->Position[dd] - b_2->Position[dd];
-              }
-              // calculate angle between the two vectors
-              double size[2];
-              size[0] = VectLength(u);
-              size[1] = VectLength(v);
-              double scalar = u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
-              double angle = acos(scalar / (size[0] * size[1])); // in rad
-              angle *= 180 / PI; // in degrees
+              // calculate angle between the two vectors in degrees
+              vec3 u = Vector(b_1->Position, b_2->Position);
+              vec3 v = Vector(b_3->Position, b_2->Position);
+              double angle = AngleDegrees(u, v);
               // mins & maxes & averages //{{{
               if (angle < ang_n_mma[mol_i->Type][j/n_per_set][0]) {
                 ang_n_mma[mol_i->Type][j/n_per_set][0] = angle;

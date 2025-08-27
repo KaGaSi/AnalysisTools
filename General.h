@@ -120,9 +120,9 @@ void PrintCommand(FILE *ptr, const int argc, char **argv);
 // wrapper around fopen
 FILE * OpenFile(const char *file, char *mode);
 // initialize arrays to specified value
-void InitDoubleArray (double *array, const int n, const double val);
-void InitIntArray (int *array, const int n, const int val);
-void InitBoolArray (bool *array, const int n, const bool val);
+void InitDoubleArray (double *arr, const int n, const double val);
+void InitIntArray (int *arr, const int n, const int val);
+void InitBoolArray (bool *arr, const int n, const bool val);
 void InitLong2DArray (long **arr, const int m, const int n, const long val);
 void InitDouble2DArray (double *arr, const int m, const int n,
                         const double val);
@@ -137,5 +137,7 @@ void * s_realloc(void *ptr, size_t new_size);
 void FillMaxDigits(const int columns, const int n,
                    double *data[n], int (*digits)[2]);
 void Fprintf1(FILE *f, const double value, const int digits[2]);
+void FprintfRow(FILE *fw, int columns,
+                const double value[columns], const int digits[columns][2]);
 
 #endif

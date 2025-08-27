@@ -142,7 +142,7 @@ static void ReducedWrite(SYSTEM *Sys, const SYSTEM System,
       continue;
     }
     for (int dd = 0; dd < 3; dd++) {
-      Sys->Bead[id_new].Position[dd] = System.Bead[id_orig].Position[dd];
+      Sys->Bead[id_new].Position.v[dd] = System.Bead[id_orig].Position.v[dd];
     }
     Sys->BeadCoor[Sys->Count.BeadCoor] = id_new;
     Sys->Box = System.Box;
@@ -169,7 +169,7 @@ static void ScaleCoordinates(SYSTEM *System, const double scale) { //{{{
     for (int i = 0; i < System->Count.BeadCoor; i++) {
       int id = System->BeadCoor[i];
       for (int dd = 0; dd < 3; dd++) {
-        System->Bead[id].Position[dd] /= scale;
+        System->Bead[id].Position.v[dd] /= scale;
       }
     }
     for (int dd = 0; dd < 3; dd++) {
@@ -183,7 +183,7 @@ static void MoveCoordinates(SYSTEM *System, const double move[3]) { //{{{
     for (int i = 0; i < System->Count.BeadCoor; i++) {
       int id = System->BeadCoor[i];
       for (int dd = 0; dd < 3; dd++) {
-        System->Bead[id].Position[dd] += move[dd];
+        System->Bead[id].Position.v[dd] += move[dd];
       }
     }
   }
@@ -224,11 +224,11 @@ static void ConstrainCoordinates(SYSTEM *System, const OPT opt,
       continue;
     }
     // check -cx/-cy/-cz constraint
-    double (*pos)[3] = &System->Bead[id].Position;
+    vec3 *pos = &System->Bead[id].Position;
     bool save[3] = {init[0], init[1], init[2]};
     for (int dd = 0; dd < 3; dd++) {
       for (int j = 0; j < opt.ca_count[dd]; j+=2) {
-        if ((*pos)[dd] >= con[dd][j] && (*pos)[dd] <= con[dd][j+1]) {
+        if (pos->v[dd] >= con[dd][j] && pos->v[dd] <= con[dd][j+1]) {
           save[dd] = true;
           break;
         }

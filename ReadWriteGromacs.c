@@ -162,7 +162,7 @@ SYSTEM PdbReadStruct(const char *file) { //{{{
     bt->Number++;
     b->Molecule = m_id;
     for (int dd = 0; dd < 3; dd++) {
-      b->Position[dd] = coor[dd];
+      b->Position.v[dd] = coor[dd];
     }
     b->InTimestep = true;
     b->Type = bt_id;

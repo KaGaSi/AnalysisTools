@@ -188,9 +188,9 @@ int main(int argc, char *argv[]) {
   // move the beads of the second system //{{{
   for (int i = 0; i < Sys[1].Count.Bead; i++) {
     int id = Sys[1].BeadCoor[i];
-    Sys[1].Bead[id].Position[0] += opt->off[0];
-    Sys[1].Bead[id].Position[1] += opt->off[1];
-    Sys[1].Bead[id].Position[2] += opt->off[2];
+    Sys[1].Bead[id].Position.v[0] += opt->off[0];
+    Sys[1].Bead[id].Position.v[1] += opt->off[1];
+    Sys[1].Bead[id].Position.v[2] += opt->off[2];
   } //}}}
 
   // create output system(s) //{{{

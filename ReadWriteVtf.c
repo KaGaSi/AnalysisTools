@@ -712,7 +712,7 @@ static int VtfReadCoorBlockIndexed(FILE *fr, const char *file,
     }
     bead_id->InTimestep = true;
     for (int dd = 0; dd < 3; dd++) {
-      bead_id->Position[dd] = coordinate[dd];
+      bead_id->Position.v[dd] = coordinate[dd];
     }
     double vel[3];
     if (words >= 7 &&
@@ -720,10 +720,10 @@ static int VtfReadCoorBlockIndexed(FILE *fr, const char *file,
         IsRealNumber(split[5], &vel[1]) &&
         IsRealNumber(split[6], &vel[2])) {
       for (int dd = 0; dd < 3; dd++) {
-        bead_id->Velocity[dd] = vel[dd];
+        bead_id->Velocity.v[dd] = vel[dd];
       }
     } else {
-      bead_id->Velocity[0] = 0;
+      bead_id->Velocity.v[0] = 0;
     }
     System->BeadCoor[Count->BeadCoor] = id;
     Count->BeadCoor++;
@@ -767,7 +767,7 @@ static int VtfReadCoorBlockOrdered(FILE *fr, const char *file,
     }
     BEAD *bead_i = &System->Bead[i];
     for (int dd = 0; dd < 3; dd++) {
-      bead_i->Position[dd] = coor[dd];
+      bead_i->Position.v[dd] = coor[dd];
     }
     double vel[3];
     if (words >= 6 &&
@@ -775,11 +775,11 @@ static int VtfReadCoorBlockOrdered(FILE *fr, const char *file,
         IsRealNumber(split[4], &vel[1]) &&
         IsRealNumber(split[5], &vel[2])) {
       for (int dd = 0; dd < 3; dd++) {
-        bead_i->Velocity[dd] = vel[dd];
+        bead_i->Velocity.v[dd] = vel[dd];
       }
     } else {
       for (int dd = 0; dd < 3; dd++) {
-        bead_i->Velocity[dd] = 0;
+        bead_i->Velocity.v[dd] = 0;
       }
     }
     System->BeadCoor[i] = i;
@@ -937,9 +937,9 @@ void VtfWriteCoorIndexed(FILE *fw, const bool *write, const SYSTEM System) {
     BEAD *bead = &System.Bead[id];
     if (write[id]) {
       none = false;
-      fprintf(fw, "%8d %8.4f %8.4f %8.4f\n", id, bead->Position[0],
-                                                 bead->Position[1],
-                                                 bead->Position[2]);
+      fprintf(fw, "%8d %8.4f %8.4f %8.4f\n", id, bead->Position.v[0],
+                                                 bead->Position.v[1],
+                                                 bead->Position.v[2]);
     }
   }
   if (none) {

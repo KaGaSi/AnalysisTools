@@ -349,9 +349,9 @@ bool ReadTimestep(const SYS_FILES f, FILE *fr,
       if (line == 0 && System->Count.BeadCoor == System->Count.Bead) {
         bool zeroes = true;
         for (int i = 0; i < System->Count.Bead; i++) {
-          if (System->Bead[i].Position[0] != 0 ||
-              System->Bead[i].Position[1] != 0 ||
-              System->Bead[i].Position[2] != 0) {
+          if (System->Bead[i].Position.v[0] != 0 ||
+              System->Bead[i].Position.v[1] != 0 ||
+              System->Bead[i].Position.v[2] != 0) {
             zeroes = false;
             break;
           }

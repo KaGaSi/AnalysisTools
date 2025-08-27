@@ -165,7 +165,7 @@ int LmpDataReadTimestep(FILE *fr, const char *file,
     id--; // in lammps data file, ids start from 1
     BEAD *b = &System->Bead[id];
     for (int dd = 0; dd < 3; dd++) {
-      b->Position[dd] = pos[dd] - System->Box.Low[dd];
+      b->Position.v[dd] = pos[dd] - System->Box.Low[dd];
     }
     System->BeadCoor[i] = id;
   } //}}}
@@ -707,7 +707,7 @@ static void GetBeadVelocity(SYSTEM *System, const char *file,
   } //}}}
   id--;
   for (int dd = 0; dd < 3; dd++) {
-    System->Bead[id].Velocity[dd] = vel[dd];
+    System->Bead[id].Velocity.v[dd] = vel[dd];
   }
 } //}}}
 // read Atoms section //{{{
@@ -730,7 +730,7 @@ static void LmpDataReadAtoms(FILE *fr, const char *file, SYSTEM *System,
     type--; // in lammps data file, bead type ids start from 1
     BEAD *b = &System->Bead[id];
     for (int dd = 0; dd < 3; dd++) {
-      b->Position[dd] = pos[dd];
+      b->Position.v[dd] = pos[dd];
     }
     b->InTimestep = true;
     b->Type = id;
@@ -1260,7 +1260,7 @@ void WriteLmpData(const SYSTEM System, const char *file, const bool mass,
     }
     // coordinates
     for (int dd = 0; dd < 3; dd++) {
-      fprintf(fw, " %15f", bead->Position[dd] + System.Box.Low[dd]);
+      fprintf(fw, " %15f", bead->Position.v[dd] + System.Box.Low[dd]);
     }
     // molecule name
     if (mol != -1) {
@@ -1272,17 +1272,17 @@ void WriteLmpData(const SYSTEM System, const char *file, const bool mass,
   // print velocities (if at least one non-zero) //{{{
   for (int i = 0; i < Count->BeadCoor; i++) {
     int id = System.BeadCoor[i];
-    double (*vel)[3] = &System.Bead[id].Velocity;
-    if (fabs((*vel)[0]) > 1e-5 ||
-        fabs((*vel)[1]) > 1e-5 ||
-        fabs((*vel)[2]) > 1e-5) {
+    vec3 *vel = &System.Bead[id].Velocity;
+    if (fabs(vel->v[0]) > 1e-5 ||
+        fabs(vel->v[1]) > 1e-5 ||
+        fabs(vel->v[2]) > 1e-5) {
       fprintf(fw, "\nVelocities\n\n");
       for (int j = 0; j < Count->BeadCoor; j++) {
         id = System.BeadCoor[j];
         vel = &System.Bead[id].Velocity;
         fprintf(fw, "%7d", id + 1);
         for (int dd = 0; dd < 3; dd++) {
-          fprintf(fw, " %15f", (*vel)[dd]);
+          fprintf(fw, " %15f", vel->v[dd]);
         }
         putc('\n', fw);
       }

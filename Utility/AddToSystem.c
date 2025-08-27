@@ -93,11 +93,10 @@ void RandomCoordinate(BOX box, double random[3]) {
  *   2...specified bead types,
  */
 void GetMinDist(BEAD bead, double random[3], double box[3], double *min_dist) {
-  double dist[3];
-  Distance(bead.Position, random, box, dist);
-  dist[0] = VectLength(dist);
-  if (dist[0] < *min_dist) {
-    *min_dist = dist[0];
+  vec3 dist = Distance(bead.Position.v, random, box);
+  dist.v[0] = VectLength(dist);
+  if (dist.v[0] < *min_dist) {
+    *min_dist = dist.v[0];
   }
 }
 void RandomConstrainedCoor(SYSTEM S_orig, int mode, double box[3],
@@ -177,9 +176,9 @@ void Rotate(SYSTEM System, int number, const int *list,
   // generate the rotated coordinates
   for (int i = 0; i < number; i++) {
     for (int dd = 0; dd < 3; dd++) {
-      new[i][dd] = rot[dd][0] * System.Bead[list[i]].Position[0] +
-                   rot[dd][1] * System.Bead[list[i]].Position[1] +
-                   rot[dd][2] * System.Bead[list[i]].Position[2];
+      new[i][dd] = rot[dd][0] * System.Bead[list[i]].Position.v[0] +
+                   rot[dd][1] * System.Bead[list[i]].Position.v[1] +
+                   rot[dd][2] * System.Bead[list[i]].Position.v[2];
     }
   }
 } //}}}
@@ -483,7 +482,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < C_orig->Bead; i++) {
       int id = S_orig.BeadCoor[i];
       for (int dd = 0; dd < 3; dd++) {
-        S_orig.Bead[id].Position[dd] += opt->off[dd];
+        S_orig.Bead[id].Position.v[dd] += opt->off[dd];
       }
     }
   } //}}}
@@ -495,13 +494,13 @@ int main(int argc, char *argv[]) {
     if (opt->head) {
       int id0 = S_add.Molecule[i].Bead[0];
       for (int dd = 0; dd < 3; dd++) {
-        zero[dd] = S_add.Bead[id0].Position[dd];
+        zero[dd] = S_add.Bead[id0].Position.v[dd];
       }
     } else if (opt->tail) {
       int n = S_add.MoleculeType[S_add.Molecule[i].Type].nBeads;
       int id0 = S_add.Molecule[i].Bead[n-1];
       for (int dd = 0; dd < 3; dd++) {
-        zero[dd] = S_add.Bead[id0].Position[dd];
+        zero[dd] = S_add.Bead[id0].Position.v[dd];
       }
     } else {
       GeomCentre(S_add.MoleculeType[type].nBeads,
@@ -510,7 +509,7 @@ int main(int argc, char *argv[]) {
     for (int j = 0; j < S_add.MoleculeType[type].nBeads; j++) {
       int id = S_add.Molecule[i].Bead[j];
       for (int dd = 0; dd < 3; dd++) {
-        S_add.Bead[id].Position[dd] -= zero[dd];
+        S_add.Bead[id].Position.v[dd] -= zero[dd];
       }
     }
   } //}}}
@@ -587,10 +586,10 @@ int main(int argc, char *argv[]) {
         int id = S_orig.BondedCoor[i];
         BEAD *b = &S_orig.Bead[id];
         for (int dd = 0; dd < 3; dd++) {
-          if (b->Position[dd] < min[dd]) {
-            min[dd] = b->Position[dd];
-          } else if (b->Position[dd] > max[dd]) {
-            max[dd] = b->Position[dd];
+          if (b->Position.v[dd] < min[dd]) {
+            min[dd] = b->Position.v[dd];
+          } else if (b->Position.v[dd] > max[dd]) {
+            max[dd] = b->Position.v[dd];
           }
         }
       }
@@ -602,11 +601,11 @@ int main(int argc, char *argv[]) {
             BEAD *b = &S_orig.Bead[id];
             if (b->InTimestep) {
               for (int dd = 0; dd < 3; dd++) {
-                if (b->Position[dd] < min[dd]) {
-                  min[dd] = b->Position[dd];
+                if (b->Position.v[dd] < min[dd]) {
+                  min[dd] = b->Position.v[dd];
                 }
-                if (b->Position[dd] > max[dd]) {
-                  max[dd] = b->Position[dd];
+                if (b->Position.v[dd] > max[dd]) {
+                  max[dd] = b->Position.v[dd];
                 }
               }
             }
@@ -656,7 +655,7 @@ int main(int argc, char *argv[]) {
     RandomConstrainedCoor(S_orig, mode, S_out.Box.Length, *opt, random);
     int id = C_orig->Bead + i;
     for (int dd = 0; dd < 3; dd++) {
-      S_out.Bead[id].Position[dd] = random[dd];
+      S_out.Bead[id].Position.v[dd] = random[dd];
     }
     // print number of placed beads?
     if (!opt->c.silent && isatty(STDOUT_FILENO)) {
@@ -682,7 +681,7 @@ int main(int argc, char *argv[]) {
       for (int j = 0; j < S_out.MoleculeType[mtype].nBeads; j++) {
         int id_add = S_add.Molecule[i].Bead[j];
         for (int dd = 0; dd < 3; dd++) {
-          rot[j][dd] = S_add.Bead[id_add].Position[dd];
+          rot[j][dd] = S_add.Bead[id_add].Position.v[dd];
         }
       }
     } else {
@@ -694,7 +693,7 @@ int main(int argc, char *argv[]) {
     for (int j = 0; j < S_out.MoleculeType[mtype].nBeads; j++) {
       int id = S_out.Molecule[C_orig->Molecule+i].Bead[j];
       for (int dd = 0; dd < 3; dd++) {
-        S_out.Bead[id].Position[dd] = rot[j][dd] + random[dd];
+        S_out.Bead[id].Position.v[dd] = rot[j][dd] + random[dd];
       }
     }
     free(rot);

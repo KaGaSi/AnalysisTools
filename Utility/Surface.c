@@ -79,11 +79,11 @@ OPT * opt_create(void) {
 // calculate area of a triangle given three points (Heron's formula) //{{{
 double calc_area(const double A[3], const double B[3], const double C[3]) {
   // triangle's sides vectors
-  double AB[3], AC[3], BC[3];
+  vec3 AB, AC, BC;
   for (int dd = 0; dd < 3; dd++) {
-    AB[dd] = B[dd] - A[dd];
-    AC[dd] = C[dd] - A[dd];
-    BC[dd] = C[dd] - B[dd];
+    AB.v[dd] = B[dd] - A[dd];
+    AC.v[dd] = C[dd] - A[dd];
+    BC.v[dd] = C[dd] - B[dd];
   }
   double a = 0, b = 0, c = 0; // triangle's sidelengths
   for (int dd = 0; dd < 3; dd++) {
@@ -135,9 +135,9 @@ void SurfacePoint(SYSTEM System, int id, const int map[2], int axis,
                   double (**surf_step)[2], int (**surf_bead_ids)[2]) {
   BEAD *bead = &System.Bead[id];
   double coor[3]; // coor[0] & [1] are in the surface plane
-  coor[0] = bead->Position[map[0]];
-  coor[1] = bead->Position[map[1]];
-  coor[2] = bead->Position[axis];
+  coor[0] = bead->Position.v[map[0]];
+  coor[1] = bead->Position.v[map[1]];
+  coor[2] = bead->Position.v[axis];
   // maximum 3D distance between the probe and the bead (well, square of)
   double max_dist = Square(System.BeadType[bead->Type].Radius + opt->probe);
   // minimum and maximum possible grid point for specified in-surface coordinate
@@ -659,7 +659,7 @@ int main(int argc, char *argv[]) {
           if (!write[id]) {
             write[id] = true;
             for (int dd = 0; dd < 3; dd++) {
-              System.Bead[id].Position[dd] = 0;
+              System.Bead[id].Position.v[dd] = 0;
             }
           }
         }

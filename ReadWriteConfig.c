@@ -15,9 +15,9 @@ void WriteConfig(const SYSTEM System, const char *file) { //{{{
     int id = System.BeadCoor[i];
     int btype = System.Bead[id].Type;
     fprintf(out, "%s %d\n", System.BeadType[btype].Name, id + 1);
-    fprintf(out, "%lf %lf %lf\n", System.Bead[id].Position[0],
-                                  System.Bead[id].Position[1],
-                                  System.Bead[id].Position[2]);
+    fprintf(out, "%lf %lf %lf\n", System.Bead[id].Position.v[0],
+                                  System.Bead[id].Position.v[1],
+                                  System.Bead[id].Position.v[2]);
   }
   fclose(out);
 } //}}}

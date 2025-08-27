@@ -179,47 +179,47 @@ FILE * OpenFile(const char *file, char *mode) { //{{{
   return ptr;
 } //}}}
 // initialize arrays to specified value //{{{
-void InitDoubleArray(double *array, const int n, const double val) {
+void InitDoubleArray(double *arr, const int n, const double val) {
   for (int i = 0; i < n; i++) {
-    array[i] = val;
+    arr[i] = val;
   }
 }
-void InitIntArray(int *array, const int n, const int val) {
+void InitIntArray(int *arr, const int n, const int val) {
   for (int i = 0; i < n; i++) {
-    array[i] = val;
+    arr[i] = val;
   }
 }
-void InitBoolArray(bool *array, const int n, const bool val) {
+void InitBoolArray(bool *arr, const int n, const bool val) {
   for (int i = 0; i < n; i++) {
-    array[i] = val;
+    arr[i] = val;
   }
 }
-void InitLong2DArray(long **array, const int m, const int n, const long val) {
+void InitLong2DArray(long **arr, const int m, const int n, const long val) {
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
-      array[i][j] = val;
+      arr[i][j] = val;
     }
   }
 }
-void InitDouble2DArray(double *array, const int m, const int n,
+void InitDouble2DArray(double *arr, const int m, const int n,
                        const double val) {
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
-      array[i * n + j] = val;  // Access using row-major order
+      arr[i * n + j] = val;  // Access using row-major order
     }
   }
 }
-void InitInt2DArray(int *array, const int m, const int n, const int val) {
+void InitInt2DArray(int *arr, const int m, const int n, const int val) {
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
-      array[i * n + j] = val;  // Access using row-major order
+      arr[i * n + j] = val;  // Access using row-major order
     }
   }
 }
-void InitBool2DArray(bool **array, const int m, const int n, const bool val) {
+void InitBool2DArray(bool **arr, const int m, const int n, const bool val) {
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
-      array[i][j] = val;
+      arr[i][j] = val;
     }
   }
 } //}}}
@@ -307,5 +307,12 @@ void FillMaxDigits(const int columns, const int n,
 }
 void Fprintf1(FILE *f, const double value, const int digits[2]) {
   fprintf(f, " %*.*f", digits[0] + digits[1], digits[1], value);
+}
+void FprintfRow(FILE *fw, int columns,
+                const double value[columns], const int digits[columns][2]) {
+  for (int col = 0; col < columns; col++) {
+    Fprintf1(fw, value[col], digits[col]);
+  }
+  putc('\n', fw);
 }
 //}}}

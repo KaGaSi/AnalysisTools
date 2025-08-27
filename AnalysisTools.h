@@ -31,8 +31,8 @@ int FindMoleculeType(const SYSTEM Sys1, const MOLECULETYPE mt,
 // wrap coordinates into simulation box and/or join molecules
 void WrapJoinCoordinates(SYSTEM *System, const bool wrap, const bool join);
 // distance between two beads; in the range <-BoxLength/2,BoxLength/2)
-void Distance(const double id1[3], const double id2[3],
-              const double BoxLength[3], double out[3]);
+vec3 Distance(const double id1[3], const double id2[3],
+              const double BoxLength[3]);
 // calculate centre of mass for a list of beads
 void CentreOfMass(const int n, const int *list,
                   const SYSTEM System, double gc[3]);

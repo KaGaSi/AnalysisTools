@@ -37,7 +37,7 @@ SYSTEM XyzReadStruct(const char *file) { //{{{
     BEAD *b = &Sys.Bead[i];
     InitBead(b);
     for (int dd = 0; dd < 3; dd++) {
-      b->Position[dd] = coor[dd];
+      b->Position.v[dd] = coor[dd];
     }
     b->InTimestep = true;
     Sys.BeadCoor[i] = i;
@@ -101,7 +101,7 @@ int XyzReadTimestep(FILE *fr, const char *file,
     double coor[3];
     if (XyzCheckCoorLine(coor)) {
       for (int dd = 0; dd < 3; dd++) {
-        System->Bead[i].Position[dd] = coor[dd];
+        System->Bead[i].Position.v[dd] = coor[dd];
       }
       System->BeadCoor[i] = i;
       double vel[3];
@@ -110,11 +110,11 @@ int XyzReadTimestep(FILE *fr, const char *file,
           IsRealNumber(split[5], &vel[1]) &&
           IsRealNumber(split[6], &vel[2])) {
         for (int dd = 0; dd < 3; dd++) {
-          System->Bead[i].Velocity[dd] = vel[dd];
+          System->Bead[i].Velocity.v[dd] = vel[dd];
         }
       } else {
         for (int dd = 0; dd < 3; dd++) {
-          System->Bead[i].Velocity[dd] = 0;
+          System->Bead[i].Velocity.v[dd] = 0;
         }
       }
     } else {
@@ -194,7 +194,7 @@ void XyzWriteCoor(FILE *fw, const bool *write, const SYSTEM System) { //{{{
     if (write[id] && bead->InTimestep) {
       int type = bead->Type;
       fprintf(fw, "%8s %8.4f %8.4f %8.4f\n", System.BeadType[type].Name,
-              bead->Position[0], bead->Position[1], bead->Position[2]);
+              bead->Position.v[0], bead->Position.v[1], bead->Position.v[2]);
     }
   }
 } //}}}

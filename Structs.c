@@ -13,9 +13,9 @@ void InitBead(BEAD *b) { //{{{
   b->Molecule = -1;
   b->Aggregate = -1;
   for (int dd = 0; dd < 3; dd++) {
-    b->Position[dd] = 0;
-    b->Velocity[dd] = 0;
-    b->Force[dd] = 0;
+    b->Position.v[dd] = 0;
+    b->Velocity.v[dd] = 0;
+    b->Force.v[dd] = 0;
   }
   for (int dd = 0; dd < 6; dd++) {
     b->Extra[dd] = HIGHNUM;

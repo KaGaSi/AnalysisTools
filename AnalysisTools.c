@@ -83,17 +83,17 @@ static void FractionalCoor(SYSTEM *System, const int mode) {
       double new[3] = {0, 0, 0};
       for (int dd = 0; dd < 3; dd++) {
         if (mode == 0) {
-          new[dd] = box->inverse[dd][0] * b->Position[0] +
-                    box->inverse[dd][1] * b->Position[1] +
-                    box->inverse[dd][2] * b->Position[2];
+          new[dd] = box->inverse[dd][0] * b->Position.v[0] +
+                    box->inverse[dd][1] * b->Position.v[1] +
+                    box->inverse[dd][2] * b->Position.v[2];
         } else {
-          new[dd] = box->transform[dd][0] * b->Position[0] / box->Length[dd] +
-                    box->transform[dd][1] * b->Position[1] / box->Length[dd] +
-                    box->transform[dd][2] * b->Position[2] / box->Length[dd];
+          new[dd] = box->transform[dd][0] * b->Position.v[0] / box->Length[dd] +
+                    box->transform[dd][1] * b->Position.v[1] / box->Length[dd] +
+                    box->transform[dd][2] * b->Position.v[2] / box->Length[dd];
         }
       }
       for (int dd = 0; dd < 3; dd++) {
-        b->Position[dd] = new[dd] * System->Box.Length[dd];
+        b->Position.v[dd] = new[dd] * System->Box.Length[dd];
       }
     }
   }
@@ -201,17 +201,17 @@ static void RemovePBCMolecules(SYSTEM *System) {
             id[2] = {mt->Bond[bond][0], mt->Bond[bond][1]};
         BEAD *b_1 = &System->Bead[mol->Bead[id[0]]],
              *b_2 = &System->Bead[mol->Bead[id[1]]];
-        double dist[3];
+        vec3 dist;
         if (!moved[id[0]] && moved[id[1]]) {
-          Distance(b_2->Position, b_1->Position, box->OrthoLength, dist);
+          dist = Distance(b_2->Position.v, b_1->Position.v, box->OrthoLength);
           for (int dd = 0; dd < 3; dd++) {
-            b_1->Position[dd] = b_2->Position[dd] - dist[dd];
+            b_1->Position.v[dd] = b_2->Position.v[dd] - dist.v[dd];
           }
           moved[id[0]] = true;
         } else if (moved[id[0]] && !moved[id[1]]) {
-          Distance(b_1->Position, b_2->Position, box->OrthoLength, dist);
+          dist = Distance(b_1->Position.v, b_2->Position.v, box->OrthoLength);
           for (int dd = 0; dd < 3; dd++) {
-            b_2->Position[dd] = b_1->Position[dd] - dist[dd];
+            b_2->Position.v[dd] = b_1->Position.v[dd] - dist.v[dd];
           }
           moved[id[1]] = true;
         }
@@ -235,7 +235,7 @@ static void RemovePBCMolecules(SYSTEM *System) {
     for (int j = 0; j < mt->nBeads; j++) {
       int bead = mol->Bead[j];
       for (int dd = 0; dd < 3; dd++) {
-        System->Bead[bead].Position[dd] -= move[dd] * box->OrthoLength[dd];
+        System->Bead[bead].Position.v[dd] -= move[dd] * box->OrthoLength[dd];
       }
     } //}}}
   }
@@ -247,11 +247,11 @@ static void RestorePBC(SYSTEM *System) {
     BEAD *bead = &System->Bead[id];
     BOX *box = &System->Box;
     for (int dd = 0; dd < 3; dd++) {
-      while (bead->Position[dd] >= box->OrthoLength[dd]) {
-        bead->Position[dd] -= box->OrthoLength[dd];
+      while (bead->Position.v[dd] >= box->OrthoLength[dd]) {
+        bead->Position.v[dd] -= box->OrthoLength[dd];
       }
-      while (bead->Position[dd] < 0) {
-        bead->Position[dd] += box->OrthoLength[dd];
+      while (bead->Position.v[dd] < 0) {
+        bead->Position.v[dd] += box->OrthoLength[dd];
       }
     }
   }
@@ -426,18 +426,20 @@ void WrapJoinCoordinates(SYSTEM *System, const bool wrap, const bool join) {
   }
 } //}}}
 // distance between two beads; in the range <-BoxLength/2,BoxLength/2) //{{{
-void Distance(const double id1[3], const double id2[3],
-              const double BoxLength[3], double out[3]) {
+vec3 Distance(const double id1[3], const double id2[3],
+              const double BoxLength[3]) {
+  vec3 out;
   // remove periodic boundary conditions in x-direction
   for (int dd = 0; dd < 3; dd++) {
-    out[dd] = id1[dd] - id2[dd];
-    while (out[dd] >= (BoxLength[dd] / 2)) {
-      out[dd] -= BoxLength[dd];
+    out.v[dd] = id1[dd] - id2[dd];
+    while (out.v[dd] >= (BoxLength[dd] / 2)) {
+      out.v[dd] -= BoxLength[dd];
     }
-    while (out[dd] < (-BoxLength[dd] / 2)) {
-      out[dd] += BoxLength[dd];
+    while (out.v[dd] < (-BoxLength[dd] / 2)) {
+      out.v[dd] += BoxLength[dd];
     }
   }
+  return out;
 } //}}}
 // calculate centre of mass for a list of beads //{{{
 void CentreOfMass(const int n, const int *list,
@@ -457,7 +459,7 @@ void CentreOfMass(const int n, const int *list,
       }
     }
     for (int dd = 0; dd < 3; dd++) {
-      com[dd] += b->Position[dd] * bt->Mass;
+      com[dd] += b->Position.v[dd] * bt->Mass;
     }
     mass += bt->Mass;
   }
@@ -473,7 +475,7 @@ void GeomCentre(const int n, const int *list, const BEAD *Bead, double gc[3]) {
     int id = list[i];
     if (Bead[id].InTimestep) {
       for (int dd = 0; dd < 3; dd++) {
-        gc[dd] += Bead[id].Position[dd];
+        gc[dd] += Bead[id].Position.v[dd];
       }
       count++;
     }
@@ -609,9 +611,9 @@ void LinkedList(const SYSTEM System, int **Head, int **Link,
   for (int i = 0; i < Count->BeadCoor; i++) {
     int id = System.BeadCoor[i];
     BEAD *bead = &System.Bead[id];
-    long cell = (int)(bead->Position[0] * rl[0]) +
-                (int)(bead->Position[1] * rl[1]) * n_cells[0] +
-                (int)(bead->Position[2] * rl[2]) * n_cells[0] * n_cells[1];
+    long cell = (int)(bead->Position.v[0] * rl[0]) +
+                (int)(bead->Position.v[1] * rl[1]) * n_cells[0] +
+                (int)(bead->Position.v[2] * rl[2]) * n_cells[0] * n_cells[1];
     (*Link)[i] = (*Head)[cell];
     (*Head)[cell] = i;
   }
@@ -659,7 +661,7 @@ void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]) {
   // move centre of mass to [0,0,0] //{{{
   for (int i = 0; i < n; i++) {
     for (int dd = 0; dd < 3; dd++) {
-      System->Bead[list[i]].Position[dd] -= cog[dd];
+      System->Bead[list[i]].Position.v[dd] -= cog[dd];
     }
   } //}}}
   // for (int i = 0; i < n; i++) {
@@ -669,13 +671,13 @@ void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]) {
   // calculate gyration tensor //{{{
   for (int i = 0; i < n; i++) {
     int id = list[i];
-    double *pos = System->Bead[id].Position;
-    GyrationTensor[0][0] += pos[0] * pos[0];
-    GyrationTensor[0][1] += pos[0] * pos[1];
-    GyrationTensor[0][2] += pos[0] * pos[2];
-    GyrationTensor[1][1] += pos[1] * pos[1];
-    GyrationTensor[1][2] += pos[1] * pos[2];
-    GyrationTensor[2][2] += pos[2] * pos[2];
+    vec3 *pos = &System->Bead[id].Position;
+    GyrationTensor[0][0] += pos->v[0] * pos->v[0];
+    GyrationTensor[0][1] += pos->v[0] * pos->v[1];
+    GyrationTensor[0][2] += pos->v[0] * pos->v[2];
+    GyrationTensor[1][1] += pos->v[1] * pos->v[1];
+    GyrationTensor[1][2] += pos->v[1] * pos->v[2];
+    GyrationTensor[2][2] += pos->v[2] * pos->v[2];
   }
   GyrationTensor[0][0] /= n;
   GyrationTensor[0][1] /= n;
@@ -929,30 +931,29 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
               int bead2 = System->Molecule[mol2].Bead[m];
               BEAD *b2 = &System->Bead[bead2];
               // calculate distance between 'bead1' and 'bead2'
-              double dist[3];
-              Distance(b1->Position, b2->Position, *box, dist);
-              dist[0] = VectLength(dist);
+              vec3 dist = Distance(b1->Position.v, b2->Position.v, *box);
+              dist.v[0] = VectLength(dist);
               // move 'mol2' (or 'k') if 'bead1' and 'bead2' are in contact
-              if (dist[0] <= distance) {
+              if (dist.v[0] <= distance) {
                 // distance vector between 'bead1' and 'bead2'
                 for (int dd = 0; dd < 3; dd++) {
-                  dist[dd] = b1->Position[dd] - b2->Position[dd];
+                  dist.v[dd] = b1->Position.v[dd] - b2->Position.v[dd];
                 }
                 // if 'bead1' and 'bead2' are too far, move 'mol2' //{{{
                 for (int dd = 0; dd < 3; dd++) {
-                  while (dist[dd] > ((*box)[dd] / 2)) {
+                  while (dist.v[dd] > ((*box)[dd] / 2)) {
                     for (int n = 0; n < System->MoleculeType[mtype2].nBeads; n++) {
                       int id = System->Molecule[mol2].Bead[n];
-                      System->Bead[id].Position[dd] += (*box)[dd];
+                      System->Bead[id].Position.v[dd] += (*box)[dd];
                     }
-                    dist[dd] = b1->Position[dd] - b2->Position[dd];
+                    dist.v[dd] = b1->Position.v[dd] - b2->Position.v[dd];
                   }
-                  while (dist[dd] <= -((*box)[dd] / 2)) {
+                  while (dist.v[dd] <= -((*box)[dd] / 2)) {
                     for (int n = 0; n < System->MoleculeType[mtype2].nBeads; n++) {
                       int id = System->Molecule[mol2].Bead[n];
-                      System->Bead[id].Position[dd] -= (*box)[dd];
+                      System->Bead[id].Position.v[dd] -= (*box)[dd];
                     }
-                    dist[dd] = b1->Position[dd] - b2->Position[dd];
+                    dist.v[dd] = b1->Position.v[dd] - b2->Position.v[dd];
                   }
                 } //}}}
                 moved = true;
@@ -998,7 +999,7 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
     for (int j = 0; j < Aggregate[i].nBeads; j++) {
       int bead = Aggregate[i].Bead[j];
       for (int dd = 0; dd < 3; dd++) {
-        System->Bead[bead].Position[dd] -= move[dd] * (*box)[dd];
+        System->Bead[bead].Position.v[dd] -= move[dd] * (*box)[dd];
       }
     }
   } //}}}

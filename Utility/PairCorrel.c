@@ -291,21 +291,20 @@ int main(int argc, char *argv[]) {
           double temp[2];
           // make the non-periodic coordinate 0
           if (opt->axis[0] != -1) {
-            temp[0] = b_i->Position[opt->axis[2]];
-            b_i->Position[opt->axis[2]] = 0;
-            temp[1] = b_j->Position[opt->axis[2]];
-            b_j->Position[opt->axis[2]] = 0;
+            temp[0] = b_i->Position.v[opt->axis[2]];
+            b_i->Position.v[opt->axis[2]] = 0;
+            temp[1] = b_j->Position.v[opt->axis[2]];
+            b_j->Position.v[opt->axis[2]] = 0;
           }
-          double dist[3];
-          Distance(b_i->Position, b_j->Position, box, dist);
+          vec3 dist = Distance(b_i->Position.v, b_j->Position.v, box);
           // return the non-periodic coordinate - just pro forma
           if (opt->axis[0] != -1) {
-            b_i->Position[opt->axis[2]] = temp[0];
-            b_j->Position[opt->axis[2]] = temp[1];
+            b_i->Position.v[opt->axis[2]] = temp[0];
+            b_j->Position.v[opt->axis[2]] = temp[1];
           }
-          dist[0] = VectLength(dist);
-          if (dist[0] < max_dist) {
-            int l = dist[0] / width;
+          dist.v[0] = VectLength(dist);
+          if (dist.v[0] < max_dist) {
+            int l = dist.v[0] / width;
             pcf[btype_i][btype_j][l]++;
           }
         }
