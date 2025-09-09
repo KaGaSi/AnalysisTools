@@ -152,7 +152,7 @@ int main(int argc, char *argv[]) {
         for (int dd = 0; dd < opt->dim[0]; dd++) {
           // random number <-max, max>
           double n = ((double)rand() / RAND_MAX) * 2.0 * max - max;
-          b->Position[opt->dim[dd+1]] += n;
+          b->Position.v[opt->dim[dd+1]] += n;
         }
       }
       bool *write = malloc(Count->BeadCoor * sizeof *write);

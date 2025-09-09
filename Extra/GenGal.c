@@ -186,10 +186,10 @@ int main(int argc, char *argv[]) {
     id2 = mol0->Bead[1];
     double dist = System.BondType[0].b;
     for (int dd = 0; dd < 3; dd++) {
-      System.Bead[id1].Position[dd] = 0;
-      System.Bead[id2].Position[dd] = 0;
+      System.Bead[id1].Position.v[dd] = 0;
+      System.Bead[id2].Position.v[dd] = 0;
     }
-    System.Bead[id2].Position[2] = dist;
+    System.Bead[id2].Position.v[2] = dist;
     for (int i = 2; i < (mt0->nBeads); i++) {
       id1 = mol0->Bead[i-2];
       id2 = mol0->Bead[i-1];
@@ -200,7 +200,7 @@ int main(int argc, char *argv[]) {
       // vector from two known coordinates
       double u[3], ul = 0;
       for (int dd = 0; dd < 3; dd++) {
-        u[dd] = b1->Position[dd] - b2->Position[dd];
+        u[dd] = b1->Position.v[dd] - b2->Position.v[dd];
         ul += Square(u[dd]);
       }
       ul = sqrt(ul);
@@ -231,7 +231,7 @@ int main(int argc, char *argv[]) {
       } while (angle < 155 || angle > 165);
       // generate new bead coordinate
       for (int dd = 0; dd < 3; dd++) {
-        b3->Position[dd] = b2->Position[dd] + v[dd];
+        b3->Position.v[dd] = b2->Position.v[dd] + v[dd];
       }
     } //}}}
     // place centre of mass into the simulation box middle //{{{
@@ -240,16 +240,16 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < mt0->nBeads; i++) {
       int id = mol0->Bead[i];
       for (int dd = 0; dd < 3; dd++) {
-        System.Bead[id].Position[dd] -= com[dd];
-        System.Bead[id].Position[dd] += System.Box.Length[dd] / 2;
+        System.Bead[id].Position.v[dd] -= com[dd];
+        System.Bead[id].Position.v[dd] += System.Box.Length[dd] / 2;
       }
     } //}}}
     // generate randomly counterion coordinates //{{{
     for (int i = Count->Bonded; i < Count->Bead; i++) {
       BEAD *b = &System.Bead[i];
       for (int dd = 0; dd < 3; dd++) {
-        b->Position[dd] = (double)(rand()) / ((double)(RAND_MAX) + 1);
-        b->Position[dd] *= System.Box.Length[dd];
+        b->Position.v[dd] = (double)(rand()) / ((double)(RAND_MAX) + 1);
+        b->Position.v[dd] *= System.Box.Length[dd];
       }
     } //}}}
     WriteTimestepAll(fw_coor, System, step, argc, argv);

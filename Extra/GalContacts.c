@@ -51,8 +51,7 @@ static char *name_mol = "CA2";
 // calculate distance between two points, accounting for pbc //{{{
 inline static double DistLength(const double v1[3], const double v2[3],
                                 const double box[3]) {
-  double dist[3];
-  Distance(v1, v2, box, dist);
+  vec3 dist = Distance(v1, v2, box);
   return VectLength(dist);
 } //}}}
 // get two molecule/bead types ordered so the first one < second one //{{{
@@ -329,7 +328,7 @@ int main(int argc, char *argv[]) {
               if (!used_name_mol[j] && mol->InTimestep) {
                 for (int k = 0; k < MolType_name->nBeads; k++) {
                   BEAD *b_k = &System.Bead[mol->Bead[k]];
-                  double d = DistLength(b_i->Position, b_k->Position,
+                  double d = DistLength(b_i->Position.v, b_k->Position.v,
                                         boxlength);
                   if (d < dist_check) {
                     for (int l = (i + 1); l < Count->Bonded; l++) {
@@ -337,7 +336,7 @@ int main(int argc, char *argv[]) {
                       BEAD *b_l = &System.Bead[id_l];
                       MOLECULE *m_l = &System.Molecule[b_l->Molecule];
                       if (opt->mt[m_l->Type] && opt->bt[b_l->Type]) {
-                        double dist = DistLength(b_l->Position, b_k->Position,
+                        double dist = DistLength(b_l->Position.v, b_k->Position.v,
                                                  boxlength);
                         if (dist < dist_check) {
                           Types mt = SortTypes(m_i->Type, m_l->Type);
@@ -394,14 +393,14 @@ int main(int argc, char *argv[]) {
               int id_j = BType_name->Index[j];
               if (!used_name[j]) {
                 BEAD *b_j = &System.Bead[id_j];
-                double d = DistLength(b_i->Position, b_j->Position, boxlength);
+                double d = DistLength(b_i->Position.v, b_j->Position.v, boxlength);
                 if (d < dist_check) {
                   for (int l = (i + 1); l < Count->Bonded; l++) {
                     int id_l = System.Bonded[l];
                     BEAD *b_l = &System.Bead[id_l];
                     MOLECULE *m_l = &System.Molecule[b_l->Molecule];
                     if (opt->mt[m_l->Type] && opt->bt[b_l->Type]) {
-                      double dist = DistLength(b_l->Position, b_j->Position,
+                      double dist = DistLength(b_l->Position.v, b_j->Position.v,
                                                boxlength);
                       if (dist < dist_check) {
                         Types mt = SortTypes(m_i->Type, m_l->Type);

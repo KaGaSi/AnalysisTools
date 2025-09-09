@@ -47,8 +47,7 @@ void ComputeBOOP(SYSTEM System, int n,
       continue;
     }
     BEAD *b_i = &System.Bead[id];
-    double d[3];
-    Distance(b->Position, b_i->Position, System.Box.Length, d);
+    vec3 d = Distance(b->Position.v, b_i->Position.v, System.Box.Length);
     double r = VectLength(d);
     for (int j = 0; j < max_neigh; j++) {
       if (r < min_dist[j]) {
@@ -86,9 +85,8 @@ void ComputeBOOP(SYSTEM System, int n,
     // fallback_neigh if not)
     for (int j = 0; j < sym[i]; j++) {
       BEAD *b2 = &System.Bead[nearest[j]];
-      double d[3];
-      Distance(b2->Position, b->Position, System.Box.Length, d);
-      double theta = atan2(d[1], d[0]);
+      vec3 d = Distance(b2->Position.v, b->Position.v, System.Box.Length);
+      double theta = atan2(d.v[1], d.v[0]);
       q_real[i] += cos(sym[i] * theta);
       q_imag[i] += sin(sym[i] * theta);
     }
@@ -224,15 +222,9 @@ int main(int argc, char *argv[]) {
             err_msg("boop must be <0,1>!");
             PrintError();
           } //}}}
-          int k = bins - 1; // edge case for res[] == 1 (put into highest bin)
-          if (res[j] < 1) {
-            // if (j == 0) {
-            //   printf("%lf %lf ...", res[j], width);
-            // }
-            k = res[j] / width;
-            // if (j == 0) {
-            //   printf(" %d\n", k);
-            // }
+          int k =  res[j] / width; // edge case for res[] == 1 (put into highest bin)
+          if (k == bins) {
+            k--; // edge case for res[j] -> 1
           }
           boop_distr_type[type][k][j] += res[j];
         }
