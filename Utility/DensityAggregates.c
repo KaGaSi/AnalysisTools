@@ -1,4 +1,5 @@
 #include "../AnalysisTools.h"
+#include <stdio.h>
 
 // Help() //{{{
 void Help(const char cmd[50], const bool error,
@@ -347,10 +348,17 @@ int main(int argc, char *argv[]) {
     // write initial stuff to the file //{{{
     out = PrintBylineOpenFile(str, argc, argv);
     // print bead type names to output file
-    fprintf(out, "# for each bead type: (1) rdp; (2) rnp\n");
-    fprintf(out, "# columns: (1) distance;");
+    count = 1;
+    fprintf(out, "# for each bead type: ");
+    fprintf(out, "(%d) radial density profile", count++);
+    fprintf(out, "(%d) radial number profile", count++);
+    putc('\n', out);
+    count = 1;
+    fprintf(out, "# Columns: (%d) distance;", count++);
     for (int j = 0; j < Count->BeadType; j++) {
-      fprintf(out, " (%d) %s", 4*i+2, System.BeadType[j].Name);
+      fprintf(out, " (%d) %s", count, System.BeadType[j].Name);
+      // 2 columns per bead type
+      count += 2;
       if (j != (Count->BeadType-1)) {
         putc(';', out);
       }
