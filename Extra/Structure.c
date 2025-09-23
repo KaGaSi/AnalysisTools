@@ -1,34 +1,5 @@
 #include "../AnalysisTools.h"
 
-// Syrex-created; not yet tested whatsoever...
-// Finds the cutoff index for neighbours using the largest relative gap
-// Inputs:
-//   min_dist[]: sorted array of neighbour distances (ascending), length max_neigh
-//   max_neigh: maximum number of neighbours considered
-//   gap_threshold: minimum relative gap ratio to accept (e.g. 0.2)
-//   fallback_neigh: fallback fixed neighbour count if no gap found
-// Returns:
-//   neighbour_count: number of neighbours selected for the first shell
-int FindNeighbourShell(double min_dist[], int max_neigh,
-                      double gap_threshold, int fallback_neigh) {
-  int cutoff = fallback_neigh;
-  double max_ratio = 0.0;
-  for (int i = 0; i < max_neigh - 1; i++) {
-    double gap = min_dist[i+1] - min_dist[i];
-    if (min_dist[i] < 1e-12) continue; // avoid divide by zero
-    double ratio = gap / min_dist[i];
-    if (ratio > max_ratio) {
-      max_ratio = ratio;
-      cutoff = i + 1;
-    }
-  }
-  if (max_ratio < gap_threshold) {
-    cutoff = fallback_neigh; // no significant gap found
-  }
-  if (cutoff > max_neigh) cutoff = max_neigh; // safety clamp
-  return cutoff;
-}
-
 // calculate bond orientation order parameter for a single bead //{{{
 void ComputeBOOP(SYSTEM System, int n,
                  int n_sym, int sym[n_sym], double res[n_sym]) {
@@ -69,32 +40,91 @@ void ComputeBOOP(SYSTEM System, int n,
   }
 
   // calculate boop
-  double q_real[n_sym];
-  double q_imag[n_sym];
   for (int i = 0; i < n_sym; i++) {
-    q_real[i] = 0;
-    q_imag[i] = 0;
-  }
-
-  for (int i = 0; i < n_sym; i++) {
-    // Syrex-suggested 'Adaptive neighbour shell detection via gap in sorted distances'
-    // double gap_threshold = 0.2;    // tweak this parameter
-    // int fallback_neigh = sym[i];   // number of neighbours expected for symmetry i
-    // int neigh_count = FindNeighbourShell(min_dist, max_neigh, gap_threshold, fallback_neigh);
-    // ...if used, change next loop (go to neigh_count if found or
-    // fallback_neigh if not)
+    double q_real = 0;
+    double q_imag = 0;
     for (int j = 0; j < sym[i]; j++) {
       BEAD *b2 = &System.Bead[nearest[j]];
       vec3 d = Distance(b2->Position.v, b->Position.v, System.Box.Length);
       double theta = atan2(d.v[1], d.v[0]);
-      q_real[i] += cos(sym[i] * theta);
-      q_imag[i] += sin(sym[i] * theta);
+      q_real += cos(sym[i] * theta);
+      q_imag += sin(sym[i] * theta);
     }
-    q_real[i] /= sym[i];
-    q_imag[i] /= sym[i];
-    res[i] = sqrt(Square(q_real[i]) + Square(q_imag[i]));
+    q_real /= sym[i];
+    q_imag /= sym[i];
+    res[i] = sqrt(Square(q_real) + Square(q_imag));
   }
 } //}}}
+
+// // calculate bond orientation order parameter for a single bead //{{{
+// // ...calculated results weighed by distance from centre particle - g(r)
+// // based Gaussian thingy
+// void ComputeBOOP(SYSTEM System, int n,
+//                  int n_sym, int sym[n_sym], double res[n_sym]) {
+//   double r_nn = 1.0; // TODO: make into opt - should be \approx 1st min in g(r)
+//   double r_min = 1.2;
+//   double sigma = (r_min - r_nn) / 2;
+//   int max_neigh = sym[n_sym-1];
+//   int nearest[max_neigh]; // nearest neighbour id
+//   double min_dist[max_neigh]; // nearest neighbour's distance
+//   for (int i = 0; i < max_neigh; i++) {
+//     nearest[i] = -1;
+//     min_dist[i] = HIGHNUM;
+//   }
+//   // find nearest neighbours
+//   BEAD *b = &System.Bead[n];
+//   for (int i = 0; i < System.Count.BeadCoor; i++) {
+//     int id = System.BeadCoor[i];
+//     if (id == n) {
+//       continue;
+//     }
+//     BEAD *b_i = &System.Bead[id];
+//     vec3 d = Distance(b->Position.v, b_i->Position.v, System.Box.Length);
+//     double r = VectLength(d);
+//     for (int j = 0; j < max_neigh; j++) {
+//       if (r < min_dist[j]) {
+//         for (int k = (max_neigh - 1); k > j; k--) {
+//           min_dist[k] = min_dist[k-1];
+//           nearest[k] = nearest[k-1];
+//         }
+//         min_dist[j] = r;
+//         nearest[j] = id;
+//         break;
+//       }
+//     }
+//   }
+//   for (int i = 0; i < max_neigh; i++) {
+//     if (nearest[i] == -1) {
+//       err_msg("Huh? Not enough neighbours! Should never happen!!");
+//       PrintError();
+//     }
+//   }
+//
+//   // calculate boop
+//   for (int i = 0; i < n_sym; i++) {
+//     double q_real = 0;
+//     double q_imag = 0;
+//     double wsum = 0;
+//     for (int j = 0; j < max_neigh; j++) {
+//       BEAD *b2 = &System.Bead[nearest[j]];
+//       vec3 d = Distance(b2->Position.v, b->Position.v, System.Box.Length);
+//       double theta = atan2(d.v[1], d.v[0]);
+//       double w = exp(- Square((VectLength(d) - r_nn) / sigma));
+//       q_real += w * cos(sym[i] * theta);
+//       q_imag += w * sin(sym[i] * theta);
+//       wsum += w;
+//       printf("%d: %lf\n", j, wsum);
+//     }
+//     printf("%lf\n", wsum);
+//     if (wsum < 1e-12) {
+//       res[i] = 0;
+//     } else {
+//       q_real /= wsum;
+//       q_imag /= wsum;
+//       res[i] = sqrt(Square(q_real) + Square(q_imag));
+//     }
+//   }
+// } //}}}
 
 // Help() //{{{
 void Help(const char cmd[50], const bool error,
