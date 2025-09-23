@@ -443,7 +443,7 @@ int main(int argc, char *argv[]) {
   InitInt2DArray((int *)digits, columns, 2, 0);
   double *data[Count->Molecule]; // array for data
   for (int i = 0; i < Count->Molecule; i++) {
-    data[i] = calloc(columns, sizeof data[i]);
+    data[i] = calloc(columns, sizeof *data[i]);
     if (count_agg[i] > 0) {
       count = -1;
       data[i][++count] = i + 1;
@@ -462,10 +462,7 @@ int main(int argc, char *argv[]) {
   // print data (only for aggregate sizes that actually exist)
   for (int i = 0; i < Count->Molecule; i++) {
     if (count_agg[i] > 0) {
-      for (int col = 0; col < columns; col++) {
-        Fprintf1(fw, data[i][col], digits[col]);
-      }
-      putc('\n', fw);
+      FprintfRow(fw, columns, data[i], digits);
     }
     free(data[i]);
   }
