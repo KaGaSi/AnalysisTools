@@ -28,7 +28,7 @@ calculated.\n\n");
           "(overwrites <bead(s)>)\n");
   // fprintf(ptr, "  -m <max>          maximum distance for calculation\n");
   fprintf(ptr, "  -D2 <axis>        assume 2D system (e.g., slit) with "
-          "non-periodic condition in <axis> direction");
+          "non-periodic condition in <axis> direction\n");
   CommonHelp(error, n, opt);
 } //}}}
 
@@ -176,7 +176,10 @@ int main(int argc, char *argv[]) {
   //   max_dist *= 0.5;
   // }
   bins = Max3(box[0], box[1], box[2]) / width;
-  max_dist = 0.5 * Min3(box[0], box[1], box[2]);
+  // TODO: shitty stuff - should be -D2 opt dependant
+  // max_dist = 0.5 * Min3(box[0], box[1], box[2]);
+  max_dist = 3;
+  // max_dist = 0.5 * Max3(box[0], box[1], box[2]);
 
   // allocate memory //{{{
   // array counting number of pairs
@@ -193,8 +196,6 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
 
-  // // TODO: for cell-linked list
-  // double cell_size = 5;
   // main loop //{{{
   FILE *fr = OpenFile(in.coor.name, "r");
   int count_coor = 0, // count timesteps from the beginning
@@ -213,102 +214,105 @@ int main(int argc, char *argv[]) {
         break;
       }
       count_used++;
-      // // TODO: trying cell-linked list (unsuccessfully) //{{{
-      //          ...see Extra/NearestNeighbour.c
-      // // double cell_size = 3;
-      // int n_cells[3], *Head, *Link, Dc[27][3];
-      // LinkedList(System, &Head, &Link, cell_size, n_cells, Dc);
-      // int c1[3];
-      // for (c1[2] = 0; c1[2] < n_cells[2]; c1[2]++) {
-      //   for (c1[1] = 0; c1[1] < n_cells[1]; c1[1]++) {
-      //     for (c1[0] = 0; c1[0] < n_cells[0]; c1[0]++) {
-      //       int cell1 = SelectCell1(c1, n_cells);
-      //       // select first bead in the cell 'cell1'
-      //       int i = Head[cell1];
-      //       while (i != -1) {
-      //         BEAD *b_i = &System.Bead[System.BeadCoor[i]];
-      //         if (!System.BeadType[b_i->Type].Flag) {
-      //           i = Link[i];
-      //           continue;
-      //         }
-      //         for (int k = 0; k < 27; k++) {
-      //           int cell2 = SelectCell2(c1, n_cells, Dc, k);
-      //
-      //           int j;
-      //           if (cell1 == cell2) { // next bead in 'cell1'
-      //             j = Link[i];
-      //           } else { // first bead in 'cell2'
-      //             j = Head[cell2];
-      //           }
-      //           while (j != -1) {
-      //             BEAD *b_j = &System.Bead[System.BeadCoor[j]];
-      //             if (!System.BeadType[b_j->Type].Flag) {
-      //               j = Link[j];
-      //               continue;
-      //             }
-      //             int btype_i = b_i->Type;
-      //             int btype_j = b_j->Type;
-      //             if (btype_i > btype_j) {
-      //               SwapInt(&btype_i, &btype_j);
-      //             }
-      //             counter[btype_i][btype_j]++;
-      //             // calculate distance between i and j beads
-      //             double dist[3];
-      //             Distance(b_i->Position, b_j->Position, box, dist);
-      //             dist[0] = VectLength(dist);
-      //             if (dist[0] < max_dist) {
-      //               int l = dist[0] / width;
-      //               pcf[btype_i][btype_j][l]++;
-      //             }
-      //             j = Link[j];
-      //           }
-      //         }
-      //         i = Link[i];
-      //       }
+      // TODO: trying cell-linked list (unsuccessfully) //{{{
+      //       ...see Extra/NearestNeighbour.c
+      double cell_size = max_dist;
+      int n_cells[3], *Head, *Link, Dc[27][3];
+      LinkedList(System, &Head, &Link, cell_size, n_cells, Dc);
+      int c1[3];
+      for (c1[2] = 0; c1[2] < n_cells[2]; c1[2]++) {
+        for (c1[1] = 0; c1[1] < n_cells[1]; c1[1]++) {
+          for (c1[0] = 0; c1[0] < n_cells[0]; c1[0]++) {
+            int cell1 = SelectCell1(c1, n_cells);
+            // select first bead in the cell 'cell1'
+            int i = Head[cell1];
+            while (i != -1) {
+              int id_i = System.BeadCoor[i];
+              BEAD *b_i = &System.Bead[id_i];
+              if (!System.BeadType[b_i->Type].Flag) {
+                i = Link[i];
+                continue;
+              }
+              for (int k = 0; k < 27; k++) {
+                int cell2 = SelectCell2(c1, n_cells, Dc, k);
+
+                int j;
+                if (cell1 == cell2) { // next bead in 'cell1'
+                  j = Link[i];
+                } else { // first bead in 'cell2'
+                  j = Head[cell2];
+                }
+                while (j != -1) {
+                  int id_j = System.BeadCoor[j];
+                  BEAD *b_j = &System.Bead[id_j];
+                  if (!System.BeadType[b_j->Type].Flag || id_i > id_j) {
+                    j = Link[j];
+                    continue;
+                  }
+                  int btype_i = b_i->Type;
+                  int btype_j = b_j->Type;
+                  if (btype_i > btype_j) {
+                    SwapInt(&btype_i, &btype_j);
+                  }
+                  counter[btype_i][btype_j]++;
+                  // calculate distance between i and j beads
+                  vec3 d = Distance(b_i->Position.v, b_j->Position.v, box);
+                  double dist = VectLength(d);
+                  if (dist < max_dist) {
+                    int l = dist / width;
+                    if (l < bins) {
+                      pcf[btype_i][btype_j][l]++;
+                    }
+                  }
+                  j = Link[j];
+                }
+              }
+              i = Link[i];
+            }
+          }
+        }
+      }
+      free(Head);
+      free(Link); //}}}
+      // for (int i = 0; i < Count->BeadCoor; i++) { //{{{
+      //   int id_i = System.BeadCoor[i];
+      //   BEAD *b_i = &System.Bead[id_i];
+      //   if (!System.BeadType[b_i->Type].Flag) {
+      //     continue;
+      //   }
+      //   for (int j = (i + 1); j < Count->BeadCoor; j++) {
+      //     int id_j = System.BeadCoor[j];
+      //     BEAD *b_j = &System.Bead[id_j];
+      //     if (!System.BeadType[b_j->Type].Flag) {
+      //       continue;
+      //     }
+      //     int btype_i = b_i->Type;
+      //     int btype_j = b_j->Type;
+      //     if (btype_i > btype_j) {
+      //       SwapInt(&btype_i, &btype_j);
+      //     }
+      //     counter[btype_i][btype_j]++;
+      //     double temp[2];
+      //     // make the non-periodic coordinate 0
+      //     if (opt->axis[0] != -1) {
+      //       temp[0] = b_i->Position.v[opt->axis[2]];
+      //       b_i->Position.v[opt->axis[2]] = 0;
+      //       temp[1] = b_j->Position.v[opt->axis[2]];
+      //       b_j->Position.v[opt->axis[2]] = 0;
+      //     }
+      //     vec3 dist = Distance(b_i->Position.v, b_j->Position.v, box);
+      //     // return the non-periodic coordinate - just pro forma
+      //     if (opt->axis[0] != -1) {
+      //       b_i->Position.v[opt->axis[2]] = temp[0];
+      //       b_j->Position.v[opt->axis[2]] = temp[1];
+      //     }
+      //     dist.v[0] = VectLength(dist);
+      //     if (dist.v[0] < max_dist) {
+      //       int l = dist.v[0] / width;
+      //       pcf[btype_i][btype_j][l]++;
       //     }
       //   }
-      // }
-      // free(Head);
-      // free(Link); //}}}
-      for (int i = 0; i < Count->BeadCoor; i++) { //{{{
-        int id_i = System.BeadCoor[i];
-        BEAD *b_i = &System.Bead[id_i];
-        if (!System.BeadType[b_i->Type].Flag) {
-          continue;
-        }
-        for (int j = (i + 1); j < Count->BeadCoor; j++) {
-          int id_j = System.BeadCoor[j];
-          BEAD *b_j = &System.Bead[id_j];
-          if (!System.BeadType[b_j->Type].Flag) {
-            continue;
-          }
-          int btype_i = b_i->Type;
-          int btype_j = b_j->Type;
-          if (btype_i > btype_j) {
-            SwapInt(&btype_i, &btype_j);
-          }
-          counter[btype_i][btype_j]++;
-          double temp[2];
-          // make the non-periodic coordinate 0
-          if (opt->axis[0] != -1) {
-            temp[0] = b_i->Position.v[opt->axis[2]];
-            b_i->Position.v[opt->axis[2]] = 0;
-            temp[1] = b_j->Position.v[opt->axis[2]];
-            b_j->Position.v[opt->axis[2]] = 0;
-          }
-          vec3 dist = Distance(b_i->Position.v, b_j->Position.v, box);
-          // return the non-periodic coordinate - just pro forma
-          if (opt->axis[0] != -1) {
-            b_i->Position.v[opt->axis[2]] = temp[0];
-            b_j->Position.v[opt->axis[2]] = temp[1];
-          }
-          dist.v[0] = VectLength(dist);
-          if (dist.v[0] < max_dist) {
-            int l = dist.v[0] / width;
-            pcf[btype_i][btype_j][l]++;
-          }
-        }
-      } //}}}
+      // } //}}}
       //}}}
     } else {
       if (!SkipTimestep(in, fr, &line_count)) {

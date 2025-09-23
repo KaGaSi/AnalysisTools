@@ -1,4 +1,7 @@
 #include "../AnalysisTools.h"
+// TODO: -d option - segfault
+// TODO: -t + --all option - not all bonds in the the -t file
+//       requires adding step_bond_all array (or some such)
 
 // Help() //{{{
 void Help(const char cmd[50], const bool error,
@@ -32,7 +35,8 @@ distances between any two beads in those molecule types (-d option).\n\n");
   fprintf(ptr, "  -d <file> [ints]  write distribution of distances "
           "between specified bead pair(s) to <file> (if no [ints] are "
           "provided, the molecule's first and last beads are used)\n");
-  fprintf(ptr, "  -w <float>        warn if the length exceeds <float> \n");
+  fprintf(ptr, "  -w <float>        warn if the length exceeds <float>\n");
+  fprintf(ptr, "  -t <file>         save per-timestep data to <flie>\n");
   CommonHelp(error, n, opt);
 } //}}}
 
@@ -44,22 +48,80 @@ struct OPT {
   int n_list[100],   // -d (list of bead id pairs)
       n_number;      // -d (total number of beads in the pairs)
   double warn;       // -w option
-  char d_file[LINE]; // -d (output file)
+  char d_file[LINE], // -d (output file)
+       t_file[LINE]; // -t (output file)
   COMMON_OPT c;
 };
 OPT * opt_create(void) {
   return malloc(sizeof(OPT));
 } //}}}
 
+// write mins, maxes, and averages //{{{
+void WriteMinsMaxesAverages(FILE *fw, SYSTEM System, struct OPT opt,
+                            double (***bond_bt_mma)[3], int ***bond_bt_norm,
+                            double (**bond_all_mma)[3], int **bond_all_norm) {
+  fprintf(fw, "# min(1st columns)/max(2nd columns)/average(3rd columns)\n");
+  COUNT *Count = &System.Count;
+  int count = 1;
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    MOLECULETYPE *mt = &System.MoleculeType[i];
+    if (opt.mt[i] && mt->nBonds > 0) {
+      fprintf(fw, "# %s molecule:", mt->Name);
+      for (int j = 0; j < mt->nBTypes; j++) {
+        for (int k = j; k < mt->nBTypes; k++) {
+          int btype1 = mt->BType[j],
+              btype2 = mt->BType[k];
+          if (btype1 > btype2) {
+            SwapInt(&btype1, &btype2);
+          }
+          if (bond_bt_norm[i][btype1][btype2] > 0) {
+            fprintf(fw, " (%d) %s-%s", count, System.BeadType[btype1].Name,
+                                              System.BeadType[btype2].Name);
+            count += 3;
+          }
+        }
+      }
+      if (opt.all) {
+        fprintf(fw, " (%d)-(%d) individual bonds", count,
+                count + 3 * mt->nBonds - 1);
+        count += 3 * mt->nBonds;
+      }
+      putc('\n', fw);
+    }
+  }
+  // data line
+  putc('#', fw);
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    for (int j = 0; j < Count->BeadType; j++) {
+      for (int k = j; k < Count->BeadType; k++) {
+        // if this bin is filled, its max must be larger than 0
+        if (bond_bt_mma[i][j][k][1] > 0) {
+          fprintf(fw, " %lf", bond_bt_mma[i][j][k][0]);
+          fprintf(fw, " %lf", bond_bt_mma[i][j][k][1]);
+          fprintf(fw, " %lf", bond_bt_mma[i][j][k][2] / bond_bt_norm[i][j][k]);
+        }
+      }
+    }
+    if (opt.all) {
+      for (int j = 0; j < System.MoleculeType[i].nBonds; j++) {
+        fprintf(fw, " %lf", bond_all_mma[i][j][0]);
+        fprintf(fw, " %lf", bond_all_mma[i][j][1]);
+        fprintf(fw, " %lf", bond_all_mma[i][j][2] / bond_all_norm[i][j]);
+      }
+    }
+  }
+  putc('\n', fw);
+} //}}}
+
 int main(int argc, char *argv[]) {
 
   // define options & check their validity
-  int common = 8, all = common + 5, count = 0,
+  int common = 8, all = common + 6, count = 0,
       req_arg = 3;
   char option[all][OPT_LENGTH];
   OptionCheck(argc, argv, req_arg, common, all, true, option,
-               "-st", "-e", "-sk", "-i", "--verbose", "--silent",
-               "--help", "--version", "--joined", "--all", "-d", "-m", "-w");
+              "-st", "-e", "-sk", "-i", "--verbose", "--silent", "--help",
+              "--version", "--joined", "--all", "-d", "-m", "-w", "-t");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -125,6 +187,9 @@ int main(int argc, char *argv[]) {
   if (!OneNumberOption(argc, argv, "-w", &opt->warn, 'd')) {
     opt->warn = HIGHNUM;
   } //}}}
+  if (!FileOption(argc, argv, "-t", opt->t_file)) {
+    opt->t_file[0] = '\0';
+  }
   //}}}
 
   if (!opt->c.silent) {
@@ -157,10 +222,10 @@ int main(int argc, char *argv[]) {
                                       sizeof (***bond_bt_mma)[3]);
   for (int i = 0; i < Count->MoleculeType; i++) {
     bond_bt[i] = calloc(Count->BeadType, sizeof *bond_bt);
-    bond_bt_mma[i] = calloc(Count->BeadType, sizeof ***bond_bt_mma);
+    bond_bt_mma[i] = calloc(Count->BeadType, sizeof *bond_bt_mma[i]);
     for (int j = 0; j < Count->BeadType; j++) {
       bond_bt[i][j] = calloc(Count->BeadType, sizeof *bond_bt);
-      bond_bt_mma[i][j] = calloc(Count->BeadType, sizeof ***bond_bt_mma);
+      bond_bt_mma[i][j] = calloc(Count->BeadType, sizeof *bond_bt_mma[i][j]);
       for (int k = 0; k < Count->BeadType; k++) {
         bond_bt[i][j][k] = calloc(bins, sizeof *bond_bt);
         // set high number as initial minium bond length
@@ -177,9 +242,9 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < Count->MoleculeType; i++) {
       bond_all[i] = calloc(System.MoleculeType[i].nBonds, sizeof *bond_all);
       bond_all_mma[i] = calloc(System.MoleculeType[i].nBonds,
-                               sizeof **bond_all_mma);
+                               sizeof *bond_all_mma[i]);
       for (int j = 0; j < System.MoleculeType[i].nBonds; j++) {
-        bond_all[i][j] = calloc(bins, sizeof *bond_all);
+        bond_all[i][j] = calloc(bins, sizeof *bond_all[i][j]);
         // set high number as initial minium bond length
         bond_all_mma[i][j][0] = HIGHNUM;
       }
@@ -202,6 +267,76 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
 
+  // write initial stuff for per-timestep averages? //{{{
+  if (opt->t_file[0] != '\0') {
+    FILE *fw = PrintBylineOpenFile(opt->t_file, argc, argv);
+    fprintf(fw, "# (1) distance\n");
+    count = 1;
+    for (int i = 0; i < Count->MoleculeType; i++) {
+      MOLECULETYPE *mt = &System.MoleculeType[i];
+      if (opt->mt[i] && mt->nBonds > 0) {
+        fprintf(fw, "# %s molecule:", mt->Name);
+        for (int j = 0; j < mt->nBTypes; j++) {
+          for (int k = j; k < mt->nBTypes; k++) {
+            int btype1 = mt->BType[j],
+                btype2 = mt->BType[k];
+            if (btype1 > btype2) {
+              SwapInt(&btype1, &btype2);
+            }
+            fprintf(fw, " (%d) %s-%s", ++count, System.BeadType[btype1].Name,
+                                                System.BeadType[btype2].Name);
+          }
+        }
+        if (opt->all) {
+          count++;
+          fprintf(fw, " (%d)-(%d) individual bonds", count,
+                  count + mt->nBonds - 1);
+          count += mt->nBonds - 1;
+        }
+        putc('\n', fw);
+      }
+    }
+    if (opt->d_file[0] != '\0') { //{{{
+      // print the second line - molecule names and ids with column numbers
+      fprintf(fw, "# from -d option:\n");
+      for (int i = 0; i < Count->MoleculeType; i++) {
+        MOLECULETYPE *mt_i = &System.MoleculeType[i];
+        if (opt->mt[i]) {
+          fprintf(fw, "# %s:", mt_i->Name);
+
+          for (int j = 0; j < opt->n_number; j += d_per_set) {
+            // skip id pairs if both are too high for the molecule //{{{
+            if (opt->n_list[j] >= mt_i->nBeads &&
+                opt->n_list[j+1] >= mt_i->nBeads) {
+              continue;
+            } //}}}
+            // bead ids for the distance //{{{
+            int id1, id2;
+            // use first molecule bead if bead index too high or -1
+            if (opt->n_list[j] >= mt_i->nBeads) {
+              id1 = mt_i->nBeads;
+            } else { // use specified index otherwise
+              id1 = opt->n_list[j];
+            }
+            // use last molecule bead if bead index too high or -1
+            if (opt->n_list[j+1] >= mt_i->nBeads) {
+              id2 = mt_i->nBeads;
+            } else { // use specified index otherwise
+              id2 = opt->n_list[j+1];
+            }
+            // write the numbers so the first is higher
+            if (id1 > id2) {
+              SwapInt(&id1, &id2);
+            } //}}}
+            fprintf(fw, " (%d) %d-%d", ++count, id1, id2);
+          }
+        }
+        putc('\n', fw);
+      }
+    } //}}}
+    fclose(fw);
+  } //}}}
+
   // main loop //{{{
   FILE *fr = OpenFile(in.coor.name, "r");
   int count_coor = 0, // count steps in the vcf file
@@ -221,6 +356,27 @@ int main(int argc, char *argv[]) {
       }
       count_used++;
       WrapJoinCoordinates(&System, true, opt->join);
+      // per-timestep arrays //{{{
+      double ***step = calloc(Count->MoleculeType, sizeof *step);
+      int ***step_c = calloc(Count->MoleculeType, sizeof *step_c);
+      for (int i = 0; i < Count->MoleculeType; i++) {
+        step[i] = calloc(Count->BeadType, sizeof *step[i]);
+        step_c[i] = calloc(Count->BeadType, sizeof *step_c[i]);
+        for (int j = 0; j < Count->BeadType; j++) {
+          step[i][j] = calloc(Count->BeadType, sizeof *step[i][j]);
+          step_c[i][j] = calloc(Count->BeadType, sizeof *step_c[i][j]);
+        }
+      }
+      double **step_t = NULL;
+      int **step_t_c = NULL;
+      if (opt->t_file[0] != '\0') {
+        step_t = calloc(opt->n_number, sizeof *step_t);
+        step_t_c = calloc(opt->n_number, sizeof *step_t_c);
+        for (int i = 0; i < opt->n_number; i++) {
+          step_t[i] = calloc(opt->n_number, sizeof *step_t[i]);
+          step_t_c[i] = calloc(opt->n_number, sizeof *step_t_c[i]);
+        }
+      } //}}}
       // calculate bond lengths //{{{
       // go through all molecules
       // TODO: make into for (mtype); for (mtype.index)
@@ -230,23 +386,19 @@ int main(int argc, char *argv[]) {
         if (opt->mt[mol_i->Type]) { // use only specified molecule types
           for (int j = 0; j < mt_i->nBonds; j++) {
             // bead ids in the bond
-            // TODO: use BondIndices
             int id1 = mol_i->Bead[mt_i->Bond[j][0]],
                 id2 = mol_i->Bead[mt_i->Bond[j][1]];
             BEAD *b_1 = &System.Bead[id1],
                  *b_2 = &System.Bead[id2];
             // bond length
-            double bond[3];
-            for (int dd = 0; dd < 3; dd++) {
-              bond[dd] = b_1->Position[dd] - b_2->Position[dd];
-            }
-            bond[0] = VectLength(bond);
+            vec3 bond = Vector(b_1->Position, b_2->Position);
+            bond.v[0] = VectLength(bond);
             // warn if bond is too long //{{{
-            if (opt->warn != HIGHNUM && bond[0] > opt->warn) {
+            if (opt->warn != HIGHNUM && bond.v[0] > opt->warn) {
               snprintf(ERROR_MSG, LINE, "-w option; too long a bond between "
                        "beads %s%d%s and %s%d%s (%s%lf%s)",
                        ErrYellow(), id1, ErrCyan(), ErrYellow(), id2, ErrCyan(),
-                       ErrYellow(), bond[0], ErrCyan());
+                       ErrYellow(), bond.v[0], ErrCyan());
               PrintWarning();
             } //}}}
             // btype1 must be lower than btype2
@@ -258,25 +410,25 @@ int main(int argc, char *argv[]) {
               id_lo = &b_2->Type;
               id_hi = &b_1->Type;
             }
-
+            step[mol_i->Type][*id_lo][*id_hi] += bond.v[0];
+            step_c[mol_i->Type][*id_lo][*id_hi]++;
             // mins & maxes & averages //{{{
-            if (bond[0] < bond_bt_mma[mol_i->Type][*id_lo][*id_hi][0]) {
-              bond_bt_mma[mol_i->Type][*id_lo][*id_hi][0] = bond[0];
-            } else if (bond[0] > bond_bt_mma[mol_i->Type][*id_lo][*id_hi][1]) {
-              bond_bt_mma[mol_i->Type][*id_lo][*id_hi][1] = bond[0];
+            if (bond.v[0] < bond_bt_mma[mol_i->Type][*id_lo][*id_hi][0]) {
+              bond_bt_mma[mol_i->Type][*id_lo][*id_hi][0] = bond.v[0];
+            } else if (bond.v[0] > bond_bt_mma[mol_i->Type][*id_lo][*id_hi][1]) {
+              bond_bt_mma[mol_i->Type][*id_lo][*id_hi][1] = bond.v[0];
             }
-            bond_bt_mma[mol_i->Type][*id_lo][*id_hi][2] += bond[0];
+            bond_bt_mma[mol_i->Type][*id_lo][*id_hi][2] += bond.v[0];
             if (opt->all) {
-              if (bond[0] < bond_all_mma[mol_i->Type][j][0]) {
-                bond_all_mma[mol_i->Type][j][0] = bond[0];
-              } else if (bond[0] > bond_all_mma[mol_i->Type][j][1]) {
-                bond_all_mma[mol_i->Type][j][1] = bond[0];
+              if (bond.v[0] < bond_all_mma[mol_i->Type][j][0]) {
+                bond_all_mma[mol_i->Type][j][0] = bond.v[0];
+              } else if (bond.v[0] > bond_all_mma[mol_i->Type][j][1]) {
+                bond_all_mma[mol_i->Type][j][1] = bond.v[0];
               }
-              bond_all_mma[mol_i->Type][j][2] += bond[0];
+              bond_all_mma[mol_i->Type][j][2] += bond.v[0];
             }
             //}}}
-
-            int k = bond[0] / width;
+            int k = bond.v[0] / width;
             if (k < bins) {
               bond_bt[mol_i->Type][*id_lo][*id_hi][k]++;
               if (opt->all) {
@@ -309,22 +461,19 @@ int main(int argc, char *argv[]) {
               } //}}}
               BEAD *b_1 = &System.Bead[id1], *b_2 = &System.Bead[id2];
               // distance calculation
-              double dist[3];
-              for (int dd = 0; dd < 3; dd++) {
-                dist[dd] = b_1->Position[dd] - b_2->Position[dd];
-              }
-              dist[0] = VectLength(dist);
-
+              vec3 dist = Vector(b_1->Position, b_2->Position);
+              dist.v[0] = VectLength(dist);
+              step_t[mol_i->Type][j/2] += dist.v[0];
+              step_t_c[mol_i->Type][j/2]++;
               // distance mins & maxes & averages //{{{
-              if (dist[0] < bond_d_mma[mol_i->Type][j/2][0]) { // minimum
-                bond_d_mma[mol_i->Type][j/2][0] = dist[0];
-              } else if (dist[0] > bond_d_mma[mol_i->Type][j/2][1]) { // maximum
-                bond_d_mma[mol_i->Type][j/2][1] = dist[0];
+              if (dist.v[0] < bond_d_mma[mol_i->Type][j/2][0]) { // minimum
+                bond_d_mma[mol_i->Type][j/2][0] = dist.v[0];
+              } else if (dist.v[0] > bond_d_mma[mol_i->Type][j/2][1]) { // maximum
+                bond_d_mma[mol_i->Type][j/2][1] = dist.v[0];
               }
-              bond_d_mma[mol_i->Type][j/2][2] += dist[0]; // average
+              bond_d_mma[mol_i->Type][j/2][2] += dist.v[0]; // average
               //}}}
-
-              int k = dist[0] / width; // distribution 'bin'
+              int k = dist.v[0] / width; // distribution 'bin'
               if (k < bins) {
                 bond_d[mol_i->Type][j/2][k]++;
               }
@@ -332,6 +481,81 @@ int main(int argc, char *argv[]) {
           }
         }
       } //}}}
+      // write to per-timestep file? //{{{
+      if (opt->t_file[0] != '\0') {
+        FILE *fw = OpenFile(opt->t_file, "a");
+        fprintf(fw, " %7d", count_coor);
+        for (int i = 0; i < Count->MoleculeType; i++) {
+          MOLECULETYPE *mt = &System.MoleculeType[i];
+          if (opt->mt[i] && mt->nBonds > 0) {
+            for (int j = 0; j < mt->nBTypes; j++) {
+              for (int k = j; k < mt->nBTypes; k++) {
+                int btype1 = mt->BType[j],
+                    btype2 = mt->BType[k];
+                // btype1 must be lower than btype2
+                if (btype1 > btype2) {
+                  SwapInt(&btype1, &btype2);
+                }
+                if (step_c[i][btype1][btype2] > 0) {
+                  double value = step[i][btype1][btype2] /
+                                 step_c[i][btype1][btype2];
+                  fprintf(fw, "%10f", value);
+                } else {
+                  fprintf(fw, " %10s", "?");
+                }
+              }
+            }
+            // if (opt->all) {
+            //   for (int k = 0; k < mt->nBonds; k++) {
+            //     if (step_bond_all[j][k] > 0) {
+            //       double value = bond_all[j][k][i] / bond_all_norm[j][k];
+            //       fprintf(fw, "%10f", value);
+            //     } else {
+            //       fprintf(fw, "%10s", "?");
+            //     }
+            //   }
+            // }
+          }
+        }
+        if (opt->d_file[0] != '\0') {
+          for (int i = 0; i < Count->MoleculeType; i++) {
+            if (opt->mt[i]) {
+              for (int j = 0; j < opt->n_number; j += d_per_set) {
+                // skip id pairs if both are too high for the molecule //{{{
+                if (opt->n_list[j] >= System.MoleculeType[i].nBeads &&
+                    opt->n_list[j+1] >= System.MoleculeType[i].nBeads) {
+                  continue;
+                } //}}}
+                double value = step_t[i][j/d_per_set] /
+                               step_t_c[i][(int)(j/d_per_set)];
+                fprintf(fw, " %10f", value);
+              }
+            }
+          }
+        }
+        putc('\n', fw);
+        fclose(fw);
+      } //}}}
+      // free per-timestep array //{{{
+      for (int i = 0; i < Count->MoleculeType; i++) {
+        for (int j = 0; j < Count->BeadType; j++) {
+          free(step[i][j]);
+          free(step_c[i][j]);
+        }
+        free(step[i]);
+        free(step_c[i]);
+      }
+      free(step);
+      free(step_c);
+      if (opt->t_file[0] != '\0') {
+        for (int i = 0; i < opt->n_number; i++) {
+          free(step_t[i]);
+          free(step_t_c[i]);
+        }
+        free(step_t);
+        free(step_t_c);
+      }
+      //}}}
       //}}}
     } else {
       if (!SkipTimestep(in, fr, &line_count)) {
@@ -352,9 +576,9 @@ int main(int argc, char *argv[]) {
   int ***bond_bt_norm = calloc(Count->MoleculeType, sizeof *bond_bt_norm),
       range[2] = {bins, 0}; // min/max distance
   for (int i = 0; i < Count->MoleculeType; i++) {
-    bond_bt_norm[i] = calloc(Count->BeadType, sizeof *bond_bt_norm);
+    bond_bt_norm[i] = calloc(Count->BeadType, sizeof *bond_bt_norm[i]);
     for (int j = 0; j < Count->BeadType; j++) {
-      bond_bt_norm[i][j] = calloc(Count->BeadType, sizeof *bond_bt_norm);
+      bond_bt_norm[i][j] = calloc(Count->BeadType, sizeof *bond_bt_norm[i][j]);
       for (int k = j; k < Count->BeadType; k++) {
         for (int l = 0; l < bins; l++) {
           if (bond_bt[i][j][k][l] > 0) {
@@ -398,10 +622,16 @@ int main(int argc, char *argv[]) {
     range[1] += 2; // +2 as for loop is range[0]...range[1]-1
   } //}}}
 
+  if (opt->t_file[0] != '\0') {
+    FILE *fw = OpenFile(opt->t_file, "a");
+    WriteMinsMaxesAverages(fw, System, *opt, bond_bt_mma, bond_bt_norm,
+                           bond_all_mma, bond_all_norm);
+    fclose(fw);
+  }
+
   // write distribution of bond lengths //{{{
-  PrintByline(fout, argc, argv);
   // print first lines of output file - molecule names and beadtype pairs //{{{
-  FILE *fw = OpenFile(fout, "a");
+  FILE *fw = PrintBylineOpenFile(fout, argc, argv);
   fprintf(fw, "# (1) distance\n");
   count = 1;
   for (int i = 0; i < Count->MoleculeType; i++) {
@@ -412,6 +642,9 @@ int main(int argc, char *argv[]) {
         for (int k = j; k < mt->nBTypes; k++) {
           int btype1 = mt->BType[j],
               btype2 = mt->BType[k];
+          if (btype1 > btype2) {
+            SwapInt(&btype1, &btype2);
+          }
           if (bond_bt_norm[i][btype1][btype2] > 0) {
             count++;
             fprintf(fw, " (%d) %s-%s", count, System.BeadType[btype1].Name,
@@ -463,60 +696,12 @@ int main(int argc, char *argv[]) {
     }
     putc('\n', fw);
   } //}}}
-  // write mins, maxes, and averages //{{{
-  // legend line
-  fprintf(fw, "# min(1st columns)/max(2nd columns)/average(3rd columns)\n");
-  count = 1;
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    MOLECULETYPE *mt = &System.MoleculeType[i];
-    if (opt->mt[i] && mt->nBonds > 0) {
-      fprintf(fw, "# %s molecule:", mt->Name);
-      for (int j = 0; j < mt->nBTypes; j++) {
-        for (int k = j; k < mt->nBTypes; k++) {
-          int btype1 = mt->BType[j],
-              btype2 = mt->BType[k];
-          if (bond_bt_norm[i][btype1][btype2] > 0) {
-            fprintf(fw, " (%d) %s-%s", count, System.BeadType[btype1].Name,
-                                              System.BeadType[btype2].Name);
-            count += 3;
-          }
-        }
-      }
-      if (opt->all) {
-        fprintf(fw, " (%d)-(%d) individual bonds", count,
-                count + 3 * mt->nBonds - 1);
-        count += 3 * mt->nBonds;
-      }
-      putc('\n', fw);
-    }
-  }
-  // data line
-  putc('#', fw);
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    for (int j = 0; j < Count->BeadType; j++) {
-      for (int k = j; k < Count->BeadType; k++) {
-        // if this bin is filled, its max must be larger than 0
-        if (bond_bt_mma[i][j][k][1] > 0) {
-          fprintf(fw, " %lf", bond_bt_mma[i][j][k][0]);
-          fprintf(fw, " %lf", bond_bt_mma[i][j][k][1]);
-          fprintf(fw, " %lf", bond_bt_mma[i][j][k][2] / bond_bt_norm[i][j][k]);
-        }
-      }
-    }
-    if (opt->all) {
-      for (int j = 0; j < System.MoleculeType[i].nBonds; j++) {
-        fprintf(fw, " %lf", bond_all_mma[i][j][0]);
-        fprintf(fw, " %lf", bond_all_mma[i][j][1]);
-        fprintf(fw, " %lf", bond_all_mma[i][j][2] / bond_all_norm[i][j]);
-      }
-    }
-  }
-  putc('\n', fw); //}}}
+  WriteMinsMaxesAverages(fw, System, *opt, bond_bt_mma, bond_bt_norm,
+                         bond_all_mma, bond_all_norm);
   fclose(fw); //}}}
 
   // write distribution of distances from '-d' option //{{{
   if (opt->d_file[0] != '\0') {
-    PrintByline(opt->d_file, argc, argv);
     // sum up all calculated distances (normalization factors) //{{{
     int d_norm[Count->MoleculeType][d_pair_n];
     range[0] = bins;
@@ -546,7 +731,7 @@ int main(int argc, char *argv[]) {
     if (range[1] < (bins - 1)) {
       range[1] += 2; // +2 as for loop is range[0]...range[1]-1
     } //}}}
-    fw = OpenFile(opt->d_file, "a");
+    FILE *fw = PrintBylineOpenFile(opt->d_file, argc, argv);
     // print the first line - molecule names with bead order //{{{
     fprintf(fw, "# bead order in molecule(s) -");
     for (int i = 0; i < Count->MoleculeType; i++) {

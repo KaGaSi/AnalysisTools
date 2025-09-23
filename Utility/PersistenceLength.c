@@ -43,19 +43,6 @@ OPT * opt_create(void) {
   return malloc(sizeof(OPT));
 } //}}}
 
-double Dot(double u[3], double v[3]) {
-  return u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
-}
-void Vector(double coor1[3], double coor2[3], double v[3]) {
-  for (int dd = 0; dd < 3; dd++) {
-    v[dd] = coor1[dd] - coor2[dd];
-  }
-}
-// angle between vectors i-j and k-l
-static inline double CosAngle(double u[3], double v[3]) {
-  return Dot(u, v) / (VectLength(u) * VectLength(v));
-}
-
 int main(int argc, char *argv[]) {
 
   int common = 8, all = common + 4, count = 0,
@@ -113,7 +100,7 @@ int main(int argc, char *argv[]) {
   COUNT *Count = &System.Count;
 
   // '-m <name(s)>' option
-  opt->mt = calloc(System.Count.MoleculeType, sizeof *opt->mt);
+  opt->mt = calloc(Count->MoleculeType, sizeof *opt->mt);
   if (!TypeOption(argc, argv, "-m", 'm', true, opt->mt, System)) {
     InitBoolArray(opt->mt, Count->MoleculeType, true);
   }
@@ -124,7 +111,7 @@ int main(int argc, char *argv[]) {
 
   // maximum number of bonds & beads //{{{
   int max_bonds = 0;
-  if (opt->ne == HIGHNUM) { // no -ne option -> find longes molecule
+  if (opt->ne == HIGHNUM) { // no -ne option -> find longest molecule
     for (int i = 0; i < Count->MoleculeType; i++) {
       if (opt->mt[i] && System.MoleculeType[i].nBonds > max_bonds) {
         max_bonds = System.MoleculeType[i].nBonds;
@@ -132,37 +119,34 @@ int main(int argc, char *argv[]) {
     }
   } else { // -ne option -> cannot be longer than the specified length
     max_bonds = opt->ne;
+  }
+  if (max_bonds < opt->ns) {
+    err_msg("starting bead is larger than the length of any molecule");
+    ErrorOption("-ns");
+    exit(1);
   } //}}}
 
-  // arrays for sums //{{{
-  double **lag_cos_phi = calloc(Count->MoleculeType, sizeof *lag_cos_phi),
-         **lag_cos_phi2 = calloc(Count->MoleculeType, sizeof *lag_cos_phi2),
-         (*avg_bond)[2] = calloc(Count->MoleculeType, sizeof avg_bond[2]);
-  long int **count_stuff = calloc(Count->MoleculeType, sizeof *count_stuff);
+  // TODO: define S1 throuh S3 via kp's text //{{{
+  double (**S1)[2] = calloc(Count->MoleculeType, sizeof *S1);
+  double **S2 = calloc(Count->MoleculeType, sizeof *S2);
+  int **count_S2 = calloc(Count->MoleculeType, sizeof *S2);
+  double (**S3)[2] = calloc(Count->MoleculeType, sizeof *S3);
+  int **count_S3 = calloc(Count->MoleculeType, sizeof *S3);
+  double *bondlength = calloc(Count->MoleculeType, sizeof *bondlength);
+  int *count_bonds = calloc(Count->MoleculeType, sizeof *count_bonds);
   for (int i = 0; i < Count->MoleculeType; i++) {
-    lag_cos_phi[i] = calloc(max_bonds, sizeof *lag_cos_phi[i]);
-    lag_cos_phi2[i] = calloc(max_bonds, sizeof *lag_cos_phi2[i]);
-    count_stuff[i] = calloc(max_bonds, sizeof *count_stuff[i]);
-  }
-  double *Re2 = calloc(Count->MoleculeType, sizeof *Re2);
-  double *contour = calloc(Count->MoleculeType, sizeof *contour);
-  double *ang_corr_avg = calloc(Count->MoleculeType, sizeof *ang_corr_avg);
-  double **ang_corr_lag = calloc(Count->MoleculeType, sizeof *ang_corr_lag);
-  double **ang_corr_lag2 = calloc(Count->MoleculeType, sizeof *ang_corr_lag2);
-  double **cos_first_j = calloc(Count->MoleculeType, sizeof *cos_first_j);
-  double **cos_last_j = calloc(Count->MoleculeType, sizeof *cos_last_j);
-  long int *count_ang = calloc(Count->MoleculeType, sizeof *count_ang);
-  long int **count_ang_lag = calloc(Count->MoleculeType, sizeof *count_ang_lag);
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    // TODO: why +1 everywhere?
-    ang_corr_lag[i] = calloc(max_bonds + 1, sizeof *ang_corr_lag[i]);
-    ang_corr_lag2[i] = calloc(max_bonds + 1, sizeof *ang_corr_lag[i]);
-    cos_first_j[i] = calloc(max_bonds + 1, sizeof *cos_first_j[i]);
-    cos_last_j[i] = calloc(max_bonds + 1, sizeof *cos_last_j[i]);
-    count_ang_lag[i] = calloc(max_bonds + 1, sizeof *count_ang_lag[i]);
-  }
-  int *count_mols = calloc(Count->MoleculeType, sizeof *count_mols);
-  //}}}
+    S1[i] = calloc(max_bonds, sizeof *S1[i]);
+    S2[i] = calloc(max_bonds, sizeof *S2[i]);
+    count_S2[i] = calloc(max_bonds, sizeof *count_S2[i]);
+    S3[i] = calloc(max_bonds, sizeof *S3[i]);
+    count_S3[i] = calloc(max_bonds, sizeof *count_S3[i]);
+    for (int j = 0; j < Count->MoleculeType; j++) {
+      S1[i][j][0] = 0;
+      S1[i][j][1] = 0;
+      S3[i][j][0] = 0;
+      S3[i][j][1] = 0;
+    }
+  } //}}}
 
   // main loop //{{{
   FILE *fr = OpenFile(in.coor.name, "r");
@@ -185,129 +169,91 @@ int main(int argc, char *argv[]) {
       WrapJoinCoordinates(&System, false, opt->join);
       // go through all molecules //{{{
       for (int i = 0; i < Count->MoleculeType; i++) {
-        MOLECULETYPE *mt_i = &System.MoleculeType[i];
-        // last bead id; corresponds to the highest bond with id last_b-1
-        int last_b = mt_i->nBeads - 1;
+        MOLECULETYPE *mt = &System.MoleculeType[i];
+        // last bond id
+        int last_bond = mt->nBonds;
         if (opt->ne != HIGHNUM) {
-          last_b = opt->ne;
+          last_bond = opt->ne;
+        }
+        int first_bond = 0;
+        if (opt->ns > 0) {
+          first_bond = opt->ns;
         }
         // use only specified molecule types that are long enough
-        if (!opt->mt[i] &&
-            mt_i->nBeads > (opt->ns + 1) &&
-            mt_i->nBeads > last_b) {
+        if (!opt->mt[i] || mt->nBonds < opt->ns) {
           continue;
         }
-        for (int mm = 0; mm < mt_i->Number; mm++) {
-          int mol = mt_i->Index[mm];
-          MOLECULE *mol_i = &System.Molecule[mol];
-          if (!mol_i->InTimestep) {
-            continue;
+
+        for (int j = 0; j < mt->Number; j++) {
+          MOLECULE *mol = &System.Molecule[mt->Index[j]];
+          // calculate average bond length in the chain (for S3)
+          double l2_sum = 0;
+          int nb_sum = 0;
+          for (int b = 0; b < mt->nBonds; b++) {
+            int a = mol->Bead[mt->Bond[b][0]];
+            int c = mol->Bead[mt->Bond[b][1]];
+            // double v[3];
+            // Vector(System.Bead[a].Position, System.Bead[c].Position, v);
+            vec3 v = Vector(System.Bead[a].Position, System.Bead[c].Position);
+            l2_sum += Dot(v, v);
+            nb_sum += 1;
           }
-          // vectors r_1,2 and r_1,N
-          double first[3], last[3];
-          Vector(System.Bead[mol_i->Bead[opt->ns]].Position,
-                 System.Bead[mol_i->Bead[opt->ns+1]].Position, first);
-          Vector(System.Bead[mol_i->Bead[opt->ns]].Position,
-                 System.Bead[mol_i->Bead[last_b]].Position, last);
-          // end-to-end distance squared
-          Re2[mol_i->Type] += SqVectLength(last);
-          // count molecules of every type
-          count_mols[mol_i->Type]++;
-          int bonds = last_b - opt->ns; // number of bonds to consider
-          for (int lag = 0; lag < bonds; lag++) {
-            // go from first bond (same id as first bead) to the highest
-            // possible bond (its bond_id is last_bead-1)
-            for (int j = opt->ns; j < (last_b - lag); j++) {
-              int id1 = mol_i->Bead[mt_i->Bond[j][0]],
-                  id2 = mol_i->Bead[mt_i->Bond[j][1]],
-                  id3 = mol_i->Bead[mt_i->Bond[j+lag][0]],
-                  id4 = mol_i->Bead[mt_i->Bond[j+lag][1]];
-              double u[3], v[3];
-              Vector(System.Bead[id1].Position, System.Bead[id2].Position, u);
-              Vector(System.Bead[id3].Position, System.Bead[id4].Position, v);
-              // sum of cos(\phi)
-              lag_cos_phi[mol_i->Type][lag] += CosAngle(u, v); // column 2
-              // count values - easier than figuring out their number
-              count_stuff[mol_i->Type][lag]++;
-              if (lag == 0) { // for end-of-file average
-                // contour length for end-to-end lp estimate
-                contour[mol_i->Type] += VectLength(u);
-                // bond lengths
-                avg_bond[mol_i->Type][0] += VectLength(u);
-                avg_bond[mol_i->Type][1]++;
-              }
-              if (j == opt->ns) { // for end-of-file average
-                // angular correlation method - angle between r_1,2 & r_1,lag
-                Vector(System.Bead[id1].Position, System.Bead[id4].Position, v);
-                ang_corr_avg[mol_i->Type] += VectLength(v) * CosAngle(u, v);
-                Vector(System.Bead[id3].Position, System.Bead[id4].Position, v);
-                count_ang[mol_i->Type]++;
-              }
-              // bond correlation from the other end of the chain
-              id1 = mol_i->Bead[mt_i->Bond[mt_i->nBonds-1-j][0]];
-              id2 = mol_i->Bead[mt_i->Bond[mt_i->nBonds-1-j][1]];
-              id3 = mol_i->Bead[mt_i->Bond[mt_i->nBonds-1-(j+lag)][0]];
-              id4 = mol_i->Bead[mt_i->Bond[mt_i->nBonds-1-(j+lag)][1]];
-              Vector(System.Bead[id1].Position, System.Bead[id2].Position, u);
-              Vector(System.Bead[id3].Position, System.Bead[id4].Position, v);
-              lag_cos_phi2[mol_i->Type][lag] += CosAngle(u, v); // column 3
+          l2_sum /= nb_sum;
+          // S1 function
+          // first bond vector (for S1)
+          int b1 = mol->Bead[mt->Bond[first_bond][0]],
+              b2 = mol->Bead[mt->Bond[first_bond][1]];
+          vec3 bond1 = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+          // last bond vector (for reversed S1)
+          b1 = mol->Bead[mt->Bond[mt->nBonds-first_bond-1][0]],
+          b2 = mol->Bead[mt->Bond[mt->nBonds-first_bond-1][1]];
+          vec3 bondN = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+          for (int k = first_bond; k < last_bond; k++) {
+
+            // S1 function & bondlengths //{{{
+            // TODO: bondj -> bondk
+            // 1->N S1
+            b1 = mol->Bead[mt->Bond[k][0]];
+            b2 = mol->Bead[mt->Bond[k][1]];
+            vec3 bondj = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+            S1[mol->Type][k-first_bond][0] += CosAngle(bondj, bond1);
+            // bondlength & count bonds
+            bondlength[mol->Type] += VectLength(bondj);
+            count_bonds[mol->Type]++;
+            // reverse S1
+            int bond_id = mt->nBonds - k - 1;
+            int bin_id = k - first_bond;
+            b1 = mol->Bead[mt->Bond[bond_id][0]];
+            b2 = mol->Bead[mt->Bond[bond_id][1]];
+            bondj = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+            S1[mol->Type][bin_id][1] += CosAngle(bondN, bondj); //}}}
+            for (int l = k; l < last_bond; l++) {
+              int lag = l - k;
+              // S2 function (classic bond correlation) //{{{
+              // first bond vector
+              int b1 = mol->Bead[mt->Bond[k][0]],
+                  b2 = mol->Bead[mt->Bond[k][1]];
+              vec3 bondk = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+              // second bond vector
+              b1 = mol->Bead[mt->Bond[l][0]];
+              b2 = mol->Bead[mt->Bond[l][1]];
+              vec3 bondl = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+              // autocorrelation
+              S2[mol->Type][lag] += CosAngle(bondk, bondl);
+              count_S2[mol->Type][lag]++; //}}}
+              // S3 function (end-to-end distances) //{{{
+              b1 = mol->Bead[mt->Bond[k][0]];
+              b2 = mol->Bead[mt->Bond[l][1]];
+              vec3 Re = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+              double denom = Square(lag + 1) * l2_sum;
+              S3[mol->Type][lag][0] += Dot(Re, Re) / denom;
+              S3[mol->Type][lag][1] += Dot(Re, Re);
+              count_S3[mol->Type][lag]++; //}}}
             }
-          }
-          // the last allowed bead has id last_b, so +1 for number of beads
-          for (int j = opt->ns; j < (last_b + 1 - 2); j++) {
-            double u[3], v[3];
-            int bin_id = j + 2 - opt->ns;
-            // from the beginning of the chain
-            int id11 = mol_i->Bead[opt->ns];
-            int id12 = mol_i->Bead[opt->ns+1];
-            int id21 = id11;
-            int id22 = mol_i->Bead[j+2];
-            Vector(System.Bead[id11].Position, System.Bead[id12].Position, u);
-            Vector(System.Bead[id21].Position, System.Bead[id22].Position, v);
-            // column 3:
-            ang_corr_lag[mol_i->Type][bin_id] += VectLength(v) * CosAngle(u, v);
-            // from the end of the chain
-            id11 = mol_i->Bead[mt_i->nBeads-opt->ns-1];
-            id12 = mol_i->Bead[mt_i->nBeads-opt->ns-2];
-            id21 = id11;
-            id22 = mol_i->Bead[mt_i->nBeads-j-3];
-            Vector(System.Bead[id11].Position, System.Bead[id12].Position, u);
-            Vector(System.Bead[id12].Position, System.Bead[id22].Position, v);
-            // column 4:
-            ang_corr_lag2[mol_i->Type][bin_id] += VectLength(v) * CosAngle(u, v);
-            count_ang_lag[mol_i->Type][bin_id]++;
-          }
-          // go over all bonds; last_b is last bead's id and number of bonds
-          // column 5 - from the beginning of the chain
-          for (int j = opt->ns; j < last_b; j++) {
-            double u[3], v[3];
-            int bin_id = j - opt->ns;
-            int id11 = mol_i->Bead[opt->ns],
-                id12 = mol_i->Bead[opt->ns+1],
-                id21 = mol_i->Bead[mt_i->Bond[j][0]],
-                id22 = mol_i->Bead[mt_i->Bond[j][1]];
-            Vector(System.Bead[id11].Position, System.Bead[id12].Position, u);
-            Vector(System.Bead[id21].Position, System.Bead[id22].Position, v);
-            // column 5:
-            cos_first_j[mol_i->Type][bin_id] += CosAngle(u, v);
-          }
-          // column 5 - from the end of the chain
-          int last_bond_id = mt_i->nBonds - 1 - opt->ns;
-          for (int j = last_bond_id; j >= (mt_i->nBonds - last_b); j--) {
-            double u[3], v[3];
-            int bin_id = last_bond_id - j;
-            int id11 = mol_i->Bead[mt_i->Bond[j][0]],
-                id12 = mol_i->Bead[mt_i->Bond[j][1]],
-                id21 = mol_i->Bead[mt_i->Bond[last_bond_id][0]],
-                id22 = mol_i->Bead[mt_i->Bond[last_bond_id][1]];
-            Vector(System.Bead[id11].Position, System.Bead[id12].Position, u);
-            Vector(System.Bead[id21].Position, System.Bead[id22].Position, v);
-            // column 6:
-            cos_last_j[mol_i->Type][bin_id] += CosAngle(u, v);
           }
         }
       } //}}}
-      //}}}
+    //}}}
     } else { //{{{
       if (!SkipTimestep(in, fr, &line_count)) {
         count_coor--;
@@ -322,212 +268,116 @@ int main(int argc, char *argv[]) {
   fclose(fr);
   PrintLastStep(count_coor, count_used, opt->c.silent); //}}}
 
-  // average all arrays //{{{
+  // write data //{{{
+  // determine width of each column & collate data //{{{
+  int datalines = max_bonds - opt->ns;
+  // count used molecule types
+  count = 0;
   for (int i = 0; i < Count->MoleculeType; i++) {
-    if (opt->mt[i]) {
-      for (int lag = 0; lag < (max_bonds - 1); lag++) {
-        lag_cos_phi[i][lag] /= count_stuff[i][lag];
-        lag_cos_phi2[i][lag] /= count_stuff[i][lag];
-      }
-    }
-  } //}}}
-
-  // write data to ouptut file //{{{
-  // print first lines of output file //{{{
-  FILE *fw = PrintBylineOpenFile(fout, argc, argv);
-  fprintf(fw, "# for each molecule type: bond correlation; ");
-  fprintf(fw, "angle r_1,2 and r_1,N multiplied by r_1,N distance; ");
-  fprintf(fw, "angle r_1,2 and r_N-1,N; ");
-  fprintf(fw, "integrated angle r_1,2 and r_N-1,N\n");
-  fprintf(fw, "# (1) distance between bonds/beads;");
-  count = 1;
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    MOLECULETYPE *mt_i = &System.MoleculeType[i];
     if (opt->mt[i]) {
       count++;
-      fprintf(fw, " (%d-%d) %s", count, count + 9, mt_i->Name);
     }
   }
-  putc('\n', fw); //}}}
-  // determine width of each column & collate data //{{{
-  int columns = Count->MoleculeType * 10 + 1;
+  int data_per_mtype = 9;
+  int columns = count * data_per_mtype + 1;
   int digits[columns][2];
   InitInt2DArray((int *)digits, columns, 2, 0);
-  double *data[max_bonds+1];
-  for (int lag = 0; lag < (max_bonds + 1); lag++) {
-    data[lag] = calloc(columns, sizeof data[lag]);
+  double *data[datalines];
+  // arrays for integrated functions
+  double sum_S1[Count->MoleculeType][2]; // [0] ... 1->N; [1] ... reverse
+  double sum_S2[Count->MoleculeType];
+  double sum_S3[Count->MoleculeType][2]; // [0] ... normalized; [1] .. raw
+  // average bond length
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    sum_S1[i][0] = 0;
+    sum_S1[i][1] = 0;
+    sum_S2[i] = 0;
+    sum_S3[i][0] = 0;
+    sum_S3[i][1] = 0;
+  }
+  for (int lag = 0; lag < datalines; lag++) {
+    data[lag] = calloc(columns, sizeof *data[lag]);
     count = -1;
     data[lag][++count] = lag;
     for (int j = 0; j < Count->MoleculeType; j++) {
-      if (!opt->mt[j]) {
-        continue;
-      }
-      MOLECULETYPE *mt_j = &System.MoleculeType[j];
-      int last_b = mt_j->nBeads - 1;
-      if (opt->ne != HIGHNUM) {
-        last_b = opt->ne;
-      }
-      if (lag < mt_j->nBonds && lag < last_b) { // columns 2 & 3
-        data[lag][++count] = lag_cos_phi[j][lag];
-        data[lag][++count] = lag_cos_phi2[j][lag];
-      } else {
-        count += 2;
-      }
-      if (lag < 2) { // columns 4 & 5
-        count += 2;
-      } else if (lag < mt_j->nBeads && lag < (last_b + 1)) {
-        data[lag][++count] = ang_corr_lag[j][lag] / count_ang_lag[j][lag];
-        data[lag][++count] = ang_corr_lag2[j][lag] / count_ang_lag[j][lag];
-      }
-      if (lag < mt_j->nBonds && lag < last_b) { // columns 6 & 7
-        data[lag][++count] = cos_first_j[j][lag] / count_mols[j];
-        data[lag][++count] = cos_last_j[j][lag] / count_mols[j];
-      } else {
-        count += 2;
-      }
-      if (lag == 0) { // columns 8 & 9
-        data[lag][++count] = 1;
-        data[lag][++count] = 1;
-      } else if (lag < mt_j->nBonds && lag < last_b) {
-        count++;
-        data[lag][count] = data[lag-1][count] + cos_first_j[j][lag] / count_mols[j];
-        count++;
-        data[lag][count] = data[lag-1][count] + cos_last_j[j][lag] / count_mols[j];
-      } else {
-        count += 2;
-      }
-      if (lag == 0) { // columns 10 & 11
-        data[lag][++count] = 1;
-        data[lag][++count] = 1;
-      } else if (lag < mt_j->nBonds && lag < last_b) {
-        count++;
-        data[lag][count] = data[lag-1][count] + lag_cos_phi[j][lag];
-        count++;
-        data[lag][count] = data[lag-1][count] + lag_cos_phi2[j][lag];
-      } else {
-        count += 2;
-      }
-    }
-  }
-  FillMaxDigits(columns, max_bonds + 1, data, digits); //}}}
-  // <l_p>\approx\sum_{i=1}^N<b1.bi> ... N is number of bonds
-  double lp_kp[Count->MoleculeType];
-  double lp_kp2[Count->MoleculeType];
-  InitDoubleArray(lp_kp, Count->MoleculeType, 0);
-  InitDoubleArray(lp_kp2, Count->MoleculeType, 0);
-  for (int lag = opt->ns; lag < (max_bonds + 1); lag++) {
-    for (int j = 0; j < Count->MoleculeType; j++) {
       if (opt->mt[j]) {
-        lp_kp[j] += cos_first_j[j][lag];
-        lp_kp2[j] += cos_last_j[j][lag];
+        // S1 function (from either end)
+        double avg[2] = {S1[j][lag][0] / count_used,
+                         S1[j][lag][1] / count_used};
+        for (int dd = 0; dd < 2; dd++) {
+          sum_S1[j][dd] += avg[dd];
+          data[lag][++count] = avg[dd];
+          data[lag][++count] = sum_S1[j][dd];
+        }
+        // S2 (autocorrelation function)
+        avg[0] = S2[j][lag] / count_S2[j][lag];
+        sum_S2[j] += avg[0];
+        data[lag][++count] = avg[0];
+        data[lag][++count] = sum_S2[j];
+        // S3 (end-to-end distances)
+        for (int dd = 0; dd < 2; dd++) {
+          avg[dd] = S3[j][lag][dd] / count_S3[j][lag];
+          sum_S3[j][dd] += avg[dd];
+          data[lag][++count] = avg[dd];
+          data[lag][++count] = sum_S3[j][dd];
+        }
       }
     }
   }
-  for (int lag = 0; lag < (max_bonds + 1 - opt->ns); lag++) {
-    count = 0;
-    Fprintf1(fw, data[lag][count], digits[count]);
-    for (int j = 0; j < Count->MoleculeType; j++) {
-      if (!opt->mt[j]) {
-        continue;
-      }
-      MOLECULETYPE *mt_j = &System.MoleculeType[j];
-      int last_b = mt_j->nBeads - 1;
-      if (opt->ne != HIGHNUM) {
-        last_b = opt->ne;
-      }
-      count += 2; // columns 2 & 3
-      if (lag < (last_b - opt->ns)) {
-        Fprintf1(fw, data[lag][count-1], digits[count-1]);
-        Fprintf1(fw, data[lag][count], digits[count]);
-      } else {
-        fprintf(fw, " %*s", digits[count-1][0] + digits[count-1][1], "?");
-        fprintf(fw, " %*s", digits[count][0] + digits[count][1], "?");
-      }
-      count += 2; // columns 4 & 5
-      if (lag < 2 || lag > (last_b - opt->ns)) {
-        fprintf(fw, " %*s", digits[count-1][0] + digits[count-1][1], "?");
-        fprintf(fw, " %*s", digits[count][0] + digits[count][1], "?");
-      } else {
-        Fprintf1(fw, data[lag][count-1], digits[count-1]);
-        Fprintf1(fw, data[lag][count], digits[count]);
-      }
-      count += 2; // columns 6 & 7
-      if (lag < (last_b - opt->ns)) {
-        Fprintf1(fw, data[lag][count-1], digits[count-1]);
-        Fprintf1(fw, data[lag][count], digits[count]);
-      } else {
-        fprintf(fw, " %*s", digits[count-1][0] + digits[count-1][1], "?");
-        fprintf(fw, " %*s", digits[count][0] + digits[count][1], "?");
-      }
-      count += 2; // columns 8 & 9
-      if (lag < (last_b - opt->ns)) {
-        Fprintf1(fw, data[lag][count-1], digits[count-1]);
-        Fprintf1(fw, data[lag][count], digits[count]);
-      } else {
-        fprintf(fw, " %*s", digits[count-1][0] + digits[count-1][1], "?");
-        fprintf(fw, " %*s", digits[count][0] + digits[count][1], "?");
-      }
-      count += 2; // columns 10 & 11
-      if (lag < (last_b - opt->ns)) {
-        Fprintf1(fw, data[lag][count-1], digits[count-1]);
-        Fprintf1(fw, data[lag][count], digits[count]);
-      } else {
-        fprintf(fw, " %*s", digits[count-1][0] + digits[count-1][1], "?");
-        fprintf(fw, " %*s", digits[count][0] + digits[count][1], "?");
-      }
-    }
-    putc('\n', fw);
-    free(data[lag]);
-  }
-  for (int lag = (max_bonds + 1 - opt->ns); lag < (max_bonds + 1); lag++) {
-    free(data[lag]);
-  }
+  FillMaxDigits(columns, datalines, data, digits); //}}}
+  // print the data //{{{
+  // headers
+  FILE *fw = PrintBylineOpenFile(fout, argc, argv);
+  fprintf(fw, "# for each molecule type: ");
+  count = 1;
+  fprintf(fw, "(%d) S1, ", count++);
+  fprintf(fw, "(%d) int S1, ", count++);
+  fprintf(fw, "(%d) S1 (rev), ", count++);
+  fprintf(fw, "(%d) int S1 (rev), ", count++);
+  fprintf(fw, "(%d) S2, ", count++);
+  fprintf(fw, "(%d) int S2", count++);
+  fprintf(fw, "(%d) S3 (normalised), ", count++);
+  fprintf(fw, "(%d) int S3 (normalised)", count++);
+  fprintf(fw, "(%d) S3 (raw)", count++);
+  putc('\n', fw);
+  fprintf(fw, "# ");
+  count = 1;
+  fprintf(fw, "(%d) lag; ", count++);
+  fprintf(fw, "molecule types: ");
   for (int i = 0; i < Count->MoleculeType; i++) {
+    MOLECULETYPE *mt = &System.MoleculeType[i];
     if (opt->mt[i]) {
-      fprintf(fw, "# l_p from: (1) R_e,");
-      fprintf(fw, " (2) angle correlation-all angles; ");
-      fprintf(fw, " (3) angle correlation-first to i-th angle");
-      double lp = Re2[i] / (2 * contour[i]);
-      fprintf(fw, "\n# %lf", lp);
-      int beads = System.MoleculeType[i].nBeads - 1 - opt->ns;
-      lp = ang_corr_avg[i] / (count_mols[i] * beads);
-      fprintf(fw, " %lf", lp);
-      fprintf(fw, " %lf", lp_kp[i] / count_mols[i]);
-      fprintf(fw, " %lf", lp_kp2[i] / count_mols[i]);
-      fprintf(fw, "\n# average bond length: %lf\n",
-              avg_bond[i][0] / avg_bond[i][1]);
+      fprintf(fw, "(%d)-(%d) %s", count, count+data_per_mtype-1, mt->Name);
+      count += data_per_mtype;
+      if (i != (Count->MoleculeType - 1)) {
+        fprintf(fw, ", ");
+      }
     }
   }
+  putc('\n', fw);
+  // datalines
+  for (int lag = 0; lag < datalines; lag++) {
+    FprintfRow(fw, columns, data[lag], digits);
+    free(data[lag]);
+  } //}}}
   fclose(fw); //}}}
 
   // free memory - to make valgrind happy //{{{
   free(opt->mt);
   for (int i = 0; i < Count->MoleculeType; i++) {
-    free(lag_cos_phi[i]);
-    free(lag_cos_phi2[i]);
-    free(count_stuff[i]);
+    free(S1[i]);
+    free(S2[i]);
+    free(count_S2[i]);
+    free(S3[i]);
+    free(count_S3[i]);
   }
-  free(lag_cos_phi);
-  free(lag_cos_phi2);
-  free(count_stuff);
-  free(avg_bond);
-  free(Re2);
-  free(ang_corr_avg);
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    free(ang_corr_lag[i]);
-    free(ang_corr_lag2[i]);
-    free(cos_first_j[i]);
-    free(cos_last_j[i]);
-    free(count_ang_lag[i]);
-  }
-  free(ang_corr_lag);
-  free(ang_corr_lag2);
-  free(cos_first_j);
-  free(cos_last_j);
-  free(count_ang_lag);
-  free(contour);
-  free(count_ang);
-  free(count_mols);
+  free(S1);
+  free(S2);
+  free(count_S2);
+  free(S3);
+  free(count_S3);
+  free(bondlength);
+  free(count_bonds);
   FreeSystem(&System);
   free(opt);
   //}}}
