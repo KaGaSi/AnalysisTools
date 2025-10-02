@@ -1,8 +1,7 @@
 #include "../AnalysisTools.h"
 
 // calculate bond orientation order parameter for a single bead //{{{
-void ComputeBOOP(SYSTEM System, int n,
-                 int n_sym, int sym[n_sym], double res[n_sym]) {
+void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrND boop) {
   int max_neigh = sym[n_sym-1];
   int nearest[max_neigh]; // nearest neighbour id
   double min_dist[max_neigh]; // nearest neighbour's distance
@@ -52,7 +51,8 @@ void ComputeBOOP(SYSTEM System, int n,
     }
     q_real /= sym[i];
     q_imag /= sym[i];
-    res[i] = sqrt(Square(q_real) + Square(q_imag));
+    boop.data[idx3d(boop, n, i, 0)] = q_real;
+    boop.data[idx3d(boop, n, i, 1)] = q_imag;
   }
 } //}}}
 
@@ -196,6 +196,7 @@ int main(int argc, char *argv[]) {
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
+  BOX *Box = &System.Box;
 
   if (opt->c.verbose) {
     VerboseOutput(System);
@@ -211,21 +212,27 @@ int main(int argc, char *argv[]) {
   sym[5] = 8; //
 
   int bins = 1 / width;
+  // TODO: this must be somehow made better...
+  double r_max = Max3(Box->Length[0], Box->Length[1], Box->Length[2]) / 2;
+  double dr = 1;
+  int bins_g_n = r_max / dr + 1;
 
-  // arrays for boop distribution //{{{
-  double ***boop_distr_type = calloc(Count->BeadType, sizeof *boop_distr_type);
-  for (int i = 0; i < Count->BeadType; i++) {
-    boop_distr_type[i] = calloc(bins, sizeof *boop_distr_type[i]);
-    for (int j = 0; j <  bins; j++) {
-      boop_distr_type[i][j] = calloc(n_sym, sizeof *boop_distr_type[i][j]);
-    }
-  } //}}}
+  // arrays for boop distributions
+  size_t shape3D[3] = {Count->BeadType, bins, n_sym};
+  ArrND boop_distr_type = NewArrND(3, shape3D);
+  size_t shape2D[2] = {n_sym, bins_g_n};
+  ArrND g_n = NewArrND(2, shape2D);
+  long int *g_n_counts = calloc(bins_g_n, sizeof *g_n_counts);
 
   // main loop //{{{
   FILE *fr = OpenFile(in.coor.name, "r");
   int count_coor = 0, // count steps in the vcf file
       count_used = 0, // count steps in output file
       line_count = 0; // count lines in the vcf file
+  shape3D[0] = Count->Bead;
+  shape3D[1] = n_sym;
+  shape3D[2] = 2;
+  ArrND boop = NewArrND(3, shape3D);
   while (true) {
     PrintStep(&count_coor, opt->c.start, opt->c.silent);
     // use every skip-th timestep between start and end
@@ -239,24 +246,65 @@ int main(int argc, char *argv[]) {
         break;
       }
       count_used++;
+
+      for (int i = 0; i < Count->Bead; i++) {
+        for (int j = 0; j < n_sym; j++) {
+          boop.data[idx3d(boop, i, j, 0)] = 0;
+          boop.data[idx3d(boop, i, j, 1)] = 0;
+        }
+      }
       // go over all beads in the coordinate file
       for (int i = 0; i < Count->BeadCoor; i++) {
         int id = System.BeadCoor[i]; // bead index
         int type = System.Bead[id].Type;
-        double res[n_sym];
-        ComputeBOOP(System, id, n_sym, sym, res);
+        // double res[n_sym];
+        ComputeBOOP(System, id, n_sym, sym, boop);
         for (int j = 0; j < n_sym; j++) {
+          int id_0 = idx3d(boop, id, j, 0);
+          int id_1 = idx3d(boop, id, j, 1);
+          double res = sqrt(Square(boop.data[id_0]) + Square(boop.data[id_1]));
           // error - should never happen but better safe than sorry //{{{
           // TODO: proper error with bead id and whatnot
-          if (res[j] > 1 || res[j] < 0) {
+          if (res > 1 || res < 0) {
             err_msg("boop must be <0,1>!");
             PrintError();
           } //}}}
-          int k =  res[j] / width; // edge case for res[] == 1 (put into highest bin)
+          int k = res / width; // edge case for res == 1 (put into highest bin)
           if (k == bins) {
             k--; // edge case for res[j] -> 1
           }
-          boop_distr_type[type][k][j] += res[j];
+          boop_distr_type.data[idx3d(boop_distr_type, type, k, j)] += res;
+        }
+      }
+
+      for (int i = 0; i < Count->BeadCoor; i++) {
+        for (int j = 0; j < Count->BeadCoor; j++) {
+          if (i == j) {
+            continue;
+          }
+          int id_i = System.BeadCoor[i];
+          int id_j = System.BeadCoor[j];
+          vec3 *pos_i = &System.Bead[id_i].Position;
+          vec3 *pos_j = &System.Bead[id_j].Position;
+          vec3 dist = Distance(pos_i->v, pos_j->v, System.Box.Length);
+          double r_ij = VectLength(dist);
+          if (r_ij >= r_max) {
+            continue;
+          }
+          int bin = r_ij / dr;
+
+          // boop are complex numbers
+          // boop_i.real * boop_j.real + boop_i.imag * boop_j.imag
+          for (int k = 0; k < n_sym; k++) {
+            int id_i0 = idx3d(boop, id_i, k, 0);
+            int id_i1 = idx3d(boop, id_i, k, 1);
+            int id_j0 = idx3d(boop, id_j, k, 0);
+            int id_j1 = idx3d(boop, id_j, k, 1);
+            double corr_real = boop.data[id_i0] * boop.data[id_j0] +
+                               boop.data[id_i1] * boop.data[id_j1];
+            g_n.data[idx2d(g_n, k, bin)] += corr_real;
+          }
+          g_n_counts[bin]++;
         }
       }
       //}}}
@@ -283,18 +331,19 @@ int main(int argc, char *argv[]) {
 
   // flattening per-type distribution array
   // TODO: print the per-bead type stuff
-  double **boop_distr = calloc(bins, sizeof *boop_distr);
-  for (int i = 0; i < bins; i++) {
-    boop_distr[i] = calloc(n_sym, sizeof *boop_distr[i]);
-  }
+  shape2D[0] = bins;
+  shape2D[1] = n_sym;
+  ArrND boop_distr = NewArrND(2, shape2D);
   // normalisation factor for distribution
   double *norm = calloc(n_sym, sizeof *norm);
   for (int i = 0; i < bins; i++) {
     for (int j = 0; j < n_sym; j++) {
+      int id1 = idx2d(boop_distr, i, j);
       for (int k = 0; k < Count->BeadType; k++) {
-        boop_distr[i][j] += boop_distr_type[k][i][j];
+        int id2 = idx3d(boop_distr_type, k, i, j);
+        boop_distr.data[id1] += boop_distr_type.data[id2];
       }
-      norm[j] += boop_distr[i][j];
+      norm[j] += boop_distr.data[id1];
     }
   }
 
@@ -322,7 +371,7 @@ int main(int argc, char *argv[]) {
     count = -1;
     data[i][++count] = width * (2 * i + 1) / 2;
     for (int j = 0; j < n_sym; j++) {
-      data[i][++count] = boop_distr[i][j] / norm[j];
+      data[i][++count] = boop_distr.data[idx2d(boop_distr, i, j)] / norm[j];
     }
   }
   FillMaxDigits(columns, bins, data, digits); //}}}
@@ -335,16 +384,60 @@ int main(int argc, char *argv[]) {
   }
   fclose(fw);
 
-  // free memory - to make valgrind happy //{{{
-  for (int i = 0; i < Count->BeadType; i++) {
-    for (int j = 0; j < bins; j++) {
-      free(boop_distr_type[i][j]);
-      free(boop_distr[j]);
-    }
-    free(boop_distr_type[i]);
+  // print g_n to file
+  // create file name TODO: needs something better, I guess
+  char tmp[LINE] = "",
+       fout2[LINE] = "";
+  s_strcpy(tmp, fout, strlen(fout) - 3); // assumes .txt ending...
+  if (snprintf(fout2, LINE, "%s-corr.txt", tmp) < 0) {
+    ErrorSnprintf();
   }
-  free(boop_distr_type);
-  free(boop_distr);
+  // print headers
+  fw = PrintBylineOpenFile(fout2, argc, argv);
+  count = 1;
+  fprintf(fw, "# (%d) distance; boop correlation:", count++);
+  first = true;
+  for (int i = 0; i < n_sym; i++) {
+    if (!first) {
+      fprintf(fw, ", ");
+    }
+    fprintf(fw, " (%d) %d-fold", count++, sym[i]);
+    first = false;
+  }
+  putc('\n', fw);
+  // determine width of each column //{{{
+  int columns2 = n_sym + 1;
+  int digits2[columns2][2];
+  InitInt2DArray((int *)digits2, columns2, 2, 0);
+  double *data2[bins_g_n]; // array for data
+  for (int i = 0; i < bins_g_n; i++) {
+    data2[i] = calloc(columns2, sizeof data2[i]);
+    count = -1;
+    data2[i][++count] = dr * (2 * i + 1) / 2;
+    for (int j = 0; j < n_sym; j++) {
+      if (g_n_counts[i] > 0) {
+        data2[i][++count] = g_n.data[idx2d(g_n, j, i)] / g_n_counts[i];
+      } else {
+        data2[i][++count] = 0;
+      }
+    }
+  }
+  FillMaxDigits(columns2, bins_g_n, data2, digits2); //}}}
+  for (int i = 0; i < bins_g_n; i++) {
+    for (int col = 0; col < columns2; col++) {
+      Fprintf1(fw, data2[i][col], digits2[col]);
+    }
+    putc('\n', fw);
+    free(data2[i]);
+  }
+  fclose(fw);
+
+  // free memory - to make valgrind happy //{{{
+  FreeArrND(boop_distr_type);
+  FreeArrND(g_n);
+  FreeArrND(boop);
+  FreeArrND(boop_distr);
+  free(g_n_counts);
   free(norm);
   free(opt);
   FreeSystem(&System);
