@@ -60,6 +60,8 @@ add_library(AnalysisTools
   Aggregates.c
   Globals.c
   MathUtils.h
+  Options.c
+  pcg32.c
   ReadWrite.c
   ReadWriteVtf.c
   ReadWriteXyz.c
@@ -68,7 +70,6 @@ add_library(AnalysisTools
   ReadWriteField.c
   ReadWriteConfig.c
   ReadWriteGromacs.c
-  Options.c
   System.c
   Errors.c
   General.c

@@ -3,6 +3,8 @@
 
 #define _POSIX_C_SOURCE 200809L
 
+#include "pcg32.h"
+#include "Arrays.h"
 #include "Structs.h"
 #include "Globals.h"
 #include "MathUtils.h"
