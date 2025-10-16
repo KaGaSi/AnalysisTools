@@ -107,49 +107,54 @@ int main(int argc, char *argv[]) {
 
   // arrays for distributions //{{{
   // number distribution
-  long double ndistr[Count->Molecule];
+  long double *ndistr = calloc(Count->Molecule, sizeof *ndistr);
   /* weight and z distributions:
    *   [][0] = mass of mols according to options
    *   [][1] = mass of whole agg
    */
-  long double (*wdistr)[2] = calloc(Count->Molecule, sizeof *wdistr);
-  long double (*zdistr)[2] = calloc(Count->Molecule, sizeof *zdistr);
+  ArrNDd *wdistr = CreateArr2Dd(Count->Molecule, 2);
+  ArrNDd *zdistr = CreateArr2Dd(Count->Molecule, 2);
+  // molecule typs in aggregates: [agg size][mol type][number or Square(number)]
+  ArrNDi *molecules_sum = CreateArr2Di(Count->Molecule, Count->MoleculeType);
+  if (!wdistr || !zdistr || !molecules_sum) {
+    err_msg("ArrNDd constructor failed (wdistr/zdistr/molecules_sum)");
+    PrintError();
+    exit(1);
+  }
   // number of aggregates throughout simulation
   int *count_agg = calloc(Count->Molecule, sizeof *count_agg);
-  // molecule typs in aggregates: [agg size][mol type][number or Square(number)]
-  int **molecules_sum = malloc(Count->Molecule * sizeof *molecules_sum);
-  for (int i = 0; i < Count->Molecule; i++) {
-    molecules_sum[i] = calloc(Count->MoleculeType, sizeof *molecules_sum[i]);
-  }
   // arrays for composition distribution
-  long int ***comp_distr = NULL; // [c_size][moltype][number of mols]
-  long int *****ratio_distr = NULL; // [c_size][moltype1][moltype2][num1][num2]
+  ArrNDli *comp_distr = NULL; // [c_size][moltype][number of mols]
+  ArrNDli *ratio_distr = NULL; // [c_size][moltype1][moltype2][num1][num2]
   long int *comp_agg_count = NULL;
   int *link_c_sizes = NULL;
   if (opt->comp.count > 0) {
+    // array for 1D composition distribution
+    if (!(comp_distr = CreateArr3Dli(opt->comp.count, Count->MoleculeType,
+                                     Count->Molecule + 1))) {
+      err_msg("ArrNDli constructor failed (comp_distr)");
+      PrintError();
+      exit(1);
+    }
+
+    // array for 2D composition distribution
+    size_t shape_ratio_distr[5];
+    shape_ratio_distr[0] = opt->comp.count;
+    shape_ratio_distr[1] = Count->MoleculeType;
+    shape_ratio_distr[2] = Count->MoleculeType;
+    // +1 as it goes from no molecules to N molecules in the agg
+    shape_ratio_distr[3] = Count->Molecule + 1;
+    shape_ratio_distr[4] = Count->Molecule + 1;
+    if (!(ratio_distr = CreateArrNDli(5, shape_ratio_distr))) {
+      err_msg("ArrNDli constructor failed (ratio_distr)");
+      PrintError();
+      exit(1);
+    }
+
     link_c_sizes = malloc(Count->Molecule * sizeof *link_c_sizes);
     InitIntArray(link_c_sizes, Count->Molecule, -1);
-    comp_distr = malloc(opt->comp.count * sizeof *comp_distr);
-    ratio_distr = malloc(opt->comp.count * sizeof *ratio_distr);
     comp_agg_count = calloc(opt->comp.count, sizeof *comp_agg_count);
     for (int i = 0; i < opt->comp.count; i++) {
-      comp_distr[i] = malloc(Count->MoleculeType * sizeof *comp_distr[i]);
-      ratio_distr[i] = malloc(Count->MoleculeType * sizeof *ratio_distr[i]);
-      for (int j = 0; j < Count->MoleculeType; j++) {
-        // +1 as it goes from no molecules to N molecules in the agg
-        comp_distr[i][j] = calloc(Count->Molecule + 1,
-                                  sizeof *comp_distr[i][j]);
-        ratio_distr[i][j] = calloc(Count->MoleculeType,
-                                   sizeof *ratio_distr[i][j]);
-        for (int k = 0; k < Count->MoleculeType; k++) {
-          ratio_distr[i][j][k] = calloc(Count->Molecule + 1,
-                                        sizeof *ratio_distr[i][j][k]);
-          for (int l = 0; l <= Count->Molecule; l++) {
-            ratio_distr[i][j][k][l] = calloc(Count->Molecule + 1,
-                                             sizeof *ratio_distr[i][j][k][l]);
-          }
-        }
-      }
       for (int j = 0; j < Count->Molecule; j++) {
         if (j == opt->comp.size[i]) {
           link_c_sizes[j] = i;
@@ -157,12 +162,11 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-
   // zeroize arrays
+  FillArrND(wdistr, 0);
+  FillArrND(zdistr, 0);
   for (int i = 0; i < Count->Molecule; i++) {
     ndistr[i] = 0;
-    wdistr[i][0] = wdistr[i][1] = 0;
-    zdistr[i][0] = zdistr[i][1] = 0;
     count_agg[i] = 0;
   } //}}}
 
@@ -281,14 +285,14 @@ int main(int argc, char *argv[]) {
         count_agg[agg_size-1]++;
         // distributions
         ndistr[agg_size-1]++;
-        wdistr[agg_size-1][0] += agg_mass;
-        wdistr[agg_size-1][1] += Aggregate[i].Mass;
-        zdistr[agg_size-1][0] += Square(agg_mass);
-        zdistr[agg_size-1][1] += Square(Aggregate[i].Mass);
+        AddArr2D(wdistr, agg_size - 1, 0, agg_mass);
+        AddArr2D(zdistr, agg_size - 1, 0, Square(agg_mass));
+        AddArr2D(wdistr, agg_size - 1, 1, Aggregate[i].Mass);
+        AddArr2D(zdistr, agg_size - 1, 1, Square(Aggregate[i].Mass));
         // overall numbers of molecules of each species in each aggregate size
         for (int j = 0; j < Aggregate[i].nMolecules; j++) {
           int mol_type = System.Molecule[Aggregate[i].Molecule[j]].Type;
-          molecules_sum[agg_size-1][mol_type]++;
+          AddArr2D(molecules_sum, agg_size - 1, mol_type, 1);
         }
 
         // composition distribution (-c option) //{{{
@@ -304,13 +308,10 @@ int main(int argc, char *argv[]) {
           // increment the distribution
           for (int j = 0; j < Count->MoleculeType; j++) {
             int id = link_c_sizes[agg_size];
-            comp_distr[id][j][comp_aux[j]]++;
+            AddArr3D(comp_distr, id, j, comp_aux[j], 1);
             for (int k = (j + 1); k < Count->MoleculeType; k++) {
-              ratio_distr[id][j][k][comp_aux[j]][comp_aux[k]]++;
-              // printf("%4d %3d (%3d): %3d (%s) %3d (%s)\n",
-              //        count_step, i, Aggregate[i].nMolecules,
-              //        comp_aux[j], System.MoleculeType[j].Name,
-              //        comp_aux[k], System.MoleculeType[k].Name);
+              size_t index5d[5] = {id, j, k, comp_aux[j], comp_aux[k]};
+              AddArrND(ratio_distr, index5d, 1);
             }
           }
         } //}}}
@@ -432,40 +433,54 @@ int main(int argc, char *argv[]) {
            zdistr_norm[2] = {0};
   for (int i = 0; i < Count->Molecule; i++) {
     ndistr_norm += ndistr[i];
-    wdistr_norm[0] += wdistr[i][0];
-    wdistr_norm[1] += wdistr[i][1];
-    zdistr_norm[0] += zdistr[i][0];
-    zdistr_norm[1] += zdistr[i][1];
+    wdistr_norm[0] += GetArr2D(wdistr, i, 0);
+    zdistr_norm[0] += GetArr2D(zdistr, i, 0);
+    wdistr_norm[1] += GetArr2D(wdistr, i, 1);
+    zdistr_norm[1] += GetArr2D(zdistr, i, 1);
   }
-  // determine width of each column //{{{
-  int columns = Count->MoleculeType + 7; // As, 5xF(As), n_agg
-  int digits[columns][2];
-  InitInt2DArray((int *)digits, columns, 2, 0);
-  double *data[Count->Molecule]; // array for data
-  for (int i = 0; i < Count->Molecule; i++) {
-    data[i] = calloc(columns, sizeof *data[i]);
+  // collate data //{{{
+  int ncols = Count->MoleculeType + 7; // As, 5xF(As), n_agg
+  int nrows = Count->Molecule;
+  ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
+  if (!data) {
+    err_msg("ArrNDd constructor failed (data)");
+    PrintError();
+    exit(1);
+  }
+  for (int i = 0; i < nrows; i++) {
     if (count_agg[i] > 0) {
-      count = -1;
-      data[i][++count] = i + 1;
-      data[i][++count] = (double)(ndistr[i]) / ndistr_norm;
-      data[i][++count] = (double)(wdistr[i][0]) / wdistr_norm[0];
-      data[i][++count] = (double)(wdistr[i][1]) / wdistr_norm[1];
-      data[i][++count] = (double)(zdistr[i][0]) / zdistr_norm[0];
-      data[i][++count] = (double)(zdistr[i][1]) / zdistr_norm[1];
-      data[i][++count] = count_agg[i];
+      count = 0;
+      // agg size
+      SetArr2D(data, i, count++, i + 1);
+      // number distribution
+      SetArr2D(data, i, count++, ndistr[i] / ndistr_norm);
+      // weight distribution... selected mass, then real mass
+      double val = (double)(GetArr2D(wdistr, i, 0)) / wdistr_norm[0];
+      SetArr2D(data, i, count++, val);
+      val = (double)(GetArr2D(wdistr, i, 1)) / wdistr_norm[1];
+      SetArr2D(data, i, count++, val);
+      // z distribution... selected mass, then real mass
+      val = (double)(GetArr2D(zdistr, i, 0)) / zdistr_norm[0];
+      SetArr2D(data, i, count++, val);
+      val = (double)(GetArr2D(zdistr, i, 1)) / zdistr_norm[1];
+      SetArr2D(data, i, count++, val);
+      // number of aggregates
+      SetArr2D(data, i, count++, (double)(count_agg[i]));
+      // average number of molecules in aggregates
       for (int j = 0; j < Count->MoleculeType; j++) {
-        data[i][++count] = (double)(molecules_sum[i][j])/count_agg[i];
+        double val = (double)(GetArr2D(molecules_sum, i, j));
+        val /= count_agg[i];
+        SetArr2D(data, i, count++, val);
       }
     }
-  }
-  FillMaxDigits(columns, Count->Molecule, data, digits); //}}}
-  // print data (only for aggregate sizes that actually exist)
-  for (int i = 0; i < Count->Molecule; i++) {
+  } //}}}
+  ComputeColumnWidths(nrows, ncols, data, 6);
+  for (int i = 0; i < nrows; i++) {
     if (count_agg[i] > 0) {
-      FprintfRow(fw, columns, data[i], digits);
+      PrintDataRow(fw, nrows, i, ncols, data);
     }
-    free(data[i]);
   }
+  FreeArrND(data);
   fclose(fw); //}}}
 
   // print overall averages to avg and distr output files //{{{
@@ -473,7 +488,7 @@ int main(int argc, char *argv[]) {
   for (int i = 1; i < Count->Molecule; i++) {
     count_agg[0] += count_agg[i];
     for (int j = 0; j < Count->MoleculeType; j++) {
-      molecules_sum[0][j] += molecules_sum[i][j];
+      AddArr2D(molecules_sum, 0, j, GetArr2D(molecules_sum, i, j));
     }
   }
 
@@ -512,7 +527,8 @@ int main(int argc, char *argv[]) {
       fprintf(f[i], " %lf", mass_sum[2][1]/mass_sum[1][1]); // <M>_z
       for (int j = 0; j < Count->MoleculeType; j++) {
         // <species>_n
-        fprintf(f[i], " %lf", (double)(molecules_sum[0][j])/count_agg[0]);
+        double val = (double)(GetArr2D(molecules_sum, 0, j)) / count_agg[0];
+        fprintf(f[i], " %lf", val);
       }
       fprintf(f[i], " %lf", (double)(count_agg[0])/count_used); // <n_agg>
     } else { // zero everywhere if no aggregates found
@@ -551,25 +567,28 @@ int main(int argc, char *argv[]) {
       putc('\n', fw);
       // print data
       if (comp_agg_count[i] > 0) {
-        // determine width of each column & collate data //{{{
-        int columns = Count->MoleculeType + 1;
-        int digits[columns][2];
-        InitInt2DArray((int *)digits, columns, 3, 0);
-        double *data[opt->comp.size[i]+1]; // array for data
-        for (int j = 0; j <= opt->comp.size[i]; j++) {
-          data[j] = calloc(columns, sizeof data[j]);
-          count = -1;
-          data[j][++count] = j;
+        int ncols = Count->MoleculeType + 1;
+        int nrows = opt->comp.size[i] + 1;
+        ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
+        if (!data) {
+          err_msg("ArrNDd constructor failed (data)");
+          PrintError();
+          exit(1);
+        }
+        for (int j = 0; j < nrows; j++) {
+          count = 0;
+          // data.d[idx2d(data, j, count++)] = j;
+          SetArr2D(data, j, count++, (double)j);
           for (int k = 0; k < Count->MoleculeType; k++) {
-            data[j][++count] = (double)(comp_distr[i][k][j]) /
-                               comp_agg_count[i];
+            double val = GetArr3D(comp_distr, i, k, j);
+            val /= comp_agg_count[i];
+            SetArr2D(data, j, count++, val);
           }
         }
-        FillMaxDigits(columns, opt->comp.size[i], data, digits); //}}}
-        for (int j = 0; j <= opt->comp.size[i]; j++) {
-          WriteFormatedDataLine(fw, columns, data[j], digits);
-          free(data[j]);
-        }
+
+        ComputeColumnWidths(nrows, ncols, data, 6);
+        PrintDataAll(fw, nrows, ncols, data);
+        FreeArrND(data);
       } else {
         snprintf(ERROR_MSG, LINE, "no aggregates with size %s%d%s found "
                  "(may also be due to -m/-x/-only/-n options)",
@@ -587,10 +606,10 @@ int main(int argc, char *argv[]) {
       fprintf(fw, "# total number of aggregates with size %d: %ld\n",
               opt->comp.size[i], comp_agg_count[i]);
       fprintf(fw, "# (1-2) number of molecules:");
-      count = 2;
+      count = 3;
       for (int j = 0; j < Count->MoleculeType; j++) {
         for (int k = (j + 1); k < Count->MoleculeType; k++) {
-          fprintf(fw, " (%d) %s-%s", ++count, System.MoleculeType[j].Name,
+          fprintf(fw, " (%d) %s-%s", count++, System.MoleculeType[j].Name,
                                               System.MoleculeType[k].Name);
           if (j != (Count->MoleculeType - 2) ||
               k != (Count->MoleculeType - 1)) {
@@ -601,20 +620,23 @@ int main(int argc, char *argv[]) {
       putc('\n', fw);
       // print data
       if (comp_agg_count[i] > 0) {
-        // determine width of each column & collate data //{{{
-        int columns = Count->MoleculeType * (Count->MoleculeType - 1) / 2 + 2;
-        // int digits[columns][2];
-        int digits[columns][2];
-        int lines = Square(Count->Molecule + 1);
-        InitInt2DArray((int *)digits, columns, 2, 0);
-        double **data = calloc(lines, sizeof *data); // array for data
+        int ncols = Count->MoleculeType * (Count->MoleculeType - 1) / 2 + 2;
+        int nrows = Square(Count->Molecule + 1);
+        // collate data //{{{
+        ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
+        if (!data) {
+          err_msg("ArrNDd constructor failed (data)");
+          PrintError();
+          exit(1);
+        }
         int count_lines = 0;
         for (int j = 0; j <= Count->Molecule; j++) {
           for (int k = 0; k <= Count->Molecule; k++) {
             bool use = false;
             for (int l = 0; l < Count->MoleculeType; l++) {
               for (int m = (l + 1); m < Count->MoleculeType; m++) {
-                if (ratio_distr[i][l][m][j][k] > 0) {
+                size_t index5d[5] = {i, l, m, j, k};
+                if (GetArrND(ratio_distr, index5d) > 0) {
                   use = true;
                   break;
                 }
@@ -626,40 +648,37 @@ int main(int argc, char *argv[]) {
             if (!use) {
               continue;
             }
-            data[count_lines] = calloc(columns, sizeof data[count_lines]);
-            count = -1;
-            data[count_lines][++count] = j;
-            data[count_lines][++count] = k;
+            count = 0;
+            SetArr2D(data, count_lines, count++, j);
+            SetArr2D(data, count_lines, count++, k);
             for (int l = 0; l < Count->MoleculeType; l++) {
               for (int m = (l + 1); m < Count->MoleculeType; m++) {
-                double avg = (double)(ratio_distr[i][l][m][j][k]) /
-                             comp_agg_count[i];
-                data[count_lines][++count] = avg;
+                size_t index5d[5] = {i, l, m, j, k};
+                double avg = (double)(GetArrND(ratio_distr, index5d));
+                avg /= comp_agg_count[i];
+                SetArr2D(data, count_lines, count++, avg);
               }
             }
             count_lines++;
           }
-        }
-        FillMaxDigits(columns, count_lines, data, digits); //}}}
+        } //}}}
+        ComputeColumnWidths(nrows, ncols, data, 6);
         for (int j = 0; j < count_lines; j++) {
-          for (int col = 0; col < columns; col++) {
-            // Fprintf1(fw, data[j][col], digits[col]);
-            if (col < 2 || fabs(data[j][col]) > 1e-5) {
-              Fprintf1(fw, data[j][col], digits[col]);
+          for (int col = 0; col < ncols; col++) {
+            if (col < 2 || fabs(GetArr2D(data, j, col)) > 1e-5) {
+              PrintDataValue(fw, nrows, j , col, data);
             } else {
-              fprintf(fw, "%*s", digits[col][0] + digits[col][1] + 1, "?");
+              fprintf(fw, " %*s", (int)GetArr2D(data, nrows, col), "?");
             }
           }
           putc('\n', fw);
-          if (j < (count_lines - 1) && data[j][0] != data[j+1][0]) {
+          if (j < (count_lines - 1) &&
+              GetArr2D(data, j, 0) != GetArr2D(data, j + 1, 0)) {
             putc('\n', fw);
           }
-          // WriteFormatedDataLine(fw, columns, data[j], digits);
         }
-        for (int j = 0; j < lines; j++) {
-          free(data[j]);
-        }
-        free(data);
+        // free(precisions);
+        FreeArrND(data);
       }
       fclose(fw); //}}}
     }
@@ -668,33 +687,17 @@ int main(int argc, char *argv[]) {
   // free memory - to make valgrind happy //{{{
   FreeAggregate(*Count, Aggregate);
   FreeSystem(&System);
-  for (int i = 0; i < Count->Molecule; i++) {
-    free(molecules_sum[i]);
-  }
-  free(molecules_sum);
+  FreeArrNDi(molecules_sum);
   FreeAggPicker(&opt->agg);
   if (opt->comp.count > 0) {
-    for (int i = 0; i < opt->comp.count; i++) {
-      for (int j = 0; j < Count->MoleculeType; j++) {
-        for (int k = 0; k < Count->MoleculeType; k++) {
-          for (int l = 0; l <= Count->Molecule; l++) {
-            free(ratio_distr[i][j][k][l]);
-          }
-          free(ratio_distr[i][j][k]);
-        }
-        free(comp_distr[i][j]);
-        free(ratio_distr[i][j]);
-      }
-      free(comp_distr[i]);
-      free(ratio_distr[i]);
-    }
-    free(comp_distr);
-    free(ratio_distr);
+    FreeArrNDli(comp_distr);
+    FreeArrNDli(ratio_distr);
     free(comp_agg_count);
     free(link_c_sizes);
   }
-  free(wdistr);
-  free(zdistr);
+  free(ndistr);
+  FreeArrNDd(wdistr);
+  FreeArrNDd(zdistr);
   free(count_agg);
   free(opt); //}}}
 
