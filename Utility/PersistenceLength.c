@@ -1,6 +1,7 @@
 #include "../AnalysisTools.h"
 
 // TODO: very messy!!!
+// TODO: explain S1 through S3
 
 // Help() //{{{
 void Help(const char cmd[50], const bool error,
@@ -130,7 +131,7 @@ int main(int argc, char *argv[]) {
   double (**S1)[2] = calloc(Count->MoleculeType, sizeof *S1);
   double **S2 = calloc(Count->MoleculeType, sizeof *S2);
   int **count_S2 = calloc(Count->MoleculeType, sizeof *S2);
-  double (**S3)[2] = calloc(Count->MoleculeType, sizeof *S3);
+  double **S3 = calloc(Count->MoleculeType, sizeof *S3);
   int **count_S3 = calloc(Count->MoleculeType, sizeof *S3);
   double *bondlength = calloc(Count->MoleculeType, sizeof *bondlength);
   int *count_bonds = calloc(Count->MoleculeType, sizeof *count_bonds);
@@ -143,8 +144,6 @@ int main(int argc, char *argv[]) {
     for (int j = 0; j < Count->MoleculeType; j++) {
       S1[i][j][0] = 0;
       S1[i][j][1] = 0;
-      S3[i][j][0] = 0;
-      S3[i][j][1] = 0;
     }
   } //}}}
 
@@ -186,19 +185,6 @@ int main(int argc, char *argv[]) {
 
         for (int j = 0; j < mt->Number; j++) {
           MOLECULE *mol = &System.Molecule[mt->Index[j]];
-          // calculate average bond length in the chain (for S3)
-          double l2_sum = 0;
-          int nb_sum = 0;
-          for (int b = 0; b < mt->nBonds; b++) {
-            int a = mol->Bead[mt->Bond[b][0]];
-            int c = mol->Bead[mt->Bond[b][1]];
-            // double v[3];
-            // Vector(System.Bead[a].Position, System.Bead[c].Position, v);
-            vec3 v = Vector(System.Bead[a].Position, System.Bead[c].Position);
-            l2_sum += Dot(v, v);
-            nb_sum += 1;
-          }
-          l2_sum /= nb_sum;
           // S1 function
           // first bond vector (for S1)
           int b1 = mol->Bead[mt->Bond[first_bond][0]],
@@ -209,9 +195,7 @@ int main(int argc, char *argv[]) {
           b2 = mol->Bead[mt->Bond[mt->nBonds-first_bond-1][1]];
           vec3 bondN = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
           for (int k = first_bond; k < last_bond; k++) {
-
             // S1 function & bondlengths //{{{
-            // TODO: bondj -> bondk
             // 1->N S1
             b1 = mol->Bead[mt->Bond[k][0]];
             b2 = mol->Bead[mt->Bond[k][1]];
@@ -245,9 +229,7 @@ int main(int argc, char *argv[]) {
               b1 = mol->Bead[mt->Bond[k][0]];
               b2 = mol->Bead[mt->Bond[l][1]];
               vec3 Re = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-              double denom = Square(lag + 1) * l2_sum;
-              S3[mol->Type][lag][0] += Dot(Re, Re) / denom;
-              S3[mol->Type][lag][1] += Dot(Re, Re);
+              S3[mol->Type][lag] += SqVectLength(Re);
               count_S3[mol->Type][lag]++; //}}}
             }
           }
@@ -268,7 +250,7 @@ int main(int argc, char *argv[]) {
   fclose(fr);
   PrintLastStep(count_coor, count_used, opt->c.silent); //}}}
 
-  // write data //{{{
+  // write to output file
   // determine width of each column & collate data //{{{
   int datalines = max_bonds - opt->ns;
   // count used molecule types
@@ -278,7 +260,7 @@ int main(int argc, char *argv[]) {
       count++;
     }
   }
-  int data_per_mtype = 9;
+  int data_per_mtype = 7;
   int columns = count * data_per_mtype + 1;
   int digits[columns][2];
   InitInt2DArray((int *)digits, columns, 2, 0);
@@ -286,41 +268,36 @@ int main(int argc, char *argv[]) {
   // arrays for integrated functions
   double sum_S1[Count->MoleculeType][2]; // [0] ... 1->N; [1] ... reverse
   double sum_S2[Count->MoleculeType];
-  double sum_S3[Count->MoleculeType][2]; // [0] ... normalized; [1] .. raw
+  // double sum_S3[Count->MoleculeType][2]; // [0] ... normalized; [1] .. raw
   // average bond length
   for (int i = 0; i < Count->MoleculeType; i++) {
     sum_S1[i][0] = 0;
     sum_S1[i][1] = 0;
     sum_S2[i] = 0;
-    sum_S3[i][0] = 0;
-    sum_S3[i][1] = 0;
+    // sum_S3[i][0] = 0;
+    // sum_S3[i][1] = 0;
   }
   for (int lag = 0; lag < datalines; lag++) {
     data[lag] = calloc(columns, sizeof *data[lag]);
     count = -1;
+    // bond lag for x-axis
     data[lag][++count] = lag;
     for (int j = 0; j < Count->MoleculeType; j++) {
       if (opt->mt[j]) {
         // S1 function (from either end)
-        double avg[2] = {S1[j][lag][0] / count_used,
-                         S1[j][lag][1] / count_used};
         for (int dd = 0; dd < 2; dd++) {
-          sum_S1[j][dd] += avg[dd];
-          data[lag][++count] = avg[dd];
+          double avg = S1[j][lag][dd] / count_used;
+          sum_S1[j][dd] += avg;
+          data[lag][++count] = avg;
           data[lag][++count] = sum_S1[j][dd];
         }
         // S2 (autocorrelation function)
-        avg[0] = S2[j][lag] / count_S2[j][lag];
-        sum_S2[j] += avg[0];
-        data[lag][++count] = avg[0];
+        double avg = S2[j][lag] / count_S2[j][lag];
+        sum_S2[j] += avg;
+        data[lag][++count] = avg;
         data[lag][++count] = sum_S2[j];
         // S3 (end-to-end distances)
-        for (int dd = 0; dd < 2; dd++) {
-          avg[dd] = S3[j][lag][dd] / count_S3[j][lag];
-          sum_S3[j][dd] += avg[dd];
-          data[lag][++count] = avg[dd];
-          data[lag][++count] = sum_S3[j][dd];
-        }
+        data[lag][++count] = S3[j][lag] / count_S3[j][lag];
       }
     }
   }
@@ -331,14 +308,12 @@ int main(int argc, char *argv[]) {
   fprintf(fw, "# for each molecule type: ");
   count = 1;
   fprintf(fw, "(%d) S1, ", count++);
-  fprintf(fw, "(%d) int S1, ", count++);
+  fprintf(fw, "(%d) sum S1, ", count++);
   fprintf(fw, "(%d) S1 (rev), ", count++);
-  fprintf(fw, "(%d) int S1 (rev), ", count++);
-  fprintf(fw, "(%d) S2, ", count++);
-  fprintf(fw, "(%d) int S2", count++);
-  fprintf(fw, "(%d) S3 (normalised), ", count++);
-  fprintf(fw, "(%d) int S3 (normalised)", count++);
-  fprintf(fw, "(%d) S3 (raw)", count++);
+  fprintf(fw, "(%d) sum S1 (rev), ", count++);
+  fprintf(fw, "(%d) S2 (autocorr), ", count++);
+  fprintf(fw, "(%d) sum S2 (autocorr), ", count++);
+  fprintf(fw, "(%d) S3", count++);
   putc('\n', fw);
   fprintf(fw, "# ");
   count = 1;
@@ -360,7 +335,7 @@ int main(int argc, char *argv[]) {
     FprintfRow(fw, columns, data[lag], digits);
     free(data[lag]);
   } //}}}
-  fclose(fw); //}}}
+  fclose(fw);
 
   // free memory - to make valgrind happy //{{{
   free(opt->mt);
