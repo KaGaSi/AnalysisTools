@@ -1,92 +1,241 @@
 #include "Arrays.h"
-// TODO: comment & explain
+#include <string.h>
 
-// general ND indexer
-static inline size_t idND(const ArrND arr, const size_t *indices);
+// TODO: EXPLAIN!!!
 
-// // allocate new N-D array //{{{
-// ArrND *new_ArrND(size_t ndim, const size_t *shape) {
-//   ArrND *arr = malloc(sizeof(ArrND));
-//   if (!arr) {
-//     return NULL;
-//   }
-//
-//   arr->ndim = ndim;
-//   arr->shape = calloc(ndim, sizeof(size_t));
-//   arr->stride = calloc(ndim, sizeof(size_t));
-//   if (!arr->shape || !arr->stride) {
-//     free(arr->shape);
-//     free(arr->stride);
-//     free(arr);
-//     return NULL;
-//   }
-//
-//   size_t total = 1;
-//   for (size_t i = 0; i < ndim; i++) {
-//     arr->shape[i] = shape[i];
-//     total *= shape[i];
-//   }
-//
-//   // compute strides (row-major)
-//   arr->stride[ndim - 1] = 1;
-//   for (size_t i = ndim - 1; i-- > 0; )
-//     arr->stride[i] = arr->stride[i + 1] * arr->shape[i + 1];
-//
-//   arr->data = calloc(total, sizeof(double));
-//   if (!arr->data) {
-//     free(arr->shape);
-//     free(arr->stride);
-//     free(arr);
-//     return NULL;
-//   }
-//
-//   return arr;
-// } //}}}
-// allocate new N-D array //{{{
-ArrND NewArrND(size_t ndim, const size_t *shape) {
-  ArrND arr;
-
-  arr.ndim = ndim;
-  arr.shape = calloc(ndim, sizeof(size_t));
-  arr.stride = calloc(ndim, sizeof(size_t));
-  if (!arr.shape || !arr.stride) {
-    free(arr.shape);
-    free(arr.stride);
-    fprintf(stderr, "ERROR CREATING N-D ARRAY (.shape/.stride bit)!");
-    exit(1);
+// Helpers //{{{
+static size_t *CalcArrNDStride(size_t ndim, const size_t *shape) {
+  size_t *stride = malloc(ndim * sizeof(size_t));
+  if (!stride) {
+    return NULL;
   }
-
+  stride[ndim - 1] = 1;
+  for (ssize_t d = ndim - 2; d >= 0; d--) {
+    stride[d] = stride[d+1] * shape[d+1];
+  }
+  return stride;
+}
+static size_t CalcArrNDTotalSize(size_t ndim, const size_t *shape) {
   size_t total = 1;
-  for (size_t i = 0; i < ndim; i++) {
-    arr.shape[i] = shape[i];
-    total *= shape[i];
+  for (size_t d = 0; d < ndim; d++) {
+    total *= shape[d];
   }
-
-  // compute strides (row-major)
-  arr.stride[ndim - 1] = 1;
-  for (size_t i = ndim - 1; i-- > 0; )
-    arr.stride[i] = arr.stride[i + 1] * arr.shape[i + 1];
-
-  arr.data = calloc(total, sizeof(double));
-  if (!arr.data) {
-    free(arr.shape);
-    free(arr.stride);
-    fprintf(stderr, "ERROR CREATING N-D ARRAY (.data bit)!");
-    exit(1);
+  return total;
+}
+static size_t CalcArrNDOffset(size_t ndim, const size_t *idx,
+                              const size_t *stride) {
+  size_t off = 0;
+  for (size_t d = 0; d < ndim; d++) {
+    off += idx[d] * stride[d];
   }
-
-  return arr;
+  return off;
+}
+static int InitNDBase(size_t ndim, const size_t *shape,
+                      size_t **shape_out, size_t **stride_out) {
+  *shape_out = malloc(ndim * sizeof(size_t));
+  if (!*shape_out) {
+    return -1;
+  }
+  for (size_t d = 0; d < ndim; d++) {
+    (*shape_out)[d] = shape[d];
+  }
+  *stride_out = CalcArrNDStride(ndim, shape);
+  if (!*stride_out) {
+    free(*shape_out);
+    return -1;
+  }
+  return 0;
 } //}}}
-// free N-D array //{{{
-void FreeArrND(ArrND arr) {
-  free(arr.data);
-  free(arr.shape);
-  free(arr.stride);
+// Constructors //{{{
+ArrNDd *CreateArrNDd(size_t ndim, const size_t *shape) {
+  ArrNDd *a = malloc(sizeof *a);
+  if (!a) {
+    return NULL;
+  }
+  a->ndim = ndim;
+  if (InitNDBase(ndim, shape, &a->shape, &a->stride) != 0) {
+    free(a);
+    return NULL;
+  }
+  size_t total = CalcArrNDTotalSize(ndim, shape);
+  a->d = calloc(total, sizeof(double));
+  if (!a->d) {
+    free(a->shape);
+    free(a->stride);
+    free(a);
+    return NULL;
+  }
+  return a;
+}
+ArrNDld *CreateArrNDld(size_t ndim, const size_t *shape) {
+  ArrNDld *a = malloc(sizeof *a);
+  if (!a) {
+    return NULL;
+  }
+  a->ndim = ndim;
+  if (InitNDBase(ndim, shape, &a->shape, &a->stride) != 0) {
+    free(a);
+    return NULL;
+  }
+  size_t total = CalcArrNDTotalSize(ndim, shape);
+  a->d = calloc(total, sizeof(long double));
+  if (!a->d) {
+    free(a->shape);
+    free(a->stride);
+    free(a);
+    return NULL;
+  }
+  return a;
+}
+ArrNDi *CreateArrNDi(size_t ndim, const size_t *shape) {
+  ArrNDi *a = malloc(sizeof *a);
+  if (!a) {
+    return NULL;
+  }
+  a->ndim = ndim;
+  if (InitNDBase(ndim, shape, &a->shape, &a->stride) != 0) {
+    free(a);
+    return NULL;
+  }
+  size_t total = CalcArrNDTotalSize(ndim, shape);
+  a->d = calloc(total, sizeof(int));
+  if (!a->d) {
+    free(a->shape);
+    free(a->stride);
+    free(a);
+    return NULL;
+  }
+  return a;
+}
+ArrNDli *CreateArrNDli(size_t ndim, const size_t *shape) {
+  ArrNDli *a = malloc(sizeof *a);
+  if (!a) {
+    return NULL;
+  }
+  a->ndim = ndim;
+  if (InitNDBase(ndim, shape, &a->shape, &a->stride) != 0) {
+    free(a);
+    return NULL;
+  }
+  size_t total = CalcArrNDTotalSize(ndim, shape);
+  a->d = calloc(total, sizeof(long double));
+  if (!a->d) {
+    free(a->shape);
+    free(a->stride);
+    free(a);
+    return NULL;
+  }
+  return a;
+}
+//}}}
+// Destructors //{{{
+static void FreeBaseND(void *d, size_t *shape, size_t *stride) {
+  free(shape);
+  free(stride);
+  free(d);
+}
+void FreeArrNDd(ArrNDd *a) {
+  if (!a) {
+    return;
+  }
+  FreeBaseND(a->d, a->shape, a->stride);
+  free(a);
+}
+void FreeArrNDld(ArrNDld *a) {
+  if (!a) {
+    return;
+  }
+  FreeBaseND(a->d, a->shape, a->stride);
+  free(a);
+}
+void FreeArrNDi(ArrNDi *a) {
+  if (!a) {
+    return;
+  }
+  FreeBaseND(a->d, a->shape, a->stride);
+  free(a);
+}
+void FreeArrNDli(ArrNDli *a) {
+  if (!a) {
+    return;
+  }
+  FreeBaseND(a->d, a->shape, a->stride);
+  free(a);
 } //}}}
-// general ND indexer //{{{
-static inline size_t idND(const ArrND arr, const size_t *indices) {
-  size_t offset = 0;
-  for (size_t d = 0; d < arr.ndim; d++)
-    offset += indices[d] * arr.stride[d];
-  return offset;
+// Fillers - fill all array elements by given value //{{{
+void ArrND_double_fill(ArrNDd *a, double v) {
+  size_t total = CalcArrNDTotalSize(a->ndim, a->shape);
+  for (size_t i = 0; i < total; i++) {
+    a->d[i] = v;
+  }
+}
+void ArrND_longdouble_fill(ArrNDld *a, long double v) {
+  size_t total = CalcArrNDTotalSize(a->ndim, a->shape);
+  for (size_t i = 0; i < total; i++) {
+    a->d[i] = v;
+  }
+}
+void ArrND_int_fill(ArrNDi *a, int v) {
+  size_t total = CalcArrNDTotalSize(a->ndim, a->shape);
+  for (size_t i = 0; i < total; i++) {
+    a->d[i] = v;
+  }
+}
+void ArrND_longint_fill(ArrNDli *a, long int v) {
+  size_t total = CalcArrNDTotalSize(a->ndim, a->shape);
+  for (size_t i = 0; i < total; i++) {
+    a->d[i] = v;
+  }
 } //}}}
+// Setters - set one element to given value //{{{
+void ArrND_double_set(ArrNDd *a, const size_t *idx, double v) {
+  size_t off = CalcArrNDOffset(a->ndim, idx, a->stride);
+  a->d[off] = v;
+}
+void ArrND_longdouble_set(ArrNDld *a, const size_t *idx, long double v) {
+  size_t off = CalcArrNDOffset(a->ndim, idx, a->stride);
+  a->d[off] = v;
+}
+void ArrND_int_set(ArrNDi *a, const size_t *idx, int v) {
+  size_t off = CalcArrNDOffset(a->ndim, idx, a->stride);
+  a->d[off] = v;
+}
+void ArrND_longint_set(ArrNDli *a, const size_t *idx, long int v) {
+  size_t off = CalcArrNDOffset(a->ndim, idx, a->stride);
+  a->d[off] = v;
+} //}}}
+// Adders - increment array element by given value //{{{
+void ArrND_double_add(ArrNDd *a, const size_t *idx, double v) {
+  size_t off = CalcArrNDOffset(a->ndim, idx, a->stride);
+  a->d[off] += v;
+}
+void ArrND_longdouble_add(ArrNDld *a, const size_t *idx, long double v) {
+  size_t off = CalcArrNDOffset(a->ndim, idx, a->stride);
+  a->d[off] += v;
+}
+void ArrND_int_add(ArrNDi *a, const size_t *idx, int v) {
+  size_t off = CalcArrNDOffset(a->ndim, idx, a->stride);
+  a->d[off] += v;
+}
+void ArrND_longint_add(ArrNDli *a, const size_t *idx, long int v) {
+  size_t off = CalcArrNDOffset(a->ndim, idx, a->stride);
+  a->d[off] += v;
+} //}}}
+// Getters - get one array element //{{{
+double ArrND_double_get(const ArrNDd *a, const size_t *idx) {
+  size_t off = CalcArrNDOffset(a->ndim, idx, a->stride);
+  return a->d[off];
+}
+long double ArrND_longdouble_get(const ArrNDld *a, const size_t *idx) {
+  size_t off = CalcArrNDOffset(a->ndim, idx, a->stride);
+  return a->d[off];
+}
+int ArrND_int_get(const ArrNDi *a, const size_t *idx) {
+  size_t off = CalcArrNDOffset(a->ndim, idx, a->stride);
+  return a->d[off];
+}
+long int ArrND_longint_get(const ArrNDli *a, const size_t *idx) {
+  size_t off = CalcArrNDOffset(a->ndim, idx, a->stride);
+  return a->d[off];
+}
+ //}}}

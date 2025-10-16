@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include "Arrays.h"
 #include "Globals.h"
 #include "MathUtils.h"
 
@@ -140,4 +141,12 @@ void Fprintf1(FILE *f, const double value, const int digits[2]);
 void FprintfRow(FILE *fw, int columns,
                 const double value[columns], const int digits[columns][2]);
 
+void ComputeColumnWidths(const int nrows, const int ncols, ArrNDd *data,
+                          int max_precision);
+void PrintDataValue(FILE *fw, const int nrows, const int row, const int col,
+                     const ArrNDd *data);
+void PrintDataRow(FILE *fw, const int nrows, const int row, const int ncols,
+                  const ArrNDd *data);
+void PrintDataAll(FILE *fw, const int nrows, const int ncols,
+                  const ArrNDd *data);
 #endif

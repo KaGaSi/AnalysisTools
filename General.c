@@ -1,4 +1,5 @@
 #include "General.h"
+#include "Arrays.h"
 #include "Errors.h"
 
 static void CountDigits(const double num, int digits[2]);
@@ -316,3 +317,82 @@ void FprintfRow(FILE *fw, int columns,
   putc('\n', fw);
 }
 //}}}
+
+// Count meaningful decimal digits of a number up to max_precision
+static int CountDecimalDigits(double x, int max_precision) {
+  x = fabs(x);
+  double intpart;
+  double frac = modf(x, &intpart);
+  int digits = 0;
+  for (int i = 0; i < max_precision; i++) {
+    frac *= 10.0;
+    double f = floor(frac + 1e-9);
+    frac -= f;
+    if (fabs(frac) < 1e-9) return digits; // stop when fraction essentially gone
+    digits = i + 1;
+  }
+  return digits;
+}
+// Determine per-column precision and width from actual data
+void ComputeColumnWidths(const int nrows, const int ncols, ArrNDd *data,
+                         int max_precision) {
+  for (int i = 0; i < ncols; i++) {
+    size_t index[] = {nrows, i};
+    SetArrND(data, index, 0);
+    index[0] = nrows + 1;
+    SetArrND(data, index, 0);
+  } // Pass 1: find max precision actually needed
+  for (int i = 0; i < ncols; i++) {
+    int col_prec = 0;
+    for (int j = 0; j < nrows; j++) {
+      size_t index[] = {j, i};
+      int p = CountDecimalDigits(GetArrND(data, index), max_precision);
+      if (p > col_prec) {
+        col_prec = p;
+      }
+    }
+    size_t index[] = {nrows + 1, i};
+    SetArrND(data, index, col_prec);
+  }
+  // Pass 2: compute column widths using chosen per-column precision
+  for (int i = 0; i < ncols; i++) {
+    for (int j = 0; j < nrows; j++) {
+      char buf[64];
+      // snprintf(buf, sizeof buf, "%.*f", precisions[i][1], data[j][i]);
+      size_t index[] = {j, i};
+      size_t index2[] = {nrows + 1, i};
+      snprintf(buf, sizeof buf, "%.*f", (int)GetArrND(data, index2),
+                                        GetArrND(data, index));
+      int w = (int)strlen(buf);
+      index2[0] = nrows;
+      if (w > GetArrND(data, index2)) {
+        SetArrND(data, index2, w);
+      }
+    }
+  }
+}
+// Print one formatted value
+void PrintDataValue(FILE *fw, const int nrows, const int row, const int col,
+                    const ArrNDd *data) {
+    size_t index[] = {row, col};
+    size_t index0[] = {nrows, col};
+    size_t index1[] = {nrows + 1, col};
+    fprintf(fw, " %*.*f", (int)GetArrND(data, index0),
+                          (int)GetArrND(data, index1),
+                          GetArrND(data, index));
+}
+// Print one formatted row
+void PrintDataRow(FILE *fw, const int nrows, const int row, const int ncols,
+                  const ArrNDd *data) {
+  for (int i = 0; i < ncols; i++) {
+    PrintDataValue(fw, nrows, row, i, data);
+  }
+  putc('\n', fw);
+}
+// Print all formatted rows
+void PrintDataAll(FILE *fw, const int nrows, const int ncols,
+                  const ArrNDd *data) {
+  for (int j = 0; j < nrows; j++) {
+    PrintDataRow(fw, nrows, j, ncols, data);
+  }
+}

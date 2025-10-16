@@ -1,7 +1,7 @@
 #include "../AnalysisTools.h"
 
 // calculate bond orientation order parameter for a single bead //{{{
-void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrND boop) {
+void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrNDd *boop) {
   int max_neigh = sym[n_sym-1];
   int nearest[max_neigh]; // nearest neighbour id
   double min_dist[max_neigh]; // nearest neighbour's distance
@@ -51,8 +51,10 @@ void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrND boop) {
     }
     q_real /= sym[i];
     q_imag /= sym[i];
-    boop.data[idx3d(boop, n, i, 0)] = q_real;
-    boop.data[idx3d(boop, n, i, 1)] = q_imag;
+    size_t index[3] = {n, i, 0};
+    SetArrND(boop, index, q_real);
+    index[2] = 1;
+    SetArrND(boop, index, q_imag);
   }
 } //}}}
 
@@ -219,9 +221,8 @@ int main(int argc, char *argv[]) {
 
   // arrays for boop distributions
   size_t shape3D[3] = {Count->BeadType, bins, n_sym};
-  ArrND boop_distr_type = NewArrND(3, shape3D);
-  size_t shape2D[2] = {n_sym, bins_g_n};
-  ArrND g_n = NewArrND(2, shape2D);
+  ArrNDd *boop_distr_type = CreateArrNDd(3, shape3D);
+  ArrNDd *g_n = CreateArr2Dd(n_sym, bins_g_n);
   long int *g_n_counts = calloc(bins_g_n, sizeof *g_n_counts);
 
   // main loop //{{{
@@ -232,7 +233,7 @@ int main(int argc, char *argv[]) {
   shape3D[0] = Count->Bead;
   shape3D[1] = n_sym;
   shape3D[2] = 2;
-  ArrND boop = NewArrND(3, shape3D);
+  ArrNDd *boop = CreateArrNDd(3, shape3D);
   while (true) {
     PrintStep(&count_coor, opt->c.start, opt->c.silent);
     // use every skip-th timestep between start and end
@@ -247,12 +248,7 @@ int main(int argc, char *argv[]) {
       }
       count_used++;
 
-      for (int i = 0; i < Count->Bead; i++) {
-        for (int j = 0; j < n_sym; j++) {
-          boop.data[idx3d(boop, i, j, 0)] = 0;
-          boop.data[idx3d(boop, i, j, 1)] = 0;
-        }
-      }
+      FillArrND(boop, 0);
       // go over all beads in the coordinate file
       for (int i = 0; i < Count->BeadCoor; i++) {
         int id = System.BeadCoor[i]; // bead index
@@ -260,9 +256,10 @@ int main(int argc, char *argv[]) {
         // double res[n_sym];
         ComputeBOOP(System, id, n_sym, sym, boop);
         for (int j = 0; j < n_sym; j++) {
-          int id_0 = idx3d(boop, id, j, 0);
-          int id_1 = idx3d(boop, id, j, 1);
-          double res = sqrt(Square(boop.data[id_0]) + Square(boop.data[id_1]));
+          size_t id_0[3] = {id, j, 0};
+          size_t id_1[3] = {id, j, 1};
+          double res = sqrt(Square(GetArrND(boop, id_0)) +
+                            Square(GetArrND(boop, id_1)));
           // error - should never happen but better safe than sorry //{{{
           // TODO: proper error with bead id and whatnot
           if (res > 1 || res < 0) {
@@ -273,7 +270,8 @@ int main(int argc, char *argv[]) {
           if (k == bins) {
             k--; // edge case for res[j] -> 1
           }
-          boop_distr_type.data[idx3d(boop_distr_type, type, k, j)] += res;
+          size_t index[3] = {type, k, j};
+          AddArrND(boop_distr_type, index, res);
         }
       }
 
@@ -296,13 +294,13 @@ int main(int argc, char *argv[]) {
           // boop are complex numbers
           // boop_i.real * boop_j.real + boop_i.imag * boop_j.imag
           for (int k = 0; k < n_sym; k++) {
-            int id_i0 = idx3d(boop, id_i, k, 0);
-            int id_i1 = idx3d(boop, id_i, k, 1);
-            int id_j0 = idx3d(boop, id_j, k, 0);
-            int id_j1 = idx3d(boop, id_j, k, 1);
-            double corr_real = boop.data[id_i0] * boop.data[id_j0] +
-                               boop.data[id_i1] * boop.data[id_j1];
-            g_n.data[idx2d(g_n, k, bin)] += corr_real;
+            size_t id_i0[3] = {id_i, k, 0};
+            size_t id_i1[3] = {id_i, k, 1};
+            size_t id_j0[3] = {id_j, k, 0};
+            size_t id_j1[3] = {id_j, k, 1};
+            double corr_real = GetArrND(boop, id_i0) * GetArrND(boop, id_j0) +
+                               GetArrND(boop, id_i1) * GetArrND(boop, id_j1);
+            AddArr2D(g_n, k, bin, corr_real);
           }
           g_n_counts[bin]++;
         }
@@ -331,19 +329,16 @@ int main(int argc, char *argv[]) {
 
   // flattening per-type distribution array
   // TODO: print the per-bead type stuff
-  shape2D[0] = bins;
-  shape2D[1] = n_sym;
-  ArrND boop_distr = NewArrND(2, shape2D);
+  ArrNDd *boop_distr = CreateArr2Dd(bins, n_sym);
   // normalisation factor for distribution
   double *norm = calloc(n_sym, sizeof *norm);
   for (int i = 0; i < bins; i++) {
     for (int j = 0; j < n_sym; j++) {
-      int id1 = idx2d(boop_distr, i, j);
       for (int k = 0; k < Count->BeadType; k++) {
-        int id2 = idx3d(boop_distr_type, k, i, j);
-        boop_distr.data[id1] += boop_distr_type.data[id2];
+        size_t index[] = {k, i, j};
+        AddArr2D(boop_distr, i, j, GetArrND(boop_distr_type, index));
       }
-      norm[j] += boop_distr.data[id1];
+      norm[j] += GetArr2D(boop_distr, i, j);
     }
   }
 
@@ -371,7 +366,7 @@ int main(int argc, char *argv[]) {
     count = -1;
     data[i][++count] = width * (2 * i + 1) / 2;
     for (int j = 0; j < n_sym; j++) {
-      data[i][++count] = boop_distr.data[idx2d(boop_distr, i, j)] / norm[j];
+      data[i][++count] = GetArr2D(boop_distr, i, j) / norm[j];
     }
   }
   FillMaxDigits(columns, bins, data, digits); //}}}
@@ -416,7 +411,7 @@ int main(int argc, char *argv[]) {
     data2[i][++count] = dr * (2 * i + 1) / 2;
     for (int j = 0; j < n_sym; j++) {
       if (g_n_counts[i] > 0) {
-        data2[i][++count] = g_n.data[idx2d(g_n, j, i)] / g_n_counts[i];
+        data2[i][++count] = GetArr2D(g_n, j, i) / g_n_counts[i];
       } else {
         data2[i][++count] = 0;
       }

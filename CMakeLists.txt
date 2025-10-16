@@ -58,6 +58,7 @@ endif()
 add_library(AnalysisTools
   AnalysisTools.c
   Aggregates.c
+  Arrays.c
   Globals.c
   MathUtils.h
   Options.c
