@@ -33,7 +33,7 @@ void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrNDd *boop) 
   }
   for (int i = 0; i < max_neigh; i++) {
     if (nearest[i] == -1) {
-      err_msg("Huh? Not enough neighbours! Should never happen!!");
+      err_msg("Not enough neighbours! Should never happen!!");
       PrintError();
     }
   }
@@ -51,82 +51,10 @@ void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrNDd *boop) 
     }
     q_real /= sym[i];
     q_imag /= sym[i];
-    size_t index[3] = {n, i, 0};
-    SetArrND(boop, index, q_real);
-    index[2] = 1;
-    SetArrND(boop, index, q_imag);
+    SetArr3D(boop, n, i, 0, q_real);
+    SetArr3D(boop, n, i, 1, q_imag);
   }
 } //}}}
-
-// // calculate bond orientation order parameter for a single bead //{{{
-// // ...calculated results weighed by distance from centre particle - g(r)
-// // based Gaussian thingy
-// void ComputeBOOP(SYSTEM System, int n,
-//                  int n_sym, int sym[n_sym], double res[n_sym]) {
-//   double r_nn = 1.0; // TODO: make into opt - should be \approx 1st min in g(r)
-//   double r_min = 1.2;
-//   double sigma = (r_min - r_nn) / 2;
-//   int max_neigh = sym[n_sym-1];
-//   int nearest[max_neigh]; // nearest neighbour id
-//   double min_dist[max_neigh]; // nearest neighbour's distance
-//   for (int i = 0; i < max_neigh; i++) {
-//     nearest[i] = -1;
-//     min_dist[i] = HIGHNUM;
-//   }
-//   // find nearest neighbours
-//   BEAD *b = &System.Bead[n];
-//   for (int i = 0; i < System.Count.BeadCoor; i++) {
-//     int id = System.BeadCoor[i];
-//     if (id == n) {
-//       continue;
-//     }
-//     BEAD *b_i = &System.Bead[id];
-//     vec3 d = Distance(b->Position.v, b_i->Position.v, System.Box.Length);
-//     double r = VectLength(d);
-//     for (int j = 0; j < max_neigh; j++) {
-//       if (r < min_dist[j]) {
-//         for (int k = (max_neigh - 1); k > j; k--) {
-//           min_dist[k] = min_dist[k-1];
-//           nearest[k] = nearest[k-1];
-//         }
-//         min_dist[j] = r;
-//         nearest[j] = id;
-//         break;
-//       }
-//     }
-//   }
-//   for (int i = 0; i < max_neigh; i++) {
-//     if (nearest[i] == -1) {
-//       err_msg("Huh? Not enough neighbours! Should never happen!!");
-//       PrintError();
-//     }
-//   }
-//
-//   // calculate boop
-//   for (int i = 0; i < n_sym; i++) {
-//     double q_real = 0;
-//     double q_imag = 0;
-//     double wsum = 0;
-//     for (int j = 0; j < max_neigh; j++) {
-//       BEAD *b2 = &System.Bead[nearest[j]];
-//       vec3 d = Distance(b2->Position.v, b->Position.v, System.Box.Length);
-//       double theta = atan2(d.v[1], d.v[0]);
-//       double w = exp(- Square((VectLength(d) - r_nn) / sigma));
-//       q_real += w * cos(sym[i] * theta);
-//       q_imag += w * sin(sym[i] * theta);
-//       wsum += w;
-//       printf("%d: %lf\n", j, wsum);
-//     }
-//     printf("%lf\n", wsum);
-//     if (wsum < 1e-12) {
-//       res[i] = 0;
-//     } else {
-//       q_real /= wsum;
-//       q_imag /= wsum;
-//       res[i] = sqrt(Square(q_real) + Square(q_imag));
-//     }
-//   }
-// } //}}}
 
 // Help() //{{{
 void Help(const char cmd[50], const bool error,
@@ -146,11 +74,14 @@ Calculate distribution of bond order orientation parameters for 3- to \
   fprintf(ptr, "<width>             width of a bin\n");
   fprintf(ptr, "<output>            output file\n");
   fprintf(ptr, "[options]\n");
+  fprintf(ptr, "  -pb <file>        save per-bead boop from the last step "
+          "(automatic ending -<symmetry>.txt)\n");
   CommonHelp(error, n, opt);
 } //}}}
 
 // structure for options //{{{
 struct OPT {
+  char per_bead_file[LINE]; // -pb option
   COMMON_OPT c;
 };
 OPT * opt_create(void) {
@@ -160,12 +91,12 @@ OPT * opt_create(void) {
 int main(int argc, char *argv[]) {
 
   // define options & check their validity
-  int common = 8, all = common + 0, count = 0,
+  int common = 8, all = common + 1, count = 0,
       req_arg = 3;
   char option[all][OPT_LENGTH];
   OptionCheck(argc, argv, req_arg, common, all, true, option,
               "-st", "-e", "-sk", "-i", "--verbose", "--silent", "--help",
-              "--version");
+              "--version", "-pb");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -191,6 +122,9 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data
   opt->c = CommonOptions(argc, argv, in);
+  if (!FileOption(argc, argv, "-pb", opt->per_bead_file)) {
+    opt->per_bead_file[0] = '\0';
+  }
 
   if (!opt->c.silent) {
     PrintCommand(stdout, argc, argv);
@@ -220,9 +154,13 @@ int main(int argc, char *argv[]) {
   int bins_g_n = r_max / dr + 1;
 
   // arrays for boop distributions
-  size_t shape3D[3] = {Count->BeadType, bins, n_sym};
-  ArrNDd *boop_distr_type = CreateArrNDd(3, shape3D);
+  ArrNDd *boop_distr_type = CreateArr3Dd(Count->BeadType, bins, n_sym);
   ArrNDd *g_n = CreateArr2Dd(n_sym, bins_g_n);
+  if (!boop_distr_type || !g_n) {
+    err_msg("ArrNDd constructor failed (boop_distr_type/g_n)");
+    PrintError();
+    exit(1);
+  }
   long int *g_n_counts = calloc(bins_g_n, sizeof *g_n_counts);
 
   // main loop //{{{
@@ -230,10 +168,12 @@ int main(int argc, char *argv[]) {
   int count_coor = 0, // count steps in the vcf file
       count_used = 0, // count steps in output file
       line_count = 0; // count lines in the vcf file
-  shape3D[0] = Count->Bead;
-  shape3D[1] = n_sym;
-  shape3D[2] = 2;
-  ArrNDd *boop = CreateArrNDd(3, shape3D);
+  ArrNDd *boop = CreateArr3Dd(Count->Bead, n_sym, 2);
+  if (!boop) {
+    err_msg("ArrNDd constructor failed (boop)");
+    PrintError();
+    exit(1);
+  }
   while (true) {
     PrintStep(&count_coor, opt->c.start, opt->c.silent);
     // use every skip-th timestep between start and end
@@ -253,16 +193,13 @@ int main(int argc, char *argv[]) {
       for (int i = 0; i < Count->BeadCoor; i++) {
         int id = System.BeadCoor[i]; // bead index
         int type = System.Bead[id].Type;
-        // double res[n_sym];
         ComputeBOOP(System, id, n_sym, sym, boop);
         for (int j = 0; j < n_sym; j++) {
-          size_t id_0[3] = {id, j, 0};
-          size_t id_1[3] = {id, j, 1};
-          double res = sqrt(Square(GetArrND(boop, id_0)) +
-                            Square(GetArrND(boop, id_1)));
+          double res = sqrt(Square(GetArr3D(boop, id, j, 0)) +
+                            Square(GetArr3D(boop, id, j, 1)));
           // error - should never happen but better safe than sorry //{{{
           // TODO: proper error with bead id and whatnot
-          if (res > 1 || res < 0) {
+          if (res < 0 || res > 1) {
             err_msg("boop must be <0,1>!");
             PrintError();
           } //}}}
@@ -270,8 +207,7 @@ int main(int argc, char *argv[]) {
           if (k == bins) {
             k--; // edge case for res[j] -> 1
           }
-          size_t index[3] = {type, k, j};
-          AddArrND(boop_distr_type, index, res);
+          AddArr3D(boop_distr_type, type, k, j, res);
         }
       }
 
@@ -294,18 +230,14 @@ int main(int argc, char *argv[]) {
           // boop are complex numbers
           // boop_i.real * boop_j.real + boop_i.imag * boop_j.imag
           for (int k = 0; k < n_sym; k++) {
-            size_t id_i0[3] = {id_i, k, 0};
-            size_t id_i1[3] = {id_i, k, 1};
-            size_t id_j0[3] = {id_j, k, 0};
-            size_t id_j1[3] = {id_j, k, 1};
-            double corr_real = GetArrND(boop, id_i0) * GetArrND(boop, id_j0) +
-                               GetArrND(boop, id_i1) * GetArrND(boop, id_j1);
-            AddArr2D(g_n, k, bin, corr_real);
+            double re = GetArr3D(boop, id_i, k, 0) * GetArr3D(boop, id_j, k, 0);
+            double im = GetArr3D(boop, id_i, k, 1) * GetArr3D(boop, id_j, k, 1);
+            double correlation = re + im;
+            AddArr2D(g_n, k, bin, correlation);
           }
           g_n_counts[bin]++;
         }
-      }
-      //}}}
+      } //}}}
     } else {
       if (!SkipTimestep(in, fr, &line_count)) {
         count_coor--;
@@ -327,21 +259,54 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "Last Step: %d (used %d)\n", count_coor, count_used);
   } //}}}
 
-  // flattening per-type distribution array
+  if (opt->per_bead_file[0] != '\0') {
+    // new file
+    for (int i = 0; i < n_sym; i++) {
+      char fout[LINE] = "";
+      if (snprintf(fout, LINE, "%s-%d.txt", opt->per_bead_file, sym[i]) < 0) {
+        ErrorSnprintf();
+      }
+      FILE *fw = OpenFile(fout, "w");
+      fclose(fw);
+    }
+    // print per-bead values
+    for (int i = 0; i < Count->BeadCoor; i++) {
+      int id = System.BeadCoor[i]; // bead index
+      for (int j = 0; j < n_sym; j++) {
+        double res = sqrt(Square(GetArr3D(boop, id, j, 0)) +
+                          Square(GetArr3D(boop, id, j, 1)));
+
+        char fout[LINE] = "";
+        if (snprintf(fout, LINE, "%s-%d.txt", opt->per_bead_file, sym[j]) < 0) {
+          ErrorSnprintf();
+        }
+        FILE *fw = OpenFile(fout, "a");
+        fprintf(fw, "%lf\n", res);
+        fclose(fw);
+      }
+    }
+  }
+
   // TODO: print the per-bead type stuff
+  // flattening per-type distribution array //{{{
   ArrNDd *boop_distr = CreateArr2Dd(bins, n_sym);
+  if (!boop_distr) {
+    err_msg("ArrNDd constructor failed (boop)");
+    PrintError();
+    exit(1);
+  }
   // normalisation factor for distribution
   double *norm = calloc(n_sym, sizeof *norm);
   for (int i = 0; i < bins; i++) {
     for (int j = 0; j < n_sym; j++) {
       for (int k = 0; k < Count->BeadType; k++) {
-        size_t index[] = {k, i, j};
-        AddArr2D(boop_distr, i, j, GetArrND(boop_distr_type, index));
+        AddArr2D(boop_distr, i, j, GetArr3D(boop_distr_type, k, i, j));
       }
       norm[j] += GetArr2D(boop_distr, i, j);
     }
-  }
+  } //}}}
 
+  // print boop distribution //{{{
   FILE *fw = PrintBylineOpenFile(fout, argc, argv);
   // print header
   count = 1;
@@ -356,31 +321,30 @@ int main(int argc, char *argv[]) {
   }
   putc('\n', fw);
   // print data
-  // determine width of each column //{{{
-  int columns = n_sym + 1;
-  int digits[columns][2];
-  InitInt2DArray((int *)digits, columns, 2, 0);
-  double *data[bins]; // array for data
+  // collate data //{{{
+  int ncols = n_sym + 1;
+  int nrows = bins;
+  ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
+  if (!data) {
+    err_msg("ArrNDd constructor failed (data)");
+    PrintError();
+    exit(1);
+  }
   for (int i = 0; i < bins; i++) {
-    data[i] = calloc(columns, sizeof data[i]);
     count = -1;
-    data[i][++count] = width * (2 * i + 1) / 2;
+    SetArr2D(data, i, ++count, width * (2 * i + 1) / 2);
     for (int j = 0; j < n_sym; j++) {
-      data[i][++count] = GetArr2D(boop_distr, i, j) / norm[j];
+      double val = GetArr2D(boop_distr, i, j) / norm[j];
+      SetArr2D(data, i, ++count, val);
     }
-  }
-  FillMaxDigits(columns, bins, data, digits); //}}}
-  for (int i = 0; i < bins; i++) {
-    for (int col = 0; col < columns; col++) {
-      Fprintf1(fw, data[i][col], digits[col]);
-    }
-    putc('\n', fw);
-    free(data[i]);
-  }
-  fclose(fw);
+  } //}}}
+  ComputeColumnWidths(nrows, ncols, data, 6);
+  PrintDataAll(fw, nrows, ncols, data);
+  FreeArrND(data);
+  fclose(fw); //}}}
 
-  // print g_n to file
   // create file name TODO: needs something better, I guess
+  // print g_n to file //{{{
   char tmp[LINE] = "",
        fout2[LINE] = "";
   s_strcpy(tmp, fout, strlen(fout) - 3); // assumes .txt ending...
@@ -400,32 +364,26 @@ int main(int argc, char *argv[]) {
     first = false;
   }
   putc('\n', fw);
-  // determine width of each column //{{{
-  int columns2 = n_sym + 1;
-  int digits2[columns2][2];
-  InitInt2DArray((int *)digits2, columns2, 2, 0);
-  double *data2[bins_g_n]; // array for data
+  // collate data //{{{
+  ncols = n_sym + 1;
+  nrows = bins_g_n;
+  data = CreateArr2Dd(nrows + 2, ncols);
   for (int i = 0; i < bins_g_n; i++) {
-    data2[i] = calloc(columns2, sizeof data2[i]);
     count = -1;
-    data2[i][++count] = dr * (2 * i + 1) / 2;
+    SetArr2D(data, i, ++count, dr * (2 * i + 1) / 2);
     for (int j = 0; j < n_sym; j++) {
       if (g_n_counts[i] > 0) {
-        data2[i][++count] = GetArr2D(g_n, j, i) / g_n_counts[i];
+        double val = GetArr2D(g_n, j, i) / g_n_counts[i];
+        SetArr2D(data, i, ++count, val);
       } else {
-        data2[i][++count] = 0;
+        SetArr2D(data, i, ++count, 0);
       }
     }
-  }
-  FillMaxDigits(columns2, bins_g_n, data2, digits2); //}}}
-  for (int i = 0; i < bins_g_n; i++) {
-    for (int col = 0; col < columns2; col++) {
-      Fprintf1(fw, data2[i][col], digits2[col]);
-    }
-    putc('\n', fw);
-    free(data2[i]);
-  }
-  fclose(fw);
+  } //}}}
+  ComputeColumnWidths(nrows, ncols, data, 6);
+  PrintDataAll(fw, nrows, ncols, data);
+  FreeArrND(data);
+  fclose(fw); //}}}
 
   // free memory - to make valgrind happy //{{{
   FreeArrND(boop_distr_type);
