@@ -320,18 +320,40 @@ void FprintfRow(FILE *fw, int columns,
 
 // Count meaningful decimal digits of a number up to max_precision
 static int CountDecimalDigits(double x, int max_precision) {
-  x = fabs(x);
-  double intpart;
-  double frac = modf(x, &intpart);
-  int digits = 0;
-  for (int i = 0; i < max_precision; i++) {
-    frac *= 10.0;
-    double f = floor(frac + 1e-9);
-    frac -= f;
-    if (fabs(frac) < 1e-9) return digits; // stop when fraction essentially gone
-    digits = i + 1;
+  // sanity checks
+  if (max_precision < 1) {
+    return 0;
   }
-  return digits;
+  if (max_precision > 17) {
+    max_precision = 17; // maximum precision of doubles
+  }
+  // create format string, e.g., '%.6f' for max_precision == 6
+  char fmt[16];
+  snprintf(fmt, sizeof(fmt), "%%.%df", max_precision);
+  // convert number to a string with given maximum number of decimals
+  char buf[64];
+  snprintf(buf, sizeof(buf), fmt, x);
+  // find decimal point
+  char *dot = strchr(buf, '.');
+  if (!dot) { // no decimal point -> no digits to count
+    return 0;
+  }
+  // walk backwards from the end of the string until non-zero character
+  char *end = buf + strlen(buf);
+  char *p = end - 1;
+  while (p > dot && *p == '0') {
+    p--;
+  }
+  // discard the dot if no non-zero characters behind it were found
+  if (*p == '.') {
+    p--;
+  }
+  // return digit count: p-dot is number of digits between '.' and last non-zero
+  if ((p - dot) > 0) {
+    return p - dot;
+  } else {
+    return 0;
+  }
 }
 // Determine per-column precision and width from actual data
 void ComputeColumnWidths(const int nrows, const int ncols, ArrNDd *data,
