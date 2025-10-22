@@ -149,4 +149,5 @@ void PrintDataRow(FILE *fw, const int nrows, const int row, const int ncols,
                   const ArrNDd *data);
 void PrintDataAll(FILE *fw, const int nrows, const int ncols,
                   const ArrNDd *data);
+void SkipLine(FILE *fr);
 #endif

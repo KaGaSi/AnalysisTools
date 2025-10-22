@@ -6,6 +6,9 @@ static void PrintFileAvgHeader(int argc, char *argv[],
 // print header for a distr output file (-d option)
 static void PrintFileDistrHeader(int argc, char *argv[],
                                  OPT *opt, SYSTEM System);
+// print header for a copmposition output file (-c option)
+static void PrintFileCompHeader(int argc, char *argv[], OPT *opt, SYSTEM System,
+                                int size, long int *comp_agg_count);
 // append overall averages to file(s) (-a/-d options)
 static void AppendOverallAvg(char *f, SYSTEM System, double As_sum[3][2],
                              double mass_sum[3][2], int *count_agg_per_size,
@@ -85,6 +88,11 @@ int main(int argc, char *argv[]) {
   // commad line arguments before reading the structure //{{{
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
+  if (!opt) {
+    err_msg("opt_create allocation failed");
+    PrintError();
+    exit(1);
+  }
   // <input> - input structure file
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.stru.name, argv[++count], LINE);
@@ -138,8 +146,7 @@ int main(int argc, char *argv[]) {
    */
   ArrNDd *wdistr = CreateArr2Dd(Count->Molecule, 2);
   ArrNDd *zdistr = CreateArr2Dd(Count->Molecule, 2);
-  // TODO: huh? what's molecules_sum?
-  // molecule types in aggs: [agg size][mol type][number or Square(number)]
+  // molecule types in aggs: [agg size][mol type]
   ArrNDi *molecules_sum = CreateArr2Di(Count->Molecule, Count->MoleculeType);
   if (!wdistr || !zdistr || !molecules_sum) {
     err_msg("ArrNDd constructor failed (wdistr/zdistr/molecules_sum)");
@@ -148,6 +155,11 @@ int main(int argc, char *argv[]) {
   }
   // number of aggregates throughout simulation
   int *count_agg = calloc(Count->Molecule, sizeof *count_agg);
+  if (!count_agg || !ndistr) {
+    err_msg("calloc failed (ndistr/count_agg)");
+    PrintError();
+    exit(1);
+  }
   // arrays for composition distribution
   ArrNDli *comp_distr = NULL; // [c_size][moltype][number of mols]
   ArrNDli *ratio_distr = NULL; // [c_size][moltype1][moltype2][num1][num2]
@@ -177,8 +189,13 @@ int main(int argc, char *argv[]) {
     }
 
     link_c_sizes = malloc(Count->Molecule * sizeof *link_c_sizes);
-    InitIntArray(link_c_sizes, Count->Molecule, -1);
     comp_agg_count = calloc(opt->comp.count, sizeof *comp_agg_count);
+    if (!link_c_sizes || !comp_agg_count) {
+      err_msg("malloc failed (link_c_sizes/comp_agg_count)");
+      PrintError();
+      exit(1);
+    }
+    InitIntArray(link_c_sizes, Count->Molecule, -1);
     for (int i = 0; i < opt->comp.count; i++) {
       for (int j = 0; j < Count->Molecule; j++) {
         if (j == opt->comp.size[i]) {
@@ -197,10 +214,9 @@ int main(int argc, char *argv[]) {
 
   // open <in.agg> and skip the first two lines //{{{
   FILE *fr = OpenFile(input_agg, "r");
-  while (getc(fr) != '\n')
-    ;
-  while (getc(fr) != '\n')
-    ; //}}}
+  SkipLine(fr);
+  SkipLine(fr);
+  //}}}
 
   // if -a is used, print the file header
   PrintFileAvgHeader(argc, argv, opt, System);
@@ -448,24 +464,13 @@ int main(int argc, char *argv[]) {
   if (opt->comp.f[0] != '\0') {
     for (int i = 0; i < opt->comp.count; i++) {
       // print the distribution //{{{
+      PrintFileCompHeader(argc, argv, opt, System, i, comp_agg_count);
       char file[LINE];
       if (snprintf(file, LINE, "%s-%03d.txt",
                    opt->comp.f, opt->comp.size[i]) < 0) {
         ErrorSnprintf();
       }
-      FILE *fw = PrintBylineOpenFile(file, argc, argv);
-      // print header
-      fprintf(fw, "# total number of aggregates with size %d: %ld\n",
-              opt->comp.size[i], comp_agg_count[i]);
-      fprintf(fw, "# (1) number of molecules of given type;");
-      fprintf(fw, " fraction of aggregates with that many molecules of type:");
-      for (int j = 0; j < Count->MoleculeType; j++) {
-        fprintf(fw, " (%d) %s", j + 2, System.MoleculeType[j].Name);
-        if (j != (Count->MoleculeType - 1)) {
-          putc(',', fw);
-        }
-      }
-      putc('\n', fw);
+      FILE *fw = OpenFile(file, "a");
       // print data
       if (comp_agg_count[i] > 0) {
         int ncols = Count->MoleculeType + 1;
@@ -695,6 +700,29 @@ static void PrintFileDistrHeader(int argc, char *argv[],
   }
   fclose(fw);
 } //}}}
+// print header for a copmposition output file (-c option)
+static void PrintFileCompHeader(int argc, char *argv[], OPT *opt, SYSTEM System,
+                                int size, long int *comp_agg_count) {
+  char file[LINE];
+  if (snprintf(file, LINE, "%s-%03d.txt",
+               opt->comp.f, opt->comp.size[size]) < 0) {
+    ErrorSnprintf();
+  }
+  FILE *fw = PrintBylineOpenFile(file, argc, argv);
+  // print header
+  fprintf(fw, "# total number of aggregates with size %d: %ld\n",
+          opt->comp.size[size], comp_agg_count[size]);
+  fprintf(fw, "# (1) number of molecules of given type;");
+  fprintf(fw, " fraction of aggregates with that many molecules of type:");
+  for (int j = 0; j < System.Count.MoleculeType; j++) {
+    fprintf(fw, " (%d) %s", j + 2, System.MoleculeType[j].Name);
+    if (j != (System.Count.MoleculeType - 1)) {
+      putc(',', fw);
+    }
+  }
+  putc('\n', fw);
+  fclose(fw);
+}
 // append overall averages to file(s) (-a/-d options) //{{{
 static void AppendOverallAvg(char *f, SYSTEM System, double As_sum[3][2],
                              double mass_sum[3][2], int *count_agg_per_size,
@@ -704,6 +732,11 @@ static void AppendOverallAvg(char *f, SYSTEM System, double As_sum[3][2],
   }
   int *mol_sum_per_size = calloc(System.Count.MoleculeType,
                                  sizeof *mol_sum_per_size);
+  if (!mol_sum_per_size) {
+    err_msg("calloc failed (mol_sum_per_size)");
+    PrintError();
+    exit(1);
+  }
   int sum_aggs = 0;
   for (int i = 0; i < System.Count.Molecule; i++) {
     sum_aggs += count_agg_per_size[i];

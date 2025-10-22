@@ -2,6 +2,9 @@
 #include "Arrays.h"
 #include "Errors.h"
 
+// TODO: check the digits stuff
+//       also, some needs deleting when it's implemented everywhere
+
 static void CountDigits(const double num, int digits[2]);
 static void MaxDigits(const double num, int max_digits[2]);
 
@@ -330,9 +333,11 @@ static int CountDecimalDigits(double x, int max_precision) {
   // create format string, e.g., '%.6f' for max_precision == 6
   char fmt[16];
   snprintf(fmt, sizeof(fmt), "%%.%df", max_precision);
+  fmt[15] = '\0';
   // convert number to a string with given maximum number of decimals
   char buf[64];
   snprintf(buf, sizeof(buf), fmt, x);
+  buf[63] = '\0';
   // find decimal point
   char *dot = strchr(buf, '.');
   if (!dot) { // no decimal point -> no digits to count
@@ -417,4 +422,10 @@ void PrintDataAll(FILE *fw, const int nrows, const int ncols,
   for (int j = 0; j < nrows; j++) {
     PrintDataRow(fw, nrows, j, ncols, data);
   }
+}
+
+void SkipLine(FILE *fr) {
+  int ch;
+  while ((ch = getc(fr)) != '\n' && ch != EOF)
+    ;
 }
