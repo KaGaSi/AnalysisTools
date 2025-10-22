@@ -78,6 +78,7 @@ add_library(AnalysisTools
 
 # List of utilities
 set(UTILS
+  AggNumber
   AddToSystem
   Aggregates
   Aggregates-NotSameBeads
