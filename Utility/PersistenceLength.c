@@ -127,25 +127,24 @@ int main(int argc, char *argv[]) {
     exit(1);
   } //}}}
 
-  // TODO: define S1 throuh S3 via kp's text //{{{
-  double (**S1)[2] = calloc(Count->MoleculeType, sizeof *S1);
-  double **S2 = calloc(Count->MoleculeType, sizeof *S2);
-  int **count_S2 = calloc(Count->MoleculeType, sizeof *S2);
-  double **S3 = calloc(Count->MoleculeType, sizeof *S3);
-  int **count_S3 = calloc(Count->MoleculeType, sizeof *S3);
+  // arrays for the observables
   double *bondlength = calloc(Count->MoleculeType, sizeof *bondlength);
   int *count_bonds = calloc(Count->MoleculeType, sizeof *count_bonds);
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    S1[i] = calloc(max_bonds, sizeof *S1[i]);
-    S2[i] = calloc(max_bonds, sizeof *S2[i]);
-    count_S2[i] = calloc(max_bonds, sizeof *count_S2[i]);
-    S3[i] = calloc(max_bonds, sizeof *S3[i]);
-    count_S3[i] = calloc(max_bonds, sizeof *count_S3[i]);
-    for (int j = 0; j < Count->MoleculeType; j++) {
-      S1[i][j][0] = 0;
-      S1[i][j][1] = 0;
-    }
-  } //}}}
+  ArrNDd *S1 = CreateArr3Dd(Count->MoleculeType, max_bonds, 2);
+  ArrNDd *S2 = CreateArr2Dd(Count->MoleculeType, max_bonds);
+  ArrNDi *count_S2 = CreateArr2Di(Count->MoleculeType, max_bonds);
+  ArrNDd *S3 = CreateArr2Dd(Count->MoleculeType, max_bonds);
+  ArrNDi *count_S3 = CreateArr2Di(Count->MoleculeType, max_bonds);
+  if (!S1 || !S2 || !S3 || !count_S2 || !count_S3) {
+    err_msg("ArrND* constructor failed (S1, S2, S3, count_S2, or count_S3)");
+    PrintError();
+    exit(1);
+  }
+  if (!bondlength || !count_bonds) {
+    err_msg("calloc failure (bondlength or count_bonds)");
+    PrintError();
+    exit(1);
+  }
 
   // main loop //{{{
   FILE *fr = OpenFile(in.coor.name, "r");
@@ -200,7 +199,7 @@ int main(int argc, char *argv[]) {
             b1 = mol->Bead[mt->Bond[k][0]];
             b2 = mol->Bead[mt->Bond[k][1]];
             vec3 bondj = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-            S1[mol->Type][k-first_bond][0] += CosAngle(bondj, bond1);
+            AddArr3D(S1, mol->Type, k - first_bond, 0, CosAngle(bondj, bond1));
             // bondlength & count bonds
             bondlength[mol->Type] += VectLength(bondj);
             count_bonds[mol->Type]++;
@@ -210,7 +209,8 @@ int main(int argc, char *argv[]) {
             b1 = mol->Bead[mt->Bond[bond_id][0]];
             b2 = mol->Bead[mt->Bond[bond_id][1]];
             bondj = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-            S1[mol->Type][bin_id][1] += CosAngle(bondN, bondj); //}}}
+            AddArr3D(S1, mol->Type, bin_id, 1, CosAngle(bondN, bondj));
+            //}}}
             for (int l = k; l < last_bond; l++) {
               int lag = l - k;
               // S2 function (classic bond correlation) //{{{
@@ -223,14 +223,16 @@ int main(int argc, char *argv[]) {
               b2 = mol->Bead[mt->Bond[l][1]];
               vec3 bondl = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
               // autocorrelation
-              S2[mol->Type][lag] += CosAngle(bondk, bondl);
-              count_S2[mol->Type][lag]++; //}}}
+              AddArr2D(S2, mol->Type, lag, CosAngle(bondk, bondl));
+              AddArr2D(count_S2, mol->Type, lag, 1);
+              //}}}
               // S3 function (end-to-end distances) //{{{
               b1 = mol->Bead[mt->Bond[k][0]];
               b2 = mol->Bead[mt->Bond[l][1]];
               vec3 Re = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-              S3[mol->Type][lag] += SqVectLength(Re);
-              count_S3[mol->Type][lag]++; //}}}
+              AddArr2D(S3, mol->Type, lag, SqVectLength(Re));
+              AddArr2D(count_S3, mol->Type, lag, 1);
+              //}}}
             }
           }
         }
@@ -268,14 +270,11 @@ int main(int argc, char *argv[]) {
   // arrays for integrated functions
   double sum_S1[Count->MoleculeType][2]; // [0] ... 1->N; [1] ... reverse
   double sum_S2[Count->MoleculeType];
-  // double sum_S3[Count->MoleculeType][2]; // [0] ... normalized; [1] .. raw
   // average bond length
   for (int i = 0; i < Count->MoleculeType; i++) {
     sum_S1[i][0] = 0;
     sum_S1[i][1] = 0;
     sum_S2[i] = 0;
-    // sum_S3[i][0] = 0;
-    // sum_S3[i][1] = 0;
   }
   for (int lag = 0; lag < datalines; lag++) {
     data[lag] = calloc(columns, sizeof *data[lag]);
@@ -286,18 +285,18 @@ int main(int argc, char *argv[]) {
       if (opt->mt[j]) {
         // S1 function (from either end)
         for (int dd = 0; dd < 2; dd++) {
-          double avg = S1[j][lag][dd] / count_used;
+          double avg = GetArr3D(S1, j, lag, dd) / count_used;
           sum_S1[j][dd] += avg;
           data[lag][++count] = avg;
           data[lag][++count] = sum_S1[j][dd];
         }
         // S2 (autocorrelation function)
-        double avg = S2[j][lag] / count_S2[j][lag];
+        double avg = GetArr2D(S2, j, lag) / GetArr2D(count_S2, j, lag);
         sum_S2[j] += avg;
         data[lag][++count] = avg;
         data[lag][++count] = sum_S2[j];
         // S3 (end-to-end distances)
-        data[lag][++count] = S3[j][lag] / count_S3[j][lag];
+        data[lag][++count] = GetArr2D(S3, j, lag) / GetArr2D(count_S3, j, lag);
       }
     }
   }
@@ -339,18 +338,11 @@ int main(int argc, char *argv[]) {
 
   // free memory - to make valgrind happy //{{{
   free(opt->mt);
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    free(S1[i]);
-    free(S2[i]);
-    free(count_S2[i]);
-    free(S3[i]);
-    free(count_S3[i]);
-  }
-  free(S1);
-  free(S2);
-  free(count_S2);
-  free(S3);
-  free(count_S3);
+  FreeArrND(S1);
+  FreeArrND(S2);
+  FreeArrND(S3);
+  FreeArrND(count_S2);
+  FreeArrND(count_S3);
   free(bondlength);
   free(count_bonds);
   FreeSystem(&System);
