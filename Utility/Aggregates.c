@@ -23,7 +23,7 @@ also differentiate between aggregates near a wall and those in bulk \
 of the wall(s) along that axis are provided, any aggregate containing \
 a <bead(s)> that is at most the contact distance from the wall is considered \
 near the wall. Aggregates near the wall(s)/in bulk are saved into two files \
-whose names are based on <out.agg> ('-w' and '-no_w' is prepended to the .agg \
+whose names are based on <out.agg> ('-w' and '-b' is prepended to the .agg \
 extension).\n\n");
   }
 
@@ -228,7 +228,7 @@ int main(int argc, char *argv[]) {
     if (snprintf(opt->w_file[0], LINE, "%s-w.agg", str) < 0) {
       ErrorSnprintf();
     }
-    if (snprintf(opt->w_file[1], LINE, "%s-no_w.agg", str) < 0) {
+    if (snprintf(opt->w_file[1], LINE, "%s-b.agg", str) < 0) {
       ErrorSnprintf();
     }
     if (opt->fout.name[0] != '\0') {
@@ -238,7 +238,7 @@ int main(int argc, char *argv[]) {
       if (snprintf(opt->j_file[0].name, LINE, "%s-w%s", str, last_dot) < 0) {
         ErrorSnprintf();
       }
-      if (snprintf(opt->j_file[1].name, LINE, "%s-no_w%s", str, last_dot) < 0) {
+      if (snprintf(opt->j_file[1].name, LINE, "%s-b%s", str, last_dot) < 0) {
         ErrorSnprintf();
       }
     }
@@ -383,7 +383,7 @@ int main(int argc, char *argv[]) {
         // write the aggregates to *-w.agg file
         WriteAggregates(count_coor, opt->w_file[1], System, Aggregate);
 
-        // write joined coordinates to -no_w/-w files (-j option)?
+        // write joined coordinates to -b/-w files (-j option)?
         if (opt->fout.name[0] != '\0') {
           bool *write = calloc(Count->Bead, sizeof *write);
           // assume all beads are saved (to save unbonded beads)
@@ -413,7 +413,7 @@ int main(int argc, char *argv[]) {
             int id = System.Bonded[i];
             write[id] = !write[id];
           }
-          // write joined coordinates for bulk aggregates to -no_w file
+          // write joined coordinates for bulk aggregates to -b file
           WriteTimestep(opt->j_file[1], System, count_coor, write, argc, argv);
           free(write);
         }

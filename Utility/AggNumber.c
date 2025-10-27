@@ -483,7 +483,6 @@ int main(int argc, char *argv[]) {
         }
         for (int j = 0; j < nrows; j++) {
           count = 0;
-          // data.d[idx2d(data, j, count++)] = j;
           SetArr2D(data, j, count++, (double)j);
           for (int k = 0; k < Count->MoleculeType; k++) {
             double val = GetArr3D(comp_distr, i, k, j);
