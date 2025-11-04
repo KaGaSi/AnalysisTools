@@ -31,7 +31,7 @@ descriptors as
 
 Number average of all properties and, additionally, weight and z averages
 for the radius of gyration are calculated (see Equation~\eqref{eq:Avg} in
-Section~\ref{sec:DistrAgg} for general definitions of averages).
+Section~\ref{sec:AggNumber} for general definitions of averages).
 Per-timestep averages (i.e., time evolution) are written to the
 \texttt{<output>} file. Per-size averages can be saved using the
 \texttt{-ps} option.
@@ -39,8 +39,8 @@ Per-timestep averages (i.e., time evolution) are written to the
 The gyration tensor is by default calculated for whole aggregates, but
 \texttt{-bt} option can be used to specify which bead types to consider.
 
-Similarly to \texttt{DistrAgg}, the definition of aggregate size is
-flexible -- see Section~\ref{sec:DistrAgg} for explanations of the
+Similarly to \texttt{AggNumber}, the definition of aggregate size is
+flexible -- see Section~\ref{sec:AggNumber} for explanations of the
 \texttt{-m}, \texttt{-x}, and \texttt{--only} options.
 
 The starting step (\texttt{-st} option) and ending step (\texttt{-e}
