@@ -89,8 +89,8 @@ typedef struct {
 } PrintHeader_ctx;
 // Context for compute_averages
 typedef struct {
-  int ****intra_step, // counts of contacts in the one step
-      mt_name, // molecule type id of the divalent counterion 'name_mol'
+  ArrNDi *intra_step;
+  int mt_name, // molecule type id of the divalent counterion 'name_mol'
       bt_name, // bead type id of the monovalent counterion 'name'
       mt; // molecule name (the 0_3G500 or some such)
 } PrintAvgContacts_ctx;
@@ -129,11 +129,13 @@ void PrintAvgContacts(int bt_j, int bt_k, FILE *fw,
   if (ctx->intra_step) {
     int num_mol = Sys.MoleculeType[ctx->mt].Number;
     if (ctx->mt_name != -1) {
-      double avg = (double)(ctx->intra_step[ctx->mt][bt_j][bt_k][0]) / num_mol;
+      size_t id4[4] = {ctx->mt, bt_j, bt_k, 0};
+      double avg = (double)(GetArrND(ctx->intra_step, id4)) / num_mol;
       fprintf(fw, " %lf", avg);
     }
     if (ctx->bt_name != -1) {
-      double avg = (double)(ctx->intra_step[ctx->mt][bt_j][bt_k][1]) / num_mol;
+      size_t id4[4] = {ctx->mt, bt_j, bt_k, 1};
+      double avg = (double)(GetArrND(ctx->intra_step, id4)) / num_mol;
       fprintf(fw, " %lf", avg);
     }
   }
@@ -191,11 +193,11 @@ int main(int argc, char *argv[]) {
   // define variables for mono- and divalent counterions //{{{
   const int bt_name = FindBeadType(name, System);
   const int mt_name = FindMoleculeName(name_mol, System);
-  int bt_name_mol = -1;
+  // int bt_name_mol = -1;
   MOLECULETYPE *MolType_name = NULL;
   BEADTYPE *BType_name = NULL;
   if (mt_name != -1) {
-    bt_name_mol = System.MoleculeType[mt_name].BType[0];
+    // bt_name_mol = System.MoleculeType[mt_name].BType[0];
     MolType_name = &System.MoleculeType[mt_name];
   }
   if (bt_name != -1) {
@@ -221,45 +223,28 @@ int main(int argc, char *argv[]) {
   // arrays for all the necessary stuff //{{{
   // count molecules of each type
   int *c_mtype = calloc(Count->MoleculeType, sizeof *c_mtype);
-  // count per moltype intramolecular contacts
-  long int ***intra_mol = calloc(Count->MoleculeType, sizeof *intra_mol);
-  long int ****intra_3body = calloc(Count->MoleculeType, sizeof *intra_3body);
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    intra_mol[i] = calloc(Count->BeadType, sizeof *intra_mol[i]);
-    intra_3body[i] = calloc(Count->BeadType, sizeof *intra_3body[i]);
-    for (int j = 0; j < Count->BeadType; j++) {
-      intra_mol[i][j] = calloc(Count->BeadType, sizeof *intra_mol[i][j]);
-      intra_3body[i][j] = calloc(Count->BeadType, sizeof *intra_3body[i][j]);
-      for (int k = 0; k < Count->BeadType; k++) {
-        intra_3body[i][j][k] = calloc(Count->BeadType,
-                                      sizeof *intra_3body[i][j][k]);
-      }
-    }
-  }
+  // // count per moltype intramolecular contacts //{{{
+  // ArrNDli *intra_mol = CreateArr3Dli(Count->MoleculeType,
+  //                                    Count->BeadType, Count->BeadType);
+  // size_t shape_intra_3body[4] = {Count->MoleculeType, Count->BeadType,
+  //                                Count->BeadType, Count->BeadType};
+  // ArrNDli *intra_3body = CreateArrNDli(4, shape_intra_3body);
   // count molecules of each type
-  int **c_mtype_mtype = calloc(Count->MoleculeType, sizeof *c_mtype_mtype);
+  // ArrNDi *c_mtype_mtype = CreateArr2Di(Count->MoleculeType,
+  //                                      Count->MoleculeType);
   // count per moltype-moltype pair intermolecular contacts
-  long int ****inter_mol = calloc(Count->MoleculeType, sizeof *inter_mol);
-  long int *****inter_3body = calloc(Count->MoleculeType, sizeof *inter_3body);
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    c_mtype_mtype[i] = calloc(Count->MoleculeType, sizeof *c_mtype_mtype[i]);
-    inter_mol[i] = calloc(Count->MoleculeType, sizeof *inter_mol[i]);
-    inter_3body[i] = calloc(Count->MoleculeType, sizeof *inter_3body[i]);
-    for (int j = 0; j < Count->MoleculeType; j++) {
-      inter_mol[i][j] = calloc(Count->BeadType, sizeof *inter_mol[i][j]);
-      inter_3body[i][j] = calloc(Count->BeadType, sizeof *inter_3body[i][j]);
-      for (int k = 0; k < Count->BeadType; k++) {
-        inter_mol[i][j][k] = calloc(Count->BeadType,
-                                    sizeof *inter_mol[i][j][k]);
-        inter_3body[i][j][k] = calloc(Count->BeadType,
-                                      sizeof *inter_3body[i][j][k]);
-        for (int l = 0; l < Count->BeadType; l++) {
-          inter_3body[i][j][k][l] = calloc(Count->BeadType,
-                                           sizeof *inter_3body[i][j][k][l]);
-        }
-      }
-    }
-  } //}}}
+  // size_t shape_inter_mol[4] = {Count->MoleculeType,
+  //                              Count->MoleculeType,
+  //                              Count->BeadType,
+  //                              Count->BeadType};
+  // ArrNDli *inter_mol = CreateArrNDli(4, shape_inter_mol);
+  // size_t shape_inter_3body[5] = {Count->MoleculeType,
+  //                                Count->MoleculeType,
+  //                                Count->BeadType,
+  //                                Count->BeadType,
+  //                                Count->BeadType};
+  // ArrNDli *inter_3body = CreateArrNDli(5, shape_inter_3body); //}}}
+  //}}}
 
   // print initial stuff to output file //{{{
   FILE *fw = PrintBylineOpenFile(fout, argc, argv);
@@ -294,17 +279,12 @@ int main(int argc, char *argv[]) {
       }
       count_used++;
       // printf("\nmax_contacts: %d\n", max_contacts);
-      int ****intra_step = calloc(Count->MoleculeType, sizeof *intra_step);
-      for (int i = 0; i < Count->MoleculeType; i++) {
-        intra_step[i] = calloc(Count->BeadType, sizeof *intra_step[i]);
-        for (int j = 0; j < Count->BeadType; j++) {
-          intra_step[i][j] = calloc(Count->BeadType, sizeof *intra_step[i][j]);
-          for (int k = 0; k < Count->BeadType; k++) {
-            intra_step[i][j][k] = calloc(2, sizeof *intra_step[i][j][k]);
-          }
-        }
-      }
-      // is the mono-/divalent counterion already in a trie?
+      size_t shape_intra_step[4] = {Count->MoleculeType,
+                                    Count->BeadType,
+                                    Count->BeadType,
+                                    2};
+      ArrNDi *intra_step = CreateArrNDi(4, shape_intra_step);
+      // is the mono-/divalent counterion already in a trio?
       bool *used_name = NULL;
       if (bt_name != -1) {
         used_name = calloc(BType_name->Number, sizeof *used_name);
@@ -313,141 +293,151 @@ int main(int argc, char *argv[]) {
       if (mt_name != -1) {
         used_name_mol = calloc(MolType_name->Number, sizeof *used_name_mol);
       }
+      // TODO: some vmd tcl print
       char tcl[LINE] = "";
-      snprintf(tcl, LINE, "contacts-%04d.tcl", count_used);
+      snprintf(tcl, LINE, "contacts-%04d.tcl", count_coor - 1);
       FILE *out_vmd = OpenFile(tcl, "w");
       for (int i = 0; i < Count->Bonded; i++) {
         int id_i = System.Bonded[i];
         BEAD *b_i = &System.Bead[id_i];
         MOLECULE *m_i = &System.Molecule[b_i->Molecule];
-        if (opt->mt[m_i->Type] && opt->bt[b_i->Type]) {
-          // 1) 'name_mol' molecules
-          if (mt_name != -1) {
-            for (int j = 0; j < MolType_name->Number; j++) {
-              MOLECULE *mol = &System.Molecule[MolType_name->Index[j]];
-              if (!used_name_mol[j] && mol->InTimestep) {
-                for (int k = 0; k < MolType_name->nBeads; k++) {
-                  BEAD *b_k = &System.Bead[mol->Bead[k]];
-                  double d = DistLength(b_i->Position.v, b_k->Position.v,
-                                        boxlength);
-                  if (d < dist_check) {
-                    for (int l = (i + 1); l < Count->Bonded; l++) {
-                      int id_l = System.Bonded[l];
-                      BEAD *b_l = &System.Bead[id_l];
-                      MOLECULE *m_l = &System.Molecule[b_l->Molecule];
-                      if (opt->mt[m_l->Type] && opt->bt[b_l->Type]) {
-                        double dist = DistLength(b_l->Position.v, b_k->Position.v,
-                                                 boxlength);
-                        if (dist < dist_check) {
-                          Types mt = SortTypes(m_i->Type, m_l->Type);
-                          Types bt = SortTypes(b_i->Type, b_l->Type);
-                          // a) same molecule
-                          if (b_i->Molecule == b_l->Molecule) {
-                            // are they far enough in terms of bonds?
-                            if (abs(PosInMol(id_i, System) -
-                                    PosInMol(id_l, System)) > skip) {
-                              used_name_mol[j] = true;
-                              intra_3body[mt.a][bt.a][bt.b][bt_name_mol]++;
-                              intra_step[mt.a][bt.a][bt.b][0]++;
-                              fprintf(out_vmd, "set rep [expr $rep + 1]\n");
-                              fprintf(out_vmd, "mol addrep ${mol}\n");
-                              fprintf(out_vmd, "mol modstyle  ${rep} ${mol} cpk 1.0 0.0\n");
-                              // fprintf(out_vmd, "mol modcolor  ${rep} ${mol} ColorID 0\n");
-                              fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d or resid %d\n",
-                                      id_i, id_l, mol->Index);
-                            }
-                          // b) different molecule
-                          } else {
-                            used_name_mol[j] = true;
-                            Types bt = SortTypes(b_i->Type, b_l->Type);
-                            inter_3body[mt.a][mt.b][bt.a][bt.b][bt_name_mol]++;
-                            intra_step[mt.a][bt.a][bt.b][0]++;
-                            fprintf(out_vmd, "set rep [expr $rep + 1]\n");
-                            fprintf(out_vmd, "mol addrep ${mol}\n");
-                            fprintf(out_vmd, "mol modstyle  ${rep} ${mol} cpk 1.0 0.0\n");
-                            // fprintf(out_vmd, "mol modcolor  ${rep} ${mol} ColorID 0\n");
-                            fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d or resid %d\n",
-                                    id_i, id_l, mol->Index);
-                          }
-                        }
-                      }
-                      if (!opt->multi && used_name_mol[j]) {
-                        // printf("%s (%d) %s (%d) %s (%d)\n",
-                        //        System.BeadType[b_i->Type].Name, id_i,
-                        //        System.BeadType[b_l->Type].Name, id_l,
-                        //        System.BeadType[bt_name].Name, mol->Index);
-                        break;
-                      }
-                    }
-                  }
-                  if (!opt->multi && used_name_mol[j]) {
-                    break;
-                  }
-                }
+        if (!opt->mt[m_i->Type] || !opt->bt[b_i->Type]) {
+          continue;
+        }
+        // 1) 'name_mol' molecules
+        for (int j = 0; mt_name != -1 && j < MolType_name->Number; j++) {
+          MOLECULE *mol = &System.Molecule[MolType_name->Index[j]];
+          if (used_name_mol[j] || !mol->InTimestep) {
+            continue;
+          }
+          for (int k = 0; k < MolType_name->nBeads; k++) {
+            BEAD *b_k = &System.Bead[mol->Bead[k]];
+            double d = DistLength(b_i->Position.v, b_k->Position.v,
+                                  boxlength);
+            if (d > dist_check) {
+              continue;
+            }
+            for (int l = (i + 1); l < Count->Bonded; l++) {
+              int id_l = System.Bonded[l];
+              BEAD *b_l = &System.Bead[id_l];
+              MOLECULE *m_l = &System.Molecule[b_l->Molecule];
+              if (!opt->mt[m_l->Type] || !opt->bt[b_l->Type]) {
+                continue;
+              }
+              double dist = DistLength(b_l->Position.v, b_k->Position.v,
+                                       boxlength);
+              if (dist > dist_check) {
+                continue;
+              }
+              // // a) same molecule
+              // if (b_i->Molecule == b_l->Molecule) {
+              //   size_t id4[4] = {mt.a, bt.a, bt.b, bt_name_mol};
+              //   AddArrND(intra_3body, id4, 1);
+              // // b) different molecule
+              // } else {
+              //   size_t id5[5] = {mt.a, mt.b, bt2.a, bt2.b, bt_name_mol};
+              //   AddArrND(inter_3body, id5, 1);
+              // }
+              // for beads in one polymer, ignore beads too close to each other
+              if (b_i->Molecule == b_l->Molecule &&
+                  abs(PosInMol(id_i, System) -
+                      PosInMol(id_l, System)) <= skip) {
+                continue;
+              }
+              used_name_mol[j] = true;
+              Types mt = SortTypes(m_i->Type, m_l->Type);
+              Types bt = SortTypes(b_i->Type, b_l->Type);
+              size_t id4[4] = {mt.a, bt.a, bt.b, 0};
+              AddArrND(intra_step, id4, 1);
+              // TODO: some vmd tcl print
+              fprintf(out_vmd, "set rep [expr $rep + 1]\n");
+              fprintf(out_vmd, "mol addrep ${mol}\n");
+              fprintf(out_vmd, "mol modstyle  ${rep} ${mol} cpk 1.0 0.0\n");
+              // fprintf(out_vmd, "mol modcolor  ${rep} ${mol} ColorID 0\n");
+              fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d or resid %d\n",
+                      id_i, id_l, mol->Index);
+              if (!opt->multi && used_name_mol[j]) {
+                // printf("%s (%d) %s (%d) %s (%d)\n",
+                //        System.BeadType[b_i->Type].Name, id_i,
+                //        System.BeadType[b_l->Type].Name, id_l,
+                //        System.BeadType[bt_name].Name, mol->Index);
+                break;
               }
             }
-          }
-          // 2) 'name' beads
-          if (bt_name != -1) {
-            for (int j = 0; j < BType_name->InCoor; j++) {
-              int id_j = BType_name->Index[j];
-              if (!used_name[j]) {
-                BEAD *b_j = &System.Bead[id_j];
-                double d = DistLength(b_i->Position.v, b_j->Position.v, boxlength);
-                if (d < dist_check) {
-                  for (int l = (i + 1); l < Count->Bonded; l++) {
-                    int id_l = System.Bonded[l];
-                    BEAD *b_l = &System.Bead[id_l];
-                    MOLECULE *m_l = &System.Molecule[b_l->Molecule];
-                    if (opt->mt[m_l->Type] && opt->bt[b_l->Type]) {
-                      double dist = DistLength(b_l->Position.v, b_j->Position.v,
-                                               boxlength);
-                      if (dist < dist_check) {
-                        Types mt = SortTypes(m_i->Type, m_l->Type);
-                        Types bt = SortTypes(b_i->Type, b_l->Type);
-                        // a) same molecule
-                        if (b_i->Molecule == b_l->Molecule) {
-                          // are they far enough in terms of bonds?
-                          if (abs(PosInMol(id_i, System) -
-                                  PosInMol(id_l, System)) > skip) {
-                            used_name[j] = true;
-                            intra_3body[mt.a][bt.a][bt.b][bt_name]++;
-                            intra_step[mt.a][bt.a][bt.b][1]++;
-                            fprintf(out_vmd, "set rep [expr $rep + 1]\n");
-                            fprintf(out_vmd, "mol addrep ${mol}\n");
-                            fprintf(out_vmd, "mol modstyle  ${rep} ${mol} cpk 1.0 0.0\n");
-                            // fprintf(out_vmd, "mol modcolor  ${rep} ${mol} ColorID 0\n");
-                            fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d %d\n",
-                                    id_i, id_l, id_j);
-                          }
-                        // b) different molecule
-                        } else {
-                          used_name[j] = true;
-                          inter_3body[mt.a][mt.b][bt.a][bt.b][bt_name]++;
-                          intra_step[mt.a][bt.a][bt.b][1]++;
-                          fprintf(out_vmd, "set rep [expr $rep + 1]\n");
-                          fprintf(out_vmd, "mol addrep ${mol}\n");
-                          fprintf(out_vmd, "mol modstyle  ${rep} ${mol} cpk 1.0 0.0\n");
-                          // fprintf(out_vmd, "mol modcolor  ${rep} ${mol} ColorID 0\n");
-                          fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d %d\n",
-                                  id_i, id_l, id_j);
-                        }
-                      }
-                    }
-                    if (!opt->multi && used_name[j]) {
-                      // printf("%s (%d) %s (%d) %s (%d)\n",
-                      //        System.BeadType[b_i->Type].Name, id_i,
-                      //        System.BeadType[b_l->Type].Name, id_l,
-                      //        System.BeadType[b_j->Type].Name, id_j);
-                      break;
-                    }
-                  }
-                }
-              }
+            if (!opt->multi && used_name_mol[j]) {
+              break;
             }
           }
         }
+        // 2) 'name' beads
+        for (int j = 0; bt_name != -1 && j < BType_name->InCoor; j++) {
+          int id_j = BType_name->Index[j];
+          if (used_name[j]) { // bead j already in a trio
+            continue;
+          }
+          BEAD *b_j = &System.Bead[id_j];
+          double d = DistLength(b_i->Position.v, b_j->Position.v, boxlength);
+          if (d > dist_check) {
+            continue;
+          }
+          for (int l = (i + 1); l < Count->Bonded; l++) {
+            int id_l = System.Bonded[l];
+            BEAD *b_l = &System.Bead[id_l];
+            MOLECULE *m_l = &System.Molecule[b_l->Molecule];
+            if (!opt->mt[m_l->Type] || !opt->bt[b_l->Type]) {
+              continue;
+            }
+            double dist = DistLength(b_l->Position.v, b_j->Position.v,
+                                     boxlength);
+            if (dist > dist_check) {
+              continue;
+            }
+            // // a) same molecule
+            // if (b_i->Molecule == b_l->Molecule) {
+            //   // are they far enough in terms of bonds?
+            //   if (abs(PosInMol(id_i, System) -
+            //           PosInMol(id_l, System)) <= skip) {
+            //     continue;
+            //   }
+            //   // size_t id4[4] = {mt.a, bt.a, bt.b, bt_name};
+            //   // AddArrND(intra_3body, id4, 1);
+            // // b) different molecule
+            // } else {
+            //   // size_t id5[5] = {mt.a, mt.b, bt.a, bt.b,
+            //   //                  bt_name};
+            //   // AddArrND(inter_3body, id5, 1);
+            // }
+            if (b_i->Molecule == b_l->Molecule &&
+                abs(PosInMol(id_i, System) -
+                    PosInMol(id_l, System)) <= skip) {
+              continue;
+            }
+            used_name[j] = true;
+            Types mt = SortTypes(m_i->Type, m_l->Type);
+            Types bt = SortTypes(b_i->Type, b_l->Type);
+            size_t id4[4] = {mt.a, bt.a, bt.b, 1};
+            AddArrND(intra_step, id4, 1);
+            // TODO: some vmd tcl print
+            fprintf(out_vmd, "set rep [expr $rep + 1]\n");
+            fprintf(out_vmd, "mol addrep ${mol}\n");
+            fprintf(out_vmd, "mol modstyle  ${rep} ${mol} cpk 1.0 0.0\n");
+            // fprintf(out_vmd, "mol modcolor  ${rep} ${mol} ColorID 0\n");
+            fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d %d\n",
+                    id_i, id_l, id_j);
+            if (!opt->multi && used_name[j]) {
+              // printf("%s (%d) %s (%d) %s (%d)\n",
+              //        System.BeadType[b_i->Type].Name, id_i,
+              //        System.BeadType[b_l->Type].Name, id_l,
+              //        System.BeadType[b_j->Type].Name, id_j);
+              break;
+            }
+          }
+          if (!opt->multi && used_name[j]) {
+            break;
+          }
+        }
       }
+      // TODO: some vmd tcl print
       // check wheter the vmd file is empty; i.e., no contact trios in this step
       fseek(out_vmd, 0, SEEK_END); // Move to the end of the file
       long fileSize = ftell(out_vmd); // Get the current position (file size)
@@ -475,16 +465,7 @@ int main(int argc, char *argv[]) {
       if (mt_name != -1) {
         free(used_name_mol);
       }
-      for (int i = 0; i < Count->MoleculeType; i++) {
-        for (int j = 0; j < Count->BeadType; j++) {
-          for (int k = 0; k < Count->BeadType; k++) {
-            free(intra_step[i][j][k]);
-          }
-          free(intra_step[i][j]);
-        }
-        free(intra_step[i]);
-      }
-      free(intra_step); //}}}
+      FreeArrND(intra_step); //}}}
       //}}}
     } else {
       if (!SkipTimestep(in, fr, &line_count)) {
@@ -508,39 +489,12 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // free memory - to make valgrind happy //{{{
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    for (int j = 0; j < Count->BeadType; j++) {
-      for (int k = 0; k < Count->BeadType; k++) {
-        free(intra_3body[i][j][k]);
-      }
-      free(intra_mol[i][j]);
-      free(intra_3body[i][j]);
-    }
-    free(intra_mol[i]);
-    free(intra_3body[i]);
-  }
-  free(intra_mol);
-  free(intra_3body);
+  // FreeArrND(intra_mol);
+  // FreeArrND(intra_3body);
   free(c_mtype);
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    for (int j = 0; j < Count->MoleculeType; j++) {
-      for (int k = 0; k < Count->BeadType; k++) {
-        for (int l = 0; l < Count->BeadType; l++) {
-          free(inter_3body[i][j][k][l]);
-        }
-        free(inter_mol[i][j][k]);
-        free(inter_3body[i][j][k]);
-      }
-      free(inter_mol[i][j]);
-      free(inter_3body[i][j]);
-    }
-    free(inter_mol[i]);
-    free(inter_3body[i]);
-    free(c_mtype_mtype[i]);
-  }
-  free(inter_mol);
-  free(inter_3body);
-  free(c_mtype_mtype);
+  // FreeArrND(inter_mol);
+  // FreeArrND(inter_3body);
+  // FreeArrND(c_mtype_mtype);
   free(opt->mt);
   free(opt->bt);
   free(opt);

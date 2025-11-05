@@ -1,23 +1,31 @@
 #include "../AnalysisTools.h"
 
+// helper functions //{{{
 // print header for an avg output file (-a option)
-static void PrintFileAvgHeader(int argc, char *argv[],
-                               OPT *opt, SYSTEM System);
+static void PrintAvgHeader(int argc, char *argv[], OPT *opt, SYSTEM System);
 // print header for a distr output file (-d option)
-static void PrintFileDistrHeader(int argc, char *argv[],
-                                 OPT *opt, SYSTEM System);
+static void PrintDistrHeader(int argc, char *argv[], OPT *opt, SYSTEM System);
 // print header for a copmposition output file (-c option)
-static void PrintFileCompHeader(int argc, char *argv[], OPT *opt, SYSTEM System,
-                                int size, long int *comp_agg_count);
+static void PrintCompSimpleHeader(int argc, char *argv[], OPT *opt,
+                                  SYSTEM System, int size,
+                                  long int *comp_agg_count);
+// print header for a 2D copmposition output file (-c option)
+static void PrintComp2DHeader(int argc, char *argv[], OPT *opt, SYSTEM System,
+                              int size, long int *comp_agg_count);
+// print the note about the two different mass definition
+static void PrintHeaderMassNote(FILE *fw, SYSTEM System, OPT *opt);
 // append overall averages to file(s) (-a/-d options)
 static void AppendOverallAvg(char *f, SYSTEM System, double As_sum[3][2],
                              double mass_sum[3][2], int *count_agg_per_size,
                              int timesteps, ArrNDi *molecules_sum);
-// helper functions for AppendOverallAvg()
+// helper functions for AppendOverallAvg() (-a/-d options)
 static void PrintOverallAvgHeader(FILE *f, SYSTEM System);
 static void PrintOverallAvg(FILE *fw, SYSTEM System, double As_sum[3][2],
                             double mass_sum[3][2], int sum_aggs,
                             int timesteps, int *molecules_sum);
+// create As-based filenames (-c option)
+static void FilenameCompSimple(OPT *opt, int size, char filename[LINE]);
+static void FilenameCode2D(OPT *opt, int size, char filename[LINE]); //}}}
 
 // Help() //{{{
 void Help(const char cmd[50], const bool error,
@@ -36,12 +44,18 @@ distribution of numbers of various molecules \
 in aggregates of given size(s).\n\n");
   }
 
-  fprintf(ptr, "Usage: %s <input> <in.agg> <distr file> <avg file> "
-          "[options]\n\n", cmd);
+  fprintf(ptr, "Usage: %s <in.stru> <in.agg> [options]\n\n", cmd);
 
   fprintf(ptr, "<in.stru>           input structure file\n");
   fprintf(ptr, "<in.agg>            input agg file\n");
   fprintf(ptr, "[options]\n");
+  fprintf(ptr, "  -a <file>         calculate per-timestep averages\n");
+  fprintf(ptr, "  -d <file>         calculate distributions of "
+          "aggregate sizes\n");
+  fprintf(ptr, "  -c <file> <size(s)>\n");
+  fprintf(ptr, "                    calculate composition distributions for "
+          "aggregate size(s), writing to two <file>s with automatic endings "
+          "'-#.txt' and '_r-#.txt'\n");
   fprintf(ptr, "  -n <size> <size>  use aggregate sizes in a given range\n");
   fprintf(ptr, "  -m <name(s)>      use number of specified molecule type(s) "
           "as aggrete size\n");
@@ -49,12 +63,6 @@ in aggregates of given size(s).\n\n");
           "specified molecule(s)\n");
   fprintf(ptr, "  -only <name(s)>   use only aggregates composed of "
           "specified molecule type(s)\n");
-  fprintf(ptr, "  -d <distr>        output file with distributions\n");
-  fprintf(ptr, "  -a <avg>          output file with per-timestep averages\n");
-  fprintf(ptr, "  -c <file> <size(s)>\n");
-  fprintf(ptr, "                    write composition distributions for "
-          "aggregate size(s) to two <file>s with automatic endings '-#.txt' "
-          "and '_r-#.txt'\n");
   CommonHelp(error, n, opt);
 } //}}}
 
@@ -101,24 +109,24 @@ int main(int argc, char *argv[]) {
   char input_agg[LINE] = "";
   s_strcpy(input_agg, argv[++count], LINE);
 
-  // -d <distr> - file with distribution of aggregation numbers
-  FileOption(argc, argv, "-d", opt->f_distr);
-  // -a <avg> - file with per-timestep average aggregation numbers
-  FileOption(argc, argv, "-a", opt->f_avg);
   // options before reading system data
   opt->c = CommonOptions(argc, argv, in);
+  // -a <avg> - file with per-timestep average aggregation numbers
+  FileOption(argc, argv, "-a", opt->f_avg);
+  // -d <distr> - file with distribution of aggregation numbers
+  FileOption(argc, argv, "-d", opt->f_distr);
   // -c option
   FileNumbersOption(argc, argv, 1, 100, "-c", opt->comp.size,
                     &opt->comp.count, opt->comp.f, 'i');
-  //}}}
-  // Error - at least one of -d/-a/-c must be used
-  if (opt->f_distr[0] == '\0' &&
-      opt->f_avg[0] == '\0' &&
+  // Error - at least one of -a/-d/-c must be used
+  if (opt->f_avg[0] == '\0' &&
+      opt->f_distr[0] == '\0' &&
       opt->comp.f[0] == '\0') {
     err_msg("at least one must be specified (or no output would be generated)");
-    PrintErrorOption("-d/-a/-c");
+    PrintErrorOption("-a/-d/-c");
     exit(1);
   }
+  //}}}
 
   // print command to stdout
   if (!opt->c.silent) {
@@ -137,22 +145,14 @@ int main(int argc, char *argv[]) {
     VerboseOutput(System);
   }
 
-  // arrays for distributions //{{{
+  // arrays for distribution (-d option) //{{{
   // number distribution
   long double *ndistr = calloc(Count->Molecule, sizeof *ndistr);
-  /* weight and z distributions:
-   *   [][0] = mass of mols according to options
-   *   [][1] = mass of whole agg
-   */
-  ArrNDd *wdistr = CreateArr2Dd(Count->Molecule, 2);
-  ArrNDd *zdistr = CreateArr2Dd(Count->Molecule, 2);
+  ArrNDd *wdistr = NULL;
+  ArrNDd *zdistr = NULL;
   // molecule types in aggs: [agg size][mol type]
-  ArrNDi *molecules_sum = CreateArr2Di(Count->Molecule, Count->MoleculeType);
-  if (!wdistr || !zdistr || !molecules_sum) {
-    err_msg("ArrNDd constructor failed (wdistr/zdistr/molecules_sum)");
-    PrintError();
-    exit(1);
-  }
+  // ArrNDi *molecules_sum = CreateArr2Di(Count->Molecule, Count->MoleculeType);
+  ArrNDi *molecules_sum = NULL;
   // number of aggregates throughout simulation
   int *count_agg = calloc(Count->Molecule, sizeof *count_agg);
   if (!count_agg || !ndistr) {
@@ -160,7 +160,22 @@ int main(int argc, char *argv[]) {
     PrintError();
     exit(1);
   }
-  // arrays for composition distribution
+  if (opt->f_distr[0] != '\0') {
+    /* weight and z distributions:
+     *   [][0] = mass of mols according to options
+     *   [][1] = mass of whole agg
+     */
+    if (!(wdistr = CreateArr2Dd(Count->Molecule, 2)) ||
+        !(zdistr = CreateArr2Dd(Count->Molecule, 2)) ||
+        !(molecules_sum = CreateArr2Di(Count->Molecule, Count->MoleculeType))) {
+      err_msg("Arr2D constructor failed (wdistr/zdistr/molecules_sum)");
+      PrintError();
+      exit(1);
+    }
+  }
+  //}}}
+
+  // arrays for composition distribution (-c option) //{{{
   ArrNDli *comp_distr = NULL; // [c_size][moltype][number of mols]
   ArrNDli *ratio_distr = NULL; // [c_size][moltype1][moltype2][num1][num2]
   long int *comp_agg_count = NULL;
@@ -205,8 +220,10 @@ int main(int argc, char *argv[]) {
     }
   }
   // zeroize arrays
-  FillArrND(wdistr, 0);
-  FillArrND(zdistr, 0);
+  if (opt->f_distr[0] != '\0') {
+    FillArrND(wdistr, 0);
+    FillArrND(zdistr, 0);
+  }
   for (int i = 0; i < Count->Molecule; i++) {
     ndistr[i] = 0;
     count_agg[i] = 0;
@@ -218,8 +235,9 @@ int main(int argc, char *argv[]) {
   SkipLine(fr);
   //}}}
 
-  // if -a is used, print the file header
-  PrintFileAvgHeader(argc, argv, opt, System);
+  // if -a and/or -d is used, print the file header(s)
+  PrintAvgHeader(argc, argv, opt, System);
+  PrintDistrHeader(argc, argv, opt, System);
 
   // main loop //{{{
   int count_step = 0,
@@ -289,14 +307,16 @@ int main(int argc, char *argv[]) {
         count_agg[agg_size-1]++;
         // distributions
         ndistr[agg_size-1]++;
-        AddArr2D(wdistr, agg_size - 1, 0, agg_mass);
-        AddArr2D(zdistr, agg_size - 1, 0, Square(agg_mass));
-        AddArr2D(wdistr, agg_size - 1, 1, Aggregate[i].Mass);
-        AddArr2D(zdistr, agg_size - 1, 1, Square(Aggregate[i].Mass));
-        // overall numbers of molecules of each species in each aggregate size
-        for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-          int mol_type = System.Molecule[Aggregate[i].Molecule[j]].Type;
-          AddArr2D(molecules_sum, agg_size - 1, mol_type, 1);
+        if (opt->f_distr[0] != '\0') {
+          AddArr2D(wdistr, agg_size - 1, 0, agg_mass);
+          AddArr2D(zdistr, agg_size - 1, 0, Square(agg_mass));
+          AddArr2D(wdistr, agg_size - 1, 1, Aggregate[i].Mass);
+          AddArr2D(zdistr, agg_size - 1, 1, Square(Aggregate[i].Mass));
+          // overall numbers of molecules of each species in each aggregate size
+          for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+            int mol_type = System.Molecule[Aggregate[i].Molecule[j]].Type;
+            AddArr2D(molecules_sum, agg_size - 1, mol_type, 1);
+          }
         }
 
         // composition distribution (-c option) //{{{
@@ -396,7 +416,6 @@ int main(int argc, char *argv[]) {
 
   // print distributions to output file //{{{
   if (opt->f_distr[0] != '\0') {
-    PrintFileDistrHeader(argc, argv, opt, System);
     // normalization factors
     long int ndistr_norm = 0,
              wdistr_norm[2] = {0},
@@ -453,23 +472,24 @@ int main(int argc, char *argv[]) {
     }
     fclose(fw);
     FreeArrND(data);
+    // append overall averages
+    AppendOverallAvg(opt->f_distr, System, As_sum, mass_sum,
+                     count_agg, count_used, molecules_sum);
   } //}}}
 
-  AppendOverallAvg(opt->f_distr, System, As_sum, mass_sum,
-                   count_agg, count_used, molecules_sum);
-  AppendOverallAvg(opt->f_avg, System, As_sum, mass_sum,
-                   count_agg, count_used, molecules_sum);
+  // append overall averages (for -a option)
+  if (opt->f_avg[0] != '\0') {
+    AppendOverallAvg(opt->f_avg, System, As_sum, mass_sum,
+                     count_agg, count_used, molecules_sum);
+  }
 
   // print composition distribution(s) (-c option) //{{{
   if (opt->comp.f[0] != '\0') {
     for (int i = 0; i < opt->comp.count; i++) {
       // print the distribution //{{{
-      PrintFileCompHeader(argc, argv, opt, System, i, comp_agg_count);
+      PrintCompSimpleHeader(argc, argv, opt, System, i, comp_agg_count);
       char file[LINE];
-      if (snprintf(file, LINE, "%s-%03d.txt",
-                   opt->comp.f, opt->comp.size[i]) < 0) {
-        ErrorSnprintf();
-      }
+      FilenameCompSimple(opt, i, file);
       FILE *fw = OpenFile(file, "a");
       // print data
       if (comp_agg_count[i] > 0) {
@@ -502,27 +522,9 @@ int main(int argc, char *argv[]) {
       }
       fclose(fw); //}}}
       // print the ratios //{{{
-      if (snprintf(file, LINE, "%s_r-%03d.txt",
-                   opt->comp.f, opt->comp.size[i]) < 0) {
-        ErrorSnprintf();
-      }
-      fw = PrintBylineOpenFile(file, argc, argv);
-      // print header
-      fprintf(fw, "# total number of aggregates with size %d: %ld\n",
-              opt->comp.size[i], comp_agg_count[i]);
-      fprintf(fw, "# (1-2) number of molecules:");
-      count = 3;
-      for (int j = 0; j < Count->MoleculeType; j++) {
-        for (int k = (j + 1); k < Count->MoleculeType; k++) {
-          fprintf(fw, " (%d) %s-%s", count++, System.MoleculeType[j].Name,
-                                              System.MoleculeType[k].Name);
-          if (j != (Count->MoleculeType - 2) ||
-              k != (Count->MoleculeType - 1)) {
-            putc(',', fw);
-          }
-        }
-      }
-      putc('\n', fw);
+      FilenameCode2D(opt, i, file);
+      PrintComp2DHeader(argc, argv, opt, System, i, comp_agg_count);
+      fw = OpenFile(file, "a");
       // print data
       if (comp_agg_count[i] > 0) {
         int ncols = Count->MoleculeType * (Count->MoleculeType - 1) / 2 + 2;
@@ -592,7 +594,6 @@ int main(int argc, char *argv[]) {
   // free memory - to make valgrind happy //{{{
   FreeAggregate(*Count, Aggregate);
   FreeSystem(&System);
-  FreeArrNDi(molecules_sum);
   FreeAggPicker(&opt->agg);
   if (opt->comp.f[0] != '\0') {
     FreeArrNDli(comp_distr);
@@ -601,17 +602,20 @@ int main(int argc, char *argv[]) {
     free(link_c_sizes);
   }
   free(ndistr);
-  FreeArrNDd(wdistr);
-  FreeArrNDd(zdistr);
+  if (opt->f_distr[0] != '\0') {
+    FreeArrNDd(wdistr);
+    FreeArrNDd(zdistr);
+    FreeArrNDi(molecules_sum);
+  }
   free(count_agg);
   free(opt); //}}}
 
   return 0;
 }
 
+// helper functions
 // print header for an avg output file (-a option) //{{{
-static void PrintFileAvgHeader(int argc, char *argv[],
-                               OPT *opt, SYSTEM Sys) {
+static void PrintAvgHeader(int argc, char *argv[], OPT *opt, SYSTEM System) {
   if (opt->f_avg[0] == '\0') {
     return;
   }
@@ -627,36 +631,16 @@ static void PrintFileAvgHeader(int argc, char *argv[],
   fprintf(fw, "(%d) <M>_n, ", count++);
   fprintf(fw, "(%d) <M>_w, ", count++);
   fprintf(fw, "(%d) <M>_z, ", count++);
-  for (int i = 0; i < Sys.Count.MoleculeType; i++) {
-    fprintf(fw, "(%d) <%s>_n, ", count++, Sys.MoleculeType[i].Name);
+  for (int i = 0; i < System.Count.MoleculeType; i++) {
+    fprintf(fw, "(%d) <%s>_n, ", count++, System.MoleculeType[i].Name);
   }
   fprintf(fw, "(%d) n_agg", count++);
   putc('\n', fw);
-  if (!opt->agg.m_flag) {
-    fprintf(fw, "# Note: The -m option was not used; therefore, 'partial mass'"
-            " includes all molecules, and "
-            "<As>_w/z (partial mass) = <As>_w/z (total mass)\n");
-  } else {
-    fprintf(fw, "# Note: 'partial mass' includes molecules specifid by -m (");
-    bool first = true;
-    for (int i = 0; i < Sys.Count.MoleculeType; i++) {
-      if (opt->agg.m[i]) {
-        if (!first) {
-          fprintf(fw, ", ");
-        }
-        fprintf(fw, "%s", Sys.MoleculeType[i].Name);
-        first = false;
-      }
-    }
-    fprintf(fw, ")\n");
-    fprintf(fw, "#       'total mass' includes "
-            "all molecules present in each aggregate\n");
-  }
+  PrintHeaderMassNote(fw, System, opt);
   fclose(fw);
 } //}}}
 // print header for a distr output file (-d option) //{{{
-static void PrintFileDistrHeader(int argc, char *argv[],
-                                 OPT *opt, SYSTEM System) {
+static void PrintDistrHeader(int argc, char *argv[], OPT *opt, SYSTEM System) {
   if (opt->f_distr[0] == '\0') {
     return;
   }
@@ -677,6 +661,58 @@ static void PrintFileDistrHeader(int argc, char *argv[],
     }
   }
   putc('\n', fw);
+  PrintHeaderMassNote(fw, System, opt);
+  fclose(fw);
+} //}}}
+// print header for a simple copmposition output file (-c option) //{{{
+static void PrintCompSimpleHeader(int argc, char *argv[], OPT *opt,
+                                  SYSTEM System, int size,
+                                  long int *comp_agg_count) {
+  char file[LINE];
+  FilenameCompSimple(opt, size, file);
+  FILE *fw = PrintBylineOpenFile(file, argc, argv);
+  // print header
+  fprintf(fw, "# total number of aggregates with size %d: %ld\n",
+          opt->comp.size[size], comp_agg_count[size]);
+  fprintf(fw, "# (1) number of molecules of given type;");
+  fprintf(fw, " fraction of aggregates with that many molecules of type:");
+  for (int j = 0; j < System.Count.MoleculeType; j++) {
+    fprintf(fw, " (%d) %s", j + 2, System.MoleculeType[j].Name);
+    if (j != (System.Count.MoleculeType - 1)) {
+      putc(',', fw);
+    }
+  }
+  putc('\n', fw);
+  fclose(fw);
+} //}}}
+// print header for a 2D copmposition output file (-c option) //{{{
+static void PrintComp2DHeader(int argc, char *argv[], OPT *opt, SYSTEM System,
+                              int size, long int *comp_agg_count) {
+  char file[LINE];
+  FilenameCode2D(opt, size, file);
+  FILE *fw = PrintBylineOpenFile(file, argc, argv);
+  // print header
+  fprintf(fw, "# total number of aggregates with size %d: %ld\n",
+          opt->comp.size[size], comp_agg_count[size]);
+  fprintf(fw, "# (1-2) number of molecules:");
+  int count = 3;
+  COUNT *Count = &System.Count;
+  for (int j = 0; j < Count->MoleculeType; j++) {
+    for (int k = (j + 1); k < Count->MoleculeType; k++) {
+      fprintf(fw, " (%d) %s-%s", count++, System.MoleculeType[j].Name,
+                                          System.MoleculeType[k].Name);
+      if (j != (Count->MoleculeType - 2) ||
+          k != (Count->MoleculeType - 1)) {
+        putc(',', fw);
+      }
+    }
+  }
+  putc('\n', fw);
+  fclose(fw);
+}
+//}}}
+// print the note about the two different mass definition //{{{
+static void PrintHeaderMassNote(FILE *fw, SYSTEM System, OPT *opt) {
   if (!opt->agg.m_flag) {
     fprintf(fw, "# Note: The -m option was not used; therefore, 'partial mass'"
             " includes all molecules, and "
@@ -697,38 +733,11 @@ static void PrintFileDistrHeader(int argc, char *argv[],
     fprintf(fw, "#       'total mass' includes "
             "all molecules present in each aggregate\n");
   }
-  fclose(fw);
 } //}}}
-// print header for a copmposition output file (-c option)
-static void PrintFileCompHeader(int argc, char *argv[], OPT *opt, SYSTEM System,
-                                int size, long int *comp_agg_count) {
-  char file[LINE];
-  if (snprintf(file, LINE, "%s-%03d.txt",
-               opt->comp.f, opt->comp.size[size]) < 0) {
-    ErrorSnprintf();
-  }
-  FILE *fw = PrintBylineOpenFile(file, argc, argv);
-  // print header
-  fprintf(fw, "# total number of aggregates with size %d: %ld\n",
-          opt->comp.size[size], comp_agg_count[size]);
-  fprintf(fw, "# (1) number of molecules of given type;");
-  fprintf(fw, " fraction of aggregates with that many molecules of type:");
-  for (int j = 0; j < System.Count.MoleculeType; j++) {
-    fprintf(fw, " (%d) %s", j + 2, System.MoleculeType[j].Name);
-    if (j != (System.Count.MoleculeType - 1)) {
-      putc(',', fw);
-    }
-  }
-  putc('\n', fw);
-  fclose(fw);
-}
 // append overall averages to file(s) (-a/-d options) //{{{
 static void AppendOverallAvg(char *f, SYSTEM System, double As_sum[3][2],
                              double mass_sum[3][2], int *count_agg_per_size,
                              int timesteps, ArrNDi *molecules_sum) {
-  if (f[0] == '\0') {
-    return;
-  }
   int *mol_sum_per_size = calloc(System.Count.MoleculeType,
                                  sizeof *mol_sum_per_size);
   if (!mol_sum_per_size) {
@@ -797,4 +806,17 @@ static void PrintOverallAvg(FILE *f, SYSTEM System, double As_sum[3][2],
     }
   }
   putc('\n', f);
+} //}}}
+// As-based filenames (-c option) //{{{
+static void FilenameCompSimple(OPT *opt, int size, char filename[LINE]) {
+  if (snprintf(filename, LINE, "%s-%03d.txt",
+               opt->comp.f, opt->comp.size[size]) < 0) {
+    ErrorSnprintf();
+  }
+}
+static void FilenameCode2D(OPT *opt, int size, char filename[LINE]) {
+  if (snprintf(filename, LINE, "%s_r-%03d.txt",
+               opt->comp.f, opt->comp.size[size]) < 0) {
+    ErrorSnprintf();
+  }
 } //}}}

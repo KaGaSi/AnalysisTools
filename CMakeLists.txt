@@ -88,7 +88,6 @@ set(UTILS
   BOOP
   DensityAggregates
   DensityBox
-  DistrAgg
   GenFIELD
   GyrationAggregates
   Info
