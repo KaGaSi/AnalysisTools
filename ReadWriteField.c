@@ -139,7 +139,7 @@ void WriteField(const SYSTEM System, const char *file_field,
     for (int j = 0; j < mt_i->nBeads; j++) {
       int id = System.Molecule[mol].Bead[j];
       int bt = mt_i->Bead[j];
-      vec3 *pos = &System.Bead[id].Position;
+      vec3d *pos = &System.Bead[id].Position;
       fprintf(fw, "%16s %8.5f %8.5f %8.5f\n", System.BeadType[bt].Name,
               pos->v[0], pos->v[1], pos->v[2]);
     }

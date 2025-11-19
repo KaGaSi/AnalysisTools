@@ -9,6 +9,7 @@ void Help(const char cmd[50], const bool error,
   } else {
     ptr = stdout;
     fprintf(stdout, "\
+I DON'THINK THIS IS CURRENT, RIGHT? ...SEEMS TO COUNT ONLY 3-BODY CONTACTS... \
 Count contacts intra- and intermolecular contacts between specified bead types \
 in specified molecule types. Also counts 3-body contacts, specifically, \
 two of the specified bead types with 'C' bead type or 'CA2' molecule type's \
@@ -279,11 +280,11 @@ int main(int argc, char *argv[]) {
       }
       count_used++;
       // printf("\nmax_contacts: %d\n", max_contacts);
-      size_t shape_intra_step[4] = {Count->MoleculeType,
-                                    Count->BeadType,
-                                    Count->BeadType,
-                                    2};
-      ArrNDi *intra_step = CreateArrNDi(4, shape_intra_step);
+      size_t shape[4] = {Count->MoleculeType,
+                         Count->BeadType,
+                         Count->BeadType,
+                         2}; // ion: 0 - name_mol (CA2), 1 - name (C)
+      ArrNDi *count_3body_step = CreateArrNDi(4, shape);
       // is the mono-/divalent counterion already in a trio?
       bool *used_name = NULL;
       if (bt_name != -1) {
@@ -293,21 +294,33 @@ int main(int argc, char *argv[]) {
       if (mt_name != -1) {
         used_name_mol = calloc(MolType_name->Number, sizeof *used_name_mol);
       }
+      // array of ids of selected beads in selected molecules
+      int *mt_beads = calloc(Count->BeadCoor, sizeof *mt_beads);
+      int count_mt_beads = 0;
+      for (int i = 0; i < Count->BondedCoor; i++) {
+        int id_i = System.Bonded[i];
+        BEAD *b_i = &System.Bead[id_i];
+        MOLECULE *m_i = &System.Molecule[b_i->Molecule];
+        if (opt->mt[m_i->Type] && opt->bt[b_i->Type]) {
+          mt_beads[count_mt_beads] = id_i;
+          count_mt_beads++;
+        }
+      }
+
       // TODO: some vmd tcl print
       char tcl[LINE] = "";
       snprintf(tcl, LINE, "contacts-%04d.tcl", count_coor - 1);
       FILE *out_vmd = OpenFile(tcl, "w");
-      for (int i = 0; i < Count->Bonded; i++) {
-        int id_i = System.Bonded[i];
+      for (int i = 0; i < count_mt_beads; i++) {
+        int id_i = mt_beads[i];
         BEAD *b_i = &System.Bead[id_i];
         MOLECULE *m_i = &System.Molecule[b_i->Molecule];
-        if (!opt->mt[m_i->Type] || !opt->bt[b_i->Type]) {
-          continue;
-        }
         // 1) 'name_mol' molecules
+        // ... mt_name = id of CA2 name_mol
+        // ... MolType_name = MOLECULETYPE thingy of the mt_name
         for (int j = 0; mt_name != -1 && j < MolType_name->Number; j++) {
           MOLECULE *mol = &System.Molecule[MolType_name->Index[j]];
-          if (used_name_mol[j] || !mol->InTimestep) {
+          if ((opt->multi && used_name_mol[j]) || !mol->InTimestep) {
             continue;
           }
           for (int k = 0; k < MolType_name->nBeads; k++) {
@@ -317,27 +330,15 @@ int main(int argc, char *argv[]) {
             if (d > dist_check) {
               continue;
             }
-            for (int l = (i + 1); l < Count->Bonded; l++) {
-              int id_l = System.Bonded[l];
+            for (int l = (i + 1); l < count_mt_beads; l++) {
+              int id_l = mt_beads[l];
               BEAD *b_l = &System.Bead[id_l];
               MOLECULE *m_l = &System.Molecule[b_l->Molecule];
-              if (!opt->mt[m_l->Type] || !opt->bt[b_l->Type]) {
-                continue;
-              }
               double dist = DistLength(b_l->Position.v, b_k->Position.v,
                                        boxlength);
               if (dist > dist_check) {
                 continue;
               }
-              // // a) same molecule
-              // if (b_i->Molecule == b_l->Molecule) {
-              //   size_t id4[4] = {mt.a, bt.a, bt.b, bt_name_mol};
-              //   AddArrND(intra_3body, id4, 1);
-              // // b) different molecule
-              // } else {
-              //   size_t id5[5] = {mt.a, mt.b, bt2.a, bt2.b, bt_name_mol};
-              //   AddArrND(inter_3body, id5, 1);
-              // }
               // for beads in one polymer, ignore beads too close to each other
               if (b_i->Molecule == b_l->Molecule &&
                   abs(PosInMol(id_i, System) -
@@ -348,19 +349,14 @@ int main(int argc, char *argv[]) {
               Types mt = SortTypes(m_i->Type, m_l->Type);
               Types bt = SortTypes(b_i->Type, b_l->Type);
               size_t id4[4] = {mt.a, bt.a, bt.b, 0};
-              AddArrND(intra_step, id4, 1);
+              AddArrND(count_3body_step, id4, 1);
               // TODO: some vmd tcl print
               fprintf(out_vmd, "set rep [expr $rep + 1]\n");
               fprintf(out_vmd, "mol addrep ${mol}\n");
               fprintf(out_vmd, "mol modstyle  ${rep} ${mol} cpk 1.0 0.0\n");
-              // fprintf(out_vmd, "mol modcolor  ${rep} ${mol} ColorID 0\n");
               fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d or resid %d\n",
                       id_i, id_l, mol->Index);
               if (!opt->multi && used_name_mol[j]) {
-                // printf("%s (%d) %s (%d) %s (%d)\n",
-                //        System.BeadType[b_i->Type].Name, id_i,
-                //        System.BeadType[b_l->Type].Name, id_l,
-                //        System.BeadType[bt_name].Name, mol->Index);
                 break;
               }
             }
@@ -370,6 +366,8 @@ int main(int argc, char *argv[]) {
           }
         }
         // 2) 'name' beads
+        // ... bt_name = id of C bead type name
+        // ... BType_name = BEADTYPE thingy of the bt_name
         for (int j = 0; bt_name != -1 && j < BType_name->InCoor; j++) {
           int id_j = BType_name->Index[j];
           if (used_name[j]) { // bead j already in a trio
@@ -380,33 +378,15 @@ int main(int argc, char *argv[]) {
           if (d > dist_check) {
             continue;
           }
-          for (int l = (i + 1); l < Count->Bonded; l++) {
-            int id_l = System.Bonded[l];
+          for (int l = (i + 1); l < count_mt_beads; l++) {
+            int id_l = mt_beads[l];
             BEAD *b_l = &System.Bead[id_l];
             MOLECULE *m_l = &System.Molecule[b_l->Molecule];
-            if (!opt->mt[m_l->Type] || !opt->bt[b_l->Type]) {
-              continue;
-            }
             double dist = DistLength(b_l->Position.v, b_j->Position.v,
                                      boxlength);
             if (dist > dist_check) {
               continue;
             }
-            // // a) same molecule
-            // if (b_i->Molecule == b_l->Molecule) {
-            //   // are they far enough in terms of bonds?
-            //   if (abs(PosInMol(id_i, System) -
-            //           PosInMol(id_l, System)) <= skip) {
-            //     continue;
-            //   }
-            //   // size_t id4[4] = {mt.a, bt.a, bt.b, bt_name};
-            //   // AddArrND(intra_3body, id4, 1);
-            // // b) different molecule
-            // } else {
-            //   // size_t id5[5] = {mt.a, mt.b, bt.a, bt.b,
-            //   //                  bt_name};
-            //   // AddArrND(inter_3body, id5, 1);
-            // }
             if (b_i->Molecule == b_l->Molecule &&
                 abs(PosInMol(id_i, System) -
                     PosInMol(id_l, System)) <= skip) {
@@ -416,19 +396,14 @@ int main(int argc, char *argv[]) {
             Types mt = SortTypes(m_i->Type, m_l->Type);
             Types bt = SortTypes(b_i->Type, b_l->Type);
             size_t id4[4] = {mt.a, bt.a, bt.b, 1};
-            AddArrND(intra_step, id4, 1);
+            AddArrND(count_3body_step, id4, 1);
             // TODO: some vmd tcl print
             fprintf(out_vmd, "set rep [expr $rep + 1]\n");
             fprintf(out_vmd, "mol addrep ${mol}\n");
             fprintf(out_vmd, "mol modstyle  ${rep} ${mol} cpk 1.0 0.0\n");
-            // fprintf(out_vmd, "mol modcolor  ${rep} ${mol} ColorID 0\n");
             fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d %d\n",
                     id_i, id_l, id_j);
             if (!opt->multi && used_name[j]) {
-              // printf("%s (%d) %s (%d) %s (%d)\n",
-              //        System.BeadType[b_i->Type].Name, id_i,
-              //        System.BeadType[b_l->Type].Name, id_l,
-              //        System.BeadType[b_j->Type].Name, id_j);
               break;
             }
           }
@@ -452,20 +427,24 @@ int main(int argc, char *argv[]) {
       fprintf(fw, "%5d", count_used);
       for (int i = 0; i < Count->MoleculeType; i++) {
         if (opt->mt[i]) {
-          PrintAvgContacts_ctx avg_ctx = { intra_step, mt_name, bt_name, i };
+          PrintAvgContacts_ctx avg_ctx = { count_3body_step,
+                                           mt_name, // mt id for name_mol (CA2)
+                                           bt_name, // bt id for name (C)
+                                           i };
           iterate_btypes(i, fw, System, opt, PrintAvgContacts, &avg_ctx);
         }
       }
       putc('\n', fw);
       fclose(fw); //}}}
       // free temp arrays //{{{
+      free(mt_beads);
       if (bt_name != -1) {
         free(used_name);
       }
       if (mt_name != -1) {
         free(used_name_mol);
       }
-      FreeArrND(intra_step); //}}}
+      FreeArrND(count_3body_step); //}}}
       //}}}
     } else {
       if (!SkipTimestep(in, fr, &line_count)) {
@@ -503,3 +482,159 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
+
+// ...just a backup of the main many loop //{{{
+      // char tcl[LINE] = "";
+      // snprintf(tcl, LINE, "contacts-%04d.tcl", count_coor - 1);
+      // FILE *out_vmd = OpenFile(tcl, "w");
+      // for (int i = 0; i < Count->BondedCoor; i++) {
+      //   int id_i = System.Bonded[i];
+      // // for (int i = 0; i < count; i++) {
+      // //   int id_i = beads[i];
+      //   BEAD *b_i = &System.Bead[id_i];
+      //   MOLECULE *m_i = &System.Molecule[b_i->Molecule];
+      //   if (!opt->mt[m_i->Type] || !opt->bt[b_i->Type]) {
+      //     continue;
+      //   }
+      //   // 1) 'name_mol' molecules
+      //   // ... mt_name = id of CA2 name_mol
+      //   // ... MolType_name = MOLECULETYPE thingy of the mt_name
+      //   for (int j = 0; mt_name != -1 && j < MolType_name->Number; j++) {
+      //     MOLECULE *mol = &System.Molecule[MolType_name->Index[j]];
+      //     if (used_name_mol[j] || !mol->InTimestep) {
+      //       continue;
+      //     }
+      //     for (int k = 0; k < MolType_name->nBeads; k++) {
+      //       BEAD *b_k = &System.Bead[mol->Bead[k]];
+      //       double d = DistLength(b_i->Position.v, b_k->Position.v,
+      //                             boxlength);
+      //       if (d > dist_check) {
+      //         continue;
+      //       }
+      //       // for (int l = (i + 1); l < Count->BondedCoor; l++) {
+      //       //   int id_l = System.Bonded[l];
+      //       for (int l = (i + 1); l < count; l++) {
+      //         int id_l = beads[l];
+      //         BEAD *b_l = &System.Bead[id_l];
+      //         MOLECULE *m_l = &System.Molecule[b_l->Molecule];
+      //         if (!opt->mt[m_l->Type] || !opt->bt[b_l->Type]) {
+      //           continue;
+      //         }
+      //         double dist = DistLength(b_l->Position.v, b_k->Position.v,
+      //                                  boxlength);
+      //         if (dist > dist_check) {
+      //           continue;
+      //         }
+      //         // // a) same molecule
+      //         // if (b_i->Molecule == b_l->Molecule) {
+      //         //   size_t id4[4] = {mt.a, bt.a, bt.b, bt_name_mol};
+      //         //   AddArrND(intra_3body, id4, 1);
+      //         // // b) different molecule
+      //         // } else {
+      //         //   size_t id5[5] = {mt.a, mt.b, bt2.a, bt2.b, bt_name_mol};
+      //         //   AddArrND(inter_3body, id5, 1);
+      //         // }
+      //
+      //         // for beads in one polymer, ignore beads too close to each other
+      //         if (b_i->Molecule == b_l->Molecule &&
+      //             abs(PosInMol(id_i, System) -
+      //                 PosInMol(id_l, System)) <= skip) {
+      //           continue;
+      //         }
+      //         used_name_mol[j] = true;
+      //         Types mt = SortTypes(m_i->Type, m_l->Type);
+      //         Types bt = SortTypes(b_i->Type, b_l->Type);
+      //         size_t id4[4] = {mt.a, bt.a, bt.b, 0};
+      //         AddArrND(count_3body_step, id4, 1);
+      //         // TODO: some vmd tcl print
+      //         fprintf(out_vmd, "set rep [expr $rep + 1]\n");
+      //         fprintf(out_vmd, "mol addrep ${mol}\n");
+      //         fprintf(out_vmd, "mol modstyle  ${rep} ${mol} cpk 1.0 0.0\n");
+      //         // fprintf(out_vmd, "mol modcolor  ${rep} ${mol} ColorID 0\n");
+      //         fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d or resid %d\n",
+      //                 id_i, id_l, mol->Index);
+      //         if (!opt->multi && used_name_mol[j]) {
+      //           // printf("%s (%d) %s (%d) %s (%d)\n",
+      //           //        System.BeadType[b_i->Type].Name, id_i,
+      //           //        System.BeadType[b_l->Type].Name, id_l,
+      //           //        System.BeadType[bt_name].Name, mol->Index);
+      //           break;
+      //         }
+      //       }
+      //       if (!opt->multi && used_name_mol[j]) {
+      //         break;
+      //       }
+      //     }
+      //   }
+      //   // 2) 'name' beads
+      //   // ... bt_name = id of C bead type name
+      //   // ... BType_name = BEADTYPE thingy of the bt_name
+      //   for (int j = 0; bt_name != -1 && j < BType_name->InCoor; j++) {
+      //     int id_j = BType_name->Index[j];
+      //     if (used_name[j]) { // bead j already in a trio
+      //       continue;
+      //     }
+      //     BEAD *b_j = &System.Bead[id_j];
+      //     double d = DistLength(b_i->Position.v, b_j->Position.v, boxlength);
+      //     if (d > dist_check) {
+      //       continue;
+      //     }
+      //     // for (int l = (i + 1); l < Count->Bonded; l++) {
+      //     //   int id_l = System.Bonded[l];
+      //     for (int l = (i + 1); l < count; l++) {
+      //       int id_l = beads[l];
+      //       BEAD *b_l = &System.Bead[id_l];
+      //       MOLECULE *m_l = &System.Molecule[b_l->Molecule];
+      //       if (!opt->mt[m_l->Type] || !opt->bt[b_l->Type]) {
+      //         continue;
+      //       }
+      //       double dist = DistLength(b_l->Position.v, b_j->Position.v,
+      //                                boxlength);
+      //       if (dist > dist_check) {
+      //         continue;
+      //       }
+      //       // // a) same molecule
+      //       // if (b_i->Molecule == b_l->Molecule) {
+      //       //   // are they far enough in terms of bonds?
+      //       //   if (abs(PosInMol(id_i, System) -
+      //       //           PosInMol(id_l, System)) <= skip) {
+      //       //     continue;
+      //       //   }
+      //       //   // size_t id4[4] = {mt.a, bt.a, bt.b, bt_name};
+      //       //   // AddArrND(intra_3body, id4, 1);
+      //       // // b) different molecule
+      //       // } else {
+      //       //   // size_t id5[5] = {mt.a, mt.b, bt.a, bt.b,
+      //       //   //                  bt_name};
+      //       //   // AddArrND(inter_3body, id5, 1);
+      //       // }
+      //       if (b_i->Molecule == b_l->Molecule &&
+      //           abs(PosInMol(id_i, System) -
+      //               PosInMol(id_l, System)) <= skip) {
+      //         continue;
+      //       }
+      //       used_name[j] = true;
+      //       Types mt = SortTypes(m_i->Type, m_l->Type);
+      //       Types bt = SortTypes(b_i->Type, b_l->Type);
+      //       size_t id4[4] = {mt.a, bt.a, bt.b, 1};
+      //       AddArrND(count_3body_step, id4, 1);
+      //       // TODO: some vmd tcl print
+      //       fprintf(out_vmd, "set rep [expr $rep + 1]\n");
+      //       fprintf(out_vmd, "mol addrep ${mol}\n");
+      //       fprintf(out_vmd, "mol modstyle  ${rep} ${mol} cpk 1.0 0.0\n");
+      //       // fprintf(out_vmd, "mol modcolor  ${rep} ${mol} ColorID 0\n");
+      //       fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d %d\n",
+      //               id_i, id_l, id_j);
+      //       if (!opt->multi && used_name[j]) {
+      //         // printf("%s (%d) %s (%d) %s (%d)\n",
+      //         //        System.BeadType[b_i->Type].Name, id_i,
+      //         //        System.BeadType[b_l->Type].Name, id_l,
+      //         //        System.BeadType[b_j->Type].Name, id_j);
+      //         break;
+      //       }
+      //     }
+      //     if (!opt->multi && used_name[j]) {
+      //       break;
+      //     }
+      //   }
+      // } //}}}

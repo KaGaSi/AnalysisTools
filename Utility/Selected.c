@@ -224,7 +224,7 @@ static void ConstrainCoordinates(SYSTEM *System, const OPT opt,
       continue;
     }
     // check -cx/-cy/-cz constraint
-    vec3 *pos = &System->Bead[id].Position;
+    vec3d *pos = &System->Bead[id].Position;
     bool save[3] = {init[0], init[1], init[2]};
     for (int dd = 0; dd < 3; dd++) {
       for (int j = 0; j < opt.ca_count[dd]; j+=2) {

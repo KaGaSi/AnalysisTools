@@ -229,8 +229,8 @@ int main(int argc, char *argv[]) {
                  *b_2 = &System.Bead[id2],
                  *b_3 = &System.Bead[id3];
             // calculate angle between the two vectors in degrees
-            vec3 u = Vector(b_1->Position, b_2->Position);
-            vec3 v = Vector(b_3->Position, b_2->Position);
+            vec3d u = Vector(b_1->Position, b_2->Position);
+            vec3d v = Vector(b_3->Position, b_2->Position);
             double angle = AngleDegrees(u, v);
             // btype1 must be lower than btype3
             int *id_lo, *id_hi;
@@ -290,8 +290,8 @@ int main(int argc, char *argv[]) {
                    *b_2 = &System.Bead[id2],
                    *b_3 = &System.Bead[id3];
               // calculate angle between the two vectors in degrees
-              vec3 u = Vector(b_1->Position, b_2->Position);
-              vec3 v = Vector(b_3->Position, b_2->Position);
+              vec3d u = Vector(b_1->Position, b_2->Position);
+              vec3d v = Vector(b_3->Position, b_2->Position);
               double angle = AngleDegrees(u, v);
               // mins & maxes & averages //{{{
               if (angle < ang_n_mma[mol_i->Type][j/n_per_set][0]) {

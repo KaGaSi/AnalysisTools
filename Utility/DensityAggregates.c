@@ -271,7 +271,7 @@ int main(int argc, char *argv[]) {
             // int mol = System.Bead[bead].Molecule;
             // int moltype = System.Molecule[mol].Type;
             // if (System.MoleculeType[moltype].Flag) {
-              vec3 dist = Distance(System.Bead[bead].Position.v, com, box);
+              vec3d dist = Distance(System.Bead[bead].Position.v, com, box);
               dist.v[0] = VectLength(dist);
 
               if (dist.v[0] < max_dist) {
@@ -285,7 +285,7 @@ int main(int argc, char *argv[]) {
           // monomeric beads //{{{
           for (int j = 0; j < Count->Unbonded; j++) {
             int id = System.Unbonded[j];
-            vec3 dist = Distance(System.Bead[id].Position.v, com, box);
+            vec3d dist = Distance(System.Bead[id].Position.v, com, box);
             dist.v[0] = VectLength(dist);
 
             if (dist.v[0] < max_dist) {

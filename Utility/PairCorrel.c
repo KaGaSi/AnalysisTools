@@ -1,5 +1,19 @@
 #include "../AnalysisTools.h"
 
+/* Debug: print Head chain for the two problem beads if present */
+void DumpCellChain(const char *tag, int cell, int *Head, int *Link, const SYSTEM *S) {
+  printf("Dump %s cell %d: Head=%d\n", tag, cell, Head[cell]);
+  for (int p = Head[cell]; p != -1; p = Link[p]) {
+    int id = S->BeadCoor[p];
+    printf("  list-index p=%d -> bead-id=%d pos=(%g,%g,%g)\n",
+           p, id,
+           S->Bead[id].Position.v[0],
+           S->Bead[id].Position.v[1],
+           S->Bead[id].Position.v[2]);
+  }
+}
+
+
 // Help() //{{{
 void Help(const char cmd[50], const bool error,
           const int n, const char opt[n][OPT_LENGTH]) {
@@ -36,11 +50,154 @@ calculated.\n\n");
 struct OPT {
   bool all; // --all
   int axis[3];
+  bool *bt;
   COMMON_OPT c;
 };
 OPT * opt_create(void) {
   return malloc(sizeof(OPT));
 } //}}}
+
+// TODO: <bead(s)> mandatory to -bt opt (default - all)
+// TODO: move to some library file
+static inline void CorrectBTypeOrder(int *btype_i, int *btype_j) {
+  if (btype_i > btype_j) {
+    SwapInt(btype_i, btype_j);
+  }
+}
+
+// calculate distance between i and j beads //{{{
+void CalculatePCF(int id_i, int id_j, SYSTEM System,
+                  ArrNDi *pcf, int bins, double max_dist, double width) {
+  int i = System.BeadCoor[id_i];
+  int j = System.BeadCoor[id_j];
+  BEAD *b_i = &System.Bead[i];
+  BEAD *b_j = &System.Bead[j];
+  int btype_i = b_i->Type;
+  int btype_j = b_j->Type;
+  CorrectBTypeOrder(&btype_i, &btype_j);
+  // calculate distance between the two beads
+  vec3d d = Distance(b_i->Position.v, b_j->Position.v, System.Box.Length);
+  double dist = VectLength(d);
+  if (dist < max_dist) {
+    int l = dist / width;
+    if (l < bins) {
+      AddArr3D(pcf, btype_i, btype_j, l, 1);
+    }
+  }
+} //}}}
+
+// callback function to call for each pair of particles
+// i & j ... indices in System.BeadCoor array
+typedef void (*pair_cb_t)(int i, int j, const SYSTEM System, void *userdata);
+// callback function for checking if bead/mol should be used
+// btype ... bead type
+typedef bool (*check_cb_t)(int btype, void *userdata);
+// bead-pair traversing function (linked list) //{{{
+void TraverseLinkedListPairs(const SYSTEM System, const double cell_size,
+                             pair_cb_t pair_callback, void *ud_pair,
+                             check_cb_t check_callback, void *check_ud) {
+  int *Head, *Link;
+  vec3i n_cells = LinkedList(System, &Head, &Link, cell_size);
+
+  // neighbour offsets: home cell + 13 half-shell
+  const vec3i neighbour[14] = {
+    { .v = { 0, 0, 0} },
+    { .v = { 1, 0, 0} },
+    { .v = { 1, 1, 0} },
+    { .v = {-1, 1, 0} },
+    { .v = { 0, 1, 0} },
+    { .v = { 0, 0, 1} },
+    { .v = {-1, 0, 1} },
+    { .v = { 1, 0, 1} },
+    { .v = {-1,-1, 1} },
+    { .v = { 0,-1, 1} },
+    { .v = { 1,-1, 1} },
+    { .v = {-1, 1, 1} },
+    { .v = { 0, 1, 1} },
+    { .v = { 1, 1, 1} },
+  };
+  vec3i c1;
+  for (c1.z = 0; c1.z < n_cells.z; c1.z++) {
+    for (c1.y = 0; c1.y < n_cells.y; c1.y++) {
+      for (c1.x = 0; c1.x < n_cells.x; c1.x++) {
+        int cell1 = SelectCell1(c1, n_cells);
+        int i = Head[cell1];
+        while (i != -1) {
+          int id_i = System.BeadCoor[i];
+          if (!check_callback(System.Bead[id_i].Type, check_ud)) {
+            i = Link[i];
+            continue;
+          }
+          // loop over all 14 neighbour offsets (home + 13 neighbours)
+          for (int k = 0; k < 14; k++) {
+            int cell2 = SelectCell2(c1, n_cells, neighbour, k);
+
+            int j = Head[cell2];
+            while (j != -1) {
+              int id_j = System.BeadCoor[j];
+              if (!check_callback(System.Bead[id_j].Type, check_ud)) {
+                j = Link[j];
+                continue;
+              }
+              // avoid double-counting in home cell
+              if (cell1 != cell2 || i < j) {
+                pair_callback(i, j, System, ud_pair);
+              }
+              j = Link[j];
+            }
+          }
+          i = Link[i];
+        }
+      }
+    }
+  }
+  free(Head);
+  free(Link);
+} //}}}
+// bead-pair traversing function (brute O(N^2) nested loops) //{{{
+void TraverseBrutePairs(const SYSTEM System,
+                        pair_cb_t pair_callback, void *ud_pair,
+                        check_cb_t check_callback, void *check_ud) {
+  for (int i = 0; i < System.Count.BeadCoor; i++) {
+    int id_i = System.BeadCoor[i];
+    if (!check_callback(System.Bead[id_i].Type, check_ud)) {
+      continue;
+    }
+    for (int j = (i + 1); j < System.Count.BeadCoor; j++) {
+      int id_j = System.BeadCoor[j];
+      if (!check_callback(System.Bead[id_j].Type, check_ud)) {
+        continue;
+      }
+      pair_callback(i, j, System, ud_pair);
+    }
+  }
+} //}}}
+bool CheckBeadType(int btype, OPT *opt) { //{{{
+  if (!opt->bt[btype]) {
+    return false;
+  } else {
+    return true;
+  }
+} //}}}
+
+struct pcf_args {
+  ArrNDi *pcf;
+  int bins;
+  double max_dist;
+  double width;
+};
+void CalculatePCF_adaptor(int id_i, int id_j, const SYSTEM System, void *ud) {
+  struct pcf_args *p = (struct pcf_args*)ud;
+  CalculatePCF(id_i, id_j, System, p->pcf, p->bins, p->max_dist, p->width);
+}
+
+struct check_args {
+  OPT *opt;
+};
+bool CheckBeadType_adaptor(int type, void *ud) {
+  struct check_args *p = (struct check_args*)ud;
+  return CheckBeadType(type, p->opt);
+}
 
 int main(int argc, char *argv[]) {
 
@@ -49,8 +206,8 @@ int main(int argc, char *argv[]) {
       req_arg = 3;
   char option[all][OPT_LENGTH];
   OptionCheck(argc, argv, req_arg, common, all, false, option,
-               "-st", "-e", "-sk", "-i", "--verbose", "--silent",
-               "--help", "--version", "--all", "-D2");
+              "-st", "-e", "-sk", "-i", "--verbose", "--silent",
+              "--help", "--version", "--all", "-D2");
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -110,13 +267,14 @@ int main(int argc, char *argv[]) {
   double *box = System.Box.Length;
 
   // <bead(s)> - names of bead types to use //{{{
+  opt->bt = calloc(Count->BeadType, sizeof *opt->bt);
   if (opt->all) {
     for (int i = 0; i < Count->BeadType; i++) {
-      System.BeadType[i].Flag = true;
+      opt->bt[i] = true;
     }
   } else {
     for (int i = 0; i < Count->BeadType; i++) {
-      System.BeadType[i].Flag = false;
+      opt->bt[i] = false;
     }
     while (++count < argc && argv[count][0] != '-') {
       int type = FindBeadType(argv[count], System);
@@ -124,12 +282,12 @@ int main(int argc, char *argv[]) {
         ErrorBeadType(argv[count], System);
         exit(1);
       }
-      if (System.BeadType[type].Flag) {
+      if (opt->bt[type]) {
         snprintf(ERROR_MSG, LINE, "bead type %s%s%s specified more than once",
                  ErrYellow(), argv[count], ErrCyan());
         PrintWarning();
       }
-      System.BeadType[type].Flag = true;
+      opt->bt[type] = true;
     }
     count--; // while always increments count at least once
     if (count < (req_arg + 1)) {
@@ -144,18 +302,18 @@ int main(int argc, char *argv[]) {
   // write initial stuff to output pcf file //{{{
   FILE *out = PrintBylineOpenFile(fout_pcf, argc, argv);
   fprintf(out, "# (1) distance");
-  // print bead type names to output file //{{{
+  // print bead type names to output file
   count = 1;
   for (int i = 0; i < Count->BeadType; i++) {
     for (int j = i; j < Count->BeadType; j++) {
-      if (System.BeadType[i].Flag && System.BeadType[j].Flag) {
+      if (CheckBeadType(i, opt) && CheckBeadType(j, opt)) {
         count++;
-        fprintf(out, " (%d) %s-%s", count, System.BeadType[i].Name,
-                                           System.BeadType[j].Name);
+        fprintf(out, " (%d) %s-%s", count,
+                System.BeadType[i].Name, System.BeadType[j].Name);
       }
     }
   }
-  putc('\n', out); //}}}
+  putc('\n', out);
   fclose(out); //}}}
 
   if (opt->c.verbose) {
@@ -176,144 +334,37 @@ int main(int argc, char *argv[]) {
   //   max_dist *= 0.5;
   // }
   bins = Max3(box[0], box[1], box[2]) / width;
-  // TODO: shitty stuff - should be -D2 opt dependant
+  // TODO: shitty stuff - should be -D2 opt dependant or some such
   // max_dist = 0.5 * Min3(box[0], box[1], box[2]);
-  max_dist = 3;
-  // max_dist = 0.5 * Max3(box[0], box[1], box[2]);
+  max_dist = 0.5 * Max3(box[0], box[1], box[2]);
+  max_dist = 10;
+  double cell_size = max_dist;
 
-  // allocate memory //{{{
-  // array counting number of pairs
-  long int **counter = calloc(Count->BeadType, sizeof *counter);
-  long int *counter2 = calloc(Count->BeadType, sizeof *counter2);
-  // array for counting individual used beads of each type
   // pair correlation function
-  int ***pcf = malloc(Count->BeadType * sizeof **pcf);
-  for (int i = 0; i < Count->BeadType; i++) {
-    counter[i] = calloc(Count->BeadType, sizeof *counter[i]);
-    pcf[i] = malloc(Count->BeadType * sizeof *pcf[i]);
-    for (int j = 0; j < Count->BeadType; j++) {
-      pcf[i][j] = calloc(bins, sizeof *pcf[i][j]);
-    }
-  } //}}}
+  ArrNDi *pcf = CreateArr3Di(Count->BeadType, Count->BeadType, bins);
 
   // main loop //{{{
+  struct check_args check = { opt }; // for CheckBeadType_adaptor
   FILE *fr = OpenFile(in.coor.name, "r");
   int count_coor = 0, // count timesteps from the beginning
       count_used = 0, // count steps used for calculation
       line_count = 0; // count lines in the vcf file
   while (true) {
     PrintStep(&count_coor, opt->c.start, opt->c.silent);
-    // use every skip-th timestep between start and end
-    bool use = false;
     if (UseStep(opt->c, count_coor)) {
-      use = true;
-    }
-    if (use) { //{{{
       if (!ReadTimestep(in, fr, &System, &line_count)) {
         count_coor--;
         break;
       }
       count_used++;
-      // TODO: trying cell-linked list (unsuccessfully) //{{{
-      //       ...see Extra/NearestNeighbour.c
-      double cell_size = max_dist;
-      int n_cells[3], *Head, *Link, Dc[27][3];
-      LinkedList(System, &Head, &Link, cell_size, n_cells, Dc);
-      int c1[3];
-      for (c1[2] = 0; c1[2] < n_cells[2]; c1[2]++) {
-        for (c1[1] = 0; c1[1] < n_cells[1]; c1[1]++) {
-          for (c1[0] = 0; c1[0] < n_cells[0]; c1[0]++) {
-            int cell1 = SelectCell1(c1, n_cells);
-            // select first bead in the cell 'cell1'
-            int i = Head[cell1];
-            while (i != -1) {
-              int id_i = System.BeadCoor[i];
-              BEAD *b_i = &System.Bead[id_i];
-              if (!System.BeadType[b_i->Type].Flag) {
-                i = Link[i];
-                continue;
-              }
-              for (int k = 0; k < 27; k++) {
-                int cell2 = SelectCell2(c1, n_cells, Dc, k);
-
-                int j;
-                if (cell1 == cell2) { // next bead in 'cell1'
-                  j = Link[i];
-                } else { // first bead in 'cell2'
-                  j = Head[cell2];
-                }
-                while (j != -1) {
-                  int id_j = System.BeadCoor[j];
-                  BEAD *b_j = &System.Bead[id_j];
-                  if (!System.BeadType[b_j->Type].Flag || id_i > id_j) {
-                    j = Link[j];
-                    continue;
-                  }
-                  int btype_i = b_i->Type;
-                  int btype_j = b_j->Type;
-                  if (btype_i > btype_j) {
-                    SwapInt(&btype_i, &btype_j);
-                  }
-                  counter[btype_i][btype_j]++;
-                  // calculate distance between i and j beads
-                  vec3 d = Distance(b_i->Position.v, b_j->Position.v, box);
-                  double dist = VectLength(d);
-                  if (dist < max_dist) {
-                    int l = dist / width;
-                    if (l < bins) {
-                      pcf[btype_i][btype_j][l]++;
-                    }
-                  }
-                  j = Link[j];
-                }
-              }
-              i = Link[i];
-            }
-          }
-        }
+      struct pcf_args args = { pcf, bins, max_dist, width };
+      if (true) {
+        TraverseLinkedListPairs(System, cell_size, CalculatePCF_adaptor, &args,
+                                CheckBeadType_adaptor, &check);
+      } else {
+        TraverseBrutePairs(System, CalculatePCF_adaptor, &args,
+                           CheckBeadType_adaptor, &check);
       }
-      free(Head);
-      free(Link); //}}}
-      // for (int i = 0; i < Count->BeadCoor; i++) { //{{{
-      //   int id_i = System.BeadCoor[i];
-      //   BEAD *b_i = &System.Bead[id_i];
-      //   if (!System.BeadType[b_i->Type].Flag) {
-      //     continue;
-      //   }
-      //   for (int j = (i + 1); j < Count->BeadCoor; j++) {
-      //     int id_j = System.BeadCoor[j];
-      //     BEAD *b_j = &System.Bead[id_j];
-      //     if (!System.BeadType[b_j->Type].Flag) {
-      //       continue;
-      //     }
-      //     int btype_i = b_i->Type;
-      //     int btype_j = b_j->Type;
-      //     if (btype_i > btype_j) {
-      //       SwapInt(&btype_i, &btype_j);
-      //     }
-      //     counter[btype_i][btype_j]++;
-      //     double temp[2];
-      //     // make the non-periodic coordinate 0
-      //     if (opt->axis[0] != -1) {
-      //       temp[0] = b_i->Position.v[opt->axis[2]];
-      //       b_i->Position.v[opt->axis[2]] = 0;
-      //       temp[1] = b_j->Position.v[opt->axis[2]];
-      //       b_j->Position.v[opt->axis[2]] = 0;
-      //     }
-      //     vec3 dist = Distance(b_i->Position.v, b_j->Position.v, box);
-      //     // return the non-periodic coordinate - just pro forma
-      //     if (opt->axis[0] != -1) {
-      //       b_i->Position.v[opt->axis[2]] = temp[0];
-      //       b_j->Position.v[opt->axis[2]] = temp[1];
-      //     }
-      //     dist.v[0] = VectLength(dist);
-      //     if (dist.v[0] < max_dist) {
-      //       int l = dist.v[0] / width;
-      //       pcf[btype_i][btype_j][l]++;
-      //     }
-      //   }
-      // } //}}}
-      //}}}
     } else {
       if (!SkipTimestep(in, fr, &line_count)) {
         count_coor--;
@@ -330,13 +381,13 @@ int main(int argc, char *argv[]) {
 
   // write data to output file(s) //{{{
   out = OpenFile(fout_pcf, "a");
-
   // calculate pcf
   for (int j = 0; j < bins; j++) {
     if ((width * (j+1)) > max_dist) {
       break;
     }
-    // calculate volume of every shell that will be averaged
+    // calculate volume of every shell that will be averaged, taking into
+    // account corrections for truncated spheres
     double shell;
     // radius of outer and inner sphere
     double rad[2] = {width * (j + 1), width * j};
@@ -356,7 +407,7 @@ int main(int argc, char *argv[]) {
         }
       }
       // volume is outer sphere w/o its tops minus inner sphere w/o its tops
-      shell = PI * (sphere[0] - 2 * top[0] - (sphere[1] - 2 * top[1]));
+      shell = PI * (sphere[0] - 6 * top[0] - (sphere[1] - 6 * top[1]));
     } else {
       // maximum radius of complete circle
       double max_r = Min3(box[opt->axis[0]], box[opt->axis[1]], HIGHNUM) / 2;
@@ -376,19 +427,20 @@ int main(int argc, char *argv[]) {
       // area is outer circle w/o its tops minus inner circle w/o its tops
       shell = circle[0] - 2 * top[0] - (circle[1] - 2 * top[1]);
     }
-    // write middle distance of the bin
+    // write data
     fprintf(out, "%8.5f", (rad[0] + rad[1]) / 2);
     // write pcf for all pairs for the given bin
     for (int k = 0; k < Count->BeadType; k++) {
       for (int l = k; l < Count->BeadType; l++) {
-        if (System.BeadType[k].Flag && System.BeadType[l].Flag) {
-          double norm_factor = System.Box.Volume / (counter[k][l] * shell);
+        BEADTYPE *bt_k = &System.BeadType[k];
+        BEADTYPE *bt_l = &System.BeadType[k];
+        if (CheckBeadType(k, opt) && CheckBeadType(l, opt)) {
+          int pairs = bt_k->Number * (bt_l->Number - 1) / 2;
+          double norm_factor = System.Box.Volume / (shell * pairs * count_used);
           if (opt->axis[0] != -1) {
             norm_factor /= System.Box.Length[opt->axis[2]];
           }
-          // // TODO: norm factor for linked-list via effective volume
-          // double norm_factor = Cube(3 * cell_size) / (counter[k][l] * shell);
-          fprintf(out, " %10f", pcf[k][l][j] * norm_factor);
+          fprintf(out, " %10f", GetArr3D(pcf, k, l, j) * norm_factor);
         }
       }
     }
@@ -397,16 +449,8 @@ int main(int argc, char *argv[]) {
   fclose(out); //}}}
 
   // free memory - to make valgrind happy //{{{
-  for (int i = 0; i < Count->BeadType; i++) {
-    for (int j = 0; j < Count->BeadType; j++) {
-      free(pcf[i][j]);
-    }
-    free(pcf[i]);
-    free(counter[i]);
-  }
-  free(pcf);
-  free(counter);
-  free(counter2);
+  FreeArrND(pcf);
+  free(opt->bt);
   free(opt);
   FreeSystem(&System);
   //}}}

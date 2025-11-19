@@ -188,17 +188,17 @@ int main(int argc, char *argv[]) {
           // first bond vector (for S1)
           int b1 = mol->Bead[mt->Bond[first_bond][0]],
               b2 = mol->Bead[mt->Bond[first_bond][1]];
-          vec3 bond1 = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+          vec3d bond1 = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
           // last bond vector (for reversed S1)
           b1 = mol->Bead[mt->Bond[mt->nBonds-first_bond-1][0]],
           b2 = mol->Bead[mt->Bond[mt->nBonds-first_bond-1][1]];
-          vec3 bondN = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+          vec3d bondN = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
           for (int k = first_bond; k < last_bond; k++) {
             // S1 function & bondlengths //{{{
             // 1->N S1
             b1 = mol->Bead[mt->Bond[k][0]];
             b2 = mol->Bead[mt->Bond[k][1]];
-            vec3 bondj = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+            vec3d bondj = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
             AddArr3D(S1, mol->Type, k - first_bond, 0, CosAngle(bondj, bond1));
             // bondlength & count bonds
             bondlength[mol->Type] += VectLength(bondj);
@@ -217,11 +217,11 @@ int main(int argc, char *argv[]) {
               // first bond vector
               int b1 = mol->Bead[mt->Bond[k][0]],
                   b2 = mol->Bead[mt->Bond[k][1]];
-              vec3 bondk = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+              vec3d bondk = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
               // second bond vector
               b1 = mol->Bead[mt->Bond[l][0]];
               b2 = mol->Bead[mt->Bond[l][1]];
-              vec3 bondl = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+              vec3d bondl = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
               // autocorrelation
               AddArr2D(S2, mol->Type, lag, CosAngle(bondk, bondl));
               AddArr2D(count_S2, mol->Type, lag, 1);
@@ -229,7 +229,7 @@ int main(int argc, char *argv[]) {
               // S3 function (end-to-end distances) //{{{
               b1 = mol->Bead[mt->Bond[k][0]];
               b2 = mol->Bead[mt->Bond[l][1]];
-              vec3 Re = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+              vec3d Re = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
               AddArr2D(S3, mol->Type, lag, SqVectLength(Re));
               AddArr2D(count_S3, mol->Type, lag, 1);
               //}}}

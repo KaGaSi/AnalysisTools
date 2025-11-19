@@ -23,7 +23,7 @@ also differentiate between aggregates near a wall and those in bulk \
 of the wall(s) along that axis are provided, any aggregate containing \
 a <bead(s)> that is at most the contact distance from the wall is considered \
 near the wall. Aggregates near the wall(s)/in bulk are saved into two files \
-whose names are based on <out.agg> ('-w' and '-b' is prepended to the .agg \
+whose names are based on <out.agg> ('_w' and '_b' is prepended to the .agg \
 extension).\n\n");
   }
 
@@ -86,18 +86,18 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
   // create cell-linked list
   double cell_size = sqrt(sqdist);
   int n_cells[3], *Head, *Link, Dc[27][3];
-  LinkedList(*System, &Head, &Link, cell_size, n_cells, Dc);
+  LinkedList_old(*System, &Head, &Link, cell_size, n_cells, Dc);
   // go over all cells (and beads inside)
   int c1[3];
   for (c1[2] = 0; c1[2] < n_cells[2]; c1[2]++) {
     for (c1[1] = 0; c1[1] < n_cells[1]; c1[1]++) {
       for (c1[0] = 0; c1[0] < n_cells[0]; c1[0]++) {
-        int cell1 = SelectCell1(c1, n_cells);
+        int cell1 = SelectCell1_old(c1, n_cells);
         // select first bead in the cell 'cell1'
         int i = Head[cell1];
         while (i != -1) {
           for (int k = 0; k < 27; k++) {
-            int cell2 = SelectCell2(c1, n_cells, Dc, k);
+            int cell2 = SelectCell2_old(c1, n_cells, Dc, k);
             // select bead in the cell 'cell2' //{{{
             int j;
             if (cell1 == cell2) { // next bead in 'cell1'
@@ -115,7 +115,7 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
                 if (System->BeadType[b_i->Type].Flag &&
                     System->BeadType[b_j->Type].Flag) {
                   // calculate distance between i and j beads
-                  vec3 rij = Distance(b_i->Position.v, b_j->Position.v,
+                  vec3d rij = Distance(b_i->Position.v, b_j->Position.v,
                                       System->Box.Length);
                   rij.v[0] = SqVectLength(rij);
                   // are 'i' and 'j' close enough?
@@ -225,20 +225,20 @@ int main(int argc, char *argv[]) {
     s_strcpy(str, agg_file, LINE);
     str[strlen(str)-4] = '\0';
     // append proper endings to the new string
-    if (snprintf(opt->w_file[0], LINE, "%s-w.agg", str) < 0) {
+    if (snprintf(opt->w_file[0], LINE, "%s_w.agg", str) < 0) {
       ErrorSnprintf();
     }
-    if (snprintf(opt->w_file[1], LINE, "%s-b.agg", str) < 0) {
+    if (snprintf(opt->w_file[1], LINE, "%s_b.agg", str) < 0) {
       ErrorSnprintf();
     }
     if (opt->fout.name[0] != '\0') {
       char *last_dot = strrchr(opt->fout.name, '.');
       size_t len_before_dot = last_dot - opt->fout.name;
       s_strcpy(str, opt->fout.name, len_before_dot + 1);
-      if (snprintf(opt->j_file[0].name, LINE, "%s-w%s", str, last_dot) < 0) {
+      if (snprintf(opt->j_file[0].name, LINE, "%s_w%s", str, last_dot) < 0) {
         ErrorSnprintf();
       }
-      if (snprintf(opt->j_file[1].name, LINE, "%s-b%s", str, last_dot) < 0) {
+      if (snprintf(opt->j_file[1].name, LINE, "%s_b%s", str, last_dot) < 0) {
         ErrorSnprintf();
       }
     }
@@ -374,16 +374,16 @@ int main(int argc, char *argv[]) {
           next:
           ;
         }
-        // write the aggregates to *-w.agg file
+        // write the aggregates to *_w.agg file
         WriteAggregates(count_coor, opt->w_file[0], System, Aggregate);
         // reverse the Aggregate[].Flag to select aggregates in bulk
         for (int i = 0; i < Count->Aggregate; i++) {
           Aggregate[i].Flag = !Aggregate[i].Flag;
         }
-        // write the aggregates to *-w.agg file
+        // write the aggregates to *_b.agg file
         WriteAggregates(count_coor, opt->w_file[1], System, Aggregate);
 
-        // write joined coordinates to -b/-w files (-j option)?
+        // write joined coordinates to _b/_w files (-j option)?
         if (opt->fout.name[0] != '\0') {
           bool *write = calloc(Count->Bead, sizeof *write);
           // assume all beads are saved (to save unbonded beads)
@@ -405,7 +405,7 @@ int main(int argc, char *argv[]) {
               }
             }
           }
-          // write joined coordinates for wall-touching aggregates to -w file
+          // write joined coordinates for wall-touching aggregates to _w file
           WriteTimestep(opt->j_file[0], System, count_coor, write, argc, argv);
 
           // flip write flag for all bonded beads
@@ -413,7 +413,7 @@ int main(int argc, char *argv[]) {
             int id = System.Bonded[i];
             write[id] = !write[id];
           }
-          // write joined coordinates for bulk aggregates to -b file
+          // write joined coordinates for bulk aggregates to _b file
           WriteTimestep(opt->j_file[1], System, count_coor, write, argc, argv);
           free(write);
         }

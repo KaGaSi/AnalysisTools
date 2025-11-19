@@ -93,7 +93,7 @@ void RandomCoordinate(BOX box, double random[3]) {
  *   2...specified bead types,
  */
 void GetMinDist(BEAD bead, double random[3], double box[3], double *min_dist) {
-  vec3 dist = Distance(bead.Position.v, random, box);
+  vec3d dist = Distance(bead.Position.v, random, box);
   dist.v[0] = VectLength(dist);
   if (dist.v[0] < *min_dist) {
     *min_dist = dist.v[0];

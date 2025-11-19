@@ -1,4 +1,5 @@
 #include "AnalysisTools.h"
+#include "MathUtils.h"
 
 // TODO: consider BeadType[].Index, System.Bonded, etc. arrays - shouldn't they
 //       be filled based on whether the beads are in the timestep? Plus a
@@ -201,7 +202,7 @@ static void RemovePBCMolecules(SYSTEM *System) {
             id[2] = {mt->Bond[bond][0], mt->Bond[bond][1]};
         BEAD *b_1 = &System->Bead[mol->Bead[id[0]]],
              *b_2 = &System->Bead[mol->Bead[id[1]]];
-        vec3 dist;
+        vec3d dist;
         if (!moved[id[0]] && moved[id[1]]) {
           dist = Distance(b_2->Position.v, b_1->Position.v, box->OrthoLength);
           for (int dd = 0; dd < 3; dd++) {
@@ -426,9 +427,9 @@ void WrapJoinCoordinates(SYSTEM *System, const bool wrap, const bool join) {
   }
 } //}}}
 // distance between two beads; in the range <-BoxLength/2,BoxLength/2) //{{{
-vec3 Distance(const double id1[3], const double id2[3],
+vec3d Distance(const double id1[3], const double id2[3],
               const double BoxLength[3]) {
-  vec3 out;
+  vec3d out;
   // remove periodic boundary conditions in x-direction
   for (int dd = 0; dd < 3; dd++) {
     out.v[dd] = id1[dd] - id2[dd];
@@ -584,8 +585,60 @@ int FileType(const char *name) { //{{{
   }
 } //}}}
 // create a cell-linked list //{{{
-void LinkedList(const SYSTEM System, int **Head, int **Link,
-                const double cell_size, int n_cells[3], int Dc[27][3]) {
+vec3i LinkedList(const SYSTEM System, int **Head, int **Link,
+                 const double cell_size) {
+  const double (*box)[3] = &System.Box.Length;
+  const COUNT *Count = &System.Count;
+  double rl[3];
+  vec3i n_cells;
+  // compute number of cells along each axis
+  for (int dd = 0; dd < 3; dd++) {
+    rl[dd] = (*box)[dd] / cell_size;
+    n_cells.v[dd] = (int)(rl[dd]);
+    if (n_cells.v[dd] < 3) {
+      err_msg("cell size too small for cut-off in linked list");
+      PrintError();
+      exit(1);
+    }
+    rl[dd] = (double)n_cells.v[dd] / (*box)[dd]; // inverse length
+  }
+  // allocate lists
+  int cells = n_cells.x * n_cells.y * n_cells.z;
+  *Head = malloc(sizeof **Head * cells);
+  *Link = malloc(sizeof **Link * Count->BeadCoor);
+  for (int i = 0; i < (n_cells.x * n_cells.y * n_cells.z); i++) {
+    (*Head)[i] = -1;
+  }
+  // insert beads
+  for (int i = 0; i < Count->BeadCoor; i++) {
+    int id = System.BeadCoor[i];
+    BEAD *bead = &System.Bead[id];
+    int c[3];
+    for (int dd = 0; dd < 3; dd++) {
+      c[dd] = (int)(bead->Position.v[dd] * rl[dd]);
+      if (c[dd] == n_cells.v[dd]) { // guard FP boundary
+        c[dd] = n_cells.v[dd] - 1;
+      }
+    }
+    int cell = c[0] + c[1] * n_cells.x + c[2] * n_cells.x * n_cells.y;
+    (*Link)[i] = (*Head)[cell];
+    (*Head)[cell] = i;
+  }
+  return n_cells;
+}
+int SelectCell1(const vec3i c1, const vec3i n_cells) {
+  return c1.x + c1.y * n_cells.x + c1.z * n_cells.x * n_cells.y;
+}
+int SelectCell2(const vec3i c1, const vec3i n_cells,
+                const vec3i neighbour[13], int n) {
+  vec3i c2 = {
+    .x = (c1.x + neighbour[n].x + n_cells.x) % n_cells.x,
+    .y = (c1.y + neighbour[n].y + n_cells.y) % n_cells.y,
+    .z = (c1.z + neighbour[n].z + n_cells.z) % n_cells.z
+  };
+  return SelectCell1(c2, n_cells);
+}
+void LinkedList_old(const SYSTEM System, int **Head, int **Link, const double cell_size, int n_cells[3], int Dc[27][3]) { //{{{
   const double (*box)[3] = &System.Box.Length;
   const COUNT *Count = &System.Count;
   double rl[3];
@@ -611,9 +664,14 @@ void LinkedList(const SYSTEM System, int **Head, int **Link,
   for (int i = 0; i < Count->BeadCoor; i++) {
     int id = System.BeadCoor[i];
     BEAD *bead = &System.Bead[id];
-    long cell = (int)(bead->Position.v[0] * rl[0]) +
-                (int)(bead->Position.v[1] * rl[1]) * n_cells[0] +
-                (int)(bead->Position.v[2] * rl[2]) * n_cells[0] * n_cells[1];
+    int c[3];
+    for (int dd = 0; dd < 3; dd++) {
+      c[dd] = (int)(bead->Position.v[dd] * rl[dd]);
+      if (c[dd] == n_cells[dd]) {
+        c[dd] = n_cells[dd] - 1;
+      }
+    }
+    long cell = c[0] + c[1] * n_cells[0] + c[2] * n_cells[0] * n_cells[1];
     (*Link)[i] = (*Head)[cell];
     (*Head)[cell] = i;
   }
@@ -630,10 +688,10 @@ void LinkedList(const SYSTEM System, int **Head, int **Link,
     }
   }
 }
-int SelectCell1(const int c1[3], const int n_cells[3]) {
+int SelectCell1_old(const int c1[3], const int n_cells[3]) {
   return c1[0] + c1[1] * n_cells[0] + c1[2] * n_cells[0] * n_cells[1];
 }
-int SelectCell2(const int c1[3], const int n_cells[3],
+int SelectCell2_old(const int c1[3], const int n_cells[3],
                 const int Dc[27][3], int n) {
   int c2[3];
   for (int dd = 0; dd < 3; dd++) {
@@ -649,6 +707,7 @@ int SelectCell2(const int c1[3], const int n_cells[3],
 
   return c2[0] + c2[1] * n_cells[0] + c2[2] * n_cells[0] * n_cells[1];
 } //}}}
+//}}}
 // TODO: use Jacobi method
 // calculate gyration tensor and various shape descriptors //{{{
 void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]) {
@@ -671,7 +730,7 @@ void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]) {
   // calculate gyration tensor //{{{
   for (int i = 0; i < n; i++) {
     int id = list[i];
-    vec3 *pos = &System->Bead[id].Position;
+    vec3d *pos = &System->Bead[id].Position;
     GyrationTensor[0][0] += pos->v[0] * pos->v[0];
     GyrationTensor[0][1] += pos->v[0] * pos->v[1];
     GyrationTensor[0][2] += pos->v[0] * pos->v[2];
@@ -931,7 +990,7 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
               int bead2 = System->Molecule[mol2].Bead[m];
               BEAD *b2 = &System->Bead[bead2];
               // calculate distance between 'bead1' and 'bead2'
-              vec3 dist = Distance(b1->Position.v, b2->Position.v, *box);
+              vec3d dist = Distance(b1->Position.v, b2->Position.v, *box);
               dist.v[0] = VectLength(dist);
               // move 'mol2' (or 'k') if 'bead1' and 'bead2' are in contact
               if (dist.v[0] <= distance) {

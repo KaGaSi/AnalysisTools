@@ -33,7 +33,7 @@ int FindMoleculeType(const SYSTEM Sys1, const MOLECULETYPE mt,
 // wrap coordinates into simulation box and/or join molecules
 void WrapJoinCoordinates(SYSTEM *System, const bool wrap, const bool join);
 // distance between two beads; in the range <-BoxLength/2,BoxLength/2)
-vec3 Distance(const double id1[3], const double id2[3],
+vec3d Distance(const double id1[3], const double id2[3],
               const double BoxLength[3]);
 // calculate centre of mass for a list of beads
 void CentreOfMass(const int n, const int *list,
@@ -46,10 +46,15 @@ int StructureFileType(const char *name);
 int CoordinateFileType(const char *name);
 int FileType(const char *name);
 // create a cell-linked list
-void LinkedList(const SYSTEM System, int **Head, int **Link,
+vec3i LinkedList(const SYSTEM System, int **Head, int **Link,
+                 const double cell_size);
+int SelectCell1(const vec3i c1, const vec3i n_cells);
+int SelectCell2(const vec3i c1, const vec3i n_cells,
+                const vec3i neighbour[13], int n);
+void LinkedList_old(const SYSTEM System, int **Head, int **Link,
                 const double cell_size, int n_cells[3], int Dc[27][3]);
-int SelectCell1(const int c1[3], const int n_cells[3]);
-int SelectCell2(const int c1[3], const int n_cells[3],
+int SelectCell1_old(const int c1[3], const int n_cells[3]);
+int SelectCell2_old(const int c1[3], const int n_cells[3],
                 const int Dc[27][3], const int n);
 // calculate gyration tensor and various shape descriptors
 void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]);

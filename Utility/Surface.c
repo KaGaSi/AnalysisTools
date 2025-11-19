@@ -79,7 +79,7 @@ OPT * opt_create(void) {
 // calculate area of a triangle given three points (Heron's formula) //{{{
 double calc_area(const double A[3], const double B[3], const double C[3]) {
   // triangle's sides vectors
-  vec3 AB, AC, BC;
+  vec3d AB, AC, BC;
   for (int dd = 0; dd < 3; dd++) {
     AB.v[dd] = B[dd] - A[dd];
     AC.v[dd] = C[dd] - A[dd];

@@ -3,8 +3,21 @@
 
 // 3D vector structure
 typedef struct {
-  double v[3];
-} vec3;
+  union {
+    struct {
+      double x, y, z;
+    };
+    double v[3];
+  };
+} vec3d;
+typedef struct {
+  union {
+    struct {
+      int x, y, z;
+    };
+    int v[3];
+  };
+} vec3i;
 
 extern const double PI;
 

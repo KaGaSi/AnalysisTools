@@ -84,6 +84,7 @@ set(UTILS
   # Distribution
   # dbscan
   # Entropy
+  CA2Middle
   FuzzyCoor
   GenGal
   GalContacts

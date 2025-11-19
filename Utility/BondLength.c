@@ -391,7 +391,7 @@ int main(int argc, char *argv[]) {
             BEAD *b_1 = &System.Bead[id1],
                  *b_2 = &System.Bead[id2];
             // bond length
-            vec3 bond = Vector(b_1->Position, b_2->Position);
+            vec3d bond = Vector(b_1->Position, b_2->Position);
             bond.v[0] = VectLength(bond);
             // warn if bond is too long //{{{
             if (opt->warn != HIGHNUM && bond.v[0] > opt->warn) {
@@ -461,7 +461,7 @@ int main(int argc, char *argv[]) {
               } //}}}
               BEAD *b_1 = &System.Bead[id1], *b_2 = &System.Bead[id2];
               // distance calculation
-              vec3 dist = Vector(b_1->Position, b_2->Position);
+              vec3d dist = Vector(b_1->Position, b_2->Position);
               dist.v[0] = VectLength(dist);
               step_t[mol_i->Type][j/2] += dist.v[0];
               step_t_c[mol_i->Type][j/2]++;

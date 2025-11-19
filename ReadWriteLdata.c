@@ -1272,10 +1272,10 @@ void WriteLmpData(const SYSTEM System, const char *file, const bool mass,
   // print velocities (if at least one non-zero) //{{{
   for (int i = 0; i < Count->BeadCoor; i++) {
     int id = System.BeadCoor[i];
-    vec3 *vel = &System.Bead[id].Velocity;
-    if (fabs(vel->v[0]) > 1e-5 ||
-        fabs(vel->v[1]) > 1e-5 ||
-        fabs(vel->v[2]) > 1e-5) {
+    vec3d *vel = &System.Bead[id].Velocity;
+    if (fabs(vel->x) > 1e-5 ||
+        fabs(vel->y) > 1e-5 ||
+        fabs(vel->z) > 1e-5) {
       fprintf(fw, "\nVelocities\n\n");
       for (int j = 0; j < Count->BeadCoor; j++) {
         id = System.BeadCoor[j];
