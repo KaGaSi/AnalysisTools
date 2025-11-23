@@ -215,23 +215,6 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
 
-  // write initial stuff to output pcf file //{{{
-  FILE *out = PrintBylineOpenFile(fout_pcf, argc, argv);
-  fprintf(out, "# (1) distance");
-  // print bead type names to output file
-  count = 1;
-  for (int i = 0; i < Count->BeadType; i++) {
-    for (int j = i; j < Count->BeadType; j++) {
-      if (CheckBeadType(i, opt) && CheckBeadType(j, opt)) {
-        count++;
-        fprintf(out, " (%d) %s-%s", count,
-                System.BeadType[i].Name, System.BeadType[j].Name);
-      }
-    }
-  }
-  putc('\n', out);
-  fclose(out); //}}}
-
   if (opt->c.verbose) {
     VerboseOutput(System);
   }
@@ -253,7 +236,6 @@ int main(int argc, char *argv[]) {
   // // max_dist = 0.5 * Min3(box[0], box[1], box[2]);
   // max_dist = Min3(box[0], box[1], box[2]) / 3;
   // // if max_dist is too large, brute force O(N^2) will be used
-  bins = Max3(box[0], box[1], box[2]) / width;
   // maximum distance for bead pair calculation
   opt->max_dist = Min3(box[0], box[1], box[2]) / 3;
   if (OneNumberOption(argc, argv, "-d", &opt->max_dist, 'd') &&
@@ -262,6 +244,7 @@ int main(int argc, char *argv[]) {
     ErrorOption("-d");
   }
   double cell_size = opt->max_dist;
+  bins = opt->max_dist / width;
 
   // pair correlation function
   ArrNDi *pcf = CreateArr3Di(Count->BeadType, Count->BeadType, bins);
@@ -298,17 +281,31 @@ int main(int argc, char *argv[]) {
   PrintLastStep(count_coor, count_used, opt->c.silent); //}}}
 
   // write data to output file(s) //{{{
-  out = OpenFile(fout_pcf, "a");
-  // calculate pcf
-  for (int j = 0; j < bins; j++) {
-    if ((width * (j+1)) > opt->max_dist) {
-      break;
+  // header
+  FILE *out = PrintBylineOpenFile(fout_pcf, argc, argv);
+  fprintf(out, "# (1) distance");
+  // print bead type names to output file
+  int ncols = 1;
+  for (int i = 0; i < Count->BeadType; i++) {
+    for (int j = i; j < Count->BeadType; j++) {
+      if (CheckBeadType(i, opt) && CheckBeadType(j, opt)) {
+        ncols++;
+        fprintf(out, " (%d) %s-%s", ncols,
+                System.BeadType[i].Name, System.BeadType[j].Name);
+      }
     }
-    // calculate volume of every shell that will be averaged, taking into
-    // account corrections for truncated spheres
+  }
+  putc('\n', out);
+  // collate data
+  int nrows = bins;
+  ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
+  for (int i = 0; i < nrows; i++) {
+    // calculate volume/surface of a shell  //{{{
+    // account (somewhat) for truncated stuff (high max_dist)
     double shell;
     // radius of outer and inner sphere
-    double rad[2] = {width * (j + 1), width * j};
+    double rad[2] = {width * (i + 1), width * i};
+    // 3D (sphere)
     if (opt->axis.v[0] == -1) {
       // maximum radius of complete sphere
       double max_r = Min3(box[0], box[1], box[2]) / 2;
@@ -316,7 +313,7 @@ int main(int argc, char *argv[]) {
       double sphere[2] = {4.0 / 3 * Cube(rad[0]), 4.0 / 3 * Cube(rad[1])};
       // volume of outer and inner sphere's cut-off tops (0 for full sphere)
       double top[2] = {0, 0};
-      if (rad[0] > max_r) { // is the outer sphere cut-off?
+      if (rad[0] > max_r) { // is the outer sphere cut off?
         // volume of one cut-off spherical top of the outer sphere
         top[0] = Square(rad[0] - max_r) * (2 * rad[0] + max_r) / 3;
         if (rad[1] > max_r) { // is the inner sphere cut-off?
@@ -325,7 +322,9 @@ int main(int argc, char *argv[]) {
         }
       }
       // volume is outer sphere w/o its tops minus inner sphere w/o its tops
+      // assumes cubic box - hence the 6
       shell = PI * (sphere[0] - 6 * top[0] - (sphere[1] - 6 * top[1]));
+    // 2D (circle)
     } else {
       // maximum radius of complete circle
       double max_r;
@@ -348,32 +347,35 @@ int main(int argc, char *argv[]) {
         }
       }
       // area is outer circle w/o its tops minus inner circle w/o its tops
-      shell = circle[0] - 2 * top[0] - (circle[1] - 2 * top[1]);
-    }
-    // write data
-    fprintf(out, "%8.5f", (rad[0] + rad[1]) / 2);
-    // write pcf for all pairs for the given bin
-    for (int k = 0; k < Count->BeadType; k++) {
-      for (int l = k; l < Count->BeadType; l++) {
+      // assumes square - hance the 4
+      shell = circle[0] - 4 * top[0] - (circle[1] - 4 * top[1]);
+    } //}}}
+    count = -1;
+    SetArr2D(data, i, ++count, (rad[0] + rad[1]) / 2);
+    // fprintf(out, "%8.5f", (rad[0] + rad[1]) / 2);
+    for (int j = 0; j < Count->BeadType; j++) {
+      for (int k = j; k < Count->BeadType; k++) {
+        BEADTYPE *bt_j = &System.BeadType[j];
         BEADTYPE *bt_k = &System.BeadType[k];
-        BEADTYPE *bt_l = &System.BeadType[l];
-        if (CheckBead(k, System, opt) && CheckBead(l, System, opt)) {
-          int pairs;
-          if (k != l) {
-            pairs = bt_k->Number * bt_l->Number;
+        if (CheckBead(j, System, opt) && CheckBead(k, System, opt)) {
+          int pairs = bt_j->Number;
+          if (j != k) {
+            pairs *= bt_k->Number;
           } else {
-            pairs = bt_k->Number * (bt_l->Number - 1) / 2;
+            pairs *= (bt_k->Number - 1) / 2;
           }
           double norm_factor = System.Box.Volume / (shell * pairs * count_used);
           if (opt->axis.v[0] != -1) {
             norm_factor /= System.Box.Length[opt->axis.v[2]];
           }
-          fprintf(out, " %10f", GetArr3D(pcf, k, l, j) * norm_factor);
+          SetArr2D(data, i, ++count, GetArr3D(pcf, j, k, i) * norm_factor);
         }
       }
     }
-    putc('\n',out);
   }
+  ComputeColumnWidths(nrows, ncols, data, 6);
+  PrintDataAll(out, nrows, ncols, data);
+  FreeArrND(data);
   fclose(out); //}}}
 
   // free memory - to make valgrind happy //{{{
