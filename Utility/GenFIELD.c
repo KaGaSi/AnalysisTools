@@ -1,8 +1,4 @@
-#include "../AnalysisTools.h"
-#include <math.h>
-#include <stdio.h>
-#include <string.h>
-#include <strings.h>
+#include "../src/AnalysisTools.h"
 #include <sys/stat.h>   // stat
 
 bool file_exists (char *filename) {

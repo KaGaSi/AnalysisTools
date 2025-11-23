@@ -1,18 +1,4 @@
-#include "../AnalysisTools.h"
-
-/* Debug: print Head chain for the two problem beads if present */
-void DumpCellChain(const char *tag, int cell, int *Head, int *Link, const SYSTEM *S) {
-  printf("Dump %s cell %d: Head=%d\n", tag, cell, Head[cell]);
-  for (int p = Head[cell]; p != -1; p = Link[p]) {
-    int id = S->BeadCoor[p];
-    printf("  list-index p=%d -> bead-id=%d pos=(%g,%g,%g)\n",
-           p, id,
-           S->Bead[id].Position.v[0],
-           S->Bead[id].Position.v[1],
-           S->Bead[id].Position.v[2]);
-  }
-}
-
+#include "../src/AnalysisTools.h"
 
 // Help() //{{{
 void Help(const char cmd[50], const bool error,
@@ -38,19 +24,21 @@ calculated.\n\n");
   fprintf(ptr, "<bead(s)>           bead name(s) for calculation "
           "(optional and ignored if '--all' is used)\n");
   fprintf(ptr, "[options]\n");
+  fprintf(ptr, "  -d <dist>         maximum distance for RDF calculation "
+          "(default: 1/3 of the shortest box side length)\n");
   fprintf(ptr, "  --all             use all bead types "
           "(overwrites <bead(s)>)\n");
-  // fprintf(ptr, "  -m <max>          maximum distance for calculation\n");
-  fprintf(ptr, "  -D2 <axis>        assume 2D system (e.g., slit) with "
-          "non-periodic condition in <axis> direction\n");
+  // fprintf(ptr, "  -D2 <axis>        assume 2D system (e.g., slit) with "
+  //         "non-periodic condition in <axis> direction\n");
   CommonHelp(error, n, opt);
 } //}}}
 
 // structure for options //{{{
 struct OPT {
   bool all; // --all
-  int axis[3];
+  vec3i axis;
   bool *bt;
+  double max_dist;
   COMMON_OPT c;
 };
 OPT * opt_create(void) {
@@ -60,144 +48,70 @@ OPT * opt_create(void) {
 // TODO: <bead(s)> mandatory to -bt opt (default - all)
 // TODO: move to some library file
 static inline void CorrectBTypeOrder(int *btype_i, int *btype_j) {
-  if (btype_i > btype_j) {
+  if (*btype_i > *btype_j) {
     SwapInt(btype_i, btype_j);
   }
 }
 
-// calculate distance between i and j beads //{{{
-void CalculatePCF(int id_i, int id_j, SYSTEM System,
+// functions to plug into traversal functions
+// calculate PCF, i.e., distance between i and j beads //{{{
+// the calculation itself
+static void CalculatePCF(int id_i, int id_j, SYSTEM System,
                   ArrNDi *pcf, int bins, double max_dist, double width) {
   int i = System.BeadCoor[id_i];
   int j = System.BeadCoor[id_j];
   BEAD *b_i = &System.Bead[i];
   BEAD *b_j = &System.Bead[j];
-  int btype_i = b_i->Type;
-  int btype_j = b_j->Type;
-  CorrectBTypeOrder(&btype_i, &btype_j);
   // calculate distance between the two beads
   vec3d d = Distance(b_i->Position.v, b_j->Position.v, System.Box.Length);
   double dist = VectLength(d);
   if (dist < max_dist) {
     int l = dist / width;
     if (l < bins) {
+      int btype_i = b_i->Type;
+      int btype_j = b_j->Type;
+      CorrectBTypeOrder(&btype_i, &btype_j);
       AddArr3D(pcf, btype_i, btype_j, l, 1);
     }
   }
-} //}}}
-
-// callback function to call for each pair of particles
-// i & j ... indices in System.BeadCoor array
-typedef void (*pair_cb_t)(int i, int j, const SYSTEM System, void *userdata);
-// callback function for checking if bead/mol should be used
-// btype ... bead type
-typedef bool (*check_cb_t)(int btype, void *userdata);
-// bead-pair traversing function (linked list) //{{{
-void TraverseLinkedListPairs(const SYSTEM System, const double cell_size,
-                             pair_cb_t pair_callback, void *ud_pair,
-                             check_cb_t check_callback, void *check_ud) {
-  int *Head, *Link;
-  vec3i n_cells = LinkedList(System, &Head, &Link, cell_size);
-
-  // neighbour offsets: home cell + 13 half-shell
-  const vec3i neighbour[14] = {
-    { .v = { 0, 0, 0} },
-    { .v = { 1, 0, 0} },
-    { .v = { 1, 1, 0} },
-    { .v = {-1, 1, 0} },
-    { .v = { 0, 1, 0} },
-    { .v = { 0, 0, 1} },
-    { .v = {-1, 0, 1} },
-    { .v = { 1, 0, 1} },
-    { .v = {-1,-1, 1} },
-    { .v = { 0,-1, 1} },
-    { .v = { 1,-1, 1} },
-    { .v = {-1, 1, 1} },
-    { .v = { 0, 1, 1} },
-    { .v = { 1, 1, 1} },
-  };
-  vec3i c1;
-  for (c1.z = 0; c1.z < n_cells.z; c1.z++) {
-    for (c1.y = 0; c1.y < n_cells.y; c1.y++) {
-      for (c1.x = 0; c1.x < n_cells.x; c1.x++) {
-        int cell1 = SelectCell1(c1, n_cells);
-        int i = Head[cell1];
-        while (i != -1) {
-          int id_i = System.BeadCoor[i];
-          if (!check_callback(System.Bead[id_i].Type, check_ud)) {
-            i = Link[i];
-            continue;
-          }
-          // loop over all 14 neighbour offsets (home + 13 neighbours)
-          for (int k = 0; k < 14; k++) {
-            int cell2 = SelectCell2(c1, n_cells, neighbour, k);
-
-            int j = Head[cell2];
-            while (j != -1) {
-              int id_j = System.BeadCoor[j];
-              if (!check_callback(System.Bead[id_j].Type, check_ud)) {
-                j = Link[j];
-                continue;
-              }
-              // avoid double-counting in home cell
-              if (cell1 != cell2 || i < j) {
-                pair_callback(i, j, System, ud_pair);
-              }
-              j = Link[j];
-            }
-          }
-          i = Link[i];
-        }
-      }
-    }
-  }
-  free(Head);
-  free(Link);
-} //}}}
-// bead-pair traversing function (brute O(N^2) nested loops) //{{{
-void TraverseBrutePairs(const SYSTEM System,
-                        pair_cb_t pair_callback, void *ud_pair,
-                        check_cb_t check_callback, void *check_ud) {
-  for (int i = 0; i < System.Count.BeadCoor; i++) {
-    int id_i = System.BeadCoor[i];
-    if (!check_callback(System.Bead[id_i].Type, check_ud)) {
-      continue;
-    }
-    for (int j = (i + 1); j < System.Count.BeadCoor; j++) {
-      int id_j = System.BeadCoor[j];
-      if (!check_callback(System.Bead[id_j].Type, check_ud)) {
-        continue;
-      }
-      pair_callback(i, j, System, ud_pair);
-    }
-  }
-} //}}}
-bool CheckBeadType(int btype, OPT *opt) { //{{{
-  if (!opt->bt[btype]) {
-    return false;
-  } else {
-    return true;
-  }
-} //}}}
-
+}
+// structure for the callback function
 struct pcf_args {
   ArrNDi *pcf;
   int bins;
   double max_dist;
   double width;
 };
-void CalculatePCF_adaptor(int id_i, int id_j, const SYSTEM System, void *ud) {
+// adaptor for the CalculatePCF() function
+static void CalculatePCF_adaptor(int id_i, int id_j,
+                                 const SYSTEM System, void *ud) {
   struct pcf_args *p = (struct pcf_args*)ud;
   CalculatePCF(id_i, id_j, System, p->pcf, p->bins, p->max_dist, p->width);
+} //}}}
+// condition for using specified beads //{{{
+// check based on supplied type (needed for writing to file)
+static bool CheckBeadType(int btype, OPT *opt) {
+  if (!opt->bt[btype]) {
+    return false;
+  } else {
+    return true;
+  }
 }
-
+// check based on supplied System.BeedCoor id
+static bool CheckBead(int id_i, SYSTEM System, OPT *opt) {
+  int i = System.BeadCoor[id_i];
+  return CheckBeadType(System.Bead[i].Type, opt);
+}
+// structure for the callback function
 struct check_args {
   OPT *opt;
 };
-bool CheckBeadType_adaptor(int type, void *ud) {
+// adaptor for the CalculatePCF() function
+static bool CheckBeadType_adaptor(int id_i, SYSTEM System, void *ud) {
   struct check_args *p = (struct check_args*)ud;
-  return CheckBeadType(type, p->opt);
+  return CheckBead(id_i, System, p->opt);
 }
+//}}}
 
 int main(int argc, char *argv[]) {
 
@@ -207,7 +121,7 @@ int main(int argc, char *argv[]) {
   char option[all][OPT_LENGTH];
   OptionCheck(argc, argv, req_arg, common, all, false, option,
               "-st", "-e", "-sk", "-i", "--verbose", "--silent",
-              "--help", "--version", "--all", "-D2");
+              "--help", "--version", "--all", "-d"/* , "-D2" */);
 
   count = 0; // count mandatory arguments
   OPT *opt = opt_create();
@@ -233,28 +147,30 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data //{{{
   opt->c = CommonOptions(argc, argv, in);
+  // use all bead types in the structure file?
   opt->all = BoolOption(argc, argv, "--all");
+  // 2D calculation?
   char str[LINE];
   if (FileOption(argc, argv, "-D2", str)) {
     if (str[0] == 'x') {
-      opt->axis[0] = 1;
-      opt->axis[1] = 2;
-      opt->axis[2] = 0;
+      opt->axis.v[0] = 1;
+      opt->axis.v[1] = 2;
+      opt->axis.v[2] = 0;
     } else if (str[0] == 'y') {
-      opt->axis[0] = 0;
-      opt->axis[1] = 2;
-      opt->axis[2] = 1;
+      opt->axis.v[0] = 0;
+      opt->axis.v[1] = 2;
+      opt->axis.v[2] = 1;
     } else if (str[0] == 'z') {
-      opt->axis[0] = 0;
-      opt->axis[1] = 1;
-      opt->axis[2] = 2;
+      opt->axis.v[0] = 0;
+      opt->axis.v[1] = 1;
+      opt->axis.v[2] = 2;
     } else {
       err_msg("requires argument 'x', 'y', or 'z'");
       PrintErrorOption("-D2");
       exit(1);
     }
   } else {
-    opt->axis[0] = -1;
+    opt->axis.v[0] = -1;
   }
   //}}}
 
@@ -321,30 +237,36 @@ int main(int argc, char *argv[]) {
   }
 
   int bins;
-  double max_dist;
-  // TODO: not using 2D-dependent min/max because I want the brute force to
-  //       finish at some time...
-  // if (opt->axis[0] == -1) {
-  //   bins = Max3(box[0], box[1], box[2]) / width;
-  //   max_dist = 0.5 * Min3(box[0], box[1], box[2]);
-  // } else {
-  //   bins = Max3(box[opt->axis[0]], box[opt->axis[0]], box[opt->axis[1]]);
-  //   bins /= width;
-  //   max_dist = Min3(box[opt->axis[0]], box[opt->axis[0]], box[opt->axis[1]]);
-  //   max_dist *= 0.5;
-  // }
+  // double max_dist;
+  // // TODO: not using 2D-dependent min/max because I want the brute force to
+  // //       finish at some time...
+  // // if (opt->axis[0] == -1) {
+  // //   bins = Max3(box[0], box[1], box[2]) / width;
+  // //   max_dist = 0.5 * Min3(box[0], box[1], box[2]);
+  // // } else {
+  // //   bins = Max3(box[opt->axis[0]], box[opt->axis[0]], box[opt->axis[1]]);
+  // //   bins /= width;
+  // //   max_dist = Min3(box[opt->axis[0]], box[opt->axis[0]], box[opt->axis[1]]);
+  // //   max_dist *= 0.5;
+  // // }
+  // // TODO: shitty stuff - should be -D2 opt dependant or some such
+  // // max_dist = 0.5 * Min3(box[0], box[1], box[2]);
+  // max_dist = Min3(box[0], box[1], box[2]) / 3;
+  // // if max_dist is too large, brute force O(N^2) will be used
   bins = Max3(box[0], box[1], box[2]) / width;
-  // TODO: shitty stuff - should be -D2 opt dependant or some such
-  // max_dist = 0.5 * Min3(box[0], box[1], box[2]);
-  max_dist = 0.5 * Max3(box[0], box[1], box[2]);
-  max_dist = 10;
-  double cell_size = max_dist;
+  // maximum distance for bead pair calculation
+  opt->max_dist = Min3(box[0], box[1], box[2]) / 3;
+  if (OneNumberOption(argc, argv, "-d", &opt->max_dist, 'd') &&
+      opt->max_dist <= 0) {
+    err_msg("distance must be a positive number");
+    ErrorOption("-d");
+  }
+  double cell_size = opt->max_dist;
 
   // pair correlation function
   ArrNDi *pcf = CreateArr3Di(Count->BeadType, Count->BeadType, bins);
 
   // main loop //{{{
-  struct check_args check = { opt }; // for CheckBeadType_adaptor
   FILE *fr = OpenFile(in.coor.name, "r");
   int count_coor = 0, // count timesteps from the beginning
       count_used = 0, // count steps used for calculation
@@ -357,14 +279,10 @@ int main(int argc, char *argv[]) {
         break;
       }
       count_used++;
-      struct pcf_args args = { pcf, bins, max_dist, width };
-      if (true) {
-        TraverseLinkedListPairs(System, cell_size, CalculatePCF_adaptor, &args,
-                                CheckBeadType_adaptor, &check);
-      } else {
-        TraverseBrutePairs(System, CalculatePCF_adaptor, &args,
-                           CheckBeadType_adaptor, &check);
-      }
+      struct pcf_args args = { pcf, bins, opt->max_dist, width };
+      struct check_args check = { opt };
+      TraversePairs(System, cell_size, CalculatePCF_adaptor, &args,
+                    CheckBeadType_adaptor, &check);
     } else {
       if (!SkipTimestep(in, fr, &line_count)) {
         count_coor--;
@@ -383,7 +301,7 @@ int main(int argc, char *argv[]) {
   out = OpenFile(fout_pcf, "a");
   // calculate pcf
   for (int j = 0; j < bins; j++) {
-    if ((width * (j+1)) > max_dist) {
+    if ((width * (j+1)) > opt->max_dist) {
       break;
     }
     // calculate volume of every shell that will be averaged, taking into
@@ -391,7 +309,7 @@ int main(int argc, char *argv[]) {
     double shell;
     // radius of outer and inner sphere
     double rad[2] = {width * (j + 1), width * j};
-    if (opt->axis[0] == -1) {
+    if (opt->axis.v[0] == -1) {
       // maximum radius of complete sphere
       double max_r = Min3(box[0], box[1], box[2]) / 2;
       // volume of outer and inner spheres
@@ -410,7 +328,12 @@ int main(int argc, char *argv[]) {
       shell = PI * (sphere[0] - 6 * top[0] - (sphere[1] - 6 * top[1]));
     } else {
       // maximum radius of complete circle
-      double max_r = Min3(box[opt->axis[0]], box[opt->axis[1]], HIGHNUM) / 2;
+      double max_r;
+      if (box[opt->axis.v[0]] < box[opt->axis.v[1]]) {
+        max_r = box[opt->axis.v[0]];
+      } else {
+        max_r = box[opt->axis.v[1]];
+      }
       // area of outer and inner circles
       double circle[2] = {PI * Square(rad[0]), PI * Square(rad[1])};
       // area of outer and inner circle's cut-off tops (0 for full circle)
@@ -433,12 +356,17 @@ int main(int argc, char *argv[]) {
     for (int k = 0; k < Count->BeadType; k++) {
       for (int l = k; l < Count->BeadType; l++) {
         BEADTYPE *bt_k = &System.BeadType[k];
-        BEADTYPE *bt_l = &System.BeadType[k];
-        if (CheckBeadType(k, opt) && CheckBeadType(l, opt)) {
-          int pairs = bt_k->Number * (bt_l->Number - 1) / 2;
+        BEADTYPE *bt_l = &System.BeadType[l];
+        if (CheckBead(k, System, opt) && CheckBead(l, System, opt)) {
+          int pairs;
+          if (k != l) {
+            pairs = bt_k->Number * bt_l->Number;
+          } else {
+            pairs = bt_k->Number * (bt_l->Number - 1) / 2;
+          }
           double norm_factor = System.Box.Volume / (shell * pairs * count_used);
-          if (opt->axis[0] != -1) {
-            norm_factor /= System.Box.Length[opt->axis[2]];
+          if (opt->axis.v[0] != -1) {
+            norm_factor /= System.Box.Length[opt->axis.v[2]];
           }
           fprintf(out, " %10f", GetArr3D(pcf, k, l, j) * norm_factor);
         }

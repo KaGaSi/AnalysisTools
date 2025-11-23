@@ -1,6 +1,4 @@
 #include "pcg32.h"
-#include <stdint.h>
-#include <time.h>
 
 // Syrex... TODO: explain
 

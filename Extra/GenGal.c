@@ -1,4 +1,4 @@
-#include "../AnalysisTools.h"
+#include "../src/AnalysisTools.h"
 
 int length = 10000; // polysaccharide length
 double alpha = 0.4; // dissociation degree

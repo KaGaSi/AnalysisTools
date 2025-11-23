@@ -1,4 +1,4 @@
-#include "../AnalysisTools.h"
+#include "../src/AnalysisTools.h"
 
 // TODO: remove <output> in favour of -tau/-b/-m <output> <int> options
 

@@ -1,4 +1,4 @@
-#include "../AnalysisTools.h"
+#include "../src/AnalysisTools.h"
 
 // Help() //{{{
 void Help(const char cmd[50], const bool error,
@@ -52,7 +52,7 @@ static char *name_mol = "CA2";
 // calculate distance between two points, accounting for pbc //{{{
 inline static double DistLength(const double v1[3], const double v2[3],
                                 const double box[3]) {
-  vec3 dist = Distance(v1, v2, box);
+  vec3d dist = Distance(v1, v2, box);
   return VectLength(dist);
 } //}}}
 // get two molecule/bead types ordered so the first one < second one //{{{
@@ -327,7 +327,7 @@ int main(int argc, char *argv[]) {
             BEAD *b_k = &System.Bead[mol->Bead[k]];
             double d = DistLength(b_i->Position.v, b_k->Position.v,
                                   boxlength);
-            if (d > dist_check) {
+            if (!b_k->InTimestep || d > dist_check) {
               continue;
             }
             for (int l = (i + 1); l < count_mt_beads; l++) {

@@ -1,4 +1,4 @@
-#include "../AnalysisTools.h"
+#include "../src/AnalysisTools.h"
 #include <gsl/gsl_sf_legendre.h>  // GSL for spherical harmonics
 #include <gsl/gsl_sf_coupling.h>  // GSL for Wigner 3-j symbols
 

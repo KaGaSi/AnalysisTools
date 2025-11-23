@@ -1,4 +1,4 @@
-#include "../AnalysisTools.h"
+#include "../src/AnalysisTools.h"
 
 // Help() //{{{
 void Help(const char cmd[50], const bool error,
@@ -275,10 +275,7 @@ int main(int argc, char *argv[]) {
     count = 0;
     type = !start;
     int count_beads = 0;
-    vec3 coor;
-    coor.v[0] = 0;
-    coor.v[1] = 0;
-    coor.v[2] = 0;
+    vec3d coor = { .v = {0, 0, 0} };
     int sig = 1;
     char file[LINE];
     snprintf(file, LINE, "%s-%d.xyz", coor_file, xxx);

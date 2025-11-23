@@ -1,4 +1,5 @@
 #include "AnalysisTools.h"
+#include "Arrays.h"
 #include "MathUtils.h"
 
 // TODO: consider BeadType[].Index, System.Bonded, etc. arrays - shouldn't they
@@ -584,131 +585,6 @@ int FileType(const char *name) { //{{{
     exit(1);
   }
 } //}}}
-// create a cell-linked list //{{{
-vec3i LinkedList(const SYSTEM System, int **Head, int **Link,
-                 const double cell_size) {
-  const double (*box)[3] = &System.Box.Length;
-  const COUNT *Count = &System.Count;
-  double rl[3];
-  vec3i n_cells;
-  // compute number of cells along each axis
-  for (int dd = 0; dd < 3; dd++) {
-    rl[dd] = (*box)[dd] / cell_size;
-    n_cells.v[dd] = (int)(rl[dd]);
-    if (n_cells.v[dd] < 3) {
-      err_msg("cell size too small for cut-off in linked list");
-      PrintError();
-      exit(1);
-    }
-    rl[dd] = (double)n_cells.v[dd] / (*box)[dd]; // inverse length
-  }
-  // allocate lists
-  int cells = n_cells.x * n_cells.y * n_cells.z;
-  *Head = malloc(sizeof **Head * cells);
-  *Link = malloc(sizeof **Link * Count->BeadCoor);
-  for (int i = 0; i < (n_cells.x * n_cells.y * n_cells.z); i++) {
-    (*Head)[i] = -1;
-  }
-  // insert beads
-  for (int i = 0; i < Count->BeadCoor; i++) {
-    int id = System.BeadCoor[i];
-    BEAD *bead = &System.Bead[id];
-    int c[3];
-    for (int dd = 0; dd < 3; dd++) {
-      c[dd] = (int)(bead->Position.v[dd] * rl[dd]);
-      if (c[dd] == n_cells.v[dd]) { // guard FP boundary
-        c[dd] = n_cells.v[dd] - 1;
-      }
-    }
-    int cell = c[0] + c[1] * n_cells.x + c[2] * n_cells.x * n_cells.y;
-    (*Link)[i] = (*Head)[cell];
-    (*Head)[cell] = i;
-  }
-  return n_cells;
-}
-int SelectCell1(const vec3i c1, const vec3i n_cells) {
-  return c1.x + c1.y * n_cells.x + c1.z * n_cells.x * n_cells.y;
-}
-int SelectCell2(const vec3i c1, const vec3i n_cells,
-                const vec3i neighbour[13], int n) {
-  vec3i c2 = {
-    .x = (c1.x + neighbour[n].x + n_cells.x) % n_cells.x,
-    .y = (c1.y + neighbour[n].y + n_cells.y) % n_cells.y,
-    .z = (c1.z + neighbour[n].z + n_cells.z) % n_cells.z
-  };
-  return SelectCell1(c2, n_cells);
-}
-void LinkedList_old(const SYSTEM System, int **Head, int **Link, const double cell_size, int n_cells[3], int Dc[27][3]) { //{{{
-  const double (*box)[3] = &System.Box.Length;
-  const COUNT *Count = &System.Count;
-  double rl[3];
-  for (int dd = 0; dd < 3; dd++) {
-    rl[dd] = (*box)[dd] / cell_size;
-    n_cells[dd] = (int)(rl[dd]);
-  }
-  if (n_cells[0] < 3 || n_cells[1] < 3 || n_cells[2] < 3) {
-    err_msg("cell size too small for cut-off in linked list");
-    PrintError();
-    exit(1);
-  }
-  for (int dd = 0; dd < 3; dd++) {
-    rl[dd] = (double)n_cells[dd] / (*box)[dd];
-  }
-  // allocate arrays
-  *Head = malloc(sizeof **Head * n_cells[0] * n_cells[1] * n_cells[2]);
-  *Link = malloc(sizeof **Link * Count->BeadCoor);
-  for (int i = 0; i < (n_cells[0] * n_cells[1] * n_cells[2]); i++) {
-    (*Head)[i] = -1;
-  }
-  // sort beads into cells
-  for (int i = 0; i < Count->BeadCoor; i++) {
-    int id = System.BeadCoor[i];
-    BEAD *bead = &System.Bead[id];
-    int c[3];
-    for (int dd = 0; dd < 3; dd++) {
-      c[dd] = (int)(bead->Position.v[dd] * rl[dd]);
-      if (c[dd] == n_cells[dd]) {
-        c[dd] = n_cells[dd] - 1;
-      }
-    }
-    long cell = c[0] + c[1] * n_cells[0] + c[2] * n_cells[0] * n_cells[1];
-    (*Link)[i] = (*Head)[cell];
-    (*Head)[cell] = i;
-  }
-  // coordinates of all 27 cells (adjoining + the middle)
-  int idx = 0;
-  for (int dz = -1; dz <= 1; dz++) {
-    for (int dy = -1; dy <= 1; dy++) {
-      for (int dx = -1; dx <= 1; dx++) {
-        Dc[idx][0] = dx;
-        Dc[idx][1] = dy;
-        Dc[idx][2] = dz;
-        idx++;
-      }
-    }
-  }
-}
-int SelectCell1_old(const int c1[3], const int n_cells[3]) {
-  return c1[0] + c1[1] * n_cells[0] + c1[2] * n_cells[0] * n_cells[1];
-}
-int SelectCell2_old(const int c1[3], const int n_cells[3],
-                const int Dc[27][3], int n) {
-  int c2[3];
-  for (int dd = 0; dd < 3; dd++) {
-    c2[dd] = c1[dd] + Dc[n][dd];
-  }
-  // periodic boundary conditions for cells
-  for (int dd = 0; dd < 3; dd++) {
-    if (c2[dd] >= n_cells[dd])
-      c2[dd] -= n_cells[dd];
-    else if (c2[dd] < 0)
-      c2[dd] += n_cells[dd];
-  }
-
-  return c2[0] + c2[1] * n_cells[0] + c2[2] * n_cells[0] * n_cells[1];
-} //}}}
-//}}}
-// TODO: use Jacobi method
 // calculate gyration tensor and various shape descriptors //{{{
 void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]) {
   // gyration tensor (3x3 array)
@@ -836,7 +712,7 @@ static int NewAgg(AGGREGATE *Aggregate, SYSTEM *System,
   return agg_j;
 }
 void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
-                      const int contacts, uint8_t **contact) {
+                      const int contacts, ArrNDi *contact) {
   COUNT *Count = &System->Count;
   // go over all pairs of molecules
   for (int i = 1; i < Count->Molecule; i++) {
@@ -845,7 +721,7 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
         int agg_i = System->Molecule[i].Aggregate,
             agg_j = System->Molecule[j].Aggregate;
         // if molecules 'i' and 'j' are in contact, put them into one aggregate
-        if (contact[i][j] >= contacts) { //{{{
+        if (GetArr2D(contact, i, j) >= contacts) { //{{{
           // create new aggregate if molecule 'j' isn'it in any
           if (agg_j == -1) {
             agg_j = NewAgg(Aggregate, System, i, j);

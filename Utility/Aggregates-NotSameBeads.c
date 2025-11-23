@@ -1,4 +1,4 @@
-#include "../AnalysisTools.h"
+#include "../src/AnalysisTools.h"
 
 // Help() //{{{
 void Help(const char cmd[50], const bool error,
@@ -48,6 +48,60 @@ OPT * opt_create(void) {
   return malloc(sizeof(OPT));
 } //}}}
 
+// detect possible contact between two beads //{{{
+void CalculateContacts(const int id_i, const int id_j, SYSTEM System,
+                       const double dist, ArrNDi *contact) {
+  int i = System.BeadCoor[id_i];
+  int j = System.BeadCoor[id_j];
+  if (System.Bead[i].Type == System.Bead[j].Type) {
+    return;
+  }
+  int mol_i = System.Bead[i].Molecule;
+  int mol_j = System.Bead[j].Molecule;
+  vec3d *pos_i = &System.Bead[i].Position;
+  vec3d *pos_j = &System.Bead[j].Position;
+  vec3d rij = Distance(pos_i->v, pos_j->v, System.Box.Length);
+  rij.v[0] = VectLength(rij);
+  // are 'i' and 'j' close enough?
+  if (System.Bead[i].Molecule != System.Bead[j].Molecule &&
+      rij.v[0] <= dist) {
+    if (mol_i > mol_j) {
+      AddArr2D(contact, mol_i, mol_j, 1);
+    } else {
+      AddArr2D(contact, mol_j, mol_i, 1);
+    }
+  }
+}
+// structure for the callback function
+struct contacts_args {
+  double dist;
+  ArrNDi *contact;
+};
+// adaptor for the CalculateContacts() function
+static void CalculateContacts_adaptor(int id_i, int id_j,
+                                      const SYSTEM System, void *ud) {
+  struct contacts_args *p = (struct contacts_args*)ud;
+  CalculateContacts(id_i, id_j, System, p->dist, p->contact);
+} //}}}
+// condition for using specified beads //{{{
+static bool CheckBead(int id, SYSTEM System) {
+  int i = System.BeadCoor[id];
+  int btype = System.Bead[i].Type;
+  if (!System.BeadType[btype].Flag ||
+      System.Bead[i].Molecule == -1) {
+    return false;
+  } else {
+    return true;
+  }
+}
+// structure for the callback function (empty as only System is needed here)
+struct check_args {
+};
+// adaptor for the CalculatePCF() function
+static bool CheckBead_adaptor(int type, SYSTEM System, void *ud) {
+  return CheckBead(type, System);
+} //}}}
+
 // CalculateAggregates() //{{{
 // note the function doesn't fill in Aggregate[].Bead[] as it's not used here
 void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
@@ -60,82 +114,23 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
     Aggregate[i].nBeads = 0;
   }
 
-  // allocate 2D triangular contact array
-  uint8_t **contact = malloc(sizeof *contact * Count->Molecule);
-  for (int i = 0; i < Count->Molecule; i++) {
-    contact[i] = calloc(i + 1, sizeof *contact[i]);
-  }
+  // array for number of contacts between molecules
+  ArrNDi *contact = CreateArr2Di(Count->Molecule, Count->Molecule);
 
   // assign in no aggregate to each molecule
   for (int i = 0; i < Count->Molecule; i++) {
     System->Molecule[i].Aggregate = -1;
   }
-
-  // count contacts between all molecule pairs (using cell linked list) //{{{
-  // create cell-linked list
+  // calculate contact pairs
   double cell_size = sqrt(sqdist);
-  int n_cells[3], *Head, *Link, Dc[27][3];
-  LinkedList_old(*System, &Head, &Link, cell_size, n_cells, Dc);
-  // go over all cells (and beads inside)
-  int c1[3];
-  for (c1[2] = 0; c1[2] < n_cells[2]; c1[2]++) {
-    for (c1[1] = 0; c1[1] < n_cells[1]; c1[1]++) {
-      for (c1[0] = 0; c1[0] < n_cells[0]; c1[0]++) {
-        int cell1 = SelectCell1_old(c1, n_cells);
-        // select first bead in the cell 'cell1'
-        int i = Head[cell1];
-        while (i != -1) {
-          for (int k = 0; k < 27; k++) {
-            int cell2 = SelectCell2_old(c1, n_cells, Dc, k);
-            // select bead in the cell 'cell2' //{{{
-            int j;
-            if (cell1 == cell2) { // next bead in 'cell1'
-              j = Link[i];
-            } else { // first bead in 'cell2'
-              j = Head[cell2];
-            } //}}}
-
-            while (j != -1) {
-              BEAD *b_i = &System->Bead[System->BeadCoor[i]],
-                   *b_j = &System->Bead[System->BeadCoor[j]];
-              int mol_i = b_i->Molecule,
-                  mol_j = b_j->Molecule;
-              if (mol_i != -1 && mol_j != -1) { // i and j must be in molecule
-                if (System->BeadType[b_i->Type].Flag &&
-                    System->BeadType[b_j->Type].Flag &&
-                    b_i->Type != b_j->Type) { // the NotSameBeads bit
-                  // calculate distance between i and j beads
-                  vec3d rij = Distance(b_i->Position.v, b_j->Position.v,
-                                      System->Box.Length);
-                  rij.v[0] = SqVectLength(rij);
-                  // are 'i' and 'j' close enough?
-                  if (mol_i != mol_j && rij.v[0] <= sqdist) {
-                    if (mol_i > mol_j) {
-                      contact[mol_i][mol_j]++;
-                    } else {
-                      contact[mol_j][mol_i]++;
-                    }
-                  }
-                }
-              }
-              j = Link[j];
-            }
-          }
-          i = Link[i];
-        }
-      }
-    }
-  }
-  free(Head);
-  free(Link); //}}}
+  struct contacts_args args = { sqrt(sqdist), contact};
+  struct check_args check = { };
+  TraversePairs(*System, cell_size, CalculateContacts_adaptor, &args,
+                CheckBead_adaptor, &check);
 
   EvaluateContacts(Aggregate, System, opt.contacts, contact);
 
-  // free contact array //{{{
-  for (int i = 0; i < System->Count.Molecule; i++) {
-    free(contact[i]);
-  }
-  free(contact); //}}}
+  FreeArrND(contact);
 
   // sort molecules in aggregates according to ascending ids //{{{
   for (int i = 0; i < System->Count.Aggregate; i++) {

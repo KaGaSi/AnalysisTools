@@ -1,4 +1,4 @@
-#include "../AnalysisTools.h"
+#include "../src/AnalysisTools.h"
 // TODO: create arrays mapping Bead[id] to BeadCoor[i]=id (and for other xCoor?)
 // TODO: implement -x, -m, and -only options
 // TODO: something with monomeric beads? //{{{

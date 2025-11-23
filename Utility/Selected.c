@@ -1,6 +1,4 @@
-#include "../AnalysisTools.h"
-#include <string.h>
-#include <unistd.h>
+#include "../src/AnalysisTools.h"
 
 static void ReduceSystem(const SYSTEM System, SYSTEM *Sys, const bool write[],
                          int **b_full_to_red, const OPT opt,

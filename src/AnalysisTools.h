@@ -6,6 +6,7 @@
 #include "pcg32.h"
 #include "Arrays.h"
 #include "Structs.h"
+#include "Pairs.h"
 #include "Globals.h"
 #include "MathUtils.h"
 #include "System.h"
@@ -46,11 +47,6 @@ int StructureFileType(const char *name);
 int CoordinateFileType(const char *name);
 int FileType(const char *name);
 // create a cell-linked list
-vec3i LinkedList(const SYSTEM System, int **Head, int **Link,
-                 const double cell_size);
-int SelectCell1(const vec3i c1, const vec3i n_cells);
-int SelectCell2(const vec3i c1, const vec3i n_cells,
-                const vec3i neighbour[13], int n);
 void LinkedList_old(const SYSTEM System, int **Head, int **Link,
                 const double cell_size, int n_cells[3], int Dc[27][3]);
 int SelectCell1_old(const int c1[3], const int n_cells[3]);
@@ -60,7 +56,7 @@ int SelectCell2_old(const int c1[3], const int n_cells[3],
 void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]);
 // TODO: redo
 void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
-                      const int contacts, uint8_t **contact);
+                      const int contacts, ArrNDi *contact);
 void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
                          SYSTEM *System);
 bool UseStep(const COMMON_OPT opt, int step);

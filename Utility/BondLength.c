@@ -1,4 +1,4 @@
-#include "../AnalysisTools.h"
+#include "../src/AnalysisTools.h"
 // TODO: -d option - segfault
 // TODO: -t + --all option - not all bonds in the the -t file
 //       requires adding step_bond_all array (or some such)

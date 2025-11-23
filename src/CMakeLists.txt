@@ -9,11 +9,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Build type
-# set(CMAKE_BUILD_TYPE "Debug")
-set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_BUILD_TYPE "Debug")
+# set(CMAKE_BUILD_TYPE "Release")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-# Compiler flags
+# compiler flags
 set(CMAKE_C_FLAGS "-std=c11 -Wall")
 set(CMAKE_C_FLAGS_DEBUG "-ggdb -g")
 set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG")
@@ -62,6 +62,7 @@ add_library(AnalysisTools
   Globals.c
   MathUtils.h
   Options.c
+  Pairs.c
   pcg32.c
   ReadWrite.c
   ReadWriteVtf.c
@@ -104,7 +105,7 @@ target_include_directories(AnalysisTools PRIVATE ${GSL_INCLUDE_DIRS})
 
 # Create utility executables
 foreach(utility ${UTILS})
-  add_executable(${utility} Utility/${utility}.c)
+  add_executable(${utility} ../Utility/${utility}.c)
   target_link_libraries(${utility} PRIVATE ${GSL_LIBRARIES} m ${BLAS_LIB} AnalysisTools)
   target_include_directories(${utility} PRIVATE ${GSL_INCLUDE_DIRS})
 endforeach()
@@ -112,7 +113,7 @@ endforeach()
 # Fortran utilities
 set(F_UTILS traject-v2_7)
 foreach(utility ${F_UTILS})
-  add_executable(${utility} Utility/${utility}.f90)
+  add_executable(${utility} ../Utility/${utility}.f90)
 endforeach()
 
 # Ensure Fortran compiler is set

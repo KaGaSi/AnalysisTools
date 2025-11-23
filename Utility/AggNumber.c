@@ -1,4 +1,4 @@
-#include "../AnalysisTools.h"
+#include "../src/AnalysisTools.h"
 
 // helper functions //{{{
 // print header for an avg output file (-a option)

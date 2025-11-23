@@ -11,8 +11,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ../build/bin)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Build type
-set(CMAKE_BUILD_TYPE "Debug")
-# set(CMAKE_BUILD_TYPE "Release")
+# set(CMAKE_BUILD_TYPE "Debug")
+set(CMAKE_BUILD_TYPE "Release")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 # compiler flags
@@ -58,25 +58,26 @@ endif()
 
 # Define library
 add_library(AnalysisTools
-  ../AnalysisTools.c
-  ../Aggregates.c
-  ../Arrays.c
-  ../Globals.c
-  ../MathUtils.h
-  ../Options.c
-  ../pcg32.c
-  ../ReadWrite.c
-  ../ReadWriteVtf.c
-  ../ReadWriteXyz.c
-  ../ReadWriteLtrj.c
-  ../ReadWriteLdata.c
-  ../ReadWriteField.c
-  ../ReadWriteConfig.c
-  ../ReadWriteGromacs.c
-  ../System.c
-  ../Errors.c
-  ../General.c
-  ../Structs.c)
+  ../src/AnalysisTools.c
+  ../src/Aggregates.c
+  ../src/Arrays.c
+  ../src/Globals.c
+  ../src/MathUtils.h
+  ../src/Options.c
+  ../src/Pairs.c
+  ../src/pcg32.c
+  ../src/ReadWrite.c
+  ../src/ReadWriteVtf.c
+  ../src/ReadWriteXyz.c
+  ../src/ReadWriteLtrj.c
+  ../src/ReadWriteLdata.c
+  ../src/ReadWriteField.c
+  ../src/ReadWriteConfig.c
+  ../src/ReadWriteGromacs.c
+  ../src/System.c
+  ../src/Errors.c
+  ../src/General.c
+  ../src/Structs.c)
 
 # List of utilities
 set(UTILS

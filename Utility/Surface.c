@@ -1,7 +1,4 @@
-#include "../AnalysisTools.h"
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
+#include "../src/AnalysisTools.h"
 
 // TODO: inconsistencies in -wd/-w: should both be allowed separately? If so,
 //       all needs checking as sometimes -wd is necessary for -w

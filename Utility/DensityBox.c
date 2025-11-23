@@ -1,4 +1,4 @@
-#include "../AnalysisTools.h"
+#include "../src/AnalysisTools.h"
 
 // TODO: possible changing box size: make bins' width variable, keeping their
 //       number, and work in relative coordinates (relative to instantaneous

@@ -1,4 +1,4 @@
-#include "../AnalysisTools.h"
+#include "../src/AnalysisTools.h"
 #include <stdbool.h>
 
 char *name = "CA2";
