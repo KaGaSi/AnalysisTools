@@ -1,46 +1,50 @@
 #include "../src/AnalysisTools.h"
 
-// Help() //{{{
-void Help(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-    fprintf(ptr, "\
-Aggregates utility determines which molecules belong to which aggregate on \
-the basis of given parameters - the maximum distance at which a pair of beads \
-from different molecules is considered in contact and the minimum number of \
-such contacts between two molecules to consider them as belonging to the same \
-aggregate. Only distances between specified bead types are considered. \
-Information about aggregates in each timestep is written to '.agg' file (see \
-documentation for the format of this file), and Cartesian coordinates of \
-joined aggregates can be written to an output coordinate file (to be used \
-for visualization or further analysis by other utilities). The utility can \
-also differentiate between aggregates near a wall and those in bulk \
-(-w option); when the axis perpendicular to the wall(s) and the coordinate(s) \
-of the wall(s) along that axis are provided, any aggregate containing \
-a <bead(s)> that is at most the contact distance from the wall is considered \
-near the wall. Aggregates near the wall(s)/in bulk are saved into two files \
-whose names are based on <out.agg> ('_w' and '_b' is prepended to the .agg \
-extension).\n\n");
-  }
+// Help message //{{{
+const struct HelpHelp HelpDesc = {
+  "Aggregates utility determines which molecules belong to which aggregate on"
+  "the basis of given parameters - the maximum distance at which a pair of"
+  "beads from different molecules is considered in contact and the minimum "
+  "number of such contacts between two molecules to consider them as belonging "
+  "to the same aggregate. Only distances between specified bead types are "
+  "considered. Information about aggregates in each timestep is written to "
+  "'.agg' file (see documentation for the format of this file), and Cartesian "
+  "coordinates of joined aggregates can be written to an output coordinate "
+  "file (to be used for visualization or further analysis by other utilities). "
+  "The utility can also differentiate between aggregates near a wall and those "
+  "in bulk (-w option); when the axis perpendicular to the wall(s) and the"
+  "coordinate(s) of the wall(s) along that axis are provided, any aggregate "
+  "containing a <bead(s)> that is at most the contact distance from the wall "
+  "is considered near the wall. Aggregates near the wall(s)/in bulk are saved "
+  "into two files whose names are based on <out.agg> ('_w' and '_b' is "
+  "prepended to the .agg extension)",
 
-  fprintf(ptr, "Usage: %s <coor> <out.agg> <bead(s)>/--all [options]\n\n", cmd);
-  fprintf(ptr, "<coor>              input coordinate file\n");
-  fprintf(ptr, "<out.agg>           output aggregate file\n");
-  fprintf(ptr, "<bead(s)>/--all     bead names for closeness calculation\n");
-  fprintf(ptr, "[options]\n");
-  fprintf(ptr, "  --all             use all types (overwrites <bead(s)>)\n");
-  fprintf(ptr, "  -d                maximum distance for contact "
-          "(default: 1)\n");
-  fprintf(ptr, "  -c                minimum number of contacts (default: 1, "
-          "max: 255)\n");
-  fprintf(ptr, "  -j <output>       output file with joined coordinates\n");
-  fprintf(ptr, "  -w <a> <float(s)> position of wall perpendicular to "
-          "given axis <a> at the axis' coordinate(s)\n");
-  CommonHelp(error, n, opt);
+  "Usage: Aggregates <coor> <out.agg> <bead(s)>/--all [options]\n\n",
+  .args = 2,
+};
+static const struct OptSpec opts[] = {
+  COMMON_OPTS[C_I],
+  COMMON_OPTS[C_ST],
+  COMMON_OPTS[C_E],
+  COMMON_OPTS[C_SK],
+  COMMON_OPTS[C_VERBOSE],
+  COMMON_OPTS[C_HELP],
+  COMMON_OPTS[C_SILENT],
+  COMMON_OPTS[C_VERSION],
+  {"<coor>", NULL, "input coordinate file", OPT_ARG},
+  {"<out.agg>", NULL, "output aggregate file", OPT_ARG},
+  {"<bead(s)>/--all", NULL, "bead names for closeness calculation", OPT_EXTRA},
+  {"--all", NULL, "use all types (overwrites <bead(s)>)", OPT_EXTRA},
+  {"-d", "<float>", "maximum distance for contact (default: 1)", OPT_EXTRA},
+  {"-c", "<float>", "minimum number of contacts (default: 1, max: 255)", OPT_EXTRA},
+  {"-j", "<output>", "output file with joined coordinates", OPT_EXTRA},
+  {"-w", "<a> <float(s)>", "position of wall perpendicular to given axis <a> at the axis' coordinate(s)", OPT_EXTRA},
+  {NULL}
+}; //}}}
+
+// Help() //{{{
+void Help_old(const char cmd[50], const bool error,
+          const int n, const char opt[n][OPT_LENGTH]) {
 } //}}}
 
 // structure for options //{{{
@@ -53,11 +57,7 @@ struct OPT {
   char w_file[2][LINE]; // -w
   FILE_TYPE j_file[2];  // -w (if -j)
   bool all;             // --all
-  COMMON_OPT c;
-};
-OPT * opt_create(void) {
-  return malloc(sizeof(OPT));
-} //}}}
+}; //}}}
 
 // detect possible contact between two beads //{{{
 void CalculateContacts(const int id_i, const int id_j, SYSTEM System,
@@ -150,22 +150,16 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
 
 int main(int argc, char *argv[]) {
 
-  // define options & check their validity
-  int common = 8, all = common + 5, req_arg = 2, count = 0;
-  char option[all][OPT_LENGTH];
-  OptionCheck(argc, argv, req_arg, common, all, false, option,
-               "-st", "-e", "-sk", "-i", "--verbose", "--silent",
-               "--help", "--version", "--all", "-d", "-c", "-j", "-w");
-
-  count = 0; // count mandatory arguments
-  OPT *opt = opt_create();
+  // commad line arguments before reading the structure //{{{
+  OptionCheck(argc, argv, false, HelpDesc, opts);
+  OPT opt;
+  int count = 0;
   // <input> - input coordinate file //{{{
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.coor.name, argv[++count], LINE);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
-
   // <output.agg> - filename of output agg file (must end with .agg) //{{{
   char agg_file[LINE] = "";
   s_strcpy(agg_file, argv[++count], LINE);
@@ -174,41 +168,40 @@ int main(int argc, char *argv[]) {
   char extension[1][EXTENSION];
   s_strcpy(extension[0], ".agg", EXTENSION);
   if (ErrorExtension(agg_file, ext, extension) == -1) {
-    Help(StripPath(argv[0]), true, common, option);
+    Help(true, HelpDesc, opts);
     exit(1);
   } //}}}
-
   // options before reading system data //{{{
-  opt->c = CommonOptions(argc, argv, in);
+  COMMON_OPT commons = CommonOptions(argc, argv, in);
   // -j option - save coordinates of joined aggregates
-  opt->fout = InitFile;
-  if (FileOption(argc, argv, "-j", opt->fout.name)) {
-    opt->fout.type = CoordinateFileType(opt->fout.name);
-    opt->j_file[0].type = opt->fout.type;
-    opt->j_file[1].type = opt->fout.type;
+  opt.fout = InitFile;
+  if (FileOption(argc, argv, "-j", opt.fout.name)) {
+    opt.fout.type = CoordinateFileType(opt.fout.name);
+    opt.j_file[0].type = opt.fout.type;
+    opt.j_file[1].type = opt.fout.type;
   }
   // parameters for aggregate check (-d and -c options)
-  opt->cutoff = 1;
-  OneNumberOption(argc, argv, "-d", &opt->cutoff, 'd');
-  opt->contacts = 1;
-  OneNumberOption(argc, argv, "-c", &opt->contacts, 'i');
-  if (opt->contacts > 255 || opt->contacts <= 0) {
+  opt.cutoff = 1;
+  OneNumberOption(argc, argv, "-d", &opt.cutoff, 'd');
+  opt.contacts = 1;
+  OneNumberOption(argc, argv, "-c", &opt.contacts, 'i');
+  if (opt.contacts > 255 || opt.contacts <= 0) {
     err_msg("requires whole number between 0 and 255");
     PrintErrorOption("-c");
     exit(1);
   }
   // wall options //{{{
   // -w option - wall axis and wall coordinates
-  opt->w_count = 0;
+  opt.w_count = 0;
   char str[LINE];
-  if (FileNumbersOption(argc, argv, 1, 100, "-w", opt->wall,
-                        &opt->w_count, str, 'd')) {
+  if (FileNumbersOption(argc, argv, 1, 100, "-w", opt.wall,
+                        &opt.w_count, str, 'd')) {
     if (str[0] == 'x') {
-      opt->axis = 0;
+      opt.axis = 0;
     } else if (str[0] == 'y') {
-      opt->axis = 1;
+      opt.axis = 1;
     } else if (str[0] == 'z') {
-      opt->axis = 2;
+      opt.axis = 2;
     } else {
       err_msg("<a> requires argument 'x', 'y', or 'z'");
       PrintErrorOption("-w");
@@ -218,27 +211,28 @@ int main(int argc, char *argv[]) {
     s_strcpy(str, agg_file, LINE);
     str[strlen(str)-4] = '\0';
     // append proper endings to the new string
-    if (snprintf(opt->w_file[0], LINE, "%s_w.agg", str) < 0) {
+    if (snprintf(opt.w_file[0], LINE, "%s_w.agg", str) < 0) {
       ErrorSnprintf();
     }
-    if (snprintf(opt->w_file[1], LINE, "%s_b.agg", str) < 0) {
+    if (snprintf(opt.w_file[1], LINE, "%s_b.agg", str) < 0) {
       ErrorSnprintf();
     }
-    if (opt->fout.name[0] != '\0') {
-      char *last_dot = strrchr(opt->fout.name, '.');
-      size_t len_before_dot = last_dot - opt->fout.name;
-      s_strcpy(str, opt->fout.name, len_before_dot + 1);
-      if (snprintf(opt->j_file[0].name, LINE, "%s_w%s", str, last_dot) < 0) {
+    if (opt.fout.name[0] != '\0') {
+      char *last_dot = strrchr(opt.fout.name, '.');
+      size_t len_before_dot = last_dot - opt.fout.name;
+      s_strcpy(str, opt.fout.name, len_before_dot + 1);
+      if (snprintf(opt.j_file[0].name, LINE, "%s_w%s", str, last_dot) < 0) {
         ErrorSnprintf();
       }
-      if (snprintf(opt->j_file[1].name, LINE, "%s_b%s", str, last_dot) < 0) {
+      if (snprintf(opt.j_file[1].name, LINE, "%s_b%s", str, last_dot) < 0) {
         ErrorSnprintf();
       }
     }
   } //}}}
-  opt->all = BoolOption(argc, argv, "--all"); //}}}
+  opt.all = BoolOption(argc, argv, "--all"); //}}}
+  //}}}
 
-  if (!opt->c.silent) {
+  if (!commons.silent) {
     PrintCommand(stdout, argc, argv);
   }
 
@@ -251,7 +245,7 @@ int main(int argc, char *argv[]) {
   }
 
   // <bead(s)> - names of bead types to use for closeness calculation //{{{
-  if (opt->all) {
+  if (opt.all) {
     for (int i = 0; i < Count->BeadType; i++) {
       System.BeadType[i].Flag = true;
     }
@@ -277,33 +271,33 @@ int main(int argc, char *argv[]) {
       System.BeadType[type].Flag = true;
     }
     count--; // while always increments count at least once
-    if (count < (req_arg + 1)) {
+    if (count < (HelpDesc.args + 1)) {
       err_msg("missing <bead(s)> or --all option");
       PrintError();
       PrintCommand(stderr, argc, argv);
-      Help(StripPath(argv[0]), true, common, option);
+      Help(true, HelpDesc, opts);
       exit(1);
     }
   } //}}}
 
   // print command to output .agg (and, possibly, coordinate) file
   PrintByline(agg_file, argc, argv);
-  if (opt->fout.name[0] != '\0') {
-    InitOutputCoorFile(opt->fout, System, argc, argv);
-    if (opt->w_count > 0) {
-      InitOutputCoorFile(opt->j_file[0], System, argc, argv);
-      InitOutputCoorFile(opt->j_file[1], System, argc, argv);
+  if (opt.fout.name[0] != '\0') {
+    InitOutputCoorFile(opt.fout, System, argc, argv);
+    if (opt.w_count > 0) {
+      InitOutputCoorFile(opt.j_file[0], System, argc, argv);
+      InitOutputCoorFile(opt.j_file[1], System, argc, argv);
     }
   }
-  if (opt->w_count > 0) {
-    PrintByline(opt->w_file[0], argc, argv);
-    PrintByline(opt->w_file[1], argc, argv);
+  if (opt.w_count > 0) {
+    PrintByline(opt.w_file[0], argc, argv);
+    PrintByline(opt.w_file[1], argc, argv);
   }
 
   AGGREGATE *Aggregate = NULL;
   InitAggregate(System, &Aggregate);
 
-  if (opt->c.verbose) {
+  if (commons.verbose) {
     VerboseOutput(System);
   }
 
@@ -313,10 +307,10 @@ int main(int argc, char *argv[]) {
       count_used = 0,
       line_count = 0;
   while (true) {
-    PrintStep(&count_coor, opt->c.start, opt->c.silent);
+    PrintStep(&count_coor, commons.start, commons.silent);
     // decide whether this timestep is to be saved
     bool use = false;
-    if (UseStep(opt->c, count_coor)) {
+    if (UseStep(commons, count_coor)) {
       use = true;
     }
     if (use) { //{{{
@@ -326,15 +320,15 @@ int main(int argc, char *argv[]) {
       }
       count_used++;
       WrapJoinCoordinates(&System, true, false);
-      CalculateAggregates(Aggregate, &System, *opt);
+      CalculateAggregates(Aggregate, &System, opt);
       // calculate & write joined coordinatest (-j option)
-      if (opt->fout.name[0] != '\0') {
+      if (opt.fout.name[0] != '\0') {
         FillAggregateBeads(Aggregate, System);
         WrapJoinCoordinates(&System, false, true);
-        RemovePBCAggregates(opt->cutoff, Aggregate, &System);
+        RemovePBCAggregates(opt.cutoff, Aggregate, &System);
         bool *write = calloc(Count->Bead, sizeof *write);
         InitBoolArray(write, Count->Bead, true);
-        WriteTimestep(opt->fout, System, count_coor, write, argc, argv);
+        WriteTimestep(opt.fout, System, count_coor, write, argc, argv);
         free(write);
       }
 
@@ -344,7 +338,7 @@ int main(int argc, char *argv[]) {
       WriteAggregates(count_coor, agg_file, System, Aggregate);
 
       // are there walls (-w option)? //{{{
-      if (opt->w_count > 0) {
+      if (opt.w_count > 0) {
         // find aggregates touching a wall
         for (int i = 0; i < Count->Aggregate; i++) {
           Aggregate[i].Flag = false;
@@ -354,9 +348,9 @@ int main(int argc, char *argv[]) {
             for (int k = 0; k < System.MoleculeType[mol->Type].nBeads; k++) {
               BEAD *b = &System.Bead[mol->Bead[k]];
               if (System.BeadType[b->Type].Flag) {
-                for (int l = 0; l < opt->w_count; l++) {
-                  double dist = b->Position.v[opt->axis] - opt->wall[l];
-                  if (fabs(dist) < opt->cutoff) {
+                for (int l = 0; l < opt.w_count; l++) {
+                  double dist = b->Position.v[opt.axis] - opt.wall[l];
+                  if (fabs(dist) < opt.cutoff) {
                     Aggregate[i].Flag = true; // aggregate i is touching a wall
                     goto next;
                   }
@@ -368,16 +362,16 @@ int main(int argc, char *argv[]) {
           ;
         }
         // write the aggregates to *_w.agg file
-        WriteAggregates(count_coor, opt->w_file[0], System, Aggregate);
+        WriteAggregates(count_coor, opt.w_file[0], System, Aggregate);
         // reverse the Aggregate[].Flag to select aggregates in bulk
         for (int i = 0; i < Count->Aggregate; i++) {
           Aggregate[i].Flag = !Aggregate[i].Flag;
         }
         // write the aggregates to *_b.agg file
-        WriteAggregates(count_coor, opt->w_file[1], System, Aggregate);
+        WriteAggregates(count_coor, opt.w_file[1], System, Aggregate);
 
         // write joined coordinates to _b/_w files (-j option)?
-        if (opt->fout.name[0] != '\0') {
+        if (opt.fout.name[0] != '\0') {
           bool *write = calloc(Count->Bead, sizeof *write);
           // assume all beads are saved (to save unbonded beads)
           InitBoolArray(write, Count->Bead, true);
@@ -399,7 +393,7 @@ int main(int argc, char *argv[]) {
             }
           }
           // write joined coordinates for wall-touching aggregates to _w file
-          WriteTimestep(opt->j_file[0], System, count_coor, write, argc, argv);
+          WriteTimestep(opt.j_file[0], System, count_coor, write, argc, argv);
 
           // flip write flag for all bonded beads
           for (int i = 0; i < Count->Bonded; i++) {
@@ -407,7 +401,7 @@ int main(int argc, char *argv[]) {
             write[id] = !write[id];
           }
           // write joined coordinates for bulk aggregates to _b file
-          WriteTimestep(opt->j_file[1], System, count_coor, write, argc, argv);
+          WriteTimestep(opt.j_file[1], System, count_coor, write, argc, argv);
           free(write);
         }
       } //}}}
@@ -421,21 +415,21 @@ int main(int argc, char *argv[]) {
       }
     } //}}}
     // exit the main loop if reached user-specied end timestep
-    if (count_coor == opt->c.end) {
+    if (count_coor == commons.end) {
       break;
     }
   }
   fclose(fr);
-  PrintLastStep(count_coor, count_used, opt->c.silent); //}}}
+  PrintLastStep(count_coor, count_used, commons.silent); //}}}
 
   // print last step number to <output.agg>
   // open output .agg file for appending
   FILE *fw_agg = OpenFile(agg_file, "a");
   fprintf(fw_agg, "Last Step: %d\n", count_coor);
   fclose(fw_agg);
-  if (opt->w_count > 0) {
+  if (opt.w_count > 0) {
     for (int i = 0; i < 2; i++) {
-      fw_agg = OpenFile(opt->w_file[i], "a");
+      fw_agg = OpenFile(opt.w_file[i], "a");
       fprintf(fw_agg, "Last Step: %d\n", count_coor);
       fclose(fw_agg);
     }
@@ -443,7 +437,6 @@ int main(int argc, char *argv[]) {
 
   FreeAggregate(*Count, Aggregate);
   FreeSystem(&System);
-  free(opt);
 
   return 0;
 }
