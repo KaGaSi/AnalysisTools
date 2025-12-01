@@ -1,64 +1,60 @@
 #include "../src/AnalysisTools.h"
 #include <sys/stat.h>   // stat
 
+// Help message //{{{
+const struct HelpHelp HelpDesc = {
+  "GenFIELD generates a FIELD file from the supplied database of molecules and "
+  "input text file specifying the system.",
+
+  "Usage: GenFIELD <input> <output> [options]",
+  .args = 2,
+};
+static const struct OptSpec opts[] = {
+  COMMON_OPTS[C_VERBOSE],
+  COMMON_OPTS[C_HELP],
+  COMMON_OPTS[C_SILENT],
+  COMMON_OPTS[C_VERSION],
+  {"<input>", NULL, "input text file", OPT_ARG},
+  {"<output>", NULL, "output structure file", OPT_ARG},
+  {NULL}
+}; //}}}
+
 bool file_exists (char *filename) {
   struct stat   buffer;
   return (stat (filename, &buffer) == 0);
 }
 
-void Help(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) { //{{{
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-    fprintf(ptr, "\
-GenFIELD generates a FIELD file from the supplied database of molecules and \
-input text file specifying the system.\
-\n\n");
-  }
-
-  fprintf(ptr, "Usage: %s <input> <output> [options]\n\n", cmd);
-  fprintf(ptr, "<input>             input text file\n");
-  fprintf(ptr, "<output>            output structure file\n");
-  fprintf(ptr, "[options]\n");
-  CommonHelp(error, n, opt);
+// Help() //{{{
+void Help_old(const char cmd[50], const bool error,
+          const int n, const char opt[n][OPT_LENGTH]) {
 } //}}}
 
 // structure for options //{{{
 struct OPT {
-  COMMON_OPT c;
-};
-OPT * opt_create(void) {
-  return malloc(sizeof(OPT));
-} //}}}
+}; //}}}
 
 int main(int argc, char *argv[]) {
 
-  // define options & check their validity
-  int common = 4, all = common, count = 0, req_arg = 2;
-  char option[all][OPT_LENGTH];
-  OptionCheck(argc, argv, req_arg, common, all, true, option,
-               "--verbose", "--silent", "--help", "--version");
-
-  count = 0; // count arguments
-  OPT *opt = opt_create();
-
+  // commad line arguments before reading the structure //{{{
+  OptionCheck(argc, argv, true, HelpDesc, opts);
+  int count = 0;
+  // <input> - input text file
   char in[LINE];
   s_strcpy(in, argv[++count], LINE);
-
+  // <output> - output structure file
   FILE_TYPE out;
   s_strcpy(out.name, argv[++count], LINE);
   out.type = StructureFileType(out.name);
 
+  SYS_FILES trash = InitSysFiles; // unused
+  COMMON_OPT commons = CommonOptions(argc, argv, trash); //}}}
+
   char db_dir[LINE];
   s_strcpy(db_dir, "./", LINE);
 
-  PrintCommand(stdout, argc, argv);
-
-  SYS_FILES trash = InitSysFiles;
-  opt->c = CommonOptions(argc, argv, trash);
+  if (!commons.silent) {
+    PrintCommand(stdout, argc, argv);
+  }
 
   SYSTEM System;
   InitSystem(&System);
@@ -216,7 +212,7 @@ int main(int argc, char *argv[]) {
   }
   fclose(f); //}}}
 
-  if (opt->c.verbose) { //{{{
+  if (commons.verbose) { //{{{
     VerboseOutput(System);
     fprintf(stdout, "Potentials:\n");
     for (int i = 0; i < Count->BeadType; i++) {
@@ -257,7 +253,6 @@ int main(int argc, char *argv[]) {
   }
   free(pot);
   FreeSystem(&System);
-  free(opt);
 
   return 0;
 
