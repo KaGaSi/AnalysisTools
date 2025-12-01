@@ -1,79 +1,70 @@
 #include "../src/AnalysisTools.h"
-
 // TODO: possible changing box size: make bins' width variable, keeping their
 //       number, and work in relative coordinates (relative to instantaneous
 //       dimensions) throughout the code
 
+// Help message //{{{
+const struct HelpHelp HelpDesc = {
+  "DensityBox utility calculates number density for all bead types in the "
+  "direction of all axes (x, y, and z). The utility works properly only for "
+  "orthogonal boxes that do not change size.",
+
+  "Usage: DensityBox <input> <width> <output> [options]",
+  .args = 3,
+};
+static const struct OptSpec opts[] = {
+  COMMON_OPTS[C_I],
+  COMMON_OPTS[C_ST],
+  COMMON_OPTS[C_E],
+  COMMON_OPTS[C_SK],
+  COMMON_OPTS[C_VERBOSE],
+  COMMON_OPTS[C_HELP],
+  COMMON_OPTS[C_SILENT],
+  COMMON_OPTS[C_VERSION],
+  {"<input>", NULL, "input coordinate file", OPT_ARG},
+  {"<width>", NULL, "width of a single bin", OPT_ARG},
+  {"<output>", NULL, "3 output files (automatic ending -<axis>.rho)", OPT_ARG},
+  {"-x", "<name(s)>", "exclude specified molecule(s)", OPT_EXTRA},
+  {NULL}
+}; //}}}
+
 // Help() //{{{
-void Help(const char cmd[50], const bool error,
+void Help_old(const char cmd[50], const bool error,
           const int n, const char opt[n][OPT_LENGTH]) {
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-    fprintf(ptr, "\
-DensityBox utility calculates number \
-density for all bead types in the direction of all axes (x, y, and z). \
-The utility works properly only for orthogonal boxes that do not change size.\
-\n\n");
-  }
-
-  fprintf(ptr, "Usage: %s <input> <width> <output> [options]\n\n", cmd);
-
-  fprintf(ptr, "<input>             input coordinate file\n");
-  fprintf(ptr, "<width>             width of a single bin\n");
-  fprintf(ptr, "<output>            output density files (automatic ending "
-          "-x.rho, -y.rho, and -z.rho)\n");
-  fprintf(ptr, "[options]\n");
-  fprintf(ptr, "  -x <name(s)>      exclude specified molecule(s)\n");
-  CommonHelp(error, n, opt);
 } //}}}
 
 // structure for options //{{{
 struct OPT {
-  COMMON_OPT c;
-};
-OPT * opt_create(void) {
-  return malloc(sizeof(OPT));
-} //}}}
+  bool *x; // -x option
+}; //}}}
 
 int main(int argc, char *argv[]) {
 
-  // define options & check their validity
-  int common = 8, all = common + 1, count = 0,
-      req_arg = 3;
-  char option[all][OPT_LENGTH];
-  OptionCheck(argc, argv, req_arg, common, all, true, option,
-               "-st", "-e", "-sk", "-i", "--verbose",
-               "--silent", "--help", "--version", "-x");
-
-  count = 0; // count mandatory arguments
-  OPT *opt = opt_create();
+  // commad line arguments before reading the structure //{{{
+  OptionCheck(argc, argv, true, HelpDesc, opts);
+  OPT opt;
+  int count = 0;
   // <input> - input coordinate (and structure) file //{{{
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.coor.name, argv[++count], LINE);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
-
   // <width> - width of a single bin //{{{
   double width;
   if (!IsPosRealNumber(argv[++count], &width)) {
     ErrorNaN("<width>");
-    Help(StripPath(argv[0]), true, common, option);
+    Help(true, HelpDesc, opts);
     exit(1);
   } //}}}
-
   // <outputt> - filename
   char fout_rho[LINE] = "";
   s_strcpy(fout_rho, argv[++count], LINE);
   fout_rho[LINE-7] = '\0'; // for adding -<axis>.rho
-
   // options before reading system data
-  opt->c = CommonOptions(argc, argv, in);
+  COMMON_OPT commons = CommonOptions(argc, argv, in); //}}}
 
-  if (!opt->c.silent) {
+  if (!commons.silent) {
     PrintCommand(stdout, argc, argv);
   }
 
@@ -81,11 +72,10 @@ int main(int argc, char *argv[]) {
   COUNT *Count = &System.Count;
   BOX *box = &System.Box;
 
-  // TODO: why ExcludeOption()? Just use TypeOption()!
-  // '-x' option //{{{
-  if (ExcludeOption(argc, argv, &System)) {
-    exit(1);
-  } //}}}
+  // -x option
+  opt.x = calloc(Count->MoleculeType, sizeof *opt.x);
+  InitBoolArray(opt.x, Count->MoleculeType, true);
+  TypeOption(argc, argv, "-x", 'm', false, opt.x, System);
 
   // number of bins //{{{
   if (box->Volume == -1) {
@@ -99,21 +89,12 @@ int main(int argc, char *argv[]) {
   for (int dd = 0; dd < 3; dd++) {
     bin[dd] = ceil(box->Length[dd] / width) * 3;
   } //}}}
+  int bin_max = Max3(bin[0], bin[1], bin[2]);
 
-  // allocate memory for arrays //{{{
-  // just check if the bead type is at all present in the calculation
   bool *n_beads = calloc(Count->BeadType, sizeof *n_beads);
-  long int **rho[3];
-  for (int dd = 0; dd < 3; dd++) {
-    rho[dd] = malloc(Count->BeadType * sizeof **rho);
-  }
-  for (int j = 0; j < Count->BeadType; j++) {
-    for (int dd = 0; dd < 3; dd++) {
-      rho[dd][j] = calloc(bin[dd], sizeof *rho[dd][j]);
-    }
-  } //}}}
+  ArrNDli *rho = CreateArr3Dli(3, Count->BeadType, bin_max);
 
-  if (opt->c.verbose) {
+  if (commons.verbose) {
     VerboseOutput(System);
   }
 
@@ -123,10 +104,10 @@ int main(int argc, char *argv[]) {
       count_used = 0, // count steps in output file
       line_count = 0; // count lines in the vcf file
   while (true) {
-    PrintStep(&count_coor, opt->c.start, opt->c.silent);
+    PrintStep(&count_coor, commons.start, commons.silent);
     // use every skip-th timestep between start and end
     bool use = false;
-    if (UseStep(opt->c, count_coor)) {
+    if (UseStep(commons, count_coor)) {
       use = true;
     }
     if (use) {
@@ -136,14 +117,8 @@ int main(int argc, char *argv[]) {
       }
       count_used++;
       WrapJoinCoordinates(&System, true, false);
-      // allocate memory for temporary density arrays
-      int **temp_rho[3];
-      for (int dd = 0; dd < 3; dd++) {
-        temp_rho[dd] = malloc(Count->BeadType * sizeof *temp_rho[dd]);
-        for (int i = 0; i < Count->BeadType; i++) {
-          temp_rho[dd][i] = calloc(bin[dd], sizeof *temp_rho[dd][i]);
-        }
-      }
+
+      ArrNDi *rho_temp = CreateArr3Di(3, Count->BeadType, bin_max);
 
       // calculate densities //{{{
       for (int i = 0; i < Count->BeadCoor; i++) {
@@ -153,13 +128,13 @@ int main(int argc, char *argv[]) {
         int mol = bead->Molecule;
         if (mol != -1) { // do not use excluded molecules (-x option)
           int mtype = System.Molecule[mol].Type;
-          use = System.MoleculeType[mtype].Flag;
+          use = opt.x[mtype];
         }
         if (use) {
           n_beads[bead->Type] = true;
           for (int dd = 0; dd < 3; dd++) {
             int j = bead->Position.v[dd] / width;
-            temp_rho[dd][bead->Type][j]++;
+            AddArr3D(rho_temp, dd, bead->Type, j, 1);
           }
         }
       } //}}}
@@ -167,51 +142,48 @@ int main(int argc, char *argv[]) {
       for (int j = 0; j < Count->BeadType; j++) {
         for (int dd = 0; dd < 3; dd++) {
           for (int k = 0; k < bin[dd]-1; k++) {
-            rho[dd][j][k] += temp_rho[dd][j][k];
+            AddArr3D(rho, dd, j, k, GetArr3D(rho_temp, dd, j, k));
           }
         }
       }
-      // free temporary density array
-      for (int dd = 0; dd < 3; dd++) {
-        for (int j = 0; j < Count->BeadType; j++) {
-          free(temp_rho[dd][j]);
-        }
-        free(temp_rho[dd]);
-      }
+
+      FreeArrND(rho_temp);
     } else {
       if (!SkipTimestep(in, fr, &line_count)) {
         count_coor--;
         break;
       }
     }
-    if (count_coor == opt->c.end) {
+    if (count_coor == commons.end) {
       break;
     }
   }
   fclose(fr);
-  PrintLastStep(count_coor, count_used, opt->c.silent); //}}}
+  PrintLastStep(count_coor, count_used, commons.silent); //}}}
 
   // write densities to output file(s) //{{{
   for (int ax = 0; ax < 3; ax++) {
     // axis-based variables
-    double volume = width, size = -1;
-    int n = 0; // number of bins
+    double volume = width;
+    // TODO: redo when box-changing is reasonably dealt with
+    int bins = 0, // number of bins
+        size = -1;
     char axis;
     if (ax == 0) {
       axis = 'x';
       size = box->Length[0];
       volume *= box->Length[1] * box->Length[2];
-      n = bin[0];
+      bins = bin[0];
     } else if (ax == 1) {
       axis = 'y';
       size = box->Length[1];
       volume *= box->Length[0] * box->Length[2];
-      n = bin[1];
+      bins = bin[1];
     } else {
       axis = 'z';
       size = box->Length[2];
       volume *= box->Length[0] * box->Length[1];
-      n = bin[2];
+      bins = bin[2];
     }
     char file[LINE]; // filename <output>-<axis>.rho
     if (snprintf(file, LINE, "%s-%c.rho", fout_rho, axis) < 0) {
@@ -229,34 +201,44 @@ int main(int argc, char *argv[]) {
       }
     }
     putc('\n', fw);
-    // write density
-    for (int i = 0; i < (n - 1); i++) {
-      double dist = width * (2 * i + 1) / 2;
+    // collate data
+    int ncols = count;
+    int nrows;
+    // TODO: redo when box-changing is reasonably dealt with
+    for (nrows = 0; nrows < bins; nrows++) {
+      double dist = width * (2 * nrows + 1) / 2;
       if (dist > size) { // write only til the max box size
         break;
       }
-      fprintf(fw, "%7.3f", dist); // absolute distance
+    }
+    printf("%d %d\n", ncols, nrows);
+    ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
+    if (!data) {
+      err_msg("ArrNDd constructor failed (data)");
+      PrintError();
+      exit(1);
+    }
+    for (int i = 0; i < nrows; i++) {
+      double dist = width * (2 * i + 1) / 2;
+      count = 0;
+      SetArr2D(data, i, count++, dist);
       for (int j = 0; j < Count->BeadType; j++) {
-        if (n_beads[j]){
-          double temp_rho = rho[ax][j][i] / (volume * count_used);
-          fprintf(fw, " %10f", temp_rho);
+        if (n_beads[j]) {
+          double rho_temp = GetArr3D(rho, ax, j, i) / (volume * count_used);
+          SetArr2D(data, i, count++, rho_temp);
         }
       }
-      putc('\n',fw);
     }
+    ComputeColumnWidths(nrows, ncols, data, 6);
+    PrintDataAll(fw, nrows, ncols, data);
+    FreeArrND(data);
     fclose(fw);
   } //}}}
 
-  // free memory - to make valgrind happy //{{{
   FreeSystem(&System);
-  for (int dd = 0; dd < 3; dd++) {
-    for (int j = 0; j < Count->BeadType; j++) {
-      free(rho[dd][j]);
-    }
-    free(rho[dd]);
-  }
+  FreeArrND(rho);
   free(n_beads);
-  free(opt); //}}}
+  free(opt.x);
 
   return 0;
 }
