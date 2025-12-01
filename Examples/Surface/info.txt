@@ -1,2 +1,0 @@
-# for width distribution from all timesteps
-Surface2 bilayer.vtf 0.3 /dev/null z --in --bonded -w thickness.txt 0.1
