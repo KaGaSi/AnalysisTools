@@ -803,13 +803,14 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
   } //}}}
 } //}}}
 // RemovePBCAggregates() //{{{
+ // TODO: don't use Flag
 void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
                          SYSTEM *System) {
   COUNT *Count = &System->Count;
-
   int **mol_eligible_beads = malloc(Count->MoleculeType * sizeof(int *));
   int *count_eligible_beads = malloc(Count->MoleculeType *
                                      sizeof *count_eligible_beads);
+  RemovePBCMolecules(System);
   bool eligible = false;
   for (int i = 0; i < Count->MoleculeType; i++) {
     MOLECULETYPE *mt = &System->MoleculeType[i];

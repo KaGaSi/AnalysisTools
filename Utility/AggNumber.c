@@ -7,7 +7,7 @@ const struct HelpHelp HelpDesc = {
   "used range of sizes) is flexible. Besides distribution of sizes, it can also"
   "calculate composition distribution for specified aggregate size(s), i.e.,"
   "distribution of numbers of various molecules"
-  "in aggregates of given size(s)."
+  "in aggregates of given size(s).",
 
   "Usage: AggNumber <in.stru> <in.agg> [options]",
   .args = 2,
@@ -128,18 +128,16 @@ int main(int argc, char *argv[]) {
   }
 
   // arrays for distribution (-d option) //{{{
-  // number distribution
+  // number distribution - useful whatever is calculated
   long double *ndistr = calloc(Count->Molecule, sizeof *ndistr);
-  ArrNDd *wdistr = NULL;
-  ArrNDd *zdistr = NULL;
+  ArrNDd *wdistr = NULL; // only for -d option
+  ArrNDd *zdistr = NULL; //
   // molecule types in aggs: [agg size][mol type]
-  ArrNDi *molecules_sum = NULL;
-  // number of aggregates throughout simulation
+  ArrNDi *molecules_sum = NULL; // only for -d option
+  // number of aggregates throughout simulation - always useful
   int *count_agg = calloc(Count->Molecule, sizeof *count_agg);
   if (!count_agg || !ndistr) {
-    err_msg("calloc failed (ndistr/count_agg)");
-    PrintError();
-    exit(1);
+    ErrorAlloc("ndstr/count_agg");
   }
   if (opt.f_distr[0] != '\0') {
     /*
@@ -150,9 +148,7 @@ int main(int argc, char *argv[]) {
     if (!(wdistr = CreateArr2Dd(Count->Molecule, 2)) ||
         !(zdistr = CreateArr2Dd(Count->Molecule, 2)) ||
         !(molecules_sum = CreateArr2Di(Count->Molecule, Count->MoleculeType))) {
-      err_msg("Arr2D constructor failed (wdistr/zdistr/molecules_sum)");
-      PrintError();
-      exit(1);
+      ErrorAlloc("wdistr/zdistr/molecules_sum");
     }
   }
   //}}}
@@ -166,9 +162,7 @@ int main(int argc, char *argv[]) {
     // array for 1D composition distribution
     if (!(comp_distr = CreateArr3Dli(opt.comp.count, Count->MoleculeType,
                                      Count->Molecule + 1))) {
-      err_msg("ArrNDli constructor failed (comp_distr)");
-      PrintError();
-      exit(1);
+      ErrorAlloc("comp_distr");
     }
 
     // array for 2D composition distribution
@@ -180,17 +174,13 @@ int main(int argc, char *argv[]) {
     shape_ratio_distr[3] = Count->Molecule + 1;
     shape_ratio_distr[4] = Count->Molecule + 1;
     if (!(ratio_distr = CreateArrNDli(5, shape_ratio_distr))) {
-      err_msg("ArrNDli constructor failed (ratio_distr)");
-      PrintError();
-      exit(1);
+      ErrorAlloc("ratio_distr");
     }
 
     link_c_sizes = malloc(Count->Molecule * sizeof *link_c_sizes);
     comp_agg_count = calloc(opt.comp.count, sizeof *comp_agg_count);
     if (!link_c_sizes || !comp_agg_count) {
-      err_msg("malloc failed (link_c_sizes/comp_agg_count)");
-      PrintError();
-      exit(1);
+      ErrorAlloc("link_c_sizes/comp_agg_count");
     }
     InitIntArray(link_c_sizes, Count->Molecule, -1);
     for (int i = 0; i < opt.comp.count; i++) {
@@ -413,9 +403,7 @@ int main(int argc, char *argv[]) {
     int nrows = Count->Molecule;
     ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
     if (!data) {
-      err_msg("ArrNDd constructor failed (data)");
-      PrintError();
-      exit(1);
+      ErrorAlloc("data");
     }
     for (int i = 0; i < nrows; i++) {
       if (count_agg[i] > 0) {
@@ -478,9 +466,7 @@ int main(int argc, char *argv[]) {
         int nrows = opt.comp.size[i] + 1;
         ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
         if (!data) {
-          err_msg("ArrNDd constructor failed (data)");
-          PrintError();
-          exit(1);
+          ErrorAlloc("data");
         }
         for (int j = 0; j < nrows; j++) {
           count = 0;
@@ -513,9 +499,7 @@ int main(int argc, char *argv[]) {
         // collate data //{{{
         ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
         if (!data) {
-          err_msg("ArrNDd constructor failed (data)");
-          PrintError();
-          exit(1);
+          ErrorAlloc("data");
         }
         int count_lines = 0;
         for (int j = 0; j <= Count->Molecule; j++) {
@@ -722,9 +706,7 @@ static void AppendOverallAvg(char *f, SYSTEM System, double As_sum[3][2],
   int *mol_sum_per_size = calloc(System.Count.MoleculeType,
                                  sizeof *mol_sum_per_size);
   if (!mol_sum_per_size) {
-    err_msg("calloc failed (mol_sum_per_size)");
-    PrintError();
-    exit(1);
+    ErrorAlloc("mol_sum_per_size");
   }
   int sum_aggs = 0;
   for (int i = 0; i < System.Count.Molecule; i++) {

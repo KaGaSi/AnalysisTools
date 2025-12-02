@@ -259,7 +259,7 @@ void* s_realloc(void *ptr, size_t new_size) { //{{{
   return temp;
 } //}}}
 // stuff to count digits and print correctly column width //{{{
-static void CountDigits(const double num, int digits[2]) {
+void CountDigits(const double num, int digits[2]) {
   int max_precision = 6;
   double frac_part, int_part;
   // Handle negative numbers

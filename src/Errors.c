@@ -1,4 +1,5 @@
 #include "Errors.h"
+#include "General.h"
 
 static void PrintLine(FILE *f, const char *colour1, const char *colour2);
 
@@ -140,6 +141,14 @@ void ErrorEOF(const char *file, char *msg) {
 // snprintf - just to shut up compiler warnings; should never trigger //{{{
 void ErrorSnprintf() {
   err_msg("something went wrong with snprintf()");
+  PrintError();
+  exit(1);
+} //}}}
+void ErrorAlloc(char *name) { //{{{
+  if (snprintf(ERROR_MSG, LINE, "Error allocating %s%s%s",
+               ErrYellow(), name, ErrRed())) {
+    ErrorSnprintf();
+  }
   PrintError();
   exit(1);
 } //}}}

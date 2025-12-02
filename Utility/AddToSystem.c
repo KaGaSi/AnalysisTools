@@ -68,8 +68,6 @@ void Help_old(const char cmd[50], const bool error,
           const int n, const char opt[n][OPT_LENGTH]) {
 } //}}}
 
-// TODO: check --real - works for both -off & -cx/y/z?
-
 // structure for options //{{{
 struct OPT {
   bool ld, hd;             // -ld/-hd
@@ -85,17 +83,16 @@ struct OPT {
   BOX box;                 // -b (then constrained 'box' via -cx/-cy/-cz)
   int seed;                // -s
   FILE_TYPE fout;          // -o
-};
-OPT * opt_create(void) {
-  return malloc(sizeof(OPT));
-} //}}}
+}; //}}}
 
 // generate random point in a cube (0,length)^3 //{{{
-void RandomCoordinate(BOX box, double random[3]) {
+vec3d RandomCoordinate(BOX box) {
+  vec3d random;
   for (int dd = 0; dd < 3; dd++) {
     double number = (double)(rand()) / ((double)(RAND_MAX) + 1);
-    random[dd] = number * box.Length[dd] + box.Low[dd];
+    random.v[dd] = number * box.Length[dd] + box.Low[dd];
   }
+  return random;
 } //}}}
 
 // generate random point constrained by distance from other beads //{{{
@@ -104,25 +101,25 @@ void RandomCoordinate(BOX box, double random[3]) {
  *   1...all bonded beads
  *   2...specified bead types,
  */
-void GetMinDist(BEAD bead, double random[3], double box[3], double *min_dist) {
-  vec3d dist = Distance(bead.Position.v, random, box);
+void GetMinDist(BEAD bead, vec3d random, double box[3], double *min_dist) {
+  vec3d dist = Distance(bead.Position.v, random.v, box);
   dist.v[0] = VectLength(dist);
   if (dist.v[0] < *min_dist) {
     *min_dist = dist.v[0];
   }
 }
-void RandomConstrainedCoor(SYSTEM S_orig, int mode, double box[3],
-                           OPT opt, double random[3]) {
+vec3d RandomConstrainedCoor(SYSTEM S_orig, int mode, double box[3], OPT opt) {
+  vec3d random;
   if (mode == 0) { // no distance check
     for (int dd = 0; dd < 3; dd++) {
-      RandomCoordinate(opt.box, random);
+      random = RandomCoordinate(opt.box);
     }
-    return;
+    return random;
   }
   COUNT *C_orig = &S_orig.Count;
   double min_dist = 0;
   do {
-    RandomCoordinate(opt.box, random);
+    random = RandomCoordinate(opt.box);
     min_dist = 1e6;  // simply a high number
     if (mode == 1) { // use all bonded beads
       for (int i = 0; i < C_orig->BondedCoor; i++) {
@@ -155,6 +152,7 @@ void RandomConstrainedCoor(SYSTEM S_orig, int mode, double box[3],
     }
   } while ((opt.ld && opt.ldist >= min_dist) ||
            (opt.hd && opt.hdist <= min_dist));
+  return random;
 } //}}}
 
 // rotate randomly given collection of beads (e.g., a molecule) //{{{
@@ -289,6 +287,7 @@ int main(int argc, char *argv[]) {
         s_strcpy(str, "-cz", 4);
         break;
     }
+    // TODO: should be able to be negative, right? Consider, e.g., ltrj BOX...
     if (TwoNumbersOption(argc, argv, str, opt.axis[dd], 'd')) {
       if (opt.axis[dd][0] < 0 || opt.axis[dd][1] < 0) {
         err_msg("two non-negative numbers required");
@@ -379,7 +378,9 @@ int main(int argc, char *argv[]) {
   // find bead type to switch (the most numerous one; solvent, probably) //{{{
   opt.sw_type = NULL;
   if (!opt.add) {
-    opt.sw_type = calloc(C_orig->BeadType, sizeof *opt.sw_type);
+    if (!(opt.sw_type = calloc(C_orig->BeadType, sizeof *opt.sw_type))) {
+      ErrorAlloc("opt.sw_type");
+    }
     // if -xb option not present, take the most numerous bead type
     if (!TypeOption(argc, argv, "-xb", 'b', true, opt.sw_type, S_orig)) {
       count = 0;
@@ -398,7 +399,10 @@ int main(int argc, char *argv[]) {
   opt.bt_use_orig = NULL;
   opt.bonded = false;
   if (!opt.new) {
-    opt.bt_use_orig = calloc(C_orig->BeadType, sizeof *opt.bt_use_orig);
+    if (!(opt.bt_use_orig = calloc(C_orig->BeadType,
+                                   sizeof *opt.bt_use_orig))) {
+      ErrorAlloc("opt.bt_use_orig");
+    }
     opt.bonded = BoolOption(argc, argv, "--bonded");
     TypeOption(argc, argv, "-bt", 'b', true, opt.bt_use_orig, S_orig);
   } //}}}
@@ -652,11 +656,10 @@ int main(int argc, char *argv[]) {
 
   // add monomeric beads //{{{
   for (int i = 0; i < C_add->Unbonded; i++) {
-    double random[3];
-    RandomConstrainedCoor(S_orig, mode, S_out.Box.Length, opt, random);
+    vec3d random = RandomConstrainedCoor(S_orig, mode, S_out.Box.Length, opt);
     int id = C_orig->Bead + i;
     for (int dd = 0; dd < 3; dd++) {
-      S_out.Bead[id].Position.v[dd] = random[dd];
+      S_out.Bead[id].Position.v[dd] = random.v[dd];
     }
     // print number of placed beads?
     if (!commons.silent && isatty(STDOUT_FILENO)) {
@@ -677,7 +680,9 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < C_add->Molecule; i++) {
     int mtype = S_out.Molecule[C_orig->Molecule+i].Type;
     double (*rot)[3];
-    rot = calloc(S_out.MoleculeType[mtype].nBeads, sizeof *rot);
+    if (!(rot = calloc(S_out.MoleculeType[mtype].nBeads, sizeof *rot))) {
+      ErrorAlloc("rot");
+    }
     if (opt.no_rot) {
       for (int j = 0; j < S_out.MoleculeType[mtype].nBeads; j++) {
         int id_add = S_add.Molecule[i].Bead[j];
@@ -689,12 +694,11 @@ int main(int argc, char *argv[]) {
       Rotate(S_add, S_out.MoleculeType[mtype].nBeads,
              S_add.Molecule[i].Bead, opt.angle->v, rot);
     }
-    double random[3];
-    RandomConstrainedCoor(S_orig, mode, S_out.Box.Length, opt, random);
+    vec3d random = RandomConstrainedCoor(S_orig, mode, S_out.Box.Length, opt);
     for (int j = 0; j < S_out.MoleculeType[mtype].nBeads; j++) {
       int id = S_out.Molecule[C_orig->Molecule+i].Bead[j];
       for (int dd = 0; dd < 3; dd++) {
-        S_out.Bead[id].Position.v[dd] = rot[j][dd] + random[dd];
+        S_out.Bead[id].Position.v[dd] = rot[j][dd] + random.v[dd];
       }
     }
     free(rot);
@@ -744,6 +748,9 @@ int main(int argc, char *argv[]) {
 
   // write data to output file(s) //{{{
   bool *write = malloc(sizeof *write * C_out->Bead);
+  if (!write) {
+    ErrorAlloc("write");
+  }
   InitBoolArray(write, C_out->Bead, true); // save all beads
   WriteOutput(S_out, write, fout, false, -1, argc, argv);
   if (opt.fout.name[0] != '\0') {

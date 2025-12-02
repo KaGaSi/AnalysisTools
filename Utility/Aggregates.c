@@ -19,7 +19,7 @@ const struct HelpHelp HelpDesc = {
   "into two files whose names are based on <out.agg> ('_w' and '_b' is "
   "prepended to the .agg extension)",
 
-  "Usage: Aggregates <coor> <out.agg> <bead(s)>/--all [options]\n\n",
+  "Usage: Aggregates <coor> <out.agg> <bead(s)>/--all [options]",
   .args = 2,
 };
 static const struct OptSpec opts[] = {
@@ -124,6 +124,9 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
 
   // array for number of contacts between molecules
   ArrNDi *contact = CreateArr2Di(Count->Molecule, Count->Molecule);
+  if (!contact) {
+    ErrorAlloc("contact");
+  }
 
   // assign in no aggregate to each molecule
   for (int i = 0; i < Count->Molecule; i++) {
@@ -327,6 +330,9 @@ int main(int argc, char *argv[]) {
         WrapJoinCoordinates(&System, false, true);
         RemovePBCAggregates(opt.cutoff, Aggregate, &System);
         bool *write = calloc(Count->Bead, sizeof *write);
+        if (!write) {
+          ErrorAlloc("write");
+        }
         InitBoolArray(write, Count->Bead, true);
         WriteTimestep(opt.fout, System, count_coor, write, argc, argv);
         free(write);
@@ -373,6 +379,9 @@ int main(int argc, char *argv[]) {
         // write joined coordinates to _b/_w files (-j option)?
         if (opt.fout.name[0] != '\0') {
           bool *write = calloc(Count->Bead, sizeof *write);
+          if (!write) {
+            ErrorAlloc("write");
+          }
           // assume all beads are saved (to save unbonded beads)
           InitBoolArray(write, Count->Bead, true);
 

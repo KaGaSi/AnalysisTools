@@ -1,8 +1,11 @@
 #include "Options.h"
 #include "Errors.h"
 #include "General.h"
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
 
-// STATIC DECLARATIONs
+// STATIC DECLARATIONS
 static void SilentOption(const int argc, char **argv,
                          bool *verbose, bool *silent);
 static bool VersionOption(const int argc, char **argv);
@@ -14,8 +17,143 @@ static bool TooManyArgsWarn(const int max, const int n,
 static void ArgumentNumberErr(const int count, const int n, const char *opt);
 static void ArgumentMissingErr(const int n, const char *opt);
 
+// print help //{{{
+void Help(const bool error, const struct HelpHelp help,
+          const struct OptSpec *options) {
+  // pick output stream
+  FILE *ptr;
+  if (error) {
+    ptr = stderr;
+  } else {
+    ptr = stdout;
+  }
+  // compute max width
+  size_t maxlen = 0;
+  for (size_t i = 0; options[i].opt; i++) {
+    size_t len = strlen(options[i].opt);
+    if (options[i].extra) {
+      len += strlen(options[i].extra) + 1;
+    }
+    if (len > maxlen) {
+      maxlen = len;
+    }
+  }
+  int width = (int)maxlen + 5;
+  // print stuff
+  // a) description (for no error case)
+  if (!error) {
+    fprintf(ptr, "%s\n\n", help.description);
+  }
+  // b) usage
+  fprintf(ptr, "%s\n\n", help.usage);
+  // c) mandatory arguments
+  for (size_t i = 0; options[i].opt; i++) {
+    if (options[i].kind != OPT_ARG) {
+      continue;
+    }
+    char line[LINE];
+    if (options[i].extra) {
+      snprintf(line, sizeof(line), "%s %s", options[i].opt, options[i].extra);
+    } else {
+      snprintf(line, sizeof(line), "%s", options[i].opt);
+    }
+    fprintf(ptr, "%-*s%s\n", width + 2, line, options[i].desc);
+  }
+  // d) extra arguments
+  for (size_t i = 0; options[i].opt; i++) {
+    if (options[i].kind != OPT_EXTRA) {
+      continue;
+    }
+    char line[LINE];
+    if (options[i].extra) {
+      snprintf(line, sizeof(line), "%s %s", options[i].opt, options[i].extra);
+    } else {
+      snprintf(line, sizeof(line), "%s", options[i].opt);
+    }
+    fprintf(ptr, "  %-*s%s\n", width, line, options[i].desc);
+  }
+  // e) common arguments
+  for (size_t i = 0; options[i].opt; i++) {
+    if (options[i].kind != OPT_COMMON) {
+      continue;
+    }
+    char line[LINE];
+    if (options[i].extra) {
+      snprintf(line, sizeof(line), "%s %s", options[i].opt, options[i].extra);
+    } else {
+      snprintf(line, sizeof(line), "%s", options[i].opt);
+    }
+    fprintf(ptr, "  %-*s%s\n", width, line, options[i].desc);
+  }
+} //}}}
+
 // version/help printing and initial check of provided options //{{{
-int OptionCheck(const int argc, char **argv, const int req, const int common,
+int OptionCheck(const int argc, char **argv, const bool check_extra,
+                const struct HelpHelp desc, const struct OptSpec *opts) {
+  // --version option?
+  if (VersionOption(argc, argv)) {
+    exit(0);
+  }
+  // --help option?
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "--help") == 0) {
+      Help(false, desc, opts);
+      exit(0);
+    }
+  }
+  // correct number of mandatory options?
+  int count = 0;
+  while ((count + 1) < argc &&
+         // there may be '-' as a mandatory argument
+         (argv[count+1][0] != '-' || strnlen(argv[count+1], LINE) == 1)) {
+    count++;
+  }
+  if (count < desc.args) {
+    ErrorArgNumber(count, desc.args);
+    PrintCommand(stderr, argc, argv);
+    Help(true, desc, opts);
+    exit(1);
+  }
+  // all options exist?
+  for (int i = (count+1); i < argc; i++) {
+    bool valid = false;
+    for (int j = 0; opts[j].opt; j++) {
+      double value;
+      // check if cli argument is valid
+      if (argv[i][0] != '-' || // argument to an option
+          IsRealNumber(argv[i], &value) || // negative number
+          strcmp(argv[i], opts[j].opt) == 0) { // an option
+        valid = true;
+        break;
+      }
+    }
+    if (!valid) {
+      ErrorOption(argv[i]);
+      PrintCommand(stderr, argc, argv);
+      Help(false, desc, opts);
+      exit(1);
+    }
+  }
+  // warn if extra arguments (between required ones and options)
+  if (check_extra && desc.args != count) {
+    char extra[LINE] = "\0";
+    for (int i = (desc.args + 1); i <= count; i++) {
+      char cpy[LINE];
+      s_strcpy(cpy, extra, LINE);
+      if (snprintf(extra, LINE, "%s %s", cpy, argv[i]) < 0) {
+        ErrorSnprintf();
+      }
+    }
+    if (snprintf(ERROR_MSG, LINE, "command line arguments%s%s%s have no effect",
+                 ErrYellow(), extra, ErrCyan()) < 0) {
+      ErrorSnprintf();
+    }
+    PrintWarning();
+  }
+  return count;
+} //}}}
+// version/help printing and initial check of provided options //{{{
+int OptionCheck_old(const int argc, char **argv, const int req, const int common,
                 const int all, const bool check_extra,
                 char opt[all][OPT_LENGTH], ...) {
   // copy options to an array
@@ -34,7 +172,7 @@ int OptionCheck(const int argc, char **argv, const int req, const int common,
   // --help option?
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--help") == 0) {
-      Help(StripPath(argv[0]), false, common, opt);
+      Help_old(StripPath(argv[0]), false, common, opt);
       exit(0);
     }
   }
@@ -48,7 +186,7 @@ int OptionCheck(const int argc, char **argv, const int req, const int common,
   if (count < req) {
     ErrorArgNumber(count, req);
     PrintCommand(stderr, argc, argv);
-    Help(StripPath(argv[0]), true, common, opt);
+    Help_old(StripPath(argv[0]), true, common, opt);
     exit(1);
   }
   // all options exist?
@@ -66,7 +204,7 @@ int OptionCheck(const int argc, char **argv, const int req, const int common,
     if (!valid) {
       ErrorOption(argv[i]);
       PrintCommand(stderr, argc, argv);
-      Help(StripPath(argv[0]), true, common, opt);
+      Help_old(StripPath(argv[0]), true, common, opt);
       exit(1);
     }
   }
@@ -99,7 +237,7 @@ void CommonHelp(const bool error, const int n,
   }
   for (int i = 0; i < n; i++) {
     if (strcmp(option[i], "-i") == 0) {
-      fprintf(ptr, "  -i <name>         input structure file if different "
+      fprintf(ptr, "  -i <stru>         input structure file if different "
                    "than the coordinate file\n");
     } else if (strcmp(option[i], "-st") == 0) {
       fprintf(ptr, "  -st <int>         starting timestep for calculation\n");
@@ -131,33 +269,38 @@ void CommonHelp(const bool error, const int n,
 // detect options common for most utilities //{{{
 COMMON_OPT CommonOptions(const int argc, char **argv, const SYS_FILES f) {
   COMMON_OPT opt;
-  opt.start = -1;
+  opt.start = 1;
   opt.end = -1;
   opt.skip = 0;
   // -v option - verbose output
-  opt.verbose = BoolOption(argc, argv, "--verbose");
+  opt.verbose = BoolOption(argc, argv, COMMON_OPTS[C_VERBOSE].opt);
   // --silent option - silent mode
   SilentOption(argc, argv, &opt.verbose, &opt.silent);
   // starting/ending timestep
-  if (OneNumberOption(argc, argv, "-st", &opt.start, 'i')) {
-    if (opt.start <= 0) {
-      s_strcpy(ERROR_MSG, "positive number required", LINE);
-      PrintErrorOption("-st");
-      exit(1);
-    }
-  } else {
-    opt.start = 1;
-  }
-  if (OneNumberOption(argc, argv, "-e", &opt.end, 'i') && opt.end <= 0) {
+  if (OneNumberOption(argc, argv, COMMON_OPTS[C_ST].opt, &opt.start, 'i') &&
+      opt.start <= 0) {
     s_strcpy(ERROR_MSG, "positive number required", LINE);
-    PrintErrorOption("-e");
+    PrintErrorOption(COMMON_OPTS[C_ST].opt);
     exit(1);
   }
-  ErrorStartEnd(opt.start, opt.end);
-  // number of timesteps to skip per one used
-  if (OneNumberOption(argc, argv, "-sk", &opt.skip, 'i') && opt.skip < 0) {
+  if (OneNumberOption(argc, argv, COMMON_OPTS[C_E].opt, &opt.end, 'i') &&
+      opt.end <= 0) {
     s_strcpy(ERROR_MSG, "positive number required", LINE);
-    PrintErrorOption("-sk");
+    PrintErrorOption(COMMON_OPTS[C_E].opt);
+    exit(1);
+  }
+  if (opt.end != -1 && opt.start > opt.end) {
+    snprintf(ERROR_MSG, LINE, "starting step (%s%d%s) lower than ending step "
+             "(%s%d%s)", ErrYellow(), opt.start, ErrRed(),
+             ErrYellow(), opt.end, ErrRed());
+    PrintErrorOption("-st/-e");
+    exit(1);
+  }
+  // number of timesteps to skip per one used
+  if (OneNumberOption(argc, argv, COMMON_OPTS[C_SK].opt, &opt.skip, 'i') &&
+      opt.skip < 0) {
+    s_strcpy(ERROR_MSG, "positive number required", LINE);
+    PrintErrorOption(COMMON_OPTS[C_SK].opt);
     exit(1);
   }
   opt.skip++; // 'skip' steps are skipped, so every 'skip+1'-th step is used
@@ -168,7 +311,7 @@ COMMON_OPT CommonOptions(const int argc, char **argv, const SYS_FILES f) {
   }
   return opt;
 } //}}}
-// TODO: why is this here? Just use TypeOption()!
+// TODO: why is this here? Just use TypeOption()! Huh?
 // exclude specified molecule names (-x <mol name(s)>) //{{{
 bool ExcludeOption(const int argc, char **argv, SYSTEM *System) {
   // set all molecules to use
