@@ -122,7 +122,9 @@ int main(int argc, char *argv[]) {
   COUNT *Count = &System.Count;
 
   // '-m <name(s)>' option
-  opt.mt = calloc(System.Count.MoleculeType, sizeof *opt.mt);
+  if (!(opt.mt = calloc(System.Count.MoleculeType, sizeof *opt.mt))) {
+    ErrorAlloc("opt.mt");
+  }
   if (!TypeOption(argc, argv, "-m", 'm', true, opt.mt, System)) {
     InitBoolArray(opt.mt, Count->MoleculeType, true);
   }
@@ -132,16 +134,21 @@ int main(int argc, char *argv[]) {
   }
 
   // arrays for distributions //{{{
-  // double *****ang = calloc(Count->MoleculeType, sizeof *ang);
   size_t shape[5] = {Count->MoleculeType,
                      Count->BeadType,
                      Count->BeadType,
                      Count->BeadType,
                      bins};
   ArrNDd *ang = CreateArrNDd(5, shape);
+  if (!ang) {
+    ErrorAlloc("ang");
+  }
   shape[4] = 3;
   // set maximum possible angle as initial minimum
   ArrNDd *ang_mma = CreateArrNDd(5, shape);
+  if (!ang_mma) {
+    ErrorAlloc("ang_mma");
+  }
   for (int i = 0; i < Count->MoleculeType; i++) {
     for (int j = 0; j < Count->BeadType; j++) {
       for (int k = 0; k < Count->BeadType; k++) {
@@ -153,34 +160,48 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
   // arrays for all angles in molecules //{{{
-  double ***ang_all = NULL, (**ang_all_mma)[3] = NULL;
+  // double ***ang_all = NULL, (**ang_all_mma)[3] = NULL;
+  ArrNDd *ang_all = NULL;
+  ArrNDd *ang_all_mma = NULL;
+  // maximum number of angles in all molecules
+  int max_angs = 0;
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    if (System.MoleculeType[i].nBonds > max_angs) {
+      max_angs = System.MoleculeType[i].nBonds;
+    }
+  }
   if (opt.all) {
-    ang_all = calloc(Count->MoleculeType, sizeof *ang_all);
-    ang_all_mma = calloc(Count->MoleculeType, sizeof (**ang_all_mma)[3]);
+    if (!(ang_all = CreateArr3Dd(Count->MoleculeType, max_angs, bins)) ||
+        !(ang_all_mma = CreateArr3Dd(Count->MoleculeType, max_angs, 3))) {
+      ErrorAlloc("ang_all/ang_all_mma");
+    }
     for (int i = 0; i < Count->MoleculeType; i++) {
-      ang_all[i] = calloc(System.MoleculeType[i].nAngles, sizeof *ang_all);
-      ang_all_mma[i] = calloc(System.MoleculeType[i].nAngles,
-                              sizeof **ang_all_mma);
       for (int j = 0; j < System.MoleculeType[i].nAngles; j++) {
-        ang_all[i][j] = calloc(bins, sizeof *ang_all);
         // set maximum possible angle as initial minimum
-        ang_all_mma[i][j][0] = 180;
+        SetArr3D(ang_all_mma, i, j, 0, 180);
       }
     }
   } //}}}
   // extra arrays for -n option //{{{
-  double ***ang_n = NULL;
-  double (**ang_n_mma)[3] = NULL;
+  // double ***ang_n = NULL;
+  // double (**ang_n_mma)[3] = NULL;
+  ArrNDd *ang_n = NULL;
+  ArrNDd *ang_n_mma = NULL;
   if (opt.n_file[0] != '\0') {
-    ang_n = calloc(Count->MoleculeType, sizeof *ang_n),
-    ang_n_mma = calloc(Count->MoleculeType, sizeof (**ang_n_mma)[3]);
+    // ang_n = calloc(Count->MoleculeType, sizeof *ang_n),
+    // ang_n_mma = calloc(Count->MoleculeType, sizeof (**ang_n_mma)[3]);
+    if (!(ang_n = CreateArr3Dd(Count->MoleculeType, n_pair_num, bins)) ||
+        !(ang_n_mma = CreateArr3Dd(Count->MoleculeType, n_pair_num, 3))) {
+      ErrorAlloc("ang_all/ang_all_mma");
+    }
     for (int i = 0; i < Count->MoleculeType; i++) {
-      ang_n[i] = calloc(n_pair_num, sizeof *ang_n);
-      ang_n_mma[i] = calloc(n_pair_num, sizeof **ang_n_mma);
+      // ang_n[i] = calloc(n_pair_num, sizeof *ang_n);
+      // ang_n_mma[i] = calloc(n_pair_num, sizeof **ang_n_mma);
       for (int j = 0; j < n_pair_num; j++) {
-        ang_n[i][j] = calloc(bins, sizeof *ang_n);
+        // ang_n[i][j] = calloc(bins, sizeof *ang_n);
         // set maximum possible angle as initial minimum
-        ang_n_mma[i][j][0] = HIGHNUM;
+        // ang_n_mma[i][j][0] = HIGHNUM;
+        SetArr3D(ang_n_mma, i, j, 0, HIGHNUM);
       }
     }
   } //}}}
@@ -244,12 +265,17 @@ int main(int argc, char *argv[]) {
             }
             AddArrND(ang_mma, shape5D_2, angle);
             if (opt.all) {
-              if (angle < ang_all_mma[mol_i->Type][j][0]) {
-                ang_all_mma[mol_i->Type][j][0] = angle;
-              } else if (angle > ang_all_mma[mol_i->Type][j][1]) {
-                ang_all_mma[mol_i->Type][j][1] = angle;
+              // if (angle < ang_all_mma[mol_i->Type][j][0]) {
+              if (angle < GetArr3D(ang_all_mma, mol_i->Type, j, 0)) {
+                // ang_all_mma[mol_i->Type][j][0] = angle;
+                SetArr3D(ang_all_mma, mol_i->Type, j, 0, angle);
+              // } else if (angle > ang_all_mma[mol_i->Type][j][1]) {
+              } else if (angle > GetArr3D(ang_all_mma, mol_i->Type, j, 1)) {
+                // ang_all_mma[mol_i->Type][j][1] = angle;
+                SetArr3D(ang_all_mma, mol_i->Type, j, 1, angle);
               }
-              ang_all_mma[mol_i->Type][j][2] += angle;
+              // ang_all_mma[mol_i->Type][j][2] += angle;
+              AddArr3D(ang_all_mma, mol_i->Type, j, 2, angle);
             }
             //}}}
 
@@ -258,7 +284,8 @@ int main(int argc, char *argv[]) {
               size_t shape5D[5] = {mol_i->Type, *id_lo, b_2->Type, *id_hi, k};
               AddArrND(ang, shape5D, 1);
               if (opt.all) {
-                ang_all[mol_i->Type][j][k]++;
+                // ang_all[mol_i->Type][j][k]++;
+                AddArr3D(ang_all, mol_i->Type, j, k, 1);
               }
             }
           }
@@ -289,16 +316,23 @@ int main(int argc, char *argv[]) {
               vec3d v = Vector(b_3->Position, b_2->Position);
               double angle = AngleDegrees(u, v);
               // mins & maxes & averages //{{{
-              if (angle < ang_n_mma[mol_i->Type][j/n_per_set][0]) {
-                ang_n_mma[mol_i->Type][j/n_per_set][0] = angle;
-              } else if (angle > ang_n_mma[mol_i->Type][j/n_per_set][1]) {
-                ang_n_mma[mol_i->Type][j/n_per_set][1] = angle;
+              // if (angle < ang_n_mma[mol_i->Type][j/n_per_set][0]) {
+              if (angle < GetArr3D(ang_n_mma, mol_i->Type, j / n_per_set, 0)) {
+                // ang_n_mma[mol_i->Type][j/n_per_set][0] = angle;
+                SetArr3D(ang_n_mma, mol_i->Type, j / n_per_set, 0, angle);
+              // } else if (angle > ang_n_mma[mol_i->Type][j/n_per_set][1]) {
+              } else if (angle > GetArr3D(ang_n_mma, mol_i->Type,
+                                          j / n_per_set, 1)) {
+                // ang_n_mma[mol_i->Type][j/n_per_set][1] = angle;
+                SetArr3D(ang_n_mma, mol_i->Type, j / n_per_set, 1, angle);
               }
-              ang_n_mma[mol_i->Type][j/n_per_set][2] += angle;
+              // ang_n_mma[mol_i->Type][j/n_per_set][2] += angle;
+              AddArr3D(ang_n_mma, mol_i->Type, j / n_per_set, 2, angle);
               //}}}
               int k = angle / width;
               if (k < bins) {
-                ang_n[mol_i->Type][j/n_per_set][k]++;
+                // ang_n[mol_i->Type][j/n_per_set][k]++;
+                AddArr3D(ang_n, mol_i->Type, j / n_per_set, k, 1);
               }
             }
           }
@@ -326,6 +360,9 @@ int main(int argc, char *argv[]) {
                        Count->BeadType,
                        Count->BeadType};
   ArrNDi *ang_norm = CreateArrNDi(4, shape4D);
+  if (!ang_norm) {
+    ErrorAlloc("ang_norm");
+  }
   for (int i = 0; i < Count->MoleculeType; i++) {
     for (int j = 0; j < Count->BeadType; j++) {
       for (int k = 0; k < Count->BeadType; k++) {
@@ -342,15 +379,19 @@ int main(int argc, char *argv[]) {
     }
   }
   // all molecules' angles
-  int **ang_all_norm = NULL;
+  ArrNDi *ang_all_norm = NULL;
   if (opt.all) {
-    ang_all_norm = calloc(Count->MoleculeType, sizeof *ang_all_norm);
+    if (!(ang_all_norm = CreateArr2Di(Count->MoleculeType, max_angs))) {
+      ErrorAlloc("ang_all_norm");
+    }
+    // ang_all_norm = calloc(Count->MoleculeType, sizeof *ang_all_norm);
     for (int i = 0; i < Count->MoleculeType; i++) {
-      ang_all_norm[i] = calloc(System.MoleculeType[i].nAngles,
-                               sizeof *ang_all_norm);
+      // ang_all_norm[i] = calloc(System.MoleculeType[i].nAngles,
+      //                          sizeof *ang_all_norm);
       for (int j = 0; j < System.MoleculeType[i].nAngles; j++) {
         for (int k = 0; k < bins; k++) {
-          ang_all_norm[i][j] += ang_all[i][j][k];
+          // ang_all_norm[i][j] += ang_all[i][j][k];
+          AddArr2D(ang_all_norm, i, j, GetArr3D(ang_all, i, j, k));
         }
       }
     }
@@ -391,9 +432,17 @@ int main(int argc, char *argv[]) {
       putc('\n', fw);
     }
   } //}}}
-  // write distribution to output file //{{{
-  for (int i = 0; i < bins; i++) {
-    fprintf(fw, "%7.4f", width * (2 * i + 1) / 2);
+  // collate data //{{{
+  int ncols = count;
+  int nrows = bins;
+  ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
+  if (!data) {
+    ErrorAlloc("data");
+  }
+  for (int i = 0; i < nrows; i++) {
+    count = 0;
+    // fprintf(fw, "%7.4f", width * (2 * i + 1) / 2);
+    SetArr2D(data, i, count++, width * (2 * i + 1) / 2);
     for (int j = 0; j < Count->MoleculeType; j++) {
       MOLECULETYPE *mt_j = &System.MoleculeType[j];
       if (opt.mt[j]) {
@@ -412,25 +461,27 @@ int main(int argc, char *argv[]) {
               if (GetArrND(ang_norm, id4D) > 0) {
                 size_t id5D[5] = {j, btype1, btype2, btype3, i};
                 double value = GetArrND(ang, id5D) / GetArrND(ang_norm, id4D);
-                fprintf(fw, "%10f", value);
+                SetArr2D(data, i, count++, value);
+                // fprintf(fw, "%10f", value);
               }
             }
           }
         }
         if (opt.all) {
           for (int k = 0; k < mt_j->nAngles; k++) {
-            if (ang_all_norm[j][k] > 0) {
-              double value = ang_all[j][k][i] / ang_all_norm[j][k];
-              fprintf(fw, "%10f", value);
-            } else {
-              fprintf(fw, "%10s", "?");
-            }
+            // double val = ang_all[j][k][i] / ang_all_norm[j][k];
+            double val = GetArr3D(ang_all, j, k, i) /
+                         GetArr2D(ang_all_norm, j, k);
+            // fprintf(fw, "%10f", val);
+            SetArr2D(data, i, count++, val);
           }
         }
       }
     }
-    putc('\n', fw);
   } //}}}
+  ComputeColumnWidths(nrows, ncols, data, 6);
+  PrintDataAll(fw, nrows, ncols, data);
+  FreeArrND(data);
   // write mins, maxes, and averages //{{{
   // legend line
   fprintf(fw, "# min(1st columns)/max(2nd columns)/average(3rd columns)\n");
@@ -485,9 +536,14 @@ int main(int argc, char *argv[]) {
     }
     if (opt.all) {
       for (int j = 0; j < System.MoleculeType[i].nAngles; j++) {
-        fprintf(fw, " %lf", ang_all_mma[i][j][0]);
-        fprintf(fw, " %lf", ang_all_mma[i][j][1]);
-        fprintf(fw, " %lf", ang_all_mma[i][j][2] / ang_all_norm[i][j]);
+        // fprintf(fw, " %lf", ang_all_mma[i][j][0]);
+        // fprintf(fw, " %lf", ang_all_mma[i][j][1]);
+        // fprintf(fw, " %lf", ang_all_mma[i][j][2] / ang_all_norm[i][j]);
+        fprintf(fw, " %lf", GetArr3D(ang_all_mma, i, j, 0));
+        fprintf(fw, " %lf", GetArr3D(ang_all_mma, i, j, 1));
+        double val = GetArr3D(ang_all_mma, i, j, 2) /
+                     GetArr2D(ang_all_mma, i, j);
+        fprintf(fw, " %lf", val);
       }
     }
   }
@@ -497,12 +553,16 @@ int main(int argc, char *argv[]) {
   // write distribution of angles from '-n' option //{{{
   if (opt.n_file[0] != '\0') {
     // sum up all calculated angles (normalization factors) //{{{
-    int n_norm[Count->MoleculeType][n_pair_num];
+    // int n_norm[Count->MoleculeType][n_pair_num];
+    ArrNDi *n_norm = CreateArr2Di(Count->MoleculeType, n_pair_num);
+    if (!n_norm) {
+      ErrorAlloc("n_norm");
+    }
     for (int i = 0; i < Count->MoleculeType; i++) {
       for (int j = 0; j < n_pair_num; j++) {
-        n_norm[i][j] = 0;
         for (int k = 0; k < bins; k++) {
-          n_norm[i][j] += ang_n[i][j][k];
+          // n_norm[i][j] += ang_n[i][j][k];
+          AddArr2D(n_norm, i, j, GetArr3D(ang_n, i, j, k));
         }
       }
     } //}}}
@@ -535,21 +595,35 @@ int main(int argc, char *argv[]) {
         putc('\n', fw);
       }
     } //}}}
-    // write the distribution to output file //{{{
+    // collate data //{{{
+    int ncols = count;
+    int nrows = 180;
+    ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
+    if (!data) {
+      ErrorAlloc("data");
+    }
     for (int i = 0; i < 180; i++) {
-      fprintf(fw, "%7.4f", width * (2 * i + 1) / 2);
+      // fprintf(fw, "%7.4f", width * (2 * i + 1) / 2);
+      count = 0;
+      SetArr2D(data, i, count++, width * (2 * i + 1) / 2);
       for (int j = 0; j < Count->MoleculeType; j++) {
         if (opt.mt[j] && System.MoleculeType[j].nBeads >= n_per_set) {
           for (int k = 0; k < n_pair_num; k++) {
-            if (n_norm[j][k] > 0) {
-              double value = (double)(ang_n[j][k][i]) / n_norm[j][k];
-              fprintf(fw, " %10f", value);
+            // if (n_norm[j][k] > 0) {
+            if (GetArr2D(n_norm, j, k) > 0) {
+              // double val = (double)(ang_n[j][k][i]) / n_norm[j][k];
+              double val = (double)(GetArr3D(ang_n, j, k, i)) /
+                           GetArr2D(n_norm, j, k);
+              // fprintf(fw, " %10f", val);
+              SetArr2D(data, i, count++, val);
             }
           }
         }
       }
-      putc('\n', fw);
     } //}}}
+    ComputeColumnWidths(nrows, ncols, data, 6);
+    PrintDataAll(fw, nrows, ncols, data);
+    FreeArrND(data);
     // write mins and maxes
     // legend line //{{{
     fprintf(fw, "# min(1st columns)/max(2nd columns)/average(3rd columns)\n");
@@ -591,16 +665,19 @@ int main(int argc, char *argv[]) {
           }
           int ang_id = j / n_per_set;
           // if this bin is filled, its max must be larger than 0
-          if (n_norm[i][j/n_per_set] > 0) {
-            fprintf(fw, " %lf", ang_n_mma[i][ang_id][0]);
-            fprintf(fw, " %lf", ang_n_mma[i][ang_id][1]);
-            fprintf(fw, " %lf", ang_n_mma[i][ang_id][2] / n_norm[i][ang_id]);
+          if (GetArr2D(n_norm, i, ang_id) > 0) {
+            fprintf(fw, " %lf", GetArr3D(ang_n_mma, i, ang_id, 0));
+            fprintf(fw, " %lf", GetArr3D(ang_n_mma, i, ang_id, 1));
+            double val = GetArr3D(ang_n_mma, i, ang_id, 2) /
+                         GetArr2D(n_norm, i, ang_id);
+            fprintf(fw, " %lf", val);
           }
         }
       }
     } //}}}
     putc('\n', fw);
     fclose(fw);
+    FreeArrND(n_norm);
   } //}}}
 
   // free memory - to make valgrind happy //{{{
@@ -608,31 +685,16 @@ int main(int argc, char *argv[]) {
   FreeArrND(ang_mma);
   // free arrays for all angles
   if (opt.all) {
-    for (int i = 0; i < Count->MoleculeType; i++) {
-      for (int j = 0; j < System.MoleculeType[i].nAngles; j++) {
-        free(ang_all[i][j]);
-      }
-      free(ang_all[i]);
-      free(ang_all_mma[i]);
-      free(ang_all_norm[i]);
-    }
-    free(ang_all);
-    free(ang_all_mma);
-    free(ang_all_norm);
+    FreeArrND(ang_all);
+    FreeArrND(ang_all_mma);
+    FreeArrND(ang_all_norm);
   }
   FreeArrND(ang);
   FreeArrND(ang_norm);
   // free arrays for -n option
   if (opt.n_file[0] != '\0') {
-    for (int i = 0; i < Count->MoleculeType; i++) {
-      for (int j = 0; j < n_pair_num; j++) {
-        free(ang_n[i][j]);
-      }
-      free(ang_n[i]);
-      free(ang_n_mma[i]);
-    }
-    free(ang_n);
-    free(ang_n_mma);
+    FreeArrND(ang_n);
+    FreeArrND(ang_n_mma);
   }
   FreeSystem(&System);
   //}}}
