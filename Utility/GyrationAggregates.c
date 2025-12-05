@@ -5,7 +5,6 @@
 // TODO: two masses - -bt defined + always total (for contributions of given
 //       subset of beads to the total gyration tensor)
 // TODO: output printing
-// TODO: arrays
 
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
@@ -107,7 +106,9 @@ int main(int argc, char *argv[]) {
   AggPickerOptions(argc, argv, &opt.agg, System);
 
   // -bt option //{{{
-  opt.bt = calloc(Count->BeadType, sizeof *opt.bt);
+  if (!(opt.bt = calloc(Count->BeadType, sizeof *opt.bt))) {
+    ErrorAlloc("op.bt");
+  }
   if (!TypeOption(argc, argv, "-bt", 'b', true, opt.bt, System)) {
     InitBoolArray(opt.bt, Count->BeadType, true);
   } //}}}
@@ -137,14 +138,13 @@ int main(int argc, char *argv[]) {
   fprintf(out, ", (%d) <Anis>_n", count++);
   fprintf(out, ", (%d) <Acyl>_n", count++);
   fprintf(out, ", (%d) <Aspher>_n", count++);
-  fprintf(out, ", (%d) <eigen[0]>_n", count++);
-  fprintf(out, ", (%d) <eigen[1]>_n", count++);
-  fprintf(out, ", (%d) <eigen[2]>_n", count++);
+  fprintf(out, ", (%d) <eigen.x>_n", count++);
+  fprintf(out, ", (%d) <eigen.y>_n", count++);
+  fprintf(out, ", (%d) <eigen.z>_n", count++);
   putc('\n', out);
   fclose(out); //}}}
 
   // open input aggregate file and skip the first lines (Aggregate command & blank line) //{{{
-  double distance = 1; // TODO: read from agg file
   FILE *agg = OpenFile(input_agg, "r");
   char line[LINE];
   // TODO go for while(fgets()); treatment
@@ -166,6 +166,7 @@ int main(int argc, char *argv[]) {
     }
   }
   // redefine distance if -d option is present
+  double distance;
   for (int i = 5; i < words; i++) {
     if (strcmp(split[i], "-d") == 0 && (i + 1) < words) {
       if (!IsPosRealNumber(split[i+1], &distance)) {
@@ -183,14 +184,14 @@ int main(int argc, char *argv[]) {
     VerboseOutput(System);
   }
 
-  // TODO memory allocation... Aaargh!
   // allocate memory for sum of various things //{{{
   // numbers of aggregates of all possibe sizes (maximum size is Count.Molecule)
   int *agg_counts_sum = calloc(Count->Molecule, sizeof *agg_counts_sum);
   // total radius of gyration: [size][0] normal sum, [size][1] sum of Rg*mass, [size][2] Rg*mass^2
-  double (*Rg_sum)[3] = calloc(Count->Molecule, sizeof *Rg_sum);
-  // total square of radius of gyration: [size][0] normal sum, [size][1] sum of Rg^2*mass, [size][2] Rg^2*mass^2
-  double (*sqrRg_sum)[3] = calloc(Count->Molecule, sizeof *sqrRg_sum);
+  ArrNDd *Rg_sum = CreateArr2Dd(Count->Molecule, 3);
+  // total square of radius of gyration
+  // ...[size][0] normal sum, [size][1] sum of Rg^2*mass, [size][2] Rg^2*mass^2
+  ArrNDd *sqrRg_sum = CreateArr2Dd(Count->Molecule, 3);
   // relative shape anisotropy: only normal sum
   double *Anis_sum = calloc(Count->Molecule, sizeof *Anis_sum);
   // acylindricity: only normal sum
@@ -198,14 +199,16 @@ int main(int argc, char *argv[]) {
   // asphericity: only normal sum
   double *Aspher_sum = calloc(Count->Molecule, sizeof *Aspher_sum);
   // gyration tensor eigenvalues
-  double (*eigen_sum)[3] = calloc(Count->Molecule, sizeof *eigen_sum);
+  ArrNDd *eigen_sum = CreateArr2Dd(Count->Molecule, 3);
   // total mass of aggregates: [size][0] normal sum, [size][1] sum of squares
-  long int (*mass_sum)[2] = calloc(Count->Molecule, sizeof *mass_sum);
+  ArrNDli *mass_sum = CreateArr2Dli(Count->Molecule, 2);
   // number of molecule types in aggregates: [size][mol type] only normal sum
-  int **molecules_sum = malloc(Count->Molecule*sizeof(int *));
-  for (int i = 0; i < Count->Molecule; i++) {
-    molecules_sum[i] = calloc(Count->MoleculeType,sizeof(int));
-  } //}}}
+  ArrNDi *molecules_sum = CreateArr2Di(Count->Molecule, Count->MoleculeType);
+  if (!agg_counts_sum || !Rg_sum || !sqrRg_sum || !Anis_sum || !Acyl_sum ||
+      !Aspher_sum || !eigen_sum || !mass_sum || !molecules_sum) {
+    ErrorAlloc("molecules_sum");
+  }
+  //}}}
 
   // main loop //{{{
   FILE *coor = OpenFile(in.coor.name, "r");
@@ -215,7 +218,6 @@ int main(int argc, char *argv[]) {
       line_count_agg = 0; // count lines in the agg file
   while (true) {
     PrintStep(&count_step, commons.start, commons.silent);
-
     bool use = false;
     if (UseStep(commons, count_step)) {
       use = true;
@@ -233,18 +235,21 @@ int main(int argc, char *argv[]) {
       //   RemovePBCAggregates(distance, Aggregate, &System);
       // }
 
-      // TODO: allocation... Aaargh!
       // allocate arrays for the timestep //{{{
       int *agg_counts_step = calloc(Count->Molecule, sizeof *agg_counts_step);
-      double (*Rg_step)[3] = calloc(Count->Molecule, sizeof *Rg_step);
-      double (*sqrRg_step)[3] = calloc(Count->Molecule, sizeof *sqrRg_step);
+      ArrNDd *Rg_step = CreateArr2Dd(Count->Molecule, 3);
+      ArrNDd *sqrRg_step = CreateArr2Dd(Count->Molecule, 3);
       double *Anis_step = calloc(Count->Molecule, sizeof *Anis_step);
       double *Acyl_step = calloc(Count->Molecule, sizeof *Acyl_step);
       double *Aspher_step = calloc(Count->Molecule,sizeof *Aspher_step);
-      double (*eigen_step)[3] = calloc(Count->Molecule, sizeof *eigen_step); //}}}
+      ArrNDd *eigen_step = CreateArr2Dd(Count->Molecule, 3);
+      if (!agg_counts_step || !Rg_step || !sqrRg_step || !Anis_step ||
+          !Acyl_step || !Aspher_step || !eigen_step) {
+        ErrorAlloc("step arrays");
+      } //}}}
 
       // calculate shape descriptors //{{{
-      double mass_step[2] = {0}; // total mass of aggregates in a step: [0] normal, [1] sum of squares
+      double mass_step[2] = {0}; // [0] normal agg mass, [1] sum of squares
       for (int i = 0; i < Count->Aggregate; i++) {
         // skip aggregates that shouldn't be used
         int agg_size;
@@ -256,6 +261,9 @@ int main(int argc, char *argv[]) {
 
         // copy bead ids to a separate array //{{{
         int *list = malloc(Aggregate[i].nBeads * sizeof *list);
+        if (!list) {
+          ErrorAlloc("list");
+        }
         int n = 0;
         double agg_mass = 0;
         for (int j = 0; j < Aggregate[i].nBeads; j++) {
@@ -280,25 +288,23 @@ int main(int argc, char *argv[]) {
         mass_step[0] += agg_mass; // for this timestep
         mass_step[1] += Square(agg_mass); // for this timestep
         // radius of gyration
-        Rg_step[agg_size][0] += Rgi; // for number avg
-        Rg_step[agg_size][1] += Rgi * agg_mass; // for weight average
-        Rg_step[agg_size][2] += Rgi * Square(agg_mass); // for z-average
+        AddArr2D(Rg_step, agg_size, 0, Rgi);
+        AddArr2D(Rg_step, agg_size, 1, Rgi * agg_mass);
+        AddArr2D(Rg_step, agg_size, 2, Rgi * Square(agg_mass));
         // squared radius of gyration
-        sqrRg_step[agg_size][0] += Square(Rgi); // for number avg
-        sqrRg_step[agg_size][1] += Square(Rgi) * agg_mass; // for weight average
-        sqrRg_step[agg_size][2] += Square(Rgi) * Square(agg_mass); // for z-average
+        AddArr2D(sqrRg_step, agg_size, 0, Square(Rgi));
+        AddArr2D(sqrRg_step, agg_size, 1, Square(Rgi) * agg_mass);
+        AddArr2D(sqrRg_step, agg_size, 2, Square(Rgi) * Square(agg_mass));
         // relative shape anisotropy
-        double temp[2];
-        temp[0] = SqVectLength(eigen);
-        temp[1] = Square(eigen.x + eigen.y + eigen.z);
-        Anis_step[agg_size] += 1.5 * temp[0] / temp[1] - 0.5;
+        Anis_step[agg_size] += 1.5 * SqVectLength(eigen) /
+                               Square(eigen.x + eigen.y + eigen.z) - 0.5;
         // acylindricity
         Acyl_step[agg_size] += eigen.y - eigen.x;
         // asphericity
         Aspher_step[agg_size] += eigen.z - 0.5 * (eigen.x + eigen.y);
         // gyration vector eigenvalues
         for (int dd = 0; dd < 3; dd++) {
-          eigen_step[agg_size][dd] += eigen.v[dd];
+          AddArr2D(eigen_step, agg_size, dd, eigen.v[dd]);
         }
         // aggregate count
         agg_counts_step[agg_size]++;
@@ -307,79 +313,74 @@ int main(int argc, char *argv[]) {
         agg_counts_sum[agg_size]++;
         for (int j = 0; j < Aggregate[i].nMolecules; j++) {
           int mol_type = System.Molecule[Aggregate[i].Molecule[j]].Type;
-          molecules_sum[agg_size][mol_type]++;
+          AddArr2D(molecules_sum, agg_size, mol_type, 1);
         }
         // sum aggregate mass
-        mass_sum[agg_size][0] += agg_mass;
-        mass_sum[agg_size][1] += Square(agg_mass);
+        AddArr2D(mass_sum, agg_size, 0, agg_mass);
+        AddArr2D(mass_sum, agg_size, 1, Square(agg_mass));
       } //}}}
 
       for (int i = 0; i < Count->Molecule; i++) {
-        Rg_sum[i][0] += Rg_step[i][0];
-        Rg_sum[i][1] += Rg_step[i][1];
-        Rg_sum[i][2] += Rg_step[i][2];
-        sqrRg_sum[i][0] += sqrRg_step[i][0];
-        sqrRg_sum[i][1] += sqrRg_step[i][1];
-        sqrRg_sum[i][2] += sqrRg_step[i][2];
+        for (int dd = 0; dd < 3; dd++) {
+          AddArr2D(Rg_sum, i, dd, GetArr2D(Rg_step, i, dd));
+          AddArr2D(sqrRg_sum, i, dd, GetArr2D(sqrRg_step, i, dd));
+          AddArr2D(eigen_sum, i, dd, GetArr2D(eigen_step, i, dd));
+        }
         Anis_sum[i] += Anis_step[i];
         Acyl_sum[i] += Acyl_step[i];
         Aspher_sum[i] += Aspher_step[i];
-        eigen_sum[i][0] += eigen_step[i][0];
-        eigen_sum[i][1] += eigen_step[i][1];
-        eigen_sum[i][2] += eigen_step[i][2];
       }
 
       // print data to output file //{{{
       // sum up contributions from all aggregate sizes
       for (int i = 1; i < Count->Molecule; i++) {
-        Rg_step[0][0] += Rg_step[i][0];
-        Rg_step[0][1] += Rg_step[i][1];
-        Rg_step[0][2] += Rg_step[i][2];
-        sqrRg_step[0][0] += sqrRg_step[i][0];
-        sqrRg_step[0][1] += sqrRg_step[i][1];
-        sqrRg_step[0][2] += sqrRg_step[i][2];
+        for (int dd = 0; dd < 3; dd++) {
+          AddArr2D(Rg_step, 0, dd, GetArr2D(Rg_step, i, dd));
+          AddArr2D(sqrRg_step, 0, dd, GetArr2D(sqrRg_step, i, dd));
+          AddArr2D(eigen_step, 0, dd, GetArr2D(eigen_step, i, dd));
+        }
         Anis_step[0] += Anis_step[i];
         Acyl_step[0] += Acyl_step[i];
         Aspher_step[0] += Aspher_step[i];
-        eigen_step[0][0] += eigen_step[i][0];
-        eigen_step[0][1] += eigen_step[i][1];
-        eigen_step[0][2] += eigen_step[i][2];
 
         agg_counts_step[0] += agg_counts_step[i];
       }
       if (agg_counts_step[0] > 0) {
         out = OpenFile(output, "a");
-        fprintf(out, "%5d", count_step); // timestep
+        fprintf(out, "%d", count_step); // timestep
         // <R_G>
-        fprintf(out, " %14f %14f %14f", Rg_step[0][0]/agg_counts_step[0],
-                                        Rg_step[0][1]/mass_step[0],
-                                        Rg_step[0][2]/mass_step[1]);
+        vec3d val;
+        val.v[0] = GetArr2D(Rg_step, 0, 0) / agg_counts_step[0];
+        val.v[1] = GetArr2D(Rg_step, 0, 1) / mass_step[0];
+        val.v[2] = GetArr2D(Rg_step, 0, 2) / mass_step[1];
+        fprintf(out, " %lf %lf %lf", val.v[0], val.v[1], val.v[2]);
         // <R_G^2>
-        fprintf(out, " %14f %14f %14f", sqrRg_step[0][0]/agg_counts_step[0],
-                                        sqrRg_step[0][1]/mass_step[0],
-                                        sqrRg_step[0][2]/mass_step[1]);
+        val.v[0] = GetArr2D(sqrRg_step, 0, 0) / agg_counts_step[0];
+        val.v[1] = GetArr2D(sqrRg_step, 0, 1) / mass_step[0];
+        val.v[2] = GetArr2D(sqrRg_step, 0, 2) / mass_step[1];
+        fprintf(out, " %lf %lf %lf", val.v[0], val.v[1], val.v[2]);
         // relative shape anisotropy
-        fprintf(out, " %14f", Anis_step[0]/agg_counts_step[0]);
+        fprintf(out, " %lf", Anis_step[0]/agg_counts_step[0]);
         // acylindricity
-        fprintf(out, " %14f", Acyl_step[0]/agg_counts_step[0]);
+        fprintf(out, " %lf", Acyl_step[0]/agg_counts_step[0]);
         // asphericity
-        fprintf(out, " %14f", Aspher_step[0]/agg_counts_step[0]);
+        fprintf(out, " %lf", Aspher_step[0]/agg_counts_step[0]);
         // eigenvalues
-        fprintf(out, " %14f %14f %14f", eigen_step[0][0]/agg_counts_step[0],
-                                        eigen_step[0][1]/agg_counts_step[0],
-                                        eigen_step[0][2]/agg_counts_step[0]);
+        val.v[0] = GetArr2D(eigen_step, 0, 0) / agg_counts_step[0];
+        val.v[1] = GetArr2D(eigen_step, 0, 1) / agg_counts_step[0];
+        val.v[2] = GetArr2D(eigen_step, 0, 2) / agg_counts_step[0];
+        fprintf(out, " %lf %lf %lf", val.v[0], val.v[1], val.v[2]);
         putc('\n', out);
         fclose(out);
       } //}}}
 
-      // free memory //{{{
+      FreeArrND(Rg_step);
+      FreeArrND(sqrRg_step);
+      FreeArrND(eigen_step);
       free(agg_counts_step);
-      free(Rg_step);
-      free(sqrRg_step);
       free(Anis_step);
       free(Acyl_step);
       free(Aspher_step);
-      free(eigen_step); //}}}
     //}}}
     } else {
       if (!SkipTimestep(in, coor, &line_count) ||
@@ -420,67 +421,72 @@ int main(int argc, char *argv[]) {
       fprintf(out, " (%d) <%s>_n", count++, System.MoleculeType[i].Name);
     }
     putc('\n', out);
-    // determine width of each column & collate data //{{{
-    int columns = Count->MoleculeType + 10;
-    int digits[columns][2];
-    InitInt2DArray((int *)digits, columns, 2, 0);
-    // double data[columns][Count->Molecule];
-    double *data[Count->Molecule];
-    for (int i = 0; i < Count->Molecule; i++) {
-      data[i] = calloc(columns, sizeof data[i]);
-      if (agg_counts_sum[i] > 0) {
-        count = -1;
-        data[i][++count] = i + 1;
-        data[i][++count] = Rg_sum[i][0]/agg_counts_sum[i];
-        data[i][++count] = sqrRg_sum[i][0]/agg_counts_sum[i];
-        data[i][++count] = Anis_sum[i]/agg_counts_sum[i];
-        data[i][++count] = Acyl_sum[i]/agg_counts_sum[i];
-        data[i][++count] = Aspher_sum[i]/agg_counts_sum[i];
-        data[i][++count] = eigen_sum[i][0]/agg_counts_sum[i];
-        data[i][++count] = eigen_sum[i][1]/agg_counts_sum[i];
-        data[i][++count] = eigen_sum[i][2]/agg_counts_sum[i];
-        data[i][++count] = (double)(agg_counts_sum[i]);
-        for (int j = 0; j < Count->MoleculeType; j++) {
-          data[i][++count] = (double)(molecules_sum[i][j]) / agg_counts_sum[i];
-        }
-      }
-    }
-    FillMaxDigits(columns, Count->Molecule, data, digits); //}}}
 
-    // go over all possible sizes
+    // collate data //{{{
+    int ncols = count - 1; // header print ends with count++, therefore - 1
+    int nrows = 0;
     for (int i = 0; i < Count->Molecule; i++) {
-      // is that size in the data?
       if (agg_counts_sum[i] > 0) {
-        WriteFormatedDataLine(out, columns, data[i], digits);
+        nrows++;
       }
-      free(data[i]);
     }
+    ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
+    if (!data) {
+      ErrorAlloc("data");
+    }
+    int row_count = 0;
+    for (int i = 0; i < Count->Molecule; i++) {
+      if (agg_counts_sum[i] > 0) {
+        count = 0;
+        SetArr2D(data, row_count, count++, i + 1);
+        double val = GetArr2D(Rg_sum, i, 0) / agg_counts_sum[i];
+        SetArr2D(data, row_count, count++, val);
+        val = GetArr2D(sqrRg_sum, i, 0) / agg_counts_sum[i];
+        SetArr2D(data, row_count, count++, val);
+        val = Anis_sum[i] / agg_counts_sum[i];
+        SetArr2D(data, row_count, count++, val);
+        val = Acyl_sum[i] / agg_counts_sum[i];
+        SetArr2D(data, row_count, count++, val);
+        val = Aspher_sum[i] / agg_counts_sum[i];
+        SetArr2D(data, row_count, count++, val);
+        for (int dd = 0; dd < 3; dd++) {
+          val = GetArr2D(eigen_sum, i, dd) / agg_counts_sum[i];
+          SetArr2D(data, row_count, count++, val);
+        }
+        SetArr2D(data, row_count, count++, agg_counts_sum[i]);
+        for (int j = 0; j < Count->MoleculeType; j++) {
+          val = (double)GetArr2D(molecules_sum, i, j) / agg_counts_sum[i];
+          SetArr2D(data, row_count, count++, val);
+        }
+        row_count++;
+      }
+    } //}}}
+
+    ComputeColumnWidths(nrows, ncols, data, 6);
+    PrintDataAll(out, nrows, ncols, data);
+    FreeArrND(data);
 
     fclose(out);
   } //}}}
 
   // total averages //{{{
   for (int i = 1; i < Count->Molecule; i++) {
-    Rg_sum[0][0] += Rg_sum[i][0];
-    Rg_sum[0][1] += Rg_sum[i][1];
-    Rg_sum[0][2] += Rg_sum[i][2];
-    sqrRg_sum[0][0] += sqrRg_sum[i][0];
-    sqrRg_sum[0][1] += sqrRg_sum[i][1];
-    sqrRg_sum[0][2] += sqrRg_sum[i][2];
+    for (int dd = 0; dd < 3; dd++) {
+      AddArr2D(Rg_sum, 0, dd, GetArr2D(Rg_sum, i, dd));
+      AddArr2D(sqrRg_sum, 0, dd, GetArr2D(sqrRg_sum, i, dd));
+      AddArr2D(eigen_sum, 0, dd, GetArr2D(eigen_sum, i, dd));
+    }
     Anis_sum[0] += Anis_sum[i];
     Acyl_sum[0] += Acyl_sum[i];
     Aspher_sum[0] += Aspher_sum[i];
-    eigen_sum[0][0] += eigen_sum[i][0];
-    eigen_sum[0][1] += eigen_sum[i][1];
-    eigen_sum[0][2] += eigen_sum[i][2];
 
     agg_counts_sum[0] += agg_counts_sum[i];
 
-    mass_sum[0][0] += mass_sum[i][0];
-    mass_sum[0][1] += mass_sum[i][1];
+    AddArr2D(mass_sum, 0, 0, GetArr2D(mass_sum, i, 0));
+    AddArr2D(mass_sum, 0, 1, GetArr2D(mass_sum, i, 1));
 
     for (int j = 0; j < Count->MoleculeType; j++) {
-      molecules_sum[0][j] += molecules_sum[i][j];
+      AddArr2D(molecules_sum, 0, j,  GetArr2D(molecules_sum, i, j));
     }
   }
 
@@ -488,9 +494,6 @@ int main(int argc, char *argv[]) {
   out = OpenFile(output, "a");
 
   count = 1;
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    fprintf(out, "(%d) <%s>, ", count++, System.MoleculeType[i].Name);
-  }
   fprintf(out, "(%d) <Rg>_n, ", count++);
   fprintf(out, "(%d) <Rg>_w, ", count++);
   fprintf(out, "(%d) <Rg>_z, ", count++);
@@ -503,43 +506,46 @@ int main(int argc, char *argv[]) {
   fprintf(out, "(%d) <eigen.x>, ", count++);
   fprintf(out, "(%d) <eigen.y>, ", count++);
   fprintf(out, "(%d) <eigen.z>, ", count++);
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    fprintf(out, "(%d) <%s>", count++, System.MoleculeType[i].Name);
+    if (i != (Count->MoleculeType - 1)) {
+      fprintf(out, ", ");
+    }
+  }
   putc('\n', out);
 
+  fprintf(out, " %lf", GetArr2D(Rg_sum, 0, 0) / agg_counts_sum[0]);
+  fprintf(out, " %lf", GetArr2D(Rg_sum, 0, 1) / GetArr2D(mass_sum, 0, 0));
+  fprintf(out, " %lf", GetArr2D(Rg_sum, 0, 2) / GetArr2D(mass_sum, 0, 1));
+  fprintf(out, " %lf", GetArr2D(sqrRg_sum, 0, 0) / agg_counts_sum[0]);
+  fprintf(out, " %lf", GetArr2D(sqrRg_sum, 0, 1) / GetArr2D(mass_sum, 0, 0));
+  fprintf(out, " %lf", GetArr2D(sqrRg_sum, 0, 2) / GetArr2D(mass_sum, 0, 1));
+  fprintf(out, " %lf", Anis_sum[0] / agg_counts_sum[0]);
+  fprintf(out, " %lf", Acyl_sum[0] / agg_counts_sum[0]);
+  fprintf(out, " %lf", Aspher_sum[0] / agg_counts_sum[0]);
+  fprintf(out, " %lf", GetArr2D(eigen_sum, 0, 0) / agg_counts_sum[0]);
+  fprintf(out, " %lf", GetArr2D(eigen_sum, 0, 1) / agg_counts_sum[0]);
+  fprintf(out, " %lf", GetArr2D(eigen_sum, 0, 2) / agg_counts_sum[0]);
   // molecule types
   for (int i = 0; i < Count->MoleculeType; i++) {
-    fprintf(out, " %lf", (double)(molecules_sum)[0][i]/agg_counts_sum[0]);
+    fprintf(out, " %lf", (double)GetArr2D(molecules_sum, 0, i) /
+                         agg_counts_sum[0]);
   }
-  fprintf(out, " %lf", Rg_sum[0][0]/agg_counts_sum[0]); // <Rg>_n
-  fprintf(out, " %lf", Rg_sum[0][1]/mass_sum[0][0]); // <Rg>_w
-  fprintf(out, " %lf", Rg_sum[0][2]/mass_sum[0][1]); // <Rg>_z
-  fprintf(out, " %lf", sqrRg_sum[0][0]/agg_counts_sum[0]); // <Rg^2>_n
-  fprintf(out, " %lf", sqrRg_sum[0][1]/mass_sum[0][0]); // <Rg^2>_w
-  fprintf(out, " %lf", sqrRg_sum[0][2]/mass_sum[0][1]); // <Rg^2>_z
-  fprintf(out, " %lf", Anis_sum[0]/agg_counts_sum[0]);
-  fprintf(out, " %lf", Acyl_sum[0]/agg_counts_sum[0]);
-  fprintf(out, " %lf", Aspher_sum[0]/agg_counts_sum[0]);
-  fprintf(out, " %lf", eigen_sum[0][0]/agg_counts_sum[0]);
-  fprintf(out, " %lf", eigen_sum[0][1]/agg_counts_sum[0]);
-  fprintf(out, " %lf", eigen_sum[0][2]/agg_counts_sum[0]);
   putc('\n', out);
-
   fclose(out); //}}}
 
-  // free memory - to make valgrind happy //{{{
+  // free memory //{{{
   FreeAggregate(*Count, Aggregate);
   FreeSystem(&System);
-  for (int i = 0; i < Count->Molecule; i++) {
-    free(molecules_sum[i]);
-  }
-  free(molecules_sum);
-  free(mass_sum);
+  FreeArrND(molecules_sum);
+  FreeArrND(mass_sum);
   free(agg_counts_sum);
-  free(Rg_sum);
-  free(sqrRg_sum);
+  FreeArrND(Rg_sum);
+  FreeArrND(sqrRg_sum);
   free(Anis_sum);
   free(Acyl_sum);
   free(Aspher_sum);
-  free(eigen_sum);
+  FreeArrND(eigen_sum);
   free(opt.bt);
   FreeAggPicker(&opt.agg);
   //}}}
