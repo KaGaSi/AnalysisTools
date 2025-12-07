@@ -7,30 +7,33 @@ PARAMS angle = {.a = 10, .b = 160};
 double box = 50;
 char name[LINE] = "0_4G500";
 
+// Help message //{{{
+const struct HelpHelp HelpDesc = {
+  "Create 1000 Gal_500 molecule; hardcoded stuff...",
+
+  "Usage: GenGal <output> [options]",
+  .args = 1, // number of mandatory arguments
+  .all = 7, // number of valid lines OptSpec (not counting last {NULL})
+};
+static const struct OptSpec opts[] = {
+  COMMON_OPTS[C_VERBOSE],
+  COMMON_OPTS[C_HELP],
+  COMMON_OPTS[C_SILENT],
+  COMMON_OPTS[C_VERSION],
+  {"<output>", NULL, "output coordinate file", OPT_ARG},
+  {"-o", "<struct>", "extra output file printed after the last molecule is generated", OPT_EXTRA},
+  {NULL}
+}; //}}}
+
 // Help() //{{{
-void Help(const char cmd[50], const bool error,
+void Help_old(const char cmd[50], const bool error,
           const int n, const char opt[n][OPT_LENGTH]) {
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-    fprintf(ptr, "Create 1000 Gal_500 molecule; hardcoded stuff...\n\n");
-  }
-
-  fprintf(ptr, "Usage: %s <output> [options]\n\n", cmd);
-
-  fprintf(ptr, "<output>            output coordinate file\n");
-  fprintf(ptr, "[options]\n");
-  fprintf(ptr, "  -o <struct>       extra output file printed after the last "
-          "molecule is generated\n");
   CommonHelp(error, n, opt);
 } //}}}
 
 // structure for options //{{{
 struct OPT {
-  FILE_TYPE fw; // -o
-  COMMON_OPT c;
+  FILE_TYPE f_out; // -o
 };
 OPT * opt_create(void) {
   return malloc(sizeof(OPT));
@@ -40,33 +43,27 @@ int main(int argc, char *argv[]) {
 
   srand(time(0));
 
-  // define options
-  int common = 4, all = common + 1, count = 0,
-      req_arg = 1;
-  char option[all][OPT_LENGTH];
-  OptionCheck(argc, argv, req_arg, common, all, true, option,
-               "-st", "-e", "-sk", "-i", "--verbose", "--silent",
-               "--help", "--version", "--joined", "--all", "-d", "-m", "-w");
-
-  count = 0; // count mandatory arguments
-  OPT *opt = opt_create();
-
+  // commad line arguments before reading the structure //{{{
+  OptionCheck(argc, argv, true, HelpDesc, opts);
+  OPT opt;
+  int count = 0;
   // <output> - output coordinate file
   FILE_TYPE fw_coor;
   snprintf(fw_coor.name, LINE, "%s", argv[++count]);
   fw_coor.type = CoordinateFileType(fw_coor.name);
 
   SYS_FILES in = InitSysFiles;
-  opt->c = CommonOptions(argc, argv, in);
-  if (!opt->c.silent) {
+  COMMON_OPT commons = CommonOptions(argc, argv, in);
+
+  // output file (-o option)
+  opt.f_out = InitFile;
+  if (FileOption(argc, argv, "-o", opt.f_out.name)) {
+    opt.f_out.type = FileType(opt.f_out.name);
+  } //}}}
+
+  if (!commons.silent) {
     PrintCommand(stdout, argc, argv);
   }
-
-  // output file (-o option) //{{{
-  opt->fw = InitFile;
-  if (FileOption(argc, argv, "-o", opt->fw.name)) {
-    opt->fw.type = FileType(opt->fw.name);
-  } //}}}
 
   SYSTEM System;
   InitSystem(&System);
@@ -173,7 +170,7 @@ int main(int argc, char *argv[]) {
 
   InitOutputCoorFile(fw_coor, System, argc, argv);
 
-  if (opt->c.verbose) {
+  if (commons.verbose) {
     VerboseOutput(System);
   }
 
@@ -256,13 +253,12 @@ int main(int argc, char *argv[]) {
   }
   fprintf(stdout, "\nDone\n");
 
-  if (opt->fw.name[0] != '\0') {
-    WriteOutputAll(System, opt->fw, false, -1, argc, argv);
+  if (opt.f_out.name[0] != '\0') {
+    WriteOutputAll(System, opt.f_out, false, -1, argc, argv);
   }
 
   // free memory
   FreeSystem(&System);
-  free(opt);
 
   return 0;
 }

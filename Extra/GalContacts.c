@@ -1,31 +1,39 @@
 #include "../src/AnalysisTools.h"
 
-// Help() //{{{
-void Help(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-    fprintf(stdout, "\
-I DON'THINK THIS IS CURRENT, RIGHT? ...SEEMS TO COUNT ONLY 3-BODY CONTACTS... \
-Count contacts intra- and intermolecular contacts between specified bead types \
-in specified molecule types. Also counts 3-body contacts, specifically, \
-two of the specified bead types with 'C' bead type or 'CA2' molecule type's \
-geometric centre (these names are hardcoded).\n\n");
-  }
-  fprintf(ptr, "Usage: %s <input> <output> <skip> <dist> [options]\n\n", cmd);
+// Help message //{{{
+const struct HelpHelp HelpDesc = {
+  "I DON'THINK THIS IS CURRENT, RIGHT? COUNTS ONLY 3-BODY CONTACTS...\n"
+  "Count contacts intra- and intermolecular contacts between specified bead "
+  "types in specified molecule types. Also counts 3-body contacts, "
+  "specifically, two of the specified bead types with 'C' bead type or 'CA2' "
+  "molecule type's geometric centre (these names are hardcoded)",
 
-  fprintf(ptr, "<input>             input coordinate file\n");
-  fprintf(ptr, "<output>            output file\n");
-  fprintf(ptr, "<skip>              number of in-between beads to skip\n");
-  fprintf(ptr, "<dist>              minimum distance contact check\n");
-  fprintf(ptr, "[options]\n");
-  fprintf(ptr, "  -mt <name(s)>     use specified molecule type(s)\n");
-  fprintf(ptr, "  -bt <name(s)>     use specified bead type(s)\n");
-  fprintf(ptr, "  ---multi          allow multiple trios with the same ion\n");
-  CommonHelp(error, n, opt);
+  "Usage: GalContacts <input> <output> <skip> <dist> [options]",
+  .args = 4, // number of mandatory arguments
+  .all = 15, // number of valid lines OptSpec (not counting last {NULL})
+};
+static const struct OptSpec opts[] = {
+  COMMON_OPTS[C_I],
+  COMMON_OPTS[C_ST],
+  COMMON_OPTS[C_E],
+  COMMON_OPTS[C_SK],
+  COMMON_OPTS[C_VERBOSE],
+  COMMON_OPTS[C_HELP],
+  COMMON_OPTS[C_SILENT],
+  COMMON_OPTS[C_VERSION],
+  {"<input>", NULL, "input coordinate file", OPT_ARG},
+  {"<output>", NULL, "output file", OPT_ARG},
+  {"<skip>", NULL, "number of in-between beads to skip", OPT_EXTRA},
+  {"<dist>", NULL, "minimum distance contact check", OPT_EXTRA},
+  {"-mt", "<name(s)>", "use specified molecule type(s)", OPT_EXTRA},
+  {"-bt", "<name(s)>", "use specified bead type(s)", OPT_EXTRA},
+  {"---multi", NULL, "allow multiple trios with the same ion", OPT_EXTRA},
+  {NULL}
+}; //}}}
+
+// Help() //{{{
+void Help_old(const char cmd[50], const bool error,
+          const int n, const char opt[n][OPT_LENGTH]) {
 } //}}}
 
 // structure for options //{{{
@@ -39,11 +47,7 @@ struct OPT {
   char f_file[LINE]; // -f (filename)
   int f_list[100],   // -f (list of numbers)
       f_num;         // -f (number of those numbers)
-  COMMON_OPT c;
-};
-OPT * opt_create(void) {
-  return malloc(sizeof(OPT));
-} //}}}
+}; //}}}
 
 // name for the monovalent cation
 static char *name = "C";
@@ -96,15 +100,15 @@ typedef struct {
       mt; // molecule name (the 0_3G500 or some such)
 } PrintAvgContacts_ctx;
 // Define a function pointer type for loop body functions
-typedef void (*BodyFunc)(int, int, FILE *, SYSTEM, OPT *, void *);
+typedef void (*BodyFunc)(int, int, FILE *, SYSTEM, OPT, void *);
 // Function to iterate over bead types
-void iterate_btypes(int i, FILE *fw, SYSTEM Sys, OPT *opt,
+void iterate_btypes(int i, FILE *fw, SYSTEM Sys, OPT opt,
                     BodyFunc func, void *context) {
   for (int j = 0; j < Sys.MoleculeType[i].nBTypes; j++) {
     for (int k = j; k < Sys.MoleculeType[i].nBTypes; k++) {
       int bt_j = Sys.MoleculeType[i].BType[j];
       int bt_k = Sys.MoleculeType[i].BType[k];
-      if (opt->bt[bt_j] && opt->bt[bt_k]) {
+      if (opt.bt[bt_j] && opt.bt[bt_k]) {
         func(bt_j, bt_k, fw, Sys, opt, context);
       }
     }
@@ -112,7 +116,7 @@ void iterate_btypes(int i, FILE *fw, SYSTEM Sys, OPT *opt,
 }
 // Function to print bead types
 void PrintHeader(int bt_j, int bt_k, FILE *fw,
-                 SYSTEM Sys, OPT *opt, void *context) {
+                 SYSTEM Sys, OPT opt, void *context) {
   PrintHeader_ctx *ctx = (PrintHeader_ctx *)context;
   char *name_j = Sys.BeadType[bt_j].Name;
   char *name_k = Sys.BeadType[bt_k].Name;
@@ -125,7 +129,7 @@ void PrintHeader(int bt_j, int bt_k, FILE *fw,
 }
 // Function to compute averages
 void PrintAvgContacts(int bt_j, int bt_k, FILE *fw,
-                      SYSTEM Sys, OPT *opt, void *context) {
+                      SYSTEM Sys, OPT opt, void *context) {
   PrintAvgContacts_ctx *ctx = (PrintAvgContacts_ctx *)context;
   if (ctx->intra_step) {
     int num_mol = Sys.MoleculeType[ctx->mt].Number;
@@ -144,46 +148,39 @@ void PrintAvgContacts(int bt_j, int bt_k, FILE *fw,
 
 int main(int argc, char *argv[]) {
 
-  // define options & check their validity //{{{
-  int common = 8, all = common + 3, column = 0,
-      req_arg = 4;
-  char option[all][OPT_LENGTH];
-  OptionCheck(argc, argv, req_arg, common, all, true, option,
-              "-st", "-e", "-sk", "-i", "--verbose", "--silent", "--help",
-              "--version", "-mt", "-bt", "--multi"); //}}}
-
-  column = 0; // count mandatory arguments
-  OPT *opt = opt_create();
-
-  // mandatory options //{{{
+  // commad line arguments before reading the structure //{{{
+  OptionCheck(argc, argv, true, HelpDesc, opts);
+  OPT opt;
+  int count = 0;
   // <input> - input coordinate (and structure) file
   SYS_FILES in = InitSysFiles;
-  s_strcpy(in.coor.name, argv[++column], LINE);
+  s_strcpy(in.coor.name, argv[++count], LINE);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   }
   // <output> - output file name
   char fout[LINE] = "";
-  s_strcpy(fout, argv[++column], LINE);
+  s_strcpy(fout, argv[++count], LINE);
   // <skip> - how many beads to skip at least betweem contact-able beads
   long skip = 0;
-  if (!IsWholeNumber(argv[++column], &skip)) {
+  if (!IsWholeNumber(argv[++count], &skip)) {
     ErrorNaN("<skip>");
-    Help(StripPath(argv[0]), true, common, option);
+    Help(true, HelpDesc, opts);
     exit(1);
   }
   double dist_check = 0;
-  if (!IsPosRealNumber(argv[++column], &dist_check)) {
+  if (!IsPosRealNumber(argv[++count], &dist_check)) {
     ErrorNaN("<dist>");
-    Help(StripPath(argv[0]), true, common, option);
+    Help(true, HelpDesc, opts);
     exit(1);
-  } //}}}
+  }
+  COMMON_OPT commons = CommonOptions(argc, argv, in);
 
   // options before reading system data
-  opt->c = CommonOptions(argc, argv, in);
-  opt->multi = BoolOption(argc, argv, "--multi");
+  commons = CommonOptions(argc, argv, in);
+  opt.multi = BoolOption(argc, argv, "--multi"); //}}}
 
-  if (!opt->c.silent) {
+  if (!commons.silent) {
     PrintCommand(stdout, argc, argv);
   }
 
@@ -207,17 +204,17 @@ int main(int argc, char *argv[]) {
 
   // molecule/bead type options //{{{
   // molecule types to calculate contacts for
-  opt->mt = calloc(System.Count.MoleculeType, sizeof *opt->mt);
-  if (!TypeOption(argc, argv, "-mt", 'm', true, opt->mt, System)) {
-    InitBoolArray(opt->mt, Count->MoleculeType, true);
+  opt.mt = calloc(System.Count.MoleculeType, sizeof *opt.mt);
+  if (!TypeOption(argc, argv, "-mt", 'm', true, opt.mt, System)) {
+    InitBoolArray(opt.mt, Count->MoleculeType, true);
   }
   // bead types to calculate contacts for
-  opt->bt = calloc(System.Count.BeadType, sizeof *opt->bt);
-  if (!TypeOption(argc, argv, "-bt", 'b', true, opt->bt, System)) {
-    InitBoolArray(opt->bt, Count->BeadType, true);
+  opt.bt = calloc(System.Count.BeadType, sizeof *opt.bt);
+  if (!TypeOption(argc, argv, "-bt", 'b', true, opt.bt, System)) {
+    InitBoolArray(opt.bt, Count->BeadType, true);
   } //}}}
 
-  if (opt->c.verbose) {
+  if (commons.verbose) {
     VerboseOutput(System);
   }
 
@@ -249,10 +246,10 @@ int main(int argc, char *argv[]) {
 
   // print initial stuff to output file //{{{
   FILE *fw = PrintBylineOpenFile(fout, argc, argv);
-  column = 1;
+  int column = 1;
   fprintf(fw, "# (%d) step\n", column++);
   for (int i = 0; i < Count->MoleculeType; i++) {
-    if (opt->mt[i]) {
+    if (opt.mt[i]) {
       fprintf(fw, "# molecule %s: ", System.MoleculeType[i].Name);
       PrintHeader_ctx print_ctx = { column };
       iterate_btypes(i, fw, System, opt, PrintHeader, &print_ctx);
@@ -267,10 +264,10 @@ int main(int argc, char *argv[]) {
       count_used = 0, // count steps in output file
       line_count = 0; // count lines in the vcf file
   while (true) {
-    PrintStep(&count_coor, opt->c.start, opt->c.silent);
+    PrintStep(&count_coor, commons.start, commons.silent);
     // use every skip-th timestep between start and end
     bool use = false;
-    if (UseStep(opt->c, count_coor)) {
+    if (UseStep(commons, count_coor)) {
       use = true;
     }
     if (use) { //{{{
@@ -301,7 +298,7 @@ int main(int argc, char *argv[]) {
         int id_i = System.Bonded[i];
         BEAD *b_i = &System.Bead[id_i];
         MOLECULE *m_i = &System.Molecule[b_i->Molecule];
-        if (opt->mt[m_i->Type] && opt->bt[b_i->Type]) {
+        if (opt.mt[m_i->Type] && opt.bt[b_i->Type]) {
           mt_beads[count_mt_beads] = id_i;
           count_mt_beads++;
         }
@@ -320,7 +317,7 @@ int main(int argc, char *argv[]) {
         // ... MolType_name = MOLECULETYPE thingy of the mt_name
         for (int j = 0; mt_name != -1 && j < MolType_name->Number; j++) {
           MOLECULE *mol = &System.Molecule[MolType_name->Index[j]];
-          if ((opt->multi && used_name_mol[j]) || !mol->InTimestep) {
+          if ((opt.multi && used_name_mol[j]) || !mol->InTimestep) {
             continue;
           }
           for (int k = 0; k < MolType_name->nBeads; k++) {
@@ -356,11 +353,11 @@ int main(int argc, char *argv[]) {
               fprintf(out_vmd, "mol modstyle  ${rep} ${mol} cpk 1.0 0.0\n");
               fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d or resid %d\n",
                       id_i, id_l, mol->Index);
-              if (!opt->multi && used_name_mol[j]) {
+              if (!opt.multi && used_name_mol[j]) {
                 break;
               }
             }
-            if (!opt->multi && used_name_mol[j]) {
+            if (!opt.multi && used_name_mol[j]) {
               break;
             }
           }
@@ -403,11 +400,11 @@ int main(int argc, char *argv[]) {
             fprintf(out_vmd, "mol modstyle  ${rep} ${mol} cpk 1.0 0.0\n");
             fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d %d\n",
                     id_i, id_l, id_j);
-            if (!opt->multi && used_name[j]) {
+            if (!opt.multi && used_name[j]) {
               break;
             }
           }
-          if (!opt->multi && used_name[j]) {
+          if (!opt.multi && used_name[j]) {
             break;
           }
         }
@@ -426,7 +423,7 @@ int main(int argc, char *argv[]) {
       fw = OpenFile(fout, "a");
       fprintf(fw, "%5d", count_used);
       for (int i = 0; i < Count->MoleculeType; i++) {
-        if (opt->mt[i]) {
+        if (opt.mt[i]) {
           PrintAvgContacts_ctx avg_ctx = { count_3body_step,
                                            mt_name, // mt id for name_mol (CA2)
                                            bt_name, // bt id for name (C)
@@ -453,13 +450,13 @@ int main(int argc, char *argv[]) {
       }
     }
     // exit the main loop if reached user-specied end timestep
-    if (count_coor == opt->c.end) {
+    if (count_coor == commons.end) {
       break;
     }
   }
   fclose(fr);
   // print last step?
-  if (!opt->c.silent) {
+  if (!commons.silent) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\r                          \r");
@@ -474,9 +471,8 @@ int main(int argc, char *argv[]) {
   // FreeArrND(inter_mol);
   // FreeArrND(inter_3body);
   // FreeArrND(c_mtype_mtype);
-  free(opt->mt);
-  free(opt->bt);
-  free(opt);
+  free(opt.mt);
+  free(opt.bt);
   FreeSystem(&System);
   //}}}
 
@@ -493,7 +489,7 @@ int main(int argc, char *argv[]) {
       // //   int id_i = beads[i];
       //   BEAD *b_i = &System.Bead[id_i];
       //   MOLECULE *m_i = &System.Molecule[b_i->Molecule];
-      //   if (!opt->mt[m_i->Type] || !opt->bt[b_i->Type]) {
+      //   if (!opt.mt[m_i->Type] || !opt.bt[b_i->Type]) {
       //     continue;
       //   }
       //   // 1) 'name_mol' molecules
@@ -517,7 +513,7 @@ int main(int argc, char *argv[]) {
       //         int id_l = beads[l];
       //         BEAD *b_l = &System.Bead[id_l];
       //         MOLECULE *m_l = &System.Molecule[b_l->Molecule];
-      //         if (!opt->mt[m_l->Type] || !opt->bt[b_l->Type]) {
+      //         if (!opt.mt[m_l->Type] || !opt.bt[b_l->Type]) {
       //           continue;
       //         }
       //         double dist = DistLength(b_l->Position.v, b_k->Position.v,
@@ -553,7 +549,7 @@ int main(int argc, char *argv[]) {
       //         // fprintf(out_vmd, "mol modcolor  ${rep} ${mol} ColorID 0\n");
       //         fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d or resid %d\n",
       //                 id_i, id_l, mol->Index);
-      //         if (!opt->multi && used_name_mol[j]) {
+      //         if (!opt.multi && used_name_mol[j]) {
       //           // printf("%s (%d) %s (%d) %s (%d)\n",
       //           //        System.BeadType[b_i->Type].Name, id_i,
       //           //        System.BeadType[b_l->Type].Name, id_l,
@@ -561,7 +557,7 @@ int main(int argc, char *argv[]) {
       //           break;
       //         }
       //       }
-      //       if (!opt->multi && used_name_mol[j]) {
+      //       if (!opt.multi && used_name_mol[j]) {
       //         break;
       //       }
       //     }
@@ -585,7 +581,7 @@ int main(int argc, char *argv[]) {
       //       int id_l = beads[l];
       //       BEAD *b_l = &System.Bead[id_l];
       //       MOLECULE *m_l = &System.Molecule[b_l->Molecule];
-      //       if (!opt->mt[m_l->Type] || !opt->bt[b_l->Type]) {
+      //       if (!opt.mt[m_l->Type] || !opt.bt[b_l->Type]) {
       //         continue;
       //       }
       //       double dist = DistLength(b_l->Position.v, b_j->Position.v,
@@ -625,7 +621,7 @@ int main(int argc, char *argv[]) {
       //       // fprintf(out_vmd, "mol modcolor  ${rep} ${mol} ColorID 0\n");
       //       fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d %d\n",
       //               id_i, id_l, id_j);
-      //       if (!opt->multi && used_name[j]) {
+      //       if (!opt.multi && used_name[j]) {
       //         // printf("%s (%d) %s (%d) %s (%d)\n",
       //         //        System.BeadType[b_i->Type].Name, id_i,
       //         //        System.BeadType[b_l->Type].Name, id_l,
@@ -633,7 +629,7 @@ int main(int argc, char *argv[]) {
       //         break;
       //       }
       //     }
-      //     if (!opt->multi && used_name[j]) {
+      //     if (!opt.multi && used_name[j]) {
       //       break;
       //     }
       //   }

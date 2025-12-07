@@ -1,47 +1,41 @@
 #include "../src/AnalysisTools.h"
 
+// Help message //{{{
+const struct HelpHelp HelpDesc = {
+  "For each step, print the size of the largest aggregate.",
+
+  "Usage: LargestAgg <input> <in.agg> <output> [options]",
+  .args = 3, // number of mandatory arguments
+  .all = 10, // number of valid lines OptSpec (not counting last {NULL})
+};
+static const struct OptSpec opts[] = {
+  COMMON_OPTS[C_ST],
+  COMMON_OPTS[C_E],
+  COMMON_OPTS[C_SK],
+  COMMON_OPTS[C_VERBOSE],
+  COMMON_OPTS[C_HELP],
+  COMMON_OPTS[C_SILENT],
+  COMMON_OPTS[C_VERSION],
+  {"<input>", NULL, "input structure file", OPT_ARG},
+  {"<in.agg>", NULL, "input agg file", OPT_ARG},
+  {"<output>", NULL, "output file with largest aggregates", OPT_ARG},
+  {NULL}
+}; //}}}
+
 // Help() //{{{
-void Help(const char cmd[50], const bool error,
+void Help_old(const char cmd[50], const bool error,
           const int n, const char opt[n][OPT_LENGTH]) {
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-    fprintf(ptr, "\
-For each step, print the size of the largest aggregate.\n\n");
-  }
-
-  fprintf(ptr, "Usage: %s <input> <in.agg> <output> [options]\n\n", cmd);
-
-  fprintf(ptr, "<input>             input structure file\n");
-  fprintf(ptr, "<in.agg>            input agg file\n");
-  fprintf(ptr, "<output>            output file with largest aggregates\n");
-  fprintf(ptr, "[options]\n");
-  CommonHelp(error, n, opt);
 } //}}}
 
 // structure for options //{{{
 struct OPT {
-  COMMON_OPT c;
-};
-OPT * opt_create(void) {
-  return malloc(sizeof(OPT));
-} //}}}
+}; //}}}
 
 int main(int argc, char *argv[]) {
 
-  // define options & check their validity
-  int common = 7, all = common + 0, count = 0,
-      req_arg = 3;
-  char option[all][OPT_LENGTH];
-  OptionCheck(argc, argv, req_arg, common, all, true, option,
-               "-st", "-e", "-sk", "--verbose", "--silent", "--help",
-               "--version");
-
   // commad line arguments before reading the structure //{{{
-  count = 0; // count mandatory arguments
-  OPT *opt = opt_create();
+  OptionCheck(argc, argv, true, HelpDesc, opts);
+  int count = 0;
   // <input> - input structure file
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.stru.name, argv[++count], LINE);
@@ -52,13 +46,12 @@ int main(int argc, char *argv[]) {
   // <output> - file largest aggregates
   char fout[LINE] = "";
   s_strcpy(fout, argv[++count], LINE);
+  // options before reading system data
+  COMMON_OPT commons = CommonOptions(argc, argv, in);
   //}}}
 
-  // options before reading system data
-  opt->c = CommonOptions(argc, argv, in);
-
   // print command to stdout
-  if (!opt->c.silent) {
+  if (!commons.silent) {
     PrintCommand(stdout, argc, argv);
   }
 
@@ -68,7 +61,7 @@ int main(int argc, char *argv[]) {
   AGGREGATE *Aggregate = NULL;
   InitAggregate(System, &Aggregate);
 
-  if (opt->c.verbose) {
+  if (commons.verbose) {
     VerboseOutput(System);
   }
 
@@ -94,7 +87,7 @@ int main(int argc, char *argv[]) {
       count_used = 0,
       agg_lines = 2; // first two lines already read (skipped)
   while (true) { // cycle ends with 'Last Step' line in agg file
-    PrintStep(&count_step, opt->c.start, opt->c.silent);
+    PrintStep(&count_step, commons.start, commons.silent);
     if (ReadAggregates(fr, input_agg, &System, Aggregate, &agg_lines) < 0) {
       count_step--;
       break;
@@ -102,7 +95,7 @@ int main(int argc, char *argv[]) {
 
     // decide whether this timestep is to be used for averages and distributions
     bool use = false;
-    if (UseStep(opt->c, count_step)) {
+    if (UseStep(commons, count_step)) {
       use = true;
     }
     if (use) { //{{{
@@ -125,13 +118,13 @@ int main(int argc, char *argv[]) {
     } //}}}
 
     // exit the main loop if reached user-specied end timestep
-    if (count_step == opt->c.end) {
+    if (count_step == commons.end) {
       break;
     }
   }
   fclose(fr);
   // print last step //{{{
-  if (!opt->c.silent) {
+  if (!commons.silent) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\r                          \r");
@@ -142,10 +135,9 @@ int main(int argc, char *argv[]) {
   } //}}}
   //}}}
 
-  // free memory - to make valgrind happy
+  // free memory
   FreeAggregate(*Count, Aggregate);
   FreeSystem(&System);
-  free(opt);
 
   return 0;
 }

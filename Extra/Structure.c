@@ -1,5 +1,30 @@
 #include "../src/AnalysisTools.h"
 
+// Help message //{{{
+const struct HelpHelp HelpDesc = {
+  "Structure calculates distribution of local 2D bond order orientation "
+  "parameters (BOOPs) for 3- to 8-fold symmetry.",
+
+  "Usage: Structure <input> <output> <double> [options]",
+  .args = 3, // number of mandatory arguments
+  .all = 12, // number of valid lines OptSpec (not counting last {NULL})
+};
+static const struct OptSpec opts[] = {
+  COMMON_OPTS[C_I],
+  COMMON_OPTS[C_ST],
+  COMMON_OPTS[C_E],
+  COMMON_OPTS[C_SK],
+  COMMON_OPTS[C_VERBOSE],
+  COMMON_OPTS[C_HELP],
+  COMMON_OPTS[C_SILENT],
+  COMMON_OPTS[C_VERSION],
+  {"<input>", NULL, "input coordinate file", OPT_ARG},
+  {"<width>", NULL, "width of a bin", OPT_ARG},
+  {"<output>", NULL, "output file", OPT_ARG},
+  {"-pb", "<file>", "save per-bead BOOPs from the last step (automatic ending -<symmetry>.txt)", OPT_EXTRA},
+  {NULL}
+}; //}}}
+
 // calculate bond orientation order parameter for a single bead //{{{
 void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrNDd *boop) {
   int max_neigh = sym[n_sym-1];
@@ -57,51 +82,21 @@ void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrNDd *boop) 
 } //}}}
 
 // Help() //{{{
-void Help(const char cmd[50], const bool error,
+void Help_old(const char cmd[50], const bool error,
           const int n, const char opt[n][OPT_LENGTH]) {
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-    fprintf(stdout, "\
-Calculate distribution of bond order orientation parameters for 3- to \
-8-fold symmetry.\n\n");
-  }
-  fprintf(ptr, "Usage: %s <input> <output> <double> [options]\n\n", cmd);
-
-  fprintf(ptr, "<input>             input coordinate file\n");
-  fprintf(ptr, "<width>             width of a bin\n");
-  fprintf(ptr, "<output>            output file\n");
-  fprintf(ptr, "[options]\n");
-  fprintf(ptr, "  -pb <file>        save per-bead boop from the last step "
-          "(automatic ending -<symmetry>.txt)\n");
-  CommonHelp(error, n, opt);
 } //}}}
 
 // structure for options //{{{
 struct OPT {
   char per_bead_file[LINE]; // -pb option
-  COMMON_OPT c;
-};
-OPT * opt_create(void) {
-  return malloc(sizeof(OPT));
-} //}}}
+}; //}}}
 
 int main(int argc, char *argv[]) {
 
-  // define options & check their validity
-  int common = 8, all = common + 1, count = 0,
-      req_arg = 3;
-  char option[all][OPT_LENGTH];
-  OptionCheck(argc, argv, req_arg, common, all, true, option,
-              "-st", "-e", "-sk", "-i", "--verbose", "--silent", "--help",
-              "--version", "-pb");
-
-  count = 0; // count mandatory arguments
-  OPT *opt = opt_create();
-
-  // mandatory options //{{{
+  // commad line arguments before reading the structure //{{{
+  OptionCheck(argc, argv, true, HelpDesc, opts);
+  OPT opt;
+  int count = 0;
   // <input> - input coordinate (and structure) file
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.coor.name, argv[++count], LINE);
@@ -112,21 +107,21 @@ int main(int argc, char *argv[]) {
   double width = 0;
   if (!IsRealNumber(argv[++count], &width)) {
     ErrorNaN("<width>");
-    Help(StripPath(argv[0]), true, common, option);
+    Help(true, HelpDesc, opts);
     exit(1);
   }
   // <output> - output file name
   char fout[LINE] = "";
   s_strcpy(fout, argv[++count], LINE);
-  //}}}
 
   // options before reading system data
-  opt->c = CommonOptions(argc, argv, in);
-  if (!FileOption(argc, argv, "-pb", opt->per_bead_file)) {
-    opt->per_bead_file[0] = '\0';
+  COMMON_OPT commons = CommonOptions(argc, argv, in);
+  if (!FileOption(argc, argv, "-pb", opt.per_bead_file)) {
+    opt.per_bead_file[0] = '\0';
   }
+  //}}}
 
-  if (!opt->c.silent) {
+  if (!commons.silent) {
     PrintCommand(stdout, argc, argv);
   }
 
@@ -134,7 +129,7 @@ int main(int argc, char *argv[]) {
   COUNT *Count = &System.Count;
   BOX *Box = &System.Box;
 
-  if (opt->c.verbose) {
+  if (commons.verbose) {
     VerboseOutput(System);
   }
 
@@ -175,10 +170,10 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   while (true) {
-    PrintStep(&count_coor, opt->c.start, opt->c.silent);
+    PrintStep(&count_coor, commons.start, commons.silent);
     // use every skip-th timestep between start and end
     bool use = false;
-    if (UseStep(opt->c, count_coor)) {
+    if (UseStep(commons, count_coor)) {
       use = true;
     }
     if (use) { //{{{
@@ -245,13 +240,13 @@ int main(int argc, char *argv[]) {
       }
     }
     // exit the main loop if reached user-specied end timestep
-    if (count_coor == opt->c.end) {
+    if (count_coor == commons.end) {
       break;
     }
   }
   fclose(fr);
   // print last step?
-  if (!opt->c.silent) {
+  if (!commons.silent) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\r                          \r");
@@ -259,11 +254,11 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "Last Step: %d (used %d)\n", count_coor, count_used);
   } //}}}
 
-  if (opt->per_bead_file[0] != '\0') {
+  if (opt.per_bead_file[0] != '\0') {
     // new file
     for (int i = 0; i < n_sym; i++) {
       char fout[LINE] = "";
-      if (snprintf(fout, LINE, "%s-%d.txt", opt->per_bead_file, sym[i]) < 0) {
+      if (snprintf(fout, LINE, "%s-%d.txt", opt.per_bead_file, sym[i]) < 0) {
         ErrorSnprintf();
       }
       FILE *fw = OpenFile(fout, "w");
@@ -277,7 +272,7 @@ int main(int argc, char *argv[]) {
                           Square(GetArr3D(boop, id, j, 1)));
 
         char fout[LINE] = "";
-        if (snprintf(fout, LINE, "%s-%d.txt", opt->per_bead_file, sym[j]) < 0) {
+        if (snprintf(fout, LINE, "%s-%d.txt", opt.per_bead_file, sym[j]) < 0) {
           ErrorSnprintf();
         }
         FILE *fw = OpenFile(fout, "a");
@@ -392,7 +387,6 @@ int main(int argc, char *argv[]) {
   FreeArrND(boop_distr);
   free(g_n_counts);
   free(norm);
-  free(opt);
   FreeSystem(&System);
   //}}}
 

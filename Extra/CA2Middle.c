@@ -3,30 +3,38 @@
 
 char *name = "CA2";
 
-// Help() //{{{
-void Help(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-    fprintf(stdout, "\
-Take coordinate file with molecule called CA2 and returns \
-a file with geometric centre of CA2.\n\n");
-  }
-  fprintf(ptr, "Usage: %s <input> <max> <output> [options]\n\n", cmd);
+// Help message //{{{
+const struct HelpHelp HelpDesc = {
+  "Take coordinate file with molecule called CA2 and returns "
+  "a file with geometric centre of CA2.",
 
-  fprintf(ptr, "<input>             input coordinate file\n");
-  fprintf(ptr, "<output>            output coordinate file\n");
-  CommonHelp(error, n, opt);
+  "Usage: CA2Middle <input> <max> <output> [options]",
+  .args = 2, // number of mandatory arguments
+  .all = 10, // number of valid lines OptSpec (not counting last {NULL})
+};
+static const struct OptSpec opts[] = {
+  COMMON_OPTS[C_I],
+  COMMON_OPTS[C_ST],
+  COMMON_OPTS[C_E],
+  COMMON_OPTS[C_SK],
+  COMMON_OPTS[C_VERBOSE],
+  COMMON_OPTS[C_HELP],
+  COMMON_OPTS[C_SILENT],
+  COMMON_OPTS[C_VERSION],
+  {"<input>", NULL, "input coordinate file", OPT_ARG},
+  {"<output>", NULL, "output coordinate file", OPT_ARG},
+  {NULL}
+}; //}}}
+
+// Help() //{{{
+void Help_old(const char cmd[50], const bool error,
+          const int n, const char opt[n][OPT_LENGTH]) {
 } //}}}
 
 // structure for options //{{{
 struct OPT {
   // here com option variables
   int dim[4]; // -d: [0]...1D/2D/3D; rest axes (0-2)
-  COMMON_OPT c;
 };
 OPT * opt_create(void) {
   return malloc(sizeof(OPT));
@@ -34,18 +42,9 @@ OPT * opt_create(void) {
 
 int main(int argc, char *argv[]) {
 
-  // define options & check their validity
-  int common = 8, all = common + 0, count = 0,
-      req_arg = 2;
-  char option[all][OPT_LENGTH];
-  OptionCheck(argc, argv, req_arg, common, all, true, option,
-              "-st", "-e", "-sk", "-i", "--verbose", "--silent", "--help",
-              "--version");
-
-  count = 0; // count mandatory arguments
-  OPT *opt = opt_create();
-
-  // mandatory options //{{{
+  // commad line arguments before reading the structure //{{{
+  OptionCheck(argc, argv, true, HelpDesc, opts);
+  int count = 0;
   // <input> - input coordinate (and structure) file
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.coor.name, argv[++count], LINE);
@@ -56,19 +55,18 @@ int main(int argc, char *argv[]) {
   FILE_TYPE fout;
   s_strcpy(fout.name, argv[++count], LINE);
   fout.type = CoordinateFileType(fout.name);
+  // options before reading system data
+  COMMON_OPT commons = CommonOptions(argc, argv, in);
   //}}}
 
-  // options before reading system data
-  opt->c = CommonOptions(argc, argv, in);
-
-  if (!opt->c.silent) {
+  if (!commons.silent) {
     PrintCommand(stdout, argc, argv);
   }
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
 
-  if (opt->c.verbose) {
+  if (commons.verbose) {
     VerboseOutput(System);
   }
 
@@ -89,10 +87,10 @@ int main(int argc, char *argv[]) {
       count_used = 0, // count steps in output file
       line_count = 0; // count lines in the vcf file
   while (true) {
-    PrintStep(&count_coor, opt->c.start, opt->c.silent);
+    PrintStep(&count_coor, commons.start, commons.silent);
     // use every skip-th timestep between start and end
     bool use = false;
-    if (UseStep(opt->c, count_coor)) {
+    if (UseStep(commons, count_coor)) {
       use = true;
     }
     if (use) { //{{{
@@ -144,13 +142,13 @@ int main(int argc, char *argv[]) {
       }
     }
     // exit the main loop if reached user-specied end timestep
-    if (count_coor == opt->c.end) {
+    if (count_coor == commons.end) {
       break;
     }
   }
   fclose(fr);
   // print last step?
-  if (!opt->c.silent) {
+  if (!commons.silent) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\r                          \r");
@@ -159,7 +157,6 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // free memory - to make valgrind happy //{{{
-  free(opt);
   FreeSystem(&System);
   //}}}
 

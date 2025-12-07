@@ -1,27 +1,36 @@
 #include "../src/AnalysisTools.h"
 
-// Help() //{{{
-void Help(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-    fprintf(stdout, "Utility description\n");
-  }
-  fprintf(ptr, "Usage: %s <length> <out.txt> <out.xyz> [options]\n\n", cmd);
+// Help message //{{{
+const struct HelpHelp HelpDesc = {
+  "RandnomChain generates linear chains of given length with randomly "
+  "distributed charged and neutral beads according to given dissociation "
+  "<alpha> (0 to 1), also printing distribution of length of charged segments",
 
-  fprintf(ptr, "<length>            chain length\n");
-  fprintf(ptr, "<out.txt>           output distribution file\n");
-  fprintf(ptr, "<out.xyz>           output coordinate (-<n>.xyz ending)\n");
-  fprintf(ptr, "[options]\n");
-  fprintf(ptr, "  -r <int>          number of generated chains "
-          "(default: 1000)\n");
-  fprintf(ptr, "  -alpha <double>   ionization fraction "
-          "(default: 0.3)\n");
-  fprintf(ptr, "  -s <int>          random number generator seed\n");
-  CommonHelp(error, n, opt);
+  "Usage: RandomChain <length> <out.txt> <out.xyz> [options]",
+  .args = 3, // number of mandatory arguments
+  .all = 14, // number of valid lines OptSpec (not counting last {NULL})
+};
+static const struct OptSpec opts[] = {
+  COMMON_OPTS[C_I],
+  COMMON_OPTS[C_ST],
+  COMMON_OPTS[C_E],
+  COMMON_OPTS[C_SK],
+  COMMON_OPTS[C_VERBOSE],
+  COMMON_OPTS[C_HELP],
+  COMMON_OPTS[C_SILENT],
+  COMMON_OPTS[C_VERSION],
+  {"<length>", NULL, "chain length", OPT_ARG},
+  {"<out.txt>", NULL, "output distribution file", OPT_ARG},
+  {"<out.xyz>", NULL, "output coordinate (-<n>.xyz ending)", OPT_ARG},
+  {"-r", "<int>", "number of generated chains (default: 1000", OPT_EXTRA},
+  {"-alpha", "<double>", "ionization fraction (default: 0.3)", OPT_EXTRA},
+  {"-s", "<int>", "random number generator seed", OPT_EXTRA},
+  {NULL}
+}; //}}}
+
+// Help() //{{{
+void Help_old(const char cmd[50], const bool error,
+          const int n, const char opt[n][OPT_LENGTH]) {
 } //}}}
 
 // structure for options //{{{
@@ -37,22 +46,15 @@ OPT * opt_create(void) {
 
 int main(int argc, char *argv[]) {
 
-  // define options & check their validity
-  int common = 3, all = common + 3, count = 0,
-      req_arg = 3;
-  char option[all][OPT_LENGTH];
-  OptionCheck(argc, argv, req_arg, common, all, true, option,
-              "--silent", "--help", "--version", "-r", "-alpha", "-s");
-
-  count = 0; // count mandatory arguments
-  OPT *opt = opt_create();
-
-  // mandatory options //{{{
+  // commad line arguments before reading the structure //{{{
+  OptionCheck(argc, argv, true, HelpDesc, opts);
+  OPT opt;
+  int count = 0;
   // chain length
   long length = 0;
   if (!IsNaturalNumber(argv[++count], &length)) {
     ErrorNaN("<length>");
-    Help(StripPath(argv[0]), true, common, option);
+    Help(true, HelpDesc, opts);
     exit(1);
   }
   // <out.txt> - output distribution
@@ -65,17 +67,17 @@ int main(int argc, char *argv[]) {
 
   // options //{{{
   SYS_FILES trash = InitSysFiles; // not used
-  opt->c = CommonOptions(argc, argv, trash);
-  opt->repeat = 1000;
-  OneNumberOption(argc, argv, "-r", &opt->repeat, 'i');
-  opt->alpha = 0.3;
-  OneNumberOption(argc, argv, "-alpha", &opt->alpha, 'd');
+  COMMON_OPT commons = CommonOptions(argc, argv, trash);
+  opt.repeat = 1000;
+  OneNumberOption(argc, argv, "-r", &opt.repeat, 'i');
+  opt.alpha = 0.3;
+  OneNumberOption(argc, argv, "-alpha", &opt.alpha, 'd');
   // reasonable default seed: time & process id
-  opt->seed = time(0) * getpid();
-  OneNumberOption(argc, argv, "-s", &opt->seed, 'i');
+  opt.seed = time(0) * getpid();
+  OneNumberOption(argc, argv, "-s", &opt.seed, 'i');
   //}}}
 
-  if (!opt->c.silent) {
+  if (!commons.silent) {
     PrintCommand(stdout, argc, argv);
   }
 
@@ -85,12 +87,12 @@ int main(int argc, char *argv[]) {
   // ArrND distr = NewArrND(2, shape2D);
 
   pcg32_random_t rng;
-  pcg32Seed(&rng, (uint64_t)opt->seed);
+  pcg32Seed(&rng, (uint64_t)opt.seed);
 
   int num[2];
-  num[1] = length * opt->alpha;
+  num[1] = length * opt.alpha;
   num[0] = length - num[1];
-  for (int i = 0; i < opt->repeat; i++) {
+  for (int i = 0; i < opt.repeat; i++) {
     InitBoolArray(chain, length, false);
     for (int j = 0; j < num[1]; j++) {
       int bead = pcg32Rand0Int(&rng, (uint64_t)length);
@@ -111,7 +113,7 @@ int main(int argc, char *argv[]) {
       snprintf(ERROR_MSG, LINE, "incorrect number of randomly chosen beads; "
                "%s%d%s instead of %s%d%s (rng seed: %s%u%s)",
                ErrYellow(), count, ErrRed(), ErrYellow(), num[1], ErrRed(),
-               ErrYellow(), opt->seed, ErrRed());
+               ErrYellow(), opt.seed, ErrRed());
       PrintError();
       exit(1);
     } //}}}
@@ -266,7 +268,7 @@ int main(int argc, char *argv[]) {
                ErrYellow(), num[0], ErrRed(), ErrYellow(), beads[0], ErrRed(),
                ErrYellow(), num[1], ErrRed(), ErrYellow(), beads[1], ErrRed(),
                ErrYellow(), length, ErrRed(), ErrYellow(), total_beads, ErrRed(),
-               ErrYellow(), opt->seed, ErrRed());
+               ErrYellow(), opt.seed, ErrRed());
       PrintError();
       exit(1);
     } //}}}
@@ -304,7 +306,6 @@ int main(int argc, char *argv[]) {
   //}}}
 
   // free memory - to make valgrind happy //{{{
-  free(opt);
   free(chain);
   FreeArrND(distr);
   FreeArrND(integ);

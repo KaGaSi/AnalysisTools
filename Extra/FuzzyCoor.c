@@ -1,52 +1,47 @@
 #include "../src/AnalysisTools.h"
 
-// Help() //{{{
-void Help(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-    fprintf(stdout, "\
-FuzzyCoor adds a random value from \
-<-max, max> interval to coordinates, introducing noise.\n\n");
-  }
-  fprintf(ptr, "Usage: %s <input> <max> <output> [options]\n\n", cmd);
+// Help message //{{{
+const struct HelpHelp HelpDesc = {
+  "FuzzyCoor adds a random value from "
+  "<-max, max> interval to coordinates, introducing noise.",
 
-  fprintf(ptr, "<input>             input coordinate file\n");
-  fprintf(ptr, "<max>               mandatory double argument\n");
-  fprintf(ptr, "<output>            output coordinate file\n");
-  fprintf(ptr, "[options]\n");
-  fprintf(ptr, "  -d [3×]<axis>     apply in <axis> direction(s) "
-          "(default x y z)\n");
-  CommonHelp(error, n, opt);
+  "Usage: %s <input> <max> <output> [options]",
+  .args = 3, // number of mandatory arguments
+  .all = 12, // number of valid lines OptSpec (not counting last {NULL})
+};
+static const struct OptSpec opts[] = {
+  COMMON_OPTS[C_I],
+  COMMON_OPTS[C_ST],
+  COMMON_OPTS[C_E],
+  COMMON_OPTS[C_SK],
+  COMMON_OPTS[C_VERBOSE],
+  COMMON_OPTS[C_HELP],
+  COMMON_OPTS[C_SILENT],
+  COMMON_OPTS[C_VERSION],
+  {"<input>", NULL, "input coordinate file"},
+  {"<max>", NULL, "mandatory double argument"},
+  {"<output>", NULL, "output coordinate file"},
+  {"-d", "[3x]<axis>", "apply in <axis> direction(s) (default x y z)"},
+  {NULL}
+}; //}}}
+
+// Help() //{{{
+void Help_old(const char cmd[50], const bool error,
+          const int n, const char opt[n][OPT_LENGTH]) {
 } //}}}
 
 // structure for options //{{{
 struct OPT {
   // here com option variables
   int dim[4]; // -d: [0]...1D/2D/3D; rest axes (0-2)
-  COMMON_OPT c;
-};
-OPT * opt_create(void) {
-  return malloc(sizeof(OPT));
-} //}}}
+}; //}}}
 
 int main(int argc, char *argv[]) {
 
-  // define options & check their validity
-  int common = 8, all = common + 1, count = 0,
-      req_arg = 3;
-  char option[all][OPT_LENGTH];
-  OptionCheck(argc, argv, req_arg, common, all, true, option,
-              "-st", "-e", "-sk", "-i", "--verbose", "--silent", "--help",
-              "--version", "-d");
-
-  count = 0; // count mandatory arguments
-  OPT *opt = opt_create();
-
-  // mandatory options //{{{
+  // commad line arguments before reading the structure //{{{
+  OptionCheck(argc, argv, true, HelpDesc, opts);
+  OPT opt;
+  int count = 0;
   // <input> - input coordinate (and structure) file
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.coor.name, argv[++count], LINE);
@@ -57,7 +52,7 @@ int main(int argc, char *argv[]) {
   double max = 0;
   if (!IsRealNumber(argv[++count], &max)) {
     ErrorNaN("<max>");
-    Help(StripPath(argv[0]), true, common, option);
+    Help(true, HelpDesc, opts);
     exit(1);
   }
   // <output> - output coordinate file
@@ -67,35 +62,35 @@ int main(int argc, char *argv[]) {
   //}}}
 
   // options before reading system data
-  opt->c = CommonOptions(argc, argv, in);
+  COMMON_OPT commons = CommonOptions(argc, argv, in);
   char dust[LINE];
-  opt->dim[0] = 3; // 3D
+  opt.dim[0] = 3; // 3D
   if (FileOption(argc, argv, "-2D", dust)) {
-    opt->dim[0] = 2; // 2D
+    opt.dim[0] = 2; // 2D
   }
   // -d option //{{{
   // default: all axes
-  opt->dim[0] = 3;
-  for (int dd = 0; dd < opt->dim[0]; dd++) {
-    opt->dim[dd+1] = dd;
+  opt.dim[0] = 3;
+  for (int dd = 0; dd < opt.dim[0]; dd++) {
+    opt.dim[dd+1] = dd;
   }
   // find if the function is there
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-d") == 0) {
       i++;
-      opt->dim[0] = 0;
+      opt.dim[0] = 0;
       for (int j = 0; j < 3; j++) {
         if ((i + j + 1) > argc) {
           break;
         } else if (argv[i+j][0] == 'x') {
-          opt->dim[0]++;
-          opt->dim[opt->dim[0]] = 0;
+          opt.dim[0]++;
+          opt.dim[opt.dim[0]] = 0;
         } else if (argv[i+j][0] == 'y') {
-          opt->dim[0]++;
-          opt->dim[opt->dim[0]] = 1;
+          opt.dim[0]++;
+          opt.dim[opt.dim[0]] = 1;
         } else if (argv[i+j][0] == 'z') {
-          opt->dim[0]++;
-          opt->dim[opt->dim[0]] = 2;
+          opt.dim[0]++;
+          opt.dim[opt.dim[0]] = 2;
         } else {
           err_msg("must be x, y, and/or z");
           PrintErrorOption("-d");
@@ -105,14 +100,14 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
 
-  if (!opt->c.silent) {
+  if (!commons.silent) {
     PrintCommand(stdout, argc, argv);
   }
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
 
-  if (opt->c.verbose) {
+  if (commons.verbose) {
     VerboseOutput(System);
   }
 
@@ -127,10 +122,10 @@ int main(int argc, char *argv[]) {
       count_used = 0, // count steps in output file
       line_count = 0; // count lines in the vcf file
   while (true) {
-    PrintStep(&count_coor, opt->c.start, opt->c.silent);
+    PrintStep(&count_coor, commons.start, commons.silent);
     // use every skip-th timestep between start and end
     bool use = false;
-    if (UseStep(opt->c, count_coor)) {
+    if (UseStep(commons, count_coor)) {
       use = true;
     }
     if (use) { //{{{
@@ -149,10 +144,10 @@ int main(int argc, char *argv[]) {
       for (int i = 0; i < Count->BeadCoor; i++) {
         int id = System.BeadCoor[i]; // bead index
         BEAD *b = &System.Bead[id];
-        for (int dd = 0; dd < opt->dim[0]; dd++) {
+        for (int dd = 0; dd < opt.dim[0]; dd++) {
           // random number <-max, max>
           double n = ((double)rand() / RAND_MAX) * 2.0 * max - max;
-          b->Position.v[opt->dim[dd+1]] += n;
+          b->Position.v[opt.dim[dd+1]] += n;
         }
       }
       bool *write = malloc(Count->BeadCoor * sizeof *write);
@@ -168,13 +163,13 @@ int main(int argc, char *argv[]) {
       }
     }
     // exit the main loop if reached user-specied end timestep
-    if (count_coor == opt->c.end) {
+    if (count_coor == commons.end) {
       break;
     }
   }
   fclose(fr);
   // print last step?
-  if (!opt->c.silent) {
+  if (!commons.silent) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\r                          \r");
@@ -183,7 +178,6 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // free memory - to make valgrind happy //{{{
-  free(opt);
   FreeSystem(&System);
   //}}}
 
