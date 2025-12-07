@@ -1,41 +1,42 @@
 #include "../src/AnalysisTools.h"
 
-// Help() //{{{
-void Help(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-    fprintf(ptr, "\
-Info analyzes the provided input structure file, printing system composition \
-to standard output and, optionally, producing an output structure file \
-of specified format (-o option). If some information required in the output \
-file is missing, '???\' is printed instead. The system from the input file \
-can be modified using a second structure file (-i option) and/or \
-a coordinate file (-c option); see Examples/Info folder for details.\
-\n\n");
-  }
+// Help message //{{{
+const struct HelpHelp HelpDesc = {
+  "Info analyzes the provided input structure file, printing system "
+  "composition to standard output and, optionally, producing an output "
+  "structure file of specified format (-o option). If some information "
+  "required in the output file is missing, '???\' is printed instead. The "
+  "system from the input file can be modified using a second structure file "
+  "(-i option) and/or a coordinate file (-c option)",
 
-  fprintf(ptr, "Usage: %s <input> [options]\n\n", cmd);
-  fprintf(ptr, "<input>             input structure file\n");
-  fprintf(ptr, "[options]\n");
-  fprintf(ptr, "  -i <file>         secondary structure file\n");
-  fprintf(ptr, "  -c <file>         input coordinate file\n");
-  fprintf(ptr, "  --detailed        use name as well as charge, mass, and "
-          "radius to identfy bead types (input vtf structure files only)\n");
-  fprintf(ptr, "  -o <file>         output structure file\n");
-  fprintf(ptr, "  --unique          make all bead/molecule names unique\n");
-  fprintf(ptr, "  -def <bead name>  default bead type "
-          "(output vtf structure file only)\n");
-  fprintf(ptr, "  --mol             make unbonded beads into molecules\n");
-  fprintf(ptr, "  --mass            define lammps atom types by mass, but "
-          "print per-atom charges in Atoms section "
-          "(output lammps data file only)\n");
-  fprintf(ptr, "  -ebt <int>        number of extra bead types "
-          "(output lammps data file only)\n");
-  CommonHelp(error, n, opt);
+  "Usage: Info <input> [options]",
+  .args = 1, // number of mandatory arguments
+  .all = 17, // number of valid lines OptSpec (not counting last {NULL})
+};
+static const struct OptSpec opts[] = {
+  COMMON_OPTS[C_ST],
+  COMMON_OPTS[C_E],
+  COMMON_OPTS[C_SK],
+  COMMON_OPTS[C_VERBOSE],
+  COMMON_OPTS[C_HELP],
+  COMMON_OPTS[C_SILENT],
+  COMMON_OPTS[C_VERSION],
+  {"<input>", NULL, "input structure file", OPT_ARG},
+  {"-i", "<file>", "secondary structure file", OPT_EXTRA},
+  {"-c", "<file>", "input coordinate file", OPT_EXTRA},
+  {"--detailed", NULL, "use name, charge, mass, and radius to identfy bead types", OPT_EXTRA},
+  {"-o", "<file>", "output structure file", OPT_EXTRA},
+  {"--unique", NULL, "make all bead/molecule names unique", OPT_EXTRA},
+  {"-def", "<bead name>", "default bead type (output vtf structure file only)", OPT_EXTRA},
+  {"--mol", NULL, "make unbonded beads into molecules", OPT_EXTRA},
+  {"--mass", NULL, "define lammps atom types by mass, but print per-atom charges in Atoms section (output lammps data file only)", OPT_EXTRA},
+  {"-ebt", "<int>", "number of extra bead types (output lammps data file only)", OPT_EXTRA},
+  {NULL}
+}; //}}}
+
+// Help() //{{{
+void Help_old(const char cmd[50], const bool error,
+          const int n, const char opt[n][OPT_LENGTH]) {
 } //}}}
 
 // structure for options //{{{
@@ -43,30 +44,17 @@ struct OPT {
   int vsf_def, b_mol, ebt; // -def --mol -ebt
   bool lmp_mass, detailed; // --mass --detailed
   FILE_TYPE fout;          // -o
-  COMMON_OPT c;
-};
-OPT * opt_create(void) {
-  return malloc(sizeof(OPT));
-} //}}}
+}; //}}}
 
 int main(int argc, char *argv[]) {
 
-  // define options & check their validity
-  int common = 5, all = common + 9, count = 0, req_arg = 1;
-  char option[all][OPT_LENGTH];
-  OptionCheck(argc, argv, req_arg, common, all, true, option,
-               "-st", "--verbose", "--silent", "--help",
-               "--version", "-i", "-c", "-o", "--unique",
-               "--detailed", "-def", "--mol", "--mass", "-ebt");
-
-  count = 0; // count arguments
-  OPT *opt = opt_create();
+  // commad line arguments before reading the structure //{{{
+  OptionCheck(argc, argv, true, HelpDesc, opts);
+  OPT opt;
+  int count = 0;
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.stru.name, argv[++count], LINE);
   in.stru.type = StructureFileType(in.stru.name);
-
-  PrintCommand(stdout, argc, argv);
-
   // -i option //{{{
   SYS_FILES extra = InitSysFiles;
   if (FileOption(argc, argv, "-i", extra.stru.name)) {
@@ -79,23 +67,27 @@ int main(int argc, char *argv[]) {
     extra.coor = in.coor;
   } //}}}
   // output file (-o option) //{{{
-  opt->fout = InitFile;
-  if (FileOption(argc, argv, "-o", opt->fout.name)) {
-    opt->fout.type = FileType(opt->fout.name);
+  opt.fout = InitFile;
+  if (FileOption(argc, argv, "-o", opt.fout.name)) {
+    opt.fout.type = FileType(opt.fout.name);
   } //}}}
-  opt->c = CommonOptions(argc, argv, in);
+  COMMON_OPT commons = CommonOptions(argc, argv, in);
   // extra bead types for data output (-ebt option)
-  opt->ebt = 0;
-  OneNumberOption(argc, argv, "-ebt", &opt->ebt, 'i');
+  opt.ebt = 0;
+  OneNumberOption(argc, argv, "-ebt", &opt.ebt, 'i');
   // use mass only for atom type definition for data output file
-  opt->lmp_mass = BoolOption(argc, argv, "--mass");
+  opt.lmp_mass = BoolOption(argc, argv, "--mass");
   // make unbonded beads into molecules (vtf output only)
-  opt->b_mol = BoolOption(argc, argv, "--mol");
+  opt.b_mol = BoolOption(argc, argv, "--mol");
   // base bead types on name, charge, mass, and radius (vtf input file)
-  opt->detailed = BoolOption(argc, argv, "--detailed");
+  opt.detailed = BoolOption(argc, argv, "--detailed"); //}}}
+
+  if (!commons.silent) {
+    PrintCommand(stdout, argc, argv);
+  }
 
   // read information from input file(s) //{{{
-  SYSTEM System = ReadStructure(in, opt->detailed);
+  SYSTEM System = ReadStructure(in, opt.detailed);
   // if (in.stru.type == PDB_FILE) {
   //   FreeSystem(&System);
   //   free(opt);
@@ -106,7 +98,7 @@ int main(int argc, char *argv[]) {
   if (in.coor.type != -1) {
     int line_count = 0;
     FILE *fr = OpenFile(in.coor.name, "r");
-    for (int i = 1; i < opt->c.start; i++) { // from 1 as timestep=1 is the first
+    for (int i = 1; i < commons.start; i++) { // from 1 as timestep=1 is the first
       SkipTimestep(in, fr, &line_count);
     }
     ReadTimestep(in, fr, &System, &line_count);
@@ -118,7 +110,7 @@ int main(int argc, char *argv[]) {
     }
   }
   // print initial system information only if extra file(s) are present
-  if (opt->c.verbose && (extra.stru.type != -1 || in.coor.type != -1)) {
+  if (commons.verbose && (extra.stru.type != -1 || in.coor.type != -1)) {
     fprintf(stdout, "\n==================================================");
     printf("\nSystem in %s", in.stru.name);
     if (in.coor.type != -1) {
@@ -133,8 +125,8 @@ int main(int argc, char *argv[]) {
   }
   SYSTEM Sys_extra;
   if (extra.stru.name[0] != '\0') {
-    Sys_extra = ReadStructure(extra, opt->detailed);
-    if (opt->c.verbose) {
+    Sys_extra = ReadStructure(extra, opt.detailed);
+    if (commons.verbose) {
       fprintf(stdout, "\n==================================================");
       printf("\nSystem in extra file (%s)", extra.stru.name);
       fprintf(stdout, "\n==================================================\n");
@@ -167,11 +159,14 @@ int main(int argc, char *argv[]) {
 
   // -def option (for vsf output file) //{{{
   bool *def_type = calloc(Count->BeadType, sizeof *def_type);
+  if (!def_type) {
+    ErrorAlloc("def_type");
+  }
   TypeOption(argc, argv, "-def", 'b', false, def_type, System);
-  opt->vsf_def = -1;
+  opt.vsf_def = -1;
   for (int i = 0; i < Count->BeadType; i++) {
     if (def_type[i]) {
-      opt->vsf_def = i;
+      opt.vsf_def = i;
       break;
     }
   }
@@ -182,15 +177,15 @@ int main(int argc, char *argv[]) {
   }
 
   // make unbonded beads into molecules //{{{
-  if (opt->b_mol) {
+  if (opt.b_mol) {
     // first new molid is the one higher than the last one
     int mol_id = Count->Molecule;
     // first new resid is one higher than the old one, so +1
     int resid = Count->HighestResid + 1;
     Count->HighestResid += Count->Unbonded;
     Count->Molecule += Count->Unbonded;
-    System.Molecule = realloc(System.Molecule,
-                              Count->Molecule * sizeof *System.Molecule);
+    System.Molecule = s_realloc(System.Molecule,
+                                Count->Molecule * sizeof *System.Molecule);
     for (int i = 0; i < Count->BeadType; i++) {
       count = System.BeadType[i].Number;
       bool first = false;
@@ -202,6 +197,9 @@ int main(int argc, char *argv[]) {
           int n_mt = Count->MoleculeType;
           MOLECULE *mol = &System.Molecule[mol_id];
           mol->Bead = calloc(1, sizeof *mol->Bead);
+          if (!mol->Bead) {
+            ErrorAlloc("mol->Bead");
+          }
           if (!first) {
             NewMolType(&System.MoleculeType, &Count->MoleculeType,
                        bt->Name, 1, 0, 0, 0, 0);
@@ -212,9 +210,15 @@ int main(int argc, char *argv[]) {
             mt->Bead[0] = b->Type;
             mt->nBTypes = 1;
             mt->BType = malloc(sizeof *mt->BType);
+            if (!mt->BType) {
+              ErrorAlloc("mt->BType");
+            }
             mt->BType[0] = b->Type;
             mol->Type = n_mt;
             mt->Index = malloc(sizeof *mt->Index);
+            if (!mt->Index) {
+              ErrorAlloc("mt->Index");
+            }
             first = true;
           } else {
             MOLECULETYPE *mt = &System.MoleculeType[n_mt-1];
@@ -247,7 +251,7 @@ int main(int argc, char *argv[]) {
   }
   fprintf(stdout, "\n==================================================\n");
   VerboseOutput(System);
-  if (opt->c.verbose) { // -v option
+  if (commons.verbose) { // -v option
     fprintf(stdout, "Information about every bead:\n");
     PrintBead(System);
     fprintf(stdout, "\nInformation about every molecule:\n");
@@ -255,13 +259,16 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // write the output file if required (-o option) //{{{
-  if (opt->fout.name[0] != '\0') {
-    if (opt->fout.type == LDATA_FILE && opt->ebt > 0) {
+  if (opt.fout.name[0] != '\0') {
+    if (opt.fout.type == LDATA_FILE && opt.ebt > 0) {
       NewBeadType(&System.BeadType, &Count->BeadType, "extra", 0, 1, 1);
     }
     bool *write = malloc(sizeof *write * Count->Bead);
+    if (!write) {
+      ErrorAlloc("write");
+    }
     InitBoolArray(write, Count->Bead, true);
-    WriteOutput(System, write, opt->fout, opt->lmp_mass, opt->vsf_def,
+    WriteOutput(System, write, opt.fout, opt.lmp_mass, opt.vsf_def,
                 argc, argv);
     free(write);
   } //}}}
@@ -270,7 +277,6 @@ int main(int argc, char *argv[]) {
   if (extra.stru.name[0] != '\0') {
     FreeSystem(&Sys_extra);
   }
-  free(opt);
 
   return 0;
 }
