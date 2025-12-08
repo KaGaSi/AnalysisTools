@@ -1,36 +1,38 @@
 #include "../src/AnalysisTools.h"
 
-// Help() //{{{
-void Help(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-    fprintf(ptr, "\
-PairCorrel utility calculates pair correlation function for specified \
-bead types. All pairs of bead types (including same type pairs) are \
-calculated - given A and B types, pcf between A-A, A-B and B-B are \
-calculated.\n\n");
-  }
-  fprintf(ptr, "Usage: %s <input> <width> <output> <bead(s)> ", cmd);
-  fprintf(ptr, "[options]\n\n");
+// Help message //{{{
+const struct HelpHelp HelpDesc = {
+  "PairCorrel utility calculates pair correlation function for specified "
+  "bead types. All pairs of bead types (including same type pairs) are "
+  "calculated - given A and B types, pcf between A-A, A-B and B-B are "
+  "calculated.",
 
-  fprintf(ptr, "<input>             input coordinate file\n");
-  fprintf(ptr, "<width>             width of a distribution bin\n");
-  fprintf(ptr, "<output>            output file with pair correlation "
-          "function(s)\n");
-  fprintf(ptr, "<bead(s)>           bead name(s) for calculation "
-          "(optional and ignored if '--all' is used)\n");
-  fprintf(ptr, "[options]\n");
-  fprintf(ptr, "  -d <dist>         maximum distance for RDF calculation "
-          "(default: 1/3 of the shortest box side length)\n");
-  fprintf(ptr, "  --all             use all bead types "
-          "(overwrites <bead(s)>)\n");
-  // fprintf(ptr, "  -D2 <axis>        assume 2D system (e.g., slit) with "
-  //         "non-periodic condition in <axis> direction\n");
-  CommonHelp(error, n, opt);
+  "Usage: PairCorrel <input> <width> <output> <bead(s)> [options]",
+  .args = 3, // number of mandatory arguments
+  .all = 14, // number of valid lines OptSpec (not counting last {NULL})
+};
+static const struct OptSpec opts[] = {
+  COMMON_OPTS[C_I],
+  COMMON_OPTS[C_ST],
+  COMMON_OPTS[C_E],
+  COMMON_OPTS[C_SK],
+  COMMON_OPTS[C_VERBOSE],
+  COMMON_OPTS[C_HELP],
+  COMMON_OPTS[C_SILENT],
+  COMMON_OPTS[C_VERSION],
+  {"<input>", NULL, "input coordinate file", OPT_ARG},
+  {"<width>", NULL, "width of a distribution bin", OPT_ARG},
+  {"<output>", NULL, "output file with pair correlation function(s)", OPT_ARG},
+  {"<bead(s)>", NULL, "bead name(s) for calculation (optional and ignored if '--all' is used)", OPT_ARG},
+  {"-d", "<dist>", "maximum distance for RDF calculation (default: 1/3 of the shortest box side length)", OPT_EXTRA},
+  {"--all", NULL, "use all bead types (overwrites <bead(s)>)", OPT_EXTRA},
+  // {"-D2", "<axis>", "assume 2D system (e.g., slit) with non-periodic condition in <axis> direction", OPT_EXTRA},
+  {NULL}
+}; //}}}
+
+// Help() //{{{
+void Help_old(const char cmd[50], const bool error,
+          const int n, const char opt[n][OPT_LENGTH]) {
 } //}}}
 
 // structure for options //{{{
@@ -39,16 +41,14 @@ struct OPT {
   vec3i axis;
   bool *bt;
   double max_dist;
-  COMMON_OPT c;
-};
-OPT * opt_create(void) {
-  return malloc(sizeof(OPT));
-} //}}}
+  COMMON_OPT commons;
+}; //}}}
 
 // TODO: <bead(s)> mandatory to -bt opt (default - all)
 // TODO: move to some library file
 static inline void CorrectBTypeOrder(int *btype_i, int *btype_j) {
   if (*btype_i > *btype_j) {
+    // TODO: do I have correct pointers?
     SwapInt(btype_i, btype_j);
   }
 }
@@ -90,21 +90,21 @@ static void CalculatePCF_adaptor(int id_i, int id_j,
 } //}}}
 // condition for using specified beads //{{{
 // check based on supplied type (needed for writing to file)
-static bool CheckBeadType(int btype, OPT *opt) {
-  if (!opt->bt[btype]) {
+static bool CheckBeadType(int btype, OPT opt) {
+  if (!opt.bt[btype]) {
     return false;
   } else {
     return true;
   }
 }
 // check based on supplied System.BeedCoor id
-static bool CheckBead(int id_i, SYSTEM System, OPT *opt) {
+static bool CheckBead(int id_i, SYSTEM System, OPT opt) {
   int i = System.BeadCoor[id_i];
   return CheckBeadType(System.Bead[i].Type, opt);
 }
 // structure for the callback function
 struct check_args {
-  OPT *opt;
+  OPT opt;
 };
 // adaptor for the CalculatePCF() function
 static bool CheckBeadType_adaptor(int id_i, SYSTEM System, void *ud) {
@@ -115,82 +115,74 @@ static bool CheckBeadType_adaptor(int id_i, SYSTEM System, void *ud) {
 
 int main(int argc, char *argv[]) {
 
-  // define options & check their validity
-  int common = 8, all = common + 2, count = 0,
-      req_arg = 3;
-  char option[all][OPT_LENGTH];
-  OptionCheck(argc, argv, req_arg, common, all, false, option,
-              "-st", "-e", "-sk", "-i", "--verbose", "--silent",
-              "--help", "--version", "--all", "-d"/* , "-D2" */);
-
-  count = 0; // count mandatory arguments
-  OPT *opt = opt_create();
-
+  // commad line arguments before reading the structure //{{{
+  OptionCheck(argc, argv, true, HelpDesc, opts);
+  OPT opt;
+  int count = 0;
   // <input> - input coordinate (and structure) file //{{{
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.coor.name, argv[++count], LINE);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
-
   // <width> - width of a single bin //{{{
   double width = -1;
   if (!IsPosRealNumber(argv[++count], &width)) {
     ErrorNaN("<width>");
-    Help(StripPath(argv[0]), true, common, option);
+    Help(true, HelpDesc, opts);
     exit(1);
   } //}}}
-
   // <output> - filename with pcf(s)
   char fout_pcf[LINE] = "";
   s_strcpy(fout_pcf, argv[++count], LINE);
 
-  // options before reading system data //{{{
-  opt->c = CommonOptions(argc, argv, in);
+  // options before reading system data
+  COMMON_OPT commons = CommonOptions(argc, argv, in);
+  if (!commons.silent) {
+    PrintCommand(stdout, argc, argv);
+  }
   // use all bead types in the structure file?
-  opt->all = BoolOption(argc, argv, "--all");
+  opt.all = BoolOption(argc, argv, "--all");
   // 2D calculation?
   char str[LINE];
   if (FileOption(argc, argv, "-D2", str)) {
     if (str[0] == 'x') {
-      opt->axis.v[0] = 1;
-      opt->axis.v[1] = 2;
-      opt->axis.v[2] = 0;
+      opt.axis.v[0] = 1;
+      opt.axis.v[1] = 2;
+      opt.axis.v[2] = 0;
     } else if (str[0] == 'y') {
-      opt->axis.v[0] = 0;
-      opt->axis.v[1] = 2;
-      opt->axis.v[2] = 1;
+      opt.axis.v[0] = 0;
+      opt.axis.v[1] = 2;
+      opt.axis.v[2] = 1;
     } else if (str[0] == 'z') {
-      opt->axis.v[0] = 0;
-      opt->axis.v[1] = 1;
-      opt->axis.v[2] = 2;
+      opt.axis.v[0] = 0;
+      opt.axis.v[1] = 1;
+      opt.axis.v[2] = 2;
     } else {
       err_msg("requires argument 'x', 'y', or 'z'");
       PrintErrorOption("-D2");
       exit(1);
     }
   } else {
-    opt->axis.v[0] = -1;
+    opt.axis.v[0] = -1;
   }
   //}}}
-
-  if (!opt->c.silent) {
-    PrintCommand(stdout, argc, argv);
-  }
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
   double *box = System.Box.Length;
 
   // <bead(s)> - names of bead types to use //{{{
-  opt->bt = calloc(Count->BeadType, sizeof *opt->bt);
-  if (opt->all) {
+  if (!(opt.bt = calloc(Count->BeadType, sizeof *opt.bt))) {
+    ErrorAlloc("opt.bt");
+  }
+  if (opt.all) {
     for (int i = 0; i < Count->BeadType; i++) {
-      opt->bt[i] = true;
+      opt.bt[i] = true;
     }
   } else {
     for (int i = 0; i < Count->BeadType; i++) {
-      opt->bt[i] = false;
+      opt.bt[i] = false;
     }
     while (++count < argc && argv[count][0] != '-') {
       int type = FindBeadType(argv[count], System);
@@ -198,24 +190,24 @@ int main(int argc, char *argv[]) {
         ErrorBeadType(argv[count], System);
         exit(1);
       }
-      if (opt->bt[type]) {
+      if (opt.bt[type]) {
         snprintf(ERROR_MSG, LINE, "bead type %s%s%s specified more than once",
                  ErrYellow(), argv[count], ErrCyan());
         PrintWarning();
       }
-      opt->bt[type] = true;
+      opt.bt[type] = true;
     }
     count--; // while always increments count at least once
-    if (count < (req_arg + 1)) {
+    if (count < (HelpDesc.args + 1)) {
       err_msg("missing <bead(s)> or --all option");
       PrintError();
       PrintCommand(stderr, argc, argv);
-      Help(StripPath(argv[0]), true, common, option);
+      Help(true, HelpDesc, opts);
       exit(1);
     }
   } //}}}
 
-  if (opt->c.verbose) {
+  if (commons.verbose) {
     VerboseOutput(System);
   }
 
@@ -223,13 +215,13 @@ int main(int argc, char *argv[]) {
   // double max_dist;
   // // TODO: not using 2D-dependent min/max because I want the brute force to
   // //       finish at some time...
-  // // if (opt->axis[0] == -1) {
+  // // if (opt.axis[0] == -1) {
   // //   bins = Max3(box[0], box[1], box[2]) / width;
   // //   max_dist = 0.5 * Min3(box[0], box[1], box[2]);
   // // } else {
-  // //   bins = Max3(box[opt->axis[0]], box[opt->axis[0]], box[opt->axis[1]]);
+  // //   bins = Max3(box[opt.axis[0]], box[opt.axis[0]], box[opt.axis[1]]);
   // //   bins /= width;
-  // //   max_dist = Min3(box[opt->axis[0]], box[opt->axis[0]], box[opt->axis[1]]);
+  // //   max_dist = Min3(box[opt.axis[0]], box[opt.axis[0]], box[opt.axis[1]]);
   // //   max_dist *= 0.5;
   // // }
   // // TODO: shitty stuff - should be -D2 opt dependant or some such
@@ -237,17 +229,20 @@ int main(int argc, char *argv[]) {
   // max_dist = Min3(box[0], box[1], box[2]) / 3;
   // // if max_dist is too large, brute force O(N^2) will be used
   // maximum distance for bead pair calculation
-  opt->max_dist = Min3(box[0], box[1], box[2]) / 3;
-  if (OneNumberOption(argc, argv, "-d", &opt->max_dist, 'd') &&
-      opt->max_dist <= 0) {
+  opt.max_dist = Min3(box[0], box[1], box[2]) / 3;
+  if (OneNumberOption(argc, argv, "-d", &opt.max_dist, 'd') &&
+      opt.max_dist <= 0) {
     err_msg("distance must be a positive number");
     ErrorOption("-d");
   }
-  double cell_size = opt->max_dist;
-  bins = opt->max_dist / width;
+  double cell_size = opt.max_dist;
+  bins = opt.max_dist / width;
 
   // pair correlation function
   ArrNDi *pcf = CreateArr3Di(Count->BeadType, Count->BeadType, bins);
+  if (!pcf) {
+    ErrorAlloc("pcf");
+  }
 
   // main loop //{{{
   FILE *fr = OpenFile(in.coor.name, "r");
@@ -255,14 +250,14 @@ int main(int argc, char *argv[]) {
       count_used = 0, // count steps used for calculation
       line_count = 0; // count lines in the vcf file
   while (true) {
-    PrintStep(&count_coor, opt->c.start, opt->c.silent);
-    if (UseStep(opt->c, count_coor)) {
+    PrintStep(&count_coor, commons.start, commons.silent);
+    if (UseStep(commons, count_coor)) {
       if (!ReadTimestep(in, fr, &System, &line_count)) {
         count_coor--;
         break;
       }
       count_used++;
-      struct pcf_args args = { pcf, bins, opt->max_dist, width };
+      struct pcf_args args = { pcf, bins, opt.max_dist, width };
       struct check_args check = { opt };
       TraversePairs(System, cell_size, CalculatePCF_adaptor, &args,
                     CheckBeadType_adaptor, &check);
@@ -273,12 +268,12 @@ int main(int argc, char *argv[]) {
       }
     }
     // exit the main loop if reached user-specied end timestep
-    if (count_coor == opt->c.end) {
+    if (count_coor == commons.end) {
       break;
     }
   }
   fclose(fr);
-  PrintLastStep(count_coor, count_used, opt->c.silent); //}}}
+  PrintLastStep(count_coor, count_used, commons.silent); //}}}
 
   // write data to output file(s) //{{{
   // header
@@ -299,6 +294,9 @@ int main(int argc, char *argv[]) {
   // collate data
   int nrows = bins;
   ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
+  if (!data) {
+    ErrorAlloc("data");
+  }
   for (int i = 0; i < nrows; i++) {
     // calculate volume/surface of a shell  //{{{
     // account (somewhat) for truncated stuff (high max_dist)
@@ -306,7 +304,7 @@ int main(int argc, char *argv[]) {
     // radius of outer and inner sphere
     double rad[2] = {width * (i + 1), width * i};
     // 3D (sphere)
-    if (opt->axis.v[0] == -1) {
+    if (opt.axis.v[0] == -1) {
       // maximum radius of complete sphere
       double max_r = Min3(box[0], box[1], box[2]) / 2;
       // volume of outer and inner spheres
@@ -328,10 +326,10 @@ int main(int argc, char *argv[]) {
     } else {
       // maximum radius of complete circle
       double max_r;
-      if (box[opt->axis.v[0]] < box[opt->axis.v[1]]) {
-        max_r = box[opt->axis.v[0]];
+      if (box[opt.axis.v[0]] < box[opt.axis.v[1]]) {
+        max_r = box[opt.axis.v[0]];
       } else {
-        max_r = box[opt->axis.v[1]];
+        max_r = box[opt.axis.v[1]];
       }
       // area of outer and inner circles
       double circle[2] = {PI * Square(rad[0]), PI * Square(rad[1])};
@@ -365,8 +363,8 @@ int main(int argc, char *argv[]) {
             pairs *= (bt_k->Number - 1) / 2;
           }
           double norm_factor = System.Box.Volume / (shell * pairs * count_used);
-          if (opt->axis.v[0] != -1) {
-            norm_factor /= System.Box.Length[opt->axis.v[2]];
+          if (opt.axis.v[0] != -1) {
+            norm_factor /= System.Box.Length[opt.axis.v[2]];
           }
           SetArr2D(data, i, ++count, GetArr3D(pcf, j, k, i) * norm_factor);
         }
@@ -378,10 +376,9 @@ int main(int argc, char *argv[]) {
   FreeArrND(data);
   fclose(out); //}}}
 
-  // free memory - to make valgrind happy //{{{
+  // free memory //{{{
   FreeArrND(pcf);
-  free(opt->bt);
-  free(opt);
+  free(opt.bt);
   FreeSystem(&System);
   //}}}
 
