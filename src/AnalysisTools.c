@@ -391,11 +391,7 @@ vec3d RestorePBCBead(int beadcoor_id, SYSTEM System) {
   BOX *box = &System.Box;
   for (int dd = 0; dd < 3; dd++) {
     // by how many boxlength should the bead be moved?
-    int move = pos.v[dd] / box->OrthoLength[dd];
-    // oh, if it's moving from negative, add one boxlength to end up positive
-    if (pos.v[dd] < 0) {
-      move--;
-    }
+    int move = floor(pos.v[dd] / box->OrthoLength[dd]);
     pos.v[dd] -= move * box->OrthoLength[dd];
   }
   return pos;
@@ -425,15 +421,17 @@ void WrapJoinCoordinates(SYSTEM *System, const bool wrap, const bool join) {
 vec3d Distance(const double id1[3], const double id2[3],
               const double BoxLength[3]) {
   vec3d out;
-  // remove periodic boundary conditions in x-direction
   for (int dd = 0; dd < 3; dd++) {
+    // calculate distance in given direction
     out.v[dd] = id1[dd] - id2[dd];
-    while (out.v[dd] >= (BoxLength[dd] / 2)) {
-      out.v[dd] -= BoxLength[dd];
-    }
-    while (out.v[dd] < (-BoxLength[dd] / 2)) {
-      out.v[dd] += BoxLength[dd];
-    }
+    // transform it into <0,BoxLength) range
+    out.v[dd] += BoxLength[dd] / 2;
+    // by how many boxlength should the distance be changed?
+    int move = floor(out.v[dd] / BoxLength[dd]);
+    // transform it into <0,BoxLength) range
+    out.v[dd] -= move * BoxLength[dd];
+    // transform it back to <-BoxLength/2,BoxLength/2) range
+    out.v[dd] -= BoxLength[dd] / 2;
   }
   return out;
 } //}}}
