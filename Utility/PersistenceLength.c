@@ -1,36 +1,42 @@
 #include "../src/AnalysisTools.h"
-
 // TODO: very messy!!!
 // TODO: explain S1 through S3
+// TODO: output handling - only after it's decided what to print!
+
+// Help message //{{{
+const struct HelpHelp HelpDesc = {
+  "PersistenceLength calculates correlation of bond vectors and its standard "
+  "deviation. To get the peristence length, the data must be fitted via, "
+  "typically, an exponential function. Note the utility expects a linear chain "
+  "with ordered beads ids (e.g., for a 4-bead chain, the order must be 1-2-3-4, "
+  "leading to ordered bonds 1-2, 2-3, 3-4; connectivity like 1-4-2-3 with "
+  "bonds 1-4, 2-4, 2-3 could give unexpected results).",
+
+  "Usage: %s <input> <output> [options]",
+  .args = 2, // number of mandatory arguments
+  .all = 14, // number of valid lines OptSpec (not counting last {NULL})
+};
+static const struct OptSpec opts[] = {
+  COMMON_OPTS[C_I],
+  COMMON_OPTS[C_ST],
+  COMMON_OPTS[C_E],
+  COMMON_OPTS[C_SK],
+  COMMON_OPTS[C_VERBOSE],
+  COMMON_OPTS[C_HELP],
+  COMMON_OPTS[C_SILENT],
+  COMMON_OPTS[C_VERSION],
+  {"<input>", NULL, "input coordinate file", OPT_ARG},
+  {"<output>", NULL, "output file with the persistence length", OPT_ARG},
+  {"-m", "<name(s)>", "molecule types to calculate bond lengths for (if not present, use all molecule types)", OPT_EXTRA},
+  {"--joined", NULL, "specify that <input> contains joined coordinates", OPT_EXTRA},
+  {"-ns", "<int>", "start with <int>-th bead in a molecule", OPT_EXTRA},
+  {"-ne", "<int>", "end with <int>-th bead in a molecule", OPT_EXTRA},
+  {NULL}
+}; //}}}
 
 // Help() //{{{
-void Help(const char cmd[50], const bool error,
+void Help_old(const char cmd[50], const bool error,
           const int n, const char opt[n][OPT_LENGTH]) {
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-    fprintf(stdout, "\
-PersistenceLength calculates correlation of bond vectors and its standard \
-deviation. To get the peristence length, the data must be fitted via, \
-typically, an exponential function. Note the utility expects a linear chain \
-with ordered beads ids (e.g., for a 4-bead chain, the order must be 1-2-3-4, \
-leading to ordered bonds 1-2, 2-3, 3-4; connectivity like 1-4-2-3 with \
-bonds 1-4, 2-4, 2-3 could give unexpected results).\n\n");
-  }
-  fprintf(ptr, "Usage: %s <input> <output> [options]\n\n", cmd);
-
-  fprintf(ptr, "<input>             input coordinate file\n");
-  fprintf(ptr, "<output>            output file with the persistence length\n");
-  fprintf(ptr, "[options]\n");
-  fprintf(ptr, "  -m <name(s)>      molecule types to calculate bond lengths "
-          "for (if not present, use all molecule types)\n");
-  fprintf(ptr, "  --joined          specify that <input> contains joined "
-          "coordinates\n");
-  fprintf(ptr, "  -ns <int>         start with <int>-th bead in a molecule\n");
-  fprintf(ptr, "  -ne <int>         end with <int>-th bead in a molecule\n");
-  CommonHelp(error, n, opt);
 } //}}}
 
 // structure for options //{{{
@@ -38,54 +44,42 @@ struct OPT {
   bool join,  // --joined
        *mt;   // -m
   int ns, ne; // -ns/-ne; first bead and bond and last bead and bond
-  COMMON_OPT c;
-};
-OPT * opt_create(void) {
-  return malloc(sizeof(OPT));
-} //}}}
+}; //}}}
 
 int main(int argc, char *argv[]) {
 
-  int common = 8, all = common + 4, count = 0,
-      req_arg = 2;
-  char option[all][OPT_LENGTH];
-  OptionCheck(argc, argv, req_arg, common, all, true, option,
-               "-st", "-e", "-sk", "-i", "--verbose", "--silent",
-               "--help", "--version", "--joined", "-m", "-ns", "-ne");
-
-  count = 0; // count mandatory arguments
-  OPT *opt = opt_create();
-
+  // commad line arguments before reading the structure //{{{
+  OptionCheck(argc, argv, true, HelpDesc, opts);
+  OPT opt;
+  int count = 0;
   // <input> - input coordinate (and structure) file //{{{
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.coor.name, argv[++count], LINE);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
-
   // <output> - file name with persistence lengths
   char fout[LINE] = "";
   s_strcpy(fout, argv[++count], LINE);
-
-  // options before reading system data //{{{
-  opt->c = CommonOptions(argc, argv, in);
+  // options before reading system data
+  COMMON_OPT commons = CommonOptions(argc, argv, in);
   // --joined option
   if (BoolOption(argc, argv, "--joined")) {
-    opt->join = false; // joined coordinates supplied, so no need to join
+    opt.join = false; // joined coordinates supplied, so no need to join
   } else {
-    opt->join = true; // molecules need to be joined
+    opt.join = true; // molecules need to be joined
   }
-  if (!OneNumberOption(argc, argv, "-ns", &opt->ns, 'i')) {
-    opt->ns = 1;
+  if (!OneNumberOption(argc, argv, "-ns", &opt.ns, 'i')) {
+    opt.ns = 1;
   }
-  opt->ns--; // indexing starts from 0
-  if (!OneNumberOption(argc, argv, "-ne", &opt->ne, 'i')) {
-    opt->ne = HIGHNUM;
+  opt.ns--; // indexing starts from 0
+  if (!OneNumberOption(argc, argv, "-ne", &opt.ne, 'i')) {
+    opt.ne = HIGHNUM;
   } else {
-    opt->ne--; // indexing starts from 0
+    opt.ne--; // indexing starts from 0
   }
-  if (opt->ns != HIGHNUM && opt->ne != HIGHNUM &&
-      (opt->ne - opt->ns) < 2) {
+  if (opt.ns != HIGHNUM && opt.ne != HIGHNUM &&
+      (opt.ne - opt.ns) < 2) {
     err_msg("at least three beads are necessary, i.e., <-ns> - <-ne> > 1; "
             "(note that the calculation is meaningful only for longer chains)");
     PrintErrorOption("-ns/-ne");
@@ -93,7 +87,7 @@ int main(int argc, char *argv[]) {
   }
   //}}}
 
-  if (!opt->c.silent) {
+  if (!commons.silent) {
     PrintCommand(stdout, argc, argv);
   }
 
@@ -101,27 +95,29 @@ int main(int argc, char *argv[]) {
   COUNT *Count = &System.Count;
 
   // '-m <name(s)>' option
-  opt->mt = calloc(Count->MoleculeType, sizeof *opt->mt);
-  if (!TypeOption(argc, argv, "-m", 'm', true, opt->mt, System)) {
-    InitBoolArray(opt->mt, Count->MoleculeType, true);
+  if (!(opt.mt = calloc(Count->MoleculeType, sizeof *opt.mt))) {
+    ErrorAlloc("opt.mt");
+  }
+  if (!TypeOption(argc, argv, "-m", 'm', true, opt.mt, System)) {
+    InitBoolArray(opt.mt, Count->MoleculeType, true);
   }
 
-  if (opt->c.verbose) {
+  if (commons.verbose) {
     VerboseOutput(System);
   }
 
   // maximum number of bonds & beads //{{{
   int max_bonds = 0;
-  if (opt->ne == HIGHNUM) { // no -ne option -> find longest molecule
+  if (opt.ne == HIGHNUM) { // no -ne option -> find longest molecule
     for (int i = 0; i < Count->MoleculeType; i++) {
-      if (opt->mt[i] && System.MoleculeType[i].nBonds > max_bonds) {
+      if (opt.mt[i] && System.MoleculeType[i].nBonds > max_bonds) {
         max_bonds = System.MoleculeType[i].nBonds;
       }
     }
   } else { // -ne option -> cannot be longer than the specified length
-    max_bonds = opt->ne;
+    max_bonds = opt.ne;
   }
-  if (max_bonds < opt->ns) {
+  if (max_bonds < opt.ns) {
     err_msg("starting bead is larger than the length of any molecule");
     ErrorOption("-ns");
     exit(1);
@@ -135,15 +131,9 @@ int main(int argc, char *argv[]) {
   ArrNDi *count_S2 = CreateArr2Di(Count->MoleculeType, max_bonds);
   ArrNDd *S3 = CreateArr2Dd(Count->MoleculeType, max_bonds);
   ArrNDi *count_S3 = CreateArr2Di(Count->MoleculeType, max_bonds);
-  if (!S1 || !S2 || !S3 || !count_S2 || !count_S3) {
-    err_msg("ArrND* constructor failed (S1, S2, S3, count_S2, or count_S3)");
-    PrintError();
-    exit(1);
-  }
-  if (!bondlength || !count_bonds) {
-    err_msg("calloc failure (bondlength or count_bonds)");
-    PrintError();
-    exit(1);
+  if (!S1 || !S2 || !S3 || !count_S2 || !count_S3 ||
+      !bondlength || !count_bonds) {
+    ErrorAlloc("S1/S2/S3/count_S2/count_S3/bondlength/count_bonds");
   }
 
   // main loop //{{{
@@ -152,10 +142,10 @@ int main(int argc, char *argv[]) {
       count_used = 0, // count steps in output file
       line_count = 0; // count lines in the vcf file
   while (true) {
-    PrintStep(&count_coor, opt->c.start, opt->c.silent);
+    PrintStep(&count_coor, commons.start, commons.silent);
     // use every skip-th timestep between start and end
     bool use = false;
-    if (UseStep(opt->c, count_coor)) {
+    if (UseStep(commons, count_coor)) {
       use = true;
     }
     if (use) { //{{{
@@ -164,21 +154,21 @@ int main(int argc, char *argv[]) {
         break;
       }
       count_used++;
-      WrapJoinCoordinates(&System, false, opt->join);
+      WrapJoinCoordinates(&System, false, opt.join);
       // go through all molecules //{{{
       for (int i = 0; i < Count->MoleculeType; i++) {
         MOLECULETYPE *mt = &System.MoleculeType[i];
         // last bond id
         int last_bond = mt->nBonds;
-        if (opt->ne != HIGHNUM) {
-          last_bond = opt->ne;
+        if (opt.ne != HIGHNUM) {
+          last_bond = opt.ne;
         }
         int first_bond = 0;
-        if (opt->ns > 0) {
-          first_bond = opt->ns;
+        if (opt.ns > 0) {
+          first_bond = opt.ns;
         }
         // use only specified molecule types that are long enough
-        if (!opt->mt[i] || mt->nBonds < opt->ns) {
+        if (!opt.mt[i] || mt->nBonds < opt.ns) {
           continue;
         }
 
@@ -245,20 +235,20 @@ int main(int argc, char *argv[]) {
       }
     } //}}}
     // exit the main loop if reached user-specied end timestep
-    if (count_coor == opt->c.end) {
+    if (count_coor == commons.end) {
       break;
     }
   }
   fclose(fr);
-  PrintLastStep(count_coor, count_used, opt->c.silent); //}}}
+  PrintLastStep(count_coor, count_used, commons.silent); //}}}
 
   // write to output file
   // determine width of each column & collate data //{{{
-  int datalines = max_bonds - opt->ns;
+  int datalines = max_bonds - opt.ns;
   // count used molecule types
   count = 0;
   for (int i = 0; i < Count->MoleculeType; i++) {
-    if (opt->mt[i]) {
+    if (opt.mt[i]) {
       count++;
     }
   }
@@ -282,7 +272,7 @@ int main(int argc, char *argv[]) {
     // bond lag for x-axis
     data[lag][++count] = lag;
     for (int j = 0; j < Count->MoleculeType; j++) {
-      if (opt->mt[j]) {
+      if (opt.mt[j]) {
         // S1 function (from either end)
         for (int dd = 0; dd < 2; dd++) {
           double avg = GetArr3D(S1, j, lag, dd) / count_used;
@@ -320,7 +310,7 @@ int main(int argc, char *argv[]) {
   fprintf(fw, "molecule types: ");
   for (int i = 0; i < Count->MoleculeType; i++) {
     MOLECULETYPE *mt = &System.MoleculeType[i];
-    if (opt->mt[i]) {
+    if (opt.mt[i]) {
       fprintf(fw, "(%d)-(%d) %s", count, count+data_per_mtype-1, mt->Name);
       count += data_per_mtype;
       if (i != (Count->MoleculeType - 1)) {
@@ -337,7 +327,7 @@ int main(int argc, char *argv[]) {
   fclose(fw);
 
   // free memory - to make valgrind happy //{{{
-  free(opt->mt);
+  free(opt.mt);
   FreeArrND(S1);
   FreeArrND(S2);
   FreeArrND(S3);
@@ -346,7 +336,6 @@ int main(int argc, char *argv[]) {
   free(bondlength);
   free(count_bonds);
   FreeSystem(&System);
-  free(opt);
   //}}}
 
   return 0;
