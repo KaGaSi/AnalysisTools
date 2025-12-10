@@ -1,59 +1,63 @@
 #include "../src/AnalysisTools.h"
 
-// TODO: inconsistencies in -wd/-w: should both be allowed separately? If so,
-//       all needs checking as sometimes -wd is necessary for -w
-
 // Uses Identification of the Truly Interfacial Molecules (ITIM) from
 // https://doi.org/10.1002/jcc.20852
-// ...assumes probe + bead distance is 1 (i.e., r_c for DPD bead), that is probe
-// radius and bead radius are the same, specifically 0.5
+
+// TODO: inconsistencies in -wd/-w: should both be allowed separately? If so,
+//       all needs checking as sometimes -wd is necessary for -w
+// TODO: ...assumes probe + bead distance is 1 (i.e., r_c for DPD bead), that is
+//       probe radius and bead radius are the same, specifically 0.5 - really?
+//       what about the -r option?
+// TODO: find proper test system, then implement the other stuff
+
+// Help message //{{{
+const struct HelpHelp HelpDesc = {
+  "Surface utility determines the first bead (either going from the box's "
+  "centre - defaault behaviour - or from its edges - if --in option is used) "
+  "in each square prism defined by the given <width> parameter, thus defining "
+  "a surface of, e.g., polymer brush or lipid bilayer. The <width> 'slices' "
+  "the box into square prisms along the chosen axis (i.e., if z is the "
+  "chosen axis, the xy plane is chopped into squares, creating "
+  "<width>*<width>*<box length in z> prisms). In each such prism, two beads "
+  "are found corresponding to the two surfaces (e.g., polymer brush on both "
+  "box edges or the two surfaces of a lipid bilayer inside the box). The "
+  "surface coordinates are saved into the <surf.txt> output file, while their "
+  "area (calculated from triangles defined by the surface coordinates) are "
+  "written into the <area.txt>. What bead types are considered as possible "
+  "surface beads is controlled via --bonded and -bt options.",
+
+  "Usage: Surface <input> <width> <surf.txt> <axis> [options]",
+  .args = 4, // number of mandatory arguments
+  .all = 20, // number of valid lines OptSpec (not counting last {NULL})
+};
+static const struct OptSpec opts[] = {
+  COMMON_OPTS[C_I],
+  COMMON_OPTS[C_ST],
+  COMMON_OPTS[C_E],
+  COMMON_OPTS[C_SK],
+  COMMON_OPTS[C_VERBOSE],
+  COMMON_OPTS[C_HELP],
+  COMMON_OPTS[C_SILENT],
+  COMMON_OPTS[C_VERSION],
+  {"<input>", NULL, "input coordinate file", OPT_ARG},
+  {"<width>", NULL, "width of a single bin", OPT_ARG},
+  {"<surf.txt>", NULL, "average surface", OPT_ARG},
+  {"<axis>", NULL, "calculate along x, y, or z axis", OPT_ARG},
+  {"--in", NULL, "start from the box's edges instead of the centre", OPT_EXTRA},
+  {"--bonded", NULL, "use only beads in molecules", OPT_EXTRA},
+  {"-bt", "<name(s)>", "bead type(s) to use", OPT_EXTRA},
+  {"-wd", "<file> <w>", "calculate distribution of widths with given single bin width", OPT_EXTRA},
+  {"-w", "<file>", "save per-timestep width", OPT_EXTRA},
+  {"-a", "<area.txt>", "per-timestep areas", OPT_EXTRA},
+  {"-b", "<file>", "save per-timestep surface beads to a coordinate file", OPT_EXTRA},
+  {"-r", "<float>", "radius of the ITIM probe (default 0.5)", OPT_EXTRA},
+  // {"-m", "<mol(s)>", "molecule type(s) to use", OPT_EXTRA},
+  {NULL}
+}; //}}}
 
 // Help() //{{{
-void Help(const char cmd[50], const bool error,
+void Help_old(const char cmd[50], const bool error,
           const int n, const char opt[n][OPT_LENGTH]) {
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-    fprintf(ptr, "\
-Surface utility determines the first bead (either going from the box's centre \
-- defaault behaviour - \
-or from its edges - if --in option is used) \
-in each square prism defined by the given <width> parameter, \
-thus defining a surface of, e.g., polymer brush or lipid bilayer. The <width> \
-'slices' the box into square prisms along the chosen axis (i.e., if z is the \
-chosen axis, the xy plane is chopped into squares, creating \
-<width>*<width>*<box length in z> prisms). In each such prism, two beads \
-are found corresponding to the two surfaces (e.g., polymer brush on both box \
-edges or the two surfaces of a lipid bilayer inside the box). The surface \
-coordinates are saved into the <surf.txt> output file, while their area \
-(calculated from triangles defined by the surface coordinates) are written \
-into the <area.txt>. What bead types are considered as possible surface \
-beads is controlled via --bonded and -bt options.\n\n");
-  }
-
-  fprintf(ptr, "Usage:\n");
-  fprintf(ptr, "   %s <input> <width> <surf.txt> "
-          "<axis> [options]\n\n", cmd);
-
-  fprintf(ptr, "<input>             input coordinate file\n");
-  fprintf(ptr, "<width>             width of a single bin\n");
-  fprintf(ptr, "<surf.txt>          average surface\n");
-  fprintf(ptr, "<axis>              calculate along x, y, or z axis\n");
-  fprintf(ptr, "[options]\n");
-  fprintf(ptr, "  --in              start from the box's edges "
-          "instead of the centre\n");
-  fprintf(ptr, "  --bonded          use only beads in molecules\n");
-  fprintf(ptr, "  -bt <name(s)>     bead type(s) to use\n");
-  fprintf(ptr, "  -wd <file> <w>    calculate distribution of widths"
-          " with given single bin width\n");
-  fprintf(ptr, "  -w <file>         save per-timestep width\n");
-  fprintf(ptr, "  -a <area.txt>     per-timestep areas\n");
-  fprintf(ptr, "  -b <file>         save per-timestep surface beads"
-          "to a coordinate file\n");
-  // fprintf(ptr, "  -m <mol(s)>       molecule type(s) to use\n");
-  CommonHelp(error, n, opt);
 } //}}}
 
 // structure for options //{{{
@@ -67,11 +71,7 @@ struct OPT {
   bool in,                // --in
        bonded;            // --bonded
   FILE_TYPE bead_file;    // -b (filename)
-  COMMON_OPT c;
-};
-OPT * opt_create(void) {
-  return malloc(sizeof(OPT));
-} //}}}
+}; //}}}
 
 // calculate area of a triangle given three points (Heron's formula) //{{{
 double calc_area(const double A[3], const double B[3], const double C[3]) {
@@ -128,7 +128,7 @@ void AddPoint(double (**surf_step)[2], bool ***bin_use,
   surf_bead_ids[i][j][k] = id;
 }
 void SurfacePoint(SYSTEM System, int id, const int map[2], int axis,
-                  double width, OPT *opt, const int *bins_step, bool ***bin_use,
+                  double width, OPT opt, const int *bins_step, bool ***bin_use,
                   double (**surf_step)[2], int (**surf_bead_ids)[2]) {
   BEAD *bead = &System.Bead[id];
   double coor[3]; // coor[0] & [1] are in the surface plane
@@ -136,7 +136,7 @@ void SurfacePoint(SYSTEM System, int id, const int map[2], int axis,
   coor[1] = bead->Position.v[map[1]];
   coor[2] = bead->Position.v[axis];
   // maximum 3D distance between the probe and the bead (well, square of)
-  double max_dist = Square(System.BeadType[bead->Type].Radius + opt->probe);
+  double max_dist = Square(System.BeadType[bead->Type].Radius + opt.probe);
   // minimum and maximum possible grid point for specified in-surface coordinate
   int min[2], max[2];
   for (int aa = 0; aa < 2; aa++) {
@@ -174,16 +174,16 @@ void SurfacePoint(SYSTEM System, int id, const int map[2], int axis,
         // 'bottom' surface for bilayers or 'top' surface for brushes
         // -sqrt because we need lower intersection of line and sphere
         double axis_coor = coor[2] - sqrt(max_dist - d[0]);
-        if ((opt->in && axis_coor <= surf_step[grid[0]][grid[1]][0]) ||
-            (!opt->in && axis_coor >= surf_step[grid[0]][grid[1]][0])) {
+        if ((opt.in && axis_coor <= surf_step[grid[0]][grid[1]][0]) ||
+            (!opt.in && axis_coor >= surf_step[grid[0]][grid[1]][0])) {
           AddPoint(surf_step, bin_use, surf_bead_ids,
                    grid[0], grid[1], 0, id, axis_coor);
         }
         // 'top' surface for bilayers or 'bottom' surface for brushes
         // +sqrt because we need upper intersection of line and sphere
         axis_coor = coor[2] + sqrt(max_dist - d[0]);
-        if ((opt->in && axis_coor >= surf_step[grid[0]][grid[1]][1]) ||
-            (!opt->in && axis_coor >= surf_step[grid[0]][grid[1]][1])) {
+        if ((opt.in && axis_coor >= surf_step[grid[0]][grid[1]][1]) ||
+            (!opt.in && axis_coor >= surf_step[grid[0]][grid[1]][1])) {
           AddPoint(surf_step, bin_use, surf_bead_ids,
                    grid[0], grid[1], 1, id, axis_coor);
         }
@@ -194,31 +194,23 @@ void SurfacePoint(SYSTEM System, int id, const int map[2], int axis,
 
 int main(int argc, char *argv[]) {
 
-  // define options & check their validity
-  int common = 8, all = common + 8, count = 0,
-      req_arg = 4;
-  char option[all][OPT_LENGTH];
-  OptionCheck(argc, argv, req_arg, common, all, true, option,
-               "-st", "-e", "-sk", "-i", "--verbose", "--silent",
-               "--help", "--version", "--in", "--bonded",
-               "-bt", "-wd", "-w", "-a", "-b", "-r");
-
-  count = 0; // count mandatory arguments
-  OPT *opt = opt_create();
-  // arguments & options before reading system data //{{{
-  // <input> - input coordinate (and structure) file
+  // commad line arguments before reading the structure //{{{
+  OptionCheck(argc, argv, true, HelpDesc, opts);
+  OPT opt;
+  int count = 0;
+  // <input> - input coordinate (and structure) file //{{{
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.coor.name, argv[++count], LINE);
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
-  }
-  // <width> - distance between probes
+  } //}}}
+  // <width> - distance between probes //{{{
   double width = 0;
   if (!IsPosRealNumber(argv[++count], &width)) {
     ErrorNaN("<width>");
-    Help(StripPath(argv[0]), true, common, option);
+    Help(true, HelpDesc, opts);
     exit(1);
-  }
+  } //}}}
   // <surf.txt> - output file with averaged surface coordinates
   char file_surf[LINE] = "";
   s_strcpy(file_surf, argv[++count], LINE);
@@ -240,50 +232,53 @@ int main(int argc, char *argv[]) {
   } else {
     err_msg("must be 'x', 'y', or 'z'");
     PrintErrorOption("<axis>");
-    Help(StripPath(argv[0]), true, common, option);
+    Help(true, HelpDesc, opts);
     exit(1);
   }
   //}}}
+  COMMON_OPT commons = CommonOptions(argc, argv, in);
+  if (!commons.silent) {
+    PrintCommand(stdout, argc, argv);
+  }
+
   // -wd option
   double distr_width = 0;
   int vals[2];
-  FileNumbersOption(argc, argv, 0, 1, "-wd", &distr_width, vals,
-                    opt->width_distr, 'd');
-  FileOption(argc, argv, "-w", opt->width_avg);
-  opt->c = CommonOptions(argc, argv, in);
-  opt->in = BoolOption(argc, argv, "--in");
-  opt->bonded = BoolOption(argc, argv, "--bonded");
-  if (!OneNumberOption(argc, argv, "-r", &opt->probe, 'd')) {
-    opt->probe = 0.5;
+  FileNumbersOption(argc, argv, 0, 1, "-wd", &distr_width,
+                    vals, opt.width_distr, 'd');
+  FileOption(argc, argv, "-w", opt.width_avg);
+  // --in option
+  opt.in = BoolOption(argc, argv, "--in");
+  // --bonded option
+  opt.bonded = BoolOption(argc, argv, "--bonded");
+  // -r option (probe size)
+  if (!OneNumberOption(argc, argv, "-r", &opt.probe, 'd')) {
+    opt.probe = 0.5;
   }
   // -a option
-  FileOption(argc, argv, "-a", opt->area_file);
+  FileOption(argc, argv, "-a", opt.area_file);
   // -b option
-  opt->bead_file = InitFile;
-  if (FileOption(argc, argv, "-b", opt->bead_file.name)) {
-    opt->bead_file.type = CoordinateFileType(opt->bead_file.name);
+  opt.bead_file = InitFile;
+  if (FileOption(argc, argv, "-b", opt.bead_file.name)) {
+    opt.bead_file.type = CoordinateFileType(opt.bead_file.name);
   }
   //}}}
-
-  if (!opt->c.silent) {
-    PrintCommand(stdout, argc, argv);
-  }
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
 
   // -bt option //{{{
-  opt->bt_number = 0;
-  opt->bt = calloc(Count->BeadType, sizeof *opt->bt);
+  opt.bt_number = 0;
+  opt.bt = calloc(Count->BeadType, sizeof *opt.bt);
   bool *flag = calloc(Count->BeadType, sizeof *flag);
   if (TypeOption(argc, argv, "-bt", 'b', true, flag, System)) {
     for (int i = 0; i < Count->BeadType; i++) {
       if (flag[i]) {
-        opt->bt[opt->bt_number] = i;
-        opt->bt_number++;
+        opt.bt[opt.bt_number] = i;
+        opt.bt_number++;
       }
     }
-    if (opt->bonded) {
+    if (opt.bonded) {
       err_msg("when both are used, --bonded takes precedence");
       PrintWarnOption("--bonded/-bt");
     }
@@ -292,7 +287,7 @@ int main(int argc, char *argv[]) {
 
   // specify radius for beads that have none //{{{
   double warn = false;
-  if (opt->bonded) { // use all beads in moleculs (--bonded)
+  if (opt.bonded) { // use all beads in moleculs (--bonded)
     for (int i = 0; i < Count->Bonded; i++) {
       int btype = System.Bead[System.Bonded[i]].Type;
       if (System.BeadType[btype].Radius == RADIUS) {
@@ -304,9 +299,9 @@ int main(int argc, char *argv[]) {
         }
       }
     }
-  } else if (opt->bt_number > 0) { // use specified bead types (-bt option)
-    for (int i = 0; i < opt->bt_number; i++) {
-      BEADTYPE *btype = &System.BeadType[opt->bt[i]];
+  } else if (opt.bt_number > 0) { // use specified bead types (-bt option)
+    for (int i = 0; i < opt.bt_number; i++) {
+      BEADTYPE *btype = &System.BeadType[opt.bt[i]];
       if (btype->Radius == RADIUS) {
         btype->Radius = 0.5;
         if (!warn) {
@@ -353,7 +348,7 @@ int main(int argc, char *argv[]) {
   bin_alloc[0] = sidelength[0] / width * 10;
   bin_alloc[1] = sidelength[1] / width * 10;
 
-  if (opt->c.verbose) {
+  if (commons.verbose) {
     VerboseOutput(System);
   }
 
@@ -387,8 +382,8 @@ int main(int argc, char *argv[]) {
   fr = OpenFile(in.coor.name, "r");
 
   // write initial stuff to the per-timestep area //{{{
-  if (opt->area_file[0] != '\0') {
-    FILE *out = PrintBylineOpenFile(opt->area_file, argc, argv);
+  if (opt.area_file[0] != '\0') {
+    FILE *out = PrintBylineOpenFile(opt.area_file, argc, argv);
     count = 1;
     fprintf(out, "# (%d) timestep", count++);
     fprintf(out, "; (%d) surface 1", count++);
@@ -397,16 +392,16 @@ int main(int argc, char *argv[]) {
     putc('\n', out);
   } //}}}
 
-  if (opt->width_avg[0] != '\0') {
-    FILE *fout = PrintBylineOpenFile(opt->width_avg, argc, argv);
+  if (opt.width_avg[0] != '\0') {
+    FILE *fout = PrintBylineOpenFile(opt.width_avg, argc, argv);
     fprintf(fout, "# (1) step; (2) thickness\n");
     fclose(fout);
   }
 
   // array for writing surface beads (if -b option is used) //{{{
   bool *write = NULL;
-  if (opt->bead_file.name[0] != '\0') {
-    InitOutputCoorFile(opt->bead_file, System, argc, argv);
+  if (opt.bead_file.name[0] != '\0') {
+    InitOutputCoorFile(opt.bead_file, System, argc, argv);
     write = calloc(Count->Bead, sizeof *write);
   } //}}}
 
@@ -416,10 +411,10 @@ int main(int argc, char *argv[]) {
   line_count = 0; // count lines in the coor file
   bool warn_box_change = false;
   while (true) {
-    PrintStep(&count_coor, opt->c.start, opt->c.silent);
+    PrintStep(&count_coor, commons.start, commons.silent);
     // decide whether to use this timestep (based on -st/-sk/-e) //{{{
     bool use = false;
-    if (UseStep(opt->c, count_coor)) {
+    if (UseStep(commons, count_coor)) {
       use = true;
     } //}}}
     if (use) { //{{{
@@ -473,7 +468,7 @@ int main(int argc, char *argv[]) {
           bin_use[i][j] = calloc(2, sizeof *bin_use);
           surf_bead_ids[i][j][0] = -1;
           surf_bead_ids[i][j][1] = -1;
-          if (!opt->in) {
+          if (!opt.in) {
             surf_step[i][j][0] = 0;
             surf_step[i][j][1] = sidelength[2];
           } else {
@@ -484,15 +479,15 @@ int main(int argc, char *argv[]) {
       } //}}}
 
       // calculate surface //{{{
-      if (opt->bonded) { // use all beads in moleculs (--bonded)
+      if (opt.bonded) { // use all beads in moleculs (--bonded)
         for (int i = 0; i < Count->BondedCoor; i++) {
           int id = System.BondedCoor[i];
           SurfacePoint(System, id, map, axis, width, opt,
                        bins_step, bin_use, surf_step, surf_bead_ids);
         }
-      } else if (opt->bt_number > 0) { // use specified bead types (-bt option)
-        for (int i = 0; i < opt->bt_number; i++) {
-          BEADTYPE *btype = &System.BeadType[opt->bt[i]];
+      } else if (opt.bt_number > 0) { // use specified bead types (-bt option)
+        for (int i = 0; i < opt.bt_number; i++) {
+          BEADTYPE *btype = &System.BeadType[opt.bt[i]];
           for (int j = 0; j < btype->Number; j++) {
             int id = btype->Index[j];
             if (System.Bead[id].InTimestep) {
@@ -522,7 +517,7 @@ int main(int argc, char *argv[]) {
               values[i][j][aa]++;
             }
           }
-          if ((distr_width > 0 || opt->width_avg[0] != '\0') &&
+          if ((distr_width > 0 || opt.width_avg[0] != '\0') &&
               surf_step[i][j][0] != -1 && surf_step[i][j][1] != -1) {
             double w = fabs(surf_step[i][j][0] - surf_step[i][j][1]);
             int bin = w / distr_width;
@@ -533,15 +528,15 @@ int main(int argc, char *argv[]) {
           }
         }
       } //}}}
-      if (opt->width_avg[0] != '\0') {
-        FILE *fout = OpenFile(opt->width_avg, "a");
+      if (opt.width_avg[0] != '\0') {
+        FILE *fout = OpenFile(opt.width_avg, "a");
         fprintf(fout, "%5d %lf\n", count_coor,
                 avg_thickness_step / avg_thickness_count);
         fclose(fout);
       }
 
       // calculate total area as a sum of areas of triangles //{{{
-      if (opt->area_file[0] != '\0') {
+      if (opt.area_file[0] != '\0') {
         for (int i = 0; i < bins_step[0]; i++) {
           surf_step[i][bins_step[1]-1][0] = surf_step[i][0][0];
           surf_step[i][bins_step[1]-1][1] = surf_step[i][0][1];
@@ -626,7 +621,7 @@ int main(int argc, char *argv[]) {
         }
         double Length_area = sidelength[0] * sidelength[1];
         double width_area = (bins_step[0] - 1) * (bins_step[1] - 1) * Square(width);
-        FILE *out = OpenFile(opt->area_file, "a");
+        FILE *out = OpenFile(opt.area_file, "a");
         fprintf(out, "%d %lf %lf %lf\n", count_coor,
                                          area[0] * Length_area / width_area,
                                          area[1] * Length_area / width_area,
@@ -636,7 +631,7 @@ int main(int argc, char *argv[]) {
       //}}}
 
       // save interfacial (surface) beads to a coordinate file //{{{
-      if (opt->bead_file.name[0] != '\0') {
+      if (opt.bead_file.name[0] != '\0') {
         // find which beads were assigned as surface
         InitBoolArray(write, Count->Bead, false);
         for (int i = 0; i < bin_alloc[0]; i++) {
@@ -660,7 +655,7 @@ int main(int argc, char *argv[]) {
             }
           }
         }
-        WriteTimestep(opt->bead_file, System, count_coor, write, argc, argv);
+        WriteTimestep(opt.bead_file, System, count_coor, write, argc, argv);
       } //}}}
 
       for (int i = 0; i < bins_step[0]; i++) {
@@ -681,12 +676,12 @@ int main(int argc, char *argv[]) {
       }
     } //}}}
     // exit the main loop if reached user-specied end timestep
-    if (count_coor == opt->c.end) {
+    if (count_coor == commons.end) {
       break;
     }
   }
   fclose(fr);
-  PrintLastStep(count_coor, count_used, opt->c.silent); //}}}
+  PrintLastStep(count_coor, count_used, commons.silent); //}}}
 
   // find highest grid point with non-zero surface values //{{{
   int max[2] = {-1, -1};
@@ -724,7 +719,7 @@ int main(int argc, char *argv[]) {
   fclose(out); //}}}
 
   // calculate total area as a sum of areas of triangles //{{{
-  if (opt->area_file[0] != '\0') {
+  if (opt.area_file[0] != '\0') {
     for (int i = 0; i < max[0]; i++) {
       values[i][max[1]-1][0] = values[i][0][0];
       values[i][max[1]-1][1] = values[i][0][1];
@@ -812,7 +807,7 @@ int main(int argc, char *argv[]) {
     }
     double Length_area = System.Box.Length[0] * System.Box.Length[1];
     double width_area = (max[0] - 1) * (max[1] - 1) * Square(width);
-    FILE *out = OpenFile(opt->area_file, "a");
+    FILE *out = OpenFile(opt.area_file, "a");
     fprintf(out, "# average: (1) surface 1");
     fprintf(out, "; (2) surface 2");
     fprintf(out, "; (3) middle surface\n");
@@ -836,7 +831,7 @@ int main(int argc, char *argv[]) {
       }
     }
     // write data to the file
-    out = PrintBylineOpenFile(opt->width_distr, argc, argv);
+    out = PrintBylineOpenFile(opt.width_distr, argc, argv);
     fprintf(out, "# (1) distance; (2) distribution\n");
     // for (int i = min; i < max; i++) {
     for (int i = 0; i < distr_bins; i++) {
@@ -852,8 +847,8 @@ int main(int argc, char *argv[]) {
     fprintf(out, "# average thickness: %lf\n", avg_thickness / norm);
     fclose(out);
     // write avg thickness to per-timestep thickness
-    if (opt->width_avg[0] != '\0') {
-      out = OpenFile(opt->width_avg, "a");
+    if (opt.width_avg[0] != '\0') {
+      out = OpenFile(opt.width_avg, "a");
       fprintf(out, "# average thickness: %lf\n", avg_thickness / norm);
       fclose(out);
     }
@@ -870,11 +865,11 @@ int main(int argc, char *argv[]) {
   if (distr_width > 0) {
     free(distr);
   }
-  free(opt->bt);
-  if (opt->bead_file.name[0] != '\0') {
+  free(opt.bt);
+  if (opt.bead_file.name[0] != '\0') {
     free(write);
   }
-  free(opt); //}}}
+  //}}}
 
   return 0;
 }
