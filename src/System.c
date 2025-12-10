@@ -242,12 +242,12 @@ bool CalculateBoxData(BOX *Box, int mode) {
   switch (mode) {
     case 0: // angles & Length given //{{{
       for (int dd = 0; dd < 3; dd++) {
-        Box->OrthoLength[dd] = Box->Length[dd];
+        Box->OrthoLength.v[dd] = Box->Length.v[dd];
       }
-      Box->Volume = Box->Length[0] * Box->Length[1] *  Box->Length[2];
-      a = Box->Length[0];
-      b = Box->Length[1];
-      c = Box->Length[2];
+      Box->Volume = Box->Length.x * Box->Length.y *  Box->Length.z;
+      a = Box->Length.x;
+      b = Box->Length.y;
+      c = Box->Length.z;
       c_a = cos(Box->alpha * PI / 180);
       c_b = cos(Box->beta * PI / 180);
       c_g = cos(Box->gamma * PI / 180);
@@ -260,14 +260,14 @@ bool CalculateBoxData(BOX *Box, int mode) {
       }
       // orthogonal box size
       // x direaction
-      Box->OrthoLength[0] = a;
+      Box->OrthoLength.x = a;
       // y direaction
       sqr = Square(b) - Square(Box->transform[0][1]);
       if (sqr < 0) {
         err_msg("wrong dimensions for triclinic cell");
         return false;
       }
-      Box->OrthoLength[1] = sqrt(sqr);
+      Box->OrthoLength.y = sqrt(sqr);
       // z direaction
       sqr = Square(c) - Square(Box->transform[0][2]) - Square(Box->transform[1][2]);
       if (sqr < 0) {
@@ -275,28 +275,28 @@ bool CalculateBoxData(BOX *Box, int mode) {
         PrintError();
         exit(1);
       }
-      Box->OrthoLength[2] = sqrt(sqr);
+      Box->OrthoLength.z = sqrt(sqr);
       break; //}}}
     case 1: // tilt & OrthoLength given //{{{
       for (int dd = 0; dd < 3; dd++) {
-        Box->Length[dd] = Box->OrthoLength[dd];
+        Box->Length.v[dd] = Box->OrthoLength.v[dd];
       }
-      Box->Volume = Box->Length[0] * Box->Length[1] *  Box->Length[2];
-      a = Box->OrthoLength[0];
-      b = sqrt(Square(Box->OrthoLength[1]) + Square(Box->transform[0][1]));
-      c = sqrt(Square(Box->OrthoLength[2]) +
+      Box->Volume = Box->Length.x * Box->Length.y *  Box->Length.z;
+      a = Box->OrthoLength.x;
+      b = sqrt(Square(Box->OrthoLength.y) + Square(Box->transform[0][1]));
+      c = sqrt(Square(Box->OrthoLength.z) +
                Square(Box->transform[0][2]) +
                Square(Box->transform[1][2]));
       c_a = (Box->transform[0][1] * Box->transform[0][2] +
-             Box->OrthoLength[1] * Box->transform[1][2]) /
+             Box->OrthoLength.y * Box->transform[1][2]) /
             (b * c);
       c_b = Box->transform[0][2] / c;
       c_g = Box->transform[0][1] / b;
       s_g = sin(Box->gamma * PI / 180);
       // cell length
-      Box->Length[0] = a;
-      Box->Length[1] = b;
-      Box->Length[2] = c;
+      Box->Length.x = a;
+      Box->Length.y = b;
+      Box->Length.z = c;
       // cell angles
       Box->alpha = acos(c_a) / PI * 180;
       Box->beta = acos(c_b) / PI * 180;
@@ -337,12 +337,12 @@ bool CalculateBoxData(BOX *Box, int mode) {
          xz = Box->transform[0][2],
          yz = Box->transform[1][2],
          xyz = Box->transform[0][1] + Box->transform[0][2];
-  Box->Bounding[0] = Box->OrthoLength[0] -
-                     Max3(0, xy, Max3(0, xz, xyz)) +
-                     Min3(0, xy, Min3(0, xz, xyz));
-  Box->Bounding[1] = Box->OrthoLength[1] -
-                     Min3(0, 0, yz) + Max3(0, 0, yz);
-  Box->Bounding[2] = Box->OrthoLength[2]; //}}}
+  Box->Bounding.x = Box->OrthoLength.x -
+                    Max3(0, xy, Max3(0, xz, xyz)) +
+                    Min3(0, xy, Min3(0, xz, xyz));
+  Box->Bounding.y = Box->OrthoLength.y -
+                    Min3(0, 0, yz) + Max3(0, 0, yz);
+  Box->Bounding.z = Box->OrthoLength.z; //}}}
   if (Box->Volume == 0) { //{{{
     err_msg("not all box dimensions are non-zero:");
     PrintError();
@@ -2617,7 +2617,7 @@ void ChangeBoxByLow(SYSTEM *System, int sign) {
   for (int i = 0; i < System->Count.BeadCoor; i++) {
     int id = System->BeadCoor[i];
     for (int dd = 0; dd < 3; dd++) {
-      System->Bead[id].Position.v[dd] += sign * System->Box.Low[dd];
+      System->Bead[id].Position.v[dd] += sign * System->Box.Low.v[dd];
     }
   }
 } //}}}

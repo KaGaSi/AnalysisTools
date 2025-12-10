@@ -165,7 +165,7 @@ int LmpDataReadTimestep(FILE *fr, const char *file,
     id--; // in lammps data file, ids start from 1
     BEAD *b = &System->Bead[id];
     for (int dd = 0; dd < 3; dd++) {
-      b->Position.v[dd] = pos[dd] - System->Box.Low[dd];
+      b->Position.v[dd] = pos[dd] - System->Box.Low.v[dd];
     }
     System->BeadCoor[i] = id;
   } //}}}
@@ -355,9 +355,9 @@ static void LmpDataReadHeader(FILE *fr, const char *file,
     putc('\n', stderr);
     exit(1);
   }
-  if (System->Box.OrthoLength[0] == -1 ||
-      System->Box.OrthoLength[1] == -1 ||
-      System->Box.OrthoLength[2] == -1) {
+  if (System->Box.OrthoLength.x == -1 ||
+      System->Box.OrthoLength.y == -1 ||
+      System->Box.OrthoLength.z == -1) {
     err_msg("missing box size in the file header");
     PrintWarnFile(file, "\0", "\0");
     putc('\n', stderr);
@@ -913,14 +913,14 @@ static bool ReadPbc(BOX *box) { //{{{
   double lo, hi;
   char *a[3] = {"xlo", "ylo", "zlo"};
   char *b[3] = {"xhi", "yhi", "zhi"};
-  for (int i = 0; i < 3; i++) {
-    if (words > 3 && strcmp(split[2], a[i]) == 0 &&
-                     strcmp(split[3], b[i]) == 0) {
+  for (int dd = 0; dd < 3; dd++) {
+    if (words > 3 && strcmp(split[2], a[dd]) == 0 &&
+                     strcmp(split[3], b[dd]) == 0) {
       if (!IsRealNumber(split[0], &lo) || !IsRealNumber(split[1], &hi)) {
         return false;
       }
-      box->Low[i] = lo;
-      box->OrthoLength[i] = hi - lo;
+      box->Low.v[dd] = lo;
+      box->OrthoLength.v[dd] = hi - lo;
     }
   }
   // <double> <double> <double> xy xz yz
@@ -1164,12 +1164,12 @@ void WriteLmpData(const SYSTEM System, const char *file, const bool mass,
   }
   putc('\n', fw); //}}}
   // print box size //{{{
-  fprintf(fw, "%.3f", System.Box.Low[0]);
-  fprintf(fw, " %.3f xlo xhi\n", System.Box.Low[0] + System.Box.OrthoLength[0]);
-  fprintf(fw, "%.3f", System.Box.Low[1]);
-  fprintf(fw, " %.3f ylo yhi\n", System.Box.Low[1] + System.Box.OrthoLength[1]);
-  fprintf(fw, "%.3f", System.Box.Low[2]);
-  fprintf(fw, " %.3f zlo zhi\n", System.Box.Low[2] + System.Box.OrthoLength[2]);
+  fprintf(fw, "%.3f", System.Box.Low.x);
+  fprintf(fw, " %.3f xlo xhi\n", System.Box.Low.x + System.Box.OrthoLength.x);
+  fprintf(fw, "%.3f", System.Box.Low.y);
+  fprintf(fw, " %.3f ylo yhi\n", System.Box.Low.y + System.Box.OrthoLength.y);
+  fprintf(fw, "%.3f", System.Box.Low.z);
+  fprintf(fw, " %.3f zlo zhi\n", System.Box.Low.z + System.Box.OrthoLength.z);
   if (fabs(System.Box.alpha - 90) > 0.00001 ||
       fabs(System.Box.beta - 90) > 0.00001 ||
       fabs(System.Box.gamma - 90) > 0.00001) {
@@ -1260,7 +1260,7 @@ void WriteLmpData(const SYSTEM System, const char *file, const bool mass,
     }
     // coordinates
     for (int dd = 0; dd < 3; dd++) {
-      fprintf(fw, " %15f", bead->Position.v[dd] + System.Box.Low[dd]);
+      fprintf(fw, " %15f", bead->Position.v[dd] + System.Box.Low.v[dd]);
     }
     // molecule name
     if (mol != -1) {

@@ -39,11 +39,6 @@ static const struct OptSpec opts[] = {
   {NULL}
 }; //}}}
 
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-} //}}}
-
 // structure for options //{{{
 struct OPT {
   int tau, block, moving; // -tau -b -m

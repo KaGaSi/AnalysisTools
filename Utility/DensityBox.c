@@ -28,11 +28,6 @@ static const struct OptSpec opts[] = {
   {NULL}
 }; //}}}
 
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-} //}}}
-
 // structure for options //{{{
 struct OPT {
   bool *x; // -x option
@@ -89,7 +84,7 @@ int main(int argc, char *argv[]) {
   // TODO: *3 to assume box change of at most thrice as big
   //       probably change from width to number of bins per box?
   for (int dd = 0; dd < 3; dd++) {
-    bin[dd] = ceil(box->Length[dd] / width) * 3;
+    bin[dd] = ceil(box->Length.v[dd] / width) * 3;
   } //}}}
   int bin_max = Max3(bin[0], bin[1], bin[2]);
 
@@ -179,18 +174,18 @@ int main(int argc, char *argv[]) {
     char axis;
     if (ax == 0) {
       axis = 'x';
-      size = box->Length[0];
-      volume *= box->Length[1] * box->Length[2];
+      size = box->Length.x;
+      volume *= box->Length.y * box->Length.z;
       bins = bin[0];
     } else if (ax == 1) {
       axis = 'y';
-      size = box->Length[1];
-      volume *= box->Length[0] * box->Length[2];
+      size = box->Length.y;
+      volume *= box->Length.x * box->Length.z;
       bins = bin[1];
     } else {
       axis = 'z';
-      size = box->Length[2];
-      volume *= box->Length[0] * box->Length[1];
+      size = box->Length.z;
+      volume *= box->Length.x * box->Length.y;
       bins = bin[2];
     }
     char file[LINE]; // filename <output>-<axis>.rho

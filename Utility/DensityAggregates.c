@@ -46,17 +46,11 @@ static const struct OptSpec opts[] = {
   {NULL}
 }; //}}}
 
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-} //}}}
-
 // structure for options //{{{
 struct OPT {
   AGG_PICKER agg; // -x, -only, -m, and -n arrays
   bool join;      // --joined
   FILE_TYPE fout; // -o
-  COMMON_OPT commons;
 }; //}}}
 
 int main(int argc, char *argv[]) {
@@ -110,7 +104,7 @@ int main(int argc, char *argv[]) {
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
-  double *box = System.Box.Length;
+  vec3d box = System.Box.Length;
 
   AggPickerOptions(argc, argv, &opt.agg, System);
 
@@ -180,7 +174,7 @@ int main(int argc, char *argv[]) {
   //}}}
 
   // number of bins
-  double max_dist = 0.5 * Max3(box[0], box[1], box[2]);
+  double max_dist = 0.5 * Max3(box.x, box.y, box.z);
   int bins = ceil(max_dist / width);
 
   // allocate memory for density arrays

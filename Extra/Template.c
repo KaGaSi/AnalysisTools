@@ -29,11 +29,6 @@ static const struct OptSpec opts[] = {
   {NULL}
 }; //}}}
 
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-} //}}}
-
 // structure for options //{{{
 struct OPT {
   // here com option variables
@@ -45,11 +40,7 @@ struct OPT {
   char f_file[LINE]; // -f (filename)
   int f_list[100],   // -f (list of numbers)
       f_num;         // -f (number of those numbers)
-  COMMON_OPT c;
-};
-OPT * opt_create(void) {
-  return malloc(sizeof(OPT));
-} //}}}
+}; //}}}
 
 int main(int argc, char *argv[]) {
 

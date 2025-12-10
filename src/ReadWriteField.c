@@ -31,13 +31,11 @@ SYSTEM FieldRead(const char *file) { //{{{
     ErrorEOF(file, "empty file");
     exit(1);
   }
-  double box[3];
-  if (words > 2 && IsRealNumber(split[0], &box[0]) &&
-                   IsRealNumber(split[1], &box[1]) &&
-                   IsRealNumber(split[2], &box[2])) {
-    System.Box.Length[0] = box[0];
-    System.Box.Length[1] = box[1];
-    System.Box.Length[2] = box[2];
+  vec3d box;
+  if (words > 2 && IsRealNumber(split[0], &box.x) &&
+                   IsRealNumber(split[1], &box.y) &&
+                   IsRealNumber(split[2], &box.z)) {
+    System.Box.Length = box;
     CalculateBoxData(&System.Box, 0);
   }
   fclose(fr); //}}}
@@ -90,8 +88,7 @@ void WriteField(const SYSTEM System, const char *file_field,
   FILE *fw = OpenFile(file_field, "w");
   const BOX *box = &System.Box;
   if (box->Volume != -1) {
-    fprintf(fw, "%.3f %.3f %.3f ",
-            box->Length[0], box->Length[1], box->Length[2]);
+    fprintf(fw, "%.3f %.3f %.3f ", box->Length.x, box->Length.y, box->Length.z);
     if (box->alpha != 90 || box->beta != 90 || box->gamma != 0) {
       fprintf(fw, "%lf %lf %lf ", box->alpha, box->beta, box->gamma);
     }

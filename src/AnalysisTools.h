@@ -32,12 +32,12 @@ int FindMoleculeType(const SYSTEM Sys1, const MOLECULETYPE mt,
                      const SYSTEM Sys2, const int mode, const bool name);
 // Helper functions for manipulating coordinates
 // wrap coordinates into simulation box and/or join molecules
+vec3d RestorePBC(const vec3d coor, const vec3d BoxLength);
 void RemovePBCMolecule(int mol_id, SYSTEM *System);
-vec3d RestorePBCBead(int beadcoor_id, SYSTEM System);
 void WrapJoinCoordinates(SYSTEM *System, const bool wrap, const bool join);
 // distance between two beads; in the range <-BoxLength/2,BoxLength/2)
 vec3d Distance(const double id1[3], const double id2[3],
-               const double BoxLength[3]);
+               const vec3d BoxLength);
 // calculate centre of mass for a list of beads
 void CentreOfMass(const int n, const int *list,
                   const SYSTEM System, double gc[3]);
@@ -48,12 +48,6 @@ bool InputCoorStruct(const int argc, char **argv, SYS_FILES *f);
 int StructureFileType(const char *name);
 int CoordinateFileType(const char *name);
 int FileType(const char *name);
-// create a cell-linked list
-void LinkedList_old(const SYSTEM System, int **Head, int **Link,
-                const double cell_size, int n_cells[3], int Dc[27][3]);
-int SelectCell1_old(const int c1[3], const int n_cells[3]);
-int SelectCell2_old(const int c1[3], const int n_cells[3],
-                const int Dc[27][3], const int n);
 // calculate gyration tensor and various shape descriptors
 vec3d Gyration(const int n, const int *list, SYSTEM *System);
 // TODO: redo

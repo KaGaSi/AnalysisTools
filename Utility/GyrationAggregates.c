@@ -42,12 +42,6 @@ static const struct OptSpec opts[] = {
   {NULL}
 }; //}}}
 
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-  CommonHelp(error, n, opt);
-} //}}}
-
 // structure for options //{{{
 struct OPT {
   AGG_PICKER agg;     // -x, -only, -m, and -n arrays

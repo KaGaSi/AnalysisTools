@@ -31,11 +31,6 @@ static const struct OptSpec opts[] = {
   {NULL}
 }; //}}}
 
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-} //}}}
-
 // structure for options //{{{
 struct OPT {
   // here com option variables
@@ -55,7 +50,7 @@ static char *name = "C";
 static char *name_mol = "CA2";
 // calculate distance between two points, accounting for pbc //{{{
 inline static double DistLength(const double v1[3], const double v2[3],
-                                const double box[3]) {
+                                const vec3d box) {
   vec3d dist = Distance(v1, v2, box);
   return VectLength(dist);
 } //}}}
@@ -186,7 +181,7 @@ int main(int argc, char *argv[]) {
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
-  double *boxlength = System.Box.Length;
+  vec3d boxlength = System.Box.Length;
 
   // define variables for mono- and divalent counterions //{{{
   const int bt_name = FindBeadType(name, System);

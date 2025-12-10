@@ -10,8 +10,7 @@
 #define OPT_LENGTH 15
 
 // structures for options //{{{
-typedef struct OPT OPT;
-OPT * opt_create(void);
+typedef struct OPT OPT; // defined in utilities
 typedef struct common_opt {
   bool verbose, silent;
   int start, end, skip;
@@ -39,21 +38,21 @@ static const SYS_FILES InitSysFiles = {
   .stru = InitFile,
 }; //}}}
 typedef struct Box { //{{{
-  double Length[3],
-         OrthoLength[3],
-         Bounding[3],
-         Low[3],
-         alpha, beta, gamma, // angles - all 90 for orthogonal box
+  vec3d Length,
+        OrthoLength,
+        Bounding,
+        Low;
+  double alpha, beta, gamma, // angles - all 90 for orthogonal box
          transform[3][3], // transformation matrix
          inverse[3][3], // inverse of the transformation matrix
          Volume;
 } BOX;
 // Initialize Box
 static const BOX InitBox = {
-  .Length = {-1, -1, -1},
-  .OrthoLength = {-1, -1, -1},
-  .Bounding = {-1, -1, -1},
-  .Low = {0, 0, 0},
+  .Length = { .v = {-1, -1, -1}},
+  .OrthoLength = { .v = {-1, -1, -1}},
+  .Bounding = { .v = {-1, -1, -1}},
+  .Low = { .v = {0, 0, 0}},
   .alpha = 90,
   .beta = 90,
   .gamma = 90,

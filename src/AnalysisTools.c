@@ -90,13 +90,16 @@ static void FractionalCoor(SYSTEM *System, const int mode) {
                     box->inverse[dd][1] * b->Position.v[1] +
                     box->inverse[dd][2] * b->Position.v[2];
         } else {
-          new[dd] = box->transform[dd][0] * b->Position.v[0] / box->Length[dd] +
-                    box->transform[dd][1] * b->Position.v[1] / box->Length[dd] +
-                    box->transform[dd][2] * b->Position.v[2] / box->Length[dd];
+          vec3d fraction = { .v = { b->Position.v[0] / box->Length.v[dd],
+                                    b->Position.v[1] / box->Length.v[dd],
+                                    b->Position.v[2] / box->Length.v[dd]}};
+          new[dd] = box->transform[dd][0] * fraction.v[0] +
+                    box->transform[dd][1] * fraction.v[1] +
+                    box->transform[dd][2] * fraction.v[2];
         }
       }
       for (int dd = 0; dd < 3; dd++) {
-        b->Position.v[dd] = new[dd] * System->Box.Length[dd];
+        b->Position.v[dd] = new[dd] * System->Box.Length.v[dd];
       }
     }
   }
@@ -256,6 +259,17 @@ int FindMoleculeType(const SYSTEM Sys1, const MOLECULETYPE mt_1,
   return -1;
 } //}}}
 // Helper functions for manipulating coordinates
+// put given vector into range <0,BoxLength) //{{{
+vec3d RestorePBC(const vec3d coor, const vec3d BoxLength) {
+  vec3d out;
+  for (int dd = 0; dd < 3; dd++) {
+    // by how many boxlength should the distance be changed?
+    int move = floor(coor.v[dd] / BoxLength.v[dd]);
+    // transform it into <0,BoxLength) range
+    out.v[dd] = coor.v[dd] - move * BoxLength.v[dd];
+  }
+  return out;
+} //}}}
 // remove pbc for molecules by joining the molecules //{{{
 /*
  * Create a list of all bonds ('unconnected' array) with beads that are in the
@@ -371,7 +385,7 @@ void RemovePBCMolecule(int mol_id, SYSTEM *System) {
   // by how many BoxLength's should cog be moved?
   int move[3];
   for (int dd = 0; dd < 3; dd++) {
-    move[dd] = cog[dd] / box->OrthoLength[dd];
+    move[dd] = cog[dd] / box->OrthoLength.v[dd];
     if (cog[dd] < 0) {
       move[dd]--;
     }
@@ -379,22 +393,9 @@ void RemovePBCMolecule(int mol_id, SYSTEM *System) {
   for (int j = 0; j < mt->nBeads; j++) {
     int bead = mol->Bead[j];
     for (int dd = 0; dd < 3; dd++) {
-      System->Bead[bead].Position.v[dd] -= move[dd] * box->OrthoLength[dd];
+      System->Bead[bead].Position.v[dd] -= move[dd] * box->OrthoLength.v[dd];
     }
   } //}}}
-} //}}}
-// restore pbc for a single bead //{{{
-vec3d RestorePBCBead(int beadcoor_id, SYSTEM System) {
-  int id = System.BeadCoor[beadcoor_id];
-  BEAD *bead = &System.Bead[id];
-  vec3d pos = bead->Position;
-  BOX *box = &System.Box;
-  for (int dd = 0; dd < 3; dd++) {
-    // by how many boxlength should the bead be moved?
-    int move = floor(pos.v[dd] / box->OrthoLength[dd]);
-    pos.v[dd] -= move * box->OrthoLength[dd];
-  }
-  return pos;
 } //}}}
 // wrap coordinates into simulation box and/or join molecules //{{{
 void WrapJoinCoordinates(SYSTEM *System, const bool wrap, const bool join) {
@@ -405,7 +406,7 @@ void WrapJoinCoordinates(SYSTEM *System, const bool wrap, const bool join) {
       for (int i = 0; i < System->Count.BeadCoor; i++) {
         int id = System->BeadCoor[i];
         BEAD *bead = &System->Bead[id];
-        bead->Position = RestorePBCBead(i, *System);
+        bead->Position = RestorePBC(bead->Position, System->Box.OrthoLength);
       }
     }
     if (join) { // join molecules by removing periodic boundary conditions
@@ -419,19 +420,16 @@ void WrapJoinCoordinates(SYSTEM *System, const bool wrap, const bool join) {
 } //}}}
 // distance between two beads; in the range <-BoxLength/2,BoxLength/2) //{{{
 vec3d Distance(const double id1[3], const double id2[3],
-              const double BoxLength[3]) {
+               const vec3d BoxLength) {
   vec3d out;
+  // calculate distance, transforming it into <0,BoxLength) range
   for (int dd = 0; dd < 3; dd++) {
-    // calculate distance in given direction
-    out.v[dd] = id1[dd] - id2[dd];
-    // transform it into <0,BoxLength) range
-    out.v[dd] += BoxLength[dd] / 2;
-    // by how many boxlength should the distance be changed?
-    int move = floor(out.v[dd] / BoxLength[dd]);
-    // transform it into <0,BoxLength) range
-    out.v[dd] -= move * BoxLength[dd];
-    // transform it back to <-BoxLength/2,BoxLength/2) range
-    out.v[dd] -= BoxLength[dd] / 2;
+    out.v[dd] = id1[dd] - id2[dd] + BoxLength.v[dd] / 2;
+  }
+  out = RestorePBC(out, BoxLength);
+  // transform the distance back to <-BoxLength/2,BoxLength/2) range
+  for (int dd = 0; dd < 3; dd++) {
+    out.v[dd] -= BoxLength.v[dd] / 2;
   }
   return out;
 } //}}}
@@ -784,7 +782,7 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
     exit(1);
   }
 
-  double (*box)[3] = &System->Box.Length;
+  vec3d *box = &System->Box.Length;
   // helper array indicating whether molecules already moved
   int *list_moved = calloc(Count->Molecule, sizeof *list_moved),
       *list_unmoved = calloc(Count->Molecule, sizeof *list_unmoved);
@@ -831,17 +829,17 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
                 }
                 // if 'bead1' and 'bead2' are too far, move 'mol2' //{{{
                 for (int dd = 0; dd < 3; dd++) {
-                  while (dist.v[dd] > ((*box)[dd] / 2)) {
+                  while (dist.v[dd] > ((*box).v[dd] / 2)) {
                     for (int n = 0; n < System->MoleculeType[mtype2].nBeads; n++) {
                       int id = System->Molecule[mol2].Bead[n];
-                      System->Bead[id].Position.v[dd] += (*box)[dd];
+                      System->Bead[id].Position.v[dd] += (*box).v[dd];
                     }
                     dist.v[dd] = b1->Position.v[dd] - b2->Position.v[dd];
                   }
-                  while (dist.v[dd] <= -((*box)[dd] / 2)) {
+                  while (dist.v[dd] <= -((*box).v[dd] / 2)) {
                     for (int n = 0; n < System->MoleculeType[mtype2].nBeads; n++) {
                       int id = System->Molecule[mol2].Bead[n];
-                      System->Bead[id].Position.v[dd] -= (*box)[dd];
+                      System->Bead[id].Position.v[dd] -= (*box).v[dd];
                     }
                     dist.v[dd] = b1->Position.v[dd] - b2->Position.v[dd];
                   }
@@ -880,7 +878,7 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
     // for distant aggregates - it shouldn't happen, but better safe than sorry
     int move[3];
     for (int dd = 0; dd < 3; dd++) {
-      move[dd] = com[dd] / (*box)[dd];
+      move[dd] = com[dd] / (*box).v[dd];
       if (com[dd] < 0) {
         move[dd]--;
       }
@@ -889,7 +887,7 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
     for (int j = 0; j < Aggregate[i].nBeads; j++) {
       int bead = Aggregate[i].Bead[j];
       for (int dd = 0; dd < 3; dd++) {
-        System->Bead[bead].Position.v[dd] -= move[dd] * (*box)[dd];
+        System->Bead[bead].Position.v[dd] -= move[dd] * (*box).v[dd];
       }
     }
   } //}}}

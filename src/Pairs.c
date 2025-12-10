@@ -90,9 +90,9 @@ void TraversePairs(const SYSTEM System, const double cell_size,
                    pair_cb_t pair_callback, void *pair_ud,
                    check_cb_t check_callback, void *check_ud) {
   bool linked = true;
-  if ((Min3(System.Box.Length[0],
-            System.Box.Length[1],
-            System.Box.Length[2]) / 3) < cell_size) {
+  if ((Min3(System.Box.Length.x,
+            System.Box.Length.y,
+            System.Box.Length.z) / 3) < cell_size) {
     linked = false;
   }
   if (linked) {
@@ -107,20 +107,20 @@ void TraversePairs(const SYSTEM System, const double cell_size,
 // create a cell linked list //{{{
 static vec3i LinkedList(const SYSTEM System, int **Head, int **Link,
                         const double cell_size) {
-  const double (*box)[3] = &System.Box.Length;
+  const vec3d *box = &System.Box.Length;
   const COUNT *Count = &System.Count;
   vec3d rl;
   vec3i n_cells;
   // compute number of cells along each axis
   for (int dd = 0; dd < 3; dd++) {
-    rl.v[dd] = (*box)[dd] / cell_size;
+    rl.v[dd] = (*box).v[dd] / cell_size;
     n_cells.v[dd] = (int)(rl.v[dd]);
     if (n_cells.v[dd] < 3) {
       err_msg("cell size too small for cut-off in linked list");
       PrintError();
       exit(1);
     }
-    rl.v[dd] = (double)n_cells.v[dd] / (*box)[dd]; // inverse length
+    rl.v[dd] = (double)n_cells.v[dd] / (*box).v[dd]; // inverse length
   }
   // allocate lists
   int cells = n_cells.x * n_cells.y * n_cells.z;

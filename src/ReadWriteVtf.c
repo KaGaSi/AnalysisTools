@@ -617,9 +617,9 @@ BOX VtfReadPBC(const char *file) { //{{{
   return Box;
 } //}}}
 static bool VtfPbcLine(BOX *box, const int ltype) { //{{{
-  box->Length[0] = atof(split[1]);
-  box->Length[1] = atof(split[2]);
-  box->Length[2] = atof(split[3]);
+  box->Length.x = atof(split[1]);
+  box->Length.y = atof(split[2]);
+  box->Length.z = atof(split[3]);
   if (ltype == PBC_LINE_ANGLES) {
     box->alpha = atof(split[4]);
     box->beta = atof(split[5]);
@@ -923,9 +923,7 @@ void VtfWriteCoorIndexed(FILE *fw, const bool *write, const SYSTEM System) {
   // print box size if present //{{{
   const BOX *box = &System.Box;
   if (box->Volume != -1) {
-    fprintf(fw, "pbc %lf %lf %lf", box->Length[0],
-                                   box->Length[1],
-                                   box->Length[2]);
+    fprintf(fw, "pbc %lf %lf %lf", box->Length.x, box->Length.y, box->Length.z);
     if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {
       fprintf(fw, "    %.3f %.3f %.3f", box->alpha, box->beta, box->gamma);
     }

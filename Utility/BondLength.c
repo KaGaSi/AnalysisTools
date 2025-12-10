@@ -37,11 +37,6 @@ static const struct OptSpec opts[] = {
   {NULL}
 }; //}}}
 
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-} //}}}
-
 // structure for options //{{{
 struct OPT {
   bool join,         // --joined
@@ -52,7 +47,6 @@ struct OPT {
   double warn;       // -w option
   char n_file[LINE], // -n (output file)
        t_file[LINE]; // -t (output file)
-  COMMON_OPT commons;
 }; //}}}
 
 // write mins, maxes, and averages //{{{
@@ -194,7 +188,7 @@ int main(int argc, char *argv[]) {
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
-  double *box = System.Box.Length;
+  vec3d box = System.Box.Length;
 
   // '-m <name(s)>' option
   if (!(opt.mt = calloc(System.Count.MoleculeType, sizeof *opt.mt))) {
@@ -212,7 +206,7 @@ int main(int argc, char *argv[]) {
    * number of bins: *10 because of the -n option; bondlength should be at most
    * half boxsize, but distance between any two beads in a molecule can be large
   */
-  int bins = Max3(box[0], box[1], box[2]) / width * 10;
+  int bins = Max3(box.x, box.y, box.z) / width * 10;
 
   // arrays for BeadType-BeadType bonds //{{{
   size_t shape4D[4] = {Count->MoleculeType,

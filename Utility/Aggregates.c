@@ -1,4 +1,5 @@
 #include "../src/AnalysisTools.h"
+// TODO: join the aggregates* utils, option to specify bead pairs
 
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
@@ -42,11 +43,6 @@ static const struct OptSpec opts[] = {
   {"-w", "<a> <float(s)>", "position of wall perpendicular to given axis <a> at the axis' coordinate(s)", OPT_EXTRA},
   {NULL}
 }; //}}}
-
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-} //}}}
 
 // structure for options //{{{
 struct OPT {

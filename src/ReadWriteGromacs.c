@@ -97,9 +97,9 @@ SYSTEM PdbReadStruct(const char *file) { //{{{
   while (CountLineReadLine(&line_count, fr, file, "missing CRYST (pbc) line")) {
     line_count++;
     if (words > 0 && strncasecmp(split[0], "CRYST", 5) == 0) {
-      if (words < 4 || !IsPosRealNumber(split[1], &System.Box.Length[0]) ||
-                       !IsPosRealNumber(split[1], &System.Box.Length[1]) ||
-                       !IsPosRealNumber(split[1], &System.Box.Length[2])) {
+      if (words < 4 || !IsPosRealNumber(split[1], &System.Box.Length.x) ||
+                       !IsPosRealNumber(split[1], &System.Box.Length.y) ||
+                       !IsPosRealNumber(split[1], &System.Box.Length.z)) {
         err_msg("wrong 'CRYST' line (requires CRYST* <x> <y> <z>)");
         PrintErrorFileLine(file, line_count);
         exit(1);

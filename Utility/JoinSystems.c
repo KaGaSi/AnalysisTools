@@ -29,11 +29,6 @@ static const struct OptSpec opts[] = {
   {NULL}
 }; //}}}
 
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-} //}}}
-
 // structure for options //{{{
 struct OPT {
   int start[2];          // -st1 -st2
@@ -170,10 +165,10 @@ int main(int argc, char *argv[]) {
   // make proper offset vector //{{{
   for (int dd = 0; dd < 3; dd++) {
     if (opt.off[dd] == -11111) { // a) put the two centres on top of each other
-      opt.off[dd] = (box[0]->Low[dd] + 0.5 * box[0]->Length[dd]) -
-                     (box[1]->Low[dd] + 0.5 * box[1]->Length[dd]);
+      opt.off[dd] = (box[0]->Low.v[dd] + 0.5 * box[0]->Length.v[dd]) -
+                     (box[1]->Low.v[dd] + 0.5 * box[1]->Length.v[dd]);
     } else if (!opt.real) {
-      opt.off[dd] *= box[0]->Length[dd];
+      opt.off[dd] *= box[0]->Length.v[dd];
     }
   } //}}}
 
@@ -189,11 +184,11 @@ int main(int argc, char *argv[]) {
   // pick box size as the larger dimensions from the initial systems //{{{
   BOX box_out = InitBox;
   // ...assumes orthogonal box
-  double Low1[3] = {box[0]->Low[0], box[0]->Low[1], box[0]->Low[2]},
-         Low2[3] = {box[1]->Low[0], box[1]->Low[1], box[1]->Low[2]},
+  double Low1[3] = {box[0]->Low.x, box[0]->Low.y, box[0]->Low.z},
+         Low2[3] = {box[1]->Low.x, box[1]->Low.y, box[1]->Low.z},
          Low3[3] = {0, 0, 0}, // output box lower bound
-         Length1[3] = {box[0]->Length[0], box[0]->Length[1], box[0]->Length[2]},
-         Length2[3] = {box[1]->Length[0], box[1]->Length[1], box[1]->Length[2]},
+         Length1[3] = {box[0]->Length.x, box[0]->Length.y, box[0]->Length.z},
+         Length2[3] = {box[1]->Length.x, box[1]->Length.y, box[1]->Length.z},
          Length3[3] = {0, 0, 0}; // output box sidelengths
   for (int dd = 0; dd < 3; dd++) {
     if (Low1[dd] < (Low2[dd] + opt.off[dd])) {
@@ -210,8 +205,8 @@ int main(int argc, char *argv[]) {
   }
   // fill output box Low & Length
   for (int dd = 0; dd < 3; dd++) {
-    box_out.Length[dd] = Length3[dd];
-    box_out.Low[dd] = Low3[dd];
+    box_out.Length.v[dd] = Length3[dd];
+    box_out.Low.v[dd] = Low3[dd];
   }
   // assume orthogonal box
   box_out.alpha = 90;
@@ -247,8 +242,8 @@ int main(int argc, char *argv[]) {
   if (opt.box[0] != 0) {
     // align the centre of box_opt with the centre of the original output box
     for (int dd = 0; dd < 3; dd++) {
-      S_out.Box.Low[dd] += 0.5 * (S_out.Box.Length[dd] - opt.box[dd]);
-      S_out.Box.Length[dd] = opt.box[dd];
+      S_out.Box.Low.v[dd] += 0.5 * (S_out.Box.Length.v[dd] - opt.box[dd]);
+      S_out.Box.Length.v[dd] = opt.box[dd];
     }
     CalculateBoxData(&S_out.Box, 0);
   } //}}}

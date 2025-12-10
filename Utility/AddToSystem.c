@@ -1,25 +1,5 @@
 #include "../src/AnalysisTools.h"
 
-// // Help message //{{{
-// const struct HelpHelp HelpDesc = {
-//   ,
-//
-//   "",
-//   .args = , // number of mandatory arguments
-//   .all = , // number of valid lines OptSpec (not counting last {NULL})
-// };
-// static const struct OptSpec opts[] = {
-//   COMMON_OPTS[C_I],
-//   COMMON_OPTS[C_ST],
-//   COMMON_OPTS[C_E],
-//   COMMON_OPTS[C_SK],
-//   COMMON_OPTS[C_VERBOSE],
-//   COMMON_OPTS[C_HELP],
-//   COMMON_OPTS[C_SILENT],
-//   COMMON_OPTS[C_VERSION],
-//   {NULL}
-// }; //}}}
-
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
   "AddToSystem either creates a system from scratch or adds unbonded beads "
@@ -65,18 +45,13 @@ static const struct OptSpec opts[] = {
   {NULL}
 }; //}}}
 
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-} //}}}
-
 // structure for options //{{{
 struct OPT {
   bool ld, hd;             // -ld/-hd
   double ldist, hdist,     //
          axis[3][2];       // -cx/-cy/-cz
-  vec3d angle[3];         // -a
-  vec3d off[3];           // -off
+  vec3d angle[3],          // -a
+        off[3];            // -off
   bool *bt_use_orig,       // -bt
        *sw_type,           // -xb
        new,                // generate new system from scratch?
@@ -92,7 +67,7 @@ vec3d RandomCoordinate(BOX box) {
   vec3d random;
   for (int dd = 0; dd < 3; dd++) {
     double number = (double)(rand()) / ((double)(RAND_MAX) + 1);
-    random.v[dd] = number * box.Length[dd] + box.Low[dd];
+    random.v[dd] = number * box.Length.v[dd] + box.Low.v[dd];
   }
   return random;
 } //}}}
@@ -103,14 +78,14 @@ vec3d RandomCoordinate(BOX box) {
  *   1...all bonded beads
  *   2...specified bead types,
  */
-void GetMinDist(BEAD bead, vec3d random, double box[3], double *min_dist) {
+void GetMinDist(BEAD bead, vec3d random, vec3d box, double *min_dist) {
   vec3d dist = Distance(bead.Position.v, random.v, box);
   dist.v[0] = VectLength(dist);
   if (dist.v[0] < *min_dist) {
     *min_dist = dist.v[0];
   }
 }
-vec3d RandomConstrainedCoor(SYSTEM S_orig, int mode, double box[3], OPT opt) {
+vec3d RandomConstrainedCoor(SYSTEM S_orig, int mode, vec3d box, OPT opt) {
   vec3d random;
   if (mode == 0) { // no distance check
     for (int dd = 0; dd < 3; dd++) {
@@ -330,15 +305,13 @@ int main(int argc, char *argv[]) {
   opt.tail = BoolOption(argc, argv, "--tail");
   // output box dimensions //{{{
   opt.box = InitBox;
-  double temp[3] = {0, 0, 0};
-  if (ThreeNumbersOption(argc, argv, "-b", temp, 'd')) {
-    opt.box.Length[0] = temp[0];
-    opt.box.Length[1] = temp[1];
-    opt.box.Length[2] = temp[2];
+  vec3d temp = { .v = {0, 0, 0}};
+  if (ThreeNumbersOption(argc, argv, "-b", temp.v, 'd')) {
+    opt.box.Length = temp;
     if (count != 3 ||
-        opt.box.Length[0] <= 0 ||
-        opt.box.Length[1] <= 0 ||
-        opt.box.Length[2] <= 0) {
+        opt.box.Length.x <= 0 ||
+        opt.box.Length.y <= 0 ||
+        opt.box.Length.z <= 0) {
       err_msg("three positive numbers required");
       PrintErrorOption("-b");
       Help(true, HelpDesc, opts);
@@ -460,11 +433,11 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // new box if exists //{{{
-  if (opt.box.Length[0] != -1) {
+  if (opt.box.Length.v[0] != -1) {
     if (!opt.new) {
       for (int dd = 0; dd < 3; dd++) {
-        opt.box.Low[dd] += box->Low[dd] +
-                            0.5 * (box->Length[dd] - opt.box.Length[dd]);
+        opt.box.Low.v[dd] += box->Low.v[dd] +
+                             0.5 * (box->Length.v[dd] - opt.box.Length.v[dd]);
       }
     }
     opt.box.alpha = 90;
@@ -484,7 +457,7 @@ int main(int argc, char *argv[]) {
   if (!opt.new) {
     if (!opt.real) { // transform offset to 'real' units if necessary
       for (int dd = 0; dd < 3; dd++) {
-        opt.off->v[dd] *= S_orig.Box.Length[dd];
+        opt.off->v[dd] *= S_orig.Box.Length.v[dd];
       }
     }
     for (int i = 0; i < C_orig->Bead; i++) {
@@ -527,7 +500,7 @@ int main(int argc, char *argv[]) {
     for (int dd = 0; dd < 3; dd++) {
       for (int i = 0; i < 2; i++) {
         if (opt.axis[dd][i] != -1) {
-          opt.axis[dd][i] *= box->Length[dd];
+          opt.axis[dd][i] *= box->Length.v[dd];
         }
       }
     }
@@ -580,14 +553,14 @@ int main(int argc, char *argv[]) {
   // define constrained box for adding beads (-cx/y/z and/or -hd options) //{{{
   opt.box = InitBox;
   for (int dd = 0; dd < 3; dd++) {
-    opt.box.Length[dd] = S_out.Box.Length[dd];
+    opt.box.Length.v[dd] = S_out.Box.Length.v[dd];
   }
   // minimize box if -hd is used
   if (opt.hd) {
     // find minimum/maximum coordinates of beads for distance check //{{{
     double max[3] = {0, 0, 0}, min[3];
     for (int dd = 0; dd < 3; dd++) {
-      min[dd] = S_orig.Box.Length[dd];
+      min[dd] = S_orig.Box.Length.v[dd];
     }
     if (opt.bonded) { // use all bonded beads
       for (int i = 0; i < C_orig->BondedCoor; i++) {
@@ -628,15 +601,15 @@ int main(int argc, char *argv[]) {
     }
     // define the box
     for (int dd = 0; dd < 3; dd++) {
-      opt.box.Length[dd] = max[dd] - min[dd];
-      opt.box.Low[dd] = min[dd];
+      opt.box.Length.v[dd] = max[dd] - min[dd];
+      opt.box.Low.v[dd] = min[dd];
     }
     CalculateBoxData(&opt.box, 0);
   }
   for (int dd = 0; dd < 3; dd++) {
     if (opt.axis[dd][0] != -1) {
-      opt.box.Low[dd] = opt.axis[dd][0];
-      opt.box.Length[dd] = opt.axis[dd][1] - opt.axis[dd][0];
+      opt.box.Low.v[dd] = opt.axis[dd][0];
+      opt.box.Length.v[dd] = opt.axis[dd][1] - opt.axis[dd][0];
     }
   }
   CalculateBoxData(&opt.box, 0);

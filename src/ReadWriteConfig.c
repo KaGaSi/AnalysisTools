@@ -5,9 +5,9 @@ void WriteConfig(const SYSTEM System, const char *file) { //{{{
   // TODO: check triclinic box in dl_meso
   // print CONFIG file initial stuff
   fprintf(out, "NAME\n 0 1\n"); // not sure what 0 1 is...
-  fprintf(out, "%.3f 0.000 0.000\n", System.Box.Length[0]);
-  fprintf(out, "0.000 %.3f 0.000\n", System.Box.Length[1]);
-  fprintf(out, "0.000 0.000 %.3f\n", System.Box.Length[2]);
+  fprintf(out, "%.3f 0.000 0.000\n", System.Box.Length.x);
+  fprintf(out, "0.000 %.3f 0.000\n", System.Box.Length.y);
+  fprintf(out, "0.000 0.000 %.3f\n", System.Box.Length.z);
 
   // bead coordinates
   // unbonded beads must be first (dl_meso requirement)

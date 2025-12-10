@@ -81,11 +81,6 @@ void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrNDd *boop) 
   }
 } //}}}
 
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-} //}}}
-
 // structure for options //{{{
 struct OPT {
   char per_bead_file[LINE]; // -pb option
@@ -144,7 +139,7 @@ int main(int argc, char *argv[]) {
 
   int bins = 1 / width;
   // TODO: this must be somehow made better...
-  double r_max = Max3(Box->Length[0], Box->Length[1], Box->Length[2]) / 2;
+  double r_max = Max3(Box->Length.x, Box->Length.y, Box->Length.z) / 2;
   double dr = 1;
   int bins_g_n = r_max / dr + 1;
 

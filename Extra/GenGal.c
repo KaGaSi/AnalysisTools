@@ -25,19 +25,10 @@ static const struct OptSpec opts[] = {
   {NULL}
 }; //}}}
 
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-  CommonHelp(error, n, opt);
-} //}}}
-
 // structure for options //{{{
 struct OPT {
   FILE_TYPE f_out; // -o
-};
-OPT * opt_create(void) {
-  return malloc(sizeof(OPT));
-} //}}}
+}; //}}}
 
 int main(int argc, char *argv[]) {
 
@@ -79,9 +70,9 @@ int main(int argc, char *argv[]) {
   Count->BondType = 1;
   Count->AngleType = 1; //}}}
   // box size
-  System.Box.Length[0] = box;
-  System.Box.Length[1] = box;
-  System.Box.Length[2] = box;
+  System.Box.Length.x = box;
+  System.Box.Length.y = box;
+  System.Box.Length.z = box;
   // allocate necessary arrays
   System.Bead = realloc(System.Bead, Count->Bead * sizeof *System.Bead);
   System.BeadCoor = realloc(System.BeadCoor,
@@ -238,7 +229,7 @@ int main(int argc, char *argv[]) {
       int id = mol0->Bead[i];
       for (int dd = 0; dd < 3; dd++) {
         System.Bead[id].Position.v[dd] -= com[dd];
-        System.Bead[id].Position.v[dd] += System.Box.Length[dd] / 2;
+        System.Bead[id].Position.v[dd] += System.Box.Length.v[dd] / 2;
       }
     } //}}}
     // generate randomly counterion coordinates //{{{
@@ -246,7 +237,7 @@ int main(int argc, char *argv[]) {
       BEAD *b = &System.Bead[i];
       for (int dd = 0; dd < 3; dd++) {
         b->Position.v[dd] = (double)(rand()) / ((double)(RAND_MAX) + 1);
-        b->Position.v[dd] *= System.Box.Length[dd];
+        b->Position.v[dd] *= System.Box.Length.v[dd];
       }
     } //}}}
     WriteTimestepAll(fw_coor, System, step, argc, argv);

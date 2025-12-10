@@ -5,24 +5,46 @@
 
 #include "AnalysisTools.h"
 
-enum OptKind { OPT_ARG, OPT_EXTRA, OPT_COMMON };
+// // Help message prototype to use in utilities //{{{
+// const struct HelpHelp HelpDesc = {
+//   ,
+//
+//   "",
+//   .args = , // number of mandatory arguments
+//   .all = , // number of valid lines OptSpec (not counting last {NULL})
+// };
+// static const struct OptSpec opts[] = {
+//   COMMON_OPTS[C_I],
+//   COMMON_OPTS[C_ST],
+//   COMMON_OPTS[C_E],
+//   COMMON_OPTS[C_SK],
+//   COMMON_OPTS[C_VERBOSE],
+//   COMMON_OPTS[C_HELP],
+//   COMMON_OPTS[C_SILENT],
+//   COMMON_OPTS[C_VERSION],
+//   {NULL}
+// }; //}}}
+// enum specifying argument type - mandatory, common, extra
+enum OptKind { OPT_ARG, OPT_COMMON, OPT_EXTRA };
+// option descriptor structure
 struct OptSpec {
-  const char *opt;
-  const char *extra;
-  const char *desc;
-  enum OptKind kind;
+  const char *opt; // option name like -opt (or mandatory ones like <in.coor>)
+  const char *extra; // extras for stuff like -opt <extra>
+  const char *desc; // short description (256 characters absolute max)
+  enum OptKind kind; // type of argument
 };
+// overall help text
 struct HelpHelp {
-  const char *description;
-  const char *usage;
-  int args, all;
+  const char *description; // long description
+  const char *usage; // Usage: ... line
+  int args, // number of mandatory arguments
+      all; // sum of mandatory, common, and extra arguments
 };
-
+// specify the commong arguments
+// TODO: what ic C_MAX???
 typedef enum {
   C_I, C_ST, C_E, C_SK, C_VERBOSE, C_SILENT, C_HELP, C_VERSION, C_MAX
 } CommonIndex;
-
-// enum CommonOpt {C_I, C_ST, C_E, C_SK, C_VERBOSE, C_SILENT, C_HELP, C_VERSION};
 static const struct OptSpec COMMON_OPTS[C_MAX] = {
   [C_I] = {"-i", "<stru>", "input structure file if different", OPT_COMMON},
   [C_ST] = {"-st", "<int>", "starting timestep for calculation", OPT_COMMON},
@@ -37,9 +59,6 @@ static const struct OptSpec COMMON_OPTS[C_MAX] = {
 // version/help printing and initial check of provided options
 int OptionCheck(const int argc, char **argv, const bool check_extra,
                 const struct HelpHelp desc, const struct OptSpec *opts);
-int OptionCheck_old(const int argc, char **argv, const int req, const int common,
-                const int all, const bool check_extra,
-                char opt[all][OPT_LENGTH], ...);
 // print help for common options
 void CommonHelp(const bool error, const int n,
                 const char option[n][OPT_LENGTH]);
@@ -68,8 +87,6 @@ bool FileNumbersOption(const int argc, char **argv, const int min,
 // general option with filename argument
 bool FileOption(const int argc, char **argv, const char *opt, char *file);
 // print help - function body in each utility
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]);
 void Help(const bool error, const struct HelpHelp help,
           const struct OptSpec *utility_opts);
 

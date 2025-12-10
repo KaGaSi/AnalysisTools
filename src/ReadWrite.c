@@ -255,9 +255,9 @@ void RemoveExtraTypes(SYSTEM *System) {
 } //}}}
 void WriteBoxLengthAngles(FILE *fw, const BOX box) { //{{{
   if (box.Volume != -1) {
-    fprintf(fw, "pbc %.3f %.3f %.3f", box.Length[0],
-                                      box.Length[1],
-                                      box.Length[2]);
+    fprintf(fw, "pbc %.3f %.3f %.3f", box.Length.x,
+                                      box.Length.y,
+                                      box.Length.z);
     if (fabs(box.alpha - 90) > 0.00001 ||
         fabs(box.beta - 90) > 0.00001 ||
         fabs(box.gamma - 90) > 0.00001) {
@@ -1120,22 +1120,22 @@ void PrintImproperType(const SYSTEM System) { //{{{
 } //}}}
 void PrintBox(const BOX Box) { //{{{
   fprintf(stdout, "Box = {\n");
-  if (Box.Low[0] != 0 || Box.Low[1] != 0 || Box.Low[2] != 0) {
+  if (Box.Low.x != 0 || Box.Low.y != 0 || Box.Low.z != 0) {
     fprintf(stdout, "  .Low = ( %lf %lf %lf )\n",
-            Box.Low[0], Box.Low[1], Box.Low[2]);
+            Box.Low.x, Box.Low.y, Box.Low.z);
   }
   fprintf(stdout, "  .Length = ( %lf %lf %lf )\n",
-          Box.Length[0], Box.Length[1], Box.Length[2]);
+          Box.Length.x, Box.Length.y, Box.Length.z);
   if (Box.alpha != 0 || Box.beta != 90 || Box.gamma != 90) {
     fprintf(stdout, "  .alpha = %lf\n", Box.alpha);
     fprintf(stdout, "  .beta  = %lf\n", Box.beta);
     fprintf(stdout, "  .gamma = %lf\n", Box.gamma);
-    fprintf(stdout, "  .OrthoLength = ( %lf %lf %lf )\n", Box.OrthoLength[0],
-                                                          Box.OrthoLength[1],
-                                                          Box.OrthoLength[2]);
-    fprintf(stdout, "  .Bounding = ( %lf %lf %lf )\n", Box.Bounding[0],
-                                                       Box.Bounding[1],
-                                                       Box.Bounding[2]);
+    fprintf(stdout, "  .OrthoLength = ( %lf %lf %lf )\n", Box.OrthoLength.x,
+                                                          Box.OrthoLength.y,
+                                                          Box.OrthoLength.z);
+    fprintf(stdout, "  .Bounding = ( %lf %lf %lf )\n", Box.Bounding.x,
+                                                       Box.Bounding.y,
+                                                       Box.Bounding.z);
     fprintf(stdout, "  .transform = ( %lf %lf %lf)\n", Box.transform[0][0],
                                                        Box.transform[0][1],
                                                        Box.transform[0][2]);

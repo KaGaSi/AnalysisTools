@@ -32,18 +32,12 @@ static const struct OptSpec opts[] = {
   {NULL}
 }; //}}}
 
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-} //}}}
-
 // structure for options //{{{
 struct OPT {
   bool all; // --all
   vec3i axis;
   bool *bt;
   double max_dist;
-  COMMON_OPT commons;
 }; //}}}
 
 // TODO: move to some library file
@@ -170,7 +164,7 @@ int main(int argc, char *argv[]) {
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
-  double *box = System.Box.Length;
+  vec3d box = System.Box.Length;
 
   // <bead(s)> - names of bead types to use //{{{
   if (!(opt.bt = calloc(Count->BeadType, sizeof *opt.bt))) {
@@ -212,7 +206,7 @@ int main(int argc, char *argv[]) {
   }
 
   int bins;
-  opt.max_dist = Min3(box[0], box[1], box[2]) / 3;
+  opt.max_dist = Min3(box.x, box.y, box.z) / 3;
   if (OneNumberOption(argc, argv, "-d", &opt.max_dist, 'd') &&
       opt.max_dist <= 0) {
     err_msg("distance must be a positive number");
@@ -290,7 +284,7 @@ int main(int argc, char *argv[]) {
     // 3D (sphere)
     if (opt.axis.v[0] == -1) {
       // maximum radius of complete sphere
-      double max_r = Min3(box[0], box[1], box[2]) / 2;
+      double max_r = Min3(box.x, box.y, box.z) / 2;
       // volume of outer and inner spheres
       double sphere[2] = {4.0 / 3 * Cube(rad[0]), 4.0 / 3 * Cube(rad[1])};
       // volume of outer and inner sphere's cut-off tops (0 for full sphere)
@@ -310,10 +304,10 @@ int main(int argc, char *argv[]) {
     } else {
       // maximum radius of complete circle
       double max_r;
-      if (box[opt.axis.v[0]] < box[opt.axis.v[1]]) {
-        max_r = box[opt.axis.v[0]];
+      if (box.v[opt.axis.v[0]] < box.v[opt.axis.v[1]]) {
+        max_r = box.v[opt.axis.v[0]];
       } else {
-        max_r = box[opt.axis.v[1]];
+        max_r = box.v[opt.axis.v[1]];
       }
       // area of outer and inner circles
       double circle[2] = {PI * Square(rad[0]), PI * Square(rad[1])};
@@ -348,7 +342,7 @@ int main(int argc, char *argv[]) {
           }
           double norm_factor = System.Box.Volume / (shell * pairs * count_used);
           if (opt.axis.v[0] != -1) { // 2D ...TODO: implement
-            norm_factor /= System.Box.Length[opt.axis.v[2]];
+            norm_factor /= System.Box.Length.v[opt.axis.v[2]];
           }
           SetArr2D(data, i, count++, GetArr3D(pcf, j, k, i) * norm_factor);
         }

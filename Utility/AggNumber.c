@@ -60,11 +60,6 @@ static void PrintOverallAvg(FILE *fw, SYSTEM System, double As_sum[3][2],
 static void FilenameCompSimple(OPT opt, int size, char filename[LINE]);
 static void FilenameCode2D(OPT opt, int size, char filename[LINE]); //}}}
 
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-} //}}}
-
 // structure for options //{{{
 struct comp { // for composition distribution
   int size[100], // aggregate sizes

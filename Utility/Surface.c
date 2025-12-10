@@ -55,11 +55,6 @@ static const struct OptSpec opts[] = {
   {NULL}
 }; //}}}
 
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-} //}}}
-
 // structure for options //{{{
 struct OPT {
   int bt_number, *bt;     // -bt (number of types; list of the types)
@@ -163,8 +158,8 @@ void SurfacePoint(SYSTEM System, int id, const int map[2], int axis,
       for (int aa = 0; aa < 2; aa++) {
         d[aa] = fabs(coor[aa] - grid[aa] * width);
         // account for pbc
-        while (fabs(d[aa]) > (System.Box.Length[map[aa]] / 2)) {
-          d[aa] -= System.Box.Length[map[aa]];
+        while (fabs(d[aa]) > (System.Box.Length.v[map[aa]] / 2)) {
+          d[aa] -= System.Box.Length.v[map[aa]];
         }
       }
       // actual in-surface-plane disance (well, square of)
@@ -338,9 +333,9 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   double sidelength[3];
-  sidelength[0] = System.Box.Length[map[0]];
-  sidelength[1] = System.Box.Length[map[1]];
-  sidelength[2] = System.Box.Length[axis];
+  sidelength[0] = System.Box.Length.v[map[0]];
+  sidelength[1] = System.Box.Length.v[map[1]];
+  sidelength[2] = System.Box.Length.v[axis];
   //}}}
 
   // number of grid points (i.e., of bins), guarding against box enlargement
@@ -427,17 +422,17 @@ int main(int argc, char *argv[]) {
 
       // warn once if box size changed //{{{
       if (!warn_box_change &&
-          (fabs(sidelength[0] - System.Box.Length[map[0]]) > 0.00001 ||
-           fabs(sidelength[1] - System.Box.Length[map[1]]) > 0.00001 ||
-           fabs(sidelength[2] - System.Box.Length[axis]) > 0.00001)) {
+          (fabs(sidelength[0] - System.Box.Length.v[map[0]]) > 0.00001 ||
+           fabs(sidelength[1] - System.Box.Length.v[map[1]]) > 0.00001 ||
+           fabs(sidelength[2] - System.Box.Length.v[axis]) > 0.00001)) {
         err_msg("box size changed; only coordinates inside the "
                 "original box are used for surface averaging");
         PrintWarning();
         warn_box_change = true;
       } //}}}
-      sidelength[0] = System.Box.Length[map[0]];
-      sidelength[1] = System.Box.Length[map[1]];
-      sidelength[2] = System.Box.Length[axis];
+      sidelength[0] = System.Box.Length.v[map[0]];
+      sidelength[1] = System.Box.Length.v[map[1]];
+      sidelength[2] = System.Box.Length.v[axis];
 
       // per-timestp grid size //{{{
       /*
@@ -805,7 +800,7 @@ int main(int argc, char *argv[]) {
       avg_triangle[dd] = area[dd] / triangles[dd];
       area[dd] += avg_triangle[dd] * (n_triangles - triangles[dd]);
     }
-    double Length_area = System.Box.Length[0] * System.Box.Length[1];
+    double Length_area = System.Box.Length.x * System.Box.Length.y;
     double width_area = (max[0] - 1) * (max[1] - 1) * Square(width);
     FILE *out = OpenFile(opt.area_file, "a");
     fprintf(out, "# average: (1) surface 1");

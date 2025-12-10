@@ -316,7 +316,7 @@ static int LtrjReadPBCSection(FILE *fr, const char *file, BOX *box,
   // 2) read box dimensions
   if (strcmp(split[3], "pp") == 0 ||
       strcmp(split[3], "ff") == 0) { // orthogonal box
-    double bounds[2][3];
+    vec3d bounds[2];
     for (int dd = 0; dd < 3; dd++) {
       (*line_count)++;
       if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
@@ -324,20 +324,19 @@ static int LtrjReadPBCSection(FILE *fr, const char *file, BOX *box,
         return -2;
       }
       if (words < 2 ||
-          !IsRealNumber(split[0], &bounds[0][dd]) ||
-          !IsRealNumber(split[1], &bounds[1][dd]) ||
-          bounds[1][dd] <= bounds[0][dd]) {
+          !IsRealNumber(split[0], &bounds[0].v[dd]) ||
+          !IsRealNumber(split[1], &bounds[1].v[dd]) ||
+          bounds[1].v[dd] <= bounds[0].v[dd]) {
         err_msg("wrong line in 'ITEM: BOX BOUNDS' section");
         PrintErrorFileLine(file, *line_count);
         return -1;
       }
-      box->OrthoLength[dd] = bounds[1][dd] - bounds[0][dd];
-      box->Low[dd] = bounds[0][dd];
+      box->OrthoLength.v[dd] = bounds[1].v[dd] - bounds[0].v[dd];
+      box->Low.v[dd] = bounds[0].v[dd];
     }
     CalculateBoxData(box, 1);
   } else if (strcmp(split[3], "xy") == 0) { // triclinic box
-    double bounds[2][3];
-    double tilt[3];
+    vec3d bounds[2], tilt;
     for (int dd = 0; dd < 3; dd++) {
       (*line_count)++;
       if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
@@ -345,30 +344,32 @@ static int LtrjReadPBCSection(FILE *fr, const char *file, BOX *box,
         return -2;
       }
       if (words < 3 ||
-          !IsRealNumber(split[0], &bounds[0][dd]) ||
-          !IsRealNumber(split[1], &bounds[1][dd]) ||
-          bounds[1][dd] <= bounds[0][dd] ||
-          !IsRealNumber(split[2], &tilt[dd])) {
+          !IsRealNumber(split[0], &bounds[0].v[dd]) ||
+          !IsRealNumber(split[1], &bounds[1].v[dd]) ||
+          bounds[1].v[dd] <= bounds[0].v[dd] ||
+          !IsRealNumber(split[2], &tilt.v[dd])) {
         err_msg("wrong pbc line");
         PrintErrorFileLine(file, *line_count);
         return -1;
       }
     }
     // see https://docs.lammps.org/Howto_triclinic.html
-    double from_bound[2][3];
-    from_bound[0][0] = Min3(0, tilt[0], Min3(0, tilt[1], tilt[0] + tilt[1]));
-    from_bound[1][0] = Max3(0, tilt[0], Max3(0, tilt[1], tilt[0] + tilt[1]));
-    from_bound[0][1] = Min3(0, 0, tilt[2]);
-    from_bound[1][1] = Max3(0, 0, tilt[2]);
-    from_bound[0][2] = 0;
-    from_bound[1][2] = 0;
+    vec3d from_bound[2];
+    from_bound[0].x = Min3(0, tilt.v[0],
+                           Min3(0, tilt.v[1], tilt.v[0] + tilt.v[1]));
+    from_bound[1].x = Max3(0, tilt.v[0],
+                           Max3(0, tilt.v[1], tilt.v[0] + tilt.v[1]));
+    from_bound[0].y = Min3(0, 0, tilt.v[2]);
+    from_bound[1].y = Max3(0, 0, tilt.v[2]);
+    from_bound[0].z = 0;
+    from_bound[1].z = 0;
     for (int dd = 0; dd < 3; dd++) {
-      box->OrthoLength[dd] = (bounds[1][dd] - from_bound[1][dd]) -
-                             (bounds[0][dd] - from_bound[0][dd]);
+      box->OrthoLength.v[dd] = (bounds[1].v[dd] - from_bound[1].v[dd]) -
+                               (bounds[0].v[dd] - from_bound[0].v[dd]);
     }
-    box->transform[0][1] = tilt[0];
-    box->transform[0][2] = tilt[1];
-    box->transform[1][2] = tilt[2];
+    box->transform[0][1] = tilt.v[0];
+    box->transform[0][2] = tilt.v[1];
+    box->transform[1][2] = tilt.v[2];
     CalculateBoxData(box, 1);
   } else { // not '<...> <...> <...> pp/xy ...' line
     err_msg("wrong ITEM: BOX BOUNDS line");
@@ -544,14 +545,14 @@ void LtrjWriteCoor(FILE *fw, const int step,
     // orthogonal box
     if (box->alpha == 90 && box->beta == 90 && box->gamma == 90) {
       fprintf(fw, "ITEM: BOX BOUNDS pp pp pp\n");
-      fprintf(fw, "%lf %lf\n", box->Low[0], box->Length[0]+box->Low[0]);
-      fprintf(fw, "%lf %lf\n", box->Low[1], box->Length[1]+box->Low[1]);
-      fprintf(fw, "%lf %lf\n", box->Low[2], box->Length[2]+box->Low[2]);
+      fprintf(fw, "%lf %lf\n", box->Low.x, box->Length.x + box->Low.x);
+      fprintf(fw, "%lf %lf\n", box->Low.y, box->Length.y + box->Low.y);
+      fprintf(fw, "%lf %lf\n", box->Low.z, box->Length.z + box->Low.z);
     } else {
       fprintf(fw, "ITEM: BOX BOUNDS xy xz yz pp pp pp\n");
-      fprintf(fw, "0.0 %lf %lf\n", box->Bounding[0], box->transform[0][1]);
-      fprintf(fw, "0.0 %lf %lf\n", box->Bounding[1], box->transform[0][2]);
-      fprintf(fw, "0.0 %lf %lf\n", box->Bounding[2], box->transform[1][2]);
+      fprintf(fw, "0.0 %lf %lf\n", box->Bounding.x, box->transform[0][1]);
+      fprintf(fw, "0.0 %lf %lf\n", box->Bounding.y, box->transform[0][2]);
+      fprintf(fw, "0.0 %lf %lf\n", box->Bounding.z, box->transform[1][2]);
     }
     fprintf(fw, "ITEM: ATOMS id element x y z");
     if (vel) {
@@ -574,9 +575,9 @@ void LtrjWriteCoor(FILE *fw, const int step,
         int type = b->Type;
         fprintf(fw, "%8d %8s %8.4f %8.4f %8.4f", id + 1,
                 System.BeadType[type].Name,
-                b->Position.v[0]+box->Low[0],
-                b->Position.v[1]+box->Low[1],
-                b->Position.v[2]+box->Low[2]);
+                b->Position.x + box->Low.x,
+                b->Position.y + box->Low.y,
+                b->Position.z + box->Low.z);
         if (vel) {
           for (int dd = 0; dd < 3; dd++) {
           fprintf(fw, " %8.4f", b->Velocity.v[dd]);

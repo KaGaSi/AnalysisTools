@@ -1,6 +1,11 @@
 #include "../src/AnalysisTools.h"
 #include <sys/stat.h>   // stat
 
+bool file_exists (char *filename) {
+  struct stat   buffer;
+  return (stat (filename, &buffer) == 0);
+}
+
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
   "GenFIELD generates a FIELD file from the supplied database of molecules and "
@@ -19,16 +24,6 @@ static const struct OptSpec opts[] = {
   {"<output>", NULL, "output structure file", OPT_ARG},
   {NULL}
 }; //}}}
-
-bool file_exists (char *filename) {
-  struct stat   buffer;
-  return (stat (filename, &buffer) == 0);
-}
-
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-} //}}}
 
 // structure for options //{{{
 struct OPT {
@@ -90,18 +85,18 @@ int main(int argc, char *argv[]) {
       } //}}}
     } else if (strncasecmp("box", split[0], 3) == 0) { //{{{
       if (words >= 4) {
-        if (!IsPosRealNumber(split[1], &System.Box.Length[0]) ||
-            !IsPosRealNumber(split[2], &System.Box.Length[1]) ||
-            !IsPosRealNumber(split[3], &System.Box.Length[2])) {
+        if (!IsPosRealNumber(split[1], &System.Box.Length.x) ||
+            !IsPosRealNumber(split[2], &System.Box.Length.y) ||
+            !IsPosRealNumber(split[3], &System.Box.Length.z)) {
           goto err_in;
         }
       } else if (words >= 2) {
         if (!IsPosRealNumber(split[1], &System.Box.Volume)) {
           goto err_in;
         }
-        System.Box.Length[0] = cbrt(System.Box.Volume);
-        System.Box.Length[1] = System.Box.Length[0];
-        System.Box.Length[2] = System.Box.Length[0];
+        System.Box.Length.x = cbrt(System.Box.Volume);
+        System.Box.Length.y = System.Box.Length.x;
+        System.Box.Length.z = System.Box.Length.x;
       } else {
         goto err_in;
       }

@@ -13,7 +13,7 @@ static void SaveReduced(SYSTEM *Sys, const SYSTEM System, const int count_saved,
                         const COMMON_OPT commons, const FILE_TYPE fout,
                         const int argc, char *argv[]);
 static void ScaleCoordinates(SYSTEM *System, const double scale);
-static void MoveCoordinates(SYSTEM *System, const double move[3]);
+static void MoveCoordinates(SYSTEM *System, const vec3d move);
 static void CopyWrite(const int num, bool *new, bool *old);
 static void ConstrainCoordinates(SYSTEM *System, const OPT opt,
                                  bool *write_new, bool **write_orig);
@@ -66,11 +66,6 @@ static const struct OptSpec opts[] = {
   {NULL}
 }; //}}}
 
-// Help() //{{{
-void Help_old(const char cmd[50], const bool error,
-          const int n, const char opt[n][OPT_LENGTH]) {
-} //}}}
-
 // structure for options //{{{
 struct OPT {
   bool bt, mt,               // -bt/-mt
@@ -79,9 +74,9 @@ struct OPT {
        real,                 // --real
        reduce;               // --reduce
   int n_save[100], n_number; // -n
-  double scale,              // -sc
-         move[3],            // -m
-         box[3];             // -b
+  double scale;              // -sc
+  vec3d move,                // -m
+        box;                 // -b
   double ca[3][100];         // -cx/y/z ... slice(s)' coordinates
   int ca_count[3];           // -cx/y/z ... number of slices per axis
 }; //}}}
@@ -177,17 +172,17 @@ static void ScaleCoordinates(SYSTEM *System, const double scale) { //{{{
       }
     }
     for (int dd = 0; dd < 3; dd++) {
-      System->Box.Length[dd] /= scale;
+      System->Box.Length.v[dd] /= scale;
     }
     CalculateBoxData(&System->Box, 0);
   }
 } //}}}
-static void MoveCoordinates(SYSTEM *System, const double move[3]) { //{{{
-  if (move[0] != 0 || move[1] != 0 || move[2] != 0) {
+static void MoveCoordinates(SYSTEM *System, const vec3d move) { //{{{
+  if (move.x != 0 || move.y != 0 || move.z != 0) {
     for (int i = 0; i < System->Count.BeadCoor; i++) {
       int id = System->BeadCoor[i];
       for (int dd = 0; dd < 3; dd++) {
-        System->Bead[id].Position.v[dd] += move[dd];
+        System->Bead[id].Position.v[dd] += move.v[dd];
       }
     }
   }
@@ -211,7 +206,7 @@ static void ConstrainCoordinates(SYSTEM *System, const OPT opt,
       con[dd][i] = opt.ca[dd][i];
       init[dd] = false;
       if (!opt.real) {
-        con[dd][i] *= System->Box.Length[dd];
+        con[dd][i] *= System->Box.Length.v[dd];
       }
     }
   }
@@ -309,9 +304,9 @@ int main(int argc, char *argv[]) {
     opt.scale = 1;
   }
   opt.real = BoolOption(argc, argv, "--real");
-  if (!ThreeNumbersOption(argc, argv, "-m", opt.move, 'd')) {
+  if (!ThreeNumbersOption(argc, argv, "-m", opt.move.v, 'd')) {
     for (int dd = 0; dd < 3; dd++) {
-      opt.move[dd] = 0;
+      opt.move.v[dd] = 0;
     }
   }
   opt.reduce = BoolOption(argc, argv, "--reduce");
@@ -376,18 +371,16 @@ int main(int argc, char *argv[]) {
       PrintErrorOption("-cx/-cy/-cz");
       exit(1);
   } //}}}
-  if (!ThreeNumbersOption(argc, argv, "-b", opt.box, 'd')) {
+  if (!ThreeNumbersOption(argc, argv, "-b", opt.box.v, 'd')) {
     for (int dd = 0; dd < 3; dd++) {
-      opt.box[dd] = -1;
+      opt.box.v[dd] = -1;
     }
   } //}}}
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
-  if (opt.box[0] != -1) {
-    System.Box.Length[0] = opt.box[0];
-    System.Box.Length[1] = opt.box[1];
-    System.Box.Length[2] = opt.box[2];
+  if (opt.box.v[0] != -1) {
+    System.Box.Length = opt.box;
     System.Box.alpha = 90;
     System.Box.beta = 90;
     System.Box.gamma = 90;
@@ -399,7 +392,7 @@ int main(int argc, char *argv[]) {
   }
   if (!opt.real) {
     for (int dd = 0; dd < 3; dd++) {
-      opt.move[dd] *= System.Box.Length[dd];
+      opt.move.v[dd] *= System.Box.Length.v[dd];
     }
   }
 
