@@ -1,6 +1,8 @@
 #include "../src/AnalysisTools.h"
 // TODO: create arrays mapping Bead[id] to BeadCoor[i]=id (and for other xCoor?)
-// TODO: implement -x, -m, and -only options
+// TODO: implement -x, -m, and -only options (via AggPicker thingy)
+//       ...either -n (instead of --range) or -size <int(s)>; at any rate,
+//       remove <agg size(s)> mandatory? must have either -n or -size?
 // TODO: something with monomeric beads? //{{{
 /*
   // put monomeric beads in contact with their aggregates //{{{
@@ -291,63 +293,55 @@
   } //}}}
 */ //}}}
 
+// Help message //{{{
+const struct HelpHelp HelpDesc = {
+  "ExtractAgg writes specified aggregates into a coordinate file, placing each "
+  "aggregate into its own timestep. This is, therefore, useful only for "
+  "visualization or further analysis by utilities that do not distinguish "
+  "per-step aggregates (e.g., Surface).",
+
+  "Usage: %s <in.coor> <in.agg> <output> <agg size(s)> [options]",
+  .args = 4, // number of mandatory arguments
+  .all = 14, // number of valid lines OptSpec (not counting last {NULL})
+};
+static const struct OptSpec opts[] = {
+  COMMON_OPTS[C_I],
+  COMMON_OPTS[C_ST],
+  COMMON_OPTS[C_E],
+  COMMON_OPTS[C_SK],
+  COMMON_OPTS[C_VERBOSE],
+  COMMON_OPTS[C_HELP],
+  COMMON_OPTS[C_SILENT],
+  COMMON_OPTS[C_VERSION],
+  {"<in.coor>", NULL, "input coordinate file", OPT_ARG},
+  {"<in.agg>", NULL, "input aggregate file", OPT_ARG},
+  {"<output>", NULL, "output coordinate file", OPT_ARG},
+  {"<agg size(s)>", NULL, "aggregate size(s) to save", OPT_ARG},
+  {"--join", NULL, "join aggregates (remove pbc)", OPT_EXTRA},
+  {"--range", NULL, "the first two aggregate sizes specify a range of aggregate sizes (any following numbers are ignored)", OPT_EXTRA},
+  // {"-m", "<name(s)>", "agg size means number of <name(s)> molecules in an aggregate", OPT_EXTRA},
+  // {"-x", "<name(s)>", "exclude aggregates containing only specified molecule(s)", OPT_EXTRA},
+  // {"-only", "<name(s)>", "use only aggregates composed of specified molecule type(s)", OPT_EXTRA},
+  {NULL}
+}; //}}}
+
 // Help() //{{{
-void Help(const char cmd[50], const bool error,
+void Help_old(const char cmd[50], const bool error,
           const int n, const char opt[n][OPT_LENGTH]) {
-  FILE *ptr;
-  if (error) {
-    ptr = stderr;
-  } else {
-    ptr = stdout;
-    fprintf(ptr, "\
-ExtractAgg writes specified aggregates into a coordinate file, placing each \
-aggregate into its own timestep. This is, therefore, useful only for \
-visualization or further analysis by utilities that do not distinguish \
-per-step aggregates (e.g., Surface).\n\n");
-  }
-
-  fprintf(ptr, "Usage: %s <in.coor> <in.agg> <output> "
-          "<agg size(s)> [options]\n\n", cmd);
-
-  fprintf(ptr, "<in.coor>           input coordinate file\n");
-  fprintf(ptr, "<in.agg>            input aggregate file\n");
-  fprintf(ptr, "<output>            output coordinate file\n");
-  fprintf(ptr, "<agg size(s)>       aggregate size(s) to save\n");
-  fprintf(ptr, "[options]\n");
-  fprintf(ptr, "  --join            join aggregates (remove pbc)\n");
-  // fprintf(ptr, "  -m <name(s)>      agg size means number of <name(s)> "
-  //         "molecules in an aggregate\n");
-  // fprintf(ptr, "  -x <name(s)>      exclude aggregates containing only "
-  //         "specified molecule(s)\n");
-  // fprintf(ptr, "  -only <name(s)>   use only aggregates composed of "
-  //         "specified molecule type(s)\n");
-  fprintf(ptr, "  --range           the first two aggregate sizes specify "
-          "a range of aggregate sizes (any following numbers are ignored)\n");
-  CommonHelp(error, n, opt);
 } //}}}
 
 // structure for options //{{{
 struct OPT {
   bool join, range;   // --join --range
   FILE_TYPE fout;     // -o
-  COMMON_OPT c;
-};
-OPT * opt_create(void) {
-  return malloc(sizeof(OPT));
-} //}}}
+}; //}}}
 
 int main(int argc, char *argv[]) {
 
-  int common = 8, all = common + 2, count = 0,
-      req_arg = 4;
-  char option[all][OPT_LENGTH];
-  OptionCheck(argc, argv, req_arg, common, all, false, option,
-               "-st", "-e", "-sk", "-i", "--verbose", "--silent",
-               "--help", "--version", "--join", "--range");
-
-  count = 0; // count mandatory arguments
-  OPT *opt = opt_create();
-  // arguments & options before reading system data //{{{
+  // commad line arguments before reading the structure //{{{
+  OptionCheck(argc, argv, true, HelpDesc, opts);
+  OPT opt;
+  int count = 0;
   // <in.coor> - input coordinate (and structure) file
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.coor.name, argv[++count], LINE);
@@ -366,14 +360,14 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  opt->c = CommonOptions(argc, argv, in);
-  // are provided coordinates joined?
-  opt->join = BoolOption(argc, argv, "--join");
-  opt->range = BoolOption(argc, argv, "--range"); //}}}
-
-  if (!opt->c.silent) {
+  COMMON_OPT commons = CommonOptions(argc, argv, in);
+  if (!commons.silent) {
     PrintCommand(stdout, argc, argv);
   }
+  // are provided coordinates joined?
+  opt.join = BoolOption(argc, argv, "--join");
+  // TODO: change to -n & other possibilities; e.g., this vs. <agg size(s)>?
+  opt.range = BoolOption(argc, argv, "--range"); //}}}
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
@@ -382,7 +376,7 @@ int main(int argc, char *argv[]) {
   int *agg_sizes = calloc(Count->Molecule, sizeof *agg_sizes);
   int aggs = 0;
   // use range of aggreate numbers, if --range switch specified
-  if (opt->range) {
+  if (opt.range) {
     long val[2];
     if ((count+2) > argc ||
         !IsNaturalNumber(argv[count+1], &val[0]) ||
@@ -390,7 +384,7 @@ int main(int argc, char *argv[]) {
         val[0] == val[1]) {
       err_msg("two different positive numbers needed for size range");
       PrintError();
-      Help(StripPath(argv[0]), true, common, option);
+      Help(true, HelpDesc, opts);
       exit(1);
     }
     agg_sizes[0] = val[0];
@@ -405,7 +399,7 @@ int main(int argc, char *argv[]) {
       long val;
       if (!IsNaturalNumber(argv[count], &val)) {
         ErrorNaN("<agg size(s)>");
-        Help(StripPath(argv[0]), true, common, option);
+        Help(true, HelpDesc, opts);
         exit(1);
       } //}}}
       agg_sizes[aggs] = atoi(argv[count]);
@@ -413,7 +407,7 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
 
-  if (opt->c.verbose) {
+  if (commons.verbose) {
     VerboseOutput(System);
   }
 
@@ -426,7 +420,7 @@ int main(int argc, char *argv[]) {
   while (getc(agg) != '\n')
     ;
   // read Aggregates command if --join is used or...
-  if (opt->join) {
+  if (opt.join) {
     ReadAndSplitLine(agg, SPL_STR, " \t\n");
     // find & flag bead types
     for (count = 5; count < words && split[count][0] != '-'; count++) {
@@ -479,14 +473,14 @@ int main(int argc, char *argv[]) {
   int coor_line_count = 0; // count lines in the coor file
   int count_agg_lines = 0; // count lines in the agg file
   while (true) {
-    PrintStep(&count_step, opt->c.start, opt->c.silent);
+    PrintStep(&count_step, commons.start, commons.silent);
     if (ReadAggregates(agg, in_agg, &System, Aggregate, &count_agg_lines) < 0) {
       count_step--;
       break;
     }
     // decide whether to use this timestep (based on -st/-sk/-e) //{{{
     bool use = false;
-    if (UseStep(opt->c, count_step)) {
+    if (UseStep(commons, count_step)) {
       use = true;
     } //}}}
     if (use) { //{{{
@@ -494,7 +488,7 @@ int main(int argc, char *argv[]) {
         count_step--;
         break;
       }
-      if (opt->join) {
+      if (opt.join) {
         WrapJoinCoordinates(&System, false, true);
         // TODO: distance=1 for now; read agg command (check for -d opt)
         RemovePBCAggregates(distance, Aggregate, &System);
@@ -502,7 +496,7 @@ int main(int argc, char *argv[]) {
       for (int i = 0; i < Count->Aggregate; i++) {
         // use the aggregate?
         use = false;
-        if (opt->range &&
+        if (opt.range &&
             Aggregate[i].nMolecules >= agg_sizes[0] &&
             Aggregate[i].nMolecules <= agg_sizes[1]) {
           use = true;
@@ -538,14 +532,14 @@ int main(int argc, char *argv[]) {
       }
     } //}}}
     // exit the main loop if reached user-specied end timestep
-    if (count_step == opt->c.end) {
+    if (count_step == commons.end) {
       break;
     }
   }
   fclose(coor);
   fclose(agg);
   // print last step count?
-  if (!opt->c.silent) {
+  if (!commons.silent) {
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\r                          \r");
@@ -559,7 +553,6 @@ int main(int argc, char *argv[]) {
   FreeSystem(&System);
   free(write);
   free(agg_sizes);
-  free(opt);
   //}}}
 
   return 0;
