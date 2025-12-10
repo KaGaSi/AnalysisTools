@@ -85,7 +85,7 @@ void TraverseBrutePairs(const SYSTEM System,
     }
   }
 } //}}}
-// brute traversal for high cell_size but linked list traversal otherwise //{{{
+// brute traversal for high cell_size, linked list traversal otherwise //{{{
 void TraversePairs(const SYSTEM System, const double cell_size,
                    pair_cb_t pair_callback, void *pair_ud,
                    check_cb_t check_callback, void *check_ud) {

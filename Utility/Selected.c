@@ -497,8 +497,8 @@ int main(int argc, char *argv[]) {
     ErrorAlloc("position/bkp_line_count");
   }
   int n_opt_count = 0, // count saved steps if -n option is used
-      count_coor = 0,  // count steps in the vcf file
-      count_saved = 0, // count steps in output file
+      count_coor = 0,  // count steps in the coor file
+      count_used = 0, // count steps in output file
       line_count = 0;  // count lines in the coor file
   while (true) {
     if (opt.last) {
@@ -526,7 +526,7 @@ int main(int argc, char *argv[]) {
       n_opt_count++;
     } //}}}
     if (use) { // read and write the timestep, if it should be saved //{{{
-      if (fout.type == LDATA_FILE && count_saved == 1) {
+      if (fout.type == LDATA_FILE && count_used == 1) {
         err_msg("only one timestep can be saved to lammps data file");
         PrintWarnFile(fout.name, "\0", "\0");
         count_coor--;
@@ -536,8 +536,8 @@ int main(int argc, char *argv[]) {
         count_coor--;
         break;
       }
-      count_saved++;
-      SaveTimestep(&Sys, &System, count_saved, count_coor, &b_full_to_red,
+      count_used++;
+      SaveTimestep(&Sys, &System, count_used, count_coor, &b_full_to_red,
                    write, opt, commons, fout, argc, argv);
       //}}}
     } else { // skip the timestep, if it shouldn't be saved //{{{
@@ -601,7 +601,7 @@ int main(int argc, char *argv[]) {
     if (isatty(STDOUT_FILENO)) {
       fprintf(stdout, "\r                          \r");
     }
-    fprintf(stdout, "Last Step: %d (saved %d)\n", count_coor, count_saved);
+    fprintf(stdout, "Last Step: %d (saved %d)\n", count_coor, count_used);
     fflush(stdout);
   } //}}}
   fclose(fr);

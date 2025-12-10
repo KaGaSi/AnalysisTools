@@ -61,6 +61,7 @@ add_library(AnalysisTools
   Arrays.c
   Globals.c
   MathUtils.h
+  MainLoop.c
   Options.c
   Pairs.c
   pcg32.c

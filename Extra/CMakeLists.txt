@@ -62,6 +62,7 @@ add_library(AnalysisTools
   ../src/Aggregates.c
   ../src/Arrays.c
   ../src/Globals.c
+  ../src/MainLoop.c
   ../src/MathUtils.h
   ../src/Options.c
   ../src/Pairs.c

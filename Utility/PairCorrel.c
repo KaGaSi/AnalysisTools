@@ -51,7 +51,7 @@ static inline void CorrectBTypeOrder(int *btype_i, int *btype_j) {
 // calculate PCF, i.e., distance between i and j beads //{{{
 // the calculation itself
 static void CalculatePCF(int id_i, int id_j, SYSTEM System,
-                  ArrNDi *pcf, int bins, double max_dist, double width) {
+                         ArrNDi *pcf, int bins, double max_dist, double width) {
   int i = System.BeadCoor[id_i];
   int j = System.BeadCoor[id_j];
   BEAD *b_i = &System.Bead[i];
@@ -106,6 +106,27 @@ static bool CheckBeadType_adaptor(int id_i, SYSTEM System, void *ud) {
   return CheckBead(id_i, System, p->opt);
 }
 //}}}
+
+void Calculation(SYSTEM *System, OPT opt, ArrNDi *pcf, int bins,
+                 double width, double cell_size) {
+  WrapJoinCoordinates(System, true, false);
+  struct pcf_args args = { pcf, bins, opt.max_dist, width };
+  struct check_args check = { opt };
+  TraversePairs(*System, cell_size, CalculatePCF_adaptor, &args,
+                CheckBeadType_adaptor, &check);
+}
+// structure for the callback function
+struct user_data {
+  OPT opt;
+  ArrNDi *pcf;
+  int bins;
+  double width, cell_size;
+};
+// adaptor for the Calculation() function
+static void Calculation_adaptor(SYSTEM *System, void *userdata) {
+  struct user_data *p = (struct user_data*)userdata;
+  Calculation(System, p->opt, p->pcf, p->bins, p->width, p->cell_size);
+};
 
 int main(int argc, char *argv[]) {
 
@@ -221,37 +242,8 @@ int main(int argc, char *argv[]) {
     ErrorAlloc("pcf");
   }
 
-  // main loop //{{{
-  FILE *fr = OpenFile(in.coor.name, "r");
-  int count_coor = 0, // count timesteps from the beginning
-      count_used = 0, // count steps used for calculation
-      line_count = 0; // count lines in the vcf file
-  while (true) {
-    PrintStep(&count_coor, commons.start, commons.silent);
-    if (UseStep(commons, count_coor)) {
-      if (!ReadTimestep(in, fr, &System, &line_count)) {
-        count_coor--;
-        break;
-      }
-      WrapJoinCoordinates(&System, true, false);
-      count_used++;
-      struct pcf_args args = { pcf, bins, opt.max_dist, width };
-      struct check_args check = { opt };
-      TraversePairs(System, cell_size, CalculatePCF_adaptor, &args,
-                    CheckBeadType_adaptor, &check);
-    } else {
-      if (!SkipTimestep(in, fr, &line_count)) {
-        count_coor--;
-        break;
-      }
-    }
-    // exit the main loop if reached user-specied end timestep
-    if (count_coor == commons.end) {
-      break;
-    }
-  }
-  fclose(fr);
-  PrintLastStep(count_coor, count_used, commons.silent); //}}}
+  struct user_data ud = { opt, pcf, bins, width, cell_size };
+  int count_used = MainLoopCoor(&System, in, commons, Calculation_adaptor, &ud);
 
   // write data to output file(s) //{{{
   // header
@@ -362,3 +354,36 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
+
+// backup - will the MainLoop() function work?
+// // main loop //{{{
+// FILE *fr = OpenFile(in.coor.name, "r");
+// int count_coor = 0, // count timesteps from the beginning
+//     count_used = 0, // count steps used for calculation
+//     line_count = 0; // count lines in the vcf file
+// while (true) {
+//   PrintStep(&count_coor, commons.start, commons.silent);
+//   if (UseStep(commons, count_coor)) {
+//     if (!ReadTimestep(in, fr, &System, &line_count)) {
+//       count_coor--;
+//       break;
+//     }
+//     count_used++;
+//     WrapJoinCoordinates(&System, true, false);
+//     struct pcf_args args = { pcf, bins, opt.max_dist, width };
+//     struct check_args check = { opt };
+//     TraversePairs(System, cell_size, CalculatePCF_adaptor, &args,
+//                   CheckBeadType_adaptor, &check);
+//   } else {
+//     if (!SkipTimestep(in, fr, &line_count)) {
+//       count_coor--;
+//       break;
+//     }
+//   }
+//   // exit the main loop if reached user-specied end timestep
+//   if (count_coor == commons.end) {
+//     break;
+//   }
+// }
+// fclose(fr);
+// PrintLastStep(count_coor, count_used, commons.silent); //}}}

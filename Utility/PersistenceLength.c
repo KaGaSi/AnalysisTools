@@ -41,6 +41,99 @@ struct OPT {
   int ns, ne; // -ns/-ne; first bead and bond and last bead and bond
 }; //}}}
 
+// go through all molecules and calcule l_p & Co. //{{{
+void Calculation(SYSTEM *System, OPT opt, double *bondlength, int *count_bonds,
+                 ArrNDd *S1, ArrNDd *S2, ArrNDd *S3,
+                 ArrNDi *count_S2, ArrNDi *count_S3) {
+  WrapJoinCoordinates(System, false, opt.join);
+  COUNT *Count = &System->Count;
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    MOLECULETYPE *mt = &System->MoleculeType[i];
+    // last bond id
+    int last_bond = mt->nBonds;
+    if (opt.ne != HIGHNUM) {
+      last_bond = opt.ne;
+    }
+    int first_bond = 0;
+    if (opt.ns > 0) {
+      first_bond = opt.ns;
+    }
+    // use only specified molecule types that are long enough
+    if (!opt.mt[i] || mt->nBonds < opt.ns) {
+      continue;
+    }
+
+    for (int j = 0; j < mt->Number; j++) {
+      MOLECULE *mol = &System->Molecule[mt->Index[j]];
+      // S1 function
+      // first bond vector (for S1)
+      int b1 = mol->Bead[mt->Bond[first_bond][0]],
+          b2 = mol->Bead[mt->Bond[first_bond][1]];
+      vec3d bond1 = Vector(System->Bead[b1].Position, System->Bead[b2].Position);
+      // last bond vector (for reversed S1)
+      b1 = mol->Bead[mt->Bond[mt->nBonds-first_bond-1][0]],
+      b2 = mol->Bead[mt->Bond[mt->nBonds-first_bond-1][1]];
+      vec3d bondN = Vector(System->Bead[b1].Position, System->Bead[b2].Position);
+      for (int k = first_bond; k < last_bond; k++) {
+        // S1 function & bondlengths //{{{
+        // 1->N S1
+        b1 = mol->Bead[mt->Bond[k][0]];
+        b2 = mol->Bead[mt->Bond[k][1]];
+        vec3d bondj = Vector(System->Bead[b1].Position, System->Bead[b2].Position);
+        AddArr3D(S1, mol->Type, k - first_bond, 0, CosAngle(bondj, bond1));
+        // bondlength & count bonds
+        bondlength[mol->Type] += VectLength(bondj);
+        count_bonds[mol->Type]++;
+        // reverse S1
+        int bond_id = mt->nBonds - k - 1;
+        int bin_id = k - first_bond;
+        b1 = mol->Bead[mt->Bond[bond_id][0]];
+        b2 = mol->Bead[mt->Bond[bond_id][1]];
+        bondj = Vector(System->Bead[b1].Position, System->Bead[b2].Position);
+        AddArr3D(S1, mol->Type, bin_id, 1, CosAngle(bondN, bondj));
+        //}}}
+        for (int l = k; l < last_bond; l++) {
+          int lag = l - k;
+          // S2 function (classic bond correlation) //{{{
+          // first bond vector
+          int b1 = mol->Bead[mt->Bond[k][0]],
+              b2 = mol->Bead[mt->Bond[k][1]];
+          vec3d bondk = Vector(System->Bead[b1].Position, System->Bead[b2].Position);
+          // second bond vector
+          b1 = mol->Bead[mt->Bond[l][0]];
+          b2 = mol->Bead[mt->Bond[l][1]];
+          vec3d bondl = Vector(System->Bead[b1].Position, System->Bead[b2].Position);
+          // autocorrelation
+          AddArr2D(S2, mol->Type, lag, CosAngle(bondk, bondl));
+          AddArr2D(count_S2, mol->Type, lag, 1);
+          //}}}
+          // S3 function (end-to-end distances) //{{{
+          b1 = mol->Bead[mt->Bond[k][0]];
+          b2 = mol->Bead[mt->Bond[l][1]];
+          vec3d Re = Vector(System->Bead[b1].Position, System->Bead[b2].Position);
+          AddArr2D(S3, mol->Type, lag, SqVectLength(Re));
+          AddArr2D(count_S3, mol->Type, lag, 1);
+          //}}}
+        }
+      }
+    }
+  }
+} //}}}
+// structure for the callback function
+struct user_data {
+  OPT opt;
+  double *bondlength;
+  int *count_bonds;
+  ArrNDd *S1, *S2, *S3;
+  ArrNDi *count_S2, *count_S3;
+};
+// adaptor for the Calculation() function
+static void Calculation_adaptor(SYSTEM *System, void *userdata) {
+  struct user_data *p = (struct user_data*)userdata;
+  Calculation(System, p->opt, p->bondlength, p->count_bonds,
+              p->S1, p->S2, p->S3, p->count_S2, p->count_S3);
+};
+
 int main(int argc, char *argv[]) {
 
   // commad line arguments before reading the structure //{{{
@@ -131,111 +224,9 @@ int main(int argc, char *argv[]) {
     ErrorAlloc("S1/S2/S3/count_S2/count_S3/bondlength/count_bonds");
   }
 
-  // main loop //{{{
-  FILE *fr = OpenFile(in.coor.name, "r");
-  int count_coor = 0, // count steps in the vcf file
-      count_used = 0, // count steps in output file
-      line_count = 0; // count lines in the vcf file
-  while (true) {
-    PrintStep(&count_coor, commons.start, commons.silent);
-    // use every skip-th timestep between start and end
-    bool use = false;
-    if (UseStep(commons, count_coor)) {
-      use = true;
-    }
-    if (use) { //{{{
-      if (!ReadTimestep(in, fr, &System, &line_count)) {
-        count_coor--;
-        break;
-      }
-      count_used++;
-      WrapJoinCoordinates(&System, false, opt.join);
-      // go through all molecules //{{{
-      for (int i = 0; i < Count->MoleculeType; i++) {
-        MOLECULETYPE *mt = &System.MoleculeType[i];
-        // last bond id
-        int last_bond = mt->nBonds;
-        if (opt.ne != HIGHNUM) {
-          last_bond = opt.ne;
-        }
-        int first_bond = 0;
-        if (opt.ns > 0) {
-          first_bond = opt.ns;
-        }
-        // use only specified molecule types that are long enough
-        if (!opt.mt[i] || mt->nBonds < opt.ns) {
-          continue;
-        }
-
-        for (int j = 0; j < mt->Number; j++) {
-          MOLECULE *mol = &System.Molecule[mt->Index[j]];
-          // S1 function
-          // first bond vector (for S1)
-          int b1 = mol->Bead[mt->Bond[first_bond][0]],
-              b2 = mol->Bead[mt->Bond[first_bond][1]];
-          vec3d bond1 = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-          // last bond vector (for reversed S1)
-          b1 = mol->Bead[mt->Bond[mt->nBonds-first_bond-1][0]],
-          b2 = mol->Bead[mt->Bond[mt->nBonds-first_bond-1][1]];
-          vec3d bondN = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-          for (int k = first_bond; k < last_bond; k++) {
-            // S1 function & bondlengths //{{{
-            // 1->N S1
-            b1 = mol->Bead[mt->Bond[k][0]];
-            b2 = mol->Bead[mt->Bond[k][1]];
-            vec3d bondj = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-            AddArr3D(S1, mol->Type, k - first_bond, 0, CosAngle(bondj, bond1));
-            // bondlength & count bonds
-            bondlength[mol->Type] += VectLength(bondj);
-            count_bonds[mol->Type]++;
-            // reverse S1
-            int bond_id = mt->nBonds - k - 1;
-            int bin_id = k - first_bond;
-            b1 = mol->Bead[mt->Bond[bond_id][0]];
-            b2 = mol->Bead[mt->Bond[bond_id][1]];
-            bondj = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-            AddArr3D(S1, mol->Type, bin_id, 1, CosAngle(bondN, bondj));
-            //}}}
-            for (int l = k; l < last_bond; l++) {
-              int lag = l - k;
-              // S2 function (classic bond correlation) //{{{
-              // first bond vector
-              int b1 = mol->Bead[mt->Bond[k][0]],
-                  b2 = mol->Bead[mt->Bond[k][1]];
-              vec3d bondk = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-              // second bond vector
-              b1 = mol->Bead[mt->Bond[l][0]];
-              b2 = mol->Bead[mt->Bond[l][1]];
-              vec3d bondl = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-              // autocorrelation
-              AddArr2D(S2, mol->Type, lag, CosAngle(bondk, bondl));
-              AddArr2D(count_S2, mol->Type, lag, 1);
-              //}}}
-              // S3 function (end-to-end distances) //{{{
-              b1 = mol->Bead[mt->Bond[k][0]];
-              b2 = mol->Bead[mt->Bond[l][1]];
-              vec3d Re = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-              AddArr2D(S3, mol->Type, lag, SqVectLength(Re));
-              AddArr2D(count_S3, mol->Type, lag, 1);
-              //}}}
-            }
-          }
-        }
-      } //}}}
-    //}}}
-    } else { //{{{
-      if (!SkipTimestep(in, fr, &line_count)) {
-        count_coor--;
-        break;
-      }
-    } //}}}
-    // exit the main loop if reached user-specied end timestep
-    if (count_coor == commons.end) {
-      break;
-    }
-  }
-  fclose(fr);
-  PrintLastStep(count_coor, count_used, commons.silent); //}}}
+  struct user_data ud = { opt, bondlength, count_bonds,
+                          S1, S2, S3, count_S2, count_S3 };
+  int count_used = MainLoopCoor(&System, in, commons, Calculation_adaptor, &ud);
 
   // write to output file
   // determine width of each column & collate data //{{{
@@ -335,3 +326,110 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
+
+// backup - will the MainLoop() function work?
+// // main loop //{{{
+// FILE *fr = OpenFile(in.coor.name, "r");
+// int count_coor = 0, // count steps in the vcf file
+//     count_used = 0, // count steps in output file
+//     line_count = 0; // count lines in the vcf file
+// while (true) {
+//   PrintStep(&count_coor, commons.start, commons.silent);
+//   // use every skip-th timestep between start and end
+//   bool use = false;
+//   if (UseStep(commons, count_coor)) {
+//     use = true;
+//   }
+//   if (use) { //{{{
+//     if (!ReadTimestep(in, fr, &System, &line_count)) {
+//       count_coor--;
+//       break;
+//     }
+//     count_used++;
+//     WrapJoinCoordinates(&System, false, opt.join);
+//     // go through all molecules //{{{
+//     for (int i = 0; i < Count->MoleculeType; i++) {
+//       MOLECULETYPE *mt = &System.MoleculeType[i];
+//       // last bond id
+//       int last_bond = mt->nBonds;
+//       if (opt.ne != HIGHNUM) {
+//         last_bond = opt.ne;
+//       }
+//       int first_bond = 0;
+//       if (opt.ns > 0) {
+//         first_bond = opt.ns;
+//       }
+//       // use only specified molecule types that are long enough
+//       if (!opt.mt[i] || mt->nBonds < opt.ns) {
+//         continue;
+//       }
+//
+//       for (int j = 0; j < mt->Number; j++) {
+//         MOLECULE *mol = &System.Molecule[mt->Index[j]];
+//         // S1 function
+//         // first bond vector (for S1)
+//         int b1 = mol->Bead[mt->Bond[first_bond][0]],
+//             b2 = mol->Bead[mt->Bond[first_bond][1]];
+//         vec3d bond1 = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+//         // last bond vector (for reversed S1)
+//         b1 = mol->Bead[mt->Bond[mt->nBonds-first_bond-1][0]],
+//         b2 = mol->Bead[mt->Bond[mt->nBonds-first_bond-1][1]];
+//         vec3d bondN = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+//         for (int k = first_bond; k < last_bond; k++) {
+//           // S1 function & bondlengths //{{{
+//           // 1->N S1
+//           b1 = mol->Bead[mt->Bond[k][0]];
+//           b2 = mol->Bead[mt->Bond[k][1]];
+//           vec3d bondj = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+//           AddArr3D(S1, mol->Type, k - first_bond, 0, CosAngle(bondj, bond1));
+//           // bondlength & count bonds
+//           bondlength[mol->Type] += VectLength(bondj);
+//           count_bonds[mol->Type]++;
+//           // reverse S1
+//           int bond_id = mt->nBonds - k - 1;
+//           int bin_id = k - first_bond;
+//           b1 = mol->Bead[mt->Bond[bond_id][0]];
+//           b2 = mol->Bead[mt->Bond[bond_id][1]];
+//           bondj = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+//           AddArr3D(S1, mol->Type, bin_id, 1, CosAngle(bondN, bondj));
+//           //}}}
+//           for (int l = k; l < last_bond; l++) {
+//             int lag = l - k;
+//             // S2 function (classic bond correlation) //{{{
+//             // first bond vector
+//             int b1 = mol->Bead[mt->Bond[k][0]],
+//                 b2 = mol->Bead[mt->Bond[k][1]];
+//             vec3d bondk = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+//             // second bond vector
+//             b1 = mol->Bead[mt->Bond[l][0]];
+//             b2 = mol->Bead[mt->Bond[l][1]];
+//             vec3d bondl = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+//             // autocorrelation
+//             AddArr2D(S2, mol->Type, lag, CosAngle(bondk, bondl));
+//             AddArr2D(count_S2, mol->Type, lag, 1);
+//             //}}}
+//             // S3 function (end-to-end distances) //{{{
+//             b1 = mol->Bead[mt->Bond[k][0]];
+//             b2 = mol->Bead[mt->Bond[l][1]];
+//             vec3d Re = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
+//             AddArr2D(S3, mol->Type, lag, SqVectLength(Re));
+//             AddArr2D(count_S3, mol->Type, lag, 1);
+//             //}}}
+//           }
+//         }
+//       }
+//     } //}}}
+//   //}}}
+//   } else { //{{{
+//     if (!SkipTimestep(in, fr, &line_count)) {
+//       count_coor--;
+//       break;
+//     }
+//   } //}}}
+//   // exit the main loop if reached user-specied end timestep
+//   if (count_coor == commons.end) {
+//     break;
+//   }
+// }
+// fclose(fr);
+// PrintLastStep(count_coor, count_used, commons.silent); //}}}

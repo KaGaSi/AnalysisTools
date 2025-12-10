@@ -16,6 +16,7 @@
 #include "ReadWrite.h"
 #include "Aggregates.h"
 #include <complex.h>
+#include "MainLoop.h"
 #include <gsl/gsl_matrix_double.h>
 #include <gsl/gsl_poly.h> // solve cubic equation
 #include <gsl/gsl_eigen.h>  // Jacobi method
