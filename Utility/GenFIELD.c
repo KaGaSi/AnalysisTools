@@ -7,7 +7,8 @@ const struct HelpHelp HelpDesc = {
   "input text file specifying the system.",
 
   "Usage: GenFIELD <input> <output> [options]",
-  .args = 2,
+  .args = 2, // number of mandatory arguments
+  .all = 6, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_VERBOSE],
@@ -171,18 +172,20 @@ int main(int argc, char *argv[]) {
   PruneSystem(&System);
   fclose(f); //}}}
 
-  // array for dpd parameters //{{{
+  // array for dpd parameters
   // dpd potential: a_ij; r_c; gamma
-  double (**pot)[3] = calloc(Count->BeadType, sizeof (*pot)[3]);
-  // default: a_ij = 25, r_c = 1, gamma = 4.5
+  ArrNDd *pot = CreateArr3Dd(Count->BeadType, Count->BeadType, 3);
+  if (!pot) {
+    ErrorAlloc("pot");
+  }
+  // default: a_ij = 25, r_c = 1, gamma = 4.5 (as specified in dpd array)
   for (int i = 0; i < Count->BeadType; i++) {
-    pot[i] = calloc (Count->BeadType, sizeof **pot);
     for (int j = 0; j < Count->BeadType; j++) {
       for (int aa = 0; aa < 3; aa++) {
-        pot[i][j][aa] = dpd[aa];
+        SetArr3D(pot, i, j, aa, dpd[aa]);
       }
     }
-  } //}}}
+  }
 
   // reread the file to get potential parameters //{{{
   f = OpenFile(in, "r");
@@ -204,7 +207,7 @@ int main(int argc, char *argv[]) {
         }
         for (int aa = 0; aa < 3; aa++) {
           if (val[aa] != -1) {
-            pot[bt_1][bt_2][aa] = val[aa];
+            SetArr3D(pot, bt_1, bt_2, aa, val[aa]);
           }
         }
       }
@@ -220,7 +223,7 @@ int main(int argc, char *argv[]) {
         fprintf(stdout, "%10s %10s", System.BeadType[i].Name,
                                      System.BeadType[j].Name);
         for (int aa = 0; aa < 3; aa++) {
-          fprintf(stdout, " %lf", pot[i][j][aa]);
+          fprintf(stdout, " %lf", GetArr3D(pot, i, j, aa));
         }
         putchar('\n');
       }
@@ -240,7 +243,7 @@ int main(int argc, char *argv[]) {
         fprintf(f, "%10s %10s dpd", System.BeadType[i].Name,
                                     System.BeadType[j].Name);
         for (int aa = 0; aa < 3; aa++) {
-          fprintf(f, " %lf", pot[i][j][aa]);
+          fprintf(f, " %lf", GetArr3D(pot, i, j, aa));
         }
         putc('\n', f);
       }
@@ -248,10 +251,7 @@ int main(int argc, char *argv[]) {
     fclose(f);
   } //}}}
 
-  for (int i = 0; i < Count->BeadType; i++) {
-    free(pot[i]);
-  }
-  free(pot);
+  FreeArrND(pot);
   FreeSystem(&System);
 
   return 0;

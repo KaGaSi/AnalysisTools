@@ -13,7 +13,8 @@ const struct HelpHelp HelpDesc = {
   "distances between any two beads in those molecule types (-n option).",
 
   "Usage: BondLength <input> <width> <output> [options]",
-  .args = 3,
+  .args = 3, // number of mandatory arguments
+  .all = 17, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -31,8 +32,8 @@ static const struct OptSpec opts[] = {
   {"--joined", NULL, "specify that <input> contains joined coordinates", OPT_EXTRA},
   {"--all", NULL, "calculate distribution for each bond in the molecule type(s)", OPT_EXTRA},
   {"-n", "<file> [ints]", "distribution of distances between specified bead pair(s) (default [ints]: first and last bead)", OPT_EXTRA},
-  {"-w", "<float>", "warn if the length exceeds <float>"},
-  {"-t", "<file>", "save per-timestep data to <flie>"},
+  {"-w", "<float>", "warn if the length exceeds <float>", OPT_EXTRA},
+  {"-t", "<file>", "save per-timestep data to <flie>", OPT_EXTRA},
   {NULL}
 }; //}}}
 

@@ -15,7 +15,7 @@ struct OptSpec {
 struct HelpHelp {
   const char *description;
   const char *usage;
-  int args;
+  int args, all;
 };
 
 typedef enum {

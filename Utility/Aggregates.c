@@ -17,10 +17,11 @@ const struct HelpHelp HelpDesc = {
   "containing a <bead(s)> that is at most the contact distance from the wall "
   "is considered near the wall. Aggregates near the wall(s)/in bulk are saved "
   "into two files whose names are based on <out.agg> ('_w' and '_b' is "
-  "prepended to the .agg extension)",
+  "prepended in front of the .agg extension)",
 
   "Usage: Aggregates <coor> <out.agg> <bead(s)>/--all [options]",
-  .args = 2,
+  .args = 2, // number of mandatory arguments
+  .all = 16, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],

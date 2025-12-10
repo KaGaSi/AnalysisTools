@@ -9,7 +9,8 @@ const struct HelpHelp HelpDesc = {
     "pairs.",
 
     "Usage: Aggregates-NotSameBeads <coor> <out.agg> <beads>/--all [options]",
-    .args = 3,
+    .args = 2, // number of mandatory arguments
+    .all = 16, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -22,7 +23,7 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_VERSION],
   {"<coor>", NULL, "input coordinate file", OPT_ARG},
   {"<out.agg>", NULL, "output aggregate file", OPT_ARG},
-  {"<beads>/--all", NULL, "bead names for closeness calculation (--all is used)", OPT_EXTRA},
+  {"<beads>/--all", NULL, "bead names for closeness calculation (--all is used)", OPT_ARG},
   {"--all", NULL, "use all types (overwrites <bead(s)>)", OPT_EXTRA},
   {"-d", NULL, "maximum distance for contact (default: 1)", OPT_EXTRA},
   {"-c", NULL, "minimum number of contacts (default: 1, max: 255)", OPT_EXTRA},
@@ -247,7 +248,7 @@ int main(int argc, char *argv[]) {
     }
   } else {
     // missing --all as well as any bead type(s)
-    // TODO: necessary to assign false?
+    // TODO: necessary to assign false? Well, Flag will not be used!
     for (int i = 0; i < Count->BeadType; i++) {
       System.BeadType[i].Flag = false;
     }
@@ -266,7 +267,7 @@ int main(int argc, char *argv[]) {
       }
       System.BeadType[type].Flag = true;
     }
-    count--; // while always increments count at least once
+    count--; // while() always increments count at least once
     if (count < (HelpDesc.args + 2)) {
       err_msg("missing <beads> (at least two) or --all option");
       PrintError();

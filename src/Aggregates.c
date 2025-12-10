@@ -26,7 +26,7 @@ bool UseAggregate(SYSTEM System, AGGREGATE *Aggregate, int id,
       x = true;
     }
   }
-  if (*size == 0 || // -m: discarded all molecules
+  if (*size == 0 || // no molecules remained in aggregate
       *size < agg.range[0] || *size > agg.range[1] || // -n: not in range
       !only || // -only: found molecule that weren't supposed to be in
       !x) { // -x: didn't find any un-excluded molecules

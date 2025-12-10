@@ -10,7 +10,8 @@ const struct HelpHelp HelpDesc = {
   "in aggregates of given size(s).",
 
   "Usage: AggNumber <in.stru> <in.agg> [options]",
-  .args = 2,
+  .args = 2, // number of mandatory arguments
+  .all = 16, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_ST],
@@ -237,12 +238,12 @@ int main(int argc, char *argv[]) {
       }
       count_used++; // just to print at the end
       int aggs_step = 0; // number of eligible aggregates per step
-      double avg_mass_n_step[2] = {0}, // per-step mass averages
-             avg_mass_w_step[2] = {0}, //  [0] ... from options
-             avg_mass_z_step[2] = {0}, //  [1] ... for whole aggregates
+      double avg_mass_n_step[2] = {0, 0}, // per-step mass averages
+             avg_mass_w_step[2] = {0, 0}, //  [0] ... from options
+             avg_mass_z_step[2] = {0, 0}, //  [1] ... for whole aggregates
              avg_As_n_step = 0,      // per-step As averages
-             avg_As_w_step[2] = {0}, //  [0] ... from options
-             avg_As_z_step[2] = {0}, //  [1] ... for whole aggregates
+             avg_As_w_step[2] = {0, 0}, //  [0] ... from options
+             avg_As_z_step[2] = {0, 0}, //  [1] ... for whole aggregates
              molecules_step[Count->MoleculeType];
       // zeroize per-step counts of molecule types
       InitDoubleArray(molecules_step, Count->MoleculeType, 0);
@@ -556,7 +557,7 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
 
-  // free memory - to make valgrind happy //{{{
+  // free memory //{{{
   FreeAggregate(*Count, Aggregate);
   FreeSystem(&System);
   FreeAggPicker(&opt.agg);

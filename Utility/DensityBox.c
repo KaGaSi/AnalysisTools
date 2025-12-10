@@ -73,7 +73,9 @@ int main(int argc, char *argv[]) {
   BOX *box = &System.Box;
 
   // -x option
-  opt.x = calloc(Count->MoleculeType, sizeof *opt.x);
+  if (!(opt.x = calloc(Count->MoleculeType, sizeof *opt.x))) {
+    ErrorAlloc("opt.x");
+  }
   InitBoolArray(opt.x, Count->MoleculeType, true);
   TypeOption(argc, argv, "-x", 'm', false, opt.x, System);
 
@@ -93,6 +95,9 @@ int main(int argc, char *argv[]) {
 
   bool *n_beads = calloc(Count->BeadType, sizeof *n_beads);
   ArrNDli *rho = CreateArr3Dli(3, Count->BeadType, bin_max);
+  if (!n_beads || !rho) {
+    ErrorAlloc("n_beads/rho");
+  }
 
   if (commons.verbose) {
     VerboseOutput(System);
@@ -119,6 +124,9 @@ int main(int argc, char *argv[]) {
       WrapJoinCoordinates(&System, true, false);
 
       ArrNDi *rho_temp = CreateArr3Di(3, Count->BeadType, bin_max);
+      if (!rho_temp) {
+        ErrorAlloc("rho_temp");
+      }
 
       // calculate densities //{{{
       for (int i = 0; i < Count->BeadCoor; i++) {

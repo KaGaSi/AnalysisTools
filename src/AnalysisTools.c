@@ -1,6 +1,11 @@
 #include "AnalysisTools.h"
 #include "Arrays.h"
+#include "Errors.h"
+#include "General.h"
+#include "Globals.h"
 #include "MathUtils.h"
+#include <stdbool.h>
+#include <stdio.h>
 
 // TODO: consider BeadType[].Index, System.Bonded, etc. arrays - shouldn't they
 //       be filled based on whether the beads are in the timestep? Plus a
@@ -24,13 +29,9 @@
 //       Oh, there's already Count.MoleculeCoor defined - but not used
 
 // STATIC DEFINITIONS
-// remove pbc for molecules by joining the molecules
-static void RemovePBCMolecules(SYSTEM *System);
-// restore pbc by wrapping all coordinates inside the simulation box
-static void RestorePBC(SYSTEM *System);
 // TODO: not sure what I'll do with that - it's kind of not working, plus what's
 //       it useful for? I guess just Selected as it's gonna be for crysal only
-// deal with triclinic box
+//       deal with triclinic box
 static void FractionalCoor(SYSTEM *System, const int mode);
 static int FindFileType(const char *name);
 static int NewAgg(AGGREGATE *Aggregate, SYSTEM *System,
@@ -101,163 +102,6 @@ static void FractionalCoor(SYSTEM *System, const int mode) {
   }
 } //}}}
 // static bool ConnectedMolecule(SYSTEM System, int n) {
-// remove pbc for molecules by joining the molecules //{{{
-/*
- * Create a list of all bonds ('unconnected' array) with beads that are in the
- * timestep. Then create a connectivity array by going through the list,
- * transferring used bonds into 'connected' array, and finally, use the
- * 'connected' array to join the molecule. As long as there are bonds in the
- * 'unconnected' array, continue creating a new 'connected' array and joining
- * the molecule. This procedure should be able to join molecule of any
- * complexity as well as molecule where some beads ar not connected.
- */
-/*
- * TODO: maybe split molecule to connected pieces, connect those and place
- *       their centres of mass nearest each other
- */
-static void RemovePBCMolecules(SYSTEM *System) {
-  BOX *box = &System->Box;
-  // go through all molecules
-  for (int mm = 0; mm < System->Count.Molecule; mm++) {
-    MOLECULE *mol = &System->Molecule[mm];
-    if (!mol->InTimestep) {
-      continue;
-    }
-    MOLECULETYPE *mt = &System->MoleculeType[mol->Type];
-    if (mt->nBonds == 0) {
-      continue;
-    }
-    // skip molecule if it is bond-less
-    if (mt->nBonds == 0) {
-      snprintf(ERROR_MSG, LINE, "molecule %s%d%s (%s%s%s) has no bonds ",
-               ErrYellow(), mol->Index, ErrCyan(),
-               ErrYellow(), mt->Name, ErrCyan());
-      PrintWarning();
-      continue;
-    }
-    // arrays holding bonds already connected and yet unconnected
-    int *connected = calloc(mt->nBonds, sizeof *connected);
-    int *unconnected = calloc(mt->nBonds, sizeof *unconnected);
-    int count_unconnected = 0;
-    // 1)
-    for (int i = 0; i < mt->nBonds; i++) {
-      int id[2] = {mol->Bead[mt->Bond[i][0]], mol->Bead[mt->Bond[i][1]]};
-      BEAD *b_1 = &System->Bead[id[0]];
-      BEAD *b_2 = &System->Bead[id[1]];
-      if (b_1->InTimestep && b_2->InTimestep) {
-        unconnected[count_unconnected] = i;
-        count_unconnected++;
-      }
-    }
-    // skip molecule if there is no valid bond in the coordinate file //{{{
-    if (count_unconnected == 0) {
-      snprintf(ERROR_MSG, LINE, "no bonded beads in the timestep "
-               " for molecule %s%d%s (%s%s%s) has no bonds ", ErrYellow(),
-               mol->Index, ErrCyan(), ErrYellow(), mt->Name, ErrCyan());
-      PrintWarning();
-      free(connected);
-      free(unconnected);
-      continue;
-    } //}}}
-    while (count_unconnected > 0) {
-      int count_connected = 0;
-      connected[count_connected] = unconnected[0];
-      count_connected++;
-      count_unconnected--;
-      for (int i = 0; i < count_unconnected; i++) {
-        unconnected[i] = unconnected[i+1];
-      }
-      // 2)
-      for (int i = 0; i < count_connected; i++) {
-        for (int j = 0; j < count_unconnected; j++) {
-          int bond[2]; // the connected and unconnected bonds
-          int con[2]; // beads in the already connected bond (bond[0])
-          int uncon[2]; // beads in the yet unconneced bond (bond[1])
-          bond[0] = connected[i];
-          bond[1] = unconnected[j];
-          con[0] = mt->Bond[bond[0]][0];
-          con[1] = mt->Bond[bond[0]][1];
-          uncon[0] = mt->Bond[bond[1]][0];
-          uncon[1] = mt->Bond[bond[1]][1];
-          // if a bead is in both bonds, the unconnected bond becomes connected
-          if (con[0] == uncon[0] || con[0] == uncon[1] ||
-              con[1] == uncon[0] || con[1] == uncon[1]) {
-            connected[count_connected] = bond[1];
-            count_connected++;
-            count_unconnected--;
-            // move unconnected bonds to retain continuous array
-            for (int k = j; k < count_unconnected; k++) {
-              unconnected[k] = unconnected[k+1];
-            }
-            // unconnected[j] is again unconnected, so decremenet 'j'
-            j--;
-          }
-        }
-      }
-      // connect the molecule by going through the list of connected bonds 
-      bool *moved = calloc(mt->nBeads, sizeof *moved);
-      int first = mt->Bond[connected[0]][0];
-      moved[first] = true;
-      for (int i = 0; i < count_connected; i++) {
-        int bond = connected[i],
-            id[2] = {mt->Bond[bond][0], mt->Bond[bond][1]};
-        BEAD *b_1 = &System->Bead[mol->Bead[id[0]]],
-             *b_2 = &System->Bead[mol->Bead[id[1]]];
-        vec3d dist;
-        if (!moved[id[0]] && moved[id[1]]) {
-          dist = Distance(b_2->Position.v, b_1->Position.v, box->OrthoLength);
-          for (int dd = 0; dd < 3; dd++) {
-            b_1->Position.v[dd] = b_2->Position.v[dd] - dist.v[dd];
-          }
-          moved[id[0]] = true;
-        } else if (moved[id[0]] && !moved[id[1]]) {
-          dist = Distance(b_1->Position.v, b_2->Position.v, box->OrthoLength);
-          for (int dd = 0; dd < 3; dd++) {
-            b_2->Position.v[dd] = b_1->Position.v[dd] - dist.v[dd];
-          }
-          moved[id[1]] = true;
-        }
-      }
-      // TODO: CENTRE OF MASS
-      free(moved);
-    }
-    free(connected);
-    free(unconnected);
-    // put molecule's geometric centre into the simulation box //{{{
-    double cog[3];
-    GeomCentre(mt->nBeads, mol->Bead, System->Bead, cog);
-    // by how many BoxLength's should cog be moved?
-    int move[3];
-    for (int dd = 0; dd < 3; dd++) {
-      move[dd] = cog[dd] / box->OrthoLength[dd];
-      if (cog[dd] < 0) {
-        move[dd]--;
-      }
-    }
-    for (int j = 0; j < mt->nBeads; j++) {
-      int bead = mol->Bead[j];
-      for (int dd = 0; dd < 3; dd++) {
-        System->Bead[bead].Position.v[dd] -= move[dd] * box->OrthoLength[dd];
-      }
-    } //}}}
-  }
-} //}}}
-// restore pbc by wrapping all coordinates inside the simulation box //{{{
-static void RestorePBC(SYSTEM *System) {
-  for (int i = 0; i < System->Count.BeadCoor; i++) {
-    int id = System->BeadCoor[i];
-    BEAD *bead = &System->Bead[id];
-    BOX *box = &System->Box;
-    for (int dd = 0; dd < 3; dd++) {
-      while (bead->Position.v[dd] >= box->OrthoLength[dd]) {
-        bead->Position.v[dd] -= box->OrthoLength[dd];
-      }
-      while (bead->Position.v[dd] < 0) {
-        bead->Position.v[dd] += box->OrthoLength[dd];
-      }
-    }
-  }
-} //}}}
 
 // Helper functions for identifying bead/molecule types
 // identify bead type based on name //{{{
@@ -412,19 +256,169 @@ int FindMoleculeType(const SYSTEM Sys1, const MOLECULETYPE mt_1,
   return -1;
 } //}}}
 // Helper functions for manipulating coordinates
+// remove pbc for molecules by joining the molecules //{{{
+/*
+ * Create a list of all bonds ('unconnected' array) with beads that are in the
+ * timestep. Then create a connectivity array by going through the list,
+ * transferring used bonds into 'connected' array, and finally, use the
+ * 'connected' array to join the molecule. As long as there are bonds in the
+ * 'unconnected' array, continue creating a new 'connected' array and joining
+ * the molecule. This procedure should be able to join molecule of any
+ * complexity as well as molecule where some beads ar not connected.
+ */
+/*
+ * TODO: maybe split molecule to connected pieces, connect those and place
+ *       their centres of mass nearest each other
+ */
+void RemovePBCMolecule(int mol_id, SYSTEM *System) {
+  MOLECULE *mol = &System->Molecule[mol_id];
+  MOLECULETYPE *mt = &System->MoleculeType[mol->Type];
+  // do nothing for molecule that isn't in the timestep or has no bonds
+  if (!mol->InTimestep || mt->nBonds == 0) {
+    return;
+  }
+  BOX *box = &System->Box;
+  // arrays holding bonds already connected and yet unconnected
+  int *connected = calloc(mt->nBonds, sizeof *connected);
+  int *unconnected = calloc(mt->nBonds, sizeof *unconnected);
+  int count_unconnected = 0;
+  // 1)
+  for (int i = 0; i < mt->nBonds; i++) {
+    int id[2] = {mol->Bead[mt->Bond[i][0]], mol->Bead[mt->Bond[i][1]]};
+    BEAD *b_1 = &System->Bead[id[0]];
+    BEAD *b_2 = &System->Bead[id[1]];
+    if (b_1->InTimestep && b_2->InTimestep) {
+      unconnected[count_unconnected] = i;
+      count_unconnected++;
+    }
+  }
+  // skip molecule if there is no valid bond in the coordinate file //{{{
+  if (count_unconnected == 0) {
+    snprintf(ERROR_MSG, LINE, "no bonded beads in the timestep "
+             " for molecule %s%d%s (%s%s%s) has no bonds ", ErrYellow(),
+             mol->Index, ErrCyan(), ErrYellow(), mt->Name, ErrCyan());
+    PrintWarning();
+    free(connected);
+    free(unconnected);
+    return;
+  } //}}}
+  while (count_unconnected > 0) {
+    int count_connected = 0;
+    connected[count_connected] = unconnected[0];
+    count_connected++;
+    count_unconnected--;
+    for (int i = 0; i < count_unconnected; i++) {
+      unconnected[i] = unconnected[i+1];
+    }
+    // 2)
+    for (int i = 0; i < count_connected; i++) {
+      for (int j = 0; j < count_unconnected; j++) {
+        int bond[2]; // the connected and unconnected bonds
+        int con[2]; // beads in the already connected bond (bond[0])
+        int uncon[2]; // beads in the yet unconneced bond (bond[1])
+        bond[0] = connected[i];
+        bond[1] = unconnected[j];
+        con[0] = mt->Bond[bond[0]][0];
+        con[1] = mt->Bond[bond[0]][1];
+        uncon[0] = mt->Bond[bond[1]][0];
+        uncon[1] = mt->Bond[bond[1]][1];
+        // if a bead is in both bonds, the unconnected bond becomes connected
+        if (con[0] == uncon[0] || con[0] == uncon[1] ||
+            con[1] == uncon[0] || con[1] == uncon[1]) {
+          connected[count_connected] = bond[1];
+          count_connected++;
+          count_unconnected--;
+          // move unconnected bonds to retain continuous array
+          for (int k = j; k < count_unconnected; k++) {
+            unconnected[k] = unconnected[k+1];
+          }
+          // unconnected[j] is again unconnected, so decremenet 'j'
+          j--;
+        }
+      }
+    }
+    // connect the molecule by going through the list of connected bonds
+    bool *moved = calloc(mt->nBeads, sizeof *moved);
+    int first = mt->Bond[connected[0]][0];
+    moved[first] = true;
+    for (int i = 0; i < count_connected; i++) {
+      int bond = connected[i],
+          id[2] = {mt->Bond[bond][0], mt->Bond[bond][1]};
+      BEAD *b_1 = &System->Bead[mol->Bead[id[0]]],
+           *b_2 = &System->Bead[mol->Bead[id[1]]];
+      vec3d dist;
+      if (!moved[id[0]] && moved[id[1]]) {
+        dist = Distance(b_2->Position.v, b_1->Position.v, box->OrthoLength);
+        for (int dd = 0; dd < 3; dd++) {
+          b_1->Position.v[dd] = b_2->Position.v[dd] - dist.v[dd];
+        }
+        moved[id[0]] = true;
+      } else if (moved[id[0]] && !moved[id[1]]) {
+        dist = Distance(b_1->Position.v, b_2->Position.v, box->OrthoLength);
+        for (int dd = 0; dd < 3; dd++) {
+          b_2->Position.v[dd] = b_1->Position.v[dd] - dist.v[dd];
+        }
+        moved[id[1]] = true;
+      }
+    }
+    free(moved);
+  }
+  free(connected);
+  free(unconnected);
+  // put molecule's geometric centre into the simulation box //{{{
+  double cog[3];
+  GeomCentre(mt->nBeads, mol->Bead, System->Bead, cog);
+  // by how many BoxLength's should cog be moved?
+  int move[3];
+  for (int dd = 0; dd < 3; dd++) {
+    move[dd] = cog[dd] / box->OrthoLength[dd];
+    if (cog[dd] < 0) {
+      move[dd]--;
+    }
+  }
+  for (int j = 0; j < mt->nBeads; j++) {
+    int bead = mol->Bead[j];
+    for (int dd = 0; dd < 3; dd++) {
+      System->Bead[bead].Position.v[dd] -= move[dd] * box->OrthoLength[dd];
+    }
+  } //}}}
+} //}}}
+// restore pbc for a single bead //{{{
+vec3d RestorePBCBead(int beadcoor_id, SYSTEM System) {
+  int id = System.BeadCoor[beadcoor_id];
+  BEAD *bead = &System.Bead[id];
+  vec3d pos = bead->Position;
+  BOX *box = &System.Box;
+  for (int dd = 0; dd < 3; dd++) {
+    // by how many boxlength should the bead be moved?
+    int move = pos.v[dd] / box->OrthoLength[dd];
+    // oh, if it's moving from negative, add one boxlength to end up positive
+    if (pos.v[dd] < 0) {
+      move--;
+    }
+    pos.v[dd] -= move * box->OrthoLength[dd];
+  }
+  return pos;
+} //}}}
 // wrap coordinates into simulation box and/or join molecules //{{{
 void WrapJoinCoordinates(SYSTEM *System, const bool wrap, const bool join) {
   if (System->Box.Volume != -1 && (wrap || join)) {
     // transform coordinates into fractional ones for non-orthogonal box
-    FractionalCoor(System, 0);
+    FractionalCoor(System, 0); // TODO: does fracional work?
     if (wrap) { // wrap coordinates into the simulation box
-      RestorePBC(System);
+      for (int i = 0; i < System->Count.BeadCoor; i++) {
+        int id = System->BeadCoor[i];
+        BEAD *bead = &System->Bead[id];
+        bead->Position = RestorePBCBead(i, *System);
+      }
     }
     if (join) { // join molecules by removing periodic boundary conditions
-      RemovePBCMolecules(System);
+      for (int i = 0; i < System->Count.Molecule; i++) {
+        RemovePBCMolecule(i, System);
+      }
     }
     // transform back to 'normal' coordinates for non-orthogonal box
-    FractionalCoor(System, 1);
+    FractionalCoor(System, 1); // TODO: does fracional work?
   }
 } //}}}
 // distance between two beads; in the range <-BoxLength/2,BoxLength/2) //{{{
@@ -457,6 +451,12 @@ void CentreOfMass(const int n, const int *list,
     if (bt->Mass == MASS) {
       for (int dd = 0; dd < 3; dd++) {
         com[dd] = 0;
+        if (snprintf(ERROR_MSG, LINE, "unspecified mass: bead %s%d%s (%s%s%s)",
+                     ErrYellow(), id, ErrCyan(),
+                     ErrYellow(), bt->Name, ErrCyan()) < 0) {
+          ErrorSnprintf();
+        }
+        PrintWarning();
         return;
       }
     }
@@ -586,7 +586,7 @@ int FileType(const char *name) { //{{{
   }
 } //}}}
 // calculate gyration tensor and various shape descriptors //{{{
-void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]) {
+vec3d Gyration(const int n, const int *list, SYSTEM *System) {
   // gyration tensor (3x3 array)
   long double GyrationTensor[3][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
 
@@ -633,13 +633,14 @@ void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]) {
   gsl_eigen_symmv_workspace *workspace = gsl_eigen_symmv_alloc(3);
   gsl_eigen_symmv(A, eigenvalues, eigenvectors, workspace);
 
+  vec3d eigen;
   for (int dd = 0; dd < 3; dd++) {
-    eigen[dd] = gsl_vector_get(eigenvalues, dd);
-    if (fabs(eigen[dd]) < 1e-5) {
-      eigen[dd] = 0;
+    eigen.v[dd] = gsl_vector_get(eigenvalues, dd);
+    if (fabs(eigen.v[dd]) < 1e-5) {
+      eigen.v[dd] = 0;
     }
   }
-  qsort(eigen, 3, sizeof(eigen[0]), Compare);
+  qsort(eigen.v, 3, sizeof(eigen.v[0]), Compare);
 
   // Free allocated memory
   gsl_matrix_free(A);
@@ -647,59 +648,14 @@ void Gyration(const int n, const int *list, SYSTEM *System, double eigen[3]) {
   gsl_matrix_free(eigenvectors);
   gsl_eigen_symmv_free(workspace);
 
-  // // characteristic polynomial: //{{{
-  // // a_cube * x^3 + b_cube * x^2 + c_cube * x + d_cube = 0
-  // long double a = -1;
-  // long double b = GyrationTensor[0][0] +
-  //                 GyrationTensor[1][1] +
-  //                 GyrationTensor[2][2];
-  // long double c = -GyrationTensor[0][0] * GyrationTensor[1][1] -
-  //                 GyrationTensor[0][0] * GyrationTensor[2][2] -
-  //                 GyrationTensor[1][1] * GyrationTensor[2][2] +
-  //                 Square(GyrationTensor[1][2]) +
-  //                 Square(GyrationTensor[0][1]) +
-  //                 Square(GyrationTensor[0][2]);
-  // long double d =
-  //     +GyrationTensor[0][0] * GyrationTensor[1][1] * GyrationTensor[2][2] +
-  //     2 * GyrationTensor[0][1] * GyrationTensor[1][2] * GyrationTensor[0][2] -
-  //     Square(GyrationTensor[0][2]) * GyrationTensor[1][1] -
-  //     Square(GyrationTensor[0][1]) * GyrationTensor[2][2] -
-  //     Square(GyrationTensor[1][2]) * GyrationTensor[0][0];
-  // b /= a;
-  // c /= a;
-  // d /= a;
-  //
-  // // calculate roots
-  // double x[3] = {0, 0, 0}; // Roots
-  // int num_roots = gsl_poly_solve_cubic(b, c, d, &x[0], &x[1], &x[2]);
-  // // ensure small roots are 0; otherwise it may look negative
-  // if (fabs(x[0]) < 1e-5) {
-  //   x[0] = 0.0;
-  // }
-  // if (num_roots > 1 && fabs(x[1]) < 1e-5) {
-  //   x[1] = 0.0;
-  // }
-  // if (num_roots > 2 && fabs(x[2]) < 1e-5) {
-  //   x[2] = 0.0;
-  // }
-  // // assign roots to the eigen values
-  // if (num_roots > 2) {
-  //   eigen[0] = x[0];
-  //   eigen[1] = x[1];
-  //   eigen[2] = x[2];
-  // } else if (num_roots > 1) {
-  //   eigen[1] = x[0];
-  //   eigen[2] = x[1];
-  // } else if (num_roots > 0) {
-  //   eigen[2] = x[0];
-  // } //}}}
   // error for negative eigenvalues - shouldn't happen
-  if (eigen[0] < 0 || eigen[1] < 0 || eigen[2] < 0) {
+  if (eigen.x < 0 || eigen.y < 0 || eigen.z < 0) {
     snprintf(ERROR_MSG, LINE, "negative eigenvalues (%s%lf%s, %s%lf%s, "
-             "%s%lf%s)", ErrYellow(), eigen[0], ErrCyan(), ErrYellow(),
-             eigen[1], ErrCyan(), ErrYellow(), eigen[2], ErrCyan());
+             "%s%lf%s)", ErrYellow(), eigen.x, ErrCyan(), ErrYellow(),
+             eigen.y, ErrCyan(), ErrYellow(), eigen.z, ErrCyan());
     PrintWarning();
   }
+  return eigen;
 } //}}}
 // evaluate contacts between molecules, creating aggregates //{{{
 static int NewAgg(AGGREGATE *Aggregate, SYSTEM *System,
@@ -810,7 +766,7 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
   int **mol_eligible_beads = malloc(Count->MoleculeType * sizeof(int *));
   int *count_eligible_beads = malloc(Count->MoleculeType *
                                      sizeof *count_eligible_beads);
-  RemovePBCMolecules(System);
+  WrapJoinCoordinates(System, false, true);
   bool eligible = false;
   for (int i = 0; i < Count->MoleculeType; i++) {
     MOLECULETYPE *mt = &System->MoleculeType[i];

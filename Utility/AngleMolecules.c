@@ -12,7 +12,8 @@ const struct HelpHelp HelpDesc = {
   "angles between any three beads in those molecule types (-n option).",
 
   "Usage: AngleMolecules <input> <width> <output> [options]\n\n",
-  .args = 3,
+  .args = 3, // number of mandatory arguments
+  .all = 15, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],

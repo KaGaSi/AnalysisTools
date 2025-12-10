@@ -18,7 +18,8 @@ const struct HelpHelp HelpDesc = {
   "range.",
 
   "Usage: GyrationAggregates <input> <in.agg> <output> [options]",
-  .args = 3,
+  .args = 3, // number of mandatory arguments
+  .all = 17, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -29,15 +30,15 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file"},
-  {"<in.agg>", NULL, "input agg file"},
-  {"<output>", NULL, "output file with per-timestep data"},
-  // {"--joined", NULL, "<input> contains joined coordinates"},
-  {"-bt", NULL, "bead types used for calculation (default: all)"},
-  {"-m", "<name(s)>", "agg size defined as number of <name(s)> molecules in an aggregate"},
-  {"-only", "<name(s)>", "use only aggregates composed of specified molecule(s)"},
-  {"-n", "<int> <int>", "calculate for aggregate sizes in given range"},
-  {"-ps", "<file>", "save per-size averages to a <file>"},
+  {"<input>", NULL, "input coordinate file", OPT_ARG},
+  {"<in.agg>", NULL, "input agg file", OPT_ARG},
+  {"<output>", NULL, "output file with per-timestep data", OPT_ARG},
+  // {"--joined", NULL, "<input> contains joined coordinates", OPT_EXTRA},
+  {"-bt", NULL, "bead types used for calculation (default: all)", OPT_EXTRA},
+  {"-m", "<name(s)>", "agg size defined as number of <name(s)> molecules in an aggregate", OPT_EXTRA},
+  {"-only", "<name(s)>", "use only aggregates composed of specified molecule(s)", OPT_EXTRA},
+  {"-n", "<int> <int>", "calculate for aggregate sizes in given range", OPT_EXTRA},
+  {"-ps", "<file>", "save per-size averages to a <file>", OPT_EXTRA},
   {NULL}
 }; //}}}
 

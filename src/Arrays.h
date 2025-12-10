@@ -45,7 +45,7 @@ static inline ArrNDd *CreateArr2Dd(const size_t x, const size_t y) {
   size_t shape2D[] = {x, y};
   return CreateArrNDd(2, shape2D);
 }
-static inline const ArrNDld *CreateArr2Dld(const size_t x, const size_t y) {
+static inline ArrNDld *CreateArr2Dld(const size_t x, const size_t y) {
   size_t shape2D[] = {x, y};
   return CreateArrNDld(2, shape2D);
 }
@@ -62,7 +62,7 @@ static inline ArrNDd *CreateArr3Dd(const size_t x, const size_t y, const size_t 
   size_t shape3D[] = {x, y, z};
   return CreateArrNDd(3, shape3D);
 }
-static inline const ArrNDld *CreateArr3Dld(const size_t x, const size_t y,
+static inline ArrNDld *CreateArr3Dld(const size_t x, const size_t y,
                                            const size_t z) {
   size_t shape3D[] = {x, y, z};
   return CreateArrNDld(3, shape3D);

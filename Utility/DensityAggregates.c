@@ -17,8 +17,10 @@ const struct HelpHelp HelpDesc = {
   "(i.e., if 'mol1' and 'mol2' both both contain bead 'A', there will be "
   "only one column for 'A' bead type).",
 
-  "Usage: DensityAggregates <input> <in.agg> <width> <output> <size(s)> [options]",
-  .args = 5,
+  "Usage: DensityAggregates <input> <in.agg> <width> <output> <size(s)> "
+  "[options]",
+  .args = 5, // number of mandatory arguments
+  .all = 20, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -115,6 +117,9 @@ int main(int argc, char *argv[]) {
   // <agg sizes> - aggregate sizes for calculation //{{{
   ArrNDi *agg_sizes = CreateArr2Di(Count->Molecule, 2);
   ArrNDi *agg_mols = CreateArr2Di(Count->Molecule, Count->MoleculeType);
+  if (!agg_sizes || !agg_mols) {
+    ErrorAlloc("agg_sizes/agg_mols");
+  }
   int aggs = 0;
   while (++count < argc && argv[count][0] != '-') {
     // Error - non-numeric argument //{{{
@@ -147,6 +152,7 @@ int main(int argc, char *argv[]) {
   char line[LINE];
   // TODO: go for while(fgetc()!='\n'); treatment
   fgets(line, sizeof line, agg);
+  // TODO: make into function (other *Aggregates utils need it)
   if (!ReadAndSplitLine(agg, SPL_STR, " \t\n")) {
     if (snprintf(ERROR_MSG, LINE, "empty %s%s%s line",
                  ErrYellow(), input_agg, ErrRed()) < 0) {
@@ -180,6 +186,9 @@ int main(int argc, char *argv[]) {
   // allocate memory for density arrays
   ArrNDd *rho = CreateArr3Dd(Count->BeadType, aggs, bins);
   ArrNDd *rho_2 = CreateArr3Dd(Count->BeadType, aggs, bins);
+  if (!rho || !rho_2) {
+    ErrorAlloc("rho/rho_2");
+  }
 
   AGGREGATE *Aggregate = NULL;
   InitAggregate(System, &Aggregate);
@@ -190,48 +199,51 @@ int main(int argc, char *argv[]) {
 
   // main loop //{{{
   FILE *fr = OpenFile(in.coor.name, "r");
-  int count_coor = 0, // count steps in the vcf file
-      count_used = 0, // count steps in output file
-      line_count = 0, // count lines in the vcf file
+  int count_step = 0,
+      count_used = 0,
+      line_count = 0,
       line_count_agg = 0; // count lines in the agg file
   while (true) {
-    PrintStep(&count_coor, commons.start, commons.silent);
+    PrintStep(&count_step, commons.start, commons.silent);
 
     // use every skip-th timestep between start and end
     bool use = false;
-    if (UseStep(commons, count_coor)) {
+    if (UseStep(commons, count_step)) {
       use = true;
     }
     if (use) { //{{{
       if (!ReadTimestep(in, fr, &System, &line_count) ||
           ReadAggregates(agg, input_agg, &System,
                           Aggregate, &line_count_agg) < 0) {
-        count_coor--;
+        count_step--;
         break;
       }
       count_used++;
-      // TODO: not working always...
+      // TODO: not working always... such as in ~/Code/aggs/sims/complex/1
       //       DensityAggregates traject.vtf NoSolvent.agg 0.1 out2 27
       //       stops at Step: 3748
       //       ...but works when the 3748 step is separated via Selected and
       //       calculated again through Aggregates
-      //       ...also Aggregates <...> --join does work!
+      //       ...also Aggregates <...> -j <coor> does work!
       // if (opt.join) {
       if (false) {
-        printf("OK\n");
-        printf("%d\n", Count->Aggregate);
-        for (int i = 0; i < Count->Aggregate; i++) {
-          printf(" %d:", Aggregate[i].nMolecules);
-          for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-            int mol = Aggregate[i].Molecule[j];
-            printf(" %d", System.Molecule[mol].Index);
-          }
-          putchar('\n');
-        }
+        // printf("OK\n");
+        // printf("%d\n", Count->Aggregate);
+        // for (int i = 0; i < Count->Aggregate; i++) {
+        //   printf(" %d:", Aggregate[i].nMolecules);
+        //   for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+        //     int mol = Aggregate[i].Molecule[j];
+        //     printf(" %d", System.Molecule[mol].Index);
+        //   }
+        //   putchar('\n');
+        // }
         RemovePBCAggregates(distance, Aggregate, &System);
-        printf("OK\n");
+        // printf("OK\n");
       }
       ArrNDd *rho_temp = CreateArr3Dd(Count->BeadType, aggs, bins);
+      if (!rho_temp) {
+        ErrorAlloc("rho_temp");
+      }
 
       // calculate densities //{{{
       for (int i = 0; i < Count->Aggregate; i++) {
@@ -315,31 +327,23 @@ int main(int argc, char *argv[]) {
         }
       } //}}}
 
-      // // free temporary density array //{{{
-      // for (int i = 0; i < Count->BeadType; i++) {
-      //   for (int j = 0; j < aggs; j++) {
-      //     free(temp_rho[i][j]);
-      //   }
-      //   free(temp_rho[i]);
-      // }
-      // free(temp_rho); //}}}
       FreeArrND(rho_temp);
     //}}}
     } else {
       if (!SkipTimestep(in, fr, &line_count) ||
           !SkipAggregates(agg, input_agg, &line_count_agg)) {
-        count_coor--;
+        count_step--;
         break;
       }
     }
     // exit the main loop if reached user-specied end timestep
-    if (count_coor == commons.end) {
+    if (count_step == commons.end) {
       break;
     }
   }
   fclose(fr);
   fclose(agg);
-  PrintLastStep(count_coor, count_used, commons.silent); //}}}
+  PrintLastStep(count_step, count_used, commons.silent); //}}}
 
   // write densities to output file(s) //{{{
   for (int i = 0; i < aggs; i++) {
@@ -421,6 +425,7 @@ int main(int argc, char *argv[]) {
 
   FreeAggregate(*Count, Aggregate);
   FreeSystem(&System);
+  FreeAggPicker(&opt.agg);
   FreeArrND(agg_sizes);
   FreeArrND(agg_mols);
   FreeArrND(rho);

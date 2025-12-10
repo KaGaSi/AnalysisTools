@@ -5,7 +5,8 @@
 //   ,
 //
 //   "",
-//   .args = ,
+//   .args = , // number of mandatory arguments
+//   .all = , // number of valid lines OptSpec (not counting last {NULL})
 // };
 // static const struct OptSpec opts[] = {
 //   COMMON_OPTS[C_I],
@@ -28,7 +29,8 @@ const struct HelpHelp HelpDesc = {
   "to the system, or specified beads can be exchanged for the new ones.",
 
   "Usage: AddToSystem <input> <in.field> <output> [options]",
-  .args = 3,
+  .args = 3, // number of mandatory arguments
+  .all = 29, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -227,6 +229,7 @@ int main(int argc, char *argv[]) {
   if (!commons.silent) {
     PrintCommand(stdout, argc, argv);
   }
+
   // output structure file (-o option)
   opt.fout.name[0] = '\0';
   if (FileOption(argc, argv, "-o", opt.fout.name)) {
@@ -757,13 +760,12 @@ int main(int argc, char *argv[]) {
     WriteOutput(S_out2, write, opt.fout, false, -1, argc, argv);
   } //}}}
 
-  // free memory - to make valgrind happy //{{{
+  // free memory //{{{
   FreeSystem(&S_orig);
   FreeSystem(&S_add);
   FreeSystem(&S_out);
   if (opt.fout.name[0] != '\0') {
     FreeSystem(&S_out2);
-    // FreeSystem(&S_add2);
   }
   if (!opt.new) {
     free(opt.bt_use_orig);

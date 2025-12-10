@@ -1,6 +1,7 @@
 #include "Options.h"
 #include "Errors.h"
 #include "General.h"
+#include "Globals.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -30,9 +31,10 @@ void Help(const bool error, const struct HelpHelp help,
   // compute max width
   size_t maxlen = 0;
   for (size_t i = 0; options[i].opt; i++) {
-    size_t len = strlen(options[i].opt);
+    // 256 is the same as used in OptionCheck to ensure the string are fine
+    size_t len = strnlen(options[i].opt, 256);
     if (options[i].extra) {
-      len += strlen(options[i].extra) + 1;
+      len += strnlen(options[i].extra, 256) + 1;
     }
     if (len > maxlen) {
       maxlen = len;
@@ -88,8 +90,36 @@ void Help(const bool error, const struct HelpHelp help,
 } //}}}
 
 // version/help printing and initial check of provided options //{{{
+// TODO: check for multiple options; warn that the first one is used
 int OptionCheck(const int argc, char **argv, const bool check_extra,
                 const struct HelpHelp desc, const struct OptSpec *opts) {
+  // simple check the opts struct is filled in properly
+  // test for the {NULL}
+  if (opts[desc.all].opt) {
+    err_msg("last opts[] must be {NULL}; or wrong count desc.opts");
+    PrintError();
+    exit(1);
+  }
+  // test strings are null-terminated & count mandatory arguments
+  for (size_t i = 0; opts[i].opt; i++) {
+    // ...uses 256 as a reasaonable maximum length (actully, unnecessarily long)
+    if ((opts[i].extra && strnlen(opts[i].extra, 256) == 256) ||
+        strnlen(opts[i].opt, 256) == 256 ||
+        strnlen(opts[i].desc, 256) == 256) {
+      err_msg("unterminated string in opts[] (or longer than 256 characters)");
+      PrintError();
+      exit(1);
+    }
+    // .kind must be present
+    if (!opts[i].opt && !opts[i].kind) {
+      if (snprintf(ERROR_MSG, LINE, "missiong .kind in %s%s%s",
+                   ErrYellow(), opts[i].opt, ErrRed()) < 0) {
+        ErrorSnprintf();
+      }
+      PrintError();
+      exit(1);
+    }
+  }
   // --version option?
   if (VersionOption(argc, argv)) {
     exit(0);

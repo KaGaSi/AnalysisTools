@@ -1,4 +1,6 @@
 #include "../src/AnalysisTools.h"
+// TODO: <bead(s)> mandatory to -bt opt (default - all)
+// TODO: 2D version
 
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
@@ -44,11 +46,9 @@ struct OPT {
   COMMON_OPT commons;
 }; //}}}
 
-// TODO: <bead(s)> mandatory to -bt opt (default - all)
 // TODO: move to some library file
 static inline void CorrectBTypeOrder(int *btype_i, int *btype_j) {
   if (*btype_i > *btype_j) {
-    // TODO: do I have correct pointers?
     SwapInt(btype_i, btype_j);
   }
 }
@@ -116,7 +116,7 @@ static bool CheckBeadType_adaptor(int id_i, SYSTEM System, void *ud) {
 int main(int argc, char *argv[]) {
 
   // commad line arguments before reading the structure //{{{
-  OptionCheck(argc, argv, true, HelpDesc, opts);
+  OptionCheck(argc, argv, false, HelpDesc, opts);
   OPT opt;
   int count = 0;
   // <input> - input coordinate (and structure) file //{{{
@@ -212,23 +212,6 @@ int main(int argc, char *argv[]) {
   }
 
   int bins;
-  // double max_dist;
-  // // TODO: not using 2D-dependent min/max because I want the brute force to
-  // //       finish at some time...
-  // // if (opt.axis[0] == -1) {
-  // //   bins = Max3(box[0], box[1], box[2]) / width;
-  // //   max_dist = 0.5 * Min3(box[0], box[1], box[2]);
-  // // } else {
-  // //   bins = Max3(box[opt.axis[0]], box[opt.axis[0]], box[opt.axis[1]]);
-  // //   bins /= width;
-  // //   max_dist = Min3(box[opt.axis[0]], box[opt.axis[0]], box[opt.axis[1]]);
-  // //   max_dist *= 0.5;
-  // // }
-  // // TODO: shitty stuff - should be -D2 opt dependant or some such
-  // // max_dist = 0.5 * Min3(box[0], box[1], box[2]);
-  // max_dist = Min3(box[0], box[1], box[2]) / 3;
-  // // if max_dist is too large, brute force O(N^2) will be used
-  // maximum distance for bead pair calculation
   opt.max_dist = Min3(box[0], box[1], box[2]) / 3;
   if (OneNumberOption(argc, argv, "-d", &opt.max_dist, 'd') &&
       opt.max_dist <= 0) {
@@ -256,6 +239,7 @@ int main(int argc, char *argv[]) {
         count_coor--;
         break;
       }
+      WrapJoinCoordinates(&System, true, false);
       count_used++;
       struct pcf_args args = { pcf, bins, opt.max_dist, width };
       struct check_args check = { opt };
@@ -348,14 +332,14 @@ int main(int argc, char *argv[]) {
       // assumes square - hance the 4
       shell = circle[0] - 4 * top[0] - (circle[1] - 4 * top[1]);
     } //}}}
-    count = -1;
-    SetArr2D(data, i, ++count, (rad[0] + rad[1]) / 2);
+    count = 0;
+    SetArr2D(data, i, count++, (rad[0] + rad[1]) / 2);
     // fprintf(out, "%8.5f", (rad[0] + rad[1]) / 2);
     for (int j = 0; j < Count->BeadType; j++) {
       for (int k = j; k < Count->BeadType; k++) {
-        BEADTYPE *bt_j = &System.BeadType[j];
-        BEADTYPE *bt_k = &System.BeadType[k];
-        if (CheckBead(j, System, opt) && CheckBead(k, System, opt)) {
+        if (CheckBeadType(j, opt) && CheckBeadType(k, opt)) {
+          BEADTYPE *bt_j = &System.BeadType[j];
+          BEADTYPE *bt_k = &System.BeadType[k];
           int pairs = bt_j->Number;
           if (j != k) {
             pairs *= bt_k->Number;
@@ -363,10 +347,10 @@ int main(int argc, char *argv[]) {
             pairs *= (bt_k->Number - 1) / 2;
           }
           double norm_factor = System.Box.Volume / (shell * pairs * count_used);
-          if (opt.axis.v[0] != -1) {
+          if (opt.axis.v[0] != -1) { // 2D ...TODO: implement
             norm_factor /= System.Box.Length[opt.axis.v[2]];
           }
-          SetArr2D(data, i, ++count, GetArr3D(pcf, j, k, i) * norm_factor);
+          SetArr2D(data, i, count++, GetArr3D(pcf, j, k, i) * norm_factor);
         }
       }
     }

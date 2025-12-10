@@ -86,7 +86,6 @@ set(UTILS
   AngleMolecules
   Average
   BondLength
-  BOOP
   DensityAggregates
   DensityBox
   GenFIELD
