@@ -23,10 +23,10 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_VERSION],
   {"<coor>", NULL, "input coordinate file", OPT_ARG},
   {"<out.agg>", NULL, "output aggregate file", OPT_ARG},
-  {"<beads>/--all", NULL, "bead names for closeness calculation (--all is used)", OPT_ARG},
+  {"<beads>/--all", NULL, "bead names for closeness calculation", OPT_ARG},
   {"--all", NULL, "use all types (overwrites <bead(s)>)", OPT_EXTRA},
-  {"-d", NULL, "maximum distance for contact (default: 1)", OPT_EXTRA},
-  {"-c", NULL, "minimum number of contacts (default: 1, max: 255)", OPT_EXTRA},
+  {"-d", "<float>", "maximum distance for contact (default: 1)", OPT_EXTRA},
+  {"-c", "<float>", "minimum number of contacts (default: 1, max: 255)", OPT_EXTRA},
   {"-j", "<coor>", "output file with joined coordinates", OPT_EXTRA},
   {"-w", "<a> <float(s)>", "coordinate(s) on <a> axis of wall(s) perpendicular to the axis", OPT_EXTRA},
   {NULL}
@@ -138,6 +138,122 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
 
   SortAggStruct(Aggregate, *System);
 } //}}}
+
+// aggregate calculation //{{{
+void Calculation(SYSTEM *System, STEP step, OPT opt, COMMON_OPT commons,
+                 AGGREGATE *Aggregate, char agg_file[LINE],
+                 const int argc, char **argv) {
+  COUNT *Count = &System->Count;
+  WrapJoinCoordinates(System, true, false);
+  CalculateAggregates(Aggregate, System, opt);
+  // calculate & write joined coordinatest (-j option)
+  if (opt.fout.name[0] != '\0') {
+    FillAggregateBeads(Aggregate, *System);
+    WrapJoinCoordinates(System, false, true);
+    RemovePBCAggregates(opt.cutoff, Aggregate, System);
+    bool *write = calloc(Count->Bead, sizeof *write);
+    if (!write) {
+      ErrorAlloc("write");
+    }
+    InitBoolArray(write, Count->Bead, true);
+    WriteTimestep(opt.fout, *System, step.coor, write, argc, argv);
+    free(write);
+  }
+
+  for (int i = 0; i < Count->Aggregate; i++) {
+    Aggregate[i].Flag = true;
+  }
+  WriteAggregates(step.coor, agg_file, *System, Aggregate);
+
+  // are there walls (-w option)? //{{{
+  if (opt.w_count > 0) {
+    // find aggregates touching a wall
+    for (int i = 0; i < Count->Aggregate; i++) {
+      Aggregate[i].Flag = false;
+      for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+        int mol_id = Aggregate[i].Molecule[j];
+        MOLECULE *mol = &System->Molecule[mol_id];
+        for (int k = 0; k < System->MoleculeType[mol->Type].nBeads; k++) {
+          BEAD *b = &System->Bead[mol->Bead[k]];
+          if (System->BeadType[b->Type].Flag) {
+            for (int l = 0; l < opt.w_count; l++) {
+              double dist = b->Position.v[opt.axis] - opt.wall[l];
+              if (fabs(dist) < opt.cutoff) {
+                Aggregate[i].Flag = true; // aggregate i is touching a wall
+                goto next;
+              }
+            }
+          }
+        }
+      }
+      next:
+      ;
+    }
+    // write the aggregates to *_w.agg file
+    WriteAggregates(step.coor, opt.w_file[0], *System, Aggregate);
+    // reverse the Aggregate[].Flag to select aggregates in bulk
+    for (int i = 0; i < Count->Aggregate; i++) {
+      Aggregate[i].Flag = !Aggregate[i].Flag;
+    }
+    // write the aggregates to *_b.agg file
+    WriteAggregates(step.coor, opt.w_file[1], *System, Aggregate);
+
+    // write joined coordinates to _b/_w files (-j option)?
+    if (opt.fout.name[0] != '\0') {
+      bool *write = calloc(Count->Bead, sizeof *write);
+      if (!write) {
+        ErrorAlloc("write");
+      }
+      // assume all beads are saved (to save unbonded beads)
+      InitBoolArray(write, Count->Bead, true);
+
+      // exclude from saving all aggregate beads in bulk
+      for (int i = 0; i < Count->Aggregate; i++) {
+        // is aggregate in the bulk?
+        if (Aggregate[i].Flag) {
+          for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+            int mol = Aggregate[i].Molecule[j];
+            int mtype = System->Molecule[mol].Type;
+            for (int k = 0; k < System->MoleculeType[mtype].nBeads; k++) {
+              int id = System->Molecule[mol].Bead[k];
+              if (System->Bead[id].InTimestep) {
+                write[id] = false;
+              }
+            }
+          }
+        }
+      }
+      // write joined coordinates for wall-touching aggregates to _w file
+      WriteTimestep(opt.j_file[0], *System, step.coor, write, argc, argv);
+
+      // flip write flag for all bonded beads
+      for (int i = 0; i < Count->Bonded; i++) {
+        int id = System->Bonded[i];
+        write[id] = !write[id];
+      }
+      // write joined coordinates for bulk aggregates to _b file
+      WriteTimestep(opt.j_file[1], *System, step.coor, write, argc, argv);
+      free(write);
+    }
+  } //}}}
+
+  ReInitAggregate(*System, Aggregate);
+} //}}}
+// structure for the callback function
+struct user_data {
+  OPT opt;
+  COMMON_OPT commons;
+  AGGREGATE *Aggregate;
+  char *agg_file;
+  int argc;
+  char **argv;
+};
+// adaptor for the Calculation() function
+static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
+  struct user_data *p = (struct user_data*)userdata;
+  Calculation(System, *step, p->opt, p->commons, p->Aggregate,
+              p->agg_file, p->argc, p->argv);
+};
 
 int main(int argc, char *argv[]) {
 
@@ -292,142 +408,19 @@ int main(int argc, char *argv[]) {
     VerboseOutput(System);
   }
 
-  FILE *fr = OpenFile(in.coor.name, "r");
-  // main loop //{{{
-  int count_coor = 0,
-      count_used = 0,
-      line_count = 0;
-  while (true) {
-    PrintStep(&count_coor, commons.start, commons.silent);
-    // decide whether this timestep is to be saved
-    bool use = false;
-    if (UseStep(commons, count_coor)) {
-      use = true;
-    }
-    if (use) { //{{{
-      if (!ReadTimestep(in, fr, &System, &line_count)) {
-        count_coor--;
-        break;
-      }
-      count_used++;
-      WrapJoinCoordinates(&System, true, false);
-      CalculateAggregates(Aggregate, &System, opt);
-      // calculate & write joined coordinatest (-j option)
-      if (opt.fout.name[0] != '\0') {
-        FillAggregateBeads(Aggregate, System);
-        WrapJoinCoordinates(&System, false, true);
-        RemovePBCAggregates(opt.cutoff, Aggregate, &System);
-        bool *write = calloc(Count->Bead, sizeof *write);
-        if (!write) {
-          ErrorAlloc("write");
-        }
-        InitBoolArray(write, Count->Bead, true);
-        WriteTimestep(opt.fout, System, count_coor, write, argc, argv);
-        free(write);
-      }
-
-      for (int i = 0; i < Count->Aggregate; i++) {
-        Aggregate[i].Flag = true;
-      }
-      WriteAggregates(count_coor, agg_file, System, Aggregate);
-
-      // are there walls (-w option)? //{{{
-      if (opt.w_count > 0) {
-        // find aggregates touching a wall
-        for (int i = 0; i < Count->Aggregate; i++) {
-          Aggregate[i].Flag = false;
-          for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-            int mol_id = Aggregate[i].Molecule[j];
-            MOLECULE *mol = &System.Molecule[mol_id];
-            for (int k = 0; k < System.MoleculeType[mol->Type].nBeads; k++) {
-              BEAD *b = &System.Bead[mol->Bead[k]];
-              if (System.BeadType[b->Type].Flag) {
-                for (int l = 0; l < opt.w_count; l++) {
-                  double dist = b->Position.v[opt.axis] - opt.wall[l];
-                  if (fabs(dist) < opt.cutoff) {
-                    Aggregate[i].Flag = true; // aggregate i is touching a wall
-                    goto next;
-                  }
-                }
-              }
-            }
-          }
-          next:
-          ;
-        }
-        // write the aggregates to *_w.agg file
-        WriteAggregates(count_coor, opt.w_file[0], System, Aggregate);
-        // reverse the Aggregate[].Flag to select aggregates in bulk
-        for (int i = 0; i < Count->Aggregate; i++) {
-          Aggregate[i].Flag = !Aggregate[i].Flag;
-        }
-        // write the aggregates to *_b.agg file
-        WriteAggregates(count_coor, opt.w_file[1], System, Aggregate);
-
-        // write joined coordinates to _b/_w files (-j option)?
-        if (opt.fout.name[0] != '\0') {
-          bool *write = calloc(Count->Bead, sizeof *write);
-          if (!write) {
-            ErrorAlloc("write");
-          }
-          // assume all beads are saved (to save unbonded beads)
-          InitBoolArray(write, Count->Bead, true);
-
-          // exclude from saving all aggregate beads in bulk
-          for (int i = 0; i < Count->Aggregate; i++) {
-            // is aggregate in the bulk?
-            if (Aggregate[i].Flag) {
-              for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-                int mol = Aggregate[i].Molecule[j];
-                int mtype = System.Molecule[mol].Type;
-                for (int k = 0; k < System.MoleculeType[mtype].nBeads; k++) {
-                  int id = System.Molecule[mol].Bead[k];
-                  if (System.Bead[id].InTimestep) {
-                    write[id] = false;
-                  }
-                }
-              }
-            }
-          }
-          // write joined coordinates for wall-touching aggregates to _w file
-          WriteTimestep(opt.j_file[0], System, count_coor, write, argc, argv);
-
-          // flip write flag for all bonded beads
-          for (int i = 0; i < Count->Bonded; i++) {
-            int id = System.Bonded[i];
-            write[id] = !write[id];
-          }
-          // write joined coordinates for bulk aggregates to _b file
-          WriteTimestep(opt.j_file[1], System, count_coor, write, argc, argv);
-          free(write);
-        }
-      } //}}}
-
-      ReInitAggregate(System, Aggregate);
-      //}}}
-    } else { //{{{
-      if (!SkipTimestep(in, fr, &line_count)) {
-        count_coor--;
-        break;
-      }
-    } //}}}
-    // exit the main loop if reached user-specied end timestep
-    if (count_coor == commons.end) {
-      break;
-    }
-  }
-  fclose(fr);
-  PrintLastStep(count_coor, count_used, commons.silent); //}}}
+  STEP step = InitStep;
+  struct user_data ud = { opt, commons, Aggregate, agg_file, argc, argv };
+  MainLoopCoor(&System, in, commons, &step, Calculation_adaptor, &ud);
 
   // print last step number to <output.agg>
   // open output .agg file for appending
   FILE *fw_agg = OpenFile(agg_file, "a");
-  fprintf(fw_agg, "Last Step: %d\n", count_coor);
+  fprintf(fw_agg, "Last Step: %d\n", step.coor);
   fclose(fw_agg);
   if (opt.w_count > 0) {
     for (int i = 0; i < 2; i++) {
       fw_agg = OpenFile(opt.w_file[i], "a");
-      fprintf(fw_agg, "Last Step: %d\n", count_coor);
+      fprintf(fw_agg, "Last Step: %d\n", step.coor);
       fclose(fw_agg);
     }
   }
