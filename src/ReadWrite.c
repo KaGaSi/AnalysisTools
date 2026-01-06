@@ -1162,9 +1162,11 @@ FILE * PrintBylineOpenFile(const char *f, const int argc, char **argv) { //{{{
   FILE *ptr = OpenFile(f, "a");
   return ptr;
 } //}}}
+// TODO: errno clobbering - kind of. Still not nice!
 void PrintStep(int *count_coor, const int start, const bool silent) { //{{{
   (*count_coor)++;
   if (!silent && isatty(STDOUT_FILENO)) {
+    int saved_errno = errno;
     if (*count_coor < start) {
       fprintf(stdout, "\rDiscarding step: %d", *count_coor);
     } else {
@@ -1174,14 +1176,18 @@ void PrintStep(int *count_coor, const int start, const bool silent) { //{{{
       fprintf(stdout, "\rStep: %d", *count_coor);
     }
     fflush(stdout);
+    errno = saved_errno;
   }
 } //}}}
+// TODO: coor & used -> STEP struct
 void PrintLastStep(const int coor, const int used, const bool silent) { //{{{
   if (!silent) {
+    int saved_errno = errno;
     if (isatty(STDOUT_FILENO)) {
       fflush(stdout);
       fprintf(stdout, "\r                          \r");
     }
+    errno = saved_errno;
     fprintf(stdout, "Last Step: %d (used %d)\n", coor, used);
   }
 } //}}}

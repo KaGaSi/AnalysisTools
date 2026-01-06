@@ -128,7 +128,7 @@ struct user_data {
   ArrNDi *count_S2, *count_S3;
 };
 // adaptor for the Calculation() function
-static void Calculation_adaptor(SYSTEM *System, void *userdata) {
+static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
   struct user_data *p = (struct user_data*)userdata;
   Calculation(System, p->opt, p->bondlength, p->count_bonds,
               p->S1, p->S2, p->S3, p->count_S2, p->count_S3);
@@ -224,9 +224,10 @@ int main(int argc, char *argv[]) {
     ErrorAlloc("S1/S2/S3/count_S2/count_S3/bondlength/count_bonds");
   }
 
+  STEP step = InitStep;
   struct user_data ud = { opt, bondlength, count_bonds,
                           S1, S2, S3, count_S2, count_S3 };
-  int count_used = MainLoopCoor(&System, in, commons, Calculation_adaptor, &ud);
+  MainLoopCoor(&System, in, commons, &step, Calculation_adaptor, &ud);
 
   // write to output file
   // determine width of each column & collate data //{{{
@@ -261,7 +262,7 @@ int main(int argc, char *argv[]) {
       if (opt.mt[j]) {
         // S1 function (from either end)
         for (int dd = 0; dd < 2; dd++) {
-          double avg = GetArr3D(S1, j, lag, dd) / count_used;
+          double avg = GetArr3D(S1, j, lag, dd) / step.used;
           sum_S1[j][dd] += avg;
           data[lag][++count] = avg;
           data[lag][++count] = sum_S1[j][dd];

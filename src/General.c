@@ -156,7 +156,9 @@ void PrintCommand(FILE *ptr, const int argc, char **argv) { //{{{
   fprintf(ptr, "%s\n", Colour(ptr, C_RESET));
 } //}}}
 // changing the text colour (and making it bold) for cli output //{{{
+// TODO: OK, this is ugly: 1) exit on cosmetics - really? 2) errno clobbering
 void ColourChange(const int a, const char *colour) {
+  int saved_errno = errno;
   if (isatty(a)) {
     FILE *ptr;
     if (a == STDOUT_FILENO) {
@@ -169,6 +171,7 @@ void ColourChange(const int a, const char *colour) {
       exit(1);
     }
     fputs(colour, ptr);
+    errno = saved_errno;
   }
 } //}}}
 FILE * OpenFile(const char *file, char *mode) { //{{{

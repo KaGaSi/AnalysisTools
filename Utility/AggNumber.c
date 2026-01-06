@@ -1,5 +1,7 @@
 #include "../src/AnalysisTools.h"
 
+//TODO: warning if 0 mass leading to nan in output file
+
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
   "AggNumber calculates time evolutions and distributions of aggregate sizes or"

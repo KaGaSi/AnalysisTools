@@ -123,7 +123,7 @@ struct user_data {
   double width, cell_size;
 };
 // adaptor for the Calculation() function
-static void Calculation_adaptor(SYSTEM *System, void *userdata) {
+static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
   struct user_data *p = (struct user_data*)userdata;
   Calculation(System, p->opt, p->pcf, p->bins, p->width, p->cell_size);
 };
@@ -242,8 +242,9 @@ int main(int argc, char *argv[]) {
     ErrorAlloc("pcf");
   }
 
+  STEP step = InitStep;
   struct user_data ud = { opt, pcf, bins, width, cell_size };
-  int count_used = MainLoopCoor(&System, in, commons, Calculation_adaptor, &ud);
+  MainLoopCoor(&System, in, commons, &step, Calculation_adaptor, &ud);
 
   // write data to output file(s) //{{{
   // header
@@ -332,7 +333,7 @@ int main(int argc, char *argv[]) {
           } else {
             pairs *= (bt_k->Number - 1) / 2;
           }
-          double norm_factor = System.Box.Volume / (shell * pairs * count_used);
+          double norm_factor = System.Box.Volume / (shell * pairs * step.used);
           if (opt.axis.v[0] != -1) { // 2D ...TODO: implement
             norm_factor /= System.Box.Length.v[opt.axis.v[2]];
           }

@@ -505,6 +505,7 @@ static int FindFileType(const char *name) { //{{{
   return -1;
 } //}}}
 // identify input coordinate and structure files //{{{
+// TODO: no return false - so why bool?
 bool InputCoorStruct(const int argc, char **argv, SYS_FILES *f) {
   // input structure file (-i option)
   if (FileOption(argc, argv, "-i", f->stru.name)) {

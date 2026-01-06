@@ -6,38 +6,34 @@
 // TODO: add callback function for use timestep?
 
 // main loop //{{{
-int MainLoopCoor(SYSTEM *System, SYS_FILES in, COMMON_OPT commons,
-             callback callback_func, void *ud) {
+void MainLoopCoor(SYSTEM *System, SYS_FILES in, COMMON_OPT commons,
+                  STEP *step, callback callback_func, void *ud) {
   FILE *fr = OpenFile(in.coor.name, "r");
-  int count_coor = 0, // count steps in the vcf file
-      count_used = 0, // count steps in output file
-      line_count = 0; // count lines in the vcf file
   while (true) {
-    PrintStep(&count_coor, commons.start, commons.silent);
+    PrintStep(&step->coor, commons.start, commons.silent);
     // use every skip-th timestep between start and end
     bool use = false;
-    if (UseStep(commons, count_coor)) {
+    if (UseStep(commons, step->coor)) {
       use = true;
     }
     if (use) {
-      if (!ReadTimestep(in, fr, System, &line_count)) {
-        count_coor--;
+      if (!ReadTimestep(in, fr, System, &step->line_count)) {
+        step->coor--;
         break;
       }
-      count_used++;
-      callback_func(System, ud);
+      step->used++;
+      callback_func(System, step, ud);
     } else {
-      if (!SkipTimestep(in, fr, &line_count)) {
-        count_coor--;
+      if (!SkipTimestep(in, fr, &step->line_count)) {
+        step->coor--;
         break;
       }
     }
     // exit the main loop if reached user-specied end timestep
-    if (count_coor == commons.end) {
+    if (step->coor == commons.end) {
       break;
     }
   }
   fclose(fr);
-  PrintLastStep(count_coor, count_used, commons.silent);
-  return count_used;
+  PrintLastStep(step->coor, step->used, commons.silent);
 }; //}}}

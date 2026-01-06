@@ -58,6 +58,7 @@ static inline double Max3(double x, double y, double z) {
   }
 } //}}}
 // changing the text colour (and making it bold) for cli output //{{{
+// TODO: errno clobbering!
 static inline const char *Colour(FILE *f, const char colour[]) {
   if (isatty(fileno(f))) {
     return colour;
