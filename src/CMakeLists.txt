@@ -83,7 +83,6 @@ set(UTILS
   AggNumber
   AddToSystem
   Aggregates
-  Aggregates-NotSameBeads
   AngleMolecules
   Average
   BondLength

@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include <unistd.h>
 
 // TODO: EXPLAIN!!!
@@ -33,13 +34,20 @@ typedef struct {
   size_t *shape;
   size_t *stride;
   long int *d;
-} ArrNDli; //}}}
+} ArrNDli;
+typedef struct {
+  size_t ndim;
+  size_t *shape;
+  size_t *stride;
+  bool *d;
+} ArrNDb; //}}}
 // constructors //{{{
 // general
 ArrNDd  *CreateArrNDd(size_t ndim, const size_t *shape);
 ArrNDld *CreateArrNDld(size_t ndim, const size_t *shape);
 ArrNDi  *CreateArrNDi(size_t ndim, const size_t *shape);
 ArrNDli *CreateArrNDli(size_t ndim, const size_t *shape);
+ArrNDb  *CreateArrNDb(size_t ndim, const size_t *shape);
 // 2-dimensional constructors
 static inline ArrNDd *CreateArr2Dd(const size_t x, const size_t y) {
   size_t shape2D[] = {x, y};
@@ -57,13 +65,18 @@ static inline ArrNDli *CreateArr2Dli(const size_t x, const size_t y) {
   size_t shape2D[] = {x, y};
   return CreateArrNDli(2, shape2D);
 }
+static inline ArrNDb *CreateArr2Db(const size_t x, const size_t y) {
+  size_t shape2D[] = {x, y};
+  return CreateArrNDb(2, shape2D);
+}
 // 3-dimensional constructors
-static inline ArrNDd *CreateArr3Dd(const size_t x, const size_t y, const size_t z) {
+static inline ArrNDd *CreateArr3Dd(const size_t x, const size_t y,
+                                   const size_t z) {
   size_t shape3D[] = {x, y, z};
   return CreateArrNDd(3, shape3D);
 }
 static inline ArrNDld *CreateArr3Dld(const size_t x, const size_t y,
-                                           const size_t z) {
+                                     const size_t z) {
   size_t shape3D[] = {x, y, z};
   return CreateArrNDld(3, shape3D);
 }
@@ -76,42 +89,53 @@ static inline ArrNDli *CreateArr3Dli(const size_t x, const size_t y,
                                      const size_t z) {
   size_t shape3D[] = {x, y, z};
   return CreateArrNDli(3, shape3D);
+}
+static inline ArrNDb *CreateArr3Db(const size_t x, const size_t y,
+                                   const size_t z) {
+  size_t shape3D[] = {x, y, z};
+  return CreateArrNDb(3, shape3D);
 } //}}}
 // destructors //{{{
 void FreeArrNDd(ArrNDd *a);
 void FreeArrNDld(ArrNDld *a);
 void FreeArrNDi(ArrNDi *a);
 void FreeArrNDli(ArrNDli *a);
+void FreeArrNDb(ArrNDb *a);
 #define FreeArrND(a) \
   _Generic((a), \
            ArrNDd*: FreeArrNDd, \
            ArrNDld*: FreeArrNDld, \
            ArrNDi*: FreeArrNDi, \
-           ArrNDli*: FreeArrNDli)(a)
+           ArrNDli*: FreeArrNDli, \
+           ArrNDb*: FreeArrNDb)(a)
  //}}}
 // fillers //{{{
 void ArrND_double_fill(ArrNDd *a, double val);
 void ArrND_longdouble_fill(ArrNDld *a, long double val);
 void ArrND_int_fill(ArrNDi *a, int val);
 void ArrND_longint_fill(ArrNDli *a, long int val);
+void ArrND_bool_fill(ArrNDb *a, bool val);
 #define FillArrND(a, val) \
   _Generic((a), \
            ArrNDd*: ArrND_double_fill, \
            ArrNDld*: ArrND_longdouble_fill, \
            ArrNDi*: ArrND_int_fill, \
-           ArrNDli*: ArrND_longint_fill)(a, val)
+           ArrNDli*: ArrND_longint_fill, \
+           ArrNDb*: ArrND_bool_fill)(a, val)
  //}}}
 // general setters //{{{
 void ArrND_double_set(ArrNDd *a, const size_t *idx, double val);
 void ArrND_longdouble_set(ArrNDld *a, const size_t *idx, long double val);
 void ArrND_int_set(ArrNDi *a, const size_t *idx, int val);
 void ArrND_longint_set(ArrNDli *a, const size_t *idx, long int val);
+void ArrND_bool_set(ArrNDb *a, const size_t *idx, bool val);
 #define SetArrND(a, idx, val) \
   _Generic((a), \
            ArrNDd*: ArrND_double_set, \
            ArrNDld*: ArrND_longdouble_set, \
            ArrNDi*: ArrND_int_set, \
-           ArrNDli*: ArrND_longint_set)(a, idx, val)
+           ArrNDli*: ArrND_longint_set, \
+           ArrNDb*: ArrND_bool_set)(a, idx, val)
  //}}}
 // 2-dimensional setters //{{{
 static inline void Arr2D_double_set(ArrNDd *a, const size_t i,
@@ -134,12 +158,18 @@ static inline void Arr2D_longint_set(ArrNDli *a, const size_t i,
   size_t index[] = {i, j};
   ArrND_longint_set(a, index, val);
 }
+static inline void Arr2D_bool_set(ArrNDb *a, const size_t i,
+                                  const size_t j, bool val) {
+  size_t index[] = {i, j};
+  ArrND_bool_set(a, index, val);
+}
 #define SetArr2D(a, i, j, val) \
   _Generic((a), \
            ArrNDd*: Arr2D_double_set, \
            ArrNDld*: Arr2D_longdouble_set, \
            ArrNDi*: Arr2D_int_set, \
-           ArrNDli*: Arr2D_longint_set)(a, i, j, val)
+           ArrNDli*: Arr2D_longint_set, \
+           ArrNDb*: Arr2D_bool_set)(a, i, j, val)
  //}}}
 // 3-dimensional setters //{{{
 static inline void Arr3D_double_set(ArrNDd *a, const size_t i, const size_t j,
@@ -161,6 +191,11 @@ static inline void Arr3D_longint_set(ArrNDli *a, const size_t i, const size_t j,
                                      const size_t k, long int val) {
   size_t index[] = {i, j, k};
   ArrND_longint_set(a, index, val);
+}
+static inline void Arr3D_bool_set(ArrNDb *a, const size_t i, const size_t j,
+                                  const size_t k, bool val) {
+  size_t index[] = {i, j, k};
+  ArrND_bool_set(a, index, val);
 }
 #define SetArr3D(a, i, j, k, val) \
   _Generic((a), \
@@ -243,6 +278,7 @@ double ArrND_double_get(const ArrNDd *a, const size_t *idx);
 long double ArrND_longdouble_get(const ArrNDld *a, const size_t *idx);
 int ArrND_int_get(const ArrNDi *a, const size_t *idx);
 long int ArrND_longint_get(const ArrNDli *a, const size_t *idx);
+bool ArrND_bool_get(const ArrNDb *a, const size_t *idx);
 #define GetArrND(a, idx) \
   _Generic((a), \
            ArrNDd*: ArrND_double_get, \
@@ -252,7 +288,9 @@ long int ArrND_longint_get(const ArrNDli *a, const size_t *idx);
            ArrNDi*: ArrND_int_get, \
            const ArrNDi*: ArrND_int_get, \
            ArrNDli*: ArrND_longint_get, \
-           const ArrNDli*: ArrND_longint_get)(a, idx)
+           const ArrNDli*: ArrND_longint_get, \
+           ArrNDb*: ArrND_bool_get, \
+           const ArrNDb*: ArrND_bool_get)(a, idx)
  //}}}
 // 2-dimensional getters //{{{
 static inline double Arr2D_double_get(const ArrNDd *a,
@@ -275,6 +313,11 @@ static inline long int Arr2D_longint_get(const ArrNDli *a,
   size_t index[] = {i, j};
   return ArrND_longint_get(a, index);
 }
+static inline bool Arr2D_bool_get(const ArrNDb *a,
+                                  const size_t i, const size_t j) {
+  size_t index[] = {i, j};
+  return ArrND_bool_get(a, index);
+}
 #define GetArr2D(a, i, j) \
   _Generic((a), \
            ArrNDd*: Arr2D_double_get, \
@@ -284,7 +327,9 @@ static inline long int Arr2D_longint_get(const ArrNDli *a,
            ArrNDi*: Arr2D_int_get, \
            const ArrNDi*: Arr2D_int_get, \
            ArrNDli*: Arr2D_longint_get, \
-           const ArrNDli*: Arr2D_longint_get)(a, i, j)
+           const ArrNDli*: Arr2D_longint_get, \
+           ArrNDb*: Arr2D_bool_get, \
+           const ArrNDb*: Arr2D_bool_get)(a, i, j)
  //}}}
 // 3-dimensional getters //{{{
 static inline double Arr3D_double_get(const ArrNDd *a, const size_t i,
@@ -307,6 +352,11 @@ static inline long int Arr3D_longint_get(const ArrNDli *a, const size_t i,
   size_t index[] = {i, j, k};
   return ArrND_longint_get(a, index);
 }
+static inline bool Arr3D_bool_get(const ArrNDb *a, const size_t i,
+                                  const size_t j, const size_t k) {
+  size_t index[] = {i, j, k};
+  return ArrND_bool_get(a, index);
+}
 #define GetArr3D(a, i, j, k) \
   _Generic((a), \
            ArrNDd*: Arr3D_double_get, \
@@ -316,7 +366,9 @@ static inline long int Arr3D_longint_get(const ArrNDli *a, const size_t i,
            ArrNDi*: Arr3D_int_get, \
            const ArrNDi*: Arr3D_int_get, \
            ArrNDli*: Arr3D_longint_get, \
-           const ArrNDli*: Arr3D_longint_get)(a, i, j, k)
+           const ArrNDli*: Arr3D_longint_get, \
+           ArrNDb*: Arr3D_bool_get, \
+           const ArrNDb*: Arr3D_bool_get)(a, i, j, k)
  //}}}
 
 #endif

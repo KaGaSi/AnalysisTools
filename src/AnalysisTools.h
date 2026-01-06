@@ -55,6 +55,6 @@ vec3d Gyration(const int n, const int *list, SYSTEM *System);
 void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
                       const int contacts, ArrNDi *contact);
 void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
-                         SYSTEM *System);
+                         SYSTEM *System, const bool *use_bt);
 bool UseStep(const COMMON_OPT opt, int step);
 #endif

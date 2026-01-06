@@ -127,6 +127,26 @@ ArrNDli *CreateArrNDli(size_t ndim, const size_t *shape) {
   }
   return a;
 }
+ArrNDb *CreateArrNDb(size_t ndim, const size_t *shape) {
+  ArrNDb *a = malloc(sizeof *a);
+  if (!a) {
+    return NULL;
+  }
+  a->ndim = ndim;
+  if (InitNDBase(ndim, shape, &a->shape, &a->stride) != 0) {
+    free(a);
+    return NULL;
+  }
+  size_t total = CalcArrNDTotalSize(ndim, shape);
+  a->d = calloc(total, sizeof(bool));
+  if (!a->d) {
+    free(a->shape);
+    free(a->stride);
+    free(a);
+    return NULL;
+  }
+  return a;
+}
 //}}}
 // Destructors //{{{
 static void FreeBaseND(void *d, size_t *shape, size_t *stride) {
@@ -161,6 +181,13 @@ void FreeArrNDli(ArrNDli *a) {
   }
   FreeBaseND(a->d, a->shape, a->stride);
   free(a);
+}
+void FreeArrNDb(ArrNDb *a) {
+  if (!a) {
+    return;
+  }
+  FreeBaseND(a->d, a->shape, a->stride);
+  free(a);
 } //}}}
 // Fillers - fill all array elements by given value //{{{
 void ArrND_double_fill(ArrNDd *a, double v) {
@@ -186,6 +213,12 @@ void ArrND_longint_fill(ArrNDli *a, long int v) {
   for (size_t i = 0; i < total; i++) {
     a->d[i] = v;
   }
+}
+void ArrND_bool_fill(ArrNDb *a, bool v) {
+  size_t total = CalcArrNDTotalSize(a->ndim, a->shape);
+  for (size_t i = 0; i < total; i++) {
+    a->d[i] = v;
+  }
 } //}}}
 // Setters - set one element to given value //{{{
 void ArrND_double_set(ArrNDd *a, const size_t *idx, double v) {
@@ -201,6 +234,10 @@ void ArrND_int_set(ArrNDi *a, const size_t *idx, int v) {
   a->d[off] = v;
 }
 void ArrND_longint_set(ArrNDli *a, const size_t *idx, long int v) {
+  size_t off = CalcArrNDOffset(a->ndim, idx, a->stride);
+  a->d[off] = v;
+}
+void ArrND_bool_set(ArrNDb *a, const size_t *idx, bool v) {
   size_t off = CalcArrNDOffset(a->ndim, idx, a->stride);
   a->d[off] = v;
 } //}}}
@@ -235,6 +272,10 @@ int ArrND_int_get(const ArrNDi *a, const size_t *idx) {
   return a->d[off];
 }
 long int ArrND_longint_get(const ArrNDli *a, const size_t *idx) {
+  size_t off = CalcArrNDOffset(a->ndim, idx, a->stride);
+  return a->d[off];
+}
+bool ArrND_bool_get(const ArrNDb *a, const size_t *idx) {
   size_t off = CalcArrNDOffset(a->ndim, idx, a->stride);
   return a->d[off];
 }

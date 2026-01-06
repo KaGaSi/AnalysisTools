@@ -1,4 +1,5 @@
 #include "Options.h"
+#include "Arrays.h"
 #include "Errors.h"
 #include "General.h"
 #include "Globals.h"
@@ -61,6 +62,7 @@ void Help(const bool error, const struct HelpHelp help,
     }
     fprintf(ptr, "%-*s%s\n", width + 2, line, options[i].desc);
   }
+  fprintf(ptr, "[options]\n");
   // d) extra arguments
   for (size_t i = 0; options[i].opt; i++) {
     if (options[i].kind != OPT_EXTRA) {
@@ -317,14 +319,17 @@ bool TypeOption(const int argc, char **argv, const char opt[], const int mode,
   }
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], opt) == 0) {
+      // pointer to the proper function
+      int (*func)(const char *, const SYSTEM);
+      if (mode == 'b') {
+        func = &FindBeadType;
+      } else {
+        func = &FindMoleculeName;
+      }
+      // go over all the beads
       int pos = i;
       while (++pos < argc && argv[pos][0] != '-') {
-        int type;
-        if (mode == 'b') {
-          type = FindBeadType(argv[pos], System);
-        } else {
-          type = FindMoleculeName(argv[pos], System);
-        }
+        int type = func(argv[pos], System);
         if (type == -1) {
           err_msg("non-existent name");
           PrintErrorOption(opt);
@@ -344,6 +349,77 @@ bool TypeOption(const int argc, char **argv, const char opt[], const int mode,
         }
         PrintErrorOption(opt);
         exit(1);
+      }
+      return true; // option is present
+    }
+  }
+  return false; // option is not present
+} //}}}
+// tag bead/molecule type pairs true/false //{{{
+bool TypeOptionPair(const int argc, char **argv, const char opt[],
+                    const int mode, const bool use, ArrNDb *flag,
+                    const SYSTEM System) {
+  char text[9];
+  if (mode == 'b') {
+    s_strcpy(text, "bead", 9);
+  } else if (mode == 'm') {
+    s_strcpy(text, "molecule", 9);
+  } else {
+    err_msg("TypeOption(): mode must be 'b' or 'm'");
+    PrintError();
+    exit(1);
+  }
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], opt) == 0) {
+      // count type names
+      int pos = i, count_name = 0;
+      while (++pos < argc && argv[pos][0] != '-') {
+        count_name++;
+      }
+      // errors //{{{
+      // a) no name supplied
+      if (count_name == 0) {
+        if (snprintf(ERROR_MSG, LINE, "at least one %s type pair is required",
+                     text) < 0) {
+          ErrorSnprintf();
+        }
+        PrintErrorOption(opt);
+        exit(1);
+      // b) odd number of names supplied
+      } else if (count_name == 0 || (count_name % 2) != 0) {
+        if (snprintf(ERROR_MSG, LINE, "even number of %s types is required",
+                     text) < 0) {
+          ErrorSnprintf();
+        }
+        PrintErrorOption(opt);
+        exit(1);
+      } //}}}
+      // pointer to the proper function
+      int (*func)(const char *, const SYSTEM);
+      if (mode == 'b') {
+        func = &FindBeadType;
+      } else {
+        func = &FindMoleculeName;
+      }
+      // go over the names
+      for (int j = 0; j < count_name; j += 2) {
+        int type[2];
+        for (int dd = 0; dd < 2; dd++) {
+          int id = i + j + dd + 1;
+          type[dd] = func(argv[id], System);
+          if (type[dd] == -1) {
+            err_msg("non-existent name");
+            PrintErrorOption(opt);
+            if (mode == 'b') {
+              ErrorBeadType(argv[id], System);
+            } else {
+              ErrorMoleculeType(argv[id], System);
+            }
+            exit(1);
+          }
+        }
+        SetArr2D(flag, type[0], type[1], use);
+        SetArr2D(flag, type[1], type[0], use);
       }
       return true; // option is present
     }

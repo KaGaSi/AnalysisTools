@@ -69,6 +69,9 @@ bool ExcludeOption(const int argc, char **argv, SYSTEM *System);
 // tag bead/molecule types to use
 bool TypeOption(const int argc, char **argv, const char opt[], const int mode,
                 const bool use, bool *flag, const SYSTEM System);
+bool TypeOptionPair(const int argc, char **argv, const char opt[],
+                    const int mode, const bool use, ArrNDb *flag,
+                    const SYSTEM System);
 // general boolean option
 bool BoolOption(const int argc, char **argv, const char *opt);
 // general option with multiple integer/double arguments

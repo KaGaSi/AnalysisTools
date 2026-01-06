@@ -7,8 +7,11 @@ const struct HelpHelp HelpDesc = {
   "the basis of given parameters - the maximum distance at which a pair of"
   "beads from different molecules is considered in contact and the minimum "
   "number of such contacts between two molecules to consider them as belonging "
-  "to the same aggregate. Only distances between specified bead types are "
-  "considered. Information about aggregates in each timestep is written to "
+  "to the same aggregate. Only distances between specified bead type pairs are "
+  "considered; these pairs may be defined either explicitly (via --pairs and "
+  "-bt options) or as all possible bead pairs (either between all bead types "
+  "or bead types specified by -bt option). "
+  "Information about aggregates in each timestep is written to "
   "'.agg' file (see documentation for the format of this file), and Cartesian "
   "coordinates of joined aggregates can be written to an output coordinate "
   "file (to be used for visualization or further analysis by other utilities). "
@@ -20,7 +23,7 @@ const struct HelpHelp HelpDesc = {
   "into two files whose names are based on <out.agg> ('_w' and '_b' is "
   "prepended in front of the .agg extension)",
 
-  "Usage: Aggregates <coor> <out.agg> <bead(s)>/--all [options]",
+  "Usage: Aggregates <coor> <out.agg> [options]",
   .args = 2, // number of mandatory arguments
   .all = 16, // number of valid lines OptSpec (not counting last {NULL})
 };
@@ -35,8 +38,8 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_VERSION],
   {"<coor>", NULL, "input coordinate file", OPT_ARG},
   {"<out.agg>", NULL, "output aggregate file", OPT_ARG},
-  {"<bead(s)>/--all", NULL, "bead names for closeness calculation", OPT_ARG},
-  {"--all", NULL, "use all types (overwrites <bead(s)>)", OPT_EXTRA},
+  {"-bt", "<bead(s)>", "bead types to use for closeness calculation (default: all)", OPT_EXTRA},
+  {"--pairs", NULL, "-bt option specifies bead pairs instead (default: all possible pairs)", OPT_EXTRA},
   {"-d", "<float>", "maximum distance for contact (default: 1)", OPT_EXTRA},
   {"-c", "<float>", "minimum number of contacts (default: 1, max: 255)", OPT_EXTRA},
   {"-j", "<coor>", "output file with joined coordinates", OPT_EXTRA},
@@ -46,30 +49,36 @@ static const struct OptSpec opts[] = {
 
 // structure for options //{{{
 struct OPT {
-  double cutoff;      // -d
+  double cutoff;        // -d
   int contacts;         // -c
   FILE_TYPE fout;       // -j
   double wall[100];     // -w
   int w_count, axis;    // -w
   char w_file[2][LINE]; // -w
   FILE_TYPE j_file[2];  // -w (if -j)
-  bool all;             // --all
+  bool pairs;           // --pairs
 }; //}}}
 
 // detect possible contact between two beads //{{{
 void CalculateContacts(const int id_i, const int id_j, SYSTEM System,
-                       const double dist, ArrNDi *contact) {
+                       const double dist, ArrNDi *contact,
+                       const ArrNDb *use_bt_pair) {
   int i = System.BeadCoor[id_i];
   int j = System.BeadCoor[id_j];
-  int mol_i = System.Bead[i].Molecule;
-  int mol_j = System.Bead[j].Molecule;
-  vec3d *pos_i = &System.Bead[i].Position;
-  vec3d *pos_j = &System.Bead[j].Position;
+  BEAD *b_i = &System.Bead[i];
+  BEAD *b_j = &System.Bead[j];
+  // skip if the the pair isn't to be used
+  if (!GetArr2D(use_bt_pair, b_i->Type, b_j->Type)) {
+    return;
+  }
+  int mol_i = b_i->Molecule;
+  int mol_j = b_j->Molecule;
+  vec3d *pos_i = &b_i->Position;
+  vec3d *pos_j = &b_j->Position;
   vec3d rij = Distance(pos_i->v, pos_j->v, System.Box.Length);
   rij.v[0] = VectLength(rij);
   // are 'i' and 'j' close enough?
-  if (System.Bead[i].Molecule != System.Bead[j].Molecule &&
-      rij.v[0] <= dist) {
+  if (mol_i != mol_j && rij.v[0] <= dist) {
     if (mol_i > mol_j) {
       AddArr2D(contact, mol_i, mol_j, 1);
     } else {
@@ -81,19 +90,19 @@ void CalculateContacts(const int id_i, const int id_j, SYSTEM System,
 struct contacts_args {
   double dist;
   ArrNDi *contact;
+  ArrNDb *use_bt_pair;
 };
 // adaptor for the CalculateContacts() function
 static void CalculateContacts_adaptor(int id_i, int id_j,
                                       const SYSTEM System, void *ud) {
   struct contacts_args *p = (struct contacts_args*)ud;
-  CalculateContacts(id_i, id_j, System, p->dist, p->contact);
+  CalculateContacts(id_i, id_j, System, p->dist, p->contact, p->use_bt_pair);
 } //}}}
 // condition for using specified beads //{{{
-static bool CheckBead(int id, SYSTEM System) {
+static bool CheckBead(int id, SYSTEM System, bool *use_bt) {
   int i = System.BeadCoor[id];
   int btype = System.Bead[i].Type;
-  if (!System.BeadType[btype].Flag ||
-      System.Bead[i].Molecule == -1) {
+  if (!use_bt[btype] || System.Bead[i].Molecule == -1) {
     return false;
   } else {
     return true;
@@ -101,15 +110,18 @@ static bool CheckBead(int id, SYSTEM System) {
 }
 // structure for the callback function (empty as only System is needed here)
 struct check_args {
+  bool *use_bt;
 };
 // adaptor for the CalculatePCF() function
-static bool CheckBead_adaptor(int type, SYSTEM System, void *ud) {
-  return CheckBead(type, System);
+static bool CheckBead_adaptor(int type, SYSTEM System, void *userdata) {
+  struct check_args *p = (struct check_args*)userdata;
+  return CheckBead(type, System, p->use_bt);
 } //}}}
 
 // CalculateAggregates() //{{{
 // note the function doesn't fill in Aggregate[].Bead[] as it's not used here
-void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
+void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
+                         OPT opt, bool *use_bt, ArrNDb *use_bt_pair) {
   double sqdist = Square(opt.cutoff);
   COUNT *Count = &System->Count;
   Count->Aggregate = 0;
@@ -131,8 +143,8 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
   }
   // calculate contact pairs
   double cell_size = sqrt(sqdist);
-  struct contacts_args args = { sqrt(sqdist), contact};
-  struct check_args check = { };
+  struct contacts_args args = { sqrt(sqdist), contact, use_bt_pair };
+  struct check_args check = { use_bt };
   TraversePairs(*System, cell_size, CalculateContacts_adaptor, &args,
                 CheckBead_adaptor, &check);
 
@@ -150,16 +162,16 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System, OPT opt) {
 
 // aggregate calculation //{{{
 void Calculation(SYSTEM *System, STEP step, OPT opt, COMMON_OPT commons,
-                 AGGREGATE *Aggregate, char agg_file[LINE],
-                 const int argc, char **argv) {
+                 AGGREGATE *Aggregate, char agg_file[LINE], bool *use_bt,
+                 ArrNDb *use_bt_pair, const int argc, char **argv) {
   COUNT *Count = &System->Count;
   WrapJoinCoordinates(System, true, false);
-  CalculateAggregates(Aggregate, System, opt);
+  CalculateAggregates(Aggregate, System, opt, use_bt, use_bt_pair);
   // calculate & write joined coordinatest (-j option)
   if (opt.fout.name[0] != '\0') {
     FillAggregateBeads(Aggregate, *System);
     WrapJoinCoordinates(System, false, true);
-    RemovePBCAggregates(opt.cutoff, Aggregate, System);
+    RemovePBCAggregates(opt.cutoff, Aggregate, System, use_bt);
     bool *write = calloc(Count->Bead, sizeof *write);
     if (!write) {
       ErrorAlloc("write");
@@ -256,12 +268,14 @@ struct user_data {
   char *agg_file;
   int argc;
   char **argv;
+  bool *use_bt;
+  ArrNDb *use_bt_pair;
 };
 // adaptor for the Calculation() function
 static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
   struct user_data *p = (struct user_data*)userdata;
   Calculation(System, *step, p->opt, p->commons, p->Aggregate,
-              p->agg_file, p->argc, p->argv);
+              p->agg_file, p->use_bt, p->use_bt_pair, p->argc, p->argv);
 };
 
 int main(int argc, char *argv[]) {
@@ -287,7 +301,7 @@ int main(int argc, char *argv[]) {
     Help(true, HelpDesc, opts);
     exit(1);
   } //}}}
-  // options before reading system data //{{{
+  // options before reading system data
   COMMON_OPT commons = CommonOptions(argc, argv, in);
   // -j option - save coordinates of joined aggregates
   opt.fout = InitFile;
@@ -345,7 +359,7 @@ int main(int argc, char *argv[]) {
       }
     }
   } //}}}
-  opt.all = BoolOption(argc, argv, "--all"); //}}}
+  opt.pairs = BoolOption(argc, argv, "--pairs");
   //}}}
 
   if (!commons.silent) {
@@ -360,41 +374,82 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  // <bead(s)> - names of bead types to use for closeness calculation //{{{
-  if (opt.all) {
-    for (int i = 0; i < Count->BeadType; i++) {
-      System.BeadType[i].Flag = true;
-    }
-  } else {
-    // missing --all as well as any bead type(s)
-    // TODO: necessary to assign false? Well, Flag will not be used!
-    for (int i = 0; i < Count->BeadType; i++) {
-      System.BeadType[i].Flag = false;
-    }
-    while (++count < argc && argv[count][0] != '-') {
-      int type = FindBeadType(argv[count], System);
-      if (type == -1) {
-        err_msg("non-existent bead name");
-        PrintError();
-        ErrorBeadType(argv[count], System);
-        exit(1);
-      }
-      if (System.BeadType[type].Flag) {
-        snprintf(ERROR_MSG, LINE, "bead type %s%s%s specified more than once",
-                 ErrYellow(), argv[count], ErrCyan());
-        PrintWarning();
-      }
-      System.BeadType[type].Flag = true;
-    }
-    count--; // while() always increments count at least once
-    if (count < (HelpDesc.args + 1)) {
-      err_msg("missing <bead(s)> or --all option");
-      PrintError();
-      PrintCommand(stderr, argc, argv);
-      Help(true, HelpDesc, opts);
+  // theoretically possible to use bead type?
+  // Used in the CheckBead() as that checks only one bead
+  bool *use_bt = calloc(Count->BeadType, sizeof *use_bt);
+  // use bead type pair?
+  // Used in the CalculateAggregates() to cross out unwanted pairs
+  ArrNDb *use_bt_pair = CreateArr2Db(Count->BeadType, Count->BeadType);
+  if (!use_bt || !use_bt_pair) {
+    ErrorAlloc("use_bt/use_bt_pair");
+  }
+  if (opt.pairs) {
+    if (!TypeOptionPair(argc, argv, "-bt", 'b', true, use_bt_pair, System)) {
+      err_msg("option -bt is mandatory in this case");
+      PrintErrorOption("--pairs");
       exit(1);
     }
-  } //}}}
+    TypeOption(argc, argv, "-bt", 'b', true, use_bt, System);
+  } else {
+    if (TypeOption(argc, argv, "-bt", 'b', true, use_bt, System)) {
+      for (int i = 0; i < Count->BeadType; i++) {
+        for (int j = 0; j < Count->BeadType; j++) {
+          if (use_bt[i] && use_bt[j]) {
+            SetArr2D(use_bt_pair, i, j, true);
+          } else {
+            SetArr2D(use_bt_pair, i, j, false);
+          }
+        }
+      }
+    } else {
+      FillArrND(use_bt_pair, true);
+    }
+  }
+  // <bead(s)> - names of bead types to use for closeness calculation //{{{
+  // if (opt.all) {
+  //   for (int i = 0; i < Count->BeadType; i++) {
+  //     System.BeadType[i].Flag = true;
+  //   }
+  // } else {
+  //   bool *use_bt = calloc(Count->BeadType, sizeof *use_bt);
+  //   TypeOption(argc, argv, "-bt", 'b', true, use_bt, System);
+  //   for (int i = 0; i < Count->BeadType; i++) {
+  //     if (use_bt[i]) {
+  //       System.BeadType[i].Flag = true;
+  //     } else {
+  //       System.BeadType[i].Flag = false;
+  //     }
+  //   }
+  //   free(use_bt);
+  //   // // missing --all as well as any bead type(s)
+  //   // // TODO: necessary to assign false? Well, Flag will not be used!
+  //   // for (int i = 0; i < Count->BeadType; i++) {
+  //   //   System.BeadType[i].Flag = false;
+  //   // }
+  //   // while (++count < argc && argv[count][0] != '-') {
+  //   //   int type = FindBeadType(argv[count], System);
+  //   //   if (type == -1) {
+  //   //     err_msg("non-existent bead name");
+  //   //     PrintError();
+  //   //     ErrorBeadType(argv[count], System);
+  //   //     exit(1);
+  //   //   }
+  //   //   if (System.BeadType[type].Flag) {
+  //   //     snprintf(ERROR_MSG, LINE, "bead type %s%s%s specified more than once",
+  //   //              ErrYellow(), argv[count], ErrCyan());
+  //   //     PrintWarning();
+  //   //   }
+  //   //   System.BeadType[type].Flag = true;
+  //   // }
+  //   // count--; // while() always increments count at least once
+  //   // if (count < (HelpDesc.args + 1)) {
+  //   //   err_msg("missing <bead(s)> or --all option");
+  //   //   PrintError();
+  //   //   PrintCommand(stderr, argc, argv);
+  //   //   Help(true, HelpDesc, opts);
+  //   //   exit(1);
+  //   // }
+  // } //}}}
 
   // print command to output .agg (and, possibly, coordinate) file
   PrintByline(agg_file, argc, argv);
@@ -418,7 +473,8 @@ int main(int argc, char *argv[]) {
   }
 
   STEP step = InitStep;
-  struct user_data ud = { opt, commons, Aggregate, agg_file, argc, argv };
+  struct user_data ud = { opt, commons, Aggregate, agg_file, argc, argv,
+                          use_bt, use_bt_pair };
   MainLoopCoor(&System, in, commons, &step, Calculation_adaptor, &ud);
 
   // print last step number to <output.agg>
@@ -436,6 +492,8 @@ int main(int argc, char *argv[]) {
 
   FreeAggregate(*Count, Aggregate);
   FreeSystem(&System);
+  free(use_bt);
+  FreeArrND(use_bt_pair);
 
   return 0;
 }

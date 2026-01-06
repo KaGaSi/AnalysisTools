@@ -756,9 +756,8 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
   } //}}}
 } //}}}
 // RemovePBCAggregates() //{{{
- // TODO: don't use Flag
 void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
-                         SYSTEM *System) {
+                         SYSTEM *System, const bool *use_bt) {
   COUNT *Count = &System->Count;
   int **mol_eligible_beads = malloc(Count->MoleculeType * sizeof(int *));
   int *count_eligible_beads = malloc(Count->MoleculeType *
@@ -770,7 +769,7 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
     mol_eligible_beads[i] = malloc(mt->nBeads * sizeof(int));
     count_eligible_beads[i] = 0;
     for (int j = 0; j < mt->nBeads; j++) {
-      if (System->BeadType[mt->Bead[j]].Flag) {
+      if (use_bt[mt->Bead[j]]) {
         mol_eligible_beads[i][count_eligible_beads[i]] = j;
         count_eligible_beads[i]++;
         eligible = true;

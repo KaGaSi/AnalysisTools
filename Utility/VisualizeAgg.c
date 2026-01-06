@@ -1,4 +1,5 @@
 #include "../src/AnalysisTools.h"
+#include <stdlib.h>
 // TODO: create arrays mapping Bead[id] to BeadCoor[i]=id (and for other xCoor?)
 // TODO: implement -x, -m, and -only options (via AggPicker thingy)
 //       ...either -n (instead of --range) or -size <int(s)>; at any rate,
@@ -415,7 +416,11 @@ int main(int argc, char *argv[]) {
   while (getc(agg) != '\n')
     ;
   // read Aggregates command if --join is used or...
+  bool *join_bt = NULL;
   if (opt.join) {
+    if (!(join_bt = calloc(Count->BeadType, *join_bt))) {
+      ErrorAlloc("join_bt");
+    }
     ReadAndSplitLine(agg, SPL_STR, " \t\n");
     // find & flag bead types
     for (count = 5; count < words && split[count][0] != '-'; count++) {
@@ -486,7 +491,7 @@ int main(int argc, char *argv[]) {
       if (opt.join) {
         WrapJoinCoordinates(&System, false, true);
         // TODO: distance=1 for now; read agg command (check for -d opt)
-        RemovePBCAggregates(distance, Aggregate, &System);
+        RemovePBCAggregates(distance, Aggregate, &System, join_bt);
       }
       for (int i = 0; i < Count->Aggregate; i++) {
         // use the aggregate?
@@ -548,6 +553,7 @@ int main(int argc, char *argv[]) {
   FreeSystem(&System);
   free(write);
   free(agg_sizes);
+  free(join_bt);
   //}}}
 
   return 0;

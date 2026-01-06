@@ -156,10 +156,14 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   // bead types for connecting aggregates
+  bool *join_bt = calloc(Count->BeadType, sizeof *join_bt);
+  if (!join_bt) {
+    ErrorAlloc("join_bt");
+  }
   for (int i = 5; i < words && split[i][0] != '-'; i++) {
     int type = FindBeadType(split[i], System);
-    if (type != -1) { // TODO: don't use Flag (RemovePBCAggregates function)
-      System.BeadType[type].Flag = true;
+    if (type != -1) {
+      join_bt[type] = true;
     }
   }
   // redefine distance if -d option is present
@@ -231,7 +235,7 @@ int main(int argc, char *argv[]) {
         //   }
         //   putchar('\n');
         // }
-        RemovePBCAggregates(distance, Aggregate, &System);
+        RemovePBCAggregates(distance, Aggregate, &System, join_bt);
         // printf("OK\n");
       }
       ArrNDd *rho_temp = CreateArr3Dd(Count->BeadType, aggs, bins);
@@ -424,5 +428,6 @@ int main(int argc, char *argv[]) {
   FreeArrND(agg_mols);
   FreeArrND(rho);
   FreeArrND(rho_2);
+  free(join_bt);
   return 0;
 }
