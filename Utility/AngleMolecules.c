@@ -44,6 +44,145 @@ struct OPT {
   char n_file[LINE]; // -n (output file)
 }; //}}}
 
+void Calculation(SYSTEM *System, OPT opt, ArrNDd *ang, ArrNDd *ang_mma,
+                 ArrNDd *ang_all, ArrNDd *ang_all_mma,
+                 ArrNDd *ang_n, ArrNDd *ang_n_mma,
+                 double width, int bins, int n_per_set) {
+  COUNT *Count = &System->Count;
+  WrapJoinCoordinates(System, true, opt.join);
+  // calculate angles //{{{
+  // go through all molecules
+  // TODO: make into for (mtype); for (mtype.index)
+  for (int i = 0; i < Count->Molecule; i++) {
+    MOLECULE *mol_i = &System->Molecule[i];
+    MOLECULETYPE *mt_i = &System->MoleculeType[mol_i->Type];
+    if (opt.mt[mol_i->Type]) { // use only specified molecule types
+      for (int j = 0; j < mt_i->nAngles; j++) {
+        // bead ids in the angle
+        int id1 = mol_i->Bead[mt_i->Angle[j][0]],
+            id2 = mol_i->Bead[mt_i->Angle[j][1]],
+            id3 = mol_i->Bead[mt_i->Angle[j][2]];
+        BEAD *b_1 = &System->Bead[id1],
+             *b_2 = &System->Bead[id2],
+             *b_3 = &System->Bead[id3];
+        // calculate angle between the two vectors in degrees
+        vec3d u = Vector(b_1->Position, b_2->Position);
+        vec3d v = Vector(b_3->Position, b_2->Position);
+        double angle = AngleDegrees(u, v);
+        // btype1 must be lower than btype3
+        int *id_lo, *id_hi;
+        if (b_1->Type < b_3->Type) {
+          id_lo = &b_1->Type;
+          id_hi = &b_3->Type;
+        } else {
+          id_lo = &b_3->Type;
+          id_hi = &b_1->Type;
+        }
+
+        // mins & maxes & averages //{{{
+        size_t shape5D_0[5] = {mol_i->Type, *id_lo, b_2->Type, *id_hi, 0};
+        size_t shape5D_1[5] = {mol_i->Type, *id_lo, b_2->Type, *id_hi, 1};
+        size_t shape5D_2[5] = {mol_i->Type, *id_lo, b_2->Type, *id_hi, 2};
+        if (angle < GetArrND(ang_mma, shape5D_0)) {
+          SetArrND(ang_mma, shape5D_0, angle);
+        } else if (angle > GetArrND(ang_mma, shape5D_1)) {
+          SetArrND(ang_mma, shape5D_1, angle);
+        }
+        AddArrND(ang_mma, shape5D_2, angle);
+        if (opt.all) {
+          // if (angle < ang_all_mma[mol_i->Type][j][0]) {
+          if (angle < GetArr3D(ang_all_mma, mol_i->Type, j, 0)) {
+            // ang_all_mma[mol_i->Type][j][0] = angle;
+            SetArr3D(ang_all_mma, mol_i->Type, j, 0, angle);
+          // } else if (angle > ang_all_mma[mol_i->Type][j][1]) {
+          } else if (angle > GetArr3D(ang_all_mma, mol_i->Type, j, 1)) {
+            // ang_all_mma[mol_i->Type][j][1] = angle;
+            SetArr3D(ang_all_mma, mol_i->Type, j, 1, angle);
+          }
+          // ang_all_mma[mol_i->Type][j][2] += angle;
+          AddArr3D(ang_all_mma, mol_i->Type, j, 2, angle);
+        }
+        //}}}
+
+        int k = angle / width;
+        if (k < bins) {
+          size_t shape5D[5] = {mol_i->Type, *id_lo, b_2->Type, *id_hi, k};
+          AddArrND(ang, shape5D, 1);
+          if (opt.all) {
+            // ang_all[mol_i->Type][j][k]++;
+            AddArr3D(ang_all, mol_i->Type, j, k, 1);
+          }
+        }
+      }
+    }
+  } //}}}
+  // calculate extra angle (-n option) //{{{
+  if (opt.n_file[0] != '\0') {
+    for (int i = 0; i < Count->Molecule; i++) {
+      MOLECULE *mol_i = &System->Molecule[i];
+      MOLECULETYPE *mt_i = &System->MoleculeType[mol_i->Type];
+      if (opt.mt[mol_i->Type]) { // use only specified molecule types
+        for (int j = 0; j < opt.n_number; j += n_per_set) {
+          // ignore the angle if any index is too high
+          if (opt.n_list[j] > mt_i->nBeads ||
+              opt.n_list[j+1] > mt_i->nBeads ||
+              opt.n_list[j+2] > mt_i->nBeads) {
+            continue;
+          }
+          // bead ids in the angle
+          int id1 = mol_i->Bead[opt.n_list[j]-1],
+              id2 = mol_i->Bead[opt.n_list[j+1]-1],
+              id3 = mol_i->Bead[opt.n_list[j+2]-1];
+          BEAD *b_1 = &System->Bead[id1],
+               *b_2 = &System->Bead[id2],
+               *b_3 = &System->Bead[id3];
+          // calculate angle between the two vectors in degrees
+          vec3d u = Vector(b_1->Position, b_2->Position);
+          vec3d v = Vector(b_3->Position, b_2->Position);
+          double angle = AngleDegrees(u, v);
+          // mins & maxes & averages //{{{
+          // if (angle < ang_n_mma[mol_i->Type][j/n_per_set][0]) {
+          if (angle < GetArr3D(ang_n_mma, mol_i->Type, j / n_per_set, 0)) {
+            // ang_n_mma[mol_i->Type][j/n_per_set][0] = angle;
+            SetArr3D(ang_n_mma, mol_i->Type, j / n_per_set, 0, angle);
+          // } else if (angle > ang_n_mma[mol_i->Type][j/n_per_set][1]) {
+          } else if (angle > GetArr3D(ang_n_mma, mol_i->Type,
+                                      j / n_per_set, 1)) {
+            // ang_n_mma[mol_i->Type][j/n_per_set][1] = angle;
+            SetArr3D(ang_n_mma, mol_i->Type, j / n_per_set, 1, angle);
+          }
+          // ang_n_mma[mol_i->Type][j/n_per_set][2] += angle;
+          AddArr3D(ang_n_mma, mol_i->Type, j / n_per_set, 2, angle);
+          //}}}
+          int k = angle / width;
+          if (k < bins) {
+            // ang_n[mol_i->Type][j/n_per_set][k]++;
+            AddArr3D(ang_n, mol_i->Type, j / n_per_set, k, 1);
+          }
+        }
+      }
+    }
+  } //}}}
+}
+// structure for the callback function
+struct user_data {
+  OPT opt;
+  ArrNDd *ang, *ang_mma,
+         *ang_all, *ang_all_mma,
+         *ang_n, *ang_n_mma;
+  double width;
+  int bins, n_per_set;
+};
+// adaptor for the Calculation() function
+static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
+  struct user_data *p = (struct user_data*)userdata;
+  Calculation(System,
+              p->opt, p->ang, p->ang_mma,
+              p->ang_all, p->ang_all_mma,
+              p->ang_n, p->ang_n_mma,
+              p->width, p->bins, p->n_per_set);
+};
+
 int main(int argc, char *argv[]) {
 
   // commad line arguments before reading the structure //{{{
@@ -201,152 +340,12 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
 
-  // main loop //{{{
-  FILE *fr = OpenFile(in.coor.name, "r");
-  int count_coor = 0, // count steps in the vcf file
-      count_used = 0, // count steps in output file
-      line_count = 0; // count lines in the vcf file
-  while (true) {
-    PrintStep(&count_coor, commons.start, commons.silent);
-    // use every skip-th timestep between start and end
-    bool use = false;
-    if (UseStep(commons, count_coor)) {
-      use = true;
-    }
-    if (use) { //{{{
-      if (!ReadTimestep(in, fr, &System, &line_count)) {
-        count_coor--;
-        break;
-      }
-      count_used++;
-      WrapJoinCoordinates(&System, true, opt.join);
-      // calculate angles //{{{
-      // go through all molecules
-      // TODO: make into for (mtype); for (mtype.index)
-      for (int i = 0; i < Count->Molecule; i++) {
-        MOLECULE *mol_i = &System.Molecule[i];
-        MOLECULETYPE *mt_i = &System.MoleculeType[mol_i->Type];
-        if (opt.mt[mol_i->Type]) { // use only specified molecule types
-          for (int j = 0; j < mt_i->nAngles; j++) {
-            // bead ids in the angle
-            int id1 = mol_i->Bead[mt_i->Angle[j][0]],
-                id2 = mol_i->Bead[mt_i->Angle[j][1]],
-                id3 = mol_i->Bead[mt_i->Angle[j][2]];
-            BEAD *b_1 = &System.Bead[id1],
-                 *b_2 = &System.Bead[id2],
-                 *b_3 = &System.Bead[id3];
-            // calculate angle between the two vectors in degrees
-            vec3d u = Vector(b_1->Position, b_2->Position);
-            vec3d v = Vector(b_3->Position, b_2->Position);
-            double angle = AngleDegrees(u, v);
-            // btype1 must be lower than btype3
-            int *id_lo, *id_hi;
-            if (b_1->Type < b_3->Type) {
-              id_lo = &b_1->Type;
-              id_hi = &b_3->Type;
-            } else {
-              id_lo = &b_3->Type;
-              id_hi = &b_1->Type;
-            }
-
-            // mins & maxes & averages //{{{
-            size_t shape5D_0[5] = {mol_i->Type, *id_lo, b_2->Type, *id_hi, 0};
-            size_t shape5D_1[5] = {mol_i->Type, *id_lo, b_2->Type, *id_hi, 1};
-            size_t shape5D_2[5] = {mol_i->Type, *id_lo, b_2->Type, *id_hi, 2};
-            if (angle < GetArrND(ang_mma, shape5D_0)) {
-              SetArrND(ang_mma, shape5D_0, angle);
-            } else if (angle > GetArrND(ang_mma, shape5D_1)) {
-              SetArrND(ang_mma, shape5D_1, angle);
-            }
-            AddArrND(ang_mma, shape5D_2, angle);
-            if (opt.all) {
-              // if (angle < ang_all_mma[mol_i->Type][j][0]) {
-              if (angle < GetArr3D(ang_all_mma, mol_i->Type, j, 0)) {
-                // ang_all_mma[mol_i->Type][j][0] = angle;
-                SetArr3D(ang_all_mma, mol_i->Type, j, 0, angle);
-              // } else if (angle > ang_all_mma[mol_i->Type][j][1]) {
-              } else if (angle > GetArr3D(ang_all_mma, mol_i->Type, j, 1)) {
-                // ang_all_mma[mol_i->Type][j][1] = angle;
-                SetArr3D(ang_all_mma, mol_i->Type, j, 1, angle);
-              }
-              // ang_all_mma[mol_i->Type][j][2] += angle;
-              AddArr3D(ang_all_mma, mol_i->Type, j, 2, angle);
-            }
-            //}}}
-
-            int k = angle / width;
-            if (k < bins) {
-              size_t shape5D[5] = {mol_i->Type, *id_lo, b_2->Type, *id_hi, k};
-              AddArrND(ang, shape5D, 1);
-              if (opt.all) {
-                // ang_all[mol_i->Type][j][k]++;
-                AddArr3D(ang_all, mol_i->Type, j, k, 1);
-              }
-            }
-          }
-        }
-      } //}}}
-      // calculate extra angle (-n option) //{{{
-      if (opt.n_file[0] != '\0') {
-        for (int i = 0; i < Count->Molecule; i++) {
-          MOLECULE *mol_i = &System.Molecule[i];
-          MOLECULETYPE *mt_i = &System.MoleculeType[mol_i->Type];
-          if (opt.mt[mol_i->Type]) { // use only specified molecule types
-            for (int j = 0; j < opt.n_number; j += n_per_set) {
-              // ignore the angle if any index is too high
-              if (opt.n_list[j] > mt_i->nBeads ||
-                  opt.n_list[j+1] > mt_i->nBeads ||
-                  opt.n_list[j+2] > mt_i->nBeads) {
-                continue;
-              }
-              // bead ids in the angle
-              int id1 = mol_i->Bead[opt.n_list[j]-1],
-                  id2 = mol_i->Bead[opt.n_list[j+1]-1],
-                  id3 = mol_i->Bead[opt.n_list[j+2]-1];
-              BEAD *b_1 = &System.Bead[id1],
-                   *b_2 = &System.Bead[id2],
-                   *b_3 = &System.Bead[id3];
-              // calculate angle between the two vectors in degrees
-              vec3d u = Vector(b_1->Position, b_2->Position);
-              vec3d v = Vector(b_3->Position, b_2->Position);
-              double angle = AngleDegrees(u, v);
-              // mins & maxes & averages //{{{
-              // if (angle < ang_n_mma[mol_i->Type][j/n_per_set][0]) {
-              if (angle < GetArr3D(ang_n_mma, mol_i->Type, j / n_per_set, 0)) {
-                // ang_n_mma[mol_i->Type][j/n_per_set][0] = angle;
-                SetArr3D(ang_n_mma, mol_i->Type, j / n_per_set, 0, angle);
-              // } else if (angle > ang_n_mma[mol_i->Type][j/n_per_set][1]) {
-              } else if (angle > GetArr3D(ang_n_mma, mol_i->Type,
-                                          j / n_per_set, 1)) {
-                // ang_n_mma[mol_i->Type][j/n_per_set][1] = angle;
-                SetArr3D(ang_n_mma, mol_i->Type, j / n_per_set, 1, angle);
-              }
-              // ang_n_mma[mol_i->Type][j/n_per_set][2] += angle;
-              AddArr3D(ang_n_mma, mol_i->Type, j / n_per_set, 2, angle);
-              //}}}
-              int k = angle / width;
-              if (k < bins) {
-                // ang_n[mol_i->Type][j/n_per_set][k]++;
-                AddArr3D(ang_n, mol_i->Type, j / n_per_set, k, 1);
-              }
-            }
-          }
-        }
-      } //}}}
-      //}}}
-    } else {
-      if (!SkipTimestep(in, fr, &line_count)) {
-        count_coor--;
-        break;
-      }
-    }
-    // exit the main loop if reached user-specied end timestep
-    if (count_coor == commons.end) {
-      break;
-    }
-  }
-  fclose(fr);
-  PrintLastStep(count_coor, count_used, commons.silent); //}}}
+  STEP step = InitStep;
+  struct user_data ud = { opt, ang, ang_mma,
+                          ang_all, ang_all_mma,
+                          ang_n, ang_n_mma,
+                          width, bins, n_per_set };
+  MainLoopCoor(&System, in, commons, &step, Calculation_adaptor, &ud);
 
   // sum up all angles in molecules (normalization factor) //{{{
   // BeadType-BeadType-BeadType angles
