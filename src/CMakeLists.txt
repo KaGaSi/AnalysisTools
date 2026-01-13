@@ -80,9 +80,10 @@ add_library(AnalysisTools
 
 # List of utilities
 set(UTILS
-  AggNumber
   AddToSystem
+  AggNumber
   Aggregates
+  AggResidence
   AngleMolecules
   Average
   BondLength
