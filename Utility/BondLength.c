@@ -2,6 +2,7 @@
 // TODO: -n option - segfault
 // TODO: -t + --all option - not all bonds in the the -t file
 //       requires adding step_bond_all array (or some such)
+// TODO: helper functions to static ..() and define at the file end
 
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
@@ -49,71 +50,218 @@ struct OPT {
        t_file[LINE]; // -t (output file)
 }; //}}}
 
-// write mins, maxes, and averages //{{{
-void WriteMinsMaxesAverages(FILE *fw, SYSTEM System, struct OPT opt,
-                            ArrNDd *bond_bt_mma, ArrNDi *bond_bt_norm,
-                            ArrNDd *bond_all_mma, ArrNDi *bond_all_norm) {
-  fprintf(fw, "# min(1st columns)/max(2nd columns)/average(3rd columns)\n");
-  COUNT *Count = &System.Count;
-  int count = 1;
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    MOLECULETYPE *mt = &System.MoleculeType[i];
-    if (opt.mt[i] && mt->nBonds > 0) {
-      fprintf(fw, "# %s molecule:", mt->Name);
-      for (int j = 0; j < mt->nBTypes; j++) {
-        for (int k = j; k < mt->nBTypes; k++) {
-          int btype1 = mt->BType[j],
-              btype2 = mt->BType[k];
-          if (btype1 > btype2) {
-            SwapInt(&btype1, &btype2);
+// helper functions //{{{
+// write mins, maxes, and averages
+static void WriteMinsMaxesAvgs(FILE *fw, SYSTEM System, OPT opt,
+                                   ArrNDd *bond_bt_mma, ArrNDi *bond_bt_norm,
+                                   ArrNDd *bond_all_mma, ArrNDi *bond_all_norm);
+// are the provided bead types bonded?
+static bool BondedPair(MOLECULETYPE mt, int btype[2]); //}}}
+
+void Calculation(SYSTEM *System, STEP step, OPT opt,
+                 ArrNDd *bond_bt, ArrNDd *bond_bt_mma,
+                 ArrNDd *bond_all, ArrNDd *bond_all_mma,
+                 ArrNDd *bond_n, ArrNDd *bond_n_mma,
+                 double width, int bins, int n_per_set) {
+  COUNT *Count = &System->Count;
+  WrapJoinCoordinates(System, true, opt.join);
+  // per-timestep arrays //{{{
+  ArrNDd *per_step = CreateArr3Dd(Count->MoleculeType,
+                                  Count->BeadType, Count->BeadType);
+  ArrNDi *per_step_c = CreateArr3Di(Count->MoleculeType,
+                                    Count->BeadType, Count->BeadType);
+  if (!per_step || !per_step_c) {
+    ErrorAlloc("step/step_c");
+  }
+  ArrNDd *step_t = NULL;
+  ArrNDi *step_t_c = NULL;
+  if (opt.t_file[0] != '\0') {
+    if (!(step_t = CreateArr2Dd(opt.n_number, opt.n_number)) ||
+        !(step_t_c = CreateArr2Di(opt.n_number, opt.n_number))) {
+      ErrorAlloc("step_t/step_t_c");
+    }
+  } //}}}
+  // calculate bond lengths //{{{
+  // go through all molecules
+  // TODO: make into for (mtype); for (mtype.index)
+  for (int i = 0; i < Count->Molecule; i++) {
+    MOLECULE *mol_i = &System->Molecule[i];
+    MOLECULETYPE *mt_i = &System->MoleculeType[mol_i->Type];
+    if (opt.mt[mol_i->Type]) { // use only specified molecule types
+      for (int j = 0; j < mt_i->nBonds; j++) {
+        // bead ids in the bond
+        int id1 = mol_i->Bead[mt_i->Bond[j][0]],
+            id2 = mol_i->Bead[mt_i->Bond[j][1]];
+        BEAD *b_1 = &System->Bead[id1],
+             *b_2 = &System->Bead[id2];
+        // bond length
+        vec3d bond = Vector(b_1->Position, b_2->Position);
+        bond.v[0] = VectLength(bond);
+        // warn if bond is too long //{{{
+        if (opt.warn != HIGHNUM && bond.v[0] > opt.warn) {
+          snprintf(ERROR_MSG, LINE, "-w option; too long a bond between "
+                   "beads %s%d%s and %s%d%s (%s%lf%s)",
+                   ErrYellow(), id1, ErrCyan(), ErrYellow(), id2, ErrCyan(),
+                   ErrYellow(), bond.v[0], ErrCyan());
+          PrintWarning();
+        } //}}}
+        // btype1 must be lower than btype2
+        int *id_lo, *id_hi;
+        if (b_1->Type < b_2->Type) {
+          id_lo = &b_1->Type;
+          id_hi = &b_2->Type;
+        } else {
+          id_lo = &b_2->Type;
+          id_hi = &b_1->Type;
+        }
+        AddArr3D(per_step, mol_i->Type, *id_lo, *id_hi, bond.v[0]);
+        AddArr3D(per_step_c, mol_i->Type, *id_lo, *id_hi, 1);
+        // mins & maxes & averages //{{{
+        size_t id_0[4] = {mol_i->Type, *id_lo, *id_hi, 0};
+        size_t id_1[4] = {mol_i->Type, *id_lo, *id_hi, 1};
+        size_t id_2[4] = {mol_i->Type, *id_lo, *id_hi, 2};
+        if (bond.v[0] < GetArrND(bond_bt_mma, id_0)) {
+          SetArrND(bond_bt_mma, id_0, bond.v[0]);
+        } else if (bond.v[0] > GetArrND(bond_bt_mma, id_1)) {
+          SetArrND(bond_bt_mma, id_1, bond.v[0]);
+        }
+        AddArrND(bond_bt_mma, id_2, bond.v[0]);
+        if (opt.all) {
+          if (bond.v[0] < GetArr3D(bond_all_mma, mol_i->Type, j, 0 )) {
+            SetArr3D(bond_all_mma, mol_i->Type, j, 0, bond.v[0]);
+          } else if (bond.v[0] > GetArr3D(bond_all_mma, mol_i->Type, j, 1)) {
+            SetArr3D(bond_all_mma, mol_i->Type, j, 1, bond.v[0]);
           }
-          // if (bond_bt_norm[i][btype1][btype2] > 0) {
-          if (GetArr3D(bond_bt_norm, i, btype1, btype2) > 0) {
-            fprintf(fw, " (%d) %s-%s", count, System.BeadType[btype1].Name,
-                                              System.BeadType[btype2].Name);
-            count += 3;
+          AddArr3D(bond_all_mma, mol_i->Type, j, 2, bond.v[0]);
+        }
+        //}}}
+        int k = bond.v[0] / width;
+        if (k < bins) {
+          size_t id[4] = {mol_i->Type, *id_lo, *id_hi, k};
+          AddArrND(bond_bt, id, 1);
+          if (opt.all) {
+            AddArr3D(bond_all, mol_i->Type, j, k, 1);
           }
         }
       }
-      if (opt.all) {
-        fprintf(fw, " (%d)-(%d) individual bonds", count,
-                count + 3 * mt->nBonds - 1);
-        count += 3 * mt->nBonds;
-      }
-      putc('\n', fw);
     }
-  }
-  // data line
-  putc('#', fw);
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    for (int j = 0; j < Count->BeadType; j++) {
-      for (int k = j; k < Count->BeadType; k++) {
-        // if this bin is filled, its max must be larger than 0
-        size_t id_0[4] = {i, j, k, 0};
-        size_t id_1[4] = {i, j, k, 1};
-        size_t id_2[4] = {i, j, k, 2};
-        if (GetArrND(bond_bt_mma, id_1) > 0) {
-          fprintf(fw, " %lf", GetArrND(bond_bt_mma, id_0));
-          fprintf(fw, " %lf", GetArrND(bond_bt_mma, id_1));
-          // fprintf(fw, " %lf", GetArrND(bond_bt_mma, id_2) / bond_bt_norm[i][j][k]);
-          double val = GetArrND(bond_bt_mma, id_2) /
-                       GetArr3D(bond_bt_norm, i, j, k);
-          fprintf(fw, " %lf", val);
+  } //}}}
+  // calculate distance (-n option) //{{{
+  if (opt.n_file[0] != '\0') {
+    for (int i = 0; i < Count->Molecule; i++) {
+      MOLECULE *mol_i = &System->Molecule[i];
+      MOLECULETYPE *mt_i = &System->MoleculeType[mol_i->Type];
+      if (opt.mt[mol_i->Type]) { // use only specified molecule types
+        for (int j = 0; j < opt.n_number; j += n_per_set) {
+          // bead ids to use //{{{
+          int id1, id2;
+          // use first molecule bead if bead index too high or -1
+          if (opt.n_list[j] >= mt_i->nBeads) {
+            id1 = mol_i->Bead[mt_i->nBeads-1];
+          } else { // use specified index otherwise
+            id1 = mol_i->Bead[opt.n_list[j]-1];
+          }
+          // use last molecule bead if bead index too high or -1
+          if (opt.n_list[j+1] >= mt_i->nBeads) {
+            id2 = mol_i->Bead[mt_i->nBeads-1];
+          } else { // use specified index otherwise
+            id2 = mol_i->Bead[opt.n_list[j+1]-1];
+          } //}}}
+          BEAD *b_1 = &System->Bead[id1], *b_2 = &System->Bead[id2];
+          // distance calculation
+          vec3d r12 = Vector(b_1->Position, b_2->Position);
+          double dist = VectLength(r12);
+          // step_t[mol_i->Type][j/2] += dist.v[0];
+          AddArr2D(step_t, mol_i->Type, j / 2, dist);
+          // step_t_c[mol_i->Type][j/2]++;
+          AddArr2D(step_t_c, mol_i->Type, j / 2, dist);
+          // distance mins & maxes & averages //{{{
+          // if (dist.v[0] < bond_n_mma[mol_i->Type][j/2][0]) { // minimum
+          if (dist < GetArr3D(bond_n_mma, mol_i->Type, j / n_per_set, 0)) {
+            // bond_n_mma[mol_i->Type][j/2][0] = dist.v[0];
+            SetArr3D(bond_n_mma, mol_i->Type, j / n_per_set, 0, dist);
+          // } else if (dist.v[0] > bond_n_mma[mol_i->Type][j/n_per_set][1]) {
+          } else if (dist > GetArr3D(bond_n_mma, mol_i->Type,
+                                          j / n_per_set, 1)) {
+            // bond_n_mma[mol_i->Type][j/n_per_set][1] = dist;
+            SetArr3D(bond_n_mma, mol_i->Type, j / n_per_set, 1, dist);
+          }
+          // bond_n_mma[mol_i->Type][j/n_per_set][2] += dist;
+          AddArr3D(bond_n_mma, mol_i->Type, j / n_per_set, 2, dist);
+          //}}}
+          int k = dist / width; // distribution 'bin'
+          if (k < bins) {
+            // bond_n[mol_i->Type][j/n_per_set][k]++;
+            AddArr3D(bond_n, mol_i->Type, j / n_per_set, k, dist);
+          }
         }
       }
     }
-    if (opt.all) {
-      for (int j = 0; j < System.MoleculeType[i].nBonds; j++) {
-        fprintf(fw, " %lf", GetArr3D(bond_all_mma, i, j, 0));
-        fprintf(fw, " %lf", GetArr3D(bond_all_mma, i, j, 1));
-        double val = GetArr3D(bond_all_mma, i, j, 2) /
-                     GetArr2D(bond_all_norm, i, j);
-        fprintf(fw, " %lf", val);
+  } //}}}
+  // write to per-timestep file? //{{{
+  if (opt.t_file[0] != '\0') {
+    FILE *fw = OpenFile(opt.t_file, "a");
+    fprintf(fw, " %7d", step.coor);
+    for (int i = 0; i < Count->MoleculeType; i++) {
+      MOLECULETYPE *mt = &System->MoleculeType[i];
+      if (opt.mt[i] && mt->nBonds > 0) {
+        for (int j = 0; j < mt->nBTypes; j++) {
+          for (int k = j; k < mt->nBTypes; k++) {
+            int btype[2] = {mt->BType[j], mt->BType[k]};
+            if (BondedPair(*mt, btype)) {
+              double value = GetArr3D(per_step, i, btype[0], btype[1]);
+              if (GetArr3D(per_step_c, i, btype[0], btype[1]) > 0) {
+                value /= GetArr3D(per_step_c, i, btype[0], btype[1]);
+              }
+              fprintf(fw, "%10f", value);
+            }
+          }
+        }
       }
     }
+    if (opt.n_file[0] != '\0') {
+      for (int i = 0; i < Count->MoleculeType; i++) {
+        if (opt.mt[i]) {
+          for (int j = 0; j < opt.n_number; j += n_per_set) {
+            // skip id pairs if both are too high for the molecule //{{{
+            if (opt.n_list[j] >= System->MoleculeType[i].nBeads &&
+                opt.n_list[j+1] >= System->MoleculeType[i].nBeads) {
+              continue;
+            } //}}}
+            double value = GetArr2D(step_t, i, j / n_per_set) /
+                           GetArr2D(step_t_c, i, j / n_per_set);
+            fprintf(fw, " %10f", value);
+          }
+        }
+      }
+    }
+    putc('\n', fw);
+    fclose(fw);
+  } //}}}
+  // free per-timestep array
+  FreeArrND(per_step);
+  FreeArrND(per_step_c);
+  if (opt.t_file[0] != '\0') {
+    FreeArrND(step_t);
+    FreeArrND(step_t_c);
   }
-  putc('\n', fw);
-} //}}}
+}
+// structure for the callback function
+struct user_data {
+  OPT opt;
+  ArrNDd *bond_bt, *bond_bt_mma,
+         *bond_all, *bond_all_mma,
+         *bond_n, *bond_n_mma;
+  double width;
+  int bins, n_per_set;
+};
+// adaptor for the Calculation() function
+static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
+  struct user_data *p = (struct user_data*)userdata;
+  Calculation(System, *step, p->opt, p->bond_bt, p->bond_bt_mma,
+              p->bond_all, p->bond_all_mma,
+              p->bond_n, p->bond_n_mma, p->width, p->bins, p->n_per_set);
+};
 
 int main(int argc, char *argv[]) {
 
@@ -280,13 +428,12 @@ int main(int argc, char *argv[]) {
         fprintf(fw, "# %s molecule:", mt->Name);
         for (int j = 0; j < mt->nBTypes; j++) {
           for (int k = j; k < mt->nBTypes; k++) {
-            int btype1 = mt->BType[j],
-                btype2 = mt->BType[k];
-            if (btype1 > btype2) {
-              SwapInt(&btype1, &btype2);
+            int btype[2] = {mt->BType[j], mt->BType[k]};
+            if (BondedPair(*mt, btype)) {
+              BEADTYPE *bt_lo = &System.BeadType[btype[0]];
+              BEADTYPE *bt_hi = &System.BeadType[btype[1]];
+              fprintf(fw, " (%d) %s-%s", ++count, bt_lo->Name, bt_hi->Name);
             }
-            fprintf(fw, " (%d) %s-%s", ++count, System.BeadType[btype1].Name,
-                                                System.BeadType[btype2].Name);
           }
         }
         if (opt.all) {
@@ -339,225 +486,12 @@ int main(int argc, char *argv[]) {
     fclose(fw);
   } //}}}
 
-  // main loop //{{{
-  FILE *fr = OpenFile(in.coor.name, "r");
-  int count_coor = 0, // count steps in the vcf file
-      count_used = 0, // count steps in output file
-      line_count = 0; // count lines in the vcf file
-  while (true) {
-    PrintStep(&count_coor, commons.start, commons.silent);
-    // use every skip-th timestep between start and end
-    bool use = false;
-    if (UseStep(commons, count_coor)) {
-      use = true;
-    }
-    if (use) { //{{{
-      if (!ReadTimestep(in, fr, &System, &line_count)) {
-        count_coor--;
-        break;
-      }
-      count_used++;
-      WrapJoinCoordinates(&System, true, opt.join);
-      // per-timestep arrays //{{{
-      ArrNDd *step = CreateArr3Dd(Count->MoleculeType,
-                                  Count->BeadType, Count->BeadType);
-      ArrNDi *step_c = CreateArr3Di(Count->MoleculeType,
-                                    Count->BeadType, Count->BeadType);
-      if (!step || !step_c) {
-        ErrorAlloc("step/step_c");
-      }
-      ArrNDd *step_t = NULL;
-      ArrNDi *step_t_c = NULL;
-      if (opt.t_file[0] != '\0') {
-        if (!(step_t = CreateArr2Dd(opt.n_number, opt.n_number)) ||
-            !(step_t_c = CreateArr2Di(opt.n_number, opt.n_number))) {
-          ErrorAlloc("step_t/step_t_c");
-        }
-      } //}}}
-      // calculate bond lengths //{{{
-      // go through all molecules
-      // TODO: make into for (mtype); for (mtype.index)
-      for (int i = 0; i < Count->Molecule; i++) {
-        MOLECULE *mol_i = &System.Molecule[i];
-        MOLECULETYPE *mt_i = &System.MoleculeType[mol_i->Type];
-        if (opt.mt[mol_i->Type]) { // use only specified molecule types
-          for (int j = 0; j < mt_i->nBonds; j++) {
-            // bead ids in the bond
-            int id1 = mol_i->Bead[mt_i->Bond[j][0]],
-                id2 = mol_i->Bead[mt_i->Bond[j][1]];
-            BEAD *b_1 = &System.Bead[id1],
-                 *b_2 = &System.Bead[id2];
-            // bond length
-            vec3d bond = Vector(b_1->Position, b_2->Position);
-            bond.v[0] = VectLength(bond);
-            // warn if bond is too long //{{{
-            if (opt.warn != HIGHNUM && bond.v[0] > opt.warn) {
-              snprintf(ERROR_MSG, LINE, "-w option; too long a bond between "
-                       "beads %s%d%s and %s%d%s (%s%lf%s)",
-                       ErrYellow(), id1, ErrCyan(), ErrYellow(), id2, ErrCyan(),
-                       ErrYellow(), bond.v[0], ErrCyan());
-              PrintWarning();
-            } //}}}
-            // btype1 must be lower than btype2
-            int *id_lo, *id_hi;
-            if (b_1->Type < b_2->Type) {
-              id_lo = &b_1->Type;
-              id_hi = &b_2->Type;
-            } else {
-              id_lo = &b_2->Type;
-              id_hi = &b_1->Type;
-            }
-            AddArr3D(step, mol_i->Type, *id_lo, *id_hi, bond.v[0]);
-            AddArr3D(step, mol_i->Type, *id_lo, *id_hi, 1);
-            // mins & maxes & averages //{{{
-            size_t id_0[4] = {mol_i->Type, *id_lo, *id_hi, 0};
-            size_t id_1[4] = {mol_i->Type, *id_lo, *id_hi, 1};
-            size_t id_2[4] = {mol_i->Type, *id_lo, *id_hi, 2};
-            if (bond.v[0] < GetArrND(bond_bt_mma, id_0)) {
-              SetArrND(bond_bt_mma, id_0, bond.v[0]);
-            } else if (bond.v[0] > GetArrND(bond_bt_mma, id_1)) {
-              SetArrND(bond_bt_mma, id_1, bond.v[0]);
-            }
-            AddArrND(bond_bt_mma, id_2, bond.v[0]);
-            if (opt.all) {
-              if (bond.v[0] < GetArr3D(bond_all_mma, mol_i->Type, j, 0 )) {
-                SetArr3D(bond_all_mma, mol_i->Type, j, 0, bond.v[0]);
-              } else if (bond.v[0] > GetArr3D(bond_all_mma, mol_i->Type, j, 1)) {
-                SetArr3D(bond_all_mma, mol_i->Type, j, 1, bond.v[0]);
-              }
-              AddArr3D(bond_all_mma, mol_i->Type, j, 2, bond.v[0]);
-            }
-            //}}}
-            int k = bond.v[0] / width;
-            if (k < bins) {
-              size_t id[4] = {mol_i->Type, *id_lo, *id_hi, k};
-              AddArrND(bond_bt, id, 1);
-              if (opt.all) {
-                AddArr3D(bond_all, mol_i->Type, j, k, 1);
-              }
-            }
-          }
-        }
-      } //}}}
-      // calculate distance (-n option) //{{{
-      if (opt.n_file[0] != '\0') {
-        for (int i = 0; i < Count->Molecule; i++) {
-          MOLECULE *mol_i = &System.Molecule[i];
-          MOLECULETYPE *mt_i = &System.MoleculeType[mol_i->Type];
-          if (opt.mt[mol_i->Type]) { // use only specified molecule types
-            for (int j = 0; j < opt.n_number; j += n_per_set) {
-              // bead ids to use //{{{
-              int id1, id2;
-              // use first molecule bead if bead index too high or -1
-              if (opt.n_list[j] >= mt_i->nBeads) {
-                id1 = mol_i->Bead[mt_i->nBeads-1];
-              } else { // use specified index otherwise
-                id1 = mol_i->Bead[opt.n_list[j]-1];
-              }
-              // use last molecule bead if bead index too high or -1
-              if (opt.n_list[j+1] >= mt_i->nBeads) {
-                id2 = mol_i->Bead[mt_i->nBeads-1];
-              } else { // use specified index otherwise
-                id2 = mol_i->Bead[opt.n_list[j+1]-1];
-              } //}}}
-              BEAD *b_1 = &System.Bead[id1], *b_2 = &System.Bead[id2];
-              // distance calculation
-              vec3d r12 = Vector(b_1->Position, b_2->Position);
-              double dist = VectLength(r12);
-              // step_t[mol_i->Type][j/2] += dist.v[0];
-              AddArr2D(step_t, mol_i->Type, j / 2, dist);
-              // step_t_c[mol_i->Type][j/2]++;
-              AddArr2D(step_t_c, mol_i->Type, j / 2, dist);
-              // distance mins & maxes & averages //{{{
-              // if (dist.v[0] < bond_n_mma[mol_i->Type][j/2][0]) { // minimum
-              if (dist < GetArr3D(bond_n_mma, mol_i->Type, j / n_per_set, 0)) {
-                // bond_n_mma[mol_i->Type][j/2][0] = dist.v[0];
-                SetArr3D(bond_n_mma, mol_i->Type, j / n_per_set, 0, dist);
-              // } else if (dist.v[0] > bond_n_mma[mol_i->Type][j/n_per_set][1]) {
-              } else if (dist > GetArr3D(bond_n_mma, mol_i->Type,
-                                              j / n_per_set, 1)) {
-                // bond_n_mma[mol_i->Type][j/n_per_set][1] = dist;
-                SetArr3D(bond_n_mma, mol_i->Type, j / n_per_set, 1, dist);
-              }
-              // bond_n_mma[mol_i->Type][j/n_per_set][2] += dist;
-              AddArr3D(bond_n_mma, mol_i->Type, j / n_per_set, 2, dist);
-              //}}}
-              int k = dist / width; // distribution 'bin'
-              if (k < bins) {
-                // bond_n[mol_i->Type][j/n_per_set][k]++;
-                AddArr3D(bond_n, mol_i->Type, j / n_per_set, k, dist);
-              }
-            }
-          }
-        }
-      } //}}}
-      // write to per-timestep file? //{{{
-      if (opt.t_file[0] != '\0') {
-        FILE *fw = OpenFile(opt.t_file, "a");
-        fprintf(fw, " %7d", count_coor);
-        for (int i = 0; i < Count->MoleculeType; i++) {
-          MOLECULETYPE *mt = &System.MoleculeType[i];
-          if (opt.mt[i] && mt->nBonds > 0) {
-            for (int j = 0; j < mt->nBTypes; j++) {
-              for (int k = j; k < mt->nBTypes; k++) {
-                int btype1 = mt->BType[j],
-                    btype2 = mt->BType[k];
-                // btype1 must be lower than btype2
-                if (btype1 > btype2) {
-                  SwapInt(&btype1, &btype2);
-                }
-                // if (step_c[i][btype1][btype2] > 0) {
-                if (GetArr3D(step_c, i, btype1, btype2) > 0) {
-                  double value = GetArr3D(step, i, btype1, btype2) /
-                                 GetArr3D(step_c, i, btype1, btype2);
-                  fprintf(fw, "%10f", value);
-                } else {
-                  fprintf(fw, " %10s", "?");
-                }
-              }
-            }
-          }
-        }
-        if (opt.n_file[0] != '\0') {
-          for (int i = 0; i < Count->MoleculeType; i++) {
-            if (opt.mt[i]) {
-              for (int j = 0; j < opt.n_number; j += n_per_set) {
-                // skip id pairs if both are too high for the molecule //{{{
-                if (opt.n_list[j] >= System.MoleculeType[i].nBeads &&
-                    opt.n_list[j+1] >= System.MoleculeType[i].nBeads) {
-                  continue;
-                } //}}}
-                double value = GetArr2D(step_t, i, j / n_per_set) /
-                               GetArr2D(step_t_c, i, j / n_per_set);
-                fprintf(fw, " %10f", value);
-              }
-            }
-          }
-        }
-        putc('\n', fw);
-        fclose(fw);
-      } //}}}
-      // free per-timestep array
-      FreeArrND(step);
-      FreeArrND(step_c);
-      if (opt.t_file[0] != '\0') {
-        FreeArrND(step_t);
-        FreeArrND(step_t_c);
-      }
-      //}}}
-    } else {
-      if (!SkipTimestep(in, fr, &line_count)) {
-        count_coor--;
-        break;
-      }
-    }
-    // exit the main loop if reached user-specied end timestep
-    if (count_coor == commons.end) {
-      break;
-    }
-  }
-  fclose(fr);
-  PrintLastStep(count_coor, count_used, commons.silent); //}}}
+  STEP step = InitStep;
+  struct user_data ud = { opt, bond_bt, bond_bt_mma,
+                          bond_all, bond_all_mma,
+                          bond_n, bond_n_mma,
+                          width, bins, n_per_set };
+  MainLoopCoor(&System, in, commons, &step, Calculation_adaptor, &ud);
 
   // sum up all bonds in molecules (normalization factor) //{{{
   // BeadType-BeadType bonds
@@ -620,7 +554,7 @@ int main(int argc, char *argv[]) {
 
   if (opt.t_file[0] != '\0') {
     FILE *fw = OpenFile(opt.t_file, "a");
-    WriteMinsMaxesAverages(fw, System, opt, bond_bt_mma, bond_bt_norm,
+    WriteMinsMaxesAvgs(fw, System, opt, bond_bt_mma, bond_bt_norm,
                            bond_all_mma, bond_all_norm);
     fclose(fw);
   }
@@ -658,9 +592,18 @@ int main(int argc, char *argv[]) {
       putc('\n', fw);
     }
   } //}}}
-  // write distribution to output file //{{{
+  int ncols = count;
+  int nrows = range[1] - range[0];
+  ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
+  if (!data) {
+    ErrorAlloc("data");
+  }
+  // collate data //{{{
   for (int i = range[0]; i < range[1]; i++) {
-    fprintf(fw, "%7.4f", width * (2 * i + 1) / 2);
+    int row = i - range[0];
+    count = 0;
+    SetArr2D(data, row, count++, width * (2 * i + 1) / 2);
+    // fprintf(fw, "%7.4f", width * (2 * i + 1) / 2);
     for (int j = 0; j < Count->MoleculeType; j++) {
       MOLECULETYPE *mt = &System.MoleculeType[j];
       if (opt.mt[j] && mt->nBonds > 0) {
@@ -677,29 +620,30 @@ int main(int argc, char *argv[]) {
             if (GetArr3D(bond_bt_norm, j, btype1, btype2) > 0) {
               // double value = bond_bt[j][btype1][btype2][i] / bond_bt_norm[j][btype1][btype2];
               size_t id[4] = {j, btype1, btype2, i};
-              double value = GetArrND(bond_bt, id) / GetArr3D(bond_bt_norm, j, btype1, btype2);
-              fprintf(fw, "%10f", value);
+              double value = GetArrND(bond_bt, id) /
+                             GetArr3D(bond_bt_norm, j, btype1, btype2);
+              SetArr2D(data, row, count++, value);
+              // fprintf(fw, "%10f", value);
             }
           }
         }
         if (opt.all) {
           for (int k = 0; k < mt->nBonds; k++) {
-            // if (bond_all_norm[j][k] > 0) {
+            double value = GetArr3D(bond_all, j, k, i);
             if (GetArr2D(bond_all_norm, j, k) > 0) {
               // double value = bond_all[j][k][i] / bond_all_norm[j][k];
-              double value = GetArr3D(bond_all, j, k, i) /
-                             GetArr2D(bond_all_norm, j, k);
-              fprintf(fw, "%10f", value);
-            } else {
-              fprintf(fw, "%10s", "?");
+              value /= GetArr2D(bond_all_norm, j, k);
             }
+            SetArr2D(data, row, count++, value);
           }
         }
       }
     }
-    putc('\n', fw);
   } //}}}
-  WriteMinsMaxesAverages(fw, System, opt, bond_bt_mma, bond_bt_norm,
+  ComputeColumnWidths(nrows, ncols, data, 6);
+  PrintDataAll(fw, nrows, ncols, data);
+  FreeArrND(data);
+  WriteMinsMaxesAvgs(fw, System, opt, bond_bt_mma, bond_bt_norm,
                          bond_all_mma, bond_all_norm);
   fclose(fw); //}}}
 
@@ -909,3 +853,86 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
+
+// helper functions
+// is given bead type pair in a bond in the given molecule? //{{{
+static bool BondedPair(MOLECULETYPE mt, int btype[2]) {
+  if (btype[0] > btype[1]) {
+    SwapInt(&btype[0], &btype[1]);
+  }
+  for (int l = 0; l < mt.nBonds; l++) {
+    int bead[2] = {mt.Bead[mt.Bond[l][0]],
+                   mt.Bead[mt.Bond[l][1]]};
+    if (bead[0] > bead[1]) {
+      SwapInt(&bead[0], &bead[1]);
+    }
+    if (bead[0] == btype[0] && bead[1] == btype[1]) {
+      return true;
+    }
+  }
+  return false;
+} //}}}
+// write mins, maxes, and averages //{{{
+static void WriteMinsMaxesAvgs(FILE *fw, SYSTEM System, OPT opt,
+                               ArrNDd *bond_bt_mma, ArrNDi *bond_bt_norm,
+                               ArrNDd *bond_all_mma, ArrNDi *bond_all_norm) {
+  fprintf(fw, "# min(1st columns)/max(2nd columns)/average(3rd columns)\n");
+  int count = 1;
+  for (int i = 0; i < System.Count.MoleculeType; i++) {
+    MOLECULETYPE *mt = &System.MoleculeType[i];
+    if (opt.mt[i] && mt->nBonds > 0) {
+      fprintf(fw, "# %s molecule:", mt->Name);
+      for (int j = 0; j < mt->nBTypes; j++) {
+        for (int k = j; k < mt->nBTypes; k++) {
+          int btype1 = mt->BType[j],
+              btype2 = mt->BType[k];
+          if (btype1 > btype2) {
+            SwapInt(&btype1, &btype2);
+          }
+          // if (bond_bt_norm[i][btype1][btype2] > 0) {
+          if (GetArr3D(bond_bt_norm, i, btype1, btype2) > 0) {
+            fprintf(fw, " (%d) %s-%s", count, System.BeadType[btype1].Name,
+                                              System.BeadType[btype2].Name);
+            count += 3;
+          }
+        }
+      }
+      if (opt.all) {
+        fprintf(fw, " (%d)-(%d) individual bonds", count,
+                count + 3 * mt->nBonds - 1);
+        count += 3 * mt->nBonds;
+      }
+      putc('\n', fw);
+    }
+  }
+  // data line
+  putc('#', fw);
+  for (int i = 0; i < System.Count.MoleculeType; i++) {
+    for (int j = 0; j < System.Count.BeadType; j++) {
+      for (int k = j; k < System.Count.BeadType; k++) {
+        // if this bin is filled, its max must be larger than 0
+        size_t id_0[4] = {i, j, k, 0};
+        size_t id_1[4] = {i, j, k, 1};
+        size_t id_2[4] = {i, j, k, 2};
+        if (GetArrND(bond_bt_mma, id_1) > 0) {
+          fprintf(fw, " %lf", GetArrND(bond_bt_mma, id_0));
+          fprintf(fw, " %lf", GetArrND(bond_bt_mma, id_1));
+          // fprintf(fw, " %lf", GetArrND(bond_bt_mma, id_2) / bond_bt_norm[i][j][k]);
+          double val = GetArrND(bond_bt_mma, id_2) /
+                       GetArr3D(bond_bt_norm, i, j, k);
+          fprintf(fw, " %lf", val);
+        }
+      }
+    }
+    if (opt.all) {
+      for (int j = 0; j < System.MoleculeType[i].nBonds; j++) {
+        fprintf(fw, " %lf", GetArr3D(bond_all_mma, i, j, 0));
+        fprintf(fw, " %lf", GetArr3D(bond_all_mma, i, j, 1));
+        double val = GetArr3D(bond_all_mma, i, j, 2) /
+                     GetArr2D(bond_all_norm, i, j);
+        fprintf(fw, " %lf", val);
+      }
+    }
+  }
+  putc('\n', fw);
+} //}}}
