@@ -1,4 +1,6 @@
 #include "ReadWriteLtrj.h"
+#include "System.h"
+#include "Errors.h"
 
 // TODO: somehow optional writing of velocity, force, extra...
 //       probably requires flags from outside ReadWrite files.
@@ -513,9 +515,9 @@ void LtrjWriteCoor(FILE *fw, const int step,
                    const bool *write, const SYSTEM System) {
   // find out number of beads to save and if velocity/force should be saved
   int count_write = 0;
-  bool vel = false; // TODO: define outside
-  bool force = false; // TODO: define outside
-  bool extra = true; // TODO: define outside
+  bool vel = false; // TODO: define outside?
+  bool force = false; // TODO: define outside?
+  bool extra = false; // TODO: define outside?
   for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadCoor[i];
     BEAD *b = &System.Bead[id];
@@ -543,7 +545,9 @@ void LtrjWriteCoor(FILE *fw, const int step,
       PrintWarning();
     }
     // orthogonal box
-    if (box->alpha == 90 && box->beta == 90 && box->gamma == 90) {
+    if (fabs(box->alpha -90) < 1e-3 &&
+        fabs(box->beta  -90) < 1e-3 &&
+        fabs(box->gamma -90) < 1e-3) {
       fprintf(fw, "ITEM: BOX BOUNDS pp pp pp\n");
       fprintf(fw, "%lf %lf\n", box->Low.x, box->Length.x + box->Low.x);
       fprintf(fw, "%lf %lf\n", box->Low.y, box->Length.y + box->Low.y);
@@ -573,11 +577,10 @@ void LtrjWriteCoor(FILE *fw, const int step,
       BEAD *b = &System.Bead[id];
       if (write[id]) {
         int type = b->Type;
-        fprintf(fw, "%8d %8s %8.4f %8.4f %8.4f", id + 1,
-                System.BeadType[type].Name,
-                b->Position.x + box->Low.x,
-                b->Position.y + box->Low.y,
-                b->Position.z + box->Low.z);
+        fprintf(fw, "%8d %8s", id + 1, System.BeadType[type].Name);
+        for (int dd = 0; dd < 3; dd++) {
+          fprintf(fw, " %8.4f", b->Position.v[dd] + box->Low.v[dd]);
+        }
         if (vel) {
           for (int dd = 0; dd < 3; dd++) {
           fprintf(fw, " %8.4f", b->Velocity.v[dd]);

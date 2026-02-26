@@ -145,11 +145,8 @@ void ErrorSnprintf() {
   exit(1);
 } //}}}
 void ErrorAlloc(char *name) { //{{{
-  if (snprintf(ERROR_MSG, LINE, "Error allocating %s%s%s",
-               ErrYellow(), name, ErrRed())) {
-    ErrorSnprintf();
-  }
-  PrintError();
+  fprintf(stderr, "\n%sERROR - %s%s%s allocation failed%s\n",
+          ErrRed(), ErrYellow(), name, ErrRed(), ColourReset());
   exit(1);
 } //}}}
 // wrong number of commandline arguments //{{{

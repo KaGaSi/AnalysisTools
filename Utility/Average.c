@@ -252,9 +252,9 @@ int main ( int argc, char** argv ) {
   if (opt.block > 0) {
     // variables
     // number of data points must be divisible by 'data_per_block'
-    int remainder = (data_lines - commons.start) % opt.block;
+    int remainder = data_lines % opt.block;
     // total number of data points to consider
-    count = data_lines - commons.start - remainder;
+    count = data_lines - remainder;
     // number of blocks
     int blocks = count / opt.block;
     // block averages

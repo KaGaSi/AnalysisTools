@@ -3,7 +3,7 @@
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "AnalysisTools.h"
+#include "Structs.h"
 
 typedef struct {
   int used, // number of used steps (coor or agg file)

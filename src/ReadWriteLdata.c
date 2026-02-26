@@ -1,4 +1,7 @@
 #include "ReadWriteLdata.h"
+#include "ReadWrite.h"
+#include "System.h"
+#include "Errors.h"
 
 // TODO: LmpDataReadDihedralCoeffs() and LmpDataReadImproperCoeffs() should read
 //       up to three numbers, not assuming any format of the potential
@@ -165,7 +168,7 @@ int LmpDataReadTimestep(FILE *fr, const char *file,
     id--; // in lammps data file, ids start from 1
     BEAD *b = &System->Bead[id];
     for (int dd = 0; dd < 3; dd++) {
-      b->Position.v[dd] = pos[dd] - System->Box.Low.v[dd];
+      b->Position.v[dd] = pos[dd];
     }
     System->BeadCoor[i] = id;
   } //}}}

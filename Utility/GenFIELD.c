@@ -1,5 +1,4 @@
 #include "../src/AnalysisTools.h"
-#include <sys/stat.h>   // stat
 
 bool file_exists (char *filename) {
   struct stat   buffer;

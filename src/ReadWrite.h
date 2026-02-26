@@ -3,7 +3,7 @@
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "AnalysisTools.h"
+#include "Structs.h"
 
 // General helper functions
 void InitOutputCoorFile(const FILE_TYPE fout, const SYSTEM System,

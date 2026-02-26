@@ -8,15 +8,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include <math.h>
 #include <time.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <sys/stat.h>
+#include <math.h>
 #include "Arrays.h"
 #include "Globals.h"
-#include "MathUtils.h"
 
 // swap values //{{{
 static inline void SwapInt(int *a, int *b) {

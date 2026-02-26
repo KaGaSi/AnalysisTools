@@ -1,4 +1,6 @@
 #include "ReadWriteGromacs.h"
+#include "System.h"
+#include "Errors.h"
 
 static bool CountLineReadLine(int *line_count, FILE *fr,
                               const char *file, char *msg);

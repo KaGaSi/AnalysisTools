@@ -1,4 +1,7 @@
 #include "ReadWriteVtf.h"
+#include "ReadWrite.h"
+#include "System.h"
+#include "Errors.h"
 
 // variables defining line types //{{{
 static const int ERROR_LINE = -1;
@@ -923,7 +926,10 @@ void VtfWriteCoorIndexed(FILE *fw, const bool *write, const SYSTEM System) {
   // print box size if present //{{{
   const BOX *box = &System.Box;
   if (box->Volume != -1) {
-    fprintf(fw, "pbc %lf %lf %lf", box->Length.x, box->Length.y, box->Length.z);
+    fprintf(fw, "pbc");
+    for (int dd = 0; dd < 3; dd++) {
+      fprintf(fw, " %lf", box->Length.v[dd]);
+    }
     if (box->alpha != 90 || box->beta != 90 || box->gamma != 90) {
       fprintf(fw, "    %.3f %.3f %.3f", box->alpha, box->beta, box->gamma);
     }
@@ -935,9 +941,11 @@ void VtfWriteCoorIndexed(FILE *fw, const bool *write, const SYSTEM System) {
     BEAD *bead = &System.Bead[id];
     if (write[id]) {
       none = false;
-      fprintf(fw, "%8d %8.4f %8.4f %8.4f\n", id, bead->Position.v[0],
-                                                 bead->Position.v[1],
-                                                 bead->Position.v[2]);
+      fprintf(fw, "%8d", id);
+      for (int dd = 0; dd < 3; dd++) {
+        fprintf(fw, " %8.4f", bead->Position.v[dd]);
+      }
+      putc('\n', fw);
     }
   }
   if (none) {

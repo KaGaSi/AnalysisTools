@@ -1,6 +1,6 @@
-#include "AnalysisTools.h"
 #include "ReadWrite.h"
 #include "General.h"
+#include "Errors.h"
 #include "ReadWriteVtf.h"
 #include "ReadWriteXyz.h"
 #include "ReadWriteLtrj.h"

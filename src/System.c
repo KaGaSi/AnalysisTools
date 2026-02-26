@@ -1,4 +1,7 @@
+#include "AnalysisTools.h"
 #include "System.h"
+#include "Errors.h"
+#include "ReadWrite.h"
 
 static void SortSingleStuff(int num, int (**arr)[5], int n);
 static int CopyMTypeStuff(int num, int (*old)[5], int (**new)[5],

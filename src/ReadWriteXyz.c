@@ -1,4 +1,6 @@
 #include "ReadWriteXyz.h"
+#include "System.h"
+#include "Errors.h"
 
 static bool XyzCheckCoorLine(double coor[3]);
 static long ReadFirstLine(const char *f, FILE *fr, int *line_count);

@@ -1,5 +1,7 @@
-#include "AnalysisTools.h"
 #include "Aggregates.h"
+#include "Errors.h"
+
+// TODO: AggPickerOptions should be in Options.c, no?
 
 // based on options, should an aggregate be used for calculations? //{{{
 bool UseAggregate(SYSTEM System, AGGREGATE *Aggregate, int id,

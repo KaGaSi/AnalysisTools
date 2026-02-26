@@ -118,7 +118,7 @@ ArrNDli *CreateArrNDli(size_t ndim, const size_t *shape) {
     return NULL;
   }
   size_t total = CalcArrNDTotalSize(ndim, shape);
-  a->d = calloc(total, sizeof(long double));
+  a->d = calloc(total, sizeof(long int));
   if (!a->d) {
     free(a->shape);
     free(a->stride);

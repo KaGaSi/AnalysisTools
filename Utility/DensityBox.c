@@ -10,7 +10,8 @@ const struct HelpHelp HelpDesc = {
   "orthogonal boxes that do not change size.",
 
   "Usage: DensityBox <input> <width> <output> [options]",
-  .args = 3,
+  .args = 3, // number of mandatory arguments
+  .all = 12, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -214,7 +215,6 @@ int main(int argc, char *argv[]) {
         break;
       }
     }
-    printf("%d %d\n", ncols, nrows);
     ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
     if (!data) {
       err_msg("ArrNDd constructor failed (data)");

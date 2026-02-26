@@ -15,8 +15,8 @@
 #include "Options.h"
 #include "ReadWrite.h"
 #include "Aggregates.h"
-#include <complex.h>
 #include "MainLoop.h"
+#include <complex.h>
 #include <gsl/gsl_matrix_double.h>
 #include <gsl/gsl_poly.h> // solve cubic equation
 #include <gsl/gsl_eigen.h>  // Jacobi method
@@ -53,7 +53,7 @@ int FileType(const char *name);
 vec3d Gyration(const int n, const int *list, SYSTEM *System);
 // TODO: redo
 void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
-                      const int contacts, ArrNDi *contact);
+                      const int contacts, int **contact);
 void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
                          SYSTEM *System, const bool *use_bt);
 bool UseStep(const COMMON_OPT opt, int step);

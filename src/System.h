@@ -1,7 +1,7 @@
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
-#include "AnalysisTools.h"
+#include "Structs.h"
 
 // fill in some SYSTEM arrays and some such
 void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType);

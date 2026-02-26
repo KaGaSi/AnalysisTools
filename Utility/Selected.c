@@ -62,7 +62,7 @@ static const struct OptSpec opts[] = {
   {"-cz", "2x<float>", "constrain z-coordinate to specified dimensions (in fraction of output box); multiple pairs possible", OPT_EXTRA},
   {"--real", NULL, "use real coordinates for -cx/-cy/-cz options instead of box fractions", OPT_EXTRA},
   {"--reduce", NULL, "reduce the structure to contaion only beads in the coordinate file", OPT_EXTRA},
-  {"-b", "3x<float>", "box size in x, y, and z", OPT_EXTRA},
+  {"-b", "3x<float>", "set box size for all timesteps", OPT_EXTRA},
   {NULL}
 }; //}}}
 
@@ -537,6 +537,12 @@ int main(int argc, char *argv[]) {
         break;
       }
       count_used++;
+      if (opt.box.x != -1) {
+        for (int dd = 0; dd < 3; dd++) {
+          System.Box.Length.v[dd] = opt.box.v[dd];
+        }
+        CalculateBoxData(&System.Box, 0);
+      }
       SaveTimestep(&Sys, &System, count_used, count_coor, &b_full_to_red,
                    write, opt, commons, fout, argc, argv);
       //}}}

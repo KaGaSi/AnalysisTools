@@ -3,7 +3,7 @@
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "AnalysisTools.h"
+#include "Structs.h"
 
 int LmpDataReadTimestep(FILE *fr, const char *file,
                         SYSTEM *System, int *line_count);

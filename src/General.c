@@ -1,6 +1,7 @@
 #include "General.h"
 #include "Arrays.h"
 #include "Errors.h"
+#include <errno.h>
 
 // TODO: check the digits stuff
 //       also, some needs deleting when it's implemented everywhere

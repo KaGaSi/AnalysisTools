@@ -1,5 +1,5 @@
 #include "../src/AnalysisTools.h"
-// TODO: join the aggregates* utils, option to specify bead pairs
+// TODO: well, the contact array - should be spare array or some such
 
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
@@ -61,7 +61,7 @@ struct OPT {
 
 // detect possible contact between two beads //{{{
 void CalculateContacts(const int id_i, const int id_j, SYSTEM System,
-                       const double dist, ArrNDi *contact,
+                       const double dist, int **contact,
                        const ArrNDb *use_bt_pair) {
   int i = System.BeadCoor[id_i];
   int j = System.BeadCoor[id_j];
@@ -80,16 +80,16 @@ void CalculateContacts(const int id_i, const int id_j, SYSTEM System,
   // are 'i' and 'j' close enough?
   if (mol_i != mol_j && rij.v[0] <= dist) {
     if (mol_i > mol_j) {
-      AddArr2D(contact, mol_i, mol_j, 1);
+      contact[mol_i][mol_j]++;
     } else {
-      AddArr2D(contact, mol_j, mol_i, 1);
+      contact[mol_j][mol_i]++;
     }
   }
 }
 // structure for the callback function
 struct contacts_args {
   double dist;
-  ArrNDi *contact;
+  int **contact;
   ArrNDb *use_bt_pair;
 };
 // adaptor for the CalculateContacts() function
@@ -131,10 +131,15 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
     Aggregate[i].nBeads = 0;
   }
 
-  // array for number of contacts between molecules
-  ArrNDi *contact = CreateArr2Di(Count->Molecule, Count->Molecule);
-  if (!contact) {
-    ErrorAlloc("contact");
+  // // array for number of contacts between molecules
+  // ArrNDi *contact = CreateArr2Di(Count->Molecule, Count->Molecule);
+  // if (!contact) {
+  //   ErrorAlloc("contact");
+  // }
+  // allocate & zeroize contact[][] (triangular matrix)
+  int **contact = calloc(Count->Molecule, sizeof *contact);
+  for (int i = 0; i < Count->Molecule; i++) {
+    contact[i] = calloc(i + 1, sizeof *contact[i]);
   }
 
   // assign in no aggregate to each molecule
@@ -150,7 +155,12 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
 
   EvaluateContacts(Aggregate, System, opt.contacts, contact);
 
-  FreeArrND(contact);
+  // FreeArrND(contact);
+  // free memory
+  for (int i = 0; i < Count->Molecule; i++) {
+    free(contact[i]);
+  }
+  free(contact);
 
   // sort molecules in aggregates according to ascending ids //{{{
   for (int i = 0; i < System->Count.Aggregate; i++) {

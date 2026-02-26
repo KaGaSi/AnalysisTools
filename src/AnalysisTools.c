@@ -1,9 +1,9 @@
 #include "AnalysisTools.h"
-#include "Arrays.h"
 #include "Errors.h"
 #include "General.h"
 #include "Globals.h"
 #include "MathUtils.h"
+#include "System.h"
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -665,7 +665,7 @@ static int NewAgg(AGGREGATE *Aggregate, SYSTEM *System,
   return agg_j;
 }
 void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
-                      const int contacts, ArrNDi *contact) {
+                      const int contacts, int **contact) {
   COUNT *Count = &System->Count;
   // go over all pairs of molecules
   for (int i = 1; i < Count->Molecule; i++) {
@@ -674,7 +674,7 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
         int agg_i = System->Molecule[i].Aggregate,
             agg_j = System->Molecule[j].Aggregate;
         // if molecules 'i' and 'j' are in contact, put them into one aggregate
-        if (GetArr2D(contact, i, j) >= contacts) { //{{{
+        if (contact[i][j] >= contacts) { //{{{
           // create new aggregate if molecule 'j' isn'it in any
           if (agg_j == -1) {
             agg_j = NewAgg(Aggregate, System, i, j);

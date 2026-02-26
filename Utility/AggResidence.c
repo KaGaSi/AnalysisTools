@@ -1,5 +1,4 @@
 #include "../src/AnalysisTools.h"
-#include <stdlib.h>
 
 //TODO: warning if 0 mass leading to nan in output file
 
@@ -39,7 +38,7 @@ int main(int argc, char *argv[]) {
 
   // commad line arguments before reading the structure //{{{
   OptionCheck(argc, argv, true, HelpDesc, opts);
-  OPT opt;
+  // OPT opt;
   int count = 0;
   // <input> - input structure file
   SYS_FILES in = InitSysFiles;

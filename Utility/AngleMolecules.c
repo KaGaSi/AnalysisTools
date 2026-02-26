@@ -176,11 +176,8 @@ struct user_data {
 // adaptor for the Calculation() function
 static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
   struct user_data *p = (struct user_data*)userdata;
-  Calculation(System,
-              p->opt, p->ang, p->ang_mma,
-              p->ang_all, p->ang_all_mma,
-              p->ang_n, p->ang_n_mma,
-              p->width, p->bins, p->n_per_set);
+  Calculation(System, p->opt, p->ang, p->ang_mma, p->ang_all, p->ang_all_mma,
+              p->ang_n, p->ang_n_mma, p->width, p->bins, p->n_per_set);
 };
 
 int main(int argc, char *argv[]) {
@@ -435,7 +432,6 @@ int main(int argc, char *argv[]) {
   }
   for (int i = 0; i < nrows; i++) {
     count = 0;
-    // fprintf(fw, "%7.4f", width * (2 * i + 1) / 2);
     SetArr2D(data, i, count++, width * (2 * i + 1) / 2);
     for (int j = 0; j < Count->MoleculeType; j++) {
       MOLECULETYPE *mt_j = &System.MoleculeType[j];

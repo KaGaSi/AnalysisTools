@@ -8,7 +8,8 @@
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "AnalysisTools.h"
+#include "Globals.h"
+#include "Structs.h"
 
 // print 'warning - <ERROR_MSG>\n' in cyan
 void PrintWarning();
