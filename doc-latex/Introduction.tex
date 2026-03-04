@@ -18,24 +18,22 @@ simulation package}) can be roughly divided into four types:
     and standard deviations of a data series
 \end{itemize}
 
-The \tt{Examples} directory contains examples showcasing capabilities of
-individual utilities as well as possible workflows chaining several utilities.
+\TODO{The \tt{github.com/KaGaSi/AnalysisTools-examples} repository contains
+examples showcasing capabilities of individual utilities as well as possible
+workflows chaining several utilities.}
 
 \section{Installation}
 
 Requirements
 \begin{itemize}
-  \item \tt{C} and \tt{Fortran} compilers
-  \item \tt{cmake} to generate files necessary to build AnalysisTools
   \item \tt{GSL}, the GNU Scientific Library
+  \item \tt{cmake} to generate files necessary to build AnalysisTools
+  \item \tt{C} and \tt{Fortran} compilers
 \end{itemize}
 
-The utilities should be compiled in a separate directory, typically
-\tt{<root>/build} (where \tt{<root>} is the AnalysisTools root directory). The
-following generates a \tt{Makefile} within \tt{<root>/build}:
+To compile the utilities, run the \tt{compile.sh} script in the \AT root
+directory. By default, the build directory is \tt{build} in the \AT root; to use
+a different directory add it as an argument to the script, e.g.,
+\tt{./compile.sh custom_dir}. In both cases, the executables will be located in the
+\tt{bin/} subdirectory.
 
-\tt{mkdir <root>/build; cd <root>/build; cmake ../}
-
-To then compile the utilities, simply run \tt{make} (to compile all utilities)
-or \tt{make <utility name>} (to compile a single utility) in \tt{<root>/build}.
-The binaries are located in the \tt{<root>/build/bin} directory.

@@ -1,29 +1,27 @@
 \section{AddToSystem} \label{sec:AddToSystem}
 
-This utility takes an existing system (or an empty system, i.e., creates new
-system from scratch) and adds new beads (read from a \field file) into it,
-placing them either completely randomly or according to supplied constraints.
+This utility takes an existing system (or creates a new one from scratch) and
+adds new beads (read from a \field file) into it, placing them either completely
+randomly or according to supplied constraints.
 
 There are two types of constraints which can be combined: place new beads (i)
-specified distance from other beads or (ii) in a specified interval in x-, y-,
-and/or z-axis directions. In (i), options \tt{-ld} and/or \tt{-hd} specify the
-distance; if present, these must be accompanied by \tt{-bt} or \tt{--bonded}
-option. The new beads are then placed at least \tt{-ld <float>} and at most
-\tt{-hd <float>} distance from beads specified by the \tt{-bt} option or from
-any bonded bead (\tt{--bonded} option).
-
-In (ii), options \tt{-cx}, \tt{-cy}, and \tt{-cz} basically change the box size
-for the added beads. By default, this constraint is specified in units relative
-to the box dimensions (i.e., allowed values go from 0 to 1); use the \tt{--real}
-option for absolute units. For example, \tt{-cx 0.5 1} would generate x
-coordinates between 50\% and 100\% of the box's x sidelength.
+specified distance from other beads or (ii) in a given interval in x-, y-,
+and/or z-axis directions. In (i), options \tt{-ld} and/or \tt{-hd} define the
+lowest and/or highest distance from beads specified by \tt{-bt <name(s)>} (bead
+name) or \tt{--bonded} (all bonded beads). In (ii), options \tt{-cx}, \tt{-cy},
+and \tt{-cz} basically change the box size for the added beads. By default, this
+constraint is specified in units relative to the box dimensions (i.e., allowed
+values go from 0 to 1); use the \tt{--real} option for absolute units. For
+example, \tt{-cx 0.5 1} would generate x coordinates between 50\% and 100\% of
+the box's x sidelength.
 
 All these options can be combined, but note that \tt{AddToSystem} does not
 perform any sanity checks; that is, if any combination of the provided options
 is impossible to achieve, the utility may run forever. See
-\cref{fig:AddToSystem} for schematic examples.
+\cref{fig:AddToSystem} for schematic examples and the \tt{01-ManualExamples}
+directory for the exact commands to produce these examples.
 
-\begin{figure}[b]
+\begin{figure}[t]
   \centering
   \begin{subfigure}{0.20\textwidth}
     \includegraphics[height=0.9\textwidth]{AddToSystem-A-ld.jpg}
@@ -55,31 +53,27 @@ is impossible to achieve, the utility may run forever. See
     \caption{}
   \end{subfigure}
   \caption{
-    Examples of distance checks (cross-section snapshots): (a) \tt{-ld 3 -bt A
-    B} specifies that any added bead (green) is at least at a distance of three
-    from any \tt{A} or \tt{B} bead (red and blue, respectively); (b) \tt{-hd 4
-    -bt A B} specifies added beads are at most four units away from any \tt{A}
-    or \tt{B} bead; (c) combines (a) and (b) into \tt{-ld 3 -hd 4 -bt A B}, that
-    is, new beads are added at a distance between three and four from any \tt{A}
-    or \tt{B} bead; (d) combines (c) with axis constraint into \tt{-ld 3 -hd 4
-    -cx 0.5 1 -bt A B} which constrains the x-coordinate of new beads between
-    50\% and 100\% of the box's x sidelength; (e) adds \tt{-b 30 20 25} to the
-    options in (d), changing the box size; finally, (f) also moves the original
-    system, adding \tt{-off -0.2 0.2 0}. See \tt{Examples/AddToSystem/Manual}
-    folder for source of these examples.
+    Examples of distance checks: (a) \tt{-ld}, (b) \tt{-hd}, and (c) both
+    \tt{-ld} and \tt{-hd}. Combining the \tt{-ld} and \tt{-hd} options with (d)
+    \tt{-cx} axis constraint, (e) \tt{-cx} and box-size-defining \tt{-b}
+    options, and (f) \tt{-cx}, \tt{-b}, and offsetting \tt{-off} options. The
+    \tt{-bt} and \tt{-add} options were used everywhere. Colours: red and blue
+    -- original system, green -- added beads, blue line -- new simulation box.
+    Note that the pictures show cross-sections of the simulation box to
+    highlight relative position of the original and added beads. See the
+    \tt{01-ManualExamples} directory for exact commands.
   }\label{fig:AddToSystem}
 \end{figure}
 
-For added molecules, either the molecule's geometric centre (default behaviour)
-or its first bead (\tt{--head} option) obey these constraints. The coordinates
-of the remaining beads in the molecule are governed by the coordinates in the
-input \tt{FIELD} file. Therefore, not all the molecular beads necessarily obey
-the constraining rules.
+When adding molecules, either the molecule's geometric centre (default
+behaviour) or its first bead (\tt{--head} option) obey these constraints. The
+coordinates of the remaining beads in the molecule are governed by the
+coordinates in the input \tt{FIELD} file. Therefore, not all the molecular beads
+necessarily obey the constraining rules.
 
 By default, molecules are added with a random orientation; when \tt{--no-rotate}
 switch is used, the molecules are not rotated, but when \tt{-a} option is used,
 all the molecules are rotated by the three angles specified in degrees.
-
 The $\alpha$, $\beta$, and $\gamma$ angles in \tt{-a <alpha> <beta> <gamma>}
 represent yaw, pitch, and roll, respectively. To put it in other words, it is an
 intrinsic rotation with Tait-Bryan angles $\alpha$, $\beta$, and $\gamma$ about
@@ -119,12 +113,12 @@ defined as
   \end{aligned}
 \end{equation}
 
-By default, the new beads are exchanged for beads in the original system; what
-bead type to exchange is either the most numerous one (default behaviour) or
-provided via the \tt{-xb} option. Note that the utility doesn't check whether
-exchanged beads are in a molecule, so a bonded bead may be exchanged, leaving
-only part of the molecule in the new system. If beads are to be added into the
-system rather than switched, use the \tt{--add} option.
+By default, all new beads are exchanged for beads in the original system; what
+bead type to exchange is either the most numerous one (default behaviour) or the
+name(s) provided via the \tt{-xb} option. Note that the utility doesn't check
+whether exchanged beads are in a molecule, so a bonded bead may be exchanged,
+leaving only part of the molecule in the new system. For adding beads into the
+system rather than exchanging them, use the \tt{--add} option.
 
 The size of the new simulation box can be changed using the \tt{-b} option (the
 new size must be in absolute units, i.e., it is unaffected by the \tt{--real}
@@ -176,15 +170,15 @@ Usage: \tt{AddToSystem <input.vcf> <out.vsf> <out.vcf> [options]}
   \tt{--real}              & use real coordinates for -cx/-cy/-cz/-off options
                              instead of fractions of input box size\\
   \tt{--no-rotate}         & do not randomly rotate added molecules\\
-  \tt{-a 3$\times$<angle>} & rotate all added by molecules along x-, y-,
+  \tt{-a 3*<angle>} & rotate all added by molecules along x-, y-,
                              and z-axis\\
   \tt{--head}              & use molecule's first bead for distance check
                              (default: molecule's geometric centre)\\
-  \tt{-cx 2$\times$<float>}& constrain x coordinate to interval
+  \tt{-cx 2*<float>}& constrain x coordinate to interval
                              $\langle num, num2)$ (units relative to box size)\\
-  \tt{-cy 2$\times$<float>}& constrain y coordinate to interval
+  \tt{-cy 2*<float>}& constrain y coordinate to interval
                              $\langle num, num2)$ (units relative to box size)\\
-  \tt{-cz 2$\times$<float>}& constrain z coordinate to interval
+  \tt{-cz 2*<float>}& constrain z coordinate to interval
                              $\langle num, num2)$ (units relative to box size)\\
   \tt{--real}              & use \enquote{real} units instead of relative ones
                              for \tt{-cx}/\tt{-cy}/\tt{-cz} options\\
