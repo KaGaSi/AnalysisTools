@@ -197,6 +197,10 @@ void CommonHelp(const bool error, const int n,
     if (strcmp(option[i], "-i") == 0) {
       fprintf(ptr, "  -i <stru>         input structure file if different "
                    "than the coordinate file\n");
+    } else if (strcmp(option[i], "-ft") == 0) {
+      fprintf(ptr, "  -ft <type>        file type of coordinate file: "
+                   "vtf/vsf/vcf, xyz, data, ltrj "
+                   "(skips extension-based detection)\n");
     } else if (strcmp(option[i], "-st") == 0) {
       fprintf(ptr, "  -st <int>         starting timestep for calculation\n");
     } else if (strcmp(option[i], "-e") == 0) {

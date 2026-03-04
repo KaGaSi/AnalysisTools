@@ -20,10 +20,11 @@ const struct HelpHelp HelpDesc = {
   "Usage: DensityAggregates <input> <in.agg> <width> <output> <size(s)> "
   "[options]",
   .args = 5, // number of mandatory arguments
-  .all = 20, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 21, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
+  COMMON_OPTS[C_FT],
   COMMON_OPTS[C_ST],
   COMMON_OPTS[C_E],
   COMMON_OPTS[C_SK],

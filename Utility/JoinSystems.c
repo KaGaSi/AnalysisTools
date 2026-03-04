@@ -8,10 +8,11 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: JoinSystems <input1> <input2> <output> [options]",
   .args = 3, // number of mandatory arguments
-  .all = 15, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 16, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_VERBOSE],
+  COMMON_OPTS[C_FT],
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],

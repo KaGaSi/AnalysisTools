@@ -49,6 +49,7 @@ bool InputCoorStruct(const int argc, char **argv, SYS_FILES *f);
 int StructureFileType(const char *name);
 int CoordinateFileType(const char *name);
 int FileType(const char *name);
+int FileTypeFromString(const char *str);
 // calculate gyration tensor and various shape descriptors
 vec3d Gyration(const int n, const int *list, SYSTEM *System);
 // TODO: redo

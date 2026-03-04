@@ -504,14 +504,43 @@ static int FindFileType(const char *name) { //{{{
   }
   return -1;
 } //}}}
+int FileTypeFromString(const char *str) { //{{{
+  if (strcasecmp(str, "vtf") == 0) return VTF_FILE;
+  if (strcasecmp(str, "vsf") == 0) return VSF_FILE;
+  if (strcasecmp(str, "vcf") == 0) return VCF_FILE;
+  if (strcasecmp(str, "xyz") == 0) return XYZ_FILE;
+  if (strcasecmp(str, "data") == 0) return LDATA_FILE;
+  if (strcasecmp(str, "ltrj") == 0 ||
+      strcasecmp(str, "lammpstrj") == 0) return LTRJ_FILE;
+  if (strcasecmp(str, "field") == 0) return FIELD_FILE;
+  if (strcasecmp(str, "config") == 0) return CONFIG_FILE;
+  if (strcasecmp(str, "itp") == 0) return ITP_FILE;
+  if (strcasecmp(str, "pdb") == 0) return PDB_FILE;
+  return -1;
+} //}}}
 // identify input coordinate and structure files //{{{
 // TODO: no return false - so why bool?
 bool InputCoorStruct(const int argc, char **argv, SYS_FILES *f) {
+  // -ft option: override file type without extension-based detection
+  int ft_override = -1;
+  char ft_str[LINE];
+  if (FileOption(argc, argv, COMMON_OPTS[C_FT].opt, ft_str)) {
+    ft_override = FileTypeFromString(ft_str);
+    if (ft_override == -1) {
+      snprintf(ERROR_MSG, LINE, "unknown file type '%s'", ft_str);
+      PrintErrorOption(COMMON_OPTS[C_FT].opt);
+      exit(1);
+    }
+  }
   // input structure file (-i option)
   if (FileOption(argc, argv, "-i", f->stru.name)) {
     f->stru.type = StructureFileType(f->stru.name);
   }
-  f->coor.type = CoordinateFileType(f->coor.name);
+  if (ft_override != -1) {
+    f->coor.type = ft_override;
+  } else {
+    f->coor.type = CoordinateFileType(f->coor.name);
+  }
   // set default structure file if -i option not used
   if (f->stru.name[0] == '\0') {
     if (f->coor.type == VCF_FILE) { // use vcf file with .vsf ending
