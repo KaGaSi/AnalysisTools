@@ -25,7 +25,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: Aggregates <coor> <out.agg> [options]",
   .args = 2, // number of mandatory arguments
-  .all = 17, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 18, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -44,6 +44,7 @@ static const struct OptSpec opts[] = {
   {"-d", "<float>", "maximum distance for contact (default: 1)", OPT_EXTRA},
   {"-c", "<float>", "minimum number of contacts (default: 1, max: 255)", OPT_EXTRA},
   {"-j", "<coor>", "output file with joined coordinates", OPT_EXTRA},
+  {"--no_pbc", NULL, "ignore periodic boundary conditions", OPT_EXTRA},
   {"-w", "<a> <float(s)>", "coordinate(s) on <a> axis of wall(s) perpendicular to the axis", OPT_EXTRA},
   {NULL}
 }; //}}}
@@ -58,16 +59,17 @@ struct OPT {
   char w_file[2][LINE]; // -w
   FILE_TYPE j_file[2];  // -w (if -j)
   bool pairs;           // --pairs
+  bool no_pbc;          // --no_pbc
 }; //}}}
 
 // detect possible contact between two beads //{{{
 void CalculateContacts(const int id_i, const int id_j, SYSTEM System,
-                       const double dist, int **contact,
-                       const ArrNDb *use_bt_pair) {
-  int i = System.BeadCoor[id_i];
-  int j = System.BeadCoor[id_j];
-  BEAD *b_i = &System.Bead[i];
-  BEAD *b_j = &System.Bead[j];
+                       OPT opt, const double dist, int **contact,
+                       const ArrNDb *use_bt_pair, SYSTEM sys_copy) {
+  int i = sys_copy.BeadCoor[id_i];
+  int j = sys_copy.BeadCoor[id_j];
+  BEAD *b_i = &sys_copy.Bead[i];
+  BEAD *b_j = &sys_copy.Bead[j];
   // skip if the the pair isn't to be used
   if (!GetArr2D(use_bt_pair, b_i->Type, b_j->Type)) {
     return;
@@ -76,7 +78,20 @@ void CalculateContacts(const int id_i, const int id_j, SYSTEM System,
   int mol_j = b_j->Molecule;
   vec3d *pos_i = &b_i->Position;
   vec3d *pos_j = &b_j->Position;
-  vec3d rij = Distance(pos_i->v, pos_j->v, System.Box.Length);
+  vec3d rij;
+  if (!opt.no_pbc) {
+    // vec3d *pos_i = &b_i->Position;
+    // vec3d *pos_j = &b_j->Position;
+    rij = Distance(pos_i->v, pos_j->v, sys_copy.Box.Length);
+  } else {
+    // RemovePBCMolecule(mol_i, &System);
+    // RemovePBCMolecule(mol_j, &System);
+    // vec3d *pos_i = &b_i->Position;
+    // vec3d *pos_j = &b_j->Position;
+    for (int dd = 0; dd < 3; dd++) {
+      rij.v[dd] = pos_i->v[dd] - pos_j->v[dd];
+    }
+  }
   rij.v[0] = VectLength(rij);
   // are 'i' and 'j' close enough?
   if (mol_i != mol_j && rij.v[0] <= dist) {
@@ -89,15 +104,18 @@ void CalculateContacts(const int id_i, const int id_j, SYSTEM System,
 }
 // structure for the callback function
 struct contacts_args {
+  OPT opt;
   double dist;
   int **contact;
   ArrNDb *use_bt_pair;
+  SYSTEM sys_copy;
 };
 // adaptor for the CalculateContacts() function
 static void CalculateContacts_adaptor(int id_i, int id_j,
                                       const SYSTEM System, void *ud) {
   struct contacts_args *p = (struct contacts_args*)ud;
-  CalculateContacts(id_i, id_j, System, p->dist, p->contact, p->use_bt_pair);
+  CalculateContacts(id_i, id_j, System, p->opt, p->dist,
+                    p->contact, p->use_bt_pair, p->sys_copy);
 } //}}}
 // condition for using specified beads //{{{
 static bool CheckBead(int id, SYSTEM System, bool *use_bt) {
@@ -149,10 +167,13 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
   }
   // calculate contact pairs
   double cell_size = sqrt(sqdist);
-  struct contacts_args args = { sqrt(sqdist), contact, use_bt_pair };
+  SYSTEM copy = CopySystem(*System);
+  WrapJoinCoordinates(System, true, false);
+  struct contacts_args args = { opt, sqrt(sqdist), contact, use_bt_pair, copy };
   struct check_args check = { use_bt };
   TraversePairs(*System, cell_size, CalculateContacts_adaptor, &args,
                 CheckBead_adaptor, &check);
+  FreeSystem(&copy);
 
   EvaluateContacts(Aggregate, System, opt.contacts, contact);
 
@@ -176,7 +197,6 @@ void Calculation(SYSTEM *System, STEP step, OPT opt, COMMON_OPT commons,
                  AGGREGATE *Aggregate, char agg_file[LINE], bool *use_bt,
                  ArrNDb *use_bt_pair, const int argc, char **argv) {
   COUNT *Count = &System->Count;
-  WrapJoinCoordinates(System, true, false);
   CalculateAggregates(Aggregate, System, opt, use_bt, use_bt_pair);
   // calculate & write joined coordinatest (-j option)
   if (opt.fout.name[0] != '\0') {
@@ -371,6 +391,7 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
   opt.pairs = BoolOption(argc, argv, "--pairs");
+  opt.no_pbc = BoolOption(argc, argv, "--no_pbc");
   //}}}
 
   if (!commons.silent) {
