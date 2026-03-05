@@ -46,8 +46,8 @@ typedef enum {
   C_I, C_FT, C_ST, C_E, C_SK, C_VERBOSE, C_SILENT, C_HELP, C_VERSION, C_MAX
 } CommonIndex;
 static const struct OptSpec COMMON_OPTS[C_MAX] = {
-  [C_I] = {"-i", "<stru>", "input structure file if different", OPT_COMMON},
-  [C_FT] = {"-ft", "<type>", "file type of coordinate file: vtf/vsf/vcf, xyz, data, ltrj (skips extension-based detection)", OPT_COMMON},
+  [C_I] = {"-i", "<stru> [type]", "input structure file if different (type: vtf/vsf/xyz/data/ltrj/field/itp/pdb)", OPT_COMMON},
+  [C_FT] = {"-ft", "<type>", "coordinate file type: vtf/vsf/vcf, xyz, data, ltrj", OPT_COMMON},
   [C_ST] = {"-st", "<int>", "starting timestep for calculation", OPT_COMMON},
   [C_E] = {"-e", "<end>", "ending timestep for calculation", OPT_COMMON},
   [C_SK] = {"-sk", "<int>", "leave out every 'skip' steps", OPT_COMMON},

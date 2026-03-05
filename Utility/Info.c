@@ -11,9 +11,10 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: Info <input> [options]",
   .args = 1, // number of mandatory arguments
-  .all = 17, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 18, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
+  {"-ft", "<type>", "structure file type: vtf/vsf/xyz/data/ltrj/field/itp/pdb", OPT_COMMON},
   COMMON_OPTS[C_ST],
   COMMON_OPTS[C_E],
   COMMON_OPTS[C_SK],
@@ -22,7 +23,7 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
   {"<input>", NULL, "input structure file", OPT_ARG},
-  {"-i", "<file>", "secondary structure file", OPT_EXTRA},
+  {"-i", "<file> [type]", "secondary structure file (type: vtf/vsf/xyz/data/ltrj/field/itp/pdb)", OPT_EXTRA},
   {"-c", "<file>", "input coordinate file", OPT_EXTRA},
   {"--detailed", NULL, "use name, charge, mass, and radius to identfy bead types", OPT_EXTRA},
   {"-o", "<file>", "output structure file", OPT_EXTRA},
@@ -49,11 +50,56 @@ int main(int argc, char *argv[]) {
   int count = 0;
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.stru.name, argv[++count], LINE);
-  in.stru.type = StructureFileType(in.stru.name);
-  // -i option //{{{
+  // -ft option: override structure file type without extension-based detection
+  char ft_str[LINE];
+  if (FileOption(argc, argv, COMMON_OPTS[C_FT].opt, ft_str)) {
+    in.stru.type = FileTypeFromString(ft_str);
+    if (in.stru.type != VTF_FILE && in.stru.type != VSF_FILE &&
+        in.stru.type != FIELD_FILE && in.stru.type != LDATA_FILE &&
+        in.stru.type != LTRJ_FILE && in.stru.type != XYZ_FILE &&
+        in.stru.type != ITP_FILE && in.stru.type != PDB_FILE) {
+      if (snprintf(ERROR_MSG, LINE, "not a structure file type '%s'",
+                   ft_str) < 0) {
+        ErrorSnprintf();
+      }
+      PrintErrorOption(COMMON_OPTS[C_FT].opt);
+      exit(1);
+    }
+  } else {
+    in.stru.type = StructureFileType(in.stru.name);
+  }
+  // -i option with optional type string as 2nd argument //{{{
   SYS_FILES extra = InitSysFiles;
-  if (FileOption(argc, argv, "-i", extra.stru.name)) {
-    extra.stru.type = StructureFileType(extra.stru.name);
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-i") == 0) {
+      if ((i+1) >= argc || argv[i+1][0] == '-') {
+        s_strcpy(ERROR_MSG,
+                 "missing file name (or file name begins with a dash)", LINE);
+        PrintErrorOption("-i");
+        exit(1);
+      }
+      s_strcpy(extra.stru.name, argv[i+1], LINE);
+      if ((i+2) < argc && argv[i+2][0] != '-') {
+        int ft = FileTypeFromString(argv[i+2]);
+        if (ft == VTF_FILE || ft == VSF_FILE || ft == FIELD_FILE ||
+            ft == LDATA_FILE || ft == LTRJ_FILE || ft == XYZ_FILE ||
+            ft == ITP_FILE || ft == PDB_FILE) {
+          extra.stru.type = ft;
+        } else if (ft != -1) {
+          if (snprintf(ERROR_MSG, LINE, "not a structure file type '%s'",
+                       argv[i+2]) < 0) {
+            ErrorSnprintf();
+          }
+          PrintErrorOption("-i");
+          exit(1);
+        } else {
+          extra.stru.type = StructureFileType(extra.stru.name);
+        }
+      } else {
+        extra.stru.type = StructureFileType(extra.stru.name);
+      }
+      break;
+    }
   } //}}}
   // input coordinate file (-c option) //{{{
   FileOption(argc, argv, "-c", in.coor.name);

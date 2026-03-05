@@ -526,15 +526,47 @@ bool InputCoorStruct(const int argc, char **argv, SYS_FILES *f) {
   char ft_str[LINE];
   if (FileOption(argc, argv, COMMON_OPTS[C_FT].opt, ft_str)) {
     ft_override = FileTypeFromString(ft_str);
-    if (ft_override == -1) {
-      snprintf(ERROR_MSG, LINE, "unknown file type '%s'", ft_str);
+    if (ft_override == -1 || ft_override == VSF_FILE) {
+      if (snprintf(ERROR_MSG, LINE, "unknown coordinate file type '%s'",
+                   ft_str) < 0) {
+        ErrorSnprintf();
+      }
       PrintErrorOption(COMMON_OPTS[C_FT].opt);
       exit(1);
     }
   }
-  // input structure file (-i option)
-  if (FileOption(argc, argv, "-i", f->stru.name)) {
-    f->stru.type = StructureFileType(f->stru.name);
+  // input structure file (-i option) with optional type string as 2nd argument
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-i") == 0) {
+      if ((i+1) >= argc || argv[i+1][0] == '-') {
+        s_strcpy(ERROR_MSG,
+                 "missing file name (or file name begins with a dash)", LINE);
+        PrintErrorOption("-i");
+        exit(1);
+      }
+      s_strcpy(f->stru.name, argv[i+1], LINE);
+      // optional type string: consume only if it's a recognized structure type
+      if ((i+2) < argc && argv[i+2][0] != '-') {
+        int ft = FileTypeFromString(argv[i+2]);
+        if (ft == VTF_FILE || ft == VSF_FILE || ft == FIELD_FILE ||
+            ft == LDATA_FILE || ft == LTRJ_FILE || ft == XYZ_FILE ||
+            ft == ITP_FILE || ft == PDB_FILE) {
+          f->stru.type = ft;
+        } else if (ft != -1) {
+          if (snprintf(ERROR_MSG, LINE, "not a structure file type '%s'",
+                       argv[i+2]) < 0) {
+            ErrorSnprintf();
+          }
+          PrintErrorOption("-i");
+          exit(1);
+        } else {
+          f->stru.type = StructureFileType(f->stru.name);
+        }
+      } else {
+        f->stru.type = StructureFileType(f->stru.name);
+      }
+      break;
+    }
   }
   if (ft_override != -1) {
     f->coor.type = ft_override;
