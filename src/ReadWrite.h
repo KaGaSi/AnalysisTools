@@ -39,30 +39,16 @@ void WriteStructure(FILE_TYPE f, const SYSTEM System, const int vsf_def_type,
 void WriteAggregates(const int step_count, const char *agg_file,
                      const SYSTEM System, const AGGREGATE *Aggregate);
 
-// verbose output (print various structures and some such)
-void VerboseOutput(const SYSTEM System);
-void PrintCount(const COUNT Count);
-void PrintBeadType(const SYSTEM System);
-void PrintOneMolType(const SYSTEM System, const int n);
-void PrintAllMolTypes(const SYSTEM System);
-void Print1Molecule(const SYSTEM System, const int n);
-void PrintMolecules(const SYSTEM System);
-void PrintBead(const SYSTEM System);
-void PrintBeadCoor(const SYSTEM System);
-void PrintBondType(const SYSTEM System);
-void PrintAngleType(const SYSTEM System);
-void PrintDihedralType(const SYSTEM System);
-void PrintImproperType(const SYSTEM System);
-// TODO: use SYSTEM
-void PrintBondTypes(const COUNT Counts, const PARAMS *bond_type);
-// TODO: use SYSTEM
-void PrintAngleTypes(const COUNT Counts, const PARAMS *angle_type);
-void PrintBox(const BOX Box);
+// file type detection
+int FileTypeFromString(const char *str);
+bool InputCoorStruct(const int argc, char **argv, SYS_FILES *f);
+int StructureFileType(const char *name);
+int CoordinateFileType(const char *name);
+int FileType(const char *name);
+
+// output file header comment
 void PrintByline(const char *file, const int argc, char **argv);
 FILE * PrintBylineOpenFile(const char *f, const int argc, char **argv);
-void PrintStep(int *count_coor, const int start, const bool silent);
-void PrintLastStep(const int coor, const int used, const bool silent);
-void PrintAggregate(const SYSTEM System, const AGGREGATE *Aggregate);
 
 void WriteFormatedDataLine(FILE *fw, const int columns, const double *data,
                            const int (*digits)[2]);

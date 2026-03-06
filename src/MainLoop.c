@@ -1,9 +1,22 @@
-#include "AnalysisTools.h"
 #include "MainLoop.h"
+#include "Debug.h"
+#include "General.h"
+#include "ReadWrite.h"
 
 // TODO: add callback function for step printing?
 // TODO: add callback function for while loop breaking?
 // TODO: add callback function for use timestep?
+
+// should the given step be used for calculations? //{{{
+bool UseStep(const COMMON_OPT opt, const int step) {
+  if (step >= opt.start &&
+      (step <= opt.end || opt.end == -1) &&
+      ((step - opt.start) % opt.skip) == 0) {
+    return true;
+  } else {
+    return false;
+  }
+} //}}}
 
 // main loop //{{{
 void MainLoopCoor(SYSTEM *System, SYS_FILES in, COMMON_OPT commons,

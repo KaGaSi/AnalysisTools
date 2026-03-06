@@ -3,6 +3,14 @@
 
 #include "Structs.h"
 
+// identify bead type based on name
+int FindBeadType(const char *name, const SYSTEM System);
+// identify molecule type based on name
+int FindMoleculeName(const char *name, const SYSTEM System);
+// identify molecule type based on name only or on other parameters too
+int FindMoleculeType(const SYSTEM Sys1, const MOLECULETYPE mt,
+                     const SYSTEM Sys2, const int mode, const bool name);
+
 // fill in some SYSTEM arrays and some such
 void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType);
 void ReFillMoleculeTypeBType(SYSTEM *System);

@@ -3,7 +3,7 @@
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "AnalysisTools.h"
+#include "Structs.h"
 
 // callback function to call for each pair of particles
 // i & j ... indices in System.BeadCoor array

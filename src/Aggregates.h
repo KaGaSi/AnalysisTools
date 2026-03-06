@@ -3,7 +3,8 @@
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "AnalysisTools.h"
+#include "Structs.h"
+#include "Arrays.h"
 
 // determine what molecules belong to what aggregates
 void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
@@ -14,4 +15,10 @@ bool UseAggregate(SYSTEM System, AGGREGATE *Aggregate, int id,
 // detect -m, -x, -only, and -n options
 void AggPickerOptions(const int argc, char **argv, AGG_PICKER *opt,
                       SYSTEM System);
+// evaluate bead contacts to assign molecules to aggregates
+void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
+                      const int contacts, int **contact);
+// remove PBC for aggregate molecules
+void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
+                         SYSTEM *System, const bool *use_bt);
 #endif

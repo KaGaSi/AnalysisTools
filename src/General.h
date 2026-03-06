@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <errno.h>
 #include <sys/stat.h>
 #include <math.h>
 #include "Arrays.h"
@@ -58,13 +59,11 @@ static inline double Max3(double x, double y, double z) {
   }
 } //}}}
 // changing the text colour (and making it bold) for cli output //{{{
-// TODO: errno clobbering!
 static inline const char *Colour(FILE *f, const char colour[]) {
-  if (isatty(fileno(f))) {
-    return colour;
-  } else {
-    return "";
-  }
+  int saved_errno = errno;
+  int is_tty = isatty(fileno(f));
+  errno = saved_errno;
+  return is_tty ? colour : "";
 }
 // colours for stderr
 static inline const char *ErrRed() {

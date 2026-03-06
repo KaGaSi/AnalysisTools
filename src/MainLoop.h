@@ -21,5 +21,7 @@ static const STEP InitStep = {
 typedef void (*callback)(SYSTEM *System, STEP *step, void *userdata);
 void MainLoopCoor(SYSTEM *System, SYS_FILES in, COMMON_OPT commons,
                   STEP *step, callback callback_func, void *ud);
+// should the given step be used for calculations?
+bool UseStep(const COMMON_OPT opt, int step);
 
 #endif

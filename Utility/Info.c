@@ -93,7 +93,12 @@ int main(int argc, char *argv[]) {
           PrintErrorOption("-i");
           exit(1);
         } else {
-          extra.stru.type = StructureFileType(extra.stru.name);
+          if (snprintf(ERROR_MSG, LINE, "unknown structure file type: '%s%s%s'",
+                       ErrYellow(), argv[i+2], ErrRed()) < 0) {
+            ErrorSnprintf();
+          }
+          PrintErrorOption("-i");
+          exit(1);
         }
       } else {
         extra.stru.type = StructureFileType(extra.stru.name);

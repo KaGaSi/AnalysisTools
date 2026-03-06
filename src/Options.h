@@ -3,7 +3,8 @@
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "AnalysisTools.h"
+#include "Structs.h"
+#include "Arrays.h"
 
 // // Help message prototype to use in utilities //{{{
 // const struct HelpHelp HelpDesc = {

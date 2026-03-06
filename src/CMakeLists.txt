@@ -56,27 +56,28 @@ endif()
 
 # Define library
 add_library(AnalysisTools
-  AnalysisTools.c
   Aggregates.c
   Arrays.c
+  Coordinates.c
+  Debug.c
+  Errors.c
+  General.c
   Globals.c
-  MathUtils.h
   MainLoop.c
+  MathUtils.h
   Options.c
   Pairs.c
   pcg32.c
   ReadWrite.c
+  ReadWriteConfig.c
+  ReadWriteField.c
+  ReadWriteGromacs.c
+  ReadWriteLdata.c
+  ReadWriteLtrj.c
   ReadWriteVtf.c
   ReadWriteXyz.c
-  ReadWriteLtrj.c
-  ReadWriteLdata.c
-  ReadWriteField.c
-  ReadWriteConfig.c
-  ReadWriteGromacs.c
-  System.c
-  Errors.c
-  General.c
-  Structs.c)
+  Structs.c
+  System.c)
 
 # List of utilities
 set(UTILS

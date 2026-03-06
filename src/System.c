@@ -1,7 +1,7 @@
 #include "AnalysisTools.h"
 #include "System.h"
+#include "Debug.h"
 #include "Errors.h"
-#include "ReadWrite.h"
 
 static void SortSingleStuff(int num, int (**arr)[5], int n);
 static int CopyMTypeStuff(int num, int (*old)[5], int (**new)[5],
@@ -10,6 +10,136 @@ static bool StuffInTimestep(SYSTEM System, int mol, int num,
                             int (*arr)[5], int i);
 static void MTypeStuffNewIDs(SYSTEM System, int mol, int n_stuff, int num,
                              int (*old)[5], int (**new)[5], int old_to_new[]);
+
+// identify bead type based on name //{{{
+int FindBeadType(const char *name, const SYSTEM System) {
+  for (int i = 0; i < System.Count.BeadType; i++) {
+    if (strcmp(name, System.BeadType[i].Name) == 0) {
+      return i;
+    }
+  }
+  return -1;
+} //}}}
+// identify molecule type based on name //{{{
+int FindMoleculeName(const char *name, const SYSTEM System) {
+  for (int i = 0; i < System.Count.MoleculeType; i++) {
+    if (strcmp(name, System.MoleculeType[i].Name) == 0) {
+      return i;
+    }
+  }
+  return -1;
+} //}}}
+// identify molecule type based on name only or on other parameters too //{{{
+/*
+ * If name==true, then find molecule type according to mode:
+ *   0 - check nothing else
+ *   1 - check number of beads
+ *   2 - check number and types of beads
+ *   3 - check everything
+ * name = true/false for checking/ignoring molecule name
+ */
+int FindMoleculeType(const SYSTEM Sys1, const MOLECULETYPE mt_1,
+                     const SYSTEM Sys2, const int mode, const bool name) {
+  if (mode < 0 || mode > 3) {
+    err_msg("FindMoleculeType() - mode parameter must be <0,3>\n");
+    PrintError();
+    exit(1);
+  }
+  for (int i = 0; i < Sys2.Count.MoleculeType; i++) {
+    MOLECULETYPE *mt_2 = &Sys2.MoleculeType[i];
+    if (!name || strcmp(mt_1.Name, mt_2->Name) == 0) {
+      if (mode == 0) {
+        return i;
+      }
+      if (mt_1.nBeads != mt_2->nBeads) {
+        goto end_loop;
+      } else if (mode == 1) {
+        return i;
+      }
+      for (int j = 0; j < mt_1.nBeads; j++) {
+        int bt_1 = mt_1.Bead[j],
+            bt_2 = mt_2->Bead[j];
+        if (!SameBeadType(Sys1.BeadType[bt_1], Sys2.BeadType[bt_2], name)) {
+          goto end_loop;
+        }
+      }
+      if (mode == 2) {
+        return i;
+      }
+      if (mt_1.nBonds != mt_2->nBonds) {
+        goto end_loop;
+      }
+      for (int j = 0; j < mt_1.nBonds; j++) {
+        if (!SameArrayInt(mt_1.Bond[j], mt_2->Bond[j], 2)) {
+          goto end_loop;
+        }
+        if (mt_1.Bond[j][2] == mt_2->Bond[j][2]) {
+          if (mt_1.Bond[j][2] != -1) {
+            PARAMS *tbond_1 = &Sys1.BondType[mt_1.Bond[j][2]],
+                   *tbond_2 = &Sys2.BondType[mt_2->Bond[j][2]];
+            if (tbond_1->a != tbond_2->a || tbond_1->b != tbond_2->b ||
+                tbond_1->c != tbond_2->c || tbond_1->d != tbond_2->d) {
+              goto end_loop;
+            }
+          }
+        } else {
+          goto end_loop;
+        }
+      }
+      if (mt_1.nAngles != mt_2->nAngles) {
+        goto end_loop;
+      }
+      for (int j = 0; j < mt_1.nAngles; j++) {
+        if (!SameArrayInt(mt_1.Angle[j], mt_2->Angle[j], 3)) {
+          goto end_loop;
+        }
+        if (mt_1.Angle[j][3] != -1 && mt_2->Angle[j][3] != -1) {
+          PARAMS *tangle_1 = &Sys1.AngleType[mt_1.Angle[j][3]],
+                 *tangle_2 = &Sys2.AngleType[mt_2->Angle[j][3]];
+          if (tangle_1->a != tangle_2->a || tangle_1->b != tangle_2->b ||
+              tangle_1->c != tangle_2->c || tangle_1->d != tangle_2->d) {
+            goto end_loop;
+          }
+        }
+      }
+      if (mt_1.nDihedrals != mt_2->nDihedrals) {
+        goto end_loop;
+      }
+      for (int j = 0; j < mt_1.nDihedrals; j++) {
+        if (!SameArrayInt(mt_1.Dihedral[j], mt_2->Dihedral[j], 4)) {
+          goto end_loop;
+        }
+        if (mt_1.Dihedral[j][4] != -1 && mt_2->Dihedral[j][4] != -1) {
+          PARAMS *tdihed_1 = &Sys1.DihedralType[mt_1.Dihedral[j][4]],
+                 *tdihed_2 = &Sys2.DihedralType[mt_2->Dihedral[j][4]];
+          if (tdihed_1->a != tdihed_2->a || tdihed_1->b != tdihed_2->b ||
+              tdihed_1->c != tdihed_2->c || tdihed_1->d != tdihed_2->d) {
+            goto end_loop;
+          }
+        }
+      }
+      if (mt_1.nImpropers != mt_2->nImpropers) {
+        goto end_loop;
+      }
+      for (int j = 0; j < mt_1.nImpropers; j++) {
+        if (!SameArrayInt(mt_1.Improper[j], mt_2->Improper[j], 4)) {
+          goto end_loop;
+        }
+        if (mt_1.Improper[j][4] != -1 && mt_2->Improper[j][4] != -1) {
+          PARAMS *timpro_1 = &Sys1.ImproperType[mt_1.Improper[j][4]],
+                 *timpro_2 = &Sys2.ImproperType[mt_2->Improper[j][4]];
+          if (timpro_1->a != timpro_2->a || timpro_1->b != timpro_2->b ||
+              timpro_1->c != timpro_2->c || timpro_1->d != timpro_2->d) {
+            goto end_loop;
+          }
+        }
+      }
+      return i;
+    }
+    end_loop:;
+  }
+  return -1;
+} //}}}
 
 // fill some System arrays and some such
 void FillMoleculeTypeBType(MOLECULETYPE *MoleculeType) { //{{{
