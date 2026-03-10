@@ -25,6 +25,8 @@ static void SaveTimestep(SYSTEM *Sys, SYSTEM *System,
                          int **b_full_to_red, bool *write, const OPT opt,
                          const COMMON_OPT commons,
                          const FILE_TYPE fout, const int argc, char *argv[]);
+static bool ReadTimestepSilent(const SYS_FILES in, FILE *fr,
+                               SYSTEM *System, int *line_count);
 
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
@@ -276,6 +278,121 @@ static void SaveTimestep(SYSTEM *Sys, SYSTEM *System,
   }
 } //}}}
 
+// ReadTimestep wrapper that suppresses all stderr output //{{{
+static bool ReadTimestepSilent(const SYS_FILES in, FILE *fr,
+                               SYSTEM *System, int *line_count) {
+  FILE *devnull = fopen("/dev/null", "w");
+  int saved_fd = dup(STDERR_FILENO);
+  dup2(fileno(devnull), STDERR_FILENO);
+  fclose(devnull);
+  bool ok = ReadTimestep(in, fr, System, line_count);
+  fflush(stderr);
+  dup2(saved_fd, STDERR_FILENO);
+  close(saved_fd);
+  return ok;
+} //}}}
+// check if the current words/split[] is the start of a timestep //{{{
+static bool IsTimestepStartLine(int type, const SYSTEM *System) {
+  if (type == XYZ_FILE) {
+    // first line of an XYZ timestep is just the bead count
+    long val;
+    return words == 1 && IsNaturalNumber(split[0], &val) &&
+           val > 0 && val <= System->Count.Bead;
+  } else if (type == VTF_FILE || type == VCF_FILE) {
+    // matches VtfCheckTimestepLine() logic
+    return (words == 1 && split[0][0] == 't') ||
+           (words > 1 && split[0][0] == 't' && split[1][0] == 'o') ||
+           split[0][0] == 'o';
+  } else if (type == LTRJ_FILE) {
+    return words >= 2 && strcmp(split[0], "ITEM:") == 0 &&
+           strcmp(split[1], "TIMESTEP") == 0;
+  }
+  return false;
+} //}}}
+// scan backward from end_pos to find the start of the preceding timestep //{{{
+static bool FindPrevTimestepStart(FILE *fr, int type, const SYSTEM *System,
+                                  long end_pos, long *ts_start) {
+  long pos = end_pos - 1;
+  // skip any trailing newlines before end_pos
+  while (pos >= 0) {
+    fseek(fr, pos, SEEK_SET);
+    int c = fgetc(fr);
+    if (c != '\n' && c != '\r') break;
+    pos--;
+  }
+  while (pos >= 0) {
+    // find the start of the line containing pos
+    long line_start = pos;
+    while (line_start > 0) {
+      fseek(fr, line_start - 1, SEEK_SET);
+      if (fgetc(fr) == '\n') break;
+      line_start--;
+    }
+    // read the line and test if it is a timestep start
+    fseek(fr, line_start, SEEK_SET);
+    ReadAndSplitLine(fr, SPL_STR, " \t\n");
+    if (IsTimestepStartLine(type, System)) {
+      *ts_start = line_start;
+      return true;
+    }
+    // advance backward past this line
+    pos = line_start - 1;
+    while (pos >= 0) {
+      fseek(fr, pos, SEEK_SET);
+      int c = fgetc(fr);
+      if (c != '\n' && c != '\r') break;
+      pos--;
+    }
+  }
+  return false;
+} //}}}
+
+// structure for the callback function //{{{
+struct user_data {
+  OPT opt;
+  COMMON_OPT commons;
+  SYSTEM *Sys;
+  int **b_full_to_red;
+  bool *write;
+  FILE_TYPE fout;
+  int count_saved;
+  int argc;
+  char **argv;
+}; //}}}
+// adaptor for the SaveTimestep() function //{{{
+static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
+  struct user_data *p = (struct user_data *)userdata;
+  // handle -n option: only save specified timesteps
+  if (p->opt.n_number != -1) {
+    bool in_list = false;
+    for (int i = 0; i < p->opt.n_number; i++) {
+      if (p->opt.n_save[i] == step->coor) {
+        in_list = true;
+        break;
+      }
+    }
+    if (!in_list) {
+      return;
+    }
+  }
+  // warn and skip if lammps data file already has one saved timestep
+  if (p->fout.type == LDATA_FILE && p->count_saved == 1) {
+    err_msg("only one timestep can be saved to lammps data file");
+    PrintWarnFile(p->fout.name, "\0", "\0");
+    return;
+  }
+  // apply -b override
+  if (p->opt.box.x != -1) {
+    for (int dd = 0; dd < 3; dd++) {
+      System->Box.Length.v[dd] = p->opt.box.v[dd];
+    }
+    CalculateBoxData(&System->Box, 0);
+  }
+  p->count_saved++;
+  SaveTimestep(p->Sys, System, p->count_saved, step->coor, p->b_full_to_red,
+               p->write, p->opt, p->commons, p->fout, p->argc, p->argv);
+}; //}}}
+
 int main(int argc, char *argv[]) {
 
   // commad line arguments before reading the structure //{{{
@@ -488,159 +605,57 @@ int main(int argc, char *argv[]) {
   SYSTEM Sys; // the reduced system
   int *b_full_to_red = NULL; // full-system bead ids to reduced-system ids
 
-  FILE *fr = OpenFile(in.coor.name, "r");
-  // main loop //{{{
-  // file pointers for finding the last valid step
-  fpos_t *position = calloc(1, sizeof *position);
-  // save line count at every fgetpos()
-  int *bkp_line_count = calloc(1, sizeof *bkp_line_count);
-  if (!position || !bkp_line_count) {
-    ErrorAlloc("position/bkp_line_count");
-  }
-  int n_opt_count = 0, // count saved steps if -n option is used
-      count_coor = 0,  // count steps in the coor file
-      count_used = 0, // count steps in output file
-      line_count = 0;  // count lines in the coor file
-  while (true) {
-    if (opt.last) {
-      count_coor++;
-      if (!commons.silent && isatty(STDOUT_FILENO)) {
-        fprintf(stdout, "\rDiscarding step: %d", count_coor);
-      }
-    } else {
-      PrintStep(&count_coor, commons.start, commons.silent);
-    }
-    position = s_realloc(position, count_coor * sizeof *position);
-    fgetpos(fr, &position[count_coor-1]);
-    bkp_line_count = s_realloc(bkp_line_count, count_coor *
-                               sizeof *bkp_line_count);
-    bkp_line_count[count_coor-1] = line_count;
-    // decide whether this timestep is to be saved //{{{
-    bool use = false;
-    // no -n option - possibly use only if --last not present
-    if (opt.n_number == -1 && !opt.last && UseStep(commons, count_coor)) {
-      use = true;
-    // -n option is used - save the timestep if it's in the list
-    } else if (n_opt_count < opt.n_number &&
-               opt.n_save[n_opt_count] == count_coor) {
-      use = true;
-      n_opt_count++;
-    } //}}}
-    if (use) { // read and write the timestep, if it should be saved //{{{
-      if (fout.type == LDATA_FILE && count_used == 1) {
-        err_msg("only one timestep can be saved to lammps data file");
-        PrintWarnFile(fout.name, "\0", "\0");
-        count_coor--;
-        break;
-      }
-      if (!ReadTimestep(in, fr, &System, &line_count)) {
-        count_coor--;
-        break;
-      }
-      count_used++;
-      if (opt.box.x != -1) {
-        for (int dd = 0; dd < 3; dd++) {
-          System.Box.Length.v[dd] = opt.box.v[dd];
-        }
-        CalculateBoxData(&System.Box, 0);
-      }
-      SaveTimestep(&Sys, &System, count_used, count_coor, &b_full_to_red,
-                   write, opt, commons, fout, argc, argv);
-      //}}}
-    } else { // skip the timestep, if it shouldn't be saved //{{{
-      if (!SkipTimestep(in, fr, &line_count)) {
-        count_coor--;
-        break;
-      }
-    } //}}}
-    // decide whether to exit the main loop //{{{
-    /* break the loop if
-     *    1) all timesteps in the -n option are saved (and --last isn't used)
-     *    or
-     *    2) end timestep was reached (-e option)
-     */
-    if (!opt.last && // never break when --last is used
-        (n_opt_count == opt.n_number || // 1)
-         count_coor == commons.end)) {    // 2)
-      break;
-    } //}}}
-  } //}}}
-  // if --last option is used, read & save the last timestep //{{{
-  if (opt.last) {
-    /* To through all saved file positions (last to first) and save a the first
-     * valid step encountered.
-     * Start at count_coor as the saved position is at the beginning of the last
-     * timestep to be skipped, and count_coor-- is used beore quitting the while
-     * loop.
-     */
-    count_coor--; // decrement as the last step should be eof
-    for (int i = (count_coor); i >= 0; i--) {
-      fsetpos(fr, &position[i]);
-      line_count = bkp_line_count[i];
-      if (ReadTimestep(in, fr, &System, &line_count)) {
-        // TransformAndSave(&System, *opt, fout, write, count_coor, argc, argv);
-        SaveTimestep(&Sys, &System, 1, count_coor, &b_full_to_red,
+  if (opt.last) { // read from end of file to find and save the last step //{{{
+    FILE *fr = OpenFile(in.coor.name, "r");
+    fseek(fr, 0, SEEK_END);
+    long pos = ftell(fr); // start scanning from the end
+    bool found = false;
+    long ts_start;
+    while (FindPrevTimestepStart(fr, in.coor.type, &System, pos, &ts_start)) {
+      int line_count = 0;
+      fseek(fr, ts_start, SEEK_SET);
+      if (ReadTimestepSilent(in, fr, &System, &line_count)) {
+        SaveTimestep(&Sys, &System, 1, 0, &b_full_to_red,
                      write, opt, commons, fout, argc, argv);
         if (!commons.silent) {
-          if (isatty(STDOUT_FILENO)) {
-            fprintf(stdout, "\r                          \r");
-          }
-          fprintf(stdout, "Saved Step: %d\n", i+1);
+          fprintf(stdout, "Saved last step\n");
           fflush(stdout);
         }
+        found = true;
         break;
       } else {
-        snprintf(ERROR_MSG, LINE, "disregarding step %s%d%s", ErrYellow(),
-                 i + 1, ErrCyan());
+        snprintf(ERROR_MSG, LINE, "disregarding corrupt last step");
         PrintWarnFile(in.coor.name, "\0", "\0");
+        pos = ts_start; // try the preceding timestep
       }
-    } //}}}
-  } else if (count_coor == 0) { // error - input file without a valid timestep //{{{
-    remove(fout.name);
-    err_msg("no valid timestep found");
-    PrintErrorFile(in.coor.name, "\0", "\0"); //}}}
-  } else if (commons.start > count_coor) { // warn if no timesteps were written //{{{
-    remove(fout.name);
-    err_msg("no coordinates written (starting timestep is higher "
-            "than the total number of timesteps)");
-    PrintWarning(); //}}}
-  } else if (!commons.silent) { // print last step count? //{{{
-    if (isatty(STDOUT_FILENO)) {
-      fprintf(stdout, "\r                          \r");
     }
-    fprintf(stdout, "Last Step: %d (saved %d)\n", count_coor, count_used);
-    fflush(stdout);
+    if (!found) {
+      remove(fout.name);
+      err_msg("no valid timestep found");
+      PrintErrorFile(in.coor.name, "\0", "\0");
+    }
+    fclose(fr);
+    //}}}
+  } else { // normal: use MainLoopCoor() //{{{
+    STEP step = InitStep;
+    struct user_data ud = { opt, commons, &Sys, &b_full_to_red,
+                            write, fout, 0, argc, argv };
+    MainLoopCoor(&System, in, commons, &step, Calculation_adaptor, &ud);
+    if (step.coor == 0) { // error - input file without a valid timestep
+      remove(fout.name);
+      err_msg("no valid timestep found");
+      PrintErrorFile(in.coor.name, "\0", "\0");
+    } else if (commons.start > step.coor) { // warn if no timesteps were written
+      remove(fout.name);
+      err_msg("no coordinates written (starting timestep is higher "
+              "than the total number of timesteps)");
+      PrintWarning();
+    }
   } //}}}
-  fclose(fr);
-
-  // // reading file from the end //{{{
-  // fr = OpenFile(in.coor.name, "r");
-  // fseek(fr, 0, SEEK_END); // move to the end of the file
-  // long pos = ftell(fr); // save the pointer position
-  // pos--; // skip EOF character
-  // pos--; // assume the last character in the file is '\n', so skip that too
-  // char test;
-  // line_count = 0;
-  // while (pos >= 0) {
-  //   fseek(fr, pos, SEEK_SET); // decrement pointer position and go there
-  //   test = fgetc(fr);
-  //   if (test == '\n' || pos == 0) {
-  //     line_count++;
-  //     if (pos == 0) {
-  //       ungetc(test, fr);
-  //     }
-  //     ReadAndSplitLine(fr, SPL_STR, " \t\n");
-  //     printf("%5d|%d: %s\n", line_count, words, split[0]);
-  //   }
-  //   pos--;
-  // }
-  // fclose(fr); //}}}
 
   // free memory
   FreeSystem(&System);
   free(write);
-  free(position);
-  free(bkp_line_count);
   if (opt.reduce) {
     FreeSystem(&Sys);
     free(b_full_to_red);
