@@ -66,6 +66,7 @@ add_library(AnalysisTools
   MainLoop.c
   MathUtils.h
   Options.c
+  PairHash.c
   Pairs.c
   pcg32.c
   ReadWrite.c

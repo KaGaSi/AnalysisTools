@@ -15,6 +15,7 @@
 #include "Options.h"
 #include "ReadWrite.h"
 #include "Aggregates.h"
+#include "PairHash.h"
 #include "Pairs.h"
 #include "MainLoop.h"
 #include "Debug.h"

@@ -1,5 +1,4 @@
 #include "../src/AnalysisTools.h"
-// TODO: well, the contact array - should be spare array or some such
 
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
@@ -64,7 +63,7 @@ struct OPT {
 
 // detect possible contact between two beads //{{{
 void CalculateContacts(const int id_i, const int id_j, SYSTEM System,
-                       OPT opt, const double dist, int **contact,
+                       OPT opt, const double dist, PairHash *contact,
                        const ArrNDb *use_bt_pair, SYSTEM sys_copy) {
   int i = sys_copy.BeadCoor[id_i];
   int j = sys_copy.BeadCoor[id_j];
@@ -95,10 +94,14 @@ void CalculateContacts(const int id_i, const int id_j, SYSTEM System,
   rij.v[0] = VectLength(rij);
   // are 'i' and 'j' close enough?
   if (mol_i != mol_j && rij.v[0] <= dist) {
+    /*
+     * record the contact in the hash table, always storing with the larger
+     * molecule index, so each pair has exactly one key
+     */
     if (mol_i > mol_j) {
-      contact[mol_i][mol_j]++;
+      PairHashIncrement(contact, mol_i, mol_j);
     } else {
-      contact[mol_j][mol_i]++;
+      PairHashIncrement(contact, mol_j, mol_i);
     }
   }
 }
@@ -106,7 +109,7 @@ void CalculateContacts(const int id_i, const int id_j, SYSTEM System,
 struct contacts_args {
   OPT opt;
   double dist;
-  int **contact;
+  PairHash *contact; // sparse hash map: pair (i,j) -> uint8_t contact count
   ArrNDb *use_bt_pair;
   SYSTEM sys_copy;
 };
@@ -150,16 +153,14 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
     Aggregate[i].nBeads = 0;
   }
 
-  // // array for number of contacts between molecules
-  // ArrNDi *contact = CreateArr2Di(Count->Molecule, Count->Molecule);
-  // if (!contact) {
-  //   ErrorAlloc("contact");
-  // }
-  // allocate & zeroize contact[][] (triangular matrix)
-  int **contact = calloc(Count->Molecule, sizeof *contact);
-  for (int i = 0; i < Count->Molecule; i++) {
-    contact[i] = calloc(i + 1, sizeof *contact[i]);
-  }
+  /*
+   * Allocate the sparse contact map; an open-addressing hash table that stores
+   * only the molecule pairs that have at least one bead-bead contact
+   *
+   * khash starts with a small internal array and resizes automatically as
+   * entries are inserted
+   */
+  PairHash *contact = PairHashAlloc();
 
   // assign in no aggregate to each molecule
   for (int i = 0; i < Count->Molecule; i++) {
@@ -177,12 +178,7 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
 
   EvaluateContacts(Aggregate, System, opt.contacts, contact);
 
-  // FreeArrND(contact);
-  // free memory
-  for (int i = 0; i < Count->Molecule; i++) {
-    free(contact[i]);
-  }
-  free(contact);
+  PairHashFree(contact);
 
   // sort molecules in aggregates according to ascending ids //{{{
   for (int i = 0; i < System->Count.Aggregate; i++) {
@@ -433,55 +429,11 @@ int main(int argc, char *argv[]) {
           }
         }
       }
-    } else {
+    } else { // no -bt specified: use all bead types and all pairs
       FillArrND(use_bt_pair, true);
+      InitBoolArray(use_bt, Count->BeadType, true);
     }
   }
-  // <bead(s)> - names of bead types to use for closeness calculation //{{{
-  // if (opt.all) {
-  //   for (int i = 0; i < Count->BeadType; i++) {
-  //     System.BeadType[i].Flag = true;
-  //   }
-  // } else {
-  //   bool *use_bt = calloc(Count->BeadType, sizeof *use_bt);
-  //   TypeOption(argc, argv, "-bt", 'b', true, use_bt, System);
-  //   for (int i = 0; i < Count->BeadType; i++) {
-  //     if (use_bt[i]) {
-  //       System.BeadType[i].Flag = true;
-  //     } else {
-  //       System.BeadType[i].Flag = false;
-  //     }
-  //   }
-  //   free(use_bt);
-  //   // // missing --all as well as any bead type(s)
-  //   // // TODO: necessary to assign false? Well, Flag will not be used!
-  //   // for (int i = 0; i < Count->BeadType; i++) {
-  //   //   System.BeadType[i].Flag = false;
-  //   // }
-  //   // while (++count < argc && argv[count][0] != '-') {
-  //   //   int type = FindBeadType(argv[count], System);
-  //   //   if (type == -1) {
-  //   //     err_msg("non-existent bead name");
-  //   //     PrintError();
-  //   //     ErrorBeadType(argv[count], System);
-  //   //     exit(1);
-  //   //   }
-  //   //   if (System.BeadType[type].Flag) {
-  //   //     snprintf(ERROR_MSG, LINE, "bead type %s%s%s specified more than once",
-  //   //              ErrYellow(), argv[count], ErrCyan());
-  //   //     PrintWarning();
-  //   //   }
-  //   //   System.BeadType[type].Flag = true;
-  //   // }
-  //   // count--; // while() always increments count at least once
-  //   // if (count < (HelpDesc.args + 1)) {
-  //   //   err_msg("missing <bead(s)> or --all option");
-  //   //   PrintError();
-  //   //   PrintCommand(stderr, argc, argv);
-  //   //   Help(true, HelpDesc, opts);
-  //   //   exit(1);
-  //   // }
-  // } //}}}
 
   // print command to output .agg (and, possibly, coordinate) file
   PrintByline(agg_file, argc, argv);

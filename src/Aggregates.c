@@ -4,6 +4,7 @@
 #include "General.h"
 #include "MathUtils.h"
 #include "Options.h"
+#include "PairHash.h"
 
 // TODO: AggPickerOptions should be in Options.c, no?
 
@@ -11,27 +12,37 @@
 static int NewAgg(AGGREGATE *Aggregate, SYSTEM *System,
                   const int i, const int j);
 
-static int NewAgg(AGGREGATE *Aggregate, SYSTEM *System,
-                  const int i, const int j) {
-  int agg_j = System->Count.Aggregate;
-  System->Molecule[j].Aggregate = agg_j;
-  Aggregate[agg_j].nMolecules = 1;
-  Aggregate[agg_j].Molecule[0] = j;
-  System->Count.Aggregate++;
-  return agg_j;
-}
 // evaluate bead contacts to assign molecules to aggregates //{{{
 void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
-                      const int contacts, int **contact) {
+                      const int contacts, PairHash *contact) {
   COUNT *Count = &System->Count;
-  // go over all pairs of molecules
-  for (int i = 1; i < Count->Molecule; i++) {
-    for (int j = 0; j < i; j++) {
-      if (System->Molecule[i].InTimestep && System->Molecule[j].InTimestep) {
-        int agg_i = System->Molecule[i].Aggregate,
-            agg_j = System->Molecule[j].Aggregate;
-        // if molecules 'i' and 'j' are in contact, put them into one aggregate
-        if (contact[i][j] >= contacts) { //{{{
+  /*
+   * iterate only over the entries stored in the hash table, i.e., pairs that
+   * have at least one bead-bead contact detected.
+   *
+   * khash iteration pattern:
+   *   kh_begin(h) / kh_end(h) ... first / one-past-last bucket index
+   *   kh_exist(h, it) ... true if bucket 'it' holds a live entry
+   *   kh_key(h, it) ... the uint64_t key at 'it'
+   *   kh_val(h, it) ... the uint8_t contact count at 'it'
+   *
+   * Each key encodes a molecule pair (i, j) with i > j; use the
+   * PairHash_mol_i / PairHash_mol_j helpers to decode them.
+   */
+  for (khiter_t it = kh_begin(contact); it != kh_end(contact); ++it) {
+    // skip empty buckets (open-addressing tables have gaps)
+    if (!kh_exist(contact, it)) {
+      continue;
+    }
+    // decode the pair
+    uint64_t key = kh_key(contact, it);
+    int i = PairHash_mol_i(key); // larger mol index
+    int j = PairHash_mol_j(key); // smaller mol index
+    if (System->Molecule[i].InTimestep && System->Molecule[j].InTimestep) {
+      int agg_i = System->Molecule[i].Aggregate,
+          agg_j = System->Molecule[j].Aggregate;
+      // if molecules 'i' and 'j' are in contact, put them into one aggregate
+      if (kh_val(contact, it) >= (uint8_t)contacts) { //{{{
           // create new aggregate if molecule 'j' isn'it in any
           if (agg_j == -1) {
             agg_j = NewAgg(Aggregate, System, i, j);
@@ -91,26 +102,19 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
         } else if (agg_j == -1) { //{{{
           NewAgg(Aggregate, System, i, j);
         } //}}}
-      }
     }
   }
-  // check if the highest id residue is in an aggregate //{{{
-  bool test = false;
-  for (int i = 0; i < Count->Aggregate; i++) {
-    for (int j = 1; j < Aggregate[i].nMolecules; j++) {
-      if (Aggregate[i].Molecule[j] == (Count->Molecule - 1)) {
-        test = 1;
-      }
+  // single-molecule aggregates (hash table ignores 0-contact pairs)
+  for (int i = 0; i < Count->Molecule; i++) {
+    if (System->Molecule[i].InTimestep &&
+        System->Molecule[i].Aggregate == -1) {
+      int agg = Count->Aggregate;
+      System->Molecule[i].Aggregate = agg;
+      Aggregate[agg].nMolecules = 1;
+      Aggregate[agg].Molecule[0] = i;
+      Count->Aggregate++;
     }
-  } //}}}
-  // if the highest id residue isn't in an aggregate, create separate one //{{{
-  if (!test) {
-    int aggs = Count->Aggregate;
-    Aggregate[aggs].nMolecules = 1;
-    Aggregate[aggs].Molecule[0] = Count->Molecule - 1;
-
-    Count->Aggregate++;
-  } //}}}
+  }
 } //}}}
 // RemovePBCAggregates() //{{{
 void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
@@ -361,4 +365,15 @@ void AggPickerOptions(const int argc, char **argv, AGG_PICKER *opt,
       exit(1);
     }
   } //}}}
+} //}}}
+
+// create a new aggregate //{{{
+static int NewAgg(AGGREGATE *Aggregate, SYSTEM *System,
+                  const int i, const int j) {
+  int agg_j = System->Count.Aggregate;
+  System->Molecule[j].Aggregate = agg_j;
+  Aggregate[agg_j].nMolecules = 1;
+  Aggregate[agg_j].Molecule[0] = j;
+  System->Count.Aggregate++;
+  return agg_j;
 } //}}}

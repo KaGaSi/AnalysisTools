@@ -5,6 +5,7 @@
 
 #include "Structs.h"
 #include "Arrays.h"
+#include "PairHash.h"
 
 // determine what molecules belong to what aggregates
 void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
@@ -17,7 +18,7 @@ void AggPickerOptions(const int argc, char **argv, AGG_PICKER *opt,
                       SYSTEM System);
 // evaluate bead contacts to assign molecules to aggregates
 void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
-                      const int contacts, int **contact);
+                      const int contacts, PairHash *contact);
 // remove PBC for aggregate molecules
 void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
                          SYSTEM *System, const bool *use_bt);
