@@ -296,13 +296,22 @@ static bool IsTimestepStartLine(int type, const SYSTEM *System) {
   if (type == XYZ_FILE) {
     // first line of an XYZ timestep is just the bead count
     long val;
-    return words == 1 && IsNaturalNumber(split[0], &val) &&
-           val > 0 && val <= System->Count.Bead;
+    if (words == 1 && IsNaturalNumber(split[0], &val) &&
+        val > 0 && val <= System->Count.Bead) {
+      return true;
+    } else {
+      return false;
+    }
   } else if (type == VTF_FILE || type == VCF_FILE) {
     // matches VtfCheckTimestepLine() logic
-    return (words == 1 && split[0][0] == 't') ||
-           (words > 1 && split[0][0] == 't' && split[1][0] == 'o') ||
-           split[0][0] == 'o';
+    if ((words == 1 && split[0][0] == 't') ||
+        (words > 1 && split[0][0] == 't' && split[1][0] == 'o') ||
+        (words > 1 && split[0][0] == 't' && split[1][0] == 'i') ||
+        split[0][0] == 'o' || split[0][0] == 'i') {
+      return true;
+    } else {
+      return false;
+    }
   } else if (type == LTRJ_FILE) {
     return words >= 2 && strcmp(split[0], "ITEM:") == 0 &&
            strcmp(split[1], "TIMESTEP") == 0;
