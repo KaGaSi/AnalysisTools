@@ -1,0 +1,14 @@
+20 5 5 2-bead molecule
+
+species 2
+C  1  0  0
+D  1  0  0
+molecule 1
+CD
+nummols 100
+beads 2
+C 0.0 0 0
+D 0.5 0 0
+bonds 1
+harm 1 2 4 0
+finish
