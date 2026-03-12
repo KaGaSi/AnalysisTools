@@ -276,15 +276,15 @@ int main(int argc, char *argv[]) {
           continue;
         }
 
-        double com[3];
-        CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead, System, com);
+        vec3d com = CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead,
+                                 System);
 
         FillArrND(rho_temp, 0);
 
         // aggregate beads //{{{
         for (int j = 0; j < Aggregate[i].nBeads; j++) {
           int id = Aggregate[i].Bead[j];
-            vec3d dist = Distance(System.Bead[id].Position.v, com, box);
+            vec3d dist = Distance(System.Bead[id].Position, com, box);
             dist.v[0] = VectLength(dist);
 
             if (dist.v[0] < max_dist) {
@@ -297,7 +297,7 @@ int main(int argc, char *argv[]) {
         // monomeric beads //{{{
         for (int j = 0; j < Count->Unbonded; j++) {
           int id = System.Unbonded[j];
-          vec3d dist = Distance(System.Bead[id].Position.v, com, box);
+          vec3d dist = Distance(System.Bead[id].Position, com, box);
           dist.v[0] = VectLength(dist);
 
           if (dist.v[0] < max_dist) {

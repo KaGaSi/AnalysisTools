@@ -182,13 +182,13 @@ void RemovePBCMolecule(int mol_id, SYSTEM *System) {
            *b_2 = &System->Bead[mol->Bead[id[1]]];
       vec3d dist;
       if (!moved[id[0]] && moved[id[1]]) {
-        dist = Distance(b_2->Position.v, b_1->Position.v, box->OrthoLength);
+        dist = Distance(b_2->Position, b_1->Position, box->OrthoLength);
         for (int dd = 0; dd < 3; dd++) {
           b_1->Position.v[dd] = b_2->Position.v[dd] - dist.v[dd];
         }
         moved[id[0]] = true;
       } else if (moved[id[0]] && !moved[id[1]]) {
-        dist = Distance(b_1->Position.v, b_2->Position.v, box->OrthoLength);
+        dist = Distance(b_1->Position, b_2->Position, box->OrthoLength);
         for (int dd = 0; dd < 3; dd++) {
           b_2->Position.v[dd] = b_1->Position.v[dd] - dist.v[dd];
         }
@@ -200,13 +200,12 @@ void RemovePBCMolecule(int mol_id, SYSTEM *System) {
   free(connected);
   free(unconnected);
   // put molecule's geometric centre into the simulation box //{{{
-  double cog[3];
-  GeomCentre(mt->nBeads, mol->Bead, System->Bead, cog);
+  vec3d cog = GeomCentre(mt->nBeads, mol->Bead, System->Bead);
   // by how many BoxLength's should cog be moved?
   int move[3];
   for (int dd = 0; dd < 3; dd++) {
-    move[dd] = cog[dd] / box->OrthoLength.v[dd];
-    if (cog[dd] < 0) {
+    move[dd] = cog.v[dd] / box->OrthoLength.v[dd];
+    if (cog.v[dd] < 0) {
       move[dd]--;
     }
   }
@@ -239,12 +238,11 @@ void WrapJoinCoordinates(SYSTEM *System, const bool wrap, const bool join) {
   }
 } //}}}
 // distance between two beads; in the range <-BoxLength/2,BoxLength/2) //{{{
-vec3d Distance(const double id1[3], const double id2[3],
-               const vec3d BoxLength) {
+vec3d Distance(const vec3d id1, const vec3d id2, const vec3d BoxLength) {
   vec3d out;
   // calculate distance, transforming it into <0,BoxLength) range
   for (int dd = 0; dd < 3; dd++) {
-    out.v[dd] = id1[dd] - id2[dd] + BoxLength.v[dd] / 2;
+    out.v[dd] = id1.v[dd] - id2.v[dd] + BoxLength.v[dd] / 2;
   }
   out = RestorePBC(out, BoxLength);
   // transform the distance back to <-BoxLength/2,BoxLength/2) range
@@ -254,66 +252,61 @@ vec3d Distance(const double id1[3], const double id2[3],
   return out;
 } //}}}
 // calculate centre of mass for a list of beads //{{{
-void CentreOfMass(const int n, const int *list,
-                  const SYSTEM System, double com[3]) {
-  for (int dd = 0; dd < 3; dd++) {
-    com[dd] = 0;
-  }
+vec3d CentreOfMass(const int n, const int *list, const SYSTEM System) {
+  vec3d com = {0};
   double mass = 0;
   for (int i = 0; i < n; i++) {
     int id = list[i];
     BEAD *b = &System.Bead[id];
     BEADTYPE *bt = &System.BeadType[b->Type];
     if (bt->Mass == MASS) {
-      for (int dd = 0; dd < 3; dd++) {
-        com[dd] = 0;
-        if (snprintf(ERROR_MSG, LINE, "unspecified mass: bead %s%d%s (%s%s%s)",
-                     ErrYellow(), id, ErrCyan(),
-                     ErrYellow(), bt->Name, ErrCyan()) < 0) {
-          ErrorSnprintf();
-        }
-        PrintWarning();
-        return;
+      if (snprintf(ERROR_MSG, LINE, "unspecified mass: bead %s%d%s (%s%s%s)",
+                   ErrYellow(), id, ErrCyan(),
+                   ErrYellow(), bt->Name, ErrCyan()) < 0) {
+        ErrorSnprintf();
       }
+      PrintWarning();
+      return com;
     }
     for (int dd = 0; dd < 3; dd++) {
-      com[dd] += b->Position.v[dd] * bt->Mass;
+      com.v[dd] += b->Position.v[dd] * bt->Mass;
     }
     mass += bt->Mass;
   }
   for (int dd = 0; dd < 3; dd++) {
-    com[dd] /= mass;
+    com.v[dd] /= mass;
   }
+  return com;
 } //}}}
 // calculate geometric centre for a list of beads //{{{
-void GeomCentre(const int n, const int *list, const BEAD *Bead, double gc[3]) {
-  InitDoubleArray(gc, 3, 0);
+vec3d GeomCentre(const int n, const int *list, const BEAD *Bead) {
+  vec3d gc = {0};
   int count = 0;
   for (int i = 0; i < n; i++) {
     int id = list[i];
     if (Bead[id].InTimestep) {
       for (int dd = 0; dd < 3; dd++) {
-        gc[dd] += Bead[id].Position.v[dd];
+        gc.v[dd] += Bead[id].Position.v[dd];
       }
       count++;
     }
   }
   for (int dd = 0; dd < 3; dd++) {
-    gc[dd] /= count;
+    gc.v[dd] /= count;
   }
+  return gc;
 } //}}}
 // calculate gyration tensor and various shape descriptors //{{{
 vec3d Gyration(const int n, const int *list, SYSTEM *System) {
   // gyration tensor (3x3 array)
   long double GyrationTensor[3][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
 
-  double cog[3];
-  GeomCentre(n, list, System->Bead, cog);
+  vec3d cog = GeomCentre(n, list, System->Bead);
 
   // move centre of mass to [0,0,0] //{{{
   for (int i = 0; i < n; i++) {
     for (int dd = 0; dd < 3; dd++) {
-      System->Bead[list[i]].Position.v[dd] -= cog[dd];
+      System->Bead[list[i]].Position.v[dd] -= cog.v[dd];
     }
   } //}}}
 

@@ -180,7 +180,7 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
               int bead2 = System->Molecule[mol2].Bead[m];
               BEAD *b2 = &System->Bead[bead2];
               // calculate distance between 'bead1' and 'bead2'
-              vec3d dist = Distance(b1->Position.v, b2->Position.v, *box);
+              vec3d dist = Distance(b1->Position, b2->Position, *box);
               dist.v[0] = VectLength(dist);
               // move 'mol2' (or 'k') if 'bead1' and 'bead2' are in contact
               if (dist.v[0] <= distance) {
@@ -232,14 +232,13 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
   free(mol_eligible_beads);
   // put aggregates' centre of mass into the simulation box //{{{
   for (int i = 0; i < Count->Aggregate; i++) {
-    double com[3];
-    CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead, *System, com);
+    vec3d com = CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead, *System);
     // by how many BoxLength's should com by moved?
     // for distant aggregates - it shouldn't happen, but better safe than sorry
     int move[3];
     for (int dd = 0; dd < 3; dd++) {
-      move[dd] = com[dd] / (*box).v[dd];
-      if (com[dd] < 0) {
+      move[dd] = com.v[dd] / (*box).v[dd];
+      if (com.v[dd] < 0) {
         move[dd]--;
       }
     }

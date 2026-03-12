@@ -115,10 +115,9 @@ int main(int argc, char *argv[]) {
               write[b] = false;
             }
           }
-          double gc[3];
-          GeomCentre(count, beads, System.Bead, gc);
+          vec3d gc = GeomCentre(count, beads, System.Bead);
           for (int dd = 0; dd < 3; dd++) {
-            System.Bead[System.Molecule[id].Bead[0]].Position.v[dd] = gc[dd];
+            System.Bead[System.Molecule[id].Bead[0]].Position.v[dd] = gc.v[dd];
           }
           for (int j = 1; j < mt->nBeads; j++) {
           }

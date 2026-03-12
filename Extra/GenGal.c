@@ -223,12 +223,11 @@ int main(int argc, char *argv[]) {
       }
     } //}}}
     // place centre of mass into the simulation box middle //{{{
-    double com[3];
-    CentreOfMass(mt0->nBeads, mol0->Bead, System, com);
+    vec3d com = CentreOfMass(mt0->nBeads, mol0->Bead, System);
     for (int i = 0; i < mt0->nBeads; i++) {
       int id = mol0->Bead[i];
       for (int dd = 0; dd < 3; dd++) {
-        System.Bead[id].Position.v[dd] -= com[dd];
+        System.Bead[id].Position.v[dd] -= com.v[dd];
         System.Bead[id].Position.v[dd] += System.Box.Length.v[dd] / 2;
       }
     } //}}}

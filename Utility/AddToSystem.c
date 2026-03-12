@@ -80,7 +80,7 @@ vec3d RandomCoordinate(BOX box) {
  *   2...specified bead types,
  */
 void GetMinDist(BEAD bead, vec3d random, vec3d box, double *min_dist) {
-  vec3d dist = Distance(bead.Position.v, random.v, box);
+  vec3d dist = Distance(bead.Position, random, box);
   dist.v[0] = VectLength(dist);
   if (dist.v[0] < *min_dist) {
     *min_dist = dist.v[0];
@@ -475,27 +475,21 @@ int main(int argc, char *argv[]) {
   // minimize initial coordinates of added molecules //{{{
   for (int i = 0; i < C_add->Molecule; i++) {
     int type = S_add.Molecule[i].Type;
-    double zero[3];
+    vec3d zero;
     // specify where is [0,0,0] coordinate
     if (opt.head) { // the first bead
-      int id0 = S_add.Molecule[i].Bead[0];
-      for (int dd = 0; dd < 3; dd++) {
-        zero[dd] = S_add.Bead[id0].Position.v[dd];
-      }
+      zero = S_add.Bead[S_add.Molecule[i].Bead[0]].Position;
     } else if (opt.tail) { // the last bead
       int n = S_add.MoleculeType[S_add.Molecule[i].Type].nBeads;
-      int id0 = S_add.Molecule[i].Bead[n-1];
-      for (int dd = 0; dd < 3; dd++) {
-        zero[dd] = S_add.Bead[id0].Position.v[dd];
-      }
+      zero = S_add.Bead[S_add.Molecule[i].Bead[n-1]].Position;
     } else { // the molecule's geometric centre
-      GeomCentre(S_add.MoleculeType[type].nBeads,
-                 S_add.Molecule[i].Bead, S_add.Bead, zero);
+      zero = GeomCentre(S_add.MoleculeType[type].nBeads,
+                        S_add.Molecule[i].Bead, S_add.Bead);
     }
     for (int j = 0; j < S_add.MoleculeType[type].nBeads; j++) {
       int id = S_add.Molecule[i].Bead[j];
       for (int dd = 0; dd < 3; dd++) {
-        S_add.Bead[id].Position.v[dd] -= zero[dd];
+        S_add.Bead[id].Position.v[dd] -= zero.v[dd];
       }
     }
   } //}}}

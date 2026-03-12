@@ -75,20 +75,12 @@ void CalculateContacts(const int id_i, const int id_j, SYSTEM System,
   }
   int mol_i = b_i->Molecule;
   int mol_j = b_j->Molecule;
-  vec3d *pos_i = &b_i->Position;
-  vec3d *pos_j = &b_j->Position;
   vec3d rij;
   if (!opt.no_pbc) {
-    // vec3d *pos_i = &b_i->Position;
-    // vec3d *pos_j = &b_j->Position;
-    rij = Distance(pos_i->v, pos_j->v, sys_copy.Box.Length);
+    rij = Distance(b_i->Position, b_j->Position, sys_copy.Box.Length);
   } else {
-    // RemovePBCMolecule(mol_i, &System);
-    // RemovePBCMolecule(mol_j, &System);
-    // vec3d *pos_i = &b_i->Position;
-    // vec3d *pos_j = &b_j->Position;
     for (int dd = 0; dd < 3; dd++) {
-      rij.v[dd] = pos_i->v[dd] - pos_j->v[dd];
+      rij.v[dd] = b_i->Position.v[dd] - b_i->Position.v[dd];
     }
   }
   rij.v[0] = VectLength(rij);

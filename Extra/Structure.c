@@ -42,7 +42,7 @@ void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrNDd *boop) 
       continue;
     }
     BEAD *b_i = &System.Bead[id];
-    vec3d d = Distance(b->Position.v, b_i->Position.v, System.Box.Length);
+    vec3d d = Distance(b->Position, b_i->Position, System.Box.Length);
     double r = VectLength(d);
     for (int j = 0; j < max_neigh; j++) {
       if (r < min_dist[j]) {
@@ -69,7 +69,7 @@ void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrNDd *boop) 
     double q_imag = 0;
     for (int j = 0; j < sym[i]; j++) {
       BEAD *b2 = &System.Bead[nearest[j]];
-      vec3d d = Distance(b2->Position.v, b->Position.v, System.Box.Length);
+      vec3d d = Distance(b2->Position, b->Position, System.Box.Length);
       double theta = atan2(d.v[1], d.v[0]);
       q_real += cos(sym[i] * theta);
       q_imag += sin(sym[i] * theta);
@@ -208,9 +208,10 @@ int main(int argc, char *argv[]) {
           }
           int id_i = System.BeadCoor[i];
           int id_j = System.BeadCoor[j];
-          vec3d *pos_i = &System.Bead[id_i].Position;
-          vec3d *pos_j = &System.Bead[id_j].Position;
-          vec3d dist = Distance(pos_i->v, pos_j->v, System.Box.Length);
+          BEAD *b_i = &System.Bead[id_i];
+          BEAD *b_j = &System.Bead[id_j];
+          vec3d dist = Distance(b_i->Position, b_j->Position,
+                                System.Box.Length);
           double r_ij = VectLength(dist);
           if (r_ij >= r_max) {
             continue;
