@@ -27,7 +27,7 @@ static const struct OptSpec opts[] = {
   {"<dist>", NULL, "minimum distance contact check", OPT_EXTRA},
   {"-mt", "<name(s)>", "use specified molecule type(s)", OPT_EXTRA},
   {"-bt", "<name(s)>", "use specified bead type(s)", OPT_EXTRA},
-  {"---multi", NULL, "allow multiple trios with the same ion", OPT_EXTRA},
+  {"--multi", NULL, "allow multiple trios with the same ion", OPT_EXTRA},
   {NULL}
 }; //}}}
 

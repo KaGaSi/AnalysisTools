@@ -61,10 +61,14 @@ add_library(AnalysisTools
   ../src/AnalysisTools.c
   ../src/Aggregates.c
   ../src/Arrays.c
+  ../src/Coordinates.c
+  ../src/Debug.c
+  ../src/Errors.c
+  ../src/General.c
   ../src/Globals.c
   ../src/MainLoop.c
-  ../src/MathUtils.h
   ../src/Options.c
+  ../src/PairHash.c
   ../src/Pairs.c
   ../src/pcg32.c
   ../src/ReadWrite.c
@@ -76,8 +80,6 @@ add_library(AnalysisTools
   ../src/ReadWriteConfig.c
   ../src/ReadWriteGromacs.c
   ../src/System.c
-  ../src/Errors.c
-  ../src/General.c
   ../src/Structs.c)
 
 # List of utilities
@@ -96,7 +98,7 @@ set(UTILS
   RandomChain
   Structure
   # SurfaceTension
-  Template)
+  )
 
 # Conditionally link BLAS
 target_link_libraries(AnalysisTools PRIVATE ${GSL_LIBRARIES} m ${BLAS_LIB})

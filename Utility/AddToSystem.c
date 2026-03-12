@@ -41,7 +41,7 @@ static const struct OptSpec opts[] = {
   {"--head", NULL, "use molecule's first bead for constraint checks (overrides --tail)", OPT_EXTRA},
   {"--real", NULL, "use real coordinates for-cx/-cy/-cz/-off options", OPT_EXTRA},
   {"-b", "<x> <y> <z>", "new box dimensions (in real units)", OPT_EXTRA},
-  {"-off", "3x<float>", "orignial system's offset (in fractions of the output box)", OPT_EXTRA},
+  {"-off", "3x<float>", "original system's offset (in fractions of the output box)", OPT_EXTRA},
   {"-s", "<int>", "seed for random number generator", OPT_EXTRA},
   {NULL}
 }; //}}}
@@ -51,14 +51,14 @@ struct OPT {
   bool ld, hd;             // -ld/-hd
   double ldist, hdist,     //
          axis[3][2];       // -cx/-cy/-cz
-  vec3d angle[3],          // -a
-        off[3];            // -off
+  vec3d angle,             // -a
+        off;               // -off
   bool *bt_use_orig,       // -bt
        *sw_type,           // -xb
        new,                // generate new system from scratch?
        real, add, no_rot,  // --real/--add/--no-rotate
        bonded, head, tail; // --bonded/--head/--tail
-  BOX box;                 // -b (then constrained 'box' via -cx/-cy/-cz)
+  BOX box;                 // constrained placement box (via -cx/-cy/-cz/-hd)
   int seed;                // -s
   FILE_TYPE fout;          // -o
 }; //}}}
@@ -89,16 +89,20 @@ void GetMinDist(BEAD bead, vec3d random, vec3d box, double *min_dist) {
 vec3d RandomConstrainedCoor(SYSTEM S_orig, int mode, vec3d box, OPT opt) {
   vec3d random;
   if (mode == 0) { // no distance check
-    for (int dd = 0; dd < 3; dd++) {
-      random = RandomCoordinate(opt.box);
-    }
-    return random;
+    return RandomCoordinate(opt.box);
   }
   COUNT *C_orig = &S_orig.Count;
   double min_dist = 0;
+  int tries = 0;
+  const int max_tries = 10000000;
   do {
+    if (++tries > max_tries) {
+      err_msg("could not place bead: constraints may be unsatisfiable");
+      PrintError();
+      exit(1);
+    }
     random = RandomCoordinate(opt.box);
-    min_dist = 1e6;  // simply a high number
+    min_dist = HUGE_VAL;
     if (mode == 1) { // use all bonded beads
       for (int i = 0; i < C_orig->BondedCoor; i++) {
         int id = S_orig.BondedCoor[i];
@@ -124,7 +128,7 @@ vec3d RandomConstrainedCoor(SYSTEM S_orig, int mode, vec3d box, OPT opt) {
         }
       }
     } else {
-      err_msg("RandomConstrainedCoor(): mode must be 0 to 3");
+      err_msg("RandomConstrainedCoor(): mode must be 0 to 2");
       PrintError();
       exit(1);
     }
@@ -135,19 +139,19 @@ vec3d RandomConstrainedCoor(SYSTEM S_orig, int mode, vec3d box, OPT opt) {
 
 // rotate randomly given collection of beads (e.g., a molecule) //{{{
 void Rotate(SYSTEM System, int number, const int *list,
-            const double rot_angle[3], double (*new)[3]) {
+            vec3d rot_angle, double (*new)[3]) {
   // rotation angles around x-, y-, and z-axes
   double alpha, beta, gamma;
   // specified by -a option...
-  if (rot_angle[0] != 0 || rot_angle[1] != 0 || rot_angle[2] != 0) {
-    alpha = rot_angle[0] / 180 * PI;
-    beta  = rot_angle[1] / 180 * PI;
-    gamma = rot_angle[2] / 180 * PI;
+  if (rot_angle.v[0] != 0 || rot_angle.v[1] != 0 || rot_angle.v[2] != 0) {
+    alpha = rot_angle.v[0] / 180 * PI;
+    beta  = rot_angle.v[1] / 180 * PI;
+    gamma = rot_angle.v[2] / 180 * PI;
   // ...or random
   } else {
-    alpha = (double)(rand()) / (double)(RAND_MAX) * PI;
-    beta  = (double)(rand()) / (double)(RAND_MAX) * PI;
-    gamma = (double)(rand()) / (double)(RAND_MAX) * PI;
+    alpha = (double)(rand()) / ((double)(RAND_MAX) + 1) * 2 * PI;
+    beta  = acos(1.0 - 2.0 * (double)(rand()) / ((double)(RAND_MAX) + 1));
+    gamma = (double)(rand()) / ((double)(RAND_MAX) + 1) * 2 * PI;
   }
   double rot[3][3];
   rot[0][0] = cos(alpha) * cos(beta);
@@ -173,7 +177,7 @@ void Rotate(SYSTEM System, int number, const int *list,
 
 int main(int argc, char *argv[]) {
 
-  // commad line arguments before reading the structure //{{{
+  // command line arguments before reading the structure //{{{
   OptionCheck(argc, argv, true, HelpDesc, opts);
   OPT opt;
   int count = 0;
@@ -187,7 +191,7 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
   } //}}}
-  // <in.field> - FIELD file with specis to add //{{{
+  // <in.field> - FIELD file with species to add //{{{
   SYS_FILES field = InitSysFiles;
   s_strcpy(field.stru.name, argv[++count], LINE);
   field.stru.type = StructureFileType(field.stru.name);
@@ -298,21 +302,20 @@ int main(int argc, char *argv[]) {
   // do not rotate molecules?
   opt.no_rot = BoolOption(argc, argv, "--no-rotate");
   // output box dimensions //{{{
-  InitDoubleArray(opt.angle->v, 3, 0);
-  if (ThreeNumbersOption(argc, argv, "-a", opt.angle->v, 'd')) {
+  InitDoubleArray(opt.angle.v, 3, 0);
+  if (ThreeNumbersOption(argc, argv, "-a", opt.angle.v, 'd')) {
     opt.no_rot = false;
   } //}}}
   opt.head = BoolOption(argc, argv, "--head");
   opt.tail = BoolOption(argc, argv, "--tail");
-  // output box dimensions //{{{
-  opt.box = InitBox;
+  // new box dimensions (-b option) //{{{
+  BOX newbox = InitBox;
   vec3d temp = { .v = {0, 0, 0}};
   if (ThreeNumbersOption(argc, argv, "-b", temp.v, 'd')) {
-    opt.box.Length = temp;
-    if (count != 3 ||
-        opt.box.Length.x <= 0 ||
-        opt.box.Length.y <= 0 ||
-        opt.box.Length.z <= 0) {
+    newbox.Length = temp;
+    if (newbox.Length.x <= 0 ||
+        newbox.Length.y <= 0 ||
+        newbox.Length.z <= 0) {
       err_msg("three positive numbers required");
       PrintErrorOption("-b");
       Help(true, HelpDesc, opts);
@@ -320,8 +323,8 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
   // -off option
-  InitDoubleArray(opt.off->v, 3, 0);
-  ThreeNumbersOption(argc, argv, "-off", opt.off->v, 'd');
+  InitDoubleArray(opt.off.v, 3, 0);
+  ThreeNumbersOption(argc, argv, "-off", opt.off.v, 'd');
   // seed for random number generator (-s option)
   opt.seed = -1;
   OneNumberOption(argc, argv, "-s", &opt.seed, 'i');
@@ -360,11 +363,11 @@ int main(int argc, char *argv[]) {
     }
     // if -xb option not present, take the most numerous bead type
     if (!TypeOption(argc, argv, "-xb", 'b', true, opt.sw_type, S_orig)) {
-      count = 0;
+      int max_count = 0;
       int bt = 0;
       for (int i = 0; i < C_orig->BeadType; i++) {
-        if (S_orig.BeadType[i].Number > count) {
-          count = S_orig.BeadType[i].Number;
+        if (S_orig.BeadType[i].Number > max_count) {
+          max_count = S_orig.BeadType[i].Number;
           bt = i;
         }
       }
@@ -434,37 +437,37 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // new box if exists //{{{
-  if (opt.box.Length.v[0] != -1) {
+  if (newbox.Length.v[0] != -1) {
     if (!opt.new) {
       for (int dd = 0; dd < 3; dd++) {
-        opt.box.Low.v[dd] += box->Low.v[dd] +
-                             0.5 * (box->Length.v[dd] - opt.box.Length.v[dd]);
+        newbox.Low.v[dd] += box->Low.v[dd] +
+                            0.5 * (box->Length.v[dd] - newbox.Length.v[dd]);
       }
     }
-    opt.box.alpha = 90;
-    opt.box.beta = 90;
-    opt.box.gamma = 90;
-    CalculateBoxData(&opt.box, 0);
+    newbox.alpha = 90;
+    newbox.beta = 90;
+    newbox.gamma = 90;
+    CalculateBoxData(&newbox, 0);
     if (commons.verbose) {
       fprintf(stdout, "\n==================================================");
       printf("\nNew box");
       fprintf(stdout, "\n==================================================\n");
-      PrintBox(opt.box);
+      PrintBox(newbox);
     }
-    *box = opt.box;
+    *box = newbox;
   } //}}}
 
   // move the beads (-off option) //{{{
   if (!opt.new) {
     if (!opt.real) { // transform offset to 'real' units if necessary
       for (int dd = 0; dd < 3; dd++) {
-        opt.off->v[dd] *= S_orig.Box.Length.v[dd];
+        opt.off.v[dd] *= S_orig.Box.Length.v[dd];
       }
     }
     for (int i = 0; i < C_orig->Bead; i++) {
       int id = S_orig.BeadCoor[i];
       for (int dd = 0; dd < 3; dd++) {
-        S_orig.Bead[id].Position.v[dd] += opt.off->v[dd];
+        S_orig.Bead[id].Position.v[dd] += opt.off.v[dd];
       }
     }
   } //}}}
@@ -473,18 +476,19 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < C_add->Molecule; i++) {
     int type = S_add.Molecule[i].Type;
     double zero[3];
-    if (opt.head) {
+    // specify where is [0,0,0] coordinate
+    if (opt.head) { // the first bead
       int id0 = S_add.Molecule[i].Bead[0];
       for (int dd = 0; dd < 3; dd++) {
         zero[dd] = S_add.Bead[id0].Position.v[dd];
       }
-    } else if (opt.tail) {
+    } else if (opt.tail) { // the last bead
       int n = S_add.MoleculeType[S_add.Molecule[i].Type].nBeads;
       int id0 = S_add.Molecule[i].Bead[n-1];
       for (int dd = 0; dd < 3; dd++) {
         zero[dd] = S_add.Bead[id0].Position.v[dd];
       }
-    } else {
+    } else { // the molecule's geometric centre
       GeomCentre(S_add.MoleculeType[type].nBeads,
                  S_add.Molecule[i].Bead, S_add.Bead, zero);
     }
@@ -620,13 +624,26 @@ int main(int argc, char *argv[]) {
   int mode = 0; // no check
   if (!opt.new) {
     if (opt.bonded) { // all bonded beads
+      if (C_orig->BondedCoor == 0) {
+        err_msg("no bonded beads in the system");
+        PrintErrorOption("--bonded");
+        exit(1);
+      }
       mode = 1;
-    } else { // possibly some speficied bead type(s)
+    } else { // possibly some specified bead type(s)
       for (int i = 0; i < C_orig->BeadType; i++) {
         if (opt.bt_use_orig[i]) { // yes, some specified bead type(s)
-          mode = 2;
-          break;
+          mode = -1;
+          if (S_orig.BeadType[i].InCoor > 0) {
+            mode = 2;
+            break;
+          }
         }
+      }
+      if (mode == -1) {
+        err_msg("no beads of specified type(s) present");
+        PrintErrorOption("-bt");
+        exit(1);
       }
     }
   } //}}}
@@ -669,7 +686,7 @@ int main(int argc, char *argv[]) {
       }
     } else {
       Rotate(S_add, S_out.MoleculeType[mtype].nBeads,
-             S_add.Molecule[i].Bead, opt.angle->v, rot);
+             S_add.Molecule[i].Bead, opt.angle, rot);
     }
     vec3d random = RandomConstrainedCoor(S_orig, mode, S_out.Box.Length, opt);
     for (int j = 0; j < S_out.MoleculeType[mtype].nBeads; j++) {
