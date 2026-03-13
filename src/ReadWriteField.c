@@ -7,7 +7,7 @@ static void FieldReadSpecies(const char *file, SYSTEM *System);
 // reads the 'molecules' section
 static void FieldReadMolecules(const char *file, SYSTEM *System);
 // increments number of lines read and reads the next line
-static void CountLineReadLine(int *line_count, FILE *fr,
+static void FieldReadLine(int *line_count, FILE *fr,
                               const char *f, const char *msg);
 // reads file till the given keyword is encountered
 static void SkipTilKeyword(FILE *f, const char *file,
@@ -80,7 +80,7 @@ SYSTEM FieldRead(const char *file) { //{{{
     System.MoleculeCoor = s_realloc(System.MoleculeCoor, Count->Molecule *
                                     sizeof *System.MoleculeCoor);
   }
-  FillSystemNonessentials(&System, true);
+  FillSystemNonessentials(&System, true); // true for has_bonds
   CheckSystem(System, file);
   return System;
 } //}}}
@@ -234,7 +234,7 @@ static void FieldReadSpecies(const char *file, SYSTEM *System) { //{{{
   // read bead types //{{{
   bool warned = false; // warn about undefined mass/charge only once
   for (int i = 0; i < types; i++) {
-    CountLineReadLine(&line_count, fr, file, "Species");
+    FieldReadLine(&line_count, fr, file, "Species");
     double mass, charge;
     long number;
     // error - illegal 'species' line //{{{
@@ -309,21 +309,21 @@ static void FieldReadMolecules(const char *file, SYSTEM *System) { //{{{
       MOLECULETYPE *mt_i = &System->MoleculeType[i];
       InitMoleculeType(mt_i);
       // 1) name //{{{
-      CountLineReadLine(&line_count, fr, file, "Molecules");
+      FieldReadLine(&line_count, fr, file, "Molecules");
       if (words == 0) {
         err_msg("missing molecule name");
         FieldFileError(file, line_count);
       }
       s_strcpy(mt_i->Name, split[0], MOL_NAME); //}}}
       // 2) number of molecules //{{{
-      CountLineReadLine(&line_count, fr, file, "Molecules");
+      FieldReadLine(&line_count, fr, file, "Molecules");
       if (words < 2 || strcasecmp(split[0], "nummols") != 0 ||
           !IsWholeNumber(split[1], &val) || val < 0) {
         err_msg("incorrect 'nummols' line in a molecule entry");
         FieldFileError(file, line_count);
       } else if (val == 0) {
         do {
-          CountLineReadLine(&line_count, fr, file, "Molecules");
+          FieldReadLine(&line_count, fr, file, "Molecules");
         } while(strcmp(split[0], "finish") != 0);
         i--;
         Count->MoleculeType--;
@@ -332,7 +332,7 @@ static void FieldReadMolecules(const char *file, SYSTEM *System) { //{{{
       mt_i->Number = val; //}}}
       // 3) beads in the molecule //{{{
       // a) number of beads //{{{
-      CountLineReadLine(&line_count, fr, file, "Molecules");
+      FieldReadLine(&line_count, fr, file, "Molecules");
       if (words < 2 || strncasecmp(split[0], "beads", 4) != 0 ||
           !IsNaturalNumber(split[1], &val)) {
         err_msg("incorrect 'beads' line in a molecule entry");
@@ -343,7 +343,7 @@ static void FieldReadMolecules(const char *file, SYSTEM *System) { //{{{
       double (*coor)[3] = malloc(sizeof *coor * mt_i->nBeads);
       // b) beads themselves //{{{
       for (int j = 0; j < mt_i->nBeads; j++) {
-        CountLineReadLine(&line_count, fr, file, "Molecules");
+        FieldReadLine(&line_count, fr, file, "Molecules");
         // error - incorrect line //{{{
         if (words < 4 ||
             !IsRealNumber(split[1], &coor[j][0]) ||
@@ -412,7 +412,7 @@ static void FieldReadMolecules(const char *file, SYSTEM *System) { //{{{
       free(coor); //}}}
       // 4-7) bonds/angles/dihedrals/impropers
       while (true) {
-        CountLineReadLine(&line_count, fr, file, "Molecules");
+        FieldReadLine(&line_count, fr, file, "Molecules");
         if (words == 0) { // allow blanks between sections
           continue;
         }
@@ -441,7 +441,7 @@ static void FieldReadMolecules(const char *file, SYSTEM *System) { //{{{
   return;
 } //}}}
 // count & read a line //{{{
-static void CountLineReadLine(int *line_count, FILE *fr,
+static void FieldReadLine(int *line_count, FILE *fr,
                               const char *file, const char *msg) {
   (*line_count)++;
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
@@ -579,7 +579,7 @@ static bool ReadStuff(const char *file, FILE *fr, int *line_count,
   *Stuff = malloc(sizeof **Stuff * *n_stuff);
   bool warned = false;
   for (int j = 0; j < *n_stuff; j++) {
-    CountLineReadLine(line_count, fr, file, "Molecules");
+    FieldReadLine(line_count, fr, file, "Molecules");
     long beads[num];
     if (!GetBeadIds(num, beads, *mt)) {
     FieldFileError(file, *line_count);

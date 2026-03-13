@@ -127,7 +127,7 @@ SYSTEM LtrjReadStruct(const char *file) {
     }
   } //}}}
   fclose(fr);
-  FillSystemNonessentials(&Sys, false);
+  FillSystemNonessentials(&Sys, false);  // false for has_bonds
   // AllocFillBeadTypeIndex(&Sys);
   CheckSystem(Sys, file);
   ChangeBoxByLow(&Sys, -1);
@@ -184,6 +184,7 @@ int LtrjReadTimestep(FILE *fr, const char *file, SYSTEM *System,
     }
   } //}}}
   ChangeBoxByLow(System, -1);
+  FillInCoor(System);
   return 1;
 } //}}}
 // TODO: skip lines based on the number of atoms?

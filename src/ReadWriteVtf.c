@@ -115,7 +115,7 @@ SYSTEM VtfReadStruct(const char *file, const bool detailed) {
       exit(1);
     }
   }
-  fclose(fr); //}}}
+  rewind(fr); //}}}
   // error - no default line and too few atom lines //{{{
   if (default_atom == 0 && count_atoms != Count->Bead) {
     int undefined = Count->Bead - count_atoms;
@@ -156,7 +156,6 @@ SYSTEM VtfReadStruct(const char *file, const bool detailed) {
   BEADTYPE bt_def;
   InitBeadType(&bt_def);
 
-  fr = OpenFile(file, "r");
   // go through the file again to save atom and bond info //{{{
   /*
    * a)tom line: save bead information
@@ -308,7 +307,7 @@ SYSTEM VtfReadStruct(const char *file, const bool detailed) {
   RemoveExtraTypes(&Sys);
   MergeBeadTypes(&Sys, detailed);
   MergeMoleculeTypes(&Sys);
-  FillSystemNonessentials(&Sys, true);
+  FillSystemNonessentials(&Sys, true); // true for has_bonds
   CheckSystem(Sys, file);
   Sys.Box = VtfReadPBC(file);
   return Sys;
@@ -763,8 +762,8 @@ static int VtfReadCoorBlockOrdered(FILE *fr, const char *file,
     if (VtfCheckCoorOrderedLine(coor) == ERROR_LINE) {
       snprintf(ERROR_MSG, LINE, "unrecognized line in constant-size coordinate"
                " block (%s%d%s-th line from %s%d%s)",
-               ErrYellow(), i + 1, ErrRed(), ErrYellow(), Count->BeadCoor,
-               ErrRed());
+               ErrYellow(), i + 1, ErrRed(),
+               ErrYellow(), Count->Bead, ErrRed());
       PrintErrorFileLine(file, *line_count);
       return -1;
     }

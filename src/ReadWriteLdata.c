@@ -8,7 +8,7 @@
 
 // Helper functions for lmpdata file
 // increment line count and read the line
-static int CountLineReadLine(int *line_count, FILE *fr, const char *file,
+static int LdataReadLine(int *line_count, FILE *fr, const char *file,
                              const char *msg, const int mode);
 // read header of the lammps data file
 static void LmpDataReadHeader(FILE *fr, const char *file,
@@ -58,7 +58,7 @@ SYSTEM LmpDataReadStruct(const char *file) { //{{{
   RemoveExtraTypes(&System);
   MergeBeadTypes(&System, true);
   MergeMoleculeTypes(&System);
-  FillSystemNonessentials(&System, true);
+  FillSystemNonessentials(&System, true); // true for has_bonds
   // take the data file as a coordinate file as well
   Count->BeadCoor = Count->Bead;
   Count->UnbondedCoor = Count->Unbonded;
@@ -117,14 +117,14 @@ int LmpDataReadTimestep(FILE *fr, const char *file,
     System->MoleculeCoor[i] = i;
   } //}}}
   *line_count = 0;
-  CountLineReadLine(line_count, fr, file, "empty file", 1);
+  LdataReadLine(line_count, fr, file, "empty file", 1);
   // read numer of atoms & box size //{{{
   // read until the first capital-letter-starting line
   fpos_t position;
   do {
     fgetpos(fr, &position);
-    CountLineReadLine(line_count, fr, file,
-                      "incomplete lammps data file header", 1);
+    LdataReadLine(line_count, fr, file,
+                  "incomplete lammps data file header", 1);
     long val;
     // <int> atoms //{{{
     if (words > 1 && strcmp(split[1], "atoms") == 0) {
@@ -147,18 +147,18 @@ int LmpDataReadTimestep(FILE *fr, const char *file,
   CalculateBoxData(&System->Box, 1); //}}}
   // find 'Atoms' section (and skip the next blank line) //{{{
   do {
-    if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
+    if (LdataReadLine(line_count, fr, file, "", -2) < 0) {
       return -2;
     }
   } while (words == 0 || strcmp(split[0], "Atoms") != 0);
   int mode = CheckAtomsMode(words, split, file);
-  if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
+  if (LdataReadLine(line_count, fr, file, "", -2) < 0) {
     return -2;
   } //}}}
   // read atom lines //{{{
   Count->BeadCoor = Count->Bead;
   for (int i = 0; i < Count->Bead; i++) {
-    if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
+    if (LdataReadLine(line_count, fr, file, "", -2) < 0) {
       return -2;
     }
     long id, resid, type;
@@ -174,20 +174,20 @@ int LmpDataReadTimestep(FILE *fr, const char *file,
   } //}}}
   // find 'Velocities' section (and skip the next blank line) //{{{
   do {
-    if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
+    if (LdataReadLine(line_count, fr, file, "", -2) < 0) {
       ChangeBoxByLow(System, -1);
       FillInCoor(System);
       return 1; // Velocities section is not mandatory
     }
   } while (words == 0 || strcmp(split[0], "Velocities") != 0);
-  if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
+  if (LdataReadLine(line_count, fr, file, "", -2) < 0) {
     ChangeBoxByLow(System, -1);
     FillInCoor(System);
     return -2;
   } //}}}
   // read velocity lines //{{{
   for (int i = 0; i < Count->Bead; i++) {
-    if (CountLineReadLine(line_count, fr, file, "", -2) < 0) {
+    if (LdataReadLine(line_count, fr, file, "", -2) < 0) {
       return -2;
     }
     GetBeadVelocity(System, file, *line_count);
@@ -202,7 +202,7 @@ int LmpDataReadTimestep(FILE *fr, const char *file,
 } //}}}
 
 // increment line count and read the line //{{{
-static int CountLineReadLine(int *line_count, FILE *fr, const char *file,
+static int LdataReadLine(int *line_count, FILE *fr, const char *file,
                              const char *msg, const int mode) {
   (*line_count)++;
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
@@ -221,13 +221,13 @@ static void LmpDataReadHeader(FILE *fr, const char *file,
                               SYSTEM *System, int *line_count) {
   COUNT *Count = &System->Count;
   *line_count = 0;
-  CountLineReadLine(line_count, fr, file, "empty file", 1);
+  LdataReadLine(line_count, fr, file, "empty file", 1);
   // read until a line starting with capital letter //{{{
   fpos_t position;
   do {
     fgetpos(fr, &position);
-    CountLineReadLine(line_count, fr, file,
-                      "incomplete lammps data file header", 1);
+    LdataReadLine(line_count, fr, file,
+                  "incomplete lammps data file header", 1);
     // evaluate the line
     long val;
     // <int> atom types //{{{
@@ -580,9 +580,9 @@ static void LmpDataReadBody(FILE *fr, const char *file, SYSTEM *System,
 static void LmpDataReadMasses(FILE *fr, const char *file, BEADTYPE *name_mass,
                               const int atom_types, int *line_count) {
   // skip one line
-  CountLineReadLine(line_count, fr, file, "incomplete 'Masses' section", 1);
+  LdataReadLine(line_count, fr, file, "incomplete 'Masses' section", 1);
   for (int i = 0; i < atom_types; i++) {
-    CountLineReadLine(line_count, fr, file, "incomplete 'Masses' section", 1);
+    LdataReadLine(line_count, fr, file, "incomplete 'Masses' section", 1);
     long type;
     double mass;
     if (words < 2 || !IsNaturalNumber(split[0], &type) || type > atom_types ||
@@ -649,9 +649,9 @@ static void ReadCoeff(FILE *fr, const char *file, SYSTEM *System,
     return;
   }
   // skip one line
-  CountLineReadLine(line_count, fr, file, "incomplete 'Coeffs' section", 1);
+  LdataReadLine(line_count, fr, file, "incomplete 'Coeffs' section", 1);
   for (int i = 0; i < *count_type; i++) {
-    CountLineReadLine(line_count, fr, file, "incomplete 'Coeffs' section", 1);
+    LdataReadLine(line_count, fr, file, "incomplete 'Coeffs' section", 1);
     long num;
     double a[4] = {0, 0, 0, 0};
     // error - wrong line
@@ -680,16 +680,16 @@ static void ReadCoeff(FILE *fr, const char *file, SYSTEM *System,
 //       since the atom stuff needs more arguments - rename this therefore
 // TODO: how is it with the reading timestep? Can I use this or not? Oh, no; I
 //       guess it's just the GetBeadVelocity bit as timestep requires not
-//       exiting on error which the CountLineReadLine bit does! Actually, it
+//       exiting on error which the LdataReadLine bit does! Actually, it
 //       doesn't anymore! So yeah, use it! Somehow
 // ReadBodySection() //{{{
 static void ReadBodySection(SYSTEM *System, FILE *fr,
                             const char *file, int *line_count) {
   COUNT *Count = &System->Count;
   // skip one line
-  CountLineReadLine(line_count, fr, file, "incomplete 'Velocities' section", 1);
+  LdataReadLine(line_count, fr, file, "incomplete 'Velocities' section", 1);
   for (int i = 0; i < Count->Bead; i++) {
-    CountLineReadLine(line_count, fr, file,
+    LdataReadLine(line_count, fr, file,
                       "incomplete 'Velocities' section", 1);
     GetBeadVelocity(System, file, *line_count);
   }
@@ -721,10 +721,10 @@ static void LmpDataReadAtoms(FILE *fr, const char *file, SYSTEM *System,
   COUNT *Count = &System->Count;
   int atom_types = Count->BeadType;
   // skip one line
-  CountLineReadLine(line_count, fr, file, "incomplete 'Atoms' section", 1);
+  LdataReadLine(line_count, fr, file, "incomplete 'Atoms' section", 1);
   bool warned = false; // to warn of undefined charge only once
   for (int i = 0; i < Count->Bead; i++) {
-    CountLineReadLine(line_count, fr, file, "incomplete 'Atoms' section", 1);
+    LdataReadLine(line_count, fr, file, "incomplete 'Atoms' section", 1);
     long id, resid, type;
     double pos[3], q;
     CheckAtomsLine(mode, Count->Bead, &id, &resid,
@@ -846,10 +846,10 @@ static void LmpDataReadBADISection(FILE *fr, const char *file,
   // does given id exists? For error when two bond/angle/etc. ids encountered
   bool *exists = calloc(count, sizeof *exists);
   // skip one line
-  CountLineReadLine(line_count, fr, file, msg, 1);
+  LdataReadLine(line_count, fr, file, msg, 1);
   bool warned = false; // warn only once about '???' entry
   for (int i = 0; i < count; i++) {
-    CountLineReadLine(line_count, fr, file, msg, 1);
+    LdataReadLine(line_count, fr, file, msg, 1);
     long id, type, b_id[num];
     // errors //{{{
     // line mus be <id> <type id> <bead id> <bead id> [<bead id>] [<bead id>]

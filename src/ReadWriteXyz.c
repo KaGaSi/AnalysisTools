@@ -64,7 +64,7 @@ SYSTEM XyzReadStruct(const char *file) { //{{{
     }
   } //}}}
   fclose(fr);
-  FillSystemNonessentials(&Sys, false);
+  FillSystemNonessentials(&Sys, false); // false for has_bonds
   CheckSystem(Sys, file);
   return Sys;
 } //}}}
@@ -98,7 +98,7 @@ int XyzReadTimestep(FILE *fr, const char *file,
                "(%s%d%s coordinate lines instead of %s%d%s)", ErrYellow(),
                i, ErrRed(), ErrYellow(), System->Count.BeadCoor, ErrRed());
       PrintErrorFileLine(file, *line_count);
-      return -2;
+      return -1;
     }
     double coor[3];
     if (XyzCheckCoorLine(coor)) {
@@ -130,6 +130,9 @@ int XyzReadTimestep(FILE *fr, const char *file,
 } //}}}
 int XyzSkipTimestep(FILE *fr, const char *file, int *line_count) { //{{{
   long val = ReadFirstLine(file, fr, line_count);
+  if (val == -2) {
+    return -2;
+  }
   (*line_count)++;
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
     return -2;

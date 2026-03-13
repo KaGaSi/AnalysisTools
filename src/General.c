@@ -102,7 +102,8 @@ void SortArray(void *array, const int length, const int mode, const char type) {
       break;
   }
 } //}}}
-bool ReadLine(FILE *fr, char *line) { //{{{
+// read a line from a file //{{{
+bool ReadLine(FILE *fr, char *line) {
   if (!fgets(line, LINE, fr)) {
     return false; // error/EOF
   }
@@ -115,7 +116,7 @@ bool ReadLine(FILE *fr, char *line) { //{{{
   }
   return true;
 } //}}}
-// SplitLine() //{{{
+// split a string by specified delimiters //{{{
 int SplitLine(const int max_str, char **out, char *line, const char delim[]) {
   // split into words separated by delimiters in delim array
   int words = 0;
@@ -126,14 +127,30 @@ int SplitLine(const int max_str, char **out, char *line, const char delim[]) {
   }
   return words;
 } //}}}
-bool ReadAndSplitLine(FILE *fr, const int max_str, const char delim[]) { //{{{
+// read a line from file and split it into individual strings //{{{
+bool ReadAndSplitLine(FILE *fr, const int max_str, const char delim[]) {
   if (!ReadLine(fr, line)) {
     return false;
   }
   words = SplitLine(max_str, split, line, delim);
   return true;
 } //}}}
-void WriteSplitLine(FILE *f) { //{{{
+// increment linecount, read and split next line //{{{
+bool CountLineReadLine(int *line_count, FILE *fr,
+                       const char *file, const char *msg) {
+  (*line_count)++;
+  if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
+    if (msg[0] != '\0') {
+      ErrorEOF(file, (char *)msg);
+      exit(1);
+    } else {
+      return false;
+    }
+  }
+  return true;
+} //}}}
+// write a line into a file //{{{
+void WriteSplitLine(FILE *f) {
   for (int i = 0; i < words; i++) {
     fprintf(f, " %s", split[i]);
   }

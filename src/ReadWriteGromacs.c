@@ -2,8 +2,6 @@
 #include "System.h"
 #include "Errors.h"
 
-static bool CountLineReadLine(int *line_count, FILE *fr,
-                              const char *file, char *msg);
 static bool ReadMoleculetype(const char *file, FILE *fr,
                              int *line_count, SYSTEM *System);
 static void ReadAtoms(const char *file, FILE *fr,
@@ -57,8 +55,8 @@ SYSTEM ItpReadStruct(const char *file) { //{{{
       }
     } while (true);
     Count->Molecule++;
-    System.Molecule = realloc(System.Molecule,
-                              Count->Molecule * sizeof *System.Molecule);
+    System.Molecule = s_realloc(System.Molecule,
+                                Count->Molecule * sizeof *System.Molecule);
     MOLECULE *mol = &System.Molecule[Count->Molecule-1];
     MOLECULETYPE *mt = &System.MoleculeType[Count->MoleculeType-1];
     mol->Index = Count->Molecule - 1;
@@ -83,7 +81,7 @@ SYSTEM ItpReadStruct(const char *file) { //{{{
     System.MoleculeCoor = s_realloc(System.MoleculeCoor, Count->Molecule *
                                     sizeof *System.MoleculeCoor);
   }
-  FillSystemNonessentials(&System, true);
+  FillSystemNonessentials(&System, true); // true for has_bonds
 
   CheckSystem(System, file);
 
@@ -97,11 +95,10 @@ SYSTEM PdbReadStruct(const char *file) { //{{{
   FILE *fr = OpenFile(file, "r");
   // 1) find pbc - 'CRYST*' line; assume orthogonal box //{{{
   while (CountLineReadLine(&line_count, fr, file, "missing CRYST (pbc) line")) {
-    line_count++;
     if (words > 0 && strncasecmp(split[0], "CRYST", 5) == 0) {
       if (words < 4 || !IsPosRealNumber(split[1], &System.Box.Length.x) ||
-                       !IsPosRealNumber(split[1], &System.Box.Length.y) ||
-                       !IsPosRealNumber(split[1], &System.Box.Length.z)) {
+                       !IsPosRealNumber(split[2], &System.Box.Length.y) ||
+                       !IsPosRealNumber(split[3], &System.Box.Length.z)) {
         err_msg("wrong 'CRYST' line (requires CRYST* <x> <y> <z>)");
         PrintErrorFileLine(file, line_count);
         exit(1);
@@ -112,7 +109,6 @@ SYSTEM PdbReadStruct(const char *file) { //{{{
   } //}}}
   // 2) find first ATOM line //{{{
   while (CountLineReadLine(&line_count, fr, file, "missing Atom line(s)")) {
-    line_count++;
     if (words > 0 && strcasecmp(split[0], "ATOM") == 0) {
       break;
     }
@@ -134,7 +130,7 @@ SYSTEM PdbReadStruct(const char *file) { //{{{
       PrintErrorFileLine(file, line_count);
       exit(1);
     }
-    System.Bead = realloc(System.Bead, b_id * sizeof *System.Bead);
+    System.Bead = s_realloc(System.Bead, b_id * sizeof *System.Bead);
     // molecule and bead id's start at 1 in pdb
     m_id--;
     b_id--;
@@ -170,7 +166,7 @@ SYSTEM PdbReadStruct(const char *file) { //{{{
     b->Type = bt_id;
     if (mt->Number == 1) {
       if (mt->nBeads > 0) {
-        mt->Bead = realloc(mt->Bead, (mt->nBeads + 1) * sizeof *mt->Bead);
+        mt->Bead = s_realloc(mt->Bead, (mt->nBeads + 1) * sizeof *mt->Bead);
       }
       mt->Bead[mt->nBeads] = bt_id;
       mt->nBeads++;
@@ -183,8 +179,8 @@ SYSTEM PdbReadStruct(const char *file) { //{{{
   fclose(fr);
 
   // allocatate Molecule & Molecule[].Bead arrays
-  System.Molecule = realloc(System.Molecule,
-                            Count->Molecule * sizeof *System.Molecule);
+  System.Molecule = s_realloc(System.Molecule,
+                              Count->Molecule * sizeof *System.Molecule);
   int m_id = 0;
   for (int i = 0; i < Count->MoleculeType; i++) {
     MOLECULETYPE *mt = &System.MoleculeType[i];
@@ -219,33 +215,12 @@ SYSTEM PdbReadStruct(const char *file) { //{{{
     System.MoleculeCoor = s_realloc(System.MoleculeCoor, Count->Molecule *
                                     sizeof *System.MoleculeCoor);
   }
-  FillSystemNonessentials(&System, true);
+  FillSystemNonessentials(&System, true); // true for has_bonds
 
   CheckSystem(System, file);
-
-  // PrintCount(*Count);
-  // PrintBeadType(System);
-  // PrintAllMolTypes(System);
-  // PrintMolecules(System);
-  // PrintBead(System);
   return System;
 } //}}}
 
-// increment line count and read the line //{{{
-// TODO: mode?
-static bool CountLineReadLine(int *line_count, FILE *fr,
-                              const char *file, char *msg) {
-  (*line_count)++;
-  if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
-    if (msg[0] != '\0') {
-      ErrorEOF(file, msg);
-      exit(1);
-    } else {
-      return false;
-    }
-  }
-  return true;
-} //}}}
 // static void ReadMoleculetype() //{{{
 static bool ReadMoleculetype(const char *file, FILE *fr,
                              int *line_count, SYSTEM *System) {

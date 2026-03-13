@@ -115,6 +115,8 @@ bool ReadLine(FILE *fr, char *line);
 int SplitLine(const int max_str, char **out, char *line, const char *delim);
 bool ReadAndSplitLine(FILE *fr, const int max_strings, const char *delim);
 void WriteSplitLine(FILE *f);
+bool CountLineReadLine(int *line_count, FILE *fr,
+                       const char *file, const char *msg);
 // strip path from command
 const char * StripPath(const char cmd[]);
 void PrintCommand(FILE *ptr, const int argc, char **argv);

@@ -10,6 +10,36 @@
 #include "ReadWriteConfig.h"
 #include "ReadWriteGromacs.h"
 
+// Format registry: one entry per supported file format.
+// When adding a new format:
+//   1. Add its enum value to Globals.h
+//   2. Add a row here (that's all for detection/routing)
+//   3. Add a case to ReadStructure() if it's a structure format
+//   4. Add a case to ReadTimestep() / SkipTimestep() if it's a coordinate format
+typedef struct {
+  int         type;
+  const char *extension;   // e.g. ".xyz"; NULL if matched only by basename
+  const char *basename;    // e.g. "FIELD"; NULL if matched only by extension
+  const char *string;      // primary name for FileTypeFromString / -ft flag
+  const char *string_alt;  // secondary alias (e.g. "lammpstrj"); NULL if none
+  bool        is_structure;
+  bool        is_coordinate;
+  bool        self_contained; // file serves as both struct + coor (no -i needed)
+} FORMAT_INFO;
+static const FORMAT_INFO FORMATS[] = {
+  { VTF_FILE,    ".vtf",       NULL,     "vtf",    NULL,        true,  true,  true  },
+  { VSF_FILE,    ".vsf",       NULL,     "vsf",    NULL,        true,  false, false },
+  { VCF_FILE,    ".vcf",       NULL,     "vcf",    NULL,        false, true,  false },
+  { XYZ_FILE,    ".xyz",       NULL,     "xyz",    NULL,        true,  true,  true  },
+  { LDATA_FILE,  ".data",      NULL,     "data",   NULL,        true,  true,  true  },
+  { LTRJ_FILE,   ".lammpstrj", NULL,     "ltrj",   "lammpstrj", true,  true,  true  },
+  { FIELD_FILE,  ".field",     "FIELD",  "field",  NULL,        true,  false, false },
+  { CONFIG_FILE, ".config",    "CONFIG", "config", NULL,        false, true,  false },
+  { ITP_FILE,    ".itp",       NULL,     "itp",    NULL,        true,  false, false },
+  { PDB_FILE,    ".pdb",       NULL,     "pdb",    NULL,        true,  false, false },
+};
+static const int N_FORMATS = (int)(sizeof FORMATS / sizeof *FORMATS);
+
 static void CopyAndFreeStuff(const int n, int (**old)[5], int (**new)[5]);
 static void CopyAndFreeAllStuff(MOLECULETYPE *mt_old, MOLECULETYPE *mt_new);
 static void MinimizeOneMtypeStuffIds(const int num, int (**arr)[5],
@@ -339,27 +369,9 @@ bool ReadTimestep(const SYS_FILES f, FILE *fr,
         return false;
       }
       break;
-    case LTRJ_FILE:;
-      int line = *line_count;
+    case LTRJ_FILE:
       if (LtrjReadTimestep(fr, f.coor.name, System, line_count) < 0) {
         return false;
-      }
-      // skip this step if it's a first one that contain only zeroes
-      // ...huh? Why would this be a thing?
-      if (line == 0 && System->Count.BeadCoor == System->Count.Bead) {
-        bool zeroes = true;
-        for (int i = 0; i < System->Count.Bead; i++) {
-          if (System->Bead[i].Position.v[0] != 0 ||
-              System->Bead[i].Position.v[1] != 0 ||
-              System->Bead[i].Position.v[2] != 0) {
-            zeroes = false;
-            break;
-          }
-        }
-        if (zeroes &&
-            LtrjReadTimestep(fr, f.coor.name, System, line_count) < 0) {
-          return false;
-        }
       }
       break;
     case LDATA_FILE:
@@ -367,6 +379,10 @@ bool ReadTimestep(const SYS_FILES f, FILE *fr,
         return false;
       }
       break;
+    case CONFIG_FILE:
+      err_msg("CONFIG format reading not yet implemented");
+      PrintError();
+      exit(1);
     default:
       snprintf(ERROR_MSG, LINE, "no action specified for coor_type %s%d",
                ErrYellow(), f.coor.type);
@@ -398,6 +414,10 @@ bool SkipTimestep(const SYS_FILES f, FILE *fr, int *line_count) {
       err_msg("lammps data file contains only one step; should never trigger!");
       PrintWarnFile(f.coor.name, "\0", "\0");
       return false;
+    case CONFIG_FILE:
+      err_msg("CONFIG format reading not yet implemented");
+      PrintError();
+      exit(1);
     default:
       snprintf(ERROR_MSG, LINE, "no action specified for coor_type %s%d",
                ErrYellow(), f.coor.type);
@@ -697,35 +717,32 @@ FILE * PrintBylineOpenFile(const char *f, const int argc, char **argv) { //{{{
 } //}}}
 // file type detection
 static int FindFileType(const char *name) { //{{{
-  // a) check for FIELD/CONFIG file
-  if (strcasecmp(name, "FIELD") == 0) {
-    return FIELD_FILE;
-  } else if (strcasecmp(name, "CONFIG") == 0) {
-    return CONFIG_FILE;
+  // a) basename match (e.g. "FIELD", "CONFIG")
+  for (int i = 0; i < N_FORMATS; i++) {
+    if (FORMATS[i].basename && strcasecmp(name, FORMATS[i].basename) == 0) {
+      return FORMATS[i].type;
+    }
   }
-  // b) check for known extensions
-  char *extension[10] = {".vtf", ".vsf", ".vcf", ".xyz", ".data", ".lammpstrj",
-                        ".field", ".config", ".itp", ".pdb"};
-  char *dot = strrchr(name, '.');
-  for (int i = 0; i < 10; i++) {
-    if (dot && strcasecmp(dot, extension[i]) == 0) {
-      return i;
+  // b) extension match
+  const char *dot = strrchr(name, '.');
+  if (dot) {
+    for (int i = 0; i < N_FORMATS; i++) {
+      if (FORMATS[i].extension && strcasecmp(dot, FORMATS[i].extension) == 0) {
+        return FORMATS[i].type;
+      }
     }
   }
   return -1;
 } //}}}
 int FileTypeFromString(const char *str) { //{{{
-  if (strcasecmp(str, "vtf") == 0) return VTF_FILE;
-  if (strcasecmp(str, "vsf") == 0) return VSF_FILE;
-  if (strcasecmp(str, "vcf") == 0) return VCF_FILE;
-  if (strcasecmp(str, "xyz") == 0) return XYZ_FILE;
-  if (strcasecmp(str, "data") == 0) return LDATA_FILE;
-  if (strcasecmp(str, "ltrj") == 0 ||
-      strcasecmp(str, "lammpstrj") == 0) return LTRJ_FILE;
-  if (strcasecmp(str, "field") == 0) return FIELD_FILE;
-  if (strcasecmp(str, "config") == 0) return CONFIG_FILE;
-  if (strcasecmp(str, "itp") == 0) return ITP_FILE;
-  if (strcasecmp(str, "pdb") == 0) return PDB_FILE;
+  for (int i = 0; i < N_FORMATS; i++) {
+    if (strcasecmp(str, FORMATS[i].string) == 0) {
+      return FORMATS[i].type;
+    }
+    if (FORMATS[i].string_alt && strcasecmp(str, FORMATS[i].string_alt) == 0) {
+      return FORMATS[i].type;
+    }
+  }
   return -1;
 } //}}}
 // identify input coordinate and structure files //{{{
@@ -758,9 +775,14 @@ bool InputCoorStruct(const int argc, char **argv, SYS_FILES *f) {
       // optional type string: consume only if it's a recognized structure type
       if ((i+2) < argc && argv[i+2][0] != '-') {
         int ft = FileTypeFromString(argv[i+2]);
-        if (ft == VTF_FILE || ft == VSF_FILE || ft == FIELD_FILE ||
-            ft == LDATA_FILE || ft == LTRJ_FILE || ft == XYZ_FILE ||
-            ft == ITP_FILE || ft == PDB_FILE) {
+        bool is_struct = false;
+        for (int j = 0; j < N_FORMATS; j++) {
+          if (FORMATS[j].type == ft && FORMATS[j].is_structure) {
+            is_struct = true;
+            break;
+          }
+        }
+        if (is_struct) {
           f->stru.type = ft;
         } else if (ft != -1) {
           if (snprintf(ERROR_MSG, LINE, "not a structure file type: '%s%s%s'",
@@ -800,16 +822,22 @@ bool InputCoorStruct(const int argc, char **argv, SYS_FILES *f) {
       s_strcpy(f->stru.name, f->coor.name, LINE);
       f->stru.name[last+2] = 's';
       f->stru.type = VSF_FILE;
-    } else if (f->coor.type == VTF_FILE ||   //
-               f->coor.type == XYZ_FILE ||   // use both as a coordinate and
-               f->coor.type == LDATA_FILE || // a structure files
-               f->coor.type == LTRJ_FILE) {  //
-      s_strcpy(f->stru.name, f->coor.name, LINE);
-      f->stru.type = f->coor.type;
     } else {
-      err_msg("missing structure file; should never happen!");
-      PrintError();
-      exit(1);
+      bool self_contained = false;
+      for (int j = 0; j < N_FORMATS; j++) {
+        if (FORMATS[j].type == f->coor.type && FORMATS[j].self_contained) {
+          self_contained = true;
+          break;
+        }
+      }
+      if (self_contained) {
+        s_strcpy(f->stru.name, f->coor.name, LINE);
+        f->stru.type = f->coor.type;
+      } else {
+        err_msg("missing structure file; should never happen!");
+        PrintError();
+        exit(1);
+      }
     }
   }
   return true;
@@ -817,36 +845,26 @@ bool InputCoorStruct(const int argc, char **argv, SYS_FILES *f) {
 int StructureFileType(const char *path) { //{{{
   const char *name = StripPath(path);
   int ft = FindFileType(name);
-  if (ft == VTF_FILE ||
-      ft == VSF_FILE ||
-      ft == FIELD_FILE ||
-      ft == LDATA_FILE ||
-      ft == LTRJ_FILE ||
-      ft == XYZ_FILE ||
-      ft == ITP_FILE ||
-      ft == PDB_FILE) {
-    return ft;
-  } else {
-    err_msg("Not a structure file");
-    PrintErrorFile(path, "\0", "\0");
-    exit(1);
+  for (int i = 0; i < N_FORMATS; i++) {
+    if (FORMATS[i].type == ft && FORMATS[i].is_structure) {
+      return ft;
+    }
   }
+  err_msg("Not a structure file");
+  PrintErrorFile(path, "\0", "\0");
+  exit(1);
 } //}}}
 int CoordinateFileType(const char *path) { //{{{
   const char *name = StripPath(path);
   int ft = FindFileType(name);
-  if (ft == VTF_FILE ||
-      ft == VCF_FILE ||
-      ft == XYZ_FILE ||
-      ft == LDATA_FILE ||
-      ft == LTRJ_FILE ||
-      ft == CONFIG_FILE) {
-    return ft;
-  } else {
-    err_msg("Not a coordinate file");
-    PrintErrorFile(path, "\0", "\0");
-    exit(1);
+  for (int i = 0; i < N_FORMATS; i++) {
+    if (FORMATS[i].type == ft && FORMATS[i].is_coordinate) {
+      return ft;
+    }
   }
+  err_msg("Not a coordinate file");
+  PrintErrorFile(path, "\0", "\0");
+  exit(1);
 } //}}}
 int FileType(const char *name) { //{{{
   int ft = FindFileType(name);

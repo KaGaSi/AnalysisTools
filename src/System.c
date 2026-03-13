@@ -310,7 +310,7 @@ void CountBondAngleDihedralImproper(SYSTEM *System) { //{{{
     Count->Improper += mt_i->nImpropers * mt_i->Number;
   }
 } //}}}
-void FillSystemNonessentials(SYSTEM *System, bool bonds) { //{{{
+void FillSystemNonessentials(SYSTEM *System, bool has_bonds) { //{{{
   COUNT *Count = &System->Count;
   for (int i = 0; i < Count->MoleculeType; i++) {
     FillMoleculeTypeBType(&System->MoleculeType[i]);
@@ -324,7 +324,7 @@ void FillSystemNonessentials(SYSTEM *System, bool bonds) { //{{{
   for (int i = 0; i < Count->MoleculeType; i++) {
     SortAll(&System->MoleculeType[i]);
   }
-  if (!bonds) {
+  if (!has_bonds) {
     for (int i = 0; i < Count->Bead; i++) {
       System->UnbondedCoor[i] = i;
     }
