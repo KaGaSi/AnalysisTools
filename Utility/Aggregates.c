@@ -215,7 +215,7 @@ void Calculation(SYSTEM *System, STEP step, OPT opt, COMMON_OPT commons,
         MOLECULE *mol = &System->Molecule[mol_id];
         for (int k = 0; k < System->MoleculeType[mol->Type].nBeads; k++) {
           BEAD *b = &System->Bead[mol->Bead[k]];
-          if (System->BeadType[b->Type].Flag) {
+          if (use_bt[b->Type]) {
             for (int l = 0; l < opt.w_count; l++) {
               double dist = b->Position.v[opt.axis] - opt.wall[l];
               if (fabs(dist) < opt.cutoff) {
