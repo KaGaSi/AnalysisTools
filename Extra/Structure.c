@@ -29,10 +29,10 @@ static const struct OptSpec opts[] = {
 void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrNDd *boop) {
   int max_neigh = sym[n_sym-1];
   int nearest[max_neigh]; // nearest neighbour id
-  double min_dist[max_neigh]; // nearest neighbour's distance
+  double min_sqdist[max_neigh]; // nearest neighbour's square distance
   for (int i = 0; i < max_neigh; i++) {
     nearest[i] = -1;
-    min_dist[i] = HIGHNUM;
+    min_sqdist[i] = HIGHNUM;
   }
   // find nearest neighbours
   BEAD *b = &System.Bead[n];
@@ -41,16 +41,15 @@ void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrNDd *boop) 
     if (id == n) {
       continue;
     }
-    BEAD *b_i = &System.Bead[id];
-    vec3d d = Distance(b->Position, b_i->Position, System.Box.Length);
-    double r = VectLength(d);
+    vec3d d = Distance(b->Position, System.Bead[id].Position, System.Box.Length);
+    double sq_r = SqVectLength(d);
     for (int j = 0; j < max_neigh; j++) {
-      if (r < min_dist[j]) {
+      if (sq_r < min_sqdist[j]) {
         for (int k = (max_neigh - 1); k > j; k--) {
-          min_dist[k] = min_dist[k-1];
+          min_sqdist[k] = min_sqdist[k-1];
           nearest[k] = nearest[k-1];
         }
-        min_dist[j] = r;
+        min_sqdist[j] = sq_r;
         nearest[j] = id;
         break;
       }
@@ -63,16 +62,19 @@ void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrNDd *boop) 
     }
   }
 
+  // compute angles for all max_neigh neighbours for use in all the symmetries
+  double theta[max_neigh];
+  for (int j = 0; j < max_neigh; j++) {
+    vec3d d = Distance(System.Bead[nearest[j]].Position, b->Position,
+                       System.Box.Length);
+    theta[j] = atan2(d.v[1], d.v[0]);
+  }
   // calculate boop
   for (int i = 0; i < n_sym; i++) {
-    double q_real = 0;
-    double q_imag = 0;
+    double q_real = 0, q_imag = 0;
     for (int j = 0; j < sym[i]; j++) {
-      BEAD *b2 = &System.Bead[nearest[j]];
-      vec3d d = Distance(b2->Position, b->Position, System.Box.Length);
-      double theta = atan2(d.v[1], d.v[0]);
-      q_real += cos(sym[i] * theta);
-      q_imag += sin(sym[i] * theta);
+      q_real += cos(sym[i] * theta[j]);
+      q_imag += sin(sym[i] * theta[j]);
     }
     q_real /= sym[i];
     q_imag /= sym[i];
@@ -86,9 +88,87 @@ struct OPT {
   char per_bead_file[LINE]; // -pb option
 }; //}}}
 
+// g_n pair callback - called once per pair (i<j) by TraversePairs //{{{
+struct gn_args {
+  ArrNDd *boop;
+  ArrNDd *g_n;
+  long int *g_n_counts;
+  int n_sym;
+  double r_max;
+  double dr;
+};
+static void GnPair(int i, int j, const SYSTEM System, void *ud) {
+  struct gn_args *p = (struct gn_args*)ud;
+  int id_i = System.BeadCoor[i];
+  int id_j = System.BeadCoor[j];
+  vec3d dist = Distance(System.Bead[id_i].Position, System.Bead[id_j].Position,
+                        System.Box.Length);
+  double r_ij = VectLength(dist);
+  if (r_ij >= p->r_max) {
+    return;
+  }
+  int bin = r_ij / p->dr;
+  for (int k = 0; k < p->n_sym; k++) {
+    double re = GetArr3D(p->boop, id_i, k, 0) * GetArr3D(p->boop, id_j, k, 0);
+    double im = GetArr3D(p->boop, id_i, k, 1) * GetArr3D(p->boop, id_j, k, 1);
+    AddArr2D(p->g_n, k, bin, re + im);
+  }
+  p->g_n_counts[bin]++;
+}
+static bool AcceptAll(int i, const SYSTEM System, void *ud) {
+  (void)i; (void)System; (void)ud;
+  return true;
+} //}}}
+
+// per-step calculation //{{{
+struct calc_data {
+  ArrNDd *boop;
+  ArrNDd *boop_distr_type;
+  ArrNDd *g_n;
+  long int *g_n_counts;
+  int n_sym;
+  int *sym;
+  int bins;
+  double width;
+  double r_max;
+  double dr;
+};
+static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
+  (void)step;
+  struct calc_data *p = (struct calc_data*)userdata;
+  COUNT *Count = &System->Count;
+
+  FillArrND(p->boop, 0);
+  for (int i = 0; i < Count->BeadCoor; i++) {
+    int id = System->BeadCoor[i];
+    int type = System->Bead[id].Type;
+    ComputeBOOP(*System, id, p->n_sym, p->sym, p->boop);
+    for (int j = 0; j < p->n_sym; j++) {
+      double res = sqrt(Square(GetArr3D(p->boop, id, j, 0)) +
+                        Square(GetArr3D(p->boop, id, j, 1)));
+      // error - should never happen but better safe than sorry //{{{
+      // TODO: proper error with bead id and whatnot
+      if (res < 0 || res > 1) {
+        err_msg("boop must be <0,1>!");
+        PrintError();
+      } //}}}
+      int k = res / p->width;
+      if (k == p->bins) {
+        k--;
+      }
+      AddArr3D(p->boop_distr_type, type, k, j, res);
+    }
+  }
+
+  // g_n correlation: TraversePairs visits each pair once (vs. original O(N^2) double loop)
+  struct gn_args args = { p->boop, p->g_n, p->g_n_counts,
+                          p->n_sym, p->r_max, p->dr };
+  TraversePairs(*System, p->r_max, GnPair, &args, AcceptAll, NULL);
+} //}}}
+
 int main(int argc, char *argv[]) {
 
-  // commad line arguments before reading the structure //{{{
+  // command line arguments before reading the structure //{{{
   OptionCheck(argc, argv, true, HelpDesc, opts);
   OPT opt;
   int count = 0;
@@ -152,129 +232,39 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   long int *g_n_counts = calloc(bins_g_n, sizeof *g_n_counts);
-
-  // main loop //{{{
-  FILE *fr = OpenFile(in.coor.name, "r");
-  int count_coor = 0, // count steps in the vcf file
-      count_used = 0, // count steps in output file
-      line_count = 0; // count lines in the vcf file
   ArrNDd *boop = CreateArr3Dd(Count->Bead, n_sym, 2);
   if (!boop) {
     err_msg("ArrNDd constructor failed (boop)");
     PrintError();
     exit(1);
   }
-  while (true) {
-    PrintStep(&count_coor, commons.start, commons.silent);
-    // use every skip-th timestep between start and end
-    bool use = false;
-    if (UseStep(commons, count_coor)) {
-      use = true;
-    }
-    if (use) { //{{{
-      if (!ReadTimestep(in, fr, &System, &line_count)) {
-        count_coor--;
-        break;
-      }
-      count_used++;
-
-      FillArrND(boop, 0);
-      // go over all beads in the coordinate file
-      for (int i = 0; i < Count->BeadCoor; i++) {
-        int id = System.BeadCoor[i]; // bead index
-        int type = System.Bead[id].Type;
-        ComputeBOOP(System, id, n_sym, sym, boop);
-        for (int j = 0; j < n_sym; j++) {
-          double res = sqrt(Square(GetArr3D(boop, id, j, 0)) +
-                            Square(GetArr3D(boop, id, j, 1)));
-          // error - should never happen but better safe than sorry //{{{
-          // TODO: proper error with bead id and whatnot
-          if (res < 0 || res > 1) {
-            err_msg("boop must be <0,1>!");
-            PrintError();
-          } //}}}
-          int k = res / width; // edge case for res == 1 (put into highest bin)
-          if (k == bins) {
-            k--; // edge case for res[j] -> 1
-          }
-          AddArr3D(boop_distr_type, type, k, j, res);
-        }
-      }
-
-      for (int i = 0; i < Count->BeadCoor; i++) {
-        for (int j = 0; j < Count->BeadCoor; j++) {
-          if (i == j) {
-            continue;
-          }
-          int id_i = System.BeadCoor[i];
-          int id_j = System.BeadCoor[j];
-          BEAD *b_i = &System.Bead[id_i];
-          BEAD *b_j = &System.Bead[id_j];
-          vec3d dist = Distance(b_i->Position, b_j->Position,
-                                System.Box.Length);
-          double r_ij = VectLength(dist);
-          if (r_ij >= r_max) {
-            continue;
-          }
-          int bin = r_ij / dr;
-
-          // boop are complex numbers
-          // boop_i.real * boop_j.real + boop_i.imag * boop_j.imag
-          for (int k = 0; k < n_sym; k++) {
-            double re = GetArr3D(boop, id_i, k, 0) * GetArr3D(boop, id_j, k, 0);
-            double im = GetArr3D(boop, id_i, k, 1) * GetArr3D(boop, id_j, k, 1);
-            double correlation = re + im;
-            AddArr2D(g_n, k, bin, correlation);
-          }
-          g_n_counts[bin]++;
-        }
-      } //}}}
-    } else {
-      if (!SkipTimestep(in, fr, &line_count)) {
-        count_coor--;
-        break;
-      }
-    }
-    // exit the main loop if reached user-specied end timestep
-    if (count_coor == commons.end) {
-      break;
-    }
-  }
-  fclose(fr);
-  // print last step?
-  if (!commons.silent) {
-    if (isatty(STDOUT_FILENO)) {
-      fflush(stdout);
-      fprintf(stdout, "\r                          \r");
-    }
-    fprintf(stdout, "Last Step: %d (used %d)\n", count_coor, count_used);
-  } //}}}
+// main loop //{{{
+  struct calc_data ud = { boop, boop_distr_type, g_n, g_n_counts,
+                          n_sym, sym, bins, width, r_max, dr };
+  STEP step = InitStep;
+  MainLoopCoor(&System, in, commons, &step, Calculation, &ud);
+  //}}}
 
   if (opt.per_bead_file[0] != '\0') {
-    // new file
+    // open all per-bead files once, write all beads, close - not per bead
+    FILE *pb_files[n_sym];
     for (int i = 0; i < n_sym; i++) {
-      char fout[LINE] = "";
-      if (snprintf(fout, LINE, "%s-%d.txt", opt.per_bead_file, sym[i]) < 0) {
+      char pb_name[LINE];
+      if (snprintf(pb_name, LINE, "%s-%d.txt", opt.per_bead_file, sym[i]) < 0) {
         ErrorSnprintf();
       }
-      FILE *fw = OpenFile(fout, "w");
-      fclose(fw);
+      pb_files[i] = OpenFile(pb_name, "w");
     }
-    // print per-bead values
     for (int i = 0; i < Count->BeadCoor; i++) {
-      int id = System.BeadCoor[i]; // bead index
+      int id = System.BeadCoor[i];
       for (int j = 0; j < n_sym; j++) {
         double res = sqrt(Square(GetArr3D(boop, id, j, 0)) +
                           Square(GetArr3D(boop, id, j, 1)));
-
-        char fout[LINE] = "";
-        if (snprintf(fout, LINE, "%s-%d.txt", opt.per_bead_file, sym[j]) < 0) {
-          ErrorSnprintf();
-        }
-        FILE *fw = OpenFile(fout, "a");
-        fprintf(fw, "%lf\n", res);
-        fclose(fw);
+        fprintf(pb_files[j], "%lf\n", res);
       }
+    }
+    for (int i = 0; i < n_sym; i++) {
+      fclose(pb_files[i]);
     }
   }
 
@@ -286,13 +276,17 @@ int main(int argc, char *argv[]) {
     PrintError();
     exit(1);
   }
-  // normalisation factor for distribution
+  // loop order: type -> bin -> sym matches boop_distr_type's [type][bin][sym] strides
   double *norm = calloc(n_sym, sizeof *norm);
-  for (int i = 0; i < bins; i++) {
-    for (int j = 0; j < n_sym; j++) {
-      for (int k = 0; k < Count->BeadType; k++) {
+  for (int k = 0; k < Count->BeadType; k++) {
+    for (int i = 0; i < bins; i++) {
+      for (int j = 0; j < n_sym; j++) {
         AddArr2D(boop_distr, i, j, GetArr3D(boop_distr_type, k, i, j));
       }
+    }
+  }
+  for (int i = 0; i < bins; i++) {
+    for (int j = 0; j < n_sym; j++) {
       norm[j] += GetArr2D(boop_distr, i, j);
     }
   } //}}}
@@ -363,12 +357,11 @@ int main(int argc, char *argv[]) {
     count = -1;
     SetArr2D(data, i, ++count, dr * (2 * i + 1) / 2);
     for (int j = 0; j < n_sym; j++) {
+      double val = 0;
       if (g_n_counts[i] > 0) {
-        double val = GetArr2D(g_n, j, i) / g_n_counts[i];
-        SetArr2D(data, i, ++count, val);
-      } else {
-        SetArr2D(data, i, ++count, 0);
+        val = GetArr2D(g_n, j, i) / g_n_counts[i];
       }
+      SetArr2D(data, i, ++count, val);
     }
   } //}}}
   ComputeColumnWidths(nrows, ncols, data, 6);
