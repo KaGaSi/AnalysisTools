@@ -299,10 +299,10 @@ int main(int argc, char *argv[]) {
         }
       }
 
-      // TODO: some vmd tcl print
-      char tcl[LINE] = "";
-      snprintf(tcl, LINE, "contacts-%04d.tcl", count_coor - 1);
-      FILE *out_vmd = OpenFile(tcl, "w");
+      // // TODO: some vmd tcl print
+      // char tcl[LINE] = "";
+      // snprintf(tcl, LINE, "contacts-%04d.tcl", count_coor - 1);
+      // FILE *out_vmd = OpenFile(tcl, "w");
       for (int i = 0; i < count_mt_beads; i++) {
         int id_i = mt_beads[i];
         BEAD *b_i = &System.Bead[id_i];
@@ -340,12 +340,12 @@ int main(int argc, char *argv[]) {
               Types bt = SortTypes(b_i->Type, b_l->Type);
               size_t id4[4] = {mt.a, bt.a, bt.b, 0};
               AddArrND(count_3body_step, id4, 1);
-              // TODO: some vmd tcl print
-              fprintf(out_vmd, "set rep [expr $rep + 1]\n");
-              fprintf(out_vmd, "mol addrep ${mol}\n");
-              fprintf(out_vmd, "mol modstyle  ${rep} ${mol} cpk 1.0 0.0\n");
-              fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d or resid %d\n",
-                      id_i, id_l, mol->Index);
+              // // TODO: some vmd tcl print
+              // fprintf(out_vmd, "set rep [expr $rep + 1]\n");
+              // fprintf(out_vmd, "mol addrep ${mol}\n");
+              // fprintf(out_vmd, "mol modstyle  ${rep} ${mol} cpk 1.0 0.0\n");
+              // fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d or resid %d\n",
+              //         id_i, id_l, mol->Index);
               if (!opt.multi && used_name_mol[j]) {
                 break;
               }
@@ -386,12 +386,12 @@ int main(int argc, char *argv[]) {
             Types bt = SortTypes(b_i->Type, b_l->Type);
             size_t id4[4] = {mt.a, bt.a, bt.b, 1};
             AddArrND(count_3body_step, id4, 1);
-            // TODO: some vmd tcl print
-            fprintf(out_vmd, "set rep [expr $rep + 1]\n");
-            fprintf(out_vmd, "mol addrep ${mol}\n");
-            fprintf(out_vmd, "mol modstyle  ${rep} ${mol} cpk 1.0 0.0\n");
-            fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d %d\n",
-                    id_i, id_l, id_j);
+            // // TODO: some vmd tcl print
+            // fprintf(out_vmd, "set rep [expr $rep + 1]\n");
+            // fprintf(out_vmd, "mol addrep ${mol}\n");
+            // fprintf(out_vmd, "mol modstyle  ${rep} ${mol} cpk 1.0 0.0\n");
+            // fprintf(out_vmd, "mol modselect ${rep} ${mol} index %d %d %d\n",
+            //         id_i, id_l, id_j);
             if (!opt.multi && used_name[j]) {
               break;
             }
@@ -401,16 +401,16 @@ int main(int argc, char *argv[]) {
           }
         }
       }
-      // TODO: some vmd tcl print
-      // check wheter the vmd file is empty; i.e., no contact trios in this step
-      fseek(out_vmd, 0, SEEK_END); // Move to the end of the file
-      long fileSize = ftell(out_vmd); // Get the current position (file size)
-      // close the vmd file
-      fclose(out_vmd);
-      // remove the vmd file if it's empty
-      if (fileSize == 0) {
-        remove(tcl);
-      }
+      // // TODO: some vmd tcl print
+      // // check wheter the vmd file is empty; i.e., no contact trios in this step
+      // fseek(out_vmd, 0, SEEK_END); // Move to the end of the file
+      // long fileSize = ftell(out_vmd); // Get the current position (file size)
+      // // close the vmd file
+      // fclose(out_vmd);
+      // // remove the vmd file if it's empty
+      // if (fileSize == 0) {
+      //   remove(tcl);
+      // }
       // write average number of contacts to a file //{{{
       fw = OpenFile(fout, "a");
       fprintf(fw, "%5d", count_used);
