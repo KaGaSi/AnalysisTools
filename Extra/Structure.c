@@ -156,7 +156,7 @@ static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
       if (k == p->bins) {
         k--;
       }
-      AddArr3D(p->boop_distr_type, type, k, j, res);
+      AddArr3D(p->boop_distr_type, type, k, j, 1);
     }
   }
 
