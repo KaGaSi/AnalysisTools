@@ -158,6 +158,7 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
       list_unmoved[j] = j + 1;
     }
     while (count_unmoved > 0) {
+      bool any_moved = false;
       // go through all molecule pairs
       for (int jj = 0; jj < count_moved; jj++) {
         int j = list_moved[jj];
@@ -181,37 +182,28 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
               BEAD *b2 = &System->Bead[bead2];
               // calculate distance between 'bead1' and 'bead2'
               vec3d dist = Distance(b1->Position, b2->Position, *box);
-              dist.v[0] = VectLength(dist);
-              // move 'mol2' (or 'k') if 'bead1' and 'bead2' are in contact
-              if (dist.v[0] <= distance) {
-                // distance vector between 'bead1' and 'bead2'
+              // move 'mol2' if 'bead1' and 'bead2' are in contact
+              if (VectLength(dist) <= distance) {
+                // multiples of box lengths that place b2 at b1 - dist
+                vec3d shift;
                 for (int dd = 0; dd < 3; dd++) {
-                  dist.v[dd] = b1->Position.v[dd] - b2->Position.v[dd];
+                  shift.v[dd] = b1->Position.v[dd] - b2->Position.v[dd]
+                                - dist.v[dd];
                 }
-                // if 'bead1' and 'bead2' are too far, move 'mol2' //{{{
-                for (int dd = 0; dd < 3; dd++) {
-                  while (dist.v[dd] > ((*box).v[dd] / 2)) {
-                    for (int n = 0; n < System->MoleculeType[mtype2].nBeads; n++) {
-                      int id = System->Molecule[mol2].Bead[n];
-                      System->Bead[id].Position.v[dd] += (*box).v[dd];
-                    }
-                    dist.v[dd] = b1->Position.v[dd] - b2->Position.v[dd];
+                for (int n = 0; n < System->MoleculeType[mtype2].nBeads; n++) {
+                  int id = System->Molecule[mol2].Bead[n];
+                  for (int dd = 0; dd < 3; dd++) {
+                    System->Bead[id].Position.v[dd] += shift.v[dd];
                   }
-                  while (dist.v[dd] <= -((*box).v[dd] / 2)) {
-                    for (int n = 0; n < System->MoleculeType[mtype2].nBeads; n++) {
-                      int id = System->Molecule[mol2].Bead[n];
-                      System->Bead[id].Position.v[dd] -= (*box).v[dd];
-                    }
-                    dist.v[dd] = b1->Position.v[dd] - b2->Position.v[dd];
-                  }
-                } //}}}
+                }
                 moved = true;
                 for (int x = kk; x < count_unmoved; x++) {
                   list_unmoved[x] = list_unmoved[x+1];
                 }
                 count_unmoved--;
                 list_moved[count_moved++] = k;
-                // skip remainder of 'mol2' (or 'k')
+                any_moved = true;
+                kk--;
                 break;
               }
             }
@@ -220,6 +212,14 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
             }
           }
         }
+      }
+      // guard against infinite loop if no bead pair is within range
+      if (!any_moved) {
+        snprintf(ERROR_MSG, LINE, "cannot join all molecules in aggregate "
+                 "%s%d%s - no eligible bead pair within distance %s%g%s",
+                 ErrYellow(), i, ErrCyan(), ErrYellow(), distance, ErrCyan());
+        PrintWarning();
+        break;
       }
     }
   } //}}}

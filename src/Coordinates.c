@@ -97,12 +97,10 @@ vec3d RestorePBC(const vec3d coor, const vec3d BoxLength) {
  * transferring used bonds into 'connected' array, and finally, use the
  * 'connected' array to join the molecule. As long as there are bonds in the
  * 'unconnected' array, continue creating a new 'connected' array and joining
- * the molecule. This procedure should be able to join molecule of any
- * complexity as well as molecule where some beads ar not connected.
- */
-/*
- * TODO: maybe split molecule to connected pieces, connect those and place
- *       their centres of mass nearest each other
+ * the molecule. A single 'moved' array spanning all while-loop iterations is
+ * used to anchor each new unconncected molecule part near an already-placed
+ * cluster. After all bonded beads are placed, any beads with no bonds
+ * are placed at their minimum-image position relative to the cluster centre.
  */
 void RemovePBCMolecule(int mol_id, SYSTEM *System) {
   MOLECULE *mol = &System->Molecule[mol_id];
@@ -136,6 +134,8 @@ void RemovePBCMolecule(int mol_id, SYSTEM *System) {
     free(unconnected);
     return;
   } //}}}
+  // track which beads were alread processed
+  bool *moved = calloc(mt->nBeads, sizeof *moved);
   while (count_unconnected > 0) {
     int count_connected = 0;
     connected[count_connected] = unconnected[0];
@@ -172,8 +172,29 @@ void RemovePBCMolecule(int mol_id, SYSTEM *System) {
       }
     }
     // connect the molecule by going through the list of connected bonds
-    bool *moved = calloc(mt->nBeads, sizeof *moved);
     int first = mt->Bond[connected[0]][0];
+    // if previous components exist, anchor 'first' bead near the cluster centre
+    int n_placed = 0;
+    vec3d ref = {0};
+    for (int i = 0; i < mt->nBeads; i++) {
+      if (moved[i]) {
+        int bid = mol->Bead[i];
+        for (int dd = 0; dd < 3; dd++) {
+          ref.v[dd] += System->Bead[bid].Position.v[dd];
+        }
+        n_placed++;
+      }
+    }
+    if (n_placed > 0) {
+      for (int dd = 0; dd < 3; dd++) {
+        ref.v[dd] /= n_placed;
+      }
+      BEAD *b_first = &System->Bead[mol->Bead[first]];
+      vec3d dist = Distance(ref, b_first->Position, box->OrthoLength);
+      for (int dd = 0; dd < 3; dd++) {
+        b_first->Position.v[dd] = ref.v[dd] - dist.v[dd];
+      }
+    }
     moved[first] = true;
     for (int i = 0; i < count_connected; i++) {
       int bond = connected[i],
@@ -195,8 +216,34 @@ void RemovePBCMolecule(int mol_id, SYSTEM *System) {
         moved[id[1]] = true;
       }
     }
-    free(moved);
   }
+  // place beads with no bonds near to the geometric centre of all bonded beads
+  int n_placed = 0;
+  vec3d ref = {0};
+  for (int i = 0; i < mt->nBeads; i++) {
+    if (moved[i]) {
+      int bid = mol->Bead[i];
+      for (int dd = 0; dd < 3; dd++) {
+        ref.v[dd] += System->Bead[bid].Position.v[dd];
+      }
+      n_placed++;
+    }
+  }
+  if (n_placed > 0) {
+    for (int dd = 0; dd < 3; dd++) {
+      ref.v[dd] /= n_placed;
+    }
+    for (int i = 0; i < mt->nBeads; i++) {
+      if (!moved[i] && System->Bead[mol->Bead[i]].InTimestep) {
+        BEAD *b = &System->Bead[mol->Bead[i]];
+        vec3d dist = Distance(ref, b->Position, box->OrthoLength);
+        for (int dd = 0; dd < 3; dd++) {
+          b->Position.v[dd] = ref.v[dd] - dist.v[dd];
+        }
+      }
+    }
+  }
+  free(moved);
   free(connected);
   free(unconnected);
   // put molecule's geometric centre into the simulation box //{{{
