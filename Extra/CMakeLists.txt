@@ -95,6 +95,7 @@ set(UTILS
   LargestAgg
   # NearestNeighbour
   # NearestNeighbour-wall
+  DiamondNetwork
   RandomChain
   Structure
   # SurfaceTension

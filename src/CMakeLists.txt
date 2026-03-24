@@ -93,6 +93,7 @@ set(UTILS
   DensityBox
   GenFIELD
   GyrationAggregates
+  GyrationMolecules
   Info
   JoinSystems
   PairCorrel
