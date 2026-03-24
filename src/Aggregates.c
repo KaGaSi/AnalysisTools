@@ -8,113 +8,145 @@
 
 // TODO: AggPickerOptions should be in Options.c, no?
 
-// STATIC DECLARATIONS
-static int NewAgg(AGGREGATE *Aggregate, SYSTEM *System,
-                  const int i, const int j);
-
-// evaluate bead contacts to assign molecules to aggregates //{{{
+// evaluate bead contacts to assign molecules to aggregates using DBSCAN //{{{
+/*
+ * DBSCAN at the molecule level:
+ *   - epsilon-neighbourhood of molecule m = all molecules with bead-bead
+ *     contact count >= 'contacts'
+ *   - core point: degree(m) >= min_pts
+ *   - border point: degree(m) < neighbours but reachable from a core point
+ *   - noise / isolated: not reachable from any core point -> singleton
+ *
+ * With neighbours = 1 the algorithm reduces to simple
+ */
 void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
-                      const int contacts, PairHash *contact) {
+                      const int contacts, const int neighbours,
+                      PairHash *contact) {
   COUNT *Count = &System->Count;
-  /*
-   * iterate only over the entries stored in the hash table, i.e., pairs that
-   * have at least one bead-bead contact detected.
-   *
-   * khash iteration pattern:
-   *   kh_begin(h) / kh_end(h) ... first / one-past-last bucket index
-   *   kh_exist(h, it) ... true if bucket 'it' holds a live entry
-   *   kh_key(h, it) ... the uint64_t key at 'it'
-   *   kh_val(h, it) ... the uint8_t contact count at 'it'
-   *
-   * Each key encodes a molecule pair (i, j) with i > j; use the
-   * PairHash_mol_i / PairHash_mol_j helpers to decode them.
-   */
+
+  // Step 1: build a CSR adjacency list from the contact hash.
+  // Only pairs where both molecules are InTimestep and whose bead-contact
+  // count meets the threshold are treated as edges.
+  int *degree = calloc(Count->Molecule, sizeof *degree);
   for (khiter_t it = kh_begin(contact); it != kh_end(contact); ++it) {
-    // skip empty buckets (open-addressing tables have gaps)
     if (!kh_exist(contact, it)) {
       continue;
     }
-    // decode the pair
+    if (kh_val(contact, it) < (uint8_t)contacts) {
+      continue;
+    }
     uint64_t key = kh_key(contact, it);
-    int i = PairHash_mol_i(key); // larger mol index
-    int j = PairHash_mol_j(key); // smaller mol index
-    if (System->Molecule[i].InTimestep && System->Molecule[j].InTimestep) {
-      int agg_i = System->Molecule[i].Aggregate,
-          agg_j = System->Molecule[j].Aggregate;
-      // if molecules 'i' and 'j' are in contact, put them into one aggregate
-      if (kh_val(contact, it) >= (uint8_t)contacts) { //{{{
-          // create new aggregate if molecule 'j' isn'it in any
-          if (agg_j == -1) {
-            agg_j = NewAgg(Aggregate, System, i, j);
+    int i = PairHash_mol_i(key);
+    int j = PairHash_mol_j(key);
+    if (!System->Molecule[i].InTimestep ||
+        !System->Molecule[j].InTimestep) {
+      continue;
+    }
+    degree[i]++;
+    degree[j]++;
+  }
+  int *offset = malloc((Count->Molecule + 1) * sizeof *offset);
+  offset[0] = 0;
+  for (int i = 0; i < Count->Molecule; i++) {
+    offset[i + 1] = offset[i] + degree[i];
+  }
+  int total = offset[Count->Molecule];
+  int *nbrs = malloc((total > 0 ? total : 1) * sizeof *nbrs);
+  int *fill = calloc(Count->Molecule, sizeof *fill);
+  for (khiter_t it = kh_begin(contact); it != kh_end(contact); ++it) {
+    if (!kh_exist(contact, it)) {
+      continue;
+    }
+    if (kh_val(contact, it) < (uint8_t)contacts) {
+      continue;
+    }
+    uint64_t key = kh_key(contact, it);
+    int i = PairHash_mol_i(key);
+    int j = PairHash_mol_j(key);
+    if (!System->Molecule[i].InTimestep ||
+        !System->Molecule[j].InTimestep) continue;
+    nbrs[offset[i] + fill[i]++] = j;
+    nbrs[offset[j] + fill[j]++] = i;
+  }
+  free(fill);
+
+  // Step 2: DBSCAN over the molecule graph.
+  // label[i]: -1 = unvisited, -2 = noise/border candidate, >= 0 = cluster id
+  int *label = malloc(Count->Molecule * sizeof *label);
+  for (int i = 0; i < Count->Molecule; i++) {
+    label[i] = -1;
+  }
+  int *queue = malloc(Count->Molecule * sizeof *queue);
+  int cluster_id = 0;
+  for (int i = 0; i < Count->Molecule; i++) {
+    if (!System->Molecule[i].InTimestep || label[i] != -1) continue;
+    if (degree[i] < neighbours) {
+      label[i] = -2; // noise or potential border point
+      continue;
+    }
+    // core point: seed a new cluster via BFS
+    label[i] = cluster_id;
+    int head = 0, tail = 0;
+    queue[tail++] = i;
+    while (head < tail) {
+      int m = queue[head++];
+      for (int k = offset[m]; k < offset[m + 1]; k++) {
+        int n = nbrs[k];
+        if (label[n] == -1) {
+          // unvisited neighbour: assign to cluster
+          label[n] = cluster_id;
+          if (degree[n] >= neighbours) {
+            queue[tail++] = n; // also a core point, expand further
           }
-          /*
-           * add molecule 'i' to aggregate 'j' ()
-           * if molecule 'i' isn't in any aggregate
-           */
-          if (agg_i == -1) {
-            int mols = Aggregate[agg_j].nMolecules;
-            AGGREGATE *Agg = &Aggregate[agg_j];
-            Agg->nMolecules++;
-            Agg->Molecule = s_realloc(Agg->Molecule,
-                                      Agg->nMolecules * sizeof *Agg->Molecule);
-            Agg->Molecule[mols] = i;
-            System->Molecule[i].Aggregate = agg_j;
-          }
-          /*
-           * if molecules 'i' and 'j' are in different aggregates,
-           * unite those aggregates
-           */
-          if (agg_i != -1 && agg_j != -1 && agg_i != agg_j) {
-            // add molecules from aggregate 'i' to aggregate 'j'
-            int n_mol_old = Aggregate[agg_j].nMolecules;
-            AGGREGATE *Agg_i = &Aggregate[agg_i];
-            AGGREGATE *Agg_j = &Aggregate[agg_j];
-            Agg_j->nMolecules += Agg_i->nMolecules;
-            Agg_j->Molecule = s_realloc(Agg_j->Molecule,
-                                      Agg_j->nMolecules * sizeof *Agg_j->Molecule);
-            for (int k = n_mol_old; k < Agg_j->nMolecules; k++) {
-              int mol = Agg_i->Molecule[k-n_mol_old];
-              Agg_j->Molecule[k] = mol;
-              System->Molecule[mol].Aggregate = agg_j;
-            }
-            // move aggregates with id greater then agg_i to id-1
-            for (int k = (agg_i + 1); k < Count->Aggregate; k++) {
-              AGGREGATE *Agg_k = &Aggregate[k];
-              AGGREGATE *Agg_k1 = &Aggregate[k-1];
-              Agg_k1->nMolecules = Agg_k->nMolecules;
-              Agg_k1->Molecule = s_realloc(Agg_k1->Molecule,
-                                           Agg_k1->nMolecules *
-                                           sizeof *Agg_k1->Molecule);
-              // move every molecule from aggregate 'k' to aggregate 'k-1'
-              for (int l = 0; l < Agg_k->nMolecules; l++) {
-                int mol = Agg_k->Molecule[l];
-                Agg_k1->Molecule[l] = mol;
-                System->Molecule[mol].Aggregate = k - 1;
-              }
-            }
-            // reduce number of aggregates since the two aggregates were merged
-            Count->Aggregate--;
-          } //}}}
-        /*
-         * or if molecules 'i' and 'j' aren't in contact, and molecule 'j' isn't
-         * in any aggregate, create new aggregate for molecule 'j'
-         */
-        } else if (agg_j == -1) { //{{{
-          NewAgg(Aggregate, System, i, j);
-        } //}}}
+        } else if (label[n] == -2) {
+          label[n] = cluster_id; // border point absorbed into cluster
+        }
+      }
+    }
+    cluster_id++;
+  }
+  free(queue);
+  free(degree);
+  free(offset);
+  free(nbrs);
+
+  // Step 3: assign cluster members to Aggregate structs.
+  Count->Aggregate = 0;
+  int *cluster_size = calloc(cluster_id, sizeof *cluster_size);
+  int *cluster_fill = calloc(cluster_id, sizeof *cluster_fill);
+  for (int i = 0; i < Count->Molecule; i++) {
+    if (System->Molecule[i].InTimestep && label[i] >= 0) {
+      cluster_size[label[i]]++;
     }
   }
-  // single-molecule aggregates (hash table ignores 0-contact pairs)
+  for (int c = 0; c < cluster_id; c++) {
+    int agg = Count->Aggregate++;
+    Aggregate[agg].nMolecules = cluster_size[c];
+    Aggregate[agg].Molecule = s_realloc(Aggregate[agg].Molecule,
+                                        cluster_size[c] *
+                                        sizeof *Aggregate[agg].Molecule);
+  }
   for (int i = 0; i < Count->Molecule; i++) {
-    if (System->Molecule[i].InTimestep &&
-        System->Molecule[i].Aggregate == -1) {
-      int agg = Count->Aggregate;
+    if (!System->Molecule[i].InTimestep || label[i] < 0) continue;
+    int agg = label[i];
+    Aggregate[agg].Molecule[cluster_fill[agg]++] = i;
+    System->Molecule[i].Aggregate = agg;
+  }
+  free(cluster_size);
+  free(cluster_fill);
+
+  // singleton aggregates: noise molecules (label == -2) and any remaining
+  // uncontacted InTimestep molecules (label == -1)
+  for (int i = 0; i < Count->Molecule; i++) {
+    if (System->Molecule[i].InTimestep && label[i] < 0) {
+      int agg = Count->Aggregate++;
       System->Molecule[i].Aggregate = agg;
       Aggregate[agg].nMolecules = 1;
       Aggregate[agg].Molecule[0] = i;
-      Count->Aggregate++;
     }
   }
+
+  free(label);
 } //}}}
 // RemovePBCAggregates() //{{{
 void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
@@ -366,13 +398,3 @@ void AggPickerOptions(const int argc, char **argv, AGG_PICKER *opt,
   } //}}}
 } //}}}
 
-// create a new aggregate //{{{
-static int NewAgg(AGGREGATE *Aggregate, SYSTEM *System,
-                  const int i, const int j) {
-  int agg_j = System->Count.Aggregate;
-  System->Molecule[j].Aggregate = agg_j;
-  Aggregate[agg_j].nMolecules = 1;
-  Aggregate[agg_j].Molecule[0] = j;
-  System->Count.Aggregate++;
-  return agg_j;
-} //}}}

@@ -14,6 +14,12 @@ const struct HelpHelp HelpDesc = {
   "'.agg' file (see documentation for the format of this file), and Cartesian "
   "coordinates of joined aggregates can be written to an output coordinate "
   "file (to be used for visualization or further analysis by other utilities). "
+  "Aggregate detection uses DBSCAN at the molecule level: a molecule is a "
+  "core point if it has at least -nbr neighbours connected by sufficient "
+  "contacts (-c), border points with fewer neighbours are absorbed into "
+  "nearby clusters, and isolated molecules become singletons. "
+  "Setting -nbr 1 (the default) reproduces the previous connected-"
+  "components behaviour. "
   "The utility can also differentiate between aggregates near a wall and those "
   "in bulk (-w option); when the axis perpendicular to the wall(s) and the"
   "coordinate(s) of the wall(s) along that axis are provided, any aggregate "
@@ -24,7 +30,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: Aggregates <coor> <out.agg> [options]",
   .args = 2, // number of mandatory arguments
-  .all = 18, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 19, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -42,6 +48,7 @@ static const struct OptSpec opts[] = {
   {"--pairs", NULL, "-bt option specifies bead pairs instead (default: all possible pairs)", OPT_EXTRA},
   {"-d", "<float>", "maximum distance for contact (default: 1)", OPT_EXTRA},
   {"-c", "<float>", "minimum number of contacts (default: 1, max: 255)", OPT_EXTRA},
+  {"-nbr", "<int>", "DBSCAN min neighbours to be a core point (default: 1)", OPT_EXTRA},
   {"-j", "<coor>", "output file with joined coordinates", OPT_EXTRA},
   {"--no_pbc", NULL, "ignore periodic boundary conditions", OPT_EXTRA},
   {"-w", "<a> <float(s)>", "coordinate(s) on <a> axis of wall(s) perpendicular to the axis", OPT_EXTRA},
@@ -52,6 +59,7 @@ static const struct OptSpec opts[] = {
 struct OPT {
   double cutoff;        // -d
   int contacts;         // -c
+  int neighbours;          // -nbr
   FILE_TYPE fout;       // -j
   double wall[100];     // -w
   int w_count, axis;    // -w
@@ -168,7 +176,7 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
                 CheckBead_adaptor, &check);
   FreeSystem(&copy);
 
-  EvaluateContacts(Aggregate, System, opt.contacts, contact);
+  EvaluateContacts(Aggregate, System, opt.contacts, opt.neighbours, contact);
 
   PairHashFree(contact);
 
@@ -337,6 +345,13 @@ int main(int argc, char *argv[]) {
   if (opt.contacts > 255 || opt.contacts <= 0) {
     err_msg("requires whole number between 0 and 255");
     PrintErrorOption("-c");
+    exit(1);
+  }
+  opt.neighbours = 1;
+  OneNumberOption(argc, argv, "-nbr", &opt.neighbours, 'i');
+  if (opt.neighbours < 1) {
+    err_msg("requires a positive integer");
+    PrintErrorOption("-nbr");
     exit(1);
   }
   // wall options //{{{
