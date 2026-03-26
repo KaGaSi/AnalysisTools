@@ -184,8 +184,9 @@ typedef struct System { //{{{
 } SYSTEM;
 void InitSystem(SYSTEM *System); //}}}
 typedef struct Aggregate { //{{{
-  int nMolecules, // number of molecules in aggregate
-      *Molecule, // ids of molecules in aggregate
+  int nMolecules, // number of all molecules in aggregate
+      nCore,  *Core,   // core molecules (DBSCAN core points)
+      nBorder, *Border, // border molecules (DBSCAN border points)
       nBeads, // number of bonded beads in aggregate
       *Bead; // ids of bonded beads in aggregate
   double Mass; // total mass of the aggregate

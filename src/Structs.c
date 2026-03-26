@@ -65,18 +65,25 @@ void InitAggregate(SYSTEM System, AGGREGATE **Aggregate) { //{{{
   *Aggregate = malloc(Count->Molecule * sizeof **Aggregate);
   for (int i = 0; i < Count->Molecule; i++) {
     (*Aggregate)[i].nMolecules = 0;
+    (*Aggregate)[i].nCore = 0;
+    (*Aggregate)[i].nBorder = 0;
     (*Aggregate)[i].nBeads = 0;
-    (*Aggregate)[i].Molecule = calloc(1, sizeof *Aggregate[i]->Molecule);
-    (*Aggregate)[i].Bead = calloc(1, sizeof *Aggregate[i]->Bead);
+    (*Aggregate)[i].Core = calloc(1, sizeof *(*Aggregate)[i].Core);
+    (*Aggregate)[i].Border = calloc(1, sizeof *(*Aggregate)[i].Border);
+    (*Aggregate)[i].Bead = calloc(1, sizeof *(*Aggregate)[i].Bead);
   }
 } //}}}
 void ReInitAggregate(SYSTEM System, AGGREGATE *Aggregate) { //{{{
   COUNT *Count = &System.Count;
   for (int i = 0; i < Count->Molecule; i++) {
     Aggregate[i].nMolecules = 0;
+    Aggregate[i].nCore = 0;
+    Aggregate[i].nBorder = 0;
     Aggregate[i].nBeads = 0;
-    Aggregate[i].Molecule = s_realloc(Aggregate[i].Molecule,
-                                      1 * sizeof *Aggregate[i].Molecule);
+    Aggregate[i].Core = s_realloc(Aggregate[i].Core,
+                                    1 * sizeof *Aggregate[i].Core);
+    Aggregate[i].Border = s_realloc(Aggregate[i].Border,
+                                    1 * sizeof *Aggregate[i].Border);
     Aggregate[i].Bead = s_realloc(Aggregate[i].Bead,
                                   1 * sizeof *Aggregate[i].Bead);
   }
@@ -140,7 +147,8 @@ void FreeMoleculeTypeEssentials(MOLECULETYPE *MoleculeType) { //{{{
 } //}}}
 void FreeAggregate(COUNT Count, AGGREGATE *Aggregate) { //{{{
   for (int i = 0; i < Count.Molecule; i++) {
-    free(Aggregate[i].Molecule);
+    free(Aggregate[i].Core);
+    free(Aggregate[i].Border);
     free(Aggregate[i].Bead);
   }
   free(Aggregate);

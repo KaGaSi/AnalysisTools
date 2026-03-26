@@ -1,4 +1,5 @@
 #include "Debug.h"
+#include "Aggregates.h"
 #include "Errors.h"
 #include "General.h"
 #include <errno.h>
@@ -510,7 +511,7 @@ void PrintAggregate(const SYSTEM System, const AGGREGATE *Aggregate) { //{{{
     // print molecules
     fprintf(stdout, " %d mols:", Aggregate[i].nMolecules);
     for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-      int mol = Aggregate[i].Molecule[j];
+      int mol = AggGetMol(&Aggregate[i], j);
       int type = System.Molecule[mol].Type;
       fprintf(stdout, " %d (%d)", mol, type);
       if (j != (Aggregate[i].nMolecules - 1)) {

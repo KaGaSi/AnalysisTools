@@ -13,7 +13,7 @@
  * DBSCAN at the molecule level:
  *   - epsilon-neighbourhood of molecule m = all molecules with bead-bead
  *     contact count >= 'contacts'
- *   - core point: degree(m) >= min_pts
+ *   - core point: degree(m) >= neighbours
  *   - border point: degree(m) < neighbours but reachable from a core point
  *   - noise / isolated: not reachable from any core point -> singleton
  *
@@ -24,9 +24,11 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
                       PairHash *contact) {
   COUNT *Count = &System->Count;
 
-  // Step 1: build a CSR adjacency list from the contact hash.
-  // Only pairs where both molecules are InTimestep and whose bead-contact
-  // count meets the threshold are treated as edges.
+  // 1) build a CSR adjacency list from the contact hash.
+  /*
+   * Only pairs where both molecules are InTimestep and whose bead-contact
+   * count meets the threshold are treated as edges.
+   */
   int *degree = calloc(Count->Molecule, sizeof *degree);
   for (khiter_t it = kh_begin(contact); it != kh_end(contact); ++it) {
     if (!kh_exist(contact, it)) {
@@ -70,7 +72,7 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
   }
   free(fill);
 
-  // Step 2: DBSCAN over the molecule graph.
+  // 2) DBSCAN over the molecule graph.
   // label[i]: -1 = unvisited, -2 = noise/border candidate, >= 0 = cluster id
   int *label = malloc(Count->Molecule * sizeof *label);
   for (int i = 0; i < Count->Molecule; i++) {
@@ -106,34 +108,50 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
     cluster_id++;
   }
   free(queue);
-  free(degree);
   free(offset);
   free(nbrs);
-
-  // Step 3: assign cluster members to Aggregate structs.
+  // 3) assign cluster members to Aggregate structs (Core vs Border).
   Count->Aggregate = 0;
-  int *cluster_size = calloc(cluster_id, sizeof *cluster_size);
-  int *cluster_fill = calloc(cluster_id, sizeof *cluster_fill);
+  int *core_size   = calloc(cluster_id, sizeof *core_size);
+  int *border_size = calloc(cluster_id, sizeof *border_size);
+  int *core_fill   = calloc(cluster_id, sizeof *core_fill);
+  int *border_fill = calloc(cluster_id, sizeof *border_fill);
   for (int i = 0; i < Count->Molecule; i++) {
-    if (System->Molecule[i].InTimestep && label[i] >= 0) {
-      cluster_size[label[i]]++;
+    if (!System->Molecule[i].InTimestep || label[i] < 0) {
+      continue;
+    }
+    if (degree[i] >= neighbours) {
+      core_size[label[i]]++;
+    } else {
+      border_size[label[i]]++;
     }
   }
   for (int c = 0; c < cluster_id; c++) {
     int agg = Count->Aggregate++;
-    Aggregate[agg].nMolecules = cluster_size[c];
-    Aggregate[agg].Molecule = s_realloc(Aggregate[agg].Molecule,
-                                        cluster_size[c] *
-                                        sizeof *Aggregate[agg].Molecule);
+    Aggregate[agg].nCore = core_size[c];
+    Aggregate[agg].nBorder = border_size[c];
+    Aggregate[agg].nMolecules = core_size[c] + border_size[c];
+    Aggregate[agg].Core = s_realloc(Aggregate[agg].Core,
+                                      (core_size[c] > 0 ? core_size[c] : 1) *
+                                      sizeof *Aggregate[agg].Core);
+    Aggregate[agg].Border = s_realloc(Aggregate[agg].Border,
+                                      (border_size[c] > 0 ? border_size[c] : 1) *
+                                      sizeof *Aggregate[agg].Border);
   }
   for (int i = 0; i < Count->Molecule; i++) {
     if (!System->Molecule[i].InTimestep || label[i] < 0) continue;
     int agg = label[i];
-    Aggregate[agg].Molecule[cluster_fill[agg]++] = i;
+    if (degree[i] >= neighbours) {
+      Aggregate[agg].Core[core_fill[agg]++] = i;
+    } else {
+      Aggregate[agg].Border[border_fill[agg]++] = i;
+    }
     System->Molecule[i].Aggregate = agg;
   }
-  free(cluster_size);
-  free(cluster_fill);
+  free(core_size);
+  free(border_size);
+  free(core_fill);
+  free(border_fill);
 
   // singleton aggregates: noise molecules (label == -2) and any remaining
   // uncontacted InTimestep molecules (label == -1)
@@ -141,11 +159,14 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
     if (System->Molecule[i].InTimestep && label[i] < 0) {
       int agg = Count->Aggregate++;
       System->Molecule[i].Aggregate = agg;
+      Aggregate[agg].nCore = 0;
+      Aggregate[agg].nBorder = 1;
       Aggregate[agg].nMolecules = 1;
-      Aggregate[agg].Molecule[0] = i;
+      Aggregate[agg].Border[0] = i;
     }
   }
 
+  free(degree);
   free(label);
 } //}}}
 // RemovePBCAggregates() //{{{
@@ -198,8 +219,8 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
           int k = list_unmoved[kk];
           bool moved = false;
           // use only moved molecule 'mol1' and unmoved molecule 'mol2'
-          int mol1 = Aggregate[i].Molecule[j];
-          int mol2 = Aggregate[i].Molecule[k];
+          int mol1 = AggGetMol(&Aggregate[i], j);
+          int mol2 = AggGetMol(&Aggregate[i], k);
           int mtype1 = System->Molecule[mol1].Type;
           int mtype2 = System->Molecule[mol2].Type;
 
@@ -292,7 +313,7 @@ bool UseAggregate(SYSTEM System, AGGREGATE *Aggregate, int id,
   *size = 0;
   *mass = 0;
   for (int j = 0; j < Aggregate[id].nMolecules; j++) {
-    MOLECULE *mol = &System.Molecule[Aggregate[id].Molecule[j]];
+    MOLECULE *mol = &System.Molecule[AggGetMol(&Aggregate[id], j)];
     int mtype = mol->Type;
     MOLECULETYPE *mt = &System.MoleculeType[mtype];
     if (agg.m[mtype]) {
@@ -397,4 +418,3 @@ void AggPickerOptions(const int argc, char **argv, AGG_PICKER *opt,
     }
   } //}}}
 } //}}}
-

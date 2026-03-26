@@ -2762,22 +2762,29 @@ void SortAggStruct(AGGREGATE *Aggregate, SYSTEM System) { //{{{
     for (int j = 0; j < (Count->Aggregate - i - 1); j++) {
       AGGREGATE *Agg_j = &Aggregate[j];
       AGGREGATE *Agg_j1 = &Aggregate[j+1];
-      if (Agg_j->Molecule[0] > Agg_j1->Molecule[0]) {
+      // sort key: first core molecule id, or first border if no core
+      int key_j;
+      if (Agg_j->nCore  > 0) {
+        key_j = Agg_j->Core[0];
+      } else {
+        key_j = Agg_j->Border[0];
+      }
+      int key_j1;
+      if (Agg_j1->nCore > 0) {
+        key_j1 = Agg_j1->Core[0];
+      } else {
+        key_j1 = Agg_j1->Border[0];
+      }
+      if (key_j > key_j1) {
         SwapInt(&Agg_j->nMolecules, &Agg_j1->nMolecules);
-        // switch the whole Aggregate[].Molecule array
-        int mols; // number of molecules in the larger aggregate
-        if (Agg_j->nMolecules > Agg_j1->nMolecules) {
-          mols = Agg_j->nMolecules;
-          Agg_j->Molecule = s_realloc(Agg_j->Molecule, Agg_j->nMolecules *
-                                      sizeof *Agg_j->Molecule);
-        } else {
-          mols = Agg_j1->nMolecules;
-          Agg_j1->Molecule = s_realloc(Agg_j1->Molecule, Agg_j1->nMolecules *
-                                      sizeof *Agg_j1->Molecule);
-        }
-        for (int k = 0; k < mols; k++) {
-          SwapInt(&Agg_j->Molecule[k], &Agg_j1->Molecule[k]);
-        }
+        SwapInt(&Agg_j->nCore, &Agg_j1->nCore);
+        SwapInt(&Agg_j->nBorder, &Agg_j1->nBorder);
+        int *tmp_core = Agg_j->Core;
+        Agg_j->Core = Agg_j1->Core;
+        Agg_j1->Core = tmp_core;
+        int *tmp_border = Agg_j->Border;
+        Agg_j->Border = Agg_j1->Border;
+        Agg_j1->Border = tmp_border;
         done = false;
       }
     }
@@ -2791,7 +2798,7 @@ void FillAggregateBeads(AGGREGATE *Aggregate, SYSTEM System) { //{{{
     AGGREGATE *agg = &Aggregate[i];
     agg->nBeads = 0;
     for (int j = 0; j < agg->nMolecules; j++) {
-      int mol = agg->Molecule[j];
+      int mol = AggGetMol(agg, j);
       MOLECULE *m = &System.Molecule[mol];
       int mtype = m->Type;
       MOLECULETYPE *mt = &System.MoleculeType[mtype];

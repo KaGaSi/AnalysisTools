@@ -1,4 +1,5 @@
 #include "ReadWrite.h"
+#include "Aggregates.h"
 #include "Errors.h"
 #include "General.h"
 #include "Options.h"
@@ -469,23 +470,37 @@ int ReadAggregates(FILE *fr, const char *file, SYSTEM *System,
     return -2;
   } //}}}
   Count->Aggregate = val;
-  // go through all aggregates, filling in the molecules
+  // go through all aggregates, reading core and border molecule lines
   for (int i = 0; i < Count->Aggregate; i++) {
-    (*line_count)++;
     AGGREGATE *Agg = &Aggregate[i];
-    fscanf(fr, "%d :", &Agg->nMolecules);
-    Agg->Molecule = s_realloc(Agg->Molecule,
-                              Agg->nMolecules * sizeof *Agg->Molecule);
-    for (int j = 0; j < Agg->nMolecules; j++) {
+    // line 1: core molecules
+    (*line_count)++;
+    fscanf(fr, "%d :", &Agg->nCore);
+    Agg->Core = s_realloc(Agg->Core, (Agg->nCore > 0 ? Agg->nCore : 1) *
+                          sizeof *Agg->Core);
+    for (int j = 0; j < Agg->nCore; j++) {
       int mol;
       fscanf(fr, "%d", &mol);
-      mol--; // in agg file, the numbers correspond to vmd
-      Agg->Molecule[j] = mol;
-      System->Molecule[mol].Aggregate = i;
+      mol--;
+      Agg->Core[j] = mol;
+    }
+    { int ch; while ((ch = getc(fr)) != '\n' && ch != EOF) ; }
+    // line 2: border molecules
+    (*line_count)++;
+    fscanf(fr, "%d :", &Agg->nBorder);
+    Agg->Border = s_realloc(Agg->Border,
+                            (Agg->nBorder > 0 ? Agg->nBorder : 1) *
+                            sizeof *Agg->Border);
+    for (int j = 0; j < Agg->nBorder; j++) {
+      int mol;
+      fscanf(fr, "%d", &mol);
+      mol--;
+      Agg->Border[j] = mol;
     }
     int ch;
     while ((ch = getc(fr)) != '\n' && ch != EOF)
       ;
+    Agg->nMolecules = Agg->nCore + Agg->nBorder;
   }
   // fill the rest of aggregate info
   for (int i = 0; i < Count->Aggregate; i++) {
@@ -493,7 +508,7 @@ int ReadAggregates(FILE *fr, const char *file, SYSTEM *System,
     double mass = 0;
     AGGREGATE *Agg = &Aggregate[i];
     for (int j = 0; j < Agg->nMolecules; j++) {
-      MOLECULE *mol = &System->Molecule[Agg->Molecule[j]];
+      MOLECULE *mol = &System->Molecule[AggGetMol(Agg, j)];
       MOLECULETYPE *mt = &System->MoleculeType[mol->Type];
       if (mt->Mass == MASS || mass == -1) {
         mass = -1;
@@ -551,12 +566,14 @@ bool SkipAggregates(FILE *fr, const char *file, int *line_count) { //{{{
     PrintWarnFileLine(file, *line_count);
     return false;
   } //}}}
-  // go through all aggregates, filling in the molecules
+  // skip two lines per aggregate (core line + border line)
   for (int i = 0; i < num_agg; i++) {
-    (*line_count)++;
-    int ch;
-    while ((ch = getc(fr)) != '\n' && ch != EOF)
-      ;
+    for (int l = 0; l < 2; l++) {
+      (*line_count)++;
+      int ch;
+      while ((ch = getc(fr)) != '\n' && ch != EOF)
+        ;
+    }
   }
   return true;
 } //}}}
@@ -690,11 +707,16 @@ void WriteAggregates(const int step_count, const char *agg_file,
   for (int i = 0; i < System.Count.Aggregate; i++) {
     // write only those that aren't excluded
     if (Aggregate[i].Flag) {
-      // go through all molecules in aggregate 'i'
-      fprintf(fw, "%d :", Aggregate[i].nMolecules);
-      for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-        int mol = Aggregate[i].Molecule[j];
-        fprintf(fw, " %d", System.Molecule[mol].Index);
+      // line 1: core molecules
+      fprintf(fw, "%d :", Aggregate[i].nCore);
+      for (int j = 0; j < Aggregate[i].nCore; j++) {
+        fprintf(fw, " %d", System.Molecule[Aggregate[i].Core[j]].Index);
+      }
+      putc('\n', fw);
+      // line 2: border molecules
+      fprintf(fw, "%d :", Aggregate[i].nBorder);
+      for (int j = 0; j < Aggregate[i].nBorder; j++) {
+        fprintf(fw, " %d", System.Molecule[Aggregate[i].Border[j]].Index);
       }
       putc('\n', fw);
     }

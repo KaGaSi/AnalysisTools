@@ -308,7 +308,7 @@ int main(int argc, char *argv[]) {
         // count molecules and aggregates
         agg_counts_sum[agg_size]++;
         for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-          int mol_type = System.Molecule[Aggregate[i].Molecule[j]].Type;
+          int mol_type = System.Molecule[AggGetMol(&Aggregate[i], j)].Type;
           AddArr2D(molecules_sum, agg_size, mol_type, 1);
         }
         // sum aggregate mass

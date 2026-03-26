@@ -22,4 +22,12 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System, const int contacts,
 // remove PBC for aggregate molecules
 void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
                          SYSTEM *System, const bool *use_bt);
+// access the j-th molecule in an aggregate (Core first, then Border)
+static inline int AggGetMol(const AGGREGATE *agg, int j) {
+  if (j < agg->nCore) {
+    return agg->Core[j];
+  } else {
+    return agg->Border[j-agg->nCore];
+  }
+}
 #endif

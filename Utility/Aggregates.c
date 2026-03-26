@@ -182,7 +182,8 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
 
   // sort molecules in aggregates according to ascending ids //{{{
   for (int i = 0; i < System->Count.Aggregate; i++) {
-    SortArray(Aggregate[i].Molecule, Aggregate[i].nMolecules, 0, 'i');
+    SortArray(Aggregate[i].Core,   Aggregate[i].nCore,   0, 'i');
+    SortArray(Aggregate[i].Border, Aggregate[i].nBorder, 0, 'i');
   } //}}}
 
   SortAggStruct(Aggregate, *System);
@@ -219,7 +220,7 @@ void Calculation(SYSTEM *System, STEP step, OPT opt, COMMON_OPT commons,
     for (int i = 0; i < Count->Aggregate; i++) {
       Aggregate[i].Flag = false;
       for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-        int mol_id = Aggregate[i].Molecule[j];
+        int mol_id = AggGetMol(&Aggregate[i], j);
         MOLECULE *mol = &System->Molecule[mol_id];
         for (int k = 0; k < System->MoleculeType[mol->Type].nBeads; k++) {
           BEAD *b = &System->Bead[mol->Bead[k]];
@@ -260,7 +261,7 @@ void Calculation(SYSTEM *System, STEP step, OPT opt, COMMON_OPT commons,
         // is aggregate in the bulk?
         if (Aggregate[i].Flag) {
           for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-            int mol = Aggregate[i].Molecule[j];
+            int mol = AggGetMol(&Aggregate[i], j);
             int mtype = System->Molecule[mol].Type;
             for (int k = 0; k < System->MoleculeType[mtype].nBeads; k++) {
               int id = System->Molecule[mol].Bead[k];

@@ -320,7 +320,7 @@ int main(int argc, char *argv[]) {
 
         // count mol types in the aggregate
         for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-          int mol = Aggregate[i].Molecule[j];
+          int mol = AggGetMol(&Aggregate[i], j);
           // agg_mols[correct_size][System.Molecule[mol].Type]++;
           AddArr2D(agg_mols, correct_size, System.Molecule[mol].Type, 1);
         }

@@ -269,7 +269,7 @@ int main(int argc, char *argv[]) {
         avg_As_z_step[1] += agg_size * Square(Aggregate[i].Mass);
         // molecule species numbers
         for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-          int mtype = System.Molecule[Aggregate[i].Molecule[j]].Type;
+          int mtype = System.Molecule[AggGetMol(&Aggregate[i], j)].Type;
           molecules_step[mtype]++;
         }
 
@@ -284,7 +284,7 @@ int main(int argc, char *argv[]) {
           AddArr2D(zdistr, agg_size - 1, 1, Square(Aggregate[i].Mass));
           // overall numbers of molecules of each species in each aggregate size
           for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-            int mol_type = System.Molecule[Aggregate[i].Molecule[j]].Type;
+            int mol_type = System.Molecule[AggGetMol(&Aggregate[i], j)].Type;
             AddArr2D(molecules_sum, agg_size - 1, mol_type, 1);
           }
         }
@@ -296,7 +296,7 @@ int main(int argc, char *argv[]) {
           InitIntArray(comp_aux, Count->MoleculeType, 0);
           // count molecule types in the aggregate
           for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-            int mtype = System.Molecule[Aggregate[i].Molecule[j]].Type;
+            int mtype = System.Molecule[AggGetMol(&Aggregate[i], j)].Type;
             comp_aux[mtype]++;
           }
           // increment the distribution
