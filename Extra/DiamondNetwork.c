@@ -8,9 +8,10 @@ const struct HelpHelp HelpDesc = {
   "tetrahedrally (functionality 4). The conventional unit cell contains 8 "
   "junctions: 4 on FCC sites and 4 on tetrahedral interstitial sites. "
   "Adjacent junctions are connected by strands of 'n' intermediate beads "
-  "('S'). The lattice parameter is A = 4*(n+1)*l/sqrt(3), so every strand is "
-  "a straight chain of (n+1) bonds of length l. The full system contains "
-  "Nx x Ny x Nz conventional unit cells with periodic boundaries. "
+  "('S'). The box size is set with -b; the number of unit cells in each "
+  "direction is determined by rounding box/A_ideal to the nearest integer, "
+  "where A_ideal = 4*(n+1)*l/sqrt(3). The lattice is then squished uniformly "
+  "per axis to fill the box exactly. "
   "Output: one single-frame coordinate file; all beads form one molecule.",
 
   "Usage: DiamondNetwork <output> [options]",
@@ -24,16 +25,16 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_VERSION],
   {"<output>", NULL, "output coordinate file (.vtf, .vcf, .xyz, .data, etc.)", OPT_ARG},
   {"-n", "<int>", "beads per strand between adjacent junctions, >=1 (default: 3)", OPT_EXTRA},
-  {"-box", "<int> <int> <int>", "unit cells in x, y, z (default: 2 2 2)", OPT_EXTRA},
-  {"-l", "<float>", "bond length between consecutive beads (default: 1.0)", OPT_EXTRA},
+  {"-b", "3*<float>", "box size Lx Ly Lz; unit cells = round(L/A_ideal), then squished to fit (default: 2*A_ideal in each direction)", OPT_EXTRA},
+  {"-l", "<float>", "bond length l; ideal lattice param A = 4*(n+1)*l/sqrt(3) (default: 1.0)", OPT_EXTRA},
   {NULL}
 }; //}}}
 
 // structure for options //{{{
 struct OPT {
-  int n_strand; // -n
-  int box[3];   // -box
-  double bond_l;// -l
+  int n_strand;   // -n
+  vec3d box_size; // -b
+  double bond_l;  // -l
 }; //}}}
 
 /*
@@ -62,15 +63,15 @@ struct OPT {
  */
 
 // sublattice fractional positions (units of A) //{{{
-static const double frac_pos[8][3] = {
-  {0.00, 0.00, 0.00}, // 0: A0
-  {0.50, 0.50, 0.00}, // 1: A1
-  {0.50, 0.00, 0.50}, // 2: A2
-  {0.00, 0.50, 0.50}, // 3: A3
-  {0.25, 0.25, 0.25}, // 4: B0
-  {0.75, 0.75, 0.25}, // 5: B1
-  {0.75, 0.25, 0.75}, // 6: B2
-  {0.25, 0.75, 0.75}, // 7: B3
+static const vec3d frac_pos[8] = {
+  {.v = {0.00, 0.00, 0.00}}, // 0: A0
+  {.v = {0.50, 0.50, 0.00}}, // 1: A1
+  {.v = {0.50, 0.00, 0.50}}, // 2: A2
+  {.v = {0.00, 0.50, 0.50}}, // 3: A3
+  {.v = {0.25, 0.25, 0.25}}, // 4: B0
+  {.v = {0.75, 0.75, 0.25}}, // 5: B1
+  {.v = {0.75, 0.25, 0.75}}, // 6: B2
+  {.v = {0.25, 0.75, 0.75}}, // 7: B3
 }; //}}}
 
 // A→B bond connectivity table //{{{
@@ -82,11 +83,11 @@ static const int nbr[4][4][4] = {
 }; //}}}
 
 // bond vectors from any A atom (units of A), indexed by b //{{{
-static const double bond_vec[4][3] = {
-  {+0.25, +0.25, +0.25}, // b=0
-  {+0.25, -0.25, -0.25}, // b=1
-  {-0.25, +0.25, -0.25}, // b=2
-  {-0.25, -0.25, +0.25}, // b=3
+static const vec3d bond_vec[4] = {
+  {.v = {+0.25, +0.25, +0.25}}, // b=0
+  {.v = {+0.25, -0.25, -0.25}}, // b=1
+  {.v = {-0.25, +0.25, -0.25}}, // b=2
+  {.v = {-0.25, -0.25, +0.25}}, // b=3
 }; //}}}
 
 int main(int argc, char *argv[]) {
@@ -104,10 +105,14 @@ int main(int argc, char *argv[]) {
 
   opt.n_strand = 3;
   OneNumberOption(argc, argv, "-n", &opt.n_strand, 'i');
-  opt.box[0] = opt.box[1] = opt.box[2] = 2;
-  ThreeNumbersOption(argc, argv, "-box", opt.box, 'i');
   opt.bond_l = 1.0;
-  OneNumberOption(argc, argv, "-l", &opt.bond_l, 'd'); //}}}
+  OneNumberOption(argc, argv, "-l", &opt.bond_l, 'd');
+  // default box = 2 ideal unit cells in each direction
+  double A_default = 4.0 * (opt.n_strand + 1) * opt.bond_l / sqrt(3.0);
+  for (int dd = 0; dd < 3; dd++) {
+    opt.box_size.v[dd] = 2.0 * A_default;
+  }
+  ThreeNumbersOption(argc, argv, "-b", opt.box_size.v, 'd'); //}}}
 
   // validate //{{{
   if (opt.n_strand < 1) {
@@ -116,20 +121,20 @@ int main(int argc, char *argv[]) {
     Help(true, HelpDesc, opts);
     exit(1);
   }
-  for (int dd = 0; dd < 3; dd++) {
-    if (opt.box[dd] < 1) {
-      snprintf(ERROR_MSG, LINE, "-box must be >= 1 in all dimensions (got %d)",
-               opt.box[dd]);
-      PrintErrorOption("-box");
-      Help(true, HelpDesc, opts);
-      exit(1);
-    }
-  }
   if (opt.bond_l <= 0) {
     snprintf(ERROR_MSG, LINE, "-l must be > 0 (got %g)", opt.bond_l);
     PrintErrorOption("-l");
     Help(true, HelpDesc, opts);
     exit(1);
+  }
+  for (int dd = 0; dd < 3; dd++) {
+    if (opt.box_size.v[dd] <= 0) {
+      snprintf(ERROR_MSG, LINE, "-b dimensions must be > 0 (got %g)",
+               opt.box_size.v[dd]);
+      PrintErrorOption("-b");
+      Help(true, HelpDesc, opts);
+      exit(1);
+    }
   } //}}}
 
   if (!commons.silent) {
@@ -137,46 +142,58 @@ int main(int argc, char *argv[]) {
   }
 
   // derived sizes //{{{
-  const int Nx = opt.box[0], Ny = opt.box[1], Nz = opt.box[2];
   const int n = opt.n_strand;
   const double l = opt.bond_l;
 
-  // lattice parameter: |bond_vec|*A = A*sqrt(3)/4 = (n+1)*l
-  const double A = 4.0 * (n + 1) * l / sqrt(3.0);
+  // ideal lattice parameter for the given n and l
+  const double A_ideal = 4.0 * (n + 1) * l / sqrt(3.0);
 
-  const int Ncells        = Nx * Ny * Nz;
-  const int N_junc        = 8 * Ncells;
+  // number of unit cells: how many ideal cells fit in the box (ceiling), min 1
+  vec3d L;
+  for (int dd = 0; dd < 3; dd++) {
+    L.v[dd] = opt.box_size.v[dd];
+  }
+  vec3i N;
+  for (int dd = 0; dd < 3; dd++) {
+    N.v[dd] = (int)ceil(L.v[dd] / A_ideal);
+    if (N.v[dd] < 1) N.v[dd] = 1;
+  }
+
+  // per-axis lattice parameters: squish to fill the box exactly
+  vec3d A;
+  for (int dd = 0; dd < 3; dd++) {
+    A.v[dd] = L.v[dd] / N.v[dd];
+  }
+
+  const int Ncells = N.v[0] * N.v[1] * N.v[2];
+  const int N_junc = 8 * Ncells;
   // bonds between junctions = 4 A-types * 4 bonds * Ncells
   // = 16*Ncells = 2*N_junc (each bond counted once, A→B)
-  const int N_strands     = 16 * Ncells;
-  const int N_strand_beads= N_strands * n;
-  const int N_total       = N_junc + N_strand_beads;
-  const int N_bonds       = N_strands * (n + 1);
-
-  const double Lx = Nx * A;
-  const double Ly = Ny * A;
-  const double Lz = Nz * A; //}}}
+  const int N_strands = 16 * Ncells;
+  const int N_strand_beads = N_strands * n;
+  const int N_total = N_junc + N_strand_beads;
+  const int N_bonds = N_strands * (n + 1); //}}}
 
   // build SYSTEM //{{{
   SYSTEM System;
   InitSystem(&System);
   COUNT *Count = &System.Count;
 
-  Count->Bead       = N_total;
-  Count->BeadCoor   = N_total;
-  Count->Bonded     = N_total;
+  Count->Bead = N_total;
+  Count->BeadCoor = N_total;
+  Count->Bonded = N_total;
   Count->BondedCoor = N_total;
-  Count->Unbonded   = 0;
-  Count->Molecule   = 1;
+  Count->Unbonded = 0;
+  Count->Molecule = 1;
   Count->HighestResid = 0;
-  Count->BondType   = 1;
+  Count->BondType = 1;
 
-  System.Box.Length.v[0] = Lx;
-  System.Box.Length.v[1] = Ly;
-  System.Box.Length.v[2] = Lz;
+  for (int dd = 0; dd < 3; dd++) {
+    System.Box.Length.v[dd] = L.v[dd];
+  }
 
-  System.Bead    = realloc(System.Bead,    N_total * sizeof *System.Bead);
-  System.BeadCoor= realloc(System.BeadCoor,N_total * sizeof *System.BeadCoor);
+  System.Bead = realloc(System.Bead,    N_total * sizeof *System.Bead);
+  System.BeadCoor = realloc(System.BeadCoor,N_total * sizeof *System.BeadCoor);
 
   // bead types
   NewBeadType(&System.BeadType, &Count->BeadType, "J", 0, 1.0, 0.5);
@@ -214,26 +231,38 @@ int main(int argc, char *argv[]) {
    * Topology: j_start -- s[0] -- ... -- s[n-1] -- j_end  → (n+1) bonds
    */
   int bi = 0;
-  for (int iz = 0; iz < Nz; iz++) {
-    for (int iy = 0; iy < Ny; iy++) {
-      for (int ix = 0; ix < Nx; ix++) {
-        int cell_idx = iz*Ny*Nx + iy*Nx + ix;
+  for (int iz = 0; iz < N.v[2]; iz++) {
+    for (int iy = 0; iy < N.v[1]; iy++) {
+      for (int ix = 0; ix < N.v[0]; ix++) {
+        int cell_idx = iz*N.v[1]*N.v[0] + iy*N.v[0] + ix;
+        vec3i cell = {.v = {ix, iy, iz}};
         for (int tA = 0; tA < 4; tA++) {
           int j_start = cell_idx * 8 + tA;
           for (int b = 0; b < 4; b++) {
-            int B_sub  = nbr[tA][b][0];
-            int nx_c = ((ix + nbr[tA][b][1]) % Nx + Nx) % Nx;
-            int ny_c = ((iy + nbr[tA][b][2]) % Ny + Ny) % Ny;
-            int nz_c = ((iz + nbr[tA][b][3]) % Nz + Nz) % Nz;
-            int j_end = (nz_c*Ny*Nx + ny_c*Nx + nx_c) * 8 + B_sub;
+            int B_sub = nbr[tA][b][0];
+            vec3i nc;
+            for (int dd = 0; dd < 3; dd++) {
+              int tmp = cell.v[dd] + nbr[tA][b][dd+1];
+              nc.v[dd] = (tmp % N.v[dd] + N.v[dd]) % N.v[dd];
+            }
+            int tmp = nc.v[2]*N.v[1]*N.v[0] + nc.v[1]*N.v[0] + nc.v[0];
+            int j_end = tmp * 8 + B_sub;
 
             int s0 = N_junc + (cell_idx * 16 + tA * 4 + b) * n;
 
-            mt->Bond[bi][0] = j_start; mt->Bond[bi][1] = s0;     mt->Bond[bi][2] = 0; bi++;
+            mt->Bond[bi][0] = j_start;
+            mt->Bond[bi][1] = s0;
+            mt->Bond[bi][2] = 0; bi++;
             for (int k = 0; k < n-1; k++) {
-              mt->Bond[bi][0] = s0+k; mt->Bond[bi][1] = s0+k+1;  mt->Bond[bi][2] = 0; bi++;
+              mt->Bond[bi][0] = s0 + k;
+              mt->Bond[bi][1] = s0 + k + 1;
+              mt->Bond[bi][2] = 0;
+              bi++;
             }
-            mt->Bond[bi][0] = s0+n-1; mt->Bond[bi][1] = j_end;   mt->Bond[bi][2] = 0; bi++;
+            mt->Bond[bi][0] = s0 + n - 1;
+            mt->Bond[bi][1] = j_end;
+            mt->Bond[bi][2] = 0;
+            bi++;
           }
         }
       }
@@ -259,38 +288,45 @@ int main(int argc, char *argv[]) {
 
   // assign straight-line coordinates //{{{
   /*
-   * Junction positions: (cx + frac_pos[t][0], ...) * A
-   * Strand bead k (0..n-1) for strand (cell, tA, b):
-   *   pos = j_start_pos + (k+1)/(n+1) * bond_vec[b] * A
-   * This places beads evenly between the two junctions.
-   * Bond length check: |bond_vec[b]| * A / (n+1) = (sqrt(3)/4)*A/(n+1) = l ✓
+   * Junction (cx,cy,cz,t): position = ((cx + frac[t][0])*Ax,
+   *                                    (cy + frac[t][1])*Ay,
+   *                                    (cz + frac[t][2])*Az)
+   * Strand bead k along bond b from junction j_start:
+   *   pos = j_start + (k+1)/(n+1) * (bond_vec[b][0]*Ax,
+   *                                   bond_vec[b][1]*Ay,
+   *                                   bond_vec[b][2]*Az)
+   * Ax/Ay/Az may differ (squished box), so bond lengths are uniform only
+   * when Ax=Ay=Az.
    */
-  for (int iz = 0; iz < Nz; iz++) {
-    for (int iy = 0; iy < Ny; iy++) {
-      for (int ix = 0; ix < Nx; ix++) {
-        int cell_idx = iz*Ny*Nx + iy*Nx + ix;
+  for (int iz = 0; iz < N.v[2]; iz++) {
+    for (int iy = 0; iy < N.v[1]; iy++) {
+      for (int ix = 0; ix < N.v[0]; ix++) {
+        int cell_idx = iz * N.v[1] * N.v[0] + iy * N.v[0] + ix;
+        vec3i cell = {.v = {ix, iy, iz}};
         // junctions
         for (int t = 0; t < 8; t++) {
-          BEAD *b = &System.Bead[cell_idx * 8 + t];
-          b->Position.v[0] = (ix + frac_pos[t][0]) * A;
-          b->Position.v[1] = (iy + frac_pos[t][1]) * A;
-          b->Position.v[2] = (iz + frac_pos[t][2]) * A;
+          BEAD *b = &System.Bead[cell_idx*8+t];
+          for (int dd = 0; dd < 3; dd++) {
+            b->Position.v[dd] = (cell.v[dd] + frac_pos[t].v[dd]) * A.v[dd];
+          }
         }
         // strand beads
         for (int tA = 0; tA < 4; tA++) {
-          double ox = (ix + frac_pos[tA][0]) * A;
-          double oy = (iy + frac_pos[tA][1]) * A;
-          double oz = (iz + frac_pos[tA][2]) * A;
+          vec3d origin;
+          for (int dd = 0; dd < 3; dd++) {
+            origin.v[dd] = (cell.v[dd] + frac_pos[tA].v[dd]) * A.v[dd];
+          }
           for (int b = 0; b < 4; b++) {
             int s0 = N_junc + (cell_idx * 16 + tA * 4 + b) * n;
-            double bvx = bond_vec[b][0] * A;
-            double bvy = bond_vec[b][1] * A;
-            double bvz = bond_vec[b][2] * A;
+            vec3d bv;
+            for (int dd = 0; dd < 3; dd++) {
+              bv.v[dd] = bond_vec[b].v[dd] * A.v[dd];
+            }
             for (int k = 0; k < n; k++) {
               double f = (double)(k + 1) / (n + 1);
-              System.Bead[s0 + k].Position.v[0] = ox + f * bvx;
-              System.Bead[s0 + k].Position.v[1] = oy + f * bvy;
-              System.Bead[s0 + k].Position.v[2] = oz + f * bvz;
+              for (int dd = 0; dd < 3; dd++) {
+                System.Bead[s0+k].Position.v[dd] = origin.v[dd] + f * bv.v[dd];
+              }
             }
           }
         }

@@ -2,11 +2,14 @@
 #include "System.h"
 #include "Errors.h"
 
+// TODO: sometimes, lammpstrj generated through lammps has ids>line in preamble
+//       ...or is the norm if low-ids aren't saved?
+
 // TODO: somehow optional writing of velocity, force, extra...
 //       probably requires flags from outside ReadWrite files.
 
 // maximum number of variables in 'ITEM: ATOM' line
-static const int MAX_VAR = 15;
+static const int MAX_VAR = 21;
 
 /*
  * Functions to read lammpstrj file (dump style custom) as a coordinate file via
@@ -457,8 +460,7 @@ static int LtrjReadCoorLine(FILE *fr, BEAD *b, int b_count,
   }
   InitBead(b);
   long id;
-  // with regards to Position - if both 'x' and 'xu' (unwrapped) are present,
-  // 'xu' overwrites 'x'
+  // with regards to Position - unwrapped (xu/xsu) overwrite wrapped (x/xs)
   if (words < cols || !IsWholeNumber(split[var[0]], &id) || id > b_count ||
       (var[ 2] != -1 && !IsRealNumber(split[var[ 2]], &b->Position.v[0])) ||
       (var[ 3] != -1 && !IsRealNumber(split[var[ 3]], &b->Position.v[1])) ||
@@ -471,7 +473,13 @@ static int LtrjReadCoorLine(FILE *fr, BEAD *b, int b_count,
       (var[10] != -1 && !IsRealNumber(split[var[10]], &b->Force.v[2])) ||
       (var[12] != -1 && !IsRealNumber(split[var[12]], &b->Position.v[0])) ||
       (var[13] != -1 && !IsRealNumber(split[var[13]], &b->Position.v[1])) ||
-      (var[14] != -1 && !IsRealNumber(split[var[14]], &b->Position.v[2]))) {
+      (var[14] != -1 && !IsRealNumber(split[var[14]], &b->Position.v[2])) ||
+      (var[15] != -1 && !IsRealNumber(split[var[15]], &b->Position.v[0])) ||
+      (var[16] != -1 && !IsRealNumber(split[var[16]], &b->Position.v[1])) ||
+      (var[17] != -1 && !IsRealNumber(split[var[17]], &b->Position.v[2])) ||
+      (var[18] != -1 && !IsRealNumber(split[var[18]], &b->Position.v[0])) ||
+      (var[19] != -1 && !IsRealNumber(split[var[19]], &b->Position.v[1])) ||
+      (var[20] != -1 && !IsRealNumber(split[var[20]], &b->Position.v[2]))) {
     return -1;
   }
   b->Type = id; // this will then be used to assign proper type to this bead
@@ -484,21 +492,27 @@ static int LtrjReadCoorLine(FILE *fr, BEAD *b, int b_count,
   return 1;
 } //}}}
 static void LtrjFillAtomVariables(char var[MAX_VAR][10]) { //{{{
-  s_strcpy(var[0], "id", 10);
-  s_strcpy(var[1], "element", 10);
-  s_strcpy(var[2], "x", 10);
-  s_strcpy(var[3], "y", 10);
-  s_strcpy(var[4], "z", 10);
-  s_strcpy(var[5], "vx", 10);
-  s_strcpy(var[6], "vy", 10);
-  s_strcpy(var[7], "vz", 10);
-  s_strcpy(var[8], "fx", 10);
-  s_strcpy(var[9], "fy", 10);
+  s_strcpy(var[ 0], "id", 10);
+  s_strcpy(var[ 1], "element", 10);
+  s_strcpy(var[ 2], "x", 10);
+  s_strcpy(var[ 3], "y", 10);
+  s_strcpy(var[ 4], "z", 10);
+  s_strcpy(var[ 5], "vx", 10);
+  s_strcpy(var[ 6], "vy", 10);
+  s_strcpy(var[ 7], "vz", 10);
+  s_strcpy(var[ 8], "fx", 10);
+  s_strcpy(var[ 9], "fy", 10);
   s_strcpy(var[10], "fz", 10);
   s_strcpy(var[11], "type", 10);
-  s_strcpy(var[12], "xu", 10);
-  s_strcpy(var[13], "yu", 10);
-  s_strcpy(var[14], "zu", 10);
+  s_strcpy(var[12], "xs", 10);
+  s_strcpy(var[13], "ys", 10);
+  s_strcpy(var[14], "zs", 10);
+  s_strcpy(var[15], "xu", 10);
+  s_strcpy(var[16], "yu", 10);
+  s_strcpy(var[17], "zu", 10);
+  s_strcpy(var[18], "xsu", 10);
+  s_strcpy(var[19], "ysu", 10);
+  s_strcpy(var[20], "zsu", 10);
 } //}}}
 static void AssignPosVelForce(const BEAD in, BEAD *b) { //{{{
   for (int dd = 0; dd < 3; dd++) {
