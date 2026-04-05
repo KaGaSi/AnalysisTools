@@ -50,8 +50,8 @@ static char *name = "C";
 static char *name_mol = "CA2";
 // calculate distance between two points, accounting for pbc //{{{
 inline static double DistLength(const vec3d v1, const vec3d v2,
-                                const vec3d box) {
-  vec3d dist = Distance(v1, v2, box);
+                                const BOX *box) {
+  vec3d dist = DistancePBC(v1, v2, box);
   return VectLength(dist);
 } //}}}
 // get two molecule/bead types ordered so the first one < second one //{{{
@@ -181,7 +181,7 @@ int main(int argc, char *argv[]) {
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
-  vec3d boxlength = System.Box.Length;
+  const BOX *boxlength = &System.Box;
 
   // define variables for mono- and divalent counterions //{{{
   const int bt_name = FindBeadType(name, System);
@@ -216,28 +216,6 @@ int main(int argc, char *argv[]) {
   // arrays for all the necessary stuff //{{{
   // count molecules of each type
   int *c_mtype = calloc(Count->MoleculeType, sizeof *c_mtype);
-  // // count per moltype intramolecular contacts //{{{
-  // ArrNDli *intra_mol = CreateArr3Dli(Count->MoleculeType,
-  //                                    Count->BeadType, Count->BeadType);
-  // size_t shape_intra_3body[4] = {Count->MoleculeType, Count->BeadType,
-  //                                Count->BeadType, Count->BeadType};
-  // ArrNDli *intra_3body = CreateArrNDli(4, shape_intra_3body);
-  // count molecules of each type
-  // ArrNDi *c_mtype_mtype = CreateArr2Di(Count->MoleculeType,
-  //                                      Count->MoleculeType);
-  // count per moltype-moltype pair intermolecular contacts
-  // size_t shape_inter_mol[4] = {Count->MoleculeType,
-  //                              Count->MoleculeType,
-  //                              Count->BeadType,
-  //                              Count->BeadType};
-  // ArrNDli *inter_mol = CreateArrNDli(4, shape_inter_mol);
-  // size_t shape_inter_3body[5] = {Count->MoleculeType,
-  //                                Count->MoleculeType,
-  //                                Count->BeadType,
-  //                                Count->BeadType,
-  //                                Count->BeadType};
-  // ArrNDli *inter_3body = CreateArrNDli(5, shape_inter_3body); //}}}
-  //}}}
 
   // print initial stuff to output file //{{{
   FILE *fw = PrintBylineOpenFile(fout, argc, argv);
@@ -312,7 +290,7 @@ int main(int argc, char *argv[]) {
         // ... MolType_name = MOLECULETYPE thingy of the mt_name
         for (int j = 0; mt_name != -1 && j < MolType_name->Number; j++) {
           MOLECULE *mol = &System.Molecule[MolType_name->Index[j]];
-          if ((opt.multi && used_name_mol[j]) || !mol->InTimestep) {
+          if ((!opt.multi && used_name_mol[j]) || !mol->InTimestep) {
             continue;
           }
           for (int k = 0; k < MolType_name->nBeads; k++) {
@@ -360,7 +338,7 @@ int main(int argc, char *argv[]) {
         // ... BType_name = BEADTYPE thingy of the bt_name
         for (int j = 0; bt_name != -1 && j < BType_name->InCoor; j++) {
           int id_j = BType_name->Index[j];
-          if (used_name[j]) { // bead j already in a trio
+          if (!opt.multi && used_name[j]) { // bead j already in a trio
             continue;
           }
           BEAD *b_j = &System.Bead[id_j];
