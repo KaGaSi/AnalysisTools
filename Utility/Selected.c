@@ -96,8 +96,6 @@ static void ReduceSystem(const SYSTEM System, SYSTEM *Sys, const bool *write,
     int id = Sys->BeadCoor[i];
     if (write[id]) {
       Sys->BeadCoor[++count] = id;
-    } else {
-      Sys->Bead[id].InTimestep = false;
     }
   }
   Sys->Count.BeadCoor = count;
@@ -106,7 +104,7 @@ static void ReduceSystem(const SYSTEM System, SYSTEM *Sys, const bool *write,
   if (!b_full_to_red) {
     ErrorAlloc("b_full_to_red");
   }
-  PruneSystem2(Sys, *b_full_to_red);
+  PruneSystem(Sys, *b_full_to_red);
   // print the system to save if required
   if (commons.verbose) {
     fprintf(stdout, "\n################\n");

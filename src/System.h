@@ -56,8 +56,8 @@ MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old);
 SYSTEM CopySystem(SYSTEM S_in);
 
 // cleanse System by removing molecule/bead types with .Number=0, etc.
-void PruneSystem2(SYSTEM *System, int *b_full_red);
-void PruneSystem(SYSTEM *System);
+// b_full_to_red: if non-NULL, filled with old->new bead id mapping
+void PruneSystem(SYSTEM *System, int *b_full_to_red);
 // join two systems, possibly pruning it
 void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box, bool prune);
 

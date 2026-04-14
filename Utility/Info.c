@@ -219,7 +219,7 @@ int main(int argc, char *argv[]) {
   free(def_type); //}}}
 
   if (Count->Bead > 0) {
-    PruneSystem(&System);
+    PruneSystem(&System, NULL);
   }
 
   // make unbonded beads into molecules //{{{

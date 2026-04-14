@@ -67,7 +67,7 @@ void CopyMoleculeTypeBeadsToMoleculeBeads(SYSTEM *System) { //{{{
   for (int i = 0; i < Count->Molecule; i++) {
     MOLECULETYPE *mt_i = &System->MoleculeType[i];
     MOLECULE *mol_i = &System->Molecule[i];
-    if (mt_i->nBeads == 1 && !mt_i->Flag) { // remove 'fake' molecules
+    if (mt_i->nBeads == 1 && !mt_i->Named) { // remove 'fake' molecules
       mt_i->Number = 0;
       mt_i->nBeads = 0;
       System->Bead[mt_i->Bead[0]].Molecule = -1;
@@ -692,11 +692,12 @@ void WriteStructure(FILE_TYPE f, SYSTEM System, const int vsf_def_type,
 } //}}}
 // WriteAggregates() //{{{
 void WriteAggregates(const int step_count, const char *agg_file,
-                     const SYSTEM System, const AGGREGATE *Aggregate) {
+                     const SYSTEM System, const AGGREGATE *Aggregate,
+                     const bool *use_agg) {
   // get number of aggregates to write to agg_file
   int number_of_aggs = 0;
   for (int i = 0; i < System.Count.Aggregate; i++) {
-    if (Aggregate[i].Flag) {
+    if (use_agg[i]) {
       number_of_aggs++;
     }
   }
@@ -706,7 +707,7 @@ void WriteAggregates(const int step_count, const char *agg_file,
   // go through all aggregates
   for (int i = 0; i < System.Count.Aggregate; i++) {
     // write only those that aren't excluded
-    if (Aggregate[i].Flag) {
+    if (use_agg[i]) {
       // line 1: core molecules
       fprintf(fw, "%d :", Aggregate[i].nCore);
       for (int j = 0; j < Aggregate[i].nCore; j++) {

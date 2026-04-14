@@ -423,7 +423,7 @@ int main(int argc, char *argv[]) {
       ErrorAlloc("join_bt");
     }
     ReadAndSplitLine(agg, SPL_STR, " \t\n");
-    // find & flag bead types
+    // find bead types
     for (count = 5; count < words && split[count][0] != '-'; count++) {
       int btype = FindBeadType(split[count], System);
       if (btype == -1) {
@@ -433,7 +433,6 @@ int main(int argc, char *argv[]) {
         PrintErrorFile(in.stru.name, in_agg, "\0");
         exit(1);
       }
-      System.BeadType[btype].Flag = true;
     }
     for (; count < words; count++) {
       if (strcmp(split[count], "-d") == 0) {

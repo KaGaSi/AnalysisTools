@@ -74,19 +74,21 @@ vec3d RandomCoordinate(BOX box) {
 } //}}}
 
 // generate random point constrained by distance from other beads //{{{
-/* What beads to use for distance check (int mode)
- *   0...no checks
- *   1...all bonded beads
- *   2...specified bead types,
- */
-void GetMinDist(BEAD bead, vec3d random, vec3d box, double *min_dist) {
-  vec3d dist = Distance(bead.Position, random, box);
+// helper function calculating and updating minium coordinate
+void GetMinDist(BEAD bead, vec3d random, const BOX *box, double *min_dist) {
+  vec3d dist = DistancePBC(bead.Position, random, box);
   dist.v[0] = VectLength(dist);
   if (dist.v[0] < *min_dist) {
     *min_dist = dist.v[0];
   }
 }
-vec3d RandomConstrainedCoor(SYSTEM S_orig, int mode, vec3d box, OPT opt) {
+/*
+ * What beads to use for distance check (int mode)
+ *   0...no checks
+ *   1...all bonded beads
+ *   2...specified bead types,
+ */
+vec3d RandomConstrainedCoor(SYSTEM S_orig, int mode, const BOX *box, OPT opt) {
   vec3d random;
   if (mode == 0) { // no distance check
     return RandomCoordinate(opt.box);
@@ -543,7 +545,7 @@ int main(int argc, char *argv[]) {
         }
       }
     }
-    PruneSystem(&S_orig);
+    PruneSystem(&S_orig, NULL);
   }
 
   S_out = CopySystem(S_orig);
@@ -644,7 +646,7 @@ int main(int argc, char *argv[]) {
 
   // add monomeric beads //{{{
   for (int i = 0; i < C_add->Unbonded; i++) {
-    vec3d random = RandomConstrainedCoor(S_orig, mode, S_out.Box.Length, opt);
+    vec3d random = RandomConstrainedCoor(S_orig, mode, &S_out.Box, opt);
     int id = C_orig->Bead + i;
     for (int dd = 0; dd < 3; dd++) {
       S_out.Bead[id].Position.v[dd] = random.v[dd];
@@ -682,7 +684,7 @@ int main(int argc, char *argv[]) {
       Rotate(S_add, S_out.MoleculeType[mtype].nBeads,
              S_add.Molecule[i].Bead, opt.angle, rot);
     }
-    vec3d random = RandomConstrainedCoor(S_orig, mode, S_out.Box.Length, opt);
+    vec3d random = RandomConstrainedCoor(S_orig, mode, &S_out.Box, opt);
     for (int j = 0; j < S_out.MoleculeType[mtype].nBeads; j++) {
       int id = S_out.Molecule[C_orig->Molecule+i].Bead[j];
       for (int dd = 0; dd < 3; dd++) {
@@ -717,14 +719,14 @@ int main(int argc, char *argv[]) {
         opt.fout.type == VTF_FILE) {
       VtfSystem(&S_out2);
     }
-    PruneSystem(&S_out2);
+    PruneSystem(&S_out2, NULL);
   }
   if (fout.type == VCF_FILE ||
       fout.type == VSF_FILE ||
       fout.type == VTF_FILE) {
     VtfSystem(&S_out);
   }
-  PruneSystem(&S_out);
+  PruneSystem(&S_out, NULL);
 
   // print information about new system //{{{
   if (commons.verbose) {

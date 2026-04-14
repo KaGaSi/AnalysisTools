@@ -6,7 +6,7 @@ void InitBeadType(BEADTYPE *bt) { //{{{
   bt->Charge = CHARGE;
   bt->Mass = MASS;
   bt->Radius = RADIUS;
-  bt->Flag = false;
+
 } //}}}
 void InitBead(BEAD *b) { //{{{
   b->Type = -1;
@@ -34,7 +34,7 @@ void InitMoleculeType(MOLECULETYPE *mt) { //{{{
   mt->Mass = MASS;
   mt->Charge = CHARGE;
   mt->InVcf = false;
-  mt->Flag = false;
+  mt->Named = false;
 } //}}}
 void InitMolecule(MOLECULE *mol) { //{{{
   mol->Type = -1;

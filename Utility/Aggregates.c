@@ -85,7 +85,7 @@ void CalculateContacts(const int id_i, const int id_j, SYSTEM System,
   int mol_j = b_j->Molecule;
   vec3d rij;
   if (!opt.no_pbc) {
-    rij = Distance(b_i->Position, b_j->Position, sys_copy.Box.Length);
+    rij = DistancePBC(b_i->Position, b_j->Position, &sys_copy.Box);
   } else {
     for (int dd = 0; dd < 3; dd++) {
       rij.v[dd] = b_i->Position.v[dd] - b_i->Position.v[dd];
@@ -209,16 +209,15 @@ void Calculation(SYSTEM *System, STEP step, OPT opt, COMMON_OPT commons,
     free(write);
   }
 
-  for (int i = 0; i < Count->Aggregate; i++) {
-    Aggregate[i].Flag = true;
-  }
-  WriteAggregates(step.coor, agg_file, *System, Aggregate);
+  bool *use_agg = malloc(Count->Aggregate * sizeof *use_agg);
+  InitBoolArray(use_agg, Count->Aggregate, true);
+  WriteAggregates(step.coor, agg_file, *System, Aggregate, use_agg);
 
   // are there walls (-w option)? //{{{
   if (opt.w_count > 0) {
     // find aggregates touching a wall
     for (int i = 0; i < Count->Aggregate; i++) {
-      Aggregate[i].Flag = false;
+      use_agg[i] = false;
       for (int j = 0; j < Aggregate[i].nMolecules; j++) {
         int mol_id = AggGetMol(&Aggregate[i], j);
         MOLECULE *mol = &System->Molecule[mol_id];
@@ -228,7 +227,7 @@ void Calculation(SYSTEM *System, STEP step, OPT opt, COMMON_OPT commons,
             for (int l = 0; l < opt.w_count; l++) {
               double dist = b->Position.v[opt.axis] - opt.wall[l];
               if (fabs(dist) < opt.cutoff) {
-                Aggregate[i].Flag = true; // aggregate i is touching a wall
+                use_agg[i] = true; // aggregate i is touching a wall
                 goto next;
               }
             }
@@ -239,13 +238,13 @@ void Calculation(SYSTEM *System, STEP step, OPT opt, COMMON_OPT commons,
       ;
     }
     // write the aggregates to *_w.agg file
-    WriteAggregates(step.coor, opt.w_file[0], *System, Aggregate);
-    // reverse the Aggregate[].Flag to select aggregates in bulk
+    WriteAggregates(step.coor, opt.w_file[0], *System, Aggregate, use_agg);
+    // reverse use_agg to select aggregates in bulk
     for (int i = 0; i < Count->Aggregate; i++) {
-      Aggregate[i].Flag = !Aggregate[i].Flag;
+      use_agg[i] = !use_agg[i];
     }
     // write the aggregates to *_b.agg file
-    WriteAggregates(step.coor, opt.w_file[1], *System, Aggregate);
+    WriteAggregates(step.coor, opt.w_file[1], *System, Aggregate, use_agg);
 
     // write joined coordinates to _b/_w files (-j option)?
     if (opt.fout.name[0] != '\0') {
@@ -259,7 +258,7 @@ void Calculation(SYSTEM *System, STEP step, OPT opt, COMMON_OPT commons,
       // exclude from saving all aggregate beads in bulk
       for (int i = 0; i < Count->Aggregate; i++) {
         // is aggregate in the bulk?
-        if (Aggregate[i].Flag) {
+        if (use_agg[i]) {
           for (int j = 0; j < Aggregate[i].nMolecules; j++) {
             int mol = AggGetMol(&Aggregate[i], j);
             int mtype = System->Molecule[mol].Type;
@@ -286,6 +285,7 @@ void Calculation(SYSTEM *System, STEP step, OPT opt, COMMON_OPT commons,
     }
   } //}}}
 
+  free(use_agg);
   ReInitAggregate(*System, Aggregate);
 } //}}}
 // structure for the callback function

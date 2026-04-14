@@ -109,16 +109,6 @@ int main(int argc, char *argv[]) {
     InitBoolArray(opt.bt, Count->BeadType, true);
   } //}}}
 
-  // // TODO: those ridiculous flags are everywhere! //{{{
-  // // copy Use flag to Write (for '-x' option)
-  // for (int i = 0; i < Count->MoleculeType; i++) {
-  //   MoleculeType[i].Write = MoleculeType[i].Flag;
-  // }
-  // // count total number of chains in excluded aggs
-  // long int exclude_count_chains = 0;
-  // // count total number of excluded aggs
-  // long int exclude_count_agg = 0; //}}}
-
   // write initial stuff to output file //{{{
   FILE *out = PrintBylineOpenFile(output, argc, argv);
   // print legend line to output file
@@ -154,13 +144,11 @@ int main(int argc, char *argv[]) {
     PrintError();
     exit(1);
   }
-  // bead types for connecting aggregates
-  for (int i = 5; i < words && split[i][0] != '-'; i++) {
-    int type = FindBeadType(split[i], System);
-    if (type != -1) { // TODO: don't use Flag (RemovePBCAggregates function)
-      System.BeadType[type].Flag = true;
-    }
-  }
+  // // bead types for connecting aggregates
+  // for (int i = 5; i < words && split[i][0] != '-'; i++) {
+  //   // TODO: use result when RemovePBCAggregates() is wired up
+  //   FindBeadType(split[i], System);
+  // }
   // redefine distance if -d option is present
   double distance;
   for (int i = 5; i < words; i++) {

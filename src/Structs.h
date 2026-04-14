@@ -115,7 +115,6 @@ typedef struct BeadType { //{{{
   double Charge, // charge of every bead of given type
          Mass, // mass of every bead of given type
          Radius; // radius of every bead of the given type
-  bool Flag; // general-purpose flag
 } BEADTYPE;
 void InitBeadType(BEADTYPE *bt); //}}}
 typedef struct Bead { //{{{
@@ -125,7 +124,6 @@ typedef struct Bead { //{{{
   vec3d Position, Velocity, Force;
   double Extra[6]; // up to six extra values (e.g., in ltraj coordinate line)
   bool InTimestep; // is the bead in the present timestep?
-  bool Flag; // general-purpose flag; TODO: remove?
 } BEAD;
 void InitBead(BEAD *b); //}}}
 typedef struct MoleculeType { //{{{
@@ -153,7 +151,7 @@ typedef struct MoleculeType { //{{{
          Charge; // total charge of every molecule of given type
 
   bool InVcf, // is molecule type in vcf file? TODO: useless?
-       Flag; // general-purpose flag
+       Named; // true if the molecule type was explicitly named in the input file
 } MOLECULETYPE;
 void InitMoleculeType(MOLECULETYPE *mt); //}}}
 typedef struct Molecule { //{{{
@@ -190,7 +188,6 @@ typedef struct Aggregate { //{{{
       nBeads, // number of bonded beads in aggregate
       *Bead; // ids of bonded beads in aggregate
   double Mass; // total mass of the aggregate
-  bool Flag; // should aggregate be used for calculation?
 } AGGREGATE;
 void InitAggregate(SYSTEM System, AGGREGATE **Aggregate);
 void ReInitAggregate(SYSTEM System, AGGREGATE *Aggregate); //}}}

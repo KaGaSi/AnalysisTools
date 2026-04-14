@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < Count->Molecule; i++) {
     System.Molecule[i].InTimestep = true;
   }
-  PruneSystem(&System);
+  PruneSystem(&System, NULL);
   fclose(f); //}}}
 
   // array for dpd parameters

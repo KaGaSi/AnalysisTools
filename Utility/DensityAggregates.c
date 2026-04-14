@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
-  vec3d box = System.Box.Length;
+  vec3d box = System.Box.OrthoLength;
 
   AggPickerOptions(argc, argv, &opt.agg, System);
 
@@ -284,14 +284,13 @@ int main(int argc, char *argv[]) {
         // aggregate beads //{{{
         for (int j = 0; j < Aggregate[i].nBeads; j++) {
           int id = Aggregate[i].Bead[j];
-            vec3d dist = Distance(System.Bead[id].Position, com, box);
-            dist.v[0] = VectLength(dist);
+          vec3d dist = DistancePBC(System.Bead[id].Position, com, &System.Box);
+          dist.v[0] = VectLength(dist);
 
-            if (dist.v[0] < max_dist) {
-              int k = dist.v[0] / width;
-              AddArr3D(rho_temp, System.Bead[id].Type, correct_size, k, 1);
-            }
-          // }
+          if (dist.v[0] < max_dist) {
+            int k = dist.v[0] / width;
+            AddArr3D(rho_temp, System.Bead[id].Type, correct_size, k, 1);
+          }
         } //}}}
 
         // monomeric beads //{{{

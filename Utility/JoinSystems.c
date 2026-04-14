@@ -224,7 +224,7 @@ int main(int argc, char *argv[]) {
       fout.type == VTF_FILE) {
     VtfSystem(&S_out);
   }
-  PruneSystem(&S_out);
+  PruneSystem(&S_out, NULL);
   // optional output file
   SYSTEM S_out_opt;
   if (opt.fout.name[0] != '\0') {
@@ -235,7 +235,7 @@ int main(int argc, char *argv[]) {
         opt.fout.type == VTF_FILE) {
       VtfSystem(&S_out_opt);
     }
-    PruneSystem(&S_out_opt);
+    PruneSystem(&S_out_opt, NULL);
   }
   //}}}
 

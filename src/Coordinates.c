@@ -8,7 +8,6 @@
 #include <gsl/gsl_vector.h>
 
 // STATIC DECLARATIONS
-// TODO: the whole fractional stuff - not sure if it works
 static void FractionalCoor(SYSTEM *System, const int mode);
 // comparison function for ascending order (used by qsort in Gyration)
 static int Compare(const void *a, const void *b);
@@ -18,31 +17,12 @@ static int Compare(const void *a, const void *b) {
 }
 
 // STATIC IMPLEMENTATIONS
-// transform to/from fractional coordinates //{{{
-/* HOW TO CALCULATE DISTANCE IN TRICLINIC SYSTEM //{{{
-//double dist[3];
-//dist[0] = (*Bead)[0].Position[0] - (*Bead)[10].Position[0];
-//dist[1] = (*Bead)[0].Position[1] - (*Bead)[10].Position[1];
-//dist[2] = (*Bead)[0].Position[2] - (*Bead)[10].Position[2];
-//printf("dist1 = (%lf, %lf, %lf) = %lf\n", dist[0], dist[1], dist[2],
-sqrt(Square(dist[0])+Square(dist[1])+Square(dist[2])));
-
-//double new[3];
-//new[0] = Box.transform[0][0] * dist[0] +
-//         Box.transform[0][1] * dist[1] +
-//         Box.transform[0][2] * dist[2];
-//new[1] = Box.transform[1][0] * dist[0] +
-//         Box.transform[1][1] * dist[1] +
-//         Box.transform[1][2] * dist[2];
-//new[2] = Box.transform[2][0] * dist[0] +
-//         Box.transform[2][1] * dist[1] +
-//         Box.transform[2][2] * dist[2];
-//dist[0] = new[0] / a;
-//dist[1] = new[1] / b;
-//dist[2] = new[2] / c;
-//printf("dist2 = (%lf, %lf, %lf) = %lf\n", dist[0], dist[1], dist[2],
-sqrt(Square(dist[0])+Square(dist[1])+Square(dist[2])));
-*/ //}}}
+/*
+ * Coordinates are stored in OrthoLength-scaled fractional form after mode=0:
+ *   pos[dd] = s[dd] * OrthoLength[dd], where s = inverse * r ∈ [0,1)
+ * This allows RestorePBC and RemovePBCMolecule to work unmodified using
+ * OrthoLength, since operations are now in a rectangular [0,OrthoLength) space
+ */
 // mode=0 ... to fractional; mode=1 ... from fractional
 static void FractionalCoor(SYSTEM *System, const int mode) {
   if (mode != 0 && mode != 1) {
@@ -58,26 +38,48 @@ static void FractionalCoor(SYSTEM *System, const int mode) {
       int id = System->BeadCoor[i];
       BEAD *b = &System->Bead[id];
       double new[3] = {0, 0, 0};
-      for (int dd = 0; dd < 3; dd++) {
-        if (mode == 0) {
+      if (mode == 0) {
+        /*
+         * Cartesian -> OrthoLength-scaled fractional:
+         *   s = inverse * r
+         *   pos = s * OrthoLength
+         */
+        for (int dd = 0; dd < 3; dd++) {
           new[dd] = box->inverse[dd][0] * b->Position.v[0] +
                     box->inverse[dd][1] * b->Position.v[1] +
                     box->inverse[dd][2] * b->Position.v[2];
-        } else {
-          vec3d fraction = { .v = { b->Position.v[0] / box->Length.v[dd],
-                                    b->Position.v[1] / box->Length.v[dd],
-                                    b->Position.v[2] / box->Length.v[dd]}};
-          new[dd] = box->transform[dd][0] * fraction.v[0] +
-                    box->transform[dd][1] * fraction.v[1] +
-                    box->transform[dd][2] * fraction.v[2];
         }
-      }
-      for (int dd = 0; dd < 3; dd++) {
-        b->Position.v[dd] = new[dd] * System->Box.Length.v[dd];
+        for (int dd = 0; dd < 3; dd++) {
+          b->Position.v[dd] = new[dd] * box->OrthoLength.v[dd];
+        }
+      } else {
+        /*
+         * OrthoLength-scaled fractional -> Cartesian:
+         *   s = pos / OrthoLength
+         *   r = transform * s
+         */
+        double s[3];
+        for (int dd = 0; dd < 3; dd++) {
+          s[dd] = b->Position.v[dd] / box->OrthoLength.v[dd];
+        }
+        for (int dd = 0; dd < 3; dd++) {
+          new[dd] = box->transform[dd][0] * s[0] +
+                    box->transform[dd][1] * s[1] +
+                    box->transform[dd][2] * s[2];
+        }
+        for (int dd = 0; dd < 3; dd++) {
+          b->Position.v[dd] = new[dd];
+        }
       }
     }
   }
 } //}}}
+void CoorToFractional(SYSTEM *System) {
+  FractionalCoor(System, 0);
+}
+void CoorFromFractional(SYSTEM *System) {
+  FractionalCoor(System, 1);
+}
 
 // put given vector into range <0,BoxLength) //{{{
 vec3d RestorePBC(const vec3d coor, const vec3d BoxLength) {
@@ -267,7 +269,7 @@ void RemovePBCMolecule(int mol_id, SYSTEM *System) {
 void WrapJoinCoordinates(SYSTEM *System, const bool wrap, const bool join) {
   if (System->Box.Volume != -1 && (wrap || join)) {
     // transform coordinates into fractional ones for non-orthogonal box
-    FractionalCoor(System, 0); // TODO: does fracional work?
+    FractionalCoor(System, 0);
     if (wrap) { // wrap coordinates into the simulation box
       for (int i = 0; i < System->Count.BeadCoor; i++) {
         int id = System->BeadCoor[i];
@@ -281,8 +283,47 @@ void WrapJoinCoordinates(SYSTEM *System, const bool wrap, const bool join) {
       }
     }
     // transform back to 'normal' coordinates for non-orthogonal box
-    FractionalCoor(System, 1); // TODO: does fracional work?
+    FractionalCoor(System, 1);
   }
+} //}}}
+// physical minimum-image distance for both orthogonal and triclinic boxes //{{{
+/*
+ * Orthogonal boxes:  identical to Distance(r1, r2, box.OrthoLength).
+ * Triclinic boxes:
+ *   1) displacement converted to fractional coordinates,
+ *   2) pbc applied
+ *   3) converted back to Cartesian, ensuring true physical distance
+ */
+vec3d DistancePBC(const vec3d r1, const vec3d r2, const BOX *box) {
+  // orthogonal: just normal distance
+  if (fabs(box->alpha - 90) < 1e-5 &&
+      fabs(box->beta  - 90) < 1e-5 &&
+      fabs(box->gamma - 90) < 1e-5) {
+    return Distance(r1, r2, box->OrthoLength);
+  }
+  // triclinic: use fractional coordinates
+  double dr[3], ds[3] = {0}, out[3] = {0};
+  for (int dd = 0; dd < 3; dd++) {
+    dr[dd] = r1.v[dd] - r2.v[dd];
+  }
+  for (int dd = 0; dd < 3; dd++) {
+    ds[dd] = box->inverse[dd][0] * dr[0] +
+             box->inverse[dd][1] * dr[1] +
+             box->inverse[dd][2] * dr[2];
+  }
+  for (int dd = 0; dd < 3; dd++) {
+    ds[dd] -= round(ds[dd]);
+  }
+  for (int dd = 0; dd < 3; dd++) {
+    out[dd] = box->transform[dd][0] * ds[0] +
+              box->transform[dd][1] * ds[1] +
+              box->transform[dd][2] * ds[2];
+  }
+  vec3d result;
+  for (int dd = 0; dd < 3; dd++) {
+    result.v[dd] = out[dd];
+  }
+  return result;
 } //}}}
 // distance between two beads; in the range <-BoxLength/2,BoxLength/2) //{{{
 vec3d Distance(const vec3d id1, const vec3d id2, const vec3d BoxLength) {

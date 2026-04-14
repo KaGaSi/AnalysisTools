@@ -26,7 +26,8 @@ static const struct OptSpec opts[] = {
 }; //}}}
 
 // calculate bond orientation order parameter for a single bead //{{{
-void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrNDd *boop) {
+void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym],
+                 ArrNDd *boop) {
   int max_neigh = sym[n_sym-1];
   int nearest[max_neigh]; // nearest neighbour id
   double min_sqdist[max_neigh]; // nearest neighbour's square distance
@@ -35,13 +36,14 @@ void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrNDd *boop) 
     min_sqdist[i] = HIGHNUM;
   }
   // find nearest neighbours
-  BEAD *b = &System.Bead[n];
+  BEAD *b_i = &System.Bead[n];
   for (int i = 0; i < System.Count.BeadCoor; i++) {
     int id = System.BeadCoor[i];
     if (id == n) {
       continue;
     }
-    vec3d d = Distance(b->Position, System.Bead[id].Position, System.Box.Length);
+    BEAD *b_id = &System.Bead[id];
+    vec3d d = DistancePBC(b_i->Position, b_id->Position, &System.Box);
     double sq_r = SqVectLength(d);
     for (int j = 0; j < max_neigh; j++) {
       if (sq_r < min_sqdist[j]) {
@@ -65,8 +67,8 @@ void ComputeBOOP(SYSTEM System, int n, int n_sym, int sym[n_sym], ArrNDd *boop) 
   // compute angles for all max_neigh neighbours for use in all the symmetries
   double theta[max_neigh];
   for (int j = 0; j < max_neigh; j++) {
-    vec3d d = Distance(System.Bead[nearest[j]].Position, b->Position,
-                       System.Box.Length);
+    BEAD *b_j = &System.Bead[nearest[j]];
+    vec3d d = DistancePBC(b_j->Position, b_i->Position, &System.Box);
     theta[j] = atan2(d.v[1], d.v[0]);
   }
   // calculate boop
@@ -99,10 +101,11 @@ struct gn_args {
 };
 static void GnPair(int i, int j, const SYSTEM System, void *ud) {
   struct gn_args *p = (struct gn_args*)ud;
-  int id_i = System.BeadCoor[i];
-  int id_j = System.BeadCoor[j];
-  vec3d dist = Distance(System.Bead[id_i].Position, System.Bead[id_j].Position,
-                        System.Box.Length);
+  int id_i = System.BeadCoor[i],
+      id_j = System.BeadCoor[j];
+  BEAD *b_i = &System.Bead[id_i],
+       *b_j = &System.Bead[id_j];
+  vec3d dist = DistancePBC(b_i->Position, b_j->Position, &System.Box);
   double r_ij = VectLength(dist);
   if (r_ij >= p->r_max) {
     return;

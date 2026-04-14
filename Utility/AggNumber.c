@@ -130,12 +130,12 @@ int main(int argc, char *argv[]) {
   long double *ndistr = calloc(Count->Molecule, sizeof *ndistr);
   ArrNDd *wdistr = NULL; // only for -d option
   ArrNDd *zdistr = NULL; //
-  // molecule types in aggs: [agg size][mol type]
-  ArrNDi *molecules_sum = NULL; // only for -d option
+  // molecule types in aggs: [agg size][mol type]; needed for overall averages
+  ArrNDi *molecules_sum = CreateArr2Di(Count->Molecule, Count->MoleculeType);
   // number of aggregates throughout simulation - always useful
   int *count_agg = calloc(Count->Molecule, sizeof *count_agg);
-  if (!count_agg || !ndistr) {
-    ErrorAlloc("ndstr/count_agg");
+  if (!count_agg || !ndistr || !molecules_sum) {
+    ErrorAlloc("ndstr/count_agg/molecules_sum");
   }
   if (opt.f_distr[0] != '\0') {
     /*
@@ -144,9 +144,8 @@ int main(int argc, char *argv[]) {
      *   [][1] = mass of whole agg
      */
     if (!(wdistr = CreateArr2Dd(Count->Molecule, 2)) ||
-        !(zdistr = CreateArr2Dd(Count->Molecule, 2)) ||
-        !(molecules_sum = CreateArr2Di(Count->Molecule, Count->MoleculeType))) {
-      ErrorAlloc("wdistr/zdistr/molecules_sum");
+        !(zdistr = CreateArr2Dd(Count->Molecule, 2))) {
+      ErrorAlloc("wdistr/zdistr");
     }
   }
   //}}}
@@ -277,16 +276,16 @@ int main(int argc, char *argv[]) {
         count_agg[agg_size-1]++;
         // distributions
         ndistr[agg_size-1]++;
+        // overall numbers of molecules of each species in each aggregate size
+        for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+          int mol_type = System.Molecule[AggGetMol(&Aggregate[i], j)].Type;
+          AddArr2D(molecules_sum, agg_size - 1, mol_type, 1);
+        }
         if (opt.f_distr[0] != '\0') {
           AddArr2D(wdistr, agg_size - 1, 0, agg_mass);
           AddArr2D(zdistr, agg_size - 1, 0, Square(agg_mass));
           AddArr2D(wdistr, agg_size - 1, 1, Aggregate[i].Mass);
           AddArr2D(zdistr, agg_size - 1, 1, Square(Aggregate[i].Mass));
-          // overall numbers of molecules of each species in each aggregate size
-          for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-            int mol_type = System.Molecule[AggGetMol(&Aggregate[i], j)].Type;
-            AddArr2D(molecules_sum, agg_size - 1, mol_type, 1);
-          }
         }
 
         // composition distribution (-c option) //{{{

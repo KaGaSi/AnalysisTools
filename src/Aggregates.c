@@ -196,7 +196,7 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
     exit(1);
   }
 
-  vec3d *box = &System->Box.Length;
+  const BOX *box = &System->Box;
   // helper array indicating whether molecules already moved
   int *list_moved = calloc(Count->Molecule, sizeof *list_moved),
       *list_unmoved = calloc(Count->Molecule, sizeof *list_unmoved);
@@ -234,7 +234,7 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
               int bead2 = System->Molecule[mol2].Bead[m];
               BEAD *b2 = &System->Bead[bead2];
               // calculate distance between 'bead1' and 'bead2'
-              vec3d dist = Distance(b1->Position, b2->Position, *box);
+              vec3d dist = DistancePBC(b1->Position, b2->Position, box);
               // move 'mol2' if 'bead1' and 'bead2' are in contact
               if (VectLength(dist) <= distance) {
                 // multiples of box lengths that place b2 at b1 - dist
@@ -286,20 +286,25 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
   // put aggregates' centre of mass into the simulation box //{{{
   for (int i = 0; i < Count->Aggregate; i++) {
     vec3d com = CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead, *System);
-    // by how many BoxLength's should com by moved?
-    // for distant aggregates - it shouldn't happen, but better safe than sorry
-    int move[3];
+    // convert COM to fractional, floor gives int lattice shift, convert back
+    double s[3] = {0}, n[3] = {0}, shift[3] = {0};
     for (int dd = 0; dd < 3; dd++) {
-      move[dd] = com.v[dd] / (*box).v[dd];
-      if (com.v[dd] < 0) {
-        move[dd]--;
-      }
+      s[dd] = box->inverse[dd][0] * com.v[0] +
+              box->inverse[dd][1] * com.v[1] +
+              box->inverse[dd][2] * com.v[2];
     }
-    // move all the beads
+    for (int dd = 0; dd < 3; dd++) {
+      n[dd] = floor(s[dd]);
+    }
+    for (int dd = 0; dd < 3; dd++) {
+      shift[dd] = box->transform[dd][0] * n[0] +
+                  box->transform[dd][1] * n[1] +
+                  box->transform[dd][2] * n[2];
+    }
     for (int j = 0; j < Aggregate[i].nBeads; j++) {
       int bead = Aggregate[i].Bead[j];
       for (int dd = 0; dd < 3; dd++) {
-        System->Bead[bead].Position.v[dd] -= move[dd] * (*box).v[dd];
+        System->Bead[bead].Position.v[dd] -= shift[dd];
       }
     }
   } //}}}

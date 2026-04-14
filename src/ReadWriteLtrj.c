@@ -186,6 +186,29 @@ int LtrjReadTimestep(FILE *fr, const char *file, SYSTEM *System,
       System->Molecule[b->Molecule].InTimestep = true;
     }
   } //}}}
+  // convert scaled (fractional) coordinates to Cartesian if needed
+  // scaled vars: xs/ys/zs (12-14)
+  //              xsu/ysu/zsu (18-20)
+  //              xu/yu/zu (15-17) are Cartesian
+  //              HUH???
+  bool scaled = (position[18] != -1) ||
+                (position[12] != -1 && position[15] == -1);
+  if (scaled) {
+    const BOX *box = &System->Box;
+    for (int i = 0; i < System->Count.BeadCoor; i++) {
+      int id = System->BeadCoor[i];
+      BEAD *b = &System->Bead[id];
+      double sx = b->Position.v[0];
+      double sy = b->Position.v[1];
+      double sz = b->Position.v[2];
+      b->Position.v[0] = box->transform[0][0] * sx +
+                         box->transform[0][1] * sy +
+                         box->transform[0][2] * sz;
+      b->Position.v[1] = box->transform[1][1] * sy +
+                         box->transform[1][2] * sz;
+      b->Position.v[2] = box->transform[2][2] * sz;
+    }
+  }
   ChangeBoxByLow(System, -1);
   FillInCoor(System);
   return 1;
@@ -372,6 +395,7 @@ static int LtrjReadPBCSection(FILE *fr, const char *file, BOX *box,
     for (int dd = 0; dd < 3; dd++) {
       box->OrthoLength.v[dd] = (bounds[1].v[dd] - from_bound[1].v[dd]) -
                                (bounds[0].v[dd] - from_bound[0].v[dd]);
+      box->Low.v[dd] = bounds[0].v[dd] - from_bound[0].v[dd];
     }
     box->transform[0][1] = tilt.v[0];
     box->transform[0][2] = tilt.v[1];
@@ -568,10 +592,23 @@ void LtrjWriteCoor(FILE *fw, const int step,
       fprintf(fw, "%lf %lf\n", box->Low.y, box->Length.y + box->Low.y);
       fprintf(fw, "%lf %lf\n", box->Low.z, box->Length.z + box->Low.z);
     } else {
+      double lxy = box->transform[0][1];
+      double lxz = box->transform[0][2];
+      double lyz = box->transform[1][2];
+      double lxyz = lxy + lxz;
       fprintf(fw, "ITEM: BOX BOUNDS xy xz yz pp pp pp\n");
-      fprintf(fw, "0.0 %lf %lf\n", box->Bounding.x, box->transform[0][1]);
-      fprintf(fw, "0.0 %lf %lf\n", box->Bounding.y, box->transform[0][2]);
-      fprintf(fw, "0.0 %lf %lf\n", box->Bounding.z, box->transform[1][2]);
+      fprintf(fw, "%lf %lf %lf\n",
+              box->Low.x + Min3(0, lxy, Min3(0, lxz, lxyz)),
+              box->Low.x + box->OrthoLength.x + Max3(0, lxy, Max3(0, lxz, lxyz)),
+              lxy);
+      fprintf(fw, "%lf %lf %lf\n",
+              box->Low.y + Min3(0, 0.0, lyz),
+              box->Low.y + box->OrthoLength.y + Max3(0, 0.0, lyz),
+              lxz);
+      fprintf(fw, "%lf %lf %lf\n",
+              box->Low.z,
+              box->Low.z + box->OrthoLength.z,
+              lyz);
     }
     fprintf(fw, "ITEM: ATOMS id element x y z");
     if (vel) {

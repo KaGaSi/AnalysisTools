@@ -219,10 +219,10 @@ SYSTEM VtfReadStruct(const char *file, const bool detailed) {
           if (mt_resid->Number == 0) { // new molecule type
             if (value[4] == -1) { // 'resname' vtf keyword missing
               s_strcpy(mt_resid->Name, "m", MOL_NAME);
-              mt_resid->Flag = false;
+              mt_resid->Named = false;
             } else { // 'resname' vtf keyword present
               s_strcpy(mt_resid->Name, split[value[4]], MOL_NAME);
-              mt_resid->Flag = true;
+              mt_resid->Named = true;
             }
             mt_resid->Number = 1;
             mt_resid->nBeads = 1;
@@ -236,7 +236,7 @@ SYSTEM VtfReadStruct(const char *file, const bool detailed) {
             mt_resid->Bead[bead] = id; // bead type = bead index
             if (value[4] != -1 && strcmp(mt_resid->Name, "m") == 0) {
               s_strcpy(mt_resid->Name, split[value[4]], MOL_NAME);
-              mt_resid->Flag = true;
+              mt_resid->Named = true;
             }
           }
           Sys.Bead[id].Molecule = resid;

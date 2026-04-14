@@ -37,7 +37,8 @@ void WriteTimestepAll(FILE_TYPE f, SYSTEM System, int count_step,
 void WriteStructure(FILE_TYPE f, const SYSTEM System, const int vsf_def_type,
                     const bool lmp_mass, const int argc, char **argv);
 void WriteAggregates(const int step_count, const char *agg_file,
-                     const SYSTEM System, const AGGREGATE *Aggregate);
+                     const SYSTEM System, const AGGREGATE *Aggregate,
+                     const bool *use_agg);
 
 // file type detection
 int FileTypeFromString(const char *str);

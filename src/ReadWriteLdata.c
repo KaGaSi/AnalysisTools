@@ -787,7 +787,7 @@ static void LmpDataReadAtoms(FILE *fr, const char *file, SYSTEM *System,
         for (int j = 0; j < words; j++) {
           if (split[j][0] == '#' && (j + 1) < words) {
             snprintf(name, MOL_NAME, "%s", split[j+1]);
-            mt_resid->Flag = true;
+            mt_resid->Named = true;
             break;
           }
         }
@@ -802,6 +802,16 @@ static void LmpDataReadAtoms(FILE *fr, const char *file, SYSTEM *System,
         mt_resid->Bead = s_realloc(mt_resid->Bead, mt_resid->nBeads *
                                    sizeof *mt_resid->Bead);
         mt_resid->Bead[bead] = id;
+        // check for name comment on any atom (e.g., name may be on the last atom)
+        if (!mt_resid->Named) {
+          for (int j = 0; j < words; j++) {
+            if (split[j][0] == '#' && (j + 1) < words) {
+              s_strcpy(mt_resid->Name, split[j+1], MOL_NAME);
+              mt_resid->Named = true;
+              break;
+            }
+          }
+        }
       }
     } else {
       Count->Unbonded++;

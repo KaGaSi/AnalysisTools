@@ -58,7 +58,7 @@ static void CalculatePCF(int id_i, int id_j, SYSTEM System,
   BEAD *b_i = &System.Bead[i];
   BEAD *b_j = &System.Bead[j];
   // calculate distance between the two beads
-  vec3d d = Distance(b_i->Position, b_j->Position, System.Box.Length);
+  vec3d d = DistancePBC(b_i->Position, b_j->Position, &System.Box);
   double dist = VectLength(d);
   if (dist < max_dist) {
     int l = dist / width;

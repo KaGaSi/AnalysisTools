@@ -274,41 +274,6 @@ COMMON_OPT CommonOptions(const int argc, char **argv, const SYS_FILES f) {
   }
   return opt;
 } //}}}
-// TODO: why is this here? Just use TypeOption()! Huh?
-// exclude specified molecule names (-x <mol name(s)>) //{{{
-bool ExcludeOption(const int argc, char **argv, SYSTEM *System) {
-  // set all molecules to use
-  for (int i = 0; i < System->Count.MoleculeType; i++) {
-    System->MoleculeType[i].Flag = true;
-  }
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "-x") == 0) {
-      // wrong argument to -x option //{{{
-      if ((i+1) >= argc || argv[i+1][0] == '-') {
-        s_strcpy(ERROR_MSG, "missing an argument "
-                 "(or molecule name beginning with a dash)", LINE);
-        PrintErrorOption("-x");
-        exit(1);
-      } //}}}
-      // read molecule(s) names
-      int j = 0;
-      while ((i+1+j) < argc && argv[i+1+j][0] != '-') {
-        int type = FindMoleculeName(argv[i+1+j], *System);
-        if (type == -1) { // is it in vsf?
-          snprintf(ERROR_MSG, LINE, "non-existent molecule %s%s",
-                   ErrYellow(), argv[i+1+j]);
-          PrintErrorOption("-x");
-          return true;
-        } else {
-          // exclude that molecule
-          System->MoleculeType[type].Flag = false;
-        }
-        j++;
-      }
-    }
-  }
-  return false;
-} //}}}
 // tag bead/molecule types true/false //{{{
 bool TypeOption(const int argc, char **argv, const char opt[], const int mode,
                 const bool use, bool *flag, const SYSTEM System) {
