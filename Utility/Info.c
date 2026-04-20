@@ -151,8 +151,10 @@ int main(int argc, char *argv[]) {
     fclose(fr);
   } else {
     // all beads are in the timestep
+    Count->BeadCoor = Count->Bead;
     for (int i = 0; i < Count->Bead; i++) {
       System.Bead[i].InTimestep = true;
+      System.BeadCoor[i] = i;
     }
   }
   // print initial system information only if extra file(s) are present
