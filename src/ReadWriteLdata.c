@@ -567,7 +567,7 @@ static void LmpDataReadBody(FILE *fr, const char *file, SYSTEM *System,
    */
   for (int i = 0; i < Count->MoleculeType; i++) {
     MOLECULETYPE *mt = &System->MoleculeType[i];
-    SortArray(mt->Bead, mt->nBeads, 0, 'i');
+    gsl_sort_int(mt->Bead, 1, mt->nBeads);
   }
   CopyMoleculeTypeBeadsToMoleculeBeads(System);
   FillAllMTypeStuff(System, bond, angle, dihedral, improper);

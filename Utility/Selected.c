@@ -91,11 +91,11 @@ static void ReduceSystem(const SYSTEM System, SYSTEM *Sys, const bool *write,
                          const int argc, char *argv[]) {
   *Sys = CopySystem(System);
   // fill Sys.BeadCoor for beads to be saved
-  int count = -1;
+  int count = 0;
   for (int i = 0; i < Sys->Count.BeadCoor; i++) {
     int id = Sys->BeadCoor[i];
     if (write[id]) {
-      Sys->BeadCoor[++count] = id;
+      Sys->BeadCoor[count++] = id;
     }
   }
   Sys->Count.BeadCoor = count;
@@ -594,8 +594,7 @@ int main(int argc, char *argv[]) {
     commons.end = -1;
     commons.skip = 1;
   }
-  // SortArrayInt(opt.n_save, opt.n_number, 0);
-  SortArray(opt.n_save, opt.n_number, 0, 'i'); //}}}
+  gsl_sort_int(opt.n_save, 1, opt.n_number); //}}}
 
   if (commons.verbose) {
     if (opt.reduce) {

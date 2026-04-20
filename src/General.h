@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <gsl/gsl_sort_int.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <math.h>
@@ -108,8 +109,6 @@ bool IsPosRealNumber(const char *str, double *val);
 bool IsIntegerNumber(const char *str, long *val);
 bool IsNaturalNumber(const char *str, long *val);
 bool IsWholeNumber(const char *str, long *val);
-// bubble sort int/double array ascendingly/descendingly
-void SortArray(void *array, const int length, const int mode, const char type);
 // line reading and splitting
 bool ReadLine(FILE *fr, char *line);
 int SplitLine(const int max_str, char **out, char *line, const char *delim);

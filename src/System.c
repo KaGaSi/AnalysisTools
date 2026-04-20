@@ -1650,6 +1650,10 @@ void PruneSystem(SYSTEM *System, int *b_full_to_red) { //{{{
     InitIntArray(b_full_to_red, System->Count.Bead, -1);
   }
   SYSTEM S_old = CopySystem(*System);
+  // sort BeadCoor ascending so beads are processed in canonical ID order;
+  // without this, indexed vtf files produce molecule-interleaved ordering
+  // that makes every molecule appear as a distinct type when re-read
+  gsl_sort_int(S_old.BeadCoor, 1, S_old.Count.BeadCoor);
   FreeSystem(System);
   InitSystem(System);
   COUNT *Count = &System->Count;

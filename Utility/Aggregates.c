@@ -182,8 +182,8 @@ void CalculateAggregates(AGGREGATE *Aggregate, SYSTEM *System,
 
   // sort molecules in aggregates according to ascending ids //{{{
   for (int i = 0; i < System->Count.Aggregate; i++) {
-    SortArray(Aggregate[i].Core,   Aggregate[i].nCore,   0, 'i');
-    SortArray(Aggregate[i].Border, Aggregate[i].nBorder, 0, 'i');
+    gsl_sort_int(Aggregate[i].Core,   1, Aggregate[i].nCore);
+    gsl_sort_int(Aggregate[i].Border, 1, Aggregate[i].nBorder);
   } //}}}
 
   SortAggStruct(Aggregate, *System);

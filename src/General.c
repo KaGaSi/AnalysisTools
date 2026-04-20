@@ -56,52 +56,6 @@ bool IsWholeNumber(const char *str, long *val) {
     return false;
   }
 } //}}}
-// bubble sort int/double array ascendingly/descendingly //{{{
-void SortArray(void *array, const int length, const int mode, const char type) {
-  if (mode != 0 && mode != 1) {
-    err_msg("SortArray*(): use 0 or 1 for sorting mode");
-    PrintError();
-    exit(1);
-  }
-  if (type != 'i' && type != 'd') {
-    err_msg("SortArray(): use 'i' or 'd' for integer or double array");
-    PrintError();
-    exit(1);
-  }
-  for (int i = 0; i < (length - 1); i++) {
-    bool done = true;
-    for (int j = 0; j < (length - i - 1); j++) {
-      if (type == 'i') {
-        int *arr = (int *)array;
-        int *a = &arr[j];
-        int *b = &arr[j];
-        if (mode == 0) {
-          b = &arr[j+1];
-        } else {
-          a = &arr[j+1];
-        }
-        if (*a > *b) {
-          SwapInt(a, b);
-          done = false;
-        }
-      } else {
-        double *arr = (double *)array;
-        double *a = &arr[j];
-        double *b = &arr[j];
-        if (mode == 0) {
-          b = &arr[j+1];
-        } else {
-          a = &arr[j+1];
-        }
-        if (*a > *b) {
-          SwapDouble(a, b);
-        }
-      }
-    }
-    if (done)
-      break;
-  }
-} //}}}
 // read a line from a file //{{{
 bool ReadLine(FILE *fr, char *line) {
   if (!fgets(line, LINE, fr)) {
