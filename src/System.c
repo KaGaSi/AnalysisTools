@@ -1829,6 +1829,9 @@ void PruneSystem(SYSTEM *System, int *b_full_to_red) { //{{{
       System->MoleculeCoor[Count->MoleculeCoor] = i;
       Count->MoleculeCoor++;
     }
+    if (System->Molecule[i].Index > Count->HighestResid) {
+      Count->HighestResid = System->Molecule[i].Index;
+    }
   }
   FreeSystem(&S_old);
   free(remap_all_bead_ids);

@@ -11,7 +11,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: Info <input> [options]",
   .args = 1, // number of mandatory arguments
-  .all = 18, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 19, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   {"-ft", "<type>", "structure file type: vtf/vsf/xyz/data/ltrj/field/itp/pdb", OPT_COMMON},
@@ -32,13 +32,18 @@ static const struct OptSpec opts[] = {
   {"--mol", NULL, "make unbonded beads into molecules", OPT_EXTRA},
   {"--mass", NULL, "define lammps atom types by mass, but print per-atom charges in Atoms section (output lammps data file only)", OPT_EXTRA},
   {"-ebt", "<int>", "number of extra bead types (output lammps data file only)", OPT_EXTRA},
+  {"--chbt", NULL, "change bead types using -i-provided file; molecules matched by name and bead count", OPT_EXTRA},
   {NULL}
 }; //}}}
 
 // structure for options //{{{
 struct OPT {
-  int vsf_def, b_mol, ebt; // -def --mol -ebt
-  bool lmp_mass, detailed; // --mass --detailed
+  int vsf_def,   // -def
+      b_mol,     // --mole
+      ebt;       // -ebt
+  bool lmp_mass, // --mass
+       detailed, // --detailed
+       chbt;     // --chbt
   FILE_TYPE fout;          // -o
 }; //}}}
 
@@ -126,7 +131,9 @@ int main(int argc, char *argv[]) {
   // make unbonded beads into molecules (vtf output only)
   opt.b_mol = BoolOption(argc, argv, "--mol");
   // base bead types on name, charge, mass, and radius (vtf input file)
-  opt.detailed = BoolOption(argc, argv, "--detailed"); //}}}
+  opt.detailed = BoolOption(argc, argv, "--detailed");
+  // change bead types using secondary structure file
+  opt.chbt = BoolOption(argc, argv, "--chbt"); //}}}
 
   if (!commons.silent) {
     PrintCommand(stdout, argc, argv);
@@ -201,6 +208,47 @@ int main(int argc, char *argv[]) {
         }
       }
     }
+    // exchanged bead types using extra file (--chbt option)
+    if (opt.chbt) { //{{{
+      for (int i = 0; i < Count->MoleculeType; i++) {
+        MOLECULETYPE *mt = &System.MoleculeType[i];
+        if (mt->Number == 0) {
+          continue;
+        }
+        int type_e = FindMoleculeName(mt->Name, Sys_extra);
+        if (type_e == -1) {
+          continue;
+        }
+        MOLECULETYPE *mt_e = &Sys_extra.MoleculeType[type_e];
+        if (mt->nBeads != mt_e->nBeads) {
+          if (snprintf(ERROR_MSG, LINE,
+                       "bead count mismatch for molecule %s%s%s "
+                       "(%s%d%s vs %s%d%s); ignoring this molecule type",
+                       ErrYellow(), mt->Name, ErrCyan(),
+                       ErrYellow(), mt->nBeads, ErrCyan(),
+                       ErrYellow(), mt_e->nBeads, ErrCyan()) < 0) {
+            ErrorSnprintf();
+          }
+          PrintWarnOption("--chbt");
+          continue;
+        }
+        for (int j = 0; j < mt->nBeads; j++) {
+          char *extra_name = Sys_extra.BeadType[mt_e->Bead[j]].Name;
+          int new_type = FindBeadType(extra_name, System);
+          if (new_type == -1) {
+            BEADTYPE *bt_e = &Sys_extra.BeadType[mt_e->Bead[j]];
+            new_type = Count->BeadType;
+            NewBeadType(&System.BeadType, &Count->BeadType,
+                        extra_name, bt_e->Charge, bt_e->Mass, bt_e->Radius);
+          }
+          mt->Bead[j] = new_type;
+          for (int k = 0; k < mt->Number; k++) {
+            int mol_id = mt->Index[k];
+            System.Bead[System.Molecule[mol_id].Bead[j]].Type = new_type;
+          }
+        }
+      }
+    } //}}}
     ChangeMolecules(&System, Sys_extra, false);
     CheckSystem(System, extra.stru.name);
   } //}}}
