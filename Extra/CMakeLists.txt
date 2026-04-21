@@ -92,6 +92,7 @@ set(UTILS
   FuzzyCoor
   GenGal
   GalContacts
+  GalNear
   LargestAgg
   # NearestNeighbour
   # NearestNeighbour-wall

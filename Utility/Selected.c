@@ -594,7 +594,9 @@ int main(int argc, char *argv[]) {
     commons.end = -1;
     commons.skip = 1;
   }
-  gsl_sort_int(opt.n_save, 1, opt.n_number); //}}}
+  if (opt.n_number > 0) {
+    gsl_sort_int(opt.n_save, 1, opt.n_number);
+  } //}}}
 
   if (commons.verbose) {
     if (opt.reduce) {

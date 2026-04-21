@@ -2,7 +2,6 @@
 #include "System.h"
 #include "Debug.h"
 #include "Errors.h"
-#include <assert.h>
 
 static void SortSingleStuff(int num, int (**arr)[5], int n);
 static int CopyMTypeStuff(int num, int (*old)[5], int (**new)[5],
@@ -1318,7 +1317,11 @@ SYSTEM CopySystem(SYSTEM S_in) {
                  *bt_in = &S_in.BeadType[i];
         *bt_out = *bt_in;
         if (bt_out->Number > 0) {
-          assert(bt_in->InCoor <= bt_in->Number);
+          if (bt_in->InCoor > bt_in->Number) {
+            err_msg("CopySystem: btype's InCoor>Number; should never happen!");
+            PrintError();
+            exit(1);
+          }
           bt_out->Index = malloc(bt_out->Number * sizeof *bt_out->Index);
           for (int j = 0; j < bt_out->InCoor; j++) {
             bt_out->Index[j] = bt_in->Index[j];
