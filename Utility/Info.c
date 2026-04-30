@@ -11,7 +11,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: Info <input> [options]",
   .args = 1, // number of mandatory arguments
-  .all = 19, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 20, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   {"-ft", "<type>", "structure file type: vtf/vsf/xyz/data/ltrj/field/itp/pdb", OPT_COMMON},
@@ -33,6 +33,7 @@ static const struct OptSpec opts[] = {
   {"--mass", NULL, "define lammps atom types by mass, but print per-atom charges in Atoms section (output lammps data file only)", OPT_EXTRA},
   {"-ebt", "<int>", "number of extra bead types (output lammps data file only)", OPT_EXTRA},
   {"--chbt", NULL, "change bead types using -i-provided file; molecules matched by name and bead count", OPT_EXTRA},
+  {"--frag", NULL, "split disconnected molecules into fragments; single-bead fragments become unbonded beads", OPT_EXTRA},
   {NULL}
 }; //}}}
 
@@ -43,9 +44,19 @@ struct OPT {
       ebt;       // -ebt
   bool lmp_mass, // --mass
        detailed, // --detailed
-       chbt;     // --chbt
+       chbt,     // --chbt
+       frag;     // --frag
   FILE_TYPE fout;          // -o
 }; //}}}
+
+// find root with path halving
+static int uf_find(int *parent, int x) {
+  while (parent[x] != x) {
+    parent[x] = parent[parent[x]];
+    x = parent[x];
+  }
+  return x;
+}
 
 int main(int argc, char *argv[]) {
 
@@ -133,7 +144,8 @@ int main(int argc, char *argv[]) {
   // base bead types on name, charge, mass, and radius (vtf input file)
   opt.detailed = BoolOption(argc, argv, "--detailed");
   // change bead types using secondary structure file
-  opt.chbt = BoolOption(argc, argv, "--chbt"); //}}}
+  opt.chbt = BoolOption(argc, argv, "--chbt");
+  opt.frag = BoolOption(argc, argv, "--frag"); //}}}
 
   if (!commons.silent) {
     PrintCommand(stdout, argc, argv);
@@ -271,6 +283,309 @@ int main(int argc, char *argv[]) {
   if (Count->Bead > 0) {
     PruneSystem(&System, NULL);
   }
+
+  // split disconnected molecules into fragments (--frag option) //{{{
+  if (opt.frag) {
+    int orig_nmol = Count->Molecule;
+    bool *removed = calloc(orig_nmol, sizeof *removed);
+    if (!removed) {
+      ErrorAlloc("removed");
+    }
+    for (int i = 0; i < Count->MoleculeType; i++) {
+      MOLECULETYPE *mt = &System.MoleculeType[i];
+      if (mt->Number == 0 || mt->nBeads <= 1) {
+        continue;
+      }
+      // build union-find over bead positions 0..nBeads-1
+      int *parent = malloc(mt->nBeads * sizeof *parent);
+      if (!parent) {
+        ErrorAlloc("parent");
+      }
+      for (int j = 0; j < mt->nBeads; j++) {
+        parent[j] = j;
+      }
+      for (int b = 0; b < mt->nBonds; b++) {
+        int ra = uf_find(parent, mt->Bond[b][0]);
+        int rb = uf_find(parent, mt->Bond[b][1]);
+        if (ra != rb) {
+          parent[ra] = rb;
+        }
+      }
+      // assign component IDs
+      int *comp = malloc(mt->nBeads * sizeof *comp);
+      int *root_to_comp = malloc(mt->nBeads * sizeof *root_to_comp);
+      if (!comp || !root_to_comp) {
+        ErrorAlloc("comp/root_to_comp");
+      }
+      InitIntArray(root_to_comp, mt->nBeads, -1);
+      int n_comp = 0;
+      for (int j = 0; j < mt->nBeads; j++) {
+        int r = uf_find(parent, j);
+        if (root_to_comp[r] == -1) {
+          root_to_comp[r] = n_comp++;
+        }
+        comp[j] = root_to_comp[r];
+      }
+      free(root_to_comp);
+      free(parent);
+      if (n_comp == 1) {
+        free(comp);
+        continue;
+      }
+      // count beads/bonds/angles/dihedrals/impropers per component
+      int *comp_nbeads = calloc(n_comp, sizeof *comp_nbeads);
+      int *comp_nbonds = calloc(n_comp, sizeof *comp_nbonds);
+      int *comp_nangles = calloc(n_comp, sizeof *comp_nangles);
+      int *comp_ndihed = calloc(n_comp, sizeof *comp_ndihed);
+      int *comp_nimpro = calloc(n_comp, sizeof *comp_nimpro);
+      if (!comp_nbeads || !comp_nbonds || !comp_nangles ||
+          !comp_ndihed || !comp_nimpro) {
+        ErrorAlloc("comp_n*");
+      }
+      for (int j = 0; j < mt->nBeads; j++) {
+        comp_nbeads[comp[j]]++;
+      }
+      for (int b = 0; b < mt->nBonds; b++) {
+        comp_nbonds[comp[mt->Bond[b][0]]]++;
+      }
+      for (int a = 0; a < mt->nAngles; a++) {
+        comp_nangles[comp[mt->Angle[a][0]]]++;
+      }
+      for (int d = 0; d < mt->nDihedrals; d++) {
+        comp_ndihed[comp[mt->Dihedral[d][0]]]++;
+      }
+      for (int d = 0; d < mt->nImpropers; d++) {
+        comp_nimpro[comp[mt->Improper[d][0]]]++;
+      }
+      // old id -> new id
+      int *old_to_new = malloc(mt->nBeads * sizeof *old_to_new);
+      int *comp_cursor = calloc(n_comp, sizeof *comp_cursor);
+      if (!old_to_new || !comp_cursor) {
+        ErrorAlloc("old_to_new/comp_cursor");
+      }
+      for (int j = 0; j < mt->nBeads; j++) {
+        old_to_new[j] = comp_cursor[comp[j]]++;
+      }
+      free(comp_cursor);
+      // create new molecule types for each fragment
+      int *comp_type = malloc(n_comp * sizeof *comp_type);
+      if (!comp_type) {
+        ErrorAlloc("comp_type");
+      }
+      int frag_num = 1;
+      for (int c = 0; c < n_comp; c++) {
+        if (comp_nbeads[c] <= 1) {
+          comp_type[c] = -1;
+          continue;
+        }
+        char new_name[MOL_NAME];
+        snprintf(new_name, MOL_NAME, "%s_%d", mt->Name, frag_num);
+        frag_num++;
+        comp_type[c] = Count->MoleculeType;
+        NewMolType(&System.MoleculeType, &Count->MoleculeType, new_name,
+                   comp_nbeads[c], comp_nbonds[c], comp_nangles[c],
+                   comp_ndihed[c], comp_nimpro[c]);
+        mt = &System.MoleculeType[i]; // re-derive: MoleculeType was realloc'd
+        MOLECULETYPE *mt_new = &System.MoleculeType[comp_type[c]];
+        mt_new->Number = 0;
+        mt_new->Index = NULL;
+        mt_new->InVcf = false;
+        mt_new->Named = true;
+        // fill Bead[]
+        int pos = 0;
+        for (int j = 0; j < mt->nBeads; j++) {
+          if (comp[j] == c) {
+            mt_new->Bead[pos] = mt->Bead[j];
+            pos++;
+          }
+        }
+        // fill Bond[] (renumber local indices)
+        pos = 0;
+        for (int b = 0; b < mt->nBonds; b++) {
+          if (comp[mt->Bond[b][0]] == c) {
+            mt_new->Bond[pos][0] = old_to_new[mt->Bond[b][0]];
+            mt_new->Bond[pos][1] = old_to_new[mt->Bond[b][1]];
+            mt_new->Bond[pos][2] = mt->Bond[b][2];
+            pos++;
+          }
+        }
+        // fill Angle[]
+        pos = 0;
+        for (int a = 0; a < mt->nAngles; a++) {
+          if (comp[mt->Angle[a][0]] == c) {
+            mt_new->Angle[pos][0] = old_to_new[mt->Angle[a][0]];
+            mt_new->Angle[pos][1] = old_to_new[mt->Angle[a][1]];
+            mt_new->Angle[pos][2] = old_to_new[mt->Angle[a][2]];
+            mt_new->Angle[pos][3] = mt->Angle[a][3];
+            pos++;
+          }
+        }
+        // fill Dihedral[]
+        pos = 0;
+        for (int d = 0; d < mt->nDihedrals; d++) {
+          if (comp[mt->Dihedral[d][0]] == c) {
+            mt_new->Dihedral[pos][0] = old_to_new[mt->Dihedral[d][0]];
+            mt_new->Dihedral[pos][1] = old_to_new[mt->Dihedral[d][1]];
+            mt_new->Dihedral[pos][2] = old_to_new[mt->Dihedral[d][2]];
+            mt_new->Dihedral[pos][3] = old_to_new[mt->Dihedral[d][3]];
+            mt_new->Dihedral[pos][4] = mt->Dihedral[d][4];
+            pos++;
+          }
+        }
+        // fill Improper[]
+        pos = 0;
+        for (int d = 0; d < mt->nImpropers; d++) {
+          if (comp[mt->Improper[d][0]] == c) {
+            mt_new->Improper[pos][0] = old_to_new[mt->Improper[d][0]];
+            mt_new->Improper[pos][1] = old_to_new[mt->Improper[d][1]];
+            mt_new->Improper[pos][2] = old_to_new[mt->Improper[d][2]];
+            mt_new->Improper[pos][3] = old_to_new[mt->Improper[d][3]];
+            mt_new->Improper[pos][4] = mt->Improper[d][4];
+            pos++;
+          }
+        }
+      }
+      // split each molecule instance into component molecules
+      int n_mol_orig = mt->Number;
+      for (int k = 0; k < n_mol_orig; k++) {
+        int mol_id = mt->Index[k];
+        removed[mol_id] = true;
+        for (int c = 0; c < n_comp; c++) {
+          if (comp_type[c] == -1) { // single bead -> unbonded (no molecule)
+            for (int j = 0; j < mt->nBeads; j++) {
+              if (comp[j] == c) {
+                System.Bead[System.Molecule[mol_id].Bead[j]].Molecule = -1;
+                break;
+              }
+            }
+          } else { // multiple beads -> molecule
+            int new_mol_id = Count->Molecule++;
+            System.Molecule = s_realloc(System.Molecule,
+                                        Count->Molecule * sizeof *System.Molecule);
+            mt = &System.MoleculeType[i]; // re-derive after potential Molecule move
+            MOLECULE *mol_new = &System.Molecule[new_mol_id];
+            mol_new->Type = comp_type[c];
+            mol_new->Bead = malloc(comp_nbeads[c] * sizeof *mol_new->Bead);
+            if (!mol_new->Bead) {
+              ErrorAlloc("mol_new->Bead");
+            }
+            mol_new->Index = Count->HighestResid + 1;
+            Count->HighestResid++;
+            mol_new->InTimestep = System.Molecule[mol_id].InTimestep;
+            mol_new->Aggregate = -1;
+            int pos = 0;
+            for (int j = 0; j < mt->nBeads; j++) {
+              if (comp[j] == c) {
+                int bead_id = System.Molecule[mol_id].Bead[j];
+                mol_new->Bead[pos++] = bead_id;
+                System.Bead[bead_id].Molecule = new_mol_id;
+              }
+            }
+            System.MoleculeType[comp_type[c]].Number++;
+          }
+        }
+      }
+      mt->Number = 0;
+      free(comp);
+      free(comp_nbeads);
+      free(comp_nbonds);
+      free(comp_nangles);
+      free(comp_ndihed);
+      free(comp_nimpro);
+      free(old_to_new);
+      free(comp_type);
+    }
+    // compact Molecule[] array: remove old fragmented instances
+    int *remap_mol = malloc(Count->Molecule * sizeof *remap_mol);
+    if (!remap_mol) {
+      ErrorAlloc("remap_mol");
+    }
+    int new_mol_count = 0;
+    for (int m = 0; m < Count->Molecule; m++) {
+      if (m < orig_nmol && removed[m]) {
+        free(System.Molecule[m].Bead);
+        remap_mol[m] = -1;
+      } else {
+        if (new_mol_count != m) {
+          System.Molecule[new_mol_count] = System.Molecule[m];
+        }
+        remap_mol[m] = new_mol_count++;
+      }
+    }
+    Count->Molecule = new_mol_count;
+    for (int b = 0; b < Count->Bead; b++) {
+      if (System.Bead[b].Molecule != -1) {
+        System.Bead[b].Molecule = remap_mol[System.Bead[b].Molecule];
+      }
+    }
+    free(removed);
+    free(remap_mol);
+    if (Count->Molecule > 0) {
+      System.Molecule = s_realloc(System.Molecule,
+                                  Count->Molecule * sizeof *System.Molecule);
+    }
+    // compact MoleculeType[] array: remove zero-count (fragmented) types
+    int *remap_type = malloc(Count->MoleculeType * sizeof *remap_type);
+    if (!remap_type) {
+      ErrorAlloc("remap_type");
+    }
+    int new_type_count = 0;
+    for (int i = 0; i < Count->MoleculeType; i++) {
+      MOLECULETYPE *mt = &System.MoleculeType[i];
+      if (mt->Number == 0) {
+        free(mt->Index);
+        FreeMoleculeTypeEssentials(mt);
+        if (mt->nBTypes > 0) {
+          free(mt->BType);
+        }
+        remap_type[i] = -1;
+      } else {
+        if (new_type_count != i) {
+          System.MoleculeType[new_type_count] = System.MoleculeType[i];
+        }
+        remap_type[i] = new_type_count++;
+      }
+    }
+    Count->MoleculeType = new_type_count;
+    for (int m = 0; m < Count->Molecule; m++) {
+      System.Molecule[m].Type = remap_type[System.Molecule[m].Type];
+    }
+    free(remap_type);
+    if (Count->MoleculeType > 0) {
+      System.MoleculeType = s_realloc(System.MoleculeType,
+                                      Count->MoleculeType * sizeof *System.MoleculeType);
+    }
+    // update bonded/unbonded counts then refill arrays
+    Count->Bonded = 0;
+    Count->Unbonded = 0;
+    for (int b = 0; b < Count->Bead; b++) {
+      if (System.Bead[b].Molecule != -1) {
+        Count->Bonded++;
+      } else {
+        Count->Unbonded++;
+      }
+    }
+    Count->BondedCoor = Count->Bonded;
+    Count->UnbondedCoor = Count->Unbonded;
+    FillBondedUnbonded(&System);
+    for (int i = 0; i < Count->MoleculeType; i++) {
+      FillMoleculeTypeBType(&System.MoleculeType[i]);
+      FillMoleculeTypeChargeMass(&System.MoleculeType[i], System.BeadType);
+      SortAll(&System.MoleculeType[i]);
+    }
+    ReFillMoleculeTypeIndex(&System);
+    CountBondAngleDihedralImproper(&System);
+    if (Count->Molecule > 0) {
+      System.MoleculeCoor = s_realloc(System.MoleculeCoor,
+                                      Count->Molecule * sizeof *System.MoleculeCoor);
+    }
+    Count->MoleculeCoor = 0;
+    for (int m = 0; m < Count->Molecule; m++) {
+      if (System.Molecule[m].InTimestep) {
+        System.MoleculeCoor[Count->MoleculeCoor++] = m;
+      }
+    }
+  } //}}}
 
   // make unbonded beads into molecules //{{{
   if (opt.b_mol) {
