@@ -764,7 +764,7 @@ static void LmpDataReadAtoms(FILE *fr, const char *file, SYSTEM *System,
     }
     bt->Number = 1;
     s_strcpy(bt->Name, name_mass[type].Name, BEAD_NAME);
-    if (resid >= 0) { // bead in a molecule //{{{
+    if (resid > 0) { // bead in a molecule (LAMMPS uses 0 for unbonded) //{{{
       Count->Bonded++;
       b->Molecule = resid;
       // resid ids may be discontinuous, so define Molecule for all possible ids
@@ -1259,7 +1259,7 @@ void WriteLmpData(const SYSTEM System, const char *file, const bool mass,
       }
       fprintf(fw, " %5d", id);
     } else {
-      fprintf(fw, " %5d", -1);
+      fprintf(fw, " %5d", 0);
     }
     // <bead type id>
     fprintf(fw, " %5d", bt_old_to_masstype[bead->Type] + 1);

@@ -9,7 +9,7 @@
 //       probably requires flags from outside ReadWrite files.
 
 // maximum number of variables in 'ITEM: ATOM' line
-static const int MAX_VAR = 21;
+static const int MAX_VAR = 22;
 
 /*
  * Functions to read lammpstrj file (dump style custom) as a coordinate file via
@@ -118,15 +118,22 @@ SYSTEM LtrjReadStruct(const char *file) {
       int type = Count->BeadType;
       char name[BEAD_NAME];
       s_strcpy(name, "b0", BEAD_NAME);
-      if (position[11] != -1) { // 'type' variable is present
-        s_strcpy(name, split[position[11]], BEAD_NAME);
-      } else if (position[1] != -1) { // 'element' variable is present
+      if (position[1] != -1) { // 'element' variable is present
         s_strcpy(name, split[position[1]], BEAD_NAME);
+      } else if (position[11] != -1) { // 'type' variable is present
+        s_strcpy(name, split[position[11]], BEAD_NAME);
       }
       NewBeadType(&Sys.BeadType, &Count->BeadType, name, CHARGE, MASS, RADIUS);
       BEADTYPE *bt_new = &Sys.BeadType[type];
       bt_new->Number = 1;
       b->Type = type;
+    }
+    // assign charge from 'q' column if present (split[] still holds this line)
+    if (position[21] != -1) {
+      double q;
+      if (IsRealNumber(split[position[21]], &q)) {
+        Sys.BeadType[b->Type].Charge = q;
+      }
     }
   } //}}}
   fclose(fr);
@@ -537,6 +544,7 @@ static void LtrjFillAtomVariables(char var[MAX_VAR][10]) { //{{{
   s_strcpy(var[18], "xsu", 10);
   s_strcpy(var[19], "ysu", 10);
   s_strcpy(var[20], "zsu", 10);
+  s_strcpy(var[21], "q",   10);
 } //}}}
 static void AssignPosVelForce(const BEAD in, BEAD *b) { //{{{
   for (int dd = 0; dd < 3; dd++) {
