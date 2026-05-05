@@ -33,7 +33,7 @@ static const struct OptSpec opts[] = {
   {"-xb", "<bead type>", "what bead type to exchange", OPT_EXTRA},
   {"--add", NULL, "add beads instead of exchanging (overwrites -xb)", OPT_EXTRA},
   {"--no-rotate", NULL, "do not randomly rotate molecules", OPT_EXTRA},
-  {"-a", "3x<angle>", "rotate molecules by yaw, pitch, and roll in degrees (overrides --no-rotate)", OPT_EXTRA},
+  {"-a", "3x<angle>", "rotate molecules around <x>, <y>, <z> axes by given degrees (overrides --no-rotate)", OPT_EXTRA},
   {"-cx", "2x<float>", "constrain x-coordinate (in fraction of output box)", OPT_EXTRA},
   {"-cy", "2x<float>", "constrain y-coordinate (in fraction of output box)", OPT_EXTRA},
   {"-cz", "2x<float>", "constrain z-coordinate (in fraction of output box)", OPT_EXTRA},
@@ -146,9 +146,9 @@ void Rotate(SYSTEM System, int number, const int *list,
   double alpha, beta, gamma;
   // specified by -a option...
   if (rot_angle.v[0] != 0 || rot_angle.v[1] != 0 || rot_angle.v[2] != 0) {
-    alpha = rot_angle.v[0] / 180 * PI;
-    beta  = rot_angle.v[1] / 180 * PI;
-    gamma = rot_angle.v[2] / 180 * PI;
+    gamma = rot_angle.v[0] / 180 * PI;  // around x
+    beta  = rot_angle.v[1] / 180 * PI;  // around y
+    alpha = rot_angle.v[2] / 180 * PI;  // around z
   // ...or random
   } else {
     alpha = (double)(rand()) / ((double)(RAND_MAX) + 1) * 2 * PI;
@@ -156,17 +156,34 @@ void Rotate(SYSTEM System, int number, const int *list,
     gamma = (double)(rand()) / ((double)(RAND_MAX) + 1) * 2 * PI;
   }
   double rot[3][3];
-  rot[0][0] = cos(alpha) * cos(beta);
-  rot[1][0] = cos(alpha) * sin(beta) * sin(gamma) - sin(alpha) * cos(gamma);
-  rot[2][0] = cos(alpha) * sin(beta) * cos(gamma) + sin(alpha) * sin(gamma);
+  if (rot_angle.v[0] != 0 || rot_angle.v[1] != 0 || rot_angle.v[2] != 0) {
+    // -a: ZYX (yaw=alpha/Z, pitch=beta/Y, roll=gamma/X) — matches --help description
+    rot[0][0] = cos(alpha) * cos(beta);
+    rot[1][0] = cos(alpha) * sin(beta) * sin(gamma) - sin(alpha) * cos(gamma);
+    rot[2][0] = cos(alpha) * sin(beta) * cos(gamma) + sin(alpha) * sin(gamma);
 
-  rot[0][1] = sin(alpha) * cos(beta);
-  rot[1][1] = sin(alpha) * sin(beta) * sin(gamma) + cos(alpha) * cos(gamma);
-  rot[2][1] = sin(alpha) * sin(beta) * cos(gamma) - cos(alpha) * sin(gamma);
+    rot[0][1] = sin(alpha) * cos(beta);
+    rot[1][1] = sin(alpha) * sin(beta) * sin(gamma) + cos(alpha) * cos(gamma);
+    rot[2][1] = sin(alpha) * sin(beta) * cos(gamma) - cos(alpha) * sin(gamma);
 
-  rot[0][2] = -sin(beta);
-  rot[1][2] = cos(beta) * sin(gamma);
-  rot[2][2] = cos(beta) * cos(gamma);
+    rot[0][2] = -sin(beta);
+    rot[1][2] = cos(beta) * sin(gamma);
+    rot[2][2] = cos(beta) * cos(gamma);
+  } else {
+    // random: ZYZ (Rz(alpha)*Ry(beta)*Rz(gamma)) — Haar measure is sin(beta)*dα dβ dγ,
+    // matching the acos(1-2u) sampling; image of z-axis is uniform on the sphere
+    rot[0][0] = cos(alpha) * cos(beta) * cos(gamma) - sin(alpha) * sin(gamma);
+    rot[1][0] = sin(alpha) * cos(beta) * cos(gamma) + cos(alpha) * sin(gamma);
+    rot[2][0] = -sin(beta) * cos(gamma);
+
+    rot[0][1] = -cos(alpha) * cos(beta) * sin(gamma) - sin(alpha) * cos(gamma);
+    rot[1][1] = -sin(alpha) * cos(beta) * sin(gamma) + cos(alpha) * cos(gamma);
+    rot[2][1] = sin(beta) * sin(gamma);
+
+    rot[0][2] = cos(alpha) * sin(beta);
+    rot[1][2] = sin(alpha) * sin(beta);
+    rot[2][2] = cos(beta);
+  }
   // generate the rotated coordinates
   for (int i = 0; i < number; i++) {
     for (int dd = 0; dd < 3; dd++) {
@@ -225,7 +242,7 @@ int main(int argc, char *argv[]) {
     opt.hd = OneNumberOption(argc, argv, "-hd", &opt.hdist, 'd');
   }
   // errors for -ld/-hd options //{{{
-  if ((opt.ld && opt.ldist <= 0) || (opt.hd && opt.hdist <= 0)) {
+  if ((opt.ld && opt.ldist < 0) || (opt.hd && opt.hdist <= 0)) {
     err_msg("highest/lowest distance must be positive real number");
     PrintErrorOption("-ld/-hd");
     PrintCommand(stderr, argc, argv);
@@ -545,6 +562,15 @@ int main(int argc, char *argv[]) {
         }
       }
     }
+    // compact BeadCoor: remove exchanged beads (InTimestep=false)
+    int new_coor = 0;
+    for (int i = 0; i < C_orig->BeadCoor; i++) {
+      int id = S_orig.BeadCoor[i];
+      if (S_orig.Bead[id].InTimestep) {
+        S_orig.BeadCoor[new_coor++] = id;
+      }
+    }
+    C_orig->BeadCoor = new_coor;
     PruneSystem(&S_orig, NULL);
   }
 
