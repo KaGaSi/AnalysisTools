@@ -1235,28 +1235,16 @@ void WriteLmpData(const SYSTEM System, const char *file, const bool mass,
     }
   } //}}}
   // print atoms //{{{
-  // if there is 0 molecule index, saved indices will get +1
-  // TODO: why would I need to go from 1?
-  bool zero = false;
-  // for (int i = 0; i < Count->Molecule; i++) {
-  //   if (System.Molecule[i].Index == 0) {
-  //     zero = true;
-  //     break;
-  //   }
-  // }
   fprintf(fw, "\nAtoms # full\n\n");
   for (int i = 0; i < Count->BeadCoor; i++) {
     int id = System.BeadCoor[i];
     BEAD *bead = &System.Bead[id];
     // <bead id>
     fprintf(fw, "%7d", id + 1);
-    // <molecule id (-1 for no molecule)>
+    // <molecule id (-1 for no molecule)>; LAMMPS uses 0 for unbonded, so +1
     int mol = bead->Molecule;
     if (mol != -1) {
-      int id = System.Molecule[mol].Index;
-      if (zero) {
-        id++;
-      }
+      int id = System.Molecule[mol].Index + 1;
       fprintf(fw, " %5d", id);
     } else {
       fprintf(fw, " %5d", 0);
