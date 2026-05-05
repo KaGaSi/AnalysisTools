@@ -470,6 +470,23 @@ int ReadAggregates(FILE *fr, const char *file, SYSTEM *System,
     return -2;
   } //}}}
   Count->Aggregate = val;
+  // build resid -> compact molecule index lookup table
+  int max_index = 0;
+  for (int i = 0; i < Count->Molecule; i++) {
+    if (System->Molecule[i].Index > max_index) {
+      max_index = System->Molecule[i].Index;
+    }
+  }
+  int *resid_to_mol = malloc((max_index + 1) * sizeof *resid_to_mol);
+  for (int i = 0; i <= max_index; i++) {
+    resid_to_mol[i] = -1;
+  }
+  for (int i = 0; i < Count->Molecule; i++) {
+    int idx = System->Molecule[i].Index;
+    if (idx >= 0 && idx <= max_index) {
+      resid_to_mol[idx] = i;
+    }
+  }
   // go through all aggregates, reading core and border molecule lines
   for (int i = 0; i < Count->Aggregate; i++) {
     AGGREGATE *Agg = &Aggregate[i];
@@ -479,10 +496,9 @@ int ReadAggregates(FILE *fr, const char *file, SYSTEM *System,
     Agg->Core = s_realloc(Agg->Core, (Agg->nCore > 0 ? Agg->nCore : 1) *
                           sizeof *Agg->Core);
     for (int j = 0; j < Agg->nCore; j++) {
-      int mol;
-      fscanf(fr, "%d", &mol);
-      mol--;
-      Agg->Core[j] = mol;
+      int resid;
+      fscanf(fr, "%d", &resid);
+      Agg->Core[j] = resid_to_mol[resid];
     }
     { int ch; while ((ch = getc(fr)) != '\n' && ch != EOF) ; }
     // line 2: border molecules
@@ -492,16 +508,16 @@ int ReadAggregates(FILE *fr, const char *file, SYSTEM *System,
                             (Agg->nBorder > 0 ? Agg->nBorder : 1) *
                             sizeof *Agg->Border);
     for (int j = 0; j < Agg->nBorder; j++) {
-      int mol;
-      fscanf(fr, "%d", &mol);
-      mol--;
-      Agg->Border[j] = mol;
+      int resid;
+      fscanf(fr, "%d", &resid);
+      Agg->Border[j] = resid_to_mol[resid];
     }
     int ch;
     while ((ch = getc(fr)) != '\n' && ch != EOF)
       ;
     Agg->nMolecules = Agg->nCore + Agg->nBorder;
   }
+  free(resid_to_mol);
   // fill the rest of aggregate info
   for (int i = 0; i < Count->Aggregate; i++) {
     int count = 0;

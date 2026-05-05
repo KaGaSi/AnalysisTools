@@ -159,10 +159,10 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
     if (System->Molecule[i].InTimestep && label[i] < 0) {
       int agg = Count->Aggregate++;
       System->Molecule[i].Aggregate = agg;
-      Aggregate[agg].nCore = 0;
-      Aggregate[agg].nBorder = 1;
+      Aggregate[agg].nCore = 1;
+      Aggregate[agg].nBorder = 0;
       Aggregate[agg].nMolecules = 1;
-      Aggregate[agg].Border[0] = i;
+      Aggregate[agg].Core[0] = i;
     }
   }
 
