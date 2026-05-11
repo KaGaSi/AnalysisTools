@@ -139,6 +139,54 @@ void PrintAvgContacts(int bt_j, int bt_k, FILE *fw,
       fprintf(fw, " %lf", avg);
     }
   }
+}
+// Function to print column names for overall averages
+void PrintAvgHeader(int bt_j, int bt_k, FILE *fw,
+                    SYSTEM Sys, OPT opt, void *context) {
+  char *name_j = Sys.BeadType[bt_j].Name;
+  char *name_k = Sys.BeadType[bt_k].Name;
+  if (FindBeadType(name, Sys) != -1) {
+    fprintf(fw, " <%s-%s-%s>", name_j, name_k, name);
+  }
+  if (FindMoleculeName(name_mol, Sys) != -1) {
+    fprintf(fw, " <%s-%s-%s>", name_j, name_k, name_mol);
+  }
+}
+// Context and function to accumulate raw step counts into sum_3body
+typedef struct {
+  ArrNDd *sum_3body;
+  ArrNDi *count_3body_step;
+  int mt_name, bt_name, mt;
+} AccumContacts_ctx;
+void AccumContacts(int bt_j, int bt_k, FILE *fw,
+                   SYSTEM Sys, OPT opt, void *context) {
+  AccumContacts_ctx *ctx = (AccumContacts_ctx *)context;
+  if (ctx->mt_name != -1) {
+    size_t id4[4] = {ctx->mt, bt_j, bt_k, 0};
+    AddArrND(ctx->sum_3body, id4, (double)GetArrND(ctx->count_3body_step, id4));
+  }
+  if (ctx->bt_name != -1) {
+    size_t id4[4] = {ctx->mt, bt_j, bt_k, 1};
+    AddArrND(ctx->sum_3body, id4, (double)GetArrND(ctx->count_3body_step, id4));
+  }
+}
+// Context and function to print overall averages
+typedef struct {
+  ArrNDd *sum_3body;
+  int mt_name, bt_name, mt, count_used;
+} PrintFinalAvg_ctx;
+void PrintFinalAvg(int bt_j, int bt_k, FILE *fw,
+                   SYSTEM Sys, OPT opt, void *context) {
+  PrintFinalAvg_ctx *ctx = (PrintFinalAvg_ctx *)context;
+  double denom = (double)Sys.MoleculeType[ctx->mt].Number * ctx->count_used;
+  if (ctx->mt_name != -1) {
+    size_t id4[4] = {ctx->mt, bt_j, bt_k, 0};
+    fprintf(fw, " %lf", GetArrND(ctx->sum_3body, id4) / denom);
+  }
+  if (ctx->bt_name != -1) {
+    size_t id4[4] = {ctx->mt, bt_j, bt_k, 1};
+    fprintf(fw, " %lf", GetArrND(ctx->sum_3body, id4) / denom);
+  }
 } //}}}
 
 int main(int argc, char *argv[]) {
@@ -213,7 +261,6 @@ int main(int argc, char *argv[]) {
     VerboseOutput(System);
   }
 
-  // arrays for all the necessary stuff //{{{
   // count molecules of each type
   int *c_mtype = calloc(Count->MoleculeType, sizeof *c_mtype);
 
@@ -232,6 +279,9 @@ int main(int argc, char *argv[]) {
   fclose(fw); //}}}
 
   // main loop //{{{
+  size_t shape4[4] = {Count->MoleculeType, Count->BeadType, Count->BeadType, 2};
+  ArrNDd *sum_3body = CreateArrNDd(4, shape4);
+  FillArrND(sum_3body, 0);
   FILE *fr = OpenFile(in.coor.name, "r");
   int count_coor = 0, // count steps in the vcf file
       count_used = 0, // count steps in output file
@@ -403,6 +453,14 @@ int main(int argc, char *argv[]) {
       }
       putc('\n', fw);
       fclose(fw); //}}}
+      // accumulate for overall averages
+      for (int i = 0; i < Count->MoleculeType; i++) {
+        if (opt.mt[i]) {
+          AccumContacts_ctx accum_ctx = { sum_3body, count_3body_step,
+                                          mt_name, bt_name, i };
+          iterate_btypes(i, NULL, System, opt, AccumContacts, &accum_ctx);
+        }
+      }
       // free temp arrays //{{{
       free(mt_beads);
       if (bt_name != -1) {
@@ -434,9 +492,28 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "Last Step: %d (used %d)\n", count_coor, count_used);
   } //}}}
 
+  // append overall averages //{{{
+  if (count_used > 0) {
+    FILE *fw_avg = OpenFile(fout, "a");
+    fprintf(fw_avg, "# overall averages (%d steps):\n", count_used);
+    for (int i = 0; i < Count->MoleculeType; i++) {
+      if (!opt.mt[i]) {
+        continue;
+      }
+      fprintf(fw_avg, "# molecule %s:", System.MoleculeType[i].Name);
+      iterate_btypes(i, fw_avg, System, opt, PrintAvgHeader, NULL);
+      fprintf(fw_avg, "\n#");
+      PrintFinalAvg_ctx final_ctx = { sum_3body, mt_name, bt_name, i, count_used };
+      iterate_btypes(i, fw_avg, System, opt, PrintFinalAvg, &final_ctx);
+      putc('\n', fw_avg);
+    }
+    fclose(fw_avg);
+  } //}}}
+
   // free memory - to make valgrind happy //{{{
   // FreeArrND(intra_mol);
   // FreeArrND(intra_3body);
+  FreeArrND(sum_3body);
   free(c_mtype);
   // FreeArrND(inter_mol);
   // FreeArrND(inter_3body);

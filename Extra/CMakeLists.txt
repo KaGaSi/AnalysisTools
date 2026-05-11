@@ -58,7 +58,6 @@ endif()
 
 # Define library
 add_library(AnalysisTools
-  ../src/AnalysisTools.c
   ../src/Aggregates.c
   ../src/Arrays.c
   ../src/Coordinates.c
@@ -67,20 +66,23 @@ add_library(AnalysisTools
   ../src/General.c
   ../src/Globals.c
   ../src/MainLoop.c
+  ../src/MathUtils.h
   ../src/Options.c
   ../src/PairHash.c
   ../src/Pairs.c
   ../src/pcg32.c
+  ../src/ReadLibrary.c
   ../src/ReadWrite.c
+  ../src/ReadWriteConfig.c
+  ../src/ReadWriteField.c
+  ../src/ReadWriteGromacs.c
+  ../src/ReadWriteLdata.c
+  ../src/ReadWriteLtrj.c
   ../src/ReadWriteVtf.c
   ../src/ReadWriteXyz.c
-  ../src/ReadWriteLtrj.c
-  ../src/ReadWriteLdata.c
-  ../src/ReadWriteField.c
-  ../src/ReadWriteConfig.c
-  ../src/ReadWriteGromacs.c
-  ../src/System.c
-  ../src/Structs.c)
+  ../src/Structs.c
+  ../src/ReadWriteSysInfo.c
+  ../src/System.c)
 
 # List of utilities
 set(UTILS
@@ -89,6 +91,7 @@ set(UTILS
   # dbscan
   # Entropy
   CA2Middle
+  ChainContacts
   FuzzyCoor
   GenGal
   GalContacts
