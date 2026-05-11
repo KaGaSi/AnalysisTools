@@ -73,17 +73,20 @@ int FindMoleculeType(const SYSTEM Sys1, const MOLECULETYPE mt_1,
         if (!SameArrayInt(mt_1.Bond[j], mt_2->Bond[j], 2)) {
           goto end_loop;
         }
-        if (mt_1.Bond[j][2] == mt_2->Bond[j][2]) {
-          if (mt_1.Bond[j][2] != -1) {
-            PARAMS *tbond_1 = &Sys1.BondType[mt_1.Bond[j][2]],
-                   *tbond_2 = &Sys2.BondType[mt_2->Bond[j][2]];
-            if (tbond_1->a != tbond_2->a || tbond_1->b != tbond_2->b ||
-                tbond_1->c != tbond_2->c || tbond_1->d != tbond_2->d) {
-              goto end_loop;
-            }
-          }
-        } else {
+        int bi1 = mt_1.Bond[j][2],
+            bi2 = mt_2->Bond[j][2];
+        if ((bi1 == -1) != (bi2 == -1)) {
           goto end_loop;
+        }
+        if (bi1 != -1) {
+          // Both bi1 and bi2 are indices into Sys1 (the input merged system);
+          // Sys2 bond types may not be filled yet. Compare parameters via Sys1.
+          PARAMS *tbond_1 = &Sys1.BondType[bi1],
+                 *tbond_2 = &Sys1.BondType[bi2];
+          if (tbond_1->a != tbond_2->a || tbond_1->b != tbond_2->b ||
+              tbond_1->c != tbond_2->c || tbond_1->d != tbond_2->d) {
+            goto end_loop;
+          }
         }
       }
       if (mt_1.nAngles != mt_2->nAngles) {
@@ -93,9 +96,15 @@ int FindMoleculeType(const SYSTEM Sys1, const MOLECULETYPE mt_1,
         if (!SameArrayInt(mt_1.Angle[j], mt_2->Angle[j], 3)) {
           goto end_loop;
         }
-        if (mt_1.Angle[j][3] != -1 && mt_2->Angle[j][3] != -1) {
-          PARAMS *tangle_1 = &Sys1.AngleType[mt_1.Angle[j][3]],
-                 *tangle_2 = &Sys2.AngleType[mt_2->Angle[j][3]];
+        int ai1 = mt_1.Angle[j][3],
+            ai2 = mt_2->Angle[j][3];
+        if ((ai1 == -1) != (ai2 == -1)) {
+          goto end_loop;
+        }
+        if (ai1 != -1) {
+          // Same as before: both ai1 and ai2 index into Sys1.
+          PARAMS *tangle_1 = &Sys1.AngleType[ai1],
+                 *tangle_2 = &Sys1.AngleType[ai2];
           if (tangle_1->a != tangle_2->a || tangle_1->b != tangle_2->b ||
               tangle_1->c != tangle_2->c || tangle_1->d != tangle_2->d) {
             goto end_loop;
@@ -920,7 +929,8 @@ void MergeMoleculeTypes(SYSTEM *System) {
       MOLECULETYPE *mt_j = &System->MoleculeType[j];
       // i) check numbers of stuff
       // allow merging if names match, or if one (or both) is unnamed (Named=false)
-      if ((strcmp(mt_i->Name, mt_j->Name) == 0 || !mt_i->Named || !mt_j->Named) &&
+      bool name_ok = strcmp(mt_i->Name, mt_j->Name) == 0 || !mt_i->Named || !mt_j->Named;
+      if (name_ok &&
           mt_i->nBeads == mt_j->nBeads &&
           mt_i->nAngles == mt_j->nAngles &&
           mt_i->nDihedrals == mt_j->nDihedrals &&
@@ -940,7 +950,7 @@ void MergeMoleculeTypes(SYSTEM *System) {
         for (int k = 0; k < mt_j->nBonds; k++) {
           if (mt_i->Bond[k][0] != mt_j->Bond[k][0] ||
               mt_i->Bond[k][1] != mt_j->Bond[k][1]) {
-            same_mol = false; // i and j aren't the same
+            same_mol = false;
             break;
           }
         }
@@ -952,7 +962,7 @@ void MergeMoleculeTypes(SYSTEM *System) {
           if (mt_i->Angle[k][0] != mt_j->Angle[k][0] ||
               mt_i->Angle[k][1] != mt_j->Angle[k][1] ||
               mt_i->Angle[k][2] != mt_j->Angle[k][2]) {
-            same_mol = false; // i and j aren't the same
+            same_mol = false;
             break;
           }
         }
@@ -1786,6 +1796,7 @@ void PruneSystem(SYSTEM *System, int *b_full_to_red) { //{{{
        * Is the molecule type already in the pruned system (check based on all
        * molecule type information)?
        */
+      SortAll(&mt_old_new);
       int new_type = FindMoleculeType(S_old, mt_old_new, *System, 3, true);
       FreeMoleculeTypeEssentials(&mt_old_new);
       if (new_type != -1) { // yes, the molecule type is in the pruned system
@@ -1810,6 +1821,9 @@ void PruneSystem(SYSTEM *System, int *b_full_to_red) { //{{{
         } //}}}
         // correct bead ids from the S_old.MoleculeType to S_new.MoleculeType
         MTypeAllStuffNewIDs(S_old, mt_new, i, remap_internal_bead_ids);
+        // canonicalise bond/angle ordering so FindMoleculeType can match
+        // mt_old_new (also sorted) against this type in later iterations
+        SortAll(mt_new);
       }
     }
   } //}}}
