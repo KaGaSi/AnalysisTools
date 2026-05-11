@@ -69,6 +69,7 @@ add_library(AnalysisTools
   PairHash.c
   Pairs.c
   pcg32.c
+  ReadLibrary.c
   ReadWrite.c
   ReadWriteConfig.c
   ReadWriteField.c
@@ -78,6 +79,7 @@ add_library(AnalysisTools
   ReadWriteVtf.c
   ReadWriteXyz.c
   Structs.c
+  ReadWriteSysInfo.c
   System.c)
 
 # List of utilities
