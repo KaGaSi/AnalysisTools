@@ -1,0 +1,10 @@
+# GenParams input: system composition
+# Topology and interaction parameters are loaded from ./library/
+#
+# Note: counterions are NOT added automatically in GenParams - list Cl
+# explicitly, one per CTAC molecule.
+
+molecule  CTAC    100
+molecule  Cl      100
+molecule  FA_C16   50
+molecule  water   3000

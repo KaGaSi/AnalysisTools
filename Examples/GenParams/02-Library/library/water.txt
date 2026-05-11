@@ -1,0 +1,9 @@
+# Water bead representing two water molecules
+# key value (0: solvent, 1: counterion, 2: chain-like molecule)
+0
+# number of beads
+1
+# index, bead_ID, x, y, z
+ 1  H2O          0.0000   0.0000   0.0000 
+# Finish. Keep keyword 'End'
+End  

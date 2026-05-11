@@ -1,0 +1,9 @@
+# List of bond parameters for DPD models
+# Anderson et al., JCP 147, 094503 (2017)
+5
+# Bond_ID  k_bond  r0_ij
+ b01       75.0    0.19d0
+ b02       75.0    0.29d0
+ b03       75.0    0.39d0
+ b04       75.0    0.49d0
+ b05       75.0    0.59d0

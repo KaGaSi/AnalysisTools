@@ -1,0 +1,11 @@
+Water bead (represents two water molecules)
+
+species 1
+H2O  1  0  WATER
+
+molecule 1
+water
+nummols 1
+beads 1
+H2O  0.0  0.0  0.0
+finish

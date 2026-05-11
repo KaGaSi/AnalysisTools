@@ -1,0 +1,7 @@
+# List of angle parameters for DPD models
+# Anderson et al., JCP 147, 094503 (2017)
+3
+# Angle_ID  k_angle  theta
+ a01        2.5      180.0
+ a02        2.5       60.0
+ a03        2.5      120.0

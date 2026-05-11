@@ -1,0 +1,16 @@
+# GenParams input: system composition and DPD parameters
+# Molecules are loaded from ./molecules/<name>.FIELD
+
+box     20  20  20
+density 3
+
+molecule  FA_C16  50
+molecule  water   fill
+
+# Default DPD: A=25, Rc=1, gamma=4.5
+potential dpd  *       *    25.0  1.0  4.5
+# Hydrophobic chain/tail - water repulsion
+potential dpd  CH2CH2  H2O  45.0  1.037
+potential dpd  CH3     H2O  45.0  0.978
+# Polar head - water is mildly attractive
+potential dpd  CH2OH   H2O  14.5  0.990

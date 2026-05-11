@@ -93,7 +93,7 @@ set(UTILS
   BondLength
   DensityAggregates
   DensityBox
-  GenFIELD
+  GenParams
   GyrationAggregates
   GyrationMolecules
   Info

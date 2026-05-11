@@ -1,0 +1,30 @@
+9-bead CG model of a fatty alcohol; Anderson et al., J. Chem. Theory Comput. 14, 2633 (2018)
+
+species 3
+CH2OH   1  0  0
+CH2CH2  1  0  0
+CH3     1  0  0
+
+molecule 1
+FA_C16
+nummols 1
+beads 9
+CH2OH    0.000  0.000   0.000
+CH2CH2   0.000  0.000  -0.390
+CH2CH2   0.000  0.000  -0.780
+CH2CH2   0.000  0.000  -1.170
+CH2CH2   0.000  0.000  -1.560
+CH2CH2   0.000  0.000  -1.950
+CH2CH2   0.000  0.000  -2.340
+CH2CH2   0.000  0.000  -2.730
+CH3      0.000  0.000  -3.020
+bonds 8
+harm 1  2  75.0  0.39
+harm 2  3  75.0  0.39
+harm 3  4  75.0  0.39
+harm 4  5  75.0  0.39
+harm 5  6  75.0  0.39
+harm 6  7  75.0  0.39
+harm 7  8  75.0  0.39
+harm 8  9  75.0  0.29
+finish
