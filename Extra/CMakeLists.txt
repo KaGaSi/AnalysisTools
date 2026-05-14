@@ -86,10 +86,7 @@ add_library(AnalysisTools
 
 # List of utilities
 set(UTILS
-  # CICount
-  # Distribution
-  # dbscan
-  # Entropy
+  AggCentres
   CA2Middle
   ChainContacts
   FuzzyCoor
@@ -97,12 +94,8 @@ set(UTILS
   GalContacts
   GalNear
   LargestAgg
-  # NearestNeighbour
-  # NearestNeighbour-wall
-  DiamondNetwork
   RandomChain
   Structure
-  # SurfaceTension
   )
 
 # Conditionally link BLAS

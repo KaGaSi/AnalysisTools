@@ -1,5 +1,4 @@
 #include "../src/AnalysisTools.h"
-#include <stdbool.h>
 
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
