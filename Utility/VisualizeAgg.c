@@ -1,5 +1,4 @@
 #include "../src/AnalysisTools.h"
-#include <stdlib.h>
 // TODO: create arrays mapping Bead[id] to BeadCoor[i]=id (and for other xCoor?)
 // TODO: implement -x, -m, and -only options (via AggPicker thingy)
 //       ...either -n (instead of --range) or -size <int(s)>; at any rate,

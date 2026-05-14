@@ -1,5 +1,4 @@
 #include "../src/AnalysisTools.h"
-#include <stdbool.h>
 // TODO: --joined function when RemovePBCAggregates() works
 // TODO: --joined --> --join; make default expectation of joined coordinates
 // TODO: two masses - -bt defined + always total (for contributions of given
@@ -8,7 +7,6 @@
 
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
-  "ASSUMES JOINED COORDINATES!\n"
   "GyrationAggregates calculates gyration tensor for aggregates and determines "
   "shape descriptors like radius of gyration, acylindricity, asphericity, or "
   "relative shape anisotropy. By default, it calculates per-timestep averages, "
@@ -34,7 +32,7 @@ static const struct OptSpec opts[] = {
   {"<input>", NULL, "input coordinate file", OPT_ARG},
   {"<in.agg>", NULL, "input agg file", OPT_ARG},
   {"<output>", NULL, "output file with per-timestep data", OPT_ARG},
-  // {"--joined", NULL, "<input> contains joined coordinates", OPT_EXTRA},
+  {"--joined", NULL, "<input> contains joined coordinates", OPT_EXTRA},
   {"-bt", NULL, "bead types used for calculation (default: all)", OPT_EXTRA},
   {"-m", "<name(s)>", "agg size defined as number of <name(s)> molecules in an aggregate", OPT_EXTRA},
   {"-only", "<name(s)>", "use only aggregates composed of specified molecule(s)", OPT_EXTRA},
@@ -144,13 +142,19 @@ int main(int argc, char *argv[]) {
     PrintError();
     exit(1);
   }
-  // // bead types for connecting aggregates
-  // for (int i = 5; i < words && split[i][0] != '-'; i++) {
-  //   // TODO: use result when RemovePBCAggregates() is wired up
-  //   FindBeadType(split[i], System);
-  // }
+  // bead types for connecting aggregates
+  bool *join_bt = calloc(Count->BeadType, sizeof *join_bt);
+  if (!join_bt) {
+    ErrorAlloc("join_bt");
+  }
+  for (int i = 5; i < words && split[i][0] != '-'; i++) {
+    int type = FindBeadType(split[i], System);
+    if (type != -1) {
+      join_bt[type] = true;
+    }
+  }
   // redefine distance if -d option is present
-  double distance;
+  double distance = 1;
   for (int i = 5; i < words; i++) {
     if (strcmp(split[i], "-d") == 0 && (i + 1) < words) {
       if (!IsPosRealNumber(split[i+1], &distance)) {
@@ -214,10 +218,9 @@ int main(int argc, char *argv[]) {
         break;
       }
       count_used++;
-      // TODO: return when it works
-      // if (opt.join) {
-      //   RemovePBCAggregates(distance, Aggregate, &System);
-      // }
+      if (opt.join) {
+        RemovePBCAggregates(distance, Aggregate, &System, join_bt);
+      }
 
       // allocate arrays for the timestep //{{{
       int *agg_counts_step = calloc(Count->Molecule, sizeof *agg_counts_step);
@@ -531,6 +534,7 @@ int main(int argc, char *argv[]) {
   free(Aspher_sum);
   FreeArrND(eigen_sum);
   free(opt.bt);
+  free(join_bt);
   FreeAggPicker(&opt.agg);
   //}}}
 

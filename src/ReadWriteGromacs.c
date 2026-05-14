@@ -147,6 +147,7 @@ SYSTEM PdbReadStruct(const char *file) { //{{{
       mt_id = Count->MoleculeType;
       NewMolType(&System.MoleculeType, &Count->MoleculeType,
                  split[3], 1, 0, 0, 0, 0);
+      System.MoleculeType[mt_id].Named = true;
       System.MoleculeType[mt_id].nBeads = 0;
       System.MoleculeType[mt_id].Number = 0;
     }
@@ -251,6 +252,7 @@ static bool ReadMoleculetype(const char *file, FILE *fr,
   // new molecule type with no beads, bonds, etc.
   NewMolType(&System->MoleculeType, &Count->MoleculeType, split[0],
              0, 0, 0, 0, 0);
+  System->MoleculeType[Count->MoleculeType-1].Named = true;
   return true;
 } //}}}
 // static void ReadAtoms() //{{{

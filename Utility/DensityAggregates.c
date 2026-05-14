@@ -1,12 +1,8 @@
 #include "../src/AnalysisTools.h"
-#include <stdio.h>
-#include <string.h>
-// TODO: join aggregates!
 // TODO: -m_id option?
 
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
-  "ASSUMES JOINED COORDINATES!\n"
   "DensityAggregates utility calculates radial bead density for aggregates "
   "of given size(s) from their centre of mass. For beads in molecules, "
   "it takes into account only beads from the current aggregate, not from "
@@ -20,7 +16,7 @@ const struct HelpHelp HelpDesc = {
   "Usage: DensityAggregates <input> <in.agg> <width> <output> <size(s)> "
   "[options]",
   .args = 5, // number of mandatory arguments
-  .all = 21, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 19, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -37,12 +33,11 @@ static const struct OptSpec opts[] = {
   {"<width>", NULL, "width of a single bin", OPT_ARG},
   {"<output>", NULL, "output density file (one per size; automatic '<size>.rho' ending)", OPT_ARG},
   {"<size(s)>", NULL, "aggregate sizes for density calculation", OPT_ARG},
-  // {"--joined", NULL, "specify that <input> contains joined  coordinates", OPT_EXTRA},
-  // {"-m", "<name(s)>", "agg size means number of <name(s)> molecules in an aggregate", OPT_EXTRA},
-  // {"-x", "<name(s)>", "exclude specified molecule(s)", OPT_EXTRA},
+  {"--joined", NULL, "specify that <input> contains joined coordinates", OPT_EXTRA},
   {"-m", "<name(s)>", "use number of specified molecule type(s) as aggrete size", OPT_EXTRA},
   {"-x", "<name(s)>", "exclude aggregates containing only specified molecule(s)", OPT_EXTRA},
   {"-only", "<name(s)>", "use only aggregates composed of specified molecule type(s)", OPT_EXTRA},
+  {"-n", "<int> <int>", "calculate for aggregate sizes in given range", OPT_EXTRA},
   // {"-m_id", "<int>", "calculate only for aggregate containing the <int> molecule (by resid numbering in vsf)", OPT_EXTRA},
   {NULL}
 }; //}}}
@@ -218,26 +213,8 @@ int main(int argc, char *argv[]) {
         break;
       }
       count_used++;
-      // TODO: not working always... such as in ~/Code/aggs/sims/complex/1
-      //       DensityAggregates traject.vtf NoSolvent.agg 0.1 out2 27
-      //       stops at Step: 3748
-      //       ...but works when the 3748 step is separated via Selected and
-      //       calculated again through Aggregates
-      //       ...also Aggregates <...> -j <coor> does work!
-      // if (opt.join) {
-      if (false) {
-        // printf("OK\n");
-        // printf("%d\n", Count->Aggregate);
-        // for (int i = 0; i < Count->Aggregate; i++) {
-        //   printf(" %d:", Aggregate[i].nMolecules);
-        //   for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-        //     int mol = Aggregate[i].Molecule[j];
-        //     printf(" %d", System.Molecule[mol].Index);
-        //   }
-        //   putchar('\n');
-        // }
+      if (opt.join) {
         RemovePBCAggregates(distance, Aggregate, &System, join_bt);
-        // printf("OK\n");
       }
       ArrNDd *rho_temp = CreateArr3Dd(Count->BeadType, aggs, bins);
       if (!rho_temp) {

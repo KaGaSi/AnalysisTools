@@ -195,7 +195,7 @@ void PrintBeadType(const SYSTEM System) { //{{{
     max_r = floor(log10(max_m)) + 1 + precision + 1;
   }
   // number of digits of the number of types
-  int types_digits = floor(log10(System.Count.BeadType)) + 1;
+  int types_digits = floor(log10(System.Count.BeadType));
   //}}}
   // print the information
   for (int i = 0; i < System.Count.BeadType; i++) {

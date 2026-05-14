@@ -929,7 +929,11 @@ void MergeMoleculeTypes(SYSTEM *System) {
       MOLECULETYPE *mt_j = &System->MoleculeType[j];
       // i) check numbers of stuff
       // allow merging if names match, or if one (or both) is unnamed (Named=false)
-      bool name_ok = strcmp(mt_i->Name, mt_j->Name) == 0 || !mt_i->Named || !mt_j->Named;
+      bool name_ok = false;
+      if (!mt_i->Named || !mt_j->Named ||
+          strcmp(mt_i->Name, mt_j->Name) == 0) {
+        name_ok = true;
+      }
       if (name_ok &&
           mt_i->nBeads == mt_j->nBeads &&
           mt_i->nAngles == mt_j->nAngles &&
@@ -1233,6 +1237,7 @@ void NewMolType(MOLECULETYPE *MoleculeType[], int *n_types, char *name,
         calloc(n_impropers, sizeof *(*MoleculeType)[mtype].Improper);
   }
   (*MoleculeType)[mtype].nBTypes = 0;
+  (*MoleculeType)[mtype].Named = false;
 }; //}}}
 
 // copy molecule type //{{{
@@ -1810,6 +1815,7 @@ void PruneSystem(SYSTEM *System, int *b_full_to_red) { //{{{
         System->Molecule[new_id].Type = Count->MoleculeType - 1;
         System->Molecule[new_id].Aggregate = mol_old->Aggregate;
         MOLECULETYPE *mt_new = &System->MoleculeType[Count->MoleculeType-1];
+        mt_new->Named = mt_old->Named;
         // copy beads to the new molecule type //{{{
         n_bead = 0;
         for (int j = 0; j < mt_old->nBeads; j++) {
