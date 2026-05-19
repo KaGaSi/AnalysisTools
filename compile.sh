@@ -18,4 +18,5 @@ SRC_DIR=$(pwd)/src
 mkdir -p ${BUILD_DIR}
 cd ${BUILD_DIR}
 cmake ${SRC_DIR}
+# cmake ${SRC_DIR} -DCMAKE_PREFIX_PATH=$HOME/local
 make

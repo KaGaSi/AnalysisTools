@@ -1,0 +1,16 @@
+Amphiphile (A=head, B=tail)
+
+species 4
+A  1  0  0
+B  1  0  0
+S1 1  0  1300
+S2 1  0  1500
+molecule 1
+AB
+nummols 80
+beads 2
+A  0.0  0  0
+B  0.5  0  0
+bonds 1
+harm 1 2 100 0.5
+finish

@@ -1,4 +1,6 @@
 #!/bin/env bash
+# make the script runnable from anywhere
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 ###############################################################################
 # This script creates a bilayer spanning yz plane of the simulation box and adds
@@ -23,9 +25,9 @@
 # path to the executable - default assumes AddToSystem is in the $PATH
 bin="AddToSystem"
 
-surf1=A5B1.FIELD # FIELD file defining the 1st surfactant molecule
-surf2=E5D1.FIELD # FIELD file defining the 2nd surfactant molecule
-solvent=W.FIELD # FIELD file defining the water and salt beads
+surf1="${ROOT}/A5B1.FIELD" # FIELD file defining the 1st surfactant molecule
+surf2="${ROOT}/E5D1.FIELD" # FIELD file defining the 2nd surfactant molecule
+solvent="${ROOT}/W.FIELD" # FIELD file defining the water and salt beads
 count=0 # name the files in every step as <count>.vtf and <count>.FIELD
 
 # create first layer from scratch (200 A5B1 molecules)

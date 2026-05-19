@@ -2,7 +2,7 @@
 
 This directory contains examples showing how `AddToSystem` can be used in
 practice: from minimal, single-command invocations to more realistic,
-multi-step system construction workflows.
+multistep system construction workflows.
 
 These examples are not meant as tutorials. They assume you have already looked
 through the manual and are comfortable with the basic command-line interface,
@@ -20,11 +20,23 @@ The examples are ordered roughly from simple to complex:
   Illustrates how systems can be grown incrementally by chaining coordinate
   files and repeatedly using `--add` combined with other options.
 - **03-AssymetricBilayer**
-  A more realistic, multi-step workflow that builds an asymmetric bilayer using
+  A more realistic, multistep workflow that builds an asymmetric bilayer using
   spatial constraints, mixed molecule types, and composition gradients.
 - **04-Cylinder**
-  Another multi-step workflow that builds a cylindrical aggregate spanning the
+  Another multistep workflow that builds a cylindrical aggregate spanning the
   simulation box.
+- **05-LibraryBuild**
+  Builds a system from scratch using `-lib`/`-mol`/`-ntot`, then generates a
+  complete FIELD file with DPD interactions using `Info -lib`.  Also shows
+  `-sys` for writing and re-using a system info file when extending an existing
+  system with `-lib`.  Uses the shared molecule library in `Examples/library/`.
+- **06-ExchangeBeads**
+  Shows exchange mode (`-xb`), distance constraints relative to bonded beads
+  (`--bonded`), placement anchored to the molecule's tail bead (`--tail`), and
+  reproducible placement (`-s`).
+- **07-RealCoordinates**
+  Shows `--real` with negative box coordinates (LAMMPS-style centred box) and
+  `-ebt` to reserve extra bead type slots in a LAMMPS data file output.
 
 ## Scope and intent
 

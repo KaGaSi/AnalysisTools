@@ -1,7 +1,7 @@
 #!/bin/bash
-# requires the commonly used 'bc' utility for doing some calculations
-# TODO: include awk calc() function - or maybe not? I mean, bc is simple; awk is
-#       nice... right? Hmm...
+# make the script runnable from anywhere
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "${ROOT}/../../func.sh"
 
 ###############################################################################
 # This scripts creates a wire-like aggregate spanning z-axis of the simulation
@@ -29,27 +29,29 @@
 
 # path to the executable - default assumes AddToSystem is in the $PATH
 bin="AddToSystem"
+in_field1="${ROOT}/A4B6.FIELD"
+in_field2="${ROOT}/W.FIELD"
 
 # make 20 layers, each a 6-pointed star, stacking them in z-axis direction
 for (( i=0; i<20; i++ )); do # go over whole z- coordinate
   # constraint in z-axis; i.e., what layer is being build
-  cz1=$(echo "scale=2; ${i}*0.05" | bc)
-  cz2=$(echo "scale=2; (${i}+1)*0.05" | bc)
+  cz1=$(calc "${i}*0.05" 2)
+  cz2=$(calc "(${i}+1)*0.05" 2)
   for (( j=0; j<6; j++ )); do # create one layer
     # add z- to x- and y-axis constraints
     constraint="-cx 0.49 0.51 -cy 0.49 0.51 -cz ${cz1} ${cz2} --head"
     if [[ ${i} == 0 && ${j} == 0 ]]; then # first molecule creates a new file
-      ${bin} - A4B6.FIELD new.data ${constraint} --no-rotate
+      ${bin} - ${in_field1} new.data ${constraint} --no-rotate
     else # other molecules are added to an existing file
       # in each layer, molecules are 60° apart; layers are shifted by 25°
       angle=$(( j * 60 + i * 25 ))
-      ${bin} old.data A4B6.FIELD new.data ${constraint} -a ${angle} 0 0 --add
+      ${bin} old.data ${in_field1} new.data ${constraint} -a ${angle} 0 0 --add
     fi
     # move new file to be used in the next cycle as an input file
     mv {new,old}.data
   done
 done
 # add solvent outside the aggregate; corresponds to overall number density 3
-${bin} old.data W.FIELD Wire.data -ld 0.5 -bt A B --add -o Wire.vtf
+${bin} old.data ${in_field2} Wire.data -ld 0.5 -bt A B --add -o Wire.vtf
 # remove temporary file
 rm old.data
