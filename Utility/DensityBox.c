@@ -11,7 +11,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: DensityBox <input> <width> <output> [options]",
   .args = 3, // number of mandatory arguments
-  .all = 13, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 14, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -25,14 +25,16 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_VERSION],
   {"<input>", NULL, "input coordinate file", OPT_ARG},
   {"<width>", NULL, "width of a single bin", OPT_ARG},
-  {"<output>", NULL, "3 output files (automatic ending -<axis>.rho)", OPT_ARG},
+  {"<output>", NULL, "3 output files (automatic ending -<axis>.txt)", OPT_ARG},
   {"-x", "<name(s)>", "exclude specified molecule(s)", OPT_EXTRA},
+  {"--per-bead", NULL, "density per bead position within each molecule type (instead of per bead type)", OPT_EXTRA},
   {NULL}
 }; //}}}
 
 // structure for options //{{{
 struct OPT {
-  bool *x; // -x option
+  bool *x;       // -x option
+  bool per_bead; // --per-bead option
 }; //}}}
 
 int main(int argc, char *argv[]) {
@@ -57,9 +59,11 @@ int main(int argc, char *argv[]) {
   // <outputt> - filename
   char fout_rho[LINE] = "";
   s_strcpy(fout_rho, argv[++count], LINE);
-  fout_rho[LINE-7] = '\0'; // for adding -<axis>.rho
+  fout_rho[LINE-7] = '\0'; // for adding -<axis>.txt
   // options before reading system data
   COMMON_OPT commons = CommonOptions(argc, argv, in); //}}}
+
+  opt.per_bead = BoolOption(argc, argv, "--per-bead");
 
   if (!commons.silent) {
     PrintCommand(stdout, argc, argv);
@@ -76,6 +80,31 @@ int main(int argc, char *argv[]) {
   InitBoolArray(opt.x, Count->MoleculeType, true);
   TypeOption(argc, argv, "-x", 'm', false, opt.x, System);
 
+  // --per-bead: precompute per-molecule-type offsets and per-bead position index //{{{
+  int total_pos = 0;
+  int *offset = NULL;   // offset[mt] = first column index for molecule type mt
+  int *bead_pos = NULL; // bead_pos[bead_id] = index of bead within its molecule
+  if (opt.per_bead) {
+    if (!(offset = calloc(Count->MoleculeType + 1, sizeof *offset))) {
+      ErrorAlloc("offset");
+    }
+    for (int mt = 0; mt < Count->MoleculeType; mt++) {
+      offset[mt] = total_pos;
+      total_pos += System.MoleculeType[mt].nBeads;
+    }
+    offset[Count->MoleculeType] = total_pos;
+    if (!(bead_pos = calloc(Count->Bead, sizeof *bead_pos))) {
+      ErrorAlloc("bead_pos");
+    }
+    for (int m = 0; m < Count->Molecule; m++) {
+      int mtype = System.Molecule[m].Type;
+      for (int b = 0; b < System.MoleculeType[mtype].nBeads; b++) {
+        bead_pos[System.Molecule[m].Bead[b]] = b;
+      }
+    }
+  }
+  int n_cols = opt.per_bead ? total_pos : Count->BeadType; //}}}
+
   // number of bins //{{{
   if (box->Volume == -1) {
     err_msg("missing box dimensions");
@@ -90,10 +119,10 @@ int main(int argc, char *argv[]) {
   } //}}}
   int bin_max = Max3(bin[0], bin[1], bin[2]);
 
-  bool *n_beads = calloc(Count->BeadType, sizeof *n_beads);
-  ArrNDli *rho = CreateArr3Dli(3, Count->BeadType, bin_max);
-  if (!n_beads || !rho) {
-    ErrorAlloc("n_beads/rho");
+  bool *n_used = calloc(n_cols, sizeof *n_used);
+  ArrNDli *rho = CreateArr3Dli(3, n_cols, bin_max);
+  if (!n_used || !rho) {
+    ErrorAlloc("n_used/rho");
   }
 
   if (commons.verbose) {
@@ -120,7 +149,7 @@ int main(int argc, char *argv[]) {
       count_used++;
       WrapJoinCoordinates(&System, true, false);
 
-      ArrNDi *rho_temp = CreateArr3Di(3, Count->BeadType, bin_max);
+      ArrNDi *rho_temp = CreateArr3Di(3, n_cols, bin_max);
       if (!rho_temp) {
         ErrorAlloc("rho_temp");
       }
@@ -136,15 +165,23 @@ int main(int argc, char *argv[]) {
           use = opt.x[mtype];
         }
         if (use) {
-          n_beads[bead->Type] = true;
+          int col;
+          if (opt.per_bead) {
+            if (mol == -1) continue; // skip unbonded beads in --per-bead mode
+            int mtype = System.Molecule[mol].Type;
+            col = offset[mtype] + bead_pos[id];
+          } else {
+            col = bead->Type;
+          }
+          n_used[col] = true;
           for (int dd = 0; dd < 3; dd++) {
             int j = bead->Position.v[dd] / width;
-            AddArr3D(rho_temp, dd, bead->Type, j, 1);
+            AddArr3D(rho_temp, dd, col, j, 1);
           }
         }
       } //}}}
       // add from temporary density arrays to global density arrays
-      for (int j = 0; j < Count->BeadType; j++) {
+      for (int j = 0; j < n_cols; j++) {
         for (int dd = 0; dd < 3; dd++) {
           for (int k = 0; k < bin[dd]-1; k++) {
             AddArr3D(rho, dd, j, k, GetArr3D(rho_temp, dd, j, k));
@@ -191,18 +228,30 @@ int main(int argc, char *argv[]) {
       bins = bin[2];
     }
     char file[LINE]; // filename <output>-<axis>.rho
-    if (snprintf(file, LINE, "%s-%c.rho", fout_rho, axis) < 0) {
+    if (snprintf(file, LINE, "%s-%c.txt", fout_rho, axis) < 0) {
       ErrorSnprintf();
     }
     // write initial stuff to output density file
     FILE *fw = PrintBylineOpenFile(file, argc, argv);
-    // print bead type names to output file
+    // print column headers to output file
     fprintf(fw, "# columns: (1) distance");
     count = 1;
-    for (int i = 0; i < Count->BeadType; i++) {
-      if (n_beads[i]) {
-        count++;
-        fprintf(fw, "; (%d) %s", count, System.BeadType[i].Name);
+    if (opt.per_bead) {
+      for (int mt = 0; mt < Count->MoleculeType; mt++) {
+        for (int b = 0; b < System.MoleculeType[mt].nBeads; b++) {
+          int col = offset[mt] + b;
+          if (n_used[col]) {
+            count++;
+            fprintf(fw, "; (%d) %s:%d", count, System.MoleculeType[mt].Name, b + 1);
+          }
+        }
+      }
+    } else {
+      for (int i = 0; i < Count->BeadType; i++) {
+        if (n_used[i]) {
+          count++;
+          fprintf(fw, "; (%d) %s", count, System.BeadType[i].Name);
+        }
       }
     }
     putc('\n', fw);
@@ -226,10 +275,10 @@ int main(int argc, char *argv[]) {
       double dist = width * (2 * i + 1) / 2;
       count = 0;
       SetArr2D(data, i, count++, dist);
-      for (int j = 0; j < Count->BeadType; j++) {
-        if (n_beads[j]) {
-          double rho_temp = GetArr3D(rho, ax, j, i) / (volume * count_used);
-          SetArr2D(data, i, count++, rho_temp);
+      for (int j = 0; j < n_cols; j++) {
+        if (n_used[j]) {
+          double rho_val = GetArr3D(rho, ax, j, i) / (volume * count_used);
+          SetArr2D(data, i, count++, rho_val);
         }
       }
     }
@@ -241,8 +290,10 @@ int main(int argc, char *argv[]) {
 
   FreeSystem(&System);
   FreeArrND(rho);
-  free(n_beads);
+  free(n_used);
   free(opt.x);
+  free(offset);
+  free(bead_pos);
 
   return 0;
 }
