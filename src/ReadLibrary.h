@@ -2,6 +2,7 @@
 #define READ_LIBRARY_H
 
 #include "AnalysisTools.h"
+#include <dirent.h>
 
 #define LIB_MAX_IDS 64
 #define LIB_MAX_INTER 512
@@ -46,6 +47,13 @@ void FillPotFromLibrary(const LIBRARY *lib, const SYSTEM *System, ArrNDd *pot);
 // Add n_mols copies of mol_name to lib->System
 void ReadLibraryMolecule(const char *lib_dir, const char *mol_name,
                          int n_mols, LIBRARY *lib);
+
+// Read mol_name and its counterion cion_name together into one MoleculeType.
+// All beads per molecule are laid out contiguously (parent then counterion),
+// so LAMMPS data files and AnalysisTools readers see them as a single unit.
+void ReadLibraryMoleculeWithCion(const char *lib_dir, const char *mol_name,
+                                  const char *cion_name, int n_mols,
+                                  LIBRARY *lib);
 
 // Return n_beads and counterion name for mol_name from list_molecules.txt.
 // n_beads includes counterion bead(s); cion is empty if has_counterion==0.

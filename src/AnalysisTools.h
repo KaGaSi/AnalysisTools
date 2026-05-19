@@ -19,5 +19,7 @@
 #include "Pairs.h"
 #include "MainLoop.h"
 #include "Debug.h"
+#include "ReadLibrary.h"
+#include "ReadWriteSysInfo.h"
 
 #endif

@@ -413,6 +413,31 @@ void ReadLibraryMolecule(const char *lib_dir, const char *mol_name,
     } //}}}
   }
   fclose(fr);
+  // 1-bead molecules are added as free (unbonded) beads with no MoleculeType
+  if (n_beads == 1) {
+    int bt = FindBeadType(bead_names[0], *Sys);
+    if (bt == -1) {
+      if (snprintf(ERROR_MSG, LINE, "bead type '%s%s%s' not in library"
+                   " (molecule %s%s%s)", ErrYellow(), bead_names[0], ErrRed(),
+                   ErrYellow(), mol_name, ErrRed()) < 0) ErrorSnprintf();
+      PrintError(); exit(1);
+    }
+    Sys->Bead = s_realloc(Sys->Bead,
+                          (Count->Bead + n_mols) * sizeof *Sys->Bead);
+    for (int m = 0; m < n_mols; m++) {
+      int bid = Count->Bead + m;
+      BEAD *bead = &Sys->Bead[bid];
+      InitBead(bead);
+      bead->Type = bt;
+      bead->Molecule = -1;
+      bead->InTimestep = true;
+      bead->Position = bead_pos[0];
+    }
+    Count->Bead     += n_mols;
+    Count->Unbonded += n_mols;
+    Sys->BeadType[bt].Number += n_mols;
+    return;
+  }
   // Create MoleculeType entry
   int mt_idx = Count->MoleculeType;
   NewMolType(&Sys->MoleculeType, &Count->MoleculeType, (char *)mol_name,
@@ -487,6 +512,202 @@ void ReadLibraryMolecule(const char *lib_dir, const char *mol_name,
   Count->Bead += n_mols * n_beads;
   Count->Bonded += n_mols * n_beads;
   for (int b = 0; b < n_beads; b++) {
+    Sys->BeadType[mt->Bead[b]].Number += n_mols;
+  }
+} //}}}
+// Read parent molecule and counterion together into a single MoleculeType.
+// All beads per molecule are laid out contiguously: parent beads first, then
+// counterion bead(s), so the LAMMPS data file writer sees them as one block. //{{{
+void ReadLibraryMoleculeWithCion(const char *lib_dir, const char *mol_name,
+                                  const char *cion_name, int n_mols,
+                                  LIBRARY *lib) {
+  SYSTEM *Sys = &lib->System;
+  COUNT *Count = &Sys->Count;
+
+  // --- read parent molecule file (identical parsing to ReadLibraryMolecule) ---
+  char mol_file[LINE], path[LINE];
+  snprintf(mol_file, LINE, "%s.txt", mol_name);
+  BuildPath(lib_dir, mol_file, path);
+  FILE *fr = OpenFile(path, "r");
+  char bead_names[64][BEAD_NAME];
+  vec3d bead_pos[64];
+  char bond_ids_str[256][16];
+  int bond_bi[256], bond_bj[256];
+  char angle_ids_str[256][16];
+  int angle_bi[256], angle_bj[256], angle_bk[256];
+  int n_beads = 0, n_bonds = 0, n_angles = 0;
+  bool found_key = false, found_nbeads = false,
+       in_bonds = false, in_angles = false,
+       bonds_need_count = false, angles_need_count = false;
+  while (ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
+    if (words == 0 || split[0][0] == '#') continue;
+    if (strncasecmp(split[0], "Bonds",  5) == 0) {
+      in_bonds = true; in_angles = false; bonds_need_count = true; continue;
+    } else if (strncasecmp(split[0], "Angles", 6) == 0) {
+      in_angles = true; in_bonds = false; angles_need_count = true; continue;
+    } else if (strncasecmp(split[0], "End", 3) == 0) {
+      break;
+    }
+    if (bonds_need_count)  { bonds_need_count  = false; continue; }
+    if (angles_need_count) { angles_need_count = false; continue; }
+    if (in_bonds) {
+      if (words < 3) continue;
+      long bi, bj;
+      if (!IsWholeNumber(split[1], &bi) || !IsWholeNumber(split[2], &bj)) continue;
+      s_strcpy(bond_ids_str[n_bonds], split[0], 16);
+      bond_bi[n_bonds] = bi; bond_bj[n_bonds] = bj; n_bonds++;
+      continue;
+    }
+    if (in_angles) {
+      if (words < 4) continue;
+      long bi, bj, bk;
+      if (!IsWholeNumber(split[1], &bi) || !IsWholeNumber(split[2], &bj) ||
+          !IsWholeNumber(split[3], &bk)) continue;
+      s_strcpy(angle_ids_str[n_angles], split[0], 16);
+      angle_bi[n_angles] = bi; angle_bj[n_angles] = bj;
+      angle_bk[n_angles] = bk; n_angles++;
+      continue;
+    }
+    if (!found_key)    { found_key    = true; continue; }
+    if (!found_nbeads) {
+      long n; if (IsWholeNumber(split[0], &n)) found_nbeads = true;
+      continue;
+    }
+    if (words >= 5 && n_beads < 64) {
+      double x, y, z;
+      if (!IsRealNumber(split[2], &x) || !IsRealNumber(split[3], &y) ||
+          !IsRealNumber(split[4], &z)) continue;
+      s_strcpy(bead_names[n_beads], split[1], BEAD_NAME);
+      bead_pos[n_beads] = (vec3d){.v = {x, y, z}};
+      n_beads++;
+    }
+  }
+  fclose(fr);
+
+  // --- read counterion file (beads only; counterions have no bonds) ---
+  char cion_bead_names[64][BEAD_NAME];
+  vec3d cion_bead_pos[64];
+  int n_cion = 0;
+  snprintf(mol_file, LINE, "%s.txt", cion_name);
+  BuildPath(lib_dir, mol_file, path);
+  fr = OpenFile(path, "r");
+  found_key = false; found_nbeads = false;
+  while (ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
+    if (words == 0 || split[0][0] == '#') continue;
+    if (strncasecmp(split[0], "End",    3) == 0) break;
+    if (strncasecmp(split[0], "Bonds",  5) == 0 ||
+        strncasecmp(split[0], "Angles", 6) == 0) break;
+    if (!found_key)    { found_key    = true; continue; }
+    if (!found_nbeads) {
+      long n; if (IsWholeNumber(split[0], &n)) found_nbeads = true;
+      continue;
+    }
+    if (words >= 5 && n_cion < 64) {
+      double x, y, z;
+      if (IsRealNumber(split[2], &x) && IsRealNumber(split[3], &y) &&
+          IsRealNumber(split[4], &z)) {
+        s_strcpy(cion_bead_names[n_cion], split[1], BEAD_NAME);
+        cion_bead_pos[n_cion] = (vec3d){.v = {x, y, z}};
+        n_cion++;
+      }
+    }
+  }
+  fclose(fr);
+
+  // --- build single MoleculeType with parent + counterion beads ---
+  int total_beads = n_beads + n_cion;
+  int mt_idx = Count->MoleculeType;
+  NewMolType(&Sys->MoleculeType, &Count->MoleculeType, (char *)mol_name,
+             total_beads, n_bonds, n_angles, 0, 0);
+  MOLECULETYPE *mt = &Sys->MoleculeType[mt_idx];
+  mt->Number = n_mols;
+  mt->Named  = true;
+  // parent bead types
+  for (int i = 0; i < n_beads; i++) {
+    int bt = FindBeadType(bead_names[i], *Sys);
+    if (bt == -1) {
+      if (snprintf(ERROR_MSG, LINE, "bead type '%s%s%s' not in library"
+                   "(molecule %s%s%s)", ErrYellow(), bead_names[i], ErrRed(),
+                   ErrYellow(), mol_name, ErrRed()) < 0) ErrorSnprintf();
+      PrintError(); exit(1);
+    }
+    mt->Bead[i] = bt;
+  }
+  // counterion bead types
+  for (int b = 0; b < n_cion; b++) {
+    int bt = FindBeadType(cion_bead_names[b], *Sys);
+    if (bt == -1) {
+      if (snprintf(ERROR_MSG, LINE, "counterion bead type '%s%s%s' not in library",
+                   ErrYellow(), cion_bead_names[b], ErrRed()) < 0) ErrorSnprintf();
+      PrintError(); exit(1);
+    }
+    mt->Bead[n_beads + b] = bt;
+  }
+  // bond topology
+  for (int i = 0; i < n_bonds; i++) {
+    mt->Bond[i][0] = bond_bi[i] - 1;
+    mt->Bond[i][1] = bond_bj[i] - 1;
+    int bt_idx = -1;
+    for (int k = 0; k < lib->n_bond_ids; k++) {
+      if (strcmp(lib->bond_id[k].id, bond_ids_str[i]) == 0) {
+        bt_idx = lib->bond_id[k].index; break;
+      }
+    }
+    mt->Bond[i][2] = bt_idx;
+  }
+  // angle topology
+  for (int i = 0; i < n_angles; i++) {
+    mt->Angle[i][0] = angle_bi[i] - 1;
+    mt->Angle[i][1] = angle_bj[i] - 1;
+    mt->Angle[i][2] = angle_bk[i] - 1;
+    int at_idx = -1;
+    for (int k = 0; k < lib->n_angle_ids; k++) {
+      if (strcmp(lib->angle_id[k].id, angle_ids_str[i]) == 0) {
+        at_idx = lib->angle_id[k].index; break;
+      }
+    }
+    mt->Angle[i][3] = at_idx;
+  }
+  // allocate Bead[] and Molecule[] arrays; each mol gets total_beads contiguous beads
+  Sys->Bead = s_realloc(Sys->Bead,
+                        (Count->Bead + n_mols * total_beads) * sizeof *Sys->Bead);
+  Sys->Molecule = s_realloc(Sys->Molecule,
+                            (Count->Molecule + n_mols) * sizeof *Sys->Molecule);
+  for (int m = 0; m < n_mols; m++) {
+    int mol_id = Count->Molecule + m;
+    MOLECULE *mol = &Sys->Molecule[mol_id];
+    InitMolecule(mol);
+    mol->Type = mt_idx;
+    mol->InTimestep = true;
+    mol->Index = mol_id;
+    mol->Bead = calloc(total_beads, sizeof *mol->Bead);
+    // parent beads
+    for (int b = 0; b < n_beads; b++) {
+      int bid = Count->Bead + m * total_beads + b;
+      BEAD *bead = &Sys->Bead[bid];
+      InitBead(bead);
+      bead->Type = mt->Bead[b];
+      bead->Molecule = mol_id;
+      bead->InTimestep = true;
+      bead->Position = bead_pos[b];
+      mol->Bead[b] = bid;
+    }
+    // counterion bead(s)
+    for (int b = 0; b < n_cion; b++) {
+      int bid = Count->Bead + m * total_beads + n_beads + b;
+      BEAD *bead = &Sys->Bead[bid];
+      InitBead(bead);
+      bead->Type = mt->Bead[n_beads + b];
+      bead->Molecule = mol_id;
+      bead->InTimestep = true;
+      bead->Position = cion_bead_pos[b];
+      mol->Bead[n_beads + b] = bid;
+    }
+  }
+  Count->Molecule += n_mols;
+  Count->Bead     += n_mols * total_beads;
+  Count->Bonded   += n_mols * total_beads;
+  for (int b = 0; b < total_beads; b++) {
     Sys->BeadType[mt->Bead[b]].Number += n_mols;
   }
 } //}}}
@@ -577,21 +798,55 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
       }
     }
     fclose(fr);
-    // wrong number of beads between SYSTEM and library - skip this molecule
+    // if parent bead count doesn't match, try accounting for a merged counterion
+    char cion_bead_names[64][BEAD_NAME];
+    int n_cion = 0;
     if (n_beads != mt_sys->nBeads) {
-      continue;
+      LIB_MOL_INFO info = LibraryMoleculeInfo(lib_dir, mt_sys->Name);
+      if (info.cion[0] == '\0') continue;
+      char cion_file[LINE], cion_path[LINE];
+      snprintf(cion_file, LINE, "%s.txt", info.cion);
+      BuildPath(lib_dir, cion_file, cion_path);
+      FILE *cf = fopen(cion_path, "r");
+      if (!cf) continue;
+      bool ck = false, cn = false;
+      while (ReadAndSplitLine(cf, SPL_STR, " \t\n")) {
+        if (words == 0 || split[0][0] == '#') continue;
+        if (strncasecmp(split[0], "Bonds",  5) == 0 ||
+            strncasecmp(split[0], "Angles", 6) == 0 ||
+            strncasecmp(split[0], "End",    3) == 0) break;
+        if (!ck) { ck = true; continue; }
+        if (!cn) { long nv; if (IsWholeNumber(split[0], &nv)) cn = true; continue; }
+        if (words >= 5 && n_cion < 64) {
+          double x;
+          if (!IsRealNumber(split[2], &x)) continue;
+          s_strcpy(cion_bead_names[n_cion], split[1], BEAD_NAME);
+          n_cion++;
+        }
+      }
+      fclose(cf);
+      if (n_beads + n_cion != mt_sys->nBeads) continue;
     }
-    // make molecule's bead types into library's bead types
+    // rename parent bead types
     for (int b = 0; b < n_beads; b++) {
       int sys_bt = mt_sys->Bead[b];
       int lib_bt = FindBeadType(bead_names[b], lib->System);
-      if (lib_bt == -1) {
-        continue;
-      }
+      if (lib_bt == -1) continue;
       BEADTYPE *lib_btp = &lib->System.BeadType[lib_bt];
       s_strcpy(sys->BeadType[sys_bt].Name, lib_btp->Name, BEAD_NAME);
       sys->BeadType[sys_bt].Charge = lib_btp->Charge;
-      sys->BeadType[sys_bt].Mass = lib_btp->Mass;
+      sys->BeadType[sys_bt].Mass   = lib_btp->Mass;
+      sys->BeadType[sys_bt].Radius = lib_btp->Radius;
+    }
+    // rename counterion bead types
+    for (int b = 0; b < n_cion; b++) {
+      int sys_bt = mt_sys->Bead[n_beads + b];
+      int lib_bt = FindBeadType(cion_bead_names[b], lib->System);
+      if (lib_bt == -1) continue;
+      BEADTYPE *lib_btp = &lib->System.BeadType[lib_bt];
+      s_strcpy(sys->BeadType[sys_bt].Name, lib_btp->Name, BEAD_NAME);
+      sys->BeadType[sys_bt].Charge = lib_btp->Charge;
+      sys->BeadType[sys_bt].Mass   = lib_btp->Mass;
       sys->BeadType[sys_bt].Radius = lib_btp->Radius;
     }
   } //}}}

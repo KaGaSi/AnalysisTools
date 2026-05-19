@@ -418,22 +418,28 @@ int main(int argc, char *argv[]) {
   // read Aggregates command if --join is used or...
   bool *join_bt = NULL;
   if (opt.join) {
-    if (!(join_bt = calloc(Count->BeadType, *join_bt))) {
+    if (!(join_bt = calloc(Count->BeadType, sizeof *join_bt))) {
       ErrorAlloc("join_bt");
     }
     ReadAndSplitLine(agg, SPL_STR, " \t\n");
-    // find bead types
-    for (count = 5; count < words && split[count][0] != '-'; count++) {
-      int btype = FindBeadType(split[count], System);
-      if (btype == -1) {
-        snprintf(ERROR_MSG, LINE, "bead type %s%s%s from Aggregate command "
-                 "does not exist in the system",
-                 ErrYellow(), split[count], ErrRed());
-        PrintErrorFile(in.stru.name, in_agg, "\0");
-        exit(1);
+    // find bead types after -bt
+    for (count = 5; count < words; count++) {
+      if (strcmp(split[count], "-bt") == 0) {
+        for (count++; count < words && split[count][0] != '-'; count++) {
+          int btype = FindBeadType(split[count], System);
+          if (btype == -1) {
+            snprintf(ERROR_MSG, LINE, "bead type %s%s%s from Aggregate command "
+                     "does not exist in the system",
+                     ErrYellow(), split[count], ErrRed());
+            PrintErrorFile(in.stru.name, in_agg, "\0");
+            exit(1);
+          }
+          join_bt[btype] = true;
+        }
+        break;
       }
     }
-    for (; count < words; count++) {
+    for (count = 5; count < words; count++) {
       if (strcmp(split[count], "-d") == 0) {
         if ((count+1) >= words || !IsRealNumber(split[count+1], &distance)) {
           err_msg("wrong distance in Aggregate command (-d option); "

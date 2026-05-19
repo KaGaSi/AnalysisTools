@@ -3,7 +3,7 @@
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
   "OrientOrder utility calculates the orientational order parameter "
-  "S = 0.5*(3*cos²θ - 1) for specified bead pairs in specified molecule "
+  "S=0.5*(3*cos^2<angle>-1) for specified bead pairs in specified molecule "
   "type(s), where θ is the angle between the bead-pair vector and the "
   "bilayer normal axis. For each pair it outputs the distribution of S "
   "over [-0.5, 1] and the average value appended at the bottom of the file.",
@@ -28,7 +28,7 @@ static const struct OptSpec opts[] = {
   {"-m",       "<name(s)>",    "molecule types to use (default: all)",                                         OPT_EXTRA},
   {"--joined", NULL,           "input contains joined coordinates",                                            OPT_EXTRA},
   {"-a",       "<axis>",       "bilayer normal axis: x, y, or z (default: z)",                                 OPT_EXTRA},
-  {"-n",       "<int int ...>","bead pairs (1-indexed, must be in pairs; default: first and last bead)", OPT_EXTRA},
+  {"-n",       "<int int ...>","bead pairs (must be in pairs; default: first and last bead)", OPT_EXTRA},
   {NULL}
 }; //}}}
 

@@ -1901,9 +1901,13 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box, bool prune) {
       int new = i + Count_old.BeadType;
       BEADTYPE *bt_new = &S_out->BeadType[new];
       *bt_new = S_in.BeadType[i];
-      bt_new->Index = malloc(sizeof *bt_new->Index * bt_new->Number);
-      for (int j = 0; j < bt_new->Number; j++) {
-        bt_new->Index[j] = S_in.BeadType[i].Index[j] + Count_old.Bead;
+      if (bt_new->Number > 0) {
+        bt_new->Index = malloc(sizeof *bt_new->Index * bt_new->Number);
+        for (int j = 0; j < bt_new->Number; j++) {
+          bt_new->Index[j] = S_in.BeadType[i].Index[j] + Count_old.Bead;
+        }
+      } else {
+        bt_new->Index = NULL;
       }
     }
   } else {

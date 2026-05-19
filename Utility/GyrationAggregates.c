@@ -147,10 +147,15 @@ int main(int argc, char *argv[]) {
   if (!join_bt) {
     ErrorAlloc("join_bt");
   }
-  for (int i = 5; i < words && split[i][0] != '-'; i++) {
-    int type = FindBeadType(split[i], System);
-    if (type != -1) {
-      join_bt[type] = true;
+  for (int i = 5; i < words; i++) {
+    if (strcmp(split[i], "-bt") == 0) {
+      for (i++; i < words && split[i][0] != '-'; i++) {
+        int type = FindBeadType(split[i], System);
+        if (type != -1) {
+          join_bt[type] = true;
+        }
+      }
+      break;
     }
   }
   // redefine distance if -d option is present

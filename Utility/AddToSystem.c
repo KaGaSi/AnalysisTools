@@ -65,6 +65,7 @@ struct OPT {
   bool ld, hd;             // -ld/-hd
   double ldist, hdist,     //
          axis[3][2];       // -cx/-cy/-cz
+  bool axis_set[3];        // -cx/-cy/-cz
   vec3d angle,             // -a
         off;               // -off
   bool *bt_use_orig,       // -bt
@@ -385,8 +386,7 @@ int main(int argc, char *argv[]) {
   opt.real = BoolOption(argc, argv, "--real");
   // axes constraints (-cx/y/z options) //{{{
   for (int dd = 0; dd < 3; dd++) {
-    opt.axis[dd][0] = -1;
-    opt.axis[dd][1] = -1;
+    opt.axis_set[dd] = false;
     char str[4];
     switch (dd) {
       case 0:
@@ -400,6 +400,7 @@ int main(int argc, char *argv[]) {
         break;
     }
     if (TwoNumbersOption(argc, argv, str, opt.axis[dd], 'd')) {
+      opt.axis_set[dd] = true;
       if (opt.axis[dd][0] == opt.axis[dd][1]) {
         err_msg("two different distance values required");
         PrintErrorOption("-cx/-cy/-cz");
@@ -408,9 +409,8 @@ int main(int argc, char *argv[]) {
         SwapDouble(&opt.axis[dd][0], &opt.axis[dd][1]);
       }
     }
-    if (!opt.real) {
-      if ((opt.axis[dd][0] != -1 && opt.axis[dd][0] > 1) ||
-          (opt.axis[dd][1] != -1 && opt.axis[dd][1] > 1)) {
+    if (!opt.real && opt.axis_set[dd]) {
+      if (opt.axis[dd][0] > 1 || opt.axis[dd][1] > 1) {
         err_msg("unless --real is used, -cx/y/z must be between 0 and 1");
         PrintErrorOption(str);
         exit(1);
@@ -754,11 +754,16 @@ int main(int argc, char *argv[]) {
   // recalculate possible fractional constraints into true dimensions //{{{
   if (!opt.real) {
     for (int dd = 0; dd < 3; dd++) {
-      for (int i = 0; i < 2; i++) {
-        if (opt.axis[dd][i] != -1) {
-          opt.axis[dd][i] = opt.axis[dd][i] * box->Length.v[dd] +
-                            box->Low.v[dd];
-        }
+      if (opt.axis_set[dd]) {
+        opt.axis[dd][0] *= box->Length.v[dd];
+        opt.axis[dd][1] *= box->Length.v[dd];
+      }
+    }
+  } else {
+    for (int dd = 0; dd < 3; dd++) {
+      if (opt.axis_set[dd]) {
+        opt.axis[dd][0] -= box->Low.v[dd];
+        opt.axis[dd][1] -= box->Low.v[dd];
       }
     }
   } //}}}
@@ -876,7 +881,7 @@ int main(int argc, char *argv[]) {
     CalculateBoxData(&opt.box, 0);
   }
   for (int dd = 0; dd < 3; dd++) {
-    if (opt.axis[dd][0] != -1) {
+    if (opt.axis_set[dd]) {
       opt.box.Low.v[dd] = opt.axis[dd][0];
       opt.box.Length.v[dd] = opt.axis[dd][1] - opt.axis[dd][0];
     }
@@ -1010,12 +1015,16 @@ int main(int argc, char *argv[]) {
   }
   InitBoolArray(write, C_out->Bead, true); // save all beads
   if (fout.type == LDATA_FILE && opt.ebt > 0) {
-    NewBeadType(&S_out.BeadType, &S_out.Count.BeadType, "extra", 0, 1, 1);
+    for (int i = 0; i < opt.ebt; i++) {
+      NewBeadType(&S_out.BeadType, &S_out.Count.BeadType, "extra", 0, 1, 1);
+    }
   }
   WriteOutput(S_out, write, fout, false, -1, argc, argv);
   if (opt.fout.name[0] != '\0') {
     if (opt.fout.type == LDATA_FILE && opt.ebt > 0) {
-      NewBeadType(&S_out2.BeadType, &S_out2.Count.BeadType, "extra", 0, 1, 1);
+      for (int i = 0; i < opt.ebt; i++) {
+        NewBeadType(&S_out2.BeadType, &S_out2.Count.BeadType, "extra", 0, 1, 1);
+      }
     }
     WriteOutput(S_out2, write, opt.fout, false, -1, argc, argv);
   } //}}}

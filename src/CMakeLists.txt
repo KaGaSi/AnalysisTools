@@ -94,11 +94,12 @@ set(UTILS
   DensityAggregates
   DensityBox
   DiamondNetwork
-  GenParams
   GyrationAggregates
   GyrationMolecules
   Info
   JoinSystems
+  MolOverlap
+  OrientOrder
   PairCorrel
   PersistenceLength
   Selected

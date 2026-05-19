@@ -680,7 +680,7 @@ static void PrintHeaderMassNote(FILE *fw, SYSTEM System, OPT opt) {
             " includes all molecules, and "
             "<As>_w/z (partial mass) = <As>_w/z (total mass)\n");
   } else {
-    fprintf(fw, "# Note: 'partial mass' includes molecules specifid by -m (");
+    fprintf(fw, "# Note: 'partial mass' includes molecules specified by -m (");
     bool first = true;
     for (int i = 0; i < System.Count.MoleculeType; i++) {
       if (opt.agg.m[i]) {
