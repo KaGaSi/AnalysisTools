@@ -28,12 +28,12 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>",  NULL,    "input coordinate file",                        OPT_ARG},
-  {"<width>",  NULL,    "distribution bin width",                       OPT_ARG},
-  {"<output>", NULL,    "output file",                                  OPT_ARG},
-  {"--joined", NULL,    "input coordinates are already joined",         OPT_EXTRA},
-  {"-g",       "<real>","xy grid cell width (default: 2.5)",            OPT_EXTRA},
-  {"-r",       "<real>","distribution half-range (default: 5.0)",       OPT_EXTRA},
+  {"<input>",  NULL,    "input coordinate file",                   OPT_ARG},
+  {"<width>",  NULL,    "distribution bin width",                  OPT_ARG},
+  {"<output>", NULL,    "output file",                             OPT_ARG},
+  {"--joined", NULL,    "input coordinates are already joined",    OPT_EXTRA},
+  {"-g",       "<real>", "xy grid cell width (default: 2.5)",      OPT_EXTRA},
+  {"-r",       "<real>", "distribution half-range (default: 5.0)", OPT_EXTRA},
   {NULL}
 }; //}}}
 
@@ -181,6 +181,7 @@ int main(int argc, char *argv[]) {
 
   // mandatory positional arguments //{{{
   OptionCheck(argc, argv, true, HelpDesc, opts);
+  OPT opt;
   int count = 0;
 
   SYS_FILES in = InitSysFiles;
@@ -199,20 +200,20 @@ int main(int argc, char *argv[]) {
 
   COMMON_OPT commons = CommonOptions(argc, argv, in); //}}}
 
-  // --joined
-  bool join = !BoolOption(argc, argv, "--joined");
+  // --joined option (opt.join == true -> needs joining)
+  opt.join = !BoolOption(argc, argv, "--joined");
 
   // -g: xy grid cell width
-  double gridw = 2.5;
+  opt.gridw = 2.5;
   for (int i = 1; i < argc - 1; i++) {
     if (strcmp(argv[i], "-g") == 0) {
       double v;
       if (!IsPosRealNumber(argv[i + 1], &v)) {
-        err_msg("argument to -g must be a positive real number");
+        err_msg("requires a positive real number");
         PrintErrorOption("-g");
         exit(1);
       }
-      gridw = v;
+      opt.gridw = v;
       break;
     }
   }
@@ -297,18 +298,25 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  int nx = (int)(box->Length.x / gridw);
-  int ny = (int)(box->Length.y / gridw);
-  if (nx < 1) nx = 1;
-  if (ny < 1) ny = 1;
+  int nx = box->Length.x / opt.gridw;
+  int ny = box->Length.y / opt.gridw;
+  if (nx < 1) {
+    nx = 1;
+  }
+  if (ny < 1) {
+    ny = 1;
+  }
 
-  int bins = (int)(2.0 * range / width);
-  if (bins < 1) bins = 1;
+  int bins = 2 * range / width;
+  if (bins < 1) {
+    bins = 1;
+  }
 
   double *dist = calloc(bins, sizeof *dist);
-  if (!dist) ErrorAlloc("dist");
+  if (!dist) {
+    ErrorAlloc("dist");
+  }
 
-  struct OPT opt = { .join = join, .gridw = gridw };
   struct calc_data cd = {
     .opt       = opt,
     .trios     = trios,

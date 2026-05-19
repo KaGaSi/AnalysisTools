@@ -1,5 +1,7 @@
 #include "../src/AnalysisTools.h"
 
+// TODO: -a option for axis (leave -z as default)
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -31,11 +33,11 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>",  NULL,    "input coordinate file",                                 OPT_ARG},
-  {"<width>",  NULL,    "bin width for g2D(r) and |Phi6| distribution",          OPT_ARG},
-  {"<output>", NULL,    "output base name (appends -rdf.txt and -phi6.txt)",     OPT_ARG},
-  {"--joined", NULL,    "input coordinates are already joined",                  OPT_EXTRA},
-  {"-r",       "<real>","neighbour cutoff for |Phi6| in DPD units (default: 1.5)", OPT_EXTRA},
+  {"<input>",  NULL, "input coordinate file",                                OPT_ARG},
+  {"<width>",  NULL, "bin width for g2D(r) and |Phi6| distribution",         OPT_ARG},
+  {"<output>", NULL, "output base name (appends -rdf.txt and -phi6.txt)",    OPT_ARG},
+  {"--joined", NULL, "input coordinates are already joined",                 OPT_EXTRA},
+  {"-r", "<real>","neighbour cutoff for |Phi6| in DPD units (default: 1.5)", OPT_EXTRA},
   {NULL}
 }; //}}}
 
@@ -73,11 +75,12 @@ struct calc_data {
   int    phi6_bins;
   double rdf_max;
   double width;
-  double Lx, Ly;
 }; //}}}
 
 static void Calculation(SYSTEM *System, struct calc_data *cd) {
   WrapJoinCoordinates(System, true, cd->opt.join);
+
+  vec3d *length = &System->Box.Length;
 
   // Collect head bead positions and z-sum for midplane
   double z_sum = 0.0;
@@ -110,15 +113,14 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) {
   memset(cd->nb_cnt, 0, nh * sizeof *cd->nb_cnt);
 
   // Main pair loop: accumulate g2D and Phi6 simultaneously
-  double Lx = cd->Lx, Ly = cd->Ly;
   for (int i = 0; i < nh; i++) {
     for (int j = i + 1; j < nh; j++) {
       if (cd->leaflet[i] != cd->leaflet[j]) continue;
 
       double dx = cd->hx[j] - cd->hx[i];
       double dy = cd->hy[j] - cd->hy[i];
-      dx -= round(dx / Lx) * Lx; // 2D minimum image
-      dy -= round(dy / Ly) * Ly;
+      dx -= round(dx / length->x) * length->x; // 2D minimum image
+      dy -= round(dy / length->y) * length->y;
       double r = sqrt(dx * dx + dy * dy);
       int l = cd->leaflet[i];
 
@@ -168,6 +170,7 @@ int main(int argc, char *argv[]) {
 
   // mandatory positional arguments //{{{
   OptionCheck(argc, argv, true, HelpDesc, opts);
+  OPT opt;
   int count = 0;
 
   SYS_FILES in = InitSysFiles;
@@ -186,25 +189,27 @@ int main(int argc, char *argv[]) {
 
   COMMON_OPT commons = CommonOptions(argc, argv, in); //}}}
 
-  // --joined
-  bool join = !BoolOption(argc, argv, "--joined");
+  // --joined option (opt.join == true -> needs joining)
+  opt.join = !BoolOption(argc, argv, "--joined");
 
   // -r: Phi6 neighbour cutoff
-  double r_cut = 1.5;
+  opt.r_cut = 1.5;
   for (int i = 1; i < argc - 1; i++) {
     if (strcmp(argv[i], "-r") == 0) {
       double v;
       if (!IsPosRealNumber(argv[i + 1], &v)) {
-        err_msg("argument to -r must be a positive real number");
+        err_msg("argument must be a positive real number");
         PrintErrorOption("-r");
         exit(1);
       }
-      r_cut = v;
+      opt.r_cut = v;
       break;
     }
   }
 
-  if (!commons.silent) PrintCommand(stdout, argc, argv);
+  if (!commons.silent) {
+    PrintCommand(stdout, argc, argv);
+  }
 
   SYSTEM System = ReadStructure(in, false);
 
@@ -222,26 +227,33 @@ int main(int argc, char *argv[]) {
   int n_specs = (argc - spec_start) / 2;
   if (n_specs < 1) {
     err_msg("at least one <mol> <bead> pair is required");
-    Help(true, HelpDesc, opts);
-    exit(1);
+    PrintError();
   }
 
   struct HEADSPEC *specs = malloc(n_specs * sizeof *specs);
-  if (!specs) ErrorAlloc("specs");
+  if (!specs) {
+    ErrorAlloc("specs");
+  }
 
   int n_heads = 0;
   for (int s = 0; s < n_specs; s++) {
     int base = spec_start + 2 * s;
     int mt = FindMoleculeName(argv[base], System);
-    if (mt < 0) { ErrorMoleculeType(argv[base], System); exit(1); }
+    if (mt < 0) {
+      ErrorMoleculeType(argv[base], System);
+      exit(1);
+    }
     long v;
     IsNaturalNumber(argv[base + 1], &v);
-    int bead = (int)v - 1; // 1-indexed → 0-indexed
+    int bead = v - 1; // 1-indexed → 0-indexed
     int nb = System.MoleculeType[mt].nBeads;
     if (bead < 0 || bead >= nb) {
-      char msg[LINE];
-      snprintf(msg, LINE, "bead index for '%s' out of range [1, %d]", argv[base], nb);
-      err_msg(msg);
+      if (snprintf(ERROR_MSG, LINE, "wrong bead index %s%d%s for %s%s%s ; "
+          "must be [1, %d]", ErrYellow(), bead + 1, ErrRed(),
+          ErrYellow(), argv[base], ErrRed(), nb) < 0) {
+        ErrorSnprintf();
+      }
+      PrintError();
       exit(1);
     }
     specs[s].mt   = mt;
@@ -258,9 +270,15 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  double Lx = box->Length.x;
-  double Ly = box->Length.y;
-  double rdf_max  = (Lx < Ly ? Lx : Ly) / 2.0;
+  // double Lx = box->Length.x,
+  //        Ly = box->Length.y;
+  // double rdf_max  = (Lx < Ly ? Lx : Ly) / 2.0;
+  double rdf_max;
+  if (box->Length.x < box->Length.y) {
+    rdf_max = box->Length.x / 2;
+  } else {
+    rdf_max = box->Length.y / 2;
+  }
   int rdf_bins  = (int)(rdf_max / width);
   int phi6_bins = (int)ceil(1.0 / width);
   if (rdf_bins  < 1) rdf_bins  = 1;
@@ -285,26 +303,27 @@ int main(int argc, char *argv[]) {
   double *phi1 = calloc(phi6_bins, sizeof *phi1);
   if (!rdf0 || !rdf1 || !phi0 || !phi1) ErrorAlloc("BilayerInPlane output arrays");
 
-  struct OPT opt = { .join = join, .r_cut = r_cut };
   struct calc_data cd = {
-    .opt          = opt,
-    .specs        = specs,
-    .n_specs      = n_specs,
-    .n_heads      = n_heads,
-    .hx = hx, .hy = hy, .hz = hz,
-    .leaflet      = leaflet,
-    .phi6r        = phi6r, .phi6i = phi6i, .nb_cnt = nb_cnt,
-    .rdf          = { rdf0, rdf1 },
-    .n2_sum       = { 0, 0 },
-    .phi6_dist    = { phi0, phi1 },
-    .phi6_sum     = { 0.0, 0.0 },
-    .phi6_cnt     = { 0, 0 },
-    .rdf_bins     = rdf_bins,
-    .phi6_bins    = phi6_bins,
-    .rdf_max      = rdf_max,
-    .width        = width,
-    .Lx           = Lx,
-    .Ly           = Ly,
+    .opt = opt,
+    .specs = specs,
+    .n_specs = n_specs,
+    .n_heads = n_heads,
+    .hx = hx,
+    .hy = hy,
+    .hz = hz,
+    .leaflet = leaflet,
+    .phi6r = phi6r,
+    .phi6i = phi6i,
+    .nb_cnt = nb_cnt,
+    .rdf = { rdf0, rdf1 },
+    .n2_sum = { 0, 0 },
+    .phi6_dist = { phi0, phi1 },
+    .phi6_sum = { 0.0, 0.0 },
+    .phi6_cnt = { 0, 0 },
+    .rdf_bins = rdf_bins,
+    .phi6_bins = phi6_bins,
+    .rdf_max = rdf_max,
+    .width = width,
   };
 
   STEP step = InitStep;
@@ -324,9 +343,13 @@ int main(int argc, char *argv[]) {
     double r = (k + 0.5) * width;
     SetArr2D(data, k, 0, r);
     for (int l = 0; l < 2; l++) {
-      double g = cd.n2_sum[l] > 0
-        ? cd.rdf[l][k] * Lx * Ly / (cd.n2_sum[l] * M_PI * r * width)
-        : 0.0;
+      double g = 0;
+      if (cd.n2_sum[l] > 0) {
+        g = cd.rdf[l][k] * box->Length.x * box->Length.y /
+            (cd.n2_sum[l] * M_PI * r * width);
+      } else {
+        g = 0;
+      }
       SetArr2D(data, k, l + 1, g);
     }
   }
@@ -347,12 +370,19 @@ int main(int argc, char *argv[]) {
       phi6_total[l] += cd.phi6_dist[l][k];
 
   data = CreateArr2Dd(phi6_bins + 2, 3);
-  if (!data) ErrorAlloc("phi6 data");
+  if (!data) {
+    ErrorAlloc("phi6 data");
+  }
   for (int k = 0; k < phi6_bins; k++) {
     double center = (k + 0.5) * width;
     SetArr2D(data, k, 0, center);
     for (int l = 0; l < 2; l++) {
-      double norm = phi6_total[l] > 0 ? cd.phi6_dist[l][k] / phi6_total[l] : 0.0;
+      double norm;
+      if (phi6_total[l] > 0) {
+        norm = cd.phi6_dist[l][k] / phi6_total[l];
+      } else {
+        norm = 0;
+      }
       SetArr2D(data, k, l + 1, norm);
     }
   }
@@ -362,16 +392,34 @@ int main(int argc, char *argv[]) {
 
   fprintf(fw, "# Average |Phi6|:");
   for (int l = 0; l < 2; l++) {
-    double avg = cd.phi6_cnt[l] > 0 ? cd.phi6_sum[l] / cd.phi6_cnt[l] : 0.0;
-    fprintf(fw, " %s=%.6f", l == 0 ? "lower" : "upper", avg);
+    double avg;
+    if (cd.phi6_cnt[l] > 0) {
+      avg = cd.phi6_sum[l] / cd.phi6_cnt[l];
+    } else {
+      avg = 0;
+    }
+    if (l == 0) {
+      fprintf(fw, " lower");
+    } else {
+      fprintf(fw, " upper");
+    }
+    fprintf(fw, "=%.6f", avg);
   }
   putc('\n', fw);
   fclose(fw); //}}}
 
   free(specs);
-  free(hx); free(hy); free(hz); free(leaflet);
-  free(phi6r); free(phi6i); free(nb_cnt);
-  free(rdf0); free(rdf1); free(phi0); free(phi1);
+  free(hx);
+  free(hy);
+  free(hz);
+  free(leaflet);
+  free(phi6r);
+  free(phi6i);
+  free(nb_cnt);
+  free(rdf0);
+  free(rdf1);
+  free(phi0);
+  free(phi1);
   FreeSystem(&System);
 
   return 0;

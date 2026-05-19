@@ -1,6 +1,4 @@
 #include "../src/AnalysisTools.h"
-// TODO: --joined function when RemovePBCAggregates() works
-// TODO: --joined --> --join; make default expectation of joined coordinates
 // TODO: two masses - -bt defined + always total (for contributions of given
 //       subset of beads to the total gyration tensor)
 // TODO: output printing
@@ -78,12 +76,8 @@ int main(int argc, char *argv[]) {
 
   // options before reading system data
   COMMON_OPT commons = CommonOptions(argc, argv, in);
-  // --joined option //{{{
-  if (BoolOption(argc, argv, "--joined")) {
-    opt.join = false; // joined coordinates supplied, so no need to join
-  } else {
-    opt.join = true; // molecules need to be joined
-  } //}}}
+  // --joined option (opt.join == true -> needs joining)
+  opt.join = !BoolOption(argc, argv, "--joined");
   if (!FileOption(argc, argv, "-ps", opt.ps_file)) {
     opt.ps_file[0] = '\0';
   }

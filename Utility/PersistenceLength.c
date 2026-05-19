@@ -152,12 +152,8 @@ int main(int argc, char *argv[]) {
   s_strcpy(fout, argv[++count], LINE);
   // options before reading system data
   COMMON_OPT commons = CommonOptions(argc, argv, in);
-  // --joined option
-  if (BoolOption(argc, argv, "--joined")) {
-    opt.join = false; // joined coordinates supplied, so no need to join
-  } else {
-    opt.join = true; // molecules need to be joined
-  }
+  // --joined option (opt.join == true -> needs joining)
+  opt.join = !BoolOption(argc, argv, "--joined");
   if (!OneNumberOption(argc, argv, "-ns", &opt.ns, 'i')) {
     opt.ns = 1;
   }
