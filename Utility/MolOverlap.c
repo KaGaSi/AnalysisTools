@@ -233,7 +233,9 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (!commons.silent) PrintCommand(stdout, argc, argv);
+  if (!commons.silent) {
+    PrintCommand(stdout, argc, argv);
+  }
 
   SYSTEM System = ReadStructure(in, false);
 

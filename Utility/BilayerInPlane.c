@@ -1,7 +1,5 @@
 #include "../src/AnalysisTools.h"
 
-// TODO: -a option for axis (leave -z as default)
-
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -14,13 +12,12 @@ const struct HelpHelp HelpDesc = {
   "each head-bead z-position to the global midplane (z-COM of all head "
   "beads). Output: <output>-rdf.txt (per-leaflet g2D) and "
   "<output>-phi6.txt (per-leaflet |Phi6| distribution + average). "
-  "At least one <mol> <bead> pair is required at the end of the command "
-  "line (bead index is 1-indexed).",
+  "At least one <mol> <bead> pair is required." ,
 
-  "Usage: BilayerInPlane <input> <width> <output> [options] "
-  "<mol> <bead> [<mol> <bead> ...]",
-  .args = 3,
-  .all = 14,
+  "Usage: BilayerInPlane <input> <width> <output> <mol> <bead> "
+  "[<mol> <bead> ...] [options]",
+  .args = 5,
+  .all = 17,
 };
 
 static const struct OptSpec opts[] = {
@@ -33,11 +30,14 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>",  NULL, "input coordinate file",                                OPT_ARG},
-  {"<width>",  NULL, "bin width for g2D(r) and |Phi6| distribution",         OPT_ARG},
-  {"<output>", NULL, "output base name (appends -rdf.txt and -phi6.txt)",    OPT_ARG},
-  {"--joined", NULL, "input coordinates are already joined",                 OPT_EXTRA},
-  {"-r", "<real>","neighbour cutoff for |Phi6| in DPD units (default: 1.5)", OPT_EXTRA},
+  {"<input>",  NULL,     "input coordinate file",                                   OPT_ARG},
+  {"<width>",  NULL,     "bin width for g2D(r) and |Phi6| distribution",            OPT_ARG},
+  {"<output>", NULL,     "output base name (appends -rdf.txt and -phi6.txt)",       OPT_ARG},
+  {"<mol>",    NULL,     "molecule name",                                           OPT_ARG},
+  {"<bead>",   NULL,     "1-indexed head bead within molecule",                     OPT_ARG},
+  {"--joined", NULL,     "input coordinates are already joined",                    OPT_EXTRA},
+  {"-r",       "<real>", "neighbour cutoff for |Phi6| in DPD units (default: 1.5)", OPT_EXTRA},
+  {"-a",       "<axis>", "bilayer normal axis: x, y, or z (default: z)",            OPT_EXTRA},
   {NULL}
 }; //}}}
 
@@ -49,30 +49,31 @@ struct HEADSPEC {
 
 // option struct //{{{
 struct OPT {
-  bool   join;
+  bool join;    // --join
   double r_cut; // Phi6 neighbour cutoff
+  int axis;     // -a  bilayer normal axis (0=x, 1=y, 2=z)
 }; //}}}
 
 // data passed into the MainLoopCoor callback //{{{
 struct calc_data {
-  struct OPT       opt;
+  struct OPT opt;
   struct HEADSPEC *specs;
-  int              n_specs;
-  int              n_heads;   // total head beads (sum of mtype.Number for all specs)
+  int n_specs,
+      n_heads;   // total head beads (sum of mtype.Number for all specs)
   // per-frame temp arrays (pre-allocated, reset each frame)
-  double *hx, *hy, *hz;
-  int    *leaflet;
+  vec3d *h;
+  int *leaflet;
   double *phi6r, *phi6i;
-  int    *nb_cnt;
+  int *nb_cnt;
   // accumulated per-leaflet data
   double *rdf[2];       // g2D histogram counts [rdf_bins]
-  long    n2_sum[2];    // Σ N² per leaflet over frames (RDF normalisation)
+  long n2_sum[2];       // sum N^2 per leaflet over frames (RDF normalisation)
   double *phi6_dist[2]; // |Phi6| histogram counts [phi6_bins]
-  double  phi6_sum[2];  // Σ |Phi6| per leaflet
-  long    phi6_cnt[2];  // count of valid |Phi6| values per leaflet
+  double  phi6_sum[2];  // sum |Phi6| per leaflet
+  long phi6_cnt[2];     // count of valid |Phi6| values per leaflet
   // parameters
-  int    rdf_bins;
-  int    phi6_bins;
+  int rdf_bins,
+      phi6_bins;
   double rdf_max;
   double width;
 }; //}}}
@@ -80,9 +81,12 @@ struct calc_data {
 static void Calculation(SYSTEM *System, struct calc_data *cd) {
   WrapJoinCoordinates(System, true, cd->opt.join);
 
+  int a  = cd->opt.axis;
+  int p1 = (a + 1) % 3;
+  int p2 = (a + 2) % 3;
   vec3d *length = &System->Box.Length;
 
-  // Collect head bead positions and z-sum for midplane
+  // Collect head bead positions and sum for midplane
   double z_sum = 0.0;
   int nh = 0;
   for (int s = 0; s < cd->n_specs; s++) {
@@ -90,20 +94,24 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) {
     for (int mi = 0; mi < mtype->Number; mi++) {
       MOLECULE *mol = &System->Molecule[mtype->Index[mi]];
       vec3d p = System->Bead[mol->Bead[cd->specs[s].bead]].Position;
-      cd->hx[nh] = p.x;
-      cd->hy[nh] = p.y;
-      cd->hz[nh] = p.z;
-      z_sum += p.z;
+      cd->h[nh] = p;
+      z_sum += p.v[a];
       nh++;
     }
   }
-  if (nh == 0) return;
+  if (nh == 0) {
+    return;
+  }
 
   // Assign leaflets by global midplane
   double midplane = z_sum / nh;
   int n_leaf[2] = {0, 0};
   for (int i = 0; i < nh; i++) {
-    cd->leaflet[i] = (cd->hz[i] > midplane) ? 1 : 0;
+    if (cd->h[i].v[a] > midplane) {
+      cd->leaflet[i] = 1;
+    } else {
+      cd->leaflet[i] = 0;
+    }
     n_leaf[cd->leaflet[i]]++;
   }
 
@@ -117,17 +125,19 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) {
     for (int j = i + 1; j < nh; j++) {
       if (cd->leaflet[i] != cd->leaflet[j]) continue;
 
-      double dx = cd->hx[j] - cd->hx[i];
-      double dy = cd->hy[j] - cd->hy[i];
-      dx -= round(dx / length->x) * length->x; // 2D minimum image
-      dy -= round(dy / length->y) * length->y;
-      double r = sqrt(dx * dx + dy * dy);
+      double dx = cd->h[j].v[p1] - cd->h[i].v[p1];
+      double dy = cd->h[j].v[p2] - cd->h[i].v[p2];
+      dx -= round(dx / length->v[p1]) * length->v[p1]; // 2D minimum image
+      dy -= round(dy / length->v[p2]) * length->v[p2];
+      double r = sqrt(Square(dx) + Square(dy));
       int l = cd->leaflet[i];
 
       // g2D: bin unique pair
       if (r > 0 && r < cd->rdf_max) {
         int k = (int)(r / cd->width);
-        if (k < cd->rdf_bins) cd->rdf[l][k]++;
+        if (k < cd->rdf_bins) {
+          cd->rdf[l][k]++;
+        }
       }
 
       // Phi6: accumulate if within neighbour cutoff
@@ -147,17 +157,19 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) {
   for (int i = 0; i < nh; i++) {
     if (cd->nb_cnt[i] == 0) continue;
     int l = cd->leaflet[i];
-    double mag = sqrt(cd->phi6r[i] * cd->phi6r[i] + cd->phi6i[i] * cd->phi6i[i])
+    double mag = sqrt(Square(cd->phi6r[i]) + Square(cd->phi6i[i]))
                  / cd->nb_cnt[i];
-    int k = (int)(mag / cd->width);
-    if (k >= cd->phi6_bins) k = cd->phi6_bins - 1;
+    int k = mag / cd->width;
+    if (k >= cd->phi6_bins) {
+      k = cd->phi6_bins - 1;
+    }
     cd->phi6_dist[l][k]++;
     cd->phi6_sum[l] += mag;
     cd->phi6_cnt[l]++;
   }
 
   for (int l = 0; l < 2; l++) {
-    cd->n2_sum[l] += (long)n_leaf[l] * n_leaf[l];
+    cd->n2_sum[l] += Square(n_leaf[l]);
   }
 }
 
@@ -169,7 +181,7 @@ static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
 int main(int argc, char *argv[]) {
 
   // mandatory positional arguments //{{{
-  OptionCheck(argc, argv, true, HelpDesc, opts);
+  OptionCheck(argc, argv, false, HelpDesc, opts);
   OPT opt;
   int count = 0;
 
@@ -192,18 +204,26 @@ int main(int argc, char *argv[]) {
   // --joined option (opt.join == true -> needs joining)
   opt.join = !BoolOption(argc, argv, "--joined");
 
-  // -r: Phi6 neighbour cutoff
   opt.r_cut = 1.5;
-  for (int i = 1; i < argc - 1; i++) {
-    if (strcmp(argv[i], "-r") == 0) {
-      double v;
-      if (!IsPosRealNumber(argv[i + 1], &v)) {
-        err_msg("argument must be a positive real number");
-        PrintErrorOption("-r");
-        exit(1);
-      }
-      opt.r_cut = v;
-      break;
+  if (OneNumberOption(argc, argv, "-r", &opt.r_cut, 'd') && opt.r_cut <= 0) {
+    err_msg("requires a positive real number");
+    PrintErrorOption("-r");
+    exit(1);
+  }
+
+  opt.axis = 2;
+  char axis_arg[LINE];
+  if (FileOption(argc, argv, "-a", axis_arg)) {
+    if (axis_arg[0] == 'x') {
+      opt.axis = 0;
+    } else if (axis_arg[0] == 'y') {
+      opt.axis = 1;
+    } else if (axis_arg[0] == 'z') {
+      opt.axis = 2;
+    } else {
+      err_msg("requires argument 'x', 'y', or 'z'");
+      PrintErrorOption("-a");
+      exit(1);
     }
   }
 
@@ -213,21 +233,25 @@ int main(int argc, char *argv[]) {
 
   SYSTEM System = ReadStructure(in, false);
 
-  // parse <mol> <bead> pairs from end of argv //{{{
-  int spec_start = argc;
-  for (int i = argc - 2; i > count; i -= 2) {
+  // parse <mol> <bead> [<mol> <bead> ...] //{{{
+  int spec_start = count + 1;
+  int n_specs = 0;
+  for (int i = spec_start; i < argc && argv[i][0] != '-'; i += 2) {
+    if ((i + 1) >= argc) {
+      break;
+    }
     long v;
     if (FindMoleculeName(argv[i], System) >= 0 &&
         IsNaturalNumber(argv[i + 1], &v)) {
-      spec_start = i;
+      n_specs++;
     } else {
       break;
     }
   }
-  int n_specs = (argc - spec_start) / 2;
   if (n_specs < 1) {
     err_msg("at least one <mol> <bead> pair is required");
     PrintError();
+    exit(1);
   }
 
   struct HEADSPEC *specs = malloc(n_specs * sizeof *specs);
@@ -270,29 +294,26 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  // double Lx = box->Length.x,
-  //        Ly = box->Length.y;
-  // double rdf_max  = (Lx < Ly ? Lx : Ly) / 2.0;
-  double rdf_max;
-  if (box->Length.x < box->Length.y) {
-    rdf_max = box->Length.x / 2;
-  } else {
-    rdf_max = box->Length.y / 2;
+  int p1 = (opt.axis + 1) % 3;
+  int p2 = (opt.axis + 2) % 3;
+  double l1 = box->Length.v[p1], l2 = box->Length.v[p2];
+  double rdf_max = (l1 < l2 ? l1 : l2) / 2;
+  int rdf_bins  = rdf_max / width;
+  int phi6_bins = ceil(1.0 / width);
+  if (rdf_bins  < 1) {
+    rdf_bins  = 1;
   }
-  int rdf_bins  = (int)(rdf_max / width);
-  int phi6_bins = (int)ceil(1.0 / width);
-  if (rdf_bins  < 1) rdf_bins  = 1;
-  if (phi6_bins < 1) phi6_bins = 1;
+  if (phi6_bins < 1) {
+    phi6_bins = 1;
+  }
 
   // pre-allocate per-frame temp arrays
-  double *hx      = malloc(n_heads * sizeof *hx);
-  double *hy      = malloc(n_heads * sizeof *hy);
-  double *hz      = malloc(n_heads * sizeof *hz);
-  int    *leaflet = malloc(n_heads * sizeof *leaflet);
-  double *phi6r   = malloc(n_heads * sizeof *phi6r);
-  double *phi6i   = malloc(n_heads * sizeof *phi6i);
-  int    *nb_cnt  = malloc(n_heads * sizeof *nb_cnt);
-  if (!hx || !hy || !hz || !leaflet || !phi6r || !phi6i || !nb_cnt) {
+  vec3d  *h = malloc(n_heads * sizeof *h);
+  int *leaflet = malloc(n_heads * sizeof *leaflet);
+  double *phi6r = malloc(n_heads * sizeof *phi6r);
+  double *phi6i = malloc(n_heads * sizeof *phi6i);
+  int *nb_cnt = malloc(n_heads * sizeof *nb_cnt);
+  if (!h || !leaflet || !phi6r || !phi6i || !nb_cnt) {
     ErrorAlloc("BilayerInPlane temp arrays");
   }
 
@@ -301,16 +322,16 @@ int main(int argc, char *argv[]) {
   double *rdf1 = calloc(rdf_bins,  sizeof *rdf1);
   double *phi0 = calloc(phi6_bins, sizeof *phi0);
   double *phi1 = calloc(phi6_bins, sizeof *phi1);
-  if (!rdf0 || !rdf1 || !phi0 || !phi1) ErrorAlloc("BilayerInPlane output arrays");
+  if (!rdf0 || !rdf1 || !phi0 || !phi1) {
+    ErrorAlloc("BilayerInPlane output arrays");
+  }
 
   struct calc_data cd = {
     .opt = opt,
     .specs = specs,
     .n_specs = n_specs,
     .n_heads = n_heads,
-    .hx = hx,
-    .hy = hy,
-    .hz = hz,
+    .h = h,
     .leaflet = leaflet,
     .phi6r = phi6r,
     .phi6i = phi6i,
@@ -345,8 +366,7 @@ int main(int argc, char *argv[]) {
     for (int l = 0; l < 2; l++) {
       double g = 0;
       if (cd.n2_sum[l] > 0) {
-        g = cd.rdf[l][k] * box->Length.x * box->Length.y /
-            (cd.n2_sum[l] * M_PI * r * width);
+        g = cd.rdf[l][k] * l1 * l2 / (cd.n2_sum[l] * M_PI * r * width);
       } else {
         g = 0;
       }
@@ -409,9 +429,7 @@ int main(int argc, char *argv[]) {
   fclose(fw); //}}}
 
   free(specs);
-  free(hx);
-  free(hy);
-  free(hz);
+  free(h);
   free(leaflet);
   free(phi6r);
   free(phi6i);

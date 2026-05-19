@@ -1,10 +1,5 @@
 #include "../src/AnalysisTools.h"
 
-// TODO: -a option for axis (leave -z as default)
-// TODO: change BilayerSq ... [options] <mol> <bead> [<mol> <bead>]
-//       into BilayerSq ... <mol> <bead> [<mol> <bead>] [options]
-//       also changes .args - 3->5
-// TODO: why did I use those *{x,y,z} vars instead of vec3d?
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -17,13 +12,13 @@ const struct HelpHelp HelpDesc = {
   "both leaflets. Leaflets are assigned by comparing each head-bead z-position "
   "to the global midplane (z-COM of all specified head beads). "
   "Output: <output>-2d.txt (qx, qy, S) and <output>-1d.txt (q, S). "
-  "At least one <mol> <bead> pair is required at the end of the command line "
+  "At least one <mol> <bead> pair is required after the mandatory arguments "
   "(bead index is 1-indexed).",
 
-  "Usage: BilayerSq <input> <delta_q> <output> [options] "
-  "<mol> <bead> [<mol> <bead> ...]",
-  .args = 3,
-  .all = 14,
+  "Usage: BilayerSq <input> <delta_q> <output> <mol> <bead> "
+  "[<mol> <bead> ...] [options]",
+  .args = 5,
+  .all = 17,
 };
 
 static const struct OptSpec opts[] = {
@@ -36,11 +31,14 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>",   NULL,    "input coordinate file",                          OPT_ARG},
-  {"<delta_q>", NULL,    "q-point spacing in DPD units    ",               OPT_ARG},
-  {"<output>",  NULL,    "output base name (appends -2d.txt and -1d.txt)", OPT_ARG},
-  {"--joined",  NULL,    "input coordinates are already joined",           OPT_EXTRA},
-  {"-q",        "<int>", "max bins per axis (default: 50)",                OPT_EXTRA},
+  {"<input>",   NULL,     "input coordinate file",                          OPT_ARG},
+  {"<delta_q>", NULL,     "q-point spacing in DPD units",                   OPT_ARG},
+  {"<output>",  NULL,     "output base name (appends -2d.txt and -1d.txt)", OPT_ARG},
+  {"<mol>",     NULL,     "molecule name",                                  OPT_ARG},
+  {"<bead>",    NULL,     "1-indexed head bead within molecule",            OPT_ARG},
+  {"--joined",  NULL,     "input coordinates are already joined",           OPT_EXTRA},
+  {"-q",        "<int>",  "max bins per axis (default: 50)",                OPT_EXTRA},
+  {"-a",        "<axis>", "bilayer normal axis: x, y, or z (default: z)",   OPT_EXTRA},
   {NULL}
 }; //}}}
 
@@ -54,6 +52,7 @@ struct HEADSPEC {
 struct OPT {
   bool join;   // --joined
   int maxqbin; // -q
+  int axis;    // -a: bilayer normal axis (0=x, 1=y, 2=z)
 }; //}}}
 
 // data passed into the MainLoopCoor callback //{{{
@@ -62,9 +61,9 @@ struct calc_data {
   struct HEADSPEC *specs;
   int n_specs, n_heads;
   // per-frame temporaries (pre-allocated)
-  double *hx, *hy, *hz;
+  vec3d *h;
   int *leaflet;
-  double *sfx, *sfy; // cos/sin sums over one leaflet, size n_qpts
+  double *sf_re, *sf_im; // cos/sin sums over one leaflet, size n_qpts
   // accumulated S(q): indexed [leaflet][iq_offset * (maxqbin+1) + jq]
   double *sqxy[2];
   long frame_count;
@@ -76,6 +75,10 @@ struct calc_data {
 static void Calculation(SYSTEM *System, struct calc_data *cd) { //{{{
   WrapJoinCoordinates(System, true, cd->opt.join);
 
+  int a  = cd->opt.axis;
+  int p1 = (a + 1) % 3;
+  int p2 = (a + 2) % 3;
+
   // collect head positions and assign leaflets by global midplane //{{{
   double z_sum = 0.0;
   int nh = 0;
@@ -85,10 +88,8 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) { //{{{
       MOLECULE *mol = &System->Molecule[mtype->Index[j]];
       int id = mol->Bead[cd->specs[i].bead];
       vec3d p = System->Bead[id].Position;
-      cd->hx[nh] = p.x;
-      cd->hy[nh] = p.y;
-      cd->hz[nh] = p.z;
-      z_sum += p.z;
+      cd->h[nh] = p;
+      z_sum += p.v[a];
       nh++;
     }
   }
@@ -99,7 +100,7 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) { //{{{
   double midplane = z_sum / nh;
   int n_leaf[2] = {0, 0};
   for (int i = 0; i < nh; i++) {
-    if (cd->hz[i] > midplane) {
+    if (cd->h[i].v[a] > midplane) {
       cd->leaflet[i] = 1;
     } else {
       cd->leaflet[i] = 0;
@@ -116,8 +117,8 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) { //{{{
       continue;
     }
 
-    memset(cd->sfx, 0, cd->n_qpts * sizeof *cd->sfx);
-    memset(cd->sfy, 0, cd->n_qpts * sizeof *cd->sfy);
+    memset(cd->sf_re, 0, cd->n_qpts * sizeof *cd->sf_re);
+    memset(cd->sf_im, 0, cd->n_qpts * sizeof *cd->sf_im);
 
     // accumulate cos/sin structure factor sums  //{{{
     // outer loop over particles for cache-friendly access to sqxy.
@@ -125,16 +126,16 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) { //{{{
       if (cd->leaflet[i] != l) {
         continue;
       }
-      double xi = cd->hx[i],
-             yi = cd->hy[i];
+      double xi = cd->h[i].v[p1],
+             yi = cd->h[i].v[p2];
       for (int iq = -mqb; iq <= mqb; iq++) {
         double qx_xi = iq * dq * xi;
         int ioff = (iq + mqb) * njq;
         for (int jq = 0; jq <= mqb; jq++) {
           double arg = qx_xi + jq * dq * yi;
           int id = ioff + jq;
-          cd->sfx[id] += cos(arg);
-          cd->sfy[id] += sin(arg);
+          cd->sf_re[id] += cos(arg);
+          cd->sf_im[id] += sin(arg);
         }
       }
     } //}}}
@@ -142,7 +143,7 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) { //{{{
     // S(q) = |sfsum|^2 / N
     double inv_n = 1.0 / n_leaf[l];
     for (int k = 0; k < cd->n_qpts; k++) {
-      double s = cd->sfx[k] * cd->sfx[k] + cd->sfy[k] * cd->sfy[k];
+      double s = Square(cd->sf_re[k]) + Square(cd->sf_im[k]);
       cd->sqxy[l][k] += s * inv_n;
     }
   }
@@ -158,13 +159,15 @@ static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
 int main(int argc, char *argv[]) {
 
   // mandatory positional arguments //{{{
-  OptionCheck(argc, argv, true, HelpDesc, opts);
+  OptionCheck(argc, argv, false, HelpDesc, opts);
   OPT opt;
   int count = 0;
 
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.coor.name, argv[++count], LINE);
-  if (!InputCoorStruct(argc, argv, &in)) exit(1);
+  if (!InputCoorStruct(argc, argv, &in)) {
+    exit(1);
+  }
 
   double delta_q;
   if (!IsPosRealNumber(argv[++count], &delta_q)) {
@@ -179,19 +182,27 @@ int main(int argc, char *argv[]) {
   // --joined option (opt.join == true -> needs joining)
   opt.join = !BoolOption(argc, argv, "--joined");
 
-  // -q option - maxqbin
-  // TODO: why not OneNumberOption()?
   opt.maxqbin = 50;
-  for (int i = 1; i < argc - 1; i++) {
-    if (strcmp(argv[i], "-q") == 0) {
-      long v;
-      if (!IsNaturalNumber(argv[i+1], &v)) {
-        err_msg("argument must be a positive integer");
-        PrintErrorOption("-q");
-        exit(1);
-      }
-      opt.maxqbin = v;
-      break;
+  OneNumberOption(argc, argv, "-q", &opt.maxqbin, 'i');
+  if (opt.maxqbin <= 0) {
+    err_msg("requires a positive integer");
+    PrintErrorOption("-q");
+    exit(1);
+  }
+
+  opt.axis = 2;
+  char axis_arg[LINE];
+  if (FileOption(argc, argv, "-a", axis_arg)) {
+    if (axis_arg[0] == 'x') {
+      opt.axis = 0;
+    } else if (axis_arg[0] == 'y') {
+      opt.axis = 1;
+    } else if (axis_arg[0] == 'z') {
+      opt.axis = 2;
+    } else {
+      err_msg("requires argument 'x', 'y', or 'z'");
+      PrintErrorOption("-a");
+      exit(1);
     }
   }
 
@@ -201,18 +212,21 @@ int main(int argc, char *argv[]) {
 
   SYSTEM System = ReadStructure(in, false);
 
-  // parse <mol> <bead> pairs from end of argv //{{{
-  int spec_start = argc;
-  for (int i = argc - 2; i > count; i -= 2) {
+  // parse <mol> <bead> [<mol> <bead> ...] //{{{
+  int spec_start = count + 1;
+  int n_specs = 0;
+  for (int i = spec_start; i < argc && argv[i][0] != '-'; i += 2) {
+    if (i + 1 >= argc) {
+      break;
+    }
     long v;
     if (FindMoleculeName(argv[i], System) >= 0 &&
         IsNaturalNumber(argv[i+1], &v)) {
-      spec_start = i;
+      n_specs++;
     } else {
       break;
     }
   }
-  int n_specs = (argc - spec_start) / 2;
   if (n_specs < 1) {
     err_msg("at least one <mol> <bead> pair is required");
     PrintError();
@@ -263,17 +277,14 @@ int main(int argc, char *argv[]) {
   int n_qpts = (2 * opt.maxqbin + 1) * (opt.maxqbin + 1);
 
   // pre-allocate per-frame arrays
-  // TODO: why not vec3d?
-  double *hx = malloc(n_heads * sizeof *hx),
-         *hy = malloc(n_heads * sizeof *hy),
-         *hz = malloc(n_heads * sizeof *hz);
+  vec3d *h = malloc(n_heads * sizeof *h);
   int *leaflet = malloc(n_heads * sizeof *leaflet);
-  double *sfx = malloc(n_qpts  * sizeof *sfx),
-         *sfy = malloc(n_qpts  * sizeof *sfy);
+  double *sf_re = malloc(n_qpts  * sizeof *sf_re),
+         *sf_im = malloc(n_qpts  * sizeof *sf_im);
   double *sq0 = calloc(n_qpts, sizeof *sq0),
          *sq1 = calloc(n_qpts, sizeof *sq1);
-  if (!hx || !hy || !hz || !leaflet || !sfx || !sfy || !sq0 || !sq1) {
-    ErrorAlloc("hx/hy/hz/leaflet/sfx/sfy/sq0/sq1");
+  if (!h || !leaflet || !sf_re || !sf_im || !sq0 || !sq1) {
+    ErrorAlloc("h/leaflet/sf_re/sf_im/sq0/sq1");
   }
 
   struct calc_data cd = {
@@ -281,12 +292,10 @@ int main(int argc, char *argv[]) {
     .specs = specs,
     .n_specs = n_specs,
     .n_heads = n_heads,
-    .hx = hx,
-    .hy = hy,
-    .hz = hz,
+    .h = h,
     .leaflet = leaflet,
-    .sfx = sfx,
-    .sfy = sfy,
+    .sf_re = sf_re,
+    .sf_im = sf_im,
     .sqxy = { sq0, sq1 },
     .frame_count = 0,
     .n_qpts = n_qpts,
@@ -380,12 +389,10 @@ int main(int argc, char *argv[]) {
 
   // free all arrays //{{{
   free(specs);
-  free(hx);
-  free(hy);
-  free(hz);
+  free(h);
   free(leaflet);
-  free(sfx);
-  free(sfy);
+  free(sf_re);
+  free(sf_im);
   free(sq0);
   free(sq1);
   free(sq_avg);

@@ -1,12 +1,6 @@
 #include "../src/AnalysisTools.h"
 #include <gsl/gsl_multifit.h>
 
-// TODO: -a option for axis (leave -z as default)
-// TODO: change BilayerRigidity ... [options] <mol> <bead> [<mol> <bead>]
-//       into BilayerRigidity ... <mol> <bead> [<mol> <bead>] [options]
-//       also changes .args - 3->5
-// TODO: why did I use those *{x,y,z} vars instead of vec3d?
-
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -15,12 +9,12 @@
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
   "BilayerRigidity computes the bending rigidity from the splay distribution "
-  "of splay vecotrs between neighbouring molecules. "
+  "of splay vectors between neighbouring molecules. "
 
-  "Usage: BilayerRigidity <input> <width> <output> [options] "
-  "<mol> <first> <last> [<mol> <first> <last> ...]",
-  .args = 3,
-  .all = 16,
+  "Usage: BilayerRigidity <input> <width> <output> <mol> <first> <last> "
+  "[<mol> <first> <last> ...] [options]",
+  .args = 6,
+  .all = 20,
 };
 
 static const struct OptSpec opts[] = {
@@ -36,10 +30,14 @@ static const struct OptSpec opts[] = {
   {"<input>",  NULL,    "input coordinate file",                                  OPT_ARG},
   {"<width>",  NULL,    "bin width for P(si) histogram",                          OPT_ARG},
   {"<output>", NULL,    "output file",                                            OPT_ARG},
+  {"<mol>",    NULL,    "molecule name",                                          OPT_ARG},
+  {"<first>",  NULL,    "1-indexed head bead within molecule",                    OPT_ARG},
+  {"<last>",   NULL,    "1-indexed tail-end bead within molecule",                OPT_ARG},
   {"--joined", NULL,    "input coordinates are already joined",                   OPT_EXTRA},
   {"-d",       "<real>","max 3D pair distance in DPD units (default: 2.0)",       OPT_EXTRA},
   {"-m",       "<real>","half-range of si histogram in DPD units (default: 2.0)", OPT_EXTRA},
   {"-t",       "<real>","min tilt threshold (default: 0.5)",             OPT_EXTRA},
+  {"-a",       "<axis>","bilayer normal axis: x, y, or z (default: z)", OPT_EXTRA},
   {NULL}
 }; //}}}
 
@@ -52,24 +50,22 @@ struct MOL_SPEC {
 
 // option struct //{{{
 struct OPT {
-  bool   join;        // --joined
+  bool join;          // --joined
   double max_dist,    // -d
          max_si,      // -m
          tilt_thresh; // -t
+  int axis;           // -a: bilayer normal axis (0=x, 1=y, 2=z)
 }; //}}}
 
 // data passed into the MainLoopCoor callback //{{{
 struct calc_data {
   struct OPT opt;
   struct MOL_SPEC *specs;
-  int n_specs;
-  int n_mols;
-  double *hx, *hy, *hz;
-  double *nvx, *nvy, *nvz;
+  int n_specs, n_mols;
+  vec3d *h, *nv;
   double *psi_dist;
   long n_pairs;
-  int n_bins;
-  int maxrbin;
+  int n_bins, maxrbin;
   double delta_psi;
 }; //}}}
 
@@ -122,6 +118,10 @@ static bool poly2_fit(int n, const double *xx, const double *yy,
 static void Calculation(SYSTEM *System, struct calc_data *cd) {
   WrapJoinCoordinates(System, true, cd->opt.join);
 
+  int a  = cd->opt.axis;
+  int p1 = (a + 1) % 3;
+  int p2 = (a + 2) % 3;
+
   // Collect head positions and orientation unit vectors.
   // For multi-tail specs, the tail-end position is the average of all tails.
   int nh = 0;
@@ -142,21 +142,19 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) {
       }
       vec3d o;
       for (int dd = 0; dd < 3; dd++) {
-        o.v[dd] = t.v[dd] / n_tails;
+        o.v[dd] = hpos.v[dd] - t.v[dd] / n_tails;
       }
       double len = sqrt(Square(o.x) + Square(o.y) + Square(o.z));
-      cd->hx[nh] = hpos.x;
-      cd->hy[nh] = hpos.y;
-      cd->hz[nh] = hpos.z;
+      cd->h[nh] = hpos;
+      vec3d nv = {.v = {0, 0, 0}};
       if (len > 1e-10) {
-        cd->nvx[nh] = o.x / len;
-        cd->nvy[nh] = o.y / len;
-        cd->nvz[nh] = o.z / len;
+        for (int dd = 0; dd < 3; dd++) {
+          nv.v[dd] = o.v[dd] / len;
+        }
       } else {
-        cd->nvx[nh] = 0.0;
-        cd->nvy[nh] = 0.0;
-        cd->nvz[nh] = 1.0;
+        nv.v[a] = 1.0;
       }
+      cd->nv[nh] = nv;
       nh++;
     }
   }
@@ -166,18 +164,16 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) {
   int maxrbin = cd->maxrbin;
 
   for (int i = 0; i < nh - 1; i++) {
-    if (fabs(cd->nvz[i]) < tilt_thresh) {
+    if (fabs(cd->nv[i].v[a]) < tilt_thresh) {
       continue;
     }
     for (int j = i + 1; j < nh; j++) {
-      if (fabs(cd->nvz[j]) < tilt_thresh) {
+      if (fabs(cd->nv[j].v[a]) < tilt_thresh) {
         continue;
       }
       vec3d d;
-      d.x = cd->hx[j] - cd->hx[i];
-      d.y = cd->hy[j] - cd->hy[i];
-      d.z = cd->hz[j] - cd->hz[i];
       for (int dd = 0; dd < 3; dd++) {
+        d.v[dd] = cd->h[j].v[dd] - cd->h[i].v[dd];
         d.v[dd] -= round(d.v[dd] / System->Box.Length.v[dd]) *
                    System->Box.Length.v[dd];
       }
@@ -185,8 +181,8 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) {
       if (r > cd->opt.max_dist || r < 1e-10) {
         continue;
       }
-      double six = (cd->nvx[j] - cd->nvx[i]) / r;
-      double siy = (cd->nvy[j] - cd->nvy[i]) / r;
+      double six = (cd->nv[j].v[p1] - cd->nv[i].v[p1]) / r;
+      double siy = (cd->nv[j].v[p2] - cd->nv[i].v[p2]) / r;
       long bx = lround(six / dp);
       long by = lround(siy / dp);
       if (labs(bx) <= maxrbin) {
@@ -208,7 +204,7 @@ static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
 int main(int argc, char *argv[]) {
 
   // mandatory positional arguments //{{{
-  OptionCheck(argc, argv, true, HelpDesc, opts);
+  OptionCheck(argc, argv, false, HelpDesc, opts);
   OPT opt;
   int count = 0;
 
@@ -231,65 +227,63 @@ int main(int argc, char *argv[]) {
   // --joined option (opt.join == true -> needs joining)
   opt.join = !BoolOption(argc, argv, "--joined");
 
-  // -d: max pair distance
-  // TODO: why not OneNumberOption()?
   opt.max_dist = 2.0;
-  for (int i = 1; i < argc - 1; i++) {
-    if (strcmp(argv[i], "-d") == 0) {
-      double v;
-      if (!IsPosRealNumber(argv[i+1], &v)) {
-        err_msg("requires a positive real number");
-        PrintErrorOption("-d");
-        exit(1);
-      }
-      opt.max_dist = v;
-      break;
-    }
+  if (OneNumberOption(argc, argv, "-d", &opt.max_dist, 'd') && opt.max_dist <= 0) {
+    err_msg("requires a positive real number");
+    PrintErrorOption("-d");
+    exit(1);
   }
 
-  // -m: half-range of si histogram
   opt.max_si = 2.0;
-  for (int i = 1; i < argc - 1; i++) {
-    if (strcmp(argv[i], "-m") == 0) {
-      if (!IsPosRealNumber(argv[i+1], &opt.max_si)) {
-        err_msg("requires a positive real number");
-        PrintErrorOption("-m");
-        exit(1);
-      }
-      break;
-    }
+  if (OneNumberOption(argc, argv, "-m", &opt.max_si, 'd') && opt.max_si <= 0) {
+    err_msg("requires a positive real number");
+    PrintErrorOption("-m");
+    exit(1);
   }
 
-  // -t: tilt threshold for |nvec_z|
   opt.tilt_thresh = 0.5;
-  for (int i = 1; i < argc - 1; i++) {
-    if (strcmp(argv[i], "-t") == 0) {
-      if (!IsPosRealNumber(argv[i + 1], &opt.tilt_thresh)) {
-        err_msg("requires a positive real number");
-        PrintErrorOption("-t");
-        exit(1);
-      }
-      break;
+  if (OneNumberOption(argc, argv, "-t", &opt.tilt_thresh, 'd') && opt.tilt_thresh <= 0) {
+    err_msg("requires a positive real number");
+    PrintErrorOption("-t");
+    exit(1);
+  }
+
+  opt.axis = 2;
+  char axis_arg[LINE];
+  if (FileOption(argc, argv, "-a", axis_arg)) {
+    if      (axis_arg[0] == 'x') {
+      opt.axis = 0;
+    } else if (axis_arg[0] == 'y') {
+      opt.axis = 1;
+    } else if (axis_arg[0] == 'z') {
+      opt.axis = 2;
+    } else {
+      err_msg("requires argument 'x', 'y', or 'z'");
+      PrintErrorOption("-a");
+      exit(1);
     }
   }
 
-  if (!commons.silent) PrintCommand(stdout, argc, argv);
+  if (!commons.silent) {
+    PrintCommand(stdout, argc, argv);
+  }
 
   SYSTEM System = ReadStructure(in, false);
 
-  // parse positional trios from end of argv //{{{
-  int trio_start = argc;
-  for (int i = argc - 3; i > count; i -= 3) {
+  // parse <mol> <first> <last> [<mol> <first> <last> ...] //{{{
+  int trio_start = count + 1;
+  int n_raw = 0;
+  for (int i = trio_start; i < argc && argv[i][0] != '-'; i += 3) {
+    if ((i + 2) >= argc) break;
     long v1, v2;
     if (FindMoleculeName(argv[i], System) >= 0 &&
-        IsNaturalNumber(argv[i + 1], &v1) &&
-        IsNaturalNumber(argv[i + 2], &v2)) {
-      trio_start = i;
+        IsNaturalNumber(argv[i+1], &v1) &&
+        IsNaturalNumber(argv[i+2], &v2)) {
+      n_raw++;
     } else {
       break;
     }
   }
-  int n_raw = (argc - trio_start) / 3;
   if (n_raw < 1) {
     err_msg("at least one <mol> <first> <last> trio is required");
     Help(true, HelpDesc, opts);
@@ -299,11 +293,15 @@ int main(int argc, char *argv[]) {
   // Build MOL_SPEC array: group trios by molecule type.
   // Multiple trios for the same mol type collect multiple tail-end beads. //{{{
   struct MOL_SPEC *specs = malloc(n_raw * sizeof *specs);
-  if (!specs) ErrorAlloc("specs");
+  if (!specs) {
+    ErrorAlloc("specs");
+  }
   // Allocate tails conservatively: at most n_raw tails per spec
   for (int s = 0; s < n_raw; s++) {
     specs[s].tails = malloc(n_raw * sizeof *specs[s].tails);
-    if (!specs[s].tails) ErrorAlloc("specs[].tails");
+    if (!specs[s].tails) {
+      ErrorAlloc("specs[].tails");
+    }
     specs[s].n_tails = 0;
   }
   int n_specs = 0;
@@ -311,17 +309,26 @@ int main(int argc, char *argv[]) {
   for (int t = 0; t < n_raw; t++) {
     int base = trio_start + 3 * t;
     int mt = FindMoleculeName(argv[base], System);
-    if (mt < 0) { ErrorMoleculeType(argv[base], System); exit(1); }
+    if (mt < 0) {
+      ErrorMoleculeType(argv[base], System);
+      exit(1);
+    }
     long v1, v2;
     IsNaturalNumber(argv[base + 1], &v1);
     IsNaturalNumber(argv[base + 2], &v2);
-    int first = (int)v1 - 1;
-    int last  = (int)v2 - 1;
+    int first = v1 - 1;
+    int last = v2 - 1;
     int nb = System.MoleculeType[mt].nBeads;
     if (first >= nb || last >= nb) {
-      char msg[LINE];
-      snprintf(msg, LINE, "bead indices for '%s' out of range [1, %d]", argv[base], nb);
-      err_msg(msg);
+      if (snprintf(msg, LINE, "bead indices for '%s' out of range [1, %d]",
+            argv[base], nb) < 0) {
+      if (snprintf(ERROR_MSG, LINE, "wrong bead index %s%d%s and/or "
+          "%s%d%s for %s%s%s; must be [1, %d]",
+          ErrYellow(), first + 1, ErrRed(), ErrYellow(), last + 1, ErrRed(),
+          ErrYellow(), argv[base], ErrRed(), nb) < 0) {
+        ErrorSnprintf();
+      }
+      PrintError();
       exit(1);
     }
     if (first == last) {
@@ -332,11 +339,13 @@ int main(int argc, char *argv[]) {
     // Find existing spec for this mt, or create a new one
     int found = -1;
     for (int s = 0; s < n_specs; s++) {
-      if (specs[s].mt == mt) { found = s; break; }
+      if (specs[s].mt == mt) {
+        found = s; break; 
+      }
     }
     if (found < 0) {
-      specs[n_specs].mt      = mt;
-      specs[n_specs].head    = first;
+      specs[n_specs].mt = mt;
+      specs[n_specs].head = first;
       specs[n_specs].n_tails = 0;
       found = n_specs++;
     } else if (specs[found].head != first) {
@@ -371,15 +380,11 @@ int main(int argc, char *argv[]) {
   int maxrbin = round(opt.max_si / delta_psi);
   int n_bins  = 2 * maxrbin + 1;
 
-  double *hx = malloc(n_mols * sizeof *hx);
-  double *hy = malloc(n_mols * sizeof *hy);
-  double *hz = malloc(n_mols * sizeof *hz);
-  double *nvx = malloc(n_mols * sizeof *nvx);
-  double *nvy = malloc(n_mols * sizeof *nvy);
-  double *nvz = malloc(n_mols * sizeof *nvz);
+  vec3d  *h = malloc(n_mols * sizeof *h);
+  vec3d  *nv = malloc(n_mols * sizeof *nv);
   double *psi_dist = calloc(n_bins, sizeof *psi_dist);
-  if (!hx || !hy || !hz || !nvx || !nvy || !nvz) {
-    ErrorAlloc("hx/hy/hz/nvx/nvy/nvz/psi_dist");
+  if (!h || !nv || !psi_dist) {
+    ErrorAlloc("h/nv/psi_dist");
   }
 
   struct calc_data cd = {
@@ -387,12 +392,8 @@ int main(int argc, char *argv[]) {
     .specs = specs,
     .n_specs = n_specs,
     .n_mols = n_mols,
-    .hx = hx,
-    .hy = hy,
-    .hz = hz,
-    .nvx = nvx,
-    .nvy = nvy,
-    .nvz = nvz,
+    .h = h,
+    .nv = nv,
     .psi_dist = psi_dist,
     .n_pairs = 0,
     .n_bins = n_bins,
@@ -510,8 +511,8 @@ int main(int argc, char *argv[]) {
     free(specs[s].tails);
   }
   free(specs);
-  free(hx); free(hy); free(hz);
-  free(nvx); free(nvy); free(nvz);
+  free(h);
+  free(nv);
   free(psi_dist);
   FreeSystem(&System);
 
