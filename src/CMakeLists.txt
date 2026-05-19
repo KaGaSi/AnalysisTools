@@ -86,6 +86,8 @@ add_library(AnalysisTools
 set(UTILS
   AddToSystem
   AggNumber
+  BilayerInPlane
+  BilayerRigidity
   Aggregates
   AggResidence
   AngleMolecules
