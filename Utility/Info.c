@@ -11,7 +11,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: Info <input> [options]",
   .args = 1, // number of mandatory arguments
-  .all = 20, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 22, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   {"-ft", "<type>", "structure file type: vtf/vsf/xyz/data/ltrj/field/itp/pdb", OPT_COMMON},
@@ -34,6 +34,8 @@ static const struct OptSpec opts[] = {
   {"-ebt", "<int>", "number of extra bead types (output lammps data file only)", OPT_EXTRA},
   {"--chbt", NULL, "change bead types using -i-provided file; molecules matched by name and bead count", OPT_EXTRA},
   {"--frag", NULL, "split disconnected molecules into fragments; single-bead fragments become unbonded beads", OPT_EXTRA},
+  {"-lib", "<dir>", "library directory: rename bead types and print DPD interactions; appends interactions block to FIELD output", OPT_EXTRA},
+  {"-sys", "<file>", "system_info file: assign names to molecule types before library renaming (required when types are unnamed)", OPT_EXTRA},
   {NULL}
 }; //}}}
 
@@ -49,14 +51,14 @@ struct OPT {
   FILE_TYPE fout;          // -o
 }; //}}}
 
-// find root with path halving
+// find root with path halving //{{{
 static int uf_find(int *parent, int x) {
   while (parent[x] != x) {
     parent[x] = parent[parent[x]];
     x = parent[x];
   }
   return x;
-}
+} //}}}
 
 int main(int argc, char *argv[]) {
 
@@ -159,6 +161,30 @@ int main(int argc, char *argv[]) {
   //   return 0;
   // }
   COUNT *Count = &System.Count;
+  // apply -sys and -lib to rename bead types //{{{
+  char sys_in[LINE] = "", lib_dir[LINE] = "";
+  LIBRARY lib = {0};
+  bool lib_used = false;
+  FileOption(argc, argv, "-sys", sys_in);
+  FileOption(argc, argv, "-lib", lib_dir);
+  if (sys_in[0] != '\0')
+    ReadSysInfo(sys_in, &System);
+  if (lib_dir[0] != '\0') {
+    if (sys_in[0] == '\0') {
+      bool any_named = false;
+      for (int i = 0; i < System.Count.MoleculeType; i++) {
+        if (System.MoleculeType[i].Named) { any_named = true; break; }
+      }
+      if (!any_named) {
+        s_strcpy(ERROR_MSG, "-lib without -sys: molecule types are unnamed; "
+                 "bead type renaming will be skipped", LINE);
+        PrintWarning();
+      }
+    }
+    lib = ReadLibrary(lib_dir);
+    lib_used = true;
+    RenameBeadTypesFromLibrary(&System, &lib, lib_dir);
+  } //}}}
   // use coordinate from a separate file (-c option)
   if (in.coor.type != -1) {
     int line_count = 0;
@@ -379,7 +405,9 @@ int main(int argc, char *argv[]) {
           continue;
         }
         char new_name[MOL_NAME];
-        snprintf(new_name, MOL_NAME, "%s_%d", mt->Name, frag_num);
+        if (snprintf(new_name, MOL_NAME, "%s_%d", mt->Name, frag_num) < 0) {
+          ErrorSnprintf();
+        }
         frag_num++;
         comp_type[c] = Count->MoleculeType;
         NewMolType(&System.MoleculeType, &Count->MoleculeType, new_name,
@@ -667,6 +695,20 @@ int main(int argc, char *argv[]) {
     PrintBead(System);
     fprintf(stdout, "\nInformation about every molecule:\n");
     PrintMolecules(System);
+  }
+  if (lib_used && Count->BeadType > 0) {
+    ArrNDd *pot = CreateArr3Dd(Count->BeadType, Count->BeadType, 3);
+    FillPotFromLibrary(&lib, &System, pot);
+    fprintf(stdout, "\nDPD interactions:\n");
+    for (int i = 0; i < Count->BeadType; i++) {
+      for (int j = i; j < Count->BeadType; j++) {
+        fprintf(stdout, "  %10s %10s dpd %g %g %g\n",
+                System.BeadType[i].Name, System.BeadType[j].Name,
+                GetArr3D(pot, i, j, 0), GetArr3D(pot, i, j, 1),
+                GetArr3D(pot, i, j, 2));
+      }
+    }
+    FreeArrND(pot);
   } //}}}
 
   // write the output file if required (-o option) //{{{
@@ -681,12 +723,32 @@ int main(int argc, char *argv[]) {
     InitBoolArray(write, Count->Bead, true);
     WriteOutput(System, write, opt.fout, opt.lmp_mass, opt.vsf_def,
                 argc, argv);
+    if (lib_used && opt.fout.type == FIELD_FILE && Count->BeadType > 0) {
+      ArrNDd *pot = CreateArr3Dd(Count->BeadType, Count->BeadType, 3);
+      FillPotFromLibrary(&lib, &System, pot);
+      FILE *fw = OpenFile(opt.fout.name, "a");
+      int n = Count->BeadType * (Count->BeadType - 1) / 2 + Count->BeadType;
+      fprintf(fw, "interactions %d <a_ij> <r_c> <gamma>\n", n);
+      for (int i = 0; i < Count->BeadType; i++) {
+        for (int j = i; j < Count->BeadType; j++) {
+          fprintf(fw, "%10s %10s dpd %lf %lf %lf\n",
+                  System.BeadType[i].Name, System.BeadType[j].Name,
+                  GetArr3D(pot, i, j, 0), GetArr3D(pot, i, j, 1),
+                  GetArr3D(pot, i, j, 2));
+        }
+      }
+      fclose(fw);
+      FreeArrND(pot);
+    }
     free(write);
   } //}}}
 
   FreeSystem(&System);
   if (extra.stru.name[0] != '\0') {
     FreeSystem(&Sys_extra);
+  }
+  if (lib_used) {
+    FreeLibrary(&lib);
   }
 
   return 0;
