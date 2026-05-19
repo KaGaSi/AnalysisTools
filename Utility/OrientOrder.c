@@ -6,11 +6,14 @@ const struct HelpHelp HelpDesc = {
   "S=0.5*(3*cos^2<angle>-1) for specified bead pairs in specified molecule "
   "type(s), where θ is the angle between the bead-pair vector and the "
   "bilayer normal axis. For each pair it outputs the distribution of S "
-  "over [-0.5, 1] and the average value appended at the bottom of the file.",
+  "over [-0.5, 1] and the average value appended at the bottom of the file. "
+  "With --bonds it also writes <output>-bonds.txt containing the average S_n "
+  "for each consecutive bead-to-bead bond along the chain (bond n = beads "
+  "n → n+1), one column per active molecule type.",
 
   "Usage: OrientOrder <input> <width> <output> [options]",
   .args = 3,
-  .all = 16,
+  .all = 17,
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -28,13 +31,15 @@ static const struct OptSpec opts[] = {
   {"-m",       "<name(s)>",    "molecule types to use (default: all)",                                         OPT_EXTRA},
   {"--joined", NULL,           "input contains joined coordinates",                                            OPT_EXTRA},
   {"-a",       "<axis>",       "bilayer normal axis: x, y, or z (default: z)",                                 OPT_EXTRA},
-  {"-n",       "<int int ...>","bead pairs (must be in pairs; default: first and last bead)", OPT_EXTRA},
+  {"-n",       "<int int ...>","bead pairs (must be in pairs; default: first and last bead)",                   OPT_EXTRA},
+  {"--bonds",  NULL,           "also write per-bond S_n profile to <output>-bonds.txt",                        OPT_EXTRA},
   {NULL}
 }; //}}}
 
 // structure for options //{{{
 struct OPT {
   bool join;
+  bool bonds; // write per-bond S_n profile
   bool *mt;
   vec3d normal;
   int n_list[100], // bead pairs, 1-indexed (always even number of elements)
@@ -43,7 +48,8 @@ struct OPT {
 
 static void Calculation(SYSTEM *System, OPT opt,
                         ArrNDd *dist, ArrNDd *avg, ArrNDd *cnt,
-                        double width, int bins, int n_pairs) {
+                        double width, int bins, int n_pairs,
+                        ArrNDd *avg_bonds, ArrNDd *cnt_bonds) {
   COUNT *Count = &System->Count;
   WrapJoinCoordinates(System, true, opt.join);
 
@@ -52,6 +58,7 @@ static void Calculation(SYSTEM *System, OPT opt,
     MOLECULETYPE *mt = &System->MoleculeType[mol->Type];
     if (!opt.mt[mol->Type]) continue;
 
+    // pair-based S distribution (existing behaviour)
     for (int p = 0; p < n_pairs; p++) {
       int pos1, pos2;
       if (opt.n_number == 0) {
@@ -71,7 +78,7 @@ static void Calculation(SYSTEM *System, OPT opt,
       double len = VectLength(bvec);
       if (len == 0) continue;
 
-      double cos_theta = Dot(bvec, opt.normal) / len; // normal is already a unit vec
+      double cos_theta = Dot(bvec, opt.normal) / len;
       double S = 0.5 * (3 * cos_theta * cos_theta - 1);
 
       AddArr2D(avg, mol->Type, p, S);
@@ -82,19 +89,35 @@ static void Calculation(SYSTEM *System, OPT opt,
       if (k < 0)     k = 0;
       AddArr3D(dist, mol->Type, p, k, 1);
     }
+
+    // per-bond S_n profile
+    if (opt.bonds) {
+      for (int b = 0; b < mt->nBeads - 1; b++) {
+        vec3d bvec = Vector(System->Bead[mol->Bead[b]].Position,
+                            System->Bead[mol->Bead[b + 1]].Position);
+        double len = VectLength(bvec);
+        if (len == 0) continue;
+        double cos_theta = Dot(bvec, opt.normal) / len;
+        double S = 0.5 * (3 * cos_theta * cos_theta - 1);
+        AddArr2D(avg_bonds, mol->Type, b, S);
+        AddArr2D(cnt_bonds, mol->Type, b, 1);
+      }
+    }
   }
 }
 
 struct user_data {
   OPT opt;
   ArrNDd *dist, *avg, *cnt;
+  ArrNDd *avg_bonds, *cnt_bonds;
   double width;
   int bins, n_pairs;
 };
 static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
   struct user_data *p = (struct user_data *)userdata;
   Calculation(System, p->opt, p->dist, p->avg, p->cnt,
-              p->width, p->bins, p->n_pairs);
+              p->width, p->bins, p->n_pairs,
+              p->avg_bonds, p->cnt_bonds);
 }
 
 int main(int argc, char *argv[]) {
@@ -124,6 +147,9 @@ int main(int argc, char *argv[]) {
 
   // --joined
   opt.join = !BoolOption(argc, argv, "--joined");
+
+  // --bonds
+  opt.bonds = BoolOption(argc, argv, "--bonds");
 
   // -a: bilayer normal axis (default: z)
   opt.normal = (vec3d){.x = 0, .y = 0, .z = 1};
@@ -191,11 +217,30 @@ int main(int argc, char *argv[]) {
     ErrorAlloc("dist/avg/cnt");
   } //}}}
 
+  // allocate per-bond arrays if --bonds //{{{
+  int max_bonds = 0;
+  ArrNDd *avg_bonds = NULL;
+  ArrNDd *cnt_bonds = NULL;
+  if (opt.bonds) {
+    for (int mt = 0; mt < Count->MoleculeType; mt++) {
+      if (!opt.mt[mt]) continue;
+      int nb = System.MoleculeType[mt].nBeads - 1;
+      if (nb > max_bonds) max_bonds = nb;
+    }
+    if (max_bonds > 0) {
+      avg_bonds = CreateArr2Dd(Count->MoleculeType, max_bonds);
+      cnt_bonds = CreateArr2Dd(Count->MoleculeType, max_bonds);
+      if (!avg_bonds || !cnt_bonds) ErrorAlloc("avg_bonds/cnt_bonds");
+    }
+  } //}}}
+
   STEP step = InitStep;
-  struct user_data ud = { opt, dist, avg, cnt, width, bins, n_pairs };
+  struct user_data ud = {
+    opt, dist, avg, cnt, avg_bonds, cnt_bonds, width, bins, n_pairs
+  };
   MainLoopCoor(&System, in, commons, &step, Calculation_adaptor, &ud);
 
-  // write output //{{{
+  // write S distribution output //{{{
   FILE *fw = PrintBylineOpenFile(fout, argc, argv);
 
   // header //{{{
@@ -277,11 +322,57 @@ int main(int argc, char *argv[]) {
 
   fclose(fw); //}}}
 
+  // write per-bond S_n profile //{{{
+  if (opt.bonds && max_bonds > 0) {
+    char fbonds[LINE + 16];
+    snprintf(fbonds, sizeof fbonds, "%s-bonds.txt", fout);
+    fw = PrintBylineOpenFile(fbonds, argc, argv);
+
+    // header: one column per active mol type with at least 2 beads
+    fprintf(fw, "# (1) bond");
+    int col = 1;
+    for (int mt = 0; mt < Count->MoleculeType; mt++) {
+      if (!opt.mt[mt] || System.MoleculeType[mt].nBeads < 2) continue;
+      fprintf(fw, "; (%d) %s", ++col, System.MoleculeType[mt].Name);
+    }
+    putc('\n', fw);
+
+    // count active columns for ArrNDd
+    int n_active = 0;
+    for (int mt = 0; mt < Count->MoleculeType; mt++) {
+      if (opt.mt[mt] && System.MoleculeType[mt].nBeads >= 2) n_active++;
+    }
+    int bncols = 1 + n_active;
+
+    ArrNDd *bdata = CreateArr2Dd(max_bonds + 2, bncols);
+    if (!bdata) ErrorAlloc("bdata");
+
+    for (int b = 0; b < max_bonds; b++) {
+      int c = 0;
+      SetArr2D(bdata, b, c++, (double)(b + 1)); // 1-indexed bond number
+      for (int mt = 0; mt < Count->MoleculeType; mt++) {
+        if (!opt.mt[mt] || System.MoleculeType[mt].nBeads < 2) continue;
+        double s_avg = 0.0;
+        if (b < System.MoleculeType[mt].nBeads - 1) {
+          double total = GetArr2D(cnt_bonds, mt, b);
+          if (total > 0) s_avg = GetArr2D(avg_bonds, mt, b) / total;
+        }
+        SetArr2D(bdata, b, c++, s_avg);
+      }
+    }
+    ComputeColumnWidths(max_bonds, bncols, bdata, 6);
+    PrintDataAll(fw, max_bonds, bncols, bdata);
+    FreeArrND(bdata);
+    fclose(fw);
+  } //}}}
+
   // free memory
   free(opt.mt);
   FreeArrND(dist);
   FreeArrND(avg);
   FreeArrND(cnt);
+  FreeArrND(avg_bonds);
+  FreeArrND(cnt_bonds);
   FreeSystem(&System);
 
   return 0;

@@ -88,6 +88,7 @@ set(UTILS
   AggNumber
   BilayerInPlane
   BilayerRigidity
+  BilayerSq
   Aggregates
   AggResidence
   AngleMolecules
