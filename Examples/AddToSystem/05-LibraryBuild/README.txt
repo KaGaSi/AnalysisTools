@@ -24,15 +24,7 @@ Step 1: build the system (coordinates + topology)
   and counts.  When building from scratch ('-'), a single -sys argument
   is output-only.  The file is needed in step 3.
 
-Step 2: generate the FIELD file with DPD interactions
-
-  Info system.vtf -lib ../../library/ -o system.FIELD
-
-  Info renames bead types to library canonical names (already correct
-  here, since AddToSystem -lib was used) and appends the full pairwise
-  DPD interaction table to system.FIELD.
-
-Step 3: add more molecules to the existing system
+Step 2: add more molecules to the existing system
 
   AddToSystem system.vtf -lib ../../library/ -mol FA_C16 10 system2.vtf \
               --add -sys system.sys

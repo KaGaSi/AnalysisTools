@@ -7,12 +7,7 @@
 \end{filecontents*} %}}}
 \documentclass[12pt,a4paper]{report}
 % used packages %{{{
-% utf8 encoding
-\usepackage[utf8]{inputenc}
-% bibliography
-% \usepackage[refsection=section,style=chem-angew]{biblatex}
 % paper size
-% \usepackage[showframe,lmargin=3cm,rmargin=3cm,bmargin=3cm]{geometry}
 \usepackage[showframe,margin=3cm]{geometry}
 % to include images
 \usepackage{graphicx}
@@ -33,7 +28,7 @@
 \usepackage{etoolbox}
 % used language -- last one is the main language
 \usepackage[main=british,czech]{babel}
-% commands (such as \textcolor) in verbatim
+% makes _ usable in text mode without escaping (e.g., in file_name strings)
 \usepackage[strings]{underscore}
 % \xspace command for macros
 \usepackage{xspace}
@@ -42,11 +37,8 @@
 % custom headers and footers -- replaces fancyhdr
 \usepackage{titleps}
 % to label subfigures
-% \usepackage[labelformat=empty]{subcaption}
 \usepackage{subcaption}
 \usepackage{tabularx}
-% % compress citations into [a-z]
-% \usepackage{cite}
 % list customization
 \usepackage[shortlabels]{enumitem}
 % easy quotation marks
@@ -57,8 +49,6 @@
 \usepackage{listings}
 % strike-out text without redefining \emph{}
 \usepackage[normalem]{ulem}
-%% pseudocode - part of algorithmix
-%\usepackage{algpseudocode}
 % adjust line spacing
 \usepackage{setspace}
 % frame aound text
@@ -74,6 +64,7 @@
 \newcommand{\myauthor}{RNDr. Karel Šindelka, Ph.D.}
 \newcommand{\myemail}{k.sindelka@gmail.com}
 \newcommand{\mydate}{\today}
+\newcommand{\myversion}{4.x}
 
 % % custom title %{{{
 \renewcommand{\maketitle}{%
@@ -88,7 +79,7 @@
     }
     {\large \myemail}
     \vskip 1.5em
-    {\Large Version 4.x (\mydate) \par}
+    {\Large Version \myversion{} (\mydate) \par}
     \vspace*{\fill}
   \end{titlepage}%
 } %}}}
@@ -97,14 +88,9 @@
 \author{\myauthor}
 \date{\mydate}
 
-\usetikzlibrary{calc}
+\usetikzlibrary{calc,arrows.meta,positioning}
 
 \input{arrow.tex}
-
-% \addbibresource{bib.bib}
-% \DefineBibliographyStrings{english}{%
-%   references = {\normalsize References},
-% }
 
 \Crefname{figure}{Figure}{Figures}
 \crefname{figure}{figure}{figures}
@@ -142,18 +128,18 @@
 \newpagestyle{main}{
   \setheadrule{.4pt}% Header rule
   %\setfootrule{.4pt}% Footer rule
-  \sethead[\thesection. \sectiontitle]% odd-left
-          []% odd-center
-          [\thechapter. \chaptertitle]% odd-right
-          {\thechapter. \chaptertitle}% even-left
-          {}% even-center
-          {\thesection. \sectiontitle}% even-right
-  \setfoot[]% odd-left
-          [\thepage]% odd-center
-          []% odd-right
-          {}% even-left
-          {\thepage}% even-center
-          {}% even-right
+  \sethead[\thesection. \sectiontitle]% even-left
+          []% even-center
+          [\thechapter. \chaptertitle]% even-right
+          {\thechapter. \chaptertitle}% odd-left
+          {}% odd-center
+          {\thesection. \sectiontitle}% odd-right
+  \setfoot[]% even-left
+          [\thepage]% even-center
+          []% even-right
+          {}% odd-left
+          {\thepage}% odd-center
+          {}% odd-right
         } %}}}
 % chapter headers without too much white space %{{{
 \makeatletter
@@ -176,9 +162,9 @@
 \chapter*{#1}
 \addcontentsline{toc}{chapter}{#1}
 } %}}}
-% number subsubsection
+% number up to subsections (increase to 3 for subsubsections, 1 for sections only)
 \setcounter{secnumdepth}{2}
-% add subsubsections to toc
+% include up to subsections in toc (same depth scale as secnumdepth)
 \setcounter{tocdepth}{2}
 % more reasonable figure placing %{{{
 \setcounter{topnumber}{2}
@@ -190,8 +176,7 @@
 \renewcommand{\floatpagefraction}{0.7} %}}}
 \newcommand*{\fullref}[1]{\nameref*{#1} (\hyperref[{#1}]{\autoref*{#1}})}
 % some keywords
-\let\tt\useless
-\newcommand{\tt}[1]{\texttt{\detokenize{#1}}\xspace}
+\renewcommand{\tt}[1]{\texttt{\detokenize{#1}}\xspace}
 \newcommand{\vcf}{\tt{vcf}}
 \newcommand{\vsf}{\tt{vsf}}
 \newcommand{\vscf}{\tt{vsf/vcf}}
@@ -204,15 +189,20 @@
 \newcommand{\ltrj}{\tt{lammpstrj}}
 \newcommand{\AT}{\tt{AnalysisTools}}
 \newcommand{\ttb}[1]{\textcolor{blue}{\texttt{#1}}}
-\newcommand{\note}[1]{\vspace{-1em}\noindent\footnotesize{#1}}
-% yellow highlighting
-\DeclareRobustCommand{\hly}[1]{{\sethlcolor{yellow}\hl{#1}}}
-\soulregister\tt7 % makes it possible to use \tt within hl
-\soulregister\vsf7 % makes it possible to use \vsf within hl
-\soulregister\vcf7 % makes it possible to use \vcf within hl
-\newcommand{\TODO}[1]{\hly{#1}}
-\newcommand{\hltt}[1]{\tt{\hl{#1}}} % \hl - soul package
-\newcommand{\Ret}{\textbf{return }}
+\newcommand{\note}[1]{\vspace{-\baselineskip}\noindent{\footnotesize #1}}
+% register macros for use inside \hl (soul package)
+\soulregister\tt7
+\soulregister\vcf7
+\soulregister\vsf7
+\soulregister\vscf7
+\soulregister\vtsf7
+\soulregister\vtcf7
+\soulregister\vtf7
+\soulregister\xyz7
+\soulregister\field7
+\soulregister\data7
+\soulregister\ltrj7
+\soulregister\AT7
 \newcommand{\CallInit}[1]{\vspace{1em}\tt{#1}\tt{(parameters)}\vspace{-1em}}
 % listings setup %{{{
 \definecolor{codebackground}{rgb}{0.95, 0.9, 0.95}
@@ -228,20 +218,6 @@
 } %}}}
 % remove spacing between table columns
 %\renewcommand{\tabcolsep}{0pt}
-%% pseudocode settings - not used anymore
-%\newcommand{\St}{\State }
-%\newcommand{\Stx}{\Statex }
-%\renewcommand{\Return}{\St \textbf{return} }
-%\newcommand{\Break}{\St \textbf{break} }
-%\newcommand{\Error}{\St \textbf{error} }
-%\newcommand{\True}{\hltt{true}}
-%\newcommand{\False}{\hltt{false}}
-%\newcommand{\SReturn}{\St \Ret}
-%\newcommand{\algbottomrule}{\vspace{-0.7em}\rule{\textwidth}{1.0pt}}
-%\newcommand{\CallRef}[1]{\Call{\nameref{#1}}{}}
-%\newcommand{\Or}{\textbf{or} }
-%\renewcommand{\And}{\textbf{and} }
-%\renewcommand\algorithmicindent{8pt} % reduce indenting
 % keywords for number types
 \newcommand{\Real}{$\mathcal{R}$}
 \newcommand{\RealP}{$\mathcal{R}^+$}

@@ -7,20 +7,20 @@ simulation package}) can be roughly divided into four types:
 
 \begin{itemize}
   \item utilities to calculate system-wide properties; e.g., pair
-    correlation functions or particle densities along a simulation box axis
+    correlation functions, densities, or orientational order parameters
   \item utilities to calculate per-molecule or per-aggregate properties
     (where aggregate stands for any supramolecular structure); e.g., shape
-    descriptors for individual molecules or whole micelles
-  \item utilities to manipulate a configuration; e.g., create initial
-    configuration for a simulation from scratch or by adding molecules to
-    an existing one
+    descriptors, persistence lengths, or membrane properties such as bending
+    rigidity and tail interdigitation
+  \item utilities to manipulate or generate configurations; e.g., create
+    initial configurations from scratch, add molecules to an existing system,
+    or join two systems together
   \item helper utilities to analyse text files; e.g., calculate averages
     and standard deviations of a data series
 \end{itemize}
 
-\TODO{The \tt{github.com/KaGaSi/AnalysisTools-examples} repository contains
-examples showcasing capabilities of individual utilities as well as possible
-workflows chaining several utilities.}
+The \tt{Examples} directory contains examples showcasing capabilities of
+individual utilities.
 
 \section{Installation}
 
@@ -35,5 +35,6 @@ To compile the utilities, run the \tt{compile.sh} script in the \AT root
 directory. By default, the build directory is \tt{build} in the \AT root; to use
 a different directory add it as an argument to the script, e.g.,
 \tt{./compile.sh custom_dir}. In both cases, the executables will be located in the
-\tt{bin/} subdirectory.
+\tt{bin/} subdirectory of the build directory. To compile only a single utility,
+run \tt{make <utility name>} directly from within the build directory.
 

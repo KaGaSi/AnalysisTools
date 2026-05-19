@@ -1,15 +1,4 @@
-# AddToSystem — Usage Examples
-
-This directory contains examples showing how `AddToSystem` can be used in
-practice: from minimal, single-command invocations to more realistic,
-multistep system construction workflows.
-
-These examples are not meant as tutorials. They assume you have already looked
-through the manual and are comfortable with the basic command-line interface,
-including bash scripting (somewhat advanced bash scripting for the more complex
-examples 03 and 04).
-
-## What you’ll find here
+# AddToSystem Usage Examples
 
 The examples are ordered roughly from simple to complex:
 
@@ -52,18 +41,3 @@ They are deliberately not concerned with:
 Those decisions are left to the user and their use cases. Note that the examples
 02 through 04 give valid configurations for classic dissipative particle
 dynamics simulations as they assume particle density of 3.
-
-## Assumptions
-
-A few practical assumptions are made throughout:
-- Examples should be run from within their own directories because intermediate
-  files (e.g., coordinate and FIELD files) are created and left in place.
-- FIELD files are often treated as simple templates with placeholders (e.g.
-  particle counts) replaced using standard shell tools.
-
-## How to approach the examples
-
-If you’re new to the utility, start with the minimal example and then look at
-the incremental build. The bilayer and cylinder examples are best read as a
-reference for a realistic workflow, rather than something to type through line
-by line.

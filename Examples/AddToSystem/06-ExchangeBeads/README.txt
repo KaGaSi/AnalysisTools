@@ -4,9 +4,9 @@ examples: -xb, --bonded, --tail, and -s.
 The initial system is a 10x10x10 box at DPD density 3 (3000 beads): 100
 two-bead AB amphiphiles (A=head, B=tail) plus 2800 W solvent beads.
 
-Exchange mode (-xb):
+Exchange mode:
   Without --add, AddToSystem switches beads from the input system rather than
-  appending.  By default it targets the most numerous bead type (here W).
+  appending. By default it targets the most numerous bead type (here S1).
   -xb names the type explicitly:
 
     AddToSystem 1.vtf E.FIELD 2a.vtf           # W chosen automatically

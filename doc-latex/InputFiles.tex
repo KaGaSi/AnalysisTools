@@ -1,8 +1,8 @@
 \chapter{Format of input/output files}\label{chap:input}
 
-This section describes several file types used by many of the
+This chapter describes several file types used by many of the
 AnalysisTools utilities. Output files for the utilities themselves are
-described in their respective sections in \cref{chap:Utils}.
+described in their respective sections in \fullref{chap:Utils}.
 
 Input files are divided into two categories: structure and coordinate files. The
 structure files contain information about the system composition, that is,
@@ -17,8 +17,7 @@ provide additional information (bead and/or molecule properties).
 
 For working with aggregates, AnalysisTools' \tt{agg} file format (see below)
 describes their compositions in terms of molecule numbers taken from the
-structure file used to generate it. Any of the \tt{Aggregates}
-(\cref{sec:Aggregates}) utilities can create the \tt{agg} file.
+structure file used to generate it. Any of the \fullref{sec:Aggregates} utilities can create the \tt{agg} file.
 
 \section{Structure files}\label{sec:StructFile}
 As a structure file, any of the following formats can be used; browse the
@@ -32,9 +31,8 @@ specify the bead/molecule types. While many input files support naming beads and
 molecules, not all do (in some formats, these are optional); in such cases,
 AnalysisTools names the bead types as \tt{b} (and \tt{b1}, \tt{b2}, etc., if
 more than one bead type is present) and molecule types as \tt{m} (and \tt{m1},
-\tt{m2}, etc., in case of multiple molecule types). If unsure, the Info utility
-(\cref{sec:Info}) can provide the names of beads and molecules for the specific
-structure file.
+\tt{m2}, etc., in case of multiple molecule types). If unsure, the \fullref{sec:Info} utility can provide the names of beads and
+molecules for the specific structure file.
 
 \tt{Info} utility can also convert these formats between each other via the
 \tt{-o <file>} option.
@@ -58,7 +56,7 @@ Generally, only name defines types of beads, i.e., should two beads share the
 name, they will be of the same type; their mass, charge, and radius will each
 equal to that for the bead type’s topmost atom line containing the corresponding
 keyword. If the keyword is missing from all atom lines, that characteristic is
-undefined. In the case of the \tt{Info} utility (see \cref{sec:Info} for
+undefined. In the case of the \fullref{sec:Info} utility (see there for
 details), the \tt{--detailed} command line option triggers the detailed
 recognition, where beads that share the name but differ in mass, charge, and/or
 radius will be of different type (with a number appended to the original name).
@@ -88,7 +86,7 @@ molecule can have \tt{bonds}, \tt{angles}, and \tt{dihedrals}, but even though
 up to three parameters for potential parameters are read, AnalysisTools does not
 recognize the potential keywords (\tt{harm}, \tt{cos}, etc.). Moreover, these
 potential parameters are only used for generating new \tt{LAMMPS} or
-\tt{DL_MESO} data files via, e.g., the \tt{Info} utility (\cref{sec:Info}). The
+\tt{DL_MESO} data files via, e.g., the \fullref{sec:Info} utility. The
 \tt{molecules} section can also contain one extra part: \tt{impropers} for
 improper angles which has the same format as the \tt{dihedrals} section (this
 was added because the \href{https://lammps.sandia.gov/}{LAMMPS molecular
@@ -109,11 +107,9 @@ from the \field file.
 
 Nevertheless, the file can be used to supply extra information for bead and
 molecule types for the \tt{Info} utility's \tt{-i} option as these do not
-depend on individual beads but rather on bead and molecule type names (see
-\cref{sec:Info} for details). Moreover, \field is used as an input file to add
+depend on individual beads but rather on bead and molecule type names (see \fullref{sec:Info} for details). Moreover, \field is used as an input file to add
 extra species into an existing system or to create a new system from scratch
-via, e.g., \fullref{sec:AddToSystem} or \TODO{ref GenSystem, GenLayers, or some
-such}.
+via, e.g., \fullref{sec:AddToSystem}.
 
 To be recognized by AnalysisTools utilities, the file must either be called
 \field or have the \tt{.FIELD} extension.
@@ -131,12 +127,6 @@ When used as a structure file, the first timestep is used to define the system
 composition. Therefore while the timesteps can each have a different number of
 beads, their amount cannot exceed the number in the first step.
 
-% The comment line at the beginning of each timestep can contain periodic boundary
-% conditions as \tt{<x> <y> <z>} (cuboid box) or \tt{<a> <b> <c> <alpha> <beta>
-% <gamma>} (general rhomboid box); it is similar to the \tt{pbc} keyword in \vtf
-% file. To use this box definition, use \tt{-pbc <n>} option where \tt{<n>} is the
-% position of the first number on the comment line (e.g., \tt{1} if the comment
-% line starts with the box size).
 %}}}
 
 \subsection{LAMMPS data format}\label{ssec:StructLdata} %{{{
@@ -188,6 +178,44 @@ beads, their amount cannot exceed the number in the first step.
 To be recognized by AnalysisTools utilities, the file must have an extension
 \tt{.lammpstrj}. %}}}
 
+\subsection{DL\_MESO CONFIG format}\label{ssec:StructConfig} %{{{
+
+A coordinate file format used by the
+\href{https://www.scd.stfc.ac.uk/Pages/DL_MESO.aspx}{DL\_MESO\_DPD simulation
+package}. The file starts with a title line, a line with two integers (key and
+imcon, where imcon specifies the periodic boundary condition type), and three
+lines defining the simulation box vectors. Each subsequent bead entry consists
+of a name-and-index line followed by a line with Cartesian coordinates.
+
+Currently, AnalysisTools can write \tt{CONFIG} files but not read them; it is
+therefore available as an output format only.
+
+To be recognized, the file must be named \tt{CONFIG} or have the \tt{.config}
+extension. %}}}
+
+\subsection{GROMACS ITP format}\label{ssec:StructItp} %{{{
+
+A topology file format used by the
+\href{https://www.gromacs.org/}{GROMACS molecular dynamics software}.
+AnalysisTools reads the \tt{[ moleculetype ]}, \tt{[ atoms ]}, \tt{[ bonds ]},
+\tt{[ angles ]}, and \tt{[ dihedrals ]} sections. As \tt{itp} files contain no
+coordinates, this format can only be used as a structure file.
+
+To be recognized by AnalysisTools utilities, the file must have the \tt{.itp}
+extension. %}}}
+
+\subsection{PDB format}\label{ssec:StructPdb} %{{{
+
+The Protein Data Bank format is widely used by molecular simulation and
+visualisation programs. AnalysisTools reads the \tt{CRYST*} record for the box
+dimensions and \tt{ATOM} records for bead information: the atom name field gives
+the bead type, the residue name field gives the molecule type, and the coordinate
+fields give the bead position. As \tt{pdb} files contain no topology, this format
+can only be used as a structure file.
+
+To be recognized by AnalysisTools utilities, the file must have the \tt{.pdb}
+extension. %}}}
+
 \section{Coordinate files}\label{sec:CoorFile}
 As a coordinate file, any of the following formats (described above) can be
 used:
@@ -199,6 +227,8 @@ used:
   \item \xyz format where timesteps can have a different number of beads
   \item LAMMPS \data format which by definition can only contain one timestep
   \item LAMMPS \ltrj format where timesteps can have a different number of beads
+  \item DL\_MESO \tt{CONFIG} format; currently available for output only (reading
+    is not yet supported)
 \end{itemize}
 
 \section{Aggregate file} \label{sec:AggFile} %{{{
