@@ -12,7 +12,7 @@ static void SaveReduced(SYSTEM *Sys, const SYSTEM System, const int count_saved,
                         const bool write[], const OPT opt,
                         const COMMON_OPT commons, const FILE_TYPE fout,
                         const int argc, char *argv[]);
-static void ScaleCoordinates(SYSTEM *System, const double scale);
+static void ScaleCoordinates(SYSTEM *System, const vec3d scale);
 static void MoveCoordinates(SYSTEM *System, const vec3d move);
 static void CopyWrite(const int num, bool *new, bool *old);
 static void ConstrainCoordinates(SYSTEM *System, const OPT opt,
@@ -37,7 +37,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: Selected <input> <output> [options]",
   .args = 2, // number of mandatory arguments
-  .all = 26, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 27, // number of valid lines OptSpec (not counting last {NULL})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -58,7 +58,7 @@ static const struct OptSpec opts[] = {
   {"--wrap", NULL, "wrap coordinates (i.e., apply pbc)", OPT_EXTRA},
   {"-n", "<int(s)>", "save only specified timesteps (--last overrides this option)", OPT_EXTRA},
   {"--last", NULL, "use only the last step (-st/-e/-n options are ignored)", OPT_EXTRA},
-  {"-sc", "<float>", "divide all coordinates by given value", OPT_EXTRA},
+  {"-sc", "<float>|3x<float>", "divide coordinates by given value(s); one value scales uniformly, three values (x y z) scale per axis", OPT_EXTRA},
   {"-m", "3x<float>", "move all coordinates by given vector (-sc option is applied first)", OPT_EXTRA},
   {"-cx", "2x<float>", "constrain x-coordinate to specified dimensions (in fraction of output box); multiple pairs possible", OPT_EXTRA},
   {"-cy", "2x<float>", "constrain y-coordinate to specified dimensions (in fraction of output box); multiple pairs possible", OPT_EXTRA},
@@ -66,6 +66,7 @@ static const struct OptSpec opts[] = {
   {"--real", NULL, "use real coordinates for -cx/-cy/-cz options instead of box fractions", OPT_EXTRA},
   {"--reduce", NULL, "reduce the structure to contaion only beads in the coordinate file", OPT_EXTRA},
   {"-b", "3x<float>", "set box size for all timesteps", OPT_EXTRA},
+  {"-ebt", "<int>", "number of extra bead types (output lammps data file only)", OPT_EXTRA},
   {NULL}
 }; //}}}
 
@@ -77,11 +78,12 @@ struct OPT {
        real,                 // --real
        reduce;               // --reduce
   int n_save[100], n_number; // -n
-  double scale;              // -sc
+  vec3d scale;               // -sc
   vec3d move,                // -m
         box;                 // -b
   double ca[3][100];         // -cx/y/z ... slice(s)' coordinates
   int ca_count[3];           // -cx/y/z ... number of slices per axis
+  int ebt;                   // -ebt
 }; //}}}
 
 // reduce system based on the beds present in the timestep //{{{
@@ -164,16 +166,16 @@ static void SaveReduced(SYSTEM *Sys, const SYSTEM System, const int count_saved,
   free(write2);
 }
 //}}}
-static void ScaleCoordinates(SYSTEM *System, const double scale) { //{{{
-  if (scale != 1) {
+static void ScaleCoordinates(SYSTEM *System, const vec3d scale) { //{{{
+  if (scale.x != 1 || scale.y != 1 || scale.z != 1) {
     for (int i = 0; i < System->Count.BeadCoor; i++) {
       int id = System->BeadCoor[i];
       for (int dd = 0; dd < 3; dd++) {
-        System->Bead[id].Position.v[dd] /= scale;
+        System->Bead[id].Position.v[dd] /= scale.v[dd];
       }
     }
     for (int dd = 0; dd < 3; dd++) {
-      System->Box.Length.v[dd] /= scale;
+      System->Box.Length.v[dd] /= scale.v[dd];
     }
     CalculateBoxData(&System->Box, 0);
   }
@@ -252,6 +254,11 @@ static void TransformAndSave(SYSTEM *System, const OPT opt, const FILE_TYPE f,
   ScaleCoordinates(System, opt.scale);
   MoveCoordinates(System, opt.move);
   WrapJoinCoordinates(System, opt.wrap, opt.join);
+  if (f.type == LDATA_FILE && opt.ebt > 0) {
+    for (int i = 0; i < opt.ebt; i++) {
+      NewBeadType(&System->BeadType, &System->Count.BeadType, "extra", 0, 1, 1);
+    }
+  }
   WriteTimestep(f, *System, count_coor, write, argc, argv);
   if (opt.ca_count[0] > 0 ||
       opt.ca_count[1] > 0 ||
@@ -425,8 +432,22 @@ int main(int argc, char *argv[]) {
   opt.join = BoolOption(argc, argv, "--join");
   opt.wrap = BoolOption(argc, argv, "--wrap");
   opt.last = BoolOption(argc, argv, "--last");
-  if (!OneNumberOption(argc, argv, "-sc", &opt.scale, 'd')) {
-    opt.scale = 1;
+  {
+    double sc_vals[3];
+    int sc_count = 0;
+    if (NumbersOption(argc, argv, 3, "-sc", &sc_count, sc_vals, 'd')) {
+      if (sc_count == 1) {
+        opt.scale.x = opt.scale.y = opt.scale.z = sc_vals[0];
+      } else if (sc_count == 3) {
+        for (int dd = 0; dd < 3; dd++) opt.scale.v[dd] = sc_vals[dd];
+      } else {
+        err_msg("requires 1 or 3 values");
+        PrintErrorOption("-sc");
+        exit(1);
+      }
+    } else {
+      opt.scale.x = opt.scale.y = opt.scale.z = 1;
+    }
   }
   opt.real = BoolOption(argc, argv, "--real");
   if (!ThreeNumbersOption(argc, argv, "-m", opt.move.v, 'd')) {
@@ -500,7 +521,9 @@ int main(int argc, char *argv[]) {
     for (int dd = 0; dd < 3; dd++) {
       opt.box.v[dd] = -1;
     }
-  } //}}}
+  }
+  opt.ebt = 0;
+  OneNumberOption(argc, argv, "-ebt", &opt.ebt, 'i'); //}}}
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
