@@ -5,29 +5,32 @@ options are common for many utilities, so they are described here rather than at
 the individual utilities where only list of the possible options is
 provided.\\[1em]
 \noindent
-\begin{tabular}{p{0.14\textwidth}p{0.804\textwidth}}
+\begin{tabularx}{\textwidth}{lX}
   \toprule
   \multicolumn{2}{l}{General options}\\
   \midrule
-  \tt{--verbose} & print information about all bead and molecule types to the
+  \tt{--verbose} & print system composition (bead and molecule types, counts,
+                   bond/angle/dihedral types, and box dimensions) to the
                    screen\\
-  \tt{--silent}  & run silently, i.e., without any output at all (overrides
-                   \tt{--verbose} option)\\
-  \tt{--help}    & print short description of the utility and usage\\
+  \tt{--silent}  & suppress all progress and informational output (overrides
+                   \tt{--verbose}; errors and warnings are still shown)\\
+  \tt{--help}    & print short description of the utility and exit\\
   \tt{--version} & print version of the utilities and exit\\
   \midrule
   \multicolumn{2}{l}{Options for structure and coordinate input files}\\
   \midrule
-  \tt{-i <name>}  & use specified structure file, see
-    \fullref{sec:StructFile} for possible formats\\
-  \tt{-st <n>}    & start calculations at \tt{n}-th
-                    timestep\\
-  \tt{-e <n>}     & end calculations at \tt{n}-th
-                    timestep\\
-  \tt{-sk <n>}    & skip every \tt{n} timesteps (i.e., use every \tt{(n+1)}-th
-                    timestep)\\
+  \tt{-i <stru> [type]} & use specified structure file; optional \tt{type}
+    overrides extension-based format detection, see
+    \fullref{sec:StructFile} for possible formats and type strings\\
+  \tt{-ft <type>}  & override coordinate file type detection; valid types:
+                     \tt{vtf}, \tt{vcf}, \tt{xyz}, \tt{data},
+                     \tt{ltrj} (or \tt{lammpstrj})\\
+  \tt{-st <n>}     & start calculations at \tt{n}-th timestep\\
+  \tt{-e <n>}      & end calculations at \tt{n}-th timestep\\
+  \tt{-sk <n>}     & skip every \tt{n} timesteps (i.e., use every
+                     \tt{(n+1)}-th timestep)\\
   \bottomrule
-\end{tabular}\\[1em]
+\end{tabularx}\\[1em]
 
 The \tt{-st}, \tt{-e}, and \tt{-sk} options can be combined, so that, for
 example, specifying \tt{-st 2 -e 10 -sk 2} would use timesteps 2, 5, and 8.

@@ -17,25 +17,29 @@ provide additional information (bead and/or molecule properties).
 
 For working with aggregates, AnalysisTools' \tt{agg} file format (see below)
 describes their compositions in terms of molecule numbers taken from the
-structure file used to generate it. Any of the \fullref{sec:Aggregates} utilities can create the \tt{agg} file.
+structure file used to generate it. The \fullref{sec:Aggregates} utility
+creates the \tt{agg} file.
 
 \section{Structure files}\label{sec:StructFile}
-As a structure file, any of the following formats can be used; browse the
+The following subsections describe the supported formats; browse the
 \tt{Examples} directory for example files. Most utilities can load a specific
-structure file using the \tt{-i <file>} option; if the option is not used, it is
-usually assumed the structure file is the same as the coordinate file.
+structure file using the \tt{-i <file> [type]} option (with optional \tt{type}
+provided if it doesn't have expected extension); if the option is not used,
+the coordinate file is typically used as a structure file as well. The type of
+the input coordinate file can similarly be overridden using the \tt{-ft <type>}
+option. Recognised type strings are listed in each subsection below.
 
 Importantly, many of the AnalysisTools utilities work (either fundamentally or
 optionally) with types of beads and/or molecules. In these cases, names are used
 specify the bead/molecule types. While many input files support naming beads and
 molecules, not all do (in some formats, these are optional); in such cases,
-AnalysisTools names the bead types as \tt{b} (and \tt{b1}, \tt{b2}, etc., if
-more than one bead type is present) and molecule types as \tt{m} (and \tt{m1},
-\tt{m2}, etc., in case of multiple molecule types). If unsure, the \fullref{sec:Info} utility can provide the names of beads and
-molecules for the specific structure file.
+AnalysisTools names the bead types as \tt{b0}, \tt{b1}, etc., up to \tt{bN}
+where \tt{N} is the number of bead types and molecule types as \tt{m0}, \tt{m1},
+etc. If unsure, the \fullref{sec:Info} utility can provide the names of beads
+and molecules for the specific structure file.
 
-\tt{Info} utility can also convert these formats between each other via the
-\tt{-o <file>} option.
+Info utility can also convert these formats between each other via the \tt{-o
+<file>} option.
 
 \subsection{VTF format}\label{ssec:StructVtf} %{{{
 
@@ -112,7 +116,8 @@ extra species into an existing system or to create a new system from scratch
 via, e.g., \fullref{sec:AddToSystem}.
 
 To be recognized by AnalysisTools utilities, the file must either be called
-\field or have the \tt{.FIELD} extension.
+\field or have the \tt{.field} extension (case-insensitive); alternatively,
+the type can be specified explicitly with \tt{-i <file> field}.
 %}}}
 
 \subsection{XYZ format}\label{ssec:StructXyz} %{{{
@@ -157,26 +162,32 @@ files via, e.g., the \fullref{sec:Info} utility; note that to run \tt{LAMMPS}
 simulations, these section may have to be manually corrected to conform to the
 specific potential type.
 
-To be recognized by AnalysisTools utilities, the file must have an extension
-\tt{.data}. %}}}
+To be recognized by AnalysisTools utilities, the file must have the
+\tt{.data} extension; alternatively, use \tt{-i <file> data} for a structure
+file or \tt{-ft data} for a coordinate file. %}}}
 
 \subsection{LAMMPS lammpstrj format}\label{ssec:StructLtrj} %{{{
 
 This file format comes from the \tt{LAMMPS}
 \href{https://docs.lammps.org/dump.html}{dump style custom} command.
 
-Of the possible \tt{LAMMPS} attributes, AnalysisTools recognizes only \tt{id}
-(bead index -- mandatory), \tt{element} (bead name), \tt{x y z} (bead
-coordinates), \tt{vx vy vz} (bead velocities), and \tt{fx fy fz} (bead forces).
-Other attributes are ignored. Note that if \tt{element} is missing, all beads
-are considered of the same type called \tt{b}.
+Of the possible \tt{LAMMPS} attributes, AnalysisTools recognizes \tt{id}
+(bead index -- mandatory), \tt{element} (bead name), \tt{x y z} (Cartesian
+bead coordinates), \tt{xs ys zs} and \tt{xsu ysu zsu} (scaled coordinates,
+automatically converted to Cartesian), \tt{xu yu zu} (unwrapped Cartesian
+coordinates), \tt{vx vy vz} (bead velocities), \tt{fx fy fz} (bead forces),
+\tt{type} (bead type used as a fallback name when \tt{element} is absent), and
+\tt{q} (bead charge). Other attributes are ignored. Note that if \tt{element}
+is missing, the \tt{type} attribute is used as the bead name; if both are
+absent, all beads are considered of the same type called \tt{b0}.
 
 When used as a structure file, the first timestep is used to define the system
 composition. Therefore while the timesteps can each have a different number of
 beads, their amount cannot exceed the number in the first step.
 
-To be recognized by AnalysisTools utilities, the file must have an extension
-\tt{.lammpstrj}. %}}}
+To be recognized by AnalysisTools utilities, the file must have the
+\tt{.lammpstrj} extension; alternatively, use \tt{-i <file> ltrj} (or
+\tt{lammpstrj}) for a structure file or \tt{-ft ltrj} for a coordinate file. %}}}
 
 \subsection{DL\_MESO CONFIG format}\label{ssec:StructConfig} %{{{
 
@@ -190,8 +201,8 @@ of a name-and-index line followed by a line with Cartesian coordinates.
 Currently, AnalysisTools can write \tt{CONFIG} files but not read them; it is
 therefore available as an output format only.
 
-To be recognized, the file must be named \tt{CONFIG} or have the \tt{.config}
-extension. %}}}
+To be recognized as an output format, the file must be named \tt{CONFIG} or
+have the \tt{.config} extension (case-insensitive). %}}}
 
 \subsection{GROMACS ITP format}\label{ssec:StructItp} %{{{
 
@@ -202,19 +213,21 @@ AnalysisTools reads the \tt{[ moleculetype ]}, \tt{[ atoms ]}, \tt{[ bonds ]},
 coordinates, this format can only be used as a structure file.
 
 To be recognized by AnalysisTools utilities, the file must have the \tt{.itp}
-extension. %}}}
+extension; alternatively, the type can be specified with \tt{-i <file> itp}. %}}}
 
 \subsection{PDB format}\label{ssec:StructPdb} %{{{
 
 The Protein Data Bank format is widely used by molecular simulation and
 visualisation programs. AnalysisTools reads the \tt{CRYST*} record for the box
-dimensions and \tt{ATOM} records for bead information: the atom name field gives
-the bead type, the residue name field gives the molecule type, and the coordinate
-fields give the bead position. As \tt{pdb} files contain no topology, this format
-can only be used as a structure file.
+dimensions (only the first three values, i.e.\ the box edge lengths; an
+orthogonal box is assumed) and \tt{ATOM} records for bead information: the atom
+name field gives the bead type, the residue name field gives the molecule type,
+and the coordinate fields give the bead position. \tt{HETATM} and other records
+are ignored. As \tt{pdb} files contain no topology, this format can only be used
+as a structure file.
 
 To be recognized by AnalysisTools utilities, the file must have the \tt{.pdb}
-extension. %}}}
+extension; alternatively, the type can be specified with \tt{-i <file> pdb}. %}}}
 
 \section{Coordinate files}\label{sec:CoorFile}
 As a coordinate file, any of the following formats (described above) can be
@@ -223,7 +236,7 @@ used:
   \item \vtcf format (\vtf file contains both structure and coordinate sections
     while \vcf file contains only the coordinate section); both indexed and
     ordered timesteps can be used, but the AnalysisTools utilities always output
-    files with ordered timesteps
+    files with indexed timesteps
   \item \xyz format where timesteps can have a different number of beads
   \item LAMMPS \data format which by definition can only contain one timestep
   \item LAMMPS \ltrj format where timesteps can have a different number of beads
@@ -249,13 +262,21 @@ line, the data for individual timesteps are shown. It follows these rules:
 \begin{itemize}[topsep=0pt,itemsep=0pt]
   \item each timestep starts with \tt{Step: <int>}
   \item the second line is the number of aggregates in the given timestep
-  \item for each aggregate, there is a single line in the format \tt{<size> :
-    <id1> <id2> ...}; the \tt{<id\#>} are molecular indices from the
-    input structure file
+  \item for each aggregate, there are \emph{two} consecutive lines:
+    \begin{itemize}[topsep=0pt,itemsep=0pt]
+      \item \tt{<nCore> : <id1> <id2> ...} --- the number of core molecules
+        followed by their molecular indices (from the input structure file)
+      \item \tt{<nBorder> : <id1> <id2> ...} --- the number of border molecules
+        followed by their molecular indices
+    \end{itemize}
+    Core and border molecules are the result of the DBSCAN algorithm used to
+    identify aggregates; free molecules (monomers) appear as singletons with
+    one core molecule and no border molecules
   \item no blank or comment lines are allowed
   \item not all molecules present in the coordinate/structure file(s) used to
     generate this file must be present in every timestep
-  \item the keyword \tt{Last} instead of \tt{Step:} signalizes the end of data
+  \item the line \tt{Last Step: <int>} signalizes the end of data (only the
+    first word \tt{Last} is checked)
 \end{itemize}
 
 Note that the term aggregate also refers to free molecules (i.e., unimers or
@@ -273,3 +294,59 @@ provided \vtf and \tt{agg} files to generate a \tt{tcl} script and run it via
 
 An example of an \tt{agg} file can be found in the \tt{Examples/AggNumber}
 directory. %}}}
+
+\section{System info file} \label{sec:SysInfo} %{{{
+
+A system info file maps names to the molecule types present in a system. It is
+used with the \tt{-sys} option in utilities such as \fullref{sec:AddToSystem}
+and \fullref{sec:Info} when molecule names are not available from the
+coordinate file.
+
+The file is plain text with one line per molecule type (in the order they
+appear in the system), each formatted as a name followed by an integer count.
+Blank lines and comment lines (beginning with \texttt{\#}) are ignored. The
+count value is not used when reading --- it is only required for the line to be
+recognised --- but when written by a utility, names are left-padded to
+20~characters and counts to 7~digits. A warning is issued if the number of
+valid entries does not match the number of molecule types in the system. %}}}
+
+\section{Library directory} \label{sec:LibDir} %{{{
+
+A library directory is specified via the \tt{-lib} option (e.g.\ in
+\fullref{sec:AddToSystem} and \fullref{sec:Info}) and provides pre-defined
+bead types, interaction parameters, and molecule templates. In all library
+files, blank lines and comment lines (beginning with \texttt{\#}) are ignored;
+the first non-comment, non-blank line in each index file is a count that is
+skipped.
+
+The directory must contain four index files:
+
+\begin{itemize}[noitemsep]
+  \item \tt{list_parameters.txt} --- bead types and self-interactions; data
+    lines have the form \tt{<index> <name> <mass> <charge> <A> <Rc>}, where
+    \tt{A} is the DPD repulsion amplitude and \tt{Rc} is the cutoff radius.
+
+  \item \tt{list_bonds.txt} --- harmonic bond types; data lines have the form
+    \tt{<bond_ID> <k> <r0>}, where \tt{k} is the spring constant and \tt{r0}
+    is the equilibrium length. Fortran-style \tt{d}-exponent notation (e.g.\
+    \tt{1.5d0}) is accepted for \tt{r0}.
+
+  \item \tt{list_angles.txt} --- harmonic angle types; data lines have the
+    form \tt{<angle_ID> <k> <theta>}, where \tt{k} is the spring constant and
+    \tt{theta} is the equilibrium angle.
+
+  \item \tt{list_cross_interactions.txt} --- pairwise DPD interactions between
+    different bead types; data lines have the form
+    \tt{<index> <name1> <name2> <A> <Rc>}.
+\end{itemize}
+
+Additionally, each molecule template is stored in its own file
+\tt{<molname>.txt} within the library directory. The format is similar to the
+\field file: the first two non-comment lines are an arbitrary key string
+(ignored) and the number of beads, followed by bead lines of the form
+\tt{<index> <bead_ID> <x> <y> <z>} (bead indices are 1-based). An optional
+\tt{Bonds} section (the keyword on its own line, followed by a count line,
+then \tt{<bond_ID> <bead_i> <bead_j>} lines) and an optional \tt{Angles}
+section (same structure, with \tt{<angle_ID> <bead_i> <bead_j> <bead_k>}
+lines) may follow. The file is terminated by \tt{End}. Molecule templates are
+loaded by name via the \tt{-mol} option. %}}}

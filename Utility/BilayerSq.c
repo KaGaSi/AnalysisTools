@@ -172,6 +172,8 @@ int main(int argc, char *argv[]) {
   double delta_q;
   if (!IsPosRealNumber(argv[++count], &delta_q)) {
     ErrorNaN("<delta_q>");
+    Help(true, HelpDesc, opts);
+    exit(1);
   }
 
   char fout[LINE] = "";

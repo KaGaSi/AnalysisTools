@@ -74,43 +74,22 @@ necessarily obey the constraining rules.
 By default, molecules are added with a random orientation; when \tt{--no-rotate}
 switch is used, the molecules are not rotated, but when \tt{-a} option is used,
 all the molecules are rotated by the three angles specified in degrees.
-The $\alpha$, $\beta$, and $\gamma$ angles in \tt{-a <alpha> <beta> <gamma>}
-represent yaw, pitch, and roll, respectively. To put it in other words, it is an
-intrinsic rotation with Tait-Bryan angles $\alpha$, $\beta$, and $\gamma$ about
-axes $x$, $y$, and $z$, respectively. The rotation matrix, $R$, is, therefore,
-defined as
+The three angles in \tt{-a <$\alpha$> <$\beta$> <$\gamma$>} specify rotations
+around the $x$-, $y$-, and $z$-axes by $\alpha$, $\beta$, and $\gamma$ degrees,
+respectively. The rotation matrix $R$ is
 \begin{equation}
-  \begin{aligned}
-  R &= R_z(\alpha) R_y(\beta) R_x(\gamma)\\
-    &= \left[
-    \begin{array}{ccc}
-      \cos\alpha & -\sin\alpha & 0\\
-      \sin\alpha &  \cos\alpha & 0\\
-      0          & 0           & 1\\
-    \end{array} \right]
-    \left[
-    \begin{array}{ccc}
-      \cos\beta  & 0           & \sin\beta\\
-      0          & 1           & 0\\
-      -\sin\beta & 0           & \cos\beta\\
-    \end{array} \right]
-    \left[
-    \begin{array}{ccc}
-      1          & 0           & 0\\
-      0          & \cos\gamma  & -\sin\gamma\\
-      0          & \sin\gamma  & \cos\gamma\\
-    \end{array} \right]\\
-    &= \left[
-    \begin{array}{ccc}
-      \cos\alpha\cos\beta &
-        \cos\alpha \sin\beta \sin\gamma - \sin\alpha \cos\gamma &
-        \cos\alpha \sin\beta \cos\gamma + \sin\alpha \sin\gamma \\
-      \sin\alpha\cos\beta &
-        \sin\alpha \sin\beta \sin\gamma + \cos\alpha \cos\gamma &
-        \sin\alpha \sin\beta \cos\gamma - \cos\alpha \sin\gamma \\
-      -\sin\beta & \cos\beta \sin\gamma & \cos\beta \cos\gamma \\
-    \end{array} \right]
-  \end{aligned}
+  R = \left[
+  \begin{array}{ccc}
+    \cos\gamma\cos\beta &
+      \sin\gamma\cos\beta &
+      -\sin\beta \\
+    \cos\gamma\sin\beta\sin\alpha - \sin\gamma\cos\alpha &
+      \sin\gamma\sin\beta\sin\alpha + \cos\gamma\cos\alpha &
+      \cos\beta\sin\alpha \\
+    \cos\gamma\sin\beta\cos\alpha + \sin\gamma\sin\alpha &
+      \sin\gamma\sin\beta\cos\alpha - \cos\gamma\sin\alpha &
+      \cos\beta\cos\alpha \\
+  \end{array} \right]
 \end{equation}
 
 By default, all new beads are exchanged for beads in the original system; what
@@ -142,54 +121,67 @@ in \cref{fig:AddToSystem}).
 
 \vspace{1em}
 \noindent
-Usage: \tt{AddToSystem <input.vcf> <out.vsf> <out.vcf> [options]}
+Usage: \tt{AddToSystem <input> [<in.field>] <output> [options]}\\
 \noindent
-\begin{longtable}{p{0.235\textwidth}p{0.709\textwidth}}
+\begin{longtable}{p{0.32\textwidth}p{0.624\textwidth}}
   \toprule
   \multicolumn{2}{l}{Mandatory arguments}\\
   \midrule
-  \tt{<input>/-}  & input coordinate file (or create a system from scratch)\\
-  \tt{<in.field>} & input \field structure file for the new system\\
-  \tt{<output>}   & output coordinate file for the new system\\
+  \tt{<input>} / \tt{-}      & input coordinate file, or \tt{-} to create a
+                               system from scratch\\
+  \tt{[<in.field>]}          & \field file defining species to add (optional
+                               when \tt{-lib} is used)\\
+  \tt{<output>}              & output coordinate file\\
   \toprule
-  \multicolumn{2}{l}{options} \\
+  \multicolumn{2}{l}{Options}\\
   \midrule
-  \tt{-o <file>}           & extra structure file\\
-  \tt{-ld <float>}         & lowest distance from beads specified by
-                             \tt{-bt} option\\
-  \tt{-hd <float>}         & highest distance from beads specified by
-                             \tt{-bt} option\\
-  \tt{-bt <name(s)>}       & bead types to use in conjunction with
-                             \tt{-ld} and/or \tt{-hd} options\\
-  \tt{--bonded}            & use bonded beads for the distance condition
-                             (overwrites \tt{-bt} option)\\
-  \tt{-xb <name>}          & specify bead type to exchange (default: most
-                             numerous bead type)\\
-  \tt{--add}               & replace original beads instead of increasing the
-                             total number of beads\\
-  \tt{--real}              & use real coordinates for -cx/-cy/-cz/-off options
-                             instead of fractions of input box size\\
-  \tt{--no-rotate}         & do not randomly rotate added molecules\\
-  \tt{-a 3*<angle>} & rotate all added by molecules along x-, y-,
-                             and z-axis\\
-  \tt{--head}              & use molecule's first bead for distance check
-                             (default: molecule's geometric centre)\\
-  \tt{-cx 2*<float>}& constrain x coordinate to interval
-                             $\langle num, num2)$ (units relative to box size)\\
-  \tt{-cy 2*<float>}& constrain y coordinate to interval
-                             $\langle num, num2)$ (units relative to box size)\\
-  \tt{-cz 2*<float>}& constrain z coordinate to interval
-                             $\langle num, num2)$ (units relative to box size)\\
-  \tt{--real}              & use \enquote{real} units instead of relative ones
-                             for \tt{-cx}/\tt{-cy}/\tt{-cz} options\\
-  \tt{-b <x> <y> <z>}      & side lengths of the new simulation box\\
-  \tt{-s <int>}            & seed for random number generator\\
+  \tt{-o <file>}             & extra output structure file\\
+  \tt{-lib <dir>}            & library directory; load molecules via \tt{-mol}
+                               instead of \tt{<in.field>}\\
+  \tt{-mol <mol> <\%/n> ...} & molecule name(s) from the library with a
+                               fraction (e.g.\ \tt{5\%}) or integer count;
+                               pairs can be repeated\\
+  \tt{-sys <input> [out]}    & system info file to assign names to existing
+                               molecule types; optionally write updated info\\
+  \tt{-ld <float>}           & lowest distance from beads specified by
+                               \tt{-bt} or \tt{--bonded}\\
+  \tt{-hd <float>}           & highest distance from beads specified by
+                               \tt{-bt} or \tt{--bonded}\\
+  \tt{-bt <name(s)>}         & bead types to use with \tt{-ld}/\tt{-hd}\\
+  \tt{--bonded}              & use all bonded beads for \tt{-ld}/\tt{-hd}
+                               (overwrites \tt{-bt})\\
+  \tt{-xb <name>}            & bead type to exchange (default: most numerous
+                               type)\\
+  \tt{--add}                 & add new beads to the system instead of
+                               exchanging existing ones (overwrites \tt{-xb})\\
+  \tt{--no-rotate}           & do not randomly rotate added molecules\\
+  \tt{-a 3x<angle>}          & rotate all added molecules by the three given
+                               angles (degrees); overrides \tt{--no-rotate}\\
+  \tt{--head}                & use molecule's first bead for constraint checks
+                               (overrides \tt{--tail})\\
+  \tt{--tail}                & use molecule's last bead for constraint checks
+                               (default: geometric centre)\\
+  \tt{-cx <lo> <hi>}         & constrain x coordinate to interval
+                               $\langle lo, hi)$\\
+  \tt{-cy <lo> <hi>}         & constrain y coordinate to interval
+                               $\langle lo, hi)$\\
+  \tt{-cz <lo> <hi>}         & constrain z coordinate to interval
+                               $\langle lo, hi)$\\
+  \tt{--real}                & use real units for \tt{-cx}/\tt{-cy}/\tt{-cz}/
+                               \tt{-off} instead of fractions of the output
+                               box size\\
+  \tt{-b <x> <y> <z>}        & side lengths of the new simulation box (real
+                               units)\\
+  \tt{-off <x> <y> <z>}      & offset the original system by the given amount
+                               (fractions of output box, or real units with
+                               \tt{--real})\\
+  \tt{-ntot <n> <type>}      & fill to \tt{n} total beads using \tt{<type>}
+                               from the library (requires \tt{-lib})\\
+  \tt{-ebt <int>}            & number of extra bead types to reserve in
+                               LAMMPS data file output\\
+  \tt{-s <int>}              & seed for random number generator\\
   \midrule
-  \multicolumn{2}{p{0.948\textwidth}}{\tt{-i},
-                                      \tt{-st},
-                                      \tt{--verbose},
-                                      \tt{--silent},
-                                      \tt{--help},
-                                      \tt{--version}}\\
+  \multicolumn{2}{p{0.948\textwidth}}{\tt{-i}, \tt{-ft}, \tt{-st}, \tt{-e},
+    \tt{-sk}, \tt{--verbose}, \tt{--silent}, \tt{--help}, \tt{--version}}\\
   \bottomrule
 \end{longtable}

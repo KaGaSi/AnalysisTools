@@ -320,8 +320,6 @@ int main(int argc, char *argv[]) {
     int last = v2 - 1;
     int nb = System.MoleculeType[mt].nBeads;
     if (first >= nb || last >= nb) {
-      if (snprintf(msg, LINE, "bead indices for '%s' out of range [1, %d]",
-            argv[base], nb) < 0) {
       if (snprintf(ERROR_MSG, LINE, "wrong bead index %s%d%s and/or "
           "%s%d%s for %s%s%s; must be [1, %d]",
           ErrYellow(), first + 1, ErrRed(), ErrYellow(), last + 1, ErrRed(),
@@ -331,8 +329,9 @@ int main(int argc, char *argv[]) {
       PrintError();
       exit(1);
     }
-    if (first == last) {
+    if (first != last) {
       err_msg("<first> and <last> must specify different beads");
+      PrintError();
       exit(1);
     }
 
