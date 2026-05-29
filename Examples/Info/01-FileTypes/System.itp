@@ -1,0 +1,114 @@
+; Info example system – Gromacs ITP (bonded topology only)
+; Unbonded bead types (W, P, N) are absent.
+; One [ moleculetype ] block per molecule instance.
+
+[ moleculetype ]
+; name    nrexcl
+A5B5      1
+
+[ atoms ]
+;  nr  type   resnr  residue  atom  cgnr  charge    mass
+    1  A      1      A5B5     A       1   0.00000  1.00000
+    2  A      1      A5B5     A       2   0.00000  1.00000
+    3  A      1      A5B5     A       3   0.00000  1.00000
+    4  A      1      A5B5     A       4   0.00000  1.00000
+    5  A      1      A5B5     A       5   0.00000  1.00000
+    6  B      1      A5B5     B       6   0.00000  1.00000
+    7  B      1      A5B5     B       7   0.00000  1.00000
+    8  B      1      A5B5     B       8   0.00000  1.00000
+    9  B      1      A5B5     B       9   0.00000  1.00000
+   10  B      1      A5B5     B      10   0.00000  1.00000
+
+[ bonds ]
+;  i   j
+    1   2
+    2   3
+    3   4
+    4   5
+    5   6
+    6   7
+    7   8
+    8   9
+    9  10
+
+[ moleculetype ]
+; name    nrexcl
+A5B5      1
+
+[ atoms ]
+;  nr  type   resnr  residue  atom  cgnr  charge    mass
+    1  A      1      A5B5     A       1   0.00000  1.00000
+    2  A      1      A5B5     A       2   0.00000  1.00000
+    3  A      1      A5B5     A       3   0.00000  1.00000
+    4  A      1      A5B5     A       4   0.00000  1.00000
+    5  A      1      A5B5     A       5   0.00000  1.00000
+    6  B      1      A5B5     B       6   0.00000  1.00000
+    7  B      1      A5B5     B       7   0.00000  1.00000
+    8  B      1      A5B5     B       8   0.00000  1.00000
+    9  B      1      A5B5     B       9   0.00000  1.00000
+   10  B      1      A5B5     B      10   0.00000  1.00000
+
+[ bonds ]
+;  i   j
+    1   2
+    2   3
+    3   4
+    4   5
+    5   6
+    6   7
+    7   8
+    8   9
+    9  10
+
+[ moleculetype ]
+; name    nrexcl
+A5B5      1
+
+[ atoms ]
+;  nr  type   resnr  residue  atom  cgnr  charge    mass
+    1  A      1      A5B5     A       1   0.00000  1.00000
+    2  A      1      A5B5     A       2   0.00000  1.00000
+    3  A      1      A5B5     A       3   0.00000  1.00000
+    4  A      1      A5B5     A       4   0.00000  1.00000
+    5  A      1      A5B5     A       5   0.00000  1.00000
+    6  B      1      A5B5     B       6   0.00000  1.00000
+    7  B      1      A5B5     B       7   0.00000  1.00000
+    8  B      1      A5B5     B       8   0.00000  1.00000
+    9  B      1      A5B5     B       9   0.00000  1.00000
+   10  B      1      A5B5     B      10   0.00000  1.00000
+
+[ bonds ]
+;  i   j
+    1   2
+    2   3
+    3   4
+    4   5
+    5   6
+    6   7
+    7   8
+    8   9
+    9  10
+
+[ moleculetype ]
+; name    nrexcl
+Hmol      1
+
+[ atoms ]
+;  nr  type   resnr  residue  atom  cgnr  charge    mass
+    1  A      1      Hmol     A       1   0.00000  1.00000
+    2  A      1      Hmol     A       2   0.00000  1.00000
+    3  A      1      Hmol     A       3   0.00000  1.00000
+    4  C      1      Hmol     C       4   0.00000  1.00000
+    5  D      1      Hmol     D       5   0.00000  1.00000
+    6  D      1      Hmol     D       6   0.00000  1.00000
+    7  D      1      Hmol     D       7   0.00000  1.00000
+
+[ bonds ]
+;  i   j
+    1   2
+    2   3
+    2   4
+    4   6
+    5   6
+    6   7
+

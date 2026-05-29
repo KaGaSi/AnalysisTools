@@ -583,9 +583,15 @@ static bool VtfCheckBondLine() { //{{{
       return false;
     }
   }
-  // more than two strings - assume '<int>: <int>' and test it
+  // more than two strings - assume 'b[ond] <int>: <int>' (colon may be attached to first int)
   if (words > 2) {
-    if (!IsIntegerNumber(split[1], &val_i) || val_i < 0 ||
+    char first[SPL_LEN];
+    s_strcpy(first, split[1], SPL_LEN);
+    int len = strlen(first);
+    if (len > 0 && first[len - 1] == ':') {
+      first[len - 1] = '\0';
+    }
+    if (!IsIntegerNumber(first, &val_i) || val_i < 0 ||
         !IsIntegerNumber(split[2], &val_i) || val_i < 0) {
       err_msg("bond line: only 'b[ond] <int>:<int>' or "
               "'b[ond] <int>: <int>' is valid (for now)");
@@ -665,6 +671,9 @@ static int VtfReadTimestepPreamble(FILE *fr, const char *file,
         PrintWarnFileLine(file, *line_count);
       } //}}}
       timestep = ltype;
+    } else if (ltype == ATOM_LINE || ltype == BOND_LINE ||
+               ltype == BLANK_LINE || ltype == COMMENT_LINE) {
+      // silently skip structure-block lines when scanning for timestep
     } else if (ltype == ERROR_LINE) {
       err_msg("ignoring unrecognised line in a timestep preamble");
       PrintWarnFileLine(file, *line_count);
@@ -786,6 +795,7 @@ static int VtfReadCoorBlockOrdered(FILE *fr, const char *file,
     }
     System->BeadCoor[i] = i;
   }
+  Count->BeadCoor = Count->Bead;
   FillInCoor(System);
   return 1;
 } //}}}

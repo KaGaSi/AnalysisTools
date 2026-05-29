@@ -134,6 +134,12 @@ int main(int argc, char *argv[]) {
   opt.fout = InitFile;
   if (FileOption(argc, argv, "-o", opt.fout.name)) {
     opt.fout.type = FileType(opt.fout.name);
+    if (opt.fout.type == ITP_FILE || opt.fout.type == PDB_FILE) {
+      snprintf(ERROR_MSG, LINE, "writing to %s format is not supported",
+               opt.fout.type == ITP_FILE ? "itp" : "pdb");
+      PrintError();
+      exit(1);
+    }
   } //}}}
   COMMON_OPT commons = CommonOptions(argc, argv, in);
   // extra bead types for data output (-ebt option)
