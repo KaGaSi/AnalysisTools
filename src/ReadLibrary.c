@@ -131,6 +131,7 @@ LIBRARY ReadLibrary(const char *lib_dir) { //{{{
       continue;
     }
     // format: bond_ID  k  r0   (r0 may use Fortran 'd' exponent)
+    // NOTE: k is lammps-style (k/2)
     double k = 0, r0 = 0;
     if (words < 3 || !IsPosRealNumber(split[1], &k)) {
       continue;
@@ -143,7 +144,7 @@ LIBRARY ReadLibrary(const char *lib_dir) { //{{{
     Count->BondType++;
     Sys->BondType = s_realloc(Sys->BondType,
                               sizeof *Sys->BondType * Count->BondType);
-    Sys->BondType[idx] = (PARAMS){k, r0, 0, 0};
+    Sys->BondType[idx] = (PARAMS){2 * k, r0, 0, 0};
     if (lib.n_bond_ids < LIB_MAX_IDS) {
       s_strcpy(lib.bond_id[lib.n_bond_ids].id, split[0], 16);
       lib.bond_id[lib.n_bond_ids].index = idx;
@@ -159,7 +160,7 @@ LIBRARY ReadLibrary(const char *lib_dir) { //{{{
     if (IgnoreLine(&found_count)) {
       continue;
     }
-    // format: angle_ID  k  theta
+    // format: angle_ID  k  theta; k is lammps-style (k/2)
     double k = 0, theta = 0;
     if (words < 3 ||
         !IsPosRealNumber(split[1], &k) ||
@@ -170,7 +171,7 @@ LIBRARY ReadLibrary(const char *lib_dir) { //{{{
     Count->AngleType++;
     Sys->AngleType = s_realloc(Sys->AngleType,
                                sizeof *Sys->AngleType * Count->AngleType);
-    Sys->AngleType[idx] = (PARAMS){k, theta, 0, 0};
+    Sys->AngleType[idx] = (PARAMS){2 * k, theta, 0, 0};
     if (lib.n_angle_ids < LIB_MAX_IDS) {
       s_strcpy(lib.angle_id[lib.n_angle_ids].id, split[0], 16);
       lib.angle_id[lib.n_angle_ids].index = idx;
