@@ -1,126 +1,150 @@
-\section{Info}\label{sec:Info}
+\section{Info} \label{sec:Info}
 
-This utility prints system information read from an input structure file,
-possibly augmenting it with information from another structure file (\tt{-i
-<file>} option) and/or pruning the system to contain only beads from a provided
-coordinate file (\tt{-c} option).
+\tt{Info} reads an input structure file, prints system composition to standard
+output, and can optionally write the (possibly modified) system to a structure
+file of any supported format.
 
-Note that using LAMMPS \data, \ltrj or \xyz input structure file automatically
-reads coordinates in those files, but using \vtf does not. This is because a
-\vtf timestep does not necessarily contain all beads defined in the \vtf
-structure section. If coordinates should be read from the input \vtf structure
-file (and the system potentially pruned), just use the \tt{-c} option with that
-filename.
+By default, the utility prints a summary of bead types, molecule types, counts,
+and simulation box dimensions. Using \tt{--verbose} additionally prints per-bead
+and per-molecule details. When a secondary structure or coordinate file (\tt{-i}
+or \tt{-c} option, respectively) is present as well, \tt{--verbose} also prints
+the initial composition of each input before the final merged result.
 
-For \vtf structure files, the bead (and, consequently, molecule) type
-identification can be enhanced via the \tt{--detailed} option. By default, bead
-types are defined solely based on their name; the other properties (mass,
-charge, and radius) are taken from the first \tt{a[tom]} line with the bead of
-that name that contains the appropriate keyword. For example, lines
+\subsubsection*{Supplementing system information}
 
-\noindent
-\tt{atom default name A m 1}\\
-\tt{atom 1 name B}\\
-\tt{atom 2 name B m 2}\\
-\tt{atom 3 name A m 2}\\
-\tt{atom 4 name A}\\[-1em]
+A secondary structure file supplied via the \tt{-i} option fills in bead type
+properties (charge, mass, radius) that are missing from the primary file,
+matching bead types by name. If both files share molecule types with identical
+names and bead type order, the secondary file can also supply bond types,
+angles, and related topology data absent from the primary file; note that all
+bead type parameters must match exactly for this to work.
 
-\noindent
-would define two bead type called \tt{A} and \tt{B} with masses equal to 1 and
-2, respectively. Using the \tt{--detailed} option would split the \tt{A} beads
-into three types: two with masses equal to 1 and 2, respectively, and a third
-one with undefined mass (it remains undefined because there is an
-ambiguity---should the last bead have mass 1 or 2?).
-% would define two bead type called \tt{A} and \tt{B} with masses equal to 1 and
-% 2, respectively. Using the \tt{--detailed} option would split the \tt{A} beads
-% into three types (and augment the names): \tt{A} and \tt{A_1} with masses
-% equal to 1 and 2, respectively, and \tt{A_2} with undefined mass (it remains
-% undefined because there is an ambiguity---should the last bead have mass 1 or
-% 2?).
-On the other hand, the \tt{B} beads would be assigned the same bead type with
-mass equal to 2 (there is no ambiguity because only one mass is specified for
-the \tt{B} beads).
+The \tt{--chbt} option goes further: instead of only filling in missing values,
+it re-maps the bead types inside each molecule to those defined in the secondary
+file. Molecules are matched by name and bead count; molecule types with
+mismatched bead counts are skipped.
 
-Using the \tt{-i} option with an extra structure file assigns bead mass, charge,
-and/or radius from the extra file if the bead types in the original file have
-unspecified values; this is done only for bead types that share names. Also, if
-the two structure files share molecules that have the same bead type order
-(which can be initially checked via individual \tt{Info} runs on the two files),
-bond types, angles, and angle types can be added to the molecule types in the
-original file. Note that to add this extra information, the bead types in the
-bonds/angles/dihedrals/impropers must be the same, i.e., all their parameters
-(name, mass, charge, radius) must be the same.
+For \vtf structure files, bead type identity is determined by bead name alone by
+default. The \tt{--detailed} flag additionally uses charge, mass, and radius to
+distinguish bead types, so beads sharing a name but differing in other properties
+are assigned distinct types. For example, three \tt{atom} lines with the same
+name but two different masses and one with no mass normally produce a single
+bead type; with \tt{--detailed} they become three separate types (one with
+undefined mass).
 
-The \tt{--mol} option transforms unbonded beads into one-bead molecules with the
-properties of the bead type (name, charge, mass). This can be useful, for
-example, to calculate particle clusters via the \tt{Aggregates} utility because
-it can only determine structures composed of molecules, not unbonded beads.
+\subsubsection*{Coordinates}
 
-\tt{Info} can also write this information into a new file (\tt{-o} option) of
-any format. Note that only one timestep is read and, therefore, saved. Also, if
-no coordinates are read (i.e., neither \tt{-c} option nor a structure file with
-coordinates is used), all coordinates in an output file would be 0.
-% Allowed output files are \vtsf file, LAMMPS \data file (either with the
-% extension \tt{.data} or a filename without any recognizable
-% extension), and DL\_MESO FIELD file (called \field or with the extension
-% \tt{.FIELD}).
+Structure file formats that natively embed coordinates (\data, \ltrj, \xyz)
+include them automatically; for \vtf files, structure and coordinates may differ
+(not all beads in the structure block/file have to be in the coordinate
+block/file), so to read coordinates from a \vtf file, the coordinate file (e.g.,
+the same \vtf file) must be included via the \tt{-c} option. The \tt{-st} option
+selects which timestep of the coordinate file to use (default: the first). When
+coordinates are available, the system is pruned to contain only the beads
+present in that timestep. If no coordinates are read, the system is not pruned,
+and all coordinates in the output structure file (\tt{-o} option) will be 0's.
 
-% Coordinates are printed to output files that support them, i.e., LAMMPS \data or
-% \vtf file. These coordinates are 0 if no coordinate file is specified or the
-% input structure file does not contain them.
+\subsubsection*{Restructuring the system}
 
-There are a few options for the output structure file. For LAMMPS \data file,
-\tt{--mass} can be used to specify LAMMPS atom types by their mass, but print
-different charges in the \tt{Atoms} section (i.e., \tt{Info}-recognized bead
-types which differ only in charge are aggregated into the same LAMMPS atom types
-in the \tt{Mass} section). Furthermore, extra atom types (with mass 1) can be
-added via the \tt{-ebt} option; these atoms do not appear in the \tt{Atoms}
-section of the \data file and can be used as, e.g., extra atom type when srp
-potential (i.e., non-crossing bonds created by adding ghost particles between
-bonded beads) is used. For \vtsf file, \tt{atom default} bead type can be
-specified via the \tt{-def} option; by default, the bead type with the most
-unbonded beads is used as the \tt{atom default} type.
+The \tt{--frag} option splits topologically disconnected molecules (molecules
+whose bonds do not form a single connected graph) into separate fragment molecule
+types named \tt{<orig_name>_1}, \tt{<orig_name>_2}, etc. Single-bead
+fragments are demoted to unbonded beads.
 
-For examples of \tt{Info} usage, see the \tt{Examples/Info} folder.
+The \tt{--mol} option converts all unbonded beads into one-bead molecules, using
+the bead type name as the molecule type name. This is useful when the output is
+to be processed by utilities that only operate on molecules (e.g.,
+\tt{Aggregates}).
+
+\subsubsection*{Output structure file}
+
+When \tt{-o} is specified, \tt{Info} writes the final system to a structure
+file; the format is inferred from the file extension. Writing to \tt{itp} or
+\tt{pdb} is not supported. Only one timestep of coordinates is written.
+
+For \vtf/\vsf output, \tt{-def} specifies the bead type for the
+\tt{atom default} line; the default is the bead type with the greatest number of
+unbonded beads.
+
+For LAMMPS \data output, \tt{--mass} collapses bead types that differ only in
+charge into a single LAMMPS atom type in the \tt{Mass} section while preserving
+per-atom charges in the \tt{Atoms} section. The \tt{-ebt} option appends a given
+number of extra dummy atom types (mass 1, absent from the \tt{Atoms} section),
+useful for, e.g., SRP ghost particles that require pre-declared atom type slots.
+
+\subsubsection*{Library-based bead renaming}
+
+The \tt{-lib} option points to a library directory from which bead type names are
+reassigned and DPD interaction parameters are looked up. The resulting interaction
+table is printed to standard output in addition to the system composition. When
+the output is a \field file (\tt{-o} option), the interaction block is also
+appended to that file.
+
+If molecule types in the input file are unnamed, \tt{-sys} supplies a
+\tt{system_info} file to assign names to them before library renaming. Without
+\tt{-sys}, unnamed molecule types cause the renaming step to be skipped with a
+warning.
+
+\todo{Describe the \tt{system_info} file format, or cross-reference the relevant section once written.}
+
+\todo{Add \tt{-lib}/\tt{-sys} examples to \tt{Examples/Info}.}
 
 \vspace{1em}
 \noindent
 Usage: \tt{Info <input> [options]}
+
 \noindent
-\begin{longtable}{p{0.19\textwidth}p{0.754\textwidth}}
+\begin{longtable}{p{0.24\textwidth}p{0.704\textwidth}}
   \toprule
   \multicolumn{2}{l}{Mandatory argument}\\
   \midrule
-  \tt{<input>} & input structure file\\
-  \midrule
+  \tt{<input>}           & input structure\\
+  \toprule
   \multicolumn{2}{l}{Options for input files}\\
   \midrule
-  \tt{-i <file>}    & extra input structure file (default: None)\\
-  \tt{-c <file>}    & input coordinate file (default: None)\\
-  \tt{--detailed}   & only \vtf structure file: detailed recognition for bead
-    (and, consequently, molecule) types based on the bead names as well as
-    charges, masses, and radii \\
+  \tt{-i <file> [type]}  & secondary structure file supplying additional
+                           information\\
+  \tt{-c <file>}         & input coordinate file\\
+  \tt{--detailed}        & (\vtf input only) identify bead types by name, charge,
+    mass, and radius rather than name alone\\
+  \toprule
+  \multicolumn{2}{l}{Options for system modification}\\
   \midrule
+  \tt{--chbt}            & replace bead types in molecules using the \tt{-i}
+    file; molecules matched by name and bead count\\
+  \tt{--frag}            & split disconnected molecules into fragment molecule
+    types; single-bead fragments become unbonded beads\\
+  \tt{--mol}             & convert unbonded beads into one-bead molecules\\
+  \tt{--unique}          & make all bead and molecule names unique\\
+  \toprule
   \multicolumn{2}{l}{Options for output file}\\
   \midrule
-  \tt{-o <file>}    & output coordinate file (default: None)\\
-  \tt{-def <bead>}  & only \vtf structure file: use bead type \tt{<bead>} for
-    the \enquote{atom default} line (default:bead type with the most unbonded
-    beads)\\
-  \tt{--mass}       & only \data structure file: define LAMMPS atom types by
-    mass but print per-atom charges in the \tt{Atoms} section (default: atom
-    types are the same as \tt{Info}-recognized bead types)\\
-  \tt{--mol}        & change unbonded beads into 1-bead molecules\\
-  \tt{-ebt <int>}   & only \data structure file: number of extra atom types
-                      (for, e.g., srp)\\
+  \tt{-o <file>}         & output structure file (\tt{itp} and \tt{pdb} output
+    not supported)\\
+  \tt{-def <bead>}       & (\vtf/\vsf output only) bead type for the
+    \tt{atom default} line (default: type with the most unbonded beads)\\
+  \tt{--mass}            & (\data output only) define LAMMPS atom types by mass
+    and print per-atom charges in the \tt{Atoms} section\\
+  \tt{-ebt <int>}        & (\data output only) number of extra dummy atom types
+    to add\\
+  \toprule
+  \multicolumn{2}{l}{Library options}\\
   \midrule
-  \multicolumn{2}{l}{Other options (see the beginning of 
+  \tt{-lib <dir>}        & library directory for bead type renaming and DPD
+    interaction lookup\\
+  \tt{-sys <file>}       & \tt{system\_info} file to name unnamed molecule types
+    before library renaming\\
+  \midrule
+  \multicolumn{2}{l}{Other options (see the beginning of
                      Chapter~\ref{chap:Utils})}\\
   \midrule
-  \multicolumn{2}{l}{\tt{-st},
-                     \tt{--verbose},
-                     \tt{--silent},
-                     \tt{--help},
-                     \tt{--version}}\\
+  \multicolumn{2}{p{0.948\textwidth}}{\tt{-ft},
+                                      \tt{-st},
+                                      \tt{-e},
+                                      \tt{-sk},
+                                      \tt{--verbose},
+                                      \tt{--silent},
+                                      \tt{--help},
+                                      \tt{--version}}\\
   \bottomrule
 \end{longtable}

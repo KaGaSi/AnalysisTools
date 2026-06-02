@@ -22,9 +22,9 @@ provided.\\[1em]
   \tt{-i <stru> [type]} & use specified structure file; optional \tt{type}
     overrides extension-based format detection, see
     \fullref{sec:StructFile} for possible formats and type strings\\
-  \tt{-ft <type>}  & override coordinate file type detection; valid types:
-                     \tt{vtf}, \tt{vcf}, \tt{xyz}, \tt{data},
-                     \tt{ltrj} (or \tt{lammpstrj})\\
+  \tt{-ft <type>}  & override input file type: \tt{vtf}, \tt{xyz}, \tt{data},
+                     \tt{ltrj} (or \tt{lammpstrj}), \tt{field}, \tt{itp},
+                     \tt{pdb}\\
   \tt{-st <n>}     & start calculations at \tt{n}-th timestep\\
   \tt{-e <n>}      & end calculations at \tt{n}-th timestep\\
   \tt{-sk <n>}     & skip every \tt{n} timesteps (i.e., use every
@@ -35,8 +35,14 @@ provided.\\[1em]
 The \tt{-st}, \tt{-e}, and \tt{-sk} options can be combined, so that, for
 example, specifying \tt{-st 2 -e 10 -sk 2} would use timesteps 2, 5, and 8.
 
-Note that should two (or more) identical options be specified on the command
-line, only the first one is used.
+Should two (or more) identical options be specified on the command line, only
+the first one is used.
+
+Note that while in theory it is possible to combine any coordinate and structure
+file formats via the \tt{-i} option, it is generally not recommended. For
+example, \xyz file format does not include bead indices which means that beads
+are numbered according to the file line which may not agree with \vsf structure
+format that does contain bead indices.
 
 \input{AddToSystem}
 \input{AggNumber}
