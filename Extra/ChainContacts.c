@@ -19,9 +19,9 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
   {"<input>", NULL, "input coordinate file", OPT_ARG},
-  {"<output>", NULL, "output file with pair correlation function(s)", OPT_ARG},
+  {"<output>", NULL, "output file with number of isolated beads per chain", OPT_ARG},
   {"<bead(s)>", NULL, "bead name(s) for calculation (optional and ignored if '--all' is used)", OPT_ARG},
-  {"-d", "<dist>", "maximum distance for RDF calculation (default: 1/3 of the shortest box side length)", OPT_EXTRA},
+  {"-d", "<dist>", "maximum distance for contact calculation (default: 1/3 of the shortest box side length)", OPT_EXTRA},
   {"-skip", "<num>", "number of in-between beads to skip in the same molecule", OPT_EXTRA},
   {"--all", NULL, "use all bead types (overwrites <bead(s)>)", OPT_EXTRA},
   {NULL}
@@ -49,121 +49,112 @@ int PosInMol(const int b_id, const SYSTEM System) {
   exit(1);
 } //}}}
 
-// TODO: move to some library file
-static inline void CorrectBTypeOrder(int *btype_i, int *btype_j) {
-  if (*btype_i > *btype_j) {
-    SwapInt(btype_i, btype_j);
-  }
-}
-
 // functions to plug into traversal functions
-// calculate contacts between bead types //{{{
-// the calculation itself
-static void CalculateContacts(int id_i, int id_j, SYSTEM System, OPT opt,
-                              ArrNDi *contacts_step, double max_dist) {
+// mark beads that have at least one contact //{{{
+static void MarkContact(int id_i, int id_j, SYSTEM System, OPT opt,
+                        bool *in_contact, double max_dist) {
   int i = System.BeadCoor[id_i];
   int j = System.BeadCoor[id_j];
   BEAD *b_i = &System.Bead[i];
   BEAD *b_j = &System.Bead[j];
-  // calculate distance between the two beads
   vec3d d = DistancePBC(b_i->Position, b_j->Position, &System.Box);
   double dist = VectLength(d);
   if (b_i->Molecule != b_j->Molecule ||
       abs(PosInMol(i, System) - PosInMol(j, System)) > opt.skip) {
     if (dist < max_dist) {
-      int btype_i = b_i->Type;
-      int btype_j = b_j->Type;
-      CorrectBTypeOrder(&btype_i, &btype_j);
-      AddArr2D(contacts_step, btype_i, btype_j, 1);
+      in_contact[i] = true;
+      in_contact[j] = true;
     }
   }
 }
 // structure for the callback function
 struct contacts_args {
-  ArrNDi *contacts_step;
+  bool *in_contact;
   double max_dist;
   OPT opt;
 };
-// adaptor for the CalculatePCF() function
-static void CalculateContacts_adaptor(int id_i, int id_j,
-                                      const SYSTEM System, void *ud) {
+// adaptor for the TraversePairs() function
+static void MarkContact_adaptor(int id_i, int id_j,
+                                const SYSTEM System, void *ud) {
   struct contacts_args *p = (struct contacts_args*)ud;
-  CalculateContacts(id_i, id_j, System, p->opt, p->contacts_step, p->max_dist);
+  MarkContact(id_i, id_j, System, p->opt, p->in_contact, p->max_dist);
 } //}}}
 // condition for using specified beads //{{{
-// check based on supplied type (needed for writing to file)
 static bool CheckBeadType(int btype, OPT opt) {
-  if (!opt.bt[btype]) {
-    return false;
-  } else {
-    return true;
-  }
+  return opt.bt[btype];
 }
-// check based on supplied System.BeedCoor id
 static bool CheckBead(int id_i, SYSTEM System, OPT opt) {
   int i = System.BeadCoor[id_i];
   return CheckBeadType(System.Bead[i].Type, opt);
 }
-// structure for the callback function
 struct check_args {
   OPT opt;
 };
-// adaptor for the CalculatePCF() function
 static bool CheckBeadType_adaptor(int id_i, SYSTEM System, void *ud) {
   struct check_args *p = (struct check_args*)ud;
   return CheckBead(id_i, System, p->opt);
 }
 //}}}
 
-void Calculation(SYSTEM *System, STEP *step, OPT opt, ArrNDd *contacts,
+void Calculation(SYSTEM *System, STEP *step, OPT opt, double *isolated_avg,
                  double cell_size, char output[LINE]) {
   COUNT *Count = &System->Count;
-  ArrNDi *contacts_step = CreateArr2Di(Count->BeadType, Count->BeadType);
-  FillArrND(contacts_step, 0);
+  bool *in_contact = calloc(Count->Bead, sizeof *in_contact);
+  if (!in_contact) {
+    ErrorAlloc("in_contact");
+  }
   WrapJoinCoordinates(System, true, false);
-  struct contacts_args args = { contacts_step, opt.max_dist, opt };
+  struct contacts_args args = { in_contact, opt.max_dist, opt };
   struct check_args check = { opt };
-  TraversePairs(*System, cell_size, CalculateContacts_adaptor, &args,
+  TraversePairs(*System, cell_size, MarkContact_adaptor, &args,
                 CheckBeadType_adaptor, &check);
-  // calculate molecules for normalisation - all containing used beads
-  int count_mols = 0;
-  for (int i = 0; i < Count->MoleculeType; i++) {
-    for (int j = 0; j < System->MoleculeType[i].nBTypes; j++) {
-      if (CheckBeadType(System->MoleculeType[i].BType[j], opt)) {
-        count_mols += System->MoleculeType[i].Number;
-        break;
+  // count isolated selected beads per molecule type
+  int *isolated_step = calloc(Count->MoleculeType, sizeof *isolated_step);
+  if (!isolated_step) {
+    ErrorAlloc("isolated_step");
+  }
+  for (int m = 0; m < Count->Molecule; m++) {
+    int mtype = System->Molecule[m].Type;
+    for (int k = 0; k < System->MoleculeType[mtype].nBeads; k++) {
+      int bid = System->Molecule[m].Bead[k];
+      if (opt.bt[System->Bead[bid].Type] && !in_contact[bid]) {
+        isolated_step[mtype]++;
       }
     }
   }
   // save per-step values
   FILE *fw = OpenFile(output, "a");
   fprintf(fw, "%6d", step->coor);
-  for (int i = 0; i < Count->BeadType; i++) {
-    if (CheckBeadType(i, opt)) {
-      for (int j = i; j < Count->BeadType; j++) {
-        if (CheckBeadType(j, opt)) {
-          double val = (double)(GetArr2D(contacts_step, i, j)) / count_mols;
-          fprintf(fw, " %lf", val);
-          AddArr2D(contacts, i, j, val);
-        }
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    bool has_selected = false;
+    for (int j = 0; j < System->MoleculeType[i].nBTypes; j++) {
+      if (opt.bt[System->MoleculeType[i].BType[j]]) {
+        has_selected = true;
+        break;
       }
+    }
+    if (has_selected) {
+      double val = (double)isolated_step[i] / System->MoleculeType[i].Number;
+      fprintf(fw, " %lf", val);
+      isolated_avg[i] += val;
     }
   }
   fprintf(fw, "\n");
   fclose(fw);
-  FreeArrND(contacts_step);
+  free(in_contact);
+  free(isolated_step);
 }
 // structure for the callback function
 struct user_data {
   OPT opt;
-  ArrNDd *contacts;
+  double *isolated_avg;
   double cell_size;
   char *output;
 };
 // adaptor for the Calculation() function
 static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
   struct user_data *p = (struct user_data*)userdata;
-  Calculation(System, step, p->opt, p->contacts, p->cell_size, p->output);
+  Calculation(System, step, p->opt, p->isolated_avg, p->cell_size, p->output);
 };
 
 int main(int argc, char *argv[]) {
@@ -178,7 +169,7 @@ int main(int argc, char *argv[]) {
   if (!InputCoorStruct(argc, argv, &in)) {
     exit(1);
   } //}}}
-  // <output> - filename with pcf(s)
+  // <output> - filename with isolated bead counts
   char output[LINE] = "";
   s_strcpy(output, argv[++count], LINE);
 
@@ -248,68 +239,73 @@ int main(int argc, char *argv[]) {
     ErrorOption("-skip");
   }
 
-  // pair correlation function
-  ArrNDd *contacts = CreateArr2Dd(Count->BeadType, Count->BeadType);
-  if (!contacts) {
-    ErrorAlloc("contacts");
+  // per-molecule-type accumulator for isolated bead counts
+  double *isolated_avg = calloc(Count->MoleculeType, sizeof *isolated_avg);
+  if (!isolated_avg) {
+    ErrorAlloc("isolated_avg");
   }
 
   FILE *fw = PrintBylineOpenFile(output, argc, argv);
   count = 1;
   fprintf(fw, "# (%d) step", count);
   count++;
-  for (int i = 0; i < Count->BeadType; i++) {
-    if (opt.bt[i]) {
-      for (int j = i; j < Count->BeadType; j++) {
-        if (opt.bt[j]) {
-          fprintf(fw, "; (%d) %s-%s", count, System.BeadType[i].Name,
-                                             System.BeadType[j].Name);
-          count++;
-        }
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    bool has_selected = false;
+    for (int j = 0; j < System.MoleculeType[i].nBTypes; j++) {
+      if (opt.bt[System.MoleculeType[i].BType[j]]) {
+        has_selected = true;
+        break;
       }
+    }
+    if (has_selected) {
+      fprintf(fw, "; (%d) %s", count, System.MoleculeType[i].Name);
+      count++;
     }
   }
   putc('\n', fw);
   fclose(fw);
 
   STEP step = InitStep;
-  struct user_data ud = { opt, contacts, cell_size, output };
+  struct user_data ud = { opt, isolated_avg, cell_size, output };
   MainLoopCoor(&System, in, commons, &step, Calculation_adaptor, &ud);
 
   // append overall averages //{{{
   FILE *fw_avg = OpenFile(output, "a");
   fprintf(fw_avg, "# overall averages (%d steps):\n", step.used);
   fprintf(fw_avg, "#");
-  for (int i = 0; i < Count->BeadType; i++) {
-    if (CheckBeadType(i, opt)) {
-      for (int j = i; j < Count->BeadType; j++) {
-        if (CheckBeadType(j, opt)) {
-          fprintf(fw_avg, " <%s-%s>", System.BeadType[i].Name,
-                                      System.BeadType[j].Name);
-        }
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    bool has_selected = false;
+    for (int j = 0; j < System.MoleculeType[i].nBTypes; j++) {
+      if (opt.bt[System.MoleculeType[i].BType[j]]) {
+        has_selected = true;
+        break;
       }
+    }
+    if (has_selected) {
+      fprintf(fw_avg, " <%s>", System.MoleculeType[i].Name);
     }
   }
   fprintf(fw_avg, "\n#");
-  for (int i = 0; i < Count->BeadType; i++) {
-    if (CheckBeadType(i, opt)) {
-      for (int j = i; j < Count->BeadType; j++) {
-        if (CheckBeadType(j, opt)) {
-          fprintf(fw_avg, " %lf", GetArr2D(contacts, i, j) / step.used);
-        }
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    bool has_selected = false;
+    for (int j = 0; j < System.MoleculeType[i].nBTypes; j++) {
+      if (opt.bt[System.MoleculeType[i].BType[j]]) {
+        has_selected = true;
+        break;
       }
+    }
+    if (has_selected) {
+      fprintf(fw_avg, " %lf", isolated_avg[i] / step.used);
     }
   }
   putc('\n', fw_avg);
   fclose(fw_avg); //}}}
 
   // free memory //{{{
-  FreeArrND(contacts);
+  free(isolated_avg);
   free(opt.bt);
   FreeSystem(&System);
   //}}}
 
   return 0;
 }
-
-// backup - will the MainLoop() function work?
