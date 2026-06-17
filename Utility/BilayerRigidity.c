@@ -329,7 +329,7 @@ int main(int argc, char *argv[]) {
       PrintError();
       exit(1);
     }
-    if (first != last) {
+    if (first == last) {
       err_msg("<first> and <last> must specify different beads");
       PrintError();
       exit(1);

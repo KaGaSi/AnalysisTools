@@ -831,12 +831,8 @@ bool InputCoorStruct(const int argc, char **argv, SYS_FILES *f) {
           PrintErrorOption("-i");
           exit(1);
         } else {
-          if (snprintf(ERROR_MSG, LINE, "unknown structure file type: '%s%s%s'",
-                       ErrYellow(), argv[i+2], ErrRed()) < 0) {
-            ErrorSnprintf();
-          }
-          PrintErrorOption("-i");
-          exit(1);
+          // not a format string or a type hint, detect from filename
+          f->stru.type = StructureFileType(f->stru.name);
         }
       } else {
         f->stru.type = StructureFileType(f->stru.name);

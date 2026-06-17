@@ -1,7 +1,4 @@
 #include "../src/AnalysisTools.h"
-// TODO: -n option - segfault
-// TODO: -t + --all option - not all bonds in the the -t file
-//       requires adding step_bond_all array (or some such)
 // TODO: helper functions to static ..() and define at the file end
 
 // Help message //{{{
@@ -76,10 +73,25 @@ void Calculation(SYSTEM *System, STEP step, OPT opt,
   }
   ArrNDd *step_t = NULL;
   ArrNDi *step_t_c = NULL;
-  if (opt.t_file[0] != '\0') {
-    if (!(step_t = CreateArr2Dd(opt.n_number, opt.n_number)) ||
-        !(step_t_c = CreateArr2Di(opt.n_number, opt.n_number))) {
+  int n_pair_num = opt.n_number / n_per_set;
+  if (opt.t_file[0] != '\0' || opt.n_file[0] != '\0') {
+    if (!(step_t = CreateArr2Dd(Count->MoleculeType, n_pair_num)) ||
+        !(step_t_c = CreateArr2Di(Count->MoleculeType, n_pair_num))) {
       ErrorAlloc("step_t/step_t_c");
+    }
+  }
+  ArrNDd *step_bond_all = NULL;
+  ArrNDi *step_bond_all_c = NULL;
+  if (opt.t_file[0] != '\0' && opt.all) {
+    int max_b = 0;
+    for (int i = 0; i < Count->MoleculeType; i++) {
+      if (System->MoleculeType[i].nBonds > max_b) {
+        max_b = System->MoleculeType[i].nBonds;
+      }
+    }
+    if (!(step_bond_all = CreateArr2Dd(Count->MoleculeType, max_b)) ||
+        !(step_bond_all_c = CreateArr2Di(Count->MoleculeType, max_b))) {
+      ErrorAlloc("step_bond_all");
     }
   } //}}}
   // calculate bond lengths //{{{
@@ -134,6 +146,10 @@ void Calculation(SYSTEM *System, STEP step, OPT opt,
             SetArr3D(bond_all_mma, mol_i->Type, j, 1, bond.v[0]);
           }
           AddArr3D(bond_all_mma, mol_i->Type, j, 2, bond.v[0]);
+          if (opt.t_file[0] != '\0') {
+            AddArr2D(step_bond_all, mol_i->Type, j, bond.v[0]);
+            AddArr2D(step_bond_all_c, mol_i->Type, j, 1);
+          }
         }
         //}}}
         int k = bond.v[0] / width;
@@ -172,10 +188,10 @@ void Calculation(SYSTEM *System, STEP step, OPT opt,
           // distance calculation
           vec3d r12 = Vector(b_1->Position, b_2->Position);
           double dist = VectLength(r12);
-          // step_t[mol_i->Type][j/2] += dist.v[0];
+          // step_t[mol_i->Type][j/2] += dist;
           AddArr2D(step_t, mol_i->Type, j / 2, dist);
           // step_t_c[mol_i->Type][j/2]++;
-          AddArr2D(step_t_c, mol_i->Type, j / 2, dist);
+          AddArr2D(step_t_c, mol_i->Type, j / 2, 1);
           // distance mins & maxes & averages //{{{
           // if (dist.v[0] < bond_n_mma[mol_i->Type][j/2][0]) { // minimum
           if (dist < GetArr3D(bond_n_mma, mol_i->Type, j / n_per_set, 0)) {
@@ -193,7 +209,7 @@ void Calculation(SYSTEM *System, STEP step, OPT opt,
           int k = dist / width; // distribution 'bin'
           if (k < bins) {
             // bond_n[mol_i->Type][j/n_per_set][k]++;
-            AddArr3D(bond_n, mol_i->Type, j / n_per_set, k, dist);
+            AddArr3D(bond_n, mol_i->Type, j / n_per_set, k, 1);
           }
         }
       }
@@ -220,6 +236,20 @@ void Calculation(SYSTEM *System, STEP step, OPT opt,
         }
       }
     }
+    if (opt.all) {
+      for (int i = 0; i < Count->MoleculeType; i++) {
+        MOLECULETYPE *mt = &System->MoleculeType[i];
+        if (opt.mt[i] && mt->nBonds > 0) {
+          for (int j = 0; j < mt->nBonds; j++) {
+            double value = GetArr2D(step_bond_all, i, j);
+            if (GetArr2D(step_bond_all_c, i, j) > 0) {
+              value /= GetArr2D(step_bond_all_c, i, j);
+            }
+            fprintf(fw, "%10f", value);
+          }
+        }
+      }
+    }
     if (opt.n_file[0] != '\0') {
       for (int i = 0; i < Count->MoleculeType; i++) {
         if (opt.mt[i]) {
@@ -242,9 +272,13 @@ void Calculation(SYSTEM *System, STEP step, OPT opt,
   // free per-timestep array
   FreeArrND(per_step);
   FreeArrND(per_step_c);
-  if (opt.t_file[0] != '\0') {
+  if (opt.t_file[0] != '\0' || opt.n_file[0] != '\0') {
     FreeArrND(step_t);
     FreeArrND(step_t_c);
+  }
+  if (opt.t_file[0] != '\0' && opt.all) {
+    FreeArrND(step_bond_all);
+    FreeArrND(step_bond_all_c);
   }
 }
 // structure for the callback function
@@ -757,11 +791,8 @@ int main(int argc, char *argv[]) {
                 opt.n_list[k+1] >= System.MoleculeType[j].nBeads) {
               continue;
             } //}}}
-            // double val = (double)(bond_n[j][k/n_per_set][i]) /
-            //              n_norm[j][(int)(k/n_per_set)];
-            // fprintf(fw, " %10f", val);
-            double val = (double)(GetArr3D(bond_n, j, k, i)) /
-                         GetArr2D(n_norm, j, k);
+            double val = (double)(GetArr3D(bond_n, j, k/n_per_set, ii)) /
+                         GetArr2D(n_norm, j, k/n_per_set);
             SetArr2D(data, i, count++, val);
           }
         }
