@@ -88,7 +88,7 @@ void CalculateContacts(const int id_i, const int id_j, SYSTEM System,
     rij = DistancePBC(b_i->Position, b_j->Position, &sys_copy.Box);
   } else {
     for (int dd = 0; dd < 3; dd++) {
-      rij.v[dd] = b_i->Position.v[dd] - b_i->Position.v[dd];
+      rij.v[dd] = b_i->Position.v[dd] - b_j->Position.v[dd];
     }
   }
   rij.v[0] = VectLength(rij);

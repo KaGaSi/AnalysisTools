@@ -294,8 +294,8 @@ int main(int argc, char *argv[]) {
   // maximum number of angles in all molecules
   int max_angs = 0;
   for (int i = 0; i < Count->MoleculeType; i++) {
-    if (System.MoleculeType[i].nBonds > max_angs) {
-      max_angs = System.MoleculeType[i].nBonds;
+    if (System.MoleculeType[i].nAngles > max_angs) {
+      max_angs = System.MoleculeType[i].nAngles;
     }
   }
   if (opt.all) {
@@ -359,7 +359,7 @@ int main(int argc, char *argv[]) {
             size_t shape5D[5] = {i, j, k, l, m};
             if (GetArrND(ang, shape5D) > 0) {
               size_t id[4] = {i, j, k, l};
-              SetArrND(ang_norm, id, GetArrND(ang, shape5D));
+              AddArrND(ang_norm, id, GetArrND(ang, shape5D));
             }
           }
         }
@@ -529,7 +529,7 @@ int main(int argc, char *argv[]) {
         fprintf(fw, " %lf", GetArr3D(ang_all_mma, i, j, 0));
         fprintf(fw, " %lf", GetArr3D(ang_all_mma, i, j, 1));
         double val = GetArr3D(ang_all_mma, i, j, 2) /
-                     GetArr2D(ang_all_mma, i, j);
+                     GetArr2D(ang_all_norm, i, j);
         fprintf(fw, " %lf", val);
       }
     }
@@ -584,12 +584,12 @@ int main(int argc, char *argv[]) {
     } //}}}
     // collate data //{{{
     int ncols = count;
-    int nrows = 180;
+    int nrows = bins;
     ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
     if (!data) {
       ErrorAlloc("data");
     }
-    for (int i = 0; i < 180; i++) {
+    for (int i = 0; i < bins; i++) {
       // fprintf(fw, "%7.4f", width * (2 * i + 1) / 2);
       count = 0;
       SetArr2D(data, i, count++, width * (2 * i + 1) / 2);

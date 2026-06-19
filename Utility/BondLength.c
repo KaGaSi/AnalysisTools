@@ -1,5 +1,4 @@
 #include "../src/AnalysisTools.h"
-// TODO: helper functions to static ..() and define at the file end
 
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
@@ -56,6 +55,7 @@ static void WriteMinsMaxesAvgs(FILE *fw, SYSTEM System, OPT opt,
 // are the provided bead types bonded?
 static bool BondedPair(MOLECULETYPE mt, int btype[2]); //}}}
 
+// per-timestep calculation and output //{{{
 void Calculation(SYSTEM *System, STEP step, OPT opt,
                  ArrNDd *bond_bt, ArrNDd *bond_bt_mma,
                  ArrNDd *bond_all, ArrNDd *bond_all_mma,
@@ -296,7 +296,7 @@ static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
   Calculation(System, *step, p->opt, p->bond_bt, p->bond_bt_mma,
               p->bond_all, p->bond_all_mma,
               p->bond_n, p->bond_n_mma, p->width, p->bins, p->n_per_set);
-};
+}; //}}}
 
 int main(int argc, char *argv[]) {
 
