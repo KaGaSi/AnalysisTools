@@ -381,7 +381,10 @@ static void FieldReadMolecules(const char *file, SYSTEM *System) { //{{{
         MOLECULE *mol = &System->Molecule[mol_count];
         mol->Type = i;
         mol->Index = mol_count;
-        mol->Bead = malloc(sizeof *mol->Bead * mt_i->nBeads);
+        mol->Bead = malloc(mt_i->nBeads * sizeof *mol->Bead);
+        if (!mol->Bead) {
+          ErrorAlloc("mol->Bead");
+        }
         mol->InTimestep = true;
         for (int k = 0; k < mt_i->nBeads; k++) {
           BEAD *bead = &System->Bead[count];
@@ -576,7 +579,10 @@ static bool ReadStuff(const char *file, FILE *fr, int *line_count,
   *n_stuff = val;
   // b) bonds/angles/dihedrals/impropers themselves & their types
   // allocate MoleculeType[].Stuff array
-  *Stuff = malloc(sizeof **Stuff * *n_stuff);
+  *Stuff = malloc(*n_stuff * sizeof **Stuff);
+  if (!*Stuff) {
+    ErrorAlloc("Stuff");
+  }
   bool warned = false;
   for (int j = 0; j < *n_stuff; j++) {
     FieldReadLine(line_count, fr, file, "Molecules");

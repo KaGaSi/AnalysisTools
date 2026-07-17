@@ -24,32 +24,49 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file or '-' to generate new system", OPT_ARG},
-  {"[<in.field>]", NULL, "FIELD file with beads to add (unused with -lib)", OPT_ARG},
+  {"<input>", NULL, "input coordinate file or '-' to generate new system",
+    OPT_ARG},
+  {"[<in.field>]", NULL, "FIELD file with beads to add (unused with -lib)",
+    OPT_ARG},
   {"<output>", NULL, "output coordinate file", OPT_ARG},
   {"-o", "<filename>", "output extra structure file", OPT_EXTRA},
-  {"-lib", "<dir>", "library directory: load molecules via -mol instead of <in.field>", OPT_EXTRA},
-  {"-mol", "<mol> <%/n> ...", "molecule name(s) with fraction (e.g. 5%) or count; pairs can be repeated", OPT_EXTRA},
-  {"-sys", "<input> [output]", "system file: assign names to existing molecule types; optionally output updated info", OPT_EXTRA},
-  {"-ld", "<float>", "lowest distance from chosen beads (default: none)", OPT_EXTRA},
-  {"-hd", "<float>", "highest distance from chosen beads (default: none)", OPT_EXTRA},
+  {"-lib", "<dir>", "library directory: load molecules via -mol", OPT_EXTRA},
+  {"-mol", "<mol> <%/n> ...", "molecule name(s) with percentage (e.g. 5%) "
+    "or count; pairs can be repeated", OPT_EXTRA},
+  {"-sys", "<input> [output]", "system file: assign names to existing molecule "
+    "types; optionally output updated info", OPT_EXTRA},
+  {"-ld", "<float>", "lowest distance from chosen beads (default: none)",
+    OPT_EXTRA},
+  {"-hd", "<float>", "highest distance from chosen beads (default: none)",
+    OPT_EXTRA},
   {"-bt", "<name(s)>", "bead types for -hd/-ld (default: none)", OPT_EXTRA},
-  {"--bonded", NULL, "use bonded beads for -hd/-ld (overwrites -bt option)", OPT_EXTRA},
+  {"--bonded", NULL, "use bonded beads for -hd/-ld (overwrites -bt option)",
+    OPT_EXTRA},
   {"-xb", "<bead type>", "what bead type to exchange", OPT_EXTRA},
-  {"--add", NULL, "add beads instead of exchanging (overwrites -xb)", OPT_EXTRA},
+  {"--add", NULL, "add instead of exchange beads (overwrites -xb)", OPT_EXTRA},
   {"--no-rotate", NULL, "do not randomly rotate molecules", OPT_EXTRA},
-  {"-a", "3x<angle>", "rotate molecules around <x>, <y>, <z> axes by given degrees (overrides --no-rotate)", OPT_EXTRA},
-  {"-cx", "2x<float>", "constrain x-coordinate (in fraction of output box)", OPT_EXTRA},
-  {"-cy", "2x<float>", "constrain y-coordinate (in fraction of output box)", OPT_EXTRA},
-  {"-cz", "2x<float>", "constrain z-coordinate (in fraction of output box)", OPT_EXTRA},
-  {"--tail", NULL, "use molecule's last bead for constraint checks (default: molecule's geometric centre)", OPT_EXTRA},
-  {"--head", NULL, "use molecule's first bead for constraint checks (overrides --tail)", OPT_EXTRA},
-  {"--real", NULL, "use real coordinates for-cx/-cy/-cz/-off options", OPT_EXTRA},
+  {"-a", "3x<angle>", "rotate molecules around <x>, <y>, <z> axes by "
+    "given degrees (overrides --no-rotate)", OPT_EXTRA},
+  {"-cx", "2x<float>", "constrain x-coordinate (in fraction of output box)",
+    OPT_EXTRA},
+  {"-cy", "2x<float>", "constrain y-coordinate (in fraction of output box)",
+    OPT_EXTRA},
+  {"-cz", "2x<float>", "constrain z-coordinate (in fraction of output box)",
+    OPT_EXTRA},
+  {"--tail", NULL, "use molecule's last bead for constraint checks "
+    "(default: molecule's geometric centre)", OPT_EXTRA},
+  {"--head", NULL, "use molecule's first bead for constraint checks "
+    "(overrides --tail)", OPT_EXTRA},
+  {"--real", NULL, "use real coordinates for-cx/-cy/-cz/-off options",
+    OPT_EXTRA},
   {"-b", "<x> <y> <z>", "new box dimensions (in real units)", OPT_EXTRA},
-  {"-off", "3x<float>", "original system's offset (in fractions of the output box)", OPT_EXTRA},
+  {"-off", "3x<float>", "original system's offset "
+    "(in fractions of the output box)", OPT_EXTRA},
   {"-s", "<int>", "seed for random number generator", OPT_EXTRA},
-  {"-ntot", "<n> <type>", "fill to n total beads using <type> from library (requires -lib); uses floor(remaining/beads_per_mol) molecules", OPT_EXTRA},
-  {"-ebt", "<int>", "number of extra bead types (output lammps data file only)", OPT_EXTRA},
+  {"-ntot", "<n> <type>", "fill to n total beads using <type> from library "
+    "(requires -lib)", OPT_EXTRA},
+  {"-ebt", "<int>", "number of extra bead types (output lammps data file only)",
+    OPT_EXTRA},
   {NULL}
 }; //}}}
 
@@ -842,7 +859,8 @@ int main(int argc, char *argv[]) {
         for (int dd = 0; dd < 3; dd++) {
           if (b->Position.v[dd] < min[dd]) {
             min[dd] = b->Position.v[dd];
-          } else if (b->Position.v[dd] > max[dd]) {
+          }
+          if (b->Position.v[dd] > max[dd]) {
             max[dd] = b->Position.v[dd];
           }
         }

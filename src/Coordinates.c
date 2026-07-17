@@ -115,6 +115,9 @@ void RemovePBCMolecule(int mol_id, SYSTEM *System) {
   // arrays holding bonds already connected and yet unconnected
   int *connected = calloc(mt->nBonds, sizeof *connected);
   int *unconnected = calloc(mt->nBonds, sizeof *unconnected);
+  if (!connected || !unconnected) {
+    ErrorAlloc("connected/unconnected");
+  }
   int count_unconnected = 0;
   // 1)
   for (int i = 0; i < mt->nBonds; i++) {
@@ -138,6 +141,9 @@ void RemovePBCMolecule(int mol_id, SYSTEM *System) {
   } //}}}
   // track which beads were alread processed
   bool *moved = calloc(mt->nBeads, sizeof *moved);
+  if (!moved) {
+    ErrorAlloc("moved");
+  }
   while (count_unconnected > 0) {
     int count_connected = 0;
     connected[count_connected] = unconnected[0];

@@ -30,6 +30,9 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
    * count meets the threshold are treated as edges.
    */
   int *degree = calloc(Count->Molecule, sizeof *degree);
+  if (!degree) {
+    ErrorAlloc("degree");
+  }
   for (khiter_t it = kh_begin(contact); it != kh_end(contact); ++it) {
     if (!kh_exist(contact, it)) {
       continue;
@@ -48,13 +51,24 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
     degree[j]++;
   }
   int *offset = malloc((Count->Molecule + 1) * sizeof *offset);
+  if (!offset) {
+    ErrorAlloc("offset");
+  }
   offset[0] = 0;
   for (int i = 0; i < Count->Molecule; i++) {
     offset[i + 1] = offset[i] + degree[i];
   }
   int total = offset[Count->Molecule];
-  int *nbrs = malloc((total > 0 ? total : 1) * sizeof *nbrs);
+  int *nbrs = NULL;
+  if (total > 0) {
+    nbrs = malloc(total * sizeof *nbrs);
+  } else {
+    nbrs = malloc(1 * sizeof *nbrs);
+  }
   int *fill = calloc(Count->Molecule, sizeof *fill);
+  if (!nbrs || !fill) {
+    ErrorAlloc("nbrs/fill");
+  }
   for (khiter_t it = kh_begin(contact); it != kh_end(contact); ++it) {
     if (!kh_exist(contact, it)) {
       continue;
@@ -75,10 +89,13 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
   // 2) DBSCAN over the molecule graph.
   // label[i]: -1 = unvisited, -2 = noise/border candidate, >= 0 = cluster id
   int *label = malloc(Count->Molecule * sizeof *label);
+  int *queue = malloc(Count->Molecule * sizeof *queue);
+  if (!label || !queue) {
+    ErrorAlloc("label/queue");
+  }
   for (int i = 0; i < Count->Molecule; i++) {
     label[i] = -1;
   }
-  int *queue = malloc(Count->Molecule * sizeof *queue);
   int cluster_id = 0;
   for (int i = 0; i < Count->Molecule; i++) {
     if (!System->Molecule[i].InTimestep || label[i] != -1) continue;
@@ -176,11 +193,17 @@ void RemovePBCAggregates(const double distance, const AGGREGATE *Aggregate,
   int **mol_eligible_beads = malloc(Count->MoleculeType * sizeof(int *));
   int *count_eligible_beads = malloc(Count->MoleculeType *
                                      sizeof *count_eligible_beads);
+  if (!mol_eligible_beads || !count_eligible_beads) {
+    ErrorAlloc("mol_eligible_beads/count_eligible_beads");
+  }
   WrapJoinCoordinates(System, false, true);
   bool eligible = false;
   for (int i = 0; i < Count->MoleculeType; i++) {
     MOLECULETYPE *mt = &System->MoleculeType[i];
     mol_eligible_beads[i] = malloc(mt->nBeads * sizeof(int));
+    if (!mol_eligible_beads[i]) {
+      ErrorAlloc("mol_eligible_beads[i]");
+    }
     count_eligible_beads[i] = 0;
     for (int j = 0; j < mt->nBeads; j++) {
       if (use_bt[mt->Bead[j]]) {

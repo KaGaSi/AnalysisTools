@@ -48,6 +48,9 @@ static void MinimizeOneMtypeStuffIds(const int num, int (**arr)[5],
 static void FillMTypeStuff(SYSTEM *System, const int type, const int size,
                            const int (*all)[5], const int n);
 static int FindFileType(const char *name);
+static bool ReadAggMolLine(FILE *fr, const char *file, const int line_count,
+                           const int n_mol, const int *resid_to_mol,
+                           const int max_index, int *n, int **arr);
 
 // General helper functions
 // print initial stuff to output coordinate file //{{{
@@ -223,6 +226,9 @@ void RemoveExtraTypes(SYSTEM *System) {
     // BeadType & Bead[].Type
     int count = 0;
     int *bt_old_to_new = malloc(sizeof *bt_old_to_new * Count->BeadType);
+    if (!bt_old_to_new) {
+      ErrorAlloc("bt_old_to_new");
+    }
     for (int i = 0; i < Count->BeadType; i++) {
       if (System->BeadType[i].Number != 0) {
         int bt_id = count;
@@ -428,6 +434,11 @@ bool SkipTimestep(const SYS_FILES f, FILE *fr, int *line_count) {
   return true;
 } //}}}
 // Read aggregates from a single timestep //{{{
+/*
+ * Returns 1 on success, -1 on end of data (Last Step line, or file ending at
+ * a step boundary, e.g., when the Aggregates run was interrupted), and -2 on
+ * malformed data (mid-record end of file, invalid counts or molecule ids).
+ */
 int ReadAggregates(FILE *fr, const char *file, SYSTEM *System,
                    AGGREGATE *Aggregate, int *line_count) {
   COUNT *Count = &System->Count;
@@ -439,7 +450,8 @@ int ReadAggregates(FILE *fr, const char *file, SYSTEM *System,
              "stopping reading",
              ErrYellow(), file, ErrCyan());
     PrintWarnFile(file, "\0", "\0");
-    return -2;
+    // end of file at a step boundary: truncated but consistent data
+    return -1;
   }
   if (words < 1) {
     snprintf(ERROR_MSG, LINE,
@@ -478,6 +490,9 @@ int ReadAggregates(FILE *fr, const char *file, SYSTEM *System,
     }
   }
   int *resid_to_mol = malloc((max_index + 1) * sizeof *resid_to_mol);
+  if (!resid_to_mol) {
+    ErrorAlloc("resid_to_mol");
+  }
   for (int i = 0; i <= max_index; i++) {
     resid_to_mol[i] = -1;
   }
@@ -492,29 +507,18 @@ int ReadAggregates(FILE *fr, const char *file, SYSTEM *System,
     AGGREGATE *Agg = &Aggregate[i];
     // line 1: core molecules
     (*line_count)++;
-    fscanf(fr, "%d :", &Agg->nCore);
-    Agg->Core = s_realloc(Agg->Core, (Agg->nCore > 0 ? Agg->nCore : 1) *
-                          sizeof *Agg->Core);
-    for (int j = 0; j < Agg->nCore; j++) {
-      int resid;
-      fscanf(fr, "%d", &resid);
-      Agg->Core[j] = resid_to_mol[resid];
+    if (!ReadAggMolLine(fr, file, *line_count, Count->Molecule, resid_to_mol,
+                        max_index, &Agg->nCore, &Agg->Core)) {
+      free(resid_to_mol);
+      return -2;
     }
-    { int ch; while ((ch = getc(fr)) != '\n' && ch != EOF) ; }
     // line 2: border molecules
     (*line_count)++;
-    fscanf(fr, "%d :", &Agg->nBorder);
-    Agg->Border = s_realloc(Agg->Border,
-                            (Agg->nBorder > 0 ? Agg->nBorder : 1) *
-                            sizeof *Agg->Border);
-    for (int j = 0; j < Agg->nBorder; j++) {
-      int resid;
-      fscanf(fr, "%d", &resid);
-      Agg->Border[j] = resid_to_mol[resid];
+    if (!ReadAggMolLine(fr, file, *line_count, Count->Molecule, resid_to_mol,
+                        max_index, &Agg->nBorder, &Agg->Border)) {
+      free(resid_to_mol);
+      return -2;
     }
-    int ch;
-    while ((ch = getc(fr)) != '\n' && ch != EOF)
-      ;
     Agg->nMolecules = Agg->nCore + Agg->nBorder;
   }
   free(resid_to_mol);
@@ -547,6 +551,44 @@ int ReadAggregates(FILE *fr, const char *file, SYSTEM *System,
     }
   }
   return 1;
+} //}}}
+// Read and validate single aggregate line //{{{
+static bool ReadAggMolLine(FILE *fr, const char *file, const int line_count,
+                           const int n_mol, const int *resid_to_mol,
+                           const int max_index, int *n, int **arr) {
+  if (fscanf(fr, "%d :", n) != 1 || *n < 0 || *n > n_mol) {
+    snprintf(ERROR_MSG, LINE, "invalid number of aggregate molecules; "
+             "stopping reading %s%s%s", ErrYellow(), file, ErrCyan());
+    PrintWarnFileLine(file, line_count);
+    return false;
+  }
+  int all = *n;
+  if (all <= 0) {
+    all = 1;
+  }
+  *arr = s_realloc(*arr, all * sizeof **arr);
+  for (int j = 0; j < *n; j++) {
+    int resid;
+    if (fscanf(fr, "%d", &resid) != 1) {
+      snprintf(ERROR_MSG, LINE, "incomplete aggregate molecule line; "
+               "stopping reading %s%s%s", ErrYellow(), file, ErrCyan());
+      PrintWarnFileLine(file, line_count);
+      return false;
+    }
+    if (resid < 0 || resid > max_index || resid_to_mol[resid] == -1) {
+      snprintf(ERROR_MSG, LINE, "molecule id %s%d%s not present in the "
+               "system; stopping reading %s%s%s", ErrYellow(), resid,
+               ErrCyan(), ErrYellow(), file, ErrCyan());
+      PrintWarnFileLine(file, line_count);
+      return false;
+    }
+    (*arr)[j] = resid_to_mol[resid];
+  }
+  // skip the rest of the line
+  int ch;
+  while ((ch = getc(fr)) != '\n' && ch != EOF)
+    ;
+  return true;
 } //}}}
 bool SkipAggregates(FILE *fr, const char *file, int *line_count) { //{{{
   // read Step:/Last Step: line //{{{

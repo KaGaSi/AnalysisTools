@@ -252,6 +252,9 @@ int main(int argc, char *argv[]) {
   }
   for (int lag = 0; lag < datalines; lag++) {
     data[lag] = calloc(columns, sizeof *data[lag]);
+    if (!data[lag]) {
+      ErrorAlloc("data[lag]");
+    }
     count = -1;
     // bond lag for x-axis
     data[lag][++count] = lag;

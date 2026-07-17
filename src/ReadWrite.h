@@ -20,6 +20,7 @@ SYSTEM ReadStructure(const SYS_FILES f, const bool detailed);
 bool ReadTimestep(const SYS_FILES f, FILE *fr,
                   SYSTEM *System, int *line_count);
 bool SkipTimestep(const SYS_FILES f, FILE *fr, int *line_count);
+// returns 1 on success, -1 on end of data, -2 on malformed data
 int ReadAggregates(FILE *fr, const char *file, SYSTEM *System,
                    AGGREGATE *Aggregate, int *line_count);
 bool SkipAggregates(FILE *fr, const char *file, int *line_count);

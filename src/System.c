@@ -1246,6 +1246,9 @@ MOLECULETYPE CopyMoleculeType(MOLECULETYPE mt_old) { //{{{
   // MoleculeType[].Index array
   if (mt_new.Number > 0) {
     mt_new.Index = malloc(sizeof *mt_new.Index * mt_new.Number);
+    if (!mt_new.Index) {
+      ErrorAlloc("mt_new.Index");
+    }
     for (int i = 0; i < mt_old.Number; i++) {
       mt_new.Index[i] = mt_old.Index[i];
     }
@@ -1253,6 +1256,9 @@ MOLECULETYPE CopyMoleculeType(MOLECULETYPE mt_old) { //{{{
   // MoleculeType[].BType array
   if (mt_new.nBTypes > 0) {
     mt_new.BType = malloc(sizeof *mt_new.BType * mt_new.nBTypes);
+    if (!mt_new.BType) {
+      ErrorAlloc("mt_new.BType");
+    }
     for (int i = 0; i < mt_new.nBTypes; i++) {
       mt_new.BType[i] = mt_old.BType[i];
     }
@@ -1268,6 +1274,9 @@ MOLECULETYPE CopyMoleculeTypeEssentials(MOLECULETYPE mt_old) { //{{{
   // MoleculeType[].Bead array
   if (mt_new.nBeads > 0) {
     mt_new.Bead = malloc(sizeof *mt_new.Bead * mt_new.nBeads);
+    if (!mt_new.Bead) {
+      ErrorAlloc("mt_new.Bead");
+    }
     for (int i = 0; i < mt_old.nBeads; i++) {
       mt_new.Bead[i] = mt_old.Bead[i];
     }
@@ -1338,6 +1347,9 @@ SYSTEM CopySystem(SYSTEM S_in) {
             exit(1);
           }
           bt_out->Index = malloc(bt_out->Number * sizeof *bt_out->Index);
+          if (!bt_out->Index) {
+            ErrorAlloc("bt_out->Index");
+          }
           for (int j = 0; j < bt_out->InCoor; j++) {
             bt_out->Index[j] = bt_in->Index[j];
           }
@@ -1763,7 +1775,10 @@ void PruneSystem(SYSTEM *System, int *b_full_to_red) { //{{{
       s_strcpy(mt_old_new.Name, mt_old->Name, MOL_NAME);
       mt_old_new.Number = 1;
       mt_old_new.nBeads = c_bead;
-      mt_old_new.Bead = malloc(sizeof *mt_old_new.Bead * mt_old_new.nBeads);
+      mt_old_new.Bead = malloc(mt_old_new.nBeads * sizeof *mt_old_new.Bead);
+      if (!mt_old_new.Bead) {
+        ErrorAlloc("mt_old_new.Bead");
+      }
       int n_bead = 0;
       // map internal MoleculeType[].Bead ids to new ones (some may disappear)
       int remap_internal_bead_ids[mt_old->nBeads];

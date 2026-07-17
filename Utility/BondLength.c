@@ -26,19 +26,21 @@ static const struct OptSpec opts[] = {
   {"<input>", NULL, "input coordinate file", OPT_ARG},
   {"<width>", NULL, "width of a distribution bin", OPT_ARG},
   {"<output>", NULL, "output file with the distribution", OPT_ARG},
-  {"-m", "<name(s)>", "molecule types to use (default: all)", OPT_EXTRA},
-  {"--joined", NULL, "specify that <input> contains joined coordinates", OPT_EXTRA},
-  {"--all", NULL, "calculate distribution for each bond in the molecule type(s)", OPT_EXTRA},
-  {"-n", "<file> [ints]", "distribution of distances between specified bead pair(s) (default [ints]: first and last bead)", OPT_EXTRA},
+  {"-mt", "<name(s)>", "molecule types to use (default: all)", OPT_EXTRA},
+  {"--joined", NULL, "<input> contains joined coordinates", OPT_EXTRA},
+  {"--all", NULL, "calculate distribution for each bond in the molecule types",
+    OPT_EXTRA},
+  {"-n", "<file> [ints]", "distribution of distances between specified "
+    "bead pair(s) (default [ints]: first and last bead)", OPT_EXTRA},
   {"-w", "<float>", "warn if the length exceeds <float>", OPT_EXTRA},
-  {"-t", "<file>", "save per-timestep data to <flie>", OPT_EXTRA},
+  {"-t", "<file>", "save per-timestep data to <file>", OPT_EXTRA},
   {NULL}
 }; //}}}
 
 // structure for options //{{{
 struct OPT {
   bool join,         // --joined
-       *mt,          // -m
+       *mt,          // -mt
        all;          // --all
   int n_list[100],   // -n (list of bead id pairs)
       n_number;      // -n (total number of beads in the pairs)
@@ -50,8 +52,8 @@ struct OPT {
 // helper functions //{{{
 // write mins, maxes, and averages
 static void WriteMinsMaxesAvgs(FILE *fw, SYSTEM System, OPT opt,
-                                   ArrNDd *bond_bt_mma, ArrNDi *bond_bt_norm,
-                                   ArrNDd *bond_all_mma, ArrNDi *bond_all_norm);
+                               ArrNDd *bond_bt_mma, ArrNDi *bond_bt_norm,
+                               ArrNDd *bond_all_mma, ArrNDi *bond_all_norm);
 // are the provided bead types bonded?
 static bool BondedPair(MOLECULETYPE mt, int btype[2]); //}}}
 
@@ -91,7 +93,7 @@ void Calculation(SYSTEM *System, STEP step, OPT opt,
     }
     if (!(step_bond_all = CreateArr2Dd(Count->MoleculeType, max_b)) ||
         !(step_bond_all_c = CreateArr2Di(Count->MoleculeType, max_b))) {
-      ErrorAlloc("step_bond_all");
+      ErrorAlloc("step_bond_all/step_bond_all_c");
     }
   } //}}}
   // calculate bond lengths //{{{
@@ -112,11 +114,11 @@ void Calculation(SYSTEM *System, STEP step, OPT opt,
         bond.v[0] = VectLength(bond);
         // warn if bond is too long //{{{
         if (opt.warn != HIGHNUM && bond.v[0] > opt.warn) {
-          snprintf(ERROR_MSG, LINE, "-w option; too long a bond between "
-                   "beads %s%d%s and %s%d%s (%s%lf%s)",
+          snprintf(ERROR_MSG, LINE, "bond between "
+                   "beads %s%d%s and %s%d%s is too long (%s%lf%s)",
                    ErrYellow(), id1, ErrCyan(), ErrYellow(), id2, ErrCyan(),
                    ErrYellow(), bond.v[0], ErrCyan());
-          PrintWarning();
+          PrintWarnOption("-w");
         } //}}}
         // btype1 must be lower than btype2
         int *id_lo, *id_hi;
@@ -135,14 +137,16 @@ void Calculation(SYSTEM *System, STEP step, OPT opt,
         size_t id_2[4] = {mol_i->Type, *id_lo, *id_hi, 2};
         if (bond.v[0] < GetArrND(bond_bt_mma, id_0)) {
           SetArrND(bond_bt_mma, id_0, bond.v[0]);
-        } else if (bond.v[0] > GetArrND(bond_bt_mma, id_1)) {
+        }
+        if (bond.v[0] > GetArrND(bond_bt_mma, id_1)) {
           SetArrND(bond_bt_mma, id_1, bond.v[0]);
         }
         AddArrND(bond_bt_mma, id_2, bond.v[0]);
         if (opt.all) {
           if (bond.v[0] < GetArr3D(bond_all_mma, mol_i->Type, j, 0 )) {
             SetArr3D(bond_all_mma, mol_i->Type, j, 0, bond.v[0]);
-          } else if (bond.v[0] > GetArr3D(bond_all_mma, mol_i->Type, j, 1)) {
+          }
+          if (bond.v[0] > GetArr3D(bond_all_mma, mol_i->Type, j, 1)) {
             SetArr3D(bond_all_mma, mol_i->Type, j, 1, bond.v[0]);
           }
           AddArr3D(bond_all_mma, mol_i->Type, j, 2, bond.v[0]);
@@ -184,31 +188,25 @@ void Calculation(SYSTEM *System, STEP step, OPT opt,
           } else { // use specified index otherwise
             id2 = mol_i->Bead[opt.n_list[j+1]-1];
           } //}}}
-          BEAD *b_1 = &System->Bead[id1], *b_2 = &System->Bead[id2];
+          BEAD *b_1 = &System->Bead[id1],
+               *b_2 = &System->Bead[id2];
           // distance calculation
           vec3d r12 = Vector(b_1->Position, b_2->Position);
           double dist = VectLength(r12);
-          // step_t[mol_i->Type][j/2] += dist;
           AddArr2D(step_t, mol_i->Type, j / 2, dist);
-          // step_t_c[mol_i->Type][j/2]++;
           AddArr2D(step_t_c, mol_i->Type, j / 2, 1);
           // distance mins & maxes & averages //{{{
-          // if (dist.v[0] < bond_n_mma[mol_i->Type][j/2][0]) { // minimum
           if (dist < GetArr3D(bond_n_mma, mol_i->Type, j / n_per_set, 0)) {
-            // bond_n_mma[mol_i->Type][j/2][0] = dist.v[0];
             SetArr3D(bond_n_mma, mol_i->Type, j / n_per_set, 0, dist);
-          // } else if (dist.v[0] > bond_n_mma[mol_i->Type][j/n_per_set][1]) {
-          } else if (dist > GetArr3D(bond_n_mma, mol_i->Type,
-                                          j / n_per_set, 1)) {
-            // bond_n_mma[mol_i->Type][j/n_per_set][1] = dist;
+          }
+          if (dist > GetArr3D(bond_n_mma, mol_i->Type,
+                              j / n_per_set, 1)) {
             SetArr3D(bond_n_mma, mol_i->Type, j / n_per_set, 1, dist);
           }
-          // bond_n_mma[mol_i->Type][j/n_per_set][2] += dist;
           AddArr3D(bond_n_mma, mol_i->Type, j / n_per_set, 2, dist);
           //}}}
           int k = dist / width; // distribution 'bin'
           if (k < bins) {
-            // bond_n[mol_i->Type][j/n_per_set][k]++;
             AddArr3D(bond_n, mol_i->Type, j / n_per_set, k, 1);
           }
         }
@@ -322,14 +320,11 @@ int main(int argc, char *argv[]) {
   s_strcpy(fout, argv[++count], LINE);
   // options before reading system data
   COMMON_OPT commons = CommonOptions(argc, argv, in);
-  // --joined option //{{{
-  if (BoolOption(argc, argv, "--joined")) {
-    opt.join = false; // joined coordinates supplied, so no need to join
-  } else {
-    opt.join = true; // molecules need to be joined
-  } //}}}
+  // --joined option - if present, don't join molecules //{{{
+  opt.join = !BoolOption(argc, argv, "--joined");
+  // --all option - use all bonds in the molecules
   opt.all = BoolOption(argc, argv, "--all");
-  // '-n' option - specify bead ids to calculate distance between //{{{
+  // -n option - specify bead ids to calculate distance between //{{{
   FileNumbersOption(argc, argv, 0, 100, "-n", opt.n_list,
                     &opt.n_number, opt.n_file, 'i');
   // if '-n' is present without numbers, use first and last for each molecule
@@ -342,7 +337,7 @@ int main(int argc, char *argv[]) {
   int n_pair_num = opt.n_number / n_per_set;
   // Error: wrong number of integers //{{{
   if (opt.n_file[0] != '\0' && (opt.n_number % n_per_set) != 0) {
-    err_msg("number of bead indexes must be even");
+    err_msg("number of bead indices must be even");
     PrintErrorOption("-n");
     exit(1);
   } //}}}
@@ -356,13 +351,15 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
   //}}}
-  // '-w' option - bond length warning //{{{
+  // -w option - bond length warning
   if (!OneNumberOption(argc, argv, "-w", &opt.warn, 'd')) {
     opt.warn = HIGHNUM;
-  } //}}}
+  }
+  // -t option - save per-timestep data
   if (!FileOption(argc, argv, "-t", opt.t_file)) {
     opt.t_file[0] = '\0';
   }
+  //}}}
   //}}}
 
   if (!commons.silent) {
@@ -373,11 +370,11 @@ int main(int argc, char *argv[]) {
   COUNT *Count = &System.Count;
   vec3d box = System.Box.Length;
 
-  // '-m <name(s)>' option
+  // '-mt <name(s)>' option
   if (!(opt.mt = calloc(System.Count.MoleculeType, sizeof *opt.mt))) {
     ErrorAlloc("opt.mt");
   }
-  if (!TypeOption(argc, argv, "-m", 'm', true, opt.mt, System)) {
+  if (!TypeOption(argc, argv, "-mt", 'm', true, opt.mt, System)) {
     InitBoolArray(opt.mt, Count->MoleculeType, true);
   }
 
@@ -442,7 +439,7 @@ int main(int argc, char *argv[]) {
   if (opt.n_file[0] != '\0') {
     if (!(bond_n = CreateArr3Dd(Count->MoleculeType, n_pair_num, bins)) ||
         !(bond_n_mma = CreateArr3Dd(Count->MoleculeType, n_pair_num, 3))) {
-      ErrorAlloc("bond_all/bond_all_mma");
+      ErrorAlloc("bond_n/bond_n_mma");
     }
     for (int i = 0; i < Count->MoleculeType; i++) {
       for (int j = 0; j < n_pair_num; j++) {
@@ -540,10 +537,8 @@ int main(int argc, char *argv[]) {
     for (int j = 0; j < Count->BeadType; j++) {
       for (int k = j; k < Count->BeadType; k++) {
         for (int l = 0; l < bins; l++) {
-          // if (bond_bt[i][j][k][l] > 0) {
           size_t id[4] = {i, j, k, l};
           if (GetArrND(bond_bt, id) > 0) {
-            // bond_bt_norm[i][j][k] += bond_bt[i][j][k][l];
             AddArr3D(bond_bt_norm, i, j, k, GetArrND(bond_bt, id));
             if (l < range[0]) {
               range[0] = l;
@@ -565,13 +560,10 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < Count->MoleculeType; i++) {
       for (int j = 0; j < System.MoleculeType[i].nBonds; j++) {
         for (int k = 0; k < bins; k++) {
-          // bond_all_norm[i][j] += bond_all[i][j][k];
           AddArr2D(bond_all_norm, i, j, GetArr3D(bond_all, i, j, k));
-          // if (bond_all[i][j][k] && k < range[0]) {
           if (GetArr3D(bond_all, i, j, k) && k < range[0]) {
             range[0] = k;
           }
-          // if (bond_all[i][j][k] && k > range[1]) {
           if (GetArr3D(bond_all, i, j, k) && k > range[1]) {
             range[1] = k;
           }
@@ -583,14 +575,15 @@ int main(int argc, char *argv[]) {
   if (range[0] > 0) {
     range[0]--;
   }
-  if (range[1] < (bins - 1)) {
-    range[1] += 2; // +2 as for loop is range[0]...range[1]-1
+  range[1] += 2; // +2 as for loop is range[0]...range[1]-1
+  if (range[1] > bins) { // clamp range[1] if it's too high
+    range[1] = bins;
   } //}}}
 
   if (opt.t_file[0] != '\0') {
     FILE *fw = OpenFile(opt.t_file, "a");
     WriteMinsMaxesAvgs(fw, System, opt, bond_bt_mma, bond_bt_norm,
-                           bond_all_mma, bond_all_norm);
+                       bond_all_mma, bond_all_norm);
     fclose(fw);
   }
 
@@ -607,10 +600,7 @@ int main(int argc, char *argv[]) {
         for (int k = j; k < mt->nBTypes; k++) {
           int btype1 = mt->BType[j],
               btype2 = mt->BType[k];
-          if (btype1 > btype2) {
-            SwapInt(&btype1, &btype2);
-          }
-          // if (bond_bt_norm[i][btype1][btype2] > 0) {
+          SortPairAsc(&btype1, &btype2);
           if (GetArr3D(bond_bt_norm, i, btype1, btype2) > 0) {
             count++;
             fprintf(fw, " (%d) %s-%s", count, System.BeadType[btype1].Name,
@@ -638,7 +628,6 @@ int main(int argc, char *argv[]) {
     int row = i - range[0];
     count = 0;
     SetArr2D(data, row, count++, width * (2 * i + 1) / 2);
-    // fprintf(fw, "%7.4f", width * (2 * i + 1) / 2);
     for (int j = 0; j < Count->MoleculeType; j++) {
       MOLECULETYPE *mt = &System.MoleculeType[j];
       if (opt.mt[j] && mt->nBonds > 0) {
@@ -647,18 +636,12 @@ int main(int argc, char *argv[]) {
           for (int l = k; l < mt->nBTypes; l++) {
             int btype1 = mt->BType[k],
                 btype2 = mt->BType[l];
-            // btype1 must be lower than btype2
-            if (btype1 > btype2) {
-              SwapInt(&btype1, &btype2);
-            }
-            // if (bond_bt_norm[j][btype1][btype2] > 0) {
+            SortPairAsc(&btype1, &btype2);
             if (GetArr3D(bond_bt_norm, j, btype1, btype2) > 0) {
-              // double value = bond_bt[j][btype1][btype2][i] / bond_bt_norm[j][btype1][btype2];
               size_t id[4] = {j, btype1, btype2, i};
               double value = GetArrND(bond_bt, id) /
                              GetArr3D(bond_bt_norm, j, btype1, btype2);
               SetArr2D(data, row, count++, value);
-              // fprintf(fw, "%10f", value);
             }
           }
         }
@@ -666,7 +649,6 @@ int main(int argc, char *argv[]) {
           for (int k = 0; k < mt->nBonds; k++) {
             double value = GetArr3D(bond_all, j, k, i);
             if (GetArr2D(bond_all_norm, j, k) > 0) {
-              // double value = bond_all[j][k][i] / bond_all_norm[j][k];
               value /= GetArr2D(bond_all_norm, j, k);
             }
             SetArr2D(data, row, count++, value);
@@ -685,7 +667,6 @@ int main(int argc, char *argv[]) {
   // write distribution of distances from '-n' option //{{{
   if (opt.n_file[0] != '\0') {
     // sum up all calculated distances (normalization factors) //{{{
-    // int n_norm[Count->MoleculeType][n_pair_num];
     ArrNDi *n_norm = CreateArr2Di(Count->MoleculeType, n_pair_num);
     if (!n_norm) {
       ErrorAlloc("n_norm");
@@ -696,9 +677,7 @@ int main(int argc, char *argv[]) {
       if (opt.mt[i]) {
         for (int j = 0; j < n_pair_num; j++) {
           for (int k = 0; k < bins; k++) {
-            // if (bond_n[i][j][k] > 0) {
             if (GetArr3D(bond_n, i, j, k) > 0) {
-              // n_norm[i][j] += bond_n[i][j][k];
               AddArr2D(n_norm, i, j, GetArr3D(bond_n, i, j, k));
               if (k < range[0]) {
                 range[0] = k;
@@ -715,8 +694,9 @@ int main(int argc, char *argv[]) {
     if (range[0] > 0) {
       range[0]--;
     }
-    if (range[1] < (bins - 1)) {
-      range[1] += 2; // +2 as for loop is range[0]...range[1]-1
+    range[1] += 2; // +2 as for loop is range[0]...range[1]-1
+    if (range[1] > bins) { // clamp range[1] if it's too high
+      range[1] = bins;
     } //}}}
     FILE *fw = PrintBylineOpenFile(opt.n_file, argc, argv);
     // print the first line - molecule names with bead order //{{{
@@ -778,11 +758,10 @@ int main(int argc, char *argv[]) {
     if (!data) {
       ErrorAlloc("data");
     }
-    for (int ii = range[0]; ii < range[1]; ii++) {
-      int i = ii - range[0];
-      // fprintf(fw, "%7.4f", width * (2 * i + 1) / 2);
+    for (int i = range[0]; i < range[1]; i++) {
+      int row = i - range[0];
       count = 0;
-      SetArr2D(data, i, count++, width * (2 * i + 1) / 2);
+      SetArr2D(data, row, count++, width * (2 * i + 1) / 2);
       for (int j = 0; j < Count->MoleculeType; j++) {
         if (opt.mt[j]) {
           for (int k = 0; k < opt.n_number; k += n_per_set) {
@@ -791,9 +770,9 @@ int main(int argc, char *argv[]) {
                 opt.n_list[k+1] >= System.MoleculeType[j].nBeads) {
               continue;
             } //}}}
-            double val = (double)(GetArr3D(bond_n, j, k/n_per_set, ii)) /
+            double val = (double)(GetArr3D(bond_n, j, k/n_per_set, i)) /
                          GetArr2D(n_norm, j, k/n_per_set);
-            SetArr2D(data, i, count++, val);
+            SetArr2D(data, row, count++, val);
           }
         }
       }
@@ -889,9 +868,7 @@ int main(int argc, char *argv[]) {
 // helper functions
 // is given bead type pair in a bond in the given molecule? //{{{
 static bool BondedPair(MOLECULETYPE mt, int btype[2]) {
-  if (btype[0] > btype[1]) {
-    SwapInt(&btype[0], &btype[1]);
-  }
+  SortPairAsc(&btype[0], &btype[1]);
   for (int l = 0; l < mt.nBonds; l++) {
     int bead[2] = {mt.Bead[mt.Bond[l][0]],
                    mt.Bead[mt.Bond[l][1]]};
@@ -918,10 +895,7 @@ static void WriteMinsMaxesAvgs(FILE *fw, SYSTEM System, OPT opt,
         for (int k = j; k < mt->nBTypes; k++) {
           int btype1 = mt->BType[j],
               btype2 = mt->BType[k];
-          if (btype1 > btype2) {
-            SwapInt(&btype1, &btype2);
-          }
-          // if (bond_bt_norm[i][btype1][btype2] > 0) {
+          SortPairAsc(&btype1, &btype2);
           if (GetArr3D(bond_bt_norm, i, btype1, btype2) > 0) {
             fprintf(fw, " (%d) %s-%s", count, System.BeadType[btype1].Name,
                                               System.BeadType[btype2].Name);
@@ -949,7 +923,6 @@ static void WriteMinsMaxesAvgs(FILE *fw, SYSTEM System, OPT opt,
         if (GetArrND(bond_bt_mma, id_1) > 0) {
           fprintf(fw, " %lf", GetArrND(bond_bt_mma, id_0));
           fprintf(fw, " %lf", GetArrND(bond_bt_mma, id_1));
-          // fprintf(fw, " %lf", GetArrND(bond_bt_mma, id_2) / bond_bt_norm[i][j][k]);
           double val = GetArrND(bond_bt_mma, id_2) /
                        GetArr3D(bond_bt_norm, i, j, k);
           fprintf(fw, " %lf", val);

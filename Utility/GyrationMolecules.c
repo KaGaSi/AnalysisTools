@@ -22,11 +22,11 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>",  NULL,        "input coordinate file",                              OPT_ARG},
-  {"<output>", NULL,        "output base name (gets '-<molname>.txt' appended)",  OPT_ARG},
-  {"--joined", NULL,        "<input> contains joined coordinates",                OPT_EXTRA},
-  {"-mt",      "<name(s)>", "molecule types to use (default: all)",               OPT_EXTRA},
-  {"-bt",      "<name(s)>", "bead types used for calculation (default: all)",     OPT_EXTRA},
+  {"<input>",  NULL, "input coordinate file", OPT_ARG},
+  {"<output>", NULL, "output base name ('-<molname>.txt' is added)", OPT_ARG},
+  {"--joined", NULL, "<input> contains joined coordinates", OPT_EXTRA},
+  {"-mt", "<name(s)>", "molecule types to use (default: all)", OPT_EXTRA},
+  {"-bt", "<name(s)>", "bead types to use (default: all)", OPT_EXTRA},
   {NULL}
 }; //}}}
 
@@ -37,37 +37,39 @@ struct OPT {
        *bt;   // -bt (per bead type)
 }; //}}}
 
+// column indices for per-type accumulator arrays; COL_RE has its own
+// normalization count (COL_RE_N) as end beads may be absent from a frame
+enum { COL_RG, COL_SQRRG, COL_ANIS, COL_ACYL, COL_ASPHER,
+       COL_EIGEN0, COL_EIGEN1, COL_EIGEN2, COL_RE, COL_RE_N, N_COLS };
+
+// all state shared between main() and the per-timestep callback //{{{
+struct user_data {
+  struct OPT opt;
+  ArrNDd *sums;      // overall sums across all timesteps
+  int *mol_count;    // total molecule count across all timesteps
+  ArrNDd *step_vals; // per-timestep sums (zeroed each call)
+  int *step_count;   // per-timestep count (zeroed each call)
+  FILE **files;      // open output file handles
+  int *list;         // reusable bead-id buffer
+}; //}}}
+
 // per-timestep calculation and output //{{{
-static void Calculation(SYSTEM *System, STEP *step,
-                        const struct OPT opt, const char *output,
-                        double *Rg_sum, double *sqrRg_sum,
-                        double *Anis_sum, double *Acyl_sum, double *Aspher_sum,
-                        double *Re_sum,
-                        vec3d *eigen_sum,
-                        int *total_mol_count) {
+static void Calculation(SYSTEM *System, STEP *step, struct user_data *ud) {
+  const struct OPT opt = ud->opt;
   COUNT *Count = &System->Count;
-  // wrap all beads; join only selected molecule types
-  WrapJoinCoordinates(System, true, false);
+
+  // zero per-step accumulators (reuse pre-allocated memory)
+  FillArrND(ud->step_vals, 0.0);
+  memset(ud->step_count, 0, Count->MoleculeType * sizeof *ud->step_count);
+
+  // wrap and join only when coordinates are not already joined
+  WrapJoinCoordinates(System, opt.join, false);
   if (opt.join) {
     for (int i = 0; i < Count->Molecule; i++) {
       if (opt.mt[System->Molecule[i].Type]) {
         RemovePBCMolecule(i, System);
       }
     }
-  }
-
-  // per-timestep accumulators
-  double *Rg_step = calloc(Count->MoleculeType, sizeof *Rg_step);
-  double *sqrRg_step = calloc(Count->MoleculeType, sizeof *sqrRg_step);
-  double *Anis_step = calloc(Count->MoleculeType, sizeof *Anis_step);
-  double *Acyl_step = calloc(Count->MoleculeType, sizeof *Acyl_step);
-  double *Aspher_step = calloc(Count->MoleculeType, sizeof *Aspher_step);
-  double *Re_step = calloc(Count->MoleculeType, sizeof *Re_step);
-  vec3d *eigen_step = calloc(Count->MoleculeType, sizeof *eigen_step);
-  int *mol_count_step = calloc(Count->MoleculeType, sizeof *mol_count_step);
-  if (!Rg_step || !sqrRg_step || !Anis_step || !Acyl_step || !Aspher_step ||
-      !Re_step || !eigen_step || !mol_count_step) {
-    ErrorAlloc("step arrays");
   }
 
   // calculate shape descriptors for each molecule
@@ -78,109 +80,99 @@ static void Calculation(SYSTEM *System, STEP *step,
       continue;
     }
 
-    // build list of bead ids filtered by -bt
-    int *list = malloc(mtype->nBeads * sizeof *list);
-    if (!list) {
-      ErrorAlloc("list");
-    }
+    // build list of bead ids present in this frame and matching -bt
     int n = 0;
     for (int j = 0; j < mtype->nBeads; j++) {
       int id = mol->Bead[j];
-      if (opt.bt[System->Bead[id].Type]) {
-        list[n++] = id;
+      if (opt.bt[System->Bead[id].Type] && System->Bead[id].InTimestep) {
+        ud->list[n] = id;
+        n++;
       }
     }
     if (n < 2) { // need at least 2 beads for gyration
-      free(list);
       continue;
     }
 
-    vec3d eigen = Gyration(n, list, System);
-    free(list);
-    if (eigen.x == 0 && eigen.y == 0 && eigen.z == 0) {
+    // end-to-end distance is computed before Gyration() translates bead
+    // positions, so both end beads must to be present in the timestep
+    BEAD *b_first = &System->Bead[mol->Bead[0]];
+    BEAD *b_last = &System->Bead[mol->Bead[mtype->nBeads-1]];
+    bool re_valid = false;
+    if (b_first->InTimestep && b_last->InTimestep) {
+      re_valid = true;
+    }
+    double Re = 0;
+    if (re_valid) {
+      Re = VectLength(Vector(b_first->Position, b_last->Position));
+    }
+
+    vec3d eigen = Gyration(n, ud->list, System);
+    // skip degenerate (all-zero) or numerically corrupt (negative) eigenvalues;
+    // Gyration() already warns about the latter
+    if (eigen.x < 0 || (eigen.x == 0 && eigen.y == 0 && eigen.z == 0)) {
       continue;
     }
 
     int mt = mol->Type;
+    // radius of gyration
     double Rgi = sqrt(eigen.x + eigen.y + eigen.z);
-    Rg_step[mt] += Rgi;
-    sqrRg_step[mt] += Square(Rgi);
-    Anis_step[mt] += 1.5 * SqVectLength(eigen) /
-                       Square(eigen.x + eigen.y + eigen.z) - 0.5;
-    Acyl_step[mt] += eigen.y - eigen.x;
-    Aspher_step[mt] += eigen.z - 0.5 * (eigen.x + eigen.y);
+    AddArr2D(ud->step_vals, mt, COL_RG, Rgi);
+    double val = Square(Rgi);
+    AddArr2D(ud->step_vals, mt, COL_SQRRG, val);
+    // relative shape anisotropy
+    val = 1.5 * SqVectLength(eigen) / Square(eigen.x + eigen.y + eigen.z) - 0.5;
+    AddArr2D(ud->step_vals, mt, COL_ANIS, val);
+    // acylindricity
+    val = eigen.y - eigen.x;
+    AddArr2D(ud->step_vals, mt, COL_ACYL, val);
+    // asphericity
+    val = eigen.z - 0.5 * (eigen.x + eigen.y);
+    AddArr2D(ud->step_vals, mt, COL_ASPHER, val);
+    // eigenvalues
     for (int dd = 0; dd < 3; dd++) {
-      eigen_step[mt].v[dd] += eigen.v[dd];
+      AddArr2D(ud->step_vals, mt, COL_EIGEN0 + dd, eigen.v[dd]);
     }
-    // end-to-end distance (always uses first and last bead of molecule)
-    int first = mol->Bead[0];
-    int last  = mol->Bead[mtype->nBeads - 1];
-    vec3d dist = Vector(System->Bead[last].Position, System->Bead[first].Position);
-    Re_step[mt] += VectLength(dist);
-    mol_count_step[mt]++;
+    // end-to-end distance
+    if (re_valid) {
+      AddArr2D(ud->step_vals, mt, COL_RE, Re);
+      AddArr2D(ud->step_vals, mt, COL_RE_N, 1);
+    }
+    ud->step_count[mt]++;
   }
 
-  // add to overall sums and write per-timestep data to output files
+  // add to overall sums and write per-timestep data
   for (int i = 0; i < Count->MoleculeType; i++) {
-    if (!opt.mt[i] || mol_count_step[i] == 0) {
+    if (!opt.mt[i] || ud->step_count[i] == 0) {
       continue;
     }
-    Rg_sum[i] += Rg_step[i];
-    sqrRg_sum[i] += sqrRg_step[i];
-    Anis_sum[i] += Anis_step[i];
-    Acyl_sum[i] += Acyl_step[i];
-    Aspher_sum[i] += Aspher_step[i];
-    Re_sum[i] += Re_step[i];
-    for (int dd = 0; dd < 3; dd++) {
-      eigen_sum[i].v[dd] += eigen_step[i].v[dd];
+    for (int c = 0; c < N_COLS; c++) {
+      AddArr2D(ud->sums, i, c, GetArr2D(ud->step_vals, i, c));
     }
-    total_mol_count[i] += mol_count_step[i];
+    ud->mol_count[i] += ud->step_count[i];
 
-    char fname[LINE + MOL_NAME + 5];
-    snprintf(fname, sizeof fname, "%s-%s.txt", output,
-             System->MoleculeType[i].Name);
-    FILE *out = OpenFile(fname, "a");
-    int n = mol_count_step[i];
-    fprintf(out, "%5d", step->coor);
-    fprintf(out, " %8.5f", Rg_step[i] / n);
-    fprintf(out, " %8.5f", sqrRg_step[i] / n);
-    fprintf(out, " %8.5f", Anis_step[i] / n);
-    fprintf(out, " %8.5f", Acyl_step[i] / n);
-    fprintf(out, " %8.5f", Aspher_step[i] / n);
+    int n = ud->step_count[i];
+    FILE *f = ud->files[i];
+    fprintf(f, "%5d", step->coor);
+    fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, COL_RG) / n);
+    fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, COL_SQRRG) / n);
+    fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, COL_ANIS) / n);
+    fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, COL_ACYL) / n);
+    fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, COL_ASPHER) / n);
     for (int dd = 0; dd < 3; dd++) {
-      fprintf(out, " %8.5f", eigen_step[i].v[dd] / n);
+      fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, COL_EIGEN0 + dd) / n);
     }
-    fprintf(out, " %8.5f", Re_step[i] / n);
-    putc('\n', out);
-    fclose(out);
+    double re_n = GetArr2D(ud->step_vals, i, COL_RE_N);
+    if (re_n > 0) {
+      fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, COL_RE) / re_n);
+    } else {
+      fprintf(f, " %8.5f", NAN);
+    }
+    putc('\n', f);
   }
-
-  free(Rg_step);
-  free(sqrRg_step);
-  free(Anis_step);
-  free(Acyl_step);
-  free(Aspher_step);
-  free(Re_step);
-  free(eigen_step);
-  free(mol_count_step);
-} //}}}
-
-// userdata struct for the callback
-struct user_data {
-  struct OPT opt;
-  char output[LINE];
-  double *Rg_sum, *sqrRg_sum, *Anis_sum, *Acyl_sum, *Aspher_sum, *Re_sum;
-  vec3d *eigen_sum;
-  int *total_mol_count;
-};
-
-static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
-  struct user_data *p = (struct user_data *)userdata;
-  Calculation(System, step, p->opt, p->output,
-              p->Rg_sum, p->sqrRg_sum, p->Anis_sum, p->Acyl_sum, p->Aspher_sum,
-              p->Re_sum, p->eigen_sum,
-              p->total_mol_count);
 }
+static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
+  Calculation(System, step, (struct user_data *)userdata);
+} //}}}
 
 int main(int argc, char *argv[]) {
 
@@ -199,7 +191,7 @@ int main(int argc, char *argv[]) {
   s_strcpy(output, argv[++count], LINE);
   // options before reading system data
   COMMON_OPT commons = CommonOptions(argc, argv, in);
-  // --joined option (opt.join == true -> needs joining)
+  // --joined option - if present, don't join molecules
   opt.join = !BoolOption(argc, argv, "--joined");
   //}}}
 
@@ -229,103 +221,152 @@ int main(int argc, char *argv[]) {
     InitBoolArray(opt.bt, Count->BeadType, true);
   } //}}}
 
-  // write headers to per-molecule-type output files //{{{
+  // warn if any selected molecule type is not a linear chain //{{{
   for (int i = 0; i < Count->MoleculeType; i++) {
     if (!opt.mt[i]) {
       continue;
     }
-    char fname[LINE + MOL_NAME + 5];
-    snprintf(fname, sizeof fname, "%s-%s.txt", output, System.MoleculeType[i].Name);
-    FILE *out = PrintBylineOpenFile(fname, argc, argv);
-    fprintf(out, "# %s\n", System.MoleculeType[i].Name);
+    MOLECULETYPE *mtype = &System.MoleculeType[i];
+    // count bonds per bead
+    int *degree = calloc(mtype->nBeads, sizeof *degree);
+    if (!degree) {
+      ErrorAlloc("degree");
+    }
+    for (int j = 0; j < mtype->nBonds; j++) {
+      degree[mtype->Bond[j][0]]++;
+      degree[mtype->Bond[j][1]]++;
+    }
+    int max_degree = 0;
+    for (int j = 0; j < mtype->nBeads; j++) {
+      if (degree[j] > max_degree) {
+        max_degree = degree[j];
+      }
+    }
+    free(degree);
+    if (max_degree > 2) {
+      snprintf(ERROR_MSG, LINE, "molecule type %s%s%s has branched topology "
+               "(max bead degree: %s%d%s); Re is ill-defined",
+               ErrYellow(), mtype->Name, ErrCyan(),
+               ErrYellow(), max_degree, ErrCyan());
+      PrintWarning();
+    } else if (mtype->nBonds != mtype->nBeads - 1) {
+      snprintf(ERROR_MSG, LINE, "molecule type %s%s%s is not a linear chain "
+               "(nBonds=%s%d%s, nBeads=%s%d%s); Re is ill-defined",
+               ErrYellow(), mtype->Name, ErrCyan(),
+               ErrYellow(), mtype->nBonds, ErrCyan(),
+               ErrYellow(), mtype->nBeads, ErrCyan());
+      PrintWarning();
+    }
+  } //}}}
+
+  // open output files and write headers //{{{
+  FILE **file = calloc(Count->MoleculeType, sizeof *file);
+  if (!file) {
+    ErrorAlloc("files");
+  }
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    if (!opt.mt[i]) {
+      continue;
+    }
+    char fname[LINE+MOL_NAME+5];
+    snprintf(fname, sizeof fname, "%s-%s.txt", output,
+             System.MoleculeType[i].Name);
+    file[i] = PrintBylineOpenFile(fname, argc, argv);
+    fprintf(file[i], "# %s\n", System.MoleculeType[i].Name);
     int col = 1;
-    fprintf(out, "# column:");
-    fprintf(out, " (%d) timestep", col++);
-    fprintf(out, ", (%d) <Rg>",       col++);
-    fprintf(out, ", (%d) <Rg^2>",     col++);
-    fprintf(out, ", (%d) <Anis>",     col++);
-    fprintf(out, ", (%d) <Acyl>",     col++);
-    fprintf(out, ", (%d) <Aspher>",   col++);
-    fprintf(out, ", (%d) <eigen[0]>", col++);
-    fprintf(out, ", (%d) <eigen[1]>", col++);
-    fprintf(out, ", (%d) <eigen[2]>", col++);
-    fprintf(out, ", (%d) <Re>",       col++);
-    putc('\n', out);
-    fclose(out);
+    fprintf(file[i], "# column:");
+    fprintf(file[i], " (%d) timestep", col++);
+    fprintf(file[i], ", (%d) <Rg>", col++);
+    fprintf(file[i], ", (%d) <Rg^2>", col++);
+    fprintf(file[i], ", (%d) <Anis>", col++);
+    fprintf(file[i], ", (%d) <Acyl>", col++);
+    fprintf(file[i], ", (%d) <Aspher>", col++);
+    fprintf(file[i], ", (%d) <eigen[0]>", col++);
+    fprintf(file[i], ", (%d) <eigen[1]>", col++);
+    fprintf(file[i], ", (%d) <eigen[2]>", col++);
+    fprintf(file[i], ", (%d) <Re>", col++);
+    putc('\n', file[i]);
   } //}}}
 
   if (commons.verbose) {
     VerboseOutput(System);
   }
 
-  // allocate overall sum arrays //{{{
-  double *Rg_sum       = calloc(Count->MoleculeType, sizeof *Rg_sum);
-  double *sqrRg_sum    = calloc(Count->MoleculeType, sizeof *sqrRg_sum);
-  double *Anis_sum     = calloc(Count->MoleculeType, sizeof *Anis_sum);
-  double *Acyl_sum     = calloc(Count->MoleculeType, sizeof *Acyl_sum);
-  double *Aspher_sum   = calloc(Count->MoleculeType, sizeof *Aspher_sum);
-  double *Re_sum       = calloc(Count->MoleculeType, sizeof *Re_sum);
-  vec3d  *eigen_sum    = calloc(Count->MoleculeType, sizeof *eigen_sum);
-  int    *total_mol_count = calloc(Count->MoleculeType, sizeof *total_mol_count);
-  if (!Rg_sum || !sqrRg_sum || !Anis_sum || !Acyl_sum || !Aspher_sum ||
-      !Re_sum || !eigen_sum || !total_mol_count) {
-    ErrorAlloc("sum arrays");
+  // allocate sum/step arrays and bead-list buffer //{{{
+  ArrNDd *sums = CreateArr2Dd(Count->MoleculeType, N_COLS);
+  int *mol_count = calloc(Count->MoleculeType, sizeof *mol_count);
+  ArrNDd *step_vals = CreateArr2Dd(Count->MoleculeType, N_COLS);
+  int *step_count = calloc(Count->MoleculeType, sizeof *step_count);
+  if (!sums || !mol_count || !step_vals || !step_count) {
+    ErrorAlloc("sum/step arrays");
+  }
+  int list_cap = 0;
+  for (int i = 0; i < Count->MoleculeType; i++) {
+    if (opt.mt[i] && System.MoleculeType[i].nBeads > list_cap) {
+      list_cap = System.MoleculeType[i].nBeads;
+    }
+  }
+  int *list = NULL;
+  if (list_cap > 0) {
+    if (!(list = malloc(list_cap * sizeof *list))) {
+      ErrorAlloc("list");
+    }
   } //}}}
 
   struct user_data ud = {
     .opt = opt,
-    .Rg_sum = Rg_sum,
-    .sqrRg_sum = sqrRg_sum,
-    .Anis_sum = Anis_sum,
-    .Acyl_sum = Acyl_sum,
-    .Aspher_sum = Aspher_sum,
-    .Re_sum = Re_sum,
-    .eigen_sum = eigen_sum,
-    .total_mol_count = total_mol_count,
+    .sums = sums,
+    .mol_count = mol_count,
+    .step_vals = step_vals,
+    .step_count = step_count,
+    .files = file,
+    .list = list,
   };
-  s_strcpy(ud.output, output, LINE);
 
   STEP step = InitStep;
   MainLoopCoor(&System, in, commons, &step, Calculation_adaptor, &ud);
 
-  // append overall averages to output files //{{{
+  // append overall averages and close files //{{{
   for (int i = 0; i < Count->MoleculeType; i++) {
-    if (!opt.mt[i] || total_mol_count[i] == 0) {
+    if (!opt.mt[i]) {
       continue;
     }
-    char fname[LINE + MOL_NAME + 5];
-    snprintf(fname, sizeof fname, "%s-%s.txt", output, System.MoleculeType[i].Name);
-    FILE *out = OpenFile(fname, "a");
-    int n = total_mol_count[i];
-    fprintf(out, "# overall averages (%d molecules total):\n", n);
-    fprintf(out, "# <Rg> <Rg^2> <Anis> <Acyl> <Aspher>"
+    if (mol_count[i] > 0) {
+      int n = mol_count[i];
+      FILE *f = file[i];
+      fprintf(f, "# overall averages (%d molecules total):\n", n);
+      fprintf(f, "# <Rg> <Rg^2> <Anis> <Acyl> <Aspher>"
                  " <eigen[0]> <eigen[1]> <eigen[2]> <Re>\n");
-    fprintf(out, "#");
-    fprintf(out, " %lf", Rg_sum[i] / n);
-    fprintf(out, " %lf", sqrRg_sum[i] / n);
-    fprintf(out, " %lf", Anis_sum[i] / n);
-    fprintf(out, " %lf", Acyl_sum[i] / n);
-    fprintf(out, " %lf", Aspher_sum[i] / n);
-    for (int dd = 0; dd < 3; dd++) {
-      fprintf(out, " %lf", eigen_sum[i].v[dd] / n);
+      fprintf(f, "#");
+      fprintf(f, " %lf", GetArr2D(sums, i, COL_RG) / n);
+      fprintf(f, " %lf", GetArr2D(sums, i, COL_SQRRG) / n);
+      fprintf(f, " %lf", GetArr2D(sums, i, COL_ANIS) / n);
+      fprintf(f, " %lf", GetArr2D(sums, i, COL_ACYL) / n);
+      fprintf(f, " %lf", GetArr2D(sums, i, COL_ASPHER) / n);
+      for (int dd = 0; dd < 3; dd++) {
+        fprintf(f, " %lf", GetArr2D(sums, i, COL_EIGEN0 + dd) / n);
+      }
+      double re_n = GetArr2D(sums, i, COL_RE_N);
+      if (re_n > 0) {
+        fprintf(f, " %lf", GetArr2D(sums, i, COL_RE) / re_n);
+      } else {
+        fprintf(f, " %lf", NAN);
+      }
+      putc('\n', f);
     }
-    fprintf(out, " %lf", Re_sum[i] / n);
-    putc('\n', out);
-    fclose(out);
+    fclose(file[i]);
   } //}}}
 
   // free memory //{{{
   FreeSystem(&System);
   free(opt.mt);
   free(opt.bt);
-  free(Rg_sum);
-  free(sqrRg_sum);
-  free(Anis_sum);
-  free(Acyl_sum);
-  free(Aspher_sum);
-  free(Re_sum);
-  free(eigen_sum);
-  free(total_mol_count);
+  FreeArrND(sums);
+  free(mol_count);
+  FreeArrND(step_vals);
+  free(step_count);
+  free(file);
+  free(list);
   //}}}
 
   return 0;

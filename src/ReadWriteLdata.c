@@ -1127,6 +1127,9 @@ void WriteLmpData(const SYSTEM System, const char *file, const bool mass,
   int mass_types = 0;
   int *bt_masstype_to_old = calloc(Count->BeadType, sizeof *bt_masstype_to_old);
   int *bt_old_to_masstype = calloc(Count->BeadType, sizeof *bt_old_to_masstype);
+  if (!bt_masstype_to_old || !bt_old_to_masstype) {
+    ErrorAlloc("bt_masstype_to_old/bt_old_to_masstype");
+  }
   if (mass) {
     for (int i = 0; i < Count->BeadType; i++) {
       BEADTYPE *bt_i = &System.BeadType[i];

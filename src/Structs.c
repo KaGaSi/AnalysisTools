@@ -1,4 +1,5 @@
 #include "Structs.h"
+#include "Errors.h"
 
 void InitBeadType(BEADTYPE *bt) { //{{{
   bt->Number = 0;
@@ -63,6 +64,9 @@ void InitSystem(SYSTEM *System) { //{{{
 void InitAggregate(SYSTEM System, AGGREGATE **Aggregate) { //{{{
   COUNT *Count = &System.Count;
   *Aggregate = malloc(Count->Molecule * sizeof **Aggregate);
+  if (!*Aggregate) {
+    ErrorAlloc("Aggregate");
+  }
   for (int i = 0; i < Count->Molecule; i++) {
     (*Aggregate)[i].nMolecules = 0;
     (*Aggregate)[i].nCore = 0;

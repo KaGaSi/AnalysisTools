@@ -144,7 +144,7 @@ void ErrorSnprintf() {
   PrintError();
   exit(1);
 } //}}}
-void ErrorAlloc(char *name) { //{{{
+_Noreturn void ErrorAlloc(char *name) { //{{{
   fprintf(stderr, "\n%sERROR - %s%s%s allocation failed%s\n",
           ErrRed(), ErrYellow(), name, ErrRed(), ColourReset());
   exit(1);

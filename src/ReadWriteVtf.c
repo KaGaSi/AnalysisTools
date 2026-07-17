@@ -860,6 +860,9 @@ void VtfWriteStruct(char *file, SYSTEM System, int type_def,
   if (type_def == -1) {
     // find most common type of bead and make it default
     int *count = calloc(Count->BeadType, sizeof *count);
+    if (!count) {
+      ErrorAlloc("count");
+    }
     for (int i = 0; i < Count->Bead; i++) {
       if (System.Bead[i].Molecule == -1) {
         int type = System.Bead[i].Type;

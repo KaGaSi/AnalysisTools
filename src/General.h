@@ -36,6 +36,12 @@ static inline void SwapBool(bool *a, bool *b) {
   *a = *b;
   *b = swap;
 } //}}}
+// ensure *a <= *b (canonical order for symmetric pair indexing) //{{{
+static inline void SortPairAsc(int *a, int *b) {
+  if (*a > *b) {
+    SwapInt(a, b);
+  }
+} //}}}
 // minimum/maximum from three numbers //{{{
 static inline double Min3(double x, double y, double z) {
   double min = y;

@@ -34,7 +34,7 @@ void WarnPrintLine();
 void ErrorPrintLine();
 void ErrorEOF(const char *file, char *msg);
 void ErrorSnprintf();
-void ErrorAlloc(char *name);
+_Noreturn void ErrorAlloc(char *name);
 void ErrorArgNumber(const int count, const int need);
 int ErrorExtension(const char *file, const int number,
                    const char extension[][EXTENSION]);

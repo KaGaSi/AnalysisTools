@@ -9,6 +9,7 @@
 //       probe radius and bead radius are the same, specifically 0.5 - really?
 //       what about the -r option?
 // TODO: find proper test system, then implement the other stuff
+// TODO: there multidimensional array that don't use ArrN constructs - why?
 
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
@@ -362,9 +363,15 @@ int main(int argc, char *argv[]) {
    * sum_surf/values gives average coordinate for the two surfaces
    */
   double (**sum_surf)[2] = calloc(bin_alloc[0], sizeof (*sum_surf)[2]);
+  if (!values || !sum_surf) {
+    ErrorAlloc("values/sum_surf");
+  }
   for (int i = 0; i < bin_alloc[0]; i++) {
     values[i] = calloc(bin_alloc[1], sizeof **values);
     sum_surf[i] = calloc(bin_alloc[1], sizeof **sum_surf);
+    if (!values[i] || !sum_surf[i]) {
+      ErrorAlloc("values[i]/sum_surf[i]");
+    }
   }
   // distribution of widths (i.e., top-bottom surface distances)
   long int *distr = NULL;
@@ -372,6 +379,9 @@ int main(int argc, char *argv[]) {
   double avg_thickness = 0;
   if (distr_width > 0) {
     distr = calloc(distr_bins, sizeof *distr);
+    if (!distr) {
+      ErrorAlloc("distr");
+    }
   }
 
   // open input coordinate file

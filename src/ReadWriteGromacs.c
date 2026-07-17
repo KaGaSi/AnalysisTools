@@ -300,7 +300,7 @@ static void ReadAtoms(const char *file, FILE *fr,
 
     Count->Bead++;
     // realloc & fill Bead struct
-    System->Bead = realloc(System->Bead, Count->Bead * sizeof *System->Bead);
+    System->Bead = s_realloc(System->Bead, Count->Bead * sizeof *System->Bead);
     BEAD *bead = &System->Bead[Count->Bead-1];
     bead->Molecule = Count->MoleculeType - 1;
     bead->Type = b_id;
@@ -340,7 +340,10 @@ static void ReadBonds(const char *file, FILE *fr,
     if (mt->nBonds == 1) {
       mt->Bond = malloc(sizeof *mt->Bond);
     } else {
-      mt->Bond = realloc(mt->Bond, mt->nBonds * sizeof *mt->Bond);
+      mt->Bond = s_realloc(mt->Bond, mt->nBonds * sizeof *mt->Bond);
+    }
+    if (!mt->Bond) {
+      ErrorAlloc("mt->Bond");
     }
     mt->Bond[mt->nBonds-1][0] = bond[0] - 1;
     mt->Bond[mt->nBonds-1][1] = bond[1] - 1;
@@ -381,7 +384,10 @@ static void ReadAngles(const char *file, FILE *fr,
     if (mt->nAngles == 1) {
       mt->Angle = malloc(sizeof *mt->Angle);
     } else {
-      mt->Angle = realloc(mt->Angle, mt->nAngles * sizeof *mt->Angle);
+      mt->Angle = s_realloc(mt->Angle, mt->nAngles * sizeof *mt->Angle);
+    }
+    if (!mt->Angle) {
+      ErrorAlloc("mt->Angle");
     }
     mt->Angle[mt->nAngles-1][0] = angle[0] - 1;
     mt->Angle[mt->nAngles-1][1] = angle[1] - 1;
@@ -424,8 +430,11 @@ static void ReadDihedrals(const char *file, FILE *fr,
     if (mt->nDihedrals == 1) {
       mt->Dihedral = malloc(sizeof *mt->Dihedral);
     } else {
-      mt->Dihedral = realloc(mt->Dihedral,
-                             mt->nDihedrals * sizeof *mt->Dihedral);
+      mt->Dihedral = s_realloc(mt->Dihedral,
+                               mt->nDihedrals * sizeof *mt->Dihedral);
+    }
+    if (!mt->Dihedral) {
+      ErrorAlloc("mt->Dihedral");
     }
     mt->Dihedral[mt->nDihedrals-1][0] = dihed[0] - 1;
     mt->Dihedral[mt->nDihedrals-1][1] = dihed[1] - 1;

@@ -102,8 +102,8 @@ static void ReduceSystem(const SYSTEM System, SYSTEM *Sys, const bool *write,
   }
   Sys->Count.BeadCoor = count;
   // prune the system and generate full->reduced bead ids transformation
-  *b_full_to_red = calloc(System.Count.Bead, sizeof *b_full_to_red);
-  if (!b_full_to_red) {
+  *b_full_to_red = calloc(System.Count.Bead, sizeof **b_full_to_red);
+  if (!*b_full_to_red) {
     ErrorAlloc("b_full_to_red");
   }
   PruneSystem(Sys, *b_full_to_red);
@@ -131,8 +131,8 @@ static void ReducedWrite(SYSTEM *Sys, const SYSTEM System,
                          const int b_full_to_red[],
                          const bool *write, bool **write2) {
   Sys->Count.BeadCoor = 0;
-  *write2 = calloc(Sys->Count.Bead, sizeof *write2);
-  if (!write2) {
+  *write2 = calloc(Sys->Count.Bead, sizeof **write2);
+  if (!*write2) {
     ErrorAlloc("write2");
   }
   for (int i = 0; i < System.Count.BeadCoor; i++) {
@@ -215,8 +215,8 @@ static void ConstrainCoordinates(SYSTEM *System, const OPT opt,
   }
   COUNT *Count = &System->Count;
   // allocate array to store the original 'write'
-  *write_orig = malloc(Count->Bead * sizeof *write_orig);
-  if (!write_orig) {
+  *write_orig = malloc(Count->Bead * sizeof **write_orig);
+  if (!*write_orig) {
     ErrorAlloc("write_orig");
   }
   // save the original 'write' array
