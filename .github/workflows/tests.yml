@@ -18,12 +18,14 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
+        # ubuntu-latest (24.04) defaults to gcc-13, which lacks -std=c23
+        # (added in gcc-14); install gcc-14 and build with it.
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake gfortran libgsl-dev libopenblas-dev
+          sudo apt-get install -y cmake gcc-14 gfortran libgsl-dev libopenblas-dev
 
       - name: Configure (sanitizers on)
-        run: cmake -S src -B build -DSANITIZE=ON
+        run: cmake -S src -B build -DSANITIZE=ON -DCMAKE_C_COMPILER=gcc-14
 
       - name: Build tests
         run: cmake --build build --target t_geometry t_traversal
