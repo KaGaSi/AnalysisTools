@@ -1,5 +1,4 @@
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
-set(CMAKE_LEGACY_CYGWIN_WIN32 0) # Cygwin compatibility setting
+cmake_minimum_required(VERSION 3.16...4.0)
 
 project(project)
 enable_language (C)

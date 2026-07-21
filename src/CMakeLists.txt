@@ -1,5 +1,4 @@
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
-set(CMAKE_LEGACY_CYGWIN_WIN32 0) # Cygwin compatibility setting
+cmake_minimum_required(VERSION 3.16...4.0)
 
 project(project)
 enable_language(C Fortran)
@@ -17,6 +16,18 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 set(CMAKE_C_FLAGS "-std=c23 -Wall")
 set(CMAKE_C_FLAGS_DEBUG "-ggdb -g")
 set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG")
+
+# Optional sanitizers (appended so the hardcoded flags above are preserved):
+#   cmake ../src -DSANITIZE=ON
+option(SANITIZE "Build with Address + UndefinedBehaviour sanitizers" OFF)
+if(SANITIZE)
+  # -fno-sanitize-recover=all makes UBSan abort (non-zero exit) on the first
+  # violation instead of just printing and continuing, so CI actually fails
+  string(APPEND CMAKE_C_FLAGS
+         " -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer")
+  string(APPEND CMAKE_EXE_LINKER_FLAGS " -fsanitize=address,undefined")
+  message(STATUS "Sanitizers: address, undefined")
+endif()
 
 # Find GSL
 find_package(GSL REQUIRED)
@@ -124,6 +135,20 @@ endforeach()
 set(F_UTILS traject-v2_7)
 foreach(utility ${F_UTILS})
   add_executable(${utility} ../Utility/${utility}.f90)
+endforeach()
+
+# ---- unit tests (CTest) ----
+# Run with: cmake ../src && make && ctest --output-on-failure
+# or under sanitizers: cmake ../src -DSANITIZE=ON && make && ctest --output-on-failure
+enable_testing()
+set(TESTS
+  t_geometry
+  t_traversal)
+foreach(t ${TESTS})
+  add_executable(${t} ../tests/${t}.c)
+  target_link_libraries(${t} PRIVATE ${GSL_LIBRARIES} m ${BLAS_LIB} AnalysisTools)
+  target_include_directories(${t} PRIVATE ${GSL_INCLUDE_DIRS})
+  add_test(NAME ${t} COMMAND ${t})
 endforeach()
 
 # Ensure Fortran compiler is set
