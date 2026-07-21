@@ -1,117 +1,103 @@
 \section{BondLength} \label{sec:BondLength}
 
-This utility calculates a distribution of bond lengths in specified
-molecule type(s). It can also calculate a distribution of distances between
-any two beads in the molecules.
+\tt{BondLength} calculates distributions of bond lengths for specified molecule
+type(s), grouped by bead type pair. It can also calculate distributions of
+distances between arbitrary bead pairs within those molecules.
 
-For each of the specified molecule type(s), \texttt{BondLength} calculates
-bond lengths between all different types of connected bead pairs.
-For example, assume two linear molecule types \texttt{Mol\_1} and
-\texttt{Mol\_2}, both composed of bead types \texttt{A} and \texttt{B}.
-\texttt{Mol\_1} is connected like this: \texttt{A-A-B}; \texttt{Mol\_2}
-like this: \texttt{A-B-B}. If both molecule types are used,
-\texttt{BondLength} calculates for each molecule type distribution of
-lengths for bonds \texttt{A-A}, \texttt{A-B}, and \texttt{B-B} (separate
-for each molecule even though the molecules share the same bead types).
+For each selected molecule type, bond lengths are accumulated into distributions
+per bead type pair. For example, a molecule A-B-B has two distinct bond types,
+A-B and B-B, so the output contains one distribution column for each. By default,
+all molecule types are used; restrict this with \tt{-mt}. Adding \tt{--all}
+generates additional per-individual-bond distributions alongside the per-type-pair
+ones --- bond 1, bond 2, ..., in the order they appear in the structure file.
+This is useful when bonds of the same bead type pair are structurally
+inequivalent.
 
-To calculate the distribution of distances between specific (possibly
-unconnected) beads in a molecule, use \texttt{-d} option which takes as
-arguments pairs of bead indices (according to the order of beads in the
-molecule in \texttt{vsf} -- similarly to the \texttt{-n} option in
-\texttt{AngleMolecules}, i.e., Section~\ref{sec:AngleMolecules}). More than
-one pair can be specified.  These indices are the same for all \texttt{<mol
-name(s)>}. If an index higher than the number of beads in the molecule is
-provided, the utility takes the last bead of the molecule (i.e., the
-highest index). For example, using \texttt{-d file.txt 1 2 1 9999} would
-write two distributions for each \texttt{<mol name(s)>} into
-\texttt{<file.txt>}: distribution of distances between the first and the
-second bead in each \texttt{<mol name(s)>} and between the first bead and
-the last one (or the 9999th bead).
+If the coordinate file contains molecules split across periodic boundaries,
+\tt{BondLength} joins them before the calculation. Supply \tt{--joined} if the
+coordinates are already whole-molecule to skip this step.
 
-In both cases, \texttt{BondLength} appends at the end of the file minimum and
-maximum bond lengths/distances.
+The \tt{-n} option computes distributions of distances between arbitrary bead
+pairs, not just bonded ones. Pairs are given as consecutive 1-based bead indices
+(in the order beads appear in the structure file) after the output filename:
+\tt{-n dist.txt 1 5} measures the distance between beads 1 and~5, and multiple
+pairs can be specified at once, e.g.\ \tt{-n dist.txt 1 5 2 4}. If an index
+exceeds the number of beads in the molecule, the last bead is used; if no indices
+are given, the first and last bead of each molecule are used as the default pair.
+The \tt{-w} option emits a warning whenever a bond length exceeds the given
+threshold.
 
-Usage:
-
-\vspace{1em}
-\noindent
-\texttt{BondLength <input> <width> <output> <mol name(s)> <options>}
+The \tt{-t} option writes per-timestep averages to a separate file. The columns
+follow the same order as in the main output file: bead type pair averages (and,
+if \tt{--all} is used, individual bond averages; and, if \tt{-n} is used, bead
+pair distance averages).
 
 \noindent
-\begin{longtable}{p{0.22\textwidth}p{0.724\textwidth}}
+\tt{Usage: BondLength <input> <width> <output> [options]}
+
+\noindent
+\begin{longtable}{p{0.24\textwidth}p{0.706\textwidth}}
   \toprule
   \multicolumn{2}{l}{Mandatory arguments} \\
   \midrule
-  \texttt{<input>} & input coordinate file (either \texttt{vcf} or
-    \texttt{vtf} format) \\
-  \texttt{<width>} & width of each bin of the distribution \\
-  \texttt{<output>} & output file with distribution of bond lengths \\
-  \texttt{<mol name(s)>} & molecule name(s) to calculcate bond lengths for \\
+  \tt{<input>}  & input coordinate file \\
+  \tt{<width>}  & bin width for the distribution \\
+  \tt{<output>} & output file with bond length distributions \\
   \toprule
-  \multicolumn{2}{l}{Non-standard options} \\
+  \multicolumn{2}{l}{Options} \\
   \midrule
-  \texttt{-st <int>} & starting timestep for calculation (default: 1) \\
-  \texttt{-e <int>} & ending timestep for calculation (default: none) \\
-  \texttt{-d <out> <ints>} & write distribution of distances
-    between specified beads in each specified molecule to \texttt{<out>}\\
-  \texttt{-w <double>} & warn if a bond length exceeds \texttt{<double>}
-    (default: half a box length)\\
+  \tt{-mt <name(s)>}    & molecule type(s) to use (default: all) \\
+  \tt{--joined}         & input already contains joined (whole-molecule)
+                          coordinates \\
+  \tt{--all}            & also write per-individual-bond distributions \\
+  \tt{-n <file> [ints]} & write distance distributions for specified bead
+                          index pairs to \tt{<file>}; \tt{[ints]} are pairs
+                          of 1-based bead indices (default: first and last
+                          bead of each molecule) \\
+  \tt{-w <float>}       & warn when a bond length exceeds \tt{<float>} \\
+  \tt{-t <file>}        & write per-timestep average bond lengths to
+                          \tt{<file>} \\
+  \midrule
+  \multicolumn{2}{p{0.948\textwidth}}{\tt{-i}, \tt{-ft}, \tt{-st}, \tt{-e},
+    \tt{-sk}, \tt{--verbose}, \tt{--silent}, \tt{--help}, \tt{--version}} \\
   \bottomrule
 \end{longtable}
 
 \noindent
 Format of output files:
 \begin{enumerate}[nosep,leftmargin=20pt]
-  \item \texttt{<output>} -- distribution of bond length between all bead
-    pairs
+  \item \tt{<output>} --- bond length distributions grouped by bead type pair
     \begin{itemize}[nosep,leftmargin=5pt]
-      \item first line: command used to generate the file
-      \item second line: column headers
-        \begin{itemize}[nosep,leftmargin=10pt]
-          \item first is the centre of each bin (governed by
-            \texttt{<width>}); i.e., if \texttt{<width>} is 0.1,
-            then the centre of bin 0 to 0.1 is 0.05, centre of bin 0.1 to
-            0.2 is 0.15, etc.
-          \item the rest are for the calculated data: for each molecule type,
-            there is a list of column numbers corresponding to all
-            possible bead type pairs in the molecule; if no beads of the
-            given types are connected, the data column contains \texttt{nan}
-        \end{itemize}
-      \item next lines: the calculated data
-      \item second to last line: column headers for minimal and maximal bond
-        lengths
-        \begin{itemize}[nosep,leftmargin=10pt]
-          \item for each molecule, all the possible beads pairs are again listed
-          \item for each pair, the column number corresponds to the minimum,
-            while the next column is always the maximum
-        \end{itemize}
-      \item last line: commented out (i.e., the line starts with \texttt{\#})
-        minimal and maximal bond lengths
+      \item 1st line: command used to generate the file
+      \item next lines (one per selected molecule type): comment lines listing
+        column numbers and their bead type pair labels; if \tt{--all} is used,
+        the range of individual bond columns is noted at the end of each line
+      \item data lines: column 1 is the bin centre; remaining columns are
+        normalised bond length distributions
+      \item second-to-last line: comment line mapping column numbers to bead
+        type pairs, three columns per pair in the order min, max, average
+      \item last line: commented-out minimum, maximum, and average lengths for
+        each pair
     \end{itemize}
-  \item \texttt{-d <output> <ints>} -- distribution of distances between
-    specified beads
+  \item \tt{-n <file>} --- distance distributions for specified bead pairs
     \begin{itemize}[nosep,leftmargin=5pt]
-      \item first line: command used to generate the file
-      \item second line: order of beads (given only by bead names) in each
-        molecule
-      \item third line: column headers
-        \begin{itemize}[nosep,leftmargin=10pt]
-          \item first is again the centre of every bin
-          \item the rest are for the calculated data: for each molecule type,
-            there is a list of column numbers corresponding to the given
-            pairs of bead indices in the molecule (and to the \texttt{-d}
-            option's arguments); the numbers also correspond to the order of
-            beads in the previous line
-        \end{itemize}
-      \item next lines: the calculated data
-      \item second to last line: column headers for minimal and maximal bond
-        lengths
-        \begin{itemize}[nosep,leftmargin=10pt]
-          \item for each molecule, all the possible beads pairs are again listed
-          \item for each pair, the column number corresponds to the minimum,
-            while the next column is always the maximum
-        \end{itemize}
-      \item last line: commented out (i.e., the line starts with \texttt{\#})
-        minimal and maximal bond lengths
+      \item 1st line: command used to generate the file
+      \item 2nd line: bead names in order for each selected molecule type
+      \item next lines: comment lines listing column numbers and bead index
+        pairs (written as smaller-index -- larger-index)
+      \item data lines: column 1 is the bin centre; remaining columns are
+        normalised distance distributions
+      \item second-to-last line: comment line mapping column numbers to bead
+        index pairs, three columns per pair in the order min, max, average
+      \item last line: commented-out minimum, maximum, and average distances
+    \end{itemize}
+  \item \tt{-t <file>} --- per-timestep average bond lengths
+    \begin{itemize}[nosep,leftmargin=5pt]
+      \item 1st line: command used to generate the file
+      \item next lines: comment lines describing each column (bead type pairs;
+        if \tt{--all}, the range of individual bond columns; if \tt{-n}, the
+        bead pair distance columns)
+      \item data lines: column 1 is the timestep number; remaining columns are
+        per-timestep mean values in the same order as in \tt{<output>}
     \end{itemize}
 \end{enumerate}

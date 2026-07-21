@@ -1,25 +1,71 @@
 \section{AddToSystem} \label{sec:AddToSystem}
 
-This utility takes an existing system (or creates a new one from scratch) and
-adds new beads (read from a \field file) into it, placing them either completely
-randomly or according to supplied constraints.
+\tt{AddToSystem} adds unbonded beads and/or molecules to an existing system,
+or builds a new system from scratch. New species can be placed randomly or
+subject to distance and axis constraints; they can either replace existing
+beads or be appended to the system.
 
-There are two types of constraints which can be combined: place new beads (i)
-specified distance from other beads or (ii) in a given interval in x-, y-,
-and/or z-axis directions. In (i), options \tt{-ld} and/or \tt{-hd} define the
-lowest and/or highest distance from beads specified by \tt{-bt <name(s)>} (bead
-name) or \tt{--bonded} (all bonded beads). In (ii), options \tt{-cx}, \tt{-cy},
-and \tt{-cz} basically change the box size for the added beads. By default, this
-constraint is specified in units relative to the box dimensions (i.e., allowed
-values go from 0 to 1); use the \tt{--real} option for absolute units. For
-example, \tt{-cx 0.5 1} would generate x coordinates between 50\% and 100\% of
-the box's x sidelength.
+\subsection{Defining what to add}
 
-All these options can be combined, but note that \tt{AddToSystem} does not
-perform any sanity checks; that is, if any combination of the provided options
-is impossible to achieve, the utility may run forever. See
-\cref{fig:AddToSystem} for schematic examples and the \tt{01-ManualExamples}
-directory for the exact commands to produce these examples.
+Species to add are specified in one of two ways. The simpler is a \field file
+(\tt{<in.field>}) given as the second positional argument, which is read as-is.
+
+The library-based workflow uses \tt{-lib <dir>} to point to a molecule library
+and \tt{-mol} to select which species to include. After \tt{-mol}, each entry
+is a name--count pair: the count is either an integer number of molecules or a
+percentage of the original system's bead count (e.g.\ \tt{10\%} gives
+$\text{round}(0.1 \times N_\text{orig} / n_\text{beads})$ molecules, where
+$n_\text{beads}$ is the number of beads per molecule). Multiple name--count
+pairs can follow a single \tt{-mol} flag, and the flag can be repeated.
+Note that percentage counts are meaningless when building from scratch because
+the original bead count is zero; use integer counts in that case.
+
+The \tt{-ntot <n> <type>} option (requires \tt{-lib}) adds fill molecules of
+type \tt{<type>} until the total bead count reaches \tt{n}. The fill count is
+computed via integer division: $\lfloor (\text{target} - \text{current} -
+\text{-mol beads}) / n_\text{fill} \rfloor$, where $n_\text{fill}$ is the
+bead count of one fill molecule. When building from scratch, the current count
+is taken as zero.
+
+When \tt{-lib} is used with an existing system, \tt{-sys <input>} is also
+required; it reads a system-info file that maps the existing molecule types to
+library names, keeping bead-type names consistent. An updated system-info file
+can be written by supplying a second filename to \tt{-sys}. When building from
+scratch, a single \tt{-sys} argument is treated as output-only.
+
+\subsection{Placement constraints}
+
+By default, each new bead---or the reference point of each new molecule (the
+geometric centre by default; see \cref{subsec:AddToSystem-orient})---is placed
+uniformly at random within the simulation box. Two families of constraint can
+narrow this region.
+
+\paragraph{Distance constraints.}
+\tt{-ld <d>} and \tt{-hd <d>} require the distance from the nearest reference
+bead to be, respectively, strictly greater than \tt{d} or strictly less than
+\tt{d}; distances are computed with periodic boundary conditions. Reference
+beads are selected by type (\tt{-bt <name(s)>}) or taken as all bonded beads
+in the system (\tt{--bonded}, which overrides \tt{-bt}); at least one of
+these is required when either distance constraint is active. The two can be
+combined to restrict placement to a shell at distance $(ld,\,hd)$ from the
+reference beads.
+
+When \tt{-hd} is used, the candidate region is pre-narrowed to the bounding box
+of the reference beads expanded by the \tt{-hd} value in every direction, which
+speeds up placement when the reference beads occupy only a small part of the box.
+
+\paragraph{Axis constraints.}
+\tt{-cx <lo> <hi>} (and \tt{-cy}, \tt{-cz}) restrict the corresponding
+coordinate of the reference point to the interval $[lo,\,hi)$. By default the
+bounds are fractions of the output box sidelength (values in $[0,1]$);
+\tt{--real} switches to absolute coordinates. If \tt{lo > hi}, the values are
+swapped silently.
+
+Distance and axis constraints can be freely combined. \cref{fig:AddToSystem}
+shows examples. \tt{AddToSystem} retries placement until all constraints are
+satisfied; if no valid position is found within 10\,000\,000 attempts it exits
+with an error. No feasibility check is performed in advance, so an
+unsatisfiable combination is only detected after all retries are exhausted.
 
 \begin{figure}[t]
   \centering
@@ -53,30 +99,24 @@ directory for the exact commands to produce these examples.
     \caption{}
   \end{subfigure}
   \caption{
-    Examples of distance checks: (a) \tt{-ld}, (b) \tt{-hd}, and (c) both
-    \tt{-ld} and \tt{-hd}. Combining the \tt{-ld} and \tt{-hd} options with (d)
-    \tt{-cx} axis constraint, (e) \tt{-cx} and box-size-defining \tt{-b}
-    options, and (f) \tt{-cx}, \tt{-b}, and offsetting \tt{-off} options. The
-    \tt{-bt} and \tt{-add} options were used everywhere. Colours: red and blue
-    -- original system, green -- added beads, blue line -- new simulation box.
-    Note that the pictures show cross-sections of the simulation box to
-    highlight relative position of the original and added beads. See the
-    \tt{01-ManualExamples} directory for exact commands.
+    Placement constraint examples: (a) \tt{-ld} only, (b) \tt{-hd} only,
+    (c) both \tt{-ld} and \tt{-hd}, (d) adding an \tt{-cx} axis constraint,
+    (e) further adding \tt{-b} to redefine the simulation box, and (f) adding
+    \tt{-off} to shift the original system. Red and blue: original beads;
+    green: added beads; blue line: new simulation box. The pictures show
+    cross-sections of the box. See \tt{Examples/AddToSystem/01-ManualExamples}
+    for the exact commands.
   }\label{fig:AddToSystem}
 \end{figure}
 
-When adding molecules, either the molecule's geometric centre (default
-behaviour) or its first bead (\tt{--head} option) obey these constraints. The
-coordinates of the remaining beads in the molecule are governed by the
-coordinates in the input \tt{FIELD} file. Therefore, not all the molecular beads
-necessarily obey the constraining rules.
+\subsection{Molecular orientation} \label{subsec:AddToSystem-orient}
 
-By default, molecules are added with a random orientation; when \tt{--no-rotate}
-switch is used, the molecules are not rotated, but when \tt{-a} option is used,
-all the molecules are rotated by the three angles specified in degrees.
-The three angles in \tt{-a <$\alpha$> <$\beta$> <$\gamma$>} specify rotations
-around the $x$-, $y$-, and $z$-axes by $\alpha$, $\beta$, and $\gamma$ degrees,
-respectively. The rotation matrix $R$ is
+New molecules are randomly rotated by default, using a ZYZ Euler-angle scheme
+that produces a uniform distribution over all orientations. Two options change
+this: \tt{--no-rotate} preserves the orientation from the \field file, and
+\tt{-a <$\alpha$> <$\beta$> <$\gamma$>} applies a fixed rotation by $\alpha$,
+$\beta$, and $\gamma$ degrees around the $x$-, $y$-, and $z$-axes,
+respectively (overrides \tt{--no-rotate}). The rotation matrix is
 \begin{equation}
   R = \left[
   \begin{array}{ccc}
@@ -89,35 +129,57 @@ respectively. The rotation matrix $R$ is
     \cos\gamma\sin\beta\cos\alpha + \sin\gamma\sin\alpha &
       \sin\gamma\sin\beta\cos\alpha - \cos\gamma\sin\alpha &
       \cos\beta\cos\alpha \\
-  \end{array} \right]
+  \end{array} \right].
 \end{equation}
 
-By default, all new beads are exchanged for beads in the original system; what
-bead type to exchange is either the most numerous one (default behaviour) or the
-name(s) provided via the \tt{-xb} option. Note that the utility doesn't check
-whether exchanged beads are in a molecule, so a bonded bead may be exchanged,
-leaving only part of the molecule in the new system. For adding beads into the
-system rather than exchanging them, use the \tt{--add} option.
+Placement constraints are applied to the molecule's \emph{reference point},
+which is the geometric centre by default; \tt{--head} switches this to the
+first bead, and \tt{--tail} to the last bead (\tt{--head} takes priority if
+both are given). The molecule is rotated around the reference point, which is
+then placed at the constrained position. The remaining beads are positioned
+relative to it using the rotated \field coordinates, so they are not
+themselves guaranteed to satisfy any constraints.
 
-The size of the new simulation box can be changed using the \tt{-b} option (the
-new size must be in absolute units, i.e., it is unaffected by the \tt{--real}
-option). Any constraints for placing beads are applied to this box rather than
-the one in the original system. By default, the new system is placed so the
-centres of the original box and the new one coincide. Note that periodic
-boundary conditions are not applied to the new system, so the beads can be
-outside the simulation box. If \tt{-off} option is used, the beads from the
-input system are instead moved by the offset specified by the fraction of the
-output simulation box (or in real units, if \tt{--real} is used) before the new
-beads are added.
+\subsection{Exchange and append mode}
 
-To create a new system instead of adding to an existing one, use \tt{-} instead
-of an \tt{<input>} file. An extra file can be generated via the \tt{-o} option;
-this can be useful to, e.g., generate both \vtf file for visualization and \data
-file for use by LAMMPS.
+When adding to an existing system, \tt{AddToSystem} by default
+\emph{exchanges} beads: for each new bead placed, one existing bead is removed,
+keeping the total bead count approximately constant. The type to remove is the
+most numerous bead type unless \tt{-xb <type>} specifies otherwise. No check
+is done whether the removed bead belongs to a molecule; removing a bonded bead
+will leave an incomplete molecule in the output.
 
-Examples of using the utility (such as how to generate a bilayer or wire-like
-aggregate) are provided in the \tt{Examples/AddToSystem} folder (including those
-in \cref{fig:AddToSystem}).
+Using \tt{--add} appends new species without removing any existing beads,
+increasing the total bead count (this overrides \tt{-xb}). When building from
+scratch, append mode is always active regardless of \tt{--add}.
+
+\subsection{Box, offset, and scratch mode}
+
+\tt{-b <x> <y> <z>} sets the output simulation box sidelengths (always in
+absolute units, regardless of \tt{--real}). By default the new box is centred
+on the original one. All placement constraints refer to the output box, not the
+input one.
+
+\tt{-off <x> <y> <z>} shifts all beads from the input system before the new
+species are placed. Without \tt{--real}, the amounts are fractions of the
+output box sidelengths; with \tt{--real} they are in absolute units. Periodic
+boundary conditions are not applied after the shift, so beads can move outside
+the box.
+
+To create a system from scratch, pass \tt{-} in place of the input file; the
+box is then taken from the \field file or library. In this mode, \tt{-ld},
+\tt{-hd}, \tt{-bt}, \tt{--bonded}, \tt{-xb}, and \tt{-st} have no effect and
+a warning is printed if any of them are supplied.
+
+An extra output file in any supported format can be written with \tt{-o
+<file>}, which is useful when both a \vtf visualisation file and a \data
+LAMMPS file are needed from a single run. Use \tt{-ebt <int>} to reserve
+extra bead-type slots in a LAMMPS \data output. The random seed can be fixed
+with \tt{-s <int>} for reproducibility.
+
+Further examples---including incremental builds, asymmetric bilayer assembly,
+cylindrical aggregates, and library-based workflows---are in
+\tt{Examples/AddToSystem}.
 
 \vspace{1em}
 \noindent
@@ -127,61 +189,64 @@ Usage: \tt{AddToSystem <input> [<in.field>] <output> [options]}\\
   \toprule
   \multicolumn{2}{l}{Mandatory arguments}\\
   \midrule
-  \tt{<input>} / \tt{-}      & input coordinate file, or \tt{-} to create a
-                               system from scratch\\
-  \tt{[<in.field>]}          & \field file defining species to add (optional
-                               when \tt{-lib} is used)\\
-  \tt{<output>}              & output coordinate file\\
+  \tt{<input>} / \tt{-}       & input coordinate file, or \tt{-} to create a
+                                system from scratch\\
+  \tt{[<in.field>]}           & \field file defining species to add (omit when
+                                \tt{-lib} is used)\\
+  \tt{<output>}               & output coordinate file\\
   \toprule
   \multicolumn{2}{l}{Options}\\
   \midrule
-  \tt{-o <file>}             & extra output structure file\\
-  \tt{-lib <dir>}            & library directory; load molecules via \tt{-mol}
-                               instead of \tt{<in.field>}\\
-  \tt{-mol <mol> <\%/n> ...} & molecule name(s) from the library with a
-                               fraction (e.g.\ \tt{5\%}) or integer count;
-                               pairs can be repeated\\
-  \tt{-sys <input> [out]}    & system info file to assign names to existing
-                               molecule types; optionally write updated info\\
-  \tt{-ld <float>}           & lowest distance from beads specified by
-                               \tt{-bt} or \tt{--bonded}\\
-  \tt{-hd <float>}           & highest distance from beads specified by
-                               \tt{-bt} or \tt{--bonded}\\
-  \tt{-bt <name(s)>}         & bead types to use with \tt{-ld}/\tt{-hd}\\
-  \tt{--bonded}              & use all bonded beads for \tt{-ld}/\tt{-hd}
-                               (overwrites \tt{-bt})\\
-  \tt{-xb <name>}            & bead type to exchange (default: most numerous
-                               type)\\
-  \tt{--add}                 & add new beads to the system instead of
-                               exchanging existing ones (overwrites \tt{-xb})\\
-  \tt{--no-rotate}           & do not randomly rotate added molecules\\
-  \tt{-a 3x<angle>}          & rotate all added molecules by the three given
-                               angles (degrees); overrides \tt{--no-rotate}\\
-  \tt{--head}                & use molecule's first bead for constraint checks
-                               (overrides \tt{--tail})\\
-  \tt{--tail}                & use molecule's last bead for constraint checks
-                               (default: geometric centre)\\
-  \tt{-cx <lo> <hi>}         & constrain x coordinate to interval
-                               $\langle lo, hi)$\\
-  \tt{-cy <lo> <hi>}         & constrain y coordinate to interval
-                               $\langle lo, hi)$\\
-  \tt{-cz <lo> <hi>}         & constrain z coordinate to interval
-                               $\langle lo, hi)$\\
-  \tt{--real}                & use real units for \tt{-cx}/\tt{-cy}/\tt{-cz}/
-                               \tt{-off} instead of fractions of the output
-                               box size\\
-  \tt{-b <x> <y> <z>}        & side lengths of the new simulation box (real
-                               units)\\
-  \tt{-off <x> <y> <z>}      & offset the original system by the given amount
-                               (fractions of output box, or real units with
-                               \tt{--real})\\
-  \tt{-ntot <n> <type>}      & fill to \tt{n} total beads using \tt{<type>}
-                               from the library (requires \tt{-lib})\\
-  \tt{-ebt <int>}            & number of extra bead types to reserve in
-                               LAMMPS data file output\\
-  \tt{-s <int>}              & seed for random number generator\\
+  \tt{-o <file>}              & write an extra output file in any supported
+                                format\\
+  \tt{-lib <dir>}             & molecule library directory; use with \tt{-mol}
+                                instead of \tt{<in.field>}\\
+  \tt{-mol <mol> <\%/n> ...}  & molecule name(s) from the library with
+                                percentage or integer count; pairs can be
+                                repeated\\
+  \tt{-sys <input> [output]}  & system-info file mapping existing molecule types
+                                to library names; optionally write updated info
+                                (with \tt{-}, a single argument is
+                                output-only)\\
+  \tt{-ntot <n> <type>}       & fill to \tt{n} total beads using \tt{<type>}
+                                from the library (requires \tt{-lib})\\
+  \tt{-ld <float>}            & minimum distance from reference beads
+                                (exclusive)\\
+  \tt{-hd <float>}            & maximum distance from reference beads
+                                (exclusive)\\
+  \tt{-bt <name(s)>}          & bead types to use as reference for
+                                \tt{-ld}/\tt{-hd}\\
+  \tt{--bonded}               & use all bonded beads as reference for
+                                \tt{-ld}/\tt{-hd} (overrides \tt{-bt})\\
+  \tt{-xb <type>}             & bead type to exchange (default: most numerous
+                                type)\\
+  \tt{--add}                  & append new species without exchanging existing
+                                beads (overrides \tt{-xb})\\
+  \tt{--no-rotate}            & do not randomly rotate added molecules\\
+  \tt{-a 3x<angle>}           & rotate all added molecules by given angles
+                                around $x$, $y$, $z$ axes in degrees (overrides
+                                \tt{--no-rotate})\\
+  \tt{--head}                 & use molecule's first bead as constraint
+                                reference point (overrides \tt{--tail})\\
+  \tt{--tail}                 & use molecule's last bead as constraint
+                                reference point (default: geometric centre)\\
+  \tt{-cx <lo> <hi>}          & constrain $x$ coordinate to $[lo,\,hi)$\\
+  \tt{-cy <lo> <hi>}          & constrain $y$ coordinate to $[lo,\,hi)$\\
+  \tt{-cz <lo> <hi>}          & constrain $z$ coordinate to $[lo,\,hi)$\\
+  \tt{--real}                 & use absolute units for \tt{-cx}/\tt{-cy}/
+                                \tt{-cz}/\tt{-off} (default: fraction of the
+                                output box)\\
+  \tt{-b <x> <y> <z>}         & output simulation box sidelengths (absolute
+                                units)\\
+  \tt{-off <x> <y> <z>}       & shift input system beads (fraction of output
+                                box, or absolute with \tt{--real})\\
+  \tt{-s <int>}               & seed for the random number generator\\
+  \tt{-ebt <int>}             & reserve extra bead-type slots in LAMMPS \data
+                                output\\
   \midrule
   \multicolumn{2}{p{0.948\textwidth}}{\tt{-i}, \tt{-ft}, \tt{-st}, \tt{-e},
     \tt{-sk}, \tt{--verbose}, \tt{--silent}, \tt{--help}, \tt{--version}}\\
   \bottomrule
 \end{longtable}
+
+\todo{Distance checking against the first bead of each molecule (mode 3 in the source code) is mentioned in a comment but appears to not be implemented.}

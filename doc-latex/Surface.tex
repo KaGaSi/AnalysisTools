@@ -1,35 +1,33 @@
 \section{Surface} \label{sec:Surface}
 
-Surface utility determines the average surface of structures such as
-membranes or polymer brushes and calculates the surface areas.
+\tt{Surface} identifies the two surfaces of a layered structure (e.g.\ a polymer
+brush or a lipid bilayer) and writes their time-averaged coordinates and areas.
 
-The utility cuts the plane perpendicular to the chosen axis into squares of
-size \tt{<width>*<width>} and then finds the beads with the highest and
-lowest coordinates along the chosen axis whose other two coordinates fall
-into the square for each square on the plane. By default, it searches the
-chosen axis for the beads with the highest coordinate in the interval
-$\langle0, (box length)/2\rangle$ and with the lowest coordinate in the
-interval $\langle(box\ length)/2; (box\ length)\rangle$, i.e., it assumes
-something such as a polymer brush on each wall. If \tt{--in}
-option is used, it searches for a layer structure inside the box, i.e., it
-searches for the bead with the lowest and highest coordinates in the whole
-box, $\langle0; (box\ length)\rangle$ (this mode finds surfaces for
-something like a bilayer).
+The algorithm is based on the Identification of the Truly Interfacial Molecules
+(ITIM) method \todo{add citation: Pártay et al., J. Comput. Chem. 29:945 (2008)}.
+A grid of probe spheres of radius $r$ (set via \tt{-r}, default 0.5) is placed
+in the plane perpendicular to \tt{<axis>}, with a spacing of \tt{<width>}
+between adjacent probes. For each probe, the bead whose sphere (of radius $R_k$,
+defaulting to 0.5 if not specified in the structure file) overlaps the probe
+sphere and whose coordinate along \tt{<axis>} is most extreme defines the surface
+at that grid point. Two surfaces are found per probe position (labelled
+\enquote{surface 1} and \enquote{surface 2}), corresponding to the two sides of
+the structure.
 
-Note that the utility does not determine any structures for now, therefore
-any molecules outside the brush/membrane can be recognized as a part of the
-surface (\tt{-bt} and \tt{-m} can be sometimes used to eliminate
-this problem).
+The utility operates in two modes:
+\begin{itemize}
+  \item \textbf{Default (from the box centre):} probes approach from the box
+    centre outward towards both walls. This finds the innermost extent of each
+    layer, i.e.\ the surface facing the solvent gap between the layers. Use this
+    for structures such as a polymer brush grafted on both walls.
+  \item \textbf{\tt{--in} (from the box edges):} probes approach from both walls
+    inward towards the centre. This finds the outermost extent of a structure
+    sitting inside the box, i.e.\ the outer leaflets. Use this for structures
+    such as a lipid bilayer.
+\end{itemize}
 
-By default, all bead types and all molecule types are used, but using
-\tt{-bt} and \tt{-m} options, only specified bead and/or molecule
-types can be used. This is particularly useful when, e.g., other molecules
-solubilize inside the brush/membrane, leaving some molecules in the
-solution.
-
-Following are two examples of usage with and without \tt{--in} option
-(on top are snapshots with coloured balls representing the detected surface
-and on the bottom are graphs of the surface):
+The two examples below illustrate each mode (top: snapshot with surface beads
+highlighted; bottom: surface coordinates output):
 
 \begin{minipage}{0.45\textwidth}
   \centering
@@ -38,78 +36,107 @@ and on the bottom are graphs of the surface):
 \end{minipage}
 \hfill
 \begin{minipage}{0.45\textwidth}
-  \tt{Surface in.vcf 1 out.txt z}
   \centering
+  \tt{Surface in.vcf 1 out.txt z}
   \includegraphics[width=\textwidth]{Surface-brush.pdf}
 \end{minipage}
 
-Usage:
-
 \vspace{1em}
+By default all beads contribute to the surface search. Use \tt{--bonded} to
+restrict this to beads in molecules, or \tt{-bt} to restrict to specific bead
+types. If both \tt{--bonded} and \tt{-bt} are given, \tt{--bonded} takes
+precedence. Beads without a radius defined in the structure file receive radius
+0.5 automatically, and a warning is printed.
+
+The surface area is computed by triangulating the grid: each pair of adjacent
+grid cells is split into two triangles using Heron's formula, and the triangle
+areas are summed and scaled to the actual box area. Three areas are reported per
+timestep: surface~1, surface~2, and a \enquote{middle surface} at their midpoint.
+Use \tt{-a} to write these per-timestep areas; the overall averages are appended
+at the end of that file.
+
+The \tt{-wd} option writes the distribution of surface thickness (i.e.\ the
+distance $|\text{surface\,1} - \text{surface\,2}|$ at each grid point and
+timestep) to a file. The \tt{-w} option writes the per-timestep average
+thickness. \todo{Verify whether -w can be used independently of -wd; source
+TODO flags a possible inconsistency between the two.}
+
+The \tt{-b} option saves the detected surface beads to a coordinate file at each
+timestep. Beads that are present in the trajectory but not identified as surface
+beads are written with coordinates $(0, 0, 0)$ so that they remain invisible in
+typical visualisation tools without disturbing the frame count.
+
 \noindent
-Usage: \tt{Surface <input> <width> <surf.txt> <area.txt> <axis> [options]}
+\tt{Usage: Surface <input> <width> <surf.txt> <axis> [options]}
+
 \noindent
-\begin{longtable}{p{0.2\textwidth}p{0.744\textwidth}}
+\begin{longtable}{p{0.22\textwidth}p{0.726\textwidth}}
   \toprule
   \multicolumn{2}{l}{Mandatory arguments} \\
   \midrule
-  \tt{<input>}    & input coordinate file (either \tt{vcf} or \tt{vtf} format)\\
-  \tt{<width>}    & side length of each square\\
-  \tt{<surf.txt>} & output file with average surface\\
-  \tt{<area.txt>} & output file with per-timestep areas\\
-  \tt{<axis>}     & direction in which to determine the surface: \tt{x}, \tt{y},
-    or \tt{z}\\
+  \tt{<input>}    & input coordinate file \\
+  \tt{<width>}    & probe grid spacing (side length of each grid square) \\
+  \tt{<surf.txt>} & output file with time-averaged surface coordinates \\
+  \tt{<axis>}     & axis normal to the surface: \tt{x}, \tt{y}, or \tt{z} \\
   \toprule
   \multicolumn{2}{l}{Options} \\
   \midrule
-  \tt{--in}          & start from the box centre instead of from its edges \\
-  \tt{--bonded}      & use beads in molecules for surface recognition \\
-  \tt{-bt <name(s)>} & use specified bead types for surface recognition \\
+  \tt{--in}            & search from box edges inward (for bilayers; default
+                         searches from box centre outward, for brushes) \\
+  \tt{--bonded}        & use only beads belonging to molecules \\
+  \tt{-bt <name(s)>}   & use only the specified bead type(s) \\
+  \tt{-r <float>}      & probe radius (default: 0.5) \\
+  \tt{-a <area.txt>}   & write per-timestep surface areas to \tt{<area.txt>} \\
+  \tt{-wd <file> <w>}  & write distribution of surface thickness to
+                         \tt{<file>}; \tt{<w>} is the bin width \\
+  \tt{-w <file>}       & write per-timestep average surface thickness to
+                         \tt{<file>} \\
+  \tt{-b <file>}       & save surface beads to a coordinate file at each
+                         timestep \\
   \midrule
-  \multicolumn{2}{l}{Other options (see the beginning of
-                     Chapter~\ref{chap:Utils})}\\
-  \midrule
-  \multicolumn{2}{p{0.948\textwidth}}{\tt{-st},
-                                      \tt{-e},
-                                      \tt{-sk},
-                                      \tt{-i},
-                                      \tt{--verbose},
-                                      \tt{--silent},
-                                      \tt{--help},
-                                      \tt{--version}}\\
+  \multicolumn{2}{p{0.948\textwidth}}{\tt{-i}, \tt{-ft}, \tt{-st}, \tt{-e},
+    \tt{-sk}, \tt{--verbose}, \tt{--silent}, \tt{--help}, \tt{--version}} \\
   \bottomrule
 \end{longtable}
 
 \noindent
 Format of output files:
 \begin{enumerate}[nosep,leftmargin=20pt]
-  \item \tt{<surf.txt>} -- 3D coordinates
+  \item \tt{<surf.txt>} --- time-averaged surface coordinates on the 2D grid
     \begin{itemize}[nosep,leftmargin=5pt]
-      \item first line: AnalysisTools version
-      \item second line: command used to generate the file
-      \item third line: column headers
-        \begin{itemize}[nosep,leftmargin=5pt]
-          \item first two numbers represent the centre of each square
-            (being the coordinates on the sliced up plane); i.e., if
-            \tt{<width>} is 1, then the centre of the first square is 0.5 0.5,
-            the centre of
-            the second one is 0.5 1.5, etc.
-          \item the second two numbers are coordinates of the surface in
-            the third dimension, i.e., along the chosen axis
-        \end{itemize}
-        \item data lines follow
+      \item 1st line: command used to generate the file
+      \item 2nd line: column headers:
+        the two in-plane coordinates (columns 1--2), surface~1, surface~2,
+        and average surface coordinates along \tt{<axis>} (columns 3--5)
+      \item data block: one line per grid point; the grid varies the second
+        in-plane coordinate (inner loop) and the first (outer loop), with a
+        blank line separating each row of the outer coordinate
     \end{itemize}
-  \item \tt{<area.txt>} -- per-timestep areas (calculated as a sum of triangles)
+  \item \tt{-a <area.txt>} --- per-timestep surface areas
     \begin{itemize}[nosep,leftmargin=5pt]
-      \item first line: AnalysisTools version
-      \item second line: command used to generate the file
-      \item third line: column headers
-        \begin{itemize}[nosep,leftmargin=5pt]
-          \item first is simulation timestep
-          \item the rest are areas of the top, bottom, and central surfaces
-        \end{itemize}
-        \item data lines follow
-        \item second to last line: column headers for overall averages
-        \item last line: the overall averages
+      \item 1st line: command used to generate the file
+      \item 2nd line: column headers: (1)~timestep, (2)~area of surface~1,
+        (3)~area of surface~2, (4)~area of the middle surface
+      \item data lines: one per timestep
+      \item last two lines: overall average areas (header then values) for
+        surface~1, surface~2, and the middle surface
     \end{itemize}
+  \item \tt{-wd <file>} --- distribution of surface thickness
+    \begin{itemize}[nosep,leftmargin=5pt]
+      \item 1st line: command used to generate the file
+      \item 2nd line: column headers: (1)~bin centre, (2)~normalised count
+      \item data lines: thickness distribution
+      \item last line: commented-out overall average thickness
+    \end{itemize}
+  \item \tt{-w <file>} --- per-timestep average surface thickness
+    \begin{itemize}[nosep,leftmargin=5pt]
+      \item 1st line: command used to generate the file
+      \item 2nd line: column headers: (1)~timestep, (2)~thickness
+      \item data lines: one per timestep
+      \item if \tt{-wd} is also used: overall average thickness appended at the
+        end as a comment
+    \end{itemize}
+  \item \tt{-b <file>} --- coordinate file with surface beads per timestep;
+    non-surface beads present in the timestep are written with coordinates
+    $(0, 0, 0)$
 \end{enumerate}

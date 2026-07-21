@@ -1,69 +1,79 @@
 \section{GyrationMolecules} \label{sec:GyrationMolecules}
 
-This utility calculates the gyration tensor and from it the shape
-descriptors similarly to \texttt{GyrationAggregates}
-(Section~\ref{sec:GyrationAggregates}) but for individual molecules
-instead of for whole aggregates.
+\tt{GyrationMolecules} calculates the gyration tensor and shape descriptors for
+individual molecules, producing one output file per molecule type.
 
-Usage:
+The shape descriptors --- radius of gyration $R_\mathrm{G}$, asphericity $b$,
+acylindricity $c$, and relative shape anisotropy $\kappa^2$ --- are defined in
+\fullref{sec:GyrationAggregates} (\cref{eq:R_G,eq:b,eq:anis}). All beads are
+treated with equal weight (geometric centre, not centre of mass).
+
+For each selected molecule in each timestep, the gyration tensor is diagonalised
+and the eigenvalues $\lambda_x^2 \leq \lambda_y^2 \leq \lambda_z^2$ are
+obtained. These are averaged over all molecules of the same type in that
+timestep and written to the output file, together with $\langle R_\mathrm{G}
+\rangle$, $\langle R_\mathrm{G}^2 \rangle$, $\langle \kappa^2 \rangle$,
+$\langle c \rangle$, $\langle b \rangle$, and the end-to-end distance $\langle
+R_e \rangle$. After all timesteps are processed, overall averages are appended
+to the same file.
+
+The end-to-end distance $R_e$ is the straight-line distance between the first
+and last bead in the molecule's bead list.
+
+Use \tt{-bt} to restrict the gyration calculation to specific bead types;
+molecules with fewer than two beads of the selected types are skipped.
+Note that $R_e$ always uses the first and last bead of the full molecule
+regardless of \tt{-bt}.
+
+By default, \tt{GyrationMolecules} removes periodic boundary conditions from
+each molecule before computing the tensor (\tt{--joined} skips this step when
+the input already contains joined coordinates). Use \tt{-mt} to restrict the
+calculation to specific molecule types (default: all).
 
 \vspace{1em}
 \noindent
-\texttt{GyrationMolecules <input> <output> <mol name(s)> <options>}
+Usage: \tt{GyrationMolecules <input> <output> [options]}
 
 \noindent
-\begin{longtable}{p{0.265\textwidth}p{0.679\textwidth}}
+\begin{longtable}{p{0.22\textwidth}p{0.724\textwidth}}
   \toprule
-  \multicolumn{2}{l}{Mandatory arguments} \\
+  \multicolumn{2}{l}{Mandatory arguments}\\
   \midrule
-  \texttt{<input>} & input coordinate file (either \texttt{vcf} or
-    \texttt{vtf} format) \\
-  \texttt{<output>} & output file(s) (one per molecule type) with
-    automatic \texttt{-<mol\_name>.txt} ending \\
-  \texttt{<mol name(s)>} & molecule name(s) to calculcate shape descriptors for \\
+  \tt{<input>}  & input coordinate file\\
+  \tt{<output>} & output base name; \tt{-<molname>.txt} is appended per
+                  molecule type\\
   \toprule
-  \multicolumn{2}{l}{Non-standard options} \\
+  \multicolumn{2}{l}{Options}\\
   \midrule
-  \texttt{--joined} & specify that \texttt{<input>} contains joined
-    coordinates (i.e., periodic boundary conditions for molecules do not
-    have to be removed) \\
-  \texttt{-bt <bead name(s)>} & bead type(s) to be used for calculation \\
-  \texttt{-st <int>} & starting timestep for calculation (default: 1) \\
-  \texttt{-e <int>} & ending timestep for calculation (default: none) \\
+  \tt{-mt <name(s)>} & molecule types to calculate for (default: all)\\
+  \tt{-bt <name(s)>} & bead types to include in the gyration calculation
+                       (default: all); does not affect $R_e$\\
+  \tt{--joined}      & input already contains joined (unwrapped) coordinates;
+                       skip PBC removal\\
+  \midrule
+  \multicolumn{2}{p{0.948\textwidth}}{\tt{-i}, \tt{-ft}, \tt{-st}, \tt{-e},
+    \tt{-sk}, \tt{--verbose}, \tt{--silent}, \tt{--help}, \tt{--version}}\\
   \bottomrule
 \end{longtable}
 
-\begin{enumerate}[nosep,leftmargin=20pt]
-  \item \texttt{<output>} -- per-timestep averages (one file per molecule
-    type)
-    \begin{itemize}[nosep,leftmargin=5pt]
-      \item first line: command used to generate the file
-      \item second line: name of molecule type
-      \item third line: column headers
-        \begin{itemize}[nosep,leftmargin=10pt]
-          \item first is timestep
-          \item rest are for calculated data: number, weight, and z
-            averages (denoted by \texttt{\_n}, \texttt{\_w},
-            and \texttt{\_z} respectively) of radius of gyration
-            (\texttt{Rg} -- Equation~\eqref{eq:R_G}); simple averages of
-            relative shape anisotropy
-            (\texttt{Anis} -- Equation~\eqref{eq:anis}), of acylindricity
-            and asphericity (\texttt{Acyl} and \texttt{Aspher},
-            respectively -- Equation~\eqref{eq:b}), and of the three
-            eigenvalues (\texttt{eigen.x}, \texttt{eigen.y}, and
-            \texttt{eigen.z} or $\lambda_x^2$, $\lambda_y^2$, and
-            $\lambda_z^2$)
-%           and all three
-%           eigenvalues (\texttt{eigen.x}, \texttt{eigen.y}, and
-%           \texttt{eigen.z} -- $\lambda_x^2$, $\lambda_y^2$, and
-%           $\lambda_z^2$)
-        \end{itemize}
-      \item last three lines show simple averages over the whole simulation
-        \begin{itemize}[nosep,leftmargin=5pt]
-          \item third to last line: molecule name
-          \item second to last line: column headers for radius of gyration
-            and shape descriptors
-          \item last line: the averages
-        \end{itemize}
+\noindent
+Format of output files (one per molecule type, \tt{<output>-<molname>.txt}):
+\begin{itemize}[nosep,leftmargin=5pt]
+  \item 1st line: command used to generate the file
+  \item 2nd line: molecule type name
+  \item 3rd line: column headers
+    \begin{itemize}[nosep,leftmargin=10pt]
+      \item (1) timestep
+      \item (2) $\langle R_\mathrm{G} \rangle$
+      \item (3) $\langle R_\mathrm{G}^2 \rangle$
+      \item (4) $\langle \kappa^2 \rangle$ (relative shape anisotropy)
+      \item (5) $\langle c \rangle$ (acylindricity)
+      \item (6) $\langle b \rangle$ (asphericity)
+      \item (7--9) $\langle \lambda_x^2 \rangle$, $\langle \lambda_y^2 \rangle$,
+        $\langle \lambda_z^2 \rangle$ (eigenvalues, ascending)
+      \item (10) $\langle R_e \rangle$ (end-to-end distance)
     \end{itemize}
-\end{enumerate}
+  \item subsequent lines: per-timestep averages over all molecules of this type
+  \item last three lines (commented out): overall-average header and values for
+    all columns except timestep
+\end{itemize}

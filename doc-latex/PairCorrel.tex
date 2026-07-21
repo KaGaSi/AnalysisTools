@@ -1,55 +1,82 @@
 \section{PairCorrel} \label{sec:PairCorrel}
 
-This utility calculates pair correlation function (pcf), or the radial
-distribution function, between specified bead types. All bead type pairs
-are used -- if \texttt{A} and \texttt{B} are the specified bead types,
-\texttt{A-A}, \texttt{A-B}, and \texttt{B-B} bead pairs are used.
+\tt{PairCorrel} calculates the radial distribution function (RDF, also called
+the pair correlation function) $g(r)$ between all pairs of specified bead types
+and writes them to a single output file.
 
-The utility does not differentiate beads of the same type that are in
-different molecules, so a pcf will be a sum of the beads from different
-molecule types (similar the \texttt{DensityAggregates} utility -- see
-Section \ref{sec:DensityAggregates}).
+The RDF is defined such that $g_{ij}(r)\,4\pi r^2\,\mathrm{d}r$ gives the
+mean number of beads of type $j$ in a shell $[r,\, r+\mathrm{d}r)$ around a
+bead of type $i$, relative to what an ideal gas at the same bulk density would
+give. For a simulation box of volume $V$ averaged over $T$ timesteps:
+\begin{equation}
+  g_{ij}(r) = \frac{V \cdot c_{ij}(r)}{4\pi r^2\,\Delta r \cdot N_{ij} \cdot T},
+\end{equation}
+where $c_{ij}(r)$ is the total pair count in the bin centred at $r$, $\Delta r$
+is the bin width, and $N_{ij}$ is the number of distinct ordered or unordered
+pairs: $N_{ij} = N_i N_j$ for unlike types ($i \neq j$) and $N_{ij} =
+N_i(N_i-1)/2$ for like types ($i = j$).
 
-Usage:
+By default all bead types are used and every pairwise combination is computed.
+Use \tt{-bt} to restrict to specific types; specifying types A and B produces
+three columns: $g_\text{A-A}$, $g_\text{A-B}$, and $g_\text{B-B}$. Beads of
+the same type are pooled regardless of molecule. Columns appear in
+type-index order (the order of bead types in the structure file), not the order
+given on the command line.
+
+When only a small number of specific cross-pair RDFs are needed, \tt{--pairs}
+avoids computing the full upper-triangular set: \tt{-bt} then takes consecutive
+name pairs, so \tt{-bt A B C D} selects only A--B and C--D. \tt{-bt} is
+mandatory with \tt{--pairs}.
+
+The default maximum distance is one third of the shortest box side length.
+The normalisation corrects for shells truncated by the box boundary, so larger
+values via \tt{-d} are valid, though accuracy degrades as fewer complete shells
+contribute.
 
 \vspace{1em}
 \noindent
-\texttt{PairCorrel <input> <width> <output> <bead name(s)> <options>}
+Usage: \tt{PairCorrel <input> <width> <output> [options]}
 
 \noindent
-\begin{longtable}{p{0.205\textwidth}p{0.739\textwidth}}
+\begin{longtable}{p{0.22\textwidth}p{0.724\textwidth}}
   \toprule
-  \multicolumn{2}{l}{Mandatory arguments} \\
+  \multicolumn{2}{l}{Mandatory arguments}\\
   \midrule
-  \texttt{<input>} & input coordinate file (either \texttt{vcf} or
-    \texttt{vtf} format) \\
-  \texttt{<width>} & width of each bin of the pair correlation functions \\
-  \texttt{<output>} & output file with pair correlation functions \\
-  \texttt{<bead name(s)>} & bead type(s) used for calculation \\
+  \tt{<input>}     & input coordinate file\\
+  \tt{<width>}     & bin width $\Delta r$\\
+  \tt{<output>}    & output file\\
   \toprule
-  \multicolumn{2}{l}{Non-standard options} \\
+  \multicolumn{2}{l}{Options}\\
   \midrule
-  \texttt{-n <int>} & number of bins to average to get smoother pair
-    correlation function (default: 1) \\
-  \texttt{-st <int>} & starting timestep for calculation (default: 1) \\
-  \texttt{-e <int>} & ending timestep for calculation (default: none) \\
+  \tt{-bt <name(s)>} & bead types to include (default: all); with
+                       \tt{--pairs}, names are read as consecutive pairs\\
+  \tt{--pairs}       & \tt{-bt} specifies explicit pairs A B [C D \ldots{}]
+                       rather than individual types; requires \tt{-bt}\\
+  \tt{-d <float>}    & maximum distance for RDF calculation (default:
+                       $\frac{1}{3}\min(L_x, L_y, L_z)$; in-plane box sides
+                       only with \tt{-D2})\\
+  \tt{-D2 <axis>}    & assume a 2D system (e.g., slit) that is non-periodic
+                       in the \tt{x}, \tt{y}, or \tt{z} direction: distances
+                       are measured in-plane only and the RDF is normalised
+                       by area instead of volume\\
+  \midrule
+  \multicolumn{2}{p{0.948\textwidth}}{\tt{-i}, \tt{-ft}, \tt{-st}, \tt{-e},
+    \tt{-sk}, \tt{--verbose}, \tt{--silent}, \tt{--help}, \tt{--version}}\\
   \bottomrule
 \end{longtable}
 
 \noindent
-Format of output files:
-\begin{enumerate}[nosep,leftmargin=20pt]
-  \item \texttt{<output>} -- pair correlation functions between all bead types
-    \begin{itemize}[nosep,leftmargin=5pt]
-      \item first line: command used to generate the file
-      \item second line: column headers
-        \begin{itemize}[nosep,leftmargin=5pt]
-          \item first is the centre of each bin (governed by
-            \texttt{<width>}); i.e., if \texttt{<width>} is 0.1,
-            then the centre of bin 0 to 0.1 is 0.05, centre of bin 0.1 to
-            0.2 is 0.15, etc.
-          \item the rest are for the calculated data: each column
-            corresponds to one bead types pair
-        \end{itemize}
-    \end{itemize}
-\end{enumerate}
+Format of \tt{<output>}:
+\begin{itemize}[nosep,leftmargin=5pt]
+  \item 1st line: command used to generate the file
+  \item 2nd line: column headers --- (1) bin centre $r$; one column per
+    selected pair in upper-triangular type-index order, labelled
+    \tt{<type\_i>-<type\_j>}
+  \item subsequent lines: $r$ and $g_{ij}(r)$ values, one bin per line;
+    bin centre is at $r = (k + \tfrac{1}{2})\Delta r$ for bin $k$
+\end{itemize}
+
+\todo{The \tt{-d} option accepts any positive value, but the shell-volume
+correction assumes a cubic box (it subtracts 6 spherical caps). For non-cubic
+boxes or large \tt{-d}, the correction becomes approximate.}
+

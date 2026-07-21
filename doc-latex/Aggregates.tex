@@ -1,39 +1,29 @@
 \section{Aggregates} \label{sec:Aggregates}
 
-These utilities determine which molecules belong to which aggregates (note that
-\enquote{aggregate} is used for any supramolecular structure) according to a
-simple criterion: two molecules belong to the same aggregate if they share at
-least a specified number of contact pairs. A contact pair is a pair of two beads
-belonging to different molecules which are closer than a specified distance. The
-information is written into an \tt{.agg} text file described in
-Section~\ref{sec:AggFile}.
+\tt{Aggregates} determines which molecules belong to which aggregate and writes
+the result to an \tt{.agg} file (see Section~\ref{sec:AggFile}). The \tt{.agg}
+file is the required input for aggregate-analysis utilities such as
+\fullref{sec:AggNumber}, \fullref{sec:GyrationAggregates}, and
+\fullref{sec:DensityAggregates}.
 
-% The number of contact pairs, the distance, and bead type(s) to use for
-% aggregate determination are all arguments of the utilities.  Any molecule
-% type(s) can be excluded from aggregate determination (\tt{-x <mol
-% name(s)>} option); they are also excluded from the output \tt{agg}
-% file).  Moreover, any molecules close to specified molecule(s) can be
-% excluded (\tt{-xm <mol name(s)>} option); here, \enquote{close} means
-% any of the bead types used in aggregate determination is closer than
-% \tt{<distance>} to any bead of the specified molecule.
+\subsection{Contact detection} \label{subsec:Aggregates-contact}
 
-Periodic boundary conditions can be removed from whole aggregates via the
-\tt{-j} option; the aggregate's centre of mass is always inside the simulation
-box. This is useful for visualization (an aggregate will no longer be split by
-the walls of the simulation box, but it may stretch far outside the boundaries
-of the box) as well as for further analysis (the other utilities do not have to
-join the aggregates, possibly greatly speeding up subsequent analyses).
+Two beads from different molecules form a \emph{contact pair} if their distance
+is at most \tt{-d} (default: 1). Two molecules are \emph{connected} if they
+share at least \tt{-c} contact pairs (default: 1). Distances are calculated
+with periodic boundary conditions; use \tt{--no_pbc} to ignore them.
 
-While the \tt{Aggregates} utility uses all possible pairs of given bead types,
-\tt{Aggrega}-\tt{tes-NotSameBeads} does not use same-type pairs. For example, if
-bead types \tt{A} and \tt{B} are given, \tt{Aggregates} will use all three
-possible bead type pairs (i.e., \tt{A-A}, \tt{A-B}, and \tt{B-B}), but
-\tt{Aggregates-NotSameBeads} will use only \tt{A-B} bead type pairs.
-Fig~\ref{fig:AggCheck} illustrates the behaviour: using \tt{Aggregates ... A B}
-would find one contact pair between molecules 1 and 2 and two contacts between
-molecules 2 and 3, whereas \tt{Aggregates-NotSameBeads ... A B} would ignore A-A
-and B-B pairs, finding no contact pair between molecules 1 and 2 and only one
-between molecules 2 and 3.
+By default all bead types and all possible bead type pairs are used. The
+\tt{-bt <bead(s)>} option restricts detection to the listed types, checking all
+pairwise combinations among them (including same-type). For example, \tt{-bt A B}
+checks A-A, A-B, and B-B contacts.
+
+Adding \tt{--pairs} changes the interpretation of \tt{-bt}: the arguments are
+read as consecutive bead type pairs rather than a type list, so \tt{-bt A B
+--pairs} checks only A-B contacts, and \tt{-bt A B C D --pairs} checks A-B and
+C-D. The \tt{--pairs} option requires the \tt{-bt} one.
+
+Figure~\ref{fig:AggCheck} illustrates the difference on a small example.
 
 \begin{figure}
   \centering
@@ -41,65 +31,123 @@ between molecules 2 and 3.
     \includegraphics[scale=0.6]{AggregateCheck.jpg}
   \end{minipage}
   \begin{minipage}{0.5\textwidth}
-    \tt{Aggregates ... A B}\\
-    \-\hspace{30pt}$\Rightarrow$ 3 contact pairs\\
-    \tt{Aggregates-NotSameBeads ... A B}\\
+    \tt{Aggregates -bt A B}\\
+    \-\hspace{30pt}$\Rightarrow$ 3 contact pairs\\[4pt]
+    \tt{Aggregates -bt A B --pairs}\\
     \-\hspace{30pt}$\Rightarrow$ 2 contact pairs\\
   \end{minipage}
   \caption{
-    Simple example of distance checks---three two-bead molecules, where dotted
-    lines represent maximum pair distance (\tt{-d} option) and black arrows show
-    contact pairs. Note the same bead can be a part of multiple pairs.
+    Contact-detection example: three two-bead molecules. Dotted lines indicate
+    the maximum contact distance (\tt{-d} option); arrows show detected contact
+    pairs. The same bead can appear in multiple pairs.
   }
   \label{fig:AggCheck}
 \end{figure}
 
-If \tt{-w} option is used, the utilities also take the found aggregates, testing
-which are touching the specified wall(s) and saving those touching the wall(s)
-and those in bulk into two extra \tt{.agg} files. The wall(s) are specified via
-the \tt{<a>} argument, which defines the axis perpendicular to the wall (the
-argument must be \tt{x}, \tt{y}, or \tt{z}), and numeric argument(s), which
-define the coordinate(s) of the wall(s) along the axis. For example, assuming a
-simulation box with size $10^3$ and a slit configuration with two walls in the
-xy-plane 1 distance unit from the box edges, then \tt{-w z 1 9} would be used.
-The distance for checking whether a bead touches the wall is the same as the one
-for determining bead contact pairs. Aggregate data are saved into two extra
-\tt{.agg} files with names based on the main output \tt{<out.agg>} -- \tt{-w}
-and \tt{-no_w} is placed before the \tt{.agg} extension.
+\subsection{Aggregate identification} \label{subsec:Aggregates-dbscan}
 
-Note that when \tt{-st}, \tt{-e}, or \tt{-sk} options are used, the resulting
-\tt{agg} file is no longer coupled to the original coordinate file (i.e., they
-cannot be used together for further analyses), but it is coupled to the optional
-output file with joined coordinates (\tt{-j} option).
+Aggregates are found using DBSCAN at the molecule level: a molecule is a
+\emph{core point} if it has at least \tt{-nbr} connected neighbours (default:
+1); a molecule with fewer neighbours that is nonetheless reachable from a core
+point is a \emph{border point}; all remaining molecules become singletons. The
+core/border split is recorded in the \tt{.agg} file; singletons appear as a
+single core molecule with no border molecules.
+
+The default \tt{-nbr 1} makes every connected molecule a core point, so the
+algorithm reduces to simple connected components and no border molecules arise.
+Raising \tt{-nbr} is useful when loose contacts should not extend clusters into
+spiderweb-like structures.
+
+\subsection{Additional output} \label{subsec:Aggregates-output}
+
+\subsubsection*{Joined coordinates}
+
+The \tt{-j <file>} option writes a coordinate file with PBC removed for
+aggregates: each aggregate's molecules are shifted so they appear connected
+across box boundaries, with the aggregate's centre of mass inside the simulation
+box. This is useful for visualization and avoids repeated PBC-removal for
+aggregates in subsequent analyses.
+
+\subsubsection*{Wall separation}
+
+The \tt{-w <a> <float(s)>} option separates wall-touching aggregates from bulk
+ones. \tt{<a>} is the axis perpendicular to the wall(s) (\tt{x}, \tt{y}, or
+\tt{z}); the floating-point argument(s) give the wall coordinate(s) along that
+axis. An aggregate is wall-touching if any of its \tt{-bt} beads lies within the
+contact distance \tt{-d} of a wall. For example, in a box of side 10 with slit
+walls in the xy-plane, \tt{-w z 1 9} could be used.
+
+Two extra \tt{.agg} files are written alongside the main output:
+\tt{<out>_w.agg} for wall-touching aggregates and \tt{<out>_b.agg} for bulk
+aggregates (the main file still contains all aggregates). When \tt{-j} is also
+used, matching joined-coordinate files with \tt{_w}/\tt{_b} suffixes are
+created as well.
+
+\subsubsection*{Coupling between output files}
+
+The main \tt{<out.agg>} is linked to the coordinate file used to generate it:
+most downstream utilities read both files together, so they must cover the same
+timesteps. When \tt{-st}, \tt{-e}, or \tt{-sk} are used, the resulting
+\tt{.agg} file is no longer tied to the original coordinate file but is coupled
+with the \tt{-j} output (if given); only use the two coupled files for further
+analysis.
 
 \vspace{1em}
 \noindent
-Usage: \tt{Aggregates <input> <out.agg> <bead type(s)> [options]}
+Usage: \tt{Aggregates <coor> <out.agg> [options]}
+
 \noindent
-\begin{longtable}{p{0.22\textwidth}p{0.724\textwidth}}
+\begin{longtable}{p{0.26\textwidth}p{0.688\textwidth}}
   \toprule
   \multicolumn{2}{l}{Mandatory arguments}\\
   \midrule
-  \tt{<input>}        & input coordinate file\\
-  \tt{<out.agg>}      & output \tt{agg} file\\
-  \midrule
+  \tt{<coor>}            & input coordinate file\\
+  \tt{<out.agg>}         & output \tt{agg} file\\
+  \toprule
   \multicolumn{2}{l}{Options}\\
   \midrule
-  \tt{-d <num>}       & maximum distance for contact (default: 1)\\
-  \tt{-c <num>}       & minimum number of contacts (default: 1)\\
-  \tt{-j <file>}      & save coordinates of joined aggregate to
-                        a coordinate file\\
+  \tt{-bt <bead(s)>}     & bead types for contact detection (default: all)\\
+  \tt{--pairs}           & treat \tt{-bt} arguments as explicit bead type
+                           pairs; \tt{-bt} is mandatory in this case\\
+  \tt{-d <float>}        & maximum contact distance (default: 1)\\
+  \tt{-c <int>}          & minimum contacts to connect two molecules
+                           (default: 1, max: 255)\\
+  \tt{--no_pbc}          & ignore periodic boundary conditions for contact
+                           check\\
+  \tt{-nbr <int>}        & DBSCAN minimum neighbours for a core molecule
+                           (default: 1)\\
+  \tt{-j <file>}         & write joined coordinates (PBC removed per
+                           aggregate)\\
+  \tt{-w <a> <float(s)>} & split output by proximity to wall(s) at the given
+                           coordinate(s) on axis \tt{<a>}\\
   \midrule
-  \multicolumn{2}{l}{Other options (see the beginning of 
+  \multicolumn{2}{l}{Other options (see the beginning of
                      Chapter~\ref{chap:Utils})}\\
   \midrule
-  \multicolumn{2}{l}{\tt{-st},
+  \multicolumn{2}{p{0.948\textwidth}}{\tt{-i},
+                     \tt{-ft},
+                     \tt{-st},
                      \tt{-e},
                      \tt{-sk},
-                     \tt{-i},
                      \tt{--verbose},
                      \tt{--silent},
                      \tt{--help},
                      \tt{--version}}\\
   \bottomrule
 \end{longtable}
+
+\noindent
+Output files:
+\begin{enumerate}[nosep,leftmargin=20pt]
+  \item \tt{<out.agg>} -- aggregate data for all aggregates in each timestep;
+    format described in Section~\ref{sec:AggFile}
+  \item \tt{-j <file>} -- coordinate file (format from extension) with PBC
+    removed per aggregate; one timestep per input frame, matching
+    \tt{<out.agg>}
+  \item \tt{-w <a> <float(s)>} -- two additional \tt{.agg} files:
+    \tt{<out>\_w.agg} for wall-touching aggregates and \tt{<out>\_b.agg} for
+    bulk aggregates; if \tt{-j} is used, two matching joined-coordinate files
+    are also written
+\end{enumerate}
+
+\todo{Add Aggregates usage examples to \tt{Examples/Aggregates}.}

@@ -2,79 +2,92 @@
 
 \input{JoinSystems-tikz}
 
-This utility takes two existing systems and joins them into a single system that
-contains all beads from the two coordinate files.
+\tt{JoinSystems} merges two coordinate files into a single new system containing
+all beads from both.
 
-The second system can be offset against the first one (\tt{-off} option). In
-each direction, all beads in the second system can be moved by specified
-distance (only positive numbers are allowed) or moved so that the centre of that
-box side is in the centre of the first box's side (use \tt{c} instead of a
-number as an argument). The final box size is defined as the smallest box that
-encompasses the two original boxes after the second one is moved. However, the
-final box size can be redefined via the \tt{-b} option; the centre of the new
-box is aligned with the centre of the original \enquote{smallest encompassing
-box}. Note that no check is done whether the bead coordinates are within the new
-box.
+With no options the two systems are placed as-is: the output simulation box is
+the smallest orthogonal box that simultaneously encompasses both input boxes,
+and all bead coordinates are left unchanged (\cref{fig:JoinSystems-b}). The
+input files can have different lower-bound offsets; \tt{JoinSystems} reads those
+bounds and aligns the two systems correctly before computing the output box.
 
-\Cref{fig:JoinSystems} illustrates the above-described behaviour (the red and
-blue lines and balls represent the two original systems while the green lines
-and transparent balls represent the new system). \Cref{fig:JoinSystems-b} shows
-the simplest case when two systems are put into one larger system. In
-\cref{fig:JoinSystems-c}, the final box size is also redefined; the positions of
-the beads is unchanged, only the box size changes. Note that the absolute bead
-coordinates remain unchanged only when the output coordinate file supports
-defining the bounds of the simulation box; e.g., in \ltrj file, the lower and
-upper bounds of the box are defined while for \vtf file, only the sidelengths of
-the box are specified. Should \vtf be used as the output file, the saved
-coordinates would, therefore, move so the box's origin is in the coordinate
-beginning.
+\paragraph{Offsetting the second system (\tt{-off}).}
+The second system can be shifted relative to the first using
+\tt{-off <x> <y> <z>}, where each component is either a number or \tt{c}.
+A numeric value displaces all beads in the second system by that amount in the
+given direction. Without \tt{--real}, the value is a fraction of the
+\emph{first} system's box length in that direction; with \tt{--real} it is in
+absolute coordinate units. Specifying \tt{c} for a direction aligns the centre
+of the second system's box with the centre of the first system's box in that
+direction (\cref{fig:JoinSystems-d}), regardless of \tt{--real}. The output
+box is the smallest encompassing box computed \emph{after} the offset is applied.
 
-Using the \tt{-off c c c} option in \cref{fig:JoinSystems-d} moves the second
-system (the blue one), so that the centre of its box (in all three dimensions)
-lies on top of the centre of the first system's box (see the arrow in the
-schematic in \cref{fig:JoinSystems-d}); coordinates of only the second system
-are adjusted, changing the relative coordinates of beads from the two original
-systems. If the \tt{-off} and \tt{-b} options are combined (as in
-\cref{fig:JoinSystems-e}), the system created via the \tt{-off} option is then
-assigned a new box size.
+\paragraph{Overriding the output box (\tt{-b}).}
+\tt{-b <x> <y> <z>} replaces the automatically computed encompassing box with
+an explicitly specified one. The new box is centred on the centre of the
+encompassing box (\cref{fig:JoinSystems-c}), so bead coordinates do not move.
+No check is performed to verify that all beads fall within the new box.
+\tt{-off} and \tt{-b} can be combined: the offset is applied first, the
+encompassing box is computed, and then \tt{-b} overrides it
+(\cref{fig:JoinSystems-e}).
 
-These examples are also provided in the \tt{Examples/JoinSystems} directory.
+\paragraph{Output files.}
+The output can be any supported coordinate format. An additional structure file
+can be produced with \tt{-o}. Note that some formats (\ltrj) store explicit
+box bounds, while others (\vtf) store only sidelengths; when the output is
+\vtf, all coordinates are shifted so the box origin is at zero, which changes
+the absolute positions of beads relative to the input.
 
-The output file can be any file that supports coordinates, and an extra
-structure file can be created via the \tt{-o} option. Note that if an output
-\vcf coordinate file is used, a \vsf structure file (with the same name except
-for the extension) is also created.
+\paragraph{Per-file input options.}
+Because two input files are used, the usual structure-file (\tt{-i}) and
+starting-timestep (\tt{-st}) options are suffixed with \tt{1} or \tt{2} to
+indicate which file they apply to. For LAMMPS \data input, the starting-step
+option has no effect since those files contain only a single timestep.
+
+These examples are available in the \tt{Examples/JoinSystems} directory.
 
 \vspace{1em}
 \noindent
 Usage: \tt{JoinSystems <input1> <input2> <output> [options]}
+
 \noindent
-\begin{longtable}{p{0.319\textwidth}p{0.625\textwidth}}
+\begin{longtable}{p{0.35\textwidth}p{0.594\textwidth}}
   \toprule
-  \multicolumn{2}{l}{Mandatory arguments} \\
+  \multicolumn{2}{l}{Mandatory arguments}\\
   \midrule
-  \tt{<input1>} & first input coordinate file \\
-  \tt{<input2>} & second input coordinate file \\
-  \tt{<output>} & output file with the new system \\
+  \tt{<input1>} & first input coordinate file\\
+  \tt{<input2>} & second input coordinate file\\
+  \tt{<output>} & output coordinate file for the merged system\\
   \toprule
-  \multicolumn{2}{l}{Options} \\
+  \multicolumn{2}{l}{Options}\\
   \midrule
-  \tt{-off <x>|c <y>|c <z>|c} & offset of the second system against the first
-                                (\tt{c} to place it in the middle of the first
-                                system) \\
-  \tt{-b <x> <y> <z>} & side lengths of the new simulation box \\
-  \tt{-o <file>} & optional output structure file \\
+  \tt{-off <x>|c <y>|c <z>|c}  & shift the second system; each component is
+                                  a fraction of the first system's box length
+                                  (or absolute with \tt{--real}), or \tt{c}
+                                  to align box centres\\
+  \tt{-b <x> <y> <z>}           & override the output simulation box
+                                  sidelengths; box centred on the smallest
+                                  encompassing box\\
+  \tt{--real}                    & treat \tt{-off} values as absolute
+                                  coordinates (default: fraction of first
+                                  system's box length)\\
+  \tt{-o <file>}                 & write an additional output structure file\\
   \midrule
-  \multicolumn{2}{l}{Other options (see the beginning of \fullref{chap:Utils})}\\
-  \multicolumn{2}{p{0.948\textwidth}}{As two input coordinate/structure files
-    are needed, some options have 1 or 2 appended to specify which file they
-    correspond to}\\
+  \multicolumn{2}{p{0.948\textwidth}}{As two input files are read, some
+    options are suffixed with \tt{1} or \tt{2} to indicate which file they
+    apply to:}\\
   \midrule
   \multicolumn{2}{p{0.948\textwidth}}{\tt{-i1}/\tt{-i2},
                                       \tt{-st1}/\tt{-st2},
+                                      \tt{-ft},
                                       \tt{--verbose},
                                       \tt{--silent},
                                       \tt{--help},
                                       \tt{--version}}\\
   \bottomrule
 \end{longtable}
+
+\todo{The \tt{--real} flag is listed as applying to both \tt{-b} and \tt{-off}
+in the help text, but \tt{-b} is currently always in absolute units. Verify
+whether fractional \tt{-b} values (scaled to the first system's box) are
+intended to be supported.}

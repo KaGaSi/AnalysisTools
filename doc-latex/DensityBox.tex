@@ -1,82 +1,79 @@
 \section{DensityBox} \label{sec:DensityBox}
 
-This utility calculates number density for all bead types along all three axis
-directions of the simulation box, generating one file per axis. The density is
-calculated from 0 to box length in the given direction, that is, the box is
-\enquote{sliced} into blocks with width \tt{<width>}, and numbers of different
-bead types are counted in each \enquote{slice}. Or to put it in other words, a
-density profile for a bead type $i$ along an axis $\alpha$, $\rho(\alpha)$, is
-calculated as
+\tt{DensityBox} calculates number density profiles along all three box axes for
+every bead type, producing one output file per axis.
+
+The box is divided into slices of thickness \tt{<width>} perpendicular to each
+axis in turn. The number density of bead type $i$ in a slice at position
+$\alpha$ is
 \begin{equation}
-  \rho_i(\alpha) = \frac{\sum_j\delta(\alpha-\alpha_j^i)}
-                   {\Delta\alpha L_\beta L_\gamma},
+  \rho_i(\alpha) = \frac{\langle N_i(\alpha) \rangle}
+                   {\Delta\alpha\, L_\beta\, L_\gamma},
 \end{equation}
-where $\delta(\alpha-\alpha_i^j)$ gives the number of $i$ beads inside a slice
-of the simulation box of the thickness $\Delta\alpha$ (i.e., \tt{<width>}) along
-the $\alpha$-axis; $L_\beta$ and $L_\gamma$ represent box side lengths along the
-two remaining axes.
+where $\langle N_i(\alpha) \rangle$ is the time-averaged number of type-$i$ beads
+in the slice, $\Delta\alpha$ is the slice thickness (i.e., \tt{<width>}), and
+$L_\beta$, $L_\gamma$ are the box lengths along the remaining two axes.
 
-The utility does not distinguish between beads with the same name in different
-molecules, so if one bead type is in more than one molecule type, its density
-will be averaged over all molecule types it appears in. If one requires
-densities specific to certain molecules containing the same bead types, the
-\tt{-x} option can be used to first run the utility without one molecule type
-and then rerun it, excluding the other molecule type. Thus, two output files
-(per axis) are generated, each missing densities from the specified molecule
-types.
+Three output files are created automatically, named \tt{<output>-x.txt},
+\tt{<output>-y.txt}, and \tt{<output>-z.txt}. Bead types that never appear
+in the trajectory are silently omitted from the output columns.
 
-Note that this utility assumes orthogonal box with constant side lengths; in
-case of triclinic box and/or varying box size, undefined behaviour may occur,
-i.e., the utility may crash or freeze, and any results will not be reliable.
+By default, all beads --- bonded and unbonded --- contribute to the density.
+Because the utility groups them by bead type name, beads with the same name
+in different molecule types are indistinguishable. To obtain separate density
+profiles for overlapping bead types, use \tt{-x} to exclude specific molecule
+types, running the utility twice with complementary exclusion sets (note that
+unbonded beads cannot be excluded and will always appear in both outputs).
 
-\vspace{1em}
+The \tt{--per-bead} option switches the grouping from bead type to bead position
+within each molecule type. Each column then represents the $k$-th bead of a
+given molecule type (column label \tt{MolName:k}, 1-indexed), which reveals
+how density varies along the chain. Unbonded beads are skipped in this mode.
+
+\tt{DensityBox} requires an orthogonal box with constant side lengths; a
+triclinic box or a varying box size will produce unreliable results.
+
 \noindent
-Usage: \tt{DensityBox <input> <width> <output> [options]}
+\tt{Usage: DensityBox <input> <width> <output> [options]}
+
 \noindent
-\begin{longtable}{p{0.24\textwidth}p{0.704\textwidth}}
+\begin{longtable}{p{0.22\textwidth}p{0.726\textwidth}}
   \toprule
-  \multicolumn{2}{l}{Mandatory arguments}\\
+  \multicolumn{2}{l}{Mandatory arguments} \\
   \midrule
-  \tt{<input>} & input coordinate file (either \tt{vcf} or \tt{vtf} format)\\
-  \tt{<width>} & width of each bin of the distribution\\
-  \tt{<output>} & three output files with automatic \tt{-x.rho}, \tt{-y.rho},
-    and \tt{-z.rho} endings\\
+  \tt{<input>}  & input coordinate file \\
+  \tt{<width>}  & slice thickness \\
+  \tt{<output>} & base name for the three output files; suffixed automatically
+                  with \tt{-x.txt}, \tt{-y.txt}, and \tt{-z.txt} \\
   \toprule
-  \multicolumn{2}{l}{Options}\\
+  \multicolumn{2}{l}{Options} \\
   \midrule
-  \tt{-x <mol name(s)>} & exclude specified molecule type(s) (i.e., do not
-    calculate density for beads in molecules \tt{<mol name(s)>})\\
-      \midrule
-  \multicolumn{2}{l}{Other options (see the beginning of 
-                     Chapter~\ref{chap:Utils})}\\
+  \tt{-x <name(s)>} & exclude beads belonging to the specified molecule
+                      type(s) \\
+  \tt{--per-bead}   & output density per bead position within each molecule
+                      type, rather than per bead type \\
   \midrule
-  \multicolumn{2}{l}{\tt{-st},
-                     \tt{-e},
-                     \tt{-sk},
-                     \tt{-i},
-                     \tt{--help},
-                     \tt{--verbose},
-                     \tt{--silent},
-                     \tt{--version}}\\
+  \multicolumn{2}{p{0.948\textwidth}}{\tt{-i}, \tt{-ft}, \tt{-st}, \tt{-e},
+    \tt{-sk}, \tt{--verbose}, \tt{--silent}, \tt{--help}, \tt{--version}} \\
   \bottomrule
 \end{longtable}
 
 \noindent
-Format of output files:
+Format of output files (\tt{-x.txt}, \tt{-y.txt}, \tt{-z.txt} are identical in
+structure):
 \begin{enumerate}[nosep,leftmargin=20pt]
-  \item \tt{<output>} -- bead densities; one file per x-, y-, and z-axis
+  \item one density file per axis, e.g.\ \tt{<output>-z.txt}
     \begin{itemize}[nosep,leftmargin=5pt]
-      \item first line: AnalysisTools version
-      \item second line: command used to generate the file
-      \item third line: column headers
-        \begin{itemize}[nosep,leftmargin=5pt]
-          \item first is the centre of each bin (governed by
-            \tt{<width>}); i.e., if \tt{<width>} is 0.1,
-            then the centre of bin 0 to 0.1 is 0.05, centre of bin 0.1 to
-            0.2 is 0.15, etc.
-          \item the rest are for the calculated data: each column
-            corresponds to the number density of the specified bead type
+      \item 1st line: command used to generate the file
+      \item 2nd line: column headers
+        \begin{itemize}[nosep,leftmargin=10pt]
+          \item column 1: bin centre (distance from the box origin along the
+            given axis); e.g., with \tt{<width>} = 0.5, the first centre is
+            0.25, the second is 0.75, etc.
+          \item remaining columns: number density per bead type (default) or
+            per bead position within each molecule type (\tt{--per-bead}),
+            labelled by bead type name or \tt{MolName:k} respectively
         \end{itemize}
-    \item the rest of the file are data lines
+      \item data lines: bin centres and corresponding densities
     \end{itemize}
 \end{enumerate}
