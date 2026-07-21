@@ -16,7 +16,7 @@ const struct HelpHelp HelpDesc = {
   "Usage: DensityAggregates <input> <in.agg> <width> <output> <size(s)> "
   "[options]",
   .args = 5, // number of mandatory arguments
-  .all = 19, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 19, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -28,18 +28,24 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file", OPT_ARG},
-  {"<in.agg>", NULL, "input agg file", OPT_ARG},
-  {"<width>", NULL, "width of a single bin", OPT_ARG},
-  {"<output>", NULL, "output density file (one per size; automatic '<size>.rho' ending)", OPT_ARG},
-  {"<size(s)>", NULL, "aggregate sizes for density calculation", OPT_ARG},
-  {"--joined", NULL, "specify that <input> contains joined coordinates", OPT_EXTRA},
-  {"-m", "<name(s)>", "use number of specified molecule type(s) as aggrete size", OPT_EXTRA},
-  {"-x", "<name(s)>", "exclude aggregates containing only specified molecule(s)", OPT_EXTRA},
-  {"-only", "<name(s)>", "use only aggregates composed of specified molecule type(s)", OPT_EXTRA},
-  {"-n", "<int> <int>", "calculate for aggregate sizes in given range", OPT_EXTRA},
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<in.agg>", nullptr, "input agg file", OPT_ARG},
+  {"<width>", nullptr, "width of a single bin", OPT_ARG},
+  {"<output>", nullptr, "output density file "
+    "(one per size; appends '<size>.rho' ending)", OPT_ARG},
+  {"<size(s)>", nullptr, "aggregate sizes for density calculation", OPT_ARG},
+  {"--joined", nullptr, "specify that <input> contains joined coordinates",
+    OPT_EXTRA},
+  {"-m", "<name(s)>", "use number of specified molecules as aggrete size",
+    OPT_EXTRA},
+  {"-x", "<name(s)>", "exclude aggregates composed only of specified molecules",
+    OPT_EXTRA},
+  {"-only", "<name(s)>", "use only aggregates composed of specified molecules",
+    OPT_EXTRA},
+  {"-n", "<int> <int>", "calculate for aggregate sizes in given range",
+    OPT_EXTRA},
   // {"-m_id", "<int>", "calculate only for aggregate containing the <int> molecule (by resid numbering in vsf)", OPT_EXTRA},
-  {NULL}
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -48,6 +54,111 @@ struct OPT {
   bool join;      // --joined
   FILE_TYPE fout; // -o
 }; //}}}
+
+// all state shared between main() and the per-timestep callback //{{{
+struct user_data {
+  OPT opt;
+  double distance,       // -d from the agg file's Aggregates command
+         max_dist, width;
+  bool *join_bt;         // -bt from the agg file's Aggregates command
+  AGGREGATE *Aggregate;
+  int aggs, bins;
+  vec3d box;
+  ArrNDi *agg_sizes, *agg_mols;
+  ArrNDd *rho, *rho_2,
+         *rho_temp;      // per-step scratch (zeroed before each aggregate)
+}; //}}}
+
+// per-timestep calculation //{{{
+static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
+  struct user_data *ud = userdata;
+  AGGREGATE *Aggregate = ud->Aggregate;
+  COUNT *Count = &System->Count;
+
+  if (ud->opt.join) {
+    RemovePBCAggregates(ud->distance, Aggregate, System, ud->join_bt);
+  }
+
+  // calculate densities //{{{
+  for (int i = 0; i < Count->Aggregate; i++) {
+    // // TODO: -m_id option? //{{{
+    // // if '-m_id' is used, check if specified resid from vsf is in aggregate
+    // if (m_id != -1) {
+    //   for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+    //     int id = Aggregate[i].Molecule[j];
+    //     if (m_id == (id+1)) { // resname in vsf start from 1
+    //       correct_size = 0;
+    //       break;
+    //     }
+    //   }
+    // } //}}}
+
+    int agg_size;
+    double agg_mass;
+    if (!UseAggregate(*System, Aggregate, i, ud->opt.agg,
+                      &agg_size, &agg_mass)) {
+      continue;
+    }
+    // is agg_size in provided list?
+    int correct_size = -1;
+    for (int j = 0; j < ud->aggs; j++) {
+      if (GetArr2D(ud->agg_sizes, j, 0) == agg_size) {
+        correct_size = j;
+      }
+    }
+    if (correct_size == -1) {
+      continue;
+    }
+
+    vec3d com = CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead,
+                             *System);
+
+    FillArrND(ud->rho_temp, 0);
+
+    // aggregate beads //{{{
+    for (int j = 0; j < Aggregate[i].nBeads; j++) {
+      int id = Aggregate[i].Bead[j];
+      vec3d dist = DistancePBC(System->Bead[id].Position, com, &System->Box);
+      dist.v[0] = VectLength(dist);
+
+      if (dist.v[0] < ud->max_dist) {
+        int k = dist.v[0] / ud->width;
+        AddArr3D(ud->rho_temp, System->Bead[id].Type, correct_size, k, 1);
+      }
+    } //}}}
+
+    // monomeric beads //{{{
+    for (int j = 0; j < Count->Unbonded; j++) {
+      int id = System->Unbonded[j];
+      vec3d dist = Distance(System->Bead[id].Position, com, ud->box);
+      dist.v[0] = VectLength(dist);
+
+      if (dist.v[0] < ud->max_dist) {
+        int k = dist.v[0] / ud->width;
+        // temp_rho[System.Bead[id].Type][correct_size][k]++;
+        AddArr3D(ud->rho_temp, System->Bead[id].Type, correct_size, k, 1);
+      }
+    } //}}}
+
+    AddArr2D(ud->agg_sizes, correct_size, 1, 1);
+
+    // add from temporary density array to global density arrays //{{{
+    for (int j = 0; j < Count->BeadType; j++) {
+      for (int k = 0; k < ud->bins; k++) {
+        int val = GetArr3D(ud->rho_temp, j, correct_size, k);
+        AddArr3D(ud->rho, j, correct_size, k, val);
+        AddArr3D(ud->rho_2, j, correct_size, k, Square(val));
+      }
+    } //}}}
+
+    // count mol types in the aggregate
+    for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+      int mol = AggGetMol(&Aggregate[i], j);
+      // agg_mols[correct_size][System.Molecule[mol].Type]++;
+      AddArr2D(ud->agg_mols, correct_size, System->Molecule[mol].Type, 1);
+    }
+  } //}}}
+} //}}}
 
 int main(int argc, char *argv[]) {
 
@@ -172,6 +283,7 @@ int main(int argc, char *argv[]) {
       break;
     }
   }
+  fclose(agg); // the main loop reopens the file itself
   //}}}
 
   // number of bins
@@ -185,7 +297,7 @@ int main(int argc, char *argv[]) {
     ErrorAlloc("rho/rho_2");
   }
 
-  AGGREGATE *Aggregate = NULL;
+  AGGREGATE *Aggregate = nullptr;
   InitAggregate(System, &Aggregate);
 
   if (commons.verbose) {
@@ -193,133 +305,30 @@ int main(int argc, char *argv[]) {
   }
 
   // main loop //{{{
-  FILE *fr = OpenFile(in.coor.name, "r");
-  int count_step = 0,
-      count_used = 0,
-      line_count = 0,
-      line_count_agg = 0; // count lines in the agg file
-  while (true) {
-    PrintStep(&count_step, commons.start, commons.silent);
-
-    // use every skip-th timestep between start and end
-    bool use = false;
-    if (UseStep(commons, count_step)) {
-      use = true;
-    }
-    if (use) { //{{{
-      if (!ReadTimestep(in, fr, &System, &line_count) ||
-          ReadAggregates(agg, input_agg, &System,
-                          Aggregate, &line_count_agg) < 0) {
-        count_step--;
-        break;
-      }
-      count_used++;
-      if (opt.join) {
-        RemovePBCAggregates(distance, Aggregate, &System, join_bt);
-      }
-      ArrNDd *rho_temp = CreateArr3Dd(Count->BeadType, aggs, bins);
-      if (!rho_temp) {
-        ErrorAlloc("rho_temp");
-      }
-
-      // calculate densities //{{{
-      for (int i = 0; i < Count->Aggregate; i++) {
-        // // TODO: -m_id option? //{{{
-        // // if '-m_id' is used, check if specified resid from vsf is in aggregate
-        // if (m_id != -1) {
-        //   for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-        //     int id = Aggregate[i].Molecule[j];
-        //     if (m_id == (id+1)) { // resname in vsf start from 1
-        //       correct_size = 0;
-        //       break;
-        //     }
-        //   }
-        // } //}}}
-
-
-        int agg_size;
-        double agg_mass;
-        if (!UseAggregate(System, Aggregate, i, opt.agg,
-                          &agg_size, &agg_mass)) {
-          continue;
-        }
-        // is agg_size in provided list?
-        int correct_size = -1;
-        for (int j = 0; j < aggs; j++) {
-          if (GetArr2D(agg_sizes, j, 0) == agg_size) {
-            correct_size = j;
-          }
-        }
-        if (correct_size == -1) {
-          continue;
-        }
-
-        vec3d com = CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead,
-                                 System);
-
-        FillArrND(rho_temp, 0);
-
-        // aggregate beads //{{{
-        for (int j = 0; j < Aggregate[i].nBeads; j++) {
-          int id = Aggregate[i].Bead[j];
-          vec3d dist = DistancePBC(System.Bead[id].Position, com, &System.Box);
-          dist.v[0] = VectLength(dist);
-
-          if (dist.v[0] < max_dist) {
-            int k = dist.v[0] / width;
-            AddArr3D(rho_temp, System.Bead[id].Type, correct_size, k, 1);
-          }
-        } //}}}
-
-        // monomeric beads //{{{
-        for (int j = 0; j < Count->Unbonded; j++) {
-          int id = System.Unbonded[j];
-          vec3d dist = Distance(System.Bead[id].Position, com, box);
-          dist.v[0] = VectLength(dist);
-
-          if (dist.v[0] < max_dist) {
-            int k = dist.v[0] / width;
-            // temp_rho[System.Bead[id].Type][correct_size][k]++;
-            AddArr3D(rho_temp, System.Bead[id].Type, correct_size, k, 1);
-          }
-        } //}}}
-
-        AddArr2D(agg_sizes, correct_size, 1, 1);
-
-        // add from temporary density array to global density arrays //{{{
-        for (int j = 0; j < Count->BeadType; j++) {
-          for (int k = 0; k < bins; k++) {
-            int val = GetArr3D(rho_temp, j, correct_size, k);
-            AddArr3D(rho, j, correct_size, k, val);
-            AddArr3D(rho_2, j, correct_size, k, Square(val));
-          }
-        } //}}}
-
-        // count mol types in the aggregate
-        for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-          int mol = AggGetMol(&Aggregate[i], j);
-          // agg_mols[correct_size][System.Molecule[mol].Type]++;
-          AddArr2D(agg_mols, correct_size, System.Molecule[mol].Type, 1);
-        }
-      } //}}}
-
-      FreeArrND(rho_temp);
-    //}}}
-    } else {
-      if (!SkipTimestep(in, fr, &line_count) ||
-          !SkipAggregates(agg, input_agg, &line_count_agg)) {
-        count_step--;
-        break;
-      }
-    }
-    // exit the main loop if reached user-specied end timestep
-    if (count_step == commons.end) {
-      break;
-    }
+  ArrNDd *rho_temp = CreateArr3Dd(Count->BeadType, aggs, bins);
+  if (!rho_temp) {
+    ErrorAlloc("rho_temp");
   }
-  fclose(fr);
-  fclose(agg);
-  PrintLastStep(count_step, count_used, commons.silent); //}}}
+  struct user_data ud = {
+    .opt = opt,
+    .distance = distance,
+    .max_dist = max_dist,
+    .width = width,
+    .join_bt = join_bt,
+    .Aggregate = Aggregate,
+    .aggs = aggs,
+    .bins = bins,
+    .box = box,
+    .agg_sizes = agg_sizes,
+    .agg_mols = agg_mols,
+    .rho = rho,
+    .rho_2 = rho_2,
+    .rho_temp = rho_temp,
+  };
+  STEP step = InitStep;
+  MainLoopCoorAgg(&System, in, input_agg, commons, &step, Aggregate,
+                  Calculation, &ud);
+  FreeArrND(rho_temp); //}}}
 
   // write densities to output file(s) //{{{
   for (int i = 0; i < aggs; i++) {

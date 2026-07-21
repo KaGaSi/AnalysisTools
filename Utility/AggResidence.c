@@ -13,7 +13,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: AggResidence <in.stru> <in.agg> <agg size> <output> [options]",
   .args = 4, // number of mandatory arguments
-  .all = 11, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 11, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_ST],
@@ -23,16 +23,57 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_VERSION],
-  {"<in.stru>", NULL, "input structure file", OPT_ARG},
-  {"<in.agg>", NULL, "input agg file", OPT_ARG},
-  {"<agg size>", NULL, "minimum aggregate size", OPT_ARG},
-  {"<output>", NULL, "output filemane with the distribution", OPT_ARG},
-  {NULL},
+  {"<in.stru>", nullptr, "input structure file", OPT_ARG},
+  {"<in.agg>", nullptr, "input agg file", OPT_ARG},
+  {"<agg size>", nullptr, "minimum aggregate size", OPT_ARG},
+  {"<output>", nullptr, "output filemane with the distribution", OPT_ARG},
+  {nullptr},
 }; //}}}
 
 // structure for options //{{{
 struct OPT {
 }; //}}}
+
+// all state shared between main() and the per-timestep callback //{{{
+struct user_data {
+  AGGREGATE *Aggregate;
+  long min_agg_size;
+  int max_residence_time,
+      *residence_time;
+  ArrNDi *residence_distr;
+}; //}}}
+
+// per-timestep residence time bookkeeping //{{{
+static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
+  struct user_data *ud = userdata;
+  AGGREGATE *Aggregate = ud->Aggregate;
+  COUNT *Count = &System->Count;
+  for (int i = 0; i < Count->Molecule; i++) { //{{{
+    MOLECULE *mol = &System->Molecule[i];
+    // printf("Size: Aggregate[mol->Aggregate].nMolecules = %d\n",
+    //        Aggregate[mol->Aggregate].nMolecules);
+    if (Aggregate[mol->Aggregate].nMolecules >= ud->min_agg_size) {
+      ud->residence_time[i]++;
+    } else {
+      if (ud->residence_time[i] > 0) {
+        if (ud->residence_time[i] == ud->max_residence_time) {
+          err_msg("TOO LONG IN AN AGGREGATE; USING max_residence_time "
+                  "...WILL BE REWORKED!");
+          PrintWarning();
+          AddArr2D(ud->residence_distr, i, ud->max_residence_time - 1, 1);
+        } else {
+          // printf("OK ... %d %d", ud->residence_time[i],
+          //        GetArr2D(ud->residence_distr, i, ud->residence_time[i] - 1));
+          AddArr2D(ud->residence_distr, i, ud->residence_time[i] - 1, 1);
+          // printf(" ... %d\n",
+          //        GetArr2D(ud->residence_distr, i, ud->residence_time[i] - 1));
+        }
+      }
+      ud->residence_time[i] = 0;
+    }
+  } //}}}
+  ReInitAggregate(*System, Aggregate);
+} //}}}
 
 int main(int argc, char *argv[]) {
 
@@ -70,90 +111,34 @@ int main(int argc, char *argv[]) {
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
 
-  AGGREGATE *Aggregate = NULL;
+  AGGREGATE *Aggregate = nullptr;
   InitAggregate(System, &Aggregate);
 
   if (commons.verbose) {
     VerboseOutput(System);
   }
 
-  // open <in.agg> and skip the first two lines //{{{
-  FILE *fr = OpenFile(input_agg, "r");
-  SkipLine(fr);
-  SkipLine(fr);
-  //}}}
 
   // TODO: make it better - not just a random constant
   int max_residence_time = 1000;
   ArrNDi *residence_distr = CreateArr2Di(Count->Molecule, max_residence_time);
   int *residence_time = calloc(Count->Molecule, sizeof *residence_time);
+  if (!residence_time) {
+    ErrorAlloc("residence_time");
+  }
 
   // main loop //{{{
-  int count_step = 0,
-      count_used = 0,
-      agg_lines = 2; // first two lines already read (skipped)
-  while (true) { // cycle ends with 'Last Step' line in agg file
-    PrintStep(&count_step, commons.start, commons.silent);
-
-    // decide whether this timestep is to be used
-    bool use = false;
-    if (UseStep(commons, count_step)) {
-      use = true;
-    }
-    if (use) { //{{{
-      if (ReadAggregates(fr, input_agg, &System, Aggregate, &agg_lines) < 0) {
-        count_step--;
-        break;
-      }
-      count_used++; // just to print at the end
-      for (int i = 0; i < Count->Molecule; i++) { //{{{
-        MOLECULE *mol = &System.Molecule[i];
-        // printf("Size: Aggregate[mol->Aggregate].nMolecules = %d\n",
-        //        Aggregate[mol->Aggregate].nMolecules);
-        if (Aggregate[mol->Aggregate].nMolecules >= min_agg_size) {
-          residence_time[i]++;
-        } else {
-          if (residence_time[i] > 0) {
-            if (residence_time[i] == max_residence_time) {
-              err_msg("TOO LONG IN AN AGGREGATE; USING max_residence_time ...WILL BE REWORKED!");
-              PrintWarning();
-              AddArr2D(residence_distr, i, max_residence_time - 1, 1);
-            } else {
-              // printf("OK ... %d %d", residence_time[i],
-              //        GetArr2D(residence_distr, i, residence_time[i] - 1));
-              AddArr2D(residence_distr, i, residence_time[i] - 1, 1);
-              // printf(" ... %d\n",
-              //        GetArr2D(residence_distr, i, residence_time[i] - 1));
-            }
-          }
-          residence_time[i] = 0;
-        }
-      } //}}}
-      ReInitAggregate(System, Aggregate);
-      //}}}
-    } else {
-      if (!SkipAggregates(fr, input_agg, &agg_lines)) {
-        count_step--;
-        break;
-      }
-    }
-    // exit the main loop if reached user-specied end timestep
-    if (count_step == commons.end) {
-      break;
-    }
-  }
-  fclose(fr);
-
-  // print last step //{{{
-  if (!commons.silent) {
-    if (isatty(STDOUT_FILENO)) {
-      fflush(stdout);
-      fprintf(stdout, "\r                          \r");
-    }
-    fprintf(stdout, "Last Step: %d", count_step);
-    fprintf(stdout, " (%d used)\n", count_used);
-  } //}}}
-  //}}}
+  struct user_data ud = {
+    .Aggregate = Aggregate,
+    .min_agg_size = min_agg_size,
+    .max_residence_time = max_residence_time,
+    .residence_time = residence_time,
+    .residence_distr = residence_distr,
+  };
+  STEP step = InitStep;
+  MainLoopAgg(&System, input_agg, commons, &step, Aggregate,
+              Calculation, &ud);
+  int count_used = step.used; //}}}
 
   for (int i = 0; i < Count->Molecule; i++) {
     if (residence_time[i] > 0) {

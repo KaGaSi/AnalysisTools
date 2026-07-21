@@ -1,38 +1,36 @@
 #include "Pairs.h"
 #include "Errors.h"
 
+/*
+ * norm_axis convention (shared by all functions below): -1 means full 3D
+ * binning; 0/1/2 means the given axis is not binned (a single cell spans it),
+ * so pairs are found by their in-plane separation only. Useful for 2D
+ * (slit-like) systems where the distance along norm_axis is irrelevant.
+ */
 // create a cell linked list
 static vec3i LinkedList(const SYSTEM System, int **Head, int **Link,
-                        const double cell_size);
+                        const double cell_size, const int norm_axis);
+// fill neighbour cell offsets (home + half-shell); returns their count
+static int FillNeighbours(vec3i neighbour[14], const int norm_axis);
 // cell selectors for bead pair linked list traversal
 static inline int SelectCell1(const vec3i c1, const vec3i n_cells);
 static inline int SelectCell2(const vec3i c1, const vec3i n_cells,
-                              const vec3i neighbour[13], int n);
+                              const vec3i neighbour[14], int n);
+// traversal core shared by the 3D and 2D variants
+static void TraverseLL(const SYSTEM System, const double cell_size,
+                       const int norm_axis,
+                       pair_cb_t pair_callback, void *pair_ud,
+                       check_cb_t check_callback, void *check_ud);
 
 // linked list traversal //{{{
-void TraverseLinkedListPairs(const SYSTEM System, const double cell_size,
-                             pair_cb_t pair_callback, void *pair_ud,
-                             check_cb_t check_callback, void *check_ud) {
+static void TraverseLL(const SYSTEM System, const double cell_size,
+                       const int norm_axis,
+                       pair_cb_t pair_callback, void *pair_ud,
+                       check_cb_t check_callback, void *check_ud) {
   int *Head, *Link;
-  vec3i n_cells = LinkedList(System, &Head, &Link, cell_size);
-
-  // neighbour offsets: home cell + 13 half-shell
-  const vec3i neighbour[14] = {
-    { .v = { 0, 0, 0} },
-    { .v = { 1, 0, 0} },
-    { .v = { 1, 1, 0} },
-    { .v = {-1, 1, 0} },
-    { .v = { 0, 1, 0} },
-    { .v = { 0, 0, 1} },
-    { .v = {-1, 0, 1} },
-    { .v = { 1, 0, 1} },
-    { .v = {-1,-1, 1} },
-    { .v = { 0,-1, 1} },
-    { .v = { 1,-1, 1} },
-    { .v = {-1, 1, 1} },
-    { .v = { 0, 1, 1} },
-    { .v = { 1, 1, 1} },
-  };
+  vec3i n_cells = LinkedList(System, &Head, &Link, cell_size, norm_axis);
+  vec3i neighbour[14];
+  int n_neigh = FillNeighbours(neighbour, norm_axis);
   vec3i c1;
   for (c1.z = 0; c1.z < n_cells.z; c1.z++) {
     for (c1.y = 0; c1.y < n_cells.y; c1.y++) {
@@ -44,8 +42,8 @@ void TraverseLinkedListPairs(const SYSTEM System, const double cell_size,
             i = Link[i];
             continue;
           }
-          // loop over all 14 neighbour offsets (home + 13 neighbours)
-          for (int k = 0; k < 14; k++) {
+          // loop over all neighbour offsets (home + half-shell)
+          for (int k = 0; k < n_neigh; k++) {
             int cell2 = SelectCell2(c1, n_cells, neighbour, k);
 
             int j = Head[cell2];
@@ -68,6 +66,19 @@ void TraverseLinkedListPairs(const SYSTEM System, const double cell_size,
   }
   free(Head);
   free(Link);
+}
+void TraverseLinkedListPairs(const SYSTEM System, const double cell_size,
+                             pair_cb_t pair_callback, void *pair_ud,
+                             check_cb_t check_callback, void *check_ud) {
+  TraverseLL(System, cell_size, -1, pair_callback, pair_ud,
+             check_callback, check_ud);
+}
+void TraverseLinkedListPairs2D(const SYSTEM System, const double cell_size,
+                               const int norm_axis,
+                               pair_cb_t pair_callback, void *pair_ud,
+                               check_cb_t check_callback, void *check_ud) {
+  TraverseLL(System, cell_size, norm_axis, pair_callback, pair_ud,
+             check_callback, check_ud);
 } //}}}
 // brute O(N^2) traversal //{{{
 void TraverseBrutePairs(const SYSTEM System,
@@ -102,17 +113,48 @@ void TraversePairs(const SYSTEM System, const double cell_size,
     TraverseBrutePairs(System, pair_callback, pair_ud,
                        check_callback, check_ud);
   }
+}
+void TraversePairs2D(const SYSTEM System, const double cell_size,
+                     const int norm_axis,
+                     pair_cb_t pair_callback, void *pair_ud,
+                     check_cb_t check_callback, void *check_ud) {
+  if (norm_axis < 0 || norm_axis > 2) {
+    err_msg("TraversePairs2D(): norm_axis must be 0, 1, or 2");
+    PrintError();
+    exit(1);
+  }
+  // only the two in-plane axes need to fit at least 3 cells
+  double min_plane = -1;
+  for (int dd = 0; dd < 3; dd++) {
+    if (dd != norm_axis &&
+        (min_plane == -1 || System.Box.Length.v[dd] < min_plane)) {
+      min_plane = System.Box.Length.v[dd];
+    }
+  }
+  if ((min_plane / 3) < cell_size) {
+    TraverseBrutePairs(System, pair_callback, pair_ud,
+                       check_callback, check_ud);
+  } else {
+    TraverseLinkedListPairs2D(System, cell_size, norm_axis,
+                              pair_callback, pair_ud,
+                              check_callback, check_ud);
+  }
 } //}}}
 
 // create a cell linked list //{{{
 static vec3i LinkedList(const SYSTEM System, int **Head, int **Link,
-                        const double cell_size) {
+                        const double cell_size, const int norm_axis) {
   const vec3d *box = &System.Box.Length;
   const COUNT *Count = &System.Count;
   vec3d rl;
   vec3i n_cells;
   // compute number of cells along each axis
   for (int dd = 0; dd < 3; dd++) {
+    if (dd == norm_axis) { // single cell spans the non-binned axis
+      n_cells.v[dd] = 1;
+      rl.v[dd] = 0; // any coordinate maps to cell 0
+      continue;
+    }
     rl.v[dd] = (*box).v[dd] / cell_size;
     n_cells.v[dd] = (int)(rl.v[dd]);
     if (n_cells.v[dd] < 3) {
@@ -126,6 +168,9 @@ static vec3i LinkedList(const SYSTEM System, int **Head, int **Link,
   int cells = n_cells.x * n_cells.y * n_cells.z;
   *Head = malloc(sizeof **Head * cells);
   *Link = malloc(sizeof **Link * Count->BeadCoor);
+  if (!*Head || !*Link) {
+    ErrorAlloc("linked list Head/Link");
+  }
   for (int i = 0; i < cells; i++) {
     (*Head)[i] = -1;
   }
@@ -146,11 +191,49 @@ static vec3i LinkedList(const SYSTEM System, int **Head, int **Link,
   }
   return n_cells;
 }
+static int FillNeighbours(vec3i neighbour[14], const int norm_axis) {
+  if (norm_axis == -1) { // 3D: home cell + 13 half-shell
+    const vec3i neigh3d[14] = {
+      { .v = { 0, 0, 0} },
+      { .v = { 1, 0, 0} },
+      { .v = { 1, 1, 0} },
+      { .v = {-1, 1, 0} },
+      { .v = { 0, 1, 0} },
+      { .v = { 0, 0, 1} },
+      { .v = {-1, 0, 1} },
+      { .v = { 1, 0, 1} },
+      { .v = {-1,-1, 1} },
+      { .v = { 0,-1, 1} },
+      { .v = { 1,-1, 1} },
+      { .v = {-1, 1, 1} },
+      { .v = { 0, 1, 1} },
+      { .v = { 1, 1, 1} },
+    };
+    for (int i = 0; i < 14; i++) {
+      neighbour[i] = neigh3d[i];
+    }
+    return 14;
+  }
+  // 2D: home cell + 4 half-shell offsets placed in the two in-plane axes
+  const int neigh2d[5][2] = { {0, 0}, {1, 0}, {1, 1}, {-1, 1}, {0, 1} };
+  int plane[2], n = 0;
+  for (int dd = 0; dd < 3; dd++) {
+    if (dd != norm_axis) {
+      plane[n++] = dd;
+    }
+  }
+  for (int i = 0; i < 5; i++) {
+    neighbour[i] = (vec3i){ .v = {0, 0, 0} };
+    neighbour[i].v[plane[0]] = neigh2d[i][0];
+    neighbour[i].v[plane[1]] = neigh2d[i][1];
+  }
+  return 5;
+}
 static inline int SelectCell1(const vec3i c1, const vec3i n_cells) {
   return c1.x + c1.y * n_cells.x + c1.z * n_cells.x * n_cells.y;
 }
 static inline int SelectCell2(const vec3i c1, const vec3i n_cells,
-                              const vec3i neighbour[13], int n) {
+                              const vec3i neighbour[14], int n) {
   vec3i c2;
   for (int dd = 0; dd < 3; dd++) {
     c2.v[dd] = (c1.v[dd] + neighbour[n].v[dd] + n_cells.v[dd]) % n_cells.v[dd];

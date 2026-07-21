@@ -295,14 +295,14 @@
 
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
-  "ExtractAgg writes specified aggregates into a coordinate file, placing each "
-  "aggregate into its own timestep. This is, therefore, useful only for "
+  "VisualizeAgg writes specified aggregates into a coordinate file, placing "
+  "each aggregate into its own timestep. This is, therefore, useful only for "
   "visualization or further analysis by utilities that do not distinguish "
   "per-step aggregates (e.g., Surface).",
 
-  "Usage: %s <in.coor> <in.agg> <output> <agg size(s)> [options]",
+  "Usage: VisualizeAgg <in.coor> <in.agg> <output> <agg size(s)> [options]",
   .args = 4, // number of mandatory arguments
-  .all = 15, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 15, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -314,16 +314,17 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<in.coor>", NULL, "input coordinate file", OPT_ARG},
-  {"<in.agg>", NULL, "input aggregate file", OPT_ARG},
-  {"<output>", NULL, "output coordinate file", OPT_ARG},
-  {"<agg size(s)>", NULL, "aggregate size(s) to save", OPT_ARG},
-  {"--join", NULL, "join aggregates (remove pbc)", OPT_EXTRA},
-  {"--range", NULL, "the first two aggregate sizes specify a range of aggregate sizes (any following numbers are ignored)", OPT_EXTRA},
+  {"<in.coor>", nullptr, "input coordinate file", OPT_ARG},
+  {"<in.agg>", nullptr, "input aggregate file", OPT_ARG},
+  {"<output>", nullptr, "output coordinate file", OPT_ARG},
+  {"<agg size(s)>", nullptr, "aggregate size(s) to save", OPT_ARG},
+  {"--join", nullptr, "join aggregates (remove pbc)", OPT_EXTRA},
+  {"--range", nullptr, "the first two aggregate sizes specify a range of "
+    "aggregate sizes (any following numbers are ignored)", OPT_EXTRA},
   // {"-m", "<name(s)>", "agg size means number of <name(s)> molecules in an aggregate", OPT_EXTRA},
   // {"-x", "<name(s)>", "exclude aggregates containing only specified molecule(s)", OPT_EXTRA},
   // {"-only", "<name(s)>", "use only aggregates composed of specified molecule type(s)", OPT_EXTRA},
-  {NULL}
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -331,6 +332,66 @@ struct OPT {
   bool join, range;   // --join --range
   FILE_TYPE fout;     // -o
 }; //}}}
+
+// all state shared between main() and the per-timestep callback //{{{
+struct user_data {
+  OPT opt;
+  FILE_TYPE fout;
+  double distance;  // -d from the agg file's Aggregates command
+  bool *join_bt,    // -bt from the agg file's Aggregates command
+       *write;      // per-timestep flags of beads to save
+  AGGREGATE *Aggregate;
+  int *agg_sizes, aggs,
+      *count_saved; // number of aggregates written to the output file
+  int argc;         // WriteTimestep() prints the command
+  char **argv;      //  to the output file
+}; //}}}
+
+// per-timestep aggregate extraction //{{{
+static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
+  struct user_data *ud = userdata;
+  AGGREGATE *Aggregate = ud->Aggregate;
+  COUNT *Count = &System->Count;
+
+  if (ud->opt.join) {
+    WrapJoinCoordinates(System, false, true);
+    // TODO: distance=1 for now; read agg command (check for -d opt)
+    RemovePBCAggregates(ud->distance, Aggregate, System, ud->join_bt);
+  }
+  for (int i = 0; i < Count->Aggregate; i++) {
+    // use the aggregate?
+    bool use = false;
+    if (ud->opt.range &&
+        Aggregate[i].nMolecules >= ud->agg_sizes[0] &&
+        Aggregate[i].nMolecules <= ud->agg_sizes[1]) {
+      use = true;
+    } else {
+      for (int j = 0; j < ud->aggs; j++) {
+        if (ud->agg_sizes[j] == Aggregate[i].nMolecules) {
+          use = true;
+          break;
+        }
+      }
+    }
+    if (use) {
+      InitBoolArray(ud->write, Count->Bead, false);
+      for (int j = 0; j < Count->BondedCoor; j++) {
+        int id = System->BondedCoor[j];
+        for (int k = 0; k < Aggregate[i].nBeads; k++) {
+          if (Aggregate[i].Bead[k] == id) {
+            if (System->Bead[id].InTimestep) {
+              ud->write[id] = true;
+            }
+            break;
+          }
+        }
+      }
+      WriteTimestep(ud->fout, *System, step->coor, ud->write,
+                    ud->argc, ud->argv);
+      (*ud->count_saved)++;
+    }
+  }
+} //}}}
 
 int main(int argc, char *argv[]) {
 
@@ -370,6 +431,9 @@ int main(int argc, char *argv[]) {
 
   // <agg sizes> - aggregate sizes to write //{{{
   int *agg_sizes = calloc(Count->Molecule, sizeof *agg_sizes);
+  if (!agg_sizes) {
+    ErrorAlloc("agg_sizes");
+  }
   int aggs = 0;
   // use range of aggreate numbers, if --range switch specified
   if (opt.range) {
@@ -416,7 +480,7 @@ int main(int argc, char *argv[]) {
   while (getc(agg) != '\n')
     ;
   // read Aggregates command if --join is used or...
-  bool *join_bt = NULL;
+  bool *join_bt = nullptr;
   if (opt.join) {
     if (!(join_bt = calloc(Count->BeadType, sizeof *join_bt))) {
       ErrorAlloc("join_bt");
@@ -452,7 +516,9 @@ int main(int argc, char *argv[]) {
   } else { //...skip the command if --join is not used
     while (getc(agg) != '\n')
       ;
-  } //}}}
+  }
+  fclose(agg); // the main loop reopens the file itself
+  //}}}
 
   // array for holding which beads to save
   bool *write = calloc(Count->Bead, sizeof *write);
@@ -470,87 +536,26 @@ int main(int argc, char *argv[]) {
   }
   //}}}
 
-  // open input coordinate file
-  FILE *coor = OpenFile(in.coor.name, "r");
   // main loop //{{{
-  int count_step = 0;  // count timesteps from the beginning
   int count_saved = 0; // count timesteps (i.e., aggregates) in output file
-  int coor_line_count = 0; // count lines in the coor file
-  int count_agg_lines = 0; // count lines in the agg file
-  while (true) {
-    PrintStep(&count_step, commons.start, commons.silent);
-    if (ReadAggregates(agg, in_agg, &System, Aggregate, &count_agg_lines) < 0) {
-      count_step--;
-      break;
-    }
-    // decide whether to use this timestep (based on -st/-sk/-e) //{{{
-    bool use = false;
-    if (UseStep(commons, count_step)) {
-      use = true;
-    } //}}}
-    if (use) { //{{{
-      if (!ReadTimestep(in, coor, &System, &coor_line_count)) {
-        count_step--;
-        break;
-      }
-      if (opt.join) {
-        WrapJoinCoordinates(&System, false, true);
-        // TODO: distance=1 for now; read agg command (check for -d opt)
-        RemovePBCAggregates(distance, Aggregate, &System, join_bt);
-      }
-      for (int i = 0; i < Count->Aggregate; i++) {
-        // use the aggregate?
-        use = false;
-        if (opt.range &&
-            Aggregate[i].nMolecules >= agg_sizes[0] &&
-            Aggregate[i].nMolecules <= agg_sizes[1]) {
-          use = true;
-        } else {
-          for (int j = 0; j < aggs; j++) {
-            if (agg_sizes[j] == Aggregate[i].nMolecules) {
-              use = true;
-              break;
-            }
-          }
-        }
-        if (use) {
-          InitBoolArray(write, Count->Bead, false);
-          for (int j = 0; j < Count->BondedCoor; j++) {
-            int id = System.BondedCoor[j];
-            for (int k = 0; k < Aggregate[i].nBeads; k++) {
-              if (Aggregate[i].Bead[k] == id) {
-                if (System.Bead[id].InTimestep) {
-                  write[id] = true;
-                }
-                break;
-              }
-            }
-          }
-          WriteTimestep(fout, System, count_step, write, argc, argv);
-          count_saved++;
-        }
-      } //}}}
-    } else { //{{{
-      if (!SkipTimestep(in, coor, &coor_line_count)) {
-        count_step--;
-        break;
-      }
-    } //}}}
-    // exit the main loop if reached user-specied end timestep
-    if (count_step == commons.end) {
-      break;
-    }
-  }
-  fclose(coor);
-  fclose(agg);
-  // print last step count?
+  struct user_data ud = {
+    .opt = opt,
+    .fout = fout,
+    .distance = distance,
+    .join_bt = join_bt,
+    .write = write,
+    .Aggregate = Aggregate,
+    .agg_sizes = agg_sizes,
+    .aggs = aggs,
+    .count_saved = &count_saved,
+    .argc = argc,
+    .argv = argv,
+  };
+  STEP step = InitStep;
+  MainLoopCoorAgg(&System, in, in_agg, commons, &step, Aggregate,
+                  Calculation, &ud);
   if (!commons.silent) {
-    if (isatty(STDOUT_FILENO)) {
-      fflush(stdout);
-      fprintf(stdout, "\r                          \r");
-    }
-    fprintf(stdout, "Last Step: %d ", count_step);
-    fprintf(stdout, "(%d aggregates saved)\n", count_saved);
+    fprintf(stdout, "Aggregates saved: %d\n", count_saved);
   } //}}}
 
   // free memory - to make valgrind happy //{{{

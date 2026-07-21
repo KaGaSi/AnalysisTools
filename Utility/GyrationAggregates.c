@@ -15,7 +15,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: GyrationAggregates <input> <in.agg> <output> [options]",
   .args = 3, // number of mandatory arguments
-  .all = 18, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 18, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -27,16 +27,19 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file", OPT_ARG},
-  {"<in.agg>", NULL, "input agg file", OPT_ARG},
-  {"<output>", NULL, "output file with per-timestep data", OPT_ARG},
-  {"--joined", NULL, "<input> contains joined coordinates", OPT_EXTRA},
-  {"-bt", NULL, "bead types used for calculation (default: all)", OPT_EXTRA},
-  {"-m", "<name(s)>", "agg size defined as number of <name(s)> molecules in an aggregate", OPT_EXTRA},
-  {"-only", "<name(s)>", "use only aggregates composed of specified molecule(s)", OPT_EXTRA},
-  {"-n", "<int> <int>", "calculate for aggregate sizes in given range", OPT_EXTRA},
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<in.agg>", nullptr, "input agg file", OPT_ARG},
+  {"<output>", nullptr, "output file with per-timestep data", OPT_ARG},
+  {"--joined", nullptr, "<input> contains joined coordinates", OPT_EXTRA},
+  {"-bt", nullptr, "bead types used for calculation (default: all)", OPT_EXTRA},
+  {"-m", "<name(s)>", "aggregate size defined as number of specified molecules "
+    "in an aggregate", OPT_EXTRA},
+  {"-only", "<name(s)>", "use only aggregates composed of specified molecules",
+    OPT_EXTRA},
+  {"-n", "<int> <int>", "calculate for aggregate sizes in the given range",
+    OPT_EXTRA},
   {"-ps", "<file>", "save per-size averages to a <file>", OPT_EXTRA},
-  {NULL}
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -46,6 +49,181 @@ struct OPT {
        *bt;           // -bt (number of types; list of the types)
   char ps_file[LINE]; // -ps
 }; //}}}
+
+// all state shared between main() and the per-timestep callback //{{{
+struct user_data {
+  OPT opt;
+  const char *output;
+  double distance;      // -d from the agg file's Aggregates command
+  bool *join_bt;        // -bt from the agg file's Aggregates command
+  AGGREGATE *Aggregate;
+  // overall sums
+  int *agg_counts_sum;
+  ArrNDd *Rg_sum, *sqrRg_sum;
+  double *Anis_sum, *Acyl_sum, *Aspher_sum;
+  ArrNDd *eigen_sum;
+  ArrNDli *mass_sum;
+  ArrNDi *molecules_sum;
+}; //}}}
+
+// per-timestep calculation and output //{{{
+static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
+  struct user_data *ud = userdata;
+  const OPT *opt = &ud->opt;
+  AGGREGATE *Aggregate = ud->Aggregate;
+  COUNT *Count = &System->Count;
+
+  if (opt->join) {
+    RemovePBCAggregates(ud->distance, Aggregate, System, ud->join_bt);
+  }
+
+  // allocate arrays for the timestep //{{{
+  int *agg_counts_step = calloc(Count->Molecule, sizeof *agg_counts_step);
+  ArrNDd *Rg_step = CreateArr2Dd(Count->Molecule, 3);
+  ArrNDd *sqrRg_step = CreateArr2Dd(Count->Molecule, 3);
+  double *Anis_step = calloc(Count->Molecule, sizeof *Anis_step);
+  double *Acyl_step = calloc(Count->Molecule, sizeof *Acyl_step);
+  double *Aspher_step = calloc(Count->Molecule,sizeof *Aspher_step);
+  ArrNDd *eigen_step = CreateArr2Dd(Count->Molecule, 3);
+  if (!agg_counts_step || !Rg_step || !sqrRg_step || !Anis_step ||
+      !Acyl_step || !Aspher_step || !eigen_step) {
+    ErrorAlloc("step arrays");
+  } //}}}
+
+  // calculate shape descriptors //{{{
+  double mass_step[2] = {0}; // [0] normal agg mass, [1] sum of squares
+  for (int i = 0; i < Count->Aggregate; i++) {
+    // skip aggregates that shouldn't be used
+    int agg_size;
+    double rubbish; // unused
+    if (!UseAggregate(*System, Aggregate, i, opt->agg, &agg_size, &rubbish) ||
+        Aggregate[i].nBeads == 1) { // cannot do gyration for 1 point
+      continue;
+    }
+
+    // copy bead ids to a separate array //{{{
+    int *list = malloc(Aggregate[i].nBeads * sizeof *list);
+    if (!list) {
+      ErrorAlloc("list");
+    }
+    int n = 0;
+    double agg_mass = 0;
+    for (int j = 0; j < Aggregate[i].nBeads; j++) {
+      int id = Aggregate[i].Bead[j];
+      int btype = System->Bead[id].Type;
+      if (opt->bt[btype]) {
+        list[n] = id;
+        n++;
+        agg_mass += System->BeadType[System->Bead[id].Type].Mass;
+      }
+    } //}}}
+
+    vec3d eigen = Gyration(n, list, System);
+    free(list); // free array of bead ids for gyration calculation
+    // skip case of no size (particles fully collapsed onto each other)
+    if (eigen.x == 0 && eigen.y == 0 && eigen.z == 0) {
+      continue;
+    }
+
+    double Rgi = sqrt(eigen.x + eigen.y + eigen.z);
+    // agg masses
+    mass_step[0] += agg_mass; // for this timestep
+    mass_step[1] += Square(agg_mass); // for this timestep
+    // radius of gyration
+    AddArr2D(Rg_step, agg_size, 0, Rgi);
+    AddArr2D(Rg_step, agg_size, 1, Rgi * agg_mass);
+    AddArr2D(Rg_step, agg_size, 2, Rgi * Square(agg_mass));
+    // squared radius of gyration
+    AddArr2D(sqrRg_step, agg_size, 0, Square(Rgi));
+    AddArr2D(sqrRg_step, agg_size, 1, Square(Rgi) * agg_mass);
+    AddArr2D(sqrRg_step, agg_size, 2, Square(Rgi) * Square(agg_mass));
+    // relative shape anisotropy
+    Anis_step[agg_size] += 1.5 * SqVectLength(eigen) /
+                           Square(eigen.x + eigen.y + eigen.z) - 0.5;
+    // acylindricity
+    Acyl_step[agg_size] += eigen.y - eigen.x;
+    // asphericity
+    Aspher_step[agg_size] += eigen.z - 0.5 * (eigen.x + eigen.y);
+    // gyration vector eigenvalues
+    for (int dd = 0; dd < 3; dd++) {
+      AddArr2D(eigen_step, agg_size, dd, eigen.v[dd]);
+    }
+    // aggregate count
+    agg_counts_step[agg_size]++;
+
+    // count molecules and aggregates
+    ud->agg_counts_sum[agg_size]++;
+    for (int j = 0; j < Aggregate[i].nMolecules; j++) {
+      int mol_type = System->Molecule[AggGetMol(&Aggregate[i], j)].Type;
+      AddArr2D(ud->molecules_sum, agg_size, mol_type, 1);
+    }
+    // sum aggregate mass
+    AddArr2D(ud->mass_sum, agg_size, 0, agg_mass);
+    AddArr2D(ud->mass_sum, agg_size, 1, Square(agg_mass));
+  } //}}}
+
+  for (int i = 0; i < Count->Molecule; i++) {
+    for (int dd = 0; dd < 3; dd++) {
+      AddArr2D(ud->Rg_sum, i, dd, GetArr2D(Rg_step, i, dd));
+      AddArr2D(ud->sqrRg_sum, i, dd, GetArr2D(sqrRg_step, i, dd));
+      AddArr2D(ud->eigen_sum, i, dd, GetArr2D(eigen_step, i, dd));
+    }
+    ud->Anis_sum[i] += Anis_step[i];
+    ud->Acyl_sum[i] += Acyl_step[i];
+    ud->Aspher_sum[i] += Aspher_step[i];
+  }
+
+  // print data to output file //{{{
+  // sum up contributions from all aggregate sizes
+  for (int i = 1; i < Count->Molecule; i++) {
+    for (int dd = 0; dd < 3; dd++) {
+      AddArr2D(Rg_step, 0, dd, GetArr2D(Rg_step, i, dd));
+      AddArr2D(sqrRg_step, 0, dd, GetArr2D(sqrRg_step, i, dd));
+      AddArr2D(eigen_step, 0, dd, GetArr2D(eigen_step, i, dd));
+    }
+    Anis_step[0] += Anis_step[i];
+    Acyl_step[0] += Acyl_step[i];
+    Aspher_step[0] += Aspher_step[i];
+
+    agg_counts_step[0] += agg_counts_step[i];
+  }
+  if (agg_counts_step[0] > 0) {
+    FILE *out = OpenFile(ud->output, "a");
+    fprintf(out, "%d", step->coor); // timestep
+    // <R_G>
+    vec3d val;
+    val.v[0] = GetArr2D(Rg_step, 0, 0) / agg_counts_step[0];
+    val.v[1] = GetArr2D(Rg_step, 0, 1) / mass_step[0];
+    val.v[2] = GetArr2D(Rg_step, 0, 2) / mass_step[1];
+    fprintf(out, " %lf %lf %lf", val.v[0], val.v[1], val.v[2]);
+    // <R_G^2>
+    val.v[0] = GetArr2D(sqrRg_step, 0, 0) / agg_counts_step[0];
+    val.v[1] = GetArr2D(sqrRg_step, 0, 1) / mass_step[0];
+    val.v[2] = GetArr2D(sqrRg_step, 0, 2) / mass_step[1];
+    fprintf(out, " %lf %lf %lf", val.v[0], val.v[1], val.v[2]);
+    // relative shape anisotropy
+    fprintf(out, " %lf", Anis_step[0]/agg_counts_step[0]);
+    // acylindricity
+    fprintf(out, " %lf", Acyl_step[0]/agg_counts_step[0]);
+    // asphericity
+    fprintf(out, " %lf", Aspher_step[0]/agg_counts_step[0]);
+    // eigenvalues
+    val.v[0] = GetArr2D(eigen_step, 0, 0) / agg_counts_step[0];
+    val.v[1] = GetArr2D(eigen_step, 0, 1) / agg_counts_step[0];
+    val.v[2] = GetArr2D(eigen_step, 0, 2) / agg_counts_step[0];
+    fprintf(out, " %lf %lf %lf", val.v[0], val.v[1], val.v[2]);
+    putc('\n', out);
+    fclose(out);
+  } //}}}
+
+  FreeArrND(Rg_step);
+  FreeArrND(sqrRg_step);
+  FreeArrND(eigen_step);
+  free(agg_counts_step);
+  free(Anis_step);
+  free(Acyl_step);
+  free(Aspher_step);
+} //}}}
 
 int main(int argc, char *argv[]) {
 
@@ -162,9 +340,10 @@ int main(int argc, char *argv[]) {
       break;
     }
   }
+  fclose(agg); // the main loop reopens the file itself
   //}}}
 
-  AGGREGATE *Aggregate = NULL;
+  AGGREGATE *Aggregate = nullptr;
   InitAggregate(System, &Aggregate);
 
   if (commons.verbose) {
@@ -198,192 +377,25 @@ int main(int argc, char *argv[]) {
   //}}}
 
   // main loop //{{{
-  FILE *coor = OpenFile(in.coor.name, "r");
-  int count_step = 0, // count steps in the vcf file
-      count_used = 0, // count steps in output file
-      line_count = 0, // count lines in the vcf file
-      line_count_agg = 0; // count lines in the agg file
-  while (true) {
-    PrintStep(&count_step, commons.start, commons.silent);
-    bool use = false;
-    if (UseStep(commons, count_step)) {
-      use = true;
-    }
-    if (use) { //{{{
-      if (!ReadTimestep(in, coor, &System, &line_count) ||
-          ReadAggregates(agg, input_agg, &System,
-                         Aggregate, &line_count_agg) < 0) {
-        count_step--;
-        break;
-      }
-      count_used++;
-      if (opt.join) {
-        RemovePBCAggregates(distance, Aggregate, &System, join_bt);
-      }
-
-      // allocate arrays for the timestep //{{{
-      int *agg_counts_step = calloc(Count->Molecule, sizeof *agg_counts_step);
-      ArrNDd *Rg_step = CreateArr2Dd(Count->Molecule, 3);
-      ArrNDd *sqrRg_step = CreateArr2Dd(Count->Molecule, 3);
-      double *Anis_step = calloc(Count->Molecule, sizeof *Anis_step);
-      double *Acyl_step = calloc(Count->Molecule, sizeof *Acyl_step);
-      double *Aspher_step = calloc(Count->Molecule,sizeof *Aspher_step);
-      ArrNDd *eigen_step = CreateArr2Dd(Count->Molecule, 3);
-      if (!agg_counts_step || !Rg_step || !sqrRg_step || !Anis_step ||
-          !Acyl_step || !Aspher_step || !eigen_step) {
-        ErrorAlloc("step arrays");
-      } //}}}
-
-      // calculate shape descriptors //{{{
-      double mass_step[2] = {0}; // [0] normal agg mass, [1] sum of squares
-      for (int i = 0; i < Count->Aggregate; i++) {
-        // skip aggregates that shouldn't be used
-        int agg_size;
-        double rubbish; // unused
-        if (!UseAggregate(System, Aggregate, i, opt.agg, &agg_size, &rubbish) ||
-            Aggregate[i].nBeads == 1) { // cannot do gyration for 1 point
-          continue;
-        }
-
-        // copy bead ids to a separate array //{{{
-        int *list = malloc(Aggregate[i].nBeads * sizeof *list);
-        if (!list) {
-          ErrorAlloc("list");
-        }
-        int n = 0;
-        double agg_mass = 0;
-        for (int j = 0; j < Aggregate[i].nBeads; j++) {
-          int id = Aggregate[i].Bead[j];
-          int btype = System.Bead[id].Type;
-          if (opt.bt[btype]) {
-            list[n] = id;
-            n++;
-            agg_mass += System.BeadType[System.Bead[id].Type].Mass;
-          }
-        } //}}}
-
-        vec3d eigen = Gyration(n, list, &System);
-        free(list); // free array of bead ids for gyration calculation
-        // skip case of no size (particles fully collapsed onto each other)
-        if (eigen.x == 0 && eigen.y == 0 && eigen.z == 0) {
-          continue;
-        }
-
-        double Rgi = sqrt(eigen.x + eigen.y + eigen.z);
-        // agg masses
-        mass_step[0] += agg_mass; // for this timestep
-        mass_step[1] += Square(agg_mass); // for this timestep
-        // radius of gyration
-        AddArr2D(Rg_step, agg_size, 0, Rgi);
-        AddArr2D(Rg_step, agg_size, 1, Rgi * agg_mass);
-        AddArr2D(Rg_step, agg_size, 2, Rgi * Square(agg_mass));
-        // squared radius of gyration
-        AddArr2D(sqrRg_step, agg_size, 0, Square(Rgi));
-        AddArr2D(sqrRg_step, agg_size, 1, Square(Rgi) * agg_mass);
-        AddArr2D(sqrRg_step, agg_size, 2, Square(Rgi) * Square(agg_mass));
-        // relative shape anisotropy
-        Anis_step[agg_size] += 1.5 * SqVectLength(eigen) /
-                               Square(eigen.x + eigen.y + eigen.z) - 0.5;
-        // acylindricity
-        Acyl_step[agg_size] += eigen.y - eigen.x;
-        // asphericity
-        Aspher_step[agg_size] += eigen.z - 0.5 * (eigen.x + eigen.y);
-        // gyration vector eigenvalues
-        for (int dd = 0; dd < 3; dd++) {
-          AddArr2D(eigen_step, agg_size, dd, eigen.v[dd]);
-        }
-        // aggregate count
-        agg_counts_step[agg_size]++;
-
-        // count molecules and aggregates
-        agg_counts_sum[agg_size]++;
-        for (int j = 0; j < Aggregate[i].nMolecules; j++) {
-          int mol_type = System.Molecule[AggGetMol(&Aggregate[i], j)].Type;
-          AddArr2D(molecules_sum, agg_size, mol_type, 1);
-        }
-        // sum aggregate mass
-        AddArr2D(mass_sum, agg_size, 0, agg_mass);
-        AddArr2D(mass_sum, agg_size, 1, Square(agg_mass));
-      } //}}}
-
-      for (int i = 0; i < Count->Molecule; i++) {
-        for (int dd = 0; dd < 3; dd++) {
-          AddArr2D(Rg_sum, i, dd, GetArr2D(Rg_step, i, dd));
-          AddArr2D(sqrRg_sum, i, dd, GetArr2D(sqrRg_step, i, dd));
-          AddArr2D(eigen_sum, i, dd, GetArr2D(eigen_step, i, dd));
-        }
-        Anis_sum[i] += Anis_step[i];
-        Acyl_sum[i] += Acyl_step[i];
-        Aspher_sum[i] += Aspher_step[i];
-      }
-
-      // print data to output file //{{{
-      // sum up contributions from all aggregate sizes
-      for (int i = 1; i < Count->Molecule; i++) {
-        for (int dd = 0; dd < 3; dd++) {
-          AddArr2D(Rg_step, 0, dd, GetArr2D(Rg_step, i, dd));
-          AddArr2D(sqrRg_step, 0, dd, GetArr2D(sqrRg_step, i, dd));
-          AddArr2D(eigen_step, 0, dd, GetArr2D(eigen_step, i, dd));
-        }
-        Anis_step[0] += Anis_step[i];
-        Acyl_step[0] += Acyl_step[i];
-        Aspher_step[0] += Aspher_step[i];
-
-        agg_counts_step[0] += agg_counts_step[i];
-      }
-      if (agg_counts_step[0] > 0) {
-        out = OpenFile(output, "a");
-        fprintf(out, "%d", count_step); // timestep
-        // <R_G>
-        vec3d val;
-        val.v[0] = GetArr2D(Rg_step, 0, 0) / agg_counts_step[0];
-        val.v[1] = GetArr2D(Rg_step, 0, 1) / mass_step[0];
-        val.v[2] = GetArr2D(Rg_step, 0, 2) / mass_step[1];
-        fprintf(out, " %lf %lf %lf", val.v[0], val.v[1], val.v[2]);
-        // <R_G^2>
-        val.v[0] = GetArr2D(sqrRg_step, 0, 0) / agg_counts_step[0];
-        val.v[1] = GetArr2D(sqrRg_step, 0, 1) / mass_step[0];
-        val.v[2] = GetArr2D(sqrRg_step, 0, 2) / mass_step[1];
-        fprintf(out, " %lf %lf %lf", val.v[0], val.v[1], val.v[2]);
-        // relative shape anisotropy
-        fprintf(out, " %lf", Anis_step[0]/agg_counts_step[0]);
-        // acylindricity
-        fprintf(out, " %lf", Acyl_step[0]/agg_counts_step[0]);
-        // asphericity
-        fprintf(out, " %lf", Aspher_step[0]/agg_counts_step[0]);
-        // eigenvalues
-        val.v[0] = GetArr2D(eigen_step, 0, 0) / agg_counts_step[0];
-        val.v[1] = GetArr2D(eigen_step, 0, 1) / agg_counts_step[0];
-        val.v[2] = GetArr2D(eigen_step, 0, 2) / agg_counts_step[0];
-        fprintf(out, " %lf %lf %lf", val.v[0], val.v[1], val.v[2]);
-        putc('\n', out);
-        fclose(out);
-      } //}}}
-
-      FreeArrND(Rg_step);
-      FreeArrND(sqrRg_step);
-      FreeArrND(eigen_step);
-      free(agg_counts_step);
-      free(Anis_step);
-      free(Acyl_step);
-      free(Aspher_step);
-    //}}}
-    } else {
-      if (!SkipTimestep(in, coor, &line_count) ||
-          !SkipAggregates(agg, input_agg, &line_count_agg)) {
-        count_step--;
-        break;
-      }
-    }
-
-    // exit the main loop if reached user-specied end timestep
-    if (count_step == commons.end) {
-      break;
-    }
-  }
-  fclose(coor);
-  fclose(agg);
-  PrintLastStep(count_step, count_used, commons.silent); //}}}
+  struct user_data ud = {
+    .opt = opt,
+    .output = output,
+    .distance = distance,
+    .join_bt = join_bt,
+    .Aggregate = Aggregate,
+    .agg_counts_sum = agg_counts_sum,
+    .Rg_sum = Rg_sum,
+    .sqrRg_sum = sqrRg_sum,
+    .Anis_sum = Anis_sum,
+    .Acyl_sum = Acyl_sum,
+    .Aspher_sum = Aspher_sum,
+    .eigen_sum = eigen_sum,
+    .mass_sum = mass_sum,
+    .molecules_sum = molecules_sum,
+  };
+  STEP step = InitStep;
+  MainLoopCoorAgg(&System, in, input_agg, commons, &step, Aggregate,
+                  Calculation, &ud); //}}}
 
   // calculate per-size averages? //{{{
   if (opt.ps_file[0] != '\0') {
