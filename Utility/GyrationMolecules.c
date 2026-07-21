@@ -37,10 +37,9 @@ struct OPT {
        *bt;   // -bt (per bead type)
 }; //}}}
 
-// column indices for per-type accumulator arrays; COL_RE has its own
-// normalization count (COL_RE_N) as end beads may be absent from a frame
-enum { COL_RG, COL_SQRRG, COL_ANIS, COL_ACYL, COL_ASPHER,
-       COL_EIGEN0, COL_EIGEN1, COL_EIGEN2, COL_RE, COL_RE_N, N_COLS };
+// column indices for per-type accumulator arrays; RE has its own
+// normalization count (RE_N) as end beads may be absent from a frame
+enum { RG, SQRRG, ANIS, ACYL, ASPH, EIGEN0, EIGEN1, EIGEN2, RE, RE_NUM, NUM };
 
 // all state shared between main() and the per-timestep callback //{{{
 struct user_data {
@@ -116,26 +115,26 @@ static void Calculation(SYSTEM *System, STEP *step, struct user_data *ud) {
     int mt = mol->Type;
     // radius of gyration
     double Rgi = sqrt(eigen.x + eigen.y + eigen.z);
-    AddArr2D(ud->step_vals, mt, COL_RG, Rgi);
+    AddArr2D(ud->step_vals, mt, RG, Rgi);
     double val = Square(Rgi);
-    AddArr2D(ud->step_vals, mt, COL_SQRRG, val);
+    AddArr2D(ud->step_vals, mt, SQRRG, val);
     // relative shape anisotropy
     val = 1.5 * SqVectLength(eigen) / Square(eigen.x + eigen.y + eigen.z) - 0.5;
-    AddArr2D(ud->step_vals, mt, COL_ANIS, val);
+    AddArr2D(ud->step_vals, mt, ANIS, val);
     // acylindricity
     val = eigen.y - eigen.x;
-    AddArr2D(ud->step_vals, mt, COL_ACYL, val);
+    AddArr2D(ud->step_vals, mt, ACYL, val);
     // asphericity
     val = eigen.z - 0.5 * (eigen.x + eigen.y);
-    AddArr2D(ud->step_vals, mt, COL_ASPHER, val);
+    AddArr2D(ud->step_vals, mt, ASPH, val);
     // eigenvalues
     for (int dd = 0; dd < 3; dd++) {
-      AddArr2D(ud->step_vals, mt, COL_EIGEN0 + dd, eigen.v[dd]);
+      AddArr2D(ud->step_vals, mt, EIGEN0 + dd, eigen.v[dd]);
     }
     // end-to-end distance
     if (re_valid) {
-      AddArr2D(ud->step_vals, mt, COL_RE, Re);
-      AddArr2D(ud->step_vals, mt, COL_RE_N, 1);
+      AddArr2D(ud->step_vals, mt, RE, Re);
+      AddArr2D(ud->step_vals, mt, RE_NUM, 1);
     }
     ud->step_count[mt]++;
   }
@@ -145,7 +144,7 @@ static void Calculation(SYSTEM *System, STEP *step, struct user_data *ud) {
     if (!opt.mt[i] || ud->step_count[i] == 0) {
       continue;
     }
-    for (int c = 0; c < N_COLS; c++) {
+    for (int c = 0; c < NUM; c++) {
       AddArr2D(ud->sums, i, c, GetArr2D(ud->step_vals, i, c));
     }
     ud->mol_count[i] += ud->step_count[i];
@@ -153,17 +152,17 @@ static void Calculation(SYSTEM *System, STEP *step, struct user_data *ud) {
     int n = ud->step_count[i];
     FILE *f = ud->files[i];
     fprintf(f, "%5d", step->coor);
-    fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, COL_RG) / n);
-    fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, COL_SQRRG) / n);
-    fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, COL_ANIS) / n);
-    fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, COL_ACYL) / n);
-    fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, COL_ASPHER) / n);
+    fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, RG) / n);
+    fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, SQRRG) / n);
+    fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, ANIS) / n);
+    fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, ACYL) / n);
+    fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, ASPH) / n);
     for (int dd = 0; dd < 3; dd++) {
-      fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, COL_EIGEN0 + dd) / n);
+      fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, EIGEN0 + dd) / n);
     }
-    double re_n = GetArr2D(ud->step_vals, i, COL_RE_N);
+    double re_n = GetArr2D(ud->step_vals, i, RE_NUM);
     if (re_n > 0) {
-      fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, COL_RE) / re_n);
+      fprintf(f, " %8.5f", GetArr2D(ud->step_vals, i, RE) / re_n);
     } else {
       fprintf(f, " %8.5f", NAN);
     }
@@ -293,9 +292,9 @@ int main(int argc, char *argv[]) {
   }
 
   // allocate sum/step arrays and bead-list buffer //{{{
-  ArrNDd *sums = CreateArr2Dd(Count->MoleculeType, N_COLS);
+  ArrNDd *sums = CreateArr2Dd(Count->MoleculeType, NUM);
   int *mol_count = calloc(Count->MoleculeType, sizeof *mol_count);
-  ArrNDd *step_vals = CreateArr2Dd(Count->MoleculeType, N_COLS);
+  ArrNDd *step_vals = CreateArr2Dd(Count->MoleculeType, NUM);
   int *step_count = calloc(Count->MoleculeType, sizeof *step_count);
   if (!sums || !mol_count || !step_vals || !step_count) {
     ErrorAlloc("sum/step arrays");
@@ -338,17 +337,17 @@ int main(int argc, char *argv[]) {
       fprintf(f, "# <Rg> <Rg^2> <Anis> <Acyl> <Aspher>"
                  " <eigen[0]> <eigen[1]> <eigen[2]> <Re>\n");
       fprintf(f, "#");
-      fprintf(f, " %lf", GetArr2D(sums, i, COL_RG) / n);
-      fprintf(f, " %lf", GetArr2D(sums, i, COL_SQRRG) / n);
-      fprintf(f, " %lf", GetArr2D(sums, i, COL_ANIS) / n);
-      fprintf(f, " %lf", GetArr2D(sums, i, COL_ACYL) / n);
-      fprintf(f, " %lf", GetArr2D(sums, i, COL_ASPHER) / n);
+      fprintf(f, " %lf", GetArr2D(sums, i, RG) / n);
+      fprintf(f, " %lf", GetArr2D(sums, i, SQRRG) / n);
+      fprintf(f, " %lf", GetArr2D(sums, i, ANIS) / n);
+      fprintf(f, " %lf", GetArr2D(sums, i, ACYL) / n);
+      fprintf(f, " %lf", GetArr2D(sums, i, ASPH) / n);
       for (int dd = 0; dd < 3; dd++) {
-        fprintf(f, " %lf", GetArr2D(sums, i, COL_EIGEN0 + dd) / n);
+        fprintf(f, " %lf", GetArr2D(sums, i, EIGEN0 + dd) / n);
       }
-      double re_n = GetArr2D(sums, i, COL_RE_N);
+      double re_n = GetArr2D(sums, i, RE_NUM);
       if (re_n > 0) {
-        fprintf(f, " %lf", GetArr2D(sums, i, COL_RE) / re_n);
+        fprintf(f, " %lf", GetArr2D(sums, i, RE) / re_n);
       } else {
         fprintf(f, " %lf", NAN);
       }

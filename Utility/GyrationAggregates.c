@@ -50,6 +50,9 @@ struct OPT {
   char ps_file[LINE]; // -ps
 }; //}}}
 
+// column indices for the shape-descriptor array (single 'normal sum' each)
+enum { ANIS, ACYL, ASPH, NUM };
+
 // all state shared between main() and the per-timestep callback //{{{
 struct user_data {
   OPT opt;
@@ -59,11 +62,12 @@ struct user_data {
   AGGREGATE *Aggregate;
   // overall sums
   int *agg_counts_sum;
-  ArrNDd *Rg_sum, *sqrRg_sum;
-  double *Anis_sum, *Acyl_sum, *Aspher_sum;
-  ArrNDd *eigen_sum;
+  ArrNDd *Rg_sum, *sqrRg_sum, *shape_sum, *eigen_sum;
   ArrNDli *mass_sum;
   ArrNDi *molecules_sum;
+  // per-timestep buffers (allocated once, zeroed each call)
+  int *agg_counts_step;
+  ArrNDd *Rg_step, *sqrRg_step, *shape_step, *eigen_step;
 }; //}}}
 
 // per-timestep calculation and output //{{{
@@ -77,18 +81,17 @@ static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
     RemovePBCAggregates(ud->distance, Aggregate, System, ud->join_bt);
   }
 
-  // allocate arrays for the timestep //{{{
-  int *agg_counts_step = calloc(Count->Molecule, sizeof *agg_counts_step);
-  ArrNDd *Rg_step = CreateArr2Dd(Count->Molecule, 3);
-  ArrNDd *sqrRg_step = CreateArr2Dd(Count->Molecule, 3);
-  double *Anis_step = calloc(Count->Molecule, sizeof *Anis_step);
-  double *Acyl_step = calloc(Count->Molecule, sizeof *Acyl_step);
-  double *Aspher_step = calloc(Count->Molecule,sizeof *Aspher_step);
-  ArrNDd *eigen_step = CreateArr2Dd(Count->Molecule, 3);
-  if (!agg_counts_step || !Rg_step || !sqrRg_step || !Anis_step ||
-      !Acyl_step || !Aspher_step || !eigen_step) {
-    ErrorAlloc("step arrays");
-  } //}}}
+  // zero per-step buffers (reuse pre-allocated memory) //{{{
+  int *agg_counts_step = ud->agg_counts_step;
+  ArrNDd *Rg_step = ud->Rg_step;
+  ArrNDd *sqrRg_step = ud->sqrRg_step;
+  ArrNDd *shape_step = ud->shape_step;
+  ArrNDd *eigen_step = ud->eigen_step;
+  memset(agg_counts_step, 0, Count->Molecule * sizeof *agg_counts_step);
+  FillArrND(Rg_step, 0.0);
+  FillArrND(sqrRg_step, 0.0);
+  FillArrND(shape_step, 0.0);
+  FillArrND(eigen_step, 0.0); //}}}
 
   // calculate shape descriptors //{{{
   double mass_step[2] = {0}; // [0] normal agg mass, [1] sum of squares
@@ -138,12 +141,15 @@ static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
     AddArr2D(sqrRg_step, agg_size, 1, Square(Rgi) * agg_mass);
     AddArr2D(sqrRg_step, agg_size, 2, Square(Rgi) * Square(agg_mass));
     // relative shape anisotropy
-    Anis_step[agg_size] += 1.5 * SqVectLength(eigen) /
-                           Square(eigen.x + eigen.y + eigen.z) - 0.5;
+    double val = 1.5 * SqVectLength(eigen) /
+                 Square(eigen.x + eigen.y + eigen.z) - 0.5;
+    AddArr2D(shape_step, agg_size, ANIS, val);
     // acylindricity
-    Acyl_step[agg_size] += eigen.y - eigen.x;
+    val = eigen.y - eigen.x;
+    AddArr2D(shape_step, agg_size, ACYL, val);
     // asphericity
-    Aspher_step[agg_size] += eigen.z - 0.5 * (eigen.x + eigen.y);
+    val = eigen.z - 0.5 * (eigen.x + eigen.y);
+    AddArr2D(shape_step, agg_size, ASPH, val);
     // gyration vector eigenvalues
     for (int dd = 0; dd < 3; dd++) {
       AddArr2D(eigen_step, agg_size, dd, eigen.v[dd]);
@@ -168,9 +174,9 @@ static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
       AddArr2D(ud->sqrRg_sum, i, dd, GetArr2D(sqrRg_step, i, dd));
       AddArr2D(ud->eigen_sum, i, dd, GetArr2D(eigen_step, i, dd));
     }
-    ud->Anis_sum[i] += Anis_step[i];
-    ud->Acyl_sum[i] += Acyl_step[i];
-    ud->Aspher_sum[i] += Aspher_step[i];
+    for (int dd = 0; dd < NUM; dd++) {
+      AddArr2D(ud->shape_sum, i, dd, GetArr2D(shape_step, i, dd));
+    }
   }
 
   // print data to output file //{{{
@@ -181,10 +187,9 @@ static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
       AddArr2D(sqrRg_step, 0, dd, GetArr2D(sqrRg_step, i, dd));
       AddArr2D(eigen_step, 0, dd, GetArr2D(eigen_step, i, dd));
     }
-    Anis_step[0] += Anis_step[i];
-    Acyl_step[0] += Acyl_step[i];
-    Aspher_step[0] += Aspher_step[i];
-
+    for (int dd = 0; dd < NUM; dd++) {
+      AddArr2D(shape_step, 0, dd, GetArr2D(shape_step, i, dd));
+    }
     agg_counts_step[0] += agg_counts_step[i];
   }
   if (agg_counts_step[0] > 0) {
@@ -202,11 +207,11 @@ static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
     val.v[2] = GetArr2D(sqrRg_step, 0, 2) / mass_step[1];
     fprintf(out, " %lf %lf %lf", val.v[0], val.v[1], val.v[2]);
     // relative shape anisotropy
-    fprintf(out, " %lf", Anis_step[0]/agg_counts_step[0]);
+    fprintf(out, " %lf", GetArr2D(shape_step, 0, ANIS) / agg_counts_step[0]);
     // acylindricity
-    fprintf(out, " %lf", Acyl_step[0]/agg_counts_step[0]);
+    fprintf(out, " %lf", GetArr2D(shape_step, 0, ACYL) / agg_counts_step[0]);
     // asphericity
-    fprintf(out, " %lf", Aspher_step[0]/agg_counts_step[0]);
+    fprintf(out, " %lf", GetArr2D(shape_step, 0, ASPH) / agg_counts_step[0]);
     // eigenvalues
     val.v[0] = GetArr2D(eigen_step, 0, 0) / agg_counts_step[0];
     val.v[1] = GetArr2D(eigen_step, 0, 1) / agg_counts_step[0];
@@ -215,14 +220,6 @@ static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
     putc('\n', out);
     fclose(out);
   } //}}}
-
-  FreeArrND(Rg_step);
-  FreeArrND(sqrRg_step);
-  FreeArrND(eigen_step);
-  free(agg_counts_step);
-  free(Anis_step);
-  free(Acyl_step);
-  free(Aspher_step);
 } //}}}
 
 int main(int argc, char *argv[]) {
@@ -358,21 +355,24 @@ int main(int argc, char *argv[]) {
   // total square of radius of gyration
   // ...[size][0] normal sum, [size][1] sum of Rg^2*mass, [size][2] Rg^2*mass^2
   ArrNDd *sqrRg_sum = CreateArr2Dd(Count->Molecule, 3);
-  // relative shape anisotropy: only normal sum
-  double *Anis_sum = calloc(Count->Molecule, sizeof *Anis_sum);
-  // acylindricity: only normal sum
-  double *Acyl_sum = calloc(Count->Molecule, sizeof *Acyl_sum);
-  // asphericity: only normal sum
-  double *Aspher_sum = calloc(Count->Molecule, sizeof *Aspher_sum);
+  // shape descriptors [size][SH_ANIS|SH_ACYL|SH_ASPHER]: only normal sum
+  ArrNDd *shape_sum = CreateArr2Dd(Count->Molecule, NUM);
   // gyration tensor eigenvalues
   ArrNDd *eigen_sum = CreateArr2Dd(Count->Molecule, 3);
   // total mass of aggregates: [size][0] normal sum, [size][1] sum of squares
   ArrNDli *mass_sum = CreateArr2Dli(Count->Molecule, 2);
   // number of molecule types in aggregates: [size][mol type] only normal sum
   ArrNDi *molecules_sum = CreateArr2Di(Count->Molecule, Count->MoleculeType);
-  if (!agg_counts_sum || !Rg_sum || !sqrRg_sum || !Anis_sum || !Acyl_sum ||
-      !Aspher_sum || !eigen_sum || !mass_sum || !molecules_sum) {
-    ErrorAlloc("molecules_sum");
+  // per-timestep buffers (allocated once, zeroed each call in Calculation)
+  int *agg_counts_step = calloc(Count->Molecule, sizeof *agg_counts_step);
+  ArrNDd *Rg_step = CreateArr2Dd(Count->Molecule, 3);
+  ArrNDd *sqrRg_step = CreateArr2Dd(Count->Molecule, 3);
+  ArrNDd *shape_step = CreateArr2Dd(Count->Molecule, NUM);
+  ArrNDd *eigen_step = CreateArr2Dd(Count->Molecule, 3);
+  if (!agg_counts_sum || !Rg_sum || !sqrRg_sum || !shape_sum || !eigen_sum ||
+      !mass_sum || !molecules_sum || !agg_counts_step || !Rg_step ||
+      !sqrRg_step || !shape_step || !eigen_step) {
+    ErrorAlloc("sum/step arrays");
   }
   //}}}
 
@@ -386,12 +386,15 @@ int main(int argc, char *argv[]) {
     .agg_counts_sum = agg_counts_sum,
     .Rg_sum = Rg_sum,
     .sqrRg_sum = sqrRg_sum,
-    .Anis_sum = Anis_sum,
-    .Acyl_sum = Acyl_sum,
-    .Aspher_sum = Aspher_sum,
+    .shape_sum = shape_sum,
     .eigen_sum = eigen_sum,
     .mass_sum = mass_sum,
     .molecules_sum = molecules_sum,
+    .agg_counts_step = agg_counts_step,
+    .Rg_step = Rg_step,
+    .sqrRg_step = sqrRg_step,
+    .shape_step = shape_step,
+    .eigen_step = eigen_step,
   };
   STEP step = InitStep;
   MainLoopCoorAgg(&System, in, input_agg, commons, &step, Aggregate,
@@ -441,11 +444,11 @@ int main(int argc, char *argv[]) {
         SetArr2D(data, row_count, count++, val);
         val = GetArr2D(sqrRg_sum, i, 0) / agg_counts_sum[i];
         SetArr2D(data, row_count, count++, val);
-        val = Anis_sum[i] / agg_counts_sum[i];
+        val = GetArr2D(shape_sum, i, ANIS) / agg_counts_sum[i];
         SetArr2D(data, row_count, count++, val);
-        val = Acyl_sum[i] / agg_counts_sum[i];
+        val = GetArr2D(shape_sum, i, ACYL) / agg_counts_sum[i];
         SetArr2D(data, row_count, count++, val);
-        val = Aspher_sum[i] / agg_counts_sum[i];
+        val = GetArr2D(shape_sum, i, ASPH) / agg_counts_sum[i];
         SetArr2D(data, row_count, count++, val);
         for (int dd = 0; dd < 3; dd++) {
           val = GetArr2D(eigen_sum, i, dd) / agg_counts_sum[i];
@@ -474,10 +477,9 @@ int main(int argc, char *argv[]) {
       AddArr2D(sqrRg_sum, 0, dd, GetArr2D(sqrRg_sum, i, dd));
       AddArr2D(eigen_sum, 0, dd, GetArr2D(eigen_sum, i, dd));
     }
-    Anis_sum[0] += Anis_sum[i];
-    Acyl_sum[0] += Acyl_sum[i];
-    Aspher_sum[0] += Aspher_sum[i];
-
+    for (int dd = 0; dd < NUM; dd++) {
+      AddArr2D(shape_sum, 0, dd, GetArr2D(shape_sum, i, dd));
+    }
     agg_counts_sum[0] += agg_counts_sum[i];
 
     AddArr2D(mass_sum, 0, 0, GetArr2D(mass_sum, i, 0));
@@ -518,9 +520,9 @@ int main(int argc, char *argv[]) {
   fprintf(out, " %lf", GetArr2D(sqrRg_sum, 0, 0) / agg_counts_sum[0]);
   fprintf(out, " %lf", GetArr2D(sqrRg_sum, 0, 1) / GetArr2D(mass_sum, 0, 0));
   fprintf(out, " %lf", GetArr2D(sqrRg_sum, 0, 2) / GetArr2D(mass_sum, 0, 1));
-  fprintf(out, " %lf", Anis_sum[0] / agg_counts_sum[0]);
-  fprintf(out, " %lf", Acyl_sum[0] / agg_counts_sum[0]);
-  fprintf(out, " %lf", Aspher_sum[0] / agg_counts_sum[0]);
+  fprintf(out, " %lf", GetArr2D(shape_sum, 0, ANIS) / agg_counts_sum[0]);
+  fprintf(out, " %lf", GetArr2D(shape_sum, 0, ACYL) / agg_counts_sum[0]);
+  fprintf(out, " %lf", GetArr2D(shape_sum, 0, ASPH) / agg_counts_sum[0]);
   fprintf(out, " %lf", GetArr2D(eigen_sum, 0, 0) / agg_counts_sum[0]);
   fprintf(out, " %lf", GetArr2D(eigen_sum, 0, 1) / agg_counts_sum[0]);
   fprintf(out, " %lf", GetArr2D(eigen_sum, 0, 2) / agg_counts_sum[0]);
@@ -540,10 +542,13 @@ int main(int argc, char *argv[]) {
   free(agg_counts_sum);
   FreeArrND(Rg_sum);
   FreeArrND(sqrRg_sum);
-  free(Anis_sum);
-  free(Acyl_sum);
-  free(Aspher_sum);
+  FreeArrND(shape_sum);
   FreeArrND(eigen_sum);
+  free(agg_counts_step);
+  FreeArrND(Rg_step);
+  FreeArrND(sqrRg_step);
+  FreeArrND(shape_step);
+  FreeArrND(eigen_step);
   free(opt.bt);
   free(join_bt);
   FreeAggPicker(&opt.agg);

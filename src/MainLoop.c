@@ -19,18 +19,14 @@ bool UseStep(const COMMON_OPT opt, const int step) {
   }
 } //}}}
 
-// main loop //{{{
+// main loop for utilities reading coordinate files only //{{{
 void MainLoopCoor(SYSTEM *System, SYS_FILES in, COMMON_OPT commons,
                   STEP *step, callback callback_func, void *ud) {
   FILE *fr = OpenFile(in.coor.name, "r");
   while (true) {
     PrintStep(&step->coor, commons.start, commons.silent);
     // use every skip-th timestep between start and end
-    bool use = false;
     if (UseStep(commons, step->coor)) {
-      use = true;
-    }
-    if (use) {
       if (!ReadTimestep(in, fr, System, &step->line_count)) {
         step->coor--;
         break;
@@ -52,13 +48,13 @@ void MainLoopCoor(SYSTEM *System, SYS_FILES in, COMMON_OPT commons,
   PrintLastStep(step->coor, step->used, commons.silent);
 }; //}}}
 
-// main loop reading coordinate and aggregate files in lockstep //{{{
+// main loop for utilities reading both coordinate and aggregate files //{{{
 void MainLoopCoorAgg(SYSTEM *System, SYS_FILES in, const char *agg_file,
                      COMMON_OPT commons, STEP *step, AGGREGATE *Aggregate,
                      callback callback_func, void *ud) {
   FILE *coor = OpenFile(in.coor.name, "r");
   FILE *agg = OpenFile(agg_file, "r");
-  // skip the agg file header (byline + Aggregates command line)
+  // skip the agg file header (byline and Aggregates command line)
   for (int i = 0; i < 2; i++) {
     step->line_count_agg++;
     int ch;
@@ -81,7 +77,7 @@ void MainLoopCoorAgg(SYSTEM *System, SYS_FILES in, const char *agg_file,
       } else if (agg_ret < 0) { // malformed data - only exit is safe, as
                                 // truncating would silently skew results
         err_msg("malformed aggregate data");
-        PrintErrorFile(agg_file, "\0", "\0");
+        PrintErrorFileLine(agg_file, step->line_count_agg);
         exit(1);
       }
       step->agg++;
@@ -105,7 +101,7 @@ void MainLoopCoorAgg(SYSTEM *System, SYS_FILES in, const char *agg_file,
   PrintLastStep(step->coor, step->used, commons.silent);
 }; //}}}
 
-// main loop reading only an aggregate file //{{{
+// main loop for utilities reading aggregate files only //{{{
 void MainLoopAgg(SYSTEM *System, const char *agg_file, COMMON_OPT commons,
                  STEP *step, AGGREGATE *Aggregate,
                  callback callback_func, void *ud) {
@@ -129,7 +125,7 @@ void MainLoopAgg(SYSTEM *System, const char *agg_file, COMMON_OPT commons,
       } else if (agg_ret < 0) { // malformed data - only exit is safe, as
                                 // truncating would silently skew results
         err_msg("malformed aggregate data");
-        PrintErrorFile(agg_file, "\0", "\0");
+        PrintErrorFileLine(agg_file, step->line_count_agg);
         exit(1);
       }
       step->used++;

@@ -110,8 +110,7 @@ static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
       continue;
     }
 
-    vec3d com = CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead,
-                             *System);
+    vec3d com = CentreOfMass(Aggregate[i].nBeads, Aggregate[i].Bead, *System);
 
     FillArrND(ud->rho_temp, 0);
 
@@ -135,7 +134,6 @@ static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
 
       if (dist.v[0] < ud->max_dist) {
         int k = dist.v[0] / ud->width;
-        // temp_rho[System.Bead[id].Type][correct_size][k]++;
         AddArr3D(ud->rho_temp, System->Bead[id].Type, correct_size, k, 1);
       }
     } //}}}
@@ -362,9 +360,7 @@ int main(int argc, char *argv[]) {
     int nrows = bins;
     ArrNDd *data = CreateArr2Dd(nrows + 2, ncols);
     if (!data) {
-      err_msg("ArrNDd constructor failed (data)");
-      PrintError();
-      exit(1);
+      ErrorAlloc("data");
     }
 
     // calculate rdf

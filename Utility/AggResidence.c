@@ -1,14 +1,12 @@
 #include "../src/AnalysisTools.h"
 
-//TODO: warning if 0 mass leading to nan in output file
-
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
   "AggResidence calculates distribution of residence times for molecules "
   "in any aggregate of at least given size. Note that 1) the utility does not "
   "care about which aggregate (i.e., no labeling or anything like that) and "
   "2) simulation sampling may significantly skew the results (e.g., "
-  "a molecule may come in and out of an aggregate between two saved "
+  "a molecule may have come in and out of an aggregate between two saved "
   "configurations.",
 
   "Usage: AggResidence <in.stru> <in.agg> <agg size> <output> [options]",
@@ -50,23 +48,18 @@ static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
   COUNT *Count = &System->Count;
   for (int i = 0; i < Count->Molecule; i++) { //{{{
     MOLECULE *mol = &System->Molecule[i];
-    // printf("Size: Aggregate[mol->Aggregate].nMolecules = %d\n",
-    //        Aggregate[mol->Aggregate].nMolecules);
     if (Aggregate[mol->Aggregate].nMolecules >= ud->min_agg_size) {
       ud->residence_time[i]++;
     } else {
       if (ud->residence_time[i] > 0) {
         if (ud->residence_time[i] == ud->max_residence_time) {
+          // TODO: huh? ...I guess better define maximum time (see below)?
           err_msg("TOO LONG IN AN AGGREGATE; USING max_residence_time "
                   "...WILL BE REWORKED!");
           PrintWarning();
           AddArr2D(ud->residence_distr, i, ud->max_residence_time - 1, 1);
         } else {
-          // printf("OK ... %d %d", ud->residence_time[i],
-          //        GetArr2D(ud->residence_distr, i, ud->residence_time[i] - 1));
           AddArr2D(ud->residence_distr, i, ud->residence_time[i] - 1, 1);
-          // printf(" ... %d\n",
-          //        GetArr2D(ud->residence_distr, i, ud->residence_time[i] - 1));
         }
       }
       ud->residence_time[i] = 0;
@@ -118,7 +111,6 @@ int main(int argc, char *argv[]) {
     VerboseOutput(System);
   }
 
-
   // TODO: make it better - not just a random constant
   int max_residence_time = 1000;
   ArrNDi *residence_distr = CreateArr2Di(Count->Molecule, max_residence_time);
@@ -136,22 +128,19 @@ int main(int argc, char *argv[]) {
     .residence_distr = residence_distr,
   };
   STEP step = InitStep;
-  MainLoopAgg(&System, input_agg, commons, &step, Aggregate,
-              Calculation, &ud);
+  MainLoopAgg(&System, input_agg, commons, &step, Aggregate, Calculation, &ud);
   int count_used = step.used; //}}}
 
   for (int i = 0; i < Count->Molecule; i++) {
     if (residence_time[i] > 0) {
       if (residence_time[i] == max_residence_time) {
-        err_msg("TOO LONG IN AN AGGREGATE; USING max_residence_time ...WILL BE REWORKED!");
+        // TODO: huh? ...I guess 'better' maximum time?
+        err_msg("TOO LONG IN AN AGGREGATE; USING max_residence_time "
+            "...WILL BE REWORKED!");
         PrintWarning();
         AddArr2D(residence_distr, i, max_residence_time - 1, 1);
       } else {
-        // printf("OK ... %d %d", residence_time[i],
-        //        GetArr2D(residence_distr, i, residence_time[i] - 1));
         AddArr2D(residence_distr, i, residence_time[i] - 1, 1);
-        // printf(" ... %d\n",
-        //        GetArr2D(residence_distr, i, residence_time[i] - 1));
       }
     }
   }

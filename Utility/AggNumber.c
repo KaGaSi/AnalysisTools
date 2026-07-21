@@ -84,15 +84,15 @@ struct user_data {
   OPT opt;
   AGGREGATE *Aggregate;
   long double *ndistr;
-  ArrNDd *wdistr, *zdistr;      // -d option
+  ArrNDd *wdistr, *zdistr; // -d option
   ArrNDi *molecules_sum;
   int *count_agg,
-      *link_c_sizes;            // -c option
-  long int *comp_agg_count;     // -c option
-  ArrNDli *comp_distr,          // -c option
-          *ratio_distr;         // -c option
-  double (*mass_sum)[2],        // [3][2] overall mass sums
-         (*As_sum)[2];          // [3][2] overall size sums
+      *link_c_sizes;        // -c option
+  long int *comp_agg_count; //
+  ArrNDli *comp_distr,      //
+          *ratio_distr;     //
+  double (*mass_sum)[2],    // [3][2] overall mass sums
+         (*As_sum)[2];      // [3][2] overall size sums
 }; //}}}
 
 // per-timestep calculation and output //{{{
@@ -106,7 +106,7 @@ static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
   double avg_mass_n_step[2] = {0, 0}, // per-step mass averages
          avg_mass_w_step[2] = {0, 0}, //  [0] ... from options
          avg_mass_z_step[2] = {0, 0}, //  [1] ... for whole aggregates
-         avg_As_n_step = 0,      // per-step As averages
+         avg_As_n_step = 0,         // per-step As averages
          avg_As_w_step[2] = {0, 0}, //  [0] ... from options
          avg_As_z_step[2] = {0, 0}, //  [1] ... for whole aggregates
          molecules_step[Count->MoleculeType];
@@ -548,7 +548,6 @@ int main(int argc, char *argv[]) {
             putc('\n', fw);
           }
         }
-        // free(precisions);
         FreeArrND(data);
       }
       fclose(fw); //}}}
@@ -673,9 +672,8 @@ static void PrintComp2DHeader(int argc, char *argv[], OPT opt, SYSTEM System,
   }
   putc('\n', fw);
   fclose(fw);
-}
-//}}}
-// print the note about the two different mass definition //{{{
+} //}}}
+// print the note about the two different mass definitions //{{{
 static void PrintHeaderMassNote(FILE *fw, SYSTEM System, OPT opt) {
   if (!opt.agg.m_flag) {
     fprintf(fw, "# Note: The -m option was not used; therefore, 'partial mass'"
