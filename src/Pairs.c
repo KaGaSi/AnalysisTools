@@ -1,5 +1,7 @@
 #include "Pairs.h"
 #include "Errors.h"
+#include "General.h"
+#include "MathUtils.h"
 
 /*
  * norm_axis convention (shared by all functions below): -1 means full 3D
@@ -7,6 +9,26 @@
  * so pairs are found by their in-plane separation only. Useful for 2D
  * (slit-like) systems where the distance along norm_axis is irrelevant.
  */
+// cross product of two 3D vectors
+static inline vec3d Cross(const vec3d a, const vec3d b) {
+  return (vec3d){ .v = { a.y * b.z - a.z * b.y,
+                         a.z * b.x - a.x * b.z,
+                         a.x * b.y - a.y * b.x } };
+}
+// is the simulation box orthogonal? (same epsilon as DistancePBC())
+static inline bool BoxIsOrthogonal(const BOX *box) {
+  return fabs(box->alpha - 90) < 1e-5 &&
+         fabs(box->beta  - 90) < 1e-5 &&
+         fabs(box->gamma - 90) < 1e-5;
+}
+/*
+ * Perpendicular widths of the (possibly triclinic) cell, i.e. the spacings
+ * between opposite periodic faces. This is the largest cell extent along each
+ * lattice direction that still lets the half-shell +/-1 neighbour search see
+ * every pair within the cut-off. For orthogonal boxes these are the box
+ * lengths; for triclinic boxes they are Volume / |edge_j x edge_k|.
+ */
+static vec3d CellWidths(const BOX *box);
 // create a cell linked list
 static vec3i LinkedList(const SYSTEM System, int **Head, int **Link,
                         const double cell_size, const int norm_axis);
@@ -101,9 +123,9 @@ void TraversePairs(const SYSTEM System, const double cell_size,
                    pair_cb_t pair_callback, void *pair_ud,
                    check_cb_t check_callback, void *check_ud) {
   bool linked = true;
-  if ((Min3(System.Box.Length.x,
-            System.Box.Length.y,
-            System.Box.Length.z) / 3) < cell_size) {
+  // decide on the perpendicular cell widths (equal box lengths when orthogonal)
+  vec3d width = CellWidths(&System.Box);
+  if ((Min3(width.x, width.y, width.z) / 3) < cell_size) {
     linked = false;
   }
   if (linked) {
@@ -124,11 +146,12 @@ void TraversePairs2D(const SYSTEM System, const double cell_size,
     exit(1);
   }
   // only the two in-plane axes need to fit at least 3 cells
+  vec3d width = CellWidths(&System.Box);
   double min_plane = -1;
   for (int dd = 0; dd < 3; dd++) {
     if (dd != norm_axis &&
-        (min_plane == -1 || System.Box.Length.v[dd] < min_plane)) {
-      min_plane = System.Box.Length.v[dd];
+        (min_plane == -1 || width.v[dd] < min_plane)) {
+      min_plane = width.v[dd];
     }
   }
   if ((min_plane / 3) < cell_size) {
@@ -141,28 +164,51 @@ void TraversePairs2D(const SYSTEM System, const double cell_size,
   }
 } //}}}
 
+static vec3d CellWidths(const BOX *box) {
+  if (BoxIsOrthogonal(box)) {
+    return box->Length;
+  }
+  // lattice edge vectors are the columns of the transform matrix
+  vec3d a = { .v = {box->transform[0][0], box->transform[1][0],
+                    box->transform[2][0]} };
+  vec3d b = { .v = {box->transform[0][1], box->transform[1][1],
+                    box->transform[2][1]} };
+  vec3d c = { .v = {box->transform[0][2], box->transform[1][2],
+                    box->transform[2][2]} };
+  vec3d w;
+  w.v[0] = box->Volume / VectLength(Cross(b, c));
+  w.v[1] = box->Volume / VectLength(Cross(c, a));
+  w.v[2] = box->Volume / VectLength(Cross(a, b));
+  return w;
+}
 // create a cell linked list //{{{
+/*
+ * Cells are laid out in fractional (lattice) space so the same code handles
+ * orthogonal and triclinic boxes: a bead's fractional coordinate is r/Length
+ * per axis when orthogonal, or inverse*r (as in DistancePBC) when triclinic.
+ * Fractional coordinates are wrapped into [0,1) before binning, so a bead that
+ * sits outside [0,Length) - which is normal for the real Cartesian coordinates
+ * of a tilted cell - can never index outside the cell array.
+ */
 static vec3i LinkedList(const SYSTEM System, int **Head, int **Link,
                         const double cell_size, const int norm_axis) {
-  const vec3d *box = &System.Box.Length;
+  const BOX *box = &System.Box;
   const COUNT *Count = &System.Count;
-  vec3d rl;
+  const bool ortho = BoxIsOrthogonal(box);
+  const vec3d width = CellWidths(box);
   vec3i n_cells;
   // compute number of cells along each axis
   for (int dd = 0; dd < 3; dd++) {
     if (dd == norm_axis) { // single cell spans the non-binned axis
       n_cells.v[dd] = 1;
-      rl.v[dd] = 0; // any coordinate maps to cell 0
       continue;
     }
-    rl.v[dd] = (*box).v[dd] / cell_size;
-    n_cells.v[dd] = (int)(rl.v[dd]);
+    n_cells.v[dd] = (int)(width.v[dd] / cell_size);
     if (n_cells.v[dd] < 3) {
       err_msg("cell size too small for cut-off in linked list");
       PrintError();
       exit(1);
     }
-    rl.v[dd] = (double)n_cells.v[dd] / (*box).v[dd]; // inverse length
   }
   // allocate lists
   int cells = n_cells.x * n_cells.y * n_cells.z;
@@ -177,12 +223,34 @@ static vec3i LinkedList(const SYSTEM System, int **Head, int **Link,
   // insert beads
   for (int i = 0; i < Count->BeadCoor; i++) {
     int id = System.BeadCoor[i];
-    BEAD *bead = &System.Bead[id];
+    const vec3d pos = System.Bead[id].Position;
+    // fractional coordinate: orthogonal is diagonal (r/Length), triclinic uses
+    // the Cartesian->fractional matrix (inverse might be unset for orthogonal
+    // boxes read without CalculateBoxData(), hence the split)
+    vec3d s;
+    if (ortho) {
+      for (int dd = 0; dd < 3; dd++) {
+        s.v[dd] = pos.v[dd] / box->Length.v[dd];
+      }
+    } else {
+      for (int dd = 0; dd < 3; dd++) {
+        s.v[dd] = box->inverse[dd][0] * pos.v[0] +
+                  box->inverse[dd][1] * pos.v[1] +
+                  box->inverse[dd][2] * pos.v[2];
+      }
+    }
     vec3i c;
     for (int dd = 0; dd < 3; dd++) {
-      c.v[dd] = (int)(bead->Position.v[dd] * rl.v[dd]);
-      if (c.v[dd] == n_cells.v[dd]) { // guard FP boundary
+      if (dd == norm_axis) { // non-binned axis maps to the single cell 0
+        c.v[dd] = 0;
+        continue;
+      }
+      double f = s.v[dd] - floor(s.v[dd]); // wrap fractional coord into [0,1)
+      c.v[dd] = (int)(f * n_cells.v[dd]);
+      if (c.v[dd] >= n_cells.v[dd]) { // guard FP boundary (f -> 1.0)
         c.v[dd] = n_cells.v[dd] - 1;
+      } else if (c.v[dd] < 0) { // guard FP boundary (f -> tiny negative)
+        c.v[dd] = 0;
       }
     }
     int cell = c.x + c.y * n_cells.x + c.z * n_cells.x * n_cells.y;

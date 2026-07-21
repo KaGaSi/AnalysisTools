@@ -484,7 +484,7 @@ int main(int argc, char *argv[]) {
       goto err_constraint;
     }
     for (int i = 0; i < opt.ca_count[dd]; i+=2 ) {
-      if (fabs(opt.ca[0][i] - opt.ca[dd][i+1]) < 0.0001) { // same numbers in a pair
+      if (fabs(opt.ca[dd][i] - opt.ca[dd][i+1]) < 0.0001) { // same numbers in a pair
         goto err_constraint;
       } else if (!opt.real && (opt.ca[dd][i] < 0 || opt.ca[dd][i] > 1 ||
                                 opt.ca[dd][i+1] < 0 || opt.ca[dd][i+1] > 1)) {

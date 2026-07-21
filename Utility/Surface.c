@@ -358,14 +358,14 @@ int main(int argc, char *argv[]) {
    * is too low), than it may be lower
    */
   // int *values = calloc(bin_alloc[0] * bin_alloc[1] * 2, sizeof *values);
-  int (**values)[2] = calloc(bin_alloc[0], sizeof (*values)[2]);
+  int (**values)[2] = calloc(bin_alloc[0], sizeof *values);
   /*
    * Sum of points for each surface (i.e., the 'proper' coordinates in <axis>
    * direction) in each bin
    *
    * sum_surf/values gives average coordinate for the two surfaces
    */
-  double (**sum_surf)[2] = calloc(bin_alloc[0], sizeof (*sum_surf)[2]);
+  double (**sum_surf)[2] = calloc(bin_alloc[0], sizeof *sum_surf);
   if (!values || !sum_surf) {
     ErrorAlloc("values/sum_surf");
   }
@@ -463,18 +463,18 @@ int main(int argc, char *argv[]) {
 
       // allocate memory for temporary arrays //{{{
       // surfaces' coordinates in this step
-      double (**surf_step)[2] = calloc(bins_step[0], sizeof (*surf_step)[2]);
+      double (**surf_step)[2] = calloc(bins_step[0], sizeof *surf_step);
       int (**surf_bead_ids)[2] = calloc(bins_step[0],
-                                  sizeof (*surf_bead_ids)[2]);
+                                  sizeof *surf_bead_ids);
       // InitIntArray(surf_bead_ids, bin_alloc[0] * bin_alloc[1] * 2, -1);
       // is a bin used in this step? (akin to the values array)
       bool ***bin_use = calloc(bins_step[0], sizeof *bin_use);
       for (int i = 0; i < bins_step[0]; i++) {
         surf_step[i] = calloc(bins_step[1], sizeof **surf_step);
         surf_bead_ids[i] = calloc(bins_step[1], sizeof **surf_bead_ids);
-        bin_use[i] = calloc(bins_step[1], sizeof *bin_use);
+        bin_use[i] = calloc(bins_step[1], sizeof **bin_use);
         for (int j = 0; j < bins_step[1]; j++) {
-          bin_use[i][j] = calloc(2, sizeof *bin_use);
+          bin_use[i][j] = calloc(2, sizeof ***bin_use);
           surf_bead_ids[i][j][0] = -1;
           surf_bead_ids[i][j][1] = -1;
           if (!opt.in) {
