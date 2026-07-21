@@ -68,10 +68,10 @@ static int * HighestParam(const SYSTEM System, const int type) {
     }
   }
   static int width[4];
-  width[0] = snprintf(NULL, 0, "%.5f", high.a);
-  width[1] = snprintf(NULL, 0, "%.0f", high.b);
-  width[2] = snprintf(NULL, 0, "%.0f", high.c);
-  width[3] = snprintf(NULL, 0, "%.0f", high.d);
+  width[0] = snprintf(nullptr, 0, "%.5f", high.a);
+  width[1] = snprintf(nullptr, 0, "%.0f", high.b);
+  width[2] = snprintf(nullptr, 0, "%.0f", high.c);
+  width[3] = snprintf(nullptr, 0, "%.0f", high.d);
   return width;
 } //}}}
 

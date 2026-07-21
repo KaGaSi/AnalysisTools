@@ -1399,7 +1399,7 @@ SYSTEM CopySystem(SYSTEM S_in) {
       ReallocMolecule(&S_out);
       for (int i = 0; i < S_out.Count.Molecule; i++) {
         S_out.Molecule[i] = S_in.Molecule[i];
-        S_out.Molecule[i].Bead = NULL; // prevent alias if nBeads==0
+        S_out.Molecule[i].Bead = nullptr; // prevent alias if nBeads==0
         // Molecule[].Bead array
         int type = S_out.Molecule[i].Type;
         if (S_out.MoleculeType[type].nBeads > 0) {
@@ -1676,7 +1676,7 @@ void CopyAllStuffType(SYSTEM *S_new, SYSTEM S_old) {
                       S_new->Count.ImproperType);
 } //}}}
 void PruneSystem(SYSTEM *System, int *b_full_to_red) { //{{{
-  if (b_full_to_red != NULL) {
+  if (b_full_to_red != nullptr) {
     InitIntArray(b_full_to_red, System->Count.Bead, -1);
   }
   SYSTEM S_old = CopySystem(*System);
@@ -1737,7 +1737,7 @@ void PruneSystem(SYSTEM *System, int *b_full_to_red) { //{{{
 
     System->Bead[count_all].Type = new_type;
     remap_all_bead_ids[id] = count_all;
-    if (b_full_to_red != NULL) {
+    if (b_full_to_red != nullptr) {
       b_full_to_red[id] = count_all;
     }
 
@@ -1922,7 +1922,7 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box, bool prune) {
           bt_new->Index[j] = S_in.BeadType[i].Index[j] + Count_old.Bead;
         }
       } else {
-        bt_new->Index = NULL;
+        bt_new->Index = nullptr;
       }
     }
   } else {
@@ -2088,7 +2088,7 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box, bool prune) {
   //   }
   // } //}}}
   if (prune) {
-    PruneSystem(S_out, NULL);
+    PruneSystem(S_out, nullptr);
   }
 } //}}}
 
@@ -2627,7 +2627,7 @@ void ChangeMolecules(SYSTEM *S_orig, SYSTEM S_add, bool name) {
   } //}}}
   // make sure all stuff is properly counted and there's nothing extra
   CountBondAngleDihedralImproper(S_orig);
-  PruneSystem(S_orig, NULL);
+  PruneSystem(S_orig, nullptr);
 } //}}}
 
 // Add/subtract Box.Low to coordinates //{{{

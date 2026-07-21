@@ -25,15 +25,15 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>",  NULL,           "input coordinate file",                                                        OPT_ARG},
-  {"<width>",  NULL,           "width of a distribution bin",                                                  OPT_ARG},
-  {"<output>", NULL,           "output file with S distribution and averages",                                 OPT_ARG},
-  {"-m",       "<name(s)>",    "molecule types to use (default: all)",                                         OPT_EXTRA},
-  {"--joined", NULL,           "input contains joined coordinates",                                            OPT_EXTRA},
-  {"-a",       "<axis>",       "bilayer normal axis: x, y, or z (default: z)",                                 OPT_EXTRA},
-  {"-n",       "<int int ...>","bead pairs (must be in pairs; default: first and last bead)",                   OPT_EXTRA},
-  {"--bonds",  NULL,           "also write per-bond S_n profile to <output>-bonds.txt",                        OPT_EXTRA},
-  {NULL}
+  {"<input>", nullptr, "input coordinate file",                                                        OPT_ARG},
+  {"<width>", nullptr, "width of a distribution bin",                                                  OPT_ARG},
+  {"<output>", nullptr, "output file with S distribution and averages",                                 OPT_ARG},
+  {"-m", "<name(s)>", "molecule types to use (default: all)",                                         OPT_EXTRA},
+  {"--joined", nullptr, "input contains joined coordinates",                                            OPT_EXTRA},
+  {"-a", "<axis>", "bilayer normal axis: x, y, or z (default: z)",                                 OPT_EXTRA},
+  {"-n", "<int int ...>","bead pairs (must be in pairs; default: first and last bead)",                   OPT_EXTRA},
+  {"--bonds", nullptr, "also write per-bond S_n profile to <output>-bonds.txt",                        OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -219,8 +219,8 @@ int main(int argc, char *argv[]) {
 
   // allocate per-bond arrays if --bonds //{{{
   int max_bonds = 0;
-  ArrNDd *avg_bonds = NULL;
-  ArrNDd *cnt_bonds = NULL;
+  ArrNDd *avg_bonds = nullptr;
+  ArrNDd *cnt_bonds = nullptr;
   if (opt.bonds) {
     for (int mt = 0; mt < Count->MoleculeType; mt++) {
       if (!opt.mt[mt]) continue;

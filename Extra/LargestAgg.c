@@ -6,7 +6,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: LargestAgg <input> <in.agg> <output> [options]",
   .args = 3, // number of mandatory arguments
-  .all = 10, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 10, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_ST],
@@ -16,10 +16,10 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input structure file", OPT_ARG},
-  {"<in.agg>", NULL, "input agg file", OPT_ARG},
-  {"<output>", NULL, "output file with largest aggregates", OPT_ARG},
-  {NULL}
+  {"<input>", nullptr, "input structure file", OPT_ARG},
+  {"<in.agg>", nullptr, "input agg file", OPT_ARG},
+  {"<output>", nullptr, "output file with largest aggregates", OPT_ARG},
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
 
-  AGGREGATE *Aggregate = NULL;
+  AGGREGATE *Aggregate = nullptr;
   InitAggregate(System, &Aggregate);
 
   if (commons.verbose) {

@@ -14,7 +14,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: %s <input> <output> [options]",
   .args = 2, // number of mandatory arguments
-  .all = 15, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 15, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -26,13 +26,15 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file", OPT_ARG},
-  {"<output>", NULL, "output file with the persistence length", OPT_ARG},
-  {"-m", "<name(s)>", "molecule types to calculate bond lengths for (if not present, use all molecule types)", OPT_EXTRA},
-  {"--joined", NULL, "specify that <input> contains joined coordinates", OPT_EXTRA},
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<output>", nullptr, "output file with the persistence length", OPT_ARG},
+  {"-m", "<name(s)>", "molecule types to calculate bond lengths for "
+    "(default: all molecule types)", OPT_EXTRA},
+  {"--joined", nullptr, "specify that <input> contains joined coordinates",
+    OPT_EXTRA},
   {"-ns", "<int>", "start with <int>-th bead in a molecule", OPT_EXTRA},
   {"-ne", "<int>", "end with <int>-th bead in a molecule", OPT_EXTRA},
-  {NULL}
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{

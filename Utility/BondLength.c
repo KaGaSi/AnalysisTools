@@ -11,7 +11,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: BondLength <input> <width> <output> [options]",
   .args = 3, // number of mandatory arguments
-  .all = 18, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 18, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -23,18 +23,18 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file", OPT_ARG},
-  {"<width>", NULL, "width of a distribution bin", OPT_ARG},
-  {"<output>", NULL, "output file with the distribution", OPT_ARG},
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<width>", nullptr, "width of a distribution bin", OPT_ARG},
+  {"<output>", nullptr, "output file with the distribution", OPT_ARG},
   {"-mt", "<name(s)>", "molecule types to use (default: all)", OPT_EXTRA},
-  {"--joined", NULL, "<input> contains joined coordinates", OPT_EXTRA},
-  {"--all", NULL, "calculate distribution for each bond in the molecule types",
-    OPT_EXTRA},
+  {"--joined", nullptr, "<input> contains joined coordinates", OPT_EXTRA},
+  {"--all", nullptr, "calculate distribution for each bond "
+    "in the molecule type(s)", OPT_EXTRA},
   {"-n", "<file> [ints]", "distribution of distances between specified "
     "bead pair(s) (default [ints]: first and last bead)", OPT_EXTRA},
   {"-w", "<float>", "warn if the length exceeds <float>", OPT_EXTRA},
   {"-t", "<file>", "save per-timestep data to <file>", OPT_EXTRA},
-  {NULL}
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -73,8 +73,8 @@ void Calculation(SYSTEM *System, STEP step, OPT opt,
   if (!per_step || !per_step_c) {
     ErrorAlloc("step/step_c");
   }
-  ArrNDd *step_t = NULL;
-  ArrNDi *step_t_c = NULL;
+  ArrNDd *step_t = nullptr;
+  ArrNDi *step_t_c = nullptr;
   int n_pair_num = opt.n_number / n_per_set;
   if (opt.t_file[0] != '\0' || opt.n_file[0] != '\0') {
     if (!(step_t = CreateArr2Dd(Count->MoleculeType, n_pair_num)) ||
@@ -82,8 +82,8 @@ void Calculation(SYSTEM *System, STEP step, OPT opt,
       ErrorAlloc("step_t/step_t_c");
     }
   }
-  ArrNDd *step_bond_all = NULL;
-  ArrNDi *step_bond_all_c = NULL;
+  ArrNDd *step_bond_all = nullptr;
+  ArrNDi *step_bond_all_c = nullptr;
   if (opt.t_file[0] != '\0' && opt.all) {
     int max_b = 0;
     for (int i = 0; i < Count->MoleculeType; i++) {
@@ -412,8 +412,8 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
   // arrays for all bonds in molecules //{{{
-  ArrNDd *bond_all = NULL;
-  ArrNDd *bond_all_mma = NULL;
+  ArrNDd *bond_all = nullptr;
+  ArrNDd *bond_all_mma = nullptr;
   // maximum number of bonds in all molecules
   int max_bonds = 0;
   for (int i = 0; i < Count->MoleculeType; i++) {
@@ -434,8 +434,8 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
   // extra arrays for -n option //{{{
-  ArrNDd *bond_n = NULL;
-  ArrNDd *bond_n_mma = NULL;
+  ArrNDd *bond_n = nullptr;
+  ArrNDd *bond_n_mma = nullptr;
   if (opt.n_file[0] != '\0') {
     if (!(bond_n = CreateArr3Dd(Count->MoleculeType, n_pair_num, bins)) ||
         !(bond_n_mma = CreateArr3Dd(Count->MoleculeType, n_pair_num, 3))) {
@@ -552,7 +552,7 @@ int main(int argc, char *argv[]) {
     }
   }
   // all molecules' bonds
-  ArrNDi *bond_all_norm = NULL;
+  ArrNDi *bond_all_norm = nullptr;
   if (opt.all) {
     if (!(bond_all_norm = CreateArr2Di(Count->MoleculeType, max_bonds))) {
       ErrorAlloc("bond_all_norm");

@@ -6,7 +6,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: ChainContacts <input> <output> <bead(s)> [options]",
   .args = 2, // number of mandatory arguments
-  .all = 15, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 15, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -18,13 +18,17 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file", OPT_ARG},
-  {"<output>", NULL, "output file with number of isolated beads per chain", OPT_ARG},
-  {"<bead(s)>", NULL, "bead name(s) for calculation (optional and ignored if '--all' is used)", OPT_ARG},
-  {"-d", "<dist>", "maximum distance for contact calculation (default: 1/3 of the shortest box side length)", OPT_EXTRA},
-  {"-skip", "<num>", "number of in-between beads to skip in the same molecule", OPT_EXTRA},
-  {"--all", NULL, "use all bead types (overwrites <bead(s)>)", OPT_EXTRA},
-  {NULL}
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<output>", nullptr, "output file with number of isolated beads per chain",
+    OPT_ARG},
+  {"<bead(s)>", nullptr, "bead name(s) for calculation "
+    "(optional and ignored if '--all' is used)", OPT_ARG},
+  {"-d", "<dist>", "maximum distance for contact calculation "
+    "(default: 1/3 of the shortest box side length)", OPT_EXTRA},
+  {"-skip", "<num>", "number of in-between beads to skip in the same molecule",
+    OPT_EXTRA},
+  {"--all", nullptr, "use all bead types (overwrites <bead(s)>)", OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{

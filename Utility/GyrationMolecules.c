@@ -10,7 +10,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: GyrationMolecules <input> <output> [options]",
   .args = 2,  // number of mandatory arguments
-  .all = 14,  // number of valid lines in OptSpec (not counting last {NULL})
+  .all = 14,  // number of valid lines in OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -22,12 +22,12 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>",  NULL, "input coordinate file", OPT_ARG},
-  {"<output>", NULL, "output base name ('-<molname>.txt' is added)", OPT_ARG},
-  {"--joined", NULL, "<input> contains joined coordinates", OPT_EXTRA},
+  {"<input>",  nullptr, "input coordinate file", OPT_ARG},
+  {"<output>", nullptr, "output base name (appends '-<molname>.txt')", OPT_ARG},
+  {"--joined", nullptr, "<input> contains joined coordinates", OPT_EXTRA},
   {"-mt", "<name(s)>", "molecule types to use (default: all)", OPT_EXTRA},
   {"-bt", "<name(s)>", "bead types to use (default: all)", OPT_EXTRA},
-  {NULL}
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -306,7 +306,7 @@ int main(int argc, char *argv[]) {
       list_cap = System.MoleculeType[i].nBeads;
     }
   }
-  int *list = NULL;
+  int *list = nullptr;
   if (list_cap > 0) {
     if (!(list = malloc(list_cap * sizeof *list))) {
       ErrorAlloc("list");

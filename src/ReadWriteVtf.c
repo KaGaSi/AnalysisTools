@@ -147,7 +147,7 @@ SYSTEM VtfReadStruct(const char *file, const bool detailed) {
     InitBead(&Sys.Bead[i]);
   } //}}}
   // array to save bonds - if there are any //{{{
-  int (*bond)[5] = NULL;
+  int (*bond)[5] = nullptr;
   if (Count->Bond != 0) {
     bond = calloc(Count->Bond, sizeof *bond);
     bond[0][2] = -1; // no bond types in a vtf file
@@ -300,7 +300,7 @@ SYSTEM VtfReadStruct(const char *file, const bool detailed) {
     exit(1);
   } //}}}
   CopyMoleculeTypeBeadsToMoleculeBeads(&Sys);
-  FillAllMTypeStuff(&Sys, bond, NULL, NULL, NULL);
+  FillAllMTypeStuff(&Sys, bond, nullptr, nullptr, nullptr);
   if (Count->Bond != 0) {
     free(bond);
   }

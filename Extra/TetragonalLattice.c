@@ -20,11 +20,14 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<output>", NULL, "output coordinate file (.vtf, .vcf, .xyz, .data, etc.)", OPT_ARG},
-  {"-n", "<nxy> <nz>", "strand beads in xy and z directions, each >=1 (default: 3 5)", OPT_EXTRA},
-  {"-box", "<int> <int> <int>", "junction grid Nx Ny Nz, each >=2 (default: 4 4 4)", OPT_EXTRA},
-  {"-l", "<float>", "bond length between consecutive beads (default: 1.0)", OPT_EXTRA},
-  {NULL}
+  {"<output>", nullptr, "output coordinate file", OPT_ARG},
+  {"-n", "<nxy> <nz>", "strand beads in xy and z directions (default: 3 5)",
+    OPT_EXTRA},
+  {"-box", "<int> <int> <int>", "junction grid Nx Ny Nz, each >=2 "
+    "(default: 4 4 4)", OPT_EXTRA},
+  {"-l", "<float>", "bond length between consecutive beads (default: 1.0)",
+    OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{

@@ -19,7 +19,7 @@ static double ParseFortranDouble(const char *s) {
   for (int i = 0; i < 63 && s[i]; i++) {
     buf[i] = (s[i] == 'd' || s[i] == 'D') ? 'e' : s[i];
   }
-  return strtod(buf, NULL);
+  return strtod(buf, nullptr);
 } //}}}
 // ignore empty lines and comments and the first line with a number //{{{
 static bool IgnoreLine (bool *found_count) {
@@ -983,6 +983,6 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
 void FreeLibrary(LIBRARY *lib) { //{{{
   FreeSystem(&lib->System);
   free(lib->inter);
-  lib->inter  = NULL;
+  lib->inter  = nullptr;
   lib->n_inter = 0;
 } //}}}

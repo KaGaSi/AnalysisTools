@@ -4,7 +4,6 @@
 #include "General.h"
 #include "Globals.h"
 #include "System.h"
-#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -97,9 +96,9 @@ void Help(const bool error, const struct HelpHelp help,
 int OptionCheck(const int argc, char **argv, const bool check_extra,
                 const struct HelpHelp desc, const struct OptSpec *opts) {
   // simple check the opts struct is filled in properly
-  // test for the {NULL}
+  // test for the {nullptr}
   if (opts[desc.all].opt) {
-    err_msg("last opts[] must be {NULL}; or wrong count desc.opts");
+    err_msg("last opts[] must be {nullptr}; or wrong count desc.opts");
     PrintError();
     exit(1);
   }

@@ -13,7 +13,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: AngleMolecules <input> <width> <output> [options]\n\n",
   .args = 3, // number of mandatory arguments
-  .all = 16, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 16, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -25,14 +25,16 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file", OPT_ARG},
-  {"<width>", NULL, "width of a distribution bin in degrees", OPT_ARG},
-  {"<output>", NULL, "output file with the distribution of angles", OPT_ARG},
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<width>", nullptr, "width of a distribution bin in degrees", OPT_ARG},
+  {"<output>", nullptr, "output file with the distribution of angles", OPT_ARG},
   {"-m", "<name(s)>", "molecule types to use (default: all)", OPT_EXTRA},
-  {"--joined", NULL, "specify that <input> contains joined coordinates", OPT_EXTRA},
-  {"--all", NULL, "calculate distribution for all angles", OPT_EXTRA},
-  {"-n", "<file> <ints>", "calculate distribution of angles between given bead trios", OPT_EXTRA},
-  {NULL}
+  {"--joined", nullptr, "specify that <input> contains joined coordinates",
+    OPT_EXTRA},
+  {"--all", nullptr, "calculate distribution for all angles", OPT_EXTRA},
+  {"-n", "<file> <ints>", "calculate distribution of angles between "
+    "specified bead trios", OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -289,8 +291,8 @@ int main(int argc, char *argv[]) {
   } //}}}
   // arrays for all angles in molecules //{{{
   // double ***ang_all = NULL, (**ang_all_mma)[3] = NULL;
-  ArrNDd *ang_all = NULL;
-  ArrNDd *ang_all_mma = NULL;
+  ArrNDd *ang_all = nullptr;
+  ArrNDd *ang_all_mma = nullptr;
   // maximum number of angles in all molecules
   int max_angs = 0;
   for (int i = 0; i < Count->MoleculeType; i++) {
@@ -313,8 +315,8 @@ int main(int argc, char *argv[]) {
   // extra arrays for -n option //{{{
   // double ***ang_n = NULL;
   // double (**ang_n_mma)[3] = NULL;
-  ArrNDd *ang_n = NULL;
-  ArrNDd *ang_n_mma = NULL;
+  ArrNDd *ang_n = nullptr;
+  ArrNDd *ang_n_mma = nullptr;
   if (opt.n_file[0] != '\0') {
     // ang_n = calloc(Count->MoleculeType, sizeof *ang_n),
     // ang_n_mma = calloc(Count->MoleculeType, sizeof (**ang_n_mma)[3]);
@@ -367,7 +369,7 @@ int main(int argc, char *argv[]) {
     }
   }
   // all molecules' angles
-  ArrNDi *ang_all_norm = NULL;
+  ArrNDi *ang_all_norm = nullptr;
   if (opt.all) {
     if (!(ang_all_norm = CreateArr2Di(Count->MoleculeType, max_angs))) {
       ErrorAlloc("ang_all_norm");

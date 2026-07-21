@@ -20,18 +20,22 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file", OPT_ARG},
-  {"<in.agg>", NULL, "input agg file", OPT_ARG},
-  {"<neighbours>", NULL, "number of nearest neighbours", OPT_ARG},
-  {"<width>", NULL, "bin width for the distribution of distances", OPT_ARG},
-  {"<out.vtf>", NULL, "vtf output file with aggregate centres", OPT_ARG},
-  {"<out>", NULL, "output file with distribution of minimal distances", OPT_ARG},
-  {"--joined", NULL, "<input> contains joined coordinates", OPT_EXTRA},
-  {"-bt", NULL, "bead types used for centre calculation (default: all)", OPT_EXTRA},
-  {"-x", "<name(s)>", "exclude aggregates containing only specified molecule(s)", OPT_EXTRA},
-  {"-only", "<name(s)>", "use only aggregates composed of specified molecule(s)", OPT_EXTRA},
-  {"-n", "<int> <int>", "calculate for aggregate sizes in given range", OPT_EXTRA},
-  {NULL},
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<in.agg>", nullptr, "input agg file", OPT_ARG},
+  {"<neighbours>", nullptr, "number of nearest neighbours", OPT_ARG},
+  {"<width>", nullptr, "bin width for the distribution of distances", OPT_ARG},
+  {"<out.vtf>", nullptr, "vtf output file with aggregate centres", OPT_ARG},
+  {"<out>", nullptr, "output file with distribution of minimal distances",
+    OPT_ARG},
+  {"--joined", nullptr, "<input> contains joined coordinates", OPT_EXTRA},
+  {"-bt", nullptr, "bead types used for calculation (default: all)", OPT_EXTRA},
+  {"-x", "<name(s)>", "exclude aggregates containing only specified molecules",
+    OPT_EXTRA},
+  {"-only", "<name(s)>", "use only aggregates composed of specified molecules",
+    OPT_EXTRA},
+  {"-n", "<int> <int>", "calculate for aggregate sizes in given range",
+    OPT_EXTRA},
+  {nullptr},
 }; //}}}
 
 struct OPT {
@@ -139,7 +143,7 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
 
-  AGGREGATE *Aggregate = NULL;
+  AGGREGATE *Aggregate = nullptr;
   InitAggregate(System, &Aggregate);
 
   if (commons.verbose) {

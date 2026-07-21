@@ -12,7 +12,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: AddToSystem <input> [<in.field>] <output> [options]",
   .args = 2, // minimum: <input> and <output>; <in.field> optional with -lib
-  .all = 35, // number of valid lines in OptSpec (not counting last {NULL})
+  .all = 35, // number of valid lines in OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -24,11 +24,11 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file or '-' to generate new system",
+  {"<input>", nullptr, "input coordinate file or '-' to generate new system",
     OPT_ARG},
-  {"[<in.field>]", NULL, "FIELD file with beads to add (unused with -lib)",
+  {"[<in.field>]", nullptr, "FIELD file with beads to add (unused with -lib)",
     OPT_ARG},
-  {"<output>", NULL, "output coordinate file", OPT_ARG},
+  {"<output>", nullptr, "output coordinate file", OPT_ARG},
   {"-o", "<filename>", "output extra structure file", OPT_EXTRA},
   {"-lib", "<dir>", "library directory: load molecules via -mol", OPT_EXTRA},
   {"-mol", "<mol> <%/n> ...", "molecule name(s) with percentage (e.g. 5%) "
@@ -40,11 +40,12 @@ static const struct OptSpec opts[] = {
   {"-hd", "<float>", "highest distance from chosen beads (default: none)",
     OPT_EXTRA},
   {"-bt", "<name(s)>", "bead types for -hd/-ld (default: none)", OPT_EXTRA},
-  {"--bonded", NULL, "use bonded beads for -hd/-ld (overwrites -bt option)",
+  {"--bonded", nullptr, "use bonded beads for -hd/-ld (overwrites -bt option)",
     OPT_EXTRA},
   {"-xb", "<bead type>", "what bead type to exchange", OPT_EXTRA},
-  {"--add", NULL, "add instead of exchange beads (overwrites -xb)", OPT_EXTRA},
-  {"--no-rotate", NULL, "do not randomly rotate molecules", OPT_EXTRA},
+  {"--add", nullptr, "add instead of exchange beads (overwrites -xb)",
+    OPT_EXTRA},
+  {"--no-rotate", nullptr, "do not randomly rotate molecules", OPT_EXTRA},
   {"-a", "3x<angle>", "rotate molecules around <x>, <y>, <z> axes by "
     "given degrees (overrides --no-rotate)", OPT_EXTRA},
   {"-cx", "2x<float>", "constrain x-coordinate (in fraction of output box)",
@@ -53,11 +54,11 @@ static const struct OptSpec opts[] = {
     OPT_EXTRA},
   {"-cz", "2x<float>", "constrain z-coordinate (in fraction of output box)",
     OPT_EXTRA},
-  {"--tail", NULL, "use molecule's last bead for constraint checks "
+  {"--tail", nullptr, "use molecule's last bead for constraint checks "
     "(default: molecule's geometric centre)", OPT_EXTRA},
-  {"--head", NULL, "use molecule's first bead for constraint checks "
+  {"--head", nullptr, "use molecule's first bead for constraint checks "
     "(overrides --tail)", OPT_EXTRA},
-  {"--real", NULL, "use real coordinates for-cx/-cy/-cz/-off options",
+  {"--real", nullptr, "use real coordinates for-cx/-cy/-cz/-off options",
     OPT_EXTRA},
   {"-b", "<x> <y> <z>", "new box dimensions (in real units)", OPT_EXTRA},
   {"-off", "3x<float>", "original system's offset "
@@ -67,7 +68,7 @@ static const struct OptSpec opts[] = {
     "(requires -lib)", OPT_EXTRA},
   {"-ebt", "<int>", "number of extra bead types (output lammps data file only)",
     OPT_EXTRA},
-  {NULL}
+  {nullptr}
 }; //}}}
 
 // molecule specs from -mol option //{{{
@@ -301,7 +302,7 @@ int main(int argc, char *argv[]) {
     opt.sys_in[0] = '\0';
   } //}}}
   // -mol <mol> <%/n> [<mol> <%/n> ...] //{{{
-  opt.lib_mol_add = NULL;
+  opt.lib_mol_add = nullptr;
   opt.n_lib_mol_add = 0;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-mol") != 0) {
@@ -505,7 +506,7 @@ int main(int argc, char *argv[]) {
   }
 
   // find bead type to switch (the most numerous one; solvent, probably) //{{{
-  opt.sw_type = NULL;
+  opt.sw_type = nullptr;
   if (!opt.add) {
     if (!(opt.sw_type = calloc(C_orig->BeadType, sizeof *opt.sw_type))) {
       ErrorAlloc("opt.sw_type");
@@ -527,7 +528,7 @@ int main(int argc, char *argv[]) {
   // -bt <name(s)>/--bonded - specify what bead types to use //{{{
   // TypeOption for -bt is deferred until after RenameBeadTypesFromLibrary so
   // that library bead type names can be used when -sys is present.
-  opt.bt_use_orig = NULL;
+  opt.bt_use_orig = nullptr;
   opt.bonded = false;
   if (!opt.new) {
     if (!(opt.bt_use_orig = calloc(C_orig->BeadType,
@@ -834,7 +835,7 @@ int main(int argc, char *argv[]) {
       }
     }
     C_orig->BeadCoor = new_coor;
-    PruneSystem(&S_orig, NULL);
+    PruneSystem(&S_orig, nullptr);
   }
 
   S_out = CopySystem(S_orig);
@@ -1009,14 +1010,14 @@ int main(int argc, char *argv[]) {
         opt.fout.type == VTF_FILE) {
       VtfSystem(&S_out2);
     }
-    PruneSystem(&S_out2, NULL);
+    PruneSystem(&S_out2, nullptr);
   }
   if (fout.type == VCF_FILE ||
       fout.type == VSF_FILE ||
       fout.type == VTF_FILE) {
     VtfSystem(&S_out);
   }
-  PruneSystem(&S_out, NULL);
+  PruneSystem(&S_out, nullptr);
 
   // print information about new system //{{{
   if (commons.verbose) {

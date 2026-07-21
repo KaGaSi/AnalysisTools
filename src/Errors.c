@@ -159,7 +159,7 @@ void ErrorArgNumber(const int count, const int need) {
 // wrong file extension //{{{
 int ErrorExtension(const char *file, const int number,
                    const char extension[][EXTENSION]) {
-  char *dot = strrchr(file, '.');
+  const char *dot = strrchr(file, '.');
   for (int i = 0; i < number; i++) {
     if (dot && strcasecmp(dot, extension[i]) == 0) {
       return i;

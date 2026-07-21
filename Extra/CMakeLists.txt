@@ -16,7 +16,7 @@ set(CMAKE_BUILD_TYPE "Release")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 # compiler flags
-set(CMAKE_C_FLAGS "-std=c11 -Wall")
+set(CMAKE_C_FLAGS "-std=c23 -Wall")
 set(CMAKE_C_FLAGS_DEBUG "-ggdb -g")
 set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG")
 

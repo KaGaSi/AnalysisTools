@@ -11,7 +11,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: Info <input> [options]",
   .args = 1, // number of mandatory arguments
-  .all = 22, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 22, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   {"-ft", "<type>", "structure file type: vtf/vsf/xyz/data/ltrj/field/itp/pdb", OPT_COMMON},
@@ -22,21 +22,29 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input structure file", OPT_ARG},
-  {"-i", "<file> [type]", "secondary structure file (type: vtf/vsf/xyz/data/ltrj/field/itp/pdb)", OPT_EXTRA},
+  {"<input>", nullptr, "input structure file", OPT_ARG},
+  {"-i", "<file> [type]", "secondary input structure file", OPT_EXTRA},
   {"-c", "<file>", "input coordinate file", OPT_EXTRA},
-  {"--detailed", NULL, "use name, charge, mass, and radius to identfy bead types", OPT_EXTRA},
+  {"--detailed", nullptr, "use name, charge, mass, and radius "
+    "to identfy bead types", OPT_EXTRA},
   {"-o", "<file>", "output structure file", OPT_EXTRA},
-  {"--unique", NULL, "make all bead/molecule names unique", OPT_EXTRA},
-  {"-def", "<bead name>", "default bead type (output vtf structure file only)", OPT_EXTRA},
-  {"--mol", NULL, "make unbonded beads into molecules", OPT_EXTRA},
-  {"--mass", NULL, "define lammps atom types by mass, but print per-atom charges in Atoms section (output lammps data file only)", OPT_EXTRA},
-  {"-ebt", "<int>", "number of extra bead types (output lammps data file only)", OPT_EXTRA},
-  {"--chbt", NULL, "change bead types using -i-provided file; molecules matched by name and bead count", OPT_EXTRA},
-  {"--frag", NULL, "split disconnected molecules into fragments; single-bead fragments become unbonded beads", OPT_EXTRA},
-  {"-lib", "<dir>", "library directory: rename bead types and print DPD interactions; appends interactions block to FIELD output", OPT_EXTRA},
-  {"-sys", "<file>", "system_info file: assign names to molecule types before library renaming (required when types are unnamed)", OPT_EXTRA},
-  {NULL}
+  {"--unique", nullptr, "make all bead/molecule names unique", OPT_EXTRA},
+  {"-def", "<bead name>", "default bead type (output vtf structure file only)",
+    OPT_EXTRA},
+  {"--mol", nullptr, "make unbonded beads into molecules", OPT_EXTRA},
+  {"--mass", nullptr, "define lammps atom types by mass, but print per-atom "
+    "charges in Atoms section (output lammps data file only)", OPT_EXTRA},
+  {"-ebt", "<int>", "number of extra bead types (output lammps data file only)",
+    OPT_EXTRA},
+  {"--chbt", nullptr, "change bead types using -i-provided file; "
+    "molecules matched by name and bead count", OPT_EXTRA},
+  {"--frag", nullptr, "split disconnected molecules into fragments; "
+    "single-bead fragments become unbonded beads", OPT_EXTRA},
+  {"-lib", "<dir>", "library directory: rename bead types and print DPD "
+    "interactions; appends interactions block to FIELD output", OPT_EXTRA},
+  {"-sys", "<file>", "system_info file: assign names to molecule types before "
+    "library renaming (required when types are unnamed)", OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -313,7 +321,7 @@ int main(int argc, char *argv[]) {
   free(def_type); //}}}
 
   if (Count->Bead > 0) {
-    PruneSystem(&System, NULL);
+    PruneSystem(&System, nullptr);
   }
 
   // split disconnected molecules into fragments (--frag option) //{{{
@@ -422,7 +430,7 @@ int main(int argc, char *argv[]) {
         mt = &System.MoleculeType[i]; // re-derive: MoleculeType was realloc'd
         MOLECULETYPE *mt_new = &System.MoleculeType[comp_type[c]];
         mt_new->Number = 0;
-        mt_new->Index = NULL;
+        mt_new->Index = nullptr;
         mt_new->InVcf = false;
         mt_new->Named = true;
         // fill Bead[]

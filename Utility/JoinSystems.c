@@ -8,7 +8,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: JoinSystems <input1> <input2> <output> [options]",
   .args = 3, // number of mandatory arguments
-  .all = 16, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 16, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_VERBOSE],
@@ -16,18 +16,20 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input1>", NULL, "first input coordinate file"},
-  {"<input2>", NULL, "second input coordinate file"},
-  {"<output>", NULL, "output structure/coordinate file"},
-  {"-o", "<filename>", "output extra structure file"},
-  {"-off", "3x<float>|c", "offset of the second system against the first ('c' to place it in the centre of the first system)"},
-  {"-b", "3×<float>", "output box dimensions (orthogonal)"},
-  {"--real", NULL, "use real coordinates for -b and -off instead of fraction of first input system's box size"},
-  {"-i1", "<file>", "structure file for <input1>"},
-  {"-i2", "<file>", "structure file for <input2>"},
-  {"-st1", "<int>", "starting timestep <input1>"},
-  {"-st2", "<int>", "starting timestep <input2>"},
-  {NULL}
+  {"<input1>", nullptr, "first input coordinate file", OPT_ARG},
+  {"<input2>", nullptr, "second input coordinate file", OPT_ARG},
+  {"<output>", nullptr, "output structure/coordinate file", OPT_ARG},
+  {"-o", "<filename>", "output extra structure file", OPT_EXTRA},
+  {"-off", "3x<float>|c", "offset of the second system against the first "
+    "('c' to place it in the centre of the first system)", OPT_EXTRA},
+  {"-b", "3×<float>", "output box dimensions (orthogonal)", OPT_EXTRA},
+  {"--real", nullptr, "use real coordinates for -b and -off "
+    "instead of fraction of first input system's box size", OPT_EXTRA},
+  {"-i1", "<file>", "structure file for <input1>", OPT_EXTRA},
+  {"-i2", "<file>", "structure file for <input2>", OPT_EXTRA},
+  {"-st1", "<int>", "starting timestep <input1>", OPT_EXTRA},
+  {"-st2", "<int>", "starting timestep <input2>", OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -126,7 +128,7 @@ int main(int argc, char *argv[]) {
   }
 
   SYSTEM Sys[2];
-  BOX *box[2] = {NULL, NULL};
+  BOX *box[2] = {nullptr, nullptr};
   for (int s = 0; s < 2; s++) {
     Sys[s] = ReadStructure(in[s], false);
     box[s] = &(Sys[s].Box);
@@ -224,7 +226,7 @@ int main(int argc, char *argv[]) {
       fout.type == VTF_FILE) {
     VtfSystem(&S_out);
   }
-  PruneSystem(&S_out, NULL);
+  PruneSystem(&S_out, nullptr);
   // optional output file
   SYSTEM S_out_opt;
   if (opt.fout.name[0] != '\0') {
@@ -235,7 +237,7 @@ int main(int argc, char *argv[]) {
         opt.fout.type == VTF_FILE) {
       VtfSystem(&S_out_opt);
     }
-    PruneSystem(&S_out_opt, NULL);
+    PruneSystem(&S_out_opt, nullptr);
   }
   //}}}
 

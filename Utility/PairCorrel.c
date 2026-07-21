@@ -9,7 +9,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: PairCorrel <input> <width> <output> [options]",
   .args = 3, // number of mandatory arguments
-  .all = 16, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 16, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -21,18 +21,18 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file", OPT_ARG},
-  {"<width>", NULL, "width of a distribution bin", OPT_ARG},
-  {"<output>", NULL, "output file with pair correlation function(s)", OPT_ARG},
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<width>", nullptr, "width of a distribution bin", OPT_ARG},
+  {"<output>", nullptr, "output file with pair correlation function(s)", OPT_ARG},
   {"-bt", "<name(s)>", "bead types to use (default: all); with --pairs, "
     "names are read as consecutive pairs A B [C D ...]", OPT_EXTRA},
-  {"--pairs", NULL, "-bt specifies explicit bead type pairs instead of "
+  {"--pairs", nullptr, "-bt specifies explicit bead type pairs instead of "
     "individual types (requires -bt)", OPT_EXTRA},
   {"-d", "<dist>", "maximum distance for RDF calculation "
     "(default: 1/3 of the shortest box side length)", OPT_EXTRA},
   {"-D2", "<axis>", "assume 2D system (e.g., slit) with non-periodic "
     "condition in <axis> direction", OPT_EXTRA},
-  {NULL}
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{

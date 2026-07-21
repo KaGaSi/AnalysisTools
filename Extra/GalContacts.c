@@ -10,7 +10,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: GalContacts <input> <output> <skip> <dist> [options]",
   .args = 4, // number of mandatory arguments
-  .all = 15, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 15, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -21,14 +21,14 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file", OPT_ARG},
-  {"<output>", NULL, "output file", OPT_ARG},
-  {"<skip>", NULL, "number of in-between beads to skip", OPT_EXTRA},
-  {"<dist>", NULL, "minimum distance contact check", OPT_EXTRA},
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<output>", nullptr, "output file", OPT_ARG},
+  {"<skip>", nullptr, "number of in-between beads to skip", OPT_EXTRA},
+  {"<dist>", nullptr, "minimum distance contact check", OPT_EXTRA},
   {"-mt", "<name(s)>", "use specified molecule type(s)", OPT_EXTRA},
   {"-bt", "<name(s)>", "use specified bead type(s)", OPT_EXTRA},
-  {"--multi", NULL, "allow multiple trios with the same ion", OPT_EXTRA},
-  {NULL}
+  {"--multi", nullptr, "allow multiple trios with the same ion", OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -235,8 +235,8 @@ int main(int argc, char *argv[]) {
   const int bt_name = FindBeadType(name, System);
   const int mt_name = FindMoleculeName(name_mol, System);
   // int bt_name_mol = -1;
-  MOLECULETYPE *MolType_name = NULL;
-  BEADTYPE *BType_name = NULL;
+  MOLECULETYPE *MolType_name = nullptr;
+  BEADTYPE *BType_name = nullptr;
   if (mt_name != -1) {
     // bt_name_mol = System.MoleculeType[mt_name].BType[0];
     MolType_name = &System.MoleculeType[mt_name];
@@ -306,11 +306,11 @@ int main(int argc, char *argv[]) {
                          2}; // ion: 0 - name_mol (CA2), 1 - name (C)
       ArrNDi *count_3body_step = CreateArrNDi(4, shape);
       // is the mono-/divalent counterion already in a trio?
-      bool *used_name = NULL;
+      bool *used_name = nullptr;
       if (bt_name != -1) {
         used_name = calloc(BType_name->Number, sizeof *used_name);
       }
-      bool *used_name_mol = NULL;
+      bool *used_name_mol = nullptr;
       if (mt_name != -1) {
         used_name_mol = calloc(MolType_name->Number, sizeof *used_name_mol);
       }
@@ -458,7 +458,7 @@ int main(int argc, char *argv[]) {
         if (opt.mt[i]) {
           AccumContacts_ctx accum_ctx = { sum_3body, count_3body_step,
                                           mt_name, bt_name, i };
-          iterate_btypes(i, NULL, System, opt, AccumContacts, &accum_ctx);
+          iterate_btypes(i, nullptr, System, opt, AccumContacts, &accum_ctx);
         }
       }
       // free temp arrays //{{{
@@ -501,7 +501,7 @@ int main(int argc, char *argv[]) {
         continue;
       }
       fprintf(fw_avg, "# molecule %s:", System.MoleculeType[i].Name);
-      iterate_btypes(i, fw_avg, System, opt, PrintAvgHeader, NULL);
+      iterate_btypes(i, fw_avg, System, opt, PrintAvgHeader, nullptr);
       fprintf(fw_avg, "\n#");
       PrintFinalAvg_ctx final_ctx = { sum_3body, mt_name, bt_name, i, count_used };
       iterate_btypes(i, fw_avg, System, opt, PrintFinalAvg, &final_ctx);

@@ -611,7 +611,7 @@ static void LmpDataReadMasses(FILE *fr, const char *file, BEADTYPE *name_mass,
 static void ReadCoeff(FILE *fr, const char *file, SYSTEM *System,
                       int *line_count, const int type) {
   // assign proper variables based on Bond/Angle/Dihedral/Improper section //{{{
-  PARAMS *CoeffType = NULL;
+  PARAMS *CoeffType = nullptr;
   int *count_type;
   char msg[2][10];
   if (type == 0) {

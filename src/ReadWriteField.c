@@ -504,7 +504,7 @@ static PARAMS GetParams(const char *file, const int num,
                         const MOLECULETYPE mt, bool *warned) {
   PARAMS values = InitParams;
   for (int k = num; k < (num + 3); k++) {
-    double *ptr = NULL;
+    double *ptr = nullptr;
     if (k == num) {
       ptr = &values.a;
     } else if (k == (num + 1)) {

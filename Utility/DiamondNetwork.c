@@ -22,11 +22,14 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<output>", NULL, "output coordinate file (.vtf, .vcf, .xyz, .data, etc.)", OPT_ARG},
-  {"-n", "<int>", "beads per strand between adjacent junctions, >=1 (default: 3)", OPT_EXTRA},
-  {"-b", "3*<float>", "box size Lx Ly Lz; unit cells = round(L/A_ideal), then squished to fit (default: 2*A_ideal in each direction)", OPT_EXTRA},
-  {"-l", "<float>", "bond length l; ideal lattice param A = 4*(n+1)*l/sqrt(3) (default: 1.0)", OPT_EXTRA},
-  {NULL}
+  {"<output>", nullptr, "output coordinate file", OPT_ARG},
+  {"-n", "<int>", "beads per strand between adjacent junctions (default: 3)",
+    OPT_EXTRA},
+  {"-b", "3*<float>", "box size Lx Ly Lz; unit cells = round(L/A_ideal), "
+    "then squished to fit (default: 2*A_ideal in each direction)", OPT_EXTRA},
+  {"-l", "<float>", "bond length l; ideal lattice param A = 4*(n+1)*l/sqrt(3) "
+    "(default: 1.0)", OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{

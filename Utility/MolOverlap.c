@@ -28,13 +28,13 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>",  NULL,    "input coordinate file",                   OPT_ARG},
-  {"<width>",  NULL,    "distribution bin width",                  OPT_ARG},
-  {"<output>", NULL,    "output file",                             OPT_ARG},
-  {"--joined", NULL,    "input coordinates are already joined",    OPT_EXTRA},
-  {"-g",       "<real>", "xy grid cell width (default: 2.5)",      OPT_EXTRA},
-  {"-r",       "<real>", "distribution half-range (default: 5.0)", OPT_EXTRA},
-  {NULL}
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<width>", nullptr, "distribution bin width", OPT_ARG},
+  {"<output>", nullptr, "output file", OPT_ARG},
+  {"--joined", nullptr, "input coordinates are already joined", OPT_EXTRA},
+  {"-g", "<real>", "xy grid cell width (default: 2.5)", OPT_EXTRA},
+  {"-r", "<real>", "distribution half-range (default: 5.0)", OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // molecule-type + tail-bead range (0-indexed internally) //{{{

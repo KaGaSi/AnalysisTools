@@ -13,16 +13,16 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: GenGal <output> [options]",
   .args = 1, // number of mandatory arguments
-  .all = 7, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 7, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_VERBOSE],
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<output>", NULL, "output coordinate file", OPT_ARG},
-  {"-o", "<struct>", "extra output file printed after the last molecule is generated", OPT_EXTRA},
-  {NULL}
+  {"<output>", nullptr, "output coordinate file", OPT_ARG},
+  {"-o", "<struct>", "extra output file ", OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{

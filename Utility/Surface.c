@@ -29,7 +29,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: Surface <input> <width> <surf.txt> <axis> [options]",
   .args = 4, // number of mandatory arguments
-  .all = 21, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 21, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -41,20 +41,23 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file", OPT_ARG},
-  {"<width>", NULL, "width of a single bin", OPT_ARG},
-  {"<surf.txt>", NULL, "average surface", OPT_ARG},
-  {"<axis>", NULL, "calculate along x, y, or z axis", OPT_ARG},
-  {"--in", NULL, "start from the box's edges instead of the centre", OPT_EXTRA},
-  {"--bonded", NULL, "use only beads in molecules", OPT_EXTRA},
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<width>", nullptr, "width of a single bin", OPT_ARG},
+  {"<surf.txt>", nullptr, "average surface", OPT_ARG},
+  {"<axis>", nullptr, "calculate along x, y, or z axis", OPT_ARG},
+  {"--in", nullptr, "start from the box's edges instead of its centre",
+    OPT_EXTRA},
+  {"--bonded", nullptr, "use only beads in molecules", OPT_EXTRA},
   {"-bt", "<name(s)>", "bead type(s) to use", OPT_EXTRA},
-  {"-wd", "<file> <w>", "calculate distribution of widths with given single bin width", OPT_EXTRA},
+  {"-wd", "<file> <w>", "calculate distribution of widths with given single "
+    "bin width", OPT_EXTRA},
   {"-w", "<file>", "save per-timestep width", OPT_EXTRA},
   {"-a", "<area.txt>", "per-timestep areas", OPT_EXTRA},
-  {"-b", "<file>", "save per-timestep surface beads to a coordinate file", OPT_EXTRA},
+  {"-b", "<file>", "save per-timestep surface beads to a coordinate file",
+    OPT_EXTRA},
   {"-r", "<float>", "radius of the ITIM probe (default 0.5)", OPT_EXTRA},
   // {"-m", "<mol(s)>", "molecule type(s) to use", OPT_EXTRA},
-  {NULL}
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -374,7 +377,7 @@ int main(int argc, char *argv[]) {
     }
   }
   // distribution of widths (i.e., top-bottom surface distances)
-  long int *distr = NULL;
+  long int *distr = nullptr;
   int distr_bins = sidelength[2] / distr_width * 10;
   double avg_thickness = 0;
   if (distr_width > 0) {
@@ -405,7 +408,7 @@ int main(int argc, char *argv[]) {
   }
 
   // array for writing surface beads (if -b option is used) //{{{
-  bool *write = NULL;
+  bool *write = nullptr;
   if (opt.bead_file.name[0] != '\0') {
     InitOutputCoorFile(opt.bead_file, System, argc, argv);
     write = calloc(Count->Bead, sizeof *write);

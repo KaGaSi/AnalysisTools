@@ -20,12 +20,12 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>",  NULL,       "input coordinate file",              OPT_ARG},
-  {"<output>", NULL,       "output file",                        OPT_ARG},
-  {"<dist>",   NULL,       "maximum contact distance",           OPT_EXTRA},
-  {"-mt",      "<name(s)>","use specified molecule type(s)",     OPT_EXTRA},
-  {"-bt",      "<name(s)>","use specified bead type(s)",         OPT_EXTRA},
-  {NULL}
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<output>", nullptr, "output file", OPT_ARG},
+  {"<dist>", nullptr, "maximum contact distance", OPT_EXTRA},
+  {"-mt", "<name(s)>","use specified molecule type(s)", OPT_EXTRA},
+  {"-bt", "<name(s)>","use specified bead type(s)", OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -74,8 +74,8 @@ int main(int argc, char *argv[]) {
   // define variables for mono- and divalent counterions //{{{
   const int bt_name = FindBeadType(name, System);
   const int mt_name = FindMoleculeName(name_mol, System);
-  MOLECULETYPE *MolType_name = NULL;
-  BEADTYPE *BType_name = NULL;
+  MOLECULETYPE *MolType_name = nullptr;
+  BEADTYPE *BType_name = nullptr;
   if (mt_name != -1) {
     MolType_name = &System.MoleculeType[mt_name];
   }

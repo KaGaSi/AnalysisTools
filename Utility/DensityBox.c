@@ -11,7 +11,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: DensityBox <input> <width> <output> [options]",
   .args = 3, // number of mandatory arguments
-  .all = 14, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 14, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -23,12 +23,13 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file", OPT_ARG},
-  {"<width>", NULL, "width of a single bin", OPT_ARG},
-  {"<output>", NULL, "3 output files (automatic ending -<axis>.txt)", OPT_ARG},
-  {"-x", "<name(s)>", "exclude specified molecule(s)", OPT_EXTRA},
-  {"--per-bead", NULL, "density per bead position within each molecule type (instead of per bead type)", OPT_EXTRA},
-  {NULL}
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<width>", nullptr, "width of a single bin", OPT_ARG},
+  {"<output>", nullptr, "3 output files (appends -<axis>.txt)", OPT_ARG},
+  {"-x", "<name(s)>", "exclude specified molecule type(s)", OPT_EXTRA},
+  {"--per-bead", nullptr, "calculate density per bead position within each "
+    "molecule type (instead of per bead type)", OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -82,8 +83,8 @@ int main(int argc, char *argv[]) {
 
   // --per-bead: precompute per-molecule-type offsets and per-bead position index //{{{
   int total_pos = 0;
-  int *offset = NULL;   // offset[mt] = first column index for molecule type mt
-  int *bead_pos = NULL; // bead_pos[bead_id] = index of bead within its molecule
+  int *offset = nullptr;   // offset[mt] = first column index for molecule type mt
+  int *bead_pos = nullptr; // bead_pos[bead_id] = index of bead within its molecule
   if (opt.per_bead) {
     if (!(offset = calloc(Count->MoleculeType + 1, sizeof *offset))) {
       ErrorAlloc("offset");

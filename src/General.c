@@ -20,7 +20,7 @@ static void MaxDigits(const double num, int max_digits[2]);
  *   On 2), all functions return failure (i.e., false)
  */
 bool IsRealNumber(const char *str, double *val) {
-  char *endptr = NULL;
+  char *endptr = nullptr;
   *val = strtod(str, &endptr);
   if (endptr == str) {
     return false;
@@ -35,7 +35,7 @@ bool IsPosRealNumber(const char *str, double *val) {
   }
 }
 bool IsIntegerNumber(const char *str, long *val) {
-  char *endptr = NULL;
+  char *endptr = nullptr;
   *val = strtol(str, &endptr, 0);
   if (endptr == str) {
     return false;
@@ -75,9 +75,9 @@ int SplitLine(const int max_str, char **out, char *line, const char delim[]) {
   // split into words separated by delimiters in delim array
   int words = 0;
   out[words] = strtok(line, delim); // first word
-  while (words < max_str && out[words] != NULL) {
+  while (words < max_str && out[words] != nullptr) {
     words++; // start from 1, as the first split is already done
-    out[words] = strtok(NULL, delim);
+    out[words] = strtok(nullptr, delim);
   }
   return words;
 } //}}}
@@ -148,7 +148,7 @@ void ColourChange(const int a, const char *colour) {
 } //}}}
 FILE * OpenFile(const char *file, char *mode) { //{{{
   FILE *ptr = fopen(file, mode);
-  if (ptr == NULL) {
+  if (ptr == nullptr) {
     snprintf(ERROR_MSG, LINE, "%sERROR - cannot open file %s%s%s",
              ErrRed(), ErrYellow(), file, ErrRed());
     perror(ERROR_MSG);
@@ -211,7 +211,7 @@ bool SameArrayInt(const int *arr_1, const int *arr_2, const int n) { //{{{
   return true;
 } //}}}
 void s_strcpy(char *dest, const char *src, const size_t dest_size) { //{{{
-  if (dest == NULL || src == NULL || dest_size == 0) {
+  if (dest == nullptr || src == nullptr || dest_size == 0) {
     fprintf(stderr, "s_strcpy error...");
     exit(1);
   }
@@ -227,7 +227,7 @@ void* s_realloc(void *ptr, size_t new_size) { //{{{
     exit(1);
   }
   void *temp = realloc(ptr, new_size);
-  if (temp == NULL) {
+  if (temp == nullptr) {
     fprintf(stderr, "s_realloc: NULL returned\n");
     exit(1);
   }

@@ -21,7 +21,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: Average <input> <output> <column(s)>",
   .args = 3, // number of mandatory arguments
-  .all = 11, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 11, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_ST],
@@ -30,13 +30,15 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input filename", OPT_ARG},
-  {"<output>", NULL, "output filename", OPT_ARG},
-  {"<column(s)>", NULL, "column number(s) to analyse", OPT_ARG},
-  {"-tau", "<int>", "estimate tau mode - number of blocks to split data into", OPT_EXTRA},
+  {"<input>", nullptr, "input filename", OPT_ARG},
+  {"<output>", nullptr, "output filename", OPT_ARG},
+  {"<column(s)>", nullptr, "column number(s) to analyse", OPT_ARG},
+  {"-tau", "<int>", "tau estimator mode - number of blocks to split data into",
+    OPT_EXTRA},
   {"-b", "<int>", "block mode - number of datapoints per block", OPT_EXTRA},
-  {"-m", "<int>", "moving mode - number of data points per moving average", OPT_EXTRA},
-  {NULL}
+  {"-m", "<int>", "moving mode - number of data points per moving average",
+    OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{

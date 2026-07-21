@@ -7,7 +7,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: %s <input> <max> <output> [options]",
   .args = 3, // number of mandatory arguments
-  .all = 12, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 12, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -18,11 +18,11 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file"},
-  {"<max>", NULL, "mandatory double argument"},
-  {"<output>", NULL, "output coordinate file"},
+  {"<input>", nullptr, "input coordinate file"},
+  {"<max>", nullptr, "mandatory double argument"},
+  {"<output>", nullptr, "output coordinate file"},
   {"-d", "[3x]<axis>", "apply in <axis> direction(s) (default x y z)"},
-  {NULL}
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{

@@ -59,7 +59,7 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
     offset[i + 1] = offset[i] + degree[i];
   }
   int total = offset[Count->Molecule];
-  int *nbrs = NULL;
+  int *nbrs = nullptr;
   if (total > 0) {
     nbrs = malloc(total * sizeof *nbrs);
   } else {

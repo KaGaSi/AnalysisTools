@@ -4,7 +4,6 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "Structs.h"
-#include <stdbool.h>
 
 // put given vector into range <0,BoxLength)
 vec3d RestorePBC(const vec3d coor, const vec3d BoxLength);

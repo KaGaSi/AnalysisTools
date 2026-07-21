@@ -37,7 +37,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: Selected <input> <output> [options]",
   .args = 2, // number of mandatory arguments
-  .all = 27, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 27, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -49,25 +49,36 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file", OPT_ARG},
-  {"<output>", NULL, "output coordinate file", OPT_ARG},
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<output>", nullptr, "output coordinate file", OPT_ARG},
   {"-bt", "<bead type>", "bead types to exclude", OPT_EXTRA},
   {"-mt", "<mol type>", "molecule types to exclude", OPT_EXTRA},
-  {"--keep", NULL, "save only the specified types instead of excluding them", OPT_EXTRA},
-  {"--join", NULL, "join molecules (remove pbc)", OPT_EXTRA},
-  {"--wrap", NULL, "wrap coordinates (i.e., apply pbc)", OPT_EXTRA},
-  {"-n", "<int(s)>", "save only specified timesteps (--last overrides this option)", OPT_EXTRA},
-  {"--last", NULL, "use only the last step (-st/-e/-n options are ignored)", OPT_EXTRA},
-  {"-sc", "<float>|3x<float>", "divide coordinates by given value(s); one value scales uniformly, three values (x y z) scale per axis", OPT_EXTRA},
-  {"-m", "3x<float>", "move all coordinates by given vector (-sc option is applied first)", OPT_EXTRA},
-  {"-cx", "2x<float>", "constrain x-coordinate to specified dimensions (in fraction of output box); multiple pairs possible", OPT_EXTRA},
-  {"-cy", "2x<float>", "constrain y-coordinate to specified dimensions (in fraction of output box); multiple pairs possible", OPT_EXTRA},
-  {"-cz", "2x<float>", "constrain z-coordinate to specified dimensions (in fraction of output box); multiple pairs possible", OPT_EXTRA},
-  {"--real", NULL, "use real coordinates for -cx/-cy/-cz options instead of box fractions", OPT_EXTRA},
-  {"--reduce", NULL, "reduce the structure to contaion only beads in the coordinate file", OPT_EXTRA},
+  {"--keep", nullptr, "save only the specified types instead of excluding them",
+    OPT_EXTRA},
+  {"--join", nullptr, "join molecules (remove pbc)", OPT_EXTRA},
+  {"--wrap", nullptr, "wrap coordinates (apply pbc)", OPT_EXTRA},
+  {"-n", "<int(s)>", "save only specified timesteps "
+    "(--last overrides this option)", OPT_EXTRA},
+  {"--last", nullptr, "use only the last step (overrides -st/-e/-n options)",
+    OPT_EXTRA},
+  {"-sc", "<float>|3x<float>", "divide coordinates by given value(s); one "
+    "value scales uniformly, three values (x y z) scale per axis", OPT_EXTRA},
+  {"-m", "3x<float>", "move all coordinates by given vector "
+    "(-sc option is applied first)", OPT_EXTRA},
+  {"-cx", "2x<float>", "constrain x-coordinate to specified dimensions "
+    "(in fraction of output box); multiple pairs possible", OPT_EXTRA},
+  {"-cy", "2x<float>", "constrain y-coordinate to specified dimensions "
+    "(in fraction of output box); multiple pairs possible", OPT_EXTRA},
+  {"-cz", "2x<float>", "constrain z-coordinate to specified dimensions "
+    "(in fraction of output box); multiple pairs possible", OPT_EXTRA},
+  {"--real", nullptr, "use real coordinates for -cx/-cy/-cz options "
+    "instead of box fractions", OPT_EXTRA},
+  {"--reduce", nullptr, "reduce the structure to contaion only beads present "
+    "in the coordinate file", OPT_EXTRA},
   {"-b", "3x<float>", "set box size for all timesteps", OPT_EXTRA},
-  {"-ebt", "<int>", "number of extra bead types (output lammps data file only)", OPT_EXTRA},
-  {NULL}
+  {"-ebt", "<int>", "number of extra bead types (output lammps data file only)",
+    OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -160,7 +171,7 @@ static void SaveReduced(SYSTEM *Sys, const SYSTEM System, const int count_saved,
     ReduceSystem(System, Sys, write, b_full_to_red, opt, commons,
                  fout, argc, argv);
   }
-  bool *write2 = NULL;
+  bool *write2 = nullptr;
   ReducedWrite(Sys, System, *b_full_to_red, write, &write2);
   TransformAndSave(Sys, opt, fout, write2, count_coor, argc, argv);
   free(write2);
@@ -249,7 +260,7 @@ static void ConstrainCoordinates(SYSTEM *System, const OPT opt,
 static void TransformAndSave(SYSTEM *System, const OPT opt, const FILE_TYPE f,
                              bool *write, const int count_coor,
                              const int argc, char *argv[]) {
-  bool *write2 = NULL; // used in case of -cx/-cy/-cz constraints
+  bool *write2 = nullptr; // used in case of -cx/-cy/-cz constraints
   ConstrainCoordinates(System, opt, write, &write2);
   ScaleCoordinates(System, opt.scale);
   MoveCoordinates(System, opt.move);
@@ -634,7 +645,7 @@ int main(int argc, char *argv[]) {
 
   // helper variables for --reduce option
   SYSTEM Sys; // the reduced system
-  int *b_full_to_red = NULL; // full-system bead ids to reduced-system ids
+  int *b_full_to_red = nullptr; // full-system bead ids to reduced-system ids
 
   if (opt.last) { // read from end of file to find and save the last step //{{{
     FILE *fr = OpenFile(in.coor.name, "r");

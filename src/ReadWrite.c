@@ -28,16 +28,16 @@ typedef struct {
   bool        self_contained; // file serves as both struct + coor (no -i needed)
 } FORMAT_INFO;
 static const FORMAT_INFO FORMATS[] = {
-  { VTF_FILE,    ".vtf",       NULL,     "vtf",    NULL,        true,  true,  true  },
-  { VSF_FILE,    ".vsf",       NULL,     "vsf",    NULL,        true,  false, false },
-  { VCF_FILE,    ".vcf",       NULL,     "vcf",    NULL,        false, true,  false },
-  { XYZ_FILE,    ".xyz",       NULL,     "xyz",    NULL,        true,  true,  true  },
-  { LDATA_FILE,  ".data",      NULL,     "data",   NULL,        true,  true,  true  },
-  { LTRJ_FILE,   ".lammpstrj", NULL,     "ltrj",   "lammpstrj", true,  true,  true  },
-  { FIELD_FILE,  ".field",     "FIELD",  "field",  NULL,        true,  false, false },
-  { CONFIG_FILE, ".config",    "CONFIG", "config", NULL,        false, true,  false },
-  { ITP_FILE,    ".itp",       NULL,     "itp",    NULL,        true,  false, false },
-  { PDB_FILE,    ".pdb",       NULL,     "pdb",    NULL,        true,  false, false },
+  { VTF_FILE, ".vtf", nullptr, "vtf", nullptr, true, true, true },
+  { VSF_FILE, ".vsf", nullptr, "vsf", nullptr, true, false, false },
+  { VCF_FILE, ".vcf", nullptr, "vcf", nullptr, false, true, false },
+  { XYZ_FILE, ".xyz", nullptr, "xyz", nullptr, true, true, true },
+  { LDATA_FILE, ".data", nullptr, "data", nullptr, true, true, true },
+  { LTRJ_FILE, ".lammpstrj", nullptr, "ltrj", "lammpstrj", true, true, true  },
+  { FIELD_FILE, ".field", "FIELD",  "field", nullptr, true, false, false },
+  { CONFIG_FILE, ".config", "CONFIG", "config", nullptr, false, true, false },
+  { ITP_FILE, ".itp", nullptr, "itp", nullptr, true, false, false },
+  { PDB_FILE, ".pdb", nullptr, "pdb", nullptr, true, false, false },
 };
 static const int N_FORMATS = (int)(sizeof FORMATS / sizeof *FORMATS);
 
@@ -162,9 +162,9 @@ static void FillMTypeStuff(SYSTEM *System, const int type, const int size,
       continue;
     } //}}}
     MOLECULETYPE *mt_mol = &System->MoleculeType[mol];
-    int (**arr)[5] = NULL;
+    int (**arr)[5] = nullptr;
     int n_stuff = 0;
-    int *count = NULL;
+    int *count = nullptr;
     if (type == 0) {
       arr = &mt_mol->Bond;
       n_stuff = mt_mol->nBonds;

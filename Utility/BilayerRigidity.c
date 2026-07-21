@@ -27,18 +27,19 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>",  NULL,    "input coordinate file",                                  OPT_ARG},
-  {"<width>",  NULL,    "bin width for P(si) histogram",                          OPT_ARG},
-  {"<output>", NULL,    "output file",                                            OPT_ARG},
-  {"<mol>",    NULL,    "molecule name",                                          OPT_ARG},
-  {"<first>",  NULL,    "1-indexed head bead within molecule",                    OPT_ARG},
-  {"<last>",   NULL,    "1-indexed tail-end bead within molecule",                OPT_ARG},
-  {"--joined", NULL,    "input coordinates are already joined",                   OPT_EXTRA},
-  {"-d",       "<real>","max 3D pair distance in DPD units (default: 2.0)",       OPT_EXTRA},
-  {"-m",       "<real>","half-range of si histogram in DPD units (default: 2.0)", OPT_EXTRA},
-  {"-t",       "<real>","min tilt threshold (default: 0.5)",             OPT_EXTRA},
-  {"-a",       "<axis>","bilayer normal axis: x, y, or z (default: z)", OPT_EXTRA},
-  {NULL}
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<width>", nullptr, "bin width for P(si) histogram", OPT_ARG},
+  {"<output>", nullptr, "output file", OPT_ARG},
+  {"<mol>", nullptr, "molecule name", OPT_ARG},
+  {"<first>", nullptr, "1-indexed head bead within molecule", OPT_ARG},
+  {"<last>", nullptr, "1-indexed tail-end bead within molecule", OPT_ARG},
+  {"--joined", nullptr, "input coordinates are already joined", OPT_EXTRA},
+  {"-d", "<real>","max 3D pair distance in DPD units (default: 2)", OPT_EXTRA},
+  {"-m", "<real>","half-range of si histogram in DPD units (default: 2)",
+    OPT_EXTRA},
+  {"-t", "<real>","min tilt threshold (default: 0.5)", OPT_EXTRA},
+  {"-a", "<axis>","bilayer normal axis: x, y, or z (default: z)", OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // Per-molecule-type specification.
@@ -453,7 +454,7 @@ int main(int argc, char *argv[]) {
     }
     double a1, b1, c1;
     double sigma = 0.0;
-    if (poly2_fit(j1, xx1, yy1, &a1, &b1, &c1, NULL, NULL) && c1 > 0.0) {
+    if (poly2_fit(j1, xx1, yy1, &a1, &b1, &c1, nullptr, nullptr) && c1 > 0.0) {
       sigma = sqrt(0.5 / c1);
     }
     free(xx1);

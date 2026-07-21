@@ -31,15 +31,16 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>",   NULL,     "input coordinate file",                          OPT_ARG},
-  {"<delta_q>", NULL,     "q-point spacing in DPD units",                   OPT_ARG},
-  {"<output>",  NULL,     "output base name (appends -2d.txt and -1d.txt)", OPT_ARG},
-  {"<mol>",     NULL,     "molecule name",                                  OPT_ARG},
-  {"<bead>",    NULL,     "1-indexed head bead within molecule",            OPT_ARG},
-  {"--joined",  NULL,     "input coordinates are already joined",           OPT_EXTRA},
-  {"-q",        "<int>",  "max bins per axis (default: 50)",                OPT_EXTRA},
-  {"-a",        "<axis>", "bilayer normal axis: x, y, or z (default: z)",   OPT_EXTRA},
-  {NULL}
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<delta_q>", nullptr, "q-point spacing in DPD units", OPT_ARG},
+  {"<output>", nullptr, "output base name (appends -2d.txt and -1d.txt)",
+    OPT_ARG},
+  {"<mol>", nullptr, "molecule name", OPT_ARG},
+  {"<bead>", nullptr, "1-indexed head bead within molecule", OPT_ARG},
+  {"--joined", nullptr, "input coordinates are already joined", OPT_EXTRA},
+  {"-q", "<int>",  "max bins per axis (default: 50)", OPT_EXTRA},
+  {"-a", "<axis>", "bilayer normal axis: x, y, or z (default: z)", OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // head-group bead specification //{{{

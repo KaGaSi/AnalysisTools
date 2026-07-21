@@ -30,15 +30,17 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>",  NULL,     "input coordinate file",                                   OPT_ARG},
-  {"<width>",  NULL,     "bin width for g2D(r) and |Phi6| distribution",            OPT_ARG},
-  {"<output>", NULL,     "output base name (appends -rdf.txt and -phi6.txt)",       OPT_ARG},
-  {"<mol>",    NULL,     "molecule name",                                           OPT_ARG},
-  {"<bead>",   NULL,     "1-indexed head bead within molecule",                     OPT_ARG},
-  {"--joined", NULL,     "input coordinates are already joined",                    OPT_EXTRA},
-  {"-r",       "<real>", "neighbour cutoff for |Phi6| in DPD units (default: 1.5)", OPT_EXTRA},
-  {"-a",       "<axis>", "bilayer normal axis: x, y, or z (default: z)",            OPT_EXTRA},
-  {NULL}
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<width>", nullptr, "bin width for g2D(r) and |Phi6| distribution", OPT_ARG},
+  {"<output>", nullptr, "output base name (appends -rdf.txt and -phi6.txt)",
+    OPT_ARG},
+  {"<mol>", nullptr, "molecule name", OPT_ARG},
+  {"<bead>", nullptr, "1-indexed head bead within molecule", OPT_ARG},
+  {"--joined", nullptr, "input coordinates are already joined", OPT_EXTRA},
+  {"-r", "<real>", "neighbour cutoff for |Phi6| in DPD units (default: 1.5)",
+    OPT_EXTRA},
+  {"-a", "<axis>", "bilayer normal axis: x, y, or z (default: z)", OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // head-group bead specification (one per mol/bead pair on argv) //{{{

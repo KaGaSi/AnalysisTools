@@ -30,7 +30,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: Aggregates <coor> <out.agg> [options]",
   .args = 2, // number of mandatory arguments
-  .all = 19, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 19, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -42,17 +42,22 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<coor>", NULL, "input coordinate file", OPT_ARG},
-  {"<out.agg>", NULL, "output aggregate file", OPT_ARG},
-  {"-bt", "<bead(s)>", "bead types to use for distance measurement (default: all)", OPT_EXTRA},
-  {"--pairs", NULL, "-bt specifies bead pairs instead (default: all possible pairs)", OPT_EXTRA},
+  {"<coor>", nullptr, "input coordinate file", OPT_ARG},
+  {"<out.agg>", nullptr, "output aggregate file", OPT_ARG},
+  {"-bt", "<bead(s)>", "bead types to use for distance measurement "
+    "(default: all)", OPT_EXTRA},
+  {"--pairs", nullptr, "-bt specifies bead type pairs instead "
+    "(default: all possible pairs)", OPT_EXTRA},
   {"-d", "<float>", "maximum distance for contact (default: 1)", OPT_EXTRA},
-  {"-c", "<int>", "minimum number of contacts (default: 1, max: 255)", OPT_EXTRA},
-  {"-nbr", "<int>", "DBSCAN min neighbours to be a core point (default: 1)", OPT_EXTRA},
+  {"-c", "<int>", "minimum number of contacts (default: 1, max: 255)",
+    OPT_EXTRA},
+  {"-nbr", "<int>", "DBSCAN min neighbours to be a core point (default: 1)",
+    OPT_EXTRA},
   {"-j", "<coor>", "output file with joined coordinates", OPT_EXTRA},
-  {"--no_pbc", NULL, "ignore periodic boundary conditions", OPT_EXTRA},
-  {"-w", "<a> <float(s)>", "coordinate(s) on <a> axis of wall(s) perpendicular to the axis", OPT_EXTRA},
-  {NULL}
+  {"--no_pbc", nullptr, "ignore periodic boundary conditions", OPT_EXTRA},
+  {"-w", "<a> <float(s)>", "coordinate(s) on <a> axis of wall(s) "
+    "perpendicular to the axis", OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -457,7 +462,7 @@ int main(int argc, char *argv[]) {
     PrintByline(opt.w_file[1], argc, argv);
   }
 
-  AGGREGATE *Aggregate = NULL;
+  AGGREGATE *Aggregate = nullptr;
   InitAggregate(System, &Aggregate);
 
   if (commons.verbose) {

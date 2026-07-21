@@ -7,7 +7,7 @@
 static size_t *CalcArrNDStride(size_t ndim, const size_t *shape) {
   size_t *stride = malloc(ndim * sizeof(size_t));
   if (!stride) {
-    return NULL;
+    return nullptr;
   }
   stride[ndim - 1] = 1;
   for (ssize_t d = ndim - 2; d >= 0; d--) {
@@ -50,12 +50,12 @@ static int InitNDBase(size_t ndim, const size_t *shape,
 ArrNDd *CreateArrNDd(size_t ndim, const size_t *shape) {
   ArrNDd *a = malloc(sizeof *a);
   if (!a) {
-    return NULL;
+    return nullptr;
   }
   a->ndim = ndim;
   if (InitNDBase(ndim, shape, &a->shape, &a->stride) != 0) {
     free(a);
-    return NULL;
+    return nullptr;
   }
   size_t total = CalcArrNDTotalSize(ndim, shape);
   a->d = calloc(total, sizeof(double));
@@ -63,19 +63,19 @@ ArrNDd *CreateArrNDd(size_t ndim, const size_t *shape) {
     free(a->shape);
     free(a->stride);
     free(a);
-    return NULL;
+    return nullptr;
   }
   return a;
 }
 ArrNDld *CreateArrNDld(size_t ndim, const size_t *shape) {
   ArrNDld *a = malloc(sizeof *a);
   if (!a) {
-    return NULL;
+    return nullptr;
   }
   a->ndim = ndim;
   if (InitNDBase(ndim, shape, &a->shape, &a->stride) != 0) {
     free(a);
-    return NULL;
+    return nullptr;
   }
   size_t total = CalcArrNDTotalSize(ndim, shape);
   a->d = calloc(total, sizeof(long double));
@@ -83,19 +83,19 @@ ArrNDld *CreateArrNDld(size_t ndim, const size_t *shape) {
     free(a->shape);
     free(a->stride);
     free(a);
-    return NULL;
+    return nullptr;
   }
   return a;
 }
 ArrNDi *CreateArrNDi(size_t ndim, const size_t *shape) {
   ArrNDi *a = malloc(sizeof *a);
   if (!a) {
-    return NULL;
+    return nullptr;
   }
   a->ndim = ndim;
   if (InitNDBase(ndim, shape, &a->shape, &a->stride) != 0) {
     free(a);
-    return NULL;
+    return nullptr;
   }
   size_t total = CalcArrNDTotalSize(ndim, shape);
   a->d = calloc(total, sizeof(int));
@@ -103,19 +103,19 @@ ArrNDi *CreateArrNDi(size_t ndim, const size_t *shape) {
     free(a->shape);
     free(a->stride);
     free(a);
-    return NULL;
+    return nullptr;
   }
   return a;
 }
 ArrNDli *CreateArrNDli(size_t ndim, const size_t *shape) {
   ArrNDli *a = malloc(sizeof *a);
   if (!a) {
-    return NULL;
+    return nullptr;
   }
   a->ndim = ndim;
   if (InitNDBase(ndim, shape, &a->shape, &a->stride) != 0) {
     free(a);
-    return NULL;
+    return nullptr;
   }
   size_t total = CalcArrNDTotalSize(ndim, shape);
   a->d = calloc(total, sizeof(long int));
@@ -123,19 +123,19 @@ ArrNDli *CreateArrNDli(size_t ndim, const size_t *shape) {
     free(a->shape);
     free(a->stride);
     free(a);
-    return NULL;
+    return nullptr;
   }
   return a;
 }
 ArrNDb *CreateArrNDb(size_t ndim, const size_t *shape) {
   ArrNDb *a = malloc(sizeof *a);
   if (!a) {
-    return NULL;
+    return nullptr;
   }
   a->ndim = ndim;
   if (InitNDBase(ndim, shape, &a->shape, &a->stride) != 0) {
     free(a);
-    return NULL;
+    return nullptr;
   }
   size_t total = CalcArrNDTotalSize(ndim, shape);
   a->d = calloc(total, sizeof(bool));
@@ -143,7 +143,7 @@ ArrNDb *CreateArrNDb(size_t ndim, const size_t *shape) {
     free(a->shape);
     free(a->stride);
     free(a);
-    return NULL;
+    return nullptr;
   }
   return a;
 }

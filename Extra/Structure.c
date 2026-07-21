@@ -7,7 +7,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: Structure <input> <output> <double> [options]",
   .args = 3, // number of mandatory arguments
-  .all = 12, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 12, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -18,11 +18,12 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file", OPT_ARG},
-  {"<width>", NULL, "width of a bin", OPT_ARG},
-  {"<output>", NULL, "output file", OPT_ARG},
-  {"-pb", "<file>", "save per-bead BOOPs from the last step (automatic ending -<symmetry>.txt)", OPT_EXTRA},
-  {NULL}
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<width>", nullptr, "width of a bin", OPT_ARG},
+  {"<output>", nullptr, "output file", OPT_ARG},
+  {"-pb", "<file>", "save per-bead BOOPs from the last step "
+    "(automatic ending -<symmetry>.txt)", OPT_EXTRA},
+  {nullptr}
 }; //}}}
 
 // calculate bond orientation order parameter for a single bead //{{{
@@ -166,7 +167,7 @@ static void Calculation(SYSTEM *System, STEP *step, void *userdata) {
   // g_n correlation: TraversePairs visits each pair once (vs. original O(N^2) double loop)
   struct gn_args args = { p->boop, p->g_n, p->g_n_counts,
                           p->n_sym, p->r_max, p->dr };
-  TraversePairs(*System, p->r_max, GnPair, &args, AcceptAll, NULL);
+  TraversePairs(*System, p->r_max, GnPair, &args, AcceptAll, nullptr);
 } //}}}
 
 int main(int argc, char *argv[]) {

@@ -12,7 +12,7 @@
 //
 //   "",
 //   .args = , // number of mandatory arguments
-//   .all = , // number of valid lines OptSpec (not counting last {NULL})
+//   .all = , // number of valid lines OptSpec (not counting last {nullptr})
 // };
 // static const struct OptSpec opts[] = {
 //   COMMON_OPTS[C_I],
@@ -23,7 +23,7 @@
 //   COMMON_OPTS[C_HELP],
 //   COMMON_OPTS[C_SILENT],
 //   COMMON_OPTS[C_VERSION],
-//   {NULL}
+//   {nullptr}
 // }; //}}}
 // enum specifying argument type - mandatory, common, extra
 enum OptKind { OPT_ARG, OPT_COMMON, OPT_EXTRA };
@@ -47,15 +47,19 @@ typedef enum {
   C_I, C_FT, C_ST, C_E, C_SK, C_VERBOSE, C_SILENT, C_HELP, C_VERSION, C_MAX
 } CommonIndex;
 static const struct OptSpec COMMON_OPTS[C_MAX] = {
-  [C_I] = {"-i", "<stru> [type]", "input structure file if different (type: vtf/vsf/xyz/data/ltrj/field/itp/pdb)", OPT_COMMON},
-  [C_FT] = {"-ft", "<type>", "coordinate file type: vtf/vsf/vcf, xyz, data, ltrj", OPT_COMMON},
+  [C_I] = {"-i", "<stru> [type]", "input structure file if different "
+    "(type: vtf/vsf/xyz/data/ltrj/field/itp/pdb)", OPT_COMMON},
+  [C_FT] = {"-ft", "<type>", "coordinate file type "
+    "(vtf/vsf/vcf, xyz, data, or ltrj)", OPT_COMMON},
   [C_ST] = {"-st", "<int>", "starting timestep for calculation", OPT_COMMON},
   [C_E] = {"-e", "<end>", "ending timestep for calculation", OPT_COMMON},
   [C_SK] = {"-sk", "<int>", "leave out every 'skip' steps", OPT_COMMON},
   [C_VERBOSE] = {"--verbose", "", "verbose output", OPT_COMMON},
-  [C_SILENT] = {"--silent", NULL, "no output (overrides --verbose)", OPT_COMMON},
-  [C_HELP] = {"--help", NULL, "print this help and exit", OPT_COMMON},
-  [C_VERSION] = {"--version", NULL, "print version number and exit", OPT_COMMON},
+  [C_SILENT] = {"--silent", nullptr, "no output (overrides --verbose)",
+    OPT_COMMON},
+  [C_HELP] = {"--help", nullptr, "print this help and exit", OPT_COMMON},
+  [C_VERSION] = {"--version", nullptr, "print version number and exit",
+    OPT_COMMON},
 };
 
 // version/help printing and initial check of provided options

@@ -1,5 +1,4 @@
 #include "../src/AnalysisTools.h"
-#include <stdbool.h>
 
 char *name = "CA2";
 
@@ -10,7 +9,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: CA2Middle <input> <max> <output> [options]",
   .args = 2, // number of mandatory arguments
-  .all = 10, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 10, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -21,9 +20,9 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<input>", NULL, "input coordinate file", OPT_ARG},
-  {"<output>", NULL, "output coordinate file", OPT_ARG},
-  {NULL}
+  {"<input>", nullptr, "input coordinate file", OPT_ARG},
+  {"<output>", nullptr, "output coordinate file", OPT_ARG},
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
@@ -68,7 +67,7 @@ int main(int argc, char *argv[]) {
   InitOutputCoorFile(fout, System, argc, argv);
 
   int mtype = FindMoleculeName(name, System);
-  MOLECULETYPE *mt = NULL;
+  MOLECULETYPE *mt = nullptr;
   if (mtype != -1) {
     mt = &System.MoleculeType[mtype];
   }

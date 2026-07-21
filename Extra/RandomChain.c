@@ -8,7 +8,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: RandomChain <length> <out.txt> <out.xyz> [options]",
   .args = 3, // number of mandatory arguments
-  .all = 14, // number of valid lines OptSpec (not counting last {NULL})
+  .all = 14, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -19,13 +19,13 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
-  {"<length>", NULL, "chain length", OPT_ARG},
-  {"<out.txt>", NULL, "output distribution file", OPT_ARG},
-  {"<out.xyz>", NULL, "output coordinate (-<n>.xyz ending)", OPT_ARG},
-  {"-r", "<int>", "number of generated chains (default: 1000", OPT_EXTRA},
+  {"<length>", nullptr, "chain length", OPT_ARG},
+  {"<out.txt>", nullptr, "output distribution file", OPT_ARG},
+  {"<out.xyz>", nullptr, "output coordinate (-<n>.xyz ending)", OPT_ARG},
+  {"-r", "<int>", "number of generated chains (default: 1000)", OPT_EXTRA},
   {"-alpha", "<double>", "ionization fraction (default: 0.3)", OPT_EXTRA},
   {"-s", "<int>", "random number generator seed", OPT_EXTRA},
-  {NULL}
+  {nullptr}
 }; //}}}
 
 // structure for options //{{{
