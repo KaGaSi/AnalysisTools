@@ -15,7 +15,7 @@ jobs:
     name: Sanitized test suite (ASan + UBSan)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install dependencies
         # ubuntu-latest (24.04) defaults to gcc-13, which lacks -std=c23
