@@ -263,6 +263,14 @@ SYSTEM VtfReadStruct(const char *file, const bool detailed) {
       if (bond[Count->Bond][0] > bond[Count->Bond][1]) {
         SwapInt(&bond[Count->Bond][0], &bond[Count->Bond][1]);
       }
+      // error - bead index beyond the highest 'atom <id>' //{{{
+      if (bond[Count->Bond][1] >= Count->Bead) {
+        snprintf(ERROR_MSG, LINE, "bond line: bead index %s%d%s exceeds the "
+                 "highest atom id", ErrYellow(), bond[Count->Bond][1],
+                 ErrRed());
+        PrintErrorFileLine(file, line);
+        exit(1);
+      } //}}}
       Count->Bond++; //}}}
     }
   } //}}}
@@ -516,8 +524,9 @@ static bool VtfCheckAtomLine() { //{{{
   long val_i;
   double val_d;
   // error - line not starting with a[tom] default/<id> //{{{
+  // <id> must be non-negative as it is used as an array index
   if (split[0][0] != 'a' || (strcmp(split[1], "default") != 0 &&
-                             !IsIntegerNumber(split[1], &val_i))) {
+                             !IsWholeNumber(split[1], &val_i))) {
     return false;
   } //}}}
   // error - odd number of strings //{{{

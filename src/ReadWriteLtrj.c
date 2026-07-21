@@ -165,6 +165,9 @@ int LtrjReadTimestep(FILE *fr, const char *file, SYSTEM *System,
   char vars[MAX_VAR][10];
   int unknown[6];
   int cols = LtrjReadAtomsLine(fr, file, position, vars, unknown, line_count);
+  if (cols < 0) { // error already printed by LtrjReadAtomsLine()
+    return cols;
+  }
   // read atom lines //{{{
   for (int i = 0; i < System->Count.BeadCoor; i++) {
     BEAD line;
@@ -446,6 +449,9 @@ static int LtrjReadAtomsLine(FILE *fr, const char *file, int *var_pos,
                              int *line_count) {
   // generate array with possible variable names
   LtrjFillAtomVariables(vars);
+  // initialize before any error return so callers never see garbage
+  InitIntArray(var_pos, MAX_VAR, -1); // id, element, r[3], v[3], f[3], type
+  InitIntArray(unknown, 6, -1);
   // read ITEM: ATOMS line //{{{
   (*line_count)++;
   if (!ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
@@ -459,8 +465,6 @@ static int LtrjReadAtomsLine(FILE *fr, const char *file, int *var_pos,
     PrintErrorFileLine(file, *line_count);
     return -1;
   }                                    //}}}
-  InitIntArray(var_pos, MAX_VAR, -1); // id, element, r[3], v[3], f[3], type
-  InitIntArray(unknown, 6, -1);
   int cols = -1;
   int count_unknown = 0;
   for (int i = 2; i < words; i++) {
@@ -492,7 +496,8 @@ static int LtrjReadCoorLine(FILE *fr, BEAD *b, int b_count,
   InitBead(b);
   long id;
   // with regards to Position - unwrapped (xu/xsu) overwrite wrapped (x/xs)
-  if (words < cols || !IsWholeNumber(split[var[0]], &id) || id > b_count ||
+  // atom ids are 1-based in a lammpstrj file
+  if (words < cols || !IsNaturalNumber(split[var[0]], &id) || id > b_count ||
       (var[ 2] != -1 && !IsRealNumber(split[var[ 2]], &b->Position.v[0])) ||
       (var[ 3] != -1 && !IsRealNumber(split[var[ 3]], &b->Position.v[1])) ||
       (var[ 4] != -1 && !IsRealNumber(split[var[ 4]], &b->Position.v[2])) ||

@@ -529,8 +529,10 @@ int main(int argc, char *argv[]) {
           if ((distr_width > 0 || opt.width_avg[0] != '\0') &&
               surf_step[i][j][0] != -1 && surf_step[i][j][1] != -1) {
             double w = fabs(surf_step[i][j][0] - surf_step[i][j][1]);
-            int bin = w / distr_width;
-            distr[bin]++;
+            if (distr_width > 0) { // distr is allocated only for -wd
+              int bin = w / distr_width;
+              distr[bin]++;
+            }
             avg_thickness += w;
             avg_thickness_step += w;
             avg_thickness_count++;

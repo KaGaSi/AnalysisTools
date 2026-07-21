@@ -28,7 +28,7 @@ static bool IgnoreLine (bool *found_count) {
     return true;
   }
   // first valid line contains the muber of bond types (only check it exists)
-  if (!found_count) {
+  if (!*found_count) {
     long n;
     if (IsWholeNumber(split[0], &n)) {
       *found_count = true;

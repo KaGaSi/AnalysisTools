@@ -419,6 +419,9 @@ bool NumbersOption(const int argc, char **argv, const int max, const char *opt,
           if (!IsIntegerNumber(argv[arg], &val)) {
             break;
           }
+          if (TooManyArgsWarn(max, n + 1, opt, count)) {
+            return true;
+          }
           int *num = (int *)values;
           int *a = &num[n];
           *a = val;
@@ -427,15 +430,15 @@ bool NumbersOption(const int argc, char **argv, const int max, const char *opt,
           if (!IsRealNumber(argv[arg], &val)) {
             break;
           }
+          if (TooManyArgsWarn(max, n + 1, opt, count)) {
+            return true;
+          }
           double *num = (double *)values;
           double *a = &num[n];
           *a = val;
         }
         n++;
         arg = i+1+n;
-        if (TooManyArgsWarn(max, n, opt, count)) {
-          return true;
-        }
       }
       ArgumentMissingErr(n, opt);
       *count = n;
@@ -493,6 +496,9 @@ bool FileNumbersOption(const int argc, char **argv, const int min,
               err_msg("arguments must be non-negative numbers");
               goto error;
             }
+            if (TooManyArgsWarn(max, n + 1, opt, count)) {
+              return true;
+            }
             int *num = (int *)values;
             int *a = &num[n];
             *a = val;
@@ -502,14 +508,14 @@ bool FileNumbersOption(const int argc, char **argv, const int min,
               err_msg("arguments must be non-negative numbers");
               goto error;
             }
+            if (TooManyArgsWarn(max, n + 1, opt, count)) {
+              return true;
+            }
             double *num = (double *)values;
             double *a = &num[n];
             *a = val;
           }
           n++;
-          if (TooManyArgsWarn(max, n, opt, count)) {
-            return true;
-          }
         }
         if (n < min) {
           s_strcpy(ERROR_MSG, "not enough numeric arguments", LINE);
