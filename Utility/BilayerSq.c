@@ -326,7 +326,7 @@ int main(int argc, char *argv[]) {
   int njq = opt.maxqbin + 1;
 
   // write 2D S(q) //{{{
-  char f2d[LINE + 16];
+  char f2d[LINE+16];
   snprintf(f2d, sizeof f2d, "%s-2d.txt", fout);
   FILE *fw = PrintBylineOpenFile(f2d, argc, argv);
   fprintf(fw, "# (1) qx; (2) qy; (3) S(qx,qy)\n");
@@ -335,8 +335,8 @@ int main(int argc, char *argv[]) {
     int ioff = (iq + opt.maxqbin) * njq;
     for (int jq = 0; jq <= opt.maxqbin; jq++) {
       double qy = jq * delta_q;
-      double s  = sq_avg[ioff + jq];
-      fprintf(fw, " %12.6f %12.6f %12.6f\n",  qx,  qy, s);
+      double s = sq_avg[ioff+jq];
+      fprintf(fw, " %12.6f %12.6f %12.6f\n", qx, qy, s);
       // reconstruct negative-qy half by symmetry S(qx,qy) = S(-qx,-qy)
       if (jq > 0)
         fprintf(fw, " %12.6f %12.6f %12.6f\n", -qx, -qy, s);
@@ -363,7 +363,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  char f1d[LINE + 16];
+  char f1d[LINE+16];
   snprintf(f1d, sizeof f1d, "%s-1d.txt", fout);
   fw = PrintBylineOpenFile(f1d, argc, argv);
   fprintf(fw, "# (1) q; (2) S(q)\n");

@@ -158,10 +158,10 @@ int main(int argc, char *argv[]) {
   // bond connectivity //{{{
   /*
    * Bead index layout  (j0 = iz*Nx*Ny + iy*Nx + ix):
-   *   junctions  [0 .. N_junc-1]
-   *   x-strands  [N_junc          + j0*nxy .. N_junc          + j0*nxy + nxy-1]
-   *   y-strands  [N_junc+N_junc*nxy+ j0*nxy .. N_junc+N_junc*nxy+ j0*nxy + nxy-1]
-   *   z-strands  [N_junc+2*N_junc*nxy + j0*nz .. + j0*nz + nz-1]
+   *   junctions [0 .. N_junc-1]
+   *   x-strands [N_junc+j0*nxy .. N_junc+j0*nxy+nxy-1]
+   *   y-strands [N_junc+N_junc*nxy+j0*nxy .. N_junc+N_junc*nxy+j0*nxy+nxy-1]
+   *   z-strands [N_junc+2*N_junc*nxy+j0*nz .. +j0*nz+nz-1]
    *
    * Each strand j0->j_next has (n+1) bonds:
    *   j0 -- s[0] -- s[1] -- ... -- s[n-1] -- j_next
@@ -175,20 +175,32 @@ int main(int argc, char *argv[]) {
         // x-direction strand: j0 -> j((ix+1)%Nx, iy, iz)
         int jxp = iz*Nx*Ny + iy*Nx + (ix+1)%Nx;
         int sx0 = N_junc + j0*nxy;
-        mt->Bond[bi][0] = j0;      mt->Bond[bi][1] = sx0;      mt->Bond[bi][2] = 0; bi++;
+        mt->Bond[bi][0] = j0;
+        mt->Bond[bi][1] = sx0;
+        mt->Bond[bi][2] = 0; bi++;
         for (int k = 0; k < nxy-1; k++) {
-          mt->Bond[bi][0] = sx0+k; mt->Bond[bi][1] = sx0+k+1;  mt->Bond[bi][2] = 0; bi++;
+          mt->Bond[bi][0] = sx0+k;
+          mt->Bond[bi][1] = sx0+k+1;
+          mt->Bond[bi][2] = 0; bi++;
         }
-        mt->Bond[bi][0] = sx0+nxy-1; mt->Bond[bi][1] = jxp;    mt->Bond[bi][2] = 0; bi++;
+        mt->Bond[bi][0] = sx0+nxy-1;
+        mt->Bond[bi][1] = jxp;
+        mt->Bond[bi][2] = 0; bi++;
 
         // y-direction strand: j0 -> j(ix, (iy+1)%Ny, iz)
         int jyp = iz*Nx*Ny + ((iy+1)%Ny)*Nx + ix;
         int sy0 = N_junc + N_junc*nxy + j0*nxy;
-        mt->Bond[bi][0] = j0;      mt->Bond[bi][1] = sy0;      mt->Bond[bi][2] = 0; bi++;
+        mt->Bond[bi][0] = j0;
+        mt->Bond[bi][1] = sy0;
+        mt->Bond[bi][2] = 0; bi++;
         for (int k = 0; k < nxy-1; k++) {
-          mt->Bond[bi][0] = sy0+k; mt->Bond[bi][1] = sy0+k+1;  mt->Bond[bi][2] = 0; bi++;
+          mt->Bond[bi][0] = sy0+k;
+          mt->Bond[bi][1] = sy0+k+1;
+          mt->Bond[bi][2] = 0; bi++;
         }
-        mt->Bond[bi][0] = sy0+nxy-1; mt->Bond[bi][1] = jyp;    mt->Bond[bi][2] = 0; bi++;
+        mt->Bond[bi][0] = sy0+nxy-1;
+        mt->Bond[bi][1] = jyp;
+        mt->Bond[bi][2] = 0; bi++;
 
         // z-direction strand: j0 -> j(ix, iy, (iz+1)%Nz)
         int jzp = ((iz+1)%Nz)*Nx*Ny + iy*Nx + ix;
@@ -212,7 +224,10 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < N_total; i++) {
     BEAD *b = &System.Bead[i];
     InitBead(b);
-    b->Type     = (i < N_junc) ? bt_J : bt_S;
+    b->Type = bt_S;
+    if (i < N_junc) {
+      b->Type = bt_J;
+    }
     b->Molecule = 0;
     mol->Bead[i]     = i;
     System.BeadCoor[i] = i;

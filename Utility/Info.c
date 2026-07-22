@@ -143,8 +143,12 @@ int main(int argc, char *argv[]) {
   if (FileOption(argc, argv, "-o", opt.fout.name)) {
     opt.fout.type = FileType(opt.fout.name);
     if (opt.fout.type == ITP_FILE || opt.fout.type == PDB_FILE) {
-      snprintf(ERROR_MSG, LINE, "writing to %s format is not supported",
-               opt.fout.type == ITP_FILE ? "itp" : "pdb");
+      const char *fmt_name = "pdb";
+      if (opt.fout.type == ITP_FILE) {
+        fmt_name = "itp";
+      }
+      snprintf(ERROR_MSG, LINE, "writing to %s%s%s format is not supported",
+               ErrRed(), fmt_name, ErrYellow());
       PrintError();
       exit(1);
     }

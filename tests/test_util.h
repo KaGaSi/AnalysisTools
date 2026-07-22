@@ -52,7 +52,11 @@ static int g_checks = 0;
 // print summary and yield process exit status
 static inline int test_main_end(void) {
   fprintf(stderr, "\n%d checks, %d failure(s)\n", g_checks, g_failures);
-  return g_failures ? 1 : 0;
+  if (g_failures) {
+    return 1;
+  } else {
+    return 0;
+  }
 }
 
 #endif

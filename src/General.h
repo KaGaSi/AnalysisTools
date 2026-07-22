@@ -69,7 +69,11 @@ static inline const char *Colour(FILE *f, const char colour[]) {
   int saved_errno = errno;
   int is_tty = isatty(fileno(f));
   errno = saved_errno;
-  return is_tty ? colour : "";
+  if (is_tty) {
+    return colour;
+  } else {
+    return "";
+  }
 }
 // colours for stderr
 static inline const char *ErrRed() {

@@ -184,14 +184,14 @@ void InitDouble2DArray(double *arr, const int m, const int n,
                        const double val) {
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
-      arr[i * n + j] = val;  // Access using row-major order
+      arr[i*n+j] = val; // Access using row-major order
     }
   }
 }
 void InitInt2DArray(int *arr, const int m, const int n, const int val) {
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
-      arr[i * n + j] = val;  // Access using row-major order
+      arr[i*n+j] = val; // Access using row-major order
     }
   }
 }

@@ -30,7 +30,11 @@ static void PrintOneBead(const SYSTEM System, const int id) {
     fprintf(stdout, " %4d", System.Molecule[b->Molecule].Index);
     fprintf(stdout, " (%3d);", System.Molecule[b->Molecule].Type);
   }
-  fprintf(stdout, " %s", b->InTimestep ? "yes" : " no");
+  const char *in_ts = " no";
+  if (b->InTimestep) {
+    in_ts = "yes";
+  }
+  fprintf(stdout, " %s", in_ts);
   putchar('\n');
 }
 // find highest values from {Bond,Angle,Dihedral,Improper}Type params //{{{

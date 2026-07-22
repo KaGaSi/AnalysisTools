@@ -71,7 +71,10 @@ static char *replace_first(const char *hay, const char *needle,
 static char *truncate_at(const char *path, const char *marker) {
   char *buf = slurp(path);
   CHECK(buf != nullptr);
-  char *at = buf ? strstr(buf, marker) : nullptr;
+  char *at = nullptr;
+  if (buf) {
+    at = strstr(buf, marker);
+  }
   CHECK(at != nullptr);
   if (at) {
     *at = '\0';

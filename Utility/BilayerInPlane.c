@@ -124,8 +124,10 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) {
 
   // Main pair loop: accumulate g2D and Phi6 simultaneously
   for (int i = 0; i < nh; i++) {
-    for (int j = i + 1; j < nh; j++) {
-      if (cd->leaflet[i] != cd->leaflet[j]) continue;
+    for (int j = (i + 1); j < nh; j++) {
+      if (cd->leaflet[i] != cd->leaflet[j]) {
+        continue;
+      }
 
       double dx = cd->h[j].v[p1] - cd->h[i].v[p1];
       double dy = cd->h[j].v[p2] - cd->h[i].v[p2];
@@ -145,19 +147,25 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) {
       // Phi6: accumulate if within neighbour cutoff
       if (r > 0 && r < cd->opt.r_cut) {
         double theta = atan2(dy, dx);
-        double cos6  = cos(6.0 * theta);
-        double sin6  = sin(6.0 * theta);
+        double cos6 = cos(6.0 * theta);
+        double sin6 = sin(6.0 * theta);
         // exp(6i*theta_ji) == exp(6i*theta_ij) because theta_ji = theta_ij + pi
         // and 6*pi is a multiple of 2*pi, so the contribution is symmetric
-        cd->phi6r[i] += cos6; cd->phi6i[i] += sin6; cd->nb_cnt[i]++;
-        cd->phi6r[j] += cos6; cd->phi6i[j] += sin6; cd->nb_cnt[j]++;
+        cd->phi6r[i] += cos6;
+        cd->phi6i[i] += sin6;
+        cd->nb_cnt[i]++;
+        cd->phi6r[j] += cos6;
+        cd->phi6i[j] += sin6;
+        cd->nb_cnt[j]++;
       }
     }
   }
 
   // Accumulate Phi6 distribution
   for (int i = 0; i < nh; i++) {
-    if (cd->nb_cnt[i] == 0) continue;
+    if (cd->nb_cnt[i] == 0) {
+      continue;
+    }
     int l = cd->leaflet[i];
     double mag = sqrt(Square(cd->phi6r[i]) + Square(cd->phi6i[i]))
                  / cd->nb_cnt[i];
@@ -270,7 +278,7 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
     long v;
-    IsNaturalNumber(argv[base + 1], &v);
+    IsNaturalNumber(argv[base+1], &v);
     int bead = v - 1; // 1-indexed → 0-indexed
     int nb = System.MoleculeType[mt].nBeads;
     if (bead < 0 || bead >= nb) {
@@ -298,8 +306,13 @@ int main(int argc, char *argv[]) {
 
   int p1 = (opt.axis + 1) % 3;
   int p2 = (opt.axis + 2) % 3;
-  double l1 = box->Length.v[p1], l2 = box->Length.v[p2];
-  double rdf_max = (l1 < l2 ? l1 : l2) / 2;
+  double l1 = box->Length.v[p1],
+         l2 = box->Length.v[p2];
+  double lmin = l2;
+  if (l1 < l2) {
+    lmin = l1;
+  }
+  double rdf_max = lmin / 2;
   int rdf_bins  = rdf_max / width;
   int phi6_bins = ceil(1.0 / width);
   if (rdf_bins  < 1) {
@@ -320,8 +333,8 @@ int main(int argc, char *argv[]) {
   }
 
   // per-leaflet output arrays
-  double *rdf0 = calloc(rdf_bins,  sizeof *rdf0);
-  double *rdf1 = calloc(rdf_bins,  sizeof *rdf1);
+  double *rdf0 = calloc(rdf_bins, sizeof *rdf0);
+  double *rdf1 = calloc(rdf_bins, sizeof *rdf1);
   double *phi0 = calloc(phi6_bins, sizeof *phi0);
   double *phi1 = calloc(phi6_bins, sizeof *phi1);
   if (!rdf0 || !rdf1 || !phi0 || !phi1) {
@@ -353,7 +366,7 @@ int main(int argc, char *argv[]) {
   MainLoopCoor(&System, in, commons, &step, Calculation_adaptor, &cd);
 
   // write g2D output //{{{
-  char frdf[LINE + 16];
+  char frdf[LINE+16];
   snprintf(frdf, sizeof frdf, "%s-rdf.txt", fout);
   FILE *fw = PrintBylineOpenFile(frdf, argc, argv);
   fprintf(fw, "# (1) r; (2) lower_leaflet; (3) upper_leaflet\n");
@@ -381,7 +394,7 @@ int main(int argc, char *argv[]) {
   fclose(fw); //}}}
 
   // write Phi6 output //{{{
-  char fphi6[LINE + 16];
+  char fphi6[LINE+16];
   snprintf(fphi6, sizeof fphi6, "%s-phi6.txt", fout);
   fw = PrintBylineOpenFile(fphi6, argc, argv);
   fprintf(fw, "# (1) |Phi6|; (2) lower_leaflet; (3) upper_leaflet\n");

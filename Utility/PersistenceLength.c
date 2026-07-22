@@ -1,7 +1,13 @@
 #include "../src/AnalysisTools.h"
 // TODO: very messy!!!
-// TODO: explain S1 through S3
 // TODO: output handling - only after it's decided what to print!
+
+// Observables as a function of bond separation s, per selected molecule type,
+// averaged over molecules and timesteps; fit these to obtain l_p:
+//   S1 - <cos> of each bond with the first bond (and, reversed, the last bond);
+//        the running "sum S1" x <bond length> is Flory's persistence length
+//   S2 - lag-averaged bond orientational autocorrelation <cos th(s)> ~ e^-s/lp
+//   S3 - mean-square internal distance <R^2(s)> of a subchain of s+1 bonds
 
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
@@ -44,21 +50,31 @@ struct OPT {
   int ns, ne; // -ns/-ne; first bead and bond and last bead and bond
 }; //}}}
 
+// per-molecule-type accumulators //{{{
+// a correlation observable: running sum with its matched sample count
+typedef struct {
+  ArrNDd *sum;
+  ArrNDi *count;
+} CORR;
+// bundled so Calculation() takes one accumulator instead of eight arrays
+typedef struct {
+  CORR s1, s2, s3;    // S1 (forward + reverse), S2, S3
+  double *bondlength; // running sum of bond lengths (with count_bonds -> mean)
+  int *count_bonds;
+} ACC; //}}}
+
 // go through all molecules and calcule l_p & Co. //{{{
 // warn once (per run) that coincident beads produced a zero-length bond vector
 static void WarnDegenerateBond(void) {
   static bool warned = false;
   if (!warned) {
     err_msg("zero-length bond vector (coincident beads); affected S1/S2 terms "
-            "are skipped - note S1 is normalized by the step count, so its "
-            "value for the affected chains is biased low");
+            "are skipped (the average is therefore taken over fewer samples)");
     PrintWarning();
     warned = true;
   }
 }
-void Calculation(SYSTEM *System, OPT opt, double *bondlength, int *count_bonds,
-                 ArrNDd *S1, ArrNDd *S2, ArrNDd *S3,
-                 ArrNDi *count_S2, ArrNDi *count_S3) {
+void Calculation(SYSTEM *System, OPT opt, ACC *a) {
   WrapJoinCoordinates(System, false, opt.join);
   COUNT *Count = &System->Count;
   for (int i = 0; i < Count->MoleculeType; i++) {
@@ -83,26 +99,30 @@ void Calculation(SYSTEM *System, OPT opt, double *bondlength, int *count_bonds,
       // first bond vector (for S1)
       int b1 = mol->Bead[mt->Bond[first_bond][0]],
           b2 = mol->Bead[mt->Bond[first_bond][1]];
-      vec3d bond1 = Vector(System->Bead[b1].Position, System->Bead[b2].Position);
+      vec3d bond1 = Vector(System->Bead[b1].Position,
+                           System->Bead[b2].Position);
       // last bond vector (for reversed S1)
       b1 = mol->Bead[mt->Bond[mt->nBonds-first_bond-1][0]],
       b2 = mol->Bead[mt->Bond[mt->nBonds-first_bond-1][1]];
-      vec3d bondN = Vector(System->Bead[b1].Position, System->Bead[b2].Position);
+      vec3d bondN = Vector(System->Bead[b1].Position,
+                           System->Bead[b2].Position);
       for (int k = first_bond; k < last_bond; k++) {
         // S1 function & bondlengths //{{{
         // 1->N S1
         b1 = mol->Bead[mt->Bond[k][0]];
         b2 = mol->Bead[mt->Bond[k][1]];
-        vec3d bondj = Vector(System->Bead[b1].Position, System->Bead[b2].Position);
+        vec3d bondj = Vector(System->Bead[b1].Position,
+                             System->Bead[b2].Position);
         double s1_fwd = CosAngle(bondj, bond1);
         if (!isnan(s1_fwd)) {
-          AddArr3D(S1, mol->Type, k - first_bond, 0, s1_fwd);
+          AddArr3D(a->s1.sum, mol->Type, k - first_bond, 0, s1_fwd);
+          AddArr3D(a->s1.count, mol->Type, k - first_bond, 0, 1);
         } else { // degenerate (zero-length) bond vector
           WarnDegenerateBond();
         }
         // bondlength & count bonds
-        bondlength[mol->Type] += VectLength(bondj);
-        count_bonds[mol->Type]++;
+        a->bondlength[mol->Type] += VectLength(bondj);
+        a->count_bonds[mol->Type]++;
         // reverse S1
         int bond_id = mt->nBonds - k - 1;
         int bin_id = k - first_bond;
@@ -111,7 +131,8 @@ void Calculation(SYSTEM *System, OPT opt, double *bondlength, int *count_bonds,
         bondj = Vector(System->Bead[b1].Position, System->Bead[b2].Position);
         double s1_rev = CosAngle(bondN, bondj);
         if (!isnan(s1_rev)) {
-          AddArr3D(S1, mol->Type, bin_id, 1, s1_rev);
+          AddArr3D(a->s1.sum, mol->Type, bin_id, 1, s1_rev);
+          AddArr3D(a->s1.count, mol->Type, bin_id, 1, 1);
         } else { // degenerate (zero-length) bond vector
           WarnDegenerateBond();
         }
@@ -126,12 +147,13 @@ void Calculation(SYSTEM *System, OPT opt, double *bondlength, int *count_bonds,
           // second bond vector
           b1 = mol->Bead[mt->Bond[l][0]];
           b2 = mol->Bead[mt->Bond[l][1]];
-          vec3d bondl = Vector(System->Bead[b1].Position, System->Bead[b2].Position);
+          vec3d bondl = Vector(System->Bead[b1].Position,
+                               System->Bead[b2].Position);
           // autocorrelation
           double s2 = CosAngle(bondk, bondl);
           if (!isnan(s2)) {
-            AddArr2D(S2, mol->Type, lag, s2);
-            AddArr2D(count_S2, mol->Type, lag, 1);
+            AddArr2D(a->s2.sum, mol->Type, lag, s2);
+            AddArr2D(a->s2.count, mol->Type, lag, 1);
           } else { // degenerate (zero-length) bond vector
             WarnDegenerateBond();
           }
@@ -140,8 +162,8 @@ void Calculation(SYSTEM *System, OPT opt, double *bondlength, int *count_bonds,
           b1 = mol->Bead[mt->Bond[k][0]];
           b2 = mol->Bead[mt->Bond[l][1]];
           vec3d Re = Vector(System->Bead[b1].Position, System->Bead[b2].Position);
-          AddArr2D(S3, mol->Type, lag, SqVectLength(Re));
-          AddArr2D(count_S3, mol->Type, lag, 1);
+          AddArr2D(a->s3.sum, mol->Type, lag, SqVectLength(Re));
+          AddArr2D(a->s3.count, mol->Type, lag, 1);
           //}}}
         }
       }
@@ -151,16 +173,12 @@ void Calculation(SYSTEM *System, OPT opt, double *bondlength, int *count_bonds,
 // structure for the callback function
 struct user_data {
   OPT opt;
-  double *bondlength;
-  int *count_bonds;
-  ArrNDd *S1, *S2, *S3;
-  ArrNDi *count_S2, *count_S3;
+  ACC acc;
 };
 // adaptor for the Calculation() function
 static void Calculation_adaptor(SYSTEM *System, STEP *step, void *userdata) {
   struct user_data *p = (struct user_data*)userdata;
-  Calculation(System, p->opt, p->bondlength, p->count_bonds,
-              p->S1, p->S2, p->S3, p->count_S2, p->count_S3);
+  Calculation(System, p->opt, &p->acc);
 };
 
 int main(int argc, char *argv[]) {
@@ -236,22 +254,24 @@ int main(int argc, char *argv[]) {
     exit(1);
   } //}}}
 
-  // arrays for the observables
-  double *bondlength = calloc(Count->MoleculeType, sizeof *bondlength);
-  int *count_bonds = calloc(Count->MoleculeType, sizeof *count_bonds);
-  ArrNDd *S1 = CreateArr3Dd(Count->MoleculeType, max_bonds, 2);
-  ArrNDd *S2 = CreateArr2Dd(Count->MoleculeType, max_bonds);
-  ArrNDi *count_S2 = CreateArr2Di(Count->MoleculeType, max_bonds);
-  ArrNDd *S3 = CreateArr2Dd(Count->MoleculeType, max_bonds);
-  ArrNDi *count_S3 = CreateArr2Di(Count->MoleculeType, max_bonds);
-  if (!S1 || !S2 || !S3 || !count_S2 || !count_S3 ||
-      !bondlength || !count_bonds) {
-    ErrorAlloc("S1/S2/S3/count_S2/count_S3/bondlength/count_bonds");
+  // accumulators for the observables (bundled into one struct)
+  ACC acc = {0};
+  acc.bondlength = calloc(Count->MoleculeType, sizeof *acc.bondlength);
+  acc.count_bonds = calloc(Count->MoleculeType, sizeof *acc.count_bonds);
+  acc.s1.sum   = CreateArr3Dd(Count->MoleculeType, max_bonds, 2);
+  acc.s1.count = CreateArr3Di(Count->MoleculeType, max_bonds, 2);
+  acc.s2.sum   = CreateArr2Dd(Count->MoleculeType, max_bonds);
+  acc.s2.count = CreateArr2Di(Count->MoleculeType, max_bonds);
+  acc.s3.sum   = CreateArr2Dd(Count->MoleculeType, max_bonds);
+  acc.s3.count = CreateArr2Di(Count->MoleculeType, max_bonds);
+  if (!acc.s1.sum || !acc.s2.sum || !acc.s3.sum ||
+      !acc.s1.count || !acc.s2.count || !acc.s3.count ||
+      !acc.bondlength || !acc.count_bonds) {
+    ErrorAlloc("persistence-length accumulators");
   }
 
   STEP step = InitStep;
-  struct user_data ud = { opt, bondlength, count_bonds,
-                          S1, S2, S3, count_S2, count_S3 };
+  struct user_data ud = { opt, acc };
   MainLoopCoor(&System, in, commons, &step, Calculation_adaptor, &ud);
 
   // write to output file
@@ -290,18 +310,20 @@ int main(int argc, char *argv[]) {
       if (opt.mt[j]) {
         // S1 function (from either end)
         for (int dd = 0; dd < 2; dd++) {
-          double avg = GetArr3D(S1, j, lag, dd) / step.used;
+          double avg = GetArr3D(acc.s1.sum, j, lag, dd) /
+                       GetArr3D(acc.s1.count, j, lag, dd);
           sum_S1[j][dd] += avg;
           data[lag][++count] = avg;
           data[lag][++count] = sum_S1[j][dd];
         }
         // S2 (autocorrelation function)
-        double avg = GetArr2D(S2, j, lag) / GetArr2D(count_S2, j, lag);
+        double avg = GetArr2D(acc.s2.sum, j, lag) / GetArr2D(acc.s2.count, j, lag);
         sum_S2[j] += avg;
         data[lag][++count] = avg;
         data[lag][++count] = sum_S2[j];
         // S3 (end-to-end distances)
-        data[lag][++count] = GetArr2D(S3, j, lag) / GetArr2D(count_S3, j, lag);
+        data[lag][++count] = GetArr2D(acc.s3.sum, j, lag) /
+                             GetArr2D(acc.s3.count, j, lag);
       }
     }
   }
@@ -343,122 +365,16 @@ int main(int argc, char *argv[]) {
 
   // free memory - to make valgrind happy //{{{
   free(opt.mt);
-  FreeArrND(S1);
-  FreeArrND(S2);
-  FreeArrND(S3);
-  FreeArrND(count_S2);
-  FreeArrND(count_S3);
-  free(bondlength);
-  free(count_bonds);
+  FreeArrND(acc.s1.sum);
+  FreeArrND(acc.s2.sum);
+  FreeArrND(acc.s3.sum);
+  FreeArrND(acc.s1.count);
+  FreeArrND(acc.s2.count);
+  FreeArrND(acc.s3.count);
+  free(acc.bondlength);
+  free(acc.count_bonds);
   FreeSystem(&System);
   //}}}
 
   return 0;
 }
-
-// backup - will the MainLoop() function work?
-// // main loop //{{{
-// FILE *fr = OpenFile(in.coor.name, "r");
-// int count_coor = 0, // count steps in the vcf file
-//     count_used = 0, // count steps in output file
-//     line_count = 0; // count lines in the vcf file
-// while (true) {
-//   PrintStep(&count_coor, commons.start, commons.silent);
-//   // use every skip-th timestep between start and end
-//   bool use = false;
-//   if (UseStep(commons, count_coor)) {
-//     use = true;
-//   }
-//   if (use) { //{{{
-//     if (!ReadTimestep(in, fr, &System, &line_count)) {
-//       count_coor--;
-//       break;
-//     }
-//     count_used++;
-//     WrapJoinCoordinates(&System, false, opt.join);
-//     // go through all molecules //{{{
-//     for (int i = 0; i < Count->MoleculeType; i++) {
-//       MOLECULETYPE *mt = &System.MoleculeType[i];
-//       // last bond id
-//       int last_bond = mt->nBonds;
-//       if (opt.ne != HIGHNUM) {
-//         last_bond = opt.ne;
-//       }
-//       int first_bond = 0;
-//       if (opt.ns > 0) {
-//         first_bond = opt.ns;
-//       }
-//       // use only specified molecule types that are long enough
-//       if (!opt.mt[i] || mt->nBonds < opt.ns) {
-//         continue;
-//       }
-//
-//       for (int j = 0; j < mt->Number; j++) {
-//         MOLECULE *mol = &System.Molecule[mt->Index[j]];
-//         // S1 function
-//         // first bond vector (for S1)
-//         int b1 = mol->Bead[mt->Bond[first_bond][0]],
-//             b2 = mol->Bead[mt->Bond[first_bond][1]];
-//         vec3d bond1 = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-//         // last bond vector (for reversed S1)
-//         b1 = mol->Bead[mt->Bond[mt->nBonds-first_bond-1][0]],
-//         b2 = mol->Bead[mt->Bond[mt->nBonds-first_bond-1][1]];
-//         vec3d bondN = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-//         for (int k = first_bond; k < last_bond; k++) {
-//           // S1 function & bondlengths //{{{
-//           // 1->N S1
-//           b1 = mol->Bead[mt->Bond[k][0]];
-//           b2 = mol->Bead[mt->Bond[k][1]];
-//           vec3d bondj = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-//           AddArr3D(S1, mol->Type, k - first_bond, 0, CosAngle(bondj, bond1));
-//           // bondlength & count bonds
-//           bondlength[mol->Type] += VectLength(bondj);
-//           count_bonds[mol->Type]++;
-//           // reverse S1
-//           int bond_id = mt->nBonds - k - 1;
-//           int bin_id = k - first_bond;
-//           b1 = mol->Bead[mt->Bond[bond_id][0]];
-//           b2 = mol->Bead[mt->Bond[bond_id][1]];
-//           bondj = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-//           AddArr3D(S1, mol->Type, bin_id, 1, CosAngle(bondN, bondj));
-//           //}}}
-//           for (int l = k; l < last_bond; l++) {
-//             int lag = l - k;
-//             // S2 function (classic bond correlation) //{{{
-//             // first bond vector
-//             int b1 = mol->Bead[mt->Bond[k][0]],
-//                 b2 = mol->Bead[mt->Bond[k][1]];
-//             vec3d bondk = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-//             // second bond vector
-//             b1 = mol->Bead[mt->Bond[l][0]];
-//             b2 = mol->Bead[mt->Bond[l][1]];
-//             vec3d bondl = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-//             // autocorrelation
-//             AddArr2D(S2, mol->Type, lag, CosAngle(bondk, bondl));
-//             AddArr2D(count_S2, mol->Type, lag, 1);
-//             //}}}
-//             // S3 function (end-to-end distances) //{{{
-//             b1 = mol->Bead[mt->Bond[k][0]];
-//             b2 = mol->Bead[mt->Bond[l][1]];
-//             vec3d Re = Vector(System.Bead[b1].Position, System.Bead[b2].Position);
-//             AddArr2D(S3, mol->Type, lag, SqVectLength(Re));
-//             AddArr2D(count_S3, mol->Type, lag, 1);
-//             //}}}
-//           }
-//         }
-//       }
-//     } //}}}
-//   //}}}
-//   } else { //{{{
-//     if (!SkipTimestep(in, fr, &line_count)) {
-//       count_coor--;
-//       break;
-//     }
-//   } //}}}
-//   // exit the main loop if reached user-specied end timestep
-//   if (count_coor == commons.end) {
-//     break;
-//   }
-// }
-// fclose(fr);
-// PrintLastStep(count_coor, count_used, commons.silent); //}}}

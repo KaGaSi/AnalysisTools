@@ -1,7 +1,6 @@
 #include "../src/AnalysisTools.h"
 #include <gsl/gsl_multifit.h>
 
-
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -229,21 +228,24 @@ int main(int argc, char *argv[]) {
   opt.join = !BoolOption(argc, argv, "--joined");
 
   opt.max_dist = 2.0;
-  if (OneNumberOption(argc, argv, "-d", &opt.max_dist, 'd') && opt.max_dist <= 0) {
+  if (OneNumberOption(argc, argv, "-d", &opt.max_dist, 'd') &&
+      opt.max_dist <= 0) {
     err_msg("requires a positive real number");
     PrintErrorOption("-d");
     exit(1);
   }
 
   opt.max_si = 2.0;
-  if (OneNumberOption(argc, argv, "-m", &opt.max_si, 'd') && opt.max_si <= 0) {
+  if (OneNumberOption(argc, argv, "-m", &opt.max_si, 'd') &&
+      opt.max_si <= 0) {
     err_msg("requires a positive real number");
     PrintErrorOption("-m");
     exit(1);
   }
 
   opt.tilt_thresh = 0.5;
-  if (OneNumberOption(argc, argv, "-t", &opt.tilt_thresh, 'd') && opt.tilt_thresh <= 0) {
+  if (OneNumberOption(argc, argv, "-t", &opt.tilt_thresh, 'd') &&
+      opt.tilt_thresh <= 0) {
     err_msg("requires a positive real number");
     PrintErrorOption("-t");
     exit(1);
@@ -252,7 +254,7 @@ int main(int argc, char *argv[]) {
   opt.axis = 2;
   char axis_arg[LINE];
   if (FileOption(argc, argv, "-a", axis_arg)) {
-    if      (axis_arg[0] == 'x') {
+    if (axis_arg[0] == 'x') {
       opt.axis = 0;
     } else if (axis_arg[0] == 'y') {
       opt.axis = 1;
@@ -275,7 +277,9 @@ int main(int argc, char *argv[]) {
   int trio_start = count + 1;
   int n_raw = 0;
   for (int i = trio_start; i < argc && argv[i][0] != '-'; i += 3) {
-    if ((i + 2) >= argc) break;
+    if ((i + 2) >= argc) {
+      break;
+    }
     long v1, v2;
     if (FindMoleculeName(argv[i], System) >= 0 &&
         IsNaturalNumber(argv[i+1], &v1) &&
@@ -289,10 +293,10 @@ int main(int argc, char *argv[]) {
     err_msg("at least one <mol> <first> <last> trio is required");
     Help(true, HelpDesc, opts);
     exit(1);
-  }
+  } //}}}
 
-  // Build MOL_SPEC array: group trios by molecule type.
-  // Multiple trios for the same mol type collect multiple tail-end beads. //{{{
+  // build MOL_SPEC array: group trios by molecule type.
+  // multiple trios for the same mol type collect multiple tail-end beads. //{{{
   struct MOL_SPEC *specs = malloc(n_raw * sizeof *specs);
   if (!specs) {
     ErrorAlloc("specs");
@@ -315,8 +319,8 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
     long v1, v2;
-    IsNaturalNumber(argv[base + 1], &v1);
-    IsNaturalNumber(argv[base + 2], &v2);
+    IsNaturalNumber(argv[base+1], &v1);
+    IsNaturalNumber(argv[base+2], &v2);
     int first = v1 - 1;
     int last = v2 - 1;
     int nb = System.MoleculeType[mt].nBeads;
@@ -340,7 +344,8 @@ int main(int argc, char *argv[]) {
     int found = -1;
     for (int s = 0; s < n_specs; s++) {
       if (specs[s].mt == mt) {
-        found = s; break; 
+        found = s;
+        break;
       }
     }
     if (found < 0) {
@@ -428,10 +433,10 @@ int main(int argc, char *argv[]) {
 
     int xmin = -maxrbin, xmax = maxrbin;
     for (int i = -maxrbin; i <= 0; i++) {
-      if (psi_dist[i + maxrbin]  < cutval) {
+      if (psi_dist[i+maxrbin]  < cutval) {
         xmin =  i + 1;
       }
-      if (psi_dist[-i + maxrbin] < cutval) {
+      if (psi_dist[-i+maxrbin] < cutval) {
         xmax = -i - 1;
       }
     }
@@ -444,7 +449,7 @@ int main(int argc, char *argv[]) {
     }
     int j1 = 0;
     for (int i = xmin; i <= xmax; i++) {
-      double p = psi_dist[i + maxrbin];
+      double p = psi_dist[i+maxrbin];
       if (p <= 0.0) {
         continue;
       }
@@ -471,7 +476,7 @@ int main(int argc, char *argv[]) {
       }
       int j2 = 0;
       for (int i = -xrange; i <= xrange; i++) {
-        double p = psi_dist[i + maxrbin];
+        double p = psi_dist[i+maxrbin];
         if (p <= 0.0) {
           continue;
         }

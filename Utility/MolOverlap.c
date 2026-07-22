@@ -91,7 +91,9 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) {
       double sx = 0, sy = 0, sz = 0;
       for (int b = cd->trios[t].first; b <= cd->trios[t].last; b++) {
         vec3d p = System->Bead[mol->Bead[b]].Position;
-        sx += p.x; sy += p.y; sz += p.z;
+        sx += p.x;
+        sy += p.y;
+        sz += p.z;
       }
       int cx = (int)(fmod(sx / nb, box->Length.x) / cd->opt.gridw);
       int cy = (int)(fmod(sy / nb, box->Length.y) / cd->opt.gridw);
@@ -99,14 +101,14 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) {
       if (cx >= cd->nx) cx = cd->nx - 1;
       if (cy < 0) cy = 0;
       if (cy >= cd->ny) cy = cd->ny - 1;
-      mid_sum[cx * cd->ny + cy] += sz / nb;
-      mid_cnt[cx * cd->ny + cy]++;
+      mid_sum[cx*cd->ny+cy] += sz / nb;
+      mid_cnt[cx*cd->ny+cy]++;
     }
   }
 
   // Finalise per-column midplane
   double *midplane = malloc(ncells * sizeof *midplane);
-  bool   *has_mid  = calloc(ncells, sizeof *has_mid);
+  bool *has_mid  = calloc(ncells, sizeof *has_mid);
   if (!midplane || !has_mid) {
     ErrorAlloc("MolOverlap midplane");
   }
@@ -130,33 +132,57 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) {
       double z_max = -HIGHNUM;
       for (int b = cd->trios[t].first; b <= cd->trios[t].last; b++) {
         vec3d p = System->Bead[mol->Bead[b]].Position;
-        sx += p.x; sy += p.y; sz += p.z;
-        if (p.z < z_min) z_min = p.z;
-        if (p.z > z_max) z_max = p.z;
+        sx += p.x;
+        sy += p.y;
+        sz += p.z;
+        if (p.z < z_min) {
+          z_min = p.z;
+        }
+        if (p.z > z_max) {
+          z_max = p.z;
+        }
       }
-      double comx = sx / nb, comy = sy / nb, comz = sz / nb;
+      double comx = sx / nb,
+             comy = sy / nb,
+             comz = sz / nb;
       int cx = (int)(fmod(comx, box->Length.x) / cd->opt.gridw);
       int cy = (int)(fmod(comy, box->Length.y) / cd->opt.gridw);
-      if (cx < 0) cx = 0;
-      if (cx >= cd->nx) cx = cd->nx - 1;
-      if (cy < 0) cy = 0;
-      if (cy >= cd->ny) cy = cd->ny - 1;
+      if (cx < 0) {
+        cx = 0;
+      }
+      if (cx >= cd->nx) {
+        cx = cd->nx - 1;
+      }
+      if (cy < 0) {
+        cy = 0;
+      }
+      if (cy >= cd->ny) {
+        cy = cd->ny - 1;
+      }
       int cell = cx * cd->ny + cy;
-      if (!has_mid[cell]) continue;
+      if (!has_mid[cell]) {
+        continue;
+      }
 
       if (comz > midplane[cell]) {
         // upper leaflet: innermost bead has smallest z
-        if (z_min < upper[cell]) upper[cell] = z_min;
+        if (z_min < upper[cell]) {
+          upper[cell] = z_min;
+        }
       } else {
         // lower leaflet: innermost bead has largest z
-        if (z_max > lower[cell]) lower[cell] = z_max;
+        if (z_max > lower[cell]) {
+          lower[cell] = z_max;
+        }
       }
     }
   }
 
   // Accumulate into distribution
   for (int c = 0; c < ncells; c++) {
-    if (!has_mid[c] || upper[c] >= HIGHNUM || lower[c] <= -HIGHNUM) continue;
+    if (!has_mid[c] || upper[c] >= HIGHNUM || lower[c] <= -HIGHNUM) {
+      continue;
+    }
     double ov = lower[c] - upper[c];
     int k = (int)((ov + cd->range) / cd->width);
     if (k < 0) k = 0;
@@ -208,7 +234,7 @@ int main(int argc, char *argv[]) {
   for (int i = 1; i < argc - 1; i++) {
     if (strcmp(argv[i], "-g") == 0) {
       double v;
-      if (!IsPosRealNumber(argv[i + 1], &v)) {
+      if (!IsPosRealNumber(argv[i+1], &v)) {
         err_msg("requires a positive real number");
         PrintErrorOption("-g");
         exit(1);
@@ -223,7 +249,7 @@ int main(int argc, char *argv[]) {
   for (int i = 1; i < argc - 1; i++) {
     if (strcmp(argv[i], "-r") == 0) {
       double v;
-      if (!IsPosRealNumber(argv[i + 1], &v)) {
+      if (!IsPosRealNumber(argv[i+1], &v)) {
         err_msg("argument to -r must be a positive real number");
         PrintErrorOption("-r");
         exit(1);
@@ -245,8 +271,8 @@ int main(int argc, char *argv[]) {
   for (int i = argc - 3; i > count; i -= 3) {
     long v1, v2;
     if (FindMoleculeName(argv[i], System) >= 0 &&
-        IsNaturalNumber(argv[i + 1], &v1) &&
-        IsNaturalNumber(argv[i + 2], &v2)) {
+        IsNaturalNumber(argv[i+1], &v1) &&
+        IsNaturalNumber(argv[i+2], &v2)) {
       trio_start = i;
     } else {
       break;
@@ -270,8 +296,8 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
     long v1, v2;
-    IsNaturalNumber(argv[base + 1], &v1);
-    IsNaturalNumber(argv[base + 2], &v2);
+    IsNaturalNumber(argv[base+1], &v1);
+    IsNaturalNumber(argv[base+2], &v2);
     int first = (int)v1 - 1; // convert 1-indexed → 0-indexed
     int last  = (int)v2 - 1;
     int nb = System.MoleculeType[mt].nBeads;
@@ -320,17 +346,17 @@ int main(int argc, char *argv[]) {
   }
 
   struct calc_data cd = {
-    .opt       = opt,
-    .trios     = trios,
-    .n_trios   = n_trios,
-    .dist      = dist,
-    .total_ov  = 0.0,
+    .opt = opt,
+    .trios = trios,
+    .n_trios = n_trios,
+    .dist = dist,
+    .total_ov = 0.0,
     .total_cnt = 0,
-    .bins      = bins,
-    .nx        = nx,
-    .ny        = ny,
-    .width     = width,
-    .range     = range,
+    .bins = bins,
+    .nx = nx,
+    .ny = ny,
+    .width = width,
+    .range = range,
   };
 
   STEP step = InitStep;
@@ -347,7 +373,10 @@ int main(int argc, char *argv[]) {
   if (!data) ErrorAlloc("data");
   for (int k = 0; k < bins; k++) {
     double ov_center = -range + width * (k + 0.5);
-    double norm = total > 0 ? cd.dist[k] / total : 0;
+    double norm = 0;
+    if (total > 0) {
+      norm = cd.dist[k] / total;
+    }
     SetArr2D(data, k, 0, ov_center);
     SetArr2D(data, k, 1, norm);
   }
@@ -355,7 +384,10 @@ int main(int argc, char *argv[]) {
   PrintDataAll(fw, bins, 2, data);
   FreeArrND(data);
 
-  double avg = cd.total_cnt > 0 ? cd.total_ov / cd.total_cnt : 0;
+  double avg = 0;
+  if (cd.total_cnt > 0) {
+    avg = cd.total_ov / cd.total_cnt;
+  }
   fprintf(fw, "# Average overlap: %.6f\n", avg);
   fclose(fw); //}}}
 

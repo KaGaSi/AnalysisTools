@@ -65,7 +65,11 @@ static void test_transform_inverse(void) {
       for (int k = 0; k < 3; k++) {
         s += b.transform[i][k] * b.inverse[k][j];
       }
-      CHECK_CLOSE(s, (i == j) ? 1.0 : 0.0, 1e-9);
+      double expected = 0.0;
+      if (i == j) {
+        expected = 1.0;
+      }
+      CHECK_CLOSE(s, expected, 1e-9);
     }
   }
   // transform is upper-triangular, so det == product of the diagonal

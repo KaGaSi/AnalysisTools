@@ -7,7 +7,7 @@
 // build path to <library>/<file> //{{{
 static void BuildPath(const char *lib_dir, const char *filename, char *out) {
   int len = strlen(lib_dir);
-  if (len > 0 && lib_dir[len - 1] == '/') {
+  if (len > 0 && lib_dir[len-1] == '/') {
     snprintf(out, LINE, "%s%s", lib_dir, filename);
   } else {
     snprintf(out, LINE, "%s/%s", lib_dir, filename);
@@ -17,7 +17,11 @@ static void BuildPath(const char *lib_dir, const char *filename, char *out) {
 static double ParseFortranDouble(const char *s) {
   char buf[64] = {0};
   for (int i = 0; i < 63 && s[i]; i++) {
-    buf[i] = (s[i] == 'd' || s[i] == 'D') ? 'e' : s[i];
+    if (s[i] == 'd' || s[i] == 'D') {
+      buf[i] = 'e';
+    } else {
+      buf[i] = s[i];
+    }
   }
   return strtod(buf, nullptr);
 } //}}}
@@ -312,7 +316,9 @@ void ReadLibraryMolecule(const char *lib_dir, const char *mol_name,
     // read bond parameters //{{{
     if (in_bonds) {
       // format: bond_ID  bead_i  bead_j
-      if (words < 3) continue;
+      if (words < 3) {
+        continue;
+      }
       if (n_bonds >= 256) {
         if (snprintf(ERROR_MSG, LINE, "molecule %s%s%s: more than 256 bonds",
                      ErrYellow(), mol_name, ErrRed()) < 0) {
@@ -346,7 +352,9 @@ void ReadLibraryMolecule(const char *lib_dir, const char *mol_name,
     // read andle parameters //{{{
     if (in_angles) {
       // format: angle_ID  bead_i  bead_j  bead_k
-      if (words < 4) continue;
+      if (words < 4) {
+        continue;
+      }
       if (n_angles >= 256) {
         if (snprintf(ERROR_MSG, LINE, "molecule %s%s%s: more than 256 angles",
                      ErrYellow(), mol_name, ErrRed()) < 0) {
@@ -541,43 +549,75 @@ void ReadLibraryMoleculeWithCion(const char *lib_dir, const char *mol_name,
        in_bonds = false, in_angles = false,
        bonds_need_count = false, angles_need_count = false;
   while (ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
-    if (words == 0 || split[0][0] == '#') continue;
+    if (words == 0 || split[0][0] == '#') {
+      continue;
+    }
     if (strncasecmp(split[0], "Bonds",  5) == 0) {
-      in_bonds = true; in_angles = false; bonds_need_count = true; continue;
+      in_bonds = true;
+      in_angles = false;
+      bonds_need_count = true;
+      continue;
     } else if (strncasecmp(split[0], "Angles", 6) == 0) {
-      in_angles = true; in_bonds = false; angles_need_count = true; continue;
+      in_angles = true;
+      in_bonds = false;
+      angles_need_count = true;
+      continue;
     } else if (strncasecmp(split[0], "End", 3) == 0) {
       break;
     }
-    if (bonds_need_count)  { bonds_need_count  = false; continue; }
-    if (angles_need_count) { angles_need_count = false; continue; }
+    if (bonds_need_count) {
+      bonds_need_count = false;
+      continue;
+    }
+    if (angles_need_count) {
+      angles_need_count = false;
+      continue;
+    }
     if (in_bonds) {
-      if (words < 3) continue;
+      if (words < 3) {
+        continue;
+      }
       long bi, bj;
-      if (!IsWholeNumber(split[1], &bi) || !IsWholeNumber(split[2], &bj)) continue;
+      if (!IsWholeNumber(split[1], &bi) || !IsWholeNumber(split[2], &bj)) {
+        continue;
+      }
       s_strcpy(bond_ids_str[n_bonds], split[0], 16);
       bond_bi[n_bonds] = bi; bond_bj[n_bonds] = bj; n_bonds++;
       continue;
     }
     if (in_angles) {
-      if (words < 4) continue;
+      if (words < 4) {
+        continue;
+      }
       long bi, bj, bk;
-      if (!IsWholeNumber(split[1], &bi) || !IsWholeNumber(split[2], &bj) ||
-          !IsWholeNumber(split[3], &bk)) continue;
+      if (!IsWholeNumber(split[1], &bi) ||
+          !IsWholeNumber(split[2], &bj) ||
+          !IsWholeNumber(split[3], &bk)) {
+        continue;
+      }
       s_strcpy(angle_ids_str[n_angles], split[0], 16);
       angle_bi[n_angles] = bi; angle_bj[n_angles] = bj;
       angle_bk[n_angles] = bk; n_angles++;
       continue;
     }
-    if (!found_key)    { found_key    = true; continue; }
+    if (!found_key) {
+      found_key = true;
+      continue;
+    }
     if (!found_nbeads) {
-      long n; if (IsWholeNumber(split[0], &n)) found_nbeads = true;
+      long n;
+      if (IsWholeNumber(split[0], &n)) {
+        found_nbeads = true;
+      }
       continue;
     }
     if (words >= 5 && n_beads < 64) {
       double x, y, z;
-      if (!IsRealNumber(split[2], &x) || !IsRealNumber(split[3], &y) ||
-          !IsRealNumber(split[4], &z)) continue;
+      if (!IsRealNumber(split[2], &x) ||
+          !IsRealNumber(split[3], &y) ||
+          !IsRealNumber(split[4], &z)) {
+        continue;
+      }
       s_strcpy(bead_names[n_beads], split[1], BEAD_NAME);
       bead_pos[n_beads] = (vec3d){.v = {x, y, z}};
       n_beads++;
@@ -594,13 +634,25 @@ void ReadLibraryMoleculeWithCion(const char *lib_dir, const char *mol_name,
   fr = OpenFile(path, "r");
   found_key = false; found_nbeads = false;
   while (ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
-    if (words == 0 || split[0][0] == '#') continue;
-    if (strncasecmp(split[0], "End",    3) == 0) break;
-    if (strncasecmp(split[0], "Bonds",  5) == 0 ||
-        strncasecmp(split[0], "Angles", 6) == 0) break;
-    if (!found_key)    { found_key    = true; continue; }
+    if (words == 0 || split[0][0] == '#') {
+      continue;
+    }
+    if (strncasecmp(split[0], "End", 3) == 0) {
+      break;
+    }
+    if (strncasecmp(split[0], "Bonds", 5) == 0 ||
+        strncasecmp(split[0], "Angles", 6) == 0) {
+      break;
+    }
+    if (!found_key) {
+      found_key = true;
+      continue;
+    }
     if (!found_nbeads) {
-      long n; if (IsWholeNumber(split[0], &n)) found_nbeads = true;
+      long n;
+      if (IsWholeNumber(split[0], &n)) {
+        found_nbeads = true;
+      }
       continue;
     }
     if (words >= 5 && n_cion < 64) {
@@ -642,7 +694,7 @@ void ReadLibraryMoleculeWithCion(const char *lib_dir, const char *mol_name,
                    ErrYellow(), cion_bead_names[b], ErrRed()) < 0) ErrorSnprintf();
       PrintError(); exit(1);
     }
-    mt->Bead[n_beads + b] = bt;
+    mt->Bead[n_beads+b] = bt;
   }
   // bond topology
   for (int i = 0; i < n_bonds; i++) {
@@ -698,11 +750,11 @@ void ReadLibraryMoleculeWithCion(const char *lib_dir, const char *mol_name,
       int bid = Count->Bead + m * total_beads + n_beads + b;
       BEAD *bead = &Sys->Bead[bid];
       InitBead(bead);
-      bead->Type = mt->Bead[n_beads + b];
+      bead->Type = mt->Bead[n_beads+b];
       bead->Molecule = mol_id;
       bead->InTimestep = true;
       bead->Position = cion_bead_pos[b];
-      mol->Bead[n_beads + b] = bid;
+      mol->Bead[n_beads+b] = bid;
     }
   }
   Count->Molecule += n_mols;
@@ -804,35 +856,58 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
     int n_cion = 0;
     if (n_beads != mt_sys->nBeads) {
       LIB_MOL_INFO info = LibraryMoleculeInfo(lib_dir, mt_sys->Name);
-      if (info.cion[0] == '\0') continue;
+      if (info.cion[0] == '\0') {
+        continue;
+      }
       char cion_file[LINE], cion_path[LINE];
       snprintf(cion_file, LINE, "%s.txt", info.cion);
       BuildPath(lib_dir, cion_file, cion_path);
       FILE *cf = fopen(cion_path, "r");
-      if (!cf) continue;
+      if (!cf) {
+        continue;
+      }
       bool ck = false, cn = false;
       while (ReadAndSplitLine(cf, SPL_STR, " \t\n")) {
-        if (words == 0 || split[0][0] == '#') continue;
+        if (words == 0 || split[0][0] == '#') {
+          continue;
+        }
         if (strncasecmp(split[0], "Bonds",  5) == 0 ||
             strncasecmp(split[0], "Angles", 6) == 0 ||
-            strncasecmp(split[0], "End",    3) == 0) break;
-        if (!ck) { ck = true; continue; }
-        if (!cn) { long nv; if (IsWholeNumber(split[0], &nv)) cn = true; continue; }
+            strncasecmp(split[0], "End",    3) == 0) {
+          break;
+        }
+        if (!ck) {
+          ck = true;
+          continue;
+        }
+        if (!cn) {
+          long nv;
+          if (IsWholeNumber(split[0], &nv)) {
+            cn = true;
+          }
+          continue;
+        }
         if (words >= 5 && n_cion < 64) {
           double x;
-          if (!IsRealNumber(split[2], &x)) continue;
+          if (!IsRealNumber(split[2], &x)) {
+            continue;
+          }
           s_strcpy(cion_bead_names[n_cion], split[1], BEAD_NAME);
           n_cion++;
         }
       }
       fclose(cf);
-      if (n_beads + n_cion != mt_sys->nBeads) continue;
+      if (n_beads + n_cion != mt_sys->nBeads) {
+        continue;
+      }
     }
     // rename parent bead types
     for (int b = 0; b < n_beads; b++) {
       int sys_bt = mt_sys->Bead[b];
       int lib_bt = FindBeadType(bead_names[b], lib->System);
-      if (lib_bt == -1) continue;
+      if (lib_bt == -1) {
+        continue;
+      }
       BEADTYPE *lib_btp = &lib->System.BeadType[lib_bt];
       s_strcpy(sys->BeadType[sys_bt].Name, lib_btp->Name, BEAD_NAME);
       sys->BeadType[sys_bt].Charge = lib_btp->Charge;
@@ -841,9 +916,11 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
     }
     // rename counterion bead types
     for (int b = 0; b < n_cion; b++) {
-      int sys_bt = mt_sys->Bead[n_beads + b];
+      int sys_bt = mt_sys->Bead[n_beads+b];
       int lib_bt = FindBeadType(cion_bead_names[b], lib->System);
-      if (lib_bt == -1) continue;
+      if (lib_bt == -1) {
+        continue;
+      }
       BEADTYPE *lib_btp = &lib->System.BeadType[lib_bt];
       s_strcpy(sys->BeadType[sys_bt].Name, lib_btp->Name, BEAD_NAME);
       sys->BeadType[sys_bt].Charge = lib_btp->Charge;
@@ -881,15 +958,22 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
     bool found_count = false;
 
     while (ReadAndSplitLine(f, SPL_STR, " \t\n")) {
-      if (words == 0 || split[0][0] == '#') continue;
+      if (words == 0 || split[0][0] == '#') {
+        continue;
+      }
       if (!found_count) {
         long n;
         if (IsWholeNumber(split[0], &n)) found_count = true;
         continue;
       }
-      if (words < 6) continue;
+      if (words < 6) {
+        continue;
+      }
       long nb, has_cion;
-      if (!IsWholeNumber(split[3], &nb) || !IsWholeNumber(split[4], &has_cion)) continue;
+      if (!IsWholeNumber(split[3], &nb) ||
+          !IsWholeNumber(split[4], &has_cion)) {
+        continue;
+      }
 
       // single-bead solvent (no counterion, 1 bead): add once, count=-1
       if (!has_cion && nb == 1 && n_free_lib < MAX_FREE_LIB) {
@@ -914,7 +998,9 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
           if (strcmp(sys->MoleculeType[mt].Name, split[1]) == 0)
             parent_count += sys->MoleculeType[mt].Number;
         }
-        if (parent_count == 0) continue; // molecule not in this system
+        if (parent_count == 0) {
+          continue; // molecule not in this system
+        }
         // find existing entry for this cion or create one
         int idx = -1;
         for (int i = 0; i < n_free_lib; i++)
@@ -945,13 +1031,17 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
   // solvent entries (free_counts == -1) are matched by charge alone.
   // charge+count match takes priority over charge-only.
   for (int bt = 0; bt < sys->Count.BeadType; bt++) {
-    if (in_mol[bt]) continue;
+    if (in_mol[bt]) {
+      continue;
+    }
     double q = sys->BeadType[bt].Charge;
     int cnt = sys->BeadType[bt].Number;
     // first try: charge + count (counterion entries)
     int match = -1;
     for (int i = 0; i < n_free_lib; i++) {
-      if (free_counts[i] < 0) continue;
+      if (free_counts[i] < 0) {
+        continue;
+      }
       if (fabs(free_charges[i] - q) < 0.01 && free_counts[i] == cnt) {
         if (match == -1) match = i;
         else { match = -1; break; } // ambiguous even with count
@@ -960,7 +1050,9 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
     // second try: charge only (solvent entries), if no counterion matched
     if (match == -1) {
       for (int i = 0; i < n_free_lib; i++) {
-        if (free_counts[i] >= 0) continue;
+        if (free_counts[i] >= 0) {
+          continue;
+        }
         if (fabs(free_charges[i] - q) < 0.01) {
           if (match == -1) match = i;
           else { match = -1; break; }

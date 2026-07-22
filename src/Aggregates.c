@@ -56,7 +56,7 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
   }
   offset[0] = 0;
   for (int i = 0; i < Count->Molecule; i++) {
-    offset[i + 1] = offset[i] + degree[i];
+    offset[i+1] = offset[i] + degree[i];
   }
   int total = offset[Count->Molecule];
   int *nbrs = nullptr;
@@ -80,7 +80,9 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
     int i = PairHash_mol_i(key);
     int j = PairHash_mol_j(key);
     if (!System->Molecule[i].InTimestep ||
-        !System->Molecule[j].InTimestep) continue;
+        !System->Molecule[j].InTimestep) {
+      continue;
+    }
     nbrs[offset[i] + fill[i]++] = j;
     nbrs[offset[j] + fill[j]++] = i;
   }
@@ -98,7 +100,9 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
   }
   int cluster_id = 0;
   for (int i = 0; i < Count->Molecule; i++) {
-    if (!System->Molecule[i].InTimestep || label[i] != -1) continue;
+    if (!System->Molecule[i].InTimestep || label[i] != -1) {
+      continue;
+    }
     if (degree[i] < neighbours) {
       label[i] = -2; // noise or potential border point
       continue;
@@ -109,7 +113,7 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
     queue[tail++] = i;
     while (head < tail) {
       int m = queue[head++];
-      for (int k = offset[m]; k < offset[m + 1]; k++) {
+      for (int k = offset[m]; k < offset[m+1]; k++) {
         int n = nbrs[k];
         if (label[n] == -1) {
           // unvisited neighbour: assign to cluster
@@ -148,15 +152,23 @@ void EvaluateContacts(AGGREGATE *Aggregate, SYSTEM *System,
     Aggregate[agg].nCore = core_size[c];
     Aggregate[agg].nBorder = border_size[c];
     Aggregate[agg].nMolecules = core_size[c] + border_size[c];
+    int core_alloc = core_size[c];
+    if (core_alloc <= 0) {
+      core_alloc = 1;
+    }
     Aggregate[agg].Core = s_realloc(Aggregate[agg].Core,
-                                      (core_size[c] > 0 ? core_size[c] : 1) *
-                                      sizeof *Aggregate[agg].Core);
-    Aggregate[agg].Border = s_realloc(Aggregate[agg].Border,
-                                      (border_size[c] > 0 ? border_size[c] : 1) *
+                                    core_alloc * sizeof *Aggregate[agg].Core);
+    int border_alloc = border_size[c];
+    if (border_alloc <= 0) {
+      border_alloc = 1;
+    }
+    Aggregate[agg].Border = s_realloc(Aggregate[agg].Border, border_alloc *
                                       sizeof *Aggregate[agg].Border);
   }
   for (int i = 0; i < Count->Molecule; i++) {
-    if (!System->Molecule[i].InTimestep || label[i] < 0) continue;
+    if (!System->Molecule[i].InTimestep || label[i] < 0) {
+      continue;
+    }
     int agg = label[i];
     if (degree[i] >= neighbours) {
       Aggregate[agg].Core[core_fill[agg]++] = i;

@@ -89,9 +89,9 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < argc; i++) {
     if (strcmp(argv[i], "-off") == 0) {
       if (argc < (i + 3) ||
-          (argv[i+1][0] != 'c' && !IsRealNumber(argv[i + 1], &opt.off[0])) ||
-          (argv[i+2][0] != 'c' && !IsRealNumber(argv[i + 2], &opt.off[1])) ||
-          (argv[i+3][0] != 'c' && !IsRealNumber(argv[i + 3], &opt.off[2]))) {
+          (argv[i+1][0] != 'c' && !IsRealNumber(argv[i+1], &opt.off[0])) ||
+          (argv[i+2][0] != 'c' && !IsRealNumber(argv[i+2], &opt.off[1])) ||
+          (argv[i+3][0] != 'c' && !IsRealNumber(argv[i+3], &opt.off[2]))) {
         err_msg("wrong/missing arguments (either number or 'c')");
         PrintErrorOption("-off");
         exit(1);

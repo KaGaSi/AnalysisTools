@@ -24,7 +24,7 @@ struct rec {
   double cutoff;
   int N;         // number of beads (== Count.BeadCoor)
   int norm_axis; // -1 = full 3D, else the non-binned (slit-normal) axis
-  long *count;   // N*N matrix of hit counts, indexed [lo*N + hi], lo < hi
+  long *count;   // N*N matrix of hit counts, indexed [lo*N+hi], lo < hi
 };
 
 // in-plane minimum-image distance for the 2D (slit) path (orthogonal box)
@@ -54,8 +54,13 @@ static void record(int i, int j, const SYSTEM System, void *ud) {
                         r->box, r->norm_axis);
   }
   if (dist < r->cutoff) {
-    int lo = i < j ? i : j, hi = i < j ? j : i;
-    r->count[lo * r->N + hi]++;
+    int lo = j,
+        hi = i;
+    if (i < j) {
+      lo = i;
+      hi = j;
+    }
+    r->count[lo*r->N+hi]++;
   }
 }
 

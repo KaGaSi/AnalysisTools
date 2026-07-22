@@ -104,7 +104,10 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-  int n_cols = opt.per_bead ? total_pos : Count->BeadType; //}}}
+  int n_cols = Count->BeadType;
+  if (opt.per_bead) {
+    n_cols = total_pos;
+  } //}}}
 
   // number of bins //{{{
   if (box->Volume == -1) {
@@ -168,7 +171,9 @@ int main(int argc, char *argv[]) {
         if (use) {
           int col;
           if (opt.per_bead) {
-            if (mol == -1) continue; // skip unbonded beads in --per-bead mode
+            if (mol == -1) {
+              continue; // skip unbonded beads in --per-bead mode
+            }
             int mtype = System.Molecule[mol].Type;
             col = offset[mtype] + bead_pos[id];
           } else {

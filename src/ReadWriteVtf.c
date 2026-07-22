@@ -543,23 +543,23 @@ static bool VtfCheckAtomLine() { //{{{
     }
     // error - resid not followed by non-negative integer //{{{
     if (strcmp(split[i], "resid") == 0 &&
-        !IsWholeNumber(split[i + 1], &val_i)) {
+        !IsWholeNumber(split[i+1], &val_i)) {
       err_msg("atom line: 'resid' not followed by natural number");
       return false;
     } //}}}
     // error - charge|q //{{{
     if ((strcmp(split[i], "charge") == 0 || split[i][0] == 'q') &&
-        !IsRealNumber(split[i + 1], &val_d)) {
+        !IsRealNumber(split[i+1], &val_d)) {
       err_msg("atom line: 'charge|q' not followed by real number ");
       return false; //}}}
     // error - r[adius] not followed by positive number //{{{
     } else if (split[i][0] == 'r' &&               // possible r[adius]
                strncmp(split[i], "res", 3) != 0 && // it's not resid or resname
-               !IsPosRealNumber(split[i + 1], &val_d)) {
+               !IsPosRealNumber(split[i+1], &val_d)) {
       err_msg("atom line: 'r[adius]]]' not followed by positive real number ");
       return false; //}}}
     // error - m[ass] not followed by positive number //{{{
-    } else if (split[i][0] == 'm' && !IsPosRealNumber(split[i + 1], &val_d)) {
+    } else if (split[i][0] == 'm' && !IsPosRealNumber(split[i+1], &val_d)) {
       err_msg("atom line: 'm[ass]' not followed by positive real number");
       return false;
     } //}}}
@@ -597,8 +597,8 @@ static bool VtfCheckBondLine() { //{{{
     char first[SPL_LEN];
     s_strcpy(first, split[1], SPL_LEN);
     int len = strlen(first);
-    if (len > 0 && first[len - 1] == ':') {
-      first[len - 1] = '\0';
+    if (len > 0 && first[len-1] == ':') {
+      first[len-1] = '\0';
     }
     if (!IsIntegerNumber(first, &val_i) || val_i < 0 ||
         !IsIntegerNumber(split[2], &val_i) || val_i < 0) {

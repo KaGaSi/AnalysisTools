@@ -9,7 +9,7 @@ static size_t *CalcArrNDStride(size_t ndim, const size_t *shape) {
   if (!stride) {
     return nullptr;
   }
-  stride[ndim - 1] = 1;
+  stride[ndim-1] = 1;
   for (ssize_t d = ndim - 2; d >= 0; d--) {
     stride[d] = stride[d+1] * shape[d+1];
   }

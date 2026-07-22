@@ -280,7 +280,10 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < N_total; i++) {
     BEAD *b = &System.Bead[i];
     InitBead(b);
-    b->Type     = (i < N_junc) ? bt_J : bt_S;
+    b->Type = bt_S;
+    if (i < N_junc) {
+      b->Type = bt_J;
+    }
     b->Molecule = 0;
     mol->Bead[i]      = i;
     System.BeadCoor[i] = i;

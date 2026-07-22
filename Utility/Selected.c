@@ -342,7 +342,9 @@ static bool FindPrevTimestepStart(FILE *fr, int type, const SYSTEM *System,
   while (pos >= 0) {
     fseek(fr, pos, SEEK_SET);
     int c = fgetc(fr);
-    if (c != '\n' && c != '\r') break;
+    if (c != '\n' && c != '\r') {
+      break;
+    }
     pos--;
   }
   while (pos >= 0) {
@@ -350,7 +352,9 @@ static bool FindPrevTimestepStart(FILE *fr, int type, const SYSTEM *System,
     long line_start = pos;
     while (line_start > 0) {
       fseek(fr, line_start - 1, SEEK_SET);
-      if (fgetc(fr) == '\n') break;
+      if (fgetc(fr) == '\n') {
+        break;
+      }
       line_start--;
     }
     // read the line and test if it is a timestep start
@@ -365,7 +369,9 @@ static bool FindPrevTimestepStart(FILE *fr, int type, const SYSTEM *System,
     while (pos >= 0) {
       fseek(fr, pos, SEEK_SET);
       int c = fgetc(fr);
-      if (c != '\n' && c != '\r') break;
+      if (c != '\n' && c != '\r') {
+        break;
+      }
       pos--;
     }
   }
