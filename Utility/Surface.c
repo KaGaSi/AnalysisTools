@@ -89,7 +89,11 @@ double calc_area(const double A[3], const double B[3], const double C[3]) {
     c = VectLength(AB);
   }
   double s = (a + b + c) / 2;
-  return sqrt(s * (s - a) * (s - b) * (s - c));
+  double area_sq = s * (s - a) * (s - b) * (s - c);
+  if (area_sq < 0) { // near-degenerate (collinear) triangle: fp round-off < 0
+    area_sq = 0;
+  }
+  return sqrt(area_sq);
 } //}}}
 // calculate areas of two triangles (if appropriate points are defined) //{{{
 void calc_4points(double A[3], double B[3], double C[3], double D[3],

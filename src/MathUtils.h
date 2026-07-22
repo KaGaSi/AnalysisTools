@@ -24,9 +24,23 @@ static inline double VectLength(const vec3d a) {
 static inline double Dot(const vec3d a, const vec3d b) {
   return a.x * b.x + a.y * b.y + a.z * b.z;
 }
+// clamp x into [-1,1]; guards acos()/asin() domains against fp round-off
+static inline double ClampUnit(double x) {
+  if (x < -1) {
+    return -1;
+  } else if (x > 1) {
+    return 1;
+  } else {
+    return x;
+  }
+}
 // cosine of angle between two 3D vectors
 static inline double CosAngle(const vec3d a, const vec3d b) {
-  return Dot(a, b) / (VectLength(a) * VectLength(b));
+  double denom = VectLength(a) * VectLength(b);
+  if (denom == 0) { // undefined angle for a zero-length vector
+    return NAN;
+  }
+  return ClampUnit(Dot(a, b) / denom);
 }
 static inline vec3d Vector(const vec3d a, const vec3d b) {
   vec3d c;

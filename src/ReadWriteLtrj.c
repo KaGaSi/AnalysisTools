@@ -484,6 +484,12 @@ static int LtrjReadAtomsLine(FILE *fr, const char *file, int *var_pos,
       count_unknown++;
     }
   }
+  // 'id' is mandatory
+  if (var_pos[0] == -1) {
+    err_msg("missing 'id' keyword in 'ITEM: ATOMS' line");
+    PrintErrorFileLine(file, *line_count);
+    return -1;
+  }
   cols = words - 2; // count even the unknown columns
   return cols;
 } //}}}

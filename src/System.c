@@ -440,10 +440,10 @@ bool CalculateBoxData(BOX *Box, int mode) {
       Box->Length.x = a;
       Box->Length.y = b;
       Box->Length.z = c;
-      // cell angles
-      Box->alpha = acos(c_a) / PI * 180;
-      Box->beta = acos(c_b) / PI * 180;
-      Box->gamma = acos(c_g) / PI * 180;
+      // cell angles (guard against rounding past +/-1)
+      Box->alpha = acos(ClampUnit(c_a)) / PI * 180;
+      Box->beta = acos(ClampUnit(c_b)) / PI * 180;
+      Box->gamma = acos(ClampUnit(c_g)) / PI * 180;
       // cell volume
       sqr = 1 - Square(c_a) - Square(c_b) - Square(c_g) + 2 * c_a * c_b * c_g;
       if (sqr < 0) {
@@ -2693,7 +2693,7 @@ void FillAggregateBeads(AGGREGATE *Aggregate, SYSTEM System) { //{{{
       int mtype = m->Type;
       MOLECULETYPE *mt = &System.MoleculeType[mtype];
       agg->nBeads += mt->nBeads;
-      agg->Bead = realloc(agg->Bead, sizeof *agg->Bead * agg->nBeads);
+      agg->Bead = s_realloc(agg->Bead, sizeof *agg->Bead * agg->nBeads);
       for (int k = 0; k < mt->nBeads; k++) {
         agg->Bead[agg->nBeads-mt->nBeads+k] = m->Bead[k];
       }

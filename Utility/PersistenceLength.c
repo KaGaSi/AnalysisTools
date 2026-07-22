@@ -45,6 +45,17 @@ struct OPT {
 }; //}}}
 
 // go through all molecules and calcule l_p & Co. //{{{
+// warn once (per run) that coincident beads produced a zero-length bond vector
+static void WarnDegenerateBond(void) {
+  static bool warned = false;
+  if (!warned) {
+    err_msg("zero-length bond vector (coincident beads); affected S1/S2 terms "
+            "are skipped - note S1 is normalized by the step count, so its "
+            "value for the affected chains is biased low");
+    PrintWarning();
+    warned = true;
+  }
+}
 void Calculation(SYSTEM *System, OPT opt, double *bondlength, int *count_bonds,
                  ArrNDd *S1, ArrNDd *S2, ArrNDd *S3,
                  ArrNDi *count_S2, ArrNDi *count_S3) {
@@ -83,7 +94,12 @@ void Calculation(SYSTEM *System, OPT opt, double *bondlength, int *count_bonds,
         b1 = mol->Bead[mt->Bond[k][0]];
         b2 = mol->Bead[mt->Bond[k][1]];
         vec3d bondj = Vector(System->Bead[b1].Position, System->Bead[b2].Position);
-        AddArr3D(S1, mol->Type, k - first_bond, 0, CosAngle(bondj, bond1));
+        double s1_fwd = CosAngle(bondj, bond1);
+        if (!isnan(s1_fwd)) {
+          AddArr3D(S1, mol->Type, k - first_bond, 0, s1_fwd);
+        } else { // degenerate (zero-length) bond vector
+          WarnDegenerateBond();
+        }
         // bondlength & count bonds
         bondlength[mol->Type] += VectLength(bondj);
         count_bonds[mol->Type]++;
@@ -93,7 +109,12 @@ void Calculation(SYSTEM *System, OPT opt, double *bondlength, int *count_bonds,
         b1 = mol->Bead[mt->Bond[bond_id][0]];
         b2 = mol->Bead[mt->Bond[bond_id][1]];
         bondj = Vector(System->Bead[b1].Position, System->Bead[b2].Position);
-        AddArr3D(S1, mol->Type, bin_id, 1, CosAngle(bondN, bondj));
+        double s1_rev = CosAngle(bondN, bondj);
+        if (!isnan(s1_rev)) {
+          AddArr3D(S1, mol->Type, bin_id, 1, s1_rev);
+        } else { // degenerate (zero-length) bond vector
+          WarnDegenerateBond();
+        }
         //}}}
         for (int l = k; l < last_bond; l++) {
           int lag = l - k;
@@ -107,8 +128,13 @@ void Calculation(SYSTEM *System, OPT opt, double *bondlength, int *count_bonds,
           b2 = mol->Bead[mt->Bond[l][1]];
           vec3d bondl = Vector(System->Bead[b1].Position, System->Bead[b2].Position);
           // autocorrelation
-          AddArr2D(S2, mol->Type, lag, CosAngle(bondk, bondl));
-          AddArr2D(count_S2, mol->Type, lag, 1);
+          double s2 = CosAngle(bondk, bondl);
+          if (!isnan(s2)) {
+            AddArr2D(S2, mol->Type, lag, s2);
+            AddArr2D(count_S2, mol->Type, lag, 1);
+          } else { // degenerate (zero-length) bond vector
+            WarnDegenerateBond();
+          }
           //}}}
           // S3 function (end-to-end distances) //{{{
           b1 = mol->Bead[mt->Bond[k][0]];

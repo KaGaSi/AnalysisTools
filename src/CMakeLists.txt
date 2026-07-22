@@ -143,12 +143,22 @@ endforeach()
 enable_testing()
 set(TESTS
   t_geometry
-  t_traversal)
+  t_traversal
+  t_readers)
 foreach(t ${TESTS})
   add_executable(${t} ../tests/${t}.c)
   target_link_libraries(${t} PRIVATE ${GSL_LIBRARIES} m ${BLAS_LIB} AnalysisTools)
   target_include_directories(${t} PRIVATE ${GSL_INCLUDE_DIRS})
+  # absolute path to the committed reader fixtures
+  target_compile_definitions(${t} PRIVATE
+    FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../tests/fixtures")
   add_test(NAME ${t} COMMAND ${t})
+  # Make sanitizer findings fatal so a mutation that slips past validation
+  # aborts (SIGABRT) instead of printing a recoverable "runtime error" and
+  # continuing - GCC's UBSan array-bounds check recovers by default, which
+  # would otherwise let out-of-bounds indexing pass the reader fuzz cases.
+  set_tests_properties(${t} PROPERTIES ENVIRONMENT
+    "UBSAN_OPTIONS=halt_on_error=1:abort_on_error=1;ASAN_OPTIONS=abort_on_error=1")
 endforeach()
 
 # Ensure Fortran compiler is set

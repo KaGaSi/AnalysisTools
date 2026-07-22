@@ -75,7 +75,7 @@ int SplitLine(const int max_str, char **out, char *line, const char delim[]) {
   // split into words separated by delimiters in delim array
   int words = 0;
   out[words] = strtok(line, delim); // first word
-  while (words < max_str && out[words] != nullptr) {
+  while (words < (max_str - 1) && out[words] != nullptr) {
     words++; // start from 1, as the first split is already done
     out[words] = strtok(nullptr, delim);
   }

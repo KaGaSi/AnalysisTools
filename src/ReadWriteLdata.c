@@ -743,9 +743,10 @@ static void LmpDataReadAtoms(FILE *fr, const char *file, SYSTEM *System,
      * will be merged later
      */
     BEADTYPE *bt = &System->BeadType[id];
-    if (type > atom_types) {
-      snprintf(ERROR_MSG, LINE, "bead type is too high; id is %s%ld%s in "
-               "a file with %s%d%s atom types", ErrYellow(), type, ErrRed(),
+    // valid type: 0..atom_types-1; others would index name_mass out of bounds
+    if (type < 0 || type >= atom_types) {
+      snprintf(ERROR_MSG, LINE, "bead type %s%ld%s out of range in "
+               "a file with %s%d%s atom types", ErrYellow(), type + 1, ErrRed(),
                ErrYellow(), atom_types, ErrRed());
       PrintErrorFileLine(file, *line_count);
       exit(1);

@@ -104,6 +104,12 @@ int main ( int argc, char** argv ) {
     PrintError();
     Help(true, HelpDesc, opts);
   }
+  // -tau needs at least two blocks: the block std dev divides by (tau - 1)
+  if (opt.tau != 0 && opt.tau < 2) {
+    err_msg("-tau must be at least 2 (need more than one block for an error)");
+    PrintError();
+    Help(true, HelpDesc, opts);
+  }
   if (opt.moving != -1 && commons.end != -1 &&
       (commons.end - commons.start - opt.moving) < 0) {
     snprintf(ERROR_MSG, LINE, "nothing to compute: %s%d%s-point moving "
@@ -147,8 +153,8 @@ int main ( int argc, char** argv ) {
       } //}}}
       data_lines++;
       // save the value
-      if (commons.start < data_lines) {
-        count = data_lines - commons.start - 1;
+      if (commons.start <= data_lines) {
+        count = data_lines - commons.start;
         for (int i = 0; i < col_count; i++) {
           data[i] = s_realloc(data[i], sizeof *data[i] * (count + 1));
           data[i][count] = atof(split[column[i]-1]);
@@ -172,17 +178,36 @@ int main ( int argc, char** argv ) {
     exit(1);
   } //}}}
 
-  data_lines -= commons.start;
+  // number of stored data points: lines commons.start..end, inclusive
+  data_lines -= commons.start - 1;
+
+  // need >=2 data points: the average is meaningless at 0 and
+  // stdev divides by (data_lines - 1)
+  if (data_lines < 2) {
+    snprintf(ERROR_MSG, LINE, "need at least 2 data lines to compute an "
+             "average and error (found %s%d%s)", ErrYellow(), data_lines,
+             ErrRed());
+    PrintError();
+    exit(1);
+  }
 
   // -tau mode //{{{
   if (opt.tau > 0) {
     // variables
     // number of data points must be divisible by 'n_blocks'
-    int remainder = (data_lines - commons.start) % opt.tau;
+    int remainder = data_lines % opt.tau;
     // total number of data points to consider
-    count = data_lines - commons.start - remainder;
+    count = data_lines - remainder;
     // number of data points per block
     int data_per_block = count / opt.tau;
+    // guard: -tau larger than the usable data leaves empty blocks, which would
+    // divide by zero when normalizing the per-block averages below
+    if (data_per_block < 1) {
+      snprintf(ERROR_MSG, LINE, "-tau (%s%d%s) exceeds the number of usable "
+               "data lines", ErrYellow(), opt.tau, ErrRed());
+      PrintError();
+      exit(1);
+    }
     // block averages
     ArrNDld *avg_block = CreateArr2Dld(col_count, opt.tau);
     // overall averages
@@ -216,6 +241,7 @@ int main ( int argc, char** argv ) {
     if (!error || !tau_int) {
       ErrorAlloc("error/tau_int");
     }
+    bool warn_const = false; // warn about undefined tau only once
     for (int col = 0; col < col_count; col++) {
       // standard deviation for block averages
       double block_stdev = 0;
@@ -227,8 +253,17 @@ int main ( int argc, char** argv ) {
       // statistical error
       error[col] = sqrt(block_stdev / opt.tau);
       // approximate integrated autocorrelation time
-      double val = GetArr2D(avg_all, 0, 1) - Square(GetArr2D(avg_all, 0, 0));
-      tau_int[col] = 0.5 * data_per_block * block_stdev / val;
+      double val = GetArr2D(avg_all, col, 1) - Square(GetArr2D(avg_all, col, 0));
+      if (val == 0) { // constant data
+        if (!warn_const) {
+          err_msg("tau is undefined for constant data; reporting 0");
+          PrintWarning();
+          warn_const = true;
+        }
+        tau_int[col] = 0;
+      } else {
+        tau_int[col] = 0.5 * data_per_block * block_stdev / val;
+      }
     }
 
     // print number of blocks, average, statistical error, and estimate of tau
@@ -236,8 +271,8 @@ int main ( int argc, char** argv ) {
     fprintf(fw, " %6d", opt.tau);
     for (int col = 0; col < col_count; col++) {
       fprintf(fw, " %Lf", GetArr2D(avg_all, col, 0));
-      fprintf(fw, " %lf", error[0]);
-      fprintf(fw, " %lf", tau_int[0]);
+      fprintf(fw, " %lf", error[col]);
+      fprintf(fw, " %lf", tau_int[col]);
     }
     putc('\n', fw);
     fclose(fw);

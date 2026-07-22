@@ -47,6 +47,16 @@ struct OPT {
   char n_file[LINE]; // -n (output file)
 }; //}}}
 
+// warn once (per run) that coincident beads produced an undefined angle
+static void WarnDegenerateAngle(void) {
+  static bool warned = false;
+  if (!warned) {
+    err_msg("coincident beads give an undefined angle; such angles are "
+            "skipped, so the affected averages use fewer samples");
+    PrintWarning();
+    warned = true;
+  }
+}
 void Calculation(SYSTEM *System, OPT opt, ArrNDd *ang, ArrNDd *ang_mma,
                  ArrNDd *ang_all, ArrNDd *ang_all_mma,
                  ArrNDd *ang_n, ArrNDd *ang_n_mma,
@@ -72,6 +82,10 @@ void Calculation(SYSTEM *System, OPT opt, ArrNDd *ang, ArrNDd *ang_mma,
         vec3d u = Vector(b_1->Position, b_2->Position);
         vec3d v = Vector(b_3->Position, b_2->Position);
         double angle = AngleDegrees(u, v);
+        if (isnan(angle)) { // coincident beads: undefined angle, skip
+          WarnDegenerateAngle();
+          continue;
+        }
         // btype1 must be lower than btype3
         int *id_lo, *id_hi;
         if (b_1->Type < b_3->Type) {
@@ -143,6 +157,10 @@ void Calculation(SYSTEM *System, OPT opt, ArrNDd *ang, ArrNDd *ang_mma,
           vec3d u = Vector(b_1->Position, b_2->Position);
           vec3d v = Vector(b_3->Position, b_2->Position);
           double angle = AngleDegrees(u, v);
+          if (isnan(angle)) { // coincident beads: undefined angle, skip
+            WarnDegenerateAngle();
+            continue;
+          }
           // mins & maxes & averages //{{{
           // if (angle < ang_n_mma[mol_i->Type][j/n_per_set][0]) {
           if (angle < GetArr3D(ang_n_mma, mol_i->Type, j / n_per_set, 0)) {
