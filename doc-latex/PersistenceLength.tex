@@ -1,0 +1,103 @@
+\section{PersistenceLength} \label{sec:PersistenceLength}
+
+\tt{PersistenceLength} computes orientational correlation functions of the bond
+vectors along linear chains, from which the persistence length $l_p$ can be
+extracted (the utility itself does not fit --- it outputs the correlation data
+you then fit). The chain must have ordered bead ids, i.e.\ bead order
+1-2-3-\dots{} giving bonds 1-2, 2-3, \dots.
+
+For each bond $i$ let $\hat{\mb{u}}_i$ be its unit vector. As a function of the
+bond separation $s$ (an integer number of bonds), three observables are
+calculated, each averaged over all selected molecules and timesteps:
+\begin{align}
+  S_2(s) &= \big\langle \hat{\mb{u}}_i\cdot\hat{\mb{u}}_{i+s} \big\rangle_i
+          = \big\langle \cos\theta(s) \big\rangle
+          \;\xrightarrow{\text{WLC}}\;
+          \exp\!\Big(\!-\tfrac{s\,\langle l_b\rangle}{l_p}\Big), \\
+  S_1(s) &= \big\langle \hat{\mb{u}}_b\cdot\hat{\mb{u}}_{b+s} \big\rangle, \\
+  S_3(s) &= \big\langle\, |\mb{r}_a - \mb{r}_c|^2 \,\big\rangle
+          = \big\langle R^2(s{+}1) \big\rangle,
+\end{align}
+where $\langle l_b\rangle$ is the mean bond length. $S_2$ is the standard
+bond-orientational autocorrelation, averaged over every starting bond $i$; its
+running sum $\langle l_b\rangle\sum_s S_2(s)$ estimates $l_p$. $S_1$ is the same
+cosine but measured against a \emph{fixed} reference bond $b$ --- the first bond
+(``\tt{S1}'') and, separately, the last bond (``\tt{S1 (rev)}''); this is Flory's
+definition, with $l_p = \langle l_b\rangle\sum_s S_1(s)$ (the ``\tt{sum S1}''
+columns). $S_3$ is the mean-square distance $R^2$ across a subchain of $s+1$
+consecutive bonds (from the first bead of bond $i$ to the last bead of bond
+$i+s$), fit to the worm-like-chain $\langle R^2\rangle$.
+
+By default all molecule types are used; restrict this with \tt{-m}. Each type is
+treated separately (results are per type), averaging over its molecules and over
+all timesteps. $S_1(0)$ and $S_2(0)$ are $1$ by construction.
+
+The three estimators are redundant on purpose --- they trade off differently
+against finite-chain end effects. $S_2$ (lag-averaged) is the most robust; $S_1$
+is more sensitive to the chain ends, which is why it is reported from both ends
+so you can gauge that bias. All three should give a consistent $l_p$ for a long
+enough, well-equilibrated chain.
+
+Use \tt{-ns}/\tt{-ne} to analyse only part of each molecule: they set the first
+and last bead (1-based, in structure-file order) of the sub-chain to correlate,
+and at least three beads must remain. This is useful to drop chain ends. Note an
+asymmetry: the forward $S_1$/$S_2$ honour \tt{-ne}, but the reverse $S_1$ is
+always measured from the true last bond of the molecule, so with \tt{-ne} set the
+forward and reverse curves cover different bond ranges.
+
+If the coordinate file has molecules split across periodic boundaries,
+\tt{PersistenceLength} joins them first; pass \tt{--joined} if the coordinates
+are already whole-molecule.
+
+\todo{Add an Examples/ entry: persistence length of a semiflexible bead-spring
+chain, showing the exponential fit of \tt{S2} and the \tt{sum S1}/\tt{sum S2}
+plateau giving $l_p$.}
+
+\noindent
+\tt{Usage: PersistenceLength <input> <output> [options]}
+
+\noindent
+\begin{longtable}{p{0.24\textwidth}p{0.706\textwidth}}
+  \toprule
+  \multicolumn{2}{l}{Mandatory arguments} \\
+  \midrule
+  \tt{<input>}  & input coordinate file (structure file must define bonds) \\
+  \tt{<output>} & output file with the correlation functions \\
+  \toprule
+  \multicolumn{2}{l}{Options} \\
+  \midrule
+  \tt{-m <name(s)>} & molecule type(s) to use (default: all) \\
+  \tt{--joined}     & input already contains joined (whole-molecule)
+                      coordinates \\
+  \tt{-ns <int>}    & start with the \tt{<int>}-th bead of each molecule
+                      (default: 1) \\
+  \tt{-ne <int>}    & end with the \tt{<int>}-th bead of each molecule
+                      (default: last); at least three beads must remain \\
+  \midrule
+  \multicolumn{2}{p{0.948\textwidth}}{\tt{-i}, \tt{-ft}, \tt{-st}, \tt{-e},
+    \tt{-sk}, \tt{--verbose}, \tt{--silent}, \tt{--help}, \tt{--version}} \\
+  \bottomrule
+\end{longtable}
+
+\noindent
+Format of output files:
+\begin{enumerate}[nosep,leftmargin=20pt]
+  \item \tt{<output>} --- correlation functions versus bond separation
+    \begin{itemize}[nosep,leftmargin=5pt]
+      \item 1st line: command used to generate the file
+      \item 2nd line: comment line listing, per molecule type, the seven data
+        columns: \tt{S1}, \tt{sum S1}, \tt{S1 (rev)}, \tt{sum S1 (rev)},
+        \tt{S2 (autocorr)}, \tt{sum S2 (autocorr)}, \tt{S3}
+      \item 3rd line: comment line mapping column numbers to molecule type names
+        (column~1 is the lag; then seven columns per selected type)
+      \item data lines: column~1 is the lag $s$ (bond separation, in bonds ---
+        multiply by the mean bond length for a contour length); the remaining
+        columns are the seven observables above for each molecule type
+      \item molecule types shorter than the longest one contain \tt{nan} in the
+        rows beyond their length (no bond pairs at that separation)
+    \end{itemize}
+\end{enumerate}
+
+\todo{Source: the utility is marked ``very messy'' and output handling is still
+provisional (\tt{// TODO: output handling}); the mean bond length is accumulated
+internally but not written to the output.}
