@@ -184,8 +184,43 @@ static void test_fractional_roundtrip(void) {
   free(s.BeadCoor);
 } //}}}
 
+// CosAngle / AngleDegrees: known angles, clamp, and degenerate zero vector //{{{
+static void test_cos_angle(void) {
+  vec3d x = { .v = {1, 0, 0} };
+  vec3d y = { .v = {0, 1, 0} };
+  vec3d z = { .v = {0, 0, 0} };
+  // known angles
+  CHECK_CLOSE(CosAngle(x, x),  1.0, 1e-12); // parallel
+  CHECK_CLOSE(CosAngle(x, y),  0.0, 1e-12); // perpendicular
+  CHECK_CLOSE(CosAngle(x, (vec3d){ .v = {-1, 0, 0} }), -1.0, 1e-12); // opposite
+  CHECK_CLOSE(AngleDegrees(x, y), 90.0, 1e-9);
+  CHECK_CLOSE(AngleDegrees(x, x),  0.0, 1e-9);
+  // a zero-length vector has no defined angle -> NaN, not a div-by-zero inf
+  CHECK(isnan(CosAngle(x, z)));
+  CHECK(isnan(CosAngle(z, z)));
+  CHECK(isnan(AngleDegrees(x, z)));
+  // The cosine must stay within acos()'s domain even when fp round-off pushes
+  // a (near-)parallel self-dot just past 1 (sqrt(s)*sqrt(s) < s happens for a
+  // large fraction of vectors); without the clamp AngleDegrees(a, a) is NaN.
+  for (int n = 0; n < 5000; n++) {
+    vec3d a = { .v = { randr(-5, 5), randr(-5, 5), randr(-5, 5) } };
+    // parallel / antiparallel: exactly the two edges of the domain
+    CHECK(CosAngle(a, a) <= 1.0);
+    CHECK(!isnan(AngleDegrees(a, a)));
+    vec3d na = { .v = { -a.x, -a.y, -a.z } };
+    CHECK(CosAngle(a, na) >= -1.0);
+    CHECK(!isnan(AngleDegrees(a, na)));
+    // an arbitrary second vector must land in range too
+    vec3d b = { .v = { randr(-5, 5), randr(-5, 5), randr(-5, 5) } };
+    double c = CosAngle(a, b);
+    CHECK(c >= -1.0 && c <= 1.0);
+    CHECK(!isnan(AngleDegrees(a, b)));
+  }
+} //}}}
+
 int main(void) {
   pcg32Seed(&rng, 20260721u);
+  RUN(test_cos_angle);
   RUN(test_box_roundtrip);
   RUN(test_transform_inverse);
   RUN(test_restore_pbc);
