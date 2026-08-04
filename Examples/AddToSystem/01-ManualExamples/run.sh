@@ -13,14 +13,14 @@ in_ltrj="${ROOT}/in.lammpstrj"
 in_field="${ROOT}/FIELD"
 
 # Figure 3.1a
-AddToSystem ${in_ltrj} ${in_field} fig3_1a.vtf --add -ld 3 -bt A
+AddToSystem ${in_ltrj} ${in_field} fig3_1a.vtf -s 1 --add -ld 3 -bt A
 # Figure 3.1b
-AddToSystem ${in_ltrj} ${in_field} fig3_1b.vtf --add -hd 4 -bt A
+AddToSystem ${in_ltrj} ${in_field} fig3_1b.vtf -s 2 --add -hd 4 -bt A
 # Figure 3.1c
-AddToSystem ${in_ltrj} ${in_field} fig3_1c.vtf --add -ld 3 -hd 4 -bt A
+AddToSystem ${in_ltrj} ${in_field} fig3_1c.vtf -s 3 --add -ld 3 -hd 4 -bt A
 # Figure 3.1d
-AddToSystem ${in_ltrj} ${in_field} fig3_1d.vtf --add -ld 3 -hd 4 -bt A -cx 0.5 1
+AddToSystem ${in_ltrj} ${in_field} fig3_1d.vtf -s 4 --add -ld 3 -hd 4 -bt A -cx 0.5 1
 # Figure 3.1e
-AddToSystem ${in_ltrj} ${in_field} fig3_1e.vtf --add -ld 3 -hd 4 -bt A -cx 0.5 1 -b 30 20 25
+AddToSystem ${in_ltrj} ${in_field} fig3_1e.vtf -s 5 --add -ld 3 -hd 4 -bt A -cx 0.5 1 -b 30 20 25
 # Figure 3.1f
-AddToSystem ${in_ltrj} ${in_field} fig3_1f.vtf --add -ld 3 -hd 4 -bt A -cx 0.5 1 -b 30 20 25 -off -0.2 0.2 0
+AddToSystem ${in_ltrj} ${in_field} fig3_1f.vtf -s 5 --add -ld 3 -hd 4 -bt A -cx 0.5 1 -b 30 20 25 -off -0.2 0.2 0

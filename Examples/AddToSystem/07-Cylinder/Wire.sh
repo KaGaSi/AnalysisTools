@@ -41,17 +41,17 @@ for (( i=0; i<20; i++ )); do # go over whole z- coordinate
     # add z- to x- and y-axis constraints
     constraint="-cx 0.49 0.51 -cy 0.49 0.51 -cz ${cz1} ${cz2} --head"
     if [[ ${i} == 0 && ${j} == 0 ]]; then # first molecule creates a new file
-      ${bin} - ${in_field1} new.data ${constraint} --no-rotate
+      ${bin} - ${in_field1} new.data ${constraint} --no-rotate -s $((i*j+1))
     else # other molecules are added to an existing file
       # in each layer, molecules are 60° apart; layers are shifted by 25°
       angle=$(( j * 60 + i * 25 ))
-      ${bin} old.data ${in_field1} new.data ${constraint} -a ${angle} 0 0 --add
+      ${bin} old.data ${in_field1} new.data ${constraint} -a 0 0 ${angle} --add -s $((i*j+2))
     fi
     # move new file to be used in the next cycle as an input file
     mv {new,old}.data
   done
 done
 # add solvent outside the aggregate; corresponds to overall number density 3
-${bin} old.data ${in_field2} Wire.data -ld 0.5 -bt A B --add -o Wire.vtf
+${bin} old.data ${in_field2} Wire.data -ld 0.5 -bt A B --add -o Wire.vtf -s 111
 # remove temporary file
 rm old.data

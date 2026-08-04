@@ -17,6 +17,9 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # Then, water with ions is added to one side of the bilayer, while pure water is
 # added to the second side.
 #
+# Every step is given a seed (-s) so that the script is reproducible; remove
+# the -s options to get a different bilayer on every run.
+#
 # While the packaged Bilayer.jpg shows a snapshot of the constructed bilayer,
 # the newly generaged Bilayer.vtf structure/coordinate file may be viewed
 # through, e.g., vmd.
@@ -33,27 +36,27 @@ count=0 # name the files in every step as <count>.vtf and <count>.FIELD
 # create first layer from scratch (200 A5B1 molecules)
 count=$((count+1))
 sed "s/NUMBER/200/" ${surf1} > ${count}.FIELD
-${bin} - ${count}.FIELD ${count}.vtf -cx 8.9 9.0 --no-rotate --head --real
+${bin} - ${count}.FIELD ${count}.vtf -cx 8.9 9.0 --no-rotate --head --real -s ${count}
 
 # second layer - create the 'notched' part composed of 190 A5B1 molecules
 # a) bigger rectangle
 count=$((count+1))
 sed "s/NUMBER/160/" ${surf1} > ${count}.FIELD
-${bin} $((count-1)).vtf ${count}.FIELD ${count}.vtf -cx 8 8.1 -cy 2 10 -a 180 0 0 --add --head --real
+${bin} $((count-1)).vtf ${count}.FIELD ${count}.vtf -cx 8 8.1 -cy 2 10 -a 0 0 180 --add --head --real -s ${count}
 # b) smaller rectangle
 count=$((count+1))
 sed "s/NUMBER/30/" ${surf1} > ${count}.FIELD
-${bin} $((count-1)).vtf ${count}.FIELD ${count}.vtf -cx 8 8.1 -cy 0 2 -cz 2 10 -a 180 0 0 --add --head --real
+${bin} $((count-1)).vtf ${count}.FIELD ${count}.vtf -cx 8 8.1 -cy 0 2 -cz 2 10 -a 0 0 180 --add --head --real -s ${count}
 # second layer - fill the 'notch' with 10 E5D1 molecules
 count=$((count+1))
-${bin} $((count-1)).vtf ${surf2} ${count}.vtf -cx 8 8.1 -cy 0 2 -cz 0 2 -a 180 0 0 --head --add --real
+${bin} $((count-1)).vtf ${surf2} ${count}.vtf -cx 8 8.1 -cy 0 2 -cz 0 2 -a 0 0 180 --head --add --real -s ${count}
 # add only water to one side
 count=$((count+1))
 sed "s/WATER/2100/" ${solvent} | sed "s/ION/0/" > ${count}.FIELD
-${bin} $((count-1)).vtf ${count}.FIELD ${count}.vtf -cx 12 20 --add --real
+${bin} $((count-1)).vtf ${count}.FIELD ${count}.vtf -cx 12 20 --add --real -s ${count}
 # add water and ions to the other side
 count=$((count+1))
 sed "s/WATER/1300/" ${solvent} | sed "s/ION/100/" > ${count}.FIELD
-${bin} $((count-1)).vtf ${count}.FIELD ${count}.vtf -cx 0 5 --add --real
+${bin} $((count-1)).vtf ${count}.FIELD ${count}.vtf -cx 0 5 --add --real -s ${count}
 
 cp ${count}.vtf Bilayer.vtf
