@@ -201,7 +201,8 @@ static inline void Arr3D_bool_set(ArrNDb *a, const size_t i, const size_t j,
            ArrNDd*: Arr3D_double_set, \
            ArrNDld*: Arr3D_longdouble_set, \
            ArrNDi*: Arr3D_int_set, \
-           ArrNDli*: Arr3D_longint_set)(a, i, j, k, val)
+           ArrNDli*: Arr3D_longint_set, \
+           ArrNDb*: Arr3D_bool_set)(a, i, j, k, val)
  //}}}
 // general adders //{{{
 void ArrND_double_add(ArrNDd *a, const size_t *idx, double val);

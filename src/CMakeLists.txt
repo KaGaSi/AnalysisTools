@@ -7,13 +7,15 @@ enable_language(C Fortran)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Build type
-set(CMAKE_BUILD_TYPE "Debug")
-# set(CMAKE_BUILD_TYPE "Release")
+# Build type - Release unless the user says otherwise
+# (e.g. cmake ../src -DCMAKE_BUILD_TYPE=Debug)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
+endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-# compiler flags
-set(CMAKE_C_FLAGS "-std=c23 -Wall")
+# compiler flags (appended so user-supplied CFLAGS/CMAKE_C_FLAGS survive)
+string(APPEND CMAKE_C_FLAGS " -std=c23 -Wall")
 set(CMAKE_C_FLAGS_DEBUG "-ggdb -g")
 set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG")
 
@@ -27,6 +29,20 @@ if(SANITIZE)
          " -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer")
   string(APPEND CMAKE_EXE_LINKER_FLAGS " -fsanitize=address,undefined")
   message(STATUS "Sanitizers: address, undefined")
+endif()
+
+# Link-time optimisation, so the ArrND accessors in Arrays.c can be inlined
+# into the utilities that use them (they're in a separate translation unit,
+# and some are called in per-bead loops). Optimised configurations only -
+# it does nothing useful for Debug and interferes with the sanitizers.
+include(CheckIPOSupported)
+check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
+if(ipo_supported AND NOT SANITIZE)
+  set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+  set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO TRUE)
+  message(STATUS "IPO/LTO: enabled for Release/RelWithDebInfo")
+elseif(NOT ipo_supported)
+  message(STATUS "IPO/LTO: not supported (${ipo_error})")
 endif()
 
 # Find GSL
