@@ -59,7 +59,20 @@ speeds up placement when the reference beads occupy only a small part of the box
 coordinate of the reference point to the interval $[lo,\,hi)$. By default the
 bounds are fractions of the output box sidelength (values in $[0,1]$);
 \tt{--real} switches to absolute coordinates. If \tt{lo > hi}, the values are
-swapped silently.
+swapped silently. For a triclinic box the bounds mean something slightly
+different---see \cref{subsec:AddToSystem-triclinic}.
+
+Each option takes up to ten \tt{<lo> <hi>} pairs, and the allowed region for
+that axis is their union; the pairs need not be given in order, and overlapping
+ones---or ones that merely touch---are merged, with a warning. A range is drawn with a probability proportional to its width,
+so the density stays uniform over the whole union. The axes are independent---
+\tt{-cx} can take three pairs while \tt{-cy} takes one---and the region is the
+product of the per-axis unions. For instance,
+\begin{center}
+  \tt{-cx 0 0.2 0.8 1.0 -cy 0 0.5}
+\end{center}
+gives two slabs at opposite ends of the $x$-axis, both cut down to the lower
+half of the box in $y$.
 
 Distance and axis constraints can be freely combined. \cref{fig:AddToSystem}
 shows examples. \tt{AddToSystem} retries placement until all constraints are
@@ -116,18 +129,20 @@ that produces a uniform distribution over all orientations. Two options change
 this: \tt{--no-rotate} preserves the orientation from the \field file, and
 \tt{-a <$\alpha$> <$\beta$> <$\gamma$>} applies a fixed rotation by $\alpha$,
 $\beta$, and $\gamma$ degrees around the $x$-, $y$-, and $z$-axes,
-respectively (overrides \tt{--no-rotate}). The rotation matrix is
+respectively (overrides \tt{--no-rotate}). The angles follow the right-hand
+rule, and the rotations are composed as $R = R_z(\gamma)R_y(\beta)R_x(\alpha)$,
+i.e.\ the $x$-rotation is applied to the molecule first:
 \begin{equation}
   R = \left[
   \begin{array}{ccc}
     \cos\gamma\cos\beta &
-      \sin\gamma\cos\beta &
-      -\sin\beta \\
-    \cos\gamma\sin\beta\sin\alpha - \sin\gamma\cos\alpha &
+      \cos\gamma\sin\beta\sin\alpha - \sin\gamma\cos\alpha &
+      \cos\gamma\sin\beta\cos\alpha + \sin\gamma\sin\alpha \\
+    \sin\gamma\cos\beta &
       \sin\gamma\sin\beta\sin\alpha + \cos\gamma\cos\alpha &
-      \cos\beta\sin\alpha \\
-    \cos\gamma\sin\beta\cos\alpha + \sin\gamma\sin\alpha &
-      \sin\gamma\sin\beta\cos\alpha - \cos\gamma\sin\alpha &
+      \sin\gamma\sin\beta\cos\alpha - \cos\gamma\sin\alpha \\
+    -\sin\beta &
+      \cos\beta\sin\alpha &
       \cos\beta\cos\alpha \\
   \end{array} \right].
 \end{equation}
@@ -156,18 +171,23 @@ scratch, append mode is always active regardless of \tt{--add}.
 \subsection{Box, offset, and scratch mode}
 
 \tt{-b <x> <y> <z>} sets the output simulation box sidelengths (always in
-absolute units, regardless of \tt{--real}). By default the new box is centred
-on the original one. All placement constraints refer to the output box, not the
-input one.
+absolute units, regardless of \tt{--real}). Three further numbers,
+\tt{-b <x> <y> <z> <$\alpha$> <$\beta$> <$\gamma$>}, add the cell angles in
+degrees and make the output box triclinic; without them the box is orthogonal.
+Each angle must lie in $(0,180)$ and the six numbers together must describe a
+realisable cell, otherwise \tt{AddToSystem} exits with an error. By default the
+new box is centred on the original one. All placement constraints refer to the
+output box, not the input one.
 
 \tt{-off <x> <y> <z>} shifts all beads from the input system before the new
-species are placed. Without \tt{--real}, the amounts are fractions of the
-output box sidelengths; with \tt{--real} they are in absolute units. Periodic
-boundary conditions are not applied after the shift, so beads can move outside
-the box.
+species are placed. Without \tt{--real}, the amounts are fractions of the cell
+vectors (which for an orthogonal box are simply fractions of the sidelengths);
+with \tt{--real} they are in absolute units. Periodic boundary conditions are
+not applied after the shift, so beads can move outside the box.
 
 To create a system from scratch, pass \tt{-} in place of the input file; the
-box is then taken from the \field file or library. In this mode, \tt{-ld},
+box is then taken from the \field file or library, including its angles if the
+first line of the \field file lists six numbers. In this mode, \tt{-ld},
 \tt{-hd}, \tt{-bt}, \tt{--bonded}, \tt{-xb}, and \tt{-st} have no effect and
 a warning is printed if any of them are supplied.
 
@@ -176,6 +196,29 @@ An extra output file in any supported format can be written with \tt{-o
 LAMMPS file are needed from a single run. Use \tt{-ebt <int>} to reserve
 extra bead-type slots in a LAMMPS \data output. The random seed can be fixed
 with \tt{-s <int>} for reproducibility.
+
+\subsection{Triclinic boxes} \label{subsec:AddToSystem-triclinic}
+
+Triclinic cells are supported throughout: beads and molecules are placed
+uniformly inside the tilted cell, and the \tt{-ld}/\tt{-hd} distance checks use
+the minimum-image convention appropriate for it. A triclinic output box comes
+either from the input file, from a \field file whose first line carries the
+three angles, or from \tt{-b} with six numbers.
+
+The axis constraints need more care. A slab bounded by two planes perpendicular
+to a Cartesian axis cannot be periodic in a cell tilted in that plane, so there
+is no Cartesian sub-box to place beads in. For a triclinic box, \tt{-cx},
+\tt{-cy}, and \tt{-cz} are therefore interpreted as fractions along the first,
+second, and third \emph{cell vector}, carving out a smaller cell of the same
+shape. The constrained region then shears with the cell, so its periodic images
+line up as they should. For an orthogonal box the two readings coincide and
+nothing changes.
+
+Because of this, \tt{--real} cannot be combined with \tt{-cx}/\tt{-cy}/\tt{-cz}
+when the box is triclinic; \tt{AddToSystem} exits with an error asking you to
+use fractions instead. The \tt{-hd} option is unaffected: the region it derives
+is a bounding box around existing beads, which is axis-aligned regardless of
+the cell shape.
 
 Further examples---including incremental builds, asymmetric bilayer assembly,
 cylindrical aggregates, and library-based workflows---are in
@@ -230,16 +273,26 @@ Usage: \tt{AddToSystem <input> [<in.field>] <output> [options]}\\
                                 reference point (overrides \tt{--tail})\\
   \tt{--tail}                 & use molecule's last bead as constraint
                                 reference point (default: geometric centre)\\
-  \tt{-cx <lo> <hi>}          & constrain $x$ coordinate to $[lo,\,hi)$\\
-  \tt{-cy <lo> <hi>}          & constrain $y$ coordinate to $[lo,\,hi)$\\
-  \tt{-cz <lo> <hi>}          & constrain $z$ coordinate to $[lo,\,hi)$\\
+  \tt{-cx <lo> <hi> ...}      & constrain $x$ coordinate to $[lo,\,hi)$ (first
+                                cell vector if the box is triclinic); up to ten
+                                pairs, giving a union of ranges\\
+  \tt{-cy <lo> <hi> ...}      & constrain $y$ coordinate to $[lo,\,hi)$ (second
+                                cell vector if the box is triclinic); up to ten
+                                pairs, giving a union of ranges\\
+  \tt{-cz <lo> <hi> ...}      & constrain $z$ coordinate to $[lo,\,hi)$ (third
+                                cell vector if the box is triclinic); up to ten
+                                pairs, giving a union of ranges\\
   \tt{--real}                 & use absolute units for \tt{-cx}/\tt{-cy}/
                                 \tt{-cz}/\tt{-off} (default: fraction of the
-                                output box)\\
+                                output box); not allowed with
+                                \tt{-cx}/\tt{-cy}/\tt{-cz} for a triclinic
+                                box\\
   \tt{-b <x> <y> <z>}         & output simulation box sidelengths (absolute
-                                units)\\
-  \tt{-off <x> <y> <z>}       & shift input system beads (fraction of output
-                                box, or absolute with \tt{--real})\\
+                                units), optionally followed by the
+                                $\alpha$, $\beta$, $\gamma$ cell angles in
+                                degrees for a triclinic box\\
+  \tt{-off <x> <y> <z>}       & shift input system beads (fraction of the cell
+                                vectors, or absolute with \tt{--real})\\
   \tt{-s <int>}               & seed for the random number generator\\
   \tt{-ebt <int>}             & reserve extra bead-type slots in LAMMPS \data
                                 output\\

@@ -84,6 +84,17 @@ A format used by the
 package} concisely defines species of beads and molecules, providing number of
 beads/molecules of given species as well as their properties.
 
+The first line is a header. If it begins with three numbers, they are the box
+sidelengths; three further numbers after them are the $\alpha$, $\beta$, and
+$\gamma$ cell angles in degrees, making the box triclinic. Anything after the
+numbers is free text, and a line that does not begin with three numbers is
+taken as a title, leaving the file without a box. The angles are written back
+out only when the cell is actually tilted, so an orthogonal box stays a plain
+three numbers. A \field file that defines no box can only be used where the box
+comes from elsewhere---when building a system from scratch with
+\fullref{sec:AddToSystem}, for instance, you then have to supply it via
+\tt{-b}.
+
 The \tt{species} section is the same as in the \tt{DL_MESO} \field file, but the
 \tt{molecules} section differs slightly. Besides the \tt{beads} part, every
 molecule can have \tt{bonds}, \tt{angles}, and \tt{dihedrals}, but even though
