@@ -1,6 +1,6 @@
 #include "Globals.h"
 
-const double PI = 3.14159265359;
+const double PI = 3.14159265358979323846;
 
 char line[LINE];
 char *split[SPL_STR];

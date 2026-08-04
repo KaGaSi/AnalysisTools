@@ -38,7 +38,25 @@ SYSTEM FieldRead(const char *file) { //{{{
                    IsRealNumber(split[1], &box.y) &&
                    IsRealNumber(split[2], &box.z)) {
     System.Box.Length = box;
-    CalculateBoxData(&System.Box, 0);
+    // three more numbers are the alpha, beta, and gamma angles of a
+    // triclinic cell; without them, the box stays orthogonal
+    vec3d angle;
+    if (words > 5 && IsRealNumber(split[3], &angle.x) &&
+                     IsRealNumber(split[4], &angle.y) &&
+                     IsRealNumber(split[5], &angle.z)) {
+      for (int dd = 0; dd < 3; dd++) {
+        if (angle.v[dd] <= 0 || angle.v[dd] >= 180) {
+          err_msg("box angles must be between 0 and 180 degrees");
+          FieldFileError(file, 1);
+        }
+      }
+      System.Box.alpha = angle.x;
+      System.Box.beta = angle.y;
+      System.Box.gamma = angle.z;
+    }
+    if (!CalculateBoxData(&System.Box, 0)) {
+      FieldFileError(file, 1);
+    }
   }
   fclose(fr); //}}}
   FieldReadSpecies(file, &System);
@@ -91,7 +109,11 @@ void WriteField(const SYSTEM System, const char *file_field,
   const BOX *box = &System.Box;
   if (box->Volume != -1) {
     fprintf(fw, "%.3f %.3f %.3f ", box->Length.x, box->Length.y, box->Length.z);
-    if (box->alpha != 90 || box->beta != 90 || box->gamma != 0) {
+    // print the angles for a triclinic box only; the tolerance accounts for
+    // the rounding of the degree<->radian conversions (cf. DistancePBC())
+    if (fabs(box->alpha - 90) > 1e-5 ||
+        fabs(box->beta - 90) > 1e-5 ||
+        fabs(box->gamma - 90) > 1e-5) {
       fprintf(fw, "%lf %lf %lf ", box->alpha, box->beta, box->gamma);
     }
   }
