@@ -8,7 +8,7 @@
 // Help message //{{{
 const struct HelpHelp HelpDesc = {
   "BilayerRigidity computes the bending rigidity from the splay distribution "
-  "of splay vectors between neighbouring molecules. "
+  "of splay vectors between neighbouring molecules.",
 
   "Usage: BilayerRigidity <input> <width> <output> <mol> <first> <last> "
   "[<mol> <first> <last> ...] [options]",

@@ -7,8 +7,8 @@ const struct HelpHelp HelpDesc = {
   "by a FIELD-like file or via -lib and -mol options and are placed either "
   "randomly or according to several possible constraints. By default, the "
   "new species are switched with existing beads, but using the --add flag, "
-  "they can be appended to the system, increasing total bead count. "
-  "Use -ntot to fill to a target total bead count (requires -lib)."
+  "they can be appended to the system, increasing total bead count. Use -ntot "
+  "to fill to a target total bead count with given molecules (requires -lib).",
 
   "Usage: AddToSystem <input> [<in.field>] <output> [options]",
   .args = 2, // minimum: <input> and <output>; <in.field> optional with -lib
@@ -26,13 +26,13 @@ static const struct OptSpec opts[] = {
   COMMON_OPTS[C_VERSION],
   {"<input>", nullptr, "input coordinate file or '-' to generate new system",
     OPT_ARG},
-  {"[<in.field>]", nullptr, "FIELD file with beads to add (unused with -lib)",
+  {"<in.field>", nullptr, "FIELD file with beads to add (unused with -lib)",
     OPT_ARG},
   {"<output>", nullptr, "output coordinate file", OPT_ARG},
   {"-o", "<filename>", "output extra structure file", OPT_EXTRA},
   {"-lib", "<dir>", "library directory: load molecules via -mol", OPT_EXTRA},
   {"-mol", "<mol> <%/n> ...", "molecule name(s) with percentage (e.g. 5%) "
-    "or count; pairs can be repeated", OPT_EXTRA},
+    "or count; multiple pairs can be specified", OPT_EXTRA},
   {"-sys", "<input> [output]", "system file: assign names to existing molecule "
     "types; optionally output updated info", OPT_EXTRA},
   {"-ld", "<float>", "lowest distance from chosen beads (default: none)",
@@ -43,24 +43,25 @@ static const struct OptSpec opts[] = {
   {"--bonded", nullptr, "use bonded beads for -hd/-ld (overwrites -bt option)",
     OPT_EXTRA},
   {"-xb", "<bead type>", "what bead type to exchange", OPT_EXTRA},
-  {"--add", nullptr, "add instead of exchange beads (overwrites -xb)",
+  {"--add", nullptr, "add instead of exchanging beads (overwrites -xb)",
     OPT_EXTRA},
   {"--no-rotate", nullptr, "do not randomly rotate molecules", OPT_EXTRA},
   {"-a", "3x<angle>", "rotate molecules around <x>, <y>, <z> axes by "
     "given degrees (overrides --no-rotate)", OPT_EXTRA},
-  {"-cx", "2x<float>", "constrain x-coordinate (in fraction of output box)",
-    OPT_EXTRA},
-  {"-cy", "2x<float>", "constrain y-coordinate (in fraction of output box)",
-    OPT_EXTRA},
-  {"-cz", "2x<float>", "constrain z-coordinate (in fraction of output box)",
-    OPT_EXTRA},
+  {"-cx", "<lo> <hi> ...", "constrain x-coordinate (in fraction of output "
+    "box); multiple pairs give a union of ranges", OPT_EXTRA},
+  {"-cy", "<lo> <hi> ...", "constrain y-coordinate (in fraction of output "
+    "box); multiple pairs give a union of ranges", OPT_EXTRA},
+  {"-cz", "<lo> <hi> ...", "constrain z-coordinate (in fraction of output "
+    "box); multiple pairs give a union of ranges", OPT_EXTRA},
   {"--tail", nullptr, "use molecule's last bead for constraint checks "
     "(default: molecule's geometric centre)", OPT_EXTRA},
   {"--head", nullptr, "use molecule's first bead for constraint checks "
     "(overrides --tail)", OPT_EXTRA},
   {"--real", nullptr, "use real coordinates for-cx/-cy/-cz/-off options",
     OPT_EXTRA},
-  {"-b", "<x> <y> <z>", "new box dimensions (in real units)", OPT_EXTRA},
+  {"-b", "<x> <y> <z> [3x<angle>]", "new box dimensions (in real units), "
+    "optionally followed by the alpha, beta, and gamma angles", OPT_EXTRA},
   {"-off", "3x<float>", "original system's offset "
     "(in fractions of the output box)", OPT_EXTRA},
   {"-s", "<int>", "seed for random number generator", OPT_EXTRA},
@@ -71,6 +72,9 @@ static const struct OptSpec opts[] = {
   {nullptr}
 }; //}}}
 
+// maximum number of <lo> <hi> pairs a single -cx/-cy/-cz option can take
+enum { MAX_RANGE = 10 };
+
 // molecule specs from -mol option //{{{
 typedef struct {
   char name[MOL_NAME];
@@ -80,35 +84,78 @@ typedef struct {
 
 // structure for options //{{{
 struct OPT {
-  bool ld, hd;             // -ld/-hd
-  double ldist, hdist,     //
-         axis[3][2];       // -cx/-cy/-cz
-  bool axis_set[3];        // -cx/-cy/-cz
-  vec3d angle,             // -a
-        off;               // -off
-  bool *bt_use_orig,       // -bt
-       *sw_type,           // -xb
-       new,                // generate new system from scratch?
-       real, add, no_rot,  // --real/--add/--no-rotate
-       bonded, head, tail; // --bonded/--head/--tail
-  char lib_dir[LINE],      // -lib
-       sys_in[LINE], sys_out[LINE]; // -sys
-  BOX box;                 // constrained placement box (via -cx/-cy/-cz/-hd)
-  int seed,                // -s
-      ebt;                 // -ebt
-  FILE_TYPE fout;          // -o
-  ADD_SPEC *lib_mol_add;   // -mol
-  int n_lib_mol_add;       //
-  int ntot;                // -ntot target total bead count (0 = unused)
-  char ntot_name[MOL_NAME]; // -ntot fill molecule/bead type name
+  bool ld, hd;                        // -ld/-hd
+  double ldist, hdist;                //
+  /*
+   * -cx/-cy/-cz ranges: [range][0] holds the lower and [range][1] the upper
+   * bound of each range, with the vector component picking the axis; n_axis
+   * gives the number of ranges per axis (0 for an unconstrained one)
+   */
+  vec3d axis[MAX_RANGE][2],           // -cx/-cy/-cz
+        frac[MAX_RANGE][2];           // the ranges as fractions of opt.box
+  vec3i n_axis;                       // number of ranges per axis
+  bool frac_axis;                     // are the ranges fractions already?
+  vec3d angle,              // -a
+        off;                // -off
+  bool *bt_use_orig,        // -bt
+       *sw_type,            // -xb
+       new,                 // generate new system from scratch?
+       real, add, no_rot,   // --real/--add/--no-rotate
+       bonded, head, tail;  // --bonded/--head/--tail
+  char lib_dir[LINE],       // -lib
+       sys_in[LINE],        // -sys
+       sys_out[LINE];       //
+  BOX box;                  // constrained placement box (via -cx/-cy/-cz/-hd)
+  int seed,                 // -s
+      ebt;                  // -ebt
+  FILE_TYPE fout;           // -o
+  ADD_SPEC *lib_mol_add;    // -mol
+  int n_lib_mol_add;        //
+  int ntot;                 // -ntot
+  char ntot_name[MOL_NAME]; // -ntot
 }; //}}}
 
-// generate random point in a cube (0,length)^3 //{{{
-vec3d RandomCoordinate(BOX box) {
+// generate random point uniformly distributed inside the box //{{{
+/*
+ * The point is drawn in fractional coordinates and transformed to Cartesian
+ * ones, so it is uniform inside a triclinic cell as well; for an orthogonal
+ * box, the transformation matrix is diagonal and this reduces to
+ * s[dd] * OrthoLength[dd] + Low[dd].
+ *
+ * frac[dd] restricts the fractional coordinate to n[dd] sub-ranges of <0,1),
+ * carving out a smaller region of the same shape (see the -cx/-cy/-cz
+ * options). With several sub-ranges, one is drawn with a probability
+ * proportional to its width, keeping the density over their union uniform.
+ */
+vec3d RandomCoordinate(BOX box, vec3i n, const vec3d frac[MAX_RANGE][2]) {
+  // fractional coordinates, each in one of the requested <lo,hi) sub-ranges
+  vec3d s;
+  for (int dd = 0; dd < 3; dd++) {
+    int r = 0;
+    if (n.v[dd] > 1) { // pick a sub-range
+      double total = 0;
+      for (int i = 0; i < n.v[dd]; i++) {
+        total += frac[i][1].v[dd] - frac[i][0].v[dd];
+      }
+      double pick = (double)(rand()) / ((double)(RAND_MAX) + 1) * total;
+      for (r = 0; r < (n.v[dd] - 1); r++) {
+        pick -= frac[r][1].v[dd] - frac[r][0].v[dd];
+        if (pick < 0) {
+          break;
+        }
+      }
+    }
+    double number = (double)(rand()) / ((double)(RAND_MAX) + 1);
+    s.v[dd] = frac[r][0].v[dd] +
+              number * (frac[r][1].v[dd] - frac[r][0].v[dd]);
+  }
+  // fractional -> Cartesian
   vec3d random;
   for (int dd = 0; dd < 3; dd++) {
-    double number = (double)(rand()) / ((double)(RAND_MAX) + 1);
-    random.v[dd] = number * box.Length.v[dd] + box.Low.v[dd];
+    random.v[dd] = box.transform[dd][0] * s.v[0] +
+                   box.transform[dd][1] * s.v[1] +
+                   box.transform[dd][2] * s.v[2] +
+                   box.Low.v[dd];
   }
   return random;
 } //}}}
@@ -129,13 +176,13 @@ void GetMinDist(BEAD bead, vec3d random, const BOX *box, double *min_dist) {
  *   2...specified bead types,
  */
 vec3d RandomConstrainedCoor(SYSTEM S_orig, int mode, const BOX *box, OPT opt) {
-  vec3d random;
   if (mode == 0) { // no distance check
-    return RandomCoordinate(opt.box);
+    return RandomCoordinate(opt.box, opt.n_axis, opt.frac);
   }
   COUNT *C_orig = &S_orig.Count;
   double min_dist = 0;
   int tries = 0;
+  vec3d random;
   const int max_tries = 10000000;
   do {
     tries++;
@@ -144,7 +191,7 @@ vec3d RandomConstrainedCoor(SYSTEM S_orig, int mode, const BOX *box, OPT opt) {
       PrintError();
       exit(1);
     }
-    random = RandomCoordinate(opt.box);
+    random = RandomCoordinate(opt.box, opt.n_axis, opt.frac);
     min_dist = HUGE_VAL;
     if (mode == 1) { // use all bonded beads
       for (int i = 0; i < C_orig->BondedCoor; i++) {
@@ -182,36 +229,33 @@ vec3d RandomConstrainedCoor(SYSTEM S_orig, int mode, const BOX *box, OPT opt) {
 
 // rotate randomly given collection of beads (e.g., a molecule) //{{{
 void Rotate(SYSTEM System, int number, const int *list,
-            vec3d rot_angle, double (*new)[3]) {
+            vec3d rot_angle, vec3d *new) {
   // rotation angles around x-, y-, and z-axes
-  double alpha, beta, gamma;
+  double alpha, beta, gamma,
+         rot[3][3];
   // specified by -a option...
   if (rot_angle.v[0] != 0 || rot_angle.v[1] != 0 || rot_angle.v[2] != 0) {
-    gamma = rot_angle.v[0] / 180 * PI;  // around x
-    beta  = rot_angle.v[1] / 180 * PI;  // around y
-    alpha = rot_angle.v[2] / 180 * PI;  // around z
+    gamma = rot_angle.v[0] / 180 * PI; // around x
+    beta  = rot_angle.v[1] / 180 * PI; // around y
+    alpha = rot_angle.v[2] / 180 * PI; // around z
+    // ZYX (yaw=alpha/Z, pitch=beta/Y, roll=gamma/X)
+    rot[0][0] = cos(alpha) * cos(beta);
+    rot[0][1] = cos(alpha) * sin(beta) * sin(gamma) - sin(alpha) * cos(gamma);
+    rot[0][2] = cos(alpha) * sin(beta) * cos(gamma) + sin(alpha) * sin(gamma);
+
+    rot[1][0] = sin(alpha) * cos(beta);
+    rot[1][1] = sin(alpha) * sin(beta) * sin(gamma) + cos(alpha) * cos(gamma);
+    rot[1][2] = sin(alpha) * sin(beta) * cos(gamma) - cos(alpha) * sin(gamma);
+
+    rot[2][0] = -sin(beta);
+    rot[2][1] = cos(beta) * sin(gamma);
+    rot[2][2] = cos(beta) * cos(gamma);
   // ...or random
   } else {
     alpha = (double)(rand()) / ((double)(RAND_MAX) + 1) * 2 * PI;
     beta  = acos(1.0 - 2.0 * (double)(rand()) / ((double)(RAND_MAX) + 1));
     gamma = (double)(rand()) / ((double)(RAND_MAX) + 1) * 2 * PI;
-  }
-  double rot[3][3];
-  if (rot_angle.v[0] != 0 || rot_angle.v[1] != 0 || rot_angle.v[2] != 0) {
-    // -a: ZYX (yaw=alpha/Z, pitch=beta/Y, roll=gamma/X)
-    rot[0][0] = cos(alpha) * cos(beta);
-    rot[1][0] = cos(alpha) * sin(beta) * sin(gamma) - sin(alpha) * cos(gamma);
-    rot[2][0] = cos(alpha) * sin(beta) * cos(gamma) + sin(alpha) * sin(gamma);
-
-    rot[0][1] = sin(alpha) * cos(beta);
-    rot[1][1] = sin(alpha) * sin(beta) * sin(gamma) + cos(alpha) * cos(gamma);
-    rot[2][1] = sin(alpha) * sin(beta) * cos(gamma) - cos(alpha) * sin(gamma);
-
-    rot[0][2] = -sin(beta);
-    rot[1][2] = cos(beta) * sin(gamma);
-    rot[2][2] = cos(beta) * cos(gamma);
-  } else {
-    // random: ZYZ (Rz(alpha)*Ry(beta)*Rz(gamma)) to give properly random angles
+    // ZYZ (Rz(alpha)*Ry(beta)*Rz(gamma)) to give properly random angles
     rot[0][0] = cos(alpha) * cos(beta) * cos(gamma) - sin(alpha) * sin(gamma);
     rot[1][0] = sin(alpha) * cos(beta) * cos(gamma) + cos(alpha) * sin(gamma);
     rot[2][0] = -sin(beta) * cos(gamma);
@@ -226,10 +270,11 @@ void Rotate(SYSTEM System, int number, const int *list,
   }
   // generate the rotated coordinates
   for (int i = 0; i < number; i++) {
+    vec3d *pos = &System.Bead[list[i]].Position;
     for (int dd = 0; dd < 3; dd++) {
-      new[i][dd] = rot[dd][0] * System.Bead[list[i]].Position.v[0] +
-                   rot[dd][1] * System.Bead[list[i]].Position.v[1] +
-                   rot[dd][2] * System.Bead[list[i]].Position.v[2];
+      new[i].v[dd] = rot[dd][0] * pos->v[0] +
+                     rot[dd][1] * pos->v[1] +
+                     rot[dd][2] * pos->v[2];
     }
   }
 } //}}}
@@ -312,7 +357,7 @@ int main(int argc, char *argv[]) {
     int j = i + 1;
     while ((j + 1) < argc && argv[j][0] != '-') {
       opt.lib_mol_add = s_realloc(opt.lib_mol_add, (opt.n_lib_mol_add + 1) *
-                        sizeof *opt.lib_mol_add);
+                                  sizeof *opt.lib_mol_add);
       s_strcpy(opt.lib_mol_add[opt.n_lib_mol_add].name, argv[j], MOL_NAME);
       char *val = argv[j+1];
       int vlen = strlen(val);
@@ -347,7 +392,7 @@ int main(int argc, char *argv[]) {
   opt.ntot_name[0] = '\0';
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-ntot") == 0) {
-      if (i + 2 >= argc) {
+      if ((i + 2) >= argc) {
         s_strcpy(ERROR_MSG, "requires <n> and <type>", LINE);
         PrintErrorOption("-ntot");
         exit(1);
@@ -404,7 +449,7 @@ int main(int argc, char *argv[]) {
   opt.real = BoolOption(argc, argv, "--real");
   // axes constraints (-cx/y/z options) //{{{
   for (int dd = 0; dd < 3; dd++) {
-    opt.axis_set[dd] = false;
+    opt.n_axis.v[dd] = 0;
     char str[4];
     switch (dd) {
       case 0:
@@ -417,23 +462,63 @@ int main(int argc, char *argv[]) {
         s_strcpy(str, "-cz", 4);
         break;
     }
-    if (TwoNumbersOption(argc, argv, str, opt.axis[dd], 'd')) {
-      opt.axis_set[dd] = true;
-      if (opt.axis[dd][0] == opt.axis[dd][1]) {
-        err_msg("two different distance values required");
-        PrintErrorOption("-cx/-cy/-cz");
-        exit(1);
-      } else if (opt.axis[dd][0] > opt.axis[dd][1]) {
-        SwapDouble(&opt.axis[dd][0], &opt.axis[dd][1]);
-      }
+    double val[2*MAX_RANGE];
+    int n = 0;
+    if (!NumbersOption(argc, argv, 2 * MAX_RANGE, str, &n, val, 'd')) {
+      continue;
     }
-    if (!opt.real && opt.axis_set[dd]) {
-      if (opt.axis[dd][0] > 1 || opt.axis[dd][1] > 1) {
+    if (n % 2 != 0) {
+      err_msg("<lo> <hi> pairs required, i.e., an even number of arguments");
+      PrintErrorOption(str);
+      exit(1);
+    }
+    opt.n_axis.v[dd] = n / 2;
+    for (int i = 0; i < opt.n_axis.v[dd]; i++) {
+      opt.axis[i][0].v[dd] = val[2*i];
+      opt.axis[i][1].v[dd] = val[2*i+1];
+      if (opt.axis[i][0].v[dd] == opt.axis[i][1].v[dd]) {
+        err_msg("two different distance values required");
+        PrintErrorOption(str);
+        exit(1);
+      } else if (opt.axis[i][0].v[dd] > opt.axis[i][1].v[dd]) {
+        SwapDouble(&opt.axis[i][0].v[dd], &opt.axis[i][1].v[dd]);
+      }
+      if (!opt.real &&
+          (opt.axis[i][0].v[dd] > 1 || opt.axis[i][1].v[dd] > 1)) {
         err_msg("unless --real is used, -cx/y/z must be between 0 and 1");
         PrintErrorOption(str);
         exit(1);
       }
-    } //}}}
+    }
+    // sort the ranges and merge the overlapping ones, so that every point of
+    // the region is equally likely
+    for (int i = 1; i < opt.n_axis.v[dd]; i++) {
+      for (int j = i;
+           j > 0 && opt.axis[j-1][0].v[dd] > opt.axis[j][0].v[dd]; j--) {
+        SwapDouble(&opt.axis[j-1][0].v[dd], &opt.axis[j][0].v[dd]);
+        SwapDouble(&opt.axis[j-1][1].v[dd], &opt.axis[j][1].v[dd]);
+      }
+    }
+    int kept = 0;
+    bool overlap = false;
+    for (int i = 1; i < opt.n_axis.v[dd]; i++) {
+      if (opt.axis[i][0].v[dd] <= opt.axis[kept][1].v[dd]) { // overlaps
+        overlap = true;
+        if (opt.axis[i][1].v[dd] > opt.axis[kept][1].v[dd]) {
+          opt.axis[kept][1].v[dd] = opt.axis[i][1].v[dd];
+        }
+      } else {
+        kept++;
+        opt.axis[kept][0].v[dd] = opt.axis[i][0].v[dd];
+        opt.axis[kept][1].v[dd] = opt.axis[i][1].v[dd];
+      }
+    }
+    if (overlap) {
+      snprintf(ERROR_MSG, LINE, "overlapping or touching ranges merged; %d of "
+               "the %d given remain", kept + 1, opt.n_axis.v[dd]);
+      PrintWarnOption(str);
+    }
+    opt.n_axis.v[dd] = kept + 1; //}}}
   }
   // exchange beads instead of appending them?
   opt.add = BoolOption(argc, argv, "--add");
@@ -451,17 +536,41 @@ int main(int argc, char *argv[]) {
   opt.head = BoolOption(argc, argv, "--head");
   opt.tail = BoolOption(argc, argv, "--tail");
   // new box dimensions (-b option) //{{{
+  /*
+   * Three numbers define an orthogonal box; three more are the alpha, beta,
+   * and gamma angles of a triclinic one.
+   */
   BOX newbox = InitBox;
-  vec3d temp = { .v = {0, 0, 0}};
-  if (ThreeNumbersOption(argc, argv, "-b", temp.v, 'd')) {
-    newbox.Length = temp;
-    if (newbox.Length.x <= 0 ||
-        newbox.Length.y <= 0 ||
-        newbox.Length.z <= 0) {
-      err_msg("three positive numbers required");
+  double temp[6] = {0};
+  int n_temp = 0;
+  if (NumbersOption(argc, argv, 6, "-b", &n_temp, temp, 'd')) {
+    if (n_temp != 3 && n_temp != 6) {
+      err_msg("three or six numeric arguments required");
       PrintErrorOption("-b");
       Help(true, HelpDesc, opts);
       exit(1);
+    }
+    for (int dd = 0; dd < 3; dd++) {
+      newbox.Length.v[dd] = temp[dd];
+    }
+    if (newbox.Length.x <= 0 || newbox.Length.y <= 0 || newbox.Length.z <= 0) {
+      err_msg("three positive box dimensions required");
+      PrintErrorOption("-b");
+      Help(true, HelpDesc, opts);
+      exit(1);
+    }
+    if (n_temp == 6) {
+      newbox.alpha = temp[3];
+      newbox.beta = temp[4];
+      newbox.gamma = temp[5];
+      if (newbox.alpha <= 0 || newbox.alpha >= 180 ||
+          newbox.beta <= 0 || newbox.beta >= 180 ||
+          newbox.gamma <= 0 || newbox.gamma >= 180) {
+        err_msg("box angles must be between 0 and 180 degrees");
+        PrintErrorOption("-b");
+        Help(true, HelpDesc, opts);
+        exit(1);
+      }
     }
   } //}}}
   // -off option
@@ -481,7 +590,7 @@ int main(int argc, char *argv[]) {
           strcmp(argv[i], "-xb") == 0 ||
           strcmp(argv[i], "-st") == 0) {
         err_msg("ignored when creating new system from scratch");
-        PrintWarnOption("-bt/-ld/-hd/--bonded/-xb/-st");
+        PrintWarnOption("-bt/-ld/-hd/--bonded/--add/-xb/-st");
         break;
       }
     }
@@ -500,7 +609,7 @@ int main(int argc, char *argv[]) {
   }
   COUNT *C_orig = &S_orig.Count;
 
-  // apply -sys: assign molecule type names from system_info file
+  // apply -sys by assigning molecule type names from system_info file
   if (opt.sys_in[0] != '\0') {
     ReadSysInfo(opt.sys_in, &S_orig);
   }
@@ -526,7 +635,7 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // -bt <name(s)>/--bonded - specify what bead types to use //{{{
-  // TypeOption for -bt is deferred until after RenameBeadTypesFromLibrary so
+  // TypeOption for -bt is deferred until after RenameBeadTypesFromLibrary, so
   // that library bead type names can be used when -sys is present.
   opt.bt_use_orig = nullptr;
   opt.bonded = false;
@@ -577,7 +686,8 @@ int main(int argc, char *argv[]) {
     RenameBeadTypesFromLibrary(&S_orig, &lib, opt.lib_dir);
     if (opt.bt_use_orig)
       TypeOption(argc, argv, "-bt", 'b', true, opt.bt_use_orig, S_orig);
-    // -ntot: precompute -mol bead totals, add fill molecules first so that //{{{
+    // -ntot //{{{
+    // precompute -mol bead totals, add fill molecules first so that
     // unbonded fill beads precede bonded -mol molecules in lib.System.Bead[]
     if (opt.ntot > 0) {
       int mol_beads = 0;
@@ -605,11 +715,9 @@ int main(int argc, char *argv[]) {
         n_fill_beads -= C_orig->Bead + mol_beads;
       }
       if (n_fill_beads <= 0) {
-        int n;
+        int n = C_orig->Bead;
         if (opt.new) {
           n = 0;
-        } else {
-          n = C_orig->Bead;
         }
         if (snprintf(ERROR_MSG, LINE, "already at or above given target "
                      "(%s%d + %d >= %d%s)",
@@ -670,7 +778,8 @@ int main(int argc, char *argv[]) {
           ReadLibraryMoleculeWithCion(opt.lib_dir, opt.lib_mol_add[i].name,
                                       info.cion, n_mols, &lib);
         } else {
-          ReadLibraryMolecule(opt.lib_dir, opt.lib_mol_add[i].name, n_mols, &lib);
+          ReadLibraryMolecule(opt.lib_dir, opt.lib_mol_add[i].name,
+                              n_mols, &lib);
         }
       }
     }
@@ -685,8 +794,9 @@ int main(int argc, char *argv[]) {
     }
   } else {
     // no -lib: process -bt now (bead types keep their original names)
-    if (opt.bt_use_orig)
+    if (opt.bt_use_orig) {
       TypeOption(argc, argv, "-bt", 'b', true, opt.bt_use_orig, S_orig);
+    }
     S_add = ReadStructure(field, false);
     S_add.Count.BeadCoor = S_add.Count.Bead;
     for (int i = 0; i < S_add.Count.Bead; i++) {
@@ -711,18 +821,32 @@ int main(int argc, char *argv[]) {
     }
   } //}}}
 
+  // a box is required to place the new species into //{{{
+  /*
+   * When adding to an existing system, the box must come from the input files,
+   * as -b is defined relative to it; from scratch, it comes from <in.field>
+   * (or the library) or from -b.
+   */
+  if (!opt.new && box->Volume == -1) {
+    err_msg("input file(s) contain no box dimensions");
+    PrintError();
+    exit(1);
+  } //}}}
+
   // new box if exists //{{{
   if (newbox.Length.v[0] != -1) {
+    // the angles are either the InitBox default of 90 or given via -b
+    if (!CalculateBoxData(&newbox, 0)) {
+      PrintErrorOption("-b");
+      exit(1);
+    }
+    // centre the original box in the new one
     if (!opt.new) {
       for (int dd = 0; dd < 3; dd++) {
-        newbox.Low.v[dd] += box->Low.v[dd] +
-                            0.5 * (box->Length.v[dd] - newbox.Length.v[dd]);
+        newbox.Low.v[dd] += box->Low.v[dd] + 0.5 * (box->OrthoLength.v[dd] -
+                                                    newbox.OrthoLength.v[dd]);
       }
     }
-    newbox.alpha = 90;
-    newbox.beta = 90;
-    newbox.gamma = 90;
-    CalculateBoxData(&newbox, 0);
     if (commons.verbose) {
       fprintf(stdout, "\n==================================================");
       printf("\nNew box");
@@ -730,13 +854,24 @@ int main(int argc, char *argv[]) {
       PrintBox(newbox);
     }
     *box = newbox;
+  }
+  if (box->Volume == -1) {
+    err_msg("no box dimensions; specify them via -b or in <in.field>");
+    PrintError();
+    exit(1);
   } //}}}
 
   // move the beads (-off option) //{{{
   if (!opt.new) {
     if (!opt.real) { // transform offset to 'real' units if necessary
+      // a fraction of each cell vector; the same as multiplying by
+      // OrthoLength for an orthogonal box
+      const BOX *b = &S_orig.Box;
+      vec3d frac = opt.off;
       for (int dd = 0; dd < 3; dd++) {
-        opt.off.v[dd] *= S_orig.Box.Length.v[dd];
+        opt.off.v[dd] = b->transform[dd][0] * frac.v[0] +
+                        b->transform[dd][1] * frac.v[1] +
+                        b->transform[dd][2] * frac.v[2];
       }
     }
     for (int i = 0; i < C_orig->Bead; i++) {
@@ -770,18 +905,44 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // recalculate possible fractional constraints into true dimensions //{{{
-  if (!opt.real) {
+  /*
+   * Bead positions are stored relative to Box.Low (the readers subtract it and
+   * the writers add it back), making Box.Low only metadata for the output. The
+   * two branches are therefore not symmetric on purpose: fractions of the box
+   * are already relative, while --real takes the coordinates as they appear in
+   * the input file, i.e., absolute, and must have Box.Low subtracted.
+   *
+   * A tilted cell has no Cartesian sub-box: a slab perpendicular to an axis
+   * cannot be periodic unless the cell is orthogonal in that plane. The
+   * fractions are therefore kept as fractions of the cell vectors, carving out
+   * a smaller cell of the same shape. This does not apply to -hd, which always
+   * defines an axis-aligned region around the existing beads.
+   */
+  bool tilted = fabs(box->alpha - 90) > 1e-5 ||
+                fabs(box->beta - 90) > 1e-5 ||
+                fabs(box->gamma - 90) > 1e-5;
+  opt.frac_axis = tilted && !opt.hd;
+  if (opt.frac_axis) { // the ranges are already fractions of the cell vectors
     for (int dd = 0; dd < 3; dd++) {
-      if (opt.axis_set[dd]) {
-        opt.axis[dd][0] *= box->Length.v[dd];
-        opt.axis[dd][1] *= box->Length.v[dd];
+      if (opt.n_axis.v[dd] > 0 && opt.real) {
+        err_msg("a tilted box has no Cartesian sub-box; drop --real and "
+                "use fractions of the cell instead");
+        PrintErrorOption("--real");
+        exit(1);
+      }
+    }
+  } else if (!opt.real) {
+    for (int dd = 0; dd < 3; dd++) {
+      for (int i = 0; i < opt.n_axis.v[dd]; i++) {
+        opt.axis[i][0].v[dd] *= box->OrthoLength.v[dd];
+        opt.axis[i][1].v[dd] *= box->OrthoLength.v[dd];
       }
     }
   } else {
     for (int dd = 0; dd < 3; dd++) {
-      if (opt.axis_set[dd]) {
-        opt.axis[dd][0] -= box->Low.v[dd];
-        opt.axis[dd][1] -= box->Low.v[dd];
+      for (int i = 0; i < opt.n_axis.v[dd]; i++) {
+        opt.axis[i][0].v[dd] -= box->Low.v[dd];
+        opt.axis[i][1].v[dd] -= box->Low.v[dd];
       }
     }
   } //}}}
@@ -842,27 +1003,43 @@ int main(int argc, char *argv[]) {
   ConcatenateSystems(&S_out, S_add, S_orig.Box, false); //}}}
 
   // define constrained box for adding beads (-cx/y/z and/or -hd options) //{{{
+  /*
+   * The placement box copies the shape (i.e., the angles) of the system box,
+   * as -cx/-cy/-cz only restrict the fractional coordinates inside it. The -hd
+   * option, on the other hand, defines an axis-aligned region around the
+   * existing beads, that is, an orthogonal placement box.
+   */
   opt.box = InitBox;
-  for (int dd = 0; dd < 3; dd++) {
-    opt.box.Length.v[dd] = S_out.Box.Length.v[dd];
+  if (opt.hd) {
+    for (int dd = 0; dd < 3; dd++) {
+      opt.box.Length.v[dd] = S_out.Box.OrthoLength.v[dd];
+    }
+  } else {
+    for (int dd = 0; dd < 3; dd++) {
+      opt.box.Length.v[dd] = S_out.Box.Length.v[dd];
+    }
+    opt.box.alpha = S_out.Box.alpha;
+    opt.box.beta = S_out.Box.beta;
+    opt.box.gamma = S_out.Box.gamma;
   }
   // minimize box if -hd is used
   if (opt.hd) {
     // find minimum/maximum coordinates of beads for distance check //{{{
-    double max[3] = {0, 0, 0}, min[3];
+    vec3d max, min;
     for (int dd = 0; dd < 3; dd++) {
-      min[dd] = S_orig.Box.Length.v[dd];
+      min.v[dd] = HUGE_VAL;
+      max.v[dd] = -HUGE_VAL;
     }
     if (opt.bonded) { // use all bonded beads
       for (int i = 0; i < C_orig->BondedCoor; i++) {
         int id = S_orig.BondedCoor[i];
         BEAD *b = &S_orig.Bead[id];
         for (int dd = 0; dd < 3; dd++) {
-          if (b->Position.v[dd] < min[dd]) {
-            min[dd] = b->Position.v[dd];
+          if (b->Position.v[dd] < min.v[dd]) {
+            min.v[dd] = b->Position.v[dd];
           }
-          if (b->Position.v[dd] > max[dd]) {
-            max[dd] = b->Position.v[dd];
+          if (b->Position.v[dd] > max.v[dd]) {
+            max.v[dd] = b->Position.v[dd];
           }
         }
       }
@@ -875,11 +1052,11 @@ int main(int argc, char *argv[]) {
             BEAD *b = &S_orig.Bead[id];
             if (b->InTimestep) {
               for (int dd = 0; dd < 3; dd++) {
-                if (b->Position.v[dd] < min[dd]) {
-                  min[dd] = b->Position.v[dd];
+                if (b->Position.v[dd] < min.v[dd]) {
+                  min.v[dd] = b->Position.v[dd];
                 }
-                if (b->Position.v[dd] > max[dd]) {
-                  max[dd] = b->Position.v[dd];
+                if (b->Position.v[dd] > max.v[dd]) {
+                  max.v[dd] = b->Position.v[dd];
                 }
               }
             }
@@ -887,25 +1064,45 @@ int main(int argc, char *argv[]) {
         }
       }
     } //}}}
+    // no bead to measure the distance from means an undefined box
+    if (min.v[0] > max.v[0]) {
+      err_msg("no beads to measure the distance from");
+      PrintErrorOption("-hd");
+      exit(1);
+    }
     // the maximum/minimum possible coordinate of any added bead
     for (int dd = 0; dd < 3; dd++) {
-      max[dd] += opt.hdist;
-      min[dd] -= opt.hdist;
+      max.v[dd] += opt.hdist;
+      min.v[dd] -= opt.hdist;
     }
-    // define the box
+    // define the box; opt.box.Low is where the placement region starts, not
+    // the system box's offset (which the bead positions are relative to)
     for (int dd = 0; dd < 3; dd++) {
-      opt.box.Length.v[dd] = max[dd] - min[dd];
-      opt.box.Low.v[dd] = min[dd];
+      opt.box.Length.v[dd] = max.v[dd] - min.v[dd];
+      opt.box.Low.v[dd] = min.v[dd];
     }
     CalculateBoxData(&opt.box, 0);
   }
+  CalculateBoxData(&opt.box, 0);
+  // express the axis constraints as fractions of the placement box
   for (int dd = 0; dd < 3; dd++) {
-    if (opt.axis_set[dd]) {
-      opt.box.Low.v[dd] = opt.axis[dd][0];
-      opt.box.Length.v[dd] = opt.axis[dd][1] - opt.axis[dd][0];
+    if (opt.n_axis.v[dd] == 0) { // unconstrained axis spans the whole box
+      opt.n_axis.v[dd] = 1;
+      opt.frac[0][0].v[dd] = 0;
+      opt.frac[0][1].v[dd] = 1;
+      continue;
+    }
+    for (int i = 0; i < opt.n_axis.v[dd]; i++) {
+      for (int b = 0; b < 2; b++) {
+        if (opt.frac_axis) {
+          opt.frac[i][b].v[dd] = opt.axis[i][b].v[dd];
+        } else {
+          opt.frac[i][b].v[dd] = (opt.axis[i][b].v[dd] - opt.box.Low.v[dd]) /
+                                 opt.box.OrthoLength.v[dd];
+        }
+      }
     }
   }
-  CalculateBoxData(&opt.box, 0);
   //}}}
 
   // what beads to check distance from for placing? //{{{
@@ -962,7 +1159,7 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < C_add->Molecule; i++) {
     MOLECULE *s_out_mol = &S_out.Molecule[C_orig->Molecule+i];
     MOLECULETYPE *s_out_mt = &S_out.MoleculeType[s_out_mol->Type];
-    double (*rot)[3];
+    vec3d *rot;
     if (!(rot = calloc(s_out_mt->nBeads, sizeof *rot))) {
       ErrorAlloc("rot");
     }
@@ -971,7 +1168,7 @@ int main(int argc, char *argv[]) {
       for (int j = 0; j < s_out_mt->nBeads; j++) {
         int id_add = s_add_mol->Bead[j];
         for (int dd = 0; dd < 3; dd++) {
-          rot[j][dd] = S_add.Bead[id_add].Position.v[dd];
+          rot[j].v[dd] = S_add.Bead[id_add].Position.v[dd];
         }
       }
     } else {
@@ -981,7 +1178,7 @@ int main(int argc, char *argv[]) {
     for (int j = 0; j < s_out_mt->nBeads; j++) {
       int id = s_out_mol->Bead[j];
       for (int dd = 0; dd < 3; dd++) {
-        S_out.Bead[id].Position.v[dd] = rot[j][dd] + random.v[dd];
+        S_out.Bead[id].Position.v[dd] = rot[j].v[dd] + random.v[dd];
       }
     }
     free(rot);
