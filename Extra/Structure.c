@@ -120,7 +120,9 @@ static void GnPair(int i, int j, const SYSTEM System, void *ud) {
   p->g_n_counts[bin]++;
 }
 static bool AcceptAll(int i, const SYSTEM System, void *ud) {
-  (void)i; (void)System; (void)ud;
+  (void)i;
+  (void)System;
+  (void)ud;
   return true;
 } //}}}
 

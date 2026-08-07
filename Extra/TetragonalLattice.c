@@ -52,7 +52,8 @@ int main(int argc, char *argv[]) {
   COMMON_OPT commons = CommonOptions(argc, argv, in);
 
   // -n: strand beads in xy plane and along z
-  opt.n[0] = 3; opt.n[1] = 5;
+  opt.n[0] = 3;
+  opt.n[1] = 5;
   TwoNumbersOption(argc, argv, "-n", opt.n, 'i');
   // -box: junction grid dimensions
   opt.box[0] = opt.box[1] = opt.box[2] = 4;
@@ -177,39 +178,54 @@ int main(int argc, char *argv[]) {
         int sx0 = N_junc + j0*nxy;
         mt->Bond[bi][0] = j0;
         mt->Bond[bi][1] = sx0;
-        mt->Bond[bi][2] = 0; bi++;
+        mt->Bond[bi][2] = 0;
+        bi++;
         for (int k = 0; k < nxy-1; k++) {
           mt->Bond[bi][0] = sx0+k;
           mt->Bond[bi][1] = sx0+k+1;
-          mt->Bond[bi][2] = 0; bi++;
+          mt->Bond[bi][2] = 0;
+          bi++;
         }
         mt->Bond[bi][0] = sx0+nxy-1;
         mt->Bond[bi][1] = jxp;
-        mt->Bond[bi][2] = 0; bi++;
+        mt->Bond[bi][2] = 0;
+        bi++;
 
         // y-direction strand: j0 -> j(ix, (iy+1)%Ny, iz)
         int jyp = iz*Nx*Ny + ((iy+1)%Ny)*Nx + ix;
         int sy0 = N_junc + N_junc*nxy + j0*nxy;
         mt->Bond[bi][0] = j0;
         mt->Bond[bi][1] = sy0;
-        mt->Bond[bi][2] = 0; bi++;
+        mt->Bond[bi][2] = 0;
+        bi++;
         for (int k = 0; k < nxy-1; k++) {
           mt->Bond[bi][0] = sy0+k;
           mt->Bond[bi][1] = sy0+k+1;
-          mt->Bond[bi][2] = 0; bi++;
+          mt->Bond[bi][2] = 0;
+          bi++;
         }
         mt->Bond[bi][0] = sy0+nxy-1;
         mt->Bond[bi][1] = jyp;
-        mt->Bond[bi][2] = 0; bi++;
+        mt->Bond[bi][2] = 0;
+        bi++;
 
         // z-direction strand: j0 -> j(ix, iy, (iz+1)%Nz)
         int jzp = ((iz+1)%Nz)*Nx*Ny + iy*Nx + ix;
         int sz0 = N_junc + 2*N_junc*nxy + j0*nz;
-        mt->Bond[bi][0] = j0;      mt->Bond[bi][1] = sz0;      mt->Bond[bi][2] = 0; bi++;
+        mt->Bond[bi][0] = j0;
+        mt->Bond[bi][1] = sz0;
+        mt->Bond[bi][2] = 0;
+        bi++;
         for (int k = 0; k < nz-1; k++) {
-          mt->Bond[bi][0] = sz0+k; mt->Bond[bi][1] = sz0+k+1;  mt->Bond[bi][2] = 0; bi++;
+          mt->Bond[bi][0] = sz0+k;
+          mt->Bond[bi][1] = sz0+k+1;
+          mt->Bond[bi][2] = 0;
+          bi++;
         }
-        mt->Bond[bi][0] = sz0+nz-1; mt->Bond[bi][1] = jzp;     mt->Bond[bi][2] = 0; bi++;
+        mt->Bond[bi][0] = sz0+nz-1;
+        mt->Bond[bi][1] = jzp;
+        mt->Bond[bi][2] = 0;
+        bi++;
       }
     }
   } //}}}

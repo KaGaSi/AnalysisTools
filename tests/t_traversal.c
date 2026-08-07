@@ -65,7 +65,9 @@ static void record(int i, int j, const SYSTEM System, void *ud) {
 }
 
 static bool always(int i, const SYSTEM System, void *ud) {
-  (void)i; (void)System; (void)ud;
+  (void)i;
+  (void)System;
+  (void)ud;
   return true;
 } //}}}
 

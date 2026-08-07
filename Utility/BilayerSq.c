@@ -247,7 +247,8 @@ int main(int argc, char *argv[]) {
     int base = spec_start + 2 * s;
     int mt = FindMoleculeName(argv[base], System);
     if (mt < 0) {
-      ErrorMoleculeType(argv[base], System); exit(1);
+      ErrorMoleculeType(argv[base], System);
+      exit(1);
     }
     long v;
     IsNaturalNumber(argv[base+1], &v);
@@ -320,8 +321,9 @@ int main(int argc, char *argv[]) {
   if (!sq_avg) {
     ErrorAlloc("sq_avg");
   }
-  for (int i = 0; i < n_qpts; i++)
+  for (int i = 0; i < n_qpts; i++) {
     sq_avg[i] = (sq0[i] + sq1[i]) * scale;
+  }
 
   int njq = opt.maxqbin + 1;
 
@@ -338,8 +340,9 @@ int main(int argc, char *argv[]) {
       double s = sq_avg[ioff+jq];
       fprintf(fw, " %12.6f %12.6f %12.6f\n", qx, qy, s);
       // reconstruct negative-qy half by symmetry S(qx,qy) = S(-qx,-qy)
-      if (jq > 0)
+      if (jq > 0) {
         fprintf(fw, " %12.6f %12.6f %12.6f\n", -qx, -qy, s);
+      }
     }
   }
   fclose(fw); //}}}
@@ -370,7 +373,11 @@ int main(int argc, char *argv[]) {
 
   // count non-empty bins for ArrNDd; skip k=0 (q=0 forward-scattering, S=N)
   int n_out = 0;
-  for (int k = 1; k < n_1d; k++) if (cnt1d[k] > 0) n_out++;
+  for (int k = 1; k < n_1d; k++) {
+    if (cnt1d[k] > 0) {
+      n_out++;
+    }
+  }
 
   ArrNDd *data = CreateArr2Dd(n_out + 2, 2);
   if (!data) {

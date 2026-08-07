@@ -336,8 +336,9 @@ int main(int argc, char *argv[]) {
         exit(1);
       }
       s_strcpy(opt.sys_in, argv[i+1], LINE);
-      if ((i + 2) < argc && argv[i+2][0] != '-')
+      if ((i + 2) < argc && argv[i+2][0] != '-') {
         s_strcpy(opt.sys_out, argv[i+2], LINE);
+      }
       break;
     }
   }
@@ -684,8 +685,9 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
     RenameBeadTypesFromLibrary(&S_orig, &lib, opt.lib_dir);
-    if (opt.bt_use_orig)
+    if (opt.bt_use_orig) {
       TypeOption(argc, argv, "-bt", 'b', true, opt.bt_use_orig, S_orig);
+    }
     // -ntot //{{{
     // precompute -mol bead totals, add fill molecules first so that
     // unbonded fill beads precede bonded -mol molecules in lib.System.Bead[]

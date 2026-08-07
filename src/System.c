@@ -2678,8 +2678,9 @@ void SortAggStruct(AGGREGATE *Aggregate, SYSTEM System) { //{{{
         done = false;
       }
     }
-    if (done)
+    if (done) {
       break;
+    }
   }
 } //}}}
 void FillAggregateBeads(AGGREGATE *Aggregate, SYSTEM System) { //{{{

@@ -158,7 +158,9 @@ int main(int argc, char *argv[]) {
   vec3i N;
   for (int dd = 0; dd < 3; dd++) {
     N.v[dd] = (int)ceil(L.v[dd] / A_ideal);
-    if (N.v[dd] < 1) N.v[dd] = 1;
+    if (N.v[dd] < 1) {
+      N.v[dd] = 1;
+    }
   }
 
   // per-axis lattice parameters: squish to fill the box exactly
@@ -254,7 +256,8 @@ int main(int argc, char *argv[]) {
 
             mt->Bond[bi][0] = j_start;
             mt->Bond[bi][1] = s0;
-            mt->Bond[bi][2] = 0; bi++;
+            mt->Bond[bi][2] = 0;
+            bi++;
             for (int k = 0; k < n-1; k++) {
               mt->Bond[bi][0] = s0 + k;
               mt->Bond[bi][1] = s0 + k + 1;

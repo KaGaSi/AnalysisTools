@@ -197,7 +197,9 @@ int main(int argc, char *argv[]) {
 
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.coor.name, argv[++count], LINE);
-  if (!InputCoorStruct(argc, argv, &in)) exit(1);
+  if (!InputCoorStruct(argc, argv, &in)) {
+    exit(1);
+  }
 
   double width;
   if (!IsPosRealNumber(argv[++count], &width)) {
@@ -295,7 +297,9 @@ int main(int argc, char *argv[]) {
     n_heads += System.MoleculeType[mt].Number;
   } //}}}
 
-  if (commons.verbose) VerboseOutput(System);
+  if (commons.verbose) {
+    VerboseOutput(System);
+  }
 
   BOX *box = &System.Box;
   if (box->Volume == -1) {
@@ -374,7 +378,9 @@ int main(int argc, char *argv[]) {
   // g(r) = count * Lx*Ly / (n2_sum * pi * r * dr)
   // (counting unique pairs i<j; factor of 2 absorbed into denominator)
   ArrNDd *data = CreateArr2Dd(rdf_bins + 2, 3);
-  if (!data) ErrorAlloc("rdf data");
+  if (!data) {
+    ErrorAlloc("rdf data");
+  }
   for (int k = 0; k < rdf_bins; k++) {
     double r = (k + 0.5) * width;
     SetArr2D(data, k, 0, r);
@@ -400,9 +406,11 @@ int main(int argc, char *argv[]) {
   fprintf(fw, "# (1) |Phi6|; (2) lower_leaflet; (3) upper_leaflet\n");
 
   double phi6_total[2] = {0.0, 0.0};
-  for (int l = 0; l < 2; l++)
-    for (int k = 0; k < phi6_bins; k++)
+  for (int l = 0; l < 2; l++) {
+    for (int k = 0; k < phi6_bins; k++) {
       phi6_total[l] += cd.phi6_dist[l][k];
+    }
+  }
 
   data = CreateArr2Dd(phi6_bins + 2, 3);
   if (!data) {

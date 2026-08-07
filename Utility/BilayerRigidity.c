@@ -76,7 +76,9 @@ struct calc_data {
 static bool poly2_fit(int n, const double *xx, const double *yy,
                       double *a_out, double *b_out, double *c_out,
                       double *c_err_out, double *rmsd_out) {
-  if (n < 3) return false;
+  if (n < 3) {
+    return false;
+  }
 
   gsl_matrix *X = gsl_matrix_alloc(n, 3);
   gsl_vector *y = gsl_vector_alloc(n);
@@ -210,7 +212,9 @@ int main(int argc, char *argv[]) {
 
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.coor.name, argv[++count], LINE);
-  if (!InputCoorStruct(argc, argv, &in)) exit(1);
+  if (!InputCoorStruct(argc, argv, &in)) {
+    exit(1);
+  }
 
   double delta_psi;
   if (!IsPosRealNumber(argv[++count], &delta_psi)) {
@@ -467,7 +471,9 @@ int main(int argc, char *argv[]) {
 
     if (sigma > 0.0) {
       int xrange = (int)(sigma / delta_psi) + 1;
-      if (xrange > maxrbin) xrange = maxrbin;
+      if (xrange > maxrbin) {
+        xrange = maxrbin;
+      }
       int nfit2 = 2 * xrange + 1;
       double *xx2 = malloc(nfit2 * sizeof *xx2);
       double *yy2 = malloc(nfit2 * sizeof *yy2);
@@ -499,7 +505,9 @@ int main(int argc, char *argv[]) {
   fprintf(fw, "# (1) si; (2) P(si)\n");
 
   ArrNDd *data = CreateArr2Dd(n_bins + 2, 2);
-  if (!data) ErrorAlloc("data");
+  if (!data) {
+    ErrorAlloc("data");
+  }
   for (int k = 0; k < n_bins; k++) {
     int bin_idx = k - maxrbin;
     SetArr2D(data, k, 0, bin_idx * delta_psi);

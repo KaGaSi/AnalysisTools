@@ -341,7 +341,9 @@ static void test_children_accept_valid(void) {
 static void test_vtf_malformed(void) {
   char *v = slurp(FIX("struct.vtf"));
   CHECK(v != nullptr);
-  if (!v) return;
+  if (!v) {
+    return;
+  }
   // bond to atom id 99 (> highest atom 12): regression for commit 88031eb
   expect_rejected("vtf bond-index-overflow", VTF_FILE,
                   replace_first(v, "# resid 2\n",
@@ -360,7 +362,9 @@ static void test_vtf_malformed(void) {
 static void test_data_malformed(void) {
   char *v = slurp(FIX("system.data"));
   CHECK(v != nullptr);
-  if (!v) return;
+  if (!v) {
+    return;
+  }
   expect_no_crash("data atom-count-inflated", LDATA_FILE,
                   replace_first(v, "13 atoms", "40 atoms"));
   expect_no_crash("data bond-count-inflated", LDATA_FILE,
@@ -383,7 +387,9 @@ static void test_data_malformed(void) {
 static void test_field_malformed(void) {
   char *v = slurp(FIX("FIELD"));
   CHECK(v != nullptr);
-  if (!v) return;
+  if (!v) {
+    return;
+  }
   expect_no_crash("field species-count-inflated", FIELD_FILE,
                   replace_first(v, "species 3", "species 6"));
   expect_no_crash("field beads-count-inflated", FIELD_FILE,
@@ -398,7 +404,9 @@ static void test_field_malformed(void) {
 static void test_ltrj_malformed(void) {
   char *v = slurp(FIX("traj.lammpstrj"));
   CHECK(v != nullptr);
-  if (!v) return;
+  if (!v) {
+    return;
+  }
   // atom id 99 in frame 2 (> 13): regression for the commit 88031eb ltrj fix
   // (id is used as an array index; without the guard this overflows)
   expect_no_crash("ltrj atom-id-overflow", LTRJ_FILE,
@@ -421,7 +429,9 @@ static void test_ltrj_malformed(void) {
 static void test_xyz_malformed(void) {
   char *v = slurp(FIX("traj.xyz"));
   CHECK(v != nullptr);
-  if (!v) return;
+  if (!v) {
+    return;
+  }
   expect_no_crash("xyz count-mismatch", XYZ_FILE,
                   replace_first(v, "13\npbc", "99\npbc"));
   expect_no_crash("xyz non-numeric-coord", XYZ_FILE,

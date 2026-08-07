@@ -456,7 +456,9 @@ int main(int argc, char *argv[]) {
       if (sc_count == 1) {
         opt.scale.x = opt.scale.y = opt.scale.z = sc_vals[0];
       } else if (sc_count == 3) {
-        for (int dd = 0; dd < 3; dd++) opt.scale.v[dd] = sc_vals[dd];
+        for (int dd = 0; dd < 3; dd++) {
+          opt.scale.v[dd] = sc_vals[dd];
+        }
       } else {
         err_msg("requires 1 or 3 values");
         PrintErrorOption("-sc");

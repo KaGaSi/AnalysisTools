@@ -185,13 +185,17 @@ int main(int argc, char *argv[]) {
   bool lib_used = false;
   FileOption(argc, argv, "-sys", sys_in);
   FileOption(argc, argv, "-lib", lib_dir);
-  if (sys_in[0] != '\0')
+  if (sys_in[0] != '\0') {
     ReadSysInfo(sys_in, &System);
+  }
   if (lib_dir[0] != '\0') {
     if (sys_in[0] == '\0') {
       bool any_named = false;
       for (int i = 0; i < System.Count.MoleculeType; i++) {
-        if (System.MoleculeType[i].Named) { any_named = true; break; }
+        if (System.MoleculeType[i].Named) {
+          any_named = true;
+          break;
+        }
       }
       if (!any_named) {
         s_strcpy(ERROR_MSG, "-lib without -sys: molecule types are unnamed; "

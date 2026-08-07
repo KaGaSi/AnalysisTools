@@ -97,10 +97,18 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) {
       }
       int cx = (int)(fmod(sx / nb, box->Length.x) / cd->opt.gridw);
       int cy = (int)(fmod(sy / nb, box->Length.y) / cd->opt.gridw);
-      if (cx < 0) cx = 0;
-      if (cx >= cd->nx) cx = cd->nx - 1;
-      if (cy < 0) cy = 0;
-      if (cy >= cd->ny) cy = cd->ny - 1;
+      if (cx < 0) {
+        cx = 0;
+      }
+      if (cx >= cd->nx) {
+        cx = cd->nx - 1;
+      }
+      if (cy < 0) {
+        cy = 0;
+      }
+      if (cy >= cd->ny) {
+        cy = cd->ny - 1;
+      }
       mid_sum[cx*cd->ny+cy] += sz / nb;
       mid_cnt[cx*cd->ny+cy]++;
     }
@@ -185,8 +193,12 @@ static void Calculation(SYSTEM *System, struct calc_data *cd) {
     }
     double ov = lower[c] - upper[c];
     int k = (int)((ov + cd->range) / cd->width);
-    if (k < 0) k = 0;
-    if (k >= cd->bins) k = cd->bins - 1;
+    if (k < 0) {
+      k = 0;
+    }
+    if (k >= cd->bins) {
+      k = cd->bins - 1;
+    }
     cd->dist[k]++;
     cd->total_ov  += ov;
     cd->total_cnt++;
@@ -212,7 +224,9 @@ int main(int argc, char *argv[]) {
 
   SYS_FILES in = InitSysFiles;
   s_strcpy(in.coor.name, argv[++count], LINE);
-  if (!InputCoorStruct(argc, argv, &in)) exit(1);
+  if (!InputCoorStruct(argc, argv, &in)) {
+    exit(1);
+  }
 
   double width;
   if (!IsPosRealNumber(argv[++count], &width)) {
@@ -286,7 +300,9 @@ int main(int argc, char *argv[]) {
   }
 
   struct TRIO *trios = malloc(n_trios * sizeof *trios);
-  if (!trios) ErrorAlloc("trios");
+  if (!trios) {
+    ErrorAlloc("trios");
+  }
 
   for (int t = 0; t < n_trios; t++) {
     int base = trio_start + 3 * t;
@@ -317,7 +333,9 @@ int main(int argc, char *argv[]) {
     trios[t].last  = last;
   } //}}}
 
-  if (commons.verbose) VerboseOutput(System);
+  if (commons.verbose) {
+    VerboseOutput(System);
+  }
 
   BOX *box = &System.Box;
   if (box->Volume == -1) {
@@ -367,10 +385,14 @@ int main(int argc, char *argv[]) {
   fprintf(fw, "# (1) overlap; (2) normalised count\n");
 
   double total = 0;
-  for (int k = 0; k < bins; k++) total += cd.dist[k];
+  for (int k = 0; k < bins; k++) {
+    total += cd.dist[k];
+  }
 
   ArrNDd *data = CreateArr2Dd(bins + 2, 2);
-  if (!data) ErrorAlloc("data");
+  if (!data) {
+    ErrorAlloc("data");
+  }
   for (int k = 0; k < bins; k++) {
     double ov_center = -range + width * (k + 0.5);
     double norm = 0;

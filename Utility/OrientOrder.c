@@ -81,8 +81,12 @@ static void Calculation(SYSTEM *System, OPT opt, ACC *a,
         pos1 = opt.n_list[2*p] - 1;
         pos2 = opt.n_list[2*p+1] - 1;
         // clamp out-of-range ids to last bead (matches v3.5 behaviour)
-        if (pos1 >= mt->nBeads) pos1 = mt->nBeads - 1;
-        if (pos2 >= mt->nBeads) pos2 = mt->nBeads - 1;
+        if (pos1 >= mt->nBeads) {
+          pos1 = mt->nBeads - 1;
+        }
+        if (pos2 >= mt->nBeads) {
+          pos2 = mt->nBeads - 1;
+        }
       }
       if (pos1 == pos2) {
         continue; // degenerate pair: skip
@@ -102,8 +106,12 @@ static void Calculation(SYSTEM *System, OPT opt, ACC *a,
       AddArr2D(a->pair.count, mol->Type, p, 1);
 
       int k = (int)((S + 0.5) / width);
-      if (k >= bins) k = bins - 1;
-      if (k < 0)     k = 0;
+      if (k >= bins) {
+        k = bins - 1;
+      }
+      if (k < 0) {
+        k = 0;
+      }
       AddArr3D(a->dist, mol->Type, p, k, 1);
     }
 
@@ -217,7 +225,9 @@ int main(int argc, char *argv[]) {
 
   // S \in [-0.5, 1.0], range = 1.5
   int bins = (int)(1.5 / width);
-  if (bins < 1) bins = 1;
+  if (bins < 1) {
+    bins = 1;
+  }
 
   SYSTEM System = ReadStructure(in, false);
   COUNT *Count = &System.Count;
@@ -251,7 +261,9 @@ int main(int argc, char *argv[]) {
         continue;
       }
       int nb = System.MoleculeType[mt].nBeads - 1;
-      if (nb > max_bonds) max_bonds = nb;
+      if (nb > max_bonds) {
+        max_bonds = nb;
+      }
     }
     if (max_bonds > 0) {
       acc.bond.sum   = CreateArr2Dd(Count->MoleculeType, max_bonds);
@@ -319,7 +331,8 @@ int main(int argc, char *argv[]) {
       for (int p = 0; p < n_pairs; p++) {
         int lo, hi;
         if (opt.n_number == 0) {
-          lo = 1; hi = mtype->nBeads;
+          lo = 1;
+          hi = mtype->nBeads;
         } else {
           if ((opt.n_list[2*p] - 1) >= mtype->nBeads) {
             lo = mtype->nBeads;
@@ -407,12 +420,16 @@ int main(int argc, char *argv[]) {
     // count active columns for ArrNDd
     int n_active = 0;
     for (int mt = 0; mt < Count->MoleculeType; mt++) {
-      if (opt.mt[mt] && System.MoleculeType[mt].nBeads >= 2) n_active++;
+      if (opt.mt[mt] && System.MoleculeType[mt].nBeads >= 2) {
+        n_active++;
+      }
     }
     int bncols = 1 + n_active;
 
     ArrNDd *bdata = CreateArr2Dd(max_bonds + 2, bncols);
-    if (!bdata) ErrorAlloc("bdata");
+    if (!bdata) {
+      ErrorAlloc("bdata");
+    }
 
     for (int b = 0; b < max_bonds; b++) {
       int c = 0;
@@ -424,7 +441,9 @@ int main(int argc, char *argv[]) {
         double s_avg = 0.0;
         if (b < System.MoleculeType[mt].nBeads - 1) {
           double total = GetArr2D(acc.bond.count, mt, b);
-          if (total > 0) s_avg = GetArr2D(acc.bond.sum, mt, b) / total;
+          if (total > 0) {
+            s_avg = GetArr2D(acc.bond.sum, mt, b) / total;
+          }
         }
         SetArr2D(bdata, b, c++, s_avg);
       }
