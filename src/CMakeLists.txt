@@ -160,7 +160,9 @@ enable_testing()
 set(TESTS
   t_geometry
   t_traversal
-  t_readers)
+  t_readers
+  t_writers
+  t_aggregates)
 foreach(t ${TESTS})
   add_executable(${t} ../tests/${t}.c)
   target_link_libraries(${t} PRIVATE ${GSL_LIBRARIES} m ${BLAS_LIB} AnalysisTools)

@@ -100,6 +100,7 @@ static struct outcome read_in_child(const char *path, int ftype) {
   fflush(nullptr);
   pid_t pid = fork();
   if (pid == 0) { // child
+    TestChildNoLeakReports(); // readers exit() on bad input; see test_util.h
     int devnull = open("/dev/null", O_WRONLY);
     if (devnull >= 0) {
       dup2(devnull, STDERR_FILENO); // readers are noisy on the error path

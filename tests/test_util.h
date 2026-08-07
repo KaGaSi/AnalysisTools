@@ -12,6 +12,36 @@
 #include <stdio.h>
 #include <math.h>
 
+// detect an AddressSanitizer build (GCC and clang spell it differently) //{{{
+#if defined(__SANITIZE_ADDRESS__)
+#define TEST_HAVE_ASAN 1
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define TEST_HAVE_ASAN 1
+#endif
+#endif
+#ifdef TEST_HAVE_ASAN
+#include <sanitizer/lsan_interface.h>
+#endif //}}}
+
+// silence leak reports in a forked child that is expected to exit() //{{{
+/*
+ * The library exits from deep inside on bad input without unwinding, so a
+ * child that exercises an error path leaves allocations behind. That is
+ * harmless in a process about to die, but LeakSanitizer reports it at exit
+ * and the ASAN_OPTIONS=abort_on_error=1 that CTest sets turns the report into
+ * a SIGABRT - which a test classifying "died by signal" as a crash would count
+ * as a failure. Call this first thing in such a child: it suppresses only the
+ * leak report, leaving ASan's memory-error checking (the thing the malformed
+ * inputs are actually fuzzing for) fully active, and leaves the parent and
+ * every other test executable with leak detection intact.
+ */
+static inline void TestChildNoLeakReports(void) {
+#ifdef TEST_HAVE_ASAN
+  __lsan_disable();
+#endif
+} //}}}
+
 static int g_failures = 0;
 static int g_checks = 0;
 

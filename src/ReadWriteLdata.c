@@ -1118,6 +1118,12 @@ static void WriteStuff(FILE *fw, const SYSTEM System, const int mol,
 // WriteLmpData() //{{{
 void WriteLmpData(const SYSTEM System, const char *file, const bool mass,
                   const int argc, char **argv) {
+  // LAMMPS data file must contain coordinates
+  if (System.Count.BeadCoor == 0) {
+    err_msg("no data to save into lammps data file (no coordinates loaded)");
+    PrintError();
+    exit(1);
+  }
   FILE *fw = OpenFile(file, "w");
   fprintf(fw, "Created via AnalysisTools v%s ", VERSION);
   fprintf(fw, "(https://github.com/KaGaSi/AnalysisTools); Command: ");
