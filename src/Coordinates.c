@@ -420,7 +420,17 @@ vec3d Gyration(const int n, const int *list, SYSTEM *System) {
   GyrationTensor[0][2] /= n;
   GyrationTensor[1][1] /= n;
   GyrationTensor[1][2] /= n;
-  GyrationTensor[2][2] /= n; //}}}
+  GyrationTensor[2][2] /= n;
+  /*
+   * Only the upper triangle is accumulated above, but gsl_eigen_symmv() reads
+   * the lower one, so without mirroring it would see a matrix whose
+   * off-diagonal terms are all zero and hand back the diagonal entries
+   * instead of the eigenvalues. That is correct only when the shape happens
+   * to be aligned with the coordinate axes.
+   */
+  GyrationTensor[1][0] = GyrationTensor[0][1];
+  GyrationTensor[2][0] = GyrationTensor[0][2];
+  GyrationTensor[2][1] = GyrationTensor[1][2]; //}}}
   // Define the symmetric matrix (example 3x3 matrix)
   gsl_matrix *A = gsl_matrix_alloc(3, 3);
   gsl_vector *eigenvalues = gsl_vector_alloc(3);
