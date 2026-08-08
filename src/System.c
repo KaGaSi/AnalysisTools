@@ -2026,6 +2026,9 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box, bool prune) {
   // Molecule & MoleculeCoor //{{{
   if (Count_in->Molecule > 0) {
     Count_out->Molecule += Count_in->Molecule;
+    // the loop below appends Count_in->MoleculeCoor entries, so the count has
+    // to follow them the way BeadCoor/BondedCoor do for their arrays
+    Count_out->MoleculeCoor += Count_in->MoleculeCoor;
     Count_out->HighestResid += Count_in->Molecule;
     ReallocMolecule(S_out);
     for (int i = 0; i < Count_in->Molecule; i++) {
@@ -2042,7 +2045,7 @@ void ConcatenateSystems(SYSTEM *S_out, SYSTEM S_in, BOX Box, bool prune) {
         mol_out->Bead[j] = mol_in->Bead[j] + Count_old.Bead;
       }
     }
-    for (int i = 0; i <= Count_in->MoleculeCoor; i++) {
+    for (int i = 0; i < Count_in->MoleculeCoor; i++) {
       int new = i + Count_old.MoleculeCoor;
       S_out->MoleculeCoor[new] = S_in.MoleculeCoor[i] + Count_old.Molecule;
     }
