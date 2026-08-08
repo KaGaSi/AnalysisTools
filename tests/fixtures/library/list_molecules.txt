@@ -1,0 +1,8 @@
+# Minimal molecule list for the t_library unit tests.
+# n_beads includes counterion beads, which is why 'pair' is 3 and not 2.
+4
+# #list  Molec_name   M_w(gr/mol)  n_beads  c-ion?(0:N, 1:Y)  cion_name
+  1      sol            1.00        1        0                  None
+  2      tri            5.00        3        0                  None
+  3      pair           7.00        3        1                  ion
+  4      ion            3.00        1        0                  None

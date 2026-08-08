@@ -162,14 +162,20 @@ set(TESTS
   t_traversal
   t_readers
   t_writers
-  t_aggregates)
+  t_aggregates
+  t_arrays
+  t_general
+  t_system
+  t_library)
 foreach(t ${TESTS})
   add_executable(${t} ../tests/${t}.c)
   target_link_libraries(${t} PRIVATE ${GSL_LIBRARIES} m ${BLAS_LIB} AnalysisTools)
   target_include_directories(${t} PRIVATE ${GSL_INCLUDE_DIRS})
-  # absolute path to the committed reader fixtures
+  # absolute paths to the committed reader fixtures and to the shipped
+  # examples (t_library checks the example molecule library still parses)
   target_compile_definitions(${t} PRIVATE
-    FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../tests/fixtures")
+    FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../tests/fixtures"
+    EXAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../Examples")
   add_test(NAME ${t} COMMAND ${t})
   # Make sanitizer findings fatal so a mutation that slips past validation
   # aborts (SIGABRT) instead of printing a recoverable "runtime error" and

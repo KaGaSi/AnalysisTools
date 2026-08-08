@@ -1,0 +1,11 @@
+# Minimal bond-type list for the t_library unit tests.
+# b01 uses the Fortran 'd' exponent spelling the real library uses and b02 the
+# plain one. b03 deliberately uses a non-zero exponent: 'd0' alone would parse
+# to the same value even if the d->e conversion were dropped, so only a case
+# like 0.3d1 actually distinguishes a working ParseFortranDouble from a broken
+# one.
+3
+# Bond_ID  k_bond  r0_ij
+ b01       10.0    0.25d0
+ b02       20.0    0.5
+ b03       30.0    0.3d1

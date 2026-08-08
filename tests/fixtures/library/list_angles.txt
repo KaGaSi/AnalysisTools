@@ -1,0 +1,5 @@
+# Minimal angle-type list for the t_library unit tests.
+2
+# Angle_ID  k_angle  theta
+ a01        1.5      180.0
+ a02        2.5       90.0

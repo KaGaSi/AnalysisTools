@@ -1,0 +1,6 @@
+# Minimal cross-interaction list for the t_library unit tests.
+# SOL-ION is deliberately absent so the default fallback can be tested.
+2
+# index  bead_i_ID  bead_j_ID  A_ij   R_ij
+  1      SOL        MID        15.00  0.9500
+  2      MID        ION        18.00  1.0500

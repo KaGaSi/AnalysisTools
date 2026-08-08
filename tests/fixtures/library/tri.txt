@@ -1,0 +1,24 @@
+# Three-bead chain for the t_library unit tests: SOL-MID-SOL
+# key value (0: solvent, 1: counterion, 2: chain-like molecule)
+2
+# number of beads
+3
+# index, bead_ID, x, y, z
+ 1  SOL          0.0000   0.0000   0.0000
+ 2  MID          0.2500   0.0000   0.0000
+ 3  SOL          0.7500   0.0000   0.0000
+# List of Bonds. If any, keep keyword 'Bonds'
+Bonds
+# list size
+2
+# Bond_ID, bead_i, bead_j
+ b01   1  2
+ b02   2  3
+# List of Angles. If any, keep keyword 'Angles'
+Angles
+# list size
+1
+# Angle_ID, bead_i, bead_j, bead_k
+ a01   1   2   3
+# Finish. Keep keyword 'End'
+End
