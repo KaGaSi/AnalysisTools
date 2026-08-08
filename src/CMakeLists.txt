@@ -166,7 +166,8 @@ set(TESTS
   t_arrays
   t_general
   t_system
-  t_library)
+  t_library
+  t_coordinates)
 foreach(t ${TESTS})
   add_executable(${t} ../tests/${t}.c)
   target_link_libraries(${t} PRIVATE ${GSL_LIBRARIES} m ${BLAS_LIB} AnalysisTools)
