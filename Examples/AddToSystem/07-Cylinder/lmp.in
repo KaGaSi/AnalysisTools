@@ -18,7 +18,7 @@ special_bonds    lj/coul 1.0 1.0 1.0
 timestep  0.05
 
 # read initial configuration
-read_data      ./Wire.data
+read_data      ./system.data
 
 neighbor       2.0 bin
 neigh_modify   delay 0 every 1 check yes

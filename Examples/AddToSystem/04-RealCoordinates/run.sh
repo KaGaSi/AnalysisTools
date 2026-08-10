@@ -1,47 +1,33 @@
-#!/bin/env bash
+#!/usr/bin/env bash
+# make the script runnable from anywhere
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 ################################################################################
-# Demonstrates --real with negative box coordinates (LAMMPS-style centered box)
-# and -ebt to reserve extra bead type slots in a LAMMPS data file output.
+# Demonstrates the two coordinate spaces of the -cx/-cy/-cz constraints
 #
-# LAMMPS simulations often use boxes centered at the origin, e.g., -10 to 10
-# in each dimension.  Using --real lets you specify -cx/-cy/-cz constraints in
-# the same coordinate space as the input file, including negative values.
+# By default, the constraints are fractions of the box; --real switches them to
+# the coordinate space of the input file. For an orthogonal box the two are
+# interchangeable. A tilted box has no Cartesian sub-box, so only the fractional
+# form is available there.
 #
 # Files:
-#   W.FIELD — 100 W solvent beads to add
+#   ortho.lammpstrj ... system in orthogonal box with negative box coordinates
+#   tilted.lammpstrj ... system in tilted box with negative box coordinates
+#   W.FIELD ... W beads to add
 ################################################################################
+bin="AddToSystem"
+in_field="${ROOT}/W.FIELD"
+ltrj_ortho="${ROOT}/ortho.lammpstrj"
+ltrj_tilt="${ROOT}/tilted.lammpstrj"
 
-bin=AddToSystem
+# 1) place beads in a slab in orthogonal box: -2 to 2 in real units is 0.4 to
+#    0.6 in fractions, so the two commands are equivalent and generate identical
+#    coordinates
+${bin} ${ltrj_ortho} ${in_field} 01.vtf -s 1 --add --real -cx -2 2
+${bin} ${ltrj_ortho} ${in_field} 02.vtf -s 1 --add -cx 0.4 0.6
 
-# Generate a starting system: 200 W beads in a 20x20x20 box centered at the
-# origin (coordinates from -10 to 10 in each dimension).
-awk 'BEGIN {
-  srand(1)
-  print "ITEM: TIMESTEP"
-  print "0"
-  print "ITEM: NUMBER OF ATOMS"
-  print "200"
-  print "ITEM: BOX BOUNDS pp pp pp"
-  print "-10.0 10.0"
-  print "-10.0 10.0"
-  print "-10.0 10.0"
-  print "ITEM: ATOMS id element x y z"
-  for (i = 1; i <= 200; i++) {
-    printf "%d W %.4f %.4f %.4f\n", i, rand()*20-10, rand()*20-10, rand()*20-10
-  }
-}' > system.lammpstrj
-
-# Add 100 W beads to the left half of the box (x from -10 to 0).
-# Without --real, fractional coordinates 0-1 would be needed; with --real the
-# values are interpreted directly in the file's coordinate space.
-${bin} system.lammpstrj W.FIELD 1.vtf --add --real -cx -10 0
-
-# Add 100 W beads to a central slab (-1 < z < 1).
-${bin} system.lammpstrj W.FIELD 2.vtf --add --real -cz -1 1
-
-# -ebt: reserve extra bead type entries in a LAMMPS data file.  Here the system
-# has 1 type (W); -ebt 2 adds 2 placeholder entries, giving 3 types total in
-# the Masses section.  Useful when additional types will be assigned later via
-# LAMMPS pair_coeff or when running a series of builds with a fixed type count.
-${bin} system.lammpstrj W.FIELD out.data --add --real -cx -10 0 -ebt 2
+# 2) in the tilted box, the fractional constraint carves out a smaller cell of
+#    the same shape instead of a Cartesian slab
+${bin} ${ltrj_tilt} ${in_field} 03.vtf -s 2 --add -cx 0.4 0.6
+#    ... using --real -cx -2 2 would error-out, as no Cartesian sub-box of a
+#    tilted cell is periodic

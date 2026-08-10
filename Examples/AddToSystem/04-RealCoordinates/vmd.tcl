@@ -3,38 +3,31 @@
 #   vmd <file>.vtf -e vmd.tcl
 #
 # Colourscheme:
-#   solvent A and B ... smaller magenta and grey balls, respectively
-#   CD molecules ... bigger pink and cyan 'pill'
+#   A bead ... small yellow balls (the original system)
+#   W bead ... big magenta balls (the added beads)
 ################################################################################
 
 package require pbctools
-
+# general settings
 color Display Background white
+axes location LowerLeft
 axes location Off
 display projection orthographic
 display depthcue off
-
 display resetview
+translate by 0.5 0 0
 pbc box
-scale by 3
-
+# visualize original beads
 set mol 0
 set rep 0
 mol modselect   ${rep} ${mol} name A
-mol modstyle    ${rep} ${mol} CPK 0.3
-mol modcolor    ${rep} ${mol} ColorID 27
+mol modstyle    ${rep} ${mol} CPK 0.5 0.0 12.0 12.0
+mol modcolor    ${rep} ${mol} ColorID 4
 mol modmaterial ${rep} ${mol} Opaque
-
+# visualize new beads
 set rep [expr $rep + 1]
 mol addrep ${mol}
-mol modselect   ${rep} ${mol} name B
-mol modstyle    ${rep} ${mol} CPK 0.3
-mol modcolor    ${rep} ${mol} ColorID 15
-mol modmaterial ${rep} ${mol} Opaque
-
-set rep [expr $rep + 1]
-mol addrep ${mol}
-mol modselect   ${rep} ${mol} resname CD
-mol modstyle    ${rep} ${mol} CPK 0.5 0.8
-mol modcolor    ${rep} ${mol} Name
+mol modselect   ${rep} ${mol} name W
+mol modstyle    ${rep} ${mol} CPK 1.0 0.0 12.0 12.0
+mol modcolor    ${rep} ${mol} ColorID 13
 mol modmaterial ${rep} ${mol} Opaque

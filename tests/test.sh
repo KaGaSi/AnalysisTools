@@ -1,4 +1,4 @@
-#!/bin/env zsh
+#!/usr/bin/env zsh
 
 cmake -S src -B build-san -DSANITIZE=ON
 

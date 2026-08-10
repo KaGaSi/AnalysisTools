@@ -3,8 +3,8 @@ Amphiphile (A=head, B=tail)
 species 4
 A  1  0  0
 B  1  0  0
-S1 1  0  1300
-S2 1  0  1500
+S1 1  0  1500
+S2 1  0  1300
 molecule 1
 AB
 nummols 100

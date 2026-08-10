@@ -1,34 +1,29 @@
-This example shows --real with negative box coordinates and the -ebt option for
-LAMMPS data file output.
+This example demonstrates the two coordinate spaces of the -cx/-cy/-cz
+constraints and the one case where they are not interchangeable.
 
-The starting system is generated inline by the script: 200 W beads in a
-20x20x20 box centered at the origin, with coordinates from -10 to 10 in each
-dimension.  This is typical of LAMMPS simulations that use a symmetric box.
+Starting systems:
+  Two ready-made lammps trajectories, each holding 200 A beads in a box with
+  negative box coordinates to show AddToSystem deals correctly with those.
 
---real with negative coordinates:
-  Without --real, -cx/-cy/-cz values are fractional (0 to 1, relative to the
-  output box length).  --real switches them to the same coordinate space as
-  the input file, including negative values:
+  ortho.lammpstrj  ... orthogonal box
+  tilted.lammpstrj ... the same box but tilted (gamma = 60 degrees)
 
-    AddToSystem system.lammpstrj W.FIELD 1.vtf --add --real -cx -10 0
+1) Orthogonal box (result shown in ortho.jpg):
+  --real option and the default (fractional units 0-1) are equivalent:
 
-  Places 100 new W beads in the left half of the box (x in [-10, 0]).
+  relevant options: --real -cx -2 2 ... 01.vtf, central slab, four units thick
+                    -cx 0.4 0.6     ... 02.vtf, the same slab, as a fraction
 
-    AddToSystem system.lammpstrj W.FIELD 2.vtf --add --real -cz -1 1
+2) Tilted box (result shown in tilted.jpg):
+  as there is no periodic Cartesian slab in a tilted/triclinic box, --real
+  cannot be used. The provided fractions cut along the cell vectors, carving out
+  a smaller cell of the same shape:
 
-  Places 100 W beads in the central z-slab (z in [-1, 1]).
+  relevant options: -cx 0.4 0.6     ... 03.vtf, the same fractions, slanted
+                    --real -cx -2 2 ... would error out
 
-  Internally, bead coordinates are stored relative to the box origin (0 to
-  box length).  --real values are automatically shifted by box.Low on input,
-  so you do not need to account for the offset manually.
+Run all steps:
+  ./run.sh
 
-Extra bead types for LAMMPS output (-ebt):
-  When the output is a LAMMPS data file (.data), -ebt <n> adds n placeholder
-  bead type entries to the Masses section.  This is useful when the type count
-  must match a fixed template, or when additional types will be defined later
-  via LAMMPS pair_coeff commands:
-
-    AddToSystem system.lammpstrj W.FIELD out.data --add --real -cx -10 0 -ebt 2
-
-  The output file will have 3 entries in the Masses section (1 real + 2
-  placeholders named "extra"), even though only W beads are present.
+The new systems' composition should be investigated using the Info utility, and
+the positions of added species through vmd <file>.vtf -e vmd.tcl command.

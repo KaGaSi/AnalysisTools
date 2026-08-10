@@ -1,4 +1,15 @@
-# VMD for LINUXAMD64, version 1.9.3 (November 30, 2016)
+################################################################################
+# Command to start an interactive vmd session:
+#   vmd <file>.vtf -e vmd.tcl
+#
+# Colourscheme:
+#   A5B1 molecules ... pink and cyan balls
+#   E5D1 molecules ... magenta and green balls
+#   P and N ions ... blue and red balls, respectively
+#   W beads ... transparent grey balls
+################################################################################
+
+package require pbctools
 
 color Display Background white
 axes location Off
@@ -8,7 +19,7 @@ display depthcue off
 display resetview
 rotate y by 110
 rotate x by 20
-translate by 0 0 -5
+scale by 1.4
 pbc box
 
 set mol 0
@@ -29,8 +40,9 @@ set rep [expr $rep + 1]
 mol addrep ${mol}
 mol modselect   ${rep} ${mol} name W
 mol modstyle    ${rep} ${mol} CPK 0.3 0.5
-mol modcolor    ${rep} ${mol} ColorID 8
+mol modcolor    ${rep} ${mol} ColorID 6
 mol modmaterial ${rep} ${mol} Opaque
+mol modmaterial ${rep} ${mol} Transparent
 
 set rep [expr $rep + 1]
 mol addrep ${mol}

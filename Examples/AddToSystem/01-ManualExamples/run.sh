@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 # make the script runnable from anywhere
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -23,4 +23,4 @@ AddToSystem ${in_ltrj} ${in_field} fig3_1d.vtf -s 4 --add -ld 3 -hd 4 -bt A -cx 
 # Figure 3.1e
 AddToSystem ${in_ltrj} ${in_field} fig3_1e.vtf -s 5 --add -ld 3 -hd 4 -bt A -cx 0.5 1 -b 30 20 25
 # Figure 3.1f
-AddToSystem ${in_ltrj} ${in_field} fig3_1f.vtf -s 5 --add -ld 3 -hd 4 -bt A -cx 0.5 1 -b 30 20 25 -off -0.2 0.2 0
+AddToSystem ${in_ltrj} ${in_field} fig3_1f.vtf -s 6 --add -ld 3 -hd 4 -bt A -cx 0.5 1 -b 30 20 25 -off -0.2 0.2 0

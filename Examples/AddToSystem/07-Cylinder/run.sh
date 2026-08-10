@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # make the script runnable from anywhere
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "${ROOT}/../../func.sh"
@@ -52,6 +52,6 @@ for (( i=0; i<20; i++ )); do # go over whole z- coordinate
   done
 done
 # add solvent outside the aggregate; corresponds to overall number density 3
-${bin} old.data ${in_field2} Wire.data -ld 0.5 -bt A B --add -o Wire.vtf -s 111
+${bin} old.data ${in_field2} system.data -ld 0.5 -bt A B --add -o system.vtf -s 111
 # remove temporary file
 rm old.data

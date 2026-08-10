@@ -18,7 +18,7 @@ const struct HelpHelp HelpDesc = {
   "leading to ordered bonds 1-2, 2-3, 3-4; connectivity like 1-4-2-3 with "
   "bonds 1-4, 2-4, 2-3 could give unexpected results).",
 
-  "Usage: %s <input> <output> [options]",
+  "Usage: PersistenceLength <input> <output> [options]",
   .args = 2, // number of mandatory arguments
   .all = 15, // number of valid lines OptSpec (not counting last {nullptr})
 };

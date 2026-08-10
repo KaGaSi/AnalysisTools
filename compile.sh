@@ -1,4 +1,4 @@
-#!/bin/env zsh
+#!/usr/bin/env zsh
 
 # Usage: ./compile.sh [build directory (default: ./build)]
 
