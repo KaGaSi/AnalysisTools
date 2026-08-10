@@ -160,6 +160,36 @@ vec3d RandomCoordinate(BOX box, vec3i n, const vec3d frac[MAX_RANGE][2]) {
   return random;
 } //}}}
 
+// wrap a point into the simulation box //{{{
+/*
+ * Bead positions are stored relative to Box.Low (the readers subtract it and
+ * the writers add it back), so the cell spans <0,OrthoLength) for an
+ * orthogonal box and <0,1) in fractional coordinates for a tilted one.
+ */
+vec3d WrapIntoBox(const vec3d coor, const BOX *box) {
+  if (fabs(box->alpha - 90) < 1e-5 &&
+      fabs(box->beta - 90) < 1e-5 &&
+      fabs(box->gamma - 90) < 1e-5) {
+    return RestorePBC(coor, box->OrthoLength);
+  }
+  double s[3];
+  for (int dd = 0; dd < 3; dd++) {
+    s[dd] = box->inverse[dd][0] * coor.v[0] +
+            box->inverse[dd][1] * coor.v[1] +
+            box->inverse[dd][2] * coor.v[2];
+  }
+  for (int dd = 0; dd < 3; dd++) {
+    s[dd] -= floor(s[dd]);
+  }
+  vec3d out;
+  for (int dd = 0; dd < 3; dd++) {
+    out.v[dd] = box->transform[dd][0] * s[0] +
+                box->transform[dd][1] * s[1] +
+                box->transform[dd][2] * s[2];
+  }
+  return out;
+} //}}}
+
 // generate random point constrained by distance from other beads //{{{
 // helper function calculating and updating minium coordinate
 void GetMinDist(BEAD bead, vec3d random, const BOX *box, double *min_dist) {
@@ -174,10 +204,15 @@ void GetMinDist(BEAD bead, vec3d random, const BOX *box, double *min_dist) {
  *   0...no checks
  *   1...all bonded beads
  *   2...specified bead types,
+ *
+ * The placement box may stick out of the simulation box (the -hd option
+ * defines it as a region around the existing beads), so the generated point
+ * must be wrapped back into the simulation box.
  */
 vec3d RandomConstrainedCoor(SYSTEM S_orig, int mode, const BOX *box, OPT opt) {
   if (mode == 0) { // no distance check
-    return RandomCoordinate(opt.box, opt.n_axis, opt.frac);
+    vec3d random = RandomCoordinate(opt.box, opt.n_axis, opt.frac);
+    return WrapIntoBox(random, box);
   }
   COUNT *C_orig = &S_orig.Count;
   double min_dist = 0;
@@ -224,7 +259,7 @@ vec3d RandomConstrainedCoor(SYSTEM S_orig, int mode, const BOX *box, OPT opt) {
     }
   } while ((opt.ld && opt.ldist >= min_dist) ||
            (opt.hd && opt.hdist <= min_dist));
-  return random;
+  return WrapIntoBox(random, box);
 } //}}}
 
 // rotate randomly given collection of beads (e.g., a molecule) //{{{
@@ -1077,11 +1112,25 @@ int main(int argc, char *argv[]) {
       max.v[dd] += opt.hdist;
       min.v[dd] -= opt.hdist;
     }
-    // define the box; opt.box.Low is where the placement region starts, not
-    // the system box's offset (which the bead positions are relative to)
+    /*
+     * Define the box; opt.box.Low is where the placement region starts, not
+     * the system box's offset (which the bead positions are relative to). The
+     * region may stick out of the simulation box, with the protruding part
+     * wrapped back inside when a point is generated; if it is longer than the
+     * simulation box, however, it would wrap onto itself, oversampling the
+     * overlap, so it is capped at the box length in that case. Only an
+     * orthogonal box can be capped this way, as an axis-aligned region tiles
+     * the space only if the cell is not tilted.
+     */
     for (int dd = 0; dd < 3; dd++) {
-      opt.box.Length.v[dd] = max.v[dd] - min.v[dd];
-      opt.box.Low.v[dd] = min.v[dd];
+      double length = max.v[dd] - min.v[dd];
+      if (!tilted && length > S_out.Box.OrthoLength.v[dd]) {
+        opt.box.Length.v[dd] = S_out.Box.OrthoLength.v[dd];
+        opt.box.Low.v[dd] = 0;
+      } else {
+        opt.box.Length.v[dd] = length;
+        opt.box.Low.v[dd] = min.v[dd];
+      }
     }
     CalculateBoxData(&opt.box, 0);
   }
