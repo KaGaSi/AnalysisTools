@@ -4,7 +4,7 @@
  * ReadLibrary.c is the largest unit in the codebase with no coverage, and it
  * is all parsing plus index arithmetic - the combination that fails quietly.
  * AddToSystem builds whole systems out of it, so a mis-mapped bond type or a
- * counterion laid out in the wrong slot produces a plausible-looking file
+ * counterion added the wrong number of times produces a plausible-looking file
  * rather than an error.
  *
  * Two fixture sets are used, deliberately:
@@ -30,8 +30,8 @@
 
 // complete a library's system before freeing it //{{{
 /*
- * ReadLibraryMolecule() and ReadLibraryMoleculeWithCion() raise
- * BeadType[].Number and MoleculeType[].Number but do not allocate the
+ * ReadLibraryMolecule() raises
+ * BeadType[].Number and MoleculeType[].Number but does not allocate the
  * matching Index arrays, while FreeSystem() frees Index whenever Number > 0.
  * FillSystemNonessentials() is the step that allocates them, and it is what
  * AddToSystem calls after building its molecules, so mirror that sequence
@@ -74,11 +74,6 @@ static void test_read_library(void) {
   CHECK_CLOSE(S->BondType[0].b, 0.25, 1e-9); // 0.25d0
   CHECK_CLOSE(S->BondType[1].a, 2 * 20.0, 1e-9);
   CHECK_CLOSE(S->BondType[1].b, 0.5, 1e-9);
-  /*
-   * 0.3d1 is 3.0. Without the Fortran d->e conversion strtod stops at the 'd'
-   * and yields 0.3, so this is the case that actually exercises
-   * ParseFortranDouble - a 'd0' suffix would give the same answer either way.
-   */
   CHECK_CLOSE(S->BondType[2].b, 3.0, 1e-9);
 
   // angle types, likewise doubled
@@ -115,28 +110,36 @@ static void test_read_library(void) {
 } //}}}
 // LibraryMoleculeInfo reads n_beads and the counterion name //{{{
 static void test_molecule_info(void) {
-  // no counterion: the cion field stays empty
+  // no counterion: the two bead counts agree and the cion list is empty
   LIB_MOL_INFO sol = LibraryMoleculeInfo(LIB_DIR, "sol");
   CHECK(sol.n_beads == 1);
-  CHECK(sol.cion[0] == '\0');
+  CHECK(sol.n_beads_total == 1);
+  CHECK(sol.n_cion == 0);
+  CHECK(!sol.bilayer);
+  CHECK_CLOSE(sol.M_w, 1.0, 1e-9);
 
   LIB_MOL_INFO tri = LibraryMoleculeInfo(LIB_DIR, "tri");
   CHECK(tri.n_beads == 3);
-  CHECK(tri.cion[0] == '\0');
+  CHECK(tri.n_beads_total == 3);
+  CHECK(tri.n_cion == 0);
+  CHECK(tri.bilayer);
 
   /*
-   * 'pair' has two beads of its own plus a one-bead counterion, and
-   * list_molecules.txt records the total. Confusing the two is the mistake
-   * this pins.
+   * 'pair' has two beads of its own plus a one-bead counterion. n_beads is the
+   * molecule's own, n_beads_total counts the counterion too; confusing the two
+   * is the mistake this pins.
    */
   LIB_MOL_INFO pair = LibraryMoleculeInfo(LIB_DIR, "pair");
-  CHECK(pair.n_beads == 3);
-  CHECK(strcmp(pair.cion, "ion") == 0);
+  CHECK(pair.n_beads == 2);
+  CHECK(pair.n_beads_total == 3);
+  CHECK(pair.n_cion == 1);
+  CHECK(strcmp(pair.cion[0].name, "ion") == 0);
+  CHECK(pair.cion[0].count == 1);
 
   // an unknown molecule is reported as -1 rather than 0
   LIB_MOL_INFO none = LibraryMoleculeInfo(LIB_DIR, "does_not_exist");
   CHECK(none.n_beads == -1);
-  CHECK(none.cion[0] == '\0');
+  CHECK(none.n_cion == 0);
   // matching is exact
   CHECK(LibraryMoleculeInfo(LIB_DIR, "SOL").n_beads == -1);
   CHECK(LibraryMoleculeInfo(LIB_DIR, "so").n_beads == -1);
@@ -161,7 +164,7 @@ static void test_single_bead_molecule(void) {
   SYSTEM *S = &lib.System;
   CHECK(S->Count.Bead == 0);
 
-  ReadLibraryMolecule(LIB_DIR, "sol", 5, &lib);
+  ReadLibraryMolecule(LIB_DIR, "sol", 5, true, &lib);
   CHECK(S->Count.Bead == 5);
   CHECK(S->Count.Unbonded == 5);
   CHECK(S->Count.Bonded == 0);
@@ -182,7 +185,7 @@ static void test_chain_molecule(void) {
   LIBRARY lib = ReadLibrary(LIB_DIR);
   SYSTEM *S = &lib.System;
   const int n_mols = 4;
-  ReadLibraryMolecule(LIB_DIR, "tri", n_mols, &lib);
+  ReadLibraryMolecule(LIB_DIR, "tri", n_mols, true, &lib);
 
   CHECK(S->Count.MoleculeType == 1);
   MOLECULETYPE *mt = &S->MoleculeType[0];
@@ -236,9 +239,9 @@ static void test_chain_molecule(void) {
 static void test_multiple_molecule_types(void) {
   LIBRARY lib = ReadLibrary(LIB_DIR);
   SYSTEM *S = &lib.System;
-  ReadLibraryMolecule(LIB_DIR, "tri", 2, &lib);
-  ReadLibraryMolecule(LIB_DIR, "sol", 3, &lib);
-  ReadLibraryMolecule(LIB_DIR, "tri", 1, &lib);
+  ReadLibraryMolecule(LIB_DIR, "tri", 2, true, &lib);
+  ReadLibraryMolecule(LIB_DIR, "sol", 3, true, &lib);
+  ReadLibraryMolecule(LIB_DIR, "tri", 1, true, &lib);
 
   // the second 'tri' call adds a second molecule type, it does not merge
   CHECK(S->Count.MoleculeType == 2);
@@ -260,55 +263,82 @@ static void test_multiple_molecule_types(void) {
   }
   finish_and_free(&lib);
 } //}}}
-// parent and counterion beads share one contiguous block per molecule //{{{
+// a counterion is added as its own species, not appended to its parent //{{{
 /*
- * This is the layout the header promises and that the LAMMPS data writer
- * depends on: parent beads first, counterion last, no gaps between molecules.
+ * The layout this pins is the one every "first bead"/"last bead" default in the
+ * codebase depends on. While a counterion was appended to its parent, the last
+ * bead of a molecule was the counterion rather than its tail, and a monoatomic
+ * one sits at the parent's origin - so anything anchoring on it placed the
+ * molecule upside down while looking entirely plausible.
  */
 static void test_molecule_with_counterion(void) {
   LIBRARY lib = ReadLibrary(LIB_DIR);
   SYSTEM *S = &lib.System;
   const int n_mols = 3;
-  const int total = 3; // 2 parent beads + 1 counterion
-  ReadLibraryMoleculeWithCion(LIB_DIR, "pair", "ion", n_mols, &lib);
+  ReadLibraryMolecule(LIB_DIR, "pair", n_mols, true, &lib);
 
+  // the parent keeps its own two beads and nothing else
   CHECK(S->Count.MoleculeType == 1);
   MOLECULETYPE *mt = &S->MoleculeType[0];
-  CHECK(mt->nBeads == total);
+  CHECK(strcmp(mt->Name, "pair") == 0);
+  CHECK(mt->nBeads == 2);
   CHECK(mt->Number == n_mols);
-  CHECK(mt->nBonds == 1); // the counterion adds no bond
-  CHECK(S->Count.Molecule == n_mols);
-  CHECK(S->Count.Bead == n_mols * total);
-  CHECK(S->Count.Bonded == n_mols * total); // the counterion counts as bonded
+  CHECK(mt->nBonds == 1);
 
   int mid = FindBeadType("MID", *S);
   int ion = FindBeadType("ION", *S);
-  // parent beads first, counterion in the last slot
   CHECK(mt->Bead[0] == mid);
   CHECK(mt->Bead[1] == mid);
-  CHECK(mt->Bead[2] == ion);
+  // the last bead of the molecule is the molecule's own, not the counterion
+  CHECK(mt->Bead[mt->nBeads - 1] != ion);
+
+  // the monoatomic counterion became free beads, one per parent molecule
+  CHECK(S->Count.Molecule == n_mols);
+  CHECK(S->Count.Bead == n_mols * 3);
+  CHECK(S->Count.Bonded == n_mols * 2);
+  CHECK(S->Count.Unbonded == n_mols);
   CHECK(S->BeadType[mid].Number == 2 * n_mols);
   CHECK(S->BeadType[ion].Number == n_mols);
 
-  // the bond stays between the parent beads and is not shifted by the cion
   CHECK(mt->Bond[0][0] == 0 && mt->Bond[0][1] == 1);
   CHECK(mt->Bond[0][2] == 1); // b02
 
-  // contiguity: molecule m owns exactly beads [m*total, (m+1)*total)
-  for (int m = 0; m < n_mols; m++) {
-    MOLECULE *mol = &S->Molecule[m];
-    for (int b = 0; b < total; b++) {
-      CHECK(mol->Bead[b] == m * total + b);
-      CHECK(S->Bead[mol->Bead[b]].Molecule == m);
-    }
-    // and the counterion really is the last bead of the block
-    CHECK(S->Bead[mol->Bead[total - 1]].Type == ion);
-  }
-  // no bead belongs to two molecules, and none is left unassigned
+  // every ION bead is free, every MID bead belongs to a molecule
   for (int i = 0; i < S->Count.Bead; i++) {
-    CHECK(S->Bead[i].Molecule == i / total);
+    if (S->Bead[i].Type == ion) {
+      CHECK(S->Bead[i].Molecule == -1);
+    } else {
+      CHECK(S->Bead[i].Molecule >= 0);
+      CHECK(S->Bead[i].Molecule < n_mols);
+    }
   }
   finish_and_free(&lib);
+} //}}}
+// with_cion=false leaves the counterion for the caller to place //{{{
+/*
+ * The bilayer workflow needs this: a counterion added alongside its parent
+ * would inherit the leaflet's placement constraint and start inside the
+ * hydrophobic core, when it belongs in the water.
+ */
+static void test_molecule_without_counterion(void) {
+  LIBRARY lib = ReadLibrary(LIB_DIR);
+  SYSTEM *S = &lib.System;
+  ReadLibraryMolecule(LIB_DIR, "pair", 3, false, &lib);
+
+  CHECK(S->Count.MoleculeType == 1);
+  CHECK(S->MoleculeType[0].nBeads == 2);
+  CHECK(S->Count.Bead == 3 * 2); // no counterion beads at all
+  CHECK(S->Count.Unbonded == 0);
+  CHECK(S->BeadType[FindBeadType("ION", *S)].Number == 0);
+  finish_and_free(&lib);
+} //}}}
+// a counterion with a count above one is added that many times //{{{
+static void test_counterion_count(void) {
+  LIB_MOL_INFO info = LibraryMoleculeInfo(LIB_DIR, "pair");
+  CHECK(info.n_cion == 1);
+  // the fixture declares no count, which means one
+  CHECK(info.cion[0].count == 1);
+  CHECK(info.n_beads_total == info.n_beads + info.cion[0].count * 1);
 } //}}}
 
 // ---- potential table ------------------------------------------------------
@@ -405,19 +435,11 @@ static void test_example_molecules_build(void) {
     }
     LIBRARY lib = ReadLibrary(EXAMPLE_LIB);
     SYSTEM *S = &lib.System;
-    if (info.cion[0] != '\0') {
-      ReadLibraryMoleculeWithCion(EXAMPLE_LIB, mols[t], info.cion, 2, &lib);
-      // the declared total must match what was actually built
-      CHECK(S->Count.MoleculeType == 1);
+    ReadLibraryMolecule(EXAMPLE_LIB, mols[t], 2, true, &lib);
+    // whatever the counterions are, the totals must add up
+    CHECK(S->Count.Bead == 2 * info.n_beads_total);
+    if (info.n_beads > 1) {
       CHECK(S->MoleculeType[0].nBeads == info.n_beads);
-      CHECK(S->Count.Bead == 2 * info.n_beads);
-    } else {
-      ReadLibraryMolecule(EXAMPLE_LIB, mols[t], 2, &lib);
-      CHECK(S->Count.Bead == 2 * info.n_beads);
-      if (info.n_beads > 1) {
-        CHECK(S->Count.MoleculeType == 1);
-        CHECK(S->MoleculeType[0].nBeads == info.n_beads);
-      }
     }
     // whatever was built, every bead has a valid type
     for (int i = 0; i < S->Count.Bead; i++) {
@@ -450,6 +472,8 @@ int main(void) {
   RUN(test_chain_molecule);
   RUN(test_multiple_molecule_types);
   RUN(test_molecule_with_counterion);
+  RUN(test_molecule_without_counterion);
+  RUN(test_counterion_count);
   RUN(test_fill_pot);
   RUN(test_example_library_consistent);
   RUN(test_example_molecules_build);

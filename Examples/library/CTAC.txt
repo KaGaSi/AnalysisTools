@@ -1,42 +1,38 @@
-# CTAC from Prof. ML model
-# key value (0: solvent, 1: counterion, 2: chain-like molecule)
-2
-# number of beads
-9
-# index, bead_ID, x, y, z
- 1  (CH3)3N+CH2          0.0000   0.0000   0.0000
- 2  CH2CH2               0.0000   0.0000  -0.4900
- 3  CH2CH2               0.0000   0.0000  -0.8800
- 4  CH2CH2               0.0000   0.0000  -1.2700
- 5  CH2CH2               0.0000   0.0000  -1.6600
- 6  CH2CH2               0.0000   0.0000  -2.0500
- 7  CH2CH2               0.0000   0.0000  -2.4400
- 8  CH2CH2               0.0000   0.0000  -2.8300
- 9  CH3                  0.0000   0.0000  -3.1200
-# List of Bonds. If any, keep keyword 'Bonds'
-Bonds 
-# list size
-8
-# Bond_ID, bead_i, bead_j
- b04   1  2
- b03   2  3
- b03   3  4
- b03   4  5
- b03   5  6
- b03   6  7
- b03   7  8
- b02   8  9
-# List of Angles. If any, keep keyword 'Angles'
-Angles  
-# list size
-7
-# Angle_ID, bead_i, bead_j, bead_k
- a01   1   2   3
- a01   2   3   4
- a01   3   4   5
- a01   4   5   6
- a01   5   6   7
- a01   6   7   8
- a01   7   8   9
-# Finish. Keep keyword 'End'
-End  
+name        CTAC
+reference   from Prof. ML model
+role        bilayer
+M_w         319.99
+counterion  Cl
+
+beads
+#   bead_ID                     x        y        z
+ 1  (CH3)3N+CH2            0.0000   0.0000   0.0000
+ 2  CH2CH2                 0.0000   0.0000  -0.4900
+ 3  CH2CH2                 0.0000   0.0000  -0.8800
+ 4  CH2CH2                 0.0000   0.0000  -1.2700
+ 5  CH2CH2                 0.0000   0.0000  -1.6600
+ 6  CH2CH2                 0.0000   0.0000  -2.0500
+ 7  CH2CH2                 0.0000   0.0000  -2.4400
+ 8  CH2CH2                 0.0000   0.0000  -2.8300
+ 9  CH3                    0.0000   0.0000  -3.1200
+
+bonds
+#   bond_ID      i   j
+ 1  b04          1   2
+ 2  b03          2   3
+ 3  b03          3   4
+ 4  b03          4   5
+ 5  b03          5   6
+ 6  b03          6   7
+ 7  b03          7   8
+ 8  b02          8   9
+
+angles
+#   angle_ID     i   j   k
+ 1  a01          1   2   3
+ 2  a01          2   3   4
+ 3  a01          3   4   5
+ 4  a01          4   5   6
+ 5  a01          5   6   7
+ 6  a01          6   7   8
+ 7  a01          7   8   9

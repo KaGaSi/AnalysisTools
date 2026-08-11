@@ -1,9 +1,8 @@
-# Single-bead counterion for the t_library unit tests
-# key value (0: solvent, 1: counterion, 2: chain-like molecule)
-1
-# number of beads
-1
-# index, bead_ID, x, y, z
- 1  ION          0.0000   0.0000   0.0000
-# Finish. Keep keyword 'End'
-End
+name        ion
+label       Single-bead counterion for the t_library unit tests
+role        soluble
+M_w         3.00
+
+beads
+#   bead_ID                     x        y        z
+ 1  ION                    0.0000   0.0000   0.0000

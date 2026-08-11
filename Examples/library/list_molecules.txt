@@ -1,9 +1,0 @@
-# Molecule library subset for GenParams examples (water, FA_C16, CTAC, Cl)
-# Derived from Anderson et al., JCP 147, 094503 (2017)
-# n_beads includes counterion beads where applicable
-4
-# #list  Molec_name   M_w(gr/mol)  n_beads  c-ion?(0:N, 1:Y)  cion_name
-  1      water         36.03        1        0                  None
-  2      FA_C16       242.44        9        0                  None
-  3      CTAC         319.99       10        1                  Cl
-  4      Cl            35.45        1        0                  None

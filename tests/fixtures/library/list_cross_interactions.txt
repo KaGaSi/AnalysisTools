@@ -1,6 +1,10 @@
 # Minimal cross-interaction list for the t_library unit tests.
 # SOL-ION is deliberately absent so the default fallback can be tested.
-2
-# index  bead_i_ID  bead_j_ID  A_ij   R_ij
-  1      SOL        MID        15.00  0.9500
-  2      MID        ION        18.00  1.0500
+# DPD cross interactions. Pairs not listed here fall back to the
+# bead types' own A and rc in list_parameters.txt.
+
+interactions
+#    bead_i               bead_j                   A_ij     rc_ij  source
+#                                                  (kT)      (rc)
+  1  SOL                  MID                     15.00   0.95000  -
+  2  MID                  ION                     18.00   1.05000  -

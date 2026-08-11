@@ -11,7 +11,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: Info <input> [options]",
   .args = 1, // number of mandatory arguments
-  .all = 22, // number of valid lines OptSpec (not counting last {nullptr})
+  .all = 24, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   {"-ft", "<type>", "structure file type: vtf/vsf/xyz/data/ltrj/field/itp/pdb", OPT_COMMON},
@@ -44,6 +44,8 @@ static const struct OptSpec opts[] = {
     "interactions; appends interactions block to FIELD output", OPT_EXTRA},
   {"-sys", "<file>", "system_info file: assign names to molecule types before "
     "library renaming (required when types are unnamed)", OPT_EXTRA},
+  {"--check-library", nullptr, "check the library for bad names, dangling counterions, unknown type IDs, unbalanced charges and drifted row numbering, then exit (requires -lib; takes no input file)", OPT_EXTRA},
+  {"--mol-info", "<mol>", "print one library molecule's role, mass, bead count, charge, z-extent and counterions, then exit (requires -lib; takes no input file)", OPT_EXTRA},
   {nullptr}
 }; //}}}
 
@@ -68,7 +70,389 @@ static int uf_find(int *parent, int x) {
   return x;
 } //}}}
 
+/*
+ * Answer a question about the library rather than about a system: bead counts,
+ * mass, role, charge, z-extent and counterions of one molecule, as
+ * 'key value' lines in the library's own grammar.
+ *
+ * This is what prep_simulation.sh used to work out by reading the library
+ * itself, with hard-coded line numbers and a second copy of the format's rules.
+ */
+static void PrintMoleculeInfo(const char *lib_dir, const char *name) { //{{{
+  LIBRARY lib = ReadLibrary(lib_dir);
+  LIB_MOL mol;
+  if (!ReadLibraryMolFile(lib_dir, name, &mol)) {
+    if (snprintf(ERROR_MSG, LINE, "no library file for molecule %s%s%s",
+                 ErrYellow(), name, ErrRed()) < 0) {
+      ErrorSnprintf();
+    }
+    PrintErrorOption("--mol-info");
+    exit(1);
+  }
+  // charge, ion count (sum of q^2) and z-extent of one molecule
+  double charge = 0, ions = 0, zmin = 0, zmax = 0;
+  for (int i = 0; i < mol.n_beads; i++) {
+    int bt = FindBeadType(mol.bead_name[i], lib.System);
+    if (bt == -1) {
+      if (snprintf(ERROR_MSG, LINE, "bead type '%s%s%s' not in library",
+                   ErrYellow(), mol.bead_name[i], ErrRed()) < 0) {
+        ErrorSnprintf();
+      }
+      PrintError();
+      exit(1);
+    }
+    double q = lib.System.BeadType[bt].Charge;
+    charge += q;
+    ions += q * q;
+    double z = mol.bead_pos[i].v[2];
+    if (i == 0 || z < zmin) {
+      zmin = z;
+    }
+    if (i == 0 || z > zmax) {
+      zmax = z;
+    }
+  }
+  const char *role = "soluble";
+  if (mol.bilayer) {
+    role = "bilayer";
+  }
+  printf("name           %s\n", mol.name);
+  printf("role           %s\n", role);
+  if (mol.has_M_w) {
+    printf("M_w            %.4f\n", mol.M_w);
+  }
+  printf("n_beads        %d\n", mol.n_beads);
+  printf("charge         %.4f\n", charge);
+  printf("ions           %.4f\n", ions);
+  printf("z_min          %.4f\n", zmin);
+  printf("z_max          %.4f\n", zmax);
+  // one line per counterion: name  count  n_beads  charge  ions
+  for (int i = 0; i < mol.n_cion; i++) {
+    LIB_MOL cion;
+    if (!ReadLibraryMolFile(lib_dir, mol.cion[i].name, &cion)) {
+      if (snprintf(ERROR_MSG, LINE, "no library file for counterion %s%s%s",
+                   ErrYellow(), mol.cion[i].name, ErrRed()) < 0) {
+        ErrorSnprintf();
+      }
+      PrintError();
+      exit(1);
+    }
+    double cq = 0, cions = 0;
+    for (int b = 0; b < cion.n_beads; b++) {
+      int bt = FindBeadType(cion.bead_name[b], lib.System);
+      if (bt == -1) {
+        continue;
+      }
+      double q = lib.System.BeadType[bt].Charge;
+      cq += q;
+      cions += q * q;
+    }
+    printf("counterion     %s %d %d %.4f %.4f\n", mol.cion[i].name,
+           mol.cion[i].count, cion.n_beads, cq, cions);
+  }
+  FreeLibrary(&lib);
+} //}}}
+
+// sum of bead charges over one molecule; ok=false if a bead type is unknown //{{{
+static double MolCharge(const LIB_MOL *mol, const LIBRARY *lib, bool *ok) {
+  double q = 0;
+  for (int i = 0; i < mol->n_beads; i++) {
+    int bt = FindBeadType(mol->bead_name[i], lib->System);
+    if (bt == -1) {
+      *ok = false;
+      continue;
+    }
+    q += lib->System.BeadType[bt].Charge;
+  }
+  return q;
+} //}}}
+/*
+ * The leading index on every row is decoration - position in the block is the
+ * index and no parser reads the printed one - so nothing else would notice it
+ * drifting out of step. Checking it here is what lets it stay a convenience
+ * instead of becoming another thing to maintain by hand.
+ */
+static int CheckIndices(const char *path, const char *label) { //{{{
+  FILE *fr = fopen(path, "r");
+  if (!fr) {
+    return 0;
+  }
+  char block[32] = "";
+  int expect = 0, bad = 0;
+  while (ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
+    if (words == 0 || split[0][0] == '#') {
+      continue;
+    }
+    if (words == 1) {
+      s_strcpy(block, split[0], sizeof block);
+      expect = 1;
+      continue;
+    }
+    if (block[0] == '\0') {
+      continue; // a scalar, before any block
+    }
+    long idx;
+    if (!IsWholeNumber(split[0], &idx) || idx != expect) {
+      printf("  %-24s %s row %d is numbered '%s'\n", label, block, expect,
+             split[0]);
+      bad++;
+    }
+    expect++;
+  }
+  fclose(fr);
+  return bad;
+} //}}}
+/*
+ * Check the library for the things loading it does not: names that disagree
+ * with their filenames, counterions that point nowhere, IDs with no entry in
+ * the type tables, molecules that do not balance, and drifted row numbering.
+ *
+ * A file that cannot be parsed at all is still fatal, here as anywhere else -
+ * this reports what a library that loads can still be wrong about.
+ */
+static int CheckLibrary(const char *lib_dir) { //{{{
+  LIBRARY lib = ReadLibrary(lib_dir);
+  int problems = 0;
+  int n_mols = 0, n_bare = 0;
+  char names[256][MOL_NAME];
+  char files[256][MOL_NAME];
+
+  DIR *dir = opendir(lib_dir);
+  if (!dir) {
+    if (snprintf(ERROR_MSG, LINE, "cannot open library directory %s%s%s",
+                 ErrYellow(), lib_dir, ErrRed()) < 0) {
+      ErrorSnprintf();
+    }
+    PrintError();
+    exit(1);
+  }
+  printf("Checking %s\n\n", lib_dir);
+  /*
+   * Which species are somebody's counterion. A bare ion is charged by
+   * definition and is neutralised by whatever names it, so it is the one thing
+   * that must not be required to balance on its own - and being referenced is
+   * what says so. Having no M_w says the same thing more weakly, and not every
+   * library spells it that way: an example library may well give Cl its real
+   * 35.45 while still only ever using it as a counterion.
+   */
+  char cion_of[256][MOL_NAME];
+  int n_cion_names = 0;
+  struct dirent *ent;
+  while ((ent = readdir(dir)) != nullptr) {
+    size_t len = strlen(ent->d_name);
+    if (len < 5 || strcmp(ent->d_name + len - 4, ".txt") != 0) {
+      continue;
+    }
+    if (strncmp(ent->d_name, "list_", 5) == 0) {
+      continue;
+    }
+    char stem[MOL_NAME];
+    s_strcpy(stem, ent->d_name, MOL_NAME);
+    stem[len - 4] = '\0';
+    LIB_MOL mol;
+    if (!ReadLibraryMolFile(lib_dir, stem, &mol)) {
+      continue;
+    }
+    for (int c = 0; c < mol.n_cion && n_cion_names < 256; c++) {
+      s_strcpy(cion_of[n_cion_names], mol.cion[c].name, MOL_NAME);
+      n_cion_names++;
+    }
+  }
+  rewinddir(dir);
+  while ((ent = readdir(dir)) != nullptr) {
+    size_t len = strlen(ent->d_name);
+    if (len < 5 || strcmp(ent->d_name + len - 4, ".txt") != 0) {
+      continue;
+    }
+    if (strncmp(ent->d_name, "list_", 5) == 0) {
+      continue;
+    }
+    if (n_mols >= 256) {
+      printf("  more than 256 molecule files; the rest are unchecked\n");
+      problems++;
+      break;
+    }
+    char stem[MOL_NAME];
+    s_strcpy(stem, ent->d_name, MOL_NAME);
+    stem[len - 4] = '\0';
+    LIB_MOL mol;
+    if (!ReadLibraryMolFile(lib_dir, stem, &mol)) {
+      continue;
+    }
+    s_strcpy(files[n_mols], stem, MOL_NAME);
+    s_strcpy(names[n_mols], mol.name, MOL_NAME);
+    n_mols++;
+
+    // the name inside the file is what the loader indexes by
+    if (strcmp(mol.name, stem) != 0) {
+      printf("  %-24s declares name '%s'\n", ent->d_name, mol.name);
+      problems++;
+    }
+    // bead types must exist
+    for (int i = 0; i < mol.n_beads; i++) {
+      if (FindBeadType(mol.bead_name[i], lib.System) == -1) {
+        printf("  %-24s bead %d is type '%s', not in list_parameters.txt\n",
+               stem, i + 1, mol.bead_name[i]);
+        problems++;
+      }
+    }
+    // bond and angle IDs must exist
+    for (int i = 0; i < mol.n_bonds; i++) {
+      bool found = false;
+      for (int k = 0; k < lib.n_bond_ids; k++) {
+        if (strcmp(lib.bond_id[k].id, mol.bond_id[i]) == 0) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        printf("  %-24s bond %d is type '%s', not in list_bonds.txt\n",
+               stem, i + 1, mol.bond_id[i]);
+        problems++;
+      }
+    }
+    for (int i = 0; i < mol.n_angles; i++) {
+      bool found = false;
+      for (int k = 0; k < lib.n_angle_ids; k++) {
+        if (strcmp(lib.angle_id[k].id, mol.angle_id[i]) == 0) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        printf("  %-24s angle %d is type '%s', not in list_angles.txt\n",
+               stem, i + 1, mol.angle_id[i]);
+        problems++;
+      }
+    }
+    /*
+     * Counterions must resolve, and a species must balance with them. Only a
+     * species that can be listed in input.txt has to: a bare ion like Cl is
+     * charged by definition and is neutralised by whatever names it. Having an
+     * M_w is exactly that distinction - it is the mass you would weigh out.
+     */
+    bool is_cion = false;
+    for (int c = 0; c < n_cion_names; c++) {
+      if (strcmp(cion_of[c], mol.name) == 0) {
+        is_cion = true;
+        break;
+      }
+    }
+    if (is_cion || !mol.has_M_w) {
+      n_bare++;
+    }
+    bool q_ok = !is_cion && mol.has_M_w;
+    double q = MolCharge(&mol, &lib, &q_ok);
+    for (int c = 0; c < mol.n_cion; c++) {
+      LIB_MOL cion;
+      if (!ReadLibraryMolFile(lib_dir, mol.cion[c].name, &cion)) {
+        printf("  %-24s counterion '%s' has no library file\n",
+               stem, mol.cion[c].name);
+        problems++;
+        q_ok = false;
+        continue;
+      }
+      bool cion_ok = true;
+      q += mol.cion[c].count * MolCharge(&cion, &lib, &cion_ok);
+      if (!cion_ok) {
+        q_ok = false;
+      }
+    }
+    if (q_ok && fabs(q) > 1e-6) {
+      printf("  %-24s net charge %+.2f with its counterions\n", stem, q);
+      problems++;
+    }
+    char path[LINE];
+    snprintf(path, LINE, "%s/%s", lib_dir, ent->d_name);
+    problems += CheckIndices(path, stem);
+  }
+  closedir(dir);
+
+  // names must be unique across the directory
+  for (int i = 0; i < n_mols; i++) {
+    for (int j = i + 1; j < n_mols; j++) {
+      if (strcmp(names[i], names[j]) == 0) {
+        printf("  %s.txt and %s.txt both declare the name '%s'\n",
+               files[i], files[j], names[i]);
+        problems++;
+      }
+    }
+  }
+
+  // interactions must name known bead types
+  const char *tables[] = {"list_parameters.txt", "list_bonds.txt",
+                          "list_angles.txt", "list_cross_interactions.txt"};
+  for (int t = 0; t < 4; t++) {
+    char path[LINE];
+    snprintf(path, LINE, "%s/%s", lib_dir, tables[t]);
+    problems += CheckIndices(path, tables[t]);
+  }
+  for (int i = 0; i < lib.n_inter; i++) {
+    if (strcmp(lib.inter[i].name1, lib.inter[i].name2) == 0) {
+      continue; // self-interactions come from the bead type table itself
+    }
+    if (FindBeadType(lib.inter[i].name1, lib.System) == -1 ||
+        FindBeadType(lib.inter[i].name2, lib.System) == -1) {
+      printf("  list_cross_interactions.txt  '%s'-'%s' names an unknown bead "
+             "type\n", lib.inter[i].name1, lib.inter[i].name2);
+      problems++;
+    }
+  }
+
+  printf("\n%d molecules (%d of them only ever another species' counterion), "
+         "%d bead types,\n           %d bond types, %d angle types, "
+         "%d pair interactions\n",
+         n_mols, n_bare, lib.System.Count.BeadType, lib.System.Count.BondType,
+         lib.System.Count.AngleType, lib.n_inter);
+  if (problems == 0) {
+    printf("no problems found\n");
+  } else {
+    printf("%d problem(s)\n", problems);
+  }
+  FreeLibrary(&lib);
+  return problems;
+} //}}}
+
 int main(int argc, char *argv[]) {
+
+  /*
+   * --mol-info asks about the library, not about a system, so it needs no
+   * input structure file and runs before OptionCheck() enforces one.
+   */
+  { //{{{
+    const char *lib_q = nullptr, *mol_q = nullptr;
+    bool check_q = false;
+    for (int i = 1; i < argc; i++) {
+      if (strcmp(argv[i], "--check-library") == 0) {
+        check_q = true;
+      }
+      if ((i + 1) >= argc) {
+        continue;
+      }
+      if (strcmp(argv[i], "-lib") == 0) {
+        lib_q = argv[i + 1];
+      }
+      if (strcmp(argv[i], "--mol-info") == 0) {
+        mol_q = argv[i + 1];
+      }
+    }
+    if (mol_q != nullptr || check_q) {
+      if (lib_q == nullptr) {
+        s_strcpy(ERROR_MSG, "--mol-info and --check-library require -lib", LINE);
+        PrintError();
+        exit(1);
+      }
+      if (check_q) {
+        if (CheckLibrary(lib_q) > 0) {
+          return 1;
+        }
+        return 0;
+      }
+      PrintMoleculeInfo(lib_q, mol_q);
+      return 0;
+    }
+  } //}}}
+
 
   // commad line arguments before reading the structure //{{{
   OptionCheck(argc, argv, true, HelpDesc, opts);

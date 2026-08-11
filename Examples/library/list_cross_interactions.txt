@@ -1,20 +1,21 @@
-# Cross-interaction parameters for bead type pairs used in these examples
-# Subset of: Anderson et al., JCP 147, 094503 (2017); J. Chem. Theory Comput. 14, 2633 (2018)
-# Wand et al., Langmuir 36, 12288 (2020)
-15
-# index  bead_i_ID            bead_j_ID            A_ij      R_ij
-  1      H2O                  CH2OH                14.50     0.9900
-  2      H2O                  CH2CH2               45.00     1.0370
-  3      H2O                  CH3                  45.00     0.9775
-  4      H2O                  (CH3)3N+CH2          15.00     1.1825   # From ML
-  5      H2O                  Cl-                  25.00     1.0000
-  6      CH2OH                CH2CH2               26.00     1.0270
-  7      CH2OH                CH3                  26.00     0.9675
-  8      CH2OH                (CH3)3N+CH2          25.00     1.1725   # From ML
-  9      CH2OH                Cl-                  14.50     0.9900   # From ML
- 10      CH2CH2               CH3                  23.00     1.0145
- 11      CH2CH2               (CH3)3N+CH2          28.50     1.2195   # From ML
- 12      CH2CH2               Cl-                  45.00     1.0370
- 13      CH3                  (CH3)3N+CH2          28.50     1.1600   # From ML
- 14      CH3                  Cl-                  45.00     0.9775   # From ML
- 15      (CH3)3N+CH2          Cl-                  15.00     1.1825   # From ML
+# DPD cross interactions. Pairs not listed here fall back to the
+# bead types' own A and rc in list_parameters.txt.
+
+interactions
+#    bead_i               bead_j                   A_ij     rc_ij  source
+#                                                  (kT)      (rc)
+  1  H2O                  CH2OH                   14.50   0.99000  -
+  2  H2O                  CH2CH2                  45.00   1.03700  -
+  3  H2O                  CH3                     45.00   0.97750  -
+  4  H2O                  (CH3)3N+CH2             15.00   1.18250  ML
+  5  H2O                  Cl-                     25.00   1.00000  -
+  6  CH2OH                CH2CH2                  26.00   1.02700  -
+  7  CH2OH                CH3                     26.00   0.96750  -
+  8  CH2OH                (CH3)3N+CH2             25.00   1.17250  ML
+  9  CH2OH                Cl-                     14.50   0.99000  ML
+ 10  CH2CH2               CH3                     23.00   1.01450  -
+ 11  CH2CH2               (CH3)3N+CH2             28.50   1.21950  ML
+ 12  CH2CH2               Cl-                     45.00   1.03700  -
+ 13  CH3                  (CH3)3N+CH2             28.50   1.16000  ML
+ 14  CH3                  Cl-                     45.00   0.97750  ML
+ 15  (CH3)3N+CH2          Cl-                     15.00   1.18250  ML

@@ -1,8 +1,15 @@
 # Minimal bead-type list for the t_library unit tests.
 # Deliberately tiny and stable: the tests assert exact counts and values, so
 # do not add entries here without updating tests/t_library.c.
-3
-# index  bead_ID   mass   q      A       Rc
-  1      SOL       1.00   0.0   25.00   1.0000
-  2      MID       2.00   0.5   20.00   0.9000
-  3      ION       3.00  -1.0   30.00   1.1000
+# DPD bead types.
+# Sources: Anderson et al, JCP 147, 094503 (2017); Anderson et al,
+#          JChem Theory Comput 14, 2633 (2018); Wand et al, Langmuir 36,
+#          12288 (2020). The per-row source column is not yet attributed;
+#          '-' means it still has to be filled in from those three.
+
+bead_types
+#   bead_ID                mass      q        A       rc  source
+#                         (dpd)    (e)     (kT)     (rc)
+ 1  SOL                    1.00    0.0    25.00   1.0000  -
+ 2  MID                    2.00    0.5    20.00   0.9000  -
+ 3  ION                    3.00   -1.0    30.00   1.1000  -

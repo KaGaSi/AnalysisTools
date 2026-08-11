@@ -12,7 +12,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: AddToSystem <input> [<in.field>] <output> [options]",
   .args = 2, // minimum: <input> and <output>; <in.field> optional with -lib
-  .all = 35, // number of valid lines in OptSpec (not counting last {nullptr})
+  .all = 36, // number of valid lines in OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -54,6 +54,7 @@ static const struct OptSpec opts[] = {
     "box); multiple pairs give a union of ranges", OPT_EXTRA},
   {"-cz", "<lo> <hi> ...", "constrain z-coordinate (in fraction of output "
     "box); multiple pairs give a union of ranges", OPT_EXTRA},
+  {"--no-cion", nullptr, "add only the named molecules, not the counterions they declare (place those yourself)", OPT_EXTRA},
   {"--tail", nullptr, "use molecule's last bead for constraint checks "
     "(default: molecule's geometric centre)", OPT_EXTRA},
   {"--head", nullptr, "use molecule's first bead for constraint checks "
@@ -101,7 +102,8 @@ struct OPT {
        *sw_type,            // -xb
        new,                 // generate new system from scratch?
        real, add, no_rot,   // --real/--add/--no-rotate
-       bonded, head, tail;  // --bonded/--head/--tail
+       bonded, head, tail,  // --bonded/--head/--tail
+       no_cion;             // --no-cion
   char lib_dir[LINE],       // -lib
        sys_in[LINE],        // -sys
        sys_out[LINE];       //
@@ -571,6 +573,7 @@ int main(int argc, char *argv[]) {
   } //}}}
   opt.head = BoolOption(argc, argv, "--head");
   opt.tail = BoolOption(argc, argv, "--tail");
+  opt.no_cion = BoolOption(argc, argv, "--no-cion");
   // new box dimensions (-b option) //{{{
   /*
    * Three numbers define an orthogonal box; three more are the alpha, beta,
@@ -731,18 +734,18 @@ int main(int argc, char *argv[]) {
       for (int i = 0; i < opt.n_lib_mol_add; i++) {
         LIB_MOL_INFO inf = LibraryMoleculeInfo(opt.lib_dir,
                                                opt.lib_mol_add[i].name);
-        if (inf.n_beads <= 0) {
+        if (inf.n_beads_total <= 0) {
           continue;
         }
         int nm;
         if (opt.lib_mol_add[i].is_frac) {
           nm = round(opt.lib_mol_add[i].value / 100.0 *
-                     C_orig->Bead / inf.n_beads);
+                     C_orig->Bead / inf.n_beads_total);
         } else {
           nm = (int)opt.lib_mol_add[i].value;
         }
         if (nm > 0) {
-          mol_beads += nm * inf.n_beads;
+          mol_beads += nm * inf.n_beads_total;
         }
       }
       int n_fill_beads = opt.ntot;
@@ -765,29 +768,27 @@ int main(int argc, char *argv[]) {
       } else {
         LIB_MOL_INFO fill_info = LibraryMoleculeInfo(opt.lib_dir,
                                                      opt.ntot_name);
-        if (fill_info.n_beads <= 0) {
-          if (snprintf(ERROR_MSG, LINE, "'%s%s%s' not in list_molecules.txt",
+        if (fill_info.n_beads_total <= 0) {
+          if (snprintf(ERROR_MSG, LINE, "no library file for '%s%s%s'",
                        ErrYellow(), opt.ntot_name, ErrRed()) < 0) {
             ErrorSnprintf();
           }
           PrintErrorOption("-ntot");
           exit(1);
         }
-        int n_mols_fill = n_fill_beads / fill_info.n_beads;
+        int n_mols_fill = n_fill_beads / fill_info.n_beads_total;
         if (n_mols_fill <= 0) {
           if (snprintf(ERROR_MSG, LINE, "fill count rounds to zero "
                        "(%s%d%s beads needed, %s%d%s per %s%s%s)",
                        ErrYellow(), n_fill_beads, ErrRed(),
-                       ErrYellow(), fill_info.n_beads, ErrRed(),
+                       ErrYellow(), fill_info.n_beads_total, ErrRed(),
                        ErrYellow(), opt.ntot_name, ErrRed()) < 0) {
             ErrorSnprintf();
           }
           PrintWarnOption("-ntot");
-        } else if (fill_info.cion[0] != '\0') {
-          ReadLibraryMoleculeWithCion(opt.lib_dir, opt.ntot_name,
-                                      fill_info.cion, n_mols_fill, &lib);
         } else {
-          ReadLibraryMolecule(opt.lib_dir, opt.ntot_name, n_mols_fill, &lib);
+          ReadLibraryMolecule(opt.lib_dir, opt.ntot_name, n_mols_fill,
+                              !opt.no_cion, &lib);
         }
       }
     } //}}}
@@ -796,8 +797,8 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < opt.n_lib_mol_add; i++) {
       LIB_MOL_INFO info = LibraryMoleculeInfo(opt.lib_dir,
                                               opt.lib_mol_add[i].name);
-      if (info.n_beads <= 0) {
-        if (snprintf(ERROR_MSG, LINE, "%s%s%s not in list_molecules.txt",
+      if (info.n_beads_total <= 0) {
+        if (snprintf(ERROR_MSG, LINE, "no library file for %s%s%s",
                      ErrYellow(), opt.lib_mol_add[i].name, ErrRed()) < 0) {
           ErrorSnprintf();
         }
@@ -806,18 +807,14 @@ int main(int argc, char *argv[]) {
       }
       int n_mols;
       if (opt.lib_mol_add[i].is_frac) {
-        n_mols = round(opt.lib_mol_add[i].value / 100.0 * ntot / info.n_beads);
+        n_mols = round(opt.lib_mol_add[i].value / 100.0 * ntot /
+                       info.n_beads_total);
       } else {
         n_mols = opt.lib_mol_add[i].value;
       }
       if (n_mols > 0) {
-        if (info.cion[0] != '\0') {
-          ReadLibraryMoleculeWithCion(opt.lib_dir, opt.lib_mol_add[i].name,
-                                      info.cion, n_mols, &lib);
-        } else {
-          ReadLibraryMolecule(opt.lib_dir, opt.lib_mol_add[i].name,
-                              n_mols, &lib);
-        }
+        ReadLibraryMolecule(opt.lib_dir, opt.lib_mol_add[i].name, n_mols,
+                            !opt.no_cion, &lib);
       }
     }
     FillSystemNonessentials(&lib.System, true);
@@ -1185,9 +1182,17 @@ int main(int argc, char *argv[]) {
   } //}}}
 
   // add monomeric beads //{{{
+  /*
+   * Indexed through S_add.Unbonded[] rather than assuming the free beads are
+   * the first C_add->Unbonded of the added block. They are not, as soon as
+   * anything unbonded follows a molecule - a counterion after its parent, or
+   * water after '-mol CTAC 10 water 200'. The prefix assumption left those
+   * beads at the origin while overwriting the molecules' coordinates, which
+   * the molecule loop below then quietly put back.
+   */
   for (int i = 0; i < C_add->Unbonded; i++) {
     vec3d random = RandomConstrainedCoor(S_orig, mode, &S_out.Box, opt);
-    int id = C_orig->Bead + i;
+    int id = C_orig->Bead + S_add.Unbonded[i];
     for (int dd = 0; dd < 3; dd++) {
       S_out.Bead[id].Position.v[dd] = random.v[dd];
     }

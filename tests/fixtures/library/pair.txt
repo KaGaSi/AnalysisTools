@@ -1,16 +1,14 @@
-# Two-bead molecule carrying an 'ion' counterion, for the t_library tests
-# key value (0: solvent, 1: counterion, 2: chain-like molecule)
-2
-# number of beads
-2
-# index, bead_ID, x, y, z
- 1  MID          0.0000   0.0000   0.0000
- 2  MID          0.5000   0.0000   0.0000
-# List of Bonds. If any, keep keyword 'Bonds'
-Bonds
-# list size
-1
-# Bond_ID, bead_i, bead_j
- b02   1  2
-# Finish. Keep keyword 'End'
-End
+name        pair
+label       Two-bead molecule carrying an 'ion' counterion, for the t_library tests
+role        bilayer
+M_w         7.00
+counterion  ion
+
+beads
+#   bead_ID                     x        y        z
+ 1  MID                    0.0000   0.0000   0.0000
+ 2  MID                    0.5000   0.0000   0.0000
+
+bonds
+#   bond_ID      i   j
+ 1  b02          1   2

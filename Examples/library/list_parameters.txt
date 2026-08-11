@@ -1,10 +1,15 @@
-# Self-interaction parameters for DPD bead types used in these examples
-# Subset of: Anderson et al., JCP 147, 094503 (2017); J. Chem. Theory Comput. 14, 2633 (2018)
-6
-# index  bead_ID              mass   q      A       Rc
-  1      H2O                  1.00   0.0   25.00   1.0000
-  2      CH2OH                1.00   0.0   14.00   0.9800
-  3      CH2CH2               1.00   0.0   22.00   1.0740
-  4      CH3                  1.00   0.0   24.00   0.9550
-  5      (CH3)3N+CH2          1.00   1.0   10.00   1.3650
-  6      Cl-                  1.00  -1.0   25.00   1.0000
+# DPD bead types.
+# Sources: Anderson et al, JCP 147, 094503 (2017); Anderson et al,
+#          JChem Theory Comput 14, 2633 (2018); Wand et al, Langmuir 36,
+#          12288 (2020). The per-row source column is not yet attributed;
+#          '-' means it still has to be filled in from those three.
+
+bead_types
+#   bead_ID                mass      q        A       rc  source
+#                         (dpd)    (e)     (kT)     (rc)
+ 1  H2O                    1.00    0.0    25.00   1.0000  -
+ 2  CH2OH                  1.00    0.0    14.00   0.9800  -
+ 3  CH2CH2                 1.00    0.0    22.00   1.0740  -
+ 4  CH3                    1.00    0.0    24.00   0.9550  -
+ 5  (CH3)3N+CH2            1.00    1.0    10.00   1.3650  -
+ 6  Cl-                    1.00   -1.0    25.00   1.0000  -
