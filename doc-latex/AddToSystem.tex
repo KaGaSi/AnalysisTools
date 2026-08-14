@@ -11,14 +11,15 @@ Species to add are specified in one of two ways. The simpler is a \field file
 (\tt{<in.field>}) given as the second positional argument, which is read as-is.
 
 The library-based workflow uses \tt{-lib <dir>} to point to a molecule library
-and \tt{-mol} to select which species to include. After \tt{-mol}, each entry
-is a name--count pair: the count is either an integer number of molecules or a
-percentage of the original system's bead count (e.g.\ \tt{10\%} gives
-$\text{round}(0.1 \times N_\text{orig} / n_\text{beads})$ molecules, where
-$n_\text{beads}$ is the number of beads per molecule). Multiple name--count
-pairs can follow a single \tt{-mol} flag, and the flag can be repeated.
-Note that percentage counts are meaningless when building from scratch because
-the original bead count is zero; use integer counts in that case.
+(\fullref{sec:LibDir}) and \tt{-mol} to select which species to include. After
+\tt{-mol}, each entry is a name--count pair: the count is either an integer
+number of molecules or a percentage of the original system's bead count (e.g.\
+\tt{10\%} gives $\text{round}(0.1 \times N_\text{orig} / n_\text{beads})$
+molecules, where $n_\text{beads}$ is the number of beads per molecule).
+Multiple name--count pairs can follow a single \tt{-mol} flag, and the flag can
+be repeated. Note that percentage counts are meaningless when building from
+scratch because the original bead count is zero; use integer counts in that
+case.
 
 The \tt{-ntot <n> <type>} option (requires \tt{-lib}) adds fill molecules of
 type \tt{<type>} until the total bead count reaches \tt{n}. The fill count is
@@ -26,6 +27,25 @@ computed via integer division: $\lfloor (\text{target} - \text{current} -
 \text{-mol beads}) / n_\text{fill} \rfloor$, where $n_\text{fill}$ is the
 bead count of one fill molecule. When building from scratch, the current count
 is taken as zero.
+
+\paragraph{Counterions.}
+A library molecule can declare counterions, and they come along automatically:
+adding $n$ copies of \tt{CTAC} also adds $n$ chlorides, as separate molecules
+(free beads, for a monoatomic ion) rather than as extra beads of the parent.
+They are placed like anything else, subject to the same constraints. Both
+$n_\text{beads}$ above and $n_\text{fill}$ are the bead counts \emph{including}
+the declared counterions, so \tt{-mol CTAC 1\%} of a 12\,000-bead system gives
+$0.01 \times 12\,000 / (9 + 1) = 12$ molecules, i.e.\ 12 \tt{CTAC} plus 12
+\tt{Cl-} beads.
+
+Use \tt{--no-cion} to add only the named molecules and place their counterions
+yourself. This is what the bilayer workflow needs: a counterion belongs in the
+water, not in the leaflet its parent is being constrained into, so you add the
+surfactants with the axis constraints and then add the ions in a second run
+without them. Note that the counts are computed the same way either way:
+\tt{--no-cion} suppresses the counterions but does not remove their beads from
+the $n_\text{beads}$ used for percentages and for \tt{-ntot}, so a percentage
+count still comes out as though they were there.
 
 When \tt{-lib} is used with an existing system, \tt{-sys <input>} is also
 required; it reads a system-info file that maps the existing molecule types to
@@ -253,6 +273,9 @@ Usage: \tt{AddToSystem <input> [<in.field>] <output> [options]}\\
                                 output-only)\\
   \tt{-ntot <n> <type>}       & fill to \tt{n} total beads using \tt{<type>}
                                 from the library (requires \tt{-lib})\\
+  \tt{--no-cion}              & add only the named molecules, not the
+                                counterions they declare (place those
+                                yourself)\\
   \tt{-ld <float>}            & minimum distance from reference beads
                                 (exclusive)\\
   \tt{-hd <float>}            & maximum distance from reference beads

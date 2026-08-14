@@ -1,5 +1,8 @@
-# DPD cross interactions. Pairs not listed here fall back to the
-# bead types' own A and rc in list_parameters.txt.
+# DPD cross interactions. A pair listed here is used as given; a pair that is
+# not falls back to the hard-coded A = 25, rc = 1 - not to the two bead types'
+# own values in list_parameters.txt - so an omitted pair is a silent default,
+# not an average. Info --check-library will not flag it either; the pair simply
+# has no row.
 
 interactions
 #    bead_i               bead_j                   A_ij     rc_ij  source

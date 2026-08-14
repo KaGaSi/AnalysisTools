@@ -1,7 +1,7 @@
 # Minimal cross-interaction list for the t_library unit tests.
-# SOL-ION is deliberately absent so the default fallback can be tested.
-# DPD cross interactions. Pairs not listed here fall back to the
-# bead types' own A and rc in list_parameters.txt.
+# SOL-ION is deliberately absent so the default fallback can be tested: a pair
+# with no row here falls back to the hard-coded A = 25, rc = 1, gamma = 4.5,
+# not to the two bead types' own values in list_parameters.txt.
 
 interactions
 #    bead_i               bead_j                   A_ij     rc_ij  source

@@ -80,10 +80,47 @@ table is printed to standard output in addition to the system composition. When
 the output is a \field file (\tt{-o} option), the interaction block is also
 appended to that file.
 
+Bead types are renamed in two passes. Molecule types are matched to library
+molecules by name and bead count, and each of their beads takes the name,
+charge, mass, and radius of the corresponding library bead. Unbonded beads have
+no name to match on in, e.g., a LAMMPS \data file, so they are matched by
+charge, and by count where the count is predictable---a counterion of a
+molecule present in the system is expected exactly (number of parent molecules)
+$\times$ (counterion count) times. A charge-and-count match wins over a charge
+alone, and an ambiguous match renames nothing, on the grounds that a wrong name
+is worse than no name.
+
 If molecule types in the input file are unnamed, \tt{-sys} supplies a
 \tt{system_info} file to assign names to them before library renaming. Without
 \tt{-sys}, unnamed molecule types cause the renaming step to be skipped with a
 warning.
+
+\subsubsection*{Asking about the library itself}
+
+Two options ask about the library rather than about a system. Both require
+\tt{-lib}, take no input file, and exit once they have printed their answer.
+
+\tt{--mol-info <mol>} prints what one library molecule is, as \tt{key value}
+lines in the library's own grammar: its \tt{name} and \tt{role}, its \tt{M_w}
+(only when the file gives one), the number of beads, the total charge, the
+number of ions (the sum of $q^2$ over its beads), the smallest and largest
+$z$-coordinate of its template, and one \tt{counterion} line per declared
+counterion with the counterion's name, count, bead count, charge, and ion
+count. It is meant to be parsed by build scripts, so they do not have to
+re-implement the library format to work out how many beads a molecule brings
+with it.
+
+\tt{--check-library} checks the whole library for the things merely loading it
+does not: molecule files whose \tt{name} disagrees with the filename, names
+declared twice, counterions with no file, bead/bond/angle IDs with no entry in
+the index files, molecules that do not come out neutral with their
+counterions, and row indices that have drifted out of step with their position
+in the block. It prints one line per problem plus a summary, and exits with 1
+if anything was found, so it can be used in a test suite. A species that is
+somebody else's counterion---or that has no \tt{M_w}---is exempt from the
+charge check, since a bare ion is charged by definition and is neutralised by
+whatever names it. A file that cannot be parsed at all is still fatal, as it
+is anywhere else; this checks what a library that loads can still get wrong.
 
 \todo{Describe the \tt{system_info} file format, or cross-reference the relevant section once written.}
 
@@ -132,8 +169,14 @@ Usage: \tt{Info <input> [options]}
   \midrule
   \tt{-lib <dir>}        & library directory for bead type renaming and DPD
     interaction lookup\\
-  \tt{-sys <file>}       & \tt{system\_info} file to name unnamed molecule types
+  \tt{-sys <file>}       & \tt{system_info} file to name unnamed molecule types
     before library renaming\\
+  \tt{--mol-info <mol>}  & print one library molecule's role, mass, bead count,
+    charge, $z$-extent, and counterions, then exit (requires \tt{-lib}; takes no
+    input file)\\
+  \tt{--check-library}   & check the library for bad names, dangling
+    counterions, unknown type IDs, unbalanced charges, and drifted row
+    numbering, then exit (requires \tt{-lib}; takes no input file)\\
   \midrule
   \multicolumn{2}{l}{Other options (see the beginning of
                      Chapter~\ref{chap:Utils})}\\

@@ -324,40 +324,131 @@ valid entries does not match the number of molecule types in the system. %}}}
 \section{Library directory} \label{sec:LibDir} %{{{
 
 A library directory is specified via the \tt{-lib} option (e.g.\ in
-\fullref{sec:AddToSystem} and \fullref{sec:Info}) and provides pre-defined
-bead types, interaction parameters, and molecule templates. In all library
-files, blank lines and comment lines (beginning with \texttt{\#}) are ignored;
-the first non-comment, non-blank line in each index file is a count that is
-skipped.
+\fullref{sec:AddToSystem} and \fullref{sec:Info}) and provides pre-defined bead
+types, interaction parameters, and molecule templates. It contains four index
+files and one file per molecule; there is no master list of molecules---a
+molecule exists if \tt{<molname>.txt} is in the directory. An example library
+is in \tt{Examples/library}.
 
-The directory must contain four index files:
+\subsubsection*{Common grammar}
+
+All library files share the same grammar:
+\begin{itemize}[noitemsep]
+  \item \texttt{\#} starts a comment that runs to the end of the line; blank
+    lines are ignored.
+  \item Before the first block, a line is a scalar: a key followed by its
+    value(s), e.g.\ \tt{role bilayer}.
+  \item A line holding a single field is a block header, and every following
+    row belongs to that block until the next header.
+  \item A row inside a block is a row index followed by the block's columns.
+\end{itemize}
+The leading row index is decoration---the position in the block \emph{is} the
+index and nothing reads the printed one---so it can silently drift out of step;
+\tt{Info --check-library} (\fullref{sec:Info}) is there to catch that, along
+with dangling counterions, unknown type IDs, and molecules that do not balance.
+
+\subsubsection*{Index files}
 
 \begin{itemize}[noitemsep]
-  \item \tt{list_parameters.txt} --- bead types and self-interactions; data
-    lines have the form \tt{<index> <name> <mass> <charge> <A> <Rc>}, where
-    \tt{A} is the DPD repulsion amplitude and \tt{Rc} is the cutoff radius.
+  \item \tt{list_parameters.txt} --- one \tt{bead_types} block of rows\\
+    \tt{<idx> <bead_ID> <mass> <q> <A> <rc> [source ...]},\\
+    where \tt{A} is the DPD repulsion parameter, \tt{rc} the cutoff radius
+    (also taken as the bead radius), and the trailing source column is free
+    text for people.
 
-  \item \tt{list_bonds.txt} --- harmonic bond types; data lines have the form
-    \tt{<bond_ID> <k> <r0>}, where \tt{k} is the spring constant and \tt{r0}
-    is the equilibrium length. Fortran-style \tt{d}-exponent notation (e.g.\
-    \tt{1.5d0}) is accepted for \tt{r0}.
+  \item \tt{list_bonds.txt} --- one \tt{bond_types} block of rows\\
+    \tt{<idx> <bond_ID> <k_bond> <r0>}\\
+    for the harmonic bond $U = k_\text{bond} (r - r_0)^2 / 2$.
 
-  \item \tt{list_angles.txt} --- harmonic angle types; data lines have the
-    form \tt{<angle_ID> <k> <theta>}, where \tt{k} is the spring constant and
-    \tt{theta} is the equilibrium angle.
+  \item \tt{list_angles.txt} --- one \tt{angle_types} block of rows\\
+    \tt{<idx> <angle_ID> <k_angle> <theta0>}\\
+    for the harmonic angle $U = k_\text{angle} (\theta - \theta_0)^2 / 2$, with
+    $\theta_0$ in degrees.
 
-  \item \tt{list_cross_interactions.txt} --- pairwise DPD interactions between
-    different bead types; data lines have the form
-    \tt{<index> <name1> <name2> <A> <Rc>}.
+  \item \tt{list_cross_interactions.txt} --- one \tt{interactions} block of
+    rows\\
+    \tt{<idx> <bead_i> <bead_j> <A_ij> <rc_ij> [source ...]},\\
+    giving the DPD parameters for a pair of different bead types.
 \end{itemize}
 
-Additionally, each molecule template is stored in its own file
-\tt{<molname>.txt} within the library directory. The format is similar to the
-\field file: the first two non-comment lines are an arbitrary key string
-(ignored) and the number of beads, followed by bead lines of the form
-\tt{<index> <bead_ID> <x> <y> <z>} (bead indices are 1-based). An optional
-\tt{Bonds} section (the keyword on its own line, followed by a count line,
-then \tt{<bond_ID> <bead_i> <bead_j>} lines) and an optional \tt{Angles}
-section (same structure, with \tt{<angle_ID> <bead_i> <bead_j> <bead_k>}
-lines) may follow. The file is terminated by \tt{End}. Molecule templates are
-loaded by name via the \tt{-mol} option. %}}}
+The \tt{bond_ID} and \tt{angle_ID} strings are how molecule files refer to bond
+and angle types; the \tt{bead_ID} is the bead type name that ends up in the
+system. A pair of different bead types with no row in
+\tt{list_cross_interactions.txt} falls back to $A = 25$ and $r_c = 1$, not to
+the two types' own values, so an omitted pair is not the same as a
+\enquote{sensible average}. The dissipative parameter $\gamma$ is not read from
+the library at all---it is always 4.5.
+
+\subsubsection*{Molecule files}
+
+Each molecule lives in its own \tt{<molname>.txt}, loaded by name via
+\tt{-mol} (or \tt{-ntot}, or as another molecule's counterion). The scalars
+come first, then the \tt{beads} block and the optional \tt{bonds} and
+\tt{angles} blocks, as in this shortened \tt{CTAC.txt} from the example
+library:
+
+\begin{verbatim}
+    name        CTAC
+    reference   from Prof. ML model
+    role        bilayer
+    M_w         319.99
+    counterion  Cl
+
+    beads
+    #   bead_ID                     x        y        z
+     1  (CH3)3N+CH2            0.0000   0.0000   0.0000
+     2  CH2CH2                 0.0000   0.0000  -0.4900
+     3  CH3                    0.0000   0.0000  -0.8800
+
+    bonds
+    #   bond_ID      i   j
+     1  b04          1   2
+     2  b02          2   3
+
+    angles
+    #   angle_ID     i   j   k
+     1  a01          1   2   3
+\end{verbatim}
+
+\begin{itemize}[noitemsep]
+  \item \tt{name} --- the molecule type name; it should match the filename,
+    since that is what the loader looks up.
+  \item \tt{role} --- \tt{bilayer} or \tt{soluble}; required.
+  \item \tt{M_w} --- molar mass, the mass you would weigh out (including the
+    counterions). Optional, and its absence is meaningful: a species with no
+    \tt{M_w} is one you would not put in a recipe on its own.
+  \item \tt{counterion <name> [count]} --- the molecule's counterion, with the
+    count defaulting to 1. Up to four such lines are allowed.
+  \item \tt{label}, \tt{reference} --- free text for people. Any other scalar
+    key is ignored, so the format can grow without old binaries refusing to
+    read new files.
+\end{itemize}
+
+Rows in the \tt{beads} block are \tt{<idx> <bead_ID> <x> <y> <z>}, in
+\tt{bonds} \tt{<idx> <bond_ID> <i> <j>}, and in \tt{angles}
+\tt{<idx> <angle_ID> <i> <j> <k>}; the bead indices \tt{i}, \tt{j}, \tt{k} are
+1-based and must lie inside the \tt{beads} block. Coordinates are relative to
+whatever the placing utility uses as the molecule's reference point. A block
+name other than these three is an error, as is a missing \tt{role} line or a
+missing \tt{beads} block. A molecule is limited to 64 beads and to 256 bonds
+and angles; the library as a whole to 64 bead, bond, and angle types.
+
+A one-bead molecule (a solvent bead, a bare ion) becomes an unbonded bead in
+the built system rather than a molecule type, so it needs no bonds and gets no
+molecule type name.
+
+\subsubsection*{Counterions}
+
+A counterion is a molecule in its own right, named by a \tt{counterion} line
+and stored in its own file---never beads appended to the parent. Adding $n$
+copies of a molecule therefore also adds $n \times \text{count}$ copies of each
+declared counterion, which for a monoatomic ion means free beads floating in
+the box (use \tt{--no-cion} in \fullref{sec:AddToSystem} to place them
+yourself).
+
+Resolution is exactly one level deep: a counterion contributes its beads and
+its charge and nothing else. Its own \tt{counterion} line is not followed and
+its \tt{M_w} is not consulted, because the parent's \tt{M_w} already covers the
+whole salt. A file can be both---\tt{Na.txt} can be a listed salt with a
+counterion of its own \emph{and} somebody else's counterion---and only the role
+it is being used in decides how it is read. %}}}

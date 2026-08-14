@@ -32,8 +32,9 @@ AddToSystem system.vtf system2.vtf -lib ../../library/ -mol CTAC 1% \
            output system descriptions
   Note that --add is not used, so new beads will be exchanged for existing
     'water' beads, keeping total bead count constant.
-  Note that the CTAC Cl- counterion is part of the molecule (check via Info
-    utility).
+  Note that CTAC declares a Cl counterion, which is added as a free Cl- bead
+    of its own (check via Info utility); it counts towards the 10 beads per
+    CTAC used for the percentage, and '--no-cion' would leave it out.
 
 Run all steps:
   ./run.sh
