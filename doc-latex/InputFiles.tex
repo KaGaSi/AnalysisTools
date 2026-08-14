@@ -373,7 +373,11 @@ with dangling counterions, unknown type IDs, and molecules that do not balance.
 
 The \tt{bond_ID} and \tt{angle_ID} strings are how molecule files refer to bond
 and angle types; the \tt{bead_ID} is the bead type name that ends up in the
-system. A pair of different bead types with no row in
+system. Mind the halves in the two potentials: \tt{k_bond} and \tt{k_angle} are
+written as they appear in the formulae above, not as \textsc{lammps}' $K$, which
+has the half folded in. A \data file therefore comes out with half of what the
+library says, and a \field file with the same number, each being what its own
+format means. A pair of different bead types with no row in
 \tt{list_cross_interactions.txt} falls back to $A = 25$ and $r_c = 1$, not to
 the two types' own values, so an omitted pair is not the same as a
 \enquote{sensible average}. The dissipative parameter $\gamma$ is not read from
@@ -418,7 +422,8 @@ library:
     counterions). Optional, and its absence is meaningful: a species with no
     \tt{M_w} is one you would not put in a recipe on its own.
   \item \tt{counterion <name> [count]} --- the molecule's counterion, with the
-    count defaulting to 1. Up to four such lines are allowed.
+    count defaulting to 1. A molecule may have several such lines, one per
+    counterion species.
   \item \tt{label}, \tt{reference} --- free text for people. Any other scalar
     key is ignored, so the format can grow without old binaries refusing to
     read new files.
@@ -430,8 +435,10 @@ Rows in the \tt{beads} block are \tt{<idx> <bead_ID> <x> <y> <z>}, in
 1-based and must lie inside the \tt{beads} block. Coordinates are relative to
 whatever the placing utility uses as the molecule's reference point. A block
 name other than these three is an error, as is a missing \tt{role} line or a
-missing \tt{beads} block. A molecule is limited to 64 beads and to 256 bonds
-and angles; the library as a whole to 64 bead, bond, and angle types.
+missing \tt{beads} block. Nothing here is limited by size: a molecule may have
+as many beads, bonds, angles and \tt{counterion} lines as its file gives, and
+the library as a whole as many bead, bond and angle types as the index files
+list.
 
 A one-bead molecule (a solvent bead, a bare ion) becomes an unbonded bead in
 the built system rather than a molecule type, so it needs no bonds and gets no

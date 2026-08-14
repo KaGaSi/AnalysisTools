@@ -61,7 +61,11 @@ static void test_read_library(void) {
   // the bead radius is taken from the Rc column
   CHECK_CLOSE(S->BeadType[1].Radius, 0.9, 1e-9);
 
-  // bond types: k is stored doubled, r0 as written
+  /*
+   * Bond types: both the library and PARAMS.a use k of U = k (r - r0)^2 / 2,
+   * so k and r0 are both stored as written. Halving for lammps' K happens in
+   * the data writer, which is the only place that convention applies.
+   */
   CHECK(S->Count.BondType == 3);
   CHECK(lib.n_bond_ids == 3);
   CHECK(strcmp(lib.bond_id[0].id, "b01") == 0);
@@ -70,17 +74,17 @@ static void test_read_library(void) {
   CHECK(lib.bond_id[0].index == 0);
   CHECK(lib.bond_id[1].index == 1);
   CHECK(lib.bond_id[2].index == 2);
-  CHECK_CLOSE(S->BondType[0].a, 2 * 10.0, 1e-9);
-  CHECK_CLOSE(S->BondType[0].b, 0.25, 1e-9); // 0.25d0
-  CHECK_CLOSE(S->BondType[1].a, 2 * 20.0, 1e-9);
+  CHECK_CLOSE(S->BondType[0].a, 20.0, 1e-9);
+  CHECK_CLOSE(S->BondType[0].b, 0.25, 1e-9);
+  CHECK_CLOSE(S->BondType[1].a, 40.0, 1e-9);
   CHECK_CLOSE(S->BondType[1].b, 0.5, 1e-9);
   CHECK_CLOSE(S->BondType[2].b, 3.0, 1e-9);
 
-  // angle types, likewise doubled
+  // angle types, likewise as written
   CHECK(S->Count.AngleType == 2);
   CHECK(lib.n_angle_ids == 2);
   CHECK(strcmp(lib.angle_id[0].id, "a01") == 0);
-  CHECK_CLOSE(S->AngleType[0].a, 2 * 1.5, 1e-9);
+  CHECK_CLOSE(S->AngleType[0].a, 3.0, 1e-9);
   CHECK_CLOSE(S->AngleType[0].b, 180.0, 1e-9);
   CHECK_CLOSE(S->AngleType[1].b, 90.0, 1e-9);
 
@@ -143,6 +147,10 @@ static void test_molecule_info(void) {
   // matching is exact
   CHECK(LibraryMoleculeInfo(LIB_DIR, "SOL").n_beads == -1);
   CHECK(LibraryMoleculeInfo(LIB_DIR, "so").n_beads == -1);
+  FreeMolInfo(&sol);
+  FreeMolInfo(&tri);
+  FreeMolInfo(&pair);
+  FreeMolInfo(&none);
 } //}}}
 // a trailing slash on the directory is accepted //{{{
 static void test_trailing_slash(void) {
@@ -150,6 +158,8 @@ static void test_trailing_slash(void) {
   LIB_MOL_INFO b = LibraryMoleculeInfo(LIB_DIR "/", "tri");
   CHECK(a.n_beads == b.n_beads);
   CHECK(b.n_beads == 3);
+  FreeMolInfo(&a);
+  FreeMolInfo(&b);
 } //}}}
 
 // ---- molecule construction ------------------------------------------------
@@ -339,6 +349,7 @@ static void test_counterion_count(void) {
   // the fixture declares no count, which means one
   CHECK(info.cion[0].count == 1);
   CHECK(info.n_beads_total == info.n_beads + info.cion[0].count * 1);
+  FreeMolInfo(&info);
 } //}}}
 
 // ---- potential table ------------------------------------------------------
@@ -431,6 +442,7 @@ static void test_example_molecules_build(void) {
     LIB_MOL_INFO info = LibraryMoleculeInfo(EXAMPLE_LIB, mols[t]);
     CHECK(info.n_beads > 0);
     if (info.n_beads <= 0) {
+      FreeMolInfo(&info);
       continue;
     }
     LIBRARY lib = ReadLibrary(EXAMPLE_LIB);
@@ -461,6 +473,7 @@ static void test_example_molecules_build(void) {
       }
     }
     finish_and_free(&lib);
+    FreeMolInfo(&info);
   }
 } //}}}
 

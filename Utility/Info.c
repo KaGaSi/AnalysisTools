@@ -149,7 +149,9 @@ static void PrintMoleculeInfo(const char *lib_dir, const char *name) { //{{{
     }
     printf("counterion     %s %d %d %.4f %.4f\n", mol.cion[i].name,
            mol.cion[i].count, cion.n_beads, cq, cions);
+    FreeLibMol(&cion);
   }
+  FreeLibMol(&mol);
   FreeLibrary(&lib);
 } //}}}
 
@@ -214,8 +216,8 @@ static int CheckLibrary(const char *lib_dir) { //{{{
   LIBRARY lib = ReadLibrary(lib_dir);
   int problems = 0;
   int n_mols = 0, n_bare = 0;
-  char names[256][MOL_NAME];
-  char files[256][MOL_NAME];
+  char (*names)[MOL_NAME] = nullptr;
+  char (*files)[MOL_NAME] = nullptr;
 
   DIR *dir = opendir(lib_dir);
   if (!dir) {
@@ -235,7 +237,7 @@ static int CheckLibrary(const char *lib_dir) { //{{{
    * library spells it that way: an example library may well give Cl its real
    * 35.45 while still only ever using it as a counterion.
    */
-  char cion_of[256][MOL_NAME];
+  char (*cion_of)[MOL_NAME] = nullptr;
   int n_cion_names = 0;
   struct dirent *ent;
   while ((ent = readdir(dir)) != nullptr) {
@@ -253,10 +255,12 @@ static int CheckLibrary(const char *lib_dir) { //{{{
     if (!ReadLibraryMolFile(lib_dir, stem, &mol)) {
       continue;
     }
-    for (int c = 0; c < mol.n_cion && n_cion_names < 256; c++) {
+    for (int c = 0; c < mol.n_cion; c++) {
+      cion_of = s_realloc(cion_of, (n_cion_names + 1) * sizeof *cion_of);
       s_strcpy(cion_of[n_cion_names], mol.cion[c].name, MOL_NAME);
       n_cion_names++;
     }
+    FreeLibMol(&mol);
   }
   rewinddir(dir);
   while ((ent = readdir(dir)) != nullptr) {
@@ -267,11 +271,6 @@ static int CheckLibrary(const char *lib_dir) { //{{{
     if (strncmp(ent->d_name, "list_", 5) == 0) {
       continue;
     }
-    if (n_mols >= 256) {
-      printf("  more than 256 molecule files; the rest are unchecked\n");
-      problems++;
-      break;
-    }
     char stem[MOL_NAME];
     s_strcpy(stem, ent->d_name, MOL_NAME);
     stem[len - 4] = '\0';
@@ -279,6 +278,8 @@ static int CheckLibrary(const char *lib_dir) { //{{{
     if (!ReadLibraryMolFile(lib_dir, stem, &mol)) {
       continue;
     }
+    files = s_realloc(files, (n_mols + 1) * sizeof *files);
+    names = s_realloc(names, (n_mols + 1) * sizeof *names);
     s_strcpy(files[n_mols], stem, MOL_NAME);
     s_strcpy(names[n_mols], mol.name, MOL_NAME);
     n_mols++;
@@ -357,6 +358,7 @@ static int CheckLibrary(const char *lib_dir) { //{{{
       if (!cion_ok) {
         q_ok = false;
       }
+      FreeLibMol(&cion);
     }
     if (q_ok && fabs(q) > 1e-6) {
       printf("  %-24s net charge %+.2f with its counterions\n", stem, q);
@@ -365,6 +367,7 @@ static int CheckLibrary(const char *lib_dir) { //{{{
     char path[LINE];
     snprintf(path, LINE, "%s/%s", lib_dir, ent->d_name);
     problems += CheckIndices(path, stem);
+    FreeLibMol(&mol);
   }
   closedir(dir);
 
@@ -409,6 +412,9 @@ static int CheckLibrary(const char *lib_dir) { //{{{
   } else {
     printf("%d problem(s)\n", problems);
   }
+  free(names);
+  free(files);
+  free(cion_of);
   FreeLibrary(&lib);
   return problems;
 } //}}}
@@ -1129,22 +1135,8 @@ int main(int argc, char *argv[]) {
     InitBoolArray(write, Count->Bead, true);
     WriteOutput(System, write, opt.fout, opt.lmp_mass, opt.vsf_def,
                 argc, argv);
-    if (lib_used && opt.fout.type == FIELD_FILE && Count->BeadType > 0) {
-      ArrNDd *pot = CreateArr3Dd(Count->BeadType, Count->BeadType, 3);
-      FillPotFromLibrary(&lib, &System, pot);
-      FILE *fw = OpenFile(opt.fout.name, "a");
-      int n = Count->BeadType * (Count->BeadType - 1) / 2 + Count->BeadType;
-      fprintf(fw, "interactions %d <a_ij> <r_c> <gamma>\n", n);
-      for (int i = 0; i < Count->BeadType; i++) {
-        for (int j = i; j < Count->BeadType; j++) {
-          fprintf(fw, "%10s %10s dpd %lf %lf %lf\n",
-                  System.BeadType[i].Name, System.BeadType[j].Name,
-                  GetArr3D(pot, i, j, 0), GetArr3D(pot, i, j, 1),
-                  GetArr3D(pot, i, j, 2));
-        }
-      }
-      fclose(fw);
-      FreeArrND(pot);
+    if (lib_used && opt.fout.type == FIELD_FILE) {
+      AppendFieldInteractions(opt.fout.name, &System, &lib);
     }
     free(write);
   } //}}}

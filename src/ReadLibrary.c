@@ -36,6 +36,19 @@ static bool LibLine(char *block, size_t block_size) {
   }
   return true;
 } //}}}
+/*
+ * One library candidate for a free (unbonded) bead type: the bead type name it
+ * would get, the molecule that names it as a counterion (empty for a solvent),
+ * the library charge, and the expected bead count - -1 when there is none,
+ * which is what tells the two kinds apart when matching.
+ */
+typedef struct {
+  char name[BEAD_NAME];
+  char cion_of[MOL_NAME];
+  double charge;
+  int count;
+} FREE_CAND;
+
 // fatal: <file> is malformed. _Noreturn so the callers' parsed-value locals are
 // not flagged as possibly-uninitialised on the failing branch. //{{{
 _Noreturn static void LibError(const char *name, const char *what) {
@@ -46,6 +59,12 @@ _Noreturn static void LibError(const char *name, const char *what) {
   PrintError();
   exit(1);
 } //}}}
+// a bond/angle ID must fit, as a cut one could collide with another //{{{
+static void CheckIdLen(const char *file, const char *id) {
+  if (strlen(id) >= LIB_ID) {
+    LibError(file, "bond/angle ID longer than LIB_ID characters");
+  }
+} //}}}
 
 LIBRARY ReadLibrary(const char *lib_dir) { //{{{
   LIBRARY lib = {0};
@@ -54,8 +73,8 @@ LIBRARY ReadLibrary(const char *lib_dir) { //{{{
   COUNT *Count = &Sys->Count;
   char path[LINE], block[32];
   // 1) bead types and self-interactions from list_parameters.txt //{{{
-  double self_A[LIB_MAX_IDS] = {0},  // repulsion parameter
-         self_Rc[LIB_MAX_IDS] = {0}; // bead radius
+  double *self_A = nullptr,  // repulsion parameter
+         *self_Rc = nullptr; // bead radius
   int n_self = 0;
   BuildPath(lib_dir, "list_parameters.txt", path);
   FILE *fr = OpenFile(path, "r");
@@ -78,11 +97,11 @@ LIBRARY ReadLibrary(const char *lib_dir) { //{{{
                "'idx bead_ID mass q A rc [source]'");
     }
     NewBeadType(&Sys->BeadType, &Count->BeadType, split[1], charge, mass, Rc);
-    if (n_self < LIB_MAX_IDS) {
-      self_A[n_self] = A;
-      self_Rc[n_self] = Rc;
-      n_self++;
-    }
+    self_A = s_realloc(self_A, (n_self + 1) * sizeof *self_A);
+    self_Rc = s_realloc(self_Rc, (n_self + 1) * sizeof *self_Rc);
+    self_A[n_self] = A;
+    self_Rc[n_self] = Rc;
+    n_self++;
   }
   fclose(fr); //}}}
   // 2) bond types from list_bonds.txt //{{{
@@ -96,7 +115,13 @@ LIBRARY ReadLibrary(const char *lib_dir) { //{{{
     if (strcmp(block, "bond_types") != 0) {
       continue;
     }
-    // idx  bond_ID  k_bond  r0    (k is halved for lammps below)
+    /*
+     * idx  bond_ID  k_bond  r0
+     *
+     * Both the library and PARAMS.a use k of U = k (r - r0)^2 / 2, so k is
+     * stored as read; it is lammps that folds the half into its K, and the
+     * data writer is where that halving belongs.
+     */
     double k = 0, r0 = 0;
     if (words < 4 ||
         !IsPosRealNumber(split[2], &k) ||
@@ -108,12 +133,13 @@ LIBRARY ReadLibrary(const char *lib_dir) { //{{{
     Count->BondType++;
     Sys->BondType = s_realloc(Sys->BondType,
                               sizeof *Sys->BondType * Count->BondType);
-    Sys->BondType[idx] = (PARAMS){2 * k, r0, 0, 0};
-    if (lib.n_bond_ids < LIB_MAX_IDS) {
-      s_strcpy(lib.bond_id[lib.n_bond_ids].id, split[1], 16);
-      lib.bond_id[lib.n_bond_ids].index = idx;
-      lib.n_bond_ids++;
-    }
+    Sys->BondType[idx] = (PARAMS){k, r0, 0, 0};
+    CheckIdLen("list_bonds.txt", split[1]);
+    lib.bond_id = s_realloc(lib.bond_id,
+                            (lib.n_bond_ids + 1) * sizeof *lib.bond_id);
+    s_strcpy(lib.bond_id[lib.n_bond_ids].id, split[1], LIB_ID);
+    lib.bond_id[lib.n_bond_ids].index = idx;
+    lib.n_bond_ids++;
   }
   fclose(fr); //}}}
   // 3) angle types from list_angles.txt //{{{
@@ -127,7 +153,7 @@ LIBRARY ReadLibrary(const char *lib_dir) { //{{{
     if (strcmp(block, "angle_types") != 0) {
       continue;
     }
-    // idx  angle_ID  k_angle  theta0
+    // idx  angle_ID  k_angle  theta0    (k as read, as for bonds above)
     double k = 0, theta = 0;
     if (words < 4 ||
         !IsPosRealNumber(split[2], &k) ||
@@ -139,12 +165,13 @@ LIBRARY ReadLibrary(const char *lib_dir) { //{{{
     Count->AngleType++;
     Sys->AngleType = s_realloc(Sys->AngleType,
                                sizeof *Sys->AngleType * Count->AngleType);
-    Sys->AngleType[idx] = (PARAMS){2 * k, theta, 0, 0};
-    if (lib.n_angle_ids < LIB_MAX_IDS) {
-      s_strcpy(lib.angle_id[lib.n_angle_ids].id, split[1], 16);
-      lib.angle_id[lib.n_angle_ids].index = idx;
-      lib.n_angle_ids++;
-    }
+    Sys->AngleType[idx] = (PARAMS){k, theta, 0, 0};
+    CheckIdLen("list_angles.txt", split[1]);
+    lib.angle_id = s_realloc(lib.angle_id,
+                             (lib.n_angle_ids + 1) * sizeof *lib.angle_id);
+    s_strcpy(lib.angle_id[lib.n_angle_ids].id, split[1], LIB_ID);
+    lib.angle_id[lib.n_angle_ids].index = idx;
+    lib.n_angle_ids++;
   }
   fclose(fr); //}}}
   // 4) build self-interactions array //{{{
@@ -160,9 +187,11 @@ LIBRARY ReadLibrary(const char *lib_dir) { //{{{
     s_strcpy(lib.inter[lib.n_inter].name2, Sys->BeadType[i].Name, BEAD_NAME);
     lib.inter[lib.n_inter].A = self_A[i];
     lib.inter[lib.n_inter].Rc = self_Rc[i];
-    lib.inter[lib.n_inter].gamma = 4.5;
+    lib.inter[lib.n_inter].gamma = LIB_GAMMA;
     lib.n_inter++;
-  } //}}}
+  }
+  free(self_A);
+  free(self_Rc); //}}}
   // 5) cross interactions from list_cross_interactions.txt //{{{
   BuildPath(lib_dir, "list_cross_interactions.txt", path);
   fr = OpenFile(path, "r");
@@ -190,7 +219,7 @@ LIBRARY ReadLibrary(const char *lib_dir) { //{{{
     s_strcpy(lib.inter[lib.n_inter].name2, split[2], BEAD_NAME);
     lib.inter[lib.n_inter].A = A;
     lib.inter[lib.n_inter].Rc = Rc;
-    lib.inter[lib.n_inter].gamma = 4.5;
+    lib.inter[lib.n_inter].gamma = LIB_GAMMA;
     lib.n_inter++;
   }
   fclose(fr); //}}}
@@ -203,9 +232,9 @@ void FillPotFromLibrary(const LIBRARY *lib, const SYSTEM *System, ArrNDd *pot) {
     const char *n1 = System->BeadType[i].Name;
     for (int j = i; j < n_bt; j++) {
       const char *n2 = System->BeadType[j].Name;
-      double A = 25.0,
-             Rc = 1.0,
-             gamma = 4.5;
+      double A = LIB_DEFAULT_A,
+             Rc = LIB_DEFAULT_RC,
+             gamma = LIB_GAMMA;
       for (int k = 0; k < lib->n_inter; k++) {
         const LIB_INTERACTION *li = &lib->inter[k];
         if ((strcmp(li->name1, n1) == 0 && strcmp(li->name2, n2) == 0) ||
@@ -225,16 +254,41 @@ void FillPotFromLibrary(const LIBRARY *lib, const SYSTEM *System, ArrNDd *pot) {
     }
   }
 } //}}}
+// append the interactions block to a FIELD file //{{{
+void AppendFieldInteractions(const char *file, const SYSTEM *System,
+                             const LIBRARY *lib) {
+  int n_bt = System->Count.BeadType;
+  if (n_bt == 0) {
+    return;
+  }
+  ArrNDd *pot = CreateArr3Dd(n_bt, n_bt, 3);
+  FillPotFromLibrary(lib, System, pot);
+  FILE *fw = OpenFile(file, "a");
+  int n = n_bt * (n_bt - 1) / 2 + n_bt;
+  fprintf(fw, "interactions %d <a_ij> <r_c> <gamma>\n", n);
+  for (int i = 0; i < n_bt; i++) {
+    for (int j = i; j < n_bt; j++) {
+      fprintf(fw, "%10s %10s dpd %lf %lf %lf\n",
+              System->BeadType[i].Name, System->BeadType[j].Name,
+              GetArr3D(pot, i, j, 0), GetArr3D(pot, i, j, 1),
+              GetArr3D(pot, i, j, 2));
+    }
+  }
+  fclose(fw);
+  FreeArrND(pot);
+} //}}}
 // read one molecule file //{{{
 bool ReadLibraryMolFile(const char *lib_dir, const char *name, LIB_MOL *mol) {
   char mol_file[LINE], path[LINE];
   snprintf(mol_file, LINE, "%s.txt", name);
   BuildPath(lib_dir, mol_file, path);
+  // zeroed before the file is even opened, so that a caller can FreeLibMol()
+  // whatever it declared, whether the read found anything or not
+  *mol = (LIB_MOL){0};
   FILE *fr = fopen(path, "r");
   if (!fr) {
     return false;
   }
-  *mol = (LIB_MOL){0};
   s_strcpy(mol->name, name, MOL_NAME);
   char block[32] = "";
   bool seen_role = false;
@@ -263,9 +317,7 @@ bool ReadLibraryMolFile(const char *lib_dir, const char *name, LIB_MOL *mol) {
         mol->M_w = mw;
         mol->has_M_w = true;
       } else if (strcmp(split[0], "counterion") == 0) {
-        if (mol->n_cion >= LIB_MAX_CION) {
-          LibError(mol_file, "too many counterion lines");
-        }
+        mol->cion = s_realloc(mol->cion, (mol->n_cion + 1) * sizeof *mol->cion);
         LIB_CION *c = &mol->cion[mol->n_cion];
         s_strcpy(c->name, split[1], MOL_NAME);
         c->count = 1;
@@ -291,9 +343,10 @@ bool ReadLibraryMolFile(const char *lib_dir, const char *name, LIB_MOL *mol) {
           !IsRealNumber(split[4], &z)) {
         LibError(mol_file, "beads row must be 'idx bead_ID x y z'");
       }
-      if (mol->n_beads >= LIB_MAX_BEADS) {
-        LibError(mol_file, "more beads than LIB_MAX_BEADS");
-      }
+      mol->bead_name = s_realloc(mol->bead_name,
+                                 (mol->n_beads + 1) * sizeof *mol->bead_name);
+      mol->bead_pos = s_realloc(mol->bead_pos,
+                                (mol->n_beads + 1) * sizeof *mol->bead_pos);
       s_strcpy(mol->bead_name[mol->n_beads], split[1], BEAD_NAME);
       mol->bead_pos[mol->n_beads] = (vec3d){.v = {x, y, z}};
       mol->n_beads++;
@@ -307,13 +360,15 @@ bool ReadLibraryMolFile(const char *lib_dir, const char *name, LIB_MOL *mol) {
           !IsWholeNumber(split[3], &bj)) {
         LibError(mol_file, "bonds row must be 'idx bond_ID i j'");
       }
-      if (mol->n_bonds >= LIB_MAX_TOPO) {
-        LibError(mol_file, "more bonds than LIB_MAX_TOPO");
-      }
       if (bi < 1 || bj < 1) {
         LibError(mol_file, "bond bead indices are 1-based");
       }
-      s_strcpy(mol->bond_id[mol->n_bonds], split[1], 16);
+      CheckIdLen(mol_file, split[1]);
+      int n = mol->n_bonds + 1;
+      mol->bond_id = s_realloc(mol->bond_id, n * sizeof *mol->bond_id);
+      mol->bond_i = s_realloc(mol->bond_i, n * sizeof *mol->bond_i);
+      mol->bond_j = s_realloc(mol->bond_j, n * sizeof *mol->bond_j);
+      s_strcpy(mol->bond_id[mol->n_bonds], split[1], LIB_ID);
       mol->bond_i[mol->n_bonds] = bi;
       mol->bond_j[mol->n_bonds] = bj;
       mol->n_bonds++;
@@ -328,13 +383,16 @@ bool ReadLibraryMolFile(const char *lib_dir, const char *name, LIB_MOL *mol) {
           !IsWholeNumber(split[4], &bk)) {
         LibError(mol_file, "angles row must be 'idx angle_ID i j k'");
       }
-      if (mol->n_angles >= LIB_MAX_TOPO) {
-        LibError(mol_file, "more angles than LIB_MAX_TOPO");
-      }
       if (bi < 1 || bj < 1 || bk < 1) {
         LibError(mol_file, "angle bead indices are 1-based");
       }
-      s_strcpy(mol->angle_id[mol->n_angles], split[1], 16);
+      CheckIdLen(mol_file, split[1]);
+      int n = mol->n_angles + 1;
+      mol->angle_id = s_realloc(mol->angle_id, n * sizeof *mol->angle_id);
+      mol->angle_i = s_realloc(mol->angle_i, n * sizeof *mol->angle_i);
+      mol->angle_j = s_realloc(mol->angle_j, n * sizeof *mol->angle_j);
+      mol->angle_k = s_realloc(mol->angle_k, n * sizeof *mol->angle_k);
+      s_strcpy(mol->angle_id[mol->n_angles], split[1], LIB_ID);
       mol->angle_i[mol->n_angles] = bi;
       mol->angle_j[mol->n_angles] = bj;
       mol->angle_k[mol->n_angles] = bk;
@@ -364,6 +422,26 @@ bool ReadLibraryMolFile(const char *lib_dir, const char *name, LIB_MOL *mol) {
     }
   }
   return true;
+} //}}}
+// release one molecule's arrays //{{{
+void FreeLibMol(LIB_MOL *mol) {
+  free(mol->cion);
+  free(mol->bead_name);
+  free(mol->bead_pos);
+  free(mol->bond_id);
+  free(mol->bond_i);
+  free(mol->bond_j);
+  free(mol->angle_id);
+  free(mol->angle_i);
+  free(mol->angle_j);
+  free(mol->angle_k);
+  *mol = (LIB_MOL){0};
+} //}}}
+// release the counterion list handed out by LibraryMoleculeInfo() //{{{
+void FreeMolInfo(LIB_MOL_INFO *info) {
+  free(info->cion);
+  info->cion = nullptr;
+  info->n_cion = 0;
 } //}}}
 // add n_mols copies of an already-read molecule to lib->System //{{{
 static void AddMolecule(const LIB_MOL *mol, int n_mols, LIBRARY *lib) {
@@ -513,6 +591,7 @@ void ReadLibraryMolecule(const char *lib_dir, const char *mol_name,
    * read: it contributes beads and charge only, so resolution stops here.
    */
   if (!with_cion) {
+    FreeLibMol(&mol);
     return;
   }
   for (int i = 0; i < mol.n_cion; i++) {
@@ -527,7 +606,9 @@ void ReadLibraryMolecule(const char *lib_dir, const char *mol_name,
       exit(1);
     }
     AddMolecule(&cion, n_mols * mol.cion[i].count, lib);
+    FreeLibMol(&cion);
   }
+  FreeLibMol(&mol);
 } //}}}
 // bead counts, mass, role and counterions of one molecule //{{{
 LIB_MOL_INFO LibraryMoleculeInfo(const char *lib_dir, const char *mol_name) {
@@ -541,6 +622,9 @@ LIB_MOL_INFO LibraryMoleculeInfo(const char *lib_dir, const char *mol_name) {
   info.M_w = mol.M_w;
   info.bilayer = mol.bilayer;
   info.n_cion = mol.n_cion;
+  if (info.n_cion > 0) {
+    info.cion = s_realloc(nullptr, info.n_cion * sizeof *info.cion);
+  }
   for (int i = 0; i < mol.n_cion; i++) {
     info.cion[i] = mol.cion[i];
     LIB_MOL cion;
@@ -554,7 +638,9 @@ LIB_MOL_INFO LibraryMoleculeInfo(const char *lib_dir, const char *mol_name) {
       exit(1);
     }
     info.n_beads_total += cion.n_beads * mol.cion[i].count;
+    FreeLibMol(&cion);
   }
+  FreeLibMol(&mol);
   return info;
 } //}}}
 // rename bead types in sys to library names //{{{
@@ -573,6 +659,7 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
     // counterions are their own molecules now, so the bead counts either match
     // or this is not the molecule the name suggests
     if (mol.n_beads != mt_sys->nBeads) {
+      FreeLibMol(&mol);
       continue;
     }
     for (int b = 0; b < mol.n_beads; b++) {
@@ -587,6 +674,7 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
       sys->BeadType[sys_bt].Mass = lib_btp->Mass;
       sys->BeadType[sys_bt].Radius = lib_btp->Radius;
     }
+    FreeLibMol(&mol);
   } //}}}
   // pass 2) free (unbonded) bead types //{{{
   bool *in_mol = calloc(sys->Count.BeadType, sizeof *in_mol);
@@ -606,11 +694,7 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
    * is a candidate, and every counterion of a molecule present in sys has an
    * expected count of (parent molecules) * (counterion count).
    */
-  #define MAX_FREE_LIB 64
-  char free_names[MAX_FREE_LIB][BEAD_NAME];
-  char free_cion_mol[MAX_FREE_LIB][MOL_NAME];
-  double free_charges[MAX_FREE_LIB];
-  int free_counts[MAX_FREE_LIB]; // -1 for solvents, else expected bead count
+  FREE_CAND *cand = nullptr;
   int n_free_lib = 0;
 
   DIR *dir = opendir(lib_dir);
@@ -638,13 +722,14 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
        * matched on charge; leaving it out entirely is what made a Na+ bead get
        * renamed to the identically-charged H+.
        */
-      if (mol.n_beads == 1 && n_free_lib < MAX_FREE_LIB) {
+      if (mol.n_beads == 1) {
         int lib_bt = FindBeadType(mol.bead_name[0], lib->System);
         if (lib_bt != -1) {
-          s_strcpy(free_names[n_free_lib], mol.bead_name[0], BEAD_NAME);
-          free_cion_mol[n_free_lib][0] = '\0';
-          free_charges[n_free_lib] = lib->System.BeadType[lib_bt].Charge;
-          free_counts[n_free_lib] = -1;
+          cand = s_realloc(cand, (n_free_lib + 1) * sizeof *cand);
+          s_strcpy(cand[n_free_lib].name, mol.bead_name[0], BEAD_NAME);
+          cand[n_free_lib].cion_of[0] = '\0';
+          cand[n_free_lib].charge = lib->System.BeadType[lib_bt].Charge;
+          cand[n_free_lib].count = -1;
           n_free_lib++;
         }
       }
@@ -656,6 +741,7 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
         }
       }
       if (parent_count == 0) {
+        FreeLibMol(&mol);
         continue;
       }
       for (int c = 0; c < mol.n_cion; c++) {
@@ -665,34 +751,37 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
         }
         // only a monoatomic counterion becomes a free bead
         if (cion.n_beads != 1) {
+          FreeLibMol(&cion);
           continue;
         }
         int idx = -1;
         for (int i = 0; i < n_free_lib; i++) {
-          if (strcmp(free_cion_mol[i], mol.cion[c].name) == 0) {
+          if (strcmp(cand[i].cion_of, mol.cion[c].name) == 0) {
             idx = i;
             break;
           }
         }
-        if (idx == -1 && n_free_lib < MAX_FREE_LIB) {
+        if (idx == -1) {
           int lib_bt = FindBeadType(cion.bead_name[0], lib->System);
           if (lib_bt != -1) {
             idx = n_free_lib;
-            s_strcpy(free_names[n_free_lib], cion.bead_name[0], BEAD_NAME);
-            s_strcpy(free_cion_mol[n_free_lib], mol.cion[c].name, MOL_NAME);
-            free_charges[n_free_lib] = lib->System.BeadType[lib_bt].Charge;
-            free_counts[n_free_lib] = 0;
+            cand = s_realloc(cand, (n_free_lib + 1) * sizeof *cand);
+            s_strcpy(cand[n_free_lib].name, cion.bead_name[0], BEAD_NAME);
+            s_strcpy(cand[n_free_lib].cion_of, mol.cion[c].name, MOL_NAME);
+            cand[n_free_lib].charge = lib->System.BeadType[lib_bt].Charge;
+            cand[n_free_lib].count = 0;
             n_free_lib++;
           }
         }
         if (idx != -1) {
-          free_counts[idx] += parent_count * mol.cion[c].count;
+          cand[idx].count += parent_count * mol.cion[c].count;
         }
+        FreeLibMol(&cion);
       }
+      FreeLibMol(&mol);
     }
     closedir(dir);
   }
-  #undef MAX_FREE_LIB
 
   // charge+count (counterions) wins over charge alone (solvents); an ambiguous
   // match renames nothing, because a wrong name is worse than no name
@@ -704,10 +793,10 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
     int cnt = sys->BeadType[bt].Number;
     int match = -1;
     for (int i = 0; i < n_free_lib; i++) {
-      if (free_counts[i] < 0) {
+      if (cand[i].count < 0) {
         continue;
       }
-      if (fabs(free_charges[i] - q) < 0.01 && free_counts[i] == cnt) {
+      if (fabs(cand[i].charge - q) < 0.01 && cand[i].count == cnt) {
         if (match == -1) {
           match = i;
         } else {
@@ -718,10 +807,10 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
     }
     if (match == -1) {
       for (int i = 0; i < n_free_lib; i++) {
-        if (free_counts[i] >= 0) {
+        if (cand[i].count >= 0) {
           continue;
         }
-        if (fabs(free_charges[i] - q) < 0.01) {
+        if (fabs(cand[i].charge - q) < 0.01) {
           if (match == -1) {
             match = i;
           } else {
@@ -732,8 +821,8 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
       }
     }
     if (match != -1) {
-      int lib_bt = FindBeadType(free_names[match], lib->System);
-      s_strcpy(sys->BeadType[bt].Name, free_names[match], BEAD_NAME);
+      int lib_bt = FindBeadType(cand[match].name, lib->System);
+      s_strcpy(sys->BeadType[bt].Name, cand[match].name, BEAD_NAME);
       if (lib_bt != -1) {
         BEADTYPE *lib_btp = &lib->System.BeadType[lib_bt];
         sys->BeadType[bt].Charge = lib_btp->Charge;
@@ -742,6 +831,7 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
       }
     }
   }
+  free(cand);
   free(in_mol); //}}}
 } //}}}
 void FreeLibrary(LIBRARY *lib) { //{{{
@@ -749,4 +839,10 @@ void FreeLibrary(LIBRARY *lib) { //{{{
   free(lib->inter);
   lib->inter = nullptr;
   lib->n_inter = 0;
+  free(lib->bond_id);
+  lib->bond_id = nullptr;
+  lib->n_bond_ids = 0;
+  free(lib->angle_id);
+  lib->angle_id = nullptr;
+  lib->n_angle_ids = 0;
 } //}}}

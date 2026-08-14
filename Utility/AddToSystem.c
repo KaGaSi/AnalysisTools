@@ -735,6 +735,7 @@ int main(int argc, char *argv[]) {
         LIB_MOL_INFO inf = LibraryMoleculeInfo(opt.lib_dir,
                                                opt.lib_mol_add[i].name);
         if (inf.n_beads_total <= 0) {
+          FreeMolInfo(&inf);
           continue;
         }
         int nm;
@@ -747,6 +748,7 @@ int main(int argc, char *argv[]) {
         if (nm > 0) {
           mol_beads += nm * inf.n_beads_total;
         }
+        FreeMolInfo(&inf);
       }
       int n_fill_beads = opt.ntot;
       if (opt.new) {
@@ -790,6 +792,7 @@ int main(int argc, char *argv[]) {
           ReadLibraryMolecule(opt.lib_dir, opt.ntot_name, n_mols_fill,
                               !opt.no_cion, &lib);
         }
+        FreeMolInfo(&fill_info);
       }
     } //}}}
     // total beads to use for fraction->count calculation
@@ -816,6 +819,7 @@ int main(int argc, char *argv[]) {
         ReadLibraryMolecule(opt.lib_dir, opt.lib_mol_add[i].name, n_mols,
                             !opt.no_cion, &lib);
       }
+      FreeMolInfo(&info);
     }
     FillSystemNonessentials(&lib.System, true);
     S_add = lib.System; // shallow copy - lib.System arrays now owned by S_add
@@ -1299,6 +1303,11 @@ int main(int argc, char *argv[]) {
       }
     }
     WriteOutput(S_out2, write, opt.fout, false, -1, argc, argv);
+    // the interactions block lives in the library, not in the system, so
+    // WriteOutput() cannot produce it (Info does the same for its -o)
+    if (opt.lib_dir[0] != '\0' && opt.fout.type == FIELD_FILE) {
+      AppendFieldInteractions(opt.fout.name, &S_out2, &lib);
+    }
   } //}}}
 
   // write system_info if -sysout specified //{{{
@@ -1309,7 +1318,10 @@ int main(int argc, char *argv[]) {
   // free memory //{{{
   FreeSystem(&S_orig);
   if (opt.lib_dir[0] != '\0') {
-    free(lib.inter); // S_add owns lib.System's arrays; free only interactions
+    // S_add owns lib.System's arrays, so free everything but that
+    free(lib.inter);
+    free(lib.bond_id);
+    free(lib.angle_id);
   }
   FreeSystem(&S_add);
   FreeSystem(&S_out);

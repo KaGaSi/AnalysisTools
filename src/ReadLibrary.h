@@ -4,19 +4,28 @@
 #include "AnalysisTools.h"
 #include <dirent.h>
 
-#define LIB_MAX_IDS 64
 #define LIB_MAX_INTER 512
-#define LIB_MAX_BEADS 64
-#define LIB_MAX_TOPO 256
-#define LIB_MAX_CION 4
+// bond/angle type ID; a longer one is an error, as silently cutting it could
+// make two IDs the same
+#define LIB_ID 32
+
+/*
+ * The library has no column for any of these. Every pair gets the same
+ * dissipative parameter, and a pair of different bead types with no row in
+ * list_cross_interactions.txt gets the default A and rc - not the two types'
+ * own values.
+ */
+#define LIB_GAMMA 4.5
+#define LIB_DEFAULT_A 25.0
+#define LIB_DEFAULT_RC 1.0
 
 typedef struct {
-  char id[16];
+  char id[LIB_ID];
   int index; // index into System.BondType[]
 } LIB_BOND_ID;
 
 typedef struct {
-  char id[16];
+  char id[LIB_ID];
   int index; // index into System.AngleType[]
 } LIB_ANGLE_ID;
 
@@ -28,9 +37,9 @@ typedef struct {
 
 typedef struct {
   SYSTEM System;
-  LIB_BOND_ID bond_id[LIB_MAX_IDS];
+  LIB_BOND_ID *bond_id;
   int n_bond_ids;
-  LIB_ANGLE_ID angle_id[LIB_MAX_IDS];
+  LIB_ANGLE_ID *angle_id;
   int n_angle_ids;
   LIB_INTERACTION *inter;
   int n_inter;
@@ -46,35 +55,39 @@ typedef struct {
  * One molecule file. Beads, bonds and angles are the molecule's own: a
  * counterion is a separate molecule named by the cion[] list, never beads
  * appended here.
+ *
+ * Every array grows with the file, so a molecule of any size reads in; whoever
+ * fills one owns it and must FreeLibMol() it.
  */
 typedef struct {
   char name[MOL_NAME];
   bool bilayer;   // role: bilayer (true) or soluble (false)
   double M_w;     // 0 when the file gives none
   bool has_M_w;
-  LIB_CION cion[LIB_MAX_CION];
+  LIB_CION *cion;
   int n_cion;
 
-  char bead_name[LIB_MAX_BEADS][BEAD_NAME];
-  vec3d bead_pos[LIB_MAX_BEADS];
+  char (*bead_name)[BEAD_NAME];
+  vec3d *bead_pos;
   int n_beads;
 
-  char bond_id[LIB_MAX_TOPO][16];
-  int bond_i[LIB_MAX_TOPO], bond_j[LIB_MAX_TOPO];
+  char (*bond_id)[LIB_ID];
+  int *bond_i, *bond_j;
   int n_bonds;
 
-  char angle_id[LIB_MAX_TOPO][16];
-  int angle_i[LIB_MAX_TOPO], angle_j[LIB_MAX_TOPO], angle_k[LIB_MAX_TOPO];
+  char (*angle_id)[LIB_ID];
+  int *angle_i, *angle_j, *angle_k;
   int n_angles;
 } LIB_MOL;
 
-// What callers need to size a system before building it
+// What callers need to size a system before building it; cion is the caller's
+// to FreeMolInfo()
 typedef struct {
   int n_beads;       // the molecule's own beads; -1 if there is no such file
   int n_beads_total; // plus one set of beads per declared counterion
   double M_w;        // 0 when the file gives none
   bool bilayer;
-  LIB_CION cion[LIB_MAX_CION];
+  LIB_CION *cion;
   int n_cion;
 } LIB_MOL_INFO;
 
@@ -84,9 +97,21 @@ LIBRARY ReadLibrary(const char *lib_dir);
 // Fill pot[i][j][{A,Rc,gamma}] from library interactions using bead type names
 void FillPotFromLibrary(const LIBRARY *lib, const SYSTEM *System, ArrNDd *pot);
 
+// Append the DPD interactions of System's bead types to a FIELD file, which is
+// the one block WriteOutput() cannot produce: it is in the library, not in the
+// system. Only lib->inter is used, so a library whose System has been moved
+// away (as AddToSystem does) still works.
+void AppendFieldInteractions(const char *file, const SYSTEM *System,
+                             const LIBRARY *lib);
+
 // Read one molecule file. False only when the file does not exist; a file that
-// exists but does not parse is fatal.
+// exists but does not parse is fatal. On true, the caller owns mol's arrays.
 bool ReadLibraryMolFile(const char *lib_dir, const char *name, LIB_MOL *mol);
+
+// Release what ReadLibraryMolFile()/LibraryMoleculeInfo() allocated. Both are
+// safe on a zeroed struct and on one whose file did not exist.
+void FreeLibMol(LIB_MOL *mol);
+void FreeMolInfo(LIB_MOL_INFO *info);
 
 /*
  * Add n_mols copies of mol_name to lib->System. With with_cion, its declared
