@@ -7,7 +7,8 @@ void InitBeadType(BEADTYPE *bt) { //{{{
   bt->Charge = CHARGE;
   bt->Mass = MASS;
   bt->Radius = RADIUS;
-
+  bt->Name[0] = '\0'; // a name is not guaranteed: a lammps data file with no
+                      // Masses section gives its bead types none
 } //}}}
 void InitBead(BEAD *b) { //{{{
   b->Type = -1;

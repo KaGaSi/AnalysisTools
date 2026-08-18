@@ -37,11 +37,13 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: Selected <input> <output> [options]",
   .args = 2, // number of mandatory arguments
-  .all = 27, // number of valid lines OptSpec (not counting last {nullptr})
+  .all = 29, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
   COMMON_OPTS[C_FT],
+  COMMON_OPTS[C_LIB],
+  COMMON_OPTS[C_SYS],
   COMMON_OPTS[C_ST],
   COMMON_OPTS[C_E],
   COMMON_OPTS[C_SK],
@@ -545,6 +547,7 @@ int main(int argc, char *argv[]) {
   OneNumberOption(argc, argv, "-ebt", &opt.ebt, 'i'); //}}}
 
   SYSTEM System = ReadStructure(in, false);
+  ApplyLibraryOptions(commons, &System, nullptr, true);
   COUNT *Count = &System.Count;
   if (opt.box.v[0] != -1) {
     System.Box.Length = opt.box;

@@ -14,6 +14,7 @@ typedef struct OPT OPT; // defined in utilities
 typedef struct common_opt {
   bool verbose, silent;
   int start, end, skip;
+  char lib[LINE], sys[LINE]; // -lib and -sys; empty when the option is unused
 } COMMON_OPT; //}}}
 // structure for the aggregate-picking options //{{{
 typedef struct agg_picker {

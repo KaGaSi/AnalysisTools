@@ -3,6 +3,8 @@
 #include "Errors.h"
 #include "General.h"
 #include "Globals.h"
+#include "ReadLibrary.h"
+#include "ReadWriteSysInfo.h"
 #include "System.h"
 #include <stdio.h>
 #include <string.h>
@@ -234,6 +236,14 @@ COMMON_OPT CommonOptions(const int argc, char **argv, const SYS_FILES f) {
   opt.start = 1;
   opt.end = -1;
   opt.skip = 0;
+  /*
+   * -lib and -sys are recorded here and applied after ReadStructure() via
+   * ApplyLibraryOptions()
+  */
+  opt.lib[0] = '\0';
+  FileOption(argc, argv, COMMON_OPTS[C_LIB].opt, opt.lib);
+  opt.sys[0] = '\0';
+  FileOption(argc, argv, COMMON_OPTS[C_SYS].opt, opt.sys);
   // -v option - verbose output
   opt.verbose = BoolOption(argc, argv, COMMON_OPTS[C_VERBOSE].opt);
   // --silent option - silent mode

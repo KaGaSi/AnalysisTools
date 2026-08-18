@@ -9,10 +9,12 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: CA2Middle <input> <max> <output> [options]",
   .args = 2, // number of mandatory arguments
-  .all = 10, // number of valid lines OptSpec (not counting last {nullptr})
+  .all = 12, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
+  COMMON_OPTS[C_LIB],
+  COMMON_OPTS[C_SYS],
   COMMON_OPTS[C_ST],
   COMMON_OPTS[C_E],
   COMMON_OPTS[C_SK],
@@ -55,6 +57,7 @@ int main(int argc, char *argv[]) {
   }
 
   SYSTEM System = ReadStructure(in, false);
+  ApplyLibraryOptions(commons, &System, nullptr, true);
   COUNT *Count = &System.Count;
 
   if (commons.verbose) {

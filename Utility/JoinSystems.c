@@ -8,11 +8,13 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: JoinSystems <input1> <input2> <output> [options]",
   .args = 3, // number of mandatory arguments
-  .all = 16, // number of valid lines OptSpec (not counting last {nullptr})
+  .all = 18, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_VERBOSE],
   COMMON_OPTS[C_FT],
+  COMMON_OPTS[C_LIB],
+  COMMON_OPTS[C_SYS],
   COMMON_OPTS[C_HELP],
   COMMON_OPTS[C_SILENT],
   COMMON_OPTS[C_VERSION],
@@ -131,6 +133,9 @@ int main(int argc, char *argv[]) {
   BOX *box[2] = {nullptr, nullptr};
   for (int s = 0; s < 2; s++) {
     Sys[s] = ReadStructure(in[s], false);
+    // both systems get the same library, so their bead types come out named
+    // the same way and are joined instead of kept apart
+    ApplyLibraryOptions(commons, &Sys[s], nullptr, true);
     box[s] = &(Sys[s].Box);
   }
 

@@ -137,6 +137,35 @@ LIB_MOL_INFO LibraryMoleculeInfo(const char *lib_dir, const char *mol_name);
 void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
                                 const char *lib_dir);
 
+/*
+ * What a utility's -lib does: read the library and let it name sys's bead
+ * types and give them their masses, charges and radii. Call it right after
+ * reading the structure, before any option that names a bead type.
+ *
+ * free_library true frees the library here and ignores lib (pass nullptr);
+ * false hands it back in *lib, which the caller must then FreeLibrary().
+ */
+void ApplyLibraryToSystem(const char *lib_dir, SYSTEM *sys, LIBRARY *lib,
+                          const bool free_library);
+
+/*
+ * Apply the two common options that change what a system's types are called:
+ * -sys names the molecule types and -lib takes bead type names, masses,
+ * charges and radii from a library (in that order, as the library matches
+ * molecules by name). Does nothing when neither option is used.
+ *
+ * Call it right after ReadStructure() and before any option that names a type,
+ * so that -bt and the like can use the library's names.
+ *
+ * free_library is passed through to ApplyLibraryToSystem(): true (what almost
+ * every utility wants) frees the library here and ignores lib, false hands it
+ * back in *lib for the caller to FreeLibrary(). Note that *lib is left alone
+ * when -lib was not given at all, so a caller passing false should initialise
+ * it and check commons.lib itself.
+ */
+void ApplyLibraryOptions(const COMMON_OPT commons, SYSTEM *sys, LIBRARY *lib,
+                         const bool free_library);
+
 void FreeLibrary(LIBRARY *lib);
 
 #endif

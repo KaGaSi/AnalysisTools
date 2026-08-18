@@ -6,7 +6,8 @@
 // write system composition: "mol_name  n_molecules" line per molecule type
 void WriteSysInfo(const char *filename, const SYSTEM *System);
 
-// read system composition: assign MoleculeType[i].Name positionally from file.
+// read system composition: assign MoleculeType[i].Name positionally from file,
+// marking the type Named, just as an explicit name in the input file would.
 // TODO: for now, ignores 1-word lines and doesn't use the molecule count
 void ReadSysInfo(const char *filename, SYSTEM *System);
 

@@ -8,11 +8,13 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: AggCentres <input> <in.agg> <neighbours> <width> <out.vtf> <out> [options]",
   .args = 6,
-  .all = 20,
+  .all = 22,
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
   COMMON_OPTS[C_FT],
+  COMMON_OPTS[C_LIB],
+  COMMON_OPTS[C_SYS],
   COMMON_OPTS[C_ST],
   COMMON_OPTS[C_E],
   COMMON_OPTS[C_SK],
@@ -109,6 +111,7 @@ int main(int argc, char *argv[]) {
   }
 
   SYSTEM System = ReadStructure(in, false);
+  ApplyLibraryOptions(commons, &System, nullptr, true);
   COUNT *Count = &System.Count;
 
   AggPickerOptions(argc, argv, &opt.agg, System);

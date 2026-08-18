@@ -569,34 +569,15 @@ int main(int argc, char *argv[]) {
   //   return 0;
   // }
   COUNT *Count = &System.Count;
-  // apply -sys and -lib to rename bead types //{{{
-  char sys_in[LINE] = "", lib_dir[LINE] = "";
+  /*
+   * Apply -sys and -lib to rename bead types, exactly as every other utility
+   * does; free_library is false only because the library is wanted again
+   * further down, to print the DPD parameters and to write a field file's
+   * interactions.
+   */
   LIBRARY lib = {0};
-  bool lib_used = false;
-  FileOption(argc, argv, "-sys", sys_in);
-  FileOption(argc, argv, "-lib", lib_dir);
-  if (sys_in[0] != '\0') {
-    ReadSysInfo(sys_in, &System);
-  }
-  if (lib_dir[0] != '\0') {
-    if (sys_in[0] == '\0') {
-      bool any_named = false;
-      for (int i = 0; i < System.Count.MoleculeType; i++) {
-        if (System.MoleculeType[i].Named) {
-          any_named = true;
-          break;
-        }
-      }
-      if (!any_named) {
-        s_strcpy(ERROR_MSG, "-lib without -sys: molecule types are unnamed; "
-                 "bead type renaming will be skipped", LINE);
-        PrintWarning();
-      }
-    }
-    lib = ReadLibrary(lib_dir);
-    lib_used = true;
-    RenameBeadTypesFromLibrary(&System, &lib, lib_dir);
-  } //}}}
+  bool lib_used = commons.lib[0] != '\0';
+  ApplyLibraryOptions(commons, &System, &lib, false);
   // use coordinate from a separate file (-c option)
   if (in.coor.type != -1) {
     int line_count = 0;

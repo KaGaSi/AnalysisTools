@@ -172,7 +172,8 @@ SYSTEM VtfReadStruct(const char *file, const bool detailed) {
       if (line == default_atom) { // 'a[tom] default' line //{{{
         // save values for the default bead type
         int *value = VtfAtomLineValues();
-        if (value[0] != -1) { // TODO: should be always true (for now)
+        // no name keyword leaves the empty name from InitBeadType()
+        if (value[0] != -1) {
           snprintf(bt_def.Name, BEAD_NAME, "%s", split[value[0]]);
           bt_def.Name[BEAD_NAME-1] = '\0'; // ensure null-termination
         }
@@ -197,7 +198,7 @@ SYSTEM VtfReadStruct(const char *file, const bool detailed) {
         } //}}}
         // save values from the 'a[tom] <id>' line
         int *value = VtfAtomLineValues();
-        if (value[0] != -1) { // TODO: should never happen (for now)
+        if (value[0] != -1) { // as above: a nameless bead type is allowed
           snprintf(Sys.BeadType[id].Name, BEAD_NAME, "%s", split[value[0]]);
           Sys.BeadType[id].Name[BEAD_NAME-1] = '\0'; // ensure null-termination
         }
@@ -535,12 +536,7 @@ static bool VtfCheckAtomLine() { //{{{
     return false;
   } //}}}
   // check <keyword> <value> pairs
-  bool name = false;
   for (int i = 2; i < words; i += 2) {
-    // is n[ame] keyword present?
-    if (split[i][0] == 'n') {
-      name = true;
-    }
     // error - resid not followed by non-negative integer //{{{
     if (strcmp(split[i], "resid") == 0 &&
         !IsWholeNumber(split[i+1], &val_i)) {
@@ -564,11 +560,8 @@ static bool VtfCheckAtomLine() { //{{{
       return false;
     } //}}}
   }
-  // error - missing the mandatory n[ame] keyword //{{{
-  if (!name) { // TODO: should eventually disappear
-    err_msg("atom line: missing 'n[ame]' keyword ");
-    return false;
-  } //}}}
+  // the n[ame] keyword is optional: a bead type that has no name is written
+  // without it, and reads back the same way
   return true; // valid atom line
 } //}}}
 static bool VtfCheckBondLine() { //{{{
@@ -848,7 +841,11 @@ int VtfReadNumberOfBeads(const char *file) { //{{{
 
 // VtfWriteStruct() //{{{
 void WriteBeadTypeInfo(FILE *fw, const BEADTYPE bt) {
-  fprintf(fw, " name %8s", bt.Name);
+  // a nameless bead type omits the keyword: 'name' with an empty value would
+  // make the line unreadable, as the atom line is keyword-value pairs
+  if (bt.Name[0] != '\0') {
+    fprintf(fw, " name %8s", bt.Name);
+  }
   if (bt.Mass != MASS && bt.Mass != HIGHNUM) {
     fprintf(fw, " mass %12f", bt.Mass);
   }

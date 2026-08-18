@@ -647,6 +647,22 @@ LIB_MOL_INFO LibraryMoleculeInfo(const char *lib_dir, const char *mol_name) {
 void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
                                 const char *lib_dir) {
   // pass 1) bead types used by named molecule types //{{{
+  /*
+   * Collected first and applied afterwards, because one system bead type can
+   * stand for several library beads at once: a lammps data file with no Masses
+   * section has nothing to tell its neutral beads apart, so they arrive as a
+   * single type. Renaming as we go would give such a type whichever library
+   * name came last, which is the wrong-name-is-worse-than-no-name case that
+   * pass 2 already avoids - so a type asked for two names keeps its own.
+   */
+  int n_bt = sys->Count.BeadType;
+  int *proposed = malloc(n_bt * sizeof *proposed);
+  if (!proposed) {
+    ErrorAlloc("RenameBeadTypesFromLibrary");
+  }
+  for (int i = 0; i < n_bt; i++) {
+    proposed[i] = -1; // library bead type; -2 once two of them disagree
+  }
   for (int mt = 0; mt < sys->Count.MoleculeType; mt++) {
     MOLECULETYPE *mt_sys = &sys->MoleculeType[mt];
     if (mt_sys->Name[0] == '\0') {
@@ -668,13 +684,37 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
       if (lib_bt == -1) {
         continue;
       }
-      BEADTYPE *lib_btp = &lib->System.BeadType[lib_bt];
-      s_strcpy(sys->BeadType[sys_bt].Name, lib_btp->Name, BEAD_NAME);
-      sys->BeadType[sys_bt].Charge = lib_btp->Charge;
-      sys->BeadType[sys_bt].Mass = lib_btp->Mass;
-      sys->BeadType[sys_bt].Radius = lib_btp->Radius;
+      if (proposed[sys_bt] == -1) {
+        proposed[sys_bt] = lib_bt;
+      } else if (proposed[sys_bt] != lib_bt) {
+        proposed[sys_bt] = -2;
+      }
     }
     FreeLibMol(&mol);
+  }
+  int ambiguous = 0;
+  for (int i = 0; i < n_bt; i++) {
+    if (proposed[i] == -2) {
+      ambiguous++;
+      continue;
+    }
+    if (proposed[i] == -1) {
+      continue;
+    }
+    BEADTYPE *lib_btp = &lib->System.BeadType[proposed[i]];
+    s_strcpy(sys->BeadType[i].Name, lib_btp->Name, BEAD_NAME);
+    sys->BeadType[i].Charge = lib_btp->Charge;
+    sys->BeadType[i].Mass = lib_btp->Mass;
+    sys->BeadType[i].Radius = lib_btp->Radius;
+  }
+  free(proposed);
+  if (ambiguous > 0) {
+    if (snprintf(ERROR_MSG, LINE, "%s%d%s bead type(s) stand for several "
+                 "library beads at once and are left alone; the input cannot "
+                 "tell them apart", ErrYellow(), ambiguous, ErrCyan()) < 0) {
+      ErrorSnprintf();
+    }
+    PrintWarning();
   } //}}}
   // pass 2) free (unbonded) bead types //{{{
   bool *in_mol = calloc(sys->Count.BeadType, sizeof *in_mol);
@@ -783,6 +823,26 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
     closedir(dir);
   }
 
+  /*
+   * A name the library already knows beats any guess made from charge: the
+   * file has said what the type is, so there is nothing to work out. Without
+   * this, an xyz file whose types are already the library's names would be
+   * renamed by whichever library species happened to match its charge.
+   */
+  for (int bt = 0; bt < sys->Count.BeadType; bt++) {
+    if (in_mol[bt]) {
+      continue;
+    }
+    int lib_bt = FindBeadType(sys->BeadType[bt].Name, lib->System);
+    if (lib_bt == -1) {
+      continue;
+    }
+    BEADTYPE *lib_btp = &lib->System.BeadType[lib_bt];
+    sys->BeadType[bt].Charge = lib_btp->Charge;
+    sys->BeadType[bt].Mass = lib_btp->Mass;
+    sys->BeadType[bt].Radius = lib_btp->Radius;
+    in_mol[bt] = true; // done with, so the charge matching below skips it
+  }
   // charge+count (counterions) wins over charge alone (solvents); an ambiguous
   // match renames nothing, because a wrong name is worse than no name
   for (int bt = 0; bt < sys->Count.BeadType; bt++) {
@@ -833,6 +893,103 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
   }
   free(cand);
   free(in_mol); //}}}
+} //}}}
+// take a system's bead type data from a library //{{{
+/*
+ * What every utility's -lib does: read the library and let it name the system's
+ * bead types and give them their masses, charges and radii. Call it straight
+ * after reading the structure and before any option that names a bead type, so
+ * that -bt and the like can use the library's names.
+ *
+ * A library that matches nothing is almost certainly the wrong library, or a
+ * file whose molecule types are unnamed, so it warns rather than going on in
+ * silence with the file's own (possibly missing) masses.
+ *
+ * free_library says who owns the library once the renaming is done: true (what
+ * almost every utility wants) frees it here and ignores lib, while false hands
+ * it back in *lib for a caller that still wants it - Info prints the DPD
+ * parameters from it - and that caller must FreeLibrary() it.
+ */
+void ApplyLibraryToSystem(const char *lib_dir, SYSTEM *sys, LIBRARY *lib,
+                          const bool free_library) {
+  LIBRARY local;
+  LIBRARY *out;
+  if (free_library) {
+    out = &local;
+  } else {
+    if (!lib) {
+      err_msg("ApplyLibraryToSystem(): lib must not be null unless the library "
+              "is freed here");
+      PrintError();
+      exit(1);
+    }
+    out = lib;
+  }
+  int n_bt = sys->Count.BeadType;
+  BEADTYPE *before = calloc(n_bt, sizeof *before);
+  if (!before) {
+    ErrorAlloc("ApplyLibraryToSystem");
+  }
+  for (int i = 0; i < n_bt; i++) {
+    before[i] = sys->BeadType[i];
+  }
+  *out = ReadLibrary(lib_dir);
+  RenameBeadTypesFromLibrary(sys, out, lib_dir);
+  bool changed = false;
+  for (int i = 0; i < n_bt; i++) {
+    BEADTYPE *now = &sys->BeadType[i];
+    if (strcmp(before[i].Name, now->Name) != 0 ||
+        before[i].Mass != now->Mass ||
+        before[i].Charge != now->Charge ||
+        before[i].Radius != now->Radius) {
+      changed = true;
+      break;
+    }
+  }
+  free(before);
+  /*
+   * A molecule type with no file of its own is one whose beads the library
+   * cannot reach, pass 1 being keyed on the molecule's name. That is what an
+   * input that does not name its molecules (a lammps data file, say) looks
+   * like from here, and saying so is more use than silence, since the beads
+   * one came for are exactly the ones left unfilled.
+   */
+  int unmatched = 0;
+  for (int i = 0; i < sys->Count.MoleculeType; i++) {
+    LIB_MOL mol;
+    if (ReadLibraryMolFile(lib_dir, sys->MoleculeType[i].Name, &mol)) {
+      FreeLibMol(&mol);
+      continue;
+    }
+    unmatched++;
+  }
+  if (!changed) {
+    s_strcpy(ERROR_MSG, "no bead type matched the library", LINE);
+    PrintWarnOption(COMMON_OPTS[C_LIB].opt);
+  } else if (unmatched > 0) {
+    if (snprintf(ERROR_MSG, LINE, "%s%d%s molecule type(s) have no library "
+                 "file, so the beads inside them keep what the input gave "
+                 "them; name them with -sys if the input does not",
+                 ErrYellow(), unmatched, ErrCyan()) < 0) {
+      ErrorSnprintf();
+    }
+    PrintWarnOption(COMMON_OPTS[C_LIB].opt);
+  }
+  if (free_library) {
+    FreeLibrary(out);
+  }
+} //}}}
+// apply the -sys and -lib options to a freshly read system //{{{
+void ApplyLibraryOptions(const COMMON_OPT commons, SYSTEM *sys, LIBRARY *lib,
+                         const bool free_library) {
+  // -sys first: the library matches molecules by name, so on an input that
+  // does not name them, -lib can only work once -sys has
+  if (commons.sys[0] != '\0') {
+    ReadSysInfo(commons.sys, sys);
+  }
+  if (commons.lib[0] != '\0') {
+    ApplyLibraryToSystem(commons.lib, sys, lib, free_library);
+  }
 } //}}}
 void FreeLibrary(LIBRARY *lib) { //{{{
   FreeSystem(&lib->System);

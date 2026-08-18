@@ -13,7 +13,7 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: GenGal <output> [options]",
   .args = 1, // number of mandatory arguments
-  .all = 7, // number of valid lines OptSpec (not counting last {nullptr})
+  .all = 6, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_VERBOSE],

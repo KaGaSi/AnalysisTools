@@ -13,10 +13,12 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: AggNumber <in.stru> <in.agg> [options]",
   .args = 2, // number of mandatory arguments
-  .all = 16, // number of valid lines OptSpec (not counting last {nullptr})
+  .all = 18, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_ST],
+  COMMON_OPTS[C_LIB],
+  COMMON_OPTS[C_SYS],
   COMMON_OPTS[C_E],
   COMMON_OPTS[C_SK],
   COMMON_OPTS[C_VERBOSE],
@@ -268,6 +270,7 @@ int main(int argc, char *argv[]) {
   }
 
   SYSTEM System = ReadStructure(in, false);
+  ApplyLibraryOptions(commons, &System, nullptr, true);
   COUNT *Count = &System.Count;
 
   AggPickerOptions(argc, argv, &opt.agg, System);

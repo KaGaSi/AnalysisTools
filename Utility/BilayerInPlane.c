@@ -17,12 +17,14 @@ const struct HelpHelp HelpDesc = {
   "Usage: BilayerInPlane <input> <width> <output> <mol> <bead> "
   "[<mol> <bead> ...] [options]",
   .args = 5,
-  .all = 17,
+  .all = 19,
 };
 
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
   COMMON_OPTS[C_FT],
+  COMMON_OPTS[C_LIB],
+  COMMON_OPTS[C_SYS],
   COMMON_OPTS[C_ST],
   COMMON_OPTS[C_E],
   COMMON_OPTS[C_SK],
@@ -244,6 +246,7 @@ int main(int argc, char *argv[]) {
   }
 
   SYSTEM System = ReadStructure(in, false);
+  ApplyLibraryOptions(commons, &System, nullptr, true);
 
   // parse <mol> <bead> [<mol> <bead> ...] //{{{
   int spec_start = count + 1;

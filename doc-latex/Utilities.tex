@@ -25,12 +25,34 @@ provided.\\[1em]
   \tt{-ft <type>}  & override input file type: \tt{vtf}, \tt{xyz}, \tt{data},
                      \tt{ltrj} (or \tt{lammpstrj}), \tt{field}, \tt{itp},
                      \tt{pdb}\\
+  \tt{-lib <dir>}  & take bead type names, masses, charges, and radii from a
+                     molecule library (\fullref{sec:LibDir})\\
+  \tt{-sys <file>} & name the molecule types from a \tt{system_info} file,
+                     which is what \tt{-lib} matches on\\
   \tt{-st <n>}     & start calculations at \tt{n}-th timestep\\
   \tt{-e <n>}      & end calculations at \tt{n}-th timestep\\
   \tt{-sk <n>}     & skip every \tt{n} timesteps (i.e., use every
                      \tt{(n+1)}-th timestep)\\
   \bottomrule
 \end{tabularx}\\[1em]
+
+Use \tt{-lib} when the input file does not carry the data a calculation needs:
+a \data file with no \tt{Masses} section, or an \xyz file, gives every bead the
+same default mass, which quietly turns any mass-weighted result (a centre of
+mass, an aggregate mass) into a bead count. The library fills those in, and
+names the bead types while it is at it---so \tt{-bt} and friends take the
+library's names, not the file's.
+
+A worked example of all four options---which file type carries what, and which
+option supplies the rest---is in \tt{Examples/SystemID/01-FilesAndOptions}.
+
+Matching works molecule by molecule, so molecule types have to be named: a
+\vtf file names them itself, while a \data file needs \tt{-sys} to supply the
+names. Beads outside molecules are matched by charge, and by count for a
+declared counterion. Anything the library cannot place unambiguously is left
+exactly as it was, with a warning---a bead type that stands for several library
+beads at once (all the neutral beads of a \data file with no masses, say) keeps
+its own name rather than taking one of theirs.
 
 The \tt{-st}, \tt{-e}, and \tt{-sk} options can be combined, so that, for
 example, specifying \tt{-st 2 -e 10 -sk 2} would use timesteps 2, 5, and 8.

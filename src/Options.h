@@ -6,25 +6,6 @@
 #include "Structs.h"
 #include "Arrays.h"
 
-// // Help message prototype to use in utilities //{{{
-// const struct HelpHelp HelpDesc = {
-//   ,
-//
-//   "",
-//   .args = , // number of mandatory arguments
-//   .all = , // number of valid lines OptSpec (not counting last {nullptr})
-// };
-// static const struct OptSpec opts[] = {
-//   COMMON_OPTS[C_I],
-//   COMMON_OPTS[C_ST],
-//   COMMON_OPTS[C_E],
-//   COMMON_OPTS[C_SK],
-//   COMMON_OPTS[C_VERBOSE],
-//   COMMON_OPTS[C_HELP],
-//   COMMON_OPTS[C_SILENT],
-//   COMMON_OPTS[C_VERSION],
-//   {nullptr}
-// }; //}}}
 // enum specifying argument type - mandatory, common, extra
 enum OptKind { OPT_ARG, OPT_COMMON, OPT_EXTRA };
 // option descriptor structure
@@ -42,15 +23,19 @@ struct HelpHelp {
       all; // sum of mandatory, common, and extra arguments
 };
 // specify the commong arguments
-// TODO: what ic C_MAX???
 typedef enum {
-  C_I, C_FT, C_ST, C_E, C_SK, C_VERBOSE, C_SILENT, C_HELP, C_VERSION, C_MAX
+  C_I, C_FT, C_LIB, C_SYS, C_ST, C_E, C_SK, C_VERBOSE, C_SILENT, C_HELP,
+  C_VERSION, C_MAX
 } CommonIndex;
 static const struct OptSpec COMMON_OPTS[C_MAX] = {
   [C_I] = {"-i", "<stru> [type]", "input structure file if different "
     "(type: vtf/vsf/xyz/data/ltrj/field/itp/pdb)", OPT_COMMON},
   [C_FT] = {"-ft", "<type>", "coordinate file type "
     "(vtf/vsf/vcf, xyz, data, or ltrj)", OPT_COMMON},
+  [C_LIB] = {"-lib", "<dir>", "molecule library directory: take bead type "
+    "names, masses, charges, and radii from it", OPT_COMMON},
+  [C_SYS] = {"-sys", "<file>", "system_info file naming the molecule types "
+    "(a file without names needs it for -lib to match)", OPT_COMMON},
   [C_ST] = {"-st", "<int>", "starting timestep for calculation", OPT_COMMON},
   [C_E] = {"-e", "<end>", "ending timestep for calculation", OPT_COMMON},
   [C_SK] = {"-sk", "<int>", "leave out every 'skip' steps", OPT_COMMON},
@@ -70,6 +55,8 @@ void CommonHelp(const bool error, const int n,
                 const char option[n][OPT_LENGTH]);
 // detect options common for most utilities
 COMMON_OPT CommonOptions(const int argc, char **argv, const SYS_FILES f);
+// ApplyLibraryOptions() applies the -sys and -lib options; it is declared in
+// ReadLibrary.h, next to the LIBRARY it can hand back
 // tag bead/molecule types to use
 bool TypeOption(const int argc, char **argv, const char opt[], const int mode,
                 const bool use, bool *flag, const SYSTEM System);

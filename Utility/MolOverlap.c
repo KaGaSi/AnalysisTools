@@ -15,12 +15,14 @@ const struct HelpHelp HelpDesc = {
   "Usage: MolOverlap <input> <width> <output> [options] "
   "<mol> <first> <last> [<mol> <first> <last> ...]",
   .args = 3,
-  .all = 15,
+  .all = 17,
 };
 
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
   COMMON_OPTS[C_FT],
+  COMMON_OPTS[C_LIB],
+  COMMON_OPTS[C_SYS],
   COMMON_OPTS[C_ST],
   COMMON_OPTS[C_E],
   COMMON_OPTS[C_SK],
@@ -278,6 +280,7 @@ int main(int argc, char *argv[]) {
   }
 
   SYSTEM System = ReadStructure(in, false);
+  ApplyLibraryOptions(commons, &System, nullptr, true);
 
   // parse mandatory positional trios from end of argv //{{{
   // scan backward in groups of 3: <mol> <first> <last>

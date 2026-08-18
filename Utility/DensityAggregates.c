@@ -16,11 +16,13 @@ const struct HelpHelp HelpDesc = {
   "Usage: DensityAggregates <input> <in.agg> <width> <output> <size(s)> "
   "[options]",
   .args = 5, // number of mandatory arguments
-  .all = 19, // number of valid lines OptSpec (not counting last {nullptr})
+  .all = 21, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
   COMMON_OPTS[C_FT],
+  COMMON_OPTS[C_LIB],
+  COMMON_OPTS[C_SYS],
   COMMON_OPTS[C_ST],
   COMMON_OPTS[C_E],
   COMMON_OPTS[C_SK],
@@ -204,6 +206,7 @@ int main(int argc, char *argv[]) {
   }
 
   SYSTEM System = ReadStructure(in, false);
+  ApplyLibraryOptions(commons, &System, nullptr, true);
   COUNT *Count = &System.Count;
   vec3d box = System.Box.OrthoLength;
 

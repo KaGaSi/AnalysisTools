@@ -10,11 +10,13 @@ const struct HelpHelp HelpDesc = {
 
   "Usage: GyrationMolecules <input> <output> [options]",
   .args = 2,  // number of mandatory arguments
-  .all = 14,  // number of valid lines in OptSpec (not counting last {nullptr})
+  .all = 16,  // number of valid lines in OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
   COMMON_OPTS[C_FT],
+  COMMON_OPTS[C_LIB],
+  COMMON_OPTS[C_SYS],
   COMMON_OPTS[C_ST],
   COMMON_OPTS[C_E],
   COMMON_OPTS[C_SK],
@@ -200,6 +202,7 @@ int main(int argc, char *argv[]) {
   }
 
   SYSTEM System = ReadStructure(in, false);
+  ApplyLibraryOptions(commons, &System, nullptr, true);
   COUNT *Count = &System.Count;
 
   // -mt option - molecule types to use //{{{

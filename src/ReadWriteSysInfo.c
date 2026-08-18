@@ -1,4 +1,5 @@
 #include "ReadWriteSysInfo.h"
+#include "General.h"
 
 void WriteSysInfo(const char *filename, const SYSTEM *System) { //{{{
   FILE *fw = OpenFile(filename, "w");
@@ -8,7 +9,8 @@ void WriteSysInfo(const char *filename, const SYSTEM *System) { //{{{
   }
   fclose(fw);
 } //}}}
-void ReadSysInfo(const char *filename, SYSTEM *System) { //{{{
+// sequentially (re)name molecule types based on -sys file's entries //{{{
+void ReadSysInfo(const char *filename, SYSTEM *System) {
   FILE *fr = OpenFile(filename, "r");
   int i = 0;
   while (ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
@@ -21,22 +23,26 @@ void ReadSysInfo(const char *filename, SYSTEM *System) { //{{{
       continue;
     }
     if (i >= System->Count.MoleculeType) {
-      if (snprintf(ERROR_MSG, LINE,
-                   "%s has more entries than molecule types in system",
-                   filename) < 0) {
+      if (snprintf(ERROR_MSG, LINE, "%s%s%s: more entries than molecule types "
+                   "in the system (only the first %s%d%s entries used)",
+                   ErrCyan(), filename, ErrYellow(),
+                   ErrCyan(), System->Count.MoleculeType, ErrYellow()) < 0) {
         ErrorSnprintf();
       }
       PrintWarning();
       break;
     }
     s_strcpy(System->MoleculeType[i].Name, split[0], MOL_NAME);
+    // an explicit name, same as one from the input file
+    System->MoleculeType[i].Named = true;
     i++;
   }
   fclose(fr);
   if (i < System->Count.MoleculeType) {
-    if (snprintf(ERROR_MSG, LINE,
-                 "%s has %d entries but system has %d molecule types",
-                 filename, i, System->Count.MoleculeType) < 0) {
+    if (snprintf(ERROR_MSG, LINE, "%s%s%s: %s%d%s entries for "
+                 "a system with %s%d%s molecule types",
+                 ErrCyan(), filename, ErrYellow(), ErrCyan(), i, ErrYellow(),
+                 ErrCyan(), System->Count.MoleculeType, ErrYellow()) < 0) {
       ErrorSnprintf();
     }
     PrintWarning();
