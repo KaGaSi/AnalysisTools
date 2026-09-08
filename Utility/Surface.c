@@ -24,11 +24,16 @@ const struct HelpHelp HelpDesc = {
   "surface coordinates are saved into the <surf.txt> output file, while their "
   "area (calculated from triangles defined by the surface coordinates) are "
   "written into the <area.txt>. What bead types are considered as possible "
-  "surface beads is controlled via --bonded and -bt options.",
+  "surface beads is controlled via --bonded and -bt options, and -m further "
+  "restricts the candidates to beads inside the given molecule types. The -m "
+  "option is a filter, not a selection of its own: with -bt it takes the "
+  "named bead types only where they sit in the named molecules, which is how "
+  "to separate a bead type shared between a membrane species and a soluble "
+  "one.",
 
   "Usage: Surface <input> <width> <surf.txt> <axis> [options]",
   .args = 4, // number of mandatory arguments
-  .all = 23, // number of valid lines OptSpec (not counting last {nullptr})
+  .all = 24, // number of valid lines OptSpec (not counting last {nullptr})
 };
 static const struct OptSpec opts[] = {
   COMMON_OPTS[C_I],
@@ -57,7 +62,8 @@ static const struct OptSpec opts[] = {
   {"-b", "<file>", "save per-timestep surface beads to a coordinate file",
     OPT_EXTRA},
   {"-r", "<float>", "radius of the ITIM probe (default 0.5)", OPT_EXTRA},
-  // {"-m", "<mol(s)>", "molecule type(s) to use", OPT_EXTRA},
+  {"-m", "<mol(s)>", "use only beads inside the given molecule type(s)",
+    OPT_EXTRA},
   {nullptr}
 }; //}}}
 
@@ -70,9 +76,28 @@ struct OPT {
        width_avg[LINE],   // -w (filename)
        area_file[LINE];   // -a (filename)
   bool in,                // --in
-       bonded;            // --bonded
+       bonded,            // --bonded
+       *mt,               // -m (which molecule types to use)
+       mt_flag;           // -m (whether the option was given at all)
   FILE_TYPE bead_file;    // -b (filename)
 }; //}}}
+
+// Is this bead allowed to define the surface? //{{{
+// Only -m has anything to say here: --bonded, -bt and the no-option default
+// have already chosen the candidates by the time this is asked. Without -m
+// every candidate passes; with it, a bead has to sit in one of the named
+// molecule types, which excludes monomeric beads outright.
+static bool AllowedMolecule(const SYSTEM System, const struct OPT *opt,
+                            const int id) {
+  if (!opt->mt_flag) {
+    return true;
+  }
+  int mol = System.Bead[id].Molecule;
+  if (mol == -1) {
+    return false;
+  }
+  return opt->mt[System.Molecule[mol].Type];
+} //}}}
 
 // calculate area of a triangle given three points (Heron's formula) //{{{
 double calc_area(const double A[3], const double B[3], const double C[3]) {
@@ -297,6 +322,16 @@ int main(int argc, char *argv[]) {
   }
   free(flag); //}}}
 
+  // -m option //{{{
+  // Unlike -bt this does not choose the candidates, it narrows whatever
+  // --bonded/-bt/nothing already chose. Left unused it must let everything
+  // through, so the array is all-true and mt_flag says whether to consult it.
+  opt.mt = calloc(Count->MoleculeType, sizeof *opt.mt);
+  opt.mt_flag = TypeOption(argc, argv, "-m", 'm', true, opt.mt, System);
+  if (!opt.mt_flag) {
+    InitBoolArray(opt.mt, Count->MoleculeType, true);
+  } //}}}
+
   // specify radius for beads that have none //{{{
   bool warn = false;
   if (opt.bonded) { // use all beads in moleculs (--bonded)
@@ -500,15 +535,18 @@ int main(int argc, char *argv[]) {
       if (opt.bonded) { // use all beads in moleculs (--bonded)
         for (int i = 0; i < Count->BondedCoor; i++) {
           int id = System.BondedCoor[i];
-          SurfacePoint(System, id, map, axis, width, opt,
-                       bins_step, bin_use, surf_step, surf_bead_ids);
+          if (AllowedMolecule(System, &opt, id)) {
+            SurfacePoint(System, id, map, axis, width, opt,
+                         bins_step, bin_use, surf_step, surf_bead_ids);
+          }
         }
       } else if (opt.bt_number > 0) { // use specified bead types (-bt option)
         for (int i = 0; i < opt.bt_number; i++) {
           BEADTYPE *btype = &System.BeadType[opt.bt[i]];
           for (int j = 0; j < btype->Number; j++) {
             int id = btype->Index[j];
-            if (System.Bead[id].InTimestep) {
+            if (System.Bead[id].InTimestep &&
+                AllowedMolecule(System, &opt, id)) {
               SurfacePoint(System, id, map, axis, width, opt,
                            bins_step, bin_use, surf_step, surf_bead_ids);
             }
@@ -517,8 +555,10 @@ int main(int argc, char *argv[]) {
       } else { // use all beads (no option specified)
         for (int i = 0; i < Count->BeadCoor; i++) {
           int id = System.BeadCoor[i];
-          SurfacePoint(System, id, map, axis, width, opt,
-                       bins_step, bin_use, surf_step, surf_bead_ids);
+          if (AllowedMolecule(System, &opt, id)) {
+            SurfacePoint(System, id, map, axis, width, opt,
+                         bins_step, bin_use, surf_step, surf_bead_ids);
+          }
         }
       }
       //}}}
@@ -903,6 +943,7 @@ int main(int argc, char *argv[]) {
     free(distr);
   }
   free(opt.bt);
+  free(opt.mt);
   if (opt.bead_file.name[0] != '\0') {
     free(write);
   }
