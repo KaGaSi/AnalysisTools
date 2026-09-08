@@ -48,16 +48,16 @@ types. If both \tt{--bonded} and \tt{-bt} are given, \tt{--bonded} takes
 precedence. Beads without a radius defined in the structure file receive radius
 0.5 automatically, and a warning is printed.
 
-\tt{-m} is different in kind: it does not choose candidates of its own, it
+\tt{-mt} is different in kind: it does not choose candidates of its own, it
 narrows whatever \tt{--bonded}, \tt{-bt} or the default already chose, keeping
 only beads that sit inside one of the named molecule types. It is what
 separates a bead type shared between two species. If, say, the head bead of a
 membrane lipid has the same type as a bead of a soluble molecule, \tt{-bt}
 alone finds the soluble ones dissolved in the solvent and calls them surface,
 which inflates the measured thickness by however far they have drifted;
-\tt{-bt <head> -m <lipids>} takes the head beads only where they belong to the
-membrane. Monomeric beads are never in a molecule, so \tt{-m} always excludes
-them.
+\tt{-bt <head> -mt <lipids>} takes the head beads only where they belong to
+the membrane. Monomeric beads are never in a molecule, so \tt{-mt} always
+excludes them.
 
 The surface area is computed by triangulating the grid: each pair of adjacent
 grid cells is split into two triangles using Heron's formula, and the triangle
@@ -96,7 +96,7 @@ typical visualisation tools without disturbing the frame count.
                          searches from box centre outward, for brushes) \\
   \tt{--bonded}        & use only beads belonging to molecules \\
   \tt{-bt <name(s)>}   & use only the specified bead type(s) \\
-  \tt{-m <mol(s)>}     & use only beads inside the given molecule type(s);
+  \tt{-mt <name(s)>}   & use only beads inside the given molecule type(s);
                          a filter on top of the above, not a selection of its
                          own \\
   \tt{-r <float>}      & probe radius (default: 0.5) \\
