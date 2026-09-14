@@ -1,6 +1,6 @@
 # DPD cross interactions. A pair listed here is used as given; a pair that is
 # not falls back to the hard-coded A = 25, rc = 1 - not to the two bead types'
-# own values in list_parameters.txt - so an omitted pair is a silent default,
+# own values in list_beadtypes.txt - so an omitted pair is a silent default,
 # not an average. Info --check-library will not flag it either; the pair simply
 # has no row.
 

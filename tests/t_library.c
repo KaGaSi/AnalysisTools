@@ -49,7 +49,7 @@ static void test_read_library(void) {
   LIBRARY lib = ReadLibrary(LIB_DIR);
   SYSTEM *S = &lib.System;
 
-  // bead types come from list_parameters.txt, in file order
+  // bead types come from list_beadtypes.txt, in file order
   CHECK(S->Count.BeadType == 3);
   CHECK(strcmp(S->BeadType[0].Name, "SOL") == 0);
   CHECK(strcmp(S->BeadType[1].Name, "MID") == 0);
@@ -90,7 +90,7 @@ static void test_read_library(void) {
 
   /*
    * Interactions are the self-interactions (one per bead type, taken from the
-   * A/Rc columns of list_parameters.txt) followed by the cross terms.
+   * A/Rc columns of list_beadtypes.txt) followed by the cross terms.
    */
   CHECK(lib.n_inter == 3 + 2);
   // self terms first, in bead-type order

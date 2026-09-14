@@ -1,19 +1,9 @@
 #include "ReadLibrary.h"
+#include "Errors.h"
+#include "System.h"
 #include "General.h"
-
-/*
- * The library grammar, used by every file here:
- *
- *   key value [value ...]     scalars, before the first block
- *   <keyword>                 opens a block
- *     idx col [col ...]       rows of that block, until the next keyword or EOF
- *
- * A line holding a single field is always a block header: every scalar carries
- * a value and every row carries an index plus at least one column. Comments run
- * from '#' to end of line, blank lines are insignificant, and the leading index
- * on a row is for the reader's benefit only - position in the block is the
- * index, so nothing here reads the printed one.
- */
+#include "Options.h"
+#include "ReadWriteSysInfo.h"
 
 // static helpers
 // build path to <library>/<file> //{{{
@@ -72,11 +62,11 @@ LIBRARY ReadLibrary(const char *lib_dir) { //{{{
   SYSTEM *Sys = &lib.System;
   COUNT *Count = &Sys->Count;
   char path[LINE], block[32];
-  // 1) bead types and self-interactions from list_parameters.txt //{{{
+  // 1) bead types and self-interactions from list_beadtypes.txt //{{{
   double *self_A = nullptr,  // repulsion parameter
          *self_Rc = nullptr; // bead radius
   int n_self = 0;
-  BuildPath(lib_dir, "list_parameters.txt", path);
+  BuildPath(lib_dir, "list_beadtypes.txt", path);
   FILE *fr = OpenFile(path, "r");
   block[0] = '\0';
   while (ReadAndSplitLine(fr, SPL_STR, " \t\n")) {
@@ -93,7 +83,7 @@ LIBRARY ReadLibrary(const char *lib_dir) { //{{{
         !IsRealNumber(split[3], &charge) ||
         !IsPosRealNumber(split[4], &A) ||
         !IsPosRealNumber(split[5], &Rc)) {
-      LibError("list_parameters.txt", "bead_types row must be "
+      LibError("list_beadtypes.txt", "bead_types row must be "
                "'idx bead_ID mass q A rc [source]'");
     }
     NewBeadType(&Sys->BeadType, &Count->BeadType, split[1], charge, mass, Rc);
@@ -187,7 +177,7 @@ LIBRARY ReadLibrary(const char *lib_dir) { //{{{
     s_strcpy(lib.inter[lib.n_inter].name2, Sys->BeadType[i].Name, BEAD_NAME);
     lib.inter[lib.n_inter].A = self_A[i];
     lib.inter[lib.n_inter].Rc = self_Rc[i];
-    lib.inter[lib.n_inter].gamma = LIB_GAMMA;
+    lib.inter[lib.n_inter].gamma = LIB_DEF_GAMMA;
     lib.n_inter++;
   }
   free(self_A);
@@ -219,7 +209,7 @@ LIBRARY ReadLibrary(const char *lib_dir) { //{{{
     s_strcpy(lib.inter[lib.n_inter].name2, split[2], BEAD_NAME);
     lib.inter[lib.n_inter].A = A;
     lib.inter[lib.n_inter].Rc = Rc;
-    lib.inter[lib.n_inter].gamma = LIB_GAMMA;
+    lib.inter[lib.n_inter].gamma = LIB_DEF_GAMMA;
     lib.n_inter++;
   }
   fclose(fr); //}}}
@@ -232,9 +222,9 @@ void FillPotFromLibrary(const LIBRARY *lib, const SYSTEM *System, ArrNDd *pot) {
     const char *n1 = System->BeadType[i].Name;
     for (int j = i; j < n_bt; j++) {
       const char *n2 = System->BeadType[j].Name;
-      double A = LIB_DEFAULT_A,
-             Rc = LIB_DEFAULT_RC,
-             gamma = LIB_GAMMA;
+      double A = LIB_DEF_A,
+             Rc = LIB_DEF_RC,
+             gamma = LIB_DEF_GAMMA;
       for (int k = 0; k < lib->n_inter; k++) {
         const LIB_INTERACTION *li = &lib->inter[k];
         if ((strcmp(li->name1, n1) == 0 && strcmp(li->name2, n2) == 0) ||
@@ -314,8 +304,8 @@ bool ReadLibraryMolFile(const char *lib_dir, const char *name, LIB_MOL *mol) {
         if (!IsPosRealNumber(split[1], &mw)) {
           LibError(mol_file, "M_w must be a positive number");
         }
-        mol->M_w = mw;
-        mol->has_M_w = true;
+        mol->Mw = mw;
+        mol->has_Mw = true;
       } else if (strcmp(split[0], "counterion") == 0) {
         mol->cion = s_realloc(mol->cion, (mol->n_cion + 1) * sizeof *mol->cion);
         LIB_CION *c = &mol->cion[mol->n_cion];
@@ -619,7 +609,7 @@ LIB_MOL_INFO LibraryMoleculeInfo(const char *lib_dir, const char *mol_name) {
   }
   info.n_beads = mol.n_beads;
   info.n_beads_total = mol.n_beads;
-  info.M_w = mol.M_w;
+  info.M_w = mol.Mw;
   info.bilayer = mol.bilayer;
   info.n_cion = mol.n_cion;
   if (info.n_cion > 0) {
@@ -669,11 +659,11 @@ void RenameBeadTypesFromLibrary(SYSTEM *sys, const LIBRARY *lib,
       continue;
     }
     LIB_MOL mol;
+    // read librarary mt_sys->Name.txt file
     if (!ReadLibraryMolFile(lib_dir, mt_sys->Name, &mol)) {
-      continue;
+      continue; // skip if the file cannot be read
     }
-    // counterions are their own molecules now, so the bead counts either match
-    // or this is not the molecule the name suggests
+    // skip the molecule if it has a different number of beads
     if (mol.n_beads != mt_sys->nBeads) {
       FreeLibMol(&mol);
       continue;
@@ -982,11 +972,11 @@ void ApplyLibraryToSystem(const char *lib_dir, SYSTEM *sys, LIBRARY *lib,
 // apply the -sys and -lib options to a freshly read system //{{{
 void ApplyLibraryOptions(const COMMON_OPT commons, SYSTEM *sys, LIBRARY *lib,
                          const bool free_library) {
-  // -sys first: the library matches molecules by name, so on an input that
-  // does not name them, -lib can only work once -sys has
+  // -sys first; the library matches molecules by name, so -lib must come after
   if (commons.sys[0] != '\0') {
     ReadSysInfo(commons.sys, sys);
   }
+  // -lib when -sys (if present) is applied
   if (commons.lib[0] != '\0') {
     ApplyLibraryToSystem(commons.lib, sys, lib, free_library);
   }

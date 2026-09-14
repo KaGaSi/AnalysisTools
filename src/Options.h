@@ -55,9 +55,6 @@ void CommonHelp(const bool error, const int n,
                 const char option[n][OPT_LENGTH]);
 // detect options common for most utilities
 COMMON_OPT CommonOptions(const int argc, char **argv, const SYS_FILES f);
-// ApplyLibraryOptions() applies the -sys and -lib options; it is declared in
-// ReadLibrary.h, next to the LIBRARY it can hand back
-// tag bead/molecule types to use
 bool TypeOption(const int argc, char **argv, const char opt[], const int mode,
                 const bool use, bool *flag, const SYSTEM System);
 bool TypeOptionPair(const int argc, char **argv, const char opt[],

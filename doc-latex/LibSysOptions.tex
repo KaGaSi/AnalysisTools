@@ -1,0 +1,512 @@
+% Implementation notes for the -sys and -lib common options.
+%
+% Standalone document: build with
+%   latexmk -synctex=1 -pdf LibSysOptions.tex
+%
+% To fold it into the manual instead, delete everything up to \begin{document}
+% (and the \maketitle/\tableofcontents lines), then \input it from ReadData.tex
+% next to Structs and ReadSystemData; the \St, \Error, \Break, \Continue and
+% \hltt definitions below are the ones the Vtf* pseudocode files already use,
+% so they would move into the manual's preamble.
+\documentclass[12pt,a4paper]{report}
+
+% packages (same set as manual.tex, minus what this document does not use) %{{{
+\usepackage[margin=3cm]{geometry}
+\usepackage{amsmath}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{etoolbox}
+\usepackage[main=british,czech]{babel}
+\usepackage[strings]{underscore}
+\usepackage{xspace}
+\usepackage{xcolor}
+\usepackage{titleps}
+\usepackage{tabularx}
+\usepackage[shortlabels]{enumitem}
+\usepackage[style=british]{csquotes}
+\usepackage{verbatim}
+\usepackage{listings}
+\usepackage[normalem]{ulem}
+\usepackage{setspace}
+\usepackage{soul}
+\usepackage{tikz}
+% pseudocode
+\usepackage{algpseudocode}
+% hyperref should be the last package listed
+\usepackage{hyperref}
+\usepackage[nameinlink]{cleveref}
+\usepackage{macros} %}}}
+
+% pseudocode shorthands used by the Vtf* files, which never defined them %{{{
+\algnewcommand\algorithmicbreak{\textbf{break}}
+\algnewcommand\Break{\State \algorithmicbreak}
+\algnewcommand\algorithmiccontinue{\textbf{continue}}
+\algnewcommand\Continue{\State \algorithmiccontinue}
+\algnewcommand\algorithmicerror{\textbf{error:}}
+\algnewcommand\Error{\State \algorithmicerror\ }
+\algnewcommand\algorithmicwarn{\textbf{warn:}}
+\algnewcommand\Warn{\State \algorithmicwarn\ }
+\let\St\State
+% A \Comment longer than the space left on the line used to wrap to the left
+% margin, so its tail sat under the code rather than under the comment. Set it
+% in a block of its own instead, so the tail hangs under the text following the
+% triangle. The block is only as wide as the comment needs, up to
+% \algcommentmax, so short comments still sit flush right exactly as before;
+% the \hfill-penalty-\hfill lets TeX drop the whole block to the next line when
+% the code leaves too little room, rather than running into the margin.
+\newlength{\algcommentwidth}
+\newlength{\algcommenthang}
+\newcommand{\algcommentmax}{0.45\linewidth}
+\algrenewcommand\algorithmiccomment[1]{%
+  \hfill\penalty0\hfill
+  \settowidth{\algcommentwidth}{\(\triangleright\)~#1}%
+  \ifdim\algcommentwidth>\algcommentmax\relax
+    \setlength{\algcommentwidth}{\algcommentmax}%
+  \fi
+  \parbox[t]{\algcommentwidth}{%
+    \settowidth{\algcommenthang}{\(\triangleright\)~}%
+    \raggedright\hangindent=\algcommenthang\hangafter=1
+    \(\triangleright\)~#1}%
+}
+\newcommand{\hltt}[1]{\hl{\tt{#1}}}
+\newcommand{\algbottomrule}{\vspace{-0.5em}\noindent\rule{\textwidth}{0.4pt}} %}}}
+
+\renewcommand{\mytitle}{Implementation of the -sys and -lib options}
+\hypersetup{pdftitle={\mytitle}}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\chapter{The \tt{-sys} and \tt{-lib} options}\label{chap:LibSys}
+
+The two common options change what a system's types are \emph{called} rather
+than what is in it: \tt{-sys <file>} names the molecule types and \tt{-lib
+<dir>} names the bead types (and gives them their masses, charges, and radii).
+These options make sense of a file that carries coordinates and topology but no
+useful names, typically a \data file produced by LAMMPS.
+
+The options are not independent: the library matches molecules \emph{by name},
+so on a nameless input, \tt{-lib} can do its job only if \tt{-sys} has run
+first. That ordering is fixed internally, the options' order in the command does
+not matter.
+
+\todo{Only \tt{-sys} and only \tt{-lib} comment?}
+
+\section{Where they sit in a utility's start-up}\label{sec:LibSysOrder}
+
+Every utility follows the following three steps (in that order):
+
+\begin{enumerate}[nosep,leftmargin=20pt]
+  \item \ttb{CommonOptions()} records the file and directory names
+  \item \ttb{ReadStructure()} builds the \ttb{SYSTEM} described by the input
+    file
+  \item \ttb{ApplyLibraryOptions()} applies \tt{-sys}, then \tt{-lib}
+\end{enumerate}
+
+\noindent
+Step 3 must come before any option that names a type (e.g., \tt{-bt},
+\tt{-mt}, or a molecule-name argument), so that those options can use the
+library's names rather than the input file's.
+
+\section{Recording the options}\label{sec:LibSysRecord}
+
+\ttb{CommonOptions()} stores both file and directory names in the
+\ttb{COMMON_OPT} struct. An empty string marks \enquote{unused option}
+throughout.
+
+\begin{algorithmic}[1]
+  \St \ttb{opt.lib} $\gets$ \tt{""}
+  \St \ttb{FileOption}(\tt{-lib}, \ttb{opt.lib})\Comment{fills it in only if
+    \tt{-lib} is present}
+  \St \ttb{opt.sys} $\gets$ \tt{""}
+  \St \ttb{FileOption}(\tt{-sys}, \ttb{opt.sys})
+\end{algorithmic}
+\algbottomrule
+
+% \noindent
+% Note that this happens for \emph{every} utility calling \ttb{CommonOptions()},
+% whether or not it lists the options in its own help text.
+
+\section{Applying the options}\label{sec:LibSysApply}
+
+\CallInit{void ApplyLibraryOptions}{ReadLibrary.c}
+\begin{longtable}{L{0.30\textwidth}Mp{0.545\textwidth}}
+  \toprule
+  parameter & in/out & explanation \\
+  \midrule
+  \ttb{(COMMON_OPT) commons} & in    & holds the \tt{-sys} and \tt{-lib} file
+    and dir names \\
+  \ttb{(SYSTEM) sys}         & in/out& the system whose types get renamed \\
+  \ttb{(LIBRARY) lib}        & out   & the library dir; used only when
+    \ttb{free_library} is \tt{false} \\
+  \ttb{(bool) free_library}  & in    & whether the library is freed here
+    (\tt{true} for all but \tt{Info}) \\
+  \bottomrule
+\end{longtable}
+
+\begin{algorithmic}[1]
+  \If{\ttb{commons.sys} $\neq$ \tt{""}}
+    \St \ttb{ReadSysInfo}(\ttb{commons.sys}, \ttb{sys})
+  \EndIf
+  \If{\ttb{commons.lib} $\neq$ \tt{""}}
+    \St \ttb{ApplyLibraryToSystem}(\ttb{commons.lib}, \ttb{sys}, \ttb{lib},
+      \ttb{free_library})\ \Comment{\tt{-sys} has already run}
+  \EndIf
+\end{algorithmic}
+\algbottomrule
+
+\noindent
+\ttb{free_library} decides who owns the library once the renaming is done, and
+is the only thing separating the two kinds of caller:
+
+\begin{itemize}[nosep,leftmargin=20pt]
+  \item \tt{true}: the library is read, used and freed inside the call, and
+    \ttb{lib} is ignored (case for most utilities)
+  \item \tt{false}: the library is handed back in \ttb{lib}, so the caller
+    must use \ttb{FreeLibrary()} to free it
+\end{itemize}
+
+\noindent
+Only \tt{Info} passes \tt{false}, because it needs the library to print the DPD
+interaction parameters.
+% Note that \ttb{lib} is left untouched when \tt{-lib} was not given at all, so
+% such a caller should initialise it and test \ttb{commons.lib} itself rather
+% than expecting a flag back.
+
+\section{\tt{-sys}: naming molecule types}\label{sec:SysOption}
+
+\tt{Info} writes the \tt{-sys} file with \ttb{WriteSysInfo()}: one \tt{<mol
+name> <count>} line per molecule type. Reading it back is purely
+\emph{positional}: the $i$-th valid line names the $i$-th molecule type, meaning
+the molecule types to rename in the input structure file must be in the same
+order. The \tt{<count>} is parsed only to decide whether a line is a valid
+entry; nothing cross-checks it against the system.
+
+\CallInit{void ReadSysInfo}{ReadWriteSysInfo.c}
+\begin{longtable}{L{0.30\textwidth}Mp{0.545\textwidth}}
+  \toprule
+  parameter & in/out & explanation \\
+  \midrule
+  \ttb{(char) filename[]} & in    & the \tt{-sys} file \\
+  \ttb{(SYSTEM) System}   & in/out& molecule types get \ttb{Name} and
+    \ttb{Named} \\
+  \bottomrule
+\end{longtable}
+
+\begin{algorithmic}[1]
+  \St open \ttb{filename}
+  \St $i \gets 0$\Comment{index of the molecule type being named}
+  \While{$line \gets$ next line of \ttb{filename}}
+    \If{$line$ is empty, starts with \#, has fewer than 2 words, or 2nd word of
+      $line$ is not a whole number}
+      \Continue\Comment{skip blank, comment, and invalid lines}
+    \EndIf
+    \If{$i \geq$ \ttb{System.Count.MoleculeType}}
+      \Warn more entries than molecule types; only the first $i$ are used
+      \Break
+    \EndIf
+    \St \ttb{System.MoleculeType[$i$].Name} $\gets$ 1st word of $line$
+    \St \ttb{System.MoleculeType[$i$].Named} $\gets$ \tt{true}
+    \St $i \gets i + 1$
+  \EndWhile
+  \St close \ttb{filename}
+  \If{$i <$ \ttb{System.Count.MoleculeType}}
+    \Warn $i$ entries for a system with \ttb{Count.MoleculeType} molecule types
+  \EndIf
+\end{algorithmic}
+\algbottomrule
+
+\noindent
+Two notes:
+
+\begin{itemize}[nosep,leftmargin=20pt]
+  \item because the match is positional, a file whose lines are in the wrong
+    order will misname every type (both warnings above are about \emph{counts of
+    entries}, not about whether the names make sense)
+  \item \tt{-sys} touches no bead types; on a nameless \data file, it enables
+    \tt{-lib} to work (\cref{sec:LibPass1}), but on its own (no \tt{-lib}
+    option) it changes only the
+    molecule names
+\end{itemize}
+
+\section{\tt{-lib}: naming bead types}\label{sec:LibOption}
+
+\subsection{What the library holds}\label{ssec:LibContents}
+
+\ttb{ReadLibrary()} reads four \tt{list_*.txt} tables from the library
+directory into a \ttb{LIBRARY}:
+
+\begin{longtable}{p{0.42\textwidth}p{0.515\textwidth}}
+  \toprule
+  file & what it contributes \\
+  \midrule
+  \tt{list_beadtypes.txt} & bead types (name, mass, charge, radius) and their
+    self-interactions \\
+  \tt{list_bonds.txt}      & bond types, each with a string ID \\
+  \tt{list_angles.txt}     & angle types, each with a string ID \\
+  \tt{list_cross_interactions.txt} & interactions between unlike bead types \\
+  \bottomrule
+\end{longtable}
+
+\noindent
+Everything else in the directory is one molecule per \tt{<mol name>.txt} file,
+read on demand by \ttb{ReadLibraryMolFile()}. Those files are what the renaming
+below keys on; the tables only supply the bead data that gets copied across.
+
+\subsection{The top level}\label{ssec:LibApply}
+
+\CallInit{void ApplyLibraryToSystem}{ReadLibrary.c}
+\begin{longtable}{L{0.30\textwidth}Mp{0.545\textwidth}}
+  \toprule
+  parameter & in/out & explanation \\
+  \midrule
+  \ttb{(char) lib_dir[]}    & in    & the \tt{-lib} directory \\
+  \ttb{(SYSTEM) sys}        & in/out& the system whose bead types get renamed \\
+  \ttb{(LIBRARY) lib}       & out   & the library, for the caller to
+    \ttb{FreeLibrary()}; ignored when \ttb{free_library} \\
+  \ttb{(bool) free_library} & in    & whether the library is freed here \\
+  \bottomrule
+\end{longtable}
+
+\begin{algorithmic}[1]
+  \St $lib \gets$ \ttb{lib}, or a local variable if
+    \ttb{free_library}\Comment{a null \ttb{lib} is an error otherwise}
+  \St $before \gets$ copy of \ttb{sys.BeadType[]}\Comment{to tell afterwards
+    whether anything happened}
+  \St $lib \gets$ \ttb{ReadLibrary}(\ttb{lib_dir})
+  \St \ttb{RenameBeadTypesFromLibrary}(\ttb{sys}, $lib$, \ttb{lib_dir})
+  \St $changed \gets$ \tt{true} if any bead type's name, mass, charge or radius
+    differs from $before$
+  \St $unmatched \gets$ number of molecule types in \ttb{sys} with no
+    \tt{<Name>.txt} in \ttb{lib_dir}
+  \If{not $changed$}
+    \Warn no bead type matched the library
+  \ElsIf{$unmatched > 0$}
+    \Warn $unmatched$ molecule type(s) have no library file, so the beads inside
+      them keep what the input gave them; name them with \tt{-sys} if the input
+      does not
+  \EndIf
+  \If{\ttb{free_library}}
+    \St \ttb{FreeLibrary}($lib$)
+  \EndIf
+\end{algorithmic}
+\algbottomrule
+
+\noindent
+A library that changes nothing is almost certainly the wrong directory, or an
+input whose molecule types are unnamed, so it is worth a warning rather than
+carrying on quietly with the file's own (possibly missing) masses.
+
+\ttb{RenameBeadTypesFromLibrary()} then does the real work in two passes: bead
+types used inside molecules are handled by molecule name, and free (unbonded)
+bead types by charge. The two sets do not overlap, so neither pass can undo the
+other.
+
+\subsection{Pass 1: beads inside named molecules}\label{sec:LibPass1}
+
+A molecule type whose name matches a library file lends its bead names,
+position by position. The catch is that one \emph{system} bead type can be
+reached from several \emph{library} beads at once --- a \data file with no
+\tt{Masses} section has nothing to tell its neutral beads apart, so they all
+arrive as a single type. Renaming as we go would give such a type whichever
+library name came last, so proposals are collected first and applied only once
+every molecule has been seen.
+
+\begin{algorithmic}[1]
+  \For{each bead type $i$ of \ttb{sys}}
+    \St $proposed[i] \gets$ \emph{none}
+  \EndFor
+  \For{each molecule type $mt$ of \ttb{sys}}
+    \If{\ttb{$mt$.Name} is empty}
+      \Continue
+    \EndIf
+    \If{the file named \ttb{$mt$.Name}\ttb{.txt} cannot be read from
+        \ttb{lib_dir}}
+      \Continue
+    \EndIf
+    \St $mol \gets$ that file
+    \If{$mol$.n\_beads $\neq$ \ttb{$mt$.nBeads}}
+      \Continue\Comment{not the molecule the name suggests; counterions are
+        separate molecules, so the counts must agree}
+    \EndIf
+    \For{each bead position $b$ of $mol$}
+      \St $st \gets$ \ttb{$mt$.Bead[$b$]}\Comment{system bead type at that
+        position}
+      \St $lt \gets$ \ttb{FindBeadType}($mol$.bead\_name[$b$],
+        \ttb{lib})\Comment{by name}
+      \If{$lt$ is \emph{none}}
+        \Continue
+      \EndIf
+      \If{$proposed[st]$ is \emph{none}}
+        \St $proposed[st] \gets lt$
+      \ElsIf{$proposed[st] \neq lt$}
+        \St $proposed[st] \gets$ \emph{ambiguous}
+      \EndIf
+    \EndFor
+  \EndFor
+  \St $ambiguous \gets 0$
+  \For{each bead type $i$ of \ttb{sys}}
+    \If{$proposed[i]$ is \emph{ambiguous}}
+      \St $ambiguous \gets ambiguous + 1$
+      \Continue\Comment{left exactly as the input had it}
+    \EndIf
+    \If{$proposed[i]$ is \emph{none}}
+      \Continue
+    \EndIf
+    \St copy \ttb{Name}, \ttb{Charge}, \ttb{Mass} and \ttb{Radius} from library
+      bead type $proposed[i]$
+  \EndFor
+  \If{$ambiguous > 0$}
+    \Warn $ambiguous$ bead type(s) stand for several library beads at once and
+      are left alone; the input cannot tell them apart
+  \EndIf
+\end{algorithmic}
+\algbottomrule
+
+\noindent
+The guiding rule, here and in pass 2: \emph{a wrong name is worse than no
+name}.
+
+\subsection{Pass 2: free beads}\label{sec:LibPass2}
+
+Beads that belong to no molecule cannot be reached by name, because there is no
+molecule name to look up. They are matched by charge instead, and by count where
+the count is predictable. Candidates come from walking the library directory:
+
+\begin{algorithmic}[1]
+  \For{each bead type $bt$ used by any molecule type of \ttb{sys}}
+    \St $in\_mol[bt] \gets$ \tt{true}\Comment{pass 1's territory; skipped below}
+  \EndFor
+  \St $cand \gets$ empty list
+  \For{each \tt{*.txt} in \ttb{lib_dir} that is not a \tt{list_*} table}
+    \St $mol \gets$ that file, skipping it if unreadable
+    \If{$mol$ has exactly one bead, known to the library}
+      \St append $\{$name, charge, $count = $ \emph{unknown}$\}$ to
+        $cand$\Comment{any single-bead molecule is loose in the system, salts
+        included}
+    \EndIf
+    \St $parent \gets$ number of molecules in \ttb{sys} whose type is named
+      $mol$.name
+    \If{$parent = 0$}
+      \Continue\Comment{its counterions are not in this system}
+    \EndIf
+    \For{each counterion $c$ declared by $mol$}
+      \St $cion \gets$ the file named \ttb{$c$.name}\ttb{.txt}, skipping it if
+        unreadable or not monoatomic
+      \St find or append the $cand$ entry for $c$.name, with $count$ starting
+        at 0
+      \St $count \gets count + parent \times c$.count\Comment{summed over every
+        parent molecule}
+    \EndFor
+  \EndFor
+\end{algorithmic}
+\algbottomrule
+
+\noindent
+Matching then goes from the most reliable evidence to the least. A name the
+library already knows beats any guess made from charge --- the file has said
+what the type is, so there is nothing to work out:
+
+\begin{algorithmic}[1]
+  \For{each bead type $bt$ with $in\_mol[bt]$ false}
+    \St $lt \gets$ \ttb{FindBeadType}(\ttb{sys.BeadType[$bt$].Name}, \ttb{lib})
+    \If{$lt$ is \emph{none}}
+      \Continue
+    \EndIf
+    \St copy \ttb{Charge}, \ttb{Mass} and \ttb{Radius} from library bead type
+      $lt$\Comment{the name already \emph{is} the library's}
+    \St $in\_mol[bt] \gets$ \tt{true}\Comment{done with; the charge matching
+      below skips it}
+  \EndFor
+  \For{each bead type $bt$ with $in\_mol[bt]$ still false}
+    \St $q \gets$ \ttb{sys.BeadType[$bt$].Charge},\quad $n \gets$
+      \ttb{sys.BeadType[$bt$].Number}
+    \St $match \gets$ the \emph{only} $cand$ with a known $count$,
+      $|charge - q| < 0.01$ and $count = n$
+    \If{$match$ is \emph{none}}
+      \St $match \gets$ the \emph{only} $cand$ with an unknown $count$ and
+        $|charge - q| < 0.01$
+    \EndIf
+    \If{$match$ is not \emph{none}}
+      \St \ttb{Name} $\gets match$.name; copy \ttb{Charge}, \ttb{Mass} and
+        \ttb{Radius} from the library
+    \EndIf
+  \EndFor
+\end{algorithmic}
+\algbottomrule
+
+\noindent
+Both \enquote{the only} steps rename nothing when two or more candidates fit.
+Note that an ambiguous charge-plus-count match does not give up: it falls
+through to the charge-only step, which may still find a unique answer among the
+candidates whose count is unpredictable.
+
+Leaving single-bead molecules that declare counterions of their own out of the
+candidate list is what once made an \tt{Na+} bead get renamed to the
+identically charged \tt{H+}; they are included precisely because they have no
+predictable count and can only be matched on charge.
+
+\subsection{Summary of the warnings}\label{ssec:LibWarnings}
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.44\textwidth}p{0.495\textwidth}}
+  \toprule
+  warning & what it means \\
+  \midrule
+  \tt{no bead type matched the library} & nothing at all changed: wrong
+    directory, or an input whose molecule types are unnamed and whose free
+    beads match nothing \\
+  \tt{<n> molecule type(s) have no library file} & those molecules' beads keep
+    what the input gave them --- add \tt{-sys} if the input does not name its
+    molecules \\
+  \tt{<n> bead type(s) stand for several library beads} & pass 1 found
+    conflicting proposals; the input cannot tell those beads apart, so they are
+    left alone \\
+  \bottomrule
+\end{longtable}
+
+\section{Why the order matters}\label{sec:LibSysOrder2}
+
+\tt{Examples/SystemID/01-FilesAndOptions} builds the same system in several
+file formats and then strips information out of them, which makes the division
+of labour easy to see. Starting from \tt{foreign.data} --- a \data file with no
+name comments, so bead types arrive as \tt{b0}\ldots\tt{b4} and the molecule
+type as \tt{m}:
+
+\begin{longtable}{p{0.30\textwidth}p{0.635\textwidth}}
+  \toprule
+  options & result \\
+  \midrule
+  \tt{-sys} alone & molecule types get their names; every bead type is
+    untouched \\
+  \tt{-lib} alone & pass 1 finds no molecule file to match, so only the free
+    beads are identified (water by charge, the counterion by charge and count);
+    warns \\
+  \tt{-lib} \emph{and} \tt{-sys} & \tt{-sys} runs first, so pass 1 can match
+    the molecule and every bead type is identified \\
+  \bottomrule
+\end{longtable}
+
+\noindent
+The refusal case is worth seeing too: on \tt{nomass.data} (the same file with
+the \tt{Masses} section removed) even \tt{-lib} with \tt{-sys} leaves the
+molecule's neutral beads alone, because they arrive as one bead type standing
+for three library beads --- pass 1's \emph{ambiguous} outcome.
+
+\section{Utilities that do more}\label{sec:LibSysExtra}
+
+\begin{itemize}[nosep,leftmargin=20pt]
+  \item \tt{Info} declares its own \tt{-lib} and \tt{-sys} help entries and is
+    the one caller passing \ttb{free_library} as \tt{false}, to print the DPD
+    interaction parameters and to write a \field file's interactions. It also has
+    \tt{--check-library} and \tt{--mol-info}, which need only \tt{-lib} and no
+    input file at all.
+  \item \tt{AddToSystem} uses \tt{-lib} as a \emph{source of molecules} to
+    add via \tt{-mol}, which is a different job from renaming what is already
+    there. Its \tt{-sys} takes an optional second file name to write the
+    updated composition to, and when building a system from scratch a single
+    argument is treated as output rather than input.
+\end{itemize}
+
+\end{document}

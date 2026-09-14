@@ -118,8 +118,8 @@ static void PrintMoleculeInfo(const char *lib_dir, const char *name) { //{{{
   }
   printf("name           %s\n", mol.name);
   printf("role           %s\n", role);
-  if (mol.has_M_w) {
-    printf("M_w            %.4f\n", mol.M_w);
+  if (mol.has_Mw) {
+    printf("M_w            %.4f\n", mol.Mw);
   }
   printf("n_beads        %d\n", mol.n_beads);
   printf("charge         %.4f\n", charge);
@@ -292,7 +292,7 @@ static int CheckLibrary(const char *lib_dir) { //{{{
     // bead types must exist
     for (int i = 0; i < mol.n_beads; i++) {
       if (FindBeadType(mol.bead_name[i], lib.System) == -1) {
-        printf("  %-24s bead %d is type '%s', not in list_parameters.txt\n",
+        printf("  %-24s bead %d is type '%s', not in list_beadtypes.txt\n",
                stem, i + 1, mol.bead_name[i]);
         problems++;
       }
@@ -339,10 +339,10 @@ static int CheckLibrary(const char *lib_dir) { //{{{
         break;
       }
     }
-    if (is_cion || !mol.has_M_w) {
+    if (is_cion || !mol.has_Mw) {
       n_bare++;
     }
-    bool q_ok = !is_cion && mol.has_M_w;
+    bool q_ok = !is_cion && mol.has_Mw;
     double q = MolCharge(&mol, &lib, &q_ok);
     for (int c = 0; c < mol.n_cion; c++) {
       LIB_MOL cion;
@@ -383,7 +383,7 @@ static int CheckLibrary(const char *lib_dir) { //{{{
   }
 
   // interactions must name known bead types
-  const char *tables[] = {"list_parameters.txt", "list_bonds.txt",
+  const char *tables[] = {"list_beadtypes.txt", "list_bonds.txt",
                           "list_angles.txt", "list_cross_interactions.txt"};
   for (int t = 0; t < 4; t++) {
     char path[LINE];
